@@ -16303,6 +16303,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The message half shipped: src/core/coordinator.py:47-77 adds `balance_none_refusal_message`, whose docstring records that the old 'API error or credentials missing - account unreachable' text was refuted by /v2/account succeeding on the same client, and the raise at :999-1003 now uses it. The alerting gap also has an answer now — src/runtime/silent_refusal_alert.py + src/runtime/dead_leg.py exist (the reachability probe reads positions(), not balance()). What is NOT established anywhere in the tree is why balance() returns None intermittently on alpaca_paper / alpaca_portfolio / ib_paper. — needs live data: a fresh /api/bot/accounts/balances + a diff of AlpacaClient.balance() vs account_status() against the live accounts to identify the failing branch. Both books are paper, and the refusal now states what it knows rather than blaming credentials, so the acute half is mitigated."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "PARTIALLY REFUTED ON LIVE DATA, so narrow it. alpaca_paper reads balance $82,281.20 and alpaca_portfolio $95,542.76, both api_ok true, both holding open positions (3 and 4) and both closing trades in this window. So balance() is NOT returning None on either account right now and signals are not being universally refused. The DEFECT SHAPE — an account that reads ACTIVE while balance() returns None, refusing everything silently — is real and is what silent_refusal_alert was built for; it is simply not firing today."
         }
       ],
       "updated_at": "2026-08-13T22:10:00+00:00",
@@ -16335,6 +16341,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: `grep -n 'not_sized|sizing_aborted|not_applicable' src/units/accounts/risk.py src/core/coordinator.py` returns nothing, so the three explicit not-computed kinds were never added; and scripts/ci/check_collapsed_states.py CONTRACTS holds 8 entries (db_explorer.filter_state/order_state, exit_loop_health.requirement_state, exit_anchor.bar_close_at, pairs_executor.leg_state/open_state_read, bybit_available.read_state, netting_attribution.anchor_status) with no margin_basis entry. — The reporting change lands in src/units/accounts/risk.py::position_size and src/core/coordinator.py — the live order path — so it is outside what I may edit here even though the row is Tier-1 in intent. Ends when a rejected row names a kind (not_sized / sizing_aborted:<exit> / not_applicable) and margin_basis.kind is registered with collapsed-state-guard."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a three-way collapse on notes.margin_basis absence. NOT in collapsed-state-guard's 19 registered contracts (I read the full list this review), so the guard that exists for exactly this cannot see it. Registering it is the fix."
         }
       ]
     },
@@ -16387,6 +16399,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Criterion 1 is met (scripts/ml/train_exit_head.py:585 cites docs/research/M20-E1-block-size-derivation-2026-08-13.md as --min-fold-trades' basis, and that file exists). Criteria 2 and 3 are not: the spy_trend_long_1d exit_head_ml ref still opens 'a 50-trade test block needs >=100 for one fold' (the corrected bar is 150, stated only in a later appended segment), and all 7 equity 1d legs still carry `blocked:insufficient_lifetime_trades` — i.e. dispositioned as 'not enough trades yet' rather than on the derivation's finding that no block size helps. — Tier-2 / milestone-governance: the disposition is the same operator decision as BL-20260813-M20-DONE-CONDITION-IS-60PCT-ONE-FACT-THE-1D-FLEET-IS-TOO-THIN. Ends when the 7 cells carry a status/reason derived from the block-size derivation and the stale 100-trade bar is pruned from their refs."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: M20 exit-program measurement/tooling correctness. Propose-only, no live-order impact. Blocked on trainer capacity (91.7% disk) for anything needing a re-sweep. Corroborated by BL-20260814-1D-EQUITY-LEGS-TRADE-4-PER-YEAR — the 1d fleet is trade-rate-bound, not tooling-bound."
         }
       ]
     },
@@ -16515,6 +16533,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Half (a) is done: fvg_range_15m/trail_geometry now reads status `n/a` with a 'RE-STATUSED 2026-08-14 blocked -> n/a' note in its ref. Half (b) is not: the row 'shadow fleet (turtle_soup, fade_breakout_4h, vwap, trend_donchian_1h, *_prop)' giveback_stop cell is `pending` and has no `ref` key at all (checked with a `'ref' in cell` test, not by eye). — Cosmetic, on a shadow row; closing it must not move the live headline or the done-condition count."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: cells carrying metadata their own legend contradicts. Self-contradicting matrix, same family as BL-20260813-COVERAGE-MATRIX-BUNDLED-ROW."
         }
       ]
     },
@@ -16540,6 +16564,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: No decision is recorded either way: grep for 'ad-hoc analysis', 'throwaway probe' and 'committed under scripts/research' over docs/CLAUDE-RULES-CANONICAL.md and CLAUDE.md returns nothing, and scripts/check_diagnostic_provenance.py's scan set is scripts/{ml,research,ops,macro,reports}/ plus the guard scripts — a relay probe body is outside it. The row explicitly says silence does not close it. — Awaiting a review-session decision; either outcome closes it. Cheap, low severity."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a `<= 0` predicate labelled as 'LOWERS maxDD', counting ties as wins — diagnostic-provenance sub-class A, a label that does not describe what was computed."
         }
       ]
     },
@@ -16565,6 +16595,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: (a) is half-built: m20_coverage_rollup.py:960-964 rejects a bare `blocked` but ONLY for `execution == 'live'` rows, and the one remaining bare `blocked` (xauusd_trend_1h / exit_head_ml) sits on a `disabled` row, so it passes. (b) is unmet: I counted the current vocabulary and `blocked:native-history-thin` still uses a hyphen while every sibling uses underscores, and there is no closed reason set in the rollup (only a comment at :1033). (c) is unmet — that cell still carries the bare status. — Low severity, matrix hygiene. Ends when the validator rejects a bare `blocked` regardless of execution AND an enumerated reason vocabulary is enforced."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: tooling/guard correctness. Cheap to fix, unblocked, still undone. An unenforced convention with a bare `blocked` already in the wild."
         }
       ]
     },
@@ -16590,6 +16626,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: (a) and (b) are shipped: scripts/research/m20_regime_flip_replay.py:217-223 emits three verdicts — `INERT_NEVER_FLIPPED` when flipped == 0, else PASS/fail — alongside `walkforward_real`, `inert_folds` and per-fold `inert` flags, and tests/test_m20_flip_replay_inert_verdict.py exists for the failure path. (c) cannot be verified here: runtime_logs/m20_flip_replay/ does not exist in this checkout and no *_flip.json artifact is present, so whether the 12 degenerate-PASS files were re-emitted or annotated is unknown. — needs trainer/VM data: the 42 artifacts under runtime_logs/m20_flip_replay/2026-07-13/ live off-repo. The durable tooling defect is fixed; only the stale on-disk labels remain."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: 12 of 14 fleet PASSes have flip_pct 0.0 — a PASS on a lever that never fired. Same shape as BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS and BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF: an inert lever scoring as a win. That is a CLASS of three."
         }
       ]
     },
@@ -16622,6 +16664,12 @@
           "at": "2026-08-23T13:47:49.914283+00:00",
           "by": "full-system-audit-2026-08-23",
           "note": "THE PRODUCER HALF IS FIXED IN CODE; THE CORPUS HALF IS NOT. Verified 2026-08-23 by reading m20_exit_head_round.py, not by trusting this row: `--tp-cap-pct` EXISTS with default 0.099 (arg at :183, whose own docstring records the previous absence), it is passed by KEYWORD into base_args at :410, and :811 warns explicitly when it is <= 0. So the title's 'STRUCTURALLY cannot produce a live-parity book' is FALSE of the code today and must not be re-quoted.\n\nWHAT SURVIVES, and it is why this stays open: the 11 rounds already ON DISK were produced before the fix and still contain zero take-profit exits — including the round behind the SHIPPED donchian-1h head. The remedy is a RE-MEASURE, not another code change. A session reading only the title would re-fix working code; a session reading only the fix would trust a corpus built without it."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: M20 exit-program measurement/tooling correctness. Propose-only, no live-order impact. Blocked on trainer capacity (91.7% disk) for anything needing a re-sweep. Structural: no --tp-cap-pct exists and base_args is called positionally. Pairs with BL-20260814-THREE-SIBLING-SWEEPS and BL-20260816-M21-ENTRY-SWEEPS — the SAME positional-base_args defect in at least three drivers."
         }
       ],
       "operator_action_required": true,
@@ -16668,6 +16716,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: scripts/research/m20_fleet_exit_sweep.py still declares MIN_OOS_TRADES = 25 at line 548 and `_THIN_OOS_TRADES = 20` independently at line 1230, and the header at :2380-2386 fires the THIN OOS banner on `n_oos < _THIN_OOS_TRADES` only. The 20-24 blind band is unchanged. — Low severity (legibility, not falsehood — the per-cell PathA column still reads insufficient_base). Ends when the banner threshold is derived from the floor, or the header prints the floor beside the OOS n."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: banner at 20, floor at 25 — a 20-24 trade leg prints no warning and is ungradeable. One-line fix."
         }
       ]
     },
@@ -16713,6 +16767,12 @@
           "at": "2026-08-14T07:55:00+00:00",
           "by": "claude (M20 overnight session 2026-08-13)",
           "note": "CORRECTION -- THIS ROW'S ID IS WRONG AND SO WAS ITS CONCLUSION. MGC and MHG WERE pulled, on 2026-07-07, the same day `pull-ibkr-history` was added. Direct evidence on the trainer (relay #9183): data/ibkr_datasets/market_raw/MGC/1d/v003 = 940 rows 2022-09-30..2026-07-06, mtime 2026-07-07 13:33:20, and .../MHG/1d/v003 = 1043 rows 2022-05-03..2026-07-06, mtime 2026-07-07 14:18:02.\n\nWhy I got it wrong: I measured `pull_start` rows over the window the relay returned (07-30..08-05, 44/44 MES) and stated that denominator honestly -- but then drew an UNBOUNDED conclusion ('nothing is bringing it', 'never run for either') from a BOUNDED observation. The 2026-07-07 pulls predate the window entirely. A negative needs a denominator, and mine was correct; the sentence I wrote around it was not.\n\nWHAT REMAINS TRUE: the scheduled daily timer IS MES-only (it invokes the wrapper with no symbol override), so there is no RECURRING MGC/MHG pull. That is the real, surviving finding.\n\nWHAT IS NOW SUPERSEDED: the premise that these cells were blocked on ABSENT data. They were not. Deep native 1d history is present on the trainer and is refreshed daily -- datasets-out/market_raw/{MGC,MHG,MES}/1d/v002 at 2,919 / 2,920 / 2,921 rows spanning 2015-01-02..2026-08-13, mtimes 2026-08-14 05:30-05:34, i.e. hours before my pulls. The real blockers were (a) BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA and (b) the conversion gap in the new row below.\n\nAlso superseded: my 07:28Z ping said the pulls would make both cells runnable. They would not have."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and it COMPOUNDS a live condition: MGC/MHG are among the 5 IB legs logging transient_market_data_unavailable (mgc_trend_1h 154, mgc_pullback_1d 143, mhg_pullback_1d 129 WARN rows over 9 days). Native history is never pulled AND the live feed is intermittent."
         }
       ]
     },
@@ -16737,6 +16797,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Reproduced with the parser's own regexes against the current ROADMAP.md: the `**Last Updated:**` raw line is 2339 chars and `re.search(r'\\(\\*\\*(.+?)\\*\\*\\)')` — the non-greedy match src/web/api/routers/roadmap.py:242 uses — returns 1839 chars, whose tail still contains '— prior: 2026-08-10 (**…**) — prior: 2026-07-28 (…'. The non-greedy `.+?` cannot stop at the first entry because the entry text itself contains `**bold**` runs, so the first literal `**)` lands far down the chain. — Low severity, read-path legibility on /api/bot/roadmap's lastUpdatedHeadline (both front-ends render it)."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: tooling/guard correctness. Cheap to fix, unblocked, still undone."
         }
       ]
     },
@@ -16794,6 +16860,12 @@
           "at": "2026-08-14T08:05:00+00:00",
           "by": "claude (M20 overnight session 2026-08-13)",
           "note": "SUPERSEDED — MY PREMISE WAS WRONG, AND WRONG IN THE DANGEROUS DIRECTION. I claimed 'the deep native 1d data is ALREADY there' on the strength of datasets-out/market_raw/{MGC,MHG,MES}/1d/v002 at 2,919/2,920/2,921 rows. That data is NOT native. `build_trainer_datasets.sh:943-944` builds it as `build_equity_daily MGC \"GC=F\"` / `MHG \"HG=F\"` -- yfinance on the FULL-SIZE contract, which is the same series the GC_F/HG_F proxies already are.\n\nMEASURED, not inferred (relay #9191): data/MGC_1d.csv vs data/GC_F_1d.csv = 2,512 overlapping dates, 2,511 IDENTICAL closes (100.0%), the single difference being the proxy's stale final bar (2026-07-10, ratio 0.99767). MHG 2,512/2,513 identical. MES 2,514/2,514 identical, zero differing. 407 native-only dates, 0 proxy-only -- i.e. the same series with a longer head and tail.\n\nSO THE CONVERSION I RAN PRODUCED A PROVENANCE LIE: a file whose NAME asserts native provenance and whose CONTENT is the proxy. With the prefer_native fix in the same PR, resolve_data would have returned proxy=False, m20_exit_head_round's 'native history required for head training' refusal would have PASSED, and three exit_head_ml cells would have been graded native-trained on the exact series that check exists to exclude. I removed all three files the same hour (relay #9192, verified absent; the GC_F/HG_F/ES_F proxies confirmed intact).\n\nWHAT IS ACTUALLY TRUE: genuine native = the IBKR CONTRACT shards under data/ibkr_datasets/market_raw/ -- MGC 940 rows (2022-09-30..2026-07-06), MHG 1,043, MES 677. So the PROXY IS ~2.7x DEEPER, and the original rationale I 'corrected' an hour earlier was right all along.\n\nWHAT SURVIVES AS A REAL ITEM: market_raw_to_csv.py genuinely has no caller. But it is NOT the blocker I filed it as, and building a durable caller over datasets-out would MASS-PRODUCE this same mislabelling for every futures symbol. Any future caller must convert from the IBKR root, or name the output for the series it actually contains. Re-filed at that framing as BL-20260814-EQUITY-DAILY-LABELS-PROXY-DATA-AS-THE-NATIVE-SYMBOL."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: written-and-never-run (class A). Directly blocks BL-20260814-MGC-MHG-IBKR-HISTORY-NEVER-PULLED. Also on the standing unwired-artifacts list I ran this review."
         }
       ]
     },
@@ -16826,6 +16898,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The consumer-side half is shipped: scripts/research/market_raw_to_csv.py:7-8,51,91,158-176 refuses to write a native-named CSV when the shard's closes match the declared proxy (`_PROXY_OF = {MGC: GC_F, XAUUSD: GC_F, MES: ES_F, MHG: HG_F}`), with `--allow-proxy-alias` as the deliberate override. Neither producer-side criterion is met: scripts/ops/build_trainer_datasets.sh's `build_equity_daily` still writes the yfinance ticker's bars under the micro symbol with no `ticker`/`source_symbol` recorded in the shard, so a consumer reading the shard directly is still misled. — The remaining half changes the trainer's nightly dataset builds and cannot be verified from this checkout. Ends when the shard records its fetched ticker (a) or the full-size series gets its own key (b)."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: yfinance FULL-SIZE contract bars written into market_raw/<MICRO_SYMBOL>/ — proxy data wearing the native symbol's label. Diagnostic-provenance sub-class B, and it silently corrupts every MGC/MHG measurement built on it."
         }
       ]
     },
@@ -16916,6 +16994,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The row's own resolution_criteria marks (1) and (2) DONE and (3)+(4) OPEN, and (3) is the substantive one — pytest-run still reports an identical green tick whether it ran the suite or short-circuited. tests/test_pytest_run_filter.py exists (it is in the repo's test tree and is named by the row), but nothing makes a skipped run visibly distinct at the merge button. — Ends when a skipped pytest-run is distinguishable at the merge button (neutral/skipped conclusion, or a required check that reports what it executed) — or when the four committed-doc assertions move into the never-short-circuiting `guards` job, which the row prices as the cheaper alternative."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: pytest-run short-circuits on docs/ changes while 39 test files READ docs/. This session's own PR touched docs (CLAUDE.md) AND code, so pytest ran — but a docs-only change would skip the tests that read those docs."
         }
       ]
     },
@@ -16943,6 +17027,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The rollup did grow a three-state corpus classification (m20_coverage_rollup.py:653-700: CORPUS_NO_ROW 'a re-run IS the remedy', CORPUS_HARNESS_UNFIXED and CORPUS_NO_PRODUCER 'a re-run is NOT the remedy'), but it does not cover this row's case: `trail_geometry` is listed IN `COLUMNS_WITH_A_SWEEP_PRODUCER` (line 690-693), so a shipped trail cell still reads as re-sweepable even though the shipped value is the base and `--without-declared-lever` cannot offer trail_geometry (the map deliberately omits it, per the comment at :331-333). — Ends when stale_decisions distinguishes 'not yet re-swept' / 're-swept' / 'cannot be re-swept' for a shipped trail_geometry cell, or the matrix records that trail decisions are permanently ungradeable post-hoc and scopes the flag."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: M20 exit-program measurement/tooling correctness. Propose-only, no live-order impact. Blocked on trainer capacity (91.7% disk) for anything needing a re-sweep."
         }
       ]
     },
@@ -17012,6 +17102,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The mechanism the row depends on exists (`--without-declared-lever` and LEVER_DECLARED_KEYS in scripts/research/m20_fleet_exit_sweep.py, with trail_geometry deliberately absent), but the row's criteria are all run-dependent: OFF-arm rows landing in docs/research/m20-sweep-corpus.jsonl for the six (leg, lever) pairs, and each cell's ref recording d_net_r_OOS / verdict / base_trades_OOS. Nothing in the matrix refs I read records an OFF-arm result for those pairs. — needs a sweep run: `m20-exit-lever-sweep.yml` with --tp-cap-pct 0.099 --without-declared-lever <lever> over the six pairs (free runners), then write the results into the cells; a cell whose OFF arm shows the shipped lever is worse goes to the operator as Tier-3."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: 6 SHIPPED levers with no lever-OFF row. Fourth member of the shipped-on-unsound-evidence family (with BL-20260813-SEVENTEEN-SHIPPED-LEVERS, BL-20260813-FIVE-SHIPPED-LEVERS-OOS-NEGATIVE, BL-20260813-SHIPPED-DONCHIAN-1H-HEAD). Together those cover most of the live lever set."
         }
       ]
     },
@@ -17106,6 +17202,12 @@
           "criterion_4_DONE": "The roll-up already reports geometry coverage as a fraction with its denominator, the rCoverage/pnlCoverage way: `recorded: 166/376 = 44.1%   unrecorded: 210`.",
           "denominators_differ_deliberately": "The guard and ceiling count LIVE cells (376); `tp_geometry_legend._coverage_2026_08_16` counts ALL cells (416). Both are correct and neither should be 'harmonised' — state which population before quoting either.",
           "still_kept_open": "Criterion (2) alone. Do not close this row on the guard: the ratchet bounds a known-bad population, it does not shrink it, and a passing ratchet is NOT evidence that geometry coverage is fine."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a field set on 10 of 416 cells (2.4%) cannot make absence meaningful — the collapsed-state shape applied to a matrix column."
         }
       ],
       "measured_again_2026_08_16": {
@@ -17151,6 +17253,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Criteria 2/3/4 and 6 are in the tree: src/units/accounts/ib_client.py:1865 defines `protection_coverage(symbol)` (quantity, not boolean), place_protective takes an `oca_key` and builds the deterministic per-trade group `oca-protect-t<key>` (:1362-1376), and tests/test_ib_protection_quantity.py covers partial coverage, OCA pair counted once, unparseable leg qty, read-failure -> None, plus the sibling-bracket regression (test_rearm_keeps_sibling_take_profit, test_rearm_replaces_its_own_group). Criterion 1 is closed by the now-shipped /api/diag/ib_open_orders. Criterion 5 — the disposition of the 105-lot MGC position — is explicitly Tier-3 and still with the operator. — Proposed: operator decides the disposition of the 105-lot MGC/ib_paper position on trade 4487 (flatten via the flatten-ib-position action, or hold with a stated reason); it separately blocks mgc_trend_1h signals through flip_suppressed_hold_policy. The detection/cancellation defect itself is fixed."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "PARTIALLY FIXED AND VERIFIED: protection_coverage now returns stop_qty and target_qty SEPARATELY and the two-sided grading is live — proven by 108 ib_target_naked pages in the ERROR feed (which a boolean check could not have produced) and by today's clean MES read (STP 15 + LMT 15 in one OCA group against a 15-lot position). The CANCELLATION half — session-scoped and symbol-wide — is unchanged, and that is what keeps this open (see BL-20260816-NO-PER-ORDER-IB-CANCEL)."
         }
       ],
       "operator_action_required": true,
@@ -17193,6 +17301,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Both halves still hold. .claude/skills/system-review/SKILL.md:162 still documents relay-blocked data as 'an explicit \"unavailable: <reason>\" string', and scripts/reports/render_system_report.py:393-420 still does `sp = rc.get('strategy_promotion') or {}` then `sp.get('ready_to_promote')` — a non-empty string survives the `or {}` and raises AttributeError. No str-coercion and no named-key/expected-type validation exists on that path. — Tier-1 tooling/docs; bites every /system-review render."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "CONFIRMED LIVE BY THIS REVIEW, repeatedly. Building RPT-20260829-163000 I hit three shape contradictions the SKILL does not document: unexercised_fixes must be a LIST (the validator wraps a dict as ONE row and then reports verdict ''), since_last_build_verification items need a `name` key for the UNWIRED escalation check to match, and health.findings must be a DICT for _section_health while the skill's prose implies a list. Each cost a render cycle. The skill and the renderer disagree and the renderer wins."
         }
       ]
     },
@@ -17255,6 +17369,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Criterion 1 (measure the rate over a warm window, >1 process) is satisfied twice per the row's own update (0.157/s on PID 1924521, 0.109/s on PID 2065168). Criteria 2-4 remain: the probe/retry structure and its INFO log level are unchanged in the tree (IB_PROBE_TIMEOUT_S / IB_PROBE_RETRY_GAP_S semantics as documented in CLAUDE.md), and no decision is recorded on whether attempt 1 ever succeeds on this relay. — needs live data + Tier-2: establishing whether attempt 1 ever succeeds requires a live journal read, and retuning IB_PROBE_TIMEOUT_S on the VM is a Tier-2 env flip. The log-level decision is the cheap half but sits in the live IB client."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "LARGELY ADDRESSED AND VERIFIED: IB_PROBE_CACHE_S is live and working — /api/diag/ib_state shows probe_cache_seconds_remaining 26.8 / 51.1 / 49.1 across the three clients, i.e. cached verdicts are standing in for probes exactly as designed, and all three read connected with 0 consecutive_failures. The 21.9%-of-wall-clock tax this row measured is bounded now. Keep open only until a durable measurement confirms the tax is gone rather than capped."
         }
       ]
     },
@@ -17467,6 +17587,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Claim (A) still holds verbatim: src/core/coordinator.py:926-930 still logs 'live balance fetch failed (%s) — per-account sizers will use the cached/explicit fallback instead', while branch 3 at :1004-1007 returns `float(cached) if cached is not None else 0.0` and `cached_balance_usd` is set only in test fixtures. No fetch_attempted flag distinguishes 'never attempted' from 'whole fetch raised'. — The log line is a one-line change but sits in src/core/coordinator.py, the live sizing/order path (Tier-2 per the row), so it is outside what I may edit here. Ends when the whole-fetch-exception path either raises with a true cause or sizes off a bounded stated basis, the log describes what it does, and a test exercises it without a pkg.meta override."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: LATENT, and the more dangerous half is the log that lies about it. Sizing off $0.00 on a whole-fetch exception is fail-DANGEROUS in the quiet direction."
         }
       ]
     },
@@ -17509,6 +17635,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Reproduced on the current ROADMAP.md:117 — the M30 cell still contains 'Queued loose-ends …: **P1** C2 `--features` selector (unblocks pooled multivariate discovery — do first) · **P2** per-strategy sweep driver · … · **P5** per-bar panel' AND, later in the SAME cell, 'Shipped: P1 `--features` (`f4cbc3b`) · P2 sweep driver (#7730) · P4 wider capture (#7723) · P5 excursion toolchain (#7737/#7741)'. The row's own field check confirms P1/P2/P4/P5 shipped and only P6 (SHAP) is genuinely open. — Tier-1 docs. The field check is already done in the row's update, so pruning is mechanical for M30; M29 needs the same treatment."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: stale forward-looking lists beside later shipped statements about the same work. Doc-coherence; the canonical-doc-coherence guard does not cover ROADMAP cell bodies."
         }
       ],
       "updated_at": "2026-08-14T15:43:00+00:00"
@@ -17556,6 +17688,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: A live journal-vs-exchange divergence on bybit_portfolio/ETHUSDT; nothing in the checkout can confirm or refute it. The detector that logged it exists (order_monitor's Bybit sweep emits `journal_qty_divergent`, documented in CLAUDE.md as detect-only, no remediation), so the condition would still be observable — but its current extent is unmeasured, as the row itself states. — needs live data: for every Bybit account x symbol, compare summed open journal qty to the exchange position and report the scanned population, not just the hits; then check runtime_logs/netting_attribution_soak.jsonl for the candidate rows before hypothesising a new mechanism. Any journal writeback is Tier-2."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-measured and the NUMBERS HAVE MOVED, so do not re-quote the old ones: bybit_portfolio now holds two ETHUSDT journal rows totalling 10.00 (2.24 eth_pullback_2h + 7.76 trend_donchian_eth_4h), not the 35.01 this row records. Whether that still over-reports the netted exchange position needs a fresh exchange read to say. The CLASS (unbacked journal qty under one-way netting) is live and owned by BL-20260801."
         }
       ],
       "updated_at": "2026-08-16T09:25:00+00:00"
@@ -17582,6 +17720,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Criterion (1) is unmet: the measured figures do not appear where a future session meets the constraint — searching the matrix JSON for '3.94', '4.37', 'entries/year' and 'time in market' finds no such record on any iwm/splg cell (the two '3.94'/'4.37' hits are unrelated numbers in other refs), and grep over docs/research/*.md finds no '65 trades … 6,028 days' record either. Criteria (2)-(4) (an explicit evidence-standard decision, SCHA frame provenance) are likewise unrecorded. — Cheap docs work, but it partly overlaps the operator decision in BL-20260813-M20-DONE-CONDITION-IS-60PCT-ONE-FACT-THE-1D-FLEET-IS-TOO-THIN (criterion 2 is an evidence-standard call)."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and it is the STRUCTURAL reason the 1d fleet blocks — corroborated by BL-20260813-M20-DONE-CONDITION-IS-60PCT-ONE-FACT. The OOS window is capped by the strategy's trade rate, so no amount of tooling fixes it. This should be treated as a design constraint, not a backlog item to grind."
         }
       ]
     },
@@ -17603,6 +17747,14 @@
         "docs/research/m20-sweep-corpus.jsonl",
         "scripts/research/m20_exit_head_round.py",
         "BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: 141 of 376 cells (37.5%) counted as 'checked' while holding zero corpus rows. A guard reporting coverage it does not have — the unasserted-denominator shape."
+        }
       ]
     },
     {
@@ -17633,6 +17785,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The measurement tool exists (scripts/research/m20_exit_head_denominator.py is cited and the committed corpus docs/research/m20-exit-head-rounds.jsonl carries n_oos/mean_auc/beats_* per row), and the row itself marks the 2h/4h/15m strata DONE. Criterion (1) — the E1 gate reporting POWER (trades-per-fold / minimum detectable effect) alongside its verdict so 'underpowered' and 'the head does not help' stop sharing `honest_negative` — is not in scripts/ml/train_exit_head.py's per-leg summary. — Remaining work is a research measurement (the 5m scalp stratum at live parity) plus a reporting/vocabulary change to the E1 summary; the row also declares itself blocked on the corpus-agreement item. Not actionable as a repo edit without deciding the power metric."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: M20 exit-program measurement/tooling correctness. Propose-only, no live-order impact. Blocked on trainer capacity (91.7% disk) for anything needing a re-sweep. Both candidate explanations refuted on held-out strata, which is a rigorous negative and worth keeping as such."
         }
       ]
     },
@@ -17700,6 +17858,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Criteria (1) and (2) are done for all three drivers: m20_flip_replay_sweep.py:84, m21_entry_head_round.py:130 and m21_entry_sweep.py:142 now pass `a.tp_cap_pct` as the 6th positional to base_args, and each stamps geometry through the shared `tp_geometry_for` (m20_flip_replay_sweep.py:119,144,157; m21_entry_sweep.py:144; m21_entry_head_round.py:131). Criterion (3) is not: no guard asserts that a base_args caller passes tp_cap_pct (grep over scripts/ci/ and scripts/check_*.py finds no base_args reference), and the 42 regime_flip_exit negatives have not been re-run — matrix-corpus-agreement still reports regime_flip_exit among '141 live cell(s) NOT CHECKED'. — needs a re-run of the flip replays at live parity to retire the 42 provisional negatives; the positional-default guard is the durable half."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: 42 of 43 negatives graded on NO-TAKE-PROFIT books. This is the single largest evidence-invalidation in the M20 program and it shares one root with BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP and BL-20260816-M21-ENTRY-SWEEPS: base_args called POSITIONALLY in every sibling driver. One fix, three rows, ~70 invalidated verdicts."
         }
       ]
     },
@@ -17766,6 +17930,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run. checked: docs/research/RESEARCH-CAPABILITY-INDEX.md, scripts/research/m20_fleet_exit_sweep.py (the capability index was consulted for an existing tool and the sweep's own resolver read directly). The resolver half of criterion (a) has landed and is on main: scripts/research/m20_fleet_exit_sweep.py::_resolve_one now probes `data/backtest_{sym}_{tf}.csv` at the leg's EXACT timeframe before the grain loop (line ~228-230), with the comment recording the 110-resolution before/after enumeration (trainer-diag #9325, 4 changed resolutions, all BTC 5m). The measurement half has not happened: ict_scalp_5m's exit_head_ml cell still carries 'STILL UNMEASURED 2026-08-14 … SKIPPED on data_missing:BTCUSDT … stays unmeasurable until #9257 merges' — and #9257 IS merged (commit 7aa293d on main). — needs trainer run: re-run the 5m exit-head round for ict_scalp_5m now that the probe is on main, and record the result (with the shorter book stated) on the cell. The blocker is gone; only the measurement remains."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: ict_scalp_5m is LIVE on BTCUSDT (14 real-money closes in 30d, +$4.00) and cannot be measured at its own timeframe. A live real-money leg with no measurement path."
         }
       ]
     },
@@ -17796,6 +17966,12 @@
           "at": "2026-08-23T13:47:49.914283+00:00",
           "by": "full-system-audit-2026-08-23",
           "note": "PRODUCER FIXED, CORPUS NOT RE-MEASURED. Verified 2026-08-23 in code: m20_exit_head_round.py:690 now emits `block_unit` as `per_leg` when `family_of(leg) == leg` and `family_pooled` otherwise, resolved through the IMPORTED build_exit_head_dataset.family_of (:47) rather than a second copy of the rule — so the field cannot drift from the collapsing it describes. New rows are distinguishable. The 23 rows already committed are not, so the incomparable-evidence risk stands for the existing file until it is re-measured or back-stamped."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: M20 exit-program measurement/tooling correctness. Propose-only, no live-order impact. Blocked on trainer capacity (91.7% disk) for anything needing a re-sweep. Two incompatible cuts in one file with no distinguishing field — the same shape as BL-20260810-SWEEP-VERDICTS-DO-NOT-RECORD-THEIR-DATASET."
         }
       ],
       "last_verified": "2026-08-23"
@@ -17824,6 +18000,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The mechanism is confirmed in source and unfixed: scripts/check_impossibility_claims.py::_added_lines (:202-217) derives line numbers from `git diff --unified=0 base...HEAD` hunk headers, i.e. the COMMITTED tree's coordinates, while `_window` (:147-155) slices `body`, which main() reads from the WORKING-TREE file. So the anchor and the annotation window can refer to different versions of the file, and ANNOTATION_WINDOW (6) is applied around the wrong line. No dirty-tree refusal and no reconciliation exists. — Same root cause as BL-20260815-IMPOSSIBILITY-GUARD-PHANTOM-FINDING-ON-DIRTY-TREE; fixing one fixes both. Tier-1 CI-guard ergonomics."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: tooling/guard correctness. Cheap to fix, unblocked, still undone. Duplicate condition with BL-20260810-IMPOSSIBILITY-GUARD-LINENO-VS-WORKTREE-OFFSET and BL-20260815-IMPOSSIBILITY-GUARD-PHANTOM-FINDING-ON-DIRTY-TREE — THREE rows on one guard's line-number handling. Consolidate."
         }
       ]
     },
@@ -17845,6 +18027,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The 16-cell data gap is closed (geometry coverage now prints 166/376 = 44.1%), but the recurrence check the row requires is absent: scripts/research/m20_coverage_rollup.py contains no reference to docs/research/m20-exit-head-rounds.jsonl (grep for 'rounds.jsonl' / 'm20-exit-head-rounds' returns nothing), so no count of live_parity corpus rows whose matrix cell lacks a stamp is printed beside the coverage figure. Independently, 10 of the 33 corpus legs still carry no tp_geometry. — Ends when the rollup prints that correspondence count beside TP-GEOMETRY COVERAGE, reads 0, and is shown to report 1 when a stamp is removed."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: 16 cells measured at live TP parity counted as `unrecorded` because the fact was prose. Field-beats-comment inverted — the consumer reads a field and the producer wrote prose."
         }
       ]
     },
@@ -17869,6 +18057,14 @@
         "docs/research/m20-fold-dispersion-arms.jsonl",
         "tests/test_fold_offset.py",
         "trainer-diag #9377 #9378 #9379 #9380 #9381 #9382"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a metric whose day-to-day movement exceeds its own gate margin cannot gate anything. This is the strongest single argument in the backlog against the exit-head program's current verdicts."
+        }
       ]
     },
     {
@@ -17911,6 +18107,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The row's first half is done and recorded in its own update (7 of 19 committed negatives fail on exactly one gate term, 6 of those on beats_hard; 8/14 candidates vs 4/19 negatives fragile). The second half — an offset screen run on at least the fragile CANDIDATES, with unanimity recorded — has no artifact: docs/research/m20-fold-dispersion-arms.jsonl covers the 1d pullback family draws, not the fragile candidate set. — needs trainer runs: the 3-offset unanimity screen over the fragile candidate cells. No status may be re-graded from it (Tier-3), so this is measurement only."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: M20 exit-program measurement/tooling correctness. Propose-only, no live-order impact. Blocked on trainer capacity (91.7% disk) for anything needing a re-sweep."
         }
       ]
     },
@@ -17939,6 +18141,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Read the corpus keys directly: docs/research/m20-exit-head-rounds.jsonl rows carry leg, symbol, tf, lever, n_oos, mean_auc, beats_actual, beats_hard, usable_folds, verdict, tp_cap_pct, tp_geometry, family, prop_sibling, provenance, block_unit, fold_offset, fold_offset_basis — there is no typed `run_id`, so run identity is still only inside the free-text `provenance`. No won't-fix decision is recorded either. — Low severity ergonomics; either outcome (add run_id, or record won't-fix) closes it."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: run identity inside free text, readable by a human and not by a consumer. Same family as the prose-vs-field row above."
         }
       ]
     },
@@ -18037,6 +18245,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Nothing in the repo watches trainer memory or swap: grep for swap/MemAvailable/'free -m' across scripts/ops/*.py, scripts/*.py and the trainer workflows returns only unrelated hits (research_sweep.py's prose, reserve_live_ip.py, pull_exchange_funding.py). The only trainer alert is the mirror-staleness one (TRAINER_DOWN_STALE_SECONDS), which a thrashing-but-up box does not trip. — needs trainer-side work: either a memory/swap threshold check wired into the mirror publish (so a thrashing box is distinguishable from a healthy one), or replay_pregate_fleet's peak RSS measured and bounded/serialized. Closing on 'the box recovered' is explicitly insufficient. Overlaps BL-20260815-HEAVY-IS-UNDEFINED-FOR-REPLAY-AND-EVAL-JOBS."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "RE-VALIDATED AND THE TRAINER'S CONSTRAINT HAS BROADENED: this row measured MEMORY thrash (4.08 GB of a 6 GB box, 4.4 GB swapped, 97 MB free). Today the trainer is ALSO at 91.7% DISK / 4.03 GB free with a live warning banner. Memory and disk now both bind, and between them they block ~8 other rows in this backlog that need a trainer run. This is the single highest-leverage infrastructure item in the ML/research half."
         }
       ]
     },
@@ -18059,6 +18273,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Criterion (1) is unmet: .claude/skills/diag-data/SKILL.md contains no 'writer', no 'control' and no 'shape per <file>:<line>' text, so the relay procedure still has no step ordering 'grep the local writer for the shape' before composing a JSON-parsing relay. (2) and (3) require posted relay issues, which I cannot inspect from here. — (1) is the fixable half and it is the one the row says prose alone did not achieve — it must be a STEP, not a maxim."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: sessions burning relay round-trips guessing schemas the repo defines. I avoided this today by reading the writer in-repo first; it is convention, not enforcement."
         }
       ]
     },
@@ -18079,6 +18299,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Criterion (1) is now MET: `git show origin/main:scripts/research/m20_exit_head_round.py | grep -c fold-offset` returns 14 and the train_exit_head.py copy on origin/main carries total-sort (2 hits) — PR #9257 merged as 7aa293d. Criterion (2) is NOT: grep for git_sha / rev-parse in scripts/research/m20_exit_head_round.py returns nothing, so a round's `_round_meta` still does not record the code version it ran. — The durable half is the stamp: merging fixed today's instance, but only a recorded SHA makes a future version drift visible in the artifact instead of in a crash."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: evidence produced by code that exists only on an unmerged branch is unreproducible from main. Same family as BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD."
         }
       ]
     },
@@ -18104,6 +18330,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Unfixed, same source as its sibling: scripts/check_impossibility_claims.py:202-217 computes added-line numbers from `git diff base...HEAD` while main() (:230-240) reads the file body from disk, so uncommitted lines inserted above a claim shift the anchor by exactly their count and the ±ANNOTATION_WINDOW search lands on the wrong lines. There is no dirty-tree refusal branch anywhere in the file. — Tier-1 CI-guard ergonomics; the practical cost is that it fires during merge resolution, when a session is least able to tell a real finding from a spurious one."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: tooling/guard correctness. Cheap to fix, unblocked, still undone. Third of three rows on this guard's line-number handling; consolidate with BL-20260810 and BL-20260814 siblings."
         }
       ]
     },
@@ -18124,6 +18356,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Re-measured the set identity from the artifacts: of the 33 legs in docs/research/m20-exit-head-rounds.jsonl, 23 matrix exit_head_ml cells carry tp_geometry and 10 do not — exactly the ten the row names (ada/eth/eth_prop/xrp _pullback_2h, iaum_pullback_1d, ict_scalp_avax_5m, ict_scalp_eth_15m, ict_scalp_xrp_15m, trend_donchian_ada_4h, trend_donchian_xrp_4h). And scripts/ci/check_matrix_corpus_agreement.py:118-142 still describes them as '10 DISAGREE IN SIGN … already queued for the operator as decision item 3', without saying they are one un-propagated batch. — Branch (b) is the cheap, non-Tier-3 half: amend the exemption text. Branch (a) — stamping the geometry — is a fact, not a verdict, but should be done from each row's own family/tp_cap_pct label, not by hand."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: the 10 disagreeing cells are EXACTLY the 10 whose tp_geometry never propagated — a clean, fully-explained defect. Should be one of the easiest M20 closes."
         }
       ]
     },
@@ -18230,6 +18468,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: docs/claude/trainer-resource-protocol.md:86-89 still records the gap in its own words ('Still outside the queue: scripts/ml/replay_pregate_fleet.py and its three replay_pregate* siblings … closing them needs a definition of \"heavy\"'), and scripts/ci/check_trainer_heavy_lock.py still classifies by HEAVY_ENTRYPOINTS / DECLARED_LIGHT on a 'does it fit?' rule, with no footprint-based criterion. — The fix is a decidable-from-source definition of heavy plus a classifier extension — a design decision, not a mechanical edit, and it must not degenerate into adding four filenames to a list (which the row explicitly forbids)."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and it is the direct cause of the thrash above: replay_pregate* at 4.08 GB is legitimately outside the queue's train/build-only definition of 'heavy', so it serialises against nothing. Pairs with BL-20260815-WORKTREE-RUN-TAKES-A-PRIVATE-HEAVY-LOCK — two independent ways the trainer's mutual exclusion fails."
         }
       ]
     },
@@ -18301,6 +18545,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: scripts/research/m20_fleet_exit_sweep.py still has no exit_ladder emission — the only occurrence of the string is the comment at line 338 explaining why the column is absent — and both affected cells are still open: trend_donchian_sol_prop / exit_ladder and trend_donchian_eth_prop / exit_ladder read `pending`. The new scripts/research/m20_ladder_headroom.py (#9584) is a headroom probe, not a cell producer. — Ends when the fleet sweep accepts `--levers exit_ladder` and produces a graded cell for a donchian/pullback leg, a workflow run returns statuses for both prop cells, and a reproduction check against one already-verdicted donchian leg is recorded. Needs a runner and a reconciliation against the pre-2026-08-10 no-TP verdicts, so not a desk edit."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: sweepable but no driver emits the column, so 2 open cells cannot close. Written-and-never-read, inverted."
         }
       ]
     },
@@ -18430,6 +18680,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Criterion (1) is MET (commit 8a23a72): scripts/research/m21_entry_sweep.py:142 and m21_entry_head_round.py:130 both pass `a.tp_cap_pct` as the 6th positional to base_args, and both declare `--tp-cap-pct` with default=0.099 (:104 and :96 respectively), stamping geometry via the shared tp_geometry_for. Criteria (2) and (3) are unmet: no M21 run artifact proves the capped/uncapped arms differ in trade count, and docs/research/entry-refinement-coverage.json contains ZERO occurrences of 'tp_geometry', so the capped-family denominator over the 27 decision cells is still unestablished. — needs a sweep run for (2); (3) needs M21's own row->leg mapping (5 of 15 rows are composite labels, and xauusd_trend_1h appears twice), which must not be re-derived with classify() over the composite strings."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: third driver with the positional-base_args defect. See BL-20260814-THREE-SIBLING-SWEEPS for the consolidated fix."
         }
       ]
     },
@@ -18451,6 +18707,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: scripts/ops/check_artifact_validity.py::known_vacuous_problems (lines 166-186) checks only that an entry HAS a `backlog` value and an unexpired `until` — it never opens docs/claude/*-review-backlog.json, so a typo'd id and a resolved id both pass. Exactly as filed. — Tier-1 CI; cheap (the backlogs are committed JSON in the same repo, no network)."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: an 'owner' of live debt that may be a closed row. Directly relevant to this triage — I resolved 17 rows today, and any KNOWN_VACUOUS entry pointing at one of them is now vacuous. Worth re-running that check after this PR merges."
         }
       ]
     },
@@ -18533,6 +18795,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Enumerated CONTRACTS in scripts/ci/check_collapsed_states.py by regex over its `\"name\":` keys — 8 entries: db_explorer.filter_state, db_explorer.order_state, exit_loop_health.requirement_state, exit_anchor.bar_close_at, pairs_executor.leg_state, pairs_executor.open_state_read, bybit_available.read_state, netting_attribution.anchor_status. No prop_status.status_freshness, so the four-state field shipped in #9334 is watched by nothing. — Tier-1 CI; registering the contract is exactly how CLAUDE.md says such a field becomes enforced."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "CONFIRMED LIVE: I read collapsed-state-guard's full output this review — 19 contracts, and prop_status_freshness is NOT among them (the prop entry present is prop_rule_distance.balance_basis). So the four-state status_freshness shipped in #9334 is still unguarded, while /api/bot/prop/status returns status_freshness `ok` today on a 0.9 h-old snapshot. Registering it is cheap and is the same fix pattern as BL-20260813-MARGIN-BASIS and BL-20260814-VENUE-MAX-NONE."
         }
       ]
     },
@@ -18607,6 +18875,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Re-measured over docs/research/exit-refinement-coverage.json: 18 cells carry a count-naming block reason and exactly 7 have `lifetime_trades: None` — mes_trend_long_1d/{giveback_stop,vol_trail}, mhg_pullback_1d/giveback_stop, spy_ and qld_trend_long_1d/vol_trail (insufficient_lifetime_trades), iwm_ and splg_trend_long_1d/vol_trail (insufficient_oos_base_at_derived_split). Same 7 the row names. — The values exist on the same legs' exit_head_ml cells (spy 48, qld 31), so the cheap half is stamping them; the durable half is the writer stamping the count wherever it writes a count-naming reason, plus a check."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: 7 cells naming a trade-count reason while recording no trade count — an unverifiable claim, the stated-population rule applied to the matrix."
         }
       ]
     },
@@ -18904,7 +19178,15 @@
       "area": "runtime/exit-coverage",
       "title": "MGC trade 4487 has its stop but NO take-profit leg at the broker — confirmed by rows, and every protection check reads the position as fully covered",
       "detail": "CONFIRMED BY THE ROWS, which is new — this was previously only inferable. /api/diag/ib_open_orders?account_id=ib_paper at 2026-08-16T10:37:14Z, read_state `orders_read`.\n\nThe broker holds EXACTLY ONE MGC order: order_id 359, perm_id 689621249, STP SELL 105 @ aux_price 4278.80, oca_group `oca-protect-357`, GTC, PreSubmitted. The journal row (trade 4487, ib_paper, MGC long 105) carries stopLoss 4278.8086 and takeProfit 4297.65785714. The stop matches to within rounding; THE TAKE-PROFIT LEG DOES NOT EXIST at the broker. The OCA group contains the stop alone.\n\nWHY IT WENT UNSEEN FOR OVER A WEEK. `has_protective_orders` -> boolean (true: a leg exists). `protection_coverage` -> covered quantity vs position size (105 vs 105: fully covered). `_check_broker_naked_ib_positions` re-arms only when coverage is SHORT. All three grade a stop-only position as healthy, because all three ask 'is there a stop?', never 'does the bracket the trade chose still exist?'. A stripped TP is therefore invisible to every check the system has, which is precisely the reduction-before-visibility problem /api/diag/ib_open_orders was built to break.\n\nTHE CONSEQUENCE IS ALREADY REALISED. Price ran through the TP and kept going: the position's mark-implied price is ~4398.60 (from unrealizedPnl 132510.0 at 105 lots x $10/pt over journal entry 4272.4) against a TP of 4297.66 — the take-profit was passed by ~101 points and no exit fired. The trade is still open with a stop at 4278.80.\n\nSTATED PLAINLY BECAUSE IT CHANGES THE REMEDY: re-placing a SELL LMT at the original 4297.66 today would be MARKETABLE (limit below market) and fill at ~4398.60 — i.e. an immediate close at market, NOT 'the TP firing at its price'. Any remediation must be chosen knowing that, and it is an operator call.\n\nPOPULATION: ib_paper is a PAPER account (accountClass `paper`), so the figures above are paper money. The detection gap is not paper-scoped — it is the same code path for any IB account. I have NOT established how the TP leg was lost (candidates: cancelled during an IB breaker flap; cancelled by a close attempt's Step-1 bracket cancel that then failed to flatten -- the shape documented in CLAUDE.md under the `IB_CLOSE_CONFIRM_S` env var and tracked by BL-20260624-MHG-CLOSE-CONFIRM-VERIFY (resolved), where an accepted-but-unfilled opposing order leaves a real position open after its bracket was already cancelled. NOTE the id: CLAUDE.md cites that same id WITHOUT the `-VERIFY` suffix, and the un-suffixed form is not a filed row -- artifact-validity-guard correctly refuses it, so cite the suffixed id above; never placed). That is the first task.\n\nchecked: /api/diag/ib_open_orders + /api/diag/exchange_positions (relay issue #9642), /api/bot/positions?include_paper=true (relay issue #9636), src/runtime/order_monitor.py, src/units/accounts/ib_client.py.",
-      "resolution_criteria": "(a) The exit-coverage check grades the BRACKET the trade declared, not merely the presence of a stop — a position whose journal row carries a takeProfit but whose broker OCA group holds no corresponding limit leg is DETECTED and alerted, with a test that fails on the stop-only-105-lot shape measured here; AND (b) trade 4487 reaches a recorded disposition (operator-chosen), noting that a limit at the original TP is marketable today. Detection is the durable half and must not be skipped in favour of only fixing 4487."
+      "resolution_criteria": "(a) The exit-coverage check grades the BRACKET the trade declared, not merely the presence of a stop — a position whose journal row carries a takeProfit but whose broker OCA group holds no corresponding limit leg is DETECTED and alerted, with a test that fails on the stop-only-105-lot shape measured here; AND (b) trade 4487 reaches a recorded disposition (operator-chosen), noting that a limit at the original TP is marketable today. Detection is the durable half and must not be skipped in favour of only fixing 4487.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "LARGELY FIXED AND VERIFIED — narrow it to the venues it still describes. The two-sided IB grading is live (108 ib_target_naked ERROR pages 08-20..23) and today's ib_paper MES holds BOTH legs at journal-declared levels. So a stripped TP on IB is no longer invisible. What remains invisible is the Bybit side (BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT, itself now Alpaca-refuted)."
+        }
+      ]
     },
     {
       "id": "BL-20260816-EXIT-HEAD-LEVER-HAS-NO-CONSUMER-IN-ICT-SCALP",
@@ -19011,7 +19293,15 @@
         "CLAUDE.md ss EXIT_LOOP_* + /api/diag/log_file exit_interval_soak -- the precedent fix for the identical per-process bias"
       ],
       "proposed_remedy": "Add a durable tick_cost sibling on the exit_interval_soak pattern (one row per tick, summary over the file, process_started_utc stamped). Tier-1. Until then, any tick_cost figure MUST be quoted with its ticks_measured, and a single small-n read must not be reported as a trend -- which is what this session did.",
-      "resolution_criteria": "/api/diag/log_file?name=tick_cost_soak (or an equivalent durable surface) returns rows spanning at least TWO distinct process_started_utc values, and its summary max/mean are computed over the whole file rather than the returned page -- verified by a live read taken AFTER a trader restart, with the summary's tick count exceeding the in-memory ticks_measured of the then-current process. Until that read exists the row stays open; a merged writer is not sufficient, for the same reason #9614 shipped an account_id column that no code path could populate and passed its tests."
+      "resolution_criteria": "/api/diag/log_file?name=tick_cost_soak (or an equivalent durable surface) returns rows spanning at least TWO distinct process_started_utc values, and its summary max/mean are computed over the whole file rather than the returned page -- verified by a live read taken AFTER a trader restart, with the summary's tick count exceeding the in-memory ticks_measured of the then-current process. Until that read exists the row stays open; a merged writer is not sufficient, for the same reason #9614 shipped an account_id column that no code path could populate and passed its tests.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "CONFIRMED LIVE TWICE TODAY and it directly limited this review: my two tick_cost reads returned ticks_measured 31 and 19 because the trader restarted between them, so the MAX I could observe is systematically low. I qualified two resolutions on exactly this basis. Duplicate condition of BL-20260816-TICK-COST-MAX-RESETS-EVERY-DEPLOY; consolidate. The fix pattern already exists — exit_interval_soak's durable per-pass append."
+        }
+      ]
     },
     {
       "id": "BL-20260816-TWO-SWEEP-DEFAULTS-ARE-TIER3-AND-LIVE-ONLY-IN-A-DATED-MEMO",
@@ -19029,7 +19319,15 @@
         "trainer relays #9681 (default -> all cells refuse) and #9683 (target 50 -> real verdicts)",
         "docs/claude/m20-m31-operator-decisions-2026-08-16.md section 4 (4a and 4b)"
       ],
-      "resolution_criteria": "The operator has recorded a decision on EACH default (change it, or keep it with a dated 'keep' rationale), and that decision lives somewhere a review cadence reads -- this row closed, or the value changed in m20_fleet_exit_sweep.py with the memo section 4 updated to match. A merged code change alone does NOT close it: the other half is that already-recorded sweep numbers get re-interpreted or explicitly marked as produced under the old default, which is the part that silently rots otherwise."
+      "resolution_criteria": "The operator has recorded a decision on EACH default (change it, or keep it with a dated 'keep' rationale), and that decision lives somewhere a review cadence reads -- this row closed, or the value changed in m20_fleet_exit_sweep.py with the memo section 4 updated to match. A merged code change alone does NOT close it: the other half is that already-recorded sweep numbers get re-interpreted or explicitly marked as produced under the old default, which is the part that silently rots otherwise.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: Tier-3 values living only in a dated memo. Should be declared in config where the field beats the comment."
+        }
+      ]
     },
     {
       "id": "BL-20260816-EXIT-INTERVAL-SOAK-SUMMARY-HAS-NO-READ-SURFACE",
@@ -19151,6 +19449,14 @@
       "related": [
         "BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER",
         "BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a half-filled close at the 6 s deadline reading as fully cancelled. Order-path correctness, Tier-2. Same family as BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER."
+        }
       ]
     },
     {
@@ -19222,7 +19528,15 @@
         "BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT",
         "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY"
       ],
-      "updated_at": "2026-08-16T12:45:00+00:00"
+      "updated_at": "2026-08-16T12:45:00+00:00",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a module-global deferral reopening the churn window on every restart. IDENTICAL shape to the target-naked cooldown defect that was FIXED on 2026-08-23 with a durable latch — and that fix is now proven working (ib_target_naked pages went 21/22/48/15 -> 0/0/1/1/0). So the remedy is known, proven, and simply not yet applied here. One of the cleanest fixes available."
+        }
+      ]
     },
     {
       "id": "BL-20260816-NO-PER-ORDER-IB-CANCEL",
@@ -19648,6 +19962,12 @@
           "what_actually_remains": "Bounded memory retention only — unreachable entries sit in the map until their TTL, inside a map already capped at 512 entries (`_candle_cache_put` clears wholesale above that). That is a tidiness issue, NOT a correctness one, and it should not be carried at the severity the original text implies.",
           "why_this_correction_is_worth_making": "A backlog row describing a hazard that no longer exists costs a future session a full re-derivation and contributes to the desensitized-alarm failure mode this repo treats as a P1 in its own right. The rule that caught it is 'verify your own output too, hardest when it confirms what you expected' — I wrote the hazard, fixed its cause an hour later, and did not re-read the filing against the fix until now.",
           "still_genuinely_open": "`reset_candle_cache()` is still dead code: defined, documented 'For tests and for a forced reconnect', called by nothing. A reset nothing invokes cannot be relied on by a runbook. That is the whole of what is left here, and it is LOW severity."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: keying on id() of a freed object is a correctness landmine in the candle cache — and the candle cache is on the live signal path."
         }
       ],
       "area": "runtime/market-data cache",
@@ -19703,6 +20023,12 @@
           "at": "2026-08-17",
           "by": "overnight M20 session (2026-08-16/17)",
           "note": "THE GATE HALF IS FIXED; THIS ITEM STAYS OPEN, and the severity I posted earlier is DOWNGRADED because I measured the claim and it did not hold. FIXED: `m20_path_b_floor.wf_pass` now grades on EFFECTIVE wins. It IMPORTS `m20_wf_effective.grade_folds` rather than re-deriving `is_inert` (two definitions of 'did the lever fire?' could disagree about a fold and make the gate and the audit tool report different verdicts on the same row — the class this item is about). The promotion rule is hoisted into `_wf_inequality` so the recorded and effective verdicts are provably the SAME inequality over a different numerator. `wf_basis` is THREE-STATE and never collapsed: `effective` (folds present, inert separable) / `raw_only` (a wf ran but NO per-fold detail, so the split cannot be computed for that row — checked: scripts/research/m20_wf_effective.py — its `grade_folds` reads `d_net_r`/`d_max_dd` off each entry of `wf_folds`, so a row without that list supplies no input to the inert test at all; measured on docs/research/m20-sweep-corpus.jsonl, 133 of 1373 cell rows carry `wf_folds` — falls back to the recorded count and says so, because grading it 0-effective would manufacture a failure out of a missing record) / `ungraded` (no wf ran — None, never False). `wf_pass_as_recorded` keeps the sweep's own figure and `analyse` publishes BOTH rates plus `cells_inflated_by_inert_folds` and `wf_basis_counts` — replacing the recorded rate silently would leave no way to see the two differ, and the SIZE of the gap is the finding. ⚠️ SEVERITY CORRECTION — MY EARLIER CLAIM WAS WRONG. I wrote that the inflated count 'helps SELECT the floor value the operator is asked to adopt'. MEASURED before/after on the committed corpus (axis base_rate_IS, direction floor): verdict `no_separation` and `recommended_floor: None` in BOTH arms — both miss the Bonferroni bar 0.00109 over 46 floors — so NOTHING was ever mis-selected and the operator-facing recommendation is unchanged by this fix. What is real: the reported pass rate was inflated 11.6pp (0.6875 recorded vs 0.5714 effective) and the best-candidate floor shifts 1.4187 -> 1.1619, so the defect WOULD bias a selection if the population ever separated. Real defect, materially lower severity than posted. ⚠️ A FOURTH POPULATION, stated because I had already conflated two: `cells_inflated_by_inert_folds` on the analysed set is **13 of 112** — the rows `analyse` actually grades (fold-carrying AND carrying the axis). That is NOT the 17/96 (deduped newest-run-per-cell) nor the 19/133 (all fold-carrying cell rows, superseded runs included). All three are correct over different denominators; 13/112 is the one the floor calibration depends on. On this corpus `wf_basis_counts` is `{effective: 112}`, so the corrected rate is FULLY corrected here — no partial-correction caveat applies today, but the field exists so a future corpus with `raw_only` rows cannot hide one. VERIFIED NON-BLIND, not by reading: `tests/test_path_b_floor_inert_folds.py` (9 tests) plus THREE PLANTED BREAKS each failing its own test and restored green — (1) reverting `wf_pass` to raw `wf_wins` fails 3 tests, (2) grading `raw_only` as zero-effective fails 2, (3) dropping the recorded rate from the report fails 2. This matters specifically here: my FIRST probe of this defect returned a clean '0 of 96' because it read `g.get('won')`, a key `grade_folds` does not return, so every comparison was None. A quiet pass proves nothing, which is what this item's own resolution_criteria demand. STILL OPEN — two halves untouched, and neither is covered by the above: (1) THE PRODUCER. `wf_summary`/`wf_wins` still count inert folds as wins in the corpus (`m20_corpus_extract.py:473`), deliberately — the recorded figure is evidence about the sweep and appears in committed artifacts, so it is reported BESIDE the corrected one rather than overwritten. Any other consumer reading `wf_wins` directly still inherits the defect; this fix covers `m20_path_b_floor` only. (2) THE FOLD-COVERAGE HALF, which this item's title calls the sharper one: the folds do not state their coverage against the OOS window, so a delta originating in years no fold examines can still read as walk-forward-confirmed (the original `splg` observation: OOS opens 2019-01-30, folds are 2021-2026, and every covered year contributed exactly zero). Nothing here addresses that. NOT ACTED ON: no verdict, status, arm or config touched. `trend_donchian_xrp_4h`'s shipped real-money lever at wf 5/6 but 2/6 effective remains a Tier-3 question QUEUED for the operator."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: 6/6 on folds where the lever changed nothing. Second member of the inert-lever-scores-as-a-win class."
         }
       ],
       "area": "research-tooling",
@@ -19878,6 +20204,14 @@
       ],
       "related": [
         "BL-20260816-DEPLOY-VERSION-ASSERTION-CANNOT-FAIL"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a deploy script justifying its gate by citing an id that was never filed, three times. Exactly what check_backlog_refs exists to catch — and it caught the same shape on MY diff today — but the script predates the guard's scope."
+        }
       ]
     },
     {
@@ -19893,7 +20227,15 @@
       "why_not_fixed_in_session": "Wiring all 6 into CI would be a unilateral judgement about research/ops tooling, made overnight with no operator available, and it adds runtime plus failure surface to every CI run for scripts whose correctness is not a repo invariant — the desensitised-alarm shape this repo has a P1 rule about. The honest disposition is per-script triage, not a blanket sweep.",
       "proposed_action": "Triage the 6 individually. `ops/get_env.py` is the most likely genuine candidate (it sits on the diag/env read path that BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE made load-bearing); the backtest/research four are probably correct to leave as developer-invoked. For any script judged to guard an invariant, give it a `run_guards.py` entry — `check_selftest_wiring.py` then reports the ratio moving on its own.",
       "not_a_finding_about": "This is NOT a claim that those 6 self-tests are broken — each passes when invoked by hand. The finding is only that CI does not exercise them, so a future regression in one would not be caught by CI.",
-      "resolution_criteria": "Each of the 6 named scripts has an explicit recorded disposition — either a `run_guards.py` entry running it with `--self-test` (verifiable by re-running the AST scan in `check_selftest_wiring.py`'s SCOPE docstring and seeing the run-with-flag count rise from 8), or a one-line note in this row stating it is developer-invoked by design and why. The row closes when the scan's 'never run with the flag' list contains only scripts carrying such a note — i.e. zero UNTRIAGED entries, not necessarily zero entries."
+      "resolution_criteria": "Each of the 6 named scripts has an explicit recorded disposition — either a `run_guards.py` entry running it with `--self-test` (verifiable by re-running the AST scan in `check_selftest_wiring.py`'s SCOPE docstring and seeing the run-with-flag count rise from 8), or a one-line note in this row stating it is developer-invoked by design and why. The row closes when the scan's 'never run with the flag' list contains only scripts carrying such a note — i.e. zero UNTRIAGED entries, not necessarily zero entries.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "PARTIALLY REFUTED — re-measure before acting. I read selftest-wiring-guard's live output this review: it reports 11 registered self-tests in guard_selftests.py::SELFTESTS with 11 covered, all resolving to a verified covering path. That is not the 6-of-14-never-run state this row records. The row may be stale or may be counting a different population (scripts declaring --self-test vs self-tests REGISTERED). State the population before closing."
+        }
+      ]
     },
     {
       "id": "BL-20260817-M20-ACTIONABLE-COUNT-OVERSTATES-WHAT-A-SESSION-CAN-DO",
@@ -19930,7 +20272,15 @@
       "why_it_matters": "The cell reads as 'work nobody has done yet', which is what makes it a candidate for the next session to pick up; it is in fact work no session CAN do without first adding harness support. That is the exact confusion `blocked:no_harness_levers` exists to prevent, and the precedent for using it on this evidence is already set twice in this matrix.",
       "why_not_fixed_in_session": "⚠️ DELIBERATELY NOT FLIPPED TONIGHT. `pending` and `blocked` both count toward the done-condition (so 23 is unchanged either way), but the PROGRESS HEADLINE counts `blocked` as CLOSED — so this flip moves the headline 373/376 -> 374/376. I am an autonomous overnight session that has just spent this hour WITHDRAWING an over-optimistic figure of my own ('12 actionable'), and a status flip that happens to improve the reported number is precisely the change that should not be made unreviewed at 08:00 with the operator asleep. The evidence is complete and precedent-matched; the disposition is a five-second edit for a review session that agrees.",
       "resolution_criteria": "OBSERVABLE: a reviewer either (a) sets the cell to `blocked:no_harness_levers` with this AST evidence in its ref and accepts the headline moving to 374/376, or (b) states why `pending` is the right status despite the harness having no such flag. Either closes it; leaving it `pending` with no note does not.",
-      "not_a_finding_about": "NOT a claim that the lever is worthless — only that this harness cannot currently express it, so the cell cannot be swept as-is."
+      "not_a_finding_about": "NOT a claim that the lever is worthless — only that this harness cannot currently express it, so the cell cannot be swept as-is.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a cell statused `pending` for something the harness structurally cannot express — `pending` is the wrong state and hides a permanent gap."
+        }
+      ]
     },
     {
       "id": "BL-20260817-M20-REMAINING-WORK-IS-EFFECTIVELY-FULLY-GATED",
@@ -19945,7 +20295,15 @@
       "why_it_matters": "M20's done-condition is 23 and reads like a backlog of work. It is not: 11 arithmetic + 4 accrual + 2 data + 1 parked + 1 Tier-3-queued + 1 harness-gap + 1 more harness-gap (the regime_flip_exit row) leaves TWO runnable cells, on a lever that is parked and has returned honest_negative on 42 of 42 legs measured. A session planning 'work the M20 backlog down' will find almost nothing it can move, and running the 2 cells would most likely produce the 43rd and 44th negative. That is worth knowing BEFORE dispatching sweeps, and it reframes the milestone's remaining state as 'waiting on trade accrual', not 'waiting on effort'.",
       "resolution_criteria": "OBSERVABLE: a decision is recorded for the 2 prop `exit_ladder` cells — either swept (accepting a likely 43rd/44th honest_negative, which does close them) or dispositioned as parked-with-the-lever like the squeeze row, with the reasoning in their refs. The row closes when neither cell is `pending` without a stated basis.",
       "proposed_action": "Operator/review call, since it is a question of whether completeness is worth the runs. Cheap either way; the value is that the choice is made explicitly rather than a session repeatedly picking these up as 'the actionable ones'.",
-      "not_a_finding_about": "NOT a claim that M20 is finished or that the remaining cells should be closed — the done-condition is legitimately 23 and legitimately open."
+      "not_a_finding_about": "NOT a claim that M20 is finished or that the remaining cells should be closed — the done-condition is legitimately 23 and legitimately open.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and CORROBORATED by this review's trainer read: the remaining M20 work is gated, and the trainer that would run it is memory- AND disk-constrained. Useful as the honest program status."
+        }
+      ]
     },
     {
       "id": "BL-20260817-CENSUS-SUMMARY-TABLE-IS-COLUMN-SHIFTED",
@@ -19975,7 +20333,15 @@
       "why_it_matters": "This is the only M20 done-condition cell in the harness_gap bucket that a session could act on, and it was shelved on an arithmetic step that contradicts the harness's documented derivation. Ground (1) — the negative fleet vol_trail prior — still stands, but it is a prior about OTHER legs and the matrix _doc forbids an inherited verdict; ground (3) existed only to argue accrual could not relieve ground (2). So the decision now rests on ground (1) alone, weighed against a measured capture deficit on this leg rather than against a projection.",
       "proposed_action": "Build `--trail-vol-above-pctl` / `--trail-vol-below-pctl` / `--trail-vol-tight-mult` into scripts/backtest_squeeze.py mirroring backtest_trend.py + backtest_pullback.py, add `squeeze` to the `fam in (\"donchian\", \"pullback\")` gate in `cells_for`, and sweep the leg (Tier 1 throughout). Correct the cell's ref so the withdrawn projection is not re-quoted. Do NOT flip the cell status as part of the harness change: `blocked:no_harness_levers` is the true state until the lever exists AND a sweep grades it. Shipping any resulting lever is Tier 3.",
       "resolution_criteria": "Either the squeeze harness carries the vol_trail flags and the cell has a measured sweep verdict, or the cell's ref records a decision NOT to build it that does not rest on the withdrawn 25-35 projection.",
-      "not_a_finding_about": "The cell's STATUS, which is correct — `cells_for` genuinely emits vol_trail cells only for the donchian/pullback families and scripts/backtest_squeeze.py genuinely has no `--trail-vol-*` flag. Nor is it a claim that the lever will PASS; the fleet prior is negative and the sweep may well return another honest_negative."
+      "not_a_finding_about": "The cell's STATUS, which is correct — `cells_for` genuinely emits vol_trail cells only for the donchian/pullback families and scripts/backtest_squeeze.py genuinely has no `--trail-vol-*` flag. Nor is it a claim that the lever will PASS; the fleet prior is negative and the sweep may well return another honest_negative.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: M20 exit-program measurement/tooling correctness. Propose-only, no live-order impact. Blocked on trainer capacity (91.7% disk) for anything needing a re-sweep."
+        }
+      ]
     },
     {
       "id": "BL-20260817-WF-FOLD-PANEL-IS-A-FIXED-CALENDAR-NOT-AN-OOS-WALKFORWARD",
@@ -19990,7 +20356,15 @@
       "why_it_matters": "The walk-forward is the generalisation check the whole fleet sweep leans on -- `wf_pass` is what separates a cell that survived out-of-sample from one that only fit. Two distinct ways the panel weakens that check, and they need separate remedies: an UNGRADED OOS year means a PASS was awarded over less evidence than the label implies (worst here is tlt_pullback_1d at +8.3159 OOS net_R with 2 of its OOS years never folded), and an IS-FITTED arm re-graded on its own fitting window is a fold that cannot fail for the reason a fold exists. Note what this is NOT: it is not the inert-fold defect fixed in #9870/#9872, and that fix does not touch it -- grade_folds correctly reports 1 effective win for the qqq cell above while the panel independently re-grades that cell on its own training data. Two defects stack on the same cell, which is why filing this separately matters rather than folding it into the parent item.",
       "proposed_action": "Do NOT silently re-grade anything. (1) Make the coverage LEGIBLE first: have `walkforward()` emit, per cell, which OOS years the panel covered and which it did not, plus a flag for folds that fall inside the cell's own IS window -- an ungraded year currently reads identically to a graded-and-won one, which is the collapsed-state shape this repo already guards for. (2) Consider deriving the panel from `split` (fold the OOS span, not a fixed calendar) so a leg with 2017-2020 OOS data actually gets it graded; this changes fold counts on existing cells, so it needs the corpus re-run rather than a reinterpretation of stored rows. (3) Separately, decide whether an IS-FITTED arm should be walk-forwarded on pre-split folds at all -- 14 cells are affected and the honest options are to exclude those folds or to re-fit per fold. (4) The 5 uncovered-OOS PASS cells and the 14 IS-armed cells are QUEUED for the operator as a re-grade question, NOT re-graded here.",
       "resolution_criteria": "A cell's artifact states, as FIELDS rather than prose: the fold span, the cell's own OOS span, the uncovered OOS years, the pre-split fold count, the arm provenance (IS-derived vs declared), and the effective-vs-recorded win split -- so a reader sees coverage without re-deriving it. Demonstrated by RUNNING it with a planted control proving both directions fire: split 2019 + panel 2021-26 must report uncovered [2019,2020]; split 2025 must report pre_split [2021..2024]; split 2021 must report clean. A bare re-run without these fields does not close this -- the panel would still be unable to say what it did not grade, and splg_trend_long_1d/vt_hot80_t2 would still read as a 6/6 PASS.",
-      "not_a_finding_about": "`m20_wf_effective.grade_folds` or the #9870/#9872 inert-fold fix, both of which are correct and unrelated -- this is about WHICH SPANS the panel grades, not how a graded fold is scored. Also not a finding about the 124 pre-split cells as a group: 110 of those carry DECLARED arms, where a pre-split fold is redundant rather than circular, and quoting 124 as the affected population would overstate this by ~9x. Also not a claim that any specific verdict is WRONG -- no OOS delta was decomposed per year, so the size of the effect on any one cell is unmeasured."
+      "not_a_finding_about": "`m20_wf_effective.grade_folds` or the #9870/#9872 inert-fold fix, both of which are correct and unrelated -- this is about WHICH SPANS the panel grades, not how a graded fold is scored. Also not a finding about the 124 pre-split cells as a group: 110 of those carry DECLARED arms, where a pre-split fold is redundant rather than circular, and quoting 124 as the affected population would overstate this by ~9x. Also not a claim that any specific verdict is WRONG -- no OOS delta was decomposed per year, so the size of the effect on any one cell is unmeasured.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a fixed 2021-2026 calendar that ignores the cell's own IS/OOS split is not a walk-forward. Invalidates fold evidence across the fleet — high impact for a medium severity."
+        }
+      ]
     },
     {
       "id": "BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP",
@@ -20028,7 +20402,15 @@
       "why_it_matters": "The guard's purpose is to catch a state that is produced and never branched on — the `exit_price_source` class (written in 12 files, read in one). A new three-state field can now be registered, pass CI, and appear in the `--verbose` output as 'all states read' while NOTHING in the pipeline reads it. That is worse than an unregistered field, because the green line actively asserts coverage a reviewer would otherwise go and check. And it has already produced one live instance: `netting_attribution.anchor_status`'s **`deferred`** is the 'we could not look, retry, write nothing' state on the netting partial-close attribution path — precisely the state whose whole purpose is to not be confused with `no_anchor`. Nothing outside the registry branches on it, so today there is no evidence any consumer distinguishes a deferral from a declared gap.",
       "proposed_action": "(1) Exclude the guard's own file from the consumer scan — `if f == prod_path or f.resolve() == Path(__file__).resolve(): continue` — the same reasoning `_states_in` already applies to override annotations. (2) That flips `netting_attribution.anchor_status` red, so it must land TOGETHER with either a real consumer that branches on `deferred` or an audited override on that contract; shipping (1) alone blocks every PR, which is how a guard gets switched off. (3) Consider whether a test file should count as a consumer at all — `tests/` is in scope today, and a test asserting the states exist is not the same as a pipeline reading them. Measured impact of THAT change was not taken and should be before acting on it. (4) While there: the plant-a-break check should be part of registering any contract, since that is what surfaced this.",
       "resolution_criteria": "Deleting a contract's only real consumer makes `check_collapsed_states.py` FAIL for that contract — demonstrated by planting exactly that deletion and observing the non-zero exit, with the registry entry left in place. A green run with no consumer must be impossible. Reviewing the code alone does not close this: the current code READS as though it enforces consumers, which is why it went unnoticed.",
-      "not_a_finding_about": "The guard's VALUE or its other checks — the producer-integrity half is sound and caught two real problems while I was registering this contract (a state literal not on a line naming the field, twice), which is the only reason the registration is honest. Also not a finding about `m20_corpus.lever_in_baseline`, which has a genuine consumer and passes with the registry excluded. Also NOT a claim that `netting_attribution.anchor_status`'s producer is wrong — the producer emits all three states correctly; what is missing is a consumer that branches on `deferred`."
+      "not_a_finding_about": "The guard's VALUE or its other checks — the producer-integrity half is sound and caught two real problems while I was registering this contract (a state literal not on a line naming the field, twice), which is the only reason the registration is honest. Also not a finding about `m20_corpus.lever_in_baseline`, which has a genuine consumer and passes with the registry excluded. Also NOT a claim that `netting_attribution.anchor_status`'s producer is wrong — the producer emits all three states correctly; what is missing is a consumer that branches on `deferred`.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and it MATTERS for the fixes this review recommends: I proposed registering three fields with collapsed-state-guard (margin_basis, venue_max, prop status_freshness). If the registry counts as its own consumer, registering them partly self-satisfies the check. Fix this FIRST or the registrations are weaker than they look."
+        }
+      ]
     },
     {
       "id": "BL-20260817-BOARD-TAIL-READ-CANNOT-ASSERT-IT-REACHED-THE-END",
@@ -20058,7 +20440,15 @@
       "why_it_matters": "The figure '4 movable' reached three operator pings, several coordination-board comments, a scheduled session check-in, and was offered to the operator as one of two branches of an open question ('push on the last 4 movable M20 cells'). That branch does not exist: no session can move any of the four. An operator choosing it would have spent a session discovering there is nothing to run. It is also the SIXTH instance tonight of one class -- A COUNT OF A FIELD READ AS A COUNT OF A CONDITION (the field says 'pending'; the condition is 'a run would resolve this') -- alongside the fold panel 124->14, the self-baseline 102->61, two wf_pass population conflations, and a board page's newest read as the board's newest. The roll-up's own header already warns that a number in prose goes stale silently; this was the same defect one level down, inside the tool written to prevent it.",
       "proposed_action": "(1) DONE in this PR: LEVERS_WITHOUT_A_SWEEP_PATH declares the two levers with the reason each cannot be swept, gate_partition emits _movable / _no_sweep_path as a measured cut of harness_gap + never_attempted, and render() prints 'MOVABLE BY A SESSION: N' plus the named unrunnable cells and their routes. The roll-up now reads 0 of 4 instead of implying 4. (2) DONE in this PR: tests/test_rollup_movable_cut.py re-derives the claim from the SWEEP and the HARNESSES rather than trusting the constant, so adding a real arm fails the test and forces the constant to shrink; shown to discriminate by planting a regression (2 tests failed). (3) NOT DONE and NOT Tier-1 -- the two cells' actual routes: exit_ladder graduation is the backtest-gated P4, and regime_flip_exit needs operator decision (c) (build it as a YAML-declared default-off close path). Both stay queued for the operator.",
       "resolution_criteria": "OBSERVABLE: `m20_coverage_rollup.py --done-condition` prints a movable count that is a MEASURED cut -- every cell it calls movable has a sweep arm a session could actually invoke -- and names any cell whose status implies a remedy that does not exist, with the route that does. Closes when that holds AND the claim is checked against the sweep/harness surfaces by a test rather than by a constant a session maintains by hand (a hardcoded list goes stale exactly the way the '4 movable' figure did). Does NOT close by correcting the number in a doc, a ping, or a roadmap entry: three of those already carried the wrong figure while the tool kept emitting it.",
-      "not_a_finding_about": "NOT a finding about gate_partition keying on the status string -- that is the right design and its docstring defends it correctly; the gap is the absent second question ('is the implied remedy possible?'). NOT a finding about the matrix statuses, which are all accurate: `pending` truthfully means no sweep has been recorded. NOT a claim these 4 cells are unreachable forever -- both levers have a named route, neither of which is 'a session runs the sweep'. And NOT a finding about PR #9859, which correctly closed the vol_trail harness gap; that cell is legitimately honest_negative now, and only my DESCRIPTION of which cell remained blocked was wrong."
+      "not_a_finding_about": "NOT a finding about gate_partition keying on the status string -- that is the right design and its docstring defends it correctly; the gap is the absent second question ('is the implied remedy possible?'). NOT a finding about the matrix statuses, which are all accurate: `pending` truthfully means no sweep has been recorded. NOT a claim these 4 cells are unreachable forever -- both levers have a named route, neither of which is 'a session runs the sweep'. And NOT a finding about PR #9859, which correctly closed the vol_trail harness gap; that cell is legitimately honest_negative now, and only my DESCRIPTION of which cell remained blocked was wrong.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: 4 cells called session-movable when zero were. A roll-up that overstates actionability directly wastes session time."
+        }
+      ]
     },
     {
       "id": "BL-20260817-COLLAPSED-STATE-GUARD-READS-PROSE",
@@ -20075,6 +20465,14 @@
       "refs": [
         "BL-20260817-VENUE-SESSION-HAS-NO-READ-SURFACE",
         "docs/CLAUDE-RULES-CANONICAL.md § Collapsed states"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a docstring naming every state satisfies the coverage the guard enforces. Same guard, second self-weakening defect. Together with the row above, collapsed-state-guard is the most load-bearing guard in the repo and has two known ways to be satisfied without a real consumer."
+        }
       ]
     },
     {
@@ -20093,6 +20491,14 @@
         "#9896",
         "#9866",
         "BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: tooling/guard correctness. Cheap to fix, unblocked, still undone."
+        }
       ]
     },
     {
@@ -20137,6 +20543,14 @@
         "#9898",
         "#9900",
         "BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD-THAT-READS-MAIN"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "⚠️ THE WRAPPED-ID HALF BIT ME TODAY, AND THE ROW'S ADVICE IS RIGHT. check_backlog_refs failed my PR because a comment in diag.py hard-wrapped BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE across two lines, so the regex saw the fragment `BL-20260825-ALERT-AND-CADENCE-STATE` and correctly reported an id resolving to nothing. I fixed the WRAP (kept the id on one line with a comment saying why) rather than the regex — which is precisely this row's 'fix the wrap FIRST' instruction."
+        }
       ]
     },
     {
@@ -20175,6 +20589,14 @@
       "evidence": "issue #9913 (apply -> cancel_not_effective, exit 1, PendingCancel) vs #9914 (independent read 4 min later: order absent, count 3 -> 2)",
       "refs": [
         "BL-20260816-IB-CANCEL-ACCEPTED-BUT-NEVER-COMPLETES-VENUE-CLOSED"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and it is the mirror of BL-20260816-IB-CANCEL-ACCEPTED-BUT-NEVER-COMPLETES: one row says the cancel never completes, this says the verify window is too short to see it complete. Both are live today (Saturday, venue closed). Resolve them together."
+        }
       ]
     },
     {
@@ -20366,7 +20788,15 @@
         "failed_issue": 9925,
         "succeeded_issue": 9926,
         "parser": ".github/workflows/prop-report.yml lines ~152-171"
-      }
+      },
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: fence LINES stripped but the WHOLE body jq-parsed, so prose around a fenced block fails. Relevant — the prop bridge is the account $55 from death, and a rejected report-back is a missed fill."
+        }
+      ]
     },
     {
       "id": "BL-20260818-CLAIM-BASIS-GUARD-DOES-NOT-READ-THE-DETAIL-FIELD",
@@ -20392,7 +20822,15 @@
         ],
         "key_missing": "detail",
         "observed_on": "PR #9927, 1 of 7 new rows"
-      }
+      },
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: tooling/guard correctness. Cheap to fix, unblocked, still undone. A guard reading five fields but not the one that carries the claim."
+        }
+      ]
     },
     {
       "id": "BL-20260818-ATTACH-IB-TARGET-HAS-NEVER-RUN",
@@ -20467,6 +20905,12 @@
           "at": "2026-08-23T14:29:04.518763+00:00",
           "by": "full-system-audit-2026-08-23",
           "note": "attach-ib-target REPORTED FAILURE ON A PLACEMENT THAT WORKED — a false negative, measured 2026-08-23T14:27Z on ib_paper/MES (issue #10178).\n\nThe action returned action='place_not_effective', verify_state='absent_unexplained', targets_after=[], wrapper exit 1, with the note 'the order was accepted, no target is resting ... the placement did not take effect'. Its place_response was retCode 0, orderId 6, limitPrice 8390.5.\n\nA DIRECT BROKER READ ~1 MINUTE LATER SHOWS THE TARGET RESTING: /api/diag/ib_open_orders?account_id=ib_paper (read_state orders_read) returns 5 orders, including MES LMT SELL 15.0 @ 8390.5, oca_group oca-protect-408, order_id 6, status **PendingSubmit** — in the SAME group as the stop (order 410, STP @ 7533.75), which is exactly the intended outcome.\n\nTHE VERIFY READ TOO EARLY AND COLLAPSED TWO STATES. 'Not resting' and 'not resting YET' are different facts, and a freshly placed GTC leg sits at PendingSubmit before it is Submitted/PreSubmitted. This is the SAME SHAPE as this row's original finding — the verify cannot express a target that FILLED — one state over: it also cannot express a target that has been accepted and is still propagating. Both are 'absent' to a single immediate snapshot.\n\nWHY IT MATTERS BEYOND THE NOISE: exit 1 on a successful repair invites a session to RETRY, and a retry here would place a SECOND target into the same OCA group. The action is not idempotent in the presence of a false negative.\n\n⚠️ DO NOT 'FIX' THIS BY WIDENING THE SUCCESS CRITERION. The right shape is a bounded re-read with the order STATUS as evidence (PendingSubmit / PreSubmitted / Submitted are all 'placed'; nothing at all after the bound is 'absent'), plus a distinct 'placed_not_yet_visible' state. Treating an empty first read as success would remove the only check that caught the transmit defect."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: verifying by asking whether a target is RESTING makes a marketable target that FILLS report failure. Third state missing — the exact THIRD-CASE rule BL-20260809 wants promoted to canonical."
         }
       ],
       "last_reviewed": "2026-08-22T19:20:00+00:00",
@@ -20525,6 +20969,12 @@
           "at": "2026-08-25T07:00:00+00:00",
           "by": "claude (session_01Gi3mgq, P0 of the M20/measurement-integrity continuation)",
           "note": "THE BLOCKER IS CLEARED; THE ROTATION IS STILL THE OPERATOR'S. PR #10251 gated get-diag-token.yml on repository.private, fail-closed. That ordering was forced and had not been stated anywhere until board comment 5406416710: rotating THROUGH the ungated emitter would have re-leaked the new value on the way out, burning the rotation. It cannot now.\n\nThe operator's 2026-08-18 deprioritisation is NOT being re-litigated -- that call stands and is recorded in this row. What changed is only that acting on it is no longer self-defeating.\n\nThe same PR also fixed the sibling that made the 2026-08-18 attempt LOOK done (BL-20260818-SET-DIAG-TOKEN-REPORTS-NEW-ON-UNCHANGED-VALUE): set-diag-token now reports a measured `rotation_state`, so a rotation that changes nothing reports `unchanged` instead of 'authorized with the new token'. Step (2) of this row's resolution_criteria will therefore SAY so, rather than going green over an unchanged value as it did last time -- but step (3), the three-way probe, REMAINS the pass condition. A green workflow run is still not evidence; it is now merely less able to mislead.\n\nSteps 1 and 4 are unchanged and still need a human: originate a new value on the REPOSITORY Actions secret named DIAG_READ_TOKEN (confirm repo-scoped, not environment-scoped, and that the edit saved -- the 2026-08-18 attempt failed because the value went somewhere else), and delete issue #1615 (delete, not close). Claude cannot write repo secrets.\n\nNOT RE-MEASURED THIS SESSION: whether the leaked token still authorizes. The 2026-08-18 measurement is what this row records, and it is not being restated as current."
+        },
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "⚠️ RE-CONFIRMED LIVE 2026-08-29 AND ESCALATED TO THE OPERATOR IN THIS REVIEW'S REPORT. The token STILL AUTHORIZES: this session made roughly fifteen authenticated /api/diag/* calls against https://ict-bot.duckdns.org (version, status, services, snapshot, tick_cost, exposure, ib_state, ib_open_orders, venue_session, journal, journalctl, log_file x4) and every one returned 200. So a bearer that has been readable in a WORLD-READABLE issue comment since 2026-05-21 — 100 days — is still a working credential for the live trading VM's read surface. It is read-only (Tier-1 GETs), which bounds the blast radius to disclosure rather than control, but that disclosure includes the journal, service state and open orders. ROTATION IS OPERATOR-ONLY on a public repo: per CLAUDE.md the get-diag-token workflow now REFUSES on a public repo (BL-20260818-GET-DIAG-TOKEN-EMITS-SECRET-TO-PUBLIC-SURFACE), so the operator must originate a new value, put it in the Actions secret and the consuming env, then push it to the VM with set-diag-token. Nothing a session can do closes this."
         }
       ],
       "detail": " | STATUS NORMALISED 2026-08-22 (workplan 0.1 Step 0): the free-text status 'open_operator_deprioritized' was collapsed to 'kept_open' so the open set is countable. The original wording is preserved here verbatim; the mapping failed TOWARD open wherever the text signalled remaining work."
@@ -20586,7 +21036,15 @@
           "ratio": "325x"
         },
         "queued_by": "operator direction 2026-08-18"
-      }
+      },
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: _apply_partial_close still resolves only linked_trade_id — the last effectuation branch that is not package-wide. Live relevance: `intent_reduce` appears on this window's real-money exit paths at pnlCoverage 0.0."
+        }
+      ]
     },
     {
       "id": "BL-20260818-SWEEP-REPORTS-DONE-AFTER-MEASURING-ZERO-CELLS",
@@ -20609,7 +21067,15 @@
       },
       "opened_at": "2026-08-18T09:35:00+00:00",
       "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
-      "status": "open"
+      "status": "open",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: `done ->` plus a verdicts.json plus exit 0 after measuring 0 of 0 cells. A run that measured nothing reporting success is the unasserted-denominator shape, and it is HIGH severity because downstream consumers read that verdicts.json as evidence."
+        }
+      ]
     },
     {
       "id": "BL-20260818-HARNESS-RC-COLLAPSES-THE-ACTUAL-ERROR",
@@ -20629,7 +21095,15 @@
       },
       "opened_at": "2026-08-18T09:35:00+00:00",
       "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
-      "status": "open"
+      "status": "open",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: collapsing any harness failure to `harness_rc` cost a separate relay round-trip to see a plain ImportError. Same class as the trainer relay's error-stage collapse."
+        }
+      ]
     },
     {
       "id": "BL-20260818-RESEARCH-HARNESSES-HAVE-NO-VENV-GUARD",
@@ -20650,7 +21124,15 @@
       },
       "opened_at": "2026-08-18T09:35:00+00:00",
       "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
-      "status": "open"
+      "status": "open",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: harnesses that require the repo venv and neither state nor check it, failing deep as a swallowed error."
+        }
+      ]
     },
     {
       "id": "BL-20260818-TRAINER-RELAY-MANGLES-LESS-THAN-AND-MULTILINE-STRINGS",
@@ -20672,7 +21154,15 @@
       },
       "opened_at": "2026-08-18T09:35:00+00:00",
       "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
-      "status": "open"
+      "status": "open",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: FOURTH independent defect in the trainer relay's command handling (with DOUBLE-EXECUTION, SILENT-CMD-TRUNCATION, COLUMN0-PYTHON-KEYWORD). Four rows, one component. The structural fix is a single tested extractor, not four patches — and this is the clearest example in the whole backlog of the band-aid pattern this review was asked to look for."
+        }
+      ]
     },
     {
       "id": "BL-20260818-UNGRADED-CELLS-DO-NOT-SURFACE-AT-THE-FLEET-LEVEL",
@@ -20693,7 +21183,15 @@
       },
       "opened_at": "2026-08-18T09:35:00+00:00",
       "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
-      "status": "open"
+      "status": "open",
+      "updates": [
+        {
+          "at": "2026-08-29T17:45:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a cell that hit the OOS floor reads as MEASURED at the fleet level. Same family as BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED — roll-ups that count ungraded as graded."
+        }
+      ]
     },
     {
       "id": "BL-20260818-TEST-FAKES-THAT-DO-NOT-REFLECT-WRITES",
