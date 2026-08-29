@@ -3088,7 +3088,27 @@
         "quarantine_note": "No manifest_quarantine_tripped / manifest_quarantined event in the 40 newest cycle rows (2026-08-29T00:48Z -> 05:45Z). That is the population I read - NOT the full log.",
         "mirror_age_seconds": 53.4,
         "verdict": "MIXED \u2014 the fleet trains (67 trained / 0 failed in the 00:47Z cycle), and a named 9 of 76 manifests do not: 6 audit-enforced skips, 7 stale at 34.0d against a 7d threshold, 2 never trained. rc=0 and a green service report neither half.",
-        "last_cycle_note": "READ carried_done BESIDE trained. The 05:14Z cycle's trained: 0 is the same-day resume path (cycle_resumed already_done:76, to_run:0 -> cycle_already_complete), NOT a fleet that trained nothing: carried_done: 67 names the models the 00:47Z cycle trained that day. A reader taking trained: 0 alone concludes the opposite of the truth, which this report did until it was corrected against trainer-diag #10425."
+        "last_cycle_note": "READ carried_done BESIDE trained. The 05:14Z cycle's trained: 0 is the same-day resume path (cycle_resumed already_done:76, to_run:0 -> cycle_already_complete), NOT a fleet that trained nothing: carried_done: 67 names the models the 00:47Z cycle trained that day. A reader taking trained: 0 alone concludes the opposite of the truth, which this report did until it was corrected against trainer-diag #10425.",
+        "audit_skip_causes": {
+          "population": "91 manifests audited in the newest dataset_audit.jsonl pass; 7 NOT ok, plus exit-policy-v1 which fails one step earlier at the build. Read 2026-08-29 via trainer-diag #10426 + #10429.",
+          "A_declared_column_absent_from_dataset": {
+            "count": 3,
+            "detail": "nan_fraction 1.0000 ('column absent / null for ~all rows'). btc-regime-15m-lgbm-base-vt003-pcv-v1 (n=215,838) missing log_return_lag_1 / log_return_lag_2 / hour_of_day / dayofweek \u2014 four core columns every 15m sibling has; setup-candidates-metalabel-xsym-yz-v1 (n=22,814) missing the whole yang-zhang block (parkinson / garman_klass / rogers_satchell / yang_zhang_vol), i.e. exactly what the '-yz-' in its own model_id names; setup-quality-lgbm-v2 (n=1,797) missing killzone / bias."
+          },
+          "B_column_exists_but_cannot_vary": {
+            "count": 2,
+            "detail": "zero_fraction 1.0000. mes-regime-1d-lgbm-v2 hour_of_day on a DAILY bar \u2014 FIXED this session; mes-regime-5m-lgbm-macro-v1 vix_term_slope constant over n=50,176."
+          },
+          "C_degenerate_label": {
+            "count": 2,
+            "detail": "corpus-ssl-encoder-mae-v1 regime_label null/absent for all 4,256 rows; prop-mission-policy-baseline-v0 single-class label, all 267 rows == 'False'."
+          },
+          "D_dataset_built_zero_rows": {
+            "count": 1,
+            "detail": "exit-policy-v1 (exit_candidates/ETHUSDT/5m/v001). NOT a missing family and NOT a naming error \u2014 the builder exists and is registered in ml/datasets/registry.py; it emits one row per IN-TRADE bar, so 0 rows means there are no trades in that scope to walk. The cycle's own message already says 'build/coverage gap, not a dead-feature/label defect', which is correct instrumentation and should be kept."
+          },
+          "the_structural_point": "6 of the 8 are ONE root: the manifest asks for something the dataset does not provide. That contract is validated ONLY at train time, inside a cycle that returns rc=0 \u2014 so a manifest merges clean and then silently never trains. 7 manifests are stale at 34.0 days against a 7-day threshold and 2 have NEVER trained. The trainer detects and reports every bit of this correctly; nothing reads it, because the exit code is 0. Filed as MB-20260829-MANIFESTS-DECLARE-COLUMNS-THE-DATASET-NEVER-PROVIDES-AND-NOTHING-CHECKS-AT-COMMIT with a commit-time guard as the proposed remedy."
+        }
       },
       "soak_status": [
         {
@@ -3433,6 +3453,12 @@
             "measured": "10 of 120 window closes (8.3%) came from a declared bracket. On the real-money perExitPath cut, netting_attributed / stuck_strategy_watchdog / intent_reduce all sit at pnlCoverage 0.0.",
             "trend": "flat",
             "structural_fix": "Band-aid pattern confirmed: each janitor path was added to stop a specific stranding, and none stamps provenance. The structural fix is to require any path that CLOSES a trade to stamp exit provenance, enforced the way collapsed-state-guard enforces its contracts."
+          },
+          {
+            "finding": "The ML manifest-to-dataset contract has no commit-time check, so a manifest that asks for a column no builder emits merges clean and then silently never trains under rc=0.",
+            "measured": "91 manifests audited, 7 NOT ok + 1 failing at build. 6 of those 8 are 'the manifest declares what the dataset does not provide'. 7 manifests stale at 34.0d against a 7d threshold; 2 never trained (exit-policy-v1: 0 runs across 96 registry files, manifest 33.8d old).",
+            "trend": "first_measurement",
+            "structural_fix": "A CI guard checking declared feature_columns / target_column against the declared dataset family's producible columns, keeping the four causes distinct (absent column = wiring bug; structurally-constant = manifest/timeframe mismatch; degenerate label = coverage; 0-row build = not a manifest defect). Fixing manifests one at a time leaves the gap that produced them."
           }
         ],
         "hypothesis_tested": {
@@ -3441,6 +3467,12 @@
           "how": "Cut the 394-row feed by day and by normalised message. Both floods go to zero on 08-26 and the whole channel drops 84%. My prior reading - which I had already started writing up as 'still live and dominant' - was wrong, and the daily cut is what caught it.",
           "why_it_matters": "This is the most valuable output of the pass. The reviews have been reporting alarm fatigue as a standing complaint; on this evidence it is being retired, and continuing to report it as unfixed would have been the mirror-image of normalisation.",
           "evidence": "394 ERROR+ rows, 2026-08-20T14:28Z..08-29T14:05Z, limit=1000 so not limit-truncated. Cut by day: ict_scalp_mgc no-candle 9/26/46/29/62/53 then 0/0/0/0 from 08-26; ib_target_naked 21/22/48/15 then 0/0/1/1/0 from 08-24. Whole-channel daily total 30/48/95/49/72/63 -> 11/9/15/2, i.e. ~59.5/day -> ~9.25/day (-84%)."
+        },
+        "second_hypothesis_tested": {
+          "hypothesis": "The 6 enforced audit skips share the dead-feature cause I had just diagnosed on mes-regime-1d-lgbm-v2 (a structurally-constant hour_of_day).",
+          "verdict": "refuted",
+          "how": "Read each manifest's OWN audit verdict instead of generalising from the one I had in hand. Only 2 of 7 are dead-column cases; 3 are ABSENT columns \u2014 nan_fraction 1.0000, a different fault from zero_fraction \u2014 and 2 are degenerate LABELS with no feature problem at all.",
+          "why_it_matters": "Had I generalised, the fix would have been a sweep for constant columns: it would have repaired one manifest, left five, and reported the class closed. The refutation is what turned 8 chores into one structural finding with a guard behind it."
         }
       },
       "flags_raised": [
