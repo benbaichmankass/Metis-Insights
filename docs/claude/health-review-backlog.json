@@ -218,7 +218,7 @@
           "at": "2026-08-29T17:25:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: a measurement that records every CONFIG axis but not the DATA it ran on cannot be reproduced or invalidated later. Same family as BL-20260813-HARNESS-SYMBOL-IS-A-LABEL."
+          "note": "Re-validated: a measurement that records every CONFIG axis but not the DATA it ran on cannot be reproduced or invalidated later. Same family as BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC."
         }
       ],
       "resolution_criteria": "Either (a) verdicts.json carries a per-leg frame fingerprint - row count AND first/last bar timestamp AND a content hash, all three, so a truncated frame and a shifted one stay distinguishable - propagated to the corpus row the way fee_bps_roundtrip is, RECORDED and deliberately ABSENT from measurement_key, with a mismatch reported when two rows share a key and differ on frames; or (b) a recorded decision that the structural gap is accepted, naming the observation that would reopen it. Adding the fingerprint TO measurement_key does not satisfy this - the row states why (it would stop a re-run ever superseding an older row)."
@@ -677,7 +677,7 @@
           "at": "2026-08-29T17:25:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "snoozed",
-          "note": "Re-validated: an operator DECISION or an operator-only action, not work a review can drain. A direction/architecture decision. Note its dependency BL-20260707-IBKR-STK-ETF-SUPPORT is also parked."
+          "note": "Re-validated: an operator DECISION or an operator-only action, not work a review can drain. A direction/architecture decision. Note its dependency PB-20260707-IBKR-STK-ETF-SUPPORT is also parked."
         }
       ],
       "snoozed_at": "2026-08-29T17:25:00+00:00"
@@ -2777,7 +2777,7 @@
           "at": "2026-08-29T17:25:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: two private _adx implementations that should consolidate onto src.runtime.regime.wilder_adx. Single-owner violation, same class as BL-20260813-FAMILY-RESOLVER-DRIFT."
+          "note": "Re-validated: two private _adx implementations that should consolidate onto src.runtime.regime.wilder_adx. Single-owner violation, same class as BL-20260813-FAMILY-RESOLVER-DRIFT-SCALP-NEVER-POOLED."
         }
       ],
       "severity": "low",
@@ -11759,7 +11759,7 @@
           "at": "2026-08-29T17:35:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: a relay that can execute a cmd block twice is a hazard for any non-idempotent command. Same relay as BL-20260807-TRAINER-DIAG-RELAY-SILENT-CMD-TRUNCATION and BL-20260807-TRAINERDIAG-COLUMN0 — three independent defects in ONE relay's command handling. That is a class: the trainer relay's cmd extraction needs one owner, not three patches."
+          "note": "Re-validated: a relay that can execute a cmd block twice is a hazard for any non-idempotent command. Same relay as BL-20260807-TRAINER-DIAG-RELAY-SILENT-CMD-TRUNCATION and BL-20260807-TRAINERDIAG-COLUMN0-PYTHON-KEYWORD-TRUNCATES-CMD — three independent defects in ONE relay's command handling. That is a class: the trainer relay's cmd extraction needs one owner, not three patches."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -13133,7 +13133,7 @@
           "at": "2026-08-29T17:35:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "LIVE ENCOUNTER THIS SESSION, and it cuts BOTH ways. check_backlog_refs.py failed my PR because a comment WRAPPED a real id across two lines, so it read `BL-20260825-ALERT-AND-CADENCE-STATE` — an id that resolves to nothing. That was a TRUE positive and I fixed it. But it confirms the row's premise: the guard matches id-shaped text without distinguishing a forward tracking claim from a backward citation, and here it could not even distinguish a real id from a hyphen-wrapped fragment of one."
+          "note": "LIVE ENCOUNTER THIS SESSION, and it cuts BOTH ways. check_backlog_refs.py failed my PR because a comment WRAPPED a real id across two lines, so it read `BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE` — an id that resolves to nothing. That was a TRUE positive and I fixed it. But it confirms the row's premise: the guard matches id-shaped text without distinguishing a forward tracking claim from a backward citation, and here it could not even distinguish a real id from a hyphen-wrapped fragment of one."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -13883,7 +13883,7 @@
           "at": "2026-08-29T17:35:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated and this review is evidence FOR promoting both rules: the third-case rule is the same discipline as the collapsed-state rule already canonical, and 'a green suite over an untested branch is not evidence' is exactly what BL-20260808-INERT-CONDITIONAL describes. Cheap doc work; still undone."
+          "note": "Re-validated and this review is evidence FOR promoting both rules: the third-case rule is the same discipline as the collapsed-state rule already canonical, and 'a green suite over an untested branch is not evidence' is exactly what BL-20260808-INERT-CONDITIONAL-SHIPPED-AS-A-BEHAVIOUR-CHANGE describes. Cheap doc work; still undone."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00",
@@ -14276,7 +14276,7 @@
           "at": "2026-08-29T17:15:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "CORROBORATED LIVE THIS REVIEW and it is the same finding as BL-20260821-SCALPS-HELD-10-TO-100X: window holds include tlt_pullback_1d 721.2 h, iwm_trend_long_1d 554.0 h, qqq_pullback_1h 193.7 h, and ict_scalp_mgc_15m 47.8 h on a 15-MINUTE leg. 15 positions are open now. Only 8.3% of the window's closes came from a declared bracket. The absent time/stall lever is the single highest-leverage exit gap in this backlog."
+          "note": "CORROBORATED LIVE THIS REVIEW and it is the same finding as BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON: window holds include tlt_pullback_1d 721.2 h, iwm_trend_long_1d 554.0 h, qqq_pullback_1h 193.7 h, and ict_scalp_mgc_15m 47.8 h on a 15-MINUTE leg. 15 positions are open now. Only 8.3% of the window's closes came from a declared bracket. The absent time/stall lever is the single highest-leverage exit gap in this backlog."
         }
       ],
       "operator_action_required": true,
@@ -16080,7 +16080,7 @@
           "at": "2026-08-29T17:15:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "PARTIAL LIVE READ, stated with its limits. The operator ERROR feed 2026-08-20..29 carries 17 Bybit `The number of contracts exceeds maximum limit` rejections (08-22..08-26) and NO 110007 balance rejections. So the specific margin/balance refusal this row names does not appear in the retained window — but that window starts 08-20 and the feed is ERROR-level only, so this is NOT evidence the fix holds; it is evidence the feed is quiet. The venue-cap rejections are a DIFFERENT class (see BL-20260816-BYBIT-TP-CAP...). Needs a journal-level rejection query, not a log read, to close."
+          "note": "PARTIAL LIVE READ, stated with its limits. The operator ERROR feed 2026-08-20..29 carries 17 Bybit `The number of contracts exceeds maximum limit` rejections (08-22..08-26) and NO 110007 balance rejections. So the specific margin/balance refusal this row names does not appear in the retained window — but that window starts 08-20 and the feed is ERROR-level only, so this is NOT evidence the fix holds; it is evidence the feed is quiet. The venue-cap rejections are a DIFFERENT class (see PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS...). Needs a journal-level rejection query, not a log read, to close."
         }
       ],
       "updated_at": "2026-08-14T08:20:00+00:00",
@@ -16404,7 +16404,7 @@
           "at": "2026-08-29T17:45:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: M20 exit-program measurement/tooling correctness. Propose-only, no live-order impact. Blocked on trainer capacity (91.7% disk) for anything needing a re-sweep. Corroborated by BL-20260814-1D-EQUITY-LEGS-TRADE-4-PER-YEAR — the 1d fleet is trade-rate-bound, not tooling-bound."
+          "note": "Re-validated: M20 exit-program measurement/tooling correctness. Propose-only, no live-order impact. Blocked on trainer capacity (91.7% disk) for anything needing a re-sweep. Corroborated by BL-20260814-1D-EQUITY-LEGS-TRADE-4-PER-YEAR-SO-PER-LEG-OOS-25-CONSUMES-6-YEARS — the 1d fleet is trade-rate-bound, not tooling-bound."
         }
       ]
     },
@@ -16538,7 +16538,7 @@
           "at": "2026-08-29T17:45:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: cells carrying metadata their own legend contradicts. Self-contradicting matrix, same family as BL-20260813-COVERAGE-MATRIX-BUNDLED-ROW."
+          "note": "Re-validated: cells carrying metadata their own legend contradicts. Self-contradicting matrix, same family as BL-20260813-COVERAGE-MATRIX-BUNDLED-ROW-SURVIVES-AND-CONTRADICTS."
         }
       ]
     },
@@ -16631,7 +16631,7 @@
           "at": "2026-08-29T17:45:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: 12 of 14 fleet PASSes have flip_pct 0.0 — a PASS on a lever that never fired. Same shape as BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS and BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF: an inert lever scoring as a win. That is a CLASS of three."
+          "note": "Re-validated: 12 of 14 fleet PASSes have flip_pct 0.0 — a PASS on a lever that never fired. Same shape as BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS and BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP: an inert lever scoring as a win. That is a CLASS of three."
         }
       ]
     },
@@ -16669,7 +16669,7 @@
           "at": "2026-08-29T17:45:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: M20 exit-program measurement/tooling correctness. Propose-only, no live-order impact. Blocked on trainer capacity (91.7% disk) for anything needing a re-sweep. Structural: no --tp-cap-pct exists and base_args is called positionally. Pairs with BL-20260814-THREE-SIBLING-SWEEPS and BL-20260816-M21-ENTRY-SWEEPS — the SAME positional-base_args defect in at least three drivers."
+          "note": "Re-validated: M20 exit-program measurement/tooling correctness. Propose-only, no live-order impact. Blocked on trainer capacity (91.7% disk) for anything needing a re-sweep. Structural: no --tp-cap-pct exists and base_args is called positionally. Pairs with BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING and BL-20260816-M21-ENTRY-SWEEPS-STILL-CALL-BASE-ARGS-POSITIONALLY — the SAME positional-base_args defect in at least three drivers."
         }
       ],
       "operator_action_required": true,
@@ -17107,7 +17107,7 @@
           "at": "2026-08-29T17:45:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: 6 SHIPPED levers with no lever-OFF row. Fourth member of the shipped-on-unsound-evidence family (with BL-20260813-SEVENTEEN-SHIPPED-LEVERS, BL-20260813-FIVE-SHIPPED-LEVERS-OOS-NEGATIVE, BL-20260813-SHIPPED-DONCHIAN-1H-HEAD). Together those cover most of the live lever set."
+          "note": "Re-validated: 6 SHIPPED levers with no lever-OFF row. Fourth member of the shipped-on-unsound-evidence family (with BL-20260813-SEVENTEEN-SHIPPED-LEVERS-REST-ON-PRE-TP-PARITY-EVIDENCE, BL-20260813-FIVE-SHIPPED-LEVERS-MEASURED-OOS-NEGATIVE, BL-20260813-SHIPPED-DONCHIAN-1H-HEAD-RESTS-ON-BESTARM). Together those cover most of the live lever set."
         }
       ]
     },
@@ -17725,7 +17725,7 @@
           "at": "2026-08-29T17:45:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated and it is the STRUCTURAL reason the 1d fleet blocks — corroborated by BL-20260813-M20-DONE-CONDITION-IS-60PCT-ONE-FACT. The OOS window is capped by the strategy's trade rate, so no amount of tooling fixes it. This should be treated as a design constraint, not a backlog item to grind."
+          "note": "Re-validated and it is the STRUCTURAL reason the 1d fleet blocks — corroborated by BL-20260813-M20-DONE-CONDITION-IS-60PCT-ONE-FACT-THE-1D-FLEET-IS-TOO-THIN. The OOS window is capped by the strategy's trade rate, so no amount of tooling fixes it. This should be treated as a design constraint, not a backlog item to grind."
         }
       ]
     },
@@ -17863,7 +17863,7 @@
           "at": "2026-08-29T17:45:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: 42 of 43 negatives graded on NO-TAKE-PROFIT books. This is the single largest evidence-invalidation in the M20 program and it shares one root with BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP and BL-20260816-M21-ENTRY-SWEEPS: base_args called POSITIONALLY in every sibling driver. One fix, three rows, ~70 invalidated verdicts."
+          "note": "Re-validated: 42 of 43 negatives graded on NO-TAKE-PROFIT books. This is the single largest evidence-invalidation in the M20 program and it shares one root with BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP and BL-20260816-M21-ENTRY-SWEEPS-STILL-CALL-BASE-ARGS-POSITIONALLY: base_args called POSITIONALLY in every sibling driver. One fix, three rows, ~70 invalidated verdicts."
         }
       ]
     },
@@ -18304,7 +18304,7 @@
           "at": "2026-08-29T17:45:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: evidence produced by code that exists only on an unmerged branch is unreproducible from main. Same family as BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD."
+          "note": "Re-validated: evidence produced by code that exists only on an unmerged branch is unreproducible from main. Same family as BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD-THAT-READS-MAIN."
         }
       ]
     },
@@ -18685,7 +18685,7 @@
           "at": "2026-08-29T17:45:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: third driver with the positional-base_args defect. See BL-20260814-THREE-SIBLING-SWEEPS for the consolidated fix."
+          "note": "Re-validated: third driver with the positional-base_args defect. See BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING for the consolidated fix."
         }
       ]
     },
@@ -18800,7 +18800,7 @@
           "at": "2026-08-29T17:45:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "CONFIRMED LIVE: I read collapsed-state-guard's full output this review — 19 contracts, and prop_status_freshness is NOT among them (the prop entry present is prop_rule_distance.balance_basis). So the four-state status_freshness shipped in #9334 is still unguarded, while /api/bot/prop/status returns status_freshness `ok` today on a 0.9 h-old snapshot. Registering it is cheap and is the same fix pattern as BL-20260813-MARGIN-BASIS and BL-20260814-VENUE-MAX-NONE."
+          "note": "CONFIRMED LIVE: I read collapsed-state-guard's full output this review — 19 contracts, and prop_status_freshness is NOT among them (the prop entry present is prop_rule_distance.balance_basis). So the four-state status_freshness shipped in #9334 is still unguarded, while /api/bot/prop/status returns status_freshness `ok` today on a 0.9 h-old snapshot. Registering it is cheap and is the same fix pattern as BL-20260813-MARGIN-BASIS-ABSENCE-IS-A-COLLAPSED-STATE and BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK."
         }
       ]
     },
@@ -19024,7 +19024,7 @@
           "at": "2026-08-29T17:15:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: a declared lever that is silently INERT because its arm sits above the reachable R. Same family as BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF and PB-20260824-COSMETIC-TARGETS-ABOVE-CAP-R. These three should be worked as one class: a declared lever whose arm is unreachable is decoration."
+          "note": "Re-validated: a declared lever that is silently INERT because its arm sits above the reachable R. Same family as BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP and PB-20260824-COSMETIC-TARGETS-ABOVE-CAP-R. These three should be worked as one class: a declared lever whose arm is unreachable is decoration."
         }
       ]
     },
@@ -20557,7 +20557,7 @@
           "at": "2026-08-29T17:45:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "⚠️ THE WRAPPED-ID HALF BIT ME TODAY, AND THE ROW'S ADVICE IS RIGHT. check_backlog_refs failed my PR because a comment in diag.py hard-wrapped BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE across two lines, so the regex saw the fragment `BL-20260825-ALERT-AND-CADENCE-STATE` and correctly reported an id resolving to nothing. I fixed the WRAP (kept the id on one line with a comment saying why) rather than the regex — which is precisely this row's 'fix the wrap FIRST' instruction."
+          "note": "⚠️ THE WRAPPED-ID HALF BIT ME TODAY, AND THE ROW'S ADVICE IS RIGHT. check_backlog_refs failed my PR because a comment in diag.py hard-wrapped BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE across two lines, so the regex saw the fragment `BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE` and correctly reported an id resolving to nothing. I fixed the WRAP (kept the id on one line with a comment saying why) rather than the regex — which is precisely this row's 'fix the wrap FIRST' instruction."
         }
       ]
     },
@@ -20603,7 +20603,7 @@
           "at": "2026-08-29T17:45:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated and it is the mirror of BL-20260816-IB-CANCEL-ACCEPTED-BUT-NEVER-COMPLETES: one row says the cancel never completes, this says the verify window is too short to see it complete. Both are live today (Saturday, venue closed). Resolve them together."
+          "note": "Re-validated and it is the mirror of BL-20260816-IB-CANCEL-ACCEPTED-BUT-NEVER-COMPLETES-VENUE-CLOSED: one row says the cancel never completes, this says the verify window is too short to see it complete. Both are live today (Saturday, venue closed). Resolve them together."
         }
       ]
     },
@@ -21226,7 +21226,7 @@
           "at": "2026-08-29T17:55:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: a fake that serves a permanently-open row and never reflects update_trade certifies the code against a world that cannot exist. Same family as BL-20260823-FIXTURE-MISSING-A-PRODUCTION-COLUMN and BL-20260813-HARNESS-SYMBOL-IS-A-LABEL."
+          "note": "Re-validated: a fake that serves a permanently-open row and never reflects update_trade certifies the code against a world that cannot exist. Same family as BL-20260823-FIXTURE-MISSING-A-PRODUCTION-COLUMN-FAILS-SILENTLY and BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC."
         }
       ]
     },
@@ -21686,7 +21686,7 @@
           "at": "2026-08-29T17:55:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "HIGH-VALUE AND UNDER-RATED. This is the missing frame behind three other rows: 339 signals refused because a position was already open, and every exit study compares R and never R PER UNIT OF TIME. With holds at 721 h / 554 h / 191x-bar-horizon, capital efficiency is the metric nobody measures. Pair with BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL and BL-20260810-NO-STALL-EXIT."
+          "note": "HIGH-VALUE AND UNDER-RATED. This is the missing frame behind three other rows: 339 signals refused because a position was already open, and every exit study compares R and never R PER UNIT OF TIME. With holds at 721 h / 554 h / 191x-bar-horizon, capital efficiency is the metric nobody measures. Pair with BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL and BL-20260810-NO-STALL-EXIT-CAPITAL-SITS-IN-DEAD-TRADES."
         }
       ]
     },
@@ -21831,7 +21831,7 @@
           "at": "2026-08-29T17:55:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: a binary verdict from ONE split with no sensitivity statement. Pairs with BL-20260817-WF-FOLD-PANEL-IS-A-FIXED-CALENDAR — the fold machinery does not test what it claims."
+          "note": "Re-validated: a binary verdict from ONE split with no sensitivity statement. Pairs with BL-20260817-WF-FOLD-PANEL-IS-A-FIXED-CALENDAR-NOT-AN-OOS-WALKFORWARD — the fold machinery does not test what it claims."
         }
       ]
     },
@@ -22457,7 +22457,7 @@
           "at": "2026-08-29T17:55:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated and it matters MORE now: prop_report admits a fill with no direction while _position_key requires one, so such a fill is permanently unclosable — on the account currently $55 from its DD floor, where every unrecorded fill distorts the cushion. Pair with BL-20260818-PROP-RULE-DISTANCE (resolved this review) — the distance now reads the fills stream, so an unadmitted fill silently corrupts it."
+          "note": "Re-validated and it matters MORE now: prop_report admits a fill with no direction while _position_key requires one, so such a fill is permanently unclosable — on the account currently $55 from its DD floor, where every unrecorded fill distorts the cushion. Pair with BL-20260818-PROP-RULE-DISTANCE-IGNORES-THE-FILLS-STREAM (resolved this review) — the distance now reads the fills stream, so an unadmitted fill silently corrupts it."
         }
       ]
     },
@@ -23295,7 +23295,7 @@
           "at": "2026-08-29T17:55:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "RE-CONFIRMED: the operator ERROR feed carries 17 `bybit_place_order_failed: The number of contracts exceeds maximum limit` rows across 08-22..08-26. And ict_scalp_avax_5m is the worst paper leg in the 30d cut (17 trades, -$6,804.83, coverage 0.0588) — consistent with BL-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK. Two rows, one sizer defect: the size is the margin/venue ceiling rather than a risk number."
+          "note": "RE-CONFIRMED: the operator ERROR feed carries 17 `bybit_place_order_failed: The number of contracts exceeds maximum limit` rows across 08-22..08-26. And ict_scalp_avax_5m is the worst paper leg in the 30d cut (17 trades, -$6,804.83, coverage 0.0588) — consistent with PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK. Two rows, one sizer defect: the size is the margin/venue ceiling rather than a risk number."
         }
       ]
     },
@@ -23390,7 +23390,7 @@
           "at": "2026-08-29T17:55:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "⚠️ THE HIGHEST-RISK ROW FOR THIS SESSION SPECIFICALLY, and I want it recorded. I rewrote this file today across five triage passes covering 483 open rows while a concurrent session was merging to main (#10412 landed mid-review). A single shared mutable JSON array with no per-row locking makes that a real conflict surface — and BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS is the recorded instance of it going wrong. I mitigated with byte-exact round-trips and frequent commits; that is discipline, not a mechanism."
+          "note": "⚠️ THE HIGHEST-RISK ROW FOR THIS SESSION SPECIFICALLY, and I want it recorded. I rewrote this file today across five triage passes covering 483 open rows while a concurrent session was merging to main (#10412 landed mid-review). A single shared mutable JSON array with no per-row locking makes that a real conflict surface — and BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION is the recorded instance of it going wrong. I mitigated with byte-exact round-trips and frequent commits; that is discipline, not a mechanism."
         }
       ]
     },
@@ -23503,7 +23503,7 @@
           "at": "2026-08-29T17:55:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: a wholesale flush at >512 entries that is unreportable anywhere. Pairs with BL-20260817-CANDLE-CACHE-KEYS-ON-ID-CLIENT — same cache, two defects, and it sits on the live signal path."
+          "note": "Re-validated: a wholesale flush at >512 entries that is unreportable anywhere. Pairs with BL-20260817-CANDLE-CACHE-KEYS-ON-ID-CLIENT-WHICH-CPYTHON-RECYCLES — same cache, two defects, and it sits on the live signal path."
         }
       ]
     },
@@ -23591,7 +23591,7 @@
           "at": "2026-08-29T17:55:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated (title empty in the file — worth filling in). The rows-vs-legs conflation is the same defect BL-20260813-COVERAGE-MATRIX-BUNDLED-ROW describes from the other end."
+          "note": "Re-validated (title empty in the file — worth filling in). The rows-vs-legs conflation is the same defect BL-20260813-COVERAGE-MATRIX-BUNDLED-ROW-SURVIVES-AND-CONTRADICTS describes from the other end."
         }
       ]
     },
@@ -24361,7 +24361,7 @@
           "at": "2026-08-29T18:05:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "CRITICAL and operator-directed. Re-validated: the live sweep still cannot tell that a declared bracket was ALREADY passed while the position stayed open. This is the mechanism behind BL-20260823-TP-CROSS-CLOSE-RECORDS-A-STALE-MARK and the MGC 4773 case, and it needs the price axis the sweeps now PRODUCE but do not CONSUME (BL-20260823-ALPACA-BYBIT-SWEEPS-EXPOSE-PRICES-BUT-DO-NOT-GRADE)."
+          "note": "CRITICAL and operator-directed. Re-validated: the live sweep still cannot tell that a declared bracket was ALREADY passed while the position stayed open. This is the mechanism behind BL-20260823-TP-CROSS-CLOSE-RECORDS-A-STALE-MARK-AS-A-MEASURED-EXIT and the MGC 4773 case, and it needs the price axis the sweeps now PRODUCE but do not CONSUME (BL-20260823-ALPACA-BYBIT-SWEEPS-EXPOSE-PRICES-BUT-DO-NOT-GRADE)."
         }
       ]
     },
@@ -24833,7 +24833,7 @@
           "at": "2026-08-29T18:05:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "⚠️ SECURITY-ADJACENT AND STILL OPEN. Re-validated: the prop screenshot reader sends broker account data (balance, equity, account number, open positions) to hosted models. Pair with BL-20260818-DIAG-READ-TOKEN-PUBLIC-EXPOSURE (re-confirmed live this review) — two live data-exposure rows, and both need an operator decision rather than a code change."
+          "note": "⚠️ SECURITY-ADJACENT AND STILL OPEN. Re-validated: the prop screenshot reader sends broker account data (balance, equity, account number, open positions) to hosted models. Pair with BL-20260818-DIAG-READ-TOKEN-PUBLIC-EXPOSURE-UNREMEDIATED (re-confirmed live this review) — two live data-exposure rows, and both need an operator decision rather than a code change."
         }
       ]
     },
@@ -25359,7 +25359,7 @@
           "at": "2026-08-29T18:05:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: a risk-sized trade and a margin-clamped trade are indistinguishable in the stored row. This is the measurement gap behind BL-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK — the claim can only be made by reconstructing, not by reading. CLAUDE.md records notes.margin_basis being stamped (Part B), so the field may now exist; whether it disambiguates is BL-20260813-MARGIN-BASIS-ABSENCE-IS-A-COLLAPSED-STATE."
+          "note": "Re-validated: a risk-sized trade and a margin-clamped trade are indistinguishable in the stored row. This is the measurement gap behind PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK — the claim can only be made by reconstructing, not by reading. CLAUDE.md records notes.margin_basis being stamped (Part B), so the field may now exist; whether it disambiguates is BL-20260813-MARGIN-BASIS-ABSENCE-IS-A-COLLAPSED-STATE."
         }
       ]
     },
@@ -26340,7 +26340,7 @@
           "at": "2026-08-29T18:05:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "RE-CONFIRMED FROM THE OTHER LANE, with a positive control. /api/bot/candles?symbol=SPLG returns count 0 / error `no_data` from the bot-exchange lane, while SPY, QQQ and GLD each returned 110 usable bars on the same call pattern in the same minute. So SPLG is dead on BOTH lanes. Together with BL-20260807-SPLG-NO-CANDLES and BL-20260730-SPLG-ZERO-TRADES, three rows describe one fact: a LIVE real-money cell that has never had usable data. That should be a routing decision, not three research rows."
+          "note": "RE-CONFIRMED FROM THE OTHER LANE, with a positive control. /api/bot/candles?symbol=SPLG returns count 0 / error `no_data` from the bot-exchange lane, while SPY, QQQ and GLD each returned 110 usable bars on the same call pattern in the same minute. So SPLG is dead on BOTH lanes. Together with BL-20260807-SPLG-NO-CANDLES-STRATEGY-CANNOT-EVALUATE and BL-20260730-SPLG-ZERO-TRADES, three rows describe one fact: a LIVE real-money cell that has never had usable data. That should be a routing decision, not three research rows."
         }
       ]
     },
@@ -27510,7 +27510,7 @@
           "at": "2026-08-29T18:15:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: pass alone, pass in full, fail under -k. Same sys.modules-pollution root as BL-20260822 and BL-20260827-TEST-MODULES-STUB-SKLEARN — three rows, one cause."
+          "note": "Re-validated: pass alone, pass in full, fail under -k. Same sys.modules-pollution root as BL-20260822 and BL-20260827-TEST-MODULES-STUB-SKLEARN-INTO-SYS-MODULES-AT-IMPORT-TIME — three rows, one cause."
         }
       ]
     },
@@ -28099,7 +28099,7 @@
           "at": "2026-08-29T18:15:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "HIGH. Re-validated: a before/after snapshot diff abstains exactly when several strategies trade one symbol concurrently — which is the normal state on netted Bybit accounts (see BL-20260826-BTC-SCALP-AND-DONCHIAN-SHARE-ONE-NETTED-POSITION). The mechanism fails under the conditions it exists for."
+          "note": "HIGH. Re-validated: a before/after snapshot diff abstains exactly when several strategies trade one symbol concurrently — which is the normal state on netted Bybit accounts (see BL-20260826-BTC-SCALP-AND-DONCHIAN-SHARE-ONE-NETTED-BTCUSDT-POSITION). The mechanism fails under the conditions it exists for."
         }
       ]
     },
@@ -28406,7 +28406,7 @@
           "at": "2026-08-29T18:15:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "⚠️ HIGH AND IT ELEVATES THE WHOLE OVER-COVER FAMILY FROM HAZARD TO REALISED LOSS: a stray group's duplicate LIMIT partially FILLED and the journal never learned. That is no longer a theoretical 'whichever fires second opens an unintended position' — it happened. This should be read alongside BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL (the root cause) as the strongest argument for prioritising that fix."
+          "note": "⚠️ HIGH AND IT ELEVATES THE WHOLE OVER-COVER FAMILY FROM HAZARD TO REALISED LOSS: a stray group's duplicate LIMIT partially FILLED and the journal never learned. That is no longer a theoretical 'whichever fires second opens an unintended position' — it happened. This should be read alongside BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT (the root cause) as the strongest argument for prioritising that fix."
         }
       ]
     },
@@ -28526,7 +28526,7 @@
           "at": "2026-08-29T18:15:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "⚠️ HIGH AND IT IS THE SINGLE MOST IMPORTANT CAVEAT ON THE ENTIRE M20 PROGRAM: 468 cells at a MEDIAN OOS base of 33 trades means 70.3% of the matrix is honestly a power test, not an edge test. Read together with BL-20260814-1D-EQUITY-LEGS-TRADE-4-PER-YEAR (the trade rate caps the OOS window) this says the program is measuring what it CAN measure rather than what it needs to."
+          "note": "⚠️ HIGH AND IT IS THE SINGLE MOST IMPORTANT CAVEAT ON THE ENTIRE M20 PROGRAM: 468 cells at a MEDIAN OOS base of 33 trades means 70.3% of the matrix is honestly a power test, not an edge test. Read together with BL-20260814-1D-EQUITY-LEGS-TRADE-4-PER-YEAR-SO-PER-LEG-OOS-25-CONSUMES-6-YEARS (the trade rate caps the OOS window) this says the program is measuring what it CAN measure rather than what it needs to."
         }
       ]
     },
@@ -28626,7 +28626,7 @@
           "at": "2026-08-29T18:15:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "⚠️ HIGH AND IT COMPOUNDS THE DISK RISK. 8 trainer systemd units exist ONLY on the box and not in deploy/trainer/ — including ict-trainer.timer. So if the trainer is re-provisioned (or its disk fills and it is rebuilt) the schedule does not come back. Read with BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE: a pet VM holding the one unbackfillable data stream, at 91.7% disk. Live re-measurement 2026-08-29: trainer at 91.7% used / 4.03 GB free of 48.28 GB, warning banner firing. ⚠️ This review RAISED the priority of the trainer-disk cluster after reading BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED: a full disk stops the ONE data stream that cannot be re-derived."
+          "note": "⚠️ HIGH AND IT COMPOUNDS THE DISK RISK. 8 trainer systemd units exist ONLY on the box and not in deploy/trainer/ — including ict-trainer.timer. So if the trainer is re-provisioned (or its disk fills and it is rebuilt) the schedule does not come back. Read with BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED: a pet VM holding the one unbackfillable data stream, at 91.7% disk. Live re-measurement 2026-08-29: trainer at 91.7% used / 4.03 GB free of 48.28 GB, warning banner firing. ⚠️ This review RAISED the priority of the trainer-disk cluster after reading BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED: a full disk stops the ONE data stream that cannot be re-derived."
         }
       ]
     },
@@ -28736,7 +28736,7 @@
           "at": "2026-08-29T18:15:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "RE-CONFIRMED IN A SIBLING FORM TODAY: requirements-test.txt does not deliver its promised single-command install. I had to pip-install pytest AND fastapi mid-session before I could run 31 targeted tests. Consolidate with BL-20260824-SANDBOX-TEST-SUITE-DIVERGES-FROM-CI and BL-20260826-SANDBOX-FULL-SUITE-CARRIES-32-FAILURES — three rows, one 'a session cannot trust a local run' problem."
+          "note": "RE-CONFIRMED IN A SIBLING FORM TODAY: requirements-test.txt does not deliver its promised single-command install. I had to pip-install pytest AND fastapi mid-session before I could run 31 targeted tests. Consolidate with BL-20260824-SANDBOX-TEST-SUITE-DIVERGES-FROM-CI and BL-20260826-SANDBOX-FULL-SUITE-CARRIES-32-FAILURES-CI-DOES-NOT-AND-5-ARE-ORDER-DEPENDENT — three rows, one 'a session cannot trust a local run' problem."
         }
       ]
     },
@@ -28785,7 +28785,7 @@
           "at": "2026-08-29T18:15:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "Re-validated: eight modules installing a MagicMock over sklearn/numpy/scipy at IMPORT time. Root cause shared with BL-20260807-PYTEST-APPROX-NUMPY-STUB, BL-20260822-TEST-SUITE-CROSS-FILE-SYS-MODULES-POLLUTION and BL-20260825-THREE-BYBIT-MODIFY-TESTS — FOUR rows, one unscoped-stubbing root."
+          "note": "Re-validated: eight modules installing a MagicMock over sklearn/numpy/scipy at IMPORT time. Root cause shared with BL-20260807-PYTEST-APPROX-NUMPY-STUB, BL-20260822-TEST-SUITE-CROSS-FILE-SYS-MODULES-POLLUTION and BL-20260825-THREE-BYBIT-MODIFY-TESTS-FAIL-ONLY-UNDER-A-PARTIAL-SELECTION — FOUR rows, one unscoped-stubbing root."
         }
       ]
     },
@@ -29023,7 +29023,7 @@
           "at": "2026-08-29T18:15:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "RE-MEASURED 2026-08-29: 91.7% / 4.03 GB free (this row recorded 92% / 3.9 G). Severity is filed `low` and I think that is WRONG given the row's own content — the thing a full disk stops is the unbackfillable capture. Recommend raising to high and consolidating with BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE. Live re-measurement 2026-08-29: trainer at 91.7% used / 4.03 GB free of 48.28 GB, warning banner firing. ⚠️ This review RAISED the priority of the trainer-disk cluster after reading BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED: a full disk stops the ONE data stream that cannot be re-derived."
+          "note": "RE-MEASURED 2026-08-29: 91.7% / 4.03 GB free (this row recorded 92% / 3.9 G). Severity is filed `low` and I think that is WRONG given the row's own content — the thing a full disk stops is the unbackfillable capture. Recommend raising to high and consolidating with BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED. Live re-measurement 2026-08-29: trainer at 91.7% used / 4.03 GB free of 48.28 GB, warning banner firing. ⚠️ This review RAISED the priority of the trainer-disk cluster after reading BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED: a full disk stops the ONE data stream that cannot be re-derived."
         }
       ]
     },
@@ -29170,7 +29170,7 @@
           "at": "2026-08-29T18:15:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "RE-CONFIRMED AND NOW FULLY EXPLAINED — this closes the open QUESTION even though the row stays open. splg_trend_long_1d emits zero trades while spy_trend_long_1d emits 8 on the same index, and I verified today that /api/bot/candles?symbol=SPLG returns count 0 / `no_data` while SPY, QQQ and GLD each return 110 bars on the same call pattern. BL-20260825 adds that the yfinance lane gives SPLG one stale bar. So: the feed, not the params, on BOTH lanes. FOUR rows (this, BL-20260807-SPLG-NO-CANDLES, BL-20260730-SPLG-ZERO-TRADES, BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY) describe ONE fact about a LIVE real-money cell that has never had usable data. Consolidate them and make it a routing decision."
+          "note": "RE-CONFIRMED AND NOW FULLY EXPLAINED — this closes the open QUESTION even though the row stays open. splg_trend_long_1d emits zero trades while spy_trend_long_1d emits 8 on the same index, and I verified today that /api/bot/candles?symbol=SPLG returns count 0 / `no_data` while SPY, QQQ and GLD each return 110 bars on the same call pattern. BL-20260825 adds that the yfinance lane gives SPLG one stale bar. So: the feed, not the params, on BOTH lanes. FOUR rows (this, BL-20260807-SPLG-NO-CANDLES-STRATEGY-CANNOT-EVALUATE, BL-20260730-SPLG-ZERO-TRADES, BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY) describe ONE fact about a LIVE real-money cell that has never had usable data. Consolidate them and make it a routing decision."
         }
       ]
     },
