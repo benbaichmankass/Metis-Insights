@@ -117,6 +117,49 @@ jobs:
           PYEOF
           echo "emit rc=$?"; cat artifacts/gld/emit.json; tail -20 artifacts/gld/emit.log || true
 
+      # Give the runner a REAL balance source, so the standard arm is not inert.
+      # There is no journal DB here, so load_balance_snapshots() returns None and
+      # every standard account resolves `unreadable` -> the whole standard arm
+      # grades UNGRADED. This fetches the balances the bot already publishes.
+      #
+      # ⚠️ IT IS NOT A DEFAULT SIZE. The synthetic $10,000 Lane P removed must
+      # not come back through this door: the payload is the venue-derived
+      # snapshot the live VM recorded, and every freshness / api_ok check in
+      # resolve_standard_account_size still applies downstream — a stale row
+      # still grades STALE and REFUSES. Verified by planted control.
+      #
+      # ⚠️ A FETCH FAILURE MUST LEAVE NO FILE. `curl -o` writes the file even on
+      # an HTTP error, so a 502 body would be handed to the matrix as if it were
+      # balances; --fail-with-body + an explicit rm on failure keeps
+      # "we could not look" distinct from "we looked and got balances".
+      - name: Fetch live account balances (the standard arm's size source)
+        run: |
+          set +e
+          mkdir -p artifacts/gld
+          BAL=artifacts/gld/balances.json
+          curl -fsS --max-time 30 \
+            "https://ict-bot.duckdns.org/api/bot/accounts/balances" -o "$BAL"
+          rc=$?
+          if [ $rc -ne 0 ] || [ ! -s "$BAL" ]; then
+            echo "balances fetch FAILED (rc=$rc) — the standard arm will grade UNGRADED."
+            echo "That is the honest state: we could not look, not that the accounts are unreadable."
+            rm -f "$BAL"
+            exit 0
+          fi
+          python - <<'PY'
+          import json, pathlib, sys
+          d = json.loads(pathlib.Path("artifacts/gld/balances.json").read_text())
+          b = d.get("balances") or {}
+          # STATE THE DENOMINATOR: an empty payload is a successful read of
+          # nothing, which is NOT the same as a failed fetch, and the matrix
+          # reports the two differently.
+          print(f"balances: {len(b)} account(s); source={d.get('source')} as_of={d.get('as_of')}")
+          for k, v in sorted(b.items()):
+              print(f"  {k:22s} balance={v.get('balance')} api_ok={v.get('api_ok')} ts={v.get('ts')}")
+          if not b:
+              print("payload carried ZERO accounts — standard arm will still grade UNGRADED")
+          PY
+
       - name: Score the ledger against every account's ruleset
         run: |
           set +e
@@ -125,8 +168,15 @@ jobs:
             echo "no emit ledger produced — the emit step failed (see emit.log)"; exit 0
           fi
           echo "ledger: ${EMIT}"
+          BAL_ARG=""
+          if [ -s artifacts/gld/balances.json ]; then
+            BAL_ARG="--balances artifacts/gld/balances.json"
+          else
+            echo "no balances file — standard accounts will grade UNGRADED (we could not look)"
+          fi
           python scripts/prop/account_compat_matrix.py \
             --ledger "${EMIT}" --symbol "${GC_SYMBOL}" --fee-bps-roundtrip "${GC_FEE}" \
+            ${BAL_ARG} \
             --out-dir artifacts/gld \
             > artifacts/gld/compat.stdout 2> artifacts/gld/compat.log
           echo "compat rc=$?"; tail -20 artifacts/gld/compat.log || true
