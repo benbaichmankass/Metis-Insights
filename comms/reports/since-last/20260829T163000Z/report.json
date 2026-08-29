@@ -272,6 +272,9 @@
       },
       {
         "note": "A FIFTH CORRECTION, and the one with teeth: my triage wrote status:\"snoozed\" on 43 rows and `snoozed` is not in the backlog schema's status enum. `snoozed` appears ZERO times on origin/main, so all 43 were mine, introduced in commits that landed AFTER the last green CI \u2014 which is why 3083f34 passed Guards and this did not. claim-basis-guard, run locally against origin/main, named the consequence precisely: 'a free-text status makes the open count uncomputable'. It was ALREADY costing me accuracy in this very report \u2014 the 483-triaged-vs-456-open discrepancy I attributed to a terminal-status filter was mostly these 43 rows dropping out of the tally, and I explained the number away instead of chasing it. That is the failure mode RULE ONE names: a discrepancy in my OWN output, rationalised rather than verified. Fixed to \"kept_open\" with every snooze fact preserved elsewhere; the counts now reconcile against an independent raw scan (open 457 = 457 rows carrying a triage update; drained 67 = 67 rows with resolved_at in-window), where before they did not."
+      },
+      {
+        "note": "A SIXTH CORRECTION, and the sharpest: I RESOLVED BL-20260730-PR-CI-NOT-ATTACHING during this triage and had to REOPEN it 40 minutes later, because the condition recurred on the very PR carrying the resolution. Two pushes to #10414 (d19c2c4 17:10:23Z, 90bfd35 17:23Z) produced ZERO workflow runs 35+ minutes on, with the denominator asserted \u2014 the same branch-filtered query returns the four runs at 3083f34, so the probe finds positives and the silence is real. My resolution generalised from two attaching heads to 'the mechanism works'; what two heads support is 'it works sometimes', and intermittent-vs-reliable is exactly the distinction a resolution must not blur. The row's criteria are rewritten to demand a RATE over a stated denominator rather than an existence proof, since an existence proof is what wrongly closed it twice. The three required checks were then fired by hand via workflow_dispatch (204 each) \u2014 recorded here because a green check reached by a manual workaround must not read as a green check reached by the pipeline."
       }
     ],
     "pnl_by_class": {
@@ -2969,9 +2972,9 @@
     "backlog_summary": {
       "health": {
         "total": 1007,
-        "open": 457,
-        "resolved": 550,
-        "drained": 67
+        "open": 458,
+        "resolved": 549,
+        "drained": 66
       },
       "performance": {
         "total": 109,
@@ -3533,7 +3536,6 @@
           "triaged": 484,
           "count_untriaged": 0,
           "drained": [
-            "BL-20260730-PR-CI-NOT-ATTACHING",
             "BL-20260814-TICK-2X-SLOWER-AFTER-IB-PIN",
             "BL-20260816-TICK-MEAN-DOUBLED-SINCE-0814",
             "BL-20260816-IB-DUPLICATE-STOPS-IN-SEPARATE-OCA-GROUPS",
@@ -3617,7 +3619,8 @@
             }
           ]
         },
-        "schema_correction": "43 rows (12 health / 19 performance / 12 ml) were written with status:\"snoozed\", an off-enum value I invented during this triage. Moved to the in-enum \"kept_open\" with the snooze recorded in disposition/snoozed_until/the update note. This does not change WHICH rows were triaged or their dispositions \u2014 count_untriaged stays 0 in every domain \u2014 it changes whether a counter can SEE them, which is the whole point of the enum."
+        "schema_correction": "43 rows (12 health / 19 performance / 12 ml) were written with status:\"snoozed\", an off-enum value I invented during this triage. Moved to the in-enum \"kept_open\" with the snooze recorded in disposition/snoozed_until/the update note. This does not change WHICH rows were triaged or their dispositions \u2014 count_untriaged stays 0 in every domain \u2014 it changes whether a counter can SEE them, which is the whole point of the enum.",
+        "reopened_in_run": "BL-20260730-PR-CI-NOT-ATTACHING was RESOLVED by this triage at 16:47:02Z and REOPENED by me at 17:27Z, 40 minutes later, because the condition recurred on this PR while I was still working it: two pushes (d19c2c4, 90bfd35) produced zero workflow runs, against a positive control (3083f34 attached four). Counted as open, not drained \u2014 health drained is 66, not 67."
       },
       "authored_cells": {
         "assessed": false,
