@@ -236,3 +236,126 @@ step 1 and 2 applied. It is established now.
 - `BL-20260823-NO-PDT-MODELLING-ON-ALPACA` — **conditional on Path B**; inert under Path A.
 - `BL-20260824-ALPACA-LIVE-GOLIVE-SEQUENCE` — STEP 1 **void as written**; STEP 2 is an account
   conversion, not a flag. Update recorded on the row.
+
+---
+
+## 7. MEASURED (same session, later): the ceiling has no viable value at `risk_pct 0.05`
+
+§ 3.2 argued *from the formula* that a ~2.0× ceiling taken from the mirrors would clamp
+essentially every live trade. That was an inference. **It is now a measurement, and it is worse
+than the inference.**
+
+### 7.1 Method, and why this basis exists at all
+
+`BL-20260809-EXPOSURE-SOAK-NOT-YET-TAKEN` records that the ceiling values need an observation
+soak, and that the soak on `alpaca_live` is unusable because the account is flat by construction —
+91 rows all reading `0.0`, **correctly**. That blocks the *realised* multiple, not the **demanded**
+one.
+
+From `src/units/accounts/risk.py::_size_unbounded`, `exposure_multiple = risk_pct × entry /
+risk_distance`. The term `entry / risk_distance` is **strategy geometry and is account-independent**
+— only `risk_pct` is an account property. So it can be measured from `order_packages`, which
+persists `entry` and `sl` at decision time, **without the account ever having traded**.
+
+**Population, stated.** All **4178** rows of `trade_journal.db::order_packages` were paged via the
+Data Explorer (9 pages × 500, `order_state: applied` asserted on each; accumulated count **4178 =
+the server's own `total`**, which is the denominator check). Of those, **369** carry one of the 16
+strategies routed to `alpaca_live`. **369 of 369 were gradeable** — 0 missing `entry`/`sl`, 0
+zero-distance. Window **2026-06-16T14:28Z → 2026-08-28T19:00Z** (74 days).
+
+⚠️ `order_packages` **has no `account_id` column** (verified against the live schema), so these are
+not "`alpaca_live`'s packages" — they are packages of the strategies it routes. That is *the correct
+population* for this quantity precisely because the geometry is account-independent, and it is a
+larger sample than a per-account cut would give.
+
+### 7.2 The result
+
+`entry / risk_distance`, n = 369: min **12.54** · p25 **49.28** · median **79.08** · p75 **133.29** ·
+p95 **254.25** · max **3274.59**.
+
+Demanded **single-trade** gross-exposure multiple:
+
+| account | `risk_pct` | median | p95 | max |
+|---|---|---|---|---|
+| **`alpaca_live`** | **0.05** | **3.95×** | **12.71×** | 163.73× |
+| `alpaca_portfolio` | 0.02 | 1.58× | 5.09× | 65.49× |
+| `alpaca_paper` | 0.015 | 1.19× | 3.81× | 49.12× |
+
+**The median SINGLE trade on `alpaca_live` demands 3.95× the whole account.** Not the aggregate —
+one trade.
+
+**Independent corroboration.** `BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL`
+measured *"up to **12.37×**"* over 6 legs. This run, over 369 packages by a different route, gives
+**p95 = 12.71×**. Two methods, different populations, same answer.
+
+**And it calibrates the mirror.** At `risk_pct 0.02` the median single trade is **1.58×**, while the
+mirrors' measured *gross* was **1.84–2.01×**. Gross ≈ 1.2 × single-trade means concurrency is
+**≈ 1 position**, not 14 — so the linear scaling in § 3.2 was sound, and the two routes agree
+(≈4.6–5.0× by scaling; 3.95× median by geometry).
+
+### 7.3 Why this kills the ceiling as currently framed
+
+A gross ceiling governs the **sum**, so single-trade demand is a **lower bound** on gross demand:
+
+| candidate ceiling | single trades exceeding it **on their own** |
+|---|---|
+| 1.0× | 356 / 369 (96.5 %) |
+| **2.0×** | **307 / 369 (83.2 %)** |
+| 2.5× | 272 / 369 (73.7 %) |
+| 4.0× | 182 / 369 (49.3 %) |
+| 5.0× | 148 / 369 (40.1 %) |
+| 10.0× | 53 / 369 (14.4 %) |
+| 15.0× | 8 / 369 (2.2 %) |
+
+At the mirror-derived **2.0×**, **83.2 % of single trades breach the ceiling before any second
+position is opened.** `gross-exposure-governance-DESIGN.md` § 6 names a ceiling below normal
+operation as *worse than no ceiling*.
+
+But the row that follows is the actual finding: to let the **largest-sample leg** (`tlt_pullback_1h`,
+n=74) trade at its **median**, the ceiling must be ≥ **11.06×**. A ceiling of 11× on a $200 account
+is not a risk control; it is a rubber stamp.
+
+**So there is no value that both permits the book and constrains risk — which means the ceiling is
+the wrong knob. The binding parameter is `risk_pct 0.05`.** At 0.02 the same book has a 1.58×
+median. This reframes STEP 1 from *"choose a ceiling"* to *"the live account's `risk_pct` is 2.5×
+its own forward record's, and the ceiling cannot absorb that."* **Tier-3 — proposed, not changed.**
+
+### 7.4 Per-leg, so the concentration is visible
+
+| strategy | n | median | p95 | max | in mirror? |
+|---|---|---|---|---|---|
+| `tlt_pullback_1h` | 74 | **11.06×** | 15.15× | 16.57× | yes |
+| `spy_pullback_1h` | 71 | 6.05× | 8.81× | 163.73× | yes |
+| `qqq_pullback_1h` | 64 | 3.06× | 5.26× | 15.42× | yes |
+| `gld_pullback_1h` | 54 | 4.05× | 6.03× | 6.50× | yes |
+| `slv_trend_1h` | 35 | 2.03× | 2.99× | 3.10× | yes |
+| `uso_trend_1h` | 32 | 2.17× | 3.82× | 7.75× | yes |
+| `gld_pullback_1d` | 8 | 1.41× | 1.52× | 1.52× | yes |
+| `gdx_pullback_1d` | 7 | 0.71× | 0.76× | 0.76× | yes |
+| `iaum_pullback_1d` | 6 | 1.47× | 1.55× | 1.55× | **NO** |
+| `slv_pullback_1d` | 5 | 0.75× | 0.81× | 0.81× | yes |
+| `tlt_pullback_1d` | 5 | 2.72× | 7.10× | 7.10× | yes |
+| `iwm_trend_long_1d` | 3 | 1.64× | 2.40× | 2.40× | yes |
+| `qqq_trend_long_1d` | 2 | 1.08× | 1.08× | 1.08× | yes |
+| `ief_pullback_1d` | 2 | 5.46× | 5.76× | 5.76× | yes |
+| `spy_trend_long_1d` | 1 | 3.39× | 3.39× | 3.39× | yes |
+| `splg_trend_long_1d` | **0** | — | — | — | **NO** |
+
+Only **2 of 16** legs (`gdx_pullback_1d`, `slv_pullback_1d`) sit under 1.0× at the median. The
+demand is concentrated in the **1h** legs, which are also the high-n ones.
+
+### 7.5 Three things I checked that did NOT become findings
+
+- **`splg_trend_long_1d` produced 0 packages in 74 days**, and it *is* `enabled: true`,
+  `execution: live`. But its whole family is near-silent over the same window — `spy_trend_long_1d`
+  **1**, `qqq_trend_long_1d` **2**, `iwm_trend_long_1d` **3**. At n = 0 against siblings at 1–3,
+  **this cannot distinguish "broken" from "low-frequency"**, so it is recorded and not filed.
+- **The 163.73× outlier is real, not a parse error**: `spy_pullback_1h` on SPY, `entry 768.3600`,
+  `sl 768.5946` — a **23-cent stop, 0.0305 % of entry**, and `status: closed` rather than
+  `rejected`. Median stop distance across the three 1h legs (n=209) is **0.792 %** of entry, so this
+  is ~26× tighter than typical. Several other tight-stop packages *were* `rejected`. **It is named
+  here so it does not drive a ceiling** — the 11.06× median does that on its own.
+- **This is DEMAND, not fills.** Whole-share flooring at $200 is a hard non-linearity that floors
+  small orders to zero, so realised multiples would be lower and lumpier. The demand figure is the
+  right one for choosing a ceiling on a **funded** account; it is not a claim about what this
+  account would actually have filled.
