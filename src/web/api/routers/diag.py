@@ -290,6 +290,7 @@ _PACKAGE_LEG_COVERAGE_STATE = (
     runtime_logs_dir() / "package_leg_coverage_state.json"
 )
 _EXIT_INTERVAL_SOAK_LOG = runtime_logs_dir() / "exit_interval_soak.jsonl"
+_CASH_SETTLEMENT_SOAK_LOG = runtime_logs_dir() / "cash_settlement_soak.jsonl"
 
 # CADENCE + ALERT-LATCH STATE (2026-08-25,
 # BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE).
@@ -436,6 +437,23 @@ _LOG_FILES: dict[str, Path] = {
     # breach alerts once per PROCESS (max_interval_ms resets on restart, so a
     # global latch would go silent after the first breach ever) -- which is
     # only checkable if the latch is readable.
+    # T+1 CASH-SETTLEMENT soak (BL-20260823-ALPACA-CASH-ACCOUNT-SETTLEMENT-
+    # UNMODELLED). One row per order-path evaluation on an alpaca account:
+    # what the settled basis WOULD be, and whether it actually bound. Added in
+    # the SAME change that ships the writer -- a log that gates an order path
+    # and cannot be inspected is the exit_loop_health #8778 shape, which this
+    # file already records THREE recurrences of.
+    #   * `would_have_reduced_usd` is the review figure: how much the gate
+    #     would have taken off the sizer's basis. That is the number to read
+    #     before flipping ALPACA_CASH_SETTLEMENT_MODE to `apply`.
+    #   * Read `state` beside it, and never the money alone: `measured` and
+    #     `journal_unreadable` can carry the SAME basis while meaning opposite
+    #     things -- the second means we could not establish what is unsettled,
+    #     which is NOT evidence that nothing is.
+    #   * `applied` is the EFFECTIVE outcome; `global_mode` + `apply_scope` say
+    #     why it differs from what was asked, so a held-back row can never be
+    #     mistaken for an applied one.
+    "cash_settlement_soak": _CASH_SETTLEMENT_SOAK_LOG,
     "exit_loop_health_alert_state": _EXIT_LOOP_HEALTH_ALERT_STATE,
     # Daily-cap alert latch.
     "daily_cap_alert_state": _DAILY_CAP_ALERT_STATE,

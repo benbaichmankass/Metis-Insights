@@ -7,8 +7,6 @@ import pytest
 
 from src.runtime.cash_settlement import (
     STATES,
-    SettlementBasis,
-    UnsettledTotal,
     conservative_settlement_date,
     settled_basis,
     settlement_date,
@@ -248,3 +246,141 @@ def test_basis_clamps_at_zero_rather_than_going_negative():
     )
     assert got.basis_usd == 0.0
     assert got.unsettled_usd == 500.0, "the raw evidence is still reported"
+
+
+# --------------------------------------------------------------------------
+# The I/O half: readers, the gate, and the orchestrator's failure states.
+# --------------------------------------------------------------------------
+import json
+import sqlite3
+
+from src.runtime.cash_settlement import (
+    _parse_closed_at,
+    may_apply,
+    recent_sales,
+    record_observation,
+    resolve_for_account,
+    settlement_mode,
+)
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("2026-08-28T14:00:00Z", date(2026, 8, 28)),
+        ("2026-08-28T14:00:00+00:00", date(2026, 8, 28)),
+        ("1788012000000", date(2026, 8, 29)),  # epoch MS, the reconciler's form
+        ("", None),
+        (None, None),
+        ("not-a-date", None),
+    ],
+)
+def test_closed_at_parses_both_forms_and_refuses_the_rest(raw, expected):
+    """The epoch-ms form is the one that produced the '0 closed trades' bug."""
+    assert _parse_closed_at(raw) == expected
+
+
+def _make_db(tmp_path, rows):
+    path = tmp_path / "j.db"
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "CREATE TABLE trades (account_id TEXT, status TEXT, exit_price REAL,"
+        " position_size REAL, closed_at TEXT)"
+    )
+    conn.executemany("INSERT INTO trades VALUES (?,?,?,?,?)", rows)
+    conn.commit()
+    conn.close()
+    return str(path)
+
+
+def test_recent_sales_returns_None_on_an_unreadable_db_not_empty(tmp_path):
+    """`None` and `[]` mean opposite things and must not be conflated."""
+    assert recent_sales("alpaca_live", db_path=str(tmp_path / "nope.db")) is None
+
+
+def test_recent_sales_reads_proceeds(tmp_path):
+    db = _make_db(
+        tmp_path,
+        [("alpaca_live", "closed", 10.0, 5.0, "2026-08-31T12:00:00Z"),
+         ("other_acct", "closed", 99.0, 9.0, "2026-08-31T12:00:00Z")],
+    )
+    got = recent_sales("alpaca_live", now=NOW, db_path=db)
+    assert got == [(date(2026, 8, 31), 50.0)], "scoped to the account, price x qty"
+
+
+def test_orchestrator_reports_journal_unreadable_when_a_row_cannot_be_dated(tmp_path):
+    """An undateable row must NOT be treated as old enough to have settled."""
+
+    class _Client:
+        def account_status(self):
+            return {"capacity": {"cash": 1000.0, "buying_power": 1000.0}}
+
+        def trading_days(self, start, end):
+            return [date(2026, 8, 31), date(2026, 9, 1)]
+
+    db = _make_db(
+        tmp_path, [("alpaca_live", "closed", 10.0, 5.0, "garbage-timestamp")]
+    )
+    import src.runtime.cash_settlement as cs
+
+    orig = cs.recent_sales
+    cs.recent_sales = lambda acct, **kw: orig(acct, db_path=db, **{k: v for k, v in kw.items() if k != "db_path"})
+    try:
+        got = resolve_for_account("alpaca_live", _Client(), now=NOW)
+    finally:
+        cs.recent_sales = orig
+    assert got.state == "journal_unreadable"
+
+
+def test_orchestrator_survives_a_broker_that_raises():
+    class _Broken:
+        def account_status(self):
+            raise RuntimeError("gateway down")
+
+    got = resolve_for_account("alpaca_live", _Broken(), now=NOW)
+    assert got.state in STATES
+    assert got.basis_usd is None, "no venue figure -> nothing to spend against"
+
+
+def test_apply_binds_only_an_allowlisted_account(monkeypatch):
+    monkeypatch.setenv("ALPACA_CASH_SETTLEMENT_MODE", "apply")
+    monkeypatch.setenv("ALPACA_CASH_SETTLEMENT_ACCOUNTS", "")
+    assert may_apply("alpaca_live") is False, "empty allowlist means NONE, not ALL"
+    monkeypatch.setenv("ALPACA_CASH_SETTLEMENT_ACCOUNTS", "alpaca_live")
+    assert may_apply("alpaca_live") is True
+    assert may_apply("alpaca_paper") is False
+    assert may_apply(None) is False
+
+
+@pytest.mark.parametrize("raw, expected", [("off", "off"), ("apply", "apply"),
+                                           ("APPLY", "apply"), ("typo", "annotate"),
+                                           ("", "annotate")])
+def test_mode_falls_back_to_annotate_never_to_off_or_apply(monkeypatch, raw, expected):
+    monkeypatch.setenv("ALPACA_CASH_SETTLEMENT_MODE", raw)
+    assert settlement_mode() == expected
+
+
+def test_soak_row_distinguishes_held_back_from_applied(tmp_path, monkeypatch):
+    monkeypatch.setenv("ALPACA_CASH_SETTLEMENT_MODE", "apply")
+    monkeypatch.setenv("ALPACA_CASH_SETTLEMENT_ACCOUNTS", "")  # not allowlisted
+    import src.runtime.cash_settlement as cs
+
+    monkeypatch.setattr(cs, "runtime_logs_dir", lambda: tmp_path, raising=False)
+    monkeypatch.setattr(
+        "src.utils.paths.runtime_logs_dir", lambda: tmp_path, raising=False
+    )
+    basis = settled_basis(
+        venue_cash=1000.0, venue_buying_power=1000.0, unsettled_usd=300.0
+    )
+    record_observation(
+        account_id="alpaca_live", basis=basis, available_usd=1000.0, applied=False
+    )
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "cash_settlement_soak.jsonl").read_text().splitlines()
+    ]
+    assert len(rows) == 1
+    assert rows[0]["applied"] is False
+    assert rows[0]["apply_scope"] == "not_allowlisted"
+    assert rows[0]["global_mode"] == "apply", "what was ASKED, beside what happened"
+    assert rows[0]["would_have_reduced_usd"] == 300.0

@@ -28,7 +28,8 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Any, Dict, Optional
+from datetime import date
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -303,6 +304,60 @@ class AlpacaClient:
             # over. Only an ABSENT or unparseable key should fall through.
             return bp
         return None
+
+    def trading_days(self, start: str, end: str) -> Optional[List[date]]:
+        """The venue's OWN trading calendar between *start* and *end* (YYYY-MM-DD).
+
+        ``None`` on any failure — **we could not look**, which the caller must
+        handle as such. It must NEVER be conflated with "there are no trading
+        days", because the two demand opposite handling: an empty calendar
+        would settle nothing, while an unreadable one must make the caller fall
+        back to a conservative hold.
+
+        WHY THE VENUE'S CALENDAR AND NOT OURS. T+1 settlement is counted in
+        TRADING days, and ``src/runtime/market_hours.py`` states in its own
+        docstring that it models no US holiday calendar and no half-days — "a
+        holiday reads 'open' … revisit before any equities strategy goes
+        paper-live". Counting T+1 with that module would credit sale proceeds
+        as spendable a day EARLY across a holiday, which is precisely the
+        good-faith violation the settlement gate exists to prevent. Asking
+        Alpaca removes the calendar from our maintenance surface entirely and
+        uses the same authority that will actually settle the trade.
+
+        Read-only; places no order. Callers cache — the calendar for a past
+        window never changes, so this is at most one request per day, not one
+        per order (an unbounded per-order broker call on the sizing path is the
+        shape of both June 2026 wedges).
+        """
+        try:
+            self._require_creds("trading_days")
+        except MissingCredentialsError as exc:
+            logger.warning("%s", exc)
+            return None
+        env = self._request("GET", f"/v2/calendar?start={start}&end={end}")
+        if env.get("retCode") != 0:
+            logger.warning("alpaca trading_days: %s", env.get("retMsg"))
+            return None
+        rows = env.get("result")
+        if not isinstance(rows, list):
+            # A non-list payload is an unreadable answer, not an empty calendar.
+            logger.warning("alpaca trading_days: unexpected payload type")
+            return None
+        out: List[date] = []
+        for row in rows:
+            raw = (row or {}).get("date") if isinstance(row, dict) else None
+            if not raw:
+                continue
+            try:
+                out.append(date.fromisoformat(str(raw)[:10]))
+            except ValueError:
+                continue
+        if rows and not out:
+            # Rows came back but none parsed — we cannot claim to have read the
+            # calendar, and returning [] here would read as "no trading days".
+            logger.warning("alpaca trading_days: %d row(s), none parseable", len(rows))
+            return None
+        return sorted(out)
 
     def account_status(self) -> Optional[Dict[str, Any]]:
         """Broker account authorization/health flags, or ``None`` on read failure.

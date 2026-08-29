@@ -271,3 +271,300 @@ def settled_basis(
             + ("" if used_calendar else "; unsettled used the conservative calendar-day rule")
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# I/O half — kept below and separate from the pure decision above, so the
+# policy stays arguable in tests without a DB or a broker.
+# ---------------------------------------------------------------------------
+
+def _parse_closed_at(raw: object) -> Optional[date]:
+    """``trades.closed_at`` as a UTC date, or ``None`` if it cannot be dated.
+
+    The column holds BOTH ISO strings and raw epoch-ms strings — the
+    reconciler-filled close path writes the latter, which is the same trap that
+    produced the "0 closed trades in 24h while lifetime is non-zero" bug on
+    ``/performance``. A row we cannot date is returned as ``None`` and counted
+    by the caller as ungradeable, never silently dropped.
+    """
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        try:
+            ms = int(text)
+        except ValueError:
+            return None
+        # Epoch-ms vs epoch-s: anything past ~2001 in ms is > 1e12.
+        seconds = ms / 1000.0 if ms > 1_000_000_000_000 else float(ms)
+        try:
+            return datetime.fromtimestamp(seconds, tz=timezone.utc).date()
+        except (OverflowError, OSError, ValueError):
+            return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(
+            timezone.utc
+        ).date()
+    except ValueError:
+        return None
+
+
+def recent_sales(
+    account_id: str,
+    *,
+    lookback_days: int = 10,
+    now: Optional[datetime] = None,
+    db_path: Optional[str] = None,
+) -> Optional[list[tuple[Optional[date], float]]]:
+    """Closed trades for *account_id* whose proceeds may still be unsettled.
+
+    Returns ``None`` on ANY read failure — we could not look, which is not the
+    same as "this account has sold nothing" and must not be rounded to it.
+
+    A row that cannot be dated yields ``(None, proceeds)``; the settlement pass
+    treats an undateable row as ungradeable rather than assuming it is old
+    enough to have settled, which would be the permissive direction.
+    """
+    import sqlite3
+
+    from src.utils.paths import trade_journal_db_path
+
+    now = now or datetime.now(timezone.utc)
+    path = db_path or str(trade_journal_db_path())
+    cutoff = (now - timedelta(days=max(int(lookback_days), 1))).date().isoformat()
+    try:
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=5.0)
+    except sqlite3.Error:
+        return None
+    try:
+        cur = conn.execute(
+            """
+            SELECT closed_at, exit_price, position_size
+              FROM trades
+             WHERE account_id = ?
+               AND status = 'closed'
+               AND exit_price IS NOT NULL
+               AND position_size IS NOT NULL
+               AND closed_at IS NOT NULL
+            """,
+            (account_id,),
+        )
+        rows = cur.fetchall()
+    except sqlite3.Error:
+        return None
+    finally:
+        try:
+            conn.close()
+        except sqlite3.Error:
+            pass
+
+    out: list[tuple[Optional[date], float]] = []
+    for closed_at, exit_price, qty in rows:
+        day = _parse_closed_at(closed_at)
+        if day is not None and day.isoformat() < cutoff:
+            continue  # long settled; outside the window we care about
+        try:
+            proceeds = float(exit_price) * float(qty)
+        except (TypeError, ValueError):
+            out.append((day, float("nan")))  # ungradeable, and stays visible
+            continue
+        out.append((day, proceeds))
+    return out
+
+
+def settlement_mode() -> str:
+    """``off`` / ``annotate`` (default) / ``apply``.
+
+    A ``*_MODE`` knob, not a default-off ``*_ENABLED`` gate (Prime Directive).
+    An unparseable value falls back to ``annotate`` — a typo must not silently
+    switch the observation off, and certainly must not switch an order-path
+    change on.
+    """
+    import os
+
+    raw = (os.environ.get("ALPACA_CASH_SETTLEMENT_MODE") or "").strip().lower()
+    return raw if raw in ("off", "annotate", "apply") else "annotate"
+
+
+def settlement_accounts() -> frozenset[str]:
+    """Accounts the ``apply`` mode may actually bind.
+
+    ⚠️ AN EMPTY ALLOWLIST MEANS **NONE**, deliberately the OPPOSITE of
+    ``CONVICTION_SIZING_ACCOUNTS`` / ``NETTING_ATTRIBUTION_ACCOUNTS``, which
+    read empty as ALL — a polarity this repo's own CLAUDE.md calls "not a safe
+    default, it is the widest one". Those widen a size and a DB write; this one
+    CONSTRAINS a live order's size on a real-money account, so an unset
+    variable must not arm it everywhere. It copies
+    ``PROTECTION_REASSERT_ACCOUNTS``'s polarity on purpose. Do not "harmonise".
+    """
+    import os
+
+    raw = os.environ.get("ALPACA_CASH_SETTLEMENT_ACCOUNTS") or ""
+    return frozenset(p.strip() for p in raw.split(",") if p.strip())
+
+
+def may_apply(account_id: Optional[str]) -> bool:
+    """Whether ``apply`` may bind this account. An unnamed account never can."""
+    if not account_id:
+        return False
+    return settlement_mode() == "apply" and account_id in settlement_accounts()
+
+
+def resolve_for_account(
+    account_id: str,
+    client: object,
+    *,
+    now: Optional[datetime] = None,
+) -> SettlementBasis:
+    """Tie the readers to the pure decision for one account.
+
+    COST, stated because an unbounded broker call on an order path is the shape
+    of both June 2026 wedges: this makes at most TWO broker reads, and only
+    when an order is actually being placed for this account — it is NOT on the
+    tick loop. ``/v2/account`` must be fresh (cash and buying power move with
+    every fill, so caching them would defeat the gate), while ``/v2/calendar``
+    is cached for the process because a past window's trading days never
+    change.
+
+    Every failure resolves to a NAMED state, never to a permissive number.
+    """
+    now = now or datetime.now(timezone.utc)
+
+    venue_cash: Optional[float] = None
+    venue_bp: Optional[float] = None
+    status = None
+    try:
+        status = client.account_status()  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001 - a broker read must not break dispatch
+        status = None
+    if isinstance(status, dict):
+        cap = status.get("capacity")
+        if isinstance(cap, dict):
+            for key, target in (("cash", "cash"), ("buying_power", "bp")):
+                raw = cap.get(key)
+                if raw is None:
+                    continue
+                try:
+                    value = float(raw)
+                except (TypeError, ValueError):
+                    continue
+                if target == "cash":
+                    venue_cash = value
+                else:
+                    venue_bp = value
+
+    sales = recent_sales(account_id, now=now)
+    if sales is None:
+        return settled_basis(
+            venue_cash=venue_cash,
+            venue_buying_power=venue_bp,
+            unsettled_usd=None,
+        )
+
+    trading_days = _cached_trading_days(client, now)
+    graded: list[tuple[date, float]] = []
+    undateable = 0
+    for day, proceeds in sales:
+        if day is None:
+            undateable += 1
+            continue
+        graded.append((day, proceeds))
+
+    tally = unsettled_from_sales(graded, now=now, trading_days=trading_days)
+    if undateable or not tally.is_complete:
+        # We hold SOME of the picture. Reporting the partial sum as if it were
+        # the whole would let the sizer spend against rows we could not grade.
+        return settled_basis(
+            venue_cash=venue_cash,
+            venue_buying_power=venue_bp,
+            unsettled_usd=None,
+        )
+    return settled_basis(
+        venue_cash=venue_cash,
+        venue_buying_power=venue_bp,
+        unsettled_usd=tally.total_usd,
+        used_calendar=tally.used_calendar,
+    )
+
+
+_CALENDAR_CACHE: dict[str, Optional[list[date]]] = {}
+
+
+def _cached_trading_days(client: object, now: datetime) -> Optional[list[date]]:
+    """Trading days around *now*, cached per process per window.
+
+    A FAILED read is cached too — under a distinct key — so a wedged endpoint
+    is not re-probed on every order, while a later process still retries. The
+    cached value is the raw answer including ``None``; a ``None`` here means
+    "we could not look", and the caller's conservative fallback handles it.
+    """
+    start = (now - timedelta(days=14)).date().isoformat()
+    end = (now + timedelta(days=14)).date().isoformat()
+    key = f"{start}:{end}"
+    if key in _CALENDAR_CACHE:
+        return _CALENDAR_CACHE[key]
+    days: Optional[list[date]] = None
+    getter = getattr(client, "trading_days", None)
+    if callable(getter):
+        try:
+            days = getter(start, end)
+        except Exception:  # noqa: BLE001
+            days = None
+    _CALENDAR_CACHE[key] = days
+    return days
+
+
+def record_observation(
+    *,
+    account_id: str,
+    basis: SettlementBasis,
+    available_usd: Optional[float],
+    applied: bool,
+) -> None:
+    """Append one soak row. Best-effort; never raises into dispatch.
+
+    The row carries the EFFECTIVE outcome (``applied``) beside the global
+    ``mode`` and an ``apply_scope``, so a held-back row can never read as an
+    applied one — the distinction ``NETTING_ATTRIBUTION_MODE`` had to be
+    corrected to make. ``would_have_reduced_usd`` is the review figure: how
+    much the gate WOULD have taken off the sizer's basis, which is what an
+    operator needs before flipping to ``apply``.
+    """
+    import json
+    import os
+
+    try:
+        from src.utils.paths import runtime_logs_dir
+
+        mode = settlement_mode()
+        allow = settlement_accounts()
+        scope = (
+            "allowlisted"
+            if account_id in allow
+            else ("not_allowlisted" if mode == "apply" else "not_apply")
+        )
+        would_reduce = None
+        if basis.basis_usd is not None and available_usd is not None:
+            would_reduce = round(max(available_usd - basis.basis_usd, 0.0), 4)
+        row = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "account_id": account_id,
+            "state": basis.state,
+            "global_mode": mode,
+            "apply_scope": scope,
+            "applied": bool(applied),
+            "basis_usd": basis.basis_usd,
+            "unsettled_usd": basis.unsettled_usd,
+            "venue_cash": basis.venue_cash,
+            "venue_buying_power": basis.venue_buying_power,
+            "available_usd_after": available_usd,
+            "would_have_reduced_usd": would_reduce,
+            "detail": basis.detail,
+        }
+        path = os.path.join(str(runtime_logs_dir()), "cash_settlement_soak.jsonl")
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+    except Exception:  # noqa: BLE001 - observability must never break dispatch
+        return
