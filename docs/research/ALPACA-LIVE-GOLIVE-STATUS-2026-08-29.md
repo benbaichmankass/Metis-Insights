@@ -157,8 +157,34 @@ lower and lumpier than linear — which is the same finding as
 `BL-20260826-ALPACA-LIVE-AT-200-USD-CANNOT-SIZE-ITS-LARGEST-SYMBOLS`, not a contradiction of it.
 The linear argument is the right one for choosing a ceiling on a *funded* account, where flooring
 stops binding. (ii) The mirror's roster differs by 2 of 16 legs, so aggregate concurrency is not
-identical. (iii) I did **not** re-measure the live book's multiple — it cannot be measured while
-the account is `dry_run` and flat, which is the original chicken-and-egg.
+identical. (iii) I did **not** re-measure the live book's multiple.
+
+⚠️ **CORRECTION, same session — an earlier draft of (iii) said the live multiple *"cannot be
+measured while the account is dry_run and flat"*. That is too strong, and the
+`impossibility-claim-guard` caught it.** What cannot be measured is the **realised** multiple —
+the book genuinely never held positions, so `/api/bot/exposure/soak` reads 0.0 on all 91 rows
+*correctly* (checked: `src/units/accounts/risk.py` — `observe_exposure` takes notional from open
+journal rows, of which this account has none; corroborated by the go-live row's own 2026-08-25 soak
+reading). But the **demanded**
+multiple is a different quantity and it **is** computable *without the account ever trading*:
+
+> `order_packages` persists `entry`, `sl` and `tp` per decision (verified in
+> `src/web/api/routers/order_packages.py:191`), and the multiple is
+> `risk_pct × entry / |entry − sl|` — the sizer's own formula, with equity cancelled. Every
+> refused `alpaca_live` order package therefore already carries everything needed to compute
+> what it *would* have demanded, at any candidate `risk_pct`.
+
+**This is the better basis, and it removes the chicken-and-egg rather than working around it.**
+It is `alpaca_live`'s own roster at its own `risk_pct`, instead of a different book's roster at a
+different one — so STEP 1 does not actually need the mirrors at all. Checked for existing tooling
+before claiming it is new: `docs/research/RESEARCH-CAPABILITY-INDEX.md` has no exposure/notional-demand
+entry, and `ls scripts/research/ | grep -iE 'exposure|notional|sizing'` returns nothing.
+**Not built here** — it is a concrete, cheap next step rather than a finished measurement, and
+`BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL` already reports a
+`12.37×` figure of this shape, so the arithmetic has been done once by hand and wants a tool.
+⚠️ One known join problem to solve first: `/api/bot/order-packages` rows **carry no `account`**
+(CLAUDE.md states this), so attributing packages to `alpaca_live` needs a route the refused-order
+path actually supports — that is the part to establish before quoting any distribution.
 
 **This collapses into the § 5 plan rather than adding to it:** row 2 (declare the bound) and row 3
 (reconcile `risk_pct`) are one decision, because the only available basis for row 2 is measured at
