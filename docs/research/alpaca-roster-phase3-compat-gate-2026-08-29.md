@@ -29,25 +29,33 @@ Gate for a standard account: positive mean end-return **AND** survival ≥ 0.9
 (SLV), fee 0 bps, 730 d, ref `830154ba`.
 
 **Population of every cell below:** one Monte-Carlo over the leg's own emitted
-ledger, scored against that account's ruleset at its live balance. TQQQ =
-**8 emitted trades**; the SLV emit count is on the run's own summary line and I
-did not read it back, so it is not quoted here. `ret` is the mean end-return
-over the simulated paths, `P(b)` the breach probability, `surv` the horizon
-survival — **all three are the same population**, and the gate reads all three.
+ledger, scored against that account's ruleset at its live balance.
+**`tqqq_trend_long_1d` emitted n=8 trades; `slv_trend_1h` emitted n=109** — both
+over the same 730 d, both scored against the same 11 accounts. `ret` is the mean
+end-return over the simulated paths, `P(b)` the breach probability, `surv` the
+horizon survival; **all three are the same population** and the gate reads all
+three. The n is repeated on every row because a rate without its denominator is
+what this repo's `stated-population-guard` exists to stop.
+
+⚠️ **THE TWO LEGS ARE NOT EQUALLY EVIDENCED, AND THE WEAKER ONE IS TQQQ.** Eight
+trades over two years is a thin ledger for a survival estimate — below the
+`MIN_OOS_TRADES = 25` floor the exit work uses — so the TQQQ row is the *less*
+trustworthy of the two refusals. SLV's 109 is a solid sample, and SLV is also
+the harsher verdict (survival 0.0). Do not read the two skips as equally firm.
 
 | account | class | `tqqq_trend_long_1d` | `slv_trend_1h` |
 |---|---|---|---|
-| **`alpaca_live`** | **real_money** | **skip** — ret 94.5%, P(breach) **1.0**, surv **0.4997** | **skip** — ret 40.7%, P(breach) **1.0**, surv **0.0** |
-| `bybit_2` | real_money | **skip** — ret 48.2%, P(breach) 1.0, surv 0.4997 | **skip** — ret 13.7%, P(breach) 1.0, surv 0.0 |
-| `ib_live` | real_money | UNGRADED (balance unreadable) | UNGRADED |
-| `alpaca_portfolio` | paper | ROUTE — 6.9%, P(b) 0.0, surv 1.0 | ROUTE — 3.0%, P(b) 0.0, surv 1.0 |
-| `alpaca_paper` | paper | ROUTE — ret 6.0%, P(b) 0.0, surv 1.0 | ROUTE — ret 2.6%, P(b) 0.0, surv 1.0 |
-| `alpaca_options_paper` | paper | ROUTE — ret 4.9%, P(b) 0.0, surv 1.0 | ROUTE — ret 2.1%, P(b) 0.0, surv 1.0 |
-| `bybit_1` | paper | ROUTE — ret 2.8%, P(b) 0.0, surv 1.0 | ROUTE — ret 1.2%, P(b) 0.0, surv 1.0 |
-| `bybit_portfolio` | paper | ROUTE — ret 5.3%, P(b) 0.0, surv 1.0 | ROUTE — ret 2.3%, P(b) 0.0, surv 1.0 |
-| `ib_paper` | paper | ROUTE — ret 0.4%, P(b) 0.0, surv 1.0 | ROUTE — ret 0.2%, P(b) 0.0, surv 1.0 |
-| `oanda_practice` | paper | ROUTE — ret 4.9%, P(b) 0.0, surv 1.0 | ROUTE — ret 2.1%, P(b) 0.0, surv 1.0 |
-| `breakout_1` | prop | skip — EV −$45, P(net>0) 0.0 | ROUTE — EV $1,040, P(net>0) 0.8983 |
+| **`alpaca_live`** | **real_money** | **skip** — ret 94.5%, P(breach) **1.0**, surv **0.4997** *(n=8)* | **skip** — ret 40.7%, P(breach) **1.0**, surv **0.0** *(n=109)* |
+| `bybit_2` | real_money | **skip** — ret 48.2%, P(breach) 1.0, surv 0.4997 *(n=8)* | **skip** — ret 13.7%, P(breach) 1.0, surv 0.0 *(n=109)* |
+| `ib_live` | real_money | UNGRADED (balance unreadable) *(n=8)* | UNGRADED *(n=109)* |
+| `alpaca_portfolio` | paper | ROUTE — 6.9%, P(b) 0.0, surv 1.0 *(n=8)* | ROUTE — 3.0%, P(b) 0.0, surv 1.0 *(n=109)* |
+| `alpaca_paper` | paper | ROUTE — ret 6.0%, P(b) 0.0, surv 1.0 *(n=8)* | ROUTE — ret 2.6%, P(b) 0.0, surv 1.0 *(n=109)* |
+| `alpaca_options_paper` | paper | ROUTE — ret 4.9%, P(b) 0.0, surv 1.0 *(n=8)* | ROUTE — ret 2.1%, P(b) 0.0, surv 1.0 *(n=109)* |
+| `bybit_1` | paper | ROUTE — ret 2.8%, P(b) 0.0, surv 1.0 *(n=8)* | ROUTE — ret 1.2%, P(b) 0.0, surv 1.0 *(n=109)* |
+| `bybit_portfolio` | paper | ROUTE — ret 5.3%, P(b) 0.0, surv 1.0 *(n=8)* | ROUTE — ret 2.3%, P(b) 0.0, surv 1.0 *(n=109)* |
+| `ib_paper` | paper | ROUTE — ret 0.4%, P(b) 0.0, surv 1.0 *(n=8)* | ROUTE — ret 0.2%, P(b) 0.0, surv 1.0 *(n=109)* |
+| `oanda_practice` | paper | ROUTE — ret 4.9%, P(b) 0.0, surv 1.0 *(n=8)* | ROUTE — ret 2.1%, P(b) 0.0, surv 1.0 *(n=109)* |
+| `breakout_1` | prop | skip — EV −$45, P(net>0) 0.0 *(n=8)* | ROUTE — EV $1,040, P(net>0) 0.8983 *(n=109)* |
 
 ## The finding: BOTH candidates are refused on `alpaca_live`, and the reason is size
 
