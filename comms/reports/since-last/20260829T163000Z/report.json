@@ -266,6 +266,9 @@
       },
       {
         "note": "BROKER TRUTH IS 47 DAYS STALE AND SAYS WORSE THAN THE JOURNAL. comms/broker_truth_ledger.json carries one record: bybit_2 realized -$262.52 as of 2026-07-13, ~8x the journal's figure. It is populated BY HAND from a venue export, so the absence of records for every other account means nobody has reconciled them - NOT that they reconcile. /performance journalTrust correctly reports accountsKnownDivergent: ['bybit_2']."
+      },
+      {
+        "note": "A FOURTH CORRECTION TO MY OWN OUTPUT, found after the report was first rendered and fixed in the same run. 513 timestamps I wrote into docs/claude/health-review-backlog.json were dated in the FUTURE \u2014 the triage batches carry `at` / `resolved_at` values from 17:15Z to 18:20Z, while `date -u` at the time of the check read 17:17Z and the commits that introduced them are stamped 16:47:02 through 17:06:59. So the record asserted observations at times that had not happened, on up to 455 rows. The performance and ml backlogs are clean (0 future stamps), which is the positive control that says this was a bad clock in one pass rather than a systematic habit. FIXED, not annotated: each fake value was mapped back to the AUTHOR TIME of the specific commit that introduced it, derived empirically by diffing each triage commit against its parent rather than guessed \u2014 17:15->16:47:02 (58b81b7), 17:25 and 17:35->16:53:04 (ff37907), 17:45->16:55:45 (d691542), 17:55->16:59:08 (259fc50), 18:05->17:02:42 (702176e), 18:15 and 18:20->17:06:59 (f8fe620). Every stamp is now verifiable against git rather than against my assertion. The batch shares one value per commit, which is honest: the rows in a batch were written together and I cannot reconstruct per-row times, so a shared true timestamp is the most precision the evidence supports. Recorded here because a triage note's whole value is that it says WHEN a row was last re-validated, and a future date makes that claim unfalsifiable."
       }
     ],
     "pnl_by_class": {
@@ -2962,10 +2965,10 @@
     },
     "backlog_summary": {
       "health": {
-        "total": 1006,
-        "open": 456,
+        "total": 1007,
+        "open": 457,
         "resolved": 550,
-        "drained": 50
+        "drained": 55
       },
       "performance": {
         "total": 109,
@@ -2979,7 +2982,7 @@
         "resolved": 83,
         "drained": 3
       },
-      "_computed_by": "scripts/reports/backlog_counts.py --since 2026-08-25T09:25:00Z (run AFTER the triage)",
+      "_computed_by": "scripts/reports/backlog_counts.py --since 2026-08-25T09:25:00Z, RE-RUN at 2026-08-29T17:18Z after merging origin/main into the review branch. The health figures moved 1006/456/50 -> 1007/457/55: main's #10420 added BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES mid-run (+1 total, +1 open), and the earlier count was taken before this run's last five resolutions landed.",
       "_note": "`open` here excludes the terminal statuses invalid/wont_fix/superseded (10 health rows); my triage filter counted those as open, which is why it covered 483 health rows against this 456."
     },
     "tier3_proposals_pending": [
@@ -3521,10 +3524,10 @@
         "verdict": "No declared-live, non-shelved account is down. The three unreachable are the expected shelved/API-less set. IB clients 497/498/9102 all connected, account_data_ready true, no breaker open."
       },
       "backlog_drive": {
-        "summary": "ALL 549 OPEN ROWS TRIAGED \u2014 count_untriaged is 0 in every domain. My first render of this report honestly declared this gate UNMET; the operator asked for the whole review, so the triage was then done in full rather than sampled. Dispositions: 19 RESOLVED on live evidence, 43 SNOOZED each with a named trigger, 487 KEPT_OPEN each with a named blocker. Every row carries a dated note recording what was re-validated, not a stamp. Writes went through backlog_append.detect_format for a byte-exact round-trip (verified git-clean on a no-op write first) so no diff-scoped guard's grandfathering was collapsed.",
+        "summary": "ALL 550 OPEN ROWS TRIAGED \u2014 count_untriaged is 0 in every domain. My first render of this report honestly declared this gate UNMET; the operator asked for the whole review, so the triage was then done in full rather than sampled. Dispositions: 19 RESOLVED on live evidence, 43 SNOOZED each with a named trigger, 487 KEPT_OPEN each with a named blocker. Every row carries a dated note recording what was re-validated, not a stamp. Writes went through backlog_append.detect_format for a byte-exact round-trip (verified git-clean on a no-op write first) so no diff-scoped guard's grandfathering was collapsed.",
         "health": {
-          "open_at_start": 483,
-          "triaged": 483,
+          "open_at_start": 484,
+          "triaged": 484,
           "count_untriaged": 0,
           "drained": [
             "BL-20260730-PR-CI-NOT-ATTACHING",
@@ -3568,7 +3571,8 @@
               "id": "<60 rows> unscheduled engineering",
               "reason": "awaiting engineering time: unblocked, cheap, and simply not yet built \u2014 guard fixes, collapsed-state registrations, doc corrections and single-owner consolidations."
             }
-          ]
+          ],
+          "mid_run_arrival": "484, not 483: BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES arrived on main (#10420) during this review's merge and was read and triaged here rather than stepped over. count_untriaged is 0 against the post-merge file, not against the file as it stood when the triage began."
         },
         "performance": {
           "open_at_start": 44,
