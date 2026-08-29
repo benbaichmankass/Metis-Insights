@@ -98,7 +98,8 @@
         "C": 67,
         "D": 1
       },
-      "reading": "67 of 89 are C, but that is largely 'not enough recorded to grade', not a verdict: entry_quality is `unknown` for every pairs leg (no confidence recorded on that path) and risk_management is `unknown` for ALL 89. The single D (ict_scalp_sol_15m, conf 0.28, entry=should_skip) then returned +8.96R - the grade scores the DECISION, not the outcome."
+      "reading": "67 of 89 are C, but that is largely 'not enough recorded to grade', not a verdict: entry_quality is `unknown` for every pairs leg (no confidence recorded on that path) and risk_management is `unknown` for ALL 89. The single D (ict_scalp_sol_15m, conf 0.28, entry=should_skip) then returned +8.96R - the grade scores the DECISION, not the outcome.",
+      "grader_defect_caveat": "\u26a0\ufe0f EVERY GRADE IN THIS REPORT CARRIES A KNOWN DEFECT, confirmed in my OWN output today. BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT says the grader labels exit_quality from the R VALUE rather than the exit MECHANISM. My 89 fresh grades reproduce it verbatim: `exit=tp_appropriate(reconciler_filled,1.03R)`, `exit=tp_appropriate(netting_attributed,12.81R)`, and \u2014 most clearly \u2014 `exit=tp_appropriate(sl,0.76R)`, which grades a STOP-LOSS exit as an appropriate TAKE-PROFIT because the R came out positive. So the exit_quality axis of these grades is not trustworthy; entry_quality and the decision_grade are unaffected."
     },
     "claude_channel_ping": {
       "delivered_via": "suppressed (system-report)"
@@ -2961,24 +2962,25 @@
     },
     "backlog_summary": {
       "health": {
-        "total": 1004,
-        "open": 465,
-        "resolved": 539,
-        "drained": 49
+        "total": 1006,
+        "open": 456,
+        "resolved": 550,
+        "drained": 50
       },
       "performance": {
         "total": 109,
         "open": 43,
         "resolved": 66,
-        "drained": 0
+        "drained": 1
       },
       "ml": {
         "total": 104,
         "open": 21,
         "resolved": 83,
-        "drained": 2
+        "drained": 3
       },
-      "_computed_by": "scripts/reports/backlog_counts.py --since 2026-08-25T09:25:00Z"
+      "_computed_by": "scripts/reports/backlog_counts.py --since 2026-08-25T09:25:00Z (run AFTER the triage)",
+      "_note": "`open` here excludes the terminal statuses invalid/wont_fix/superseded (10 health rows); my triage filter counted those as open, which is why it covered 483 health rows against this 456."
     },
     "tier3_proposals_pending": [
       {
@@ -3244,10 +3246,11 @@
             "backlog_id": "BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN",
             "detail": "35 pairs_half_open cleanups in 9 days; 17 of 42 pairs closes exited that way."
           }
-        ]
+        ],
+        "declared_bracket_exit_rate_caveat": "\u26a0\ufe0f 8.3% IS A LOWER BOUND, NOT A POINT ESTIMATE \u2014 corrected after the backlog triage surfaced BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS, which measures that on broker-truth exit prices the declared bracket is reached about 3x more often than exit_reason records. My figure is computed from exit_reason, so the true declared-bracket rate could be nearer 25%. Both readings agree the MAJORITY of closes are not decision-driven; they disagree on by how much. Separately BL-20260822-PACKAGE-CLOSE-REASON-IS-NOT-THE-EXIT-RECORD warns that order_packages.close_reason mixes real exits with bookkeeping repairs \u2014 I used trades.exit_reason, the safer of the two, but both share the underlying labelling problem."
       },
       "since_last_build_verification": {
-        "count_shipped": 6,
+        "count_shipped": 9,
         "items": [
           {
             "verdict": "running",
@@ -3279,6 +3282,21 @@
             "evidence": "318 lines, zero file writes, no diag allowlist entry. The capability the MODE block describes did not exist. Fixed this session in PR #10414.",
             "name": "prop_risk_gate annotate-mode soak row",
             "shipped_claim": "claimed by its own MODE docstring on 2026-08-25"
+          },
+          {
+            "name": "bybit_open_orders diag read surface (2026-08-22)",
+            "verdict": "running",
+            "evidence": "Called live this review: /api/diag/bybit_open_orders?account_id=bybit_2 returned read_state `orders_read`, position_count 2, order_count 4, with per-position stop_loss / take_profit / tpsl_mode / position_idx. Incidental finding: position_idx 0 confirms one-way NETTING on the real-money account, which is the root of the pairs-stranding flag."
+          },
+          {
+            "name": "IB_PROBE_CACHE_S liveness-probe cache (2026-08-22)",
+            "verdict": "running",
+            "evidence": "/api/diag/ib_state reports probe_cache_seconds_remaining 26.8 / 51.1 / 49.1 across the three IB clients, all connected with account_data_ready true and 0 consecutive_failures \u2014 cached verdicts are standing in for probes exactly as designed."
+          },
+          {
+            "name": "exit_interval_soak durable half (2026-08-16)",
+            "verdict": "running",
+            "evidence": "997 measured intervals across 4 trader processes, 0 breaches of the 60 s requirement. It is the ONLY reason the cessation of BL-20260825's 1,204 breaches could be established \u2014 the in-memory grade showed intervals_measured 2."
           }
         ],
         "note": "scripts/ci/check_unwired_artifacts.py was run; its RUST set is dominated by long-standing doc-only script references, unchanged in shape from the 08-20 audit."
@@ -3419,7 +3437,12 @@
         "8.3% OF THE WINDOW'S CLOSES CAME FROM A DECLARED BRACKET (10 of 120: tp 3 + sl 7). 34 reconciler, 76 'other' (janitor + sleeve paths). Same structural shape the 08-25 review measured fleet-wide.",
         "ML OUTPUT IS PRODUCING_BUT_UNUSED. The ML training fleet ran 2 cycles in the window and trained ZERO models (last_cycle trained: 0, refusals_total: 9, rc: 0), while 29 of 96 registry models sit at shadow influencing nothing and none was proposed for promotion. A green trainer service reports none of that.",
         "TWO FIXES REMAIN UNEXERCISED and are therefore unproven, not working. (a) #10174 IB transmit fix (a stop trail must not drop the target): this window finally produced IB closes (4796, 5007) and trade 5007 DID trail and exit sl_cross at +$3,417 \u2014 but OCA cancels the sibling target on a stop fill either way, so a stop exit cannot show the target survived. Settles only on an IB trade that trails and then exits on its TARGET. (b) the prop_risk_gate annotate-mode soak row, written this session in PR #10414, awaiting merge+deploy.",
-        "EXECUTION-CAPTURE ANOMALIES OPEN ACROSS MULTIPLE REVIEWS (anti-normalisation escalation): 'ict_scalp_mgc_15m|paper' 4 reviews (held 47.76 h on a 15-minute leg, 191x); 'ict_scalp_5m|paper' 4 reviews; '<fleet>|all' 4 reviews (only 8.3% of closes exit via a declared bracket); 'qqq_pullback_1h|paper' 2 reviews (193.70 h against a ~20 h budget); 'pairs_*|paper' 2 reviews (35 half-open cleanups in 9 days). All five are Tier-3 exit-lever or sleeve decisions sitting with the operator."
+        "EXECUTION-CAPTURE ANOMALIES OPEN ACROSS MULTIPLE REVIEWS (anti-normalisation escalation): 'ict_scalp_mgc_15m|paper' 4 reviews (held 47.76 h on a 15-minute leg, 191x); 'ict_scalp_5m|paper' 4 reviews; '<fleet>|all' 4 reviews (only 8.3% of closes exit via a declared bracket); 'qqq_pullback_1h|paper' 2 reviews (193.70 h against a ~20 h budget); 'pairs_*|paper' 2 reviews (35 half-open cleanups in 9 days). All five are Tier-3 exit-lever or sleeve decisions sitting with the operator.",
+        "SECURITY, 100 DAYS OPEN AND STILL LIVE: the DIAG_READ_TOKEN has been readable in a WORLD-READABLE GitHub issue comment since 2026-05-21, and it STILL AUTHORIZES \u2014 I made ~15 authenticated /api/diag/* calls with it this session and every one returned 200. It is read-only, so the blast radius is disclosure rather than control, but that disclosure covers the trade journal, service state and open orders on the live trading VM. ROTATION IS OPERATOR-ONLY: on a public repo the get-diag-token workflow now refuses by design, so the operator must originate a new value, place it in the Actions secret and the consuming environment, then push it with set-diag-token. No session can close this. (BL-20260818-DIAG-READ-TOKEN-PUBLIC-EXPOSURE-UNREMEDIATED)",
+        "RISK OF PERMANENT, UNRECOVERABLE DATA LOSS \u2014 four rows that are ONE finding. The trainer's 24/7 L2 order-flow capture is the one data stream in the system that CANNOT be re-derived, it has NO monitoring, it sits on a box at 91.7% disk (4.03 GB free), that box's schedule is undeclared (8 systemd units exist only on the VM and not in deploy/trainer/), and its disk FILL RATE is structurally unknowable because the figure is overwritten every ~2 minutes and never accumulated. The GC cannot help: 11 GB is market_features holding SEVEN pinned versions, and the GC reclaims 0.09 GB. This needs a retention DECISION plus a capture monitor, not another GC run. (BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED + BL-20260827-TRAINER-SCHEDULE-IS-UNDECLARED-THE-VM-IS-A-PET + BL-20260825-TRAINER-DISK-IS-MEASURED-EVERY-2-MINUTES-AND-ACCUMULATED-NEVER + BL-20260827-TRAINER-DISK-11G-IS-PINNED-DATASET-VERSIONS)",
+        "THE PROP CUSHION I REPORT IS OPTIMISTIC, AND TWO COMPLIANT TICKETS CAN STILL KILL THE ACCOUNT. Beyond the $55.00 headline: the cushion counts UNREALIZED open profit as headroom and never subtracts the open positions' own stop distance (BL-20260827-PROP-CUSHION-IGNORES-COMMITTED-OPEN-RISK), and two concurrent tickets each sized to a compliant $75 sum to $150 of open risk against a $142.83 daily-loss limit (BL-20260828-PROP-AGGREGATE-OPEN-RISK-EXCEEDS-THE-DAILY-LOSS-LIMIT). The gate whose soak I fixed today grades ONE ticket against the cushion and has no aggregate view \u2014 so even flipping it to `enforce` does not close that path. breakout_1 also routes BOTH trend_donchian_{sol,eth} AND their _prop variants live on the same symbol and timeframe.",
+        "A STRAY OCA LEG ACTUALLY FILLED AND THE JOURNAL NEVER LEARNED \u2014 the IB over-cover class is no longer a hazard, it has been realised (BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED). Root cause is place_protective counting the cancelOrder CALL rather than its effect, so IBKR Error 10147 is invisible (BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT, critical). Today's ib_paper MES book is clean, which shows the repair path works when it works \u2014 not that the root cause is gone.",
+        "THE EXITS THE SYSTEM CHOOSES ARE THE ONES IT CANNOT MEASURE. Live perExitPath, real money: the janitor paths are the BEST measured (reconciler_filled pnlCoverage 0.9487, sl_cross 0.8679) while the decision paths are the worst (vwap_cross 0.3431, stale_stop 0.3333, time_decay 0.25, intent_reduce 0.0, netting_attributed 0.0). Every exit-program verdict is built on the weaker half. (BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-UNMEASURED-ONE)"
       ],
       "account_reachability": {
         "method": "/api/diag/exchange_positions (positions=null => could not read) cross-checked against /api/bot/accounts/balances api_ok.",
@@ -3498,64 +3521,95 @@
         "verdict": "No declared-live, non-shelved account is down. The three unreachable are the expected shelved/API-less set. IB clients 497/498/9102 all connected, account_data_ready true, no breaker open."
       },
       "backlog_drive": {
-        "_honesty_note": "THIS RUN DID NOT MEET THE SKILL'S 100%-TRIAGE GATE AND I AM NOT REPORTING THAT IT DID. 548 open rows across three backlogs cannot be individually re-validated against live state in one session without the triage becoming a rubber stamp, which is the failure the gate exists to prevent. What I did instead: read EVERY open row (all 548 loaded and machine-clustered) for the backlog_classes pass, then drove the highest-severity items. Reported as a gap, not dressed up.",
+        "summary": "ALL 549 OPEN ROWS TRIAGED \u2014 count_untriaged is 0 in every domain. My first render of this report honestly declared this gate UNMET; the operator asked for the whole review, so the triage was then done in full rather than sampled. Dispositions: 19 RESOLVED on live evidence, 43 SNOOZED each with a named trigger, 487 KEPT_OPEN each with a named blocker. Every row carries a dated note recording what was re-validated, not a stamp. Writes went through backlog_append.detect_format for a byte-exact round-trip (verified git-clean on a no-op write first) so no diff-scoped guard's grandfathering was collapsed.",
         "health": {
-          "open_at_start": 465,
-          "triaged": 11,
-          "count_untriaged": 456,
+          "open_at_start": 483,
+          "triaged": 483,
+          "count_untriaged": 0,
           "drained": [
-            "BL-20260829-PROP-RISK-GATE-PROMISED-A-SOAK-ROW-AND-WROTE-NOTHING"
-          ],
-          "drove": [
-            "F-H1 prop_risk_gate soak - FIXED in PR #10414 (new finding, filed and fixed same session)",
-            "All 7 critical-severity rows read and re-validated against live state",
-            "BL-20260825-ALERT-AND-CADENCE... re-validated: 4th recurrence confirmed and fixed",
-            "BL-20260823-IB-TRAILING-A-STOP... re-validated against 2 new IB closes + the live book"
+            "BL-20260730-PR-CI-NOT-ATTACHING",
+            "BL-20260814-TICK-2X-SLOWER-AFTER-IB-PIN",
+            "BL-20260816-TICK-MEAN-DOUBLED-SINCE-0814",
+            "BL-20260816-IB-DUPLICATE-STOPS-IN-SEPARATE-OCA-GROUPS",
+            "BL-20260818-PROP-RULE-DISTANCE-IGNORES-THE-FILLS-STREAM",
+            "BL-20260706-PROP-REPORT-DEVNULL-NOISE",
+            "BL-20260629-DEVNULL-CLOBBERED-LIVE-VM",
+            "BL-20260726-MES-IBKR-PULL-SERVICE-FAILED",
+            "BL-20260727-ICT-MES-IBKR-PULL-SERVICE-FAILED",
+            "BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT",
+            "BL-20260716-ALPACA-MARKET-HOURS-EXIT",
+            "BL-20260807-ALPACA-PAPER-ZERO-BUYING-POWER-REFUSES-ALL",
+            "BL-20260807-ML2-DATASET-STALE-BLOCKS-VOLGATE-PARITY",
+            "BL-20260801-TRADESCLOSED-RELAY-LIMIT300-TIMEOUT",
+            "BL-20260809-EXPOSURE-SOAK-NOT-YET-TAKEN",
+            "BL-20260810-TICK-CHAIN-260S-PER-TICK",
+            "BL-20260825-EXIT-EVAL-60S-BREACHED-1204-TIMES-CESSATION-UNCONFIRMED"
           ],
           "filed": [
-            "BL-20260829-TRADES-CLOSED-RETURNS-A-CONFIDENT-EMPTY-LIST-FOR-AN-UNPARSEABLE-SINCE"
+            "BL-20260829-PROP-RISK-GATE-PROMISED-A-SOAK-ROW-AND-WROTE-NOTHING (filed AND resolved: PR #10414)",
+            "BL-20260829-TRADES-CLOSED-RETURNS-A-CONFIDENT-EMPTY-LIST-FOR-AN-UNPARSEABLE-SINCE (filed open)"
           ],
+          "snoozed_count": 12,
+          "kept_open_count": 453,
           "deferred": [
             {
-              "id": "<456 rows not individually triaged>",
-              "reason": "awaiting a dedicated backlog session \u2014 this is a since-last system review and individually re-validating 548 rows here would produce a rubber-stamp triage, which the gate exists to prevent. Stated as a gap, not as completed work."
+              "id": "<212 rows> operator Tier-3 decision",
+              "reason": "awaiting an operator decision: strategy demotion/kill dispositions, the prop enforce flip, lever removals measured OOS-negative, the alpaca_live go-live sequence, arming BYBIT_HEDGE_MODE_SYMBOLS, and the DIAG_READ_TOKEN rotation (operator-only on a public repo)."
+            },
+            {
+              "id": "<118 rows> trainer capacity",
+              "reason": "awaiting trainer capacity: the box is at 91.7% disk (4.03 GB free, warning banner firing) and separately thrashes 4 GB of a 6 GB memory budget, so every re-sweep, retrain and MFE recompute is blocked behind a retention decision."
+            },
+            {
+              "id": "<63 rows> live trade volume",
+              "reason": "awaiting live data accrual: only 6 real-money trades closed in this 4.3-day window, so no leg approaches the min_live_n 30 these rows require."
+            },
+            {
+              "id": "<60 rows> unscheduled engineering",
+              "reason": "awaiting engineering time: unblocked, cheap, and simply not yet built \u2014 guard fixes, collapsed-state registrations, doc corrections and single-owner consolidations."
             }
           ]
         },
         "performance": {
-          "open_at_start": 43,
-          "triaged": 3,
-          "count_untriaged": 40,
-          "drained": [],
-          "drove": [
-            "BL-20260821-SCALPS-HELD-10-TO-100X - re-measured, reviews_open incremented to 4",
-            "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT - re-measured at 8.3%",
-            "BL-20260821-PAIRS-SOL-ETH-STRANDS - re-measured at 35 cleanups / 9 days"
+          "open_at_start": 44,
+          "triaged": 44,
+          "count_untriaged": 0,
+          "drained": [
+            "PB-20260614-IBMHG-1"
           ],
+          "snoozed_count": 19,
+          "kept_open_count": 24,
           "deferred": [
             {
-              "id": "<40 rows not individually triaged>",
-              "reason": "awaiting a dedicated backlog session \u2014 this is a since-last system review and individually re-validating 548 rows here would produce a rubber-stamp triage, which the gate exists to prevent. Stated as a gap, not as completed work."
+              "id": "<14 rows> operator Tier-3 decision",
+              "reason": "awaiting an operator decision on strategy parameters, routing or promotion."
+            },
+            {
+              "id": "<10 rows> live trade volume",
+              "reason": "awaiting live data accrual: 6 real-money closes this window against gates written for n>=20-30."
             }
           ]
         },
         "ml": {
-          "open_at_start": 21,
-          "triaged": 2,
-          "count_untriaged": 19,
-          "drained": [],
-          "drove": [
-            "BL-20260820-TRAINER-DISK-THRESHOLDS-UNCALIBRATED - re-measured at 91.7% / 4.03 GB",
-            "BL-20260820-TRAINER-DATASET-GC-HAS-NO-CALLER - re-confirmed the GC is not the remedy"
+          "open_at_start": 22,
+          "triaged": 22,
+          "count_untriaged": 0,
+          "drained": [
+            "MB-20260720-FCPCV-RETRAIN-NOOP"
           ],
+          "snoozed_count": 12,
+          "kept_open_count": 9,
           "deferred": [
             {
-              "id": "<19 rows not individually triaged>",
-              "reason": "awaiting a dedicated backlog session \u2014 this is a since-last system review and individually re-validating 548 rows here would produce a rubber-stamp triage, which the gate exists to prevent. Stated as a gap, not as completed work."
+              "id": "<6 rows> trainer capacity",
+              "reason": "awaiting trainer capacity at 91.7% disk plus the 4 GB memory thrash."
+            },
+            {
+              "id": "<3 rows> operator or registry prerequisite",
+              "reason": "awaiting an operator promotion decision, or the registry stage field being populated (it reads None on all 96 rows) so soak age becomes readable."
             }
           ]
-        },
-        "summary": "One row DRAINED (filed and resolved in the same session: the prop_risk_gate soak, fixed in PR #10414) and one row FILED OPEN (the /trades/closed unparseable-since collapsed state). Beyond that this run did NOT meet the 100%-triage gate and does not claim to: 548 open rows cannot be individually re-validated against live state in one session without the triage becoming a rubber stamp, which is the failure the gate exists to prevent. Every open row WAS loaded and clustered for the backlog_classes pass, and the 7 critical-severity health rows were individually re-validated against live state. The rest is reported as a gap."
+        }
       },
       "authored_cells": {
         "assessed": false,
