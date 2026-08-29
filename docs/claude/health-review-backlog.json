@@ -23218,7 +23218,7 @@
           "at": "2026-08-29T17:55:00+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
-          "note": "RE-CONFIRMED LIVE with a corrected symptom — read the field, not the old description. /api/bot/ml/registry returned 96 rows this review and `stage` is **None on every single one**; the stage information is carried only by `deployment_bucket` (LIVE 3 / SHADOW 29 / OFFLINE the rest). So the defect is not that status reads 'candidate' for all — it is that the stage field is UNPOPULATED for all, and any consumer reading `stage` gets nothing. Same consequence: stage and soak age are unreadable, which is why MB-20260821-ETH-15M-HEAD names this row as its prerequisite."
+          "note": "RE-CONFIRMED LIVE with a corrected symptom — read the field, not the old description. /api/bot/ml/registry returned 96 rows this review and `stage` is **None on every single one**; the stage information is carried only by `deployment_bucket` (LIVE 3 / SHADOW 29 / OFFLINE the rest). So the defect is not that status reads 'candidate' for all — it is that the stage field is UNPOPULATED for all, and any consumer reading `stage` gets nothing. Same consequence: stage and soak age are unreadable, which is why MB-20260821-ETH-15M-HEAD-SHADOW-SINCE-0628 names this row as its prerequisite."
         }
       ],
       "last_verified": "2026-08-25"
