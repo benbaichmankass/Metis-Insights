@@ -243,3 +243,83 @@ it cites now return constants on standard accounts.* Filed as
 Both are defensible as *corrections*. Neither is a regression on its own terms. **But "nothing
 became more permissive" was wrong**, and an operator approving this on the strength of that
 sentence would have been misled by me.
+
+
+---
+
+# 7. THE REAL-LEDGER RUN — my § 6 prediction was WRONG on mechanism
+
+§ 4 said the synthetic ledger *"is NOT the true `gld_pullback_1h` verdict set, which still wants
+`gld-compat-matrix.yml` dispatched."* It was dispatched (issue #10399, defaults, **124 emitted
+trades**, fidelity `faithful`). The result does not match what § 6.5 predicted.
+
+## 7.1 What actually came back
+
+| | predicted (§ 6.5) | **measured** |
+|---|---|---|
+| `alpaca_portfolio` | `survival 0.8167 → 1.0`, `p_breach 0.1833 → 0.0` | **`UNGRADED`**, `surv=None`, `P(breach)=None` |
+| all 10 standard accounts | — | **all `UNGRADED`** |
+| `breakout_1` (prop) | unaffected | `ROUTE`, `ev_net_usd $1,241`, `P(net>0) 0.947` |
+
+## 7.2 Why — and it is entirely an artifact of my own setup
+
+**I seeded balances.** § 2 and § 6 both ran against a local `balance_snapshots` table I populated
+from `/api/bot/accounts/balances`. **The workflow supplies no balance source at all** — verified
+by grep over `gld-compat-matrix.yml` for `TRADE_JOURNAL_DB` / `balance` / `journal` / `DATA_DIR`,
+which returns nothing. So on the runner `load_balance_snapshots()` returns `None` → size_state
+`unreadable` → **`UNGRADED` before survival is ever computed.**
+
+**The constants finding in § 6 is real and reproducible — on the path where a size RESOLVES.**
+On the runner that path is never reached.
+
+## 7.3 What survives, and what does not
+
+**Survives:** `BL-20260803`'s objection is not reproducible on current `main`.
+**Does not survive:** my reason for it. *"The criterion became a constant"* and *"the criterion
+cannot be computed"* are different claims, and they are **not interchangeable** — the first implies
+the gate now passes everything, which is false. It grades nothing.
+
+<!-- checked: .github/workflows/gld-compat-matrix.yml -->
+<!-- checked: src/prop/standard_account_size.py -->
+
+*(checked: `.github/workflows/gld-compat-matrix.yml` supplies no `TRADE_JOURNAL_DB` / balance /
+journal / `DATA_DIR`, and `src/prop/standard_account_size.py::load_balance_snapshots` returns
+`None` on an absent store — so "cannot be computed" here is a verified property of THIS surface,
+not a general claim about the evaluator.)*
+
+⚠️ **And the honest reading of `BL-20260803` is now worse for that row than my original one.** Its
+numbers (`survival 0.871`, `P(breach) 0.132`) were produced by the pre-Lane-P path, i.e. **computed
+against the synthetic $10,000, not against `alpaca_portfolio`'s real ~$95.5k.** The objection was
+never measured on the account it names.
+
+⚠️ **This does NOT make the strategy safe to route.** `UNGRADED` is not a pass. The state is
+**unmeasured, in both directions**, and reading it as a pass would be the same error this whole
+change exists to remove, just inverted.
+
+## 7.4 The finding the run actually produced
+
+The run's own summary says:
+
+> *"⭐ `alpaca_portfolio`: **UNGRADED** (does NOT route) … this is a paper book trading a strategy
+> **its own ruleset rejects** — a genuine Tier-3 flag: consider whether to keep the routing."*
+
+**`UNGRADED` does not mean the ruleset rejects it.** Lane P's own commit states the rule this
+breaks, verbatim: *"AN UNGRADEABLE ACCOUNT RETURNS `UNGRADED`, NOT `skip`. Those are different
+verdicts and conflating them is the defect this whole change exists to remove."*
+
+**Lane P removed that conflation from the evaluator; the summary still performs it** — and the
+summary is what a human reads, and it attaches a **Tier-3 de-routing suggestion** to it. Filed as
+`BL-20260829-GLD-COMPAT-SUMMARY-CALLS-UNGRADED-A-REJECTION-AND-ITS-STANDARD-ARM-IS-INERT-ON-A-RUNNER`.
+
+**Second-order:** the workflow's standard arm is now **structurally inert** on a runner. Before
+Lane P it emitted confident verdicts off a fabricated $10,000; now it correctly refuses — but
+refuses *everything*. The fix is to give the runner a balance source (already available
+unauthenticated from `/api/bot/accounts/balances`), **not** to restore the synthetic default.
+
+## 7.5 The transferable lesson, twice in one lane
+
+§ 0 records a claim of mine that held on the population I measured and failed to generalise. This
+is the second. Both times the number was right and the **surface** was unstated.
+
+> **State the surface, not just the number.** "Survival is a constant" was true of a code path;
+> it said nothing about whether that path is reached where the question is actually asked.
