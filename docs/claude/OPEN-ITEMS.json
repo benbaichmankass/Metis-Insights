@@ -131,7 +131,7 @@
    "refs": "docs/research/R6-VM-RESIDENCY-VERDICT-2026-08-28.md; BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED; BL-20260829-TRAINER-DISK-92-PCT-THREATENS-THE-UNBACKFILLABLE-CAPTURE; trainer diag #10422 + #10423; supersedes OI-20260829-ORDERFLOW-CAPTURE-HOME-UNDECIDED",
    "check_every_days": 3,
    "verified_at": "2026-08-29",
-   "observation": "2026-08-29: opened on the operator's decision, with the capture and disk re-measured the same hour. Capture writing 17s before the reference clock; disk 3.8G free. CADENCE IS CHOSEN, NOT MEASURED: two free-space readings a day apart (3.9G → 3.8G) are two points, not a fill-rate trend, so 3 days is deliberately short until a trend exists to justify relaxing it.",
+   "observation": "2026-08-29: opened on the operator's decision, with the capture and disk re-measured the same hour. Capture writing 17s before the reference clock; disk 3.8G free. CADENCE IS CHOSEN, NOT MEASURED: two free-space readings a day apart (3.9G → 3.8G) are two points, not a fill-rate trend, so 3 days is deliberately short until a trend exists to justify relaxing it. | /system-review 2026-08-29 18:15Z, merging concurrently: I re-measured the same hour and reached a WEAKER conclusion than the row above — I confirmed ict-orderflow-capture.service loaded/active/running but could NOT locate its write path (a find for l2/orderflow/depth/book dirs under /home/ubuntu returned nothing), so I could not verify it was WRITING. This row's author did verify that, which is the stronger evidence and the one to trust; recording my miss because it demonstrates the row's own point — ActiveState is reachable and data freshness is not, which is exactly why clears_when demands an alarm keyed on the DATA. WHERE THE 42G IS, which this row did not carry and whoever acts on the disk will want: datasets-out 12G (market_features 11G of it), .venv 5.4G, ml/experiments-runs 4.8G, runtime_logs 3.3G (m20_exit_head 2.5G alone). Noted as context, NOT as a route to clearing this row — its clears_when correctly says free space is not the gate.",
    "last_checked": "2026-08-29"
   },
   {
@@ -147,6 +147,21 @@
    "verified_at": "2026-08-29",
    "observation": "2026-08-29: the model shipped, merged and deployed at `annotate`; it binds nothing and has produced no soak rows yet — US equities were shut (Saturday) and the newest alpaca dispatch, 2026-08-29T07:32:41Z, predates the deploy. So the soak's emptiness is 'we did not look', NOT 'the writer failed'; that distinction is what #10412 automates. Nothing armed, funded, routed or sized. alpaca_live remains strategies: [] and $200.10.",
    "last_checked": "2026-08-29"
+  },
+  {
+   "id": "OI-20260829-PROP-RISK-GATE-SOAK-SHIPPED-BUT-UNEXERCISED",
+   "opened": "2026-08-29",
+   "kind": "monitoring",
+   "loud": true,
+   "check_every_days": 3,
+   "verified_at": "2026-08-29",
+   "last_checked": "2026-08-29",
+   "observation": "Shipped this session in PR #10414 (CI green) and NOT yet exercised. The writer, its diag allowlist entry and 6 tests exist; no soak row has been produced by a real ticket, because that needs a prop ticket rendered with account_id set while mode != off.",
+   "summary": "src/prop/prop_risk_gate.py promised an annotate-mode soak row from 2026-08-25 and wrote NOTHING (318 lines, zero file writes) — so the Tier-3 PROP_TICKET_RISK_GATE_MODE=enforce decision, on the one account that can be PERMANENTLY DISABLED, had no evidence behind it. The writer now exists. It is DEPLOYED, not PROVEN, and those are different facts.",
+   "detail": "breakout_1 sat $55.00 from its $4,700 static-DD floor on the day this was found, down from $64.00 at the 08-25 review that BUILT the module, with distance_to_daily_loss_usd null (day_pnl_state realized_unreported). Every sibling *_MODE gate (netting_attribution, protection_reassert, cash_settlement, exit_lever) writes a soak row AND registers a read surface; this one had neither. It is the 4th recurrence of BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE and the 2nd of the exit_loop_health #8778 shape.\n\nWHY THIS IS A MONITORING ROW RATHER THAN A CLOSED ONE: a fix that is DEPLOYED and a fix that WORKS are indistinguishable from every surface we have — the code is on main, the tests pass, and none of that shows the mechanism ever ran. The review's own unexercised_fixes block exists for exactly this, and two OTHER fixes are sitting in it unexercised for the same reason. Do not accept a proxy: a green test is not the mechanism firing, and neither is the module importing.",
+   "clears_when": "A real graded ticket produces a row in runtime_logs/prop_ticket_risk_soak.jsonl, READ BACK through /api/diag/log_file?name=prop_ticket_risk_soak — carrying a `state` from the four (within_cushion / exceeds_cushion / cushion_unknown / no_risk_declared), `annotated` recording the EFFECT, and `would_have_capped`. Explicitly NOT sufficient: the tests passing, the PR merging, the deploy sha matching, or the allowlist entry returning an empty file — an empty file is 'the writer has not run', which is the state this row tracks, not its resolution.",
+   "why_it_cannot_be_closed_by_time": "Nothing about waiting makes a ticket get graded. The prop bridge is manual and low-volume, so the soak can stay empty for days while looking exactly like a broken writer — and until a row exists, the enforce decision it was built to inform still has nothing to read, which is the condition that made this worth fixing at all.",
+   "refs": "PR #10414 · BL-20260829-PROP-RISK-GATE-PROMISED-A-SOAK-ROW-AND-WROTE-NOTHING · BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE"
   }
  ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",

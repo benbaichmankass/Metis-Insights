@@ -56,8 +56,16 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Recurring by design — its own resolution_criteria says it is never closed by a single run. This run's re-validation is docs/research/CAPITAL-ACTIVATION-PACKET-2026-08-14.md sec 3-5, which benchmarks the candidate book against the incumbent on measured provenance: alpaca_portfolio 16 rows / 0.750 coverage / zero fabricated / +$2,656.48 vs bybit_2 27 rows / 0.852 coverage / -$28.97, with the real-money surface confirmed as one Bybit account holding $279.89. — Verdict THIS run: the candidate does NOT yet beat the incumbent on a defensible basis — not because it loses, but because 16 closed trades cannot support a funding decision for 16 strategies, and the packet's own finding is that the mirror may never accrue evidence fast enough. Incumbent stays; alpaca_live stays shelved. Trigger for the next run: re-benchmark on each /performance-review; retire the row only if the operator drops the real-money-allocation gate."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated this review; still accruing/awaiting the live n it names. Real-money volume remains the binding constraint — only 6 real-money trades closed in this review's 4.3-day window, so live-n-gated rows cannot move on a review cadence. Recurring benchmark; trigger = a real-money book large enough to compare."
         }
-      ]
+      ],
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260707-SPLG-IAUM-LIVE-REVALIDATION",
@@ -150,9 +158,17 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: SUBSTANTIALLY BUILT since filing: src/units/accounts/ib_client.py:1057 _build_contract now carries an equity branch constructing Stock(...) with SMART routing and a primaryExchange hint (line 1100), tests/test_ib_instruments.py covers it, and four ETF strategies are already routed to ib_paper (config/accounts.yaml::ib_paper.strategies = spy_trend_long_1d, qqq_trend_long_1d, iwm_trend_long_1d, tlt_pullback_1d). What is missing is the verification half. — Downgrade, do not close: the build item is done, the evidence item is not. Trigger: (a) at least one real ib_paper ETF paper fill journaled end-to-end for one of the four routed cells, and (b) an account_compat_matrix artifact scoring ib_paper for the ETF family — no such artifact exists on disk (only the 2026-06-17 SOLUSDT set). Both are Tier-1 verification; the eventual IBKR real-money ETF route stays Tier-3."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated; this is an operator DECISION (Tier-3), not work a review can drain. Carried with the blocker named. Build scope for a 2nd paper venue; no live impact while parked."
         }
       ],
-      "severity": "low"
+      "severity": "low",
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260707-IB-METALS-NO-BACKTEST-DATA",
@@ -226,8 +242,16 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: tqqq_trend_long_1d and qld_trend_long_1d are on alpaca_paper only and are absent from alpaca_live's strategy list (config/accounts.yaml) — the operator's 'let them soak on paper' directive is still honored, no real-money exposure. The compat half is measurably NOT done: the only account_compat artifacts on disk are the 2026-06-17 SOLUSDT perp-validation set (runtime_logs/prop_eval/2026-06-17-perp-validation/solusdt_compat), a gap docs/research/CAPITAL-ACTIVATION-PACKET-2026-08-14.md sec 4 independently reports for the whole ETF family. — Two-part trigger, both still open: (a) >=20-30 clean closed paper trades per cell tracking the backtest (TQQQ +13.8R / QLD +12.7R OOS), with explicit attention to overnight-gap behaviour that a 3x idealized-stop backtest cannot capture; (b) a CURRENT account_compat_matrix ROUTE verdict for alpaca_live via scripts/ops/etf_account_compat.sh. Any promotion is Tier-3. Part (b) is offline-runnable today and does not wait on (a)."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated this review; still accruing/awaiting the live n it names. Real-money volume remains the binding constraint — only 6 real-money trades closed in this review's 4.3-day window, so live-n-gated rows cannot move on a review cadence. TQQQ/QLD soak on alpaca_paper; gate is a clean live record + account_compat_matrix."
         }
-      ]
+      ],
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260630-001",
@@ -265,6 +289,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The stated trigger is UNREACHABLE AS WRITTEN: it requires >=20 real bybit_2 htf_pullback_trend_2h closed trades, but the strategy was demoted off bybit_2 on 2026-07-15 and config/accounts.yaml::bybit_2.strategies no longer lists it — so no real-money row can ever accrue while the demotion stands. The contamination finding itself (June-7 mass reconciliation, 12 concurrent positions swept at one price) remains correct and is the reason the bybit_1 stats must not be read as edge. — Kept open as a standing DO-NOT-JUDGE-ON caveat, but its trigger must be re-scoped or the row merged. Recommend folding it into PRB-20260716-HTF-CROSSBOOK-NEG, which already watches the same strategy on the bybit_1 paper book with a live threshold (>45% over >=15 fresh trades = re-promote candidate; <25% = propose KILL) — that trigger CAN fire. Two rows tracking one strategy with one unreachable trigger between them is exactly the backlog noise the governance rules target."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: this row exists to STOP a wrong read (June-7 reconciliation artifacts contaminate htf_pullback_trend_2h paper PnL). Live 30d paper now shows just 1 closed trade at -$560.77, coverage 0.0 — too thin to re-judge either way, so the caveat this row carries is still load-bearing. Keep as a standing caveat, not as work."
         }
       ]
     },
@@ -467,10 +497,17 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Both ETH prop legs are still routed to the prop account (config/accounts.yaml::breakout_1.strategies contains trend_donchian_eth, eth_pullback_prop_2h and trend_donchian_eth_prop), so the watch is still in force. breakout_1 is a manual bridge with no broker feed (CLAUDE.md, Prop-trading accounts), so both the swap confirmation and the PnL comparison depend on operator report-backs that have not landed. — Trigger unchanged and concrete: (1) an actual swap debit visible on a prop_account_status report-back or a prop fill (the whole gate rides on an unverified 0.033%/day help-centre figure vs a 0.058-0.10%/day break-even), and (2) >=10-20 closed prop ETH trades compared against the EV projection, with a per-leg keep/tune/drop recorded. Note the correlated-drawdown sub-question (two near-identical ETH legs plus SOL against a $150 daily-loss cap) is checkable NOW from config alone and is the cheapest half."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated this review; still accruing/awaiting the live n it names. Real-money volume remains the binding constraint — only 6 real-money trades closed in this review's 4.3-day window, so live-n-gated rows cannot move on a review cadence. The two ETH pullback legs on breakout_1 are prop; prop fills arrive only by operator report."
         }
       ],
       "severity": "medium",
-      "disposition": "snoozed"
+      "disposition": "snoozed",
+      "snoozed_at": "2026-08-29T17:05:00+00:00"
     },
     {
       "id": "PB-20260622-002",
@@ -518,10 +555,17 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Both TLT legs still ship an unfiltered floor: config/strategies.yaml tlt_pullback_1d min_confidence: 0.0 (~line 1804) and tlt_pullback_1h min_confidence: 0.0 (line 1989), so the sleeve remains uniformly ungated and nothing has been changed on the in-sample +8R finding — which is the correct state for an n=49 single-symbol optimum. — Evidence-gated and correctly held. Trigger: >=20-30 closed tlt_pullback_1d rows on alpaca_paper allowing a low- vs high-confidence outcome split, OR a fresh out-of-sample min_confidence sweep confirming the 0.10 optimum is stable. Note the precedent set this month by slv_trend_1h (0.0 -> 0.3, PB-20260801) — a confidence floor IS a shippable shape here, so the only missing ingredient is out-of-sample evidence. Any floor change is Tier-3."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated this review; still accruing/awaiting the live n it names. Real-money volume remains the binding constraint — only 6 real-money trades closed in this review's 4.3-day window, so live-n-gated rows cannot move on a review cadence. tlt_pullback_1d min_confidence floor; needs live data."
         }
       ],
       "severity": "low",
-      "disposition": "snoozed"
+      "disposition": "snoozed",
+      "snoozed_at": "2026-08-29T17:05:00+00:00"
     },
     {
       "id": "PB-20260622-001",
@@ -733,6 +777,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: No vol_bucket edge-coverage audit exists: docs/audits/ has no such doc and grep for vol_bucket across docs/audits returns only s-audit-g/SUMMARY.md and the 2026-06-09 shadow-promotion doc. config/regime_coverage_exemptions.yaml records the adjacent fact per-strategy ('no live regime head is trained for SOLUSDT ... a cell would resolve vol_regime=unknown and silently never fire'), and docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md sec A3 confirms the six 2-D trend_vol cells remain unauditable for exactly this reason. — Bounded Tier-1 audit, not a research question. Trigger that ends it: a committed docs/audits/vol-bucket-coverage-<date>.md enumerating which (symbol, timeframe) pairs carry frozen vol_bucket edges vs which do not, stating which absences are intentional, and noting that the ML verdict path resolves per-SYMBOL (ml_vol_regime_for_symbol) so its coverage shape differs from the frozen detector's."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a Tier-1 audit that has never been run. Not blocked by data — the enumeration is a config read. Genuinely actionable, just not done; carried honestly rather than snoozed, since 'nobody has run it' is not a blocker."
         }
       ],
       "severity": "low",
@@ -1445,6 +1495,12 @@
           "at": "2026-08-25T22:45:00+00:00",
           "by": "claude (system-review, backlog exit-condition authoring)",
           "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Its own next_action says NO LONGER BLOCKED and 63 days of bybit_1 fills exist. Live 30d: eth_pullback_2h shows 4 paper closes at -$515.99 with pnlCoverage 0.0 — so the fills exist but NONE of their PnL is a measurement, which makes the k-fold comparison this row wants unsound on current data. That is a NEW blocker (provenance), not the old one (volume)."
         }
       ],
       "tier": 1,
@@ -1511,8 +1567,8 @@
       "source": "2026-06-14 session investigating the IB integration. trade #2539 (mhg_pullback_1d, ib_paper, 2026-06-12 00:02Z) was journalled exchange_rejected on IBKR Error 10349 (TIF=DAY) but ACTUALLY FILLED — a 3-contract MHG (Micro Copper) paper position exists on ib_paper. The reverse-reconciler has been adopting it as an orphan, closing on a transient disappear, and re-adopting (trades #2540 closed, #2575 open).",
       "title": "Follow up the orphaned ib_paper MHG paper position from trade #2539's Error-10349 desync fill",
       "description": "An unowned 3-contract MHG long sits on ib_paper (entry ~6.396) from #2539's filled-but-journalled-rejected order. Naked-position auto-protect attached reverse-side GTC SL/TP (sl 6.045 / tp 7.029), so it should exit on those. Two things to confirm in a future performance/health review: (1) the position actually closes cleanly via the attached SL/TP and stops the adopt/close/re-adopt churn; (2) AFTER the #3490 position-read fix (generic root symbol + per-unit entry price, deployed 2026-06-14 on 1fb82eff), the next adopted-orphan row records symbol=MHG and entry_price=6.396 (not MHGN6 / 15989.72). If the position is still churning or still mis-recorded, escalate. NOTE: arguably a health/pipeline item, parked here at operator request during the IB session close-out.",
-      "status": "kept_open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-08-29T17:05:00+00:00",
       "resolved_by": null,
       "resolution_note": null,
       "updates": [
@@ -1551,6 +1607,12 @@
           "at": "2026-08-25T22:45:00+00:00",
           "by": "claude (system-review, backlog exit-condition authoring)",
           "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "resolved",
+          "note": "RESOLVED on a direct broker + journal read 2026-08-29. The residual factual question this row names ('is the orphaned ib_paper MHG position still there?') is answered: /api/bot/positions shows ib_paper holding exactly ONE position, MES 15 (mes_trend_long_1d); MHG is absent. Corroborated independently — MHG trade 4796 CLOSED 2026-08-28T02:12:55Z inside this review's window. The orphan is gone and the flap mechanism was already fixed."
         }
       ],
       "tier": 1,
@@ -1977,6 +2039,12 @@
           "at": "2026-08-25T22:45:00+00:00",
           "by": "claude (system-review, backlog exit-condition authoring)",
           "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated on live 30d real-money: eth_pullback_2h has 4 real closes at -$0.34, expectancyR -0.0819, pnlCoverage 0.0000. So trades HAVE accrued — but at zero measured coverage, so the real-money read this row asks for cannot honestly be made from them yet. Blocker changed from 'no trades' to 'no measured trades'."
         }
       ],
       "severity": "high",
@@ -2051,6 +2119,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: All six intraday ETF cells are still routed and live on alpaca_paper (config/accounts.yaml::alpaca_paper.strategies contains gld_pullback_1h, slv_trend_1h, spy_pullback_1h, qqq_pullback_1h, tlt_pullback_1h, uso_trend_1h), so ~57 days of US RTH sessions have passed. docs/research/CAPITAL-ACTIVATION-PACKET-2026-08-14.md sec 3 measures alpaca_paper at 20 closed rows in 30d, so the account fills — but it does not break those rows out by cell, so the three specific checks (closed-1h-bar entry, intraday trail cadence, bracket fill) remain unverified. — Cheap and binary once a journal read is available. Trigger: /api/bot/trades/closed?account_id=alpaca_paper&include_paper=true filtered to the six _1h cells — at least one clean closed-1h-bar entry with a bracket fill closes it; a mid-bar entry or a misbehaving intraday trail is the defect this row exists to catch and escalates to the health backlog."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Its own next_action says NOT blocked and ~54 days have passed. Live: alpaca_paper holds GLD and SPY and IEF positions and gld_pullback_1h closed 5 trades in this window, so the ETF cells ARE producing fills. The verification is cheap and still undone; carried as actionable, not snoozed."
         }
       ],
       "severity": "low",
@@ -2102,10 +2176,17 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: No funding-carry cell exists anywhere in the live config (no carry key in config/strategies.yaml; config/pairs.yaml carries only the four cointegration pairs), so the sleeve is still dormant as filed. The sibling row PB-20260715-MAKER-CARRY independently measured that funding compressed post-2024 (OOS 2025-01+ maker net ETH +0.40R, SOL +0.07R, BNB -0.61R), which re-confirms the dormancy rather than lifting it. — Regime-gated, correctly parked. The gap is that NOTHING WATCHES THE TRIGGER: there is no funding monitor, so 'when funding elevates' cannot fire on its own. Concrete trigger: either a cheap Tier-1 funding-rate tracker that alerts when perp funding returns to the 2023-24 band, or a scheduled re-run of scripts/backtest_funding_carry.py on a fresh window. Merge-candidate with PB-20260715-MAKER-CARRY — the two rows share one trigger."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated: dormant BY DESIGN, regime-dependent. Trigger = perp funding elevating. Nothing to do meanwhile."
         }
       ],
       "severity": "low",
-      "disposition": "snoozed"
+      "disposition": "snoozed",
+      "snoozed_at": "2026-08-29T17:05:00+00:00"
     },
     {
       "id": "PB-20260620-003",
@@ -2146,7 +2227,7 @@
       "source": "scripts/portfolio_combine.py + backtest_vol_target.py (PR #4672) on a 9-sleeve BTC/ETH/MES book, 2818 trades 2021-06->2026-06; relays #4674 (emit) + #4675 (combine+overlay).",
       "title": "[DOWNGRADED] P1 vol-target overlay — marginal on the LIVE book; do NOT graduate",
       "detail": "CORRECTION: the graduate-to-shadow recommendation was based on a PROXY book (Sharpe 0.27, overlay +0.17-0.20). The live-param re-run (PB-005, relay #4686) shows the live book is healthy (Sharpe 1.33) and the overlay adds only +0.079 Sharpe weekly / ~0 monthly, RAISES vol, and does NOT cut drawdown. Not worth wiring a live-path sizing multiplier. At most an optional observe-only shadow soak. See docs/research/P1-vol-target-LIVE-PARAM-correction-2026-06-26.md.",
-      "status": "wont_fix",
+      "status": "kept_open",
       "category": "sizing-overlay",
       "tier": 3,
       "next_step": "Operator decision to build the shadow overlay; then design the book-vol estimator + multiplier wiring (observe-only) per the Prime-Directive soak pattern.",
@@ -2156,9 +2237,17 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Canonicalizing status from 'downgraded' to 'wont_fix' -- this is a final decision already recorded ('[DOWNGRADED] P1 vol-target overlay -- marginal on the LIVE book; do NOT graduate'), not an open question awaiting more evidence. No further action expected; closing the disposition cleanly so it stops appearing in the open-item count."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Already DOWNGRADED with an explicit do-not-graduate. Carried as a record, not work."
         }
       ],
-      "resolved_at": "2026-07-22T18:35:00+00:00"
+      "resolved_at": "2026-07-22T18:35:00+00:00",
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260626-003",
@@ -2393,6 +2482,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: No fill-rate root-cause artifact exists: grep for 'fill rate'/'fill-rate' across docs/research/*.md and docs/audits/*.md returns only three unrelated docs (roadmap-toolbox-assessment, small-tf-directions, trend-donchian-live-anomaly-rootcause). The 2026-07-26 update independently confirms the pattern persists (packages closing as never-filled / exchange_flat_reconciled). — Still the actionable signal on these two cells, and it is a diagnosis, not a decision. Trigger: a decisions-vs-fills breakdown from the audit log for squeeze_breakout_4h and htf_pullback_trend_2h — partitioning the 84/55 decisions into risk/sizing refusals, regime-gate drops, netting-guard suppressions, and placed-but-never-filled — that names the dominant cause. Tier-1 read; needs live audit-log access. NOTE the overlap with PB-20260630-001 and PRB-20260716, which cover the same strategy from the PnL side."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and CORROBORATED by a sibling: PB-20260816-ETHPULLBACK-FILL-RATE-12PCT measures the same class (11 of 92 decisions filled) on a different leg. Low fill rate is looking like a FAMILY property, not a per-strategy quirk — these two rows should be worked together."
         }
       ]
     },
@@ -2430,8 +2525,16 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The whole ETH book is still routed as filed — trend_donchian_eth and trend_donchian_eth_4h and eth_pullback_2h on bybit_1, with eth_pullback_2h and trend_donchian_eth_4h also on bybit_2 (config/accounts.yaml) — and the backtest anchor the re-run must cite, docs/research/A-vol-gating-ETH-SOL-OFFcell-evidence-2026-07-06.md, is on disk. No M7 packet re-dispatch has been recorded. — Correctly held: the row's own rule is that the M7 low-n HOLD stands until live n accrues, and acting on the backtest alone (3/4 ungated folds net-negative) is explicitly forbidden by the row. Trigger: >=20 closed trades combined across the three ETH strategies, or any single strategy >=10 closed, then re-dispatch generate-strategy-review-packets with the 2026-07-06 backtest_anchor. Expected outcome if the shape confirms is a Tier-3 demote_shadow proposal for trend_donchian_eth."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated this review; still accruing/awaiting the live n it names. Real-money volume remains the binding constraint — only 6 real-money trades closed in this review's 4.3-day window, so live-n-gated rows cannot move on a review cadence. Gate is n>=20 closed across the ETH strategies."
         }
-      ]
+      ],
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260707-MGC-PULLBACK-1H-WALKFORWARD",
@@ -2469,8 +2572,16 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Still one in-sample window only: docs/research/ib-intraday-shortlist-backtest-2026-07-07.md is the sole artifact mentioning mgc_pullback_1h, there is no walk-forward findings doc dated after 2026-07-07, and no mgc_pullback_1h key exists in config/strategies.yaml — so nothing was wired on the single-window result, which is correct. — Blocked on a run that has not happened, not on data. Per the operator's 2026-08-11 fast-gate correction this is offline-runnable NOW on a free GitHub runner (research_sweep -> m15_ws_b_fold_report -> classify_strategy_tier at >=2x fees, plus scripts/prop/account_compat_matrix.py for ib_paper). Trigger: that walk-forward lands as a committed findings doc with a PASS or REJECT verdict; a PASS makes the cell a Tier-3 proposal, a REJECT closes this row."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision."
         }
-      ]
+      ],
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260707-MGC-TREND-1H-STRUCTURAL",
@@ -2508,8 +2619,16 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: STALE PREMISE, corrected: the row says 'mgc_trend_1h stays shadow ... No strategies.yaml change until resolved', but config/strategies.yaml:1577-1597 has mgc_trend_1h enabled: true with execution: live on ib_paper, wired as a paper soak (the block's STATUS comment at :1592 says so explicitly). The structural question itself is genuinely un-run: no matched-session GC=F/spot re-pull artifact exists (docs/research/mgc-trend-1h-walkforward-2026-07-07.md is the pre-existing walk-forward, not the re-pull). — Kept open for the structural question only; the 'stays shadow' framing was overtaken by a paper-only wiring (no real money, so no violation of substance, but the row must stop asserting a state the config contradicts — field beats comment). Trigger: a committed matched-session comparison re-pulling GC=F and XAUUSD 1h on the native window bounds under a common session mask, identifying whether the divergence reconciles (native trustworthy) or persists (micro-contract tape is the edge, needing a paper soak rather than a backtest). Real-money promotion stays Tier-3."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision. Note mgc_trend_1h is also one of the 5 IB legs logging transient_market_data_unavailable (154 WARN rows over 9 days), so its data path is intermittent independent of this row."
         }
-      ]
+      ],
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260707-NATIVE-MES-PULL",
@@ -2546,8 +2665,16 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: No native per-contract MES shard or re-backtest artifact exists — MES per-contract history appears only in the pre-filing docs (docs/research/ib-intraday-shortlist-backtest-2026-07-07.md, ib-intraday-strategy-survey-2026-07-07.md) and in passing in docs/research/m20-what-remains-2026-08-13.md, and data/ holds no MES shard. Independently, M27 Batch-2 rejected the futures scalp family at 5m AND 15m on genuine liquidity grounds (ROADMAP.md:114), which lowers the prior on this lead. — Tier-1 research, offline-runnable, nobody has run it. Trigger: a per-contract MES pull (PULL_PER_CONTRACT via pull-ibkr-history) -> build_continuous_contract.py -> re-run of the MES pullback 1h and fvg 15m cells on 3y+, with the verdict recorded. Consider explicitly de-prioritising against M27 Batch-2's futures rejection rather than carrying it indefinitely — a documented 'not worth the pull' also closes it."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision."
         }
-      ]
+      ],
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260707-SPLG-IAUM-PROMOTION",
@@ -2585,8 +2712,16 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: SPLG and IAUM are routed on both alpaca_paper and alpaca_live, but alpaca_live is mode: dry_run with a $0.10 balance (config/accounts.yaml; docs/research/CAPITAL-ACTIVATION-PACKET-2026-08-14.md sec 2), so the promotion has not happened. That packet measured the blocking conditions on 2026-08-14: alpaca_portfolio has only 16 closed trades in 30d against 16 routed strategies, the alpaca balance()-returns-None fault is unresolved, the venue-max clamp has not landed, and NO current ETF account_compat artifact exists. — Evidence gate not met — sample, not coverage (alpaca_portfolio reads 0.750 coverage with ZERO fabricated rows, so the record is trustworthy, just thin). Trigger: enough resolved alpaca_portfolio trades for a 16-strategy read plus a current compat ROUTE verdict, then the Tier-3 sizing proposal. Worth surfacing to the operator meanwhile: the packet's sec 5 identifies funding alpaca_live nominally while LEAVING mode: dry_run as the cheapest honest step — it converts 120 zero_balance refusals/30d into observable decisions at no tier flip and no capital at risk."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated; this is an operator DECISION (Tier-3), not work a review can drain. Carried with the blocker named. alpaca_live is additionally sizing-walled at $200.10 equity with zero gross notional, so a real-money promotion there has no headroom regardless."
         }
-      ]
+      ],
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260710-ETF-PULLBACK-ZEROWIN",
@@ -2641,6 +2776,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Both halves of the tooling exist and are on disk — scripts/backtest_ict_scalp.py takes bank_frac (:173, applied at :230) and emits trade streams, src/prop/montecarlo.py::run_ev_montecarlo is the survival-weighted EV engine (CLAUDE.md, Prop-trading accounts), and config/prop_rulesets/breakout.yaml is the ruleset — but no banking-EV findings artifact exists under docs/research/. — Nothing blocks it except that it has not been run; it needs no live data and no VM-resident state, so it belongs on a free GitHub runner. Trigger: a committed findings doc running run_ev_montecarlo over banked-vs-base harness streams for the prop-routed alt strategies under breakout.yaml, with a verdict. If banking materially raises survival-weighted EV the follow-on is a Tier-3 proposal scoped to the prop ticket ladder ONLY."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and now MORE relevant, not less: breakout_1 sits $55.00 from its static-DD floor, so survival-weighted EV of partial-TP banking is exactly the question the account's state poses. Related to the Tier-3 PROP_TICKET_RISK_GATE_MODE decision this review escalated."
         }
       ]
     },
@@ -2746,8 +2887,16 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: No carry cell is wired anywhere (no carry key in config/strategies.yaml; config/pairs.yaml carries only the four cointegration pairs), and the row's own resolved measurement (trainer #6493) is what holds it back: full-history maker net recovers ~70% of gross (ETH +7.72R, SOL +6.46R, BNB +11.03R) but the current-regime OOS 2025-01+ is thin-to-negative (ETH +0.40R, SOL +0.07R, BNB -0.61R) because funding compressed post-2024. — Correctly held as a real-but-regime-gated candidate, not live-now. Trigger: perp funding returns to a 2023-24-comparable regime, at which point the cheap check is a re-run of the neutral-carry OOS maker-net harness on the fresh window; a positive current-regime OOS is what would justify a Tier-3 proposal. Same unwatched-trigger problem as PB-20260620-002 — the two rows share one trigger and should be merged behind one funding monitor."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision."
         }
-      ]
+      ],
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260715-PAIRS-SLEEVE",
@@ -2821,6 +2970,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The demotion still stands and is verifiable: htf_pullback_trend_2h is absent from config/accounts.yaml::bybit_2.strategies (real money) and present on bybit_1 (paper), exactly as the row describes. The last read (2026-07-22) found n=1 in the priced-closed set — far under the >=15-fresh-trade bar — and no fresh read was possible this pass (no journal in this sandbox). — Live, reachable trigger — the strongest of the htf rows. Trigger: >=15 fresh bybit_1 closed trades since 2026-07-16; win rate >45% makes it a re-promotion candidate (with account_compat_matrix), <25% makes it a Tier-3 KILL proposal (remove from bybit_1 too). Recommend absorbing PB-20260630-001 into this row, since that row's bybit_2 trigger can never fire under the demotion."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: htf_pullback_trend_2h has 1 paper close in 30d at -$560.77 (coverage 0.0). Not recovery and not decay — too thin to call either. Watch continues."
         }
       ]
     },
@@ -2859,8 +3014,16 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The operator's 2026-07-20 decision is still structurally honoured: options expression lives solely on the soak book (config/accounts.yaml::alpaca_options_paper.strategies = slv_trend_1h, slv_pullback_1d, gdx_pullback_1d) and alpaca_live carries no options block at all, so ZERO options strategies are graduated. No options soak grading artifact has been recorded. — Recurring per-review assessment; the wiring needs no change. Trigger: grade the closed options rows on alpaca_options_paper (Slice-4 reconciler-closed, realized PnL from broker activities cash) on n, expectancy net of debit, win rate and expiry/assignment lifecycle health against the promotion bar. Meeting the bar produces a Tier-3 options: block on alpaca_live mirrored to alpaca_portfolio with account_compat_matrix; a thin or negative soak keeps the portfolio options-free."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated; this is an operator DECISION (Tier-3), not work a review can drain. Carried with the blocker named. alpaca_options_paper holds 0 open positions right now, so the soak this row assesses is not accruing."
         }
-      ]
+      ],
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260720-M27-SCALP-EXPANSION",
@@ -2894,8 +3057,16 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: ROADMAP.md:114 still carries M27 as IN PROGRESS with P0 complete across all four batches; the newest artifact on disk is docs/research/M27-GLD-1H-PROMOTION-PACKET-2026-08-14.md (2 days old), and docs/research/M27-P1-15m-findings-2026-07-22.md is the only P1 output — P2 (geometry/cost) and P3 (new archetypes) have no artifact. This is the milestone anchor, not a single-run item. — Not actionable in a triage pass: per the operator's 2026-08-11 correction the blocker is a SWEEP THAT HAS NOT BEEN RUN (P1 1m/15m completion + P2 geometry/cost grids), offline-runnable on a free GitHub runner per docs/claude/vm-resource-management.md, NOT live accrual. Concrete trigger that ends the wait: a committed P2 findings doc under docs/research/ (fee/geometry grids on the P0 passers) or an explicit operator decision to close M27 at P1."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated; this is an operator DECISION (Tier-3), not work a review can drain. Carried with the blocker named. Operator-directed milestone; program-level, not a review-drainable row."
         }
-      ]
+      ],
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260721-M27-FUTURES-5M-LOWSIGNAL",
@@ -2952,6 +3123,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: All six alt scalp legs are still routed and live on the bybit_1 paper account (config/accounts.yaml::bybit_1.strategies contains ict_scalp_sol_5m, _xrp_5m, _avax_5m, _xrp_15m, _eth_15m, _sol_15m); the last measurement (2026-08-11) found 0 of 14 paper closes broker-measured (pnlMeasuredCount=0). No journal is reachable from this sandbox (data/ holds only CSV/backtest artifacts), so no fresh read this run. — Blocker is record QUALITY, not time: comparing reconciler_filled/estimated rows to the M27 backtest compares a reconstruction to a simulation. The bybit_1 demo fills puller was fixed 2026-08-07 (BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED), so measured rows CAN now accrue. Trigger: >=20 closed rows per leg with pnlProvenance in {measured,estimated} and pnlCoverage stated, compared against docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated on live 30d paper and the read is BAD for promotion: ict_scalp_avax_5m 17 trades / -$6,804.83 / pnlCoverage 0.0588; ict_scalp_sol_5m and _xrp_5m also closed in this window. This row is a real-money PROMOTION gate and the current evidence argues against promoting, which is a usable answer rather than a pending one."
         }
       ]
     },
@@ -2997,6 +3174,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: All three corrected premises still hold on disk: XAUUSD stays venue-blocked (config/accounts.yaml::oanda_practice is mode: dry_run with zero strategies), no ict_scalp_gld leg exists (config/strategies.yaml has ict_scalp_mgc_15m but no gld scalp key — docs/research/M27-GLD-1H-PROMOTION-PACKET-2026-08-14.md sec 1 makes the same point explicitly), and the SOL/XRP/AVAX/ETH scalp legs remain bybit_1-only. The 2026-08-14 GLD packet's recommendation is SHADOW-first, not live, on n=18 trades over ~2 years. — Gated on evidence that has not accrued, not on a decision. Trigger: (a) PB-20260721 clears with measured-provenance rows, (b) a native-Bybit 15m confirmation pull for the 15m legs (the P1 sweep resampled 5m shards), (c) an account_compat_matrix run for bybit_2. Separately, the GLD 1h shadow-wiring proposed by the 2026-08-14 packet IS an operator-facing Tier-3 decision that is ready to be taken — it just is not the real-money graduation this row tracks."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and coupled to the row above: the SOL/XRP/AVAX candidates it would ship are the same legs whose paper read is negative and largely UNMEASURED (avax coverage 0.0588). Tier-3 and should not advance on this evidence."
         }
       ],
       "status": "kept_open"
@@ -3118,9 +3301,17 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Still present and unfixed: src/runtime/allocator_ev.py imports the flat DEFAULT_FEE_BPS_ROUNDTRIP (:45), takes it as the default parameter (:68, :104) and computes fee_r = (fee_bps / 1e4) * abs(e) / risk at :86-89 with no per-symbol resolution. The venue-aware resolver it should call already exists and is already used elsewhere — src/core/profile_loader.py:148 roundtrip_fee_bps_for, consumed by src/runtime/trade_costs.py and scripts/research/regime_debt_matrix.py:330. — Harmless today (the M18 allocator is observe-only/parked per CLAUDE.md), which is why it is Tier-1 rather than urgent — but it becomes part of the Tier-3 graduation gate the moment the allocator selects or sizes, and it makes decision-time cost disagree with the logged venue-aware close-path cost. Trigger for closing: the fix below lands with its test."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated: the allocator is parked (M18 P2+ backtest-gated), so this has no live-routing impact until graduation. Trigger = allocator graduation."
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-08-10T05:05:00+00:00",
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260730-REGIME-EVIDENCE-VENUE-FEE-REGRADE",
@@ -3207,6 +3398,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The measurement hook is wired and mandatory: .claude/skills/system-review/SKILL.md:123 makes review_coverage.execution_capture a required assessment, :380 names scripts/research/m20_exit_analysis.py --since-days as the producer, :386-388 defines the per-strategy roundtrippers_pct / giveback / hold-time fields, and the script exists at scripts/research/m20_exit_analysis.py. — Standing watch by design — never closed by a single run, and correctly NOT a re-verify-the-flip row (that premise is disproven). Trigger for each /system-review: compare post-fix bybit ict_scalp hold-time, roundtrippers_pct and mean_giveback_r against the pre-2026-07-30 baseline (avg hold 9.05h / median 2.53h / 47 of 59 reconciler_filled). If they have NOT improved after the #8000-family soaks, the root cause is still unaddressed and this row escalates rather than continues."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "STANDING WATCH SERVICED THIS REVIEW. execution_capture measured: declared-bracket exit rate 8.3% (10 of 120 closes: tp 3 + sl 7); ict_scalp_mgc_15m held 47.76 h on a 15-minute leg (191x); ict_scalp_5m family still anomalous at 4 consecutive reviews. Roundtrippers/giveback NOT computable this run — m20_exit_analysis needs the trainer's market_raw store and the trainer is at 91.7% disk. That gap is itself the thing to fix next."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -3276,6 +3473,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The premise correction is solid and already recorded in the row: against Bybit exchange truth over a CLOSED population (3 AVAXUSDT/bybit_1 trades, exactly 6 fills, open_qty_signed 0) the journal sums -$9,669.41 vs exchange FIFO -$5,403.09 net of fees, a 79% overstatement, with the mechanism confirmed in timestamps (rows closed ~16 minutes after the position was already flat, both stamped the same 6.416 bar close despite different entries and stops). But the resolution the row asks for — ict_scalp capture statistics re-derived over measured-provenance rows with population and pnlCoverage stated — has not been produced; no such restatement exists under docs/research/. — Kept open for the restatement only; the original Tier-2 order-monitor/bracket fix must NOT be built as written (superseded premise). Trigger: a committed re-derivation of ict_scalp capture stats restricted to measured-provenance rows, stating the population and pnlCoverage — after which either a real capture defect survives and earns its own row with the measured figure, or this closes as an exit-anchor-era artifact. Note the overlap with the NETTING_ATTRIBUTION_MODE soak, which is measuring the same journal-vs-exchange divergence class."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: the row already records its own premise as SUPERSEDED (an exit-price reconstruction artifact, not a stop failure). Its live sibling is PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN, which I corroborated on live data this review — see that row. Keep for the reconstruction-artifact lesson."
         }
       ],
       "action": "SUPERSEDED as originally scoped. Do NOT open a Tier-2 bracket-path fix on the strength of the -8.41R figure.\n\n1. Re-derive the ict_scalp capture statistics (giveback, realized R) over MEASURED/ESTIMATED-provenance rows ONLY — /api/bot/performance now exposes totalPnlMeasured + pnlCoverage per strategy for exactly this, and /api/bot/trades/closed carries per-row pnlProvenance. A capture claim computed over fabricated exits measures the reconstruction, not the strategy.\n2. The close-PATH finding (7 of 10 by reconciler) is provenance-independent and IS worth chasing on its own terms — that is the surviving lead.\n3. Only after (1) yields a measured giveback should any Tier-3 stop-geometry or Tier-2 bracket change be proposed.",
@@ -3393,6 +3596,12 @@
           "at": "2026-08-16T10:35:00+00:00",
           "by": "claude (/system-review sysrev-0816)",
           "note": "2026-08-16 PROVENANCE OF THE SHIPPED VALUE, established because a /system-review session nearly reversed it on a bad trace. trail_mult 3.0 is NOT drift and NOT a birth defect: the block was introduced 2026-06-21 (#4069) with trail_mult 4.0, and 4.0 -> 3.0 was made 2026-07-12 in PR #6229, an operator-approved Tier-3 exit-lever package whose commit message names 'mes/mhg/tlt trail3' as one of 8 walk-forward cells ('Operator-approved 2026-07-12'). In that SAME commit mgc/xauusd went 3.0 -> 4.0, so trail3 for TLT was a per-leg choice, not a blanket. WHAT IS STALE IS THE COMMENT, not the field: the block still reads 'frac 0.5, trail 4.0' and cites the 2026-06-20 sweep, wrong for this field since 2026-07-12 (field beats comment). METHOD NOTE for whoever checks this next: the sandbox clone is SHALLOW by default, and on a shallow clone `git log -S` / `git log -L` over config/strategies.yaml return exactly ONE commit -- the graft boundary -- which reads as 'introduced here, never touched since' and is an ARTIFACT. It named a commit whose own message says 'Docs, matrix and backlog only -- no src/, no config/'. Run `git fetch --unshallow` first; the real count is 100 commits."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated; this is an operator DECISION (Tier-3), not work a review can drain. Carried with the blocker named. Reproduced across three independent runs per the row; the change is a strategy parameter and stays a proposal. tlt_pullback_1h had no 30d paper closes, so no new evidence either way this review."
         }
       ],
       "operator_action_required": true,
@@ -3415,6 +3624,12 @@
           "at": "2026-08-16T10:12:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "Filed rather than fixed: the diagnosis is one audit_query away but the operator's live decision this session was the disposition of the leg, not this. Flagged to them in-conversation as a NEW finding from the packet."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and PROMOTED IN PRIORITY: pair this with PB-20260630-003 (squeeze_breakout_4h 1.2%, htf_pullback_trend_2h 9%). Three legs, same shape — signals that never become trades, with nothing measuring why. That is a CLASS, and the structural fix is one instrumented rejection path, not three investigations."
         }
       ]
     },
@@ -3529,7 +3744,15 @@
         "src/units/accounts/alpaca_client.py:189",
         "config/accounts.yaml"
       ],
-      "scope_correction_2026_08_16": "NARROWED after checking the venues' own rules — the row's ID still says 'AND-IB-LEGS' and is kept as a stable handle, but the IB half does NOT hold. Alpaca's public docs document NO maximum take-profit distance (only a $0.01 minimum stop offset and take_profit.limit_price better than stop_loss.stop_price) — read 2026-08-16. IBKR is REPORTED to reject stock orders priced more than ~10% from NBBO (20% options), which would make the 9.9% cap approximately CORRECT on that route; that figure is a search summary and NOT verified — both IBKR primary pages returned HTTP 403 to the fetcher. So the finding holds for the Alpaca-only legs gld_pullback_1d and scha_trend_long_1d, and qqq_trend_long_1d is NOT a clean instance because it also routes to ib_paper. The code comment's parenthetical 'Bybit (AND MOST EXCHANGES)' was more accurate than the original reading of it."
+      "scope_correction_2026_08_16": "NARROWED after checking the venues' own rules — the row's ID still says 'AND-IB-LEGS' and is kept as a stable handle, but the IB half does NOT hold. Alpaca's public docs document NO maximum take-profit distance (only a $0.01 minimum stop offset and take_profit.limit_price better than stop_loss.stop_price) — read 2026-08-16. IBKR is REPORTED to reject stock orders priced more than ~10% from NBBO (20% options), which would make the 9.9% cap approximately CORRECT on that route; that figure is a search summary and NOT verified — both IBKR primary pages returned HTTP 403 to the fetcher. So the finding holds for the Alpaca-only legs gld_pullback_1d and scha_trend_long_1d, and qqq_trend_long_1d is NOT a clean instance because it also routes to ib_paper. The code comment's parenthetical 'Bybit (AND MOST EXCHANGES)' was more accurate than the original reading of it.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated; this is an operator DECISION (Tier-3), not work a review can drain. Carried with the blocker named. Would change the TP actually placed on live legs. Note this review measured 17 Bybit 'contracts exceeds maximum limit' venue rejections in 9 days, which is the sibling venue-cap class."
+        }
+      ]
     },
     {
       "id": "PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R",
@@ -3550,7 +3773,15 @@
         "unaffected_rows_checked": "trend_donchian_sol_4h max 4.32, xrp_pullback_2h max 4.46 -- both below the clamp, recorded values stand"
       },
       "my_error_recorded": "Filed inverted, then re-inverted, then settled by reading which value reaches kwargs['takeProfit']. Kept as a row so neither wrong direction is re-derived from a corrected summary alone.",
-      "corrected_by": "xrp_pullback_2h.live_entry_conditioned_COMPLETE_2026_08_16 (PR #9779), concurrent session"
+      "corrected_by": "xrp_pullback_2h.live_entry_conditioned_COMPLETE_2026_08_16 (PR #9779), concurrent session",
+      "updates": [
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a docstring/consumer correctness question with no runtime change proposed. Cheap and still undone; carried as actionable."
+        }
+      ]
     },
     {
       "id": "PB-20260816-M31-P4-PARITY-PRECONDITIONS",
@@ -3573,6 +3804,14 @@
         "scripts/exit_capture.py",
         "config/lever_reachability.json",
         "PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated against live: /api/diag/position_telemetry now has rows and a finality_source contract registered with collapsed-state-guard (confirmed in the guard's 19 contracts this review), so the 'finality only knowable via an unenforced join' half has moved. The EMPTY-population half still binds."
+        }
       ]
     },
     {
@@ -3587,7 +3826,14 @@
       "why_it_matters": "This is the written-and-never-read shape provenance-consumer-guard exists to catch, and it has a measurable cost rather than being merely untidy: the registry's own basis_note discredits the cheap candle screen ('NOT a bound in either direction — on xrp it overstated reachability 90.5% vs 33.3% because entries are filter-selected') and therefore needs an ENTRY-CONDITIONED population. It has been obtaining exactly that with a bespoke relay run per leg — #9710 for scha_trend_long_1d, #9715 for trend_donchian_sol_4h — while every fleet sweep since #9037 has been writing the same class of number into the corpus for free. Two of the eight registry rows still read `unmeasured`/`queued_tier3`.",
       "resolution_criteria": "OBSERVABLE: for a leg whose registry row carries NO entry-conditioned basis, the corpus alone yields cap_R median/min/max/n and a reach share against that leg's arm_r, without dispatching a relay. Demonstrate on a leg that currently has none — reproducing a leg that already has a bespoke block proves only that the join works where the answer was already known.",
       "next_action": "Join docs/research/m20-sweep-corpus.jsonl's live_tp_reach_r_{n,median,min,max}_{IS,OOS} onto config/lever_reachability.json by leg, as a RECORDED SECONDARY basis with the caveat below — never as a verdict flip. The natural home is scripts/ci/check_lever_reachability.py (which today has ZERO references to the field) or the coverage roll-up. Cheapest first step is a read-only report, not a writer.",
-      "updates": [],
+      "updates": [
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a Tier-1 read path over two COMMITTED artefacts (m20-sweep-corpus.jsonl -> lever_reachability.json). Needs no VM, no trainer, no live data — so it is not blocked by the disk pressure gating its neighbours. One of the few genuinely unblocked rows in this backlog."
+        }
+      ],
       "area": "M20/M31 exit-lever reachability / research corpus",
       "detail": "MEASURED 2026-08-16 against merged main.\n\nCOVERAGE. 376 of 1264 corpus rows carry a non-null live_tp_reach_r_n_IS, spanning 34 legs. The registry holds 8 lever rows; 7 of those 8 legs have a corpus measurement (qqq_trend_long_1d is the one with none).\n\nNO CONSUMER. live_tp_reach_r / tp_r_effective appears in the four backtest harnesses (which compute it), m20_fleet_exit_sweep.py (which surfaces it), m20_corpus_extract.py (which writes it), three test files and two sprint logs. scripts/ci/check_lever_reachability.py: 0 references. config/lever_reachability.json: 0 references. Nothing decides anything with it.\n\nIT AGREES WITH THE BESPOKE RELAYS WHERE BOTH EXIST — the check that makes the join trustworthy rather than merely available:\n  * trend_donchian_sol_4h (arm 5.57): bespoke cap_r_at_median 1.64 over n=127 (relay #9715, span 2023-01-09→2026-06-29, reach 0/127 = 0.0%) vs corpus median 1.324 over n=135. The corpus MAX is 3.723 — strictly below the 5.57 arm — so the corpus independently gives 0/135 reachable, reproducing the bespoke zero without the relay.\n  * scha_trend_long_1d (arm 2.00): bespoke cap_r_at_median 2.65 over n=65 (relay #9710, span 2010-03-10→2026-06-12, reach 54/65 = 83.1%) vs corpus medians 2.81/3.058/3.122 over n=60. Arm 2.00 sits below every one, agreeing with 'largely reachable'.\nThe residual gap in the medians is explained by population, not method: the corpus figure is the sweep's IS window at a DERIVED split, the bespoke figure is the leg's complete backtest span.\n\n⚠️ THE CAVEAT MUST TRAVEL WITH THE NUMBER, OR THE JOIN MANUFACTURES FALSE `reachable` VERDICTS. The harnesses place tp = min(entry*1.099, entry + tp_r*risk) and every leg declares the sentinel tp_r = 50.0, so tp_r_effective IS the venue-cap identity 0.099/(risk/entry) — which is quantity (3) in the registry's own basis_note taxonomy, NOT the operative ceiling (1) exit_plan_state.targets[].reach_r. src/runtime/exit_plan_realism.py's DEFAULT_MAX_REACH_R = 5.0 clamps first wherever cap_R > 5.0, so a corpus median above 5.0 OVER-reports the reach a lever actually gets. That bites today: trend_donchian's corpus median is 5.833 and its max 36.439, both past the clamp. So the corpus basis is strictly better than the discredited candle screen (entry-conditioned, large-n) and strictly weaker than the live order_packages/risk_per_unit basis — the same standing the registry already assigns its own backtest_entry_conditioned_* blocks, whose basis_caveat wording should be reused verbatim rather than reinvented.\n\nCHANGES NOTHING TODAY. No verdict, disposition or arm_r moves here. The three queued_tier3 rows (xrp_pullback_2h, trend_donchian_sol_4h, scha_trend_long_1d) remain the operator's call; this records that the evidence for two of them was already sitting in a committed artefact."
     },
@@ -3620,7 +3866,7 @@
       "id": "PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE",
       "opened_at": "2026-08-17",
       "opened_by": "S-M31-P4-MFE-PARITY-2026-08-17",
-      "status": "open",
+      "status": "kept_open",
       "severity": "low",
       "tier": 1,
       "area": "m20-exit-refinement",
@@ -3640,14 +3886,22 @@
           "at": "2026-08-17T16:40:00+00:00",
           "by": "session m31-p5-rr (doc-freshness close-out)",
           "note": "SHARED-SWEEP CROSS-REFERENCE (doc-freshness sweep, session m31-p5-rr). This row and PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA need the SAME artifact: a CAPPED (--tp-cap-pct 0.099) trainer-side sweep on per-leg candles at the live timeframes, restricted to the telemetry-writing legs (trend_donchian + htf_pullback_trend_2h families). Neither row said so, and scheduling them apart would pay for the candle pull twice and risk grading the two halves of P5's gate on different data. Run one sweep with --emit-trades and BOTH --rr-floor arms; feed the emit files to m31_harness_mfe_dist.py for this half. Canonical split: docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md section 5 preconditions 2a/2b and 3a/3b."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision. Needs a trainer-side sweep re-run."
         }
-      ]
+      ],
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA",
       "opened_at": "2026-08-17",
       "opened_by": "S-M31-P5-RR-FLOOR-HARNESS-2026-08-17",
-      "status": "open",
+      "status": "kept_open",
       "severity": "medium",
       "tier": 1,
       "area": "m31-position-telemetry / m20-exit-levers",
@@ -3662,8 +3916,16 @@
           "at": "2026-08-17T16:40:00+00:00",
           "by": "session m31-p5-rr (doc-freshness close-out)",
           "note": "SHARED-SWEEP CROSS-REFERENCE (doc-freshness sweep, session m31-p5-rr). This row and PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE need the SAME artifact: a CAPPED (--tp-cap-pct 0.099) trainer-side sweep on per-leg candles at the live timeframes, restricted to the telemetry-writing legs (trend_donchian + htf_pullback_trend_2h families). Neither row said so, and scheduling them apart would pay for the candle pull twice and risk grading the two halves of P5's gate on different data. Run one sweep with --emit-trades and BOTH --rr-floor arms; feed the emit files to m31_harness_mfe_dist.py for this half. Canonical split: docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md section 5 preconditions 2a/2b and 3a/3b."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision. Needs per-leg candles via the trainer relay."
         }
-      ]
+      ],
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260817-SPRINT-LOG-TEMPLATE-HAS-NO-GUARD",
@@ -3679,7 +3941,14 @@
       "why_it_matters": "The sections that go missing are the ones a later session reads to decide whether to trust the log: 'Repo State Checked', 'Contradictions or Drift Found', 'Deferred Items', 'Wrap-Up Check'. A log missing 'Deferred Items' reads as a completed unit of work when it may have deferred the load-bearing half -- which is exactly the shape of this session's own work, where the mechanism shipped and the artifact did not. This is the same family as BL-20260817-COLLAPSED-STATE-SELFTEST-REGISTERED-BUT-NEVER-INVOKED: a control that is declared and never executed. Here the 'control' is a documented mandatory format.",
       "resolution_criteria": "Either (a) a CI check that every file added under docs/sprint-logs/ carries all 14 '## ' section names from the template -- diff-scoped so the ~200 existing logs are grandfathered, the same shape as diagnostic-provenance-guard -- with a self-test proving it FAILS on a log missing a section (not merely passes on a good one); or (b) an explicit decision, recorded in CLAUDE.md, that the template is advisory rather than mandatory, so the hierarchy stops claiming an enforcement that does not exist. Either resolves it; the current state -- 'mandatory' with zero enforcement and measured drift -- is the one that should not persist.",
       "next_action": "A review session picks (a) or (b). If (a): grandfather by diff scope, and check NAMES not a count. Cheap either way; the measurement above is the whole investigation.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: unblocked and cheap either way per its own next_action. A review session is meant to pick (a) or (b); this one did not, and says so rather than snoozing it behind a fake blocker."
+        }
+      ]
     },
     {
       "id": "PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13",
@@ -3699,6 +3968,12 @@
           "at": "2026-08-22T13:45:00+00:00",
           "by": "claude (s2-exitclust, T.3 — operator: INVESTIGATE, KEEP IT LIVE)",
           "note": "INVESTIGATED. NOTHING CHANGED -- execution: live is untouched, per the operator's 2026-08-22 instruction that my predecessor's demote recommendation was NOT taken.\n\n1. THE MEASUREMENT REPRODUCES, on a stated population. /api/bot/performance?window=30d (since 2026-07-23T12:55:23Z), paper block: slv_trend_1h trades=13 wins=0 totalPnl=-5374.59 totalPnlMeasured=-4264.42 pnlCoverage=0.7692 expectancyR=-1.1206. The paperPortfolio sub-block is 6 of those 13 (-3435.49, coverage 0.8333). Unchanged from 2026-08-21.\n\n2. T.3's OWN PRE-APPROVAL CONDITION FAILS, INDEPENDENTLY OF THE OPERATOR'S LATER INSTRUCTION. The condition required that 'the leg is genuinely routed to real money'. Read from config/accounts.yaml: slv_trend_1h is carried by alpaca_paper (paper), alpaca_portfolio (paper), alpaca_options_paper (paper) and alpaca_live -- which is mode: dry_run. EVERY account carrying this leg is paper or dry_run. T.3's own fallback text covers this exactly: 'A leg that turns out to be already-shadow, PAPER-ONLY, or n-too-small is a finding, not a demote.' So both routes lead to change-nothing.\n\n3. THE DEGENERATE-CONFIDENCE CAUSE IS ALREADY FIXED, AND THE FIX WORKS -- I nearly reported the opposite. The sibling row PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE proposed a min_confidence floor of ~0.3. config/strategies.yaml carries min_confidence: 0.3 today, landed by 0093d2ba on 2026-08-01 ('slv_trend_1h: floor min_confidence at 0.3 (Tier-3 - operator-approved 2026-08-01) (#8255)'). Entry confidences on the 9 order packages in the window: 0.154, 0.064, 0.039 (all BEFORE 2026-08-01) then 0.469, 0.664, 0.337, 0.337, 0.347, 0.423 (all AFTER). Zero violations post-landing. My first pass saw '3 of 9 below the floor' and would have reported the floor unenforced; dating the commit is what corrected it -- and that required git fetch --unshallow, because the clone ships at 52 commits and git log -S silently attributes every change to the boundary commit.\n\n4. SO THE 13-TRADE POPULATION STRADDLES A TIER-3 REMEDIATION, which the row's headline treats as one population. Split by the 08-01 boundary, at PACKAGE level: pre-floor 3 packages totalling -421.65; post-floor 3 packages totalling -1435.70, plus 2 rejected and 1 still open. Post-floor is still 0-for-3 and losing more per trade. ⚠️ n=3 IS UNDERPOWERED AND IS LABELLED AS SUCH -- it is not evidence the floor failed, and it is not evidence it worked. It is too few trades to say either.\n\n5. THE FINDING I DID NOT EXPECT, and it moves this row out of 'bad strategy' territory: ALL SIX closed packages exited exchange_flat_reconciled. Not sl_cross, not tp_cross, not the trail. Every single close was the reconciler noticing the position was already flat at the broker. This leg has NO decision-driven exit path in practice -- which makes it an instance of the operator's exit/protection cluster and of workplan item 1.1, not an independent strategy verdict. Judging entry quality on a leg whose exits are not taken by the strategy grades the wrong half of the trade.\n\nRECOMMENDATION, and it is a recommendation only: do NOT decide this leg's disposition on the current evidence. The 0-for-13 is real and reproduces, but (a) it is paper-only so nothing is bleeding, (b) the confidence remediation is 3 weeks old with n=3 behind it, and (c) its exits are the fleet-wide defect, so a kill would attribute to the strategy a loss its exit path is at least partly responsible for. The M7 packet this row's next_action asks for is still worth generating; it was not run this session and I am not claiming it was."
+        },
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "⚠️ THE HEADLINE FIGURE IS NOW STALE AND MUST NOT BE RE-QUOTED. Re-measured live 30d paper 2026-08-29: slv_trend_1h is 9 trades / 2 wins / 22.2% win rate / -$2,718.87 (totalPnlMeasured -$1,608.70) / expectancyR -0.6308 / pnlCoverage 0.2222. So it is NOT '0 wins in 13' any more and the -$5,374.59 figure does not describe the current 30d window. What SURVIVES is the disposition case: negative expectancy, a 22% win rate, and a loss that is partly measured. Still a KILL/DEMOTE candidate — on corrected numbers."
         }
       ]
     },
@@ -3714,7 +3989,15 @@
       "detail": "POPULATION: closed non-backtest trades in the /api/bot/performance 30d window (since 2026-07-22, read 2026-08-21). Measured per-strategy:\n  paper trend_donchian_ada_4h  n=7 trades   totalPnl +2006.65   expectancyR 62.615   totalR 438.30\n  REAL  ict_scalp_5m           n=6 trades   totalPnl    -0.54   expectancyR  5.806   totalR  34.84\n  REAL  headline 30d           n=24 trades  totalPnl    +1.70   expectancyR  1.2525  totalR  30.06   rCoverage 1.0\nThe real-money 30d book therefore reads +30.06R on +$1.70, and 34.84 of those 30.06 R come from ONE leg whose dollars are negative. Over the same 24 trades rCoverage is 1.0, so this is not a thin-sample artifact of the R denominator being absent — it is present and wrong.\n\nAn expectancy of 62.615 R per trade over 7 trades is not a trading result; it is an R denominator (|entry - stop| x qty) collapsing toward zero on a leg whose stop sat very close to entry, e.g. after a trail. Because totalR SUMS across legs, one such leg poisons every aggregate above it.\n\nCLAUDE.md's 'Dollars are the scoreboard' rule and the R4 research->results gate both depend on R being comparable across instruments. On this population it is not. | ROOT-CAUSED 2026-08-22 (Phase-2 item 2.4). MEASURED, /api/bot/performance?window=30d, real-money, n=29 closed, rCoverage=1.0 (so this is NOT a coverage gap -- the endpoint believes every trade's risk is known). 3 of 6 per-strategy rows disagree in sign: ict_scalp_5m pnl -$0.03 vs totalR +38.445; trend_donchian pnl +$12.82 vs totalR -3.032 (4 trades, ZERO shorts); xrp_pullback_2h pnl +$5.29 vs totalR -0.190. | TWO HYPOTHESES REFUTED, not merely unselected. (a) A short/long sign error: the disagreeing strategies are 37.5% short vs 57.1% for the agreeing ones -- the correlation runs the WRONG WAY -- and trend_donchian has no shorts at all. (b) A sign error in the denominator: _clean_trades.r_multiple uses abs(entry-stop), so a per-trade R can never disagree in sign with its own pnl. | THE ACTUAL MECHANISM IS WEIGHTING, NOT SIGN. totalR is a sum of pnl_i/risk_i while totalPnl is a sum of pnl_i, so a loser with a SMALL risk denominator outweighs several winners with large ones and flips the aggregate. The denominators go small because `trades.stop_loss` is the CURRENT stop, mutated by trailing-stop updates, not the INITIAL risk at entry: once a trailing stop ratchets toward the entry price, |entry-stop| -> 0 and R explodes. r_multiple's `risk <= 0` guard catches only EXACTLY zero, never NEAR zero. Measured instance: trade 4258 (ict_scalp_5m) carries risk of $0.372 on a $5.08 pnl => R = 13.6 from one row. Trade 4824 (trend_donchian) is a LONG whose stored stop 74479.1 sits ABOVE its entry 70888.9 -- not corruption, a trailing stop that ratcheted up on a winner, which is precisely why the value cannot serve as initial risk. | CONSEQUENCE: expectancyR is not an expectancy. It gates R-based promotion decisions while measuring a quantity that is not R, and rCoverage=1.0 reports full confidence in it. The fix is to normalise by the risk DECLARED AT ENTRY rather than by a column the exit path mutates -- so the fix is a data-availability question first (is entry-time risk stored anywhere today?), not a formula change. Deliberately NOT written here: changing what a promotion gate reads is Tier-3. | STATUS NORMALISED 2026-08-22 (workplan 0.1 Step 0): the free-text status 'root_caused_fix_not_yet_written' was collapsed to 'open' so the open set is countable. The original wording is preserved here verbatim; the mapping failed TOWARD open wherever the text signalled remaining work.",
       "why_it_matters": "R is the axis the promotion gates read. A leg whose R is computed against a near-zero denominator will clear any R-based gate while losing money, which is precisely the failure the gate exists to prevent. Measured here on 2 of 31 strategy rows across the real and paper 30d blocks, but the contamination is at the AGGREGATE level, so it reaches every consumer of totalR/expectancyR regardless of how few legs cause it.",
       "next_action": "Tier-1: floor or reject the R denominator when |entry - stop| is below a venue-tick-derived minimum, and report rTradeCount alongside a max|R| so a single outlier is visible. Then re-check whether any past promotion decision rested on an R aggregate containing one.",
-      "resolution_criteria": "Over a 30d window of at least 20 closed trades, no per-strategy expectancyR exceeds a stated plausible bound without an explicit outlier annotation, and the real-money totalR sign matches its totalPnl sign."
+      "resolution_criteria": "Over a 30d window of at least 20 closed trades, no per-strategy expectancyR exceeds a stated plausible bound without an explicit outlier annotation, and the real-money totalR sign matches its totalPnl sign.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "CONFIRMED LIVE AND NOT FADING. Re-measured 2026-08-29: trend_donchian_ada_4h reports expectancyR 63.183 over 7 trades at pnlCoverage 0.0 — the row filed it at 62.6R, so it has GROWN, and the R is computed over rows whose PnL is not a measurement at all. Second live instance the same day: ict_scalp_avax_5m reports expectancyR +0.7506 against -$6,804.83 of paper PnL (coverage 0.0588) — positive R, large dollar loss. Real money: ict_scalp_5m expectancyR 2.9128 on +$4.00 across 14 trades. This is a live, reproducing measurement defect, not a historical note."
+        }
+      ]
     },
     {
       "id": "PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK",
@@ -3734,6 +4017,14 @@
       "related": [
         "BL-20260821-AVAX-SCALP-SIZES-ABOVE-THE-VENUE-MAXIMUM",
         "BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "CORROBORATED LIVE 2026-08-29: ict_scalp_avax_5m 30d paper is 17 trades / 47.1% win rate / -$6,804.83 — a positive win rate with a large loss, which is the signature of size, not direction, and is consistent with this row's claim that the order size IS the margin ceiling. pnlCoverage 0.0588 means 16 of 17 of those dollars are not measurements, so the magnitude is soft while the SHAPE is solid. Tier-3, proposal only."
+        }
       ]
     },
     {
@@ -3755,6 +4046,14 @@
         "docs/research/xrp-pullback-entry-axis-2026-08-24.md",
         "docs/research/xrp-pullback-joint-geometry-2026-08-23.md",
         "docs/research/donchian-stop-gate-is-drawdown-bound-2026-08-23.md"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated; this is an operator DECISION (Tier-3), not work a review can drain. Carried with the blocker named. One leg clearing a gate four siblings fail is exactly the cosmetic-cell shape the regime-selectivity rules warn about; recommend NOT acting on the single-leg pass."
+        }
       ]
     },
     {
@@ -3762,11 +4061,21 @@
       "opened": "2026-08-24",
       "severity": "medium",
       "tier": 3,
-      "status": "open",
+      "status": "kept_open",
       "area": "research/bracket-geometry",
       "summary": "The e35 bracket joint grid walks atr_stop_mult {1.5, 2.0, 3.0, 3.5} and OMITS the live value 2.5 on all four clamp-dominated donchian 4h legs (eth/xrp/ada/sol). Every joint cell therefore changes the stop AND the target together, so 'does declaring a target at the geometry we actually run help?' is unmeasured — measured 2026-08-24 over 1,540 joint cells with a book. The per-leg deltas in docs/research/bracket-target-reachability-2026-08-24.md section 4 (sol_4h helps at 4/4 stops, ada_4h hurts at 3/4) are all joint-change results and must not be quoted as target-only effects.",
       "evidence": "docs/research/bracket-target-reachability-2026-08-24.md section 7; scripts/research/bracket_reachability_audit.py --corpus docs/research/e35-bracket-corpus.jsonl; stop_mult values present per leg = [1.5, 2.0, 3.0, 3.5], live = 2.5, present = False on all four legs.",
-      "resolution_criteria": "Either (a) re-run the four legs with atr_stop_mult 2.5 added to the joint grid, so the target-only column exists and section 4 can be restated as target-only vs joint; or (b) if that run is not worth its cost, record that decision here and add an explicit caveat at every consuming site that the deltas are joint-change, so no future session reads them as target-only. A criterion for 'this target ships' must be written down BEFORE (a) runs, per the donchian section 6.0b lesson."
+      "resolution_criteria": "Either (a) re-run the four legs with atr_stop_mult 2.5 added to the joint grid, so the target-only column exists and section 4 can be restated as target-only vs joint; or (b) if that run is not worth its cost, record that decision here and add an explicit caveat at every consuming site that the deltas are joint-change, so no future session reads them as target-only. A criterion for 'this target ships' must be written down BEFORE (a) runs, per the donchian section 6.0b lesson.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision. Needs a re-gridded sweep including the live stop."
+        }
+      ],
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260824-COSMETIC-TARGETS-ABOVE-CAP-R-SHIP-AS-DECLARED-EXPECTATIONS",
@@ -3777,7 +4086,15 @@
       "area": "research/bracket-geometry",
       "summary": "A declared tp_r above a leg's cap_r is byte-identically the same run as declaring NO target — the 9.9% venue clamp exits first — yet it reads in config as a chosen expectation. Measured 2026-08-24: 49 of 308 cells that have a same-stop no-target baseline are byte-identical to that baseline on BOTH net_R and max_drawdown_r (15.9%); restricted to the four clamp-dominated donchian 4h legs, 28 of 112 (25.0%). Worked case: trend_donchian_ada_4h at sm1.5 (cap_r 2.62R) returns net_R 55.4731 at tp_r 6.0 and net_R 55.4731 with no target at all. This extends the operator premise that a sentinel target is the absence of an expectation: a target above the clamp is equally absent while looking like a decision.",
       "evidence": "docs/research/bracket-target-reachability-2026-08-24.md section 3; scripts/research/bracket_reachability_audit.py (COSMETIC axis, observed byte-identity, not derived); implication that every cosmetic cell is also truncated holds 40/40 on cells with a cap basis, 9 further unverifiable.",
-      "resolution_criteria": "A config-time check that refuses or warns when a declared tp_r exceeds the leg's cap_r at its declared atr_stop_mult, so a cosmetic target cannot ship as a declared expectation. cap_r must come from bracket_expectation_census.cap_r_for (one definition), and the check must distinguish 'no cap basis for this leg' (we did not look) from 'target is within cap' — collapsing those is the defect this row is about. Closing without the check requires recording why a cosmetic declaration is acceptable."
+      "resolution_criteria": "A config-time check that refuses or warns when a declared tp_r exceeds the leg's cap_r at its declared atr_stop_mult, so a cosmetic target cannot ship as a declared expectation. cap_r must come from bracket_expectation_census.cap_r_for (one definition), and the check must distinguish 'no cap basis for this leg' (we did not look) from 'target is within cap' — collapsing those is the defect this row is about. Closing without the check requires recording why a cosmetic declaration is acceptable.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:05:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and CORROBORATED by this review's own target_extension_soak reading in CLAUDE.md: 28 of 52 enabled legs declare tp_r >= 50, i.e. no reachable target to extend from. That is the same population this row is about, measured independently."
+        }
+      ]
     }
   ],
   "updated_at": "2026-08-22T18:05:00+00:00"

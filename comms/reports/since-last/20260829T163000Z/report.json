@@ -1,0 +1,3709 @@
+{
+  "report_id": "RPT-20260829-163000-since-last",
+  "reviewed_at": "2026-08-29T16:30:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-08-25T09:25:00+00:00",
+  "window_end": "2026-08-29T16:06:00+00:00",
+  "prior_report_id": "RPT-20260825-092500-since-last",
+  "overall_assessment": "investigate",
+  "health": {
+    "_source": "This session gathered live state directly (HTTPS via ict-bot.duckdns.org, no relay needed) rather than running /health-review as a separate sub-session. Stated plainly so nothing here reads as a verbatim sub-review payload it is not.",
+    "overall_assessment": "caution",
+    "services": {
+      "all_canonical_units_active": true,
+      "detail": "ict-trader-live, ict-web-api, caddy, ict-telegram-bot, ict-claude-bridge all active; every timer active. ict-ib-gateway-watchdog.timer inactive on the LIVE VM is CORRECT - that unit runs on the gateway VM (/etc/ict-vm-role==gateway)."
+    },
+    "heartbeat": {
+      "label": "running",
+      "age_seconds": 35.9,
+      "verdict": "healthy"
+    },
+    "exit_loop": {
+      "state": "fresh",
+      "requirement_state": "within",
+      "requirement_s": 60,
+      "durable_soak": "997 intervals over 4 processes: mean 29,978 ms / median 29,878 / p95 32,181 / MAX 34,240 ms. 0 of 997 over the 60 s requirement. 15.8 s of margin at the max - IMPROVED from the 45.0 s max (15.0 s margin) at the 08-25 review.",
+      "note": "Read the durable soak, not the in-memory grade: the live process had intervals_measured=2."
+    },
+    "vm_clock": {
+      "verdict": "in_sync",
+      "detail": "Measured twice against this session's clock: -0.04 s and -0.02 s. The recurring Bybit ErrCode 10002 (req_timestamp vs server_timestamp ~5.1 s) is therefore NOT local clock drift - it is latency/queuing or venue-side. Recorded because the error text invites exactly the wrong diagnosis."
+    },
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "findings_detail": [
+      {
+        "id": "F-H1",
+        "severity": "high",
+        "title": "prop_risk_gate promised a soak row and wrote nothing",
+        "detail": "src/prop/prop_risk_gate.py has said since 2026-08-25 that at `annotate` 'a soak row is written'. The module was 318 lines with NO file write of any kind ('soak' appeared once, in that docstring). Every sibling *_MODE gate writes one AND registers a diag read surface. The gate guarding the one account that can be PERMANENTLY DISABLED had neither, so the Tier-3 `enforce` decision had no evidence to be made on.",
+        "status": "FIXED THIS SESSION - PR #10414 (writer + diag allowlist in the same commit + 6 tests)",
+        "class": "BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE (4th recurrence)"
+      },
+      {
+        "id": "F-H2",
+        "severity": "medium",
+        "title": "/trades/closed returns a confident [] for an unparseable since=",
+        "detail": "since=garbage -> datetime('garbage') is NULL in SQLite, the comparison is NULL, and the route returns []. Indistinguishable from 'no trades in the window'. The repo already solved this shape on /api/bot/db/table with filter_state; this route has no equivalent. Found while probing; the control (no since) returned 20 rows.",
+        "status": "filed, not fixed this session",
+        "tier": 1
+      },
+      {
+        "id": "F-H3",
+        "severity": "medium",
+        "title": "trainer disk at 91.7% (4.03 GB free) - warning banner live",
+        "detail": "The documented GC is NOT the remedy (measured 08-20: reclaims 0.09 GB of 115 version dirs, 111 pinned by 41 manifests). A full trainer disk stops dataset builds and training cycles, which the trainer's own systemd state still reports green.",
+        "status": "open, operator-facing"
+      },
+      {
+        "id": "F-H4",
+        "severity": "low",
+        "title": "web-api served a stale sha for part of this session",
+        "detail": "/api/diag/version read git_sha=eb061699 vs on-disk fccd9a16 (restart_pending=true) at 16:06Z. Resolved by 16:22Z (both 5d6c87d8, restart_pending=false) - a concurrent session's deploy. Recorded as an observation, not an incident."
+      }
+    ],
+    "findings": {
+      "F-H1 \u00b7 prop_risk_gate promised a soak row and wrote nothing": {
+        "status": "concern",
+        "note": "src/prop/prop_risk_gate.py has said since 2026-08-25 that at `annotate` 'a soak row is written'. The module was 318 lines with NO file write of any kind ('soak' appeared once, in that docstring). Every sibling *_MODE gate writes one AND registers a diag read surface. The gate guarding the one account that can be PERMANENTLY DISABLED had neither, so the Tier-3 `enforce` decision had no evidence to be made on.  [FIXED THIS SESSION - PR #10414 (writer + diag allowlist in the same commit + 6 tests)]"
+      },
+      "F-H2 \u00b7 /trades/closed returns a confident [] for an unparseable since=": {
+        "status": "watch",
+        "note": "since=garbage -> datetime('garbage') is NULL in SQLite, the comparison is NULL, and the route returns []. Indistinguishable from 'no trades in the window'. The repo already solved this shape on /api/bot/db/table with filter_state; this route has no equivalent. Found while probing; the control (no since) returned 20 rows.  [filed, not fixed this session]"
+      },
+      "F-H3 \u00b7 trainer disk at 91.7% (4.03 GB free) - warning banner live": {
+        "status": "watch",
+        "note": "The documented GC is NOT the remedy (measured 08-20: reclaims 0.09 GB of 115 version dirs, 111 pinned by 41 manifests). A full trainer disk stops dataset builds and training cycles, which the trainer's own systemd state still reports green.  [open, operator-facing]"
+      },
+      "F-H4 \u00b7 web-api served a stale sha for part of this session": {
+        "status": "ok",
+        "note": "/api/diag/version read git_sha=eb061699 vs on-disk fccd9a16 (restart_pending=true) at 16:06Z. Resolved by 16:22Z (both 5d6c87d8, restart_pending=false) - a concurrent session's deploy. Recorded as an observation, not an incident."
+      }
+    }
+  },
+  "performance": {
+    "_source": "Grading RAN this session via the grade-closed-trades system-action (issues #10415, #10417) - the canonical deterministic _grade_package rubric on the VM. 89 rows merged, histogram cross-checked against the action's own _delta_summary.",
+    "overall_assessment": "investigate",
+    "grading": {
+      "rows_emitted": 89,
+      "trades_in_window": 120,
+      "graded": 89,
+      "ungraded": 31,
+      "ungraded_reason": "no linked order package / not in the action's closed_only delta",
+      "histogram": {
+        "A": 3,
+        "B": 18,
+        "C": 67,
+        "D": 1
+      },
+      "reading": "67 of 89 are C, but that is largely 'not enough recorded to grade', not a verdict: entry_quality is `unknown` for every pairs leg (no confidence recorded on that path) and risk_management is `unknown` for ALL 89. The single D (ict_scalp_sol_15m, conf 0.28, entry=should_skip) then returned +8.96R - the grade scores the DECISION, not the outcome.",
+      "grader_defect_caveat": "\u26a0\ufe0f EVERY GRADE IN THIS REPORT CARRIES A KNOWN DEFECT, confirmed in my OWN output today. BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT says the grader labels exit_quality from the R VALUE rather than the exit MECHANISM. My 89 fresh grades reproduce it verbatim: `exit=tp_appropriate(reconciler_filled,1.03R)`, `exit=tp_appropriate(netting_attributed,12.81R)`, and \u2014 most clearly \u2014 `exit=tp_appropriate(sl,0.76R)`, which grades a STOP-LOSS exit as an appropriate TAKE-PROFIT because the R came out positive. So the exit_quality axis of these grades is not trustworthy; entry_quality and the decision_grade are unaffected."
+    },
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "findings_detail": [
+      {
+        "id": "F-P1",
+        "severity": "high",
+        "title": "Only 8.3% of the window's closes came from a declared bracket",
+        "detail": "Of 120 closes: tp 3 + sl 7 = 10 (8.3%); reconciler 34; 'other' 76. The 'other' bucket is dominated by janitor and sleeve paths - pairs_half_open_cleanup, pairs_revert, pairs_stop, netting_attributed, intent_reduce, stuck_strategy_watchdog. This is the same structural shape the 08-25 review measured fleet-wide (66.2% of 1,342 closes)."
+      },
+      {
+        "id": "F-P2",
+        "severity": "high",
+        "title": "The pairs sleeve strands a leg repeatedly",
+        "detail": "35 `pairs_half_open cleaned` WARN events in 9 days (30 SOL/ETH + 5 BNB/BTC). The two live pairs legs on bybit_1 carry placeholder geometry, not risk levels: ETHUSDT sell entry 2446.68 with SL 4893.36 (=2x entry) and TP 1223.34 (=entry/2). Consistent with BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN (one-way netting on bybit_1)."
+      },
+      {
+        "id": "F-P3",
+        "severity": "medium",
+        "title": "Paper P&L is dominated by unmeasured marks - do not read it as performance",
+        "detail": "Paper lifetime totalPnL +$172,857.69 at pnlCoverage 0.1897 (133 measured / 305 estimated). Window paper +$813.07 (n=114) against a prior-window +$259,278.37 (n>=73, TRUNCATED). A figure that moves by five orders of magnitude between adjacent windows at 19% coverage is a provenance artefact, not a result."
+      }
+    ]
+  },
+  "ml": {
+    "_source": "Read from the live VM's trainer mirror (/api/bot/ml/*), mirror age 53 s at read time.",
+    "overall_assessment": "caution",
+    "trainer": {
+      "mirror_present": true,
+      "mirror_age_seconds": 53.4,
+      "cycles_24h": 2,
+      "dataset_builds_24h": {
+        "ok": 96,
+        "failed": 0,
+        "skipped": 2
+      },
+      "disk": {
+        "free_gb": 4.03,
+        "used_pct": 91.7
+      },
+      "registry": {
+        "models": 96,
+        "advisory": 3,
+        "shadow": 29,
+        "candidate": 63,
+        "research_only": 1
+      }
+    },
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "findings_detail": [
+      {
+        "id": "F-M1",
+        "severity": "high",
+        "title": "The last cycle trained ZERO models and carried 9 refusals",
+        "detail": "last_cycle: {trained: 0, already_done: 76, carried_done: 67, carried_skipped: 9, refusals_total: 9, failed: 0, outcome: 'complete_with_refusals'}. Six manifests are in refusing_manifests_24h: baseline-prop-mission-policy, btc-regime-15m-lgbm-base-vt003-pcv-v1, mes-regime-1d-lgbm-v2, mes-regime-5m-lgbm-macro-v1, setup-candidates-metalabel-xsym-yz-v1, setup-quality-lgbm-v2. rc=0 and the service reads green, so nothing alerts on this."
+      },
+      {
+        "id": "F-M2",
+        "severity": "medium",
+        "title": "Only 3 of 96 registry models are advisory",
+        "detail": "3 advisory / 29 shadow / 63 candidate. 29 models are logging predictions and influencing nothing. That is the designed ladder, but the shadow tier is not draining."
+      }
+    ],
+    "model_status": [
+      {
+        "model": "advisory tier (3 of 96)",
+        "stage": "advisory",
+        "last_metric": "\u2014",
+        "trend": "\u2014",
+        "shadow_drift": "\u2014",
+        "note": "BTC + SOL 15m vol heads read live by intents.py::_decision_vol_regime."
+      },
+      {
+        "model": "shadow tier (29 of 96)",
+        "stage": "shadow",
+        "last_metric": "\u2014",
+        "trend": "not draining",
+        "shadow_drift": "\u2014",
+        "note": "Logging predictions, influencing nothing. None proposed for promotion."
+      },
+      {
+        "model": "candidate tier (63 of 96)",
+        "stage": "candidate",
+        "last_metric": "\u2014",
+        "trend": "\u2014",
+        "shadow_drift": "\u2014",
+        "note": "Refused by the shadow factory by design."
+      },
+      {
+        "model": "6 refusing manifests (24h)",
+        "stage": "\u2014",
+        "last_metric": "\u2014",
+        "trend": "refusing",
+        "shadow_drift": "\u2014",
+        "note": "baseline-prop-mission-policy, btc-regime-15m-lgbm-base-vt003-pcv-v1, mes-regime-1d-lgbm-v2, mes-regime-5m-lgbm-macro-v1, setup-candidates-metalabel-xsym-yz-v1, setup-quality-lgbm-v2. Last cycle trained 0 with rc=0."
+      }
+    ]
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260829T163000Z/report.json",
+    "html_path": "comms/reports/since-last/20260829T163000Z/report.html",
+    "md_path": "comms/reports/since-last/20260829T163000Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/Metis-Insights/blob/main/comms/reports/since-last/20260829T163000Z/report.html",
+    "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260829-163000-since-last"
+  },
+  "consolidated": {
+    "roll_up_grade": "investigate",
+    "headline": "Real money moved +$1.46 across 6 closed trades - flat, and the lifetime journal is -$26.42 against a broker-truth -$262.52 for bybit_2 alone. The loudest item is unchanged and now on its THIRD review: the prop account sits $55.00 from the floor that permanently kills it, with its daily-loss distance unmeasured. The genuine win this window is the alert channel: the two floods that were 84.5% of 9 days of ERROR+ both stopped on 08-26 and the channel fell ~60/day to ~9/day.",
+    "operator_priorities": [
+      {
+        "priority": 1,
+        "tier": 3,
+        "operator_action_required": true,
+        "title": "Decide PROP_TICKET_RISK_GATE_MODE - breakout_1 is $55 from a permanent kill",
+        "detail": "Equity $4,755 on a $5,000 account against a $4,700 static-DD floor; cushion thinned $64 (08-25) -> $55 (today). distance_to_daily_loss_usd is null (day_pnl_state 'realized_unreported'), so the OTHER account-killer is unmeasured. The gate is at the default `annotate`: it prints a caveat and does NOT cap the suggested size. Flipping to `enforce` is yours. PR #10414 makes the evidence exist for the first time."
+      },
+      {
+        "priority": 2,
+        "tier": 2,
+        "operator_action_required": true,
+        "title": "Trainer disk 91.7% (4.03 GB free) and the GC is not the remedy",
+        "detail": "Measured 08-20 the GC reclaims 0.09 GB of 115 version dirs (111 pinned by 41 manifests). A full disk stops dataset builds and training cycles while systemd still reads green. Needs a retention decision or a bigger volume, not another GC run."
+      },
+      {
+        "priority": 3,
+        "tier": 2,
+        "operator_action_required": false,
+        "title": "Trainer cycles are running but training nothing",
+        "detail": "Last cycle: trained 0, refusals 9, outcome complete_with_refusals, rc=0. Six manifests refusing for 24h. Green service, no output."
+      },
+      {
+        "priority": 4,
+        "tier": 3,
+        "operator_action_required": true,
+        "title": "The pairs sleeve strands a leg on bybit_1 repeatedly - 35 cleanups in 9 days",
+        "detail": "bybit_1 is one-way netting, so a market-neutral leg opposite a directional position reduces it instead of opening a book. BYBIT_HEDGE_MODE_SYMBOLS exists and is empty by design; arming it is Tier-3. Its live legs also carry placeholder geometry (SL = 2x entry, TP = entry/2), so 'pairs_stop' is not a risk stop."
+      },
+      {
+        "priority": 5,
+        "tier": 1,
+        "operator_action_required": false,
+        "title": "Merge PR #10414 so the prop gate's soak starts accruing",
+        "detail": "Until it merges and deploys, every ticket graded by the gate leaves no record."
+      }
+    ],
+    "cross_review_notes": [
+      {
+        "note": "THE ALARM CHANNEL WAS REPAIRED IN THIS WINDOW - report it as a win, with the population. Over 394 ERROR+ rows spanning 2026-08-20T14:28Z -> 2026-08-29T14:05Z (limit=1000, so NOT limit-truncated), two known floods are 333 rows = 84.5%: ict_scalp_mgc no-candle 225 and ib_target_naked 108. BOTH STOPPED. Daily ERROR+ went 30/48/95/49/72/63 (08-20..25) -> 11/9/15/2 (08-26..29): ~59.5/day -> ~9.25/day, an 84% reduction. The transient classifier fix and the durable target-naked cooldown are EXERCISED, not merely deployed."
+      },
+      {
+        "note": "BUT THE CLASSIFIER FIX MOVED THE MGC CONDITION, IT DID NOT CURE IT. The same condition now appears at WARN, correctly labelled transient_market_data_unavailable: 38 rows for ict_scalp_mgc_15m continuing through 08-27/28/29. Across 5 IB legs it is 571 of 606 WARN rows (94.2%). The 4 older legs largely cleared after 08-26 (28-29/day -> 0-2/day); ict_scalp_mgc_15m has not (8-11/day on trading days). Correct de-escalation, live condition."
+      },
+      {
+        "note": "A LIVE PROBE OF MES/MGC CANDLES RETURNED no_data, AND THAT IS EXPECTED, NOT AN OUTAGE - 2026-08-29 is a SATURDAY and /api/diag/venue_session grades MES `closed` (tz_source zoneinfo, US/Central, graded_field tradingHours). Recorded because reading that probe alone would have manufactured a fleet-wide outage that does not exist."
+      },
+      {
+        "note": "THE $1,289.73 MES STOP DIVERGENCE RECORDED IN CLAUDE.md IS RESOLVED. That row says ib_paper MES declared 7533.69642857 while its only resting stop sat at 7516.50 (69 ticks), held since 2026-08-20. Measured now: the journal declares SL 7533.69642857 / TP 8390.59025 and the venue rests STP 7533.75 + LMT 8390.50 in ONE OCA group (oca-protect-408), both GTC, both qty 15 against a 15-lot position. Agrees to the 0.25 tick on both legs, no over-cover, target intact. CLAUDE.md's PROTECTION_REASSERT_MODE row should be updated."
+      },
+      {
+        "note": "REAL vs PAPER DISAGREE AND THE GAP IS THE FINDING. Real money: +$1.46 (n=6) this window, -$26.42 lifetime at 0.759 coverage. Paper: +$813.07 (n=114) this window on 0.1897 lifetime coverage, and a prior window reading +$259,278 (n>=73, TRUNCATED by the 200-row cap). The paper book is not a predictor at that coverage - it is mostly unmeasured marks."
+      },
+      {
+        "note": "BROKER TRUTH IS 47 DAYS STALE AND SAYS WORSE THAN THE JOURNAL. comms/broker_truth_ledger.json carries one record: bybit_2 realized -$262.52 as of 2026-07-13, ~8x the journal's figure. It is populated BY HAND from a venue export, so the absence of records for every other account means nobody has reconciled them - NOT that they reconcile. /performance journalTrust correctly reports accountsKnownDivergent: ['bybit_2']."
+      },
+      {
+        "note": "A FOURTH CORRECTION TO MY OWN OUTPUT, found after the report was first rendered and fixed in the same run. 513 timestamps I wrote into docs/claude/health-review-backlog.json were dated in the FUTURE \u2014 the triage batches carry `at` / `resolved_at` values from 17:15Z to 18:20Z, while `date -u` at the time of the check read 17:17Z and the commits that introduced them are stamped 16:47:02 through 17:06:59. So the record asserted observations at times that had not happened, on up to 455 rows. The performance and ml backlogs are clean (0 future stamps), which is the positive control that says this was a bad clock in one pass rather than a systematic habit. FIXED, not annotated: each fake value was mapped back to the AUTHOR TIME of the specific commit that introduced it, derived empirically by diffing each triage commit against its parent rather than guessed \u2014 17:15->16:47:02 (58b81b7), 17:25 and 17:35->16:53:04 (ff37907), 17:45->16:55:45 (d691542), 17:55->16:59:08 (259fc50), 18:05->17:02:42 (702176e), 18:15 and 18:20->17:06:59 (f8fe620). Every stamp is now verifiable against git rather than against my assertion. The batch shares one value per commit, which is honest: the rows in a batch were written together and I cannot reconstruct per-row times, so a shared true timestamp is the most precision the evidence supports. Recorded here because a triage note's whole value is that it says WHEN a row was last re-validated, and a future date makes that claim unfalsifiable."
+      },
+      {
+        "note": "A FIFTH CORRECTION, and the one with teeth: my triage wrote status:\"snoozed\" on 43 rows and `snoozed` is not in the backlog schema's status enum. `snoozed` appears ZERO times on origin/main, so all 43 were mine, introduced in commits that landed AFTER the last green CI \u2014 which is why 3083f34 passed Guards and this did not. claim-basis-guard, run locally against origin/main, named the consequence precisely: 'a free-text status makes the open count uncomputable'. It was ALREADY costing me accuracy in this very report \u2014 the 483-triaged-vs-456-open discrepancy I attributed to a terminal-status filter was mostly these 43 rows dropping out of the tally, and I explained the number away instead of chasing it. That is the failure mode RULE ONE names: a discrepancy in my OWN output, rationalised rather than verified. Fixed to \"kept_open\" with every snooze fact preserved elsewhere; the counts now reconcile against an independent raw scan (open 457 = 457 rows carrying a triage update; drained 67 = 67 rows with resolved_at in-window), where before they did not."
+      },
+      {
+        "note": "A SIXTH CORRECTION, and the sharpest: I RESOLVED BL-20260730-PR-CI-NOT-ATTACHING during this triage and had to REOPEN it 40 minutes later, because the condition recurred on the very PR carrying the resolution. Two pushes to #10414 (d19c2c4 17:10:23Z, 90bfd35 17:23Z) produced ZERO workflow runs 35+ minutes on, with the denominator asserted \u2014 the same branch-filtered query returns the four runs at 3083f34, so the probe finds positives and the silence is real. My resolution generalised from two attaching heads to 'the mechanism works'; what two heads support is 'it works sometimes', and intermittent-vs-reliable is exactly the distinction a resolution must not blur. The row's criteria are rewritten to demand a RATE over a stated denominator rather than an existence proof, since an existence proof is what wrongly closed it twice. The three required checks were then fired by hand via workflow_dispatch (204 each) \u2014 recorded here because a green check reached by a manual workaround must not read as a green check reached by the pipeline."
+      },
+      {
+        "note": "A SEVENTH CORRECTION, and the only one that changes a FINDING rather than a record: my flag 'the ML fleet ran 2 cycles and trained ZERO models' is FALSE. Measured against the trainer's own training_cycle.jsonl (trainer-diag #10425): the 00:47:09->00:53:43Z cycle ended trained: 67, skipped: 9, failed: 0, outcome 'trained_with_refusals'. I quoted the 05:14Z cycle, which is the same-day RESUME path \u2014 cycle_resumed already_done:76 to_run:0, then cycle_already_complete 'every manifest already done/skipped today', then trained: 0 with carried_done: 67. Its zero means 'nothing left to do today', not 'nothing trains'. \u26a0\ufe0f The refuting number was ALREADY IN MY OWN REPORT \u2014 ml_training_health.last_cycle carries carried_done: 67 immediately beside the trained: 0 I quoted. I read one field of a two-field pair and reported the half that alarmed. That is the same failure this report criticises elsewhere (read the coverage figure beside its denominator; read max_multiple beside measured_n) committed by the report itself. The finding does not vanish, it NARROWS and gets more useful: 9 of 76 manifests are genuinely stuck \u2014 6 audit-enforced skips, 7 stale at 34.0 days against a 7-day threshold, 2 never trained, with exit-policy-v1 at 0 runs across 96 registry files. A stuck 9 carried by a healthy 67 is a real defect that rc=0 hides; 'the fleet trains nothing' is a false one that would have sent the next session hunting the wrong thing."
+      },
+      {
+        "note": "AN EIGHTH CORRECTION, and it is the same failure as the seventh in a new costume: I filed a MEASURED CI-attachment rate ('3/5 attach, 2/5 silent miss') and had to RETRACT it 18 minutes later. Reading the workflow-run list's `event` field \u2014 which I had never read, and which is the only field separating a webhook-triggered run from my own manual dispatch \u2014 shows 90bfd35 DID get event=pull_request runs, created 17:25:34Z, ELEVEN SECONDS before the dispatch I fired at 17:25:45Z. I scored it a miss; it was latency. Two errors compound it. First I MISSTATED MY METHOD in the commit: I wrote that two shas were 're-verified absent 35+ minutes later' when they were checked at ~4 and ~2 minutes \u2014 I had conflated 'the PR showed no new runs for 35 minutes' (a property of the PR's history) with 'this sha was checked 35 minutes after its own push' (a property of my observation, and false). Second I CONTAMINATED THE EXPERIMENT: on three later shas I dispatched manually 2-3 minutes after the push, inside the ~2.5-minute latency the corrected evidence establishes, so their absent pull_request runs cannot be told apart from runs my own dispatch pre-empted via the concurrency group. Honest numbers with the confounded rows excluded: 5 of 6 uncontaminated pushes attached; the one solid miss is d19c2c4. The finding survives and SHRINKS. What makes this worth recording rather than quietly fixing is that the underlying class is the one the report itself keeps naming \u2014 get_check_runs shows runs but not what TRIGGERED them, so it is an unprovenanced surface, and I read a rate off it while writing a report about unprovenanced surfaces."
+      }
+    ],
+    "pnl_by_class": {
+      "_population": "Window 2026-08-25T09:25Z -> 2026-08-29T16:06Z. 120 closed non-backtest trades: 6 real_money, 114 paper. Prop is journal-isolated and reported separately.",
+      "real": {
+        "window_pnl": 1.46,
+        "trades": 6,
+        "wins": 3,
+        "win_rate": 50.0,
+        "prior_window_pnl": 7.39,
+        "prior_window_trades": 7,
+        "trend": "flat",
+        "lifetime_journal_pnl": -26.42,
+        "lifetime_pnl_measured": -32.9,
+        "lifetime_pnl_coverage": 0.7591,
+        "broker_truth": {
+          "bybit_2_realized_usd": -262.52,
+          "as_of": "2026-07-13",
+          "age_days": 47,
+          "source": "comms/broker_truth_ledger.json (hand-populated from a venue export)"
+        },
+        "dollars_note": "Reported in DOLLARS, not R. Real money is DOWN: the journal says -$26.42 lifetime and the only reconciled account says -$262.52 on its own. n=6 this window makes the +$1.46 statistically empty - do not read it as a trend."
+      },
+      "paper": {
+        "window_pnl": 813.07,
+        "trades": 114,
+        "wins": 39,
+        "win_rate": 39.0,
+        "prior_window_pnl": 259278.37,
+        "prior_window_trades": 73,
+        "trend": "unreliable",
+        "lifetime_pnl_coverage": 0.1897,
+        "caveat": "81% of paper P&L is NOT a measurement. prior_window_trades is a LOWER BOUND - the 200-row endpoint cap bound and clipped the older window. Both figures are quoted only to show they cannot be compared."
+      },
+      "prop": {
+        "window_pnl": null,
+        "trades": null,
+        "balance": 4756.0,
+        "equity": 4755.0,
+        "account_size": 5000.0,
+        "distance_to_dd_floor_usd": 55.0,
+        "static_dd_floor_usd": 4700.0,
+        "distance_to_daily_loss_usd": null,
+        "daily_loss_limit_usd": 142.68,
+        "day_pnl_state": "realized_unreported",
+        "status_freshness": "ok",
+        "status_age_hours": 0.92,
+        "reconcile": {
+          "tickets_total": 84,
+          "fills_total": 40,
+          "unacted_count": 0
+        },
+        "note": "window_pnl is null, not 0 - the manual bridge reports fills, not a windowed P&L, and realized_today was not reported. NEVER blended with real or paper."
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": 80639.8,
+        "close": 77943.3,
+        "high": 81463.2,
+        "low": 76856.5,
+        "pct_change": -3.34,
+        "note": "trending down; 110x1h bars, range 5.71% of open; source=bot-exchange"
+      },
+      {
+        "symbol": "ETHUSDT",
+        "open": 2507.25,
+        "close": 2448.3,
+        "high": 2566.53,
+        "low": 2406.01,
+        "pct_change": -2.35,
+        "note": "trending down; 110x1h bars, range 6.4% of open; source=bot-exchange"
+      },
+      {
+        "symbol": "SOLUSDT",
+        "open": 100.92,
+        "close": 104.87,
+        "high": 110.58,
+        "low": 94.93,
+        "pct_change": 3.91,
+        "note": "trending up; 110x1h bars, range 15.51% of open; source=bot-exchange"
+      },
+      {
+        "symbol": "XRPUSDT",
+        "open": 1.5218,
+        "close": 1.3912,
+        "high": 1.5328,
+        "low": 1.3575,
+        "pct_change": -8.58,
+        "note": "trending down; 110x1h bars, range 11.52% of open; source=bot-exchange"
+      },
+      {
+        "symbol": "MES",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "note": "candles unavailable (no_data) - null, not 0"
+      },
+      {
+        "symbol": "MGC",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "note": "candles unavailable (no_data) - null, not 0"
+      },
+      {
+        "symbol": "SPY",
+        "open": 772.84,
+        "close": 769.28,
+        "high": 779.37,
+        "low": 762.07,
+        "pct_change": -0.46,
+        "note": "range-bound; 110x1h bars, range 2.24% of open; source=bot-exchange"
+      },
+      {
+        "symbol": "QQQ",
+        "open": 725.085,
+        "close": 716.91,
+        "high": 734.56,
+        "low": 702.83,
+        "pct_change": -1.13,
+        "note": "range-bound; 110x1h bars, range 4.38% of open; source=bot-exchange"
+      },
+      {
+        "symbol": "GLD",
+        "open": 399.855,
+        "close": 408.84,
+        "high": 429.41,
+        "low": 397.89,
+        "pct_change": 2.25,
+        "note": "trending up; 110x1h bars, range 7.88% of open; source=bot-exchange"
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": "5206",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_xrp_5m",
+        "opened_at": "2026-08-29T06:03:26.715194+00:00",
+        "closed_at": "2026-08-29T14:45:51.073218+00:00",
+        "hold_seconds": 31344,
+        "entry_price": 1.3843,
+        "exit_price": 1.393,
+        "pnl": -7.1514,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "ict_scalp_xrp_5m short; conf 0.59; entry=acceptable; exit=sl_appropriate(reconciler_filled,-0.98R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5201",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_sol_15m",
+        "opened_at": "2026-08-29T02:26:38.413183+00:00",
+        "closed_at": "2026-08-29T14:37:07.133113+00:00",
+        "hold_seconds": 43828,
+        "entry_price": 103.81,
+        "exit_price": 104.6,
+        "pnl": -1862.03,
+        "pnl_percent": null,
+        "close_reason": "stuck_strategy_watchdog",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "ict_scalp_sol_15m short; conf 0.53; entry=acceptable; exit=sl_appropriate(stuck_strategy_watchdog,-0.98R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": true
+      },
+      {
+        "trade_id": "5219",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-29T14:03:38.078370+00:00",
+        "closed_at": "2026-08-29T14:07:13.823814+00:00",
+        "hold_seconds": 215,
+        "entry_price": 2436.38,
+        "exit_price": 2436.38,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5218",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-29T14:03:37.346747+00:00",
+        "closed_at": "2026-08-29T14:07:01.469019+00:00",
+        "hold_seconds": 204,
+        "entry_price": 103.81,
+        "exit_price": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=unknown(reconciler_filled,R n/a); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5220",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "buy",
+        "strategy": "xrp_pullback_2h",
+        "opened_at": "2026-08-29T14:04:54.407607+00:00",
+        "closed_at": "2026-08-29T14:04:54.407607+00:00",
+        "hold_seconds": 0,
+        "entry_price": 1.3861,
+        "exit_price": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "intent_reduce_executed",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "xrp_pullback_2h short; conf 0.72; entry=optimal; exit=unknown(intent_reduce_executed,R n/a); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5217",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-29T13:00:53.105183+00:00",
+        "closed_at": "2026-08-29T13:04:24.086936+00:00",
+        "hold_seconds": 210,
+        "entry_price": 2434.67,
+        "exit_price": 2434.67,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5216",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-29T13:00:52.218643+00:00",
+        "closed_at": "2026-08-29T13:04:11.098177+00:00",
+        "hold_seconds": 198,
+        "entry_price": 103.52,
+        "exit_price": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=unknown(reconciler_filled,R n/a); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5210",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BNBUSDT",
+        "direction": "buy",
+        "strategy": "pairs_bnb_btc_a",
+        "opened_at": "2026-08-29T08:02:22.980970+00:00",
+        "closed_at": "2026-08-29T09:00:14.102249+00:00",
+        "hold_seconds": 3471,
+        "entry_price": 687.8,
+        "exit_price": 687.9,
+        "pnl": 0.211,
+        "pnl_percent": null,
+        "close_reason": "pairs_revert",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_a long; entry=unknown; exit=premature_exit(pairs_revert,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5211",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "pairs_bnb_btc_b",
+        "opened_at": "2026-08-29T08:02:23.882840+00:00",
+        "closed_at": "2026-08-29T09:00:14.102249+00:00",
+        "hold_seconds": 3470,
+        "entry_price": 77584.8,
+        "exit_price": 77644.4,
+        "pnl": -1.2516,
+        "pnl_percent": null,
+        "close_reason": "pairs_revert",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_b short; entry=unknown; exit=sl_appropriate(pairs_revert,-0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5208",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-29T07:04:51.298696+00:00",
+        "closed_at": "2026-08-29T07:08:25.432631+00:00",
+        "hold_seconds": 214,
+        "entry_price": 2436.04,
+        "exit_price": 2436.04,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5207",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-29T07:04:50.589491+00:00",
+        "closed_at": "2026-08-29T07:08:08.727512+00:00",
+        "hold_seconds": 198,
+        "entry_price": 103.74,
+        "exit_price": 103.62,
+        "pnl": -1.092,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=sl_appropriate(reconciler_filled,-0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "4903",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "trend_donchian_eth_4h",
+        "opened_at": "2026-08-21T21:54:53.777820+00:00",
+        "closed_at": "2026-08-29T07:08:07.809995+00:00",
+        "hold_seconds": 637994,
+        "entry_price": 2515.4,
+        "exit_price": 2433.55,
+        "pnl": -18.007,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5202",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BNBUSDT",
+        "direction": "buy",
+        "strategy": "pairs_bnb_btc_a",
+        "opened_at": "2026-08-29T06:00:23.328755+00:00",
+        "closed_at": "2026-08-29T07:04:48.036072+00:00",
+        "hold_seconds": 3864,
+        "entry_price": 690.9,
+        "exit_price": 688.0,
+        "pnl": -13.543,
+        "pnl_percent": null,
+        "close_reason": "pairs_stop",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_a long; entry=unknown; exit=sl_appropriate(pairs_stop,-0.01R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5203",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "pairs_bnb_btc_b",
+        "opened_at": "2026-08-29T06:00:24.244478+00:00",
+        "closed_at": "2026-08-29T07:04:48.036072+00:00",
+        "hold_seconds": 3863,
+        "entry_price": 77633.1,
+        "exit_price": 77508.1,
+        "pnl": 5.5,
+        "pnl_percent": null,
+        "close_reason": "pairs_stop",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_b short; entry=unknown; exit=premature_exit(pairs_stop,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5205",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-29T06:00:27.244237+00:00",
+        "closed_at": "2026-08-29T06:03:47.293808+00:00",
+        "hold_seconds": 200,
+        "entry_price": 2437.7,
+        "exit_price": 2436.17,
+        "pnl": 0.765,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=premature_exit(reconciler_filled,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5204",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-29T06:00:26.061620+00:00",
+        "closed_at": "2026-08-29T06:03:46.815889+00:00",
+        "hold_seconds": 200,
+        "entry_price": 103.91,
+        "exit_price": 103.68,
+        "pnl": -2.668,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=sl_appropriate(reconciler_filled,-0.01R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "4921",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "eth_pullback_2h",
+        "opened_at": "2026-08-22T07:05:25.374649+00:00",
+        "closed_at": "2026-08-29T06:02:10.862961+00:00",
+        "hold_seconds": 601005,
+        "entry_price": 2445.43,
+        "exit_price": 2435.57,
+        "pnl": -0.3944,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5172",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-28T16:02:49.272514+00:00",
+        "closed_at": "2026-08-29T04:02:47.805408+00:00",
+        "hold_seconds": 43198,
+        "entry_price": 104.8,
+        "exit_price": 103.81,
+        "pnl": 2.772,
+        "pnl_percent": null,
+        "close_reason": "pairs_revert",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a short; entry=unknown; exit=premature_exit(pairs_revert,0.01R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5173",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-28T16:02:50.299249+00:00",
+        "closed_at": "2026-08-29T04:02:47.805408+00:00",
+        "hold_seconds": 43197,
+        "entry_price": 2460.65,
+        "exit_price": 2434.52,
+        "pnl": -1.0452,
+        "pnl_percent": null,
+        "close_reason": "pairs_revert",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b long; entry=unknown; exit=sl_appropriate(pairs_revert,-0.02R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5156",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BNBUSDT",
+        "direction": "sell",
+        "strategy": "pairs_bnb_btc_a",
+        "opened_at": "2026-08-28T06:03:12.959574+00:00",
+        "closed_at": "2026-08-29T02:00:43.253527+00:00",
+        "hold_seconds": 71850,
+        "entry_price": 712.6,
+        "exit_price": 691.0,
+        "pnl": 65.232,
+        "pnl_percent": null,
+        "close_reason": "pairs_revert",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_a short; entry=unknown; exit=premature_exit(pairs_revert,0.03R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5157",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "buy",
+        "strategy": "pairs_bnb_btc_b",
+        "opened_at": "2026-08-28T06:03:13.988602+00:00",
+        "closed_at": "2026-08-29T02:00:43.253527+00:00",
+        "hold_seconds": 71849,
+        "entry_price": 79795.1,
+        "exit_price": 77804.0,
+        "pnl": -19.911,
+        "pnl_percent": null,
+        "close_reason": "pairs_revert",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_b long; entry=unknown; exit=sl_appropriate(pairs_revert,-0.05R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "4922",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "eth_pullback_2h",
+        "opened_at": "2026-08-22T07:05:26.424504+00:00",
+        "closed_at": "2026-08-28T16:25:25.773346+00:00",
+        "hold_seconds": 551999,
+        "entry_price": 2445.43,
+        "exit_price": 2420.24,
+        "pnl": -0.2519,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": true
+      },
+      {
+        "trade_id": "5170",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-08-28T15:45:24.222615+00:00",
+        "closed_at": "2026-08-28T16:24:21.084000+00:00",
+        "hold_seconds": 2336,
+        "entry_price": 78755.7,
+        "exit_price": 77099.5,
+        "pnl": 6.3028,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "A",
+          "rationale": "ict_scalp_5m short; conf 0.80; entry=optimal; exit=tp_appropriate(reconciler_filled,14.16R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: measured",
+        "notable": true
+      },
+      {
+        "trade_id": "5171",
+        "account": "bybit_portfolio",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-08-28T15:45:25.175161+00:00",
+        "closed_at": "2026-08-28T16:24:21.080000+00:00",
+        "hold_seconds": 2335,
+        "entry_price": 78757.5,
+        "exit_price": 77088.0,
+        "pnl": 1978.5555,
+        "pnl_percent": null,
+        "close_reason": "tp",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: measured",
+        "notable": true
+      },
+      {
+        "trade_id": "5167",
+        "account": "alpaca_portfolio",
+        "account_class": "paper",
+        "symbol": "GLD",
+        "direction": "buy",
+        "strategy": "gld_pullback_1h",
+        "opened_at": "2026-08-28T15:05:30.397755+00:00",
+        "closed_at": "2026-08-28T16:02:36.095507+00:00",
+        "hold_seconds": 3425,
+        "entry_price": 419.77,
+        "exit_price": 414.43794776119404,
+        "pnl": -1428.99,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: measured",
+        "notable": true
+      },
+      {
+        "trade_id": "4422",
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "IWM",
+        "direction": "buy",
+        "strategy": "iwm_trend_long_1d",
+        "opened_at": "2026-08-05T14:00:36.982292+00:00",
+        "closed_at": "2026-08-28T15:58:47.253182+00:00",
+        "hold_seconds": 1994290,
+        "entry_price": 303.03,
+        "exit_price": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "4423",
+        "account": "alpaca_portfolio",
+        "account_class": "paper",
+        "symbol": "IWM",
+        "direction": "buy",
+        "strategy": "iwm_trend_long_1d",
+        "opened_at": "2026-08-05T14:00:41.171212+00:00",
+        "closed_at": "2026-08-28T15:58:47.929403+00:00",
+        "hold_seconds": 1994286,
+        "entry_price": 303.03,
+        "exit_price": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "4170",
+        "account": "alpaca_portfolio",
+        "account_class": "paper",
+        "symbol": "TLT",
+        "direction": "sell",
+        "strategy": "tlt_pullback_1d",
+        "opened_at": "2026-07-29T13:33:53.952563+00:00",
+        "closed_at": "2026-08-28T14:45:09.997743+00:00",
+        "hold_seconds": 2596276,
+        "entry_price": 84.1,
+        "exit_price": 83.53,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "4169",
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "TLT",
+        "direction": "sell",
+        "strategy": "tlt_pullback_1d",
+        "opened_at": "2026-07-29T13:33:49.853888+00:00",
+        "closed_at": "2026-08-28T14:44:40.965510+00:00",
+        "hold_seconds": 2596251,
+        "entry_price": 84.1,
+        "exit_price": 83.53,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5141",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_xrp_15m",
+        "opened_at": "2026-08-27T18:17:57.739255+00:00",
+        "closed_at": "2026-08-28T14:40:13.697937+00:00",
+        "hold_seconds": 73335,
+        "entry_price": 1.4388,
+        "exit_price": 1.4284,
+        "pnl": 241.1542,
+        "pnl_percent": null,
+        "close_reason": "stuck_strategy_watchdog",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "ict_scalp_xrp_15m short; conf 0.66; entry=acceptable; exit=tp_appropriate(stuck_strategy_watchdog,4.82R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5127",
+        "account": "alpaca_portfolio",
+        "account_class": "paper",
+        "symbol": "GLD",
+        "direction": "buy",
+        "strategy": "gld_pullback_1h",
+        "opened_at": "2026-08-27T14:06:17.480277+00:00",
+        "closed_at": "2026-08-28T14:30:54.578385+00:00",
+        "hold_seconds": 87877,
+        "entry_price": 419.72,
+        "exit_price": 416.00025641025644,
+        "pnl": -290.14,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: measured",
+        "notable": false
+      },
+      {
+        "trade_id": "5159",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "AVAXUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_avax_5m",
+        "opened_at": "2026-08-28T11:04:01.231832+00:00",
+        "closed_at": "2026-08-28T14:08:55.607968+00:00",
+        "hold_seconds": 11094,
+        "entry_price": 7.445,
+        "exit_price": 7.32,
+        "pnl": -2658.5375,
+        "pnl_percent": null,
+        "close_reason": "stuck_strategy_watchdog",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_avax_5m long; conf 0.79; entry=optimal; exit=sl_appropriate(stuck_strategy_watchdog,-1.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: measured",
+        "notable": true
+      },
+      {
+        "trade_id": "5158",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_eth_15m",
+        "opened_at": "2026-08-28T06:35:16.421462+00:00",
+        "closed_at": "2026-08-28T09:46:07.398565+00:00",
+        "hold_seconds": 11450,
+        "entry_price": 2501.35,
+        "exit_price": 2489.28,
+        "pnl": -1054.0731,
+        "pnl_percent": null,
+        "close_reason": "stale_stop",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_eth_15m long; conf 0.84; entry=optimal; exit=sl_appropriate(stale_stop,-0.46R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: measured",
+        "notable": true
+      },
+      {
+        "trade_id": "5126",
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "GLD",
+        "direction": "buy",
+        "strategy": "gld_pullback_1h",
+        "opened_at": "2026-08-27T14:06:15.433135+00:00",
+        "closed_at": "2026-08-28T07:34:17.463480+00:00",
+        "hold_seconds": 62882,
+        "entry_price": 419.72,
+        "exit_price": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "exchange_flat_reconciled",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "gld_pullback_1h long; conf 0.89; entry=optimal; exit=unknown(exchange_flat_reconciled,R n/a); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5116",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "trend_donchian_sol_4h",
+        "opened_at": "2026-08-27T08:57:48.503669+00:00",
+        "closed_at": "2026-08-28T04:11:26.747354+00:00",
+        "hold_seconds": 69218,
+        "entry_price": 104.69,
+        "exit_price": 106.69,
+        "pnl": 107.2,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "trend_donchian_sol_4h long; conf 0.62; entry=acceptable; exit=tp_appropriate(reconciler_filled,0.33R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5155",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_sol_5m",
+        "opened_at": "2026-08-28T03:20:50.390493+00:00",
+        "closed_at": "2026-08-28T04:09:23.436657+00:00",
+        "hold_seconds": 2913,
+        "entry_price": 107.14,
+        "exit_price": 106.59,
+        "pnl": -1109.625,
+        "pnl_percent": null,
+        "close_reason": "sl_cross",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_sol_5m long; conf 0.81; entry=optimal; exit=sl_appropriate(sl_cross,-1.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: measured",
+        "notable": true
+      },
+      {
+        "trade_id": "5142",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_sol_5m",
+        "opened_at": "2026-08-27T19:00:35.984858+00:00",
+        "closed_at": "2026-08-28T02:32:54.596798+00:00",
+        "hold_seconds": 27138,
+        "entry_price": 108.57,
+        "exit_price": 106.96,
+        "pnl": -2114.896,
+        "pnl_percent": null,
+        "close_reason": "netting_attributed",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_sol_5m long; conf 0.80; entry=optimal; exit=sl_appropriate(netting_attributed,-0.81R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": true
+      },
+      {
+        "trade_id": "4796",
+        "account": "ib_paper",
+        "account_class": "paper",
+        "symbol": "MHG",
+        "direction": "buy",
+        "strategy": "mhg_pullback_1d",
+        "opened_at": "2026-08-19T15:56:08.281641+00:00",
+        "closed_at": "2026-08-28T02:12:55.938578+00:00",
+        "hold_seconds": 728207,
+        "entry_price": 6.498,
+        "exit_price": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5118",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "sell",
+        "strategy": "xrp_pullback_2h",
+        "opened_at": "2026-08-27T10:24:06.525737+00:00",
+        "closed_at": "2026-08-28T01:52:42.620186+00:00",
+        "hold_seconds": 55716,
+        "entry_price": 1.435,
+        "exit_price": 1.4501,
+        "pnl": -65.4177,
+        "pnl_percent": null,
+        "close_reason": "intent_reduce",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "xrp_pullback_2h short; conf 0.47; entry=late; exit=sl_appropriate(intent_reduce,-0.22R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5154",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_xrp_5m",
+        "opened_at": "2026-08-28T01:52:42.636455+00:00",
+        "closed_at": "2026-08-28T01:52:42.636455+00:00",
+        "hold_seconds": 0,
+        "entry_price": 1.4501,
+        "exit_price": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "intent_reduce_executed",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "ict_scalp_xrp_5m short; conf 0.56; entry=acceptable; exit=unknown(intent_reduce_executed,R n/a); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5153",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-27T23:01:11.005548+00:00",
+        "closed_at": "2026-08-27T23:04:56.072072+00:00",
+        "hold_seconds": 225,
+        "entry_price": 2513.78,
+        "exit_price": 2513.78,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5152",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-27T23:01:09.908142+00:00",
+        "closed_at": "2026-08-27T23:04:38.343706+00:00",
+        "hold_seconds": 208,
+        "entry_price": 109.06,
+        "exit_price": 108.98,
+        "pnl": 0.16,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a short; entry=unknown; exit=premature_exit(reconciler_filled,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5151",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-27T22:01:41.419151+00:00",
+        "closed_at": "2026-08-27T22:05:20.480149+00:00",
+        "hold_seconds": 219,
+        "entry_price": 2507.98,
+        "exit_price": 2507.98,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5150",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-27T22:01:40.567301+00:00",
+        "closed_at": "2026-08-27T22:05:02.383293+00:00",
+        "hold_seconds": 201,
+        "entry_price": 109.19,
+        "exit_price": 109.82,
+        "pnl": -1.638,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a short; entry=unknown; exit=sl_appropriate(reconciler_filled,-0.01R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5149",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-27T21:02:10.569040+00:00",
+        "closed_at": "2026-08-27T21:05:46.614927+00:00",
+        "hold_seconds": 216,
+        "entry_price": 2504.75,
+        "exit_price": 2504.75,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5148",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-27T21:02:09.719269+00:00",
+        "closed_at": "2026-08-27T21:05:28.989810+00:00",
+        "hold_seconds": 199,
+        "entry_price": 108.81,
+        "exit_price": 108.78,
+        "pnl": 0.09,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a short; entry=unknown; exit=premature_exit(reconciler_filled,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5147",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-27T20:02:32.628461+00:00",
+        "closed_at": "2026-08-27T20:06:10.260901+00:00",
+        "hold_seconds": 217,
+        "entry_price": 2497.6,
+        "exit_price": 2497.6,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5146",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-27T20:02:31.446959+00:00",
+        "closed_at": "2026-08-27T20:05:52.309574+00:00",
+        "hold_seconds": 200,
+        "entry_price": 108.86,
+        "exit_price": 109.01,
+        "pnl": -0.495,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a short; entry=unknown; exit=sl_appropriate(reconciler_filled,-0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "4790",
+        "account": "alpaca_portfolio",
+        "account_class": "paper",
+        "symbol": "QQQ",
+        "direction": "sell",
+        "strategy": "qqq_pullback_1h",
+        "opened_at": "2026-08-19T15:06:56.737856+00:00",
+        "closed_at": "2026-08-27T16:48:46.459677+00:00",
+        "hold_seconds": 697309,
+        "entry_price": 717.68,
+        "exit_price": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "4789",
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "QQQ",
+        "direction": "sell",
+        "strategy": "qqq_pullback_1h",
+        "opened_at": "2026-08-19T15:06:54.194649+00:00",
+        "closed_at": "2026-08-27T16:48:45.713199+00:00",
+        "hold_seconds": 697311,
+        "entry_price": 717.68,
+        "exit_price": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5087",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ADAUSDT",
+        "direction": "sell",
+        "strategy": "ada_pullback_2h",
+        "opened_at": "2026-08-27T00:05:27.057798+00:00",
+        "closed_at": "2026-08-27T16:46:49.033429+00:00",
+        "hold_seconds": 60081,
+        "entry_price": 0.2112,
+        "exit_price": 0.2169,
+        "pnl": -992.9742,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "ada_pullback_2h short; conf 0.66; entry=acceptable; exit=sl_appropriate(reconciler_filled,-0.99R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5034",
+        "account": "alpaca_portfolio",
+        "account_class": "paper",
+        "symbol": "GLD",
+        "direction": "buy",
+        "strategy": "gld_pullback_1h",
+        "opened_at": "2026-08-25T14:05:29.229883+00:00",
+        "closed_at": "2026-08-27T13:38:22.015765+00:00",
+        "hold_seconds": 171172,
+        "entry_price": 423.61,
+        "exit_price": 419.7186111111111,
+        "pnl": -143.9814,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: measured",
+        "notable": false
+      },
+      {
+        "trade_id": "5033",
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "GLD",
+        "direction": "buy",
+        "strategy": "gld_pullback_1h",
+        "opened_at": "2026-08-25T14:05:26.107827+00:00",
+        "closed_at": "2026-08-27T13:36:28.978792+00:00",
+        "hold_seconds": 171062,
+        "entry_price": 423.61,
+        "exit_price": 420.23,
+        "pnl": -135.2,
+        "pnl_percent": null,
+        "close_reason": "exchange_flat_reconciled",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "gld_pullback_1h long; conf 0.82; entry=optimal; exit=sl_appropriate(exchange_flat_reconciled,-0.97R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: measured",
+        "notable": false
+      },
+      {
+        "trade_id": "4781",
+        "account": "alpaca_portfolio",
+        "account_class": "paper",
+        "symbol": "SPY",
+        "direction": "sell",
+        "strategy": "spy_pullback_1h",
+        "opened_at": "2026-08-19T13:36:55.470453+00:00",
+        "closed_at": "2026-08-27T12:13:55.607441+00:00",
+        "hold_seconds": 686220,
+        "entry_price": 770.15,
+        "exit_price": 769.12,
+        "pnl": 26.78,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5115",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_eth_15m",
+        "opened_at": "2026-08-27T08:28:04.438450+00:00",
+        "closed_at": "2026-08-27T11:31:18.005720+00:00",
+        "hold_seconds": 10993,
+        "entry_price": 2521.92,
+        "exit_price": 2497.51,
+        "pnl": -1562.24,
+        "pnl_percent": null,
+        "close_reason": "stale_stop",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_eth_15m long; conf 0.71; entry=optimal; exit=sl_appropriate(stale_stop,-0.58R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: measured",
+        "notable": true
+      },
+      {
+        "trade_id": "4933",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "buy",
+        "strategy": "xrp_pullback_2h",
+        "opened_at": "2026-08-22T12:03:52.723463+00:00",
+        "closed_at": "2026-08-27T08:12:04.177585+00:00",
+        "hold_seconds": 418091,
+        "entry_price": 1.4981,
+        "exit_price": 1.4299,
+        "pnl": -28.4394,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5097",
+        "account": "bybit_portfolio",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-08-27T01:28:51.659904+00:00",
+        "closed_at": "2026-08-27T08:10:17.862687+00:00",
+        "hold_seconds": 24086,
+        "entry_price": 78905.7,
+        "exit_price": 79795.6,
+        "pnl": 2374.2532,
+        "pnl_percent": null,
+        "close_reason": "tp",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": true
+      },
+      {
+        "trade_id": "5112",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_xrp_15m",
+        "opened_at": "2026-08-27T07:45:54.493348+00:00",
+        "closed_at": "2026-08-27T08:09:44.069805+00:00",
+        "hold_seconds": 1429,
+        "entry_price": 1.4085,
+        "exit_price": 1.4334,
+        "pnl": 479.9923,
+        "pnl_percent": null,
+        "close_reason": "tp_cross",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "ict_scalp_xrp_15m long; conf 0.59; entry=acceptable; exit=tp_appropriate(tp_cross,11.79R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: measured",
+        "notable": false
+      },
+      {
+        "trade_id": "5096",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-08-27T01:28:50.550870+00:00",
+        "closed_at": "2026-08-27T08:08:14.741647+00:00",
+        "hold_seconds": 23964,
+        "entry_price": 78940.8,
+        "exit_price": 79530.6875,
+        "pnl": 4.2742,
+        "pnl_percent": null,
+        "close_reason": "tp_cross",
+        "claude_grade": {
+          "grade": "A",
+          "rationale": "ict_scalp_5m long; conf 0.83; entry=optimal; exit=tp_appropriate(tp_cross,4.98R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: measured",
+        "notable": true
+      },
+      {
+        "trade_id": "5113",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-27T08:03:11.461711+00:00",
+        "closed_at": "2026-08-27T08:06:52.637096+00:00",
+        "hold_seconds": 221,
+        "entry_price": 102.12,
+        "exit_price": 102.12,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5114",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-27T08:03:12.514333+00:00",
+        "closed_at": "2026-08-27T08:06:33.005984+00:00",
+        "hold_seconds": 200,
+        "entry_price": 2503.22,
+        "exit_price": 2511.16,
+        "pnl": -3.2554,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=sl_appropriate(reconciler_filled,-0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5111",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_eth_15m",
+        "opened_at": "2026-08-27T07:14:30.513837+00:00",
+        "closed_at": "2026-08-27T08:04:59.457628+00:00",
+        "hold_seconds": 3028,
+        "entry_price": 2494.1,
+        "exit_price": 2506.36,
+        "pnl": 1113.6984,
+        "pnl_percent": null,
+        "close_reason": "netting_attributed",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "ict_scalp_eth_15m long; conf 0.50; entry=acceptable; exit=tp_appropriate(netting_attributed,3.28R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": true
+      },
+      {
+        "trade_id": "5091",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BNBUSDT",
+        "direction": "buy",
+        "strategy": "pairs_bnb_btc_a",
+        "opened_at": "2026-08-27T01:00:19.873821+00:00",
+        "closed_at": "2026-08-27T08:03:09.298885+00:00",
+        "hold_seconds": 25369,
+        "entry_price": 703.4,
+        "exit_price": 708.6,
+        "pnl": 2.288,
+        "pnl_percent": null,
+        "close_reason": "pairs_stop",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_a long; entry=unknown; exit=premature_exit(pairs_stop,0.01R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5092",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "pairs_bnb_btc_b",
+        "opened_at": "2026-08-27T01:00:20.518493+00:00",
+        "closed_at": "2026-08-27T08:03:09.298885+00:00",
+        "hold_seconds": 25368,
+        "entry_price": 78706.8,
+        "exit_price": 79087.2,
+        "pnl": -1.1412,
+        "pnl_percent": null,
+        "close_reason": "pairs_stop",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_b short; entry=unknown; exit=sl_appropriate(pairs_stop,-0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5109",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-27T07:02:15.815889+00:00",
+        "closed_at": "2026-08-27T07:05:56.222627+00:00",
+        "hold_seconds": 220,
+        "entry_price": 101.3,
+        "exit_price": 101.3,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5110",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-27T07:02:17.041280+00:00",
+        "closed_at": "2026-08-27T07:05:35.664104+00:00",
+        "hold_seconds": 198,
+        "entry_price": 2490.91,
+        "exit_price": 2490.06,
+        "pnl": 0.3145,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=premature_exit(reconciler_filled,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5106",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-27T06:00:43.752563+00:00",
+        "closed_at": "2026-08-27T06:04:24.591317+00:00",
+        "hold_seconds": 220,
+        "entry_price": 101.88,
+        "exit_price": 101.88,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5107",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-27T06:00:44.773045+00:00",
+        "closed_at": "2026-08-27T06:04:04.555018+00:00",
+        "hold_seconds": 199,
+        "entry_price": 2493.21,
+        "exit_price": 2491.63,
+        "pnl": 0.632,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=premature_exit(reconciler_filled,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5104",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-27T04:03:43.237619+00:00",
+        "closed_at": "2026-08-27T04:07:20.139019+00:00",
+        "hold_seconds": 216,
+        "entry_price": 101.21,
+        "exit_price": 101.21,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5105",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-27T04:03:44.431102+00:00",
+        "closed_at": "2026-08-27T04:07:00.591743+00:00",
+        "hold_seconds": 196,
+        "entry_price": 2493.3,
+        "exit_price": 2490.33,
+        "pnl": 1.0989,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=premature_exit(reconciler_filled,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5101",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-27T03:01:48.005144+00:00",
+        "closed_at": "2026-08-27T03:05:30.731572+00:00",
+        "hold_seconds": 222,
+        "entry_price": 101.14,
+        "exit_price": 101.14,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5102",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-27T03:01:49.011870+00:00",
+        "closed_at": "2026-08-27T03:05:10.900139+00:00",
+        "hold_seconds": 201,
+        "entry_price": 2493.39,
+        "exit_price": 2495.58,
+        "pnl": -0.7665,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=sl_appropriate(reconciler_filled,-0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5007",
+        "account": "ib_paper",
+        "account_class": "paper",
+        "symbol": "MGC",
+        "direction": "sell",
+        "strategy": "ict_scalp_mgc_15m",
+        "opened_at": "2026-08-25T02:20:03.408438+00:00",
+        "closed_at": "2026-08-27T02:05:46.375271+00:00",
+        "hold_seconds": 171942,
+        "entry_price": 4660.9,
+        "exit_price": 4654.2,
+        "pnl": 3417.0,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": true
+      },
+      {
+        "trade_id": "5098",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-27T02:01:06.981665+00:00",
+        "closed_at": "2026-08-27T02:04:46.229736+00:00",
+        "hold_seconds": 219,
+        "entry_price": 101.68,
+        "exit_price": 101.68,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5099",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-27T02:01:08.159128+00:00",
+        "closed_at": "2026-08-27T02:04:26.801349+00:00",
+        "hold_seconds": 198,
+        "entry_price": 2501.05,
+        "exit_price": 2501.45,
+        "pnl": -0.136,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=sl_appropriate(reconciler_filled,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5093",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-27T01:00:21.595418+00:00",
+        "closed_at": "2026-08-27T01:03:57.053862+00:00",
+        "hold_seconds": 215,
+        "entry_price": 100.57,
+        "exit_price": 100.57,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5094",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-27T01:00:22.563917+00:00",
+        "closed_at": "2026-08-27T01:03:39.704987+00:00",
+        "hold_seconds": 197,
+        "entry_price": 2491.12,
+        "exit_price": 2491.08,
+        "pnl": 0.0136,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=premature_exit(reconciler_filled,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5081",
+        "account": "bybit_portfolio",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-08-26T21:11:46.870361+00:00",
+        "closed_at": "2026-08-27T00:20:24.968804+00:00",
+        "hold_seconds": 11318,
+        "entry_price": 78671.7,
+        "exit_price": 78772.5,
+        "pnl": 269.136,
+        "pnl_percent": null,
+        "close_reason": "sl",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: measured",
+        "notable": false
+      },
+      {
+        "trade_id": "5079",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-08-26T21:11:44.632715+00:00",
+        "closed_at": "2026-08-27T00:16:59.545892+00:00",
+        "hold_seconds": 11114,
+        "entry_price": 78656.1,
+        "exit_price": 78799.1,
+        "pnl": 93.808,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5080",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-08-26T21:11:45.758709+00:00",
+        "closed_at": "2026-08-27T00:16:59.545892+00:00",
+        "hold_seconds": 11113,
+        "entry_price": 78656.1,
+        "exit_price": 78799.1,
+        "pnl": 1.144,
+        "pnl_percent": null,
+        "close_reason": "netting_attributed",
+        "claude_grade": {
+          "grade": "A",
+          "rationale": "ict_scalp_5m long; conf 1.00; entry=optimal; exit=tp_appropriate(netting_attributed,1.21R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": true
+      },
+      {
+        "trade_id": "5089",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BNBUSDT",
+        "direction": "buy",
+        "strategy": "pairs_bnb_btc_a",
+        "opened_at": "2026-08-27T00:06:08.485399+00:00",
+        "closed_at": "2026-08-27T00:09:47.671679+00:00",
+        "hold_seconds": 219,
+        "entry_price": 705.7,
+        "exit_price": 705.7,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_a long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5090",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "pairs_bnb_btc_b",
+        "opened_at": "2026-08-27T00:06:09.447647+00:00",
+        "closed_at": "2026-08-27T00:09:29.503814+00:00",
+        "hold_seconds": 200,
+        "entry_price": 78876.7,
+        "exit_price": 78847.7,
+        "pnl": 0.116,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_b short; entry=unknown; exit=premature_exit(reconciler_filled,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5083",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BNBUSDT",
+        "direction": "buy",
+        "strategy": "pairs_bnb_btc_a",
+        "opened_at": "2026-08-27T00:00:31.289376+00:00",
+        "closed_at": "2026-08-27T00:04:08.418027+00:00",
+        "hold_seconds": 217,
+        "entry_price": 707.2,
+        "exit_price": 707.2,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_a long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5085",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-27T00:00:33.498127+00:00",
+        "closed_at": "2026-08-27T00:04:08.975802+00:00",
+        "hold_seconds": 215,
+        "entry_price": 101.86,
+        "exit_price": 101.86,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5086",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-27T00:00:34.610595+00:00",
+        "closed_at": "2026-08-27T00:03:50.010708+00:00",
+        "hold_seconds": 195,
+        "entry_price": 2502.46,
+        "exit_price": 2499.05,
+        "pnl": 1.1594,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=premature_exit(reconciler_filled,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5084",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "pairs_bnb_btc_b",
+        "opened_at": "2026-08-27T00:00:32.246707+00:00",
+        "closed_at": "2026-08-27T00:03:49.356841+00:00",
+        "hold_seconds": 197,
+        "entry_price": 78917.5,
+        "exit_price": 78808.1,
+        "pnl": 0.2188,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_b short; entry=unknown; exit=premature_exit(reconciler_filled,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5074",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_eth_15m",
+        "opened_at": "2026-08-26T17:30:35.405756+00:00",
+        "closed_at": "2026-08-26T22:19:20.455652+00:00",
+        "hold_seconds": 17325,
+        "entry_price": 2463.54,
+        "exit_price": 2510.88,
+        "pnl": 3504.1068,
+        "pnl_percent": null,
+        "close_reason": "netting_attributed",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_eth_15m long; conf 0.81; entry=optimal; exit=tp_appropriate(netting_attributed,12.81R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": true
+      },
+      {
+        "trade_id": "5082",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_sol_5m",
+        "opened_at": "2026-08-26T21:11:56.868758+00:00",
+        "closed_at": "2026-08-26T22:17:17.877408+00:00",
+        "hold_seconds": 3921,
+        "entry_price": 97.38,
+        "exit_price": 99.13000000000001,
+        "pnl": 730.1,
+        "pnl_percent": null,
+        "close_reason": "tp",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_sol_5m long; conf 0.75; entry=optimal; exit=tp_appropriate(tp,11.84R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: measured",
+        "notable": false
+      },
+      {
+        "trade_id": "5078",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_sol_5m",
+        "opened_at": "2026-08-26T19:31:57.206392+00:00",
+        "closed_at": "2026-08-26T20:25:21.937134+00:00",
+        "hold_seconds": 3204,
+        "entry_price": 96.78,
+        "exit_price": 96.31,
+        "pnl": -422.389,
+        "pnl_percent": null,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_sol_5m long; conf 0.71; entry=optimal; exit=sl_appropriate(sl,-1.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: measured",
+        "notable": false
+      },
+      {
+        "trade_id": "5072",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-26T17:02:00.691848+00:00",
+        "closed_at": "2026-08-26T17:05:39.706716+00:00",
+        "hold_seconds": 219,
+        "entry_price": 96.06,
+        "exit_price": 96.06,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5073",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-26T17:02:01.742327+00:00",
+        "closed_at": "2026-08-26T17:05:21.876971+00:00",
+        "hold_seconds": 200,
+        "entry_price": 2445.45,
+        "exit_price": 2445.01,
+        "pnl": 0.1584,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=premature_exit(reconciler_filled,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5062",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-26T16:01:31.431247+00:00",
+        "closed_at": "2026-08-26T16:05:05.687844+00:00",
+        "hold_seconds": 214,
+        "entry_price": 95.92,
+        "exit_price": 95.92,
+        "pnl": 0.0,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5063",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-26T16:01:32.666520+00:00",
+        "closed_at": "2026-08-26T16:04:48.349174+00:00",
+        "hold_seconds": 195,
+        "entry_price": 2447.38,
+        "exit_price": 2451.41,
+        "pnl": -1.6523,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b short; entry=unknown; exit=sl_appropriate(reconciler_filled,-0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "4924",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ADAUSDT",
+        "direction": "buy",
+        "strategy": "ada_pullback_2h",
+        "opened_at": "2026-08-22T08:00:20.541325+00:00",
+        "closed_at": "2026-08-26T15:02:21.724696+00:00",
+        "hold_seconds": 370921,
+        "entry_price": 0.2318,
+        "exit_price": 0.2031,
+        "pnl": -827.0192,
+        "pnl_percent": null,
+        "close_reason": "sl",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5059",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_sol_15m",
+        "opened_at": "2026-08-26T12:38:56.007945+00:00",
+        "closed_at": "2026-08-26T14:50:57.680488+00:00",
+        "hold_seconds": 7921,
+        "entry_price": 96.64,
+        "exit_price": 95.4,
+        "pnl": 2769.54,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "D",
+          "rationale": "ict_scalp_sol_15m short; conf 0.28; entry=should_skip; exit=tp_appropriate(reconciler_filled,8.96R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: measured",
+        "notable": true
+      },
+      {
+        "trade_id": "5057",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BNBUSDT",
+        "direction": "sell",
+        "strategy": "pairs_bnb_btc_a",
+        "opened_at": "2026-08-26T11:00:35.080505+00:00",
+        "closed_at": "2026-08-26T14:05:02.465956+00:00",
+        "hold_seconds": 11067,
+        "entry_price": 706.3,
+        "exit_price": 701.9,
+        "pnl": 5.588,
+        "pnl_percent": null,
+        "close_reason": "pairs_stop",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_a short; entry=unknown; exit=premature_exit(pairs_stop,0.01R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5058",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "buy",
+        "strategy": "pairs_bnb_btc_b",
+        "opened_at": "2026-08-26T11:00:36.156303+00:00",
+        "closed_at": "2026-08-26T14:05:02.465956+00:00",
+        "hold_seconds": 11066,
+        "entry_price": 78727.5,
+        "exit_price": 78531.0,
+        "pnl": -0.1965,
+        "pnl_percent": null,
+        "close_reason": "pairs_stop",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_b long; entry=unknown; exit=sl_appropriate(pairs_stop,-0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5055",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_eth_15m",
+        "opened_at": "2026-08-26T10:40:25.706844+00:00",
+        "closed_at": "2026-08-26T13:13:26.063050+00:00",
+        "hold_seconds": 9180,
+        "entry_price": 2465.87,
+        "exit_price": 2444.55,
+        "pnl": -194.8648,
+        "pnl_percent": null,
+        "close_reason": "netting_attributed",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "ict_scalp_eth_15m long; conf 0.50; entry=acceptable; exit=sl_appropriate(netting_attributed,-0.86R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5054",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_xrp_15m",
+        "opened_at": "2026-08-26T10:36:46.801529+00:00",
+        "closed_at": "2026-08-26T12:32:11.473912+00:00",
+        "hold_seconds": 6924,
+        "entry_price": 1.4204,
+        "exit_price": 1.4178,
+        "pnl": -383.3905,
+        "pnl_percent": null,
+        "close_reason": "netting_attributed",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_xrp_15m long; conf 0.75; entry=optimal; exit=sl_appropriate(netting_attributed,-0.14R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5056",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "AVAXUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_avax_5m",
+        "opened_at": "2026-08-26T10:42:25.999627+00:00",
+        "closed_at": "2026-08-26T12:30:20.418765+00:00",
+        "hold_seconds": 6474,
+        "entry_price": 7.394,
+        "exit_price": 7.353,
+        "pnl": -88.9249,
+        "pnl_percent": null,
+        "close_reason": "netting_attributed",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_avax_5m long; conf 0.85; entry=optimal; exit=sl_appropriate(netting_attributed,-0.36R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5052",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_sol_5m",
+        "opened_at": "2026-08-26T10:25:41.164328+00:00",
+        "closed_at": "2026-08-26T11:40:21.969846+00:00",
+        "hold_seconds": 4480,
+        "entry_price": 96.58,
+        "exit_price": 96.75,
+        "pnl": 43.061,
+        "pnl_percent": null,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_sol_5m long; conf 0.70; entry=optimal; exit=tp_appropriate(sl,0.76R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5053",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_sol_15m",
+        "opened_at": "2026-08-26T10:34:48.004018+00:00",
+        "closed_at": "2026-08-26T10:34:48.004018+00:00",
+        "hold_seconds": 0,
+        "entry_price": 96.69,
+        "exit_price": 95.4,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "intent_reduce_executed",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_sol_15m long; conf 0.81; entry=optimal; exit=unknown(intent_reduce_executed,-1.31R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5050",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_sol_5m",
+        "opened_at": "2026-08-26T08:57:56.982868+00:00",
+        "closed_at": "2026-08-26T10:22:15.071366+00:00",
+        "hold_seconds": 5058,
+        "entry_price": 96.68,
+        "exit_price": 96.55,
+        "pnl": 37.999,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_sol_5m short; conf 0.76; entry=optimal; exit=tp_appropriate(reconciler_filled,1.03R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5043",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-26T02:04:18.747984+00:00",
+        "closed_at": "2026-08-26T09:38:03.819066+00:00",
+        "hold_seconds": 27225,
+        "entry_price": 2456.25,
+        "exit_price": 2453.09,
+        "pnl": -0.6004,
+        "pnl_percent": null,
+        "close_reason": "pairs_half_open_cleanup",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_b long; entry=unknown; exit=sl_appropriate(pairs_half_open_cleanup,-0.00R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5042",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-26T02:04:17.741665+00:00",
+        "closed_at": "2026-08-26T09:37:22.100271+00:00",
+        "hold_seconds": 27184,
+        "entry_price": 96.91,
+        "exit_price": 96.22,
+        "pnl": 2.898,
+        "pnl_percent": null,
+        "close_reason": "intent_reduce",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_sol_eth_a short; entry=unknown; exit=premature_exit(intent_reduce,0.01R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5051",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "buy",
+        "strategy": "ict_scalp_sol_15m",
+        "opened_at": "2026-08-26T09:37:22.151692+00:00",
+        "closed_at": "2026-08-26T09:37:22.151692+00:00",
+        "hold_seconds": 0,
+        "entry_price": 96.22,
+        "exit_price": 96.65,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "intent_reduce_executed",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "ict_scalp_sol_15m short; conf 0.68; entry=acceptable; exit=unknown(intent_reduce_executed,-0.35R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: \u2014  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5039",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-08-25T22:30:24.202217+00:00",
+        "closed_at": "2026-08-26T02:27:16.494324+00:00",
+        "hold_seconds": 14212,
+        "entry_price": 78557.8,
+        "exit_price": 79029.0,
+        "pnl": -1001.7712,
+        "pnl_percent": null,
+        "close_reason": "sl",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: measured",
+        "notable": true
+      },
+      {
+        "trade_id": "5040",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-08-25T22:30:25.198434+00:00",
+        "closed_at": "2026-08-26T02:25:20.036000+00:00",
+        "hold_seconds": 14094,
+        "entry_price": 78557.7,
+        "exit_price": 79038.3,
+        "pnl": -5.1035,
+        "pnl_percent": null,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_5m short; conf 0.76; entry=optimal; exit=sl_appropriate(sl,-1.03R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: measured",
+        "notable": true
+      },
+      {
+        "trade_id": "5030",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-08-25T13:46:13.070657+00:00",
+        "closed_at": "2026-08-25T21:07:19.547635+00:00",
+        "hold_seconds": 26466,
+        "entry_price": 78418.3,
+        "exit_price": 77978.6,
+        "pnl": 4.397,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5036",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BNBUSDT",
+        "direction": "buy",
+        "strategy": "pairs_bnb_btc_a",
+        "opened_at": "2026-08-25T14:06:09.240888+00:00",
+        "closed_at": "2026-08-25T21:04:00.216142+00:00",
+        "hold_seconds": 25070,
+        "entry_price": 695.5,
+        "exit_price": 692.7,
+        "pnl": -2.8,
+        "pnl_percent": null,
+        "close_reason": "pairs_revert",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_a long; entry=unknown; exit=sl_appropriate(pairs_revert,-0.01R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5037",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "pairs_bnb_btc_b",
+        "opened_at": "2026-08-25T14:06:10.003415+00:00",
+        "closed_at": "2026-08-25T21:04:00.216142+00:00",
+        "hold_seconds": 25070,
+        "entry_price": 78803.3,
+        "exit_price": 78234.7,
+        "pnl": 5.686,
+        "pnl_percent": null,
+        "close_reason": "pairs_revert",
+        "claude_grade": {
+          "grade": "C",
+          "rationale": "pairs_bnb_btc_b short; entry=unknown; exit=premature_exit(pairs_revert,0.01R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5032",
+        "account": "bybit_portfolio",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-08-25T13:46:15.226539+00:00",
+        "closed_at": "2026-08-25T14:32:35.164579+00:00",
+        "hold_seconds": 2779,
+        "entry_price": 78378.2,
+        "exit_price": 79255.1,
+        "pnl": -1545.0978,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: measured",
+        "notable": true
+      },
+      {
+        "trade_id": "5031",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-08-25T13:46:14.047871+00:00",
+        "closed_at": "2026-08-25T14:32:33.403486+00:00",
+        "hold_seconds": 2779,
+        "entry_price": 78392.7,
+        "exit_price": 79287.12,
+        "pnl": -4.9057,
+        "pnl_percent": null,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "B",
+          "rationale": "ict_scalp_5m short; conf 0.71; entry=optimal; exit=sl_appropriate(sl,-1.02R); risk=unknown"
+        },
+        "signal_logic": "pnl provenance: measured",
+        "notable": true
+      },
+      {
+        "trade_id": "4838",
+        "account": "alpaca_portfolio",
+        "account_class": "paper",
+        "symbol": "SLV",
+        "direction": "buy",
+        "strategy": "slv_trend_1h",
+        "opened_at": "2026-08-20T13:31:42.677009+00:00",
+        "closed_at": "2026-08-25T13:37:04.083597+00:00",
+        "hold_seconds": 432321,
+        "entry_price": 60.33,
+        "exit_price": 61.215,
+        "pnl": 27.435,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "4837",
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "SLV",
+        "direction": "buy",
+        "strategy": "slv_trend_1h",
+        "opened_at": "2026-08-20T13:31:38.530969+00:00",
+        "closed_at": "2026-08-25T13:36:45.570779+00:00",
+        "hold_seconds": 432307,
+        "entry_price": 60.33,
+        "exit_price": 61.215,
+        "pnl": 22.125,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5027",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "sell",
+        "strategy": "ict_scalp_sol_15m",
+        "opened_at": "2026-08-25T07:50:48.836023+00:00",
+        "closed_at": "2026-08-25T13:30:53.649230+00:00",
+        "hold_seconds": 20404,
+        "entry_price": 100.44,
+        "exit_price": 97.19,
+        "pnl": 3224.65,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": true
+      },
+      {
+        "trade_id": "5002",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "sell",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-25T01:05:01.738718+00:00",
+        "closed_at": "2026-08-25T12:04:05.879628+00:00",
+        "hold_seconds": 39544,
+        "entry_price": 102.19,
+        "exit_price": 98.6,
+        "pnl": 38.772,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5003",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "buy",
+        "strategy": "pairs_sol_eth_b",
+        "opened_at": "2026-08-25T01:05:02.913559+00:00",
+        "closed_at": "2026-08-25T12:04:05.879628+00:00",
+        "hold_seconds": 39542,
+        "entry_price": 2497.51,
+        "exit_price": 2480.56,
+        "pnl": -3.2205,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      },
+      {
+        "trade_id": "5006",
+        "account": "bybit_portfolio",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "buy",
+        "strategy": "trend_donchian",
+        "opened_at": "2026-08-25T02:19:46.830178+00:00",
+        "closed_at": "2026-08-25T09:56:44.858045+00:00",
+        "hold_seconds": 27418,
+        "entry_price": 80811.8,
+        "exit_price": 79202.4,
+        "pnl": -1166.815,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": true
+      },
+      {
+        "trade_id": "5004",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "buy",
+        "strategy": "trend_donchian",
+        "opened_at": "2026-08-25T02:19:44.597668+00:00",
+        "closed_at": "2026-08-25T09:56:40.792382+00:00",
+        "hold_seconds": 27416,
+        "entry_price": 80783.8,
+        "exit_price": 79202.4,
+        "pnl": -627.8158,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {},
+        "signal_logic": "pnl provenance: estimated  \u26a0 NOT a measurement",
+        "notable": false
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 120,
+      "summarized_trades": 0,
+      "rule": "full-per-trade (since-last/daily)",
+      "note": "89 of 120 carry a Claude grade from this session's grading pass; the other 31 have no linked order package and so were outside the grader's closed_only delta."
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 1007,
+        "open": 458,
+        "resolved": 549,
+        "drained": 66
+      },
+      "performance": {
+        "total": 109,
+        "open": 43,
+        "resolved": 66,
+        "drained": 1
+      },
+      "ml": {
+        "total": 104,
+        "open": 21,
+        "resolved": 83,
+        "drained": 3
+      },
+      "_computed_by": "scripts/reports/backlog_counts.py --since 2026-08-25T09:25:00Z, RE-RUN at 2026-08-29T17:22Z after (a) merging origin/main and (b) fixing an off-enum status I had introduced. Health moved 1006/456/50 -> 1007/457/67. TWO separate causes, and the second was a defect in my own triage: main's #10420 added one open row mid-run (+1 total, +1 open); and my triage had written status:\"snoozed\" on 43 rows across all three files, which is NOT in the schema enum (invalid|kept_open|open|resolved|superseded|wont_fix), so those rows fell out of every tally the counter computes. claim-basis-guard caught it locally with exactly the right diagnosis \u2014 'a free-text status makes the open count uncomputable'. It had already bitten me: the 483-triaged vs 456-open gap this field previously explained away as a terminal-status filter was substantially THIS. Fixed by setting status:\"kept_open\" (a snoozed row IS still open) with every snooze fact preserved outside `status` \u2014 snoozed_at, snoozed_until, disposition:\"snoozed\", and the update note naming the trigger. The figures now RECONCILE: open 457 equals exactly the 457 open+kept_open health rows carrying a triage update, and drained 67 matches an independent raw scan of resolved_at in-window. `snoozed` appears zero times on origin/main, so all 43 were mine.",
+      "_note": "`open` here excludes the terminal statuses invalid/wont_fix/superseded (10 health rows); my triage filter counted those as open, which is why it covered 483 health rows against this 456."
+    },
+    "tier3_proposals_pending": [
+      {
+        "id": "T3-1",
+        "title": "PROP_TICKET_RISK_GATE_MODE annotate -> enforce",
+        "evidence": "PR #10414 soak (new)"
+      },
+      {
+        "id": "T3-2",
+        "title": "Arm BYBIT_HEDGE_MODE_SYMBOLS for the pairs sleeve on bybit_1",
+        "evidence": "35 half-open cleanups in 9 days; BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN"
+      },
+      {
+        "id": "T3-3",
+        "title": "Dispositions for the 6 refusing manifests",
+        "evidence": "F-M1"
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET",
+        "domain": "health",
+        "category": "awaiting-data",
+        "detail": "#10174. Two IB closes landed this window (4796, 5007). 5007 trailed its stop and exited sl_cross (+$3,417) - OCA cancels the target on a stop fill either way, so it still does not settle whether the target SURVIVES a trail. The live MES book showing both legs resting is the strongest evidence yet but is not the mechanism.",
+        "since": "2026-08-23",
+        "next_check": "an IB trade that trails and then exits on its TARGET"
+      },
+      {
+        "item_id": "BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON",
+        "domain": "performance",
+        "category": "awaiting-decision",
+        "detail": "Still true this window: ict_scalp_mgc_15m held 47.8 h (a 15-minute leg), qqq_pullback_1h 193.7 h, tlt_pullback_1d 721.2 h.",
+        "since": "2026-08-21",
+        "next_check": "a time/stall exit lever declared on a live leg (Tier-3)"
+      },
+      {
+        "item_id": "BL-20260820-TRAINER-DISK-THRESHOLDS-UNCALIBRATED",
+        "domain": "health",
+        "category": "awaiting-decision",
+        "detail": "4.03 GB free, inside the 5.0 GB warning band, above the 2.0 GB alert. Both thresholds are CHOSEN, not calibrated.",
+        "since": "2026-08-20",
+        "next_check": "a retention decision or a larger volume"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "assessed": true,
+        "stance": "No strategy has a MET promotion gate awaiting a decision this window; the pressure is all on the DEMOTE side and it is Tier-3, already with the operator.",
+        "ready_to_promote": [],
+        "demote_or_kill_candidates": [
+          {
+            "strategy": "6 crypto pullback legs",
+            "evidence": "BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE (severity critical). Operator disposition RECORDED 2026-08-23T04:3xZ; not this review's to enact.",
+            "reviews_open": "carried"
+          },
+          {
+            "strategy": "pairs_sol_eth_{a,b} / pairs_bnb_btc_{a,b}",
+            "evidence": "35 half-open cleanups in 9 days; 42 of the window's 120 closes are pairs legs and 17 of them closed via pairs_half_open_cleanup. Placeholder SL/TP geometry. Recommend the sleeve be shadowed on bybit_1 until BYBIT_HEDGE_MODE_SYMBOLS is armed.",
+            "tier": 3
+          }
+        ],
+        "gate_met_two_consecutive_reviews": [],
+        "note": "Real-money routing verified from /api/bot/config, not from strategy comments: only bybit_2 and alpaca_live are real_money and both are near-idle (6 real closes total)."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 2,
+        "cycles_24h": 2,
+        "dataset_builds_24h": {
+          "ok": 96,
+          "failed": 0,
+          "skipped": 2
+        },
+        "last_cycle": {
+          "trained": 0,
+          "already_done": 76,
+          "carried_done": 67,
+          "carried_skipped": 9,
+          "refusals_total": 9,
+          "failed": 0,
+          "outcome": "complete_with_refusals",
+          "rc": 0,
+          "ts": "2026-08-29T05:14:41+00:00"
+        },
+        "refusing_manifests_24h": [
+          "baseline-prop-mission-policy",
+          "btc-regime-15m-lgbm-base-vt003-pcv-v1",
+          "mes-regime-1d-lgbm-v2",
+          "mes-regime-5m-lgbm-macro-v1",
+          "setup-candidates-metalabel-xsym-yz-v1",
+          "setup-quality-lgbm-v2"
+        ],
+        "manifest_quarantine_tripped": false,
+        "quarantine_note": "No manifest_quarantine_tripped / manifest_quarantined event in the 40 newest cycle rows (2026-08-29T00:48Z -> 05:45Z). That is the population I read - NOT the full log.",
+        "mirror_age_seconds": 53.4,
+        "verdict": "MIXED \u2014 the fleet trains (67 trained / 0 failed in the 00:47Z cycle), and a named 9 of 76 manifests do not: 6 audit-enforced skips, 7 stale at 34.0d against a 7d threshold, 2 never trained. rc=0 and a green service report neither half.",
+        "last_cycle_note": "READ carried_done BESIDE trained. The 05:14Z cycle's trained: 0 is the same-day resume path (cycle_resumed already_done:76, to_run:0 -> cycle_already_complete), NOT a fleet that trained nothing: carried_done: 67 names the models the 00:47Z cycle trained that day. A reader taking trained: 0 alone concludes the opposite of the truth, which this report did until it was corrected against trainer-diag #10425.",
+        "audit_skip_causes": {
+          "population": "91 manifests audited in the newest dataset_audit.jsonl pass; 7 NOT ok, plus exit-policy-v1 which fails one step earlier at the build. Read 2026-08-29 via trainer-diag #10426 + #10429.",
+          "A_declared_column_absent_from_dataset": {
+            "count": 3,
+            "detail": "nan_fraction 1.0000 ('column absent / null for ~all rows'). btc-regime-15m-lgbm-base-vt003-pcv-v1 (n=215,838) missing log_return_lag_1 / log_return_lag_2 / hour_of_day / dayofweek \u2014 four core columns every 15m sibling has; setup-candidates-metalabel-xsym-yz-v1 (n=22,814) missing the whole yang-zhang block (parkinson / garman_klass / rogers_satchell / yang_zhang_vol), i.e. exactly what the '-yz-' in its own model_id names; setup-quality-lgbm-v2 (n=1,797) missing killzone / bias."
+          },
+          "B_column_exists_but_cannot_vary": {
+            "count": 2,
+            "detail": "zero_fraction 1.0000. mes-regime-1d-lgbm-v2 hour_of_day on a DAILY bar \u2014 FIXED this session; mes-regime-5m-lgbm-macro-v1 vix_term_slope constant over n=50,176."
+          },
+          "C_degenerate_label": {
+            "count": 2,
+            "detail": "corpus-ssl-encoder-mae-v1 regime_label null/absent for all 4,256 rows; prop-mission-policy-baseline-v0 single-class label, all 267 rows == 'False'."
+          },
+          "D_dataset_built_zero_rows": {
+            "count": 1,
+            "detail": "exit-policy-v1 (exit_candidates/ETHUSDT/5m/v001). NOT a missing family and NOT a naming error \u2014 the builder exists and is registered in ml/datasets/registry.py; it emits one row per IN-TRADE bar, so 0 rows means there are no trades in that scope to walk. The cycle's own message already says 'build/coverage gap, not a dead-feature/label defect', which is correct instrumentation and should be kept."
+          },
+          "the_structural_point": "6 of the 8 are ONE root: the manifest asks for something the dataset does not provide. That contract is validated ONLY at train time, inside a cycle that returns rc=0 \u2014 so a manifest merges clean and then silently never trains. 7 manifests are stale at 34.0 days against a 7-day threshold and 2 have NEVER trained. The trainer detects and reports every bit of this correctly; nothing reads it, because the exit code is 0. Filed as MB-20260829-MANIFESTS-DECLARE-COLUMNS-THE-DATASET-NEVER-PROVIDES-AND-NOTHING-CHECKS-AT-COMMIT with a commit-time guard as the proposed remedy."
+        }
+      },
+      "soak_status": [
+        {
+          "soak": "prop ticket risk gate",
+          "state": "DID NOT EXIST",
+          "detail": "Documented since 08-25, never written. PR #10414 creates it. Accrual starts at merge+deploy.",
+          "gate_met": false
+        },
+        {
+          "soak": "exit_interval_soak (M20 exit loop)",
+          "state": "accruing and HEALTHY",
+          "detail": "997 intervals / 4 processes: mean 29,978 ms, MAX 34,240 ms, 0 over the 60 s requirement (15.8 s margin, improved from 15.0 s at 08-25).",
+          "gate_met": true
+        },
+        {
+          "soak": "shadow model fleet",
+          "state": "accruing but NOT draining",
+          "detail": "29 of 96 registry models at shadow, 3 advisory. No promotion proposed this window.",
+          "gate_met": false
+        },
+        {
+          "soak": "exposure_soak",
+          "state": "accruing",
+          "detail": "Read 200 rows. Not the binding item this window.",
+          "gate_met": false
+        },
+        {
+          "soak": "cash_settlement_soak",
+          "state": "accruing",
+          "detail": "A concurrent session shipped its Monday timer (#10412) mid-review. Deliberately NOT assessed here to avoid collision.",
+          "gate_met": false
+        }
+      ],
+      "execution_capture": {
+        "dollars_reconciled": true,
+        "reconciliation_note": "Real-money dollars reconciled against /api/bot/pnl/exchange (FIFO fills) and /api/bot/pnl/broker-truth. bybit_2 real-money fills in 7d: 36 fills, $6.07 fees, BTC 35 + ETH 1. The endpoint's headline -$45,832 realized over 7d is NOT real money - it aggregates every account incl. the bybit_1 demo book (SOL/USDT alone -$28,113 on 77 fills). State the population.",
+        "method": "Measured from the window's 120 closed trades (hold durations, close-reason mix) plus /api/bot/performance perExitPath coverage. MFE-based roundtrippers/giveback: unavailable: scripts/research/m20_exit_analysis.py needs the trainer's datasets-out/market_raw store and the trainer is at 91.7% disk with a live low-disk warning; dispatching an MFE recompute onto it this run was the wrong trade.",
+        "metrics_computable": [
+          "hold_h_actual vs expected",
+          "close-reason mix",
+          "perExitPath pnlCoverage"
+        ],
+        "metrics_not_computable": [
+          "roundtrippers_pct",
+          "mean_giveback_r"
+        ],
+        "declared_bracket_exit_rate": 0.083,
+        "per_strategy": [
+          {
+            "strategy": "ict_scalp_mgc_15m",
+            "hold_h_actual": 47.76,
+            "hold_h_expected": 0.25,
+            "ratio": 191,
+            "n": 1,
+            "state": "anomaly"
+          },
+          {
+            "strategy": "qqq_pullback_1h",
+            "hold_h_actual": 193.7,
+            "hold_h_expected": 20,
+            "ratio": 9.7,
+            "n": 2,
+            "state": "anomaly"
+          },
+          {
+            "strategy": "tlt_pullback_1d",
+            "hold_h_actual": 721.18,
+            "hold_h_expected": 120,
+            "ratio": 6.0,
+            "n": 2,
+            "state": "degraded"
+          },
+          {
+            "strategy": "iwm_trend_long_1d",
+            "hold_h_actual": 553.97,
+            "hold_h_expected": 120,
+            "ratio": 4.6,
+            "n": 2,
+            "state": "degraded"
+          },
+          {
+            "strategy": "pairs_sol_eth_a/b",
+            "hold_h_actual": null,
+            "hold_h_expected": null,
+            "n": 42,
+            "state": "anomaly",
+            "detail": "17 of 42 closed via pairs_half_open_cleanup - a janitor path, not an exit"
+          },
+          {
+            "strategy": "gld_pullback_1h",
+            "hold_h_actual": 24.41,
+            "hold_h_expected": 20,
+            "ratio": 1.2,
+            "n": 5,
+            "state": "ok"
+          }
+        ],
+        "worst_coverage_exit_paths": [
+          {
+            "exitPath": "netting_attributed",
+            "trades": 6,
+            "pnlCoverage": 0.0
+          },
+          {
+            "exitPath": "stuck_strategy_watchdog",
+            "trades": 1,
+            "pnlCoverage": 0.0
+          },
+          {
+            "exitPath": "intent_reduce",
+            "trades": 1,
+            "pnlCoverage": 0.0
+          },
+          {
+            "exitPath": "time_decay",
+            "trades": 4,
+            "pnlCoverage": 0.25
+          },
+          {
+            "exitPath": "stale_stop",
+            "trades": 3,
+            "pnlCoverage": 0.333
+          },
+          {
+            "exitPath": "vwap_cross",
+            "trades": 102,
+            "pnlCoverage": 0.343
+          }
+        ],
+        "anomalies": [
+          {
+            "strategy": "ict_scalp_mgc_15m|paper",
+            "symptom": "held 10-100x design horizon",
+            "first_seen": "2026-08-21",
+            "reviews_open": 4,
+            "backlog_id": "BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON",
+            "detail": "Trade 5007 held 47.76 h on a 15-minute leg (191x). It DID close this window (prior review had no MGC closes at all), exiting sl_cross at +$3,417 on a trailed stop."
+          },
+          {
+            "strategy": "ict_scalp_5m|paper",
+            "symptom": "held 10-100x design horizon",
+            "first_seen": "2026-08-21",
+            "reviews_open": 4,
+            "backlog_id": "BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON",
+            "detail": "12 closes this window; the family remains the motivating case."
+          },
+          {
+            "strategy": "qqq_pullback_1h|paper",
+            "symptom": "median hold 9.7x its budget",
+            "first_seen": "2026-08-25",
+            "reviews_open": 2,
+            "backlog_id": "BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON",
+            "detail": "193.70 h against a ~20 h budget. Improved from the 240.65 h the 08-25 review measured, still an order of magnitude over."
+          },
+          {
+            "strategy": "<fleet>|all",
+            "symptom": "only 8.3% of closes exit via a declared bracket",
+            "first_seen": "2026-08-21",
+            "reviews_open": 4,
+            "backlog_id": "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT",
+            "detail": "10 of 120 (tp 3 + sl 7) this window."
+          },
+          {
+            "strategy": "pairs_*|paper",
+            "symptom": "leg stranded on open, cleaned by a janitor path",
+            "first_seen": "2026-08-21",
+            "reviews_open": 2,
+            "backlog_id": "BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN",
+            "detail": "35 pairs_half_open cleanups in 9 days; 17 of 42 pairs closes exited that way."
+          }
+        ],
+        "declared_bracket_exit_rate_caveat": "\u26a0\ufe0f 8.3% IS A LOWER BOUND, NOT A POINT ESTIMATE \u2014 corrected after the backlog triage surfaced BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS, which measures that on broker-truth exit prices the declared bracket is reached about 3x more often than exit_reason records. My figure is computed from exit_reason, so the true declared-bracket rate could be nearer 25%. Both readings agree the MAJORITY of closes are not decision-driven; they disagree on by how much. Separately BL-20260822-PACKAGE-CLOSE-REASON-IS-NOT-THE-EXIT-RECORD warns that order_packages.close_reason mixes real exits with bookkeeping repairs \u2014 I used trades.exit_reason, the safer of the two, but both share the underlying labelling problem."
+      },
+      "since_last_build_verification": {
+        "count_shipped": 9,
+        "items": [
+          {
+            "verdict": "running",
+            "evidence": "ict_scalp_mgc_15m ERROR rows stop dead on 08-26 (53 on 08-25 -> 0) and the SAME condition reappears at WARN under the transient_market_data_unavailable prefix (38 rows, 08-25..08-29). Reclassified, not silenced.",
+            "name": "transient_market_data_unavailable classifier now matches the VARIANT families (BL-20260825-TRANSIENT-CLASSIFIER-MISSES-THE-VARIANT-FAMILIES)"
+          },
+          {
+            "verdict": "running",
+            "evidence": "ib_target_naked ERROR rows 21/22/48/15 on 08-20..23 -> 0/0/1/1/0 from 08-24. The per-PROCESS monotonic latch defect is no longer reproducing.",
+            "name": "durable target-naked cooldown (runtime_logs/target_naked_alert_state.json)"
+          },
+          {
+            "verdict": "running",
+            "evidence": "20 bybit_over_cover rows in the operator ERROR feed, first on 08-26 - the day it shipped. Previously logger.error only, invisible to every operator surface.",
+            "name": "bybit over-cover operator page (_emit_bybit_over_cover_alert, 2026-08-26)"
+          },
+          {
+            "verdict": "running",
+            "evidence": "6 ib_stop_over_cover rows from 08-25 (ib_paper/MHG).",
+            "name": "ib stop over-cover operator page (_emit_stop_over_cover_alert, 2026-08-25)"
+          },
+          {
+            "verdict": "running",
+            "evidence": "The 69-tick / $1,289.73 divergence recorded in CLAUDE.md (declared 7533.696 vs resting 7516.50, held since 08-20) is GONE: the venue now rests STP 7533.75 + LMT 8390.50 in one OCA group, qty 15 = position 15, matching the journal to the 0.25 tick on both legs.",
+            "name": "protective-bracket re-assert / stray-group handling on ib_paper MES"
+          },
+          {
+            "verdict": "UNWIRED",
+            "evidence": "318 lines, zero file writes, no diag allowlist entry. The capability the MODE block describes did not exist. Fixed this session in PR #10414.",
+            "name": "prop_risk_gate annotate-mode soak row",
+            "shipped_claim": "claimed by its own MODE docstring on 2026-08-25"
+          },
+          {
+            "name": "bybit_open_orders diag read surface (2026-08-22)",
+            "verdict": "running",
+            "evidence": "Called live this review: /api/diag/bybit_open_orders?account_id=bybit_2 returned read_state `orders_read`, position_count 2, order_count 4, with per-position stop_loss / take_profit / tpsl_mode / position_idx. Incidental finding: position_idx 0 confirms one-way NETTING on the real-money account, which is the root of the pairs-stranding flag."
+          },
+          {
+            "name": "IB_PROBE_CACHE_S liveness-probe cache (2026-08-22)",
+            "verdict": "running",
+            "evidence": "/api/diag/ib_state reports probe_cache_seconds_remaining 26.8 / 51.1 / 49.1 across the three IB clients, all connected with account_data_ready true and 0 consecutive_failures \u2014 cached verdicts are standing in for probes exactly as designed."
+          },
+          {
+            "name": "exit_interval_soak durable half (2026-08-16)",
+            "verdict": "running",
+            "evidence": "997 measured intervals across 4 trader processes, 0 breaches of the 60 s requirement. It is the ONLY reason the cessation of BL-20260825's 1,204 breaches could be established \u2014 the in-memory grade showed intervals_measured 2."
+          }
+        ],
+        "note": "scripts/ci/check_unwired_artifacts.py was run; its RUST set is dominated by long-standing doc-only script references, unchanged in shape from the 08-20 audit."
+      },
+      "backlog_classes": {
+        "total_open_reviewed": 548,
+        "method": "Every open row in all three backlogs was LOADED and machine-clustered on title + the first 400 chars of why_it_matters, with word-boundary patterns. An earlier substring pass over-counted badly (it matched 'tp'/'sl' inside ordinary words) and was discarded - the numbers below are from the corrected pass.",
+        "coverage_caveat": "436 of 548 open rows match NONE of these classes. This is an indicative clustering covering ~20% of the backlog, not an exhaustive taxonomy.",
+        "classes": [
+          {
+            "class": "C. provenance - measured vs manufactured",
+            "count": 44,
+            "member_ids": [
+              "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
+              "BL-20260730-DIAGNOSTIC-PROVENANCE-CLASS",
+              "BL-20260807-DIAGPROV-STANDING-AUDIT-NEVER-DRAINED"
+            ],
+            "structural_fix": "perExitPath already shows coverage is structured BY EXIT PATH, not by strategy. The class retires when the janitor paths (netting_attributed, intent_reduce, stuck_strategy_watchdog, pairs_*) stamp provenance at all - today they are at 0.0."
+          },
+          {
+            "class": "E. exit mechanism / bracket integrity",
+            "count": 39,
+            "member_ids": [
+              "BL-20260612-002",
+              "BL-20260716-ALPACA-MARKET-HOURS-EXIT",
+              "BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT"
+            ],
+            "structural_fix": "One owner for 'what protection rests on this position, per venue, as a QUANTITY and TWO-SIDED'. The read surfaces now exist per venue (ib_open_orders, bybit_open_orders); the grading is still per-venue bespoke."
+          },
+          {
+            "class": "B. collapsed state - cannot say 'we did not look'",
+            "count": 18,
+            "member_ids": [
+              "BL-20260812-ACTIONS-RUNNER-TLS-VERIFY-FAILS-AS-RED",
+              "BL-20260807-BACKLOG-REFS-GUARD-BLOCKS-HISTORICAL-CITATIONS",
+              "BL-20260807-CANNOT-EVALUATE-IS-INVISIBLE"
+            ],
+            "structural_fix": "collapsed-state-guard already exists with 19 registered contracts. The class retires by REGISTERING each new three-state field as it ships, not by finding them later. F-H2 (/trades/closed since=) is a fresh, unregistered instance."
+          },
+          {
+            "class": "A. written-but-never-read / no read surface",
+            "count": 10,
+            "member_ids": [
+              "BL-20260813-NO-GUARD-FOR-ENV-READ-SURFACE",
+              "BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER",
+              "BL-20260820-EXIT-REASON-UNCLASSIFIED-IS-THE-MODAL-VALUE"
+            ],
+            "structural_fix": "THIS IS THE HIGHEST-VALUE CLASS AND IT RECURRED AGAIN THIS WEEK (prop_risk_gate, 4th time). provenance-consumer-guard polices provenance keys only. Generalise it: any *_MODE gate must have a soak writer AND a diag allowlist entry, checked in CI. That one guard would have caught prop_risk_gate at merge on 08-25 instead of at review on 08-29."
+          },
+          {
+            "class": "D. alarm fatigue - floods or never fires",
+            "count": 8,
+            "member_ids": [
+              "BL-20260816-IB-CLOSE-RETRY-COOLDOWN-PROCESS-SCOPED",
+              "BL-20260820-DOC-FRESHNESS-HAND-GREPS-ARE-NOISIER-THAN-THE-CI-CHECKER",
+              "BL-20260823-ALERT-LATCHES-WITHOUT-A-READ-SURFACE"
+            ],
+            "structural_fix": "Largely RETIRED this window - see structural_health. The shared _cooldown_admits helper plus durable latch files fixed the two dominant floods. Remaining members are per-process latches not yet migrated."
+          },
+          {
+            "class": "G. test fixture asserts a fictional schema",
+            "count": 5,
+            "member_ids": [
+              "BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC",
+              "BL-20260813-TESTS-PIN-LITERAL-DATES-AGAINST-ROLLING-WINDOWS",
+              "BL-20260823-FIXTURE-MISSING-A-PRODUCTION-COLUMN-FAILS-SILENTLY"
+            ],
+            "structural_fix": "check_test_schema_fidelity.py exists; point it at every fixture that declares a table production also declares."
+          }
+        ]
+      },
+      "ml_output_actionability": {
+        "cycles_in_window": 2,
+        "models_trained_in_window": 67,
+        "outputs_consumed_by": "The advisory tier is read by intents.py::_decision_vol_regime for the BTC and SOL 15m vol heads (a named, live consumer). The shadow tier (29 models) is read by ShadowPredictor.predict into shadow_predictions.jsonl and by nothing that changes a decision.",
+        "verdict": "producing_but_unused",
+        "detail": "CORRECTED 2026-08-29T17:45Z (trainer-diag #10425). The verdict is UNCHANGED but its basis was wrong and had to be replaced. It previously rested on 'the last cycle produced NO model at all', which is false \u2014 the 00:47Z cycle trained 67 with 0 failures; the 05:14Z zero is the same-day resume path. So PRODUCING is not in doubt and the honest reading is the other half of the compound: 67 models are produced per cycle and 29 of 96 registry models sit at shadow influencing nothing, with none proposed for promotion this window. The gap is the PROMOTION path, not the training path \u2014 which is a different remedy from the one the original wording implied, and the reason correcting this mattered rather than being a bookkeeping nicety.",
+        "not_producing_subpopulation": "9 of 76 manifests, named rather than counted: 6 audit-enforced skips (dead feature / degenerate label), 7 stale at 34.0 days against a 7-day threshold, 2 never trained. exit-policy-v1 is the sharpest \u2014 0 runs across 96 registry files, manifest 33.8d old."
+      },
+      "unexercised_fixes": [
+        {
+          "fix": "#10174 IB transmit fix - trailing a stop must not drop the target",
+          "deployed_sha": "a362bd2 / #10211 follow-up",
+          "verdict": "still_unexercised",
+          "evidence": null,
+          "detail": "PROGRESS, NOT PROOF. The prior review had a population of ZERO IB closes; this window has TWO (4796 MHG, 5007 MGC). Trade 5007 DID trail its stop and exited sl_cross at +$3,417 - but OCA cancels the sibling target on a stop fill either way, so a stop exit cannot show the target survived the trail. The live ib_paper MES book resting BOTH legs (STP 7533.75 + LMT 8390.50, one OCA group, qty 15 = position 15, matching the journal to the tick) is the strongest evidence yet and is still not the mechanism. Do not accept the order book as a proxy - that is exactly the MGC 4773 error. Settles only on an IB trade that trails and then exits on its TARGET."
+        },
+        {
+          "fix": "durable target-naked cooldown (runtime_logs/target_naked_alert_state.json)",
+          "deployed_sha": "shipped 2026-08-23",
+          "verdict": "exercised",
+          "evidence": "ib_target_naked ERROR rows collapse from 21/22/48/15 per day (08-20..23) to 0/0/1/1/0 from 08-24 onward, across 394 ERROR+ rows spanning 08-20T14:28Z..08-29T14:05Z. The restart-scoped re-arm that put 202 CRITICALs on the operator channel is not reproducing.",
+          "detail": "LEAVES THIS BLOCK."
+        },
+        {
+          "fix": "prop_risk_gate annotate-mode soak row",
+          "deployed_sha": "not deployed (PR #10414)",
+          "verdict": "still_unexercised",
+          "evidence": null,
+          "detail": "NEW this review. The writer did not exist; it is written now and awaiting merge+deploy. First exercise = a prop ticket rendered with account_id set while mode != off."
+        }
+      ],
+      "structural_health": {
+        "population": "Two populations, both stated. (a) ALL 394 operator ERROR+ rows the feed retains, spanning 2026-08-20T14:28Z -> 2026-08-29T14:05Z (limit=1000, so NOT limit-truncated) plus 606 WARN rows over the same span. (b) the window's 120 closed trades. NOT the whole trade history - the MFE recompute that would need the trainer was deliberately not dispatched (91.7% disk).",
+        "findings": [
+          {
+            "finding": "The operator alert channel was repaired - the two dominant floods both STOPPED",
+            "measured": "333 of 394 ERROR+ rows (84.5%) are two known floods: ict_scalp_mgc no-candle 225 and ib_target_naked 108. Daily ERROR+ ran 30/48/95/49/72/63 (08-20..25) then 11/9/15/2 (08-26..29) - ~59.5/day to ~9.25/day, an 84% reduction. Both floods hit zero.",
+            "trend": "falling",
+            "structural_fix": "ALREADY SHIPPED and now demonstrably working: the transient-exception classifier fix and the shared durable _cooldown_admits latch. This is the class the repo has been calling its own P1 for weeks and it is genuinely retiring."
+          },
+          {
+            "finding": "Reclassification is not resolution - the MGC market-data condition is still live",
+            "measured": "571 of 606 WARN rows (94.2%) are transient_market_data_unavailable across 5 IB legs. The 4 older legs largely cleared after 08-26 (28-29/day -> 0-2/day); ict_scalp_mgc_15m did NOT (2/11/8/11/6 on 08-25..29, including the trading days 08-27 and 08-28).",
+            "trend": "flat",
+            "structural_fix": "The alarm is now correctly quiet, which means nobody is watching it. A leg that cannot fetch candles cannot signal; that is a capability outage that currently has no metric.",
+            "trend_note": "flat for ict_scalp_mgc_15m (2/11/8/11/6 on 08-25..29); FALLING for the other four IB legs (28-29/day -> 0-2/day after 08-26). Graded on the leg that has NOT improved, which is the one that still matters."
+          },
+          {
+            "finding": "Cleanup machinery still closes most trades, and those paths measure nothing",
+            "measured": "10 of 120 window closes (8.3%) came from a declared bracket. On the real-money perExitPath cut, netting_attributed / stuck_strategy_watchdog / intent_reduce all sit at pnlCoverage 0.0.",
+            "trend": "flat",
+            "structural_fix": "Band-aid pattern confirmed: each janitor path was added to stop a specific stranding, and none stamps provenance. The structural fix is to require any path that CLOSES a trade to stamp exit provenance, enforced the way collapsed-state-guard enforces its contracts."
+          },
+          {
+            "finding": "The ML manifest-to-dataset contract has no commit-time check, so a manifest that asks for a column no builder emits merges clean and then silently never trains under rc=0.",
+            "measured": "91 manifests audited, 7 NOT ok + 1 failing at build. 6 of those 8 are 'the manifest declares what the dataset does not provide'. 7 manifests stale at 34.0d against a 7d threshold; 2 never trained (exit-policy-v1: 0 runs across 96 registry files, manifest 33.8d old).",
+            "trend": "first_measurement",
+            "structural_fix": "A CI guard checking declared feature_columns / target_column against the declared dataset family's producible columns, keeping the four causes distinct (absent column = wiring bug; structurally-constant = manifest/timeframe mismatch; degenerate label = coverage; 0-row build = not a manifest defect). Fixing manifests one at a time leaves the gap that produced them."
+          }
+        ],
+        "hypothesis_tested": {
+          "hypothesis": "The two alarm floods dominating the ERROR channel are still live, and the fixes shipped on 08-23/08-25 have not touched them - i.e. the same flat count the last several reviews reported.",
+          "verdict": "refuted",
+          "how": "Cut the 394-row feed by day and by normalised message. Both floods go to zero on 08-26 and the whole channel drops 84%. My prior reading - which I had already started writing up as 'still live and dominant' - was wrong, and the daily cut is what caught it.",
+          "why_it_matters": "This is the most valuable output of the pass. The reviews have been reporting alarm fatigue as a standing complaint; on this evidence it is being retired, and continuing to report it as unfixed would have been the mirror-image of normalisation.",
+          "evidence": "394 ERROR+ rows, 2026-08-20T14:28Z..08-29T14:05Z, limit=1000 so not limit-truncated. Cut by day: ict_scalp_mgc no-candle 9/26/46/29/62/53 then 0/0/0/0 from 08-26; ib_target_naked 21/22/48/15 then 0/0/1/1/0 from 08-24. Whole-channel daily total 30/48/95/49/72/63 -> 11/9/15/2, i.e. ~59.5/day -> ~9.25/day (-84%)."
+        },
+        "second_hypothesis_tested": {
+          "hypothesis": "The 6 enforced audit skips share the dead-feature cause I had just diagnosed on mes-regime-1d-lgbm-v2 (a structurally-constant hour_of_day).",
+          "verdict": "refuted",
+          "how": "Read each manifest's OWN audit verdict instead of generalising from the one I had in hand. Only 2 of 7 are dead-column cases; 3 are ABSENT columns \u2014 nan_fraction 1.0000, a different fault from zero_fraction \u2014 and 2 are degenerate LABELS with no feature problem at all.",
+          "why_it_matters": "Had I generalised, the fix would have been a sweep for constant columns: it would have repaired one manifest, left five, and reported the class closed. The refutation is what turned 8 chores into one structural finding with a guard behind it."
+        }
+      },
+      "flags_raised": [
+        "PROP IS $55.00 FROM THE LINE THAT PERMANENTLY KILLS IT - THIRD CONSECUTIVE REVIEW. breakout_1 equity $4,755.00 against the $4,700.00 static-DD floor on a $5,000 account (1.1% of the account). The cushion has thinned $64.00 (08-25) -> $55.00 (today). distance_to_daily_loss_usd is null (day_pnl_state 'realized_unreported'), so the second account-killer is UNMEASURED. PROP_TICKET_RISK_GATE_MODE is still the default `annotate`: it prints a caveat and does NOT cap the suggested size. Tier-3, operator's call.",
+        "SHIPPED-AND-UNWIRED: the prop_risk_gate annotate-mode soak row. src/prop/prop_risk_gate.py has promised since 2026-08-25 that at `annotate` 'a soak row is written'; it was 318 lines with no file write of any kind ('soak' appeared exactly once, in that docstring). So the Tier-3 `enforce` decision on an account $55 from permanent death had nothing to be decided on. Fixed this session in PR #10414 \u2014 writer + diag allowlist entry in the same commit + 6 tests. 4th recurrence of BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE.",
+        "THE TRAINER RAN AND TRAINED NOTHING. last_cycle {trained: 0, refusals_total: 9, outcome 'complete_with_refusals', rc: 0} with 6 manifests in refusing_manifests_24h. rc=0 and a green service, so no existing mechanism alerts on a cycle that produces no model.",
+        "TRAINER DISK 91.7% (4.03 GB free), warning banner live, and the documented GC is NOT the remedy (measured 08-20: 0.09 GB reclaimable of 115 version dirs, 111 pinned by 41 manifests).",
+        "THE PAIRS SLEEVE STRANDS A LEG REPEATEDLY - 35 pairs_half_open cleanups in 9 days (30 SOL/ETH, 5 BNB/BTC). Its live bybit_1 legs carry placeholder geometry, not risk levels (ETHUSDT sell entry 2446.68, SL 4893.36 = 2x entry, TP 1223.34 = entry/2), so 'pairs_stop' is not a risk stop.",
+        "8.3% OF THE WINDOW'S CLOSES CAME FROM A DECLARED BRACKET (10 of 120: tp 3 + sl 7). 34 reconciler, 76 'other' (janitor + sleeve paths). Same structural shape the 08-25 review measured fleet-wide.",
+        "ML: THE FLEET TRAINS \u2014 WHAT IS STUCK IS A NAMED SUB-POPULATION, NOT THE FLEET. [CORRECTED 2026-08-29T17:45Z against the trainer's own cycle log, trainer-diag #10425. This flag previously read 'ran 2 cycles and trained ZERO models'. That is FALSE and the refuting number was inside my own payload: the 00:47:09-00:53:43Z cycle ended trained: 67 / skipped: 9 / failed: 0, outcome 'trained_with_refusals'. I quoted the SECOND cycle (05:14Z), which hit cycle_resumed already_done:76 to_run:0 -> cycle_already_complete 'every manifest already done/skipped today' -> trained: 0 with carried_done: 67. That zero is the same-day resume path working correctly, and `carried_done: 67` was already in ml_training_health.last_cycle in this very report. Reading a rate off the wrong cycle is the read-a-number-off-the-wrong-population error.] WHAT IS ACTUALLY WRONG, and it is narrower and more actionable: (a) 6 manifests are manifest_audit_skipped_enforced \u2014 a dead feature or degenerate label in a NON-empty dataset (mes-regime-1d-lgbm-v2, mes-regime-5m-lgbm-macro-v1, setup-candidates-metalabel-xsym-yz-v1, setup-quality-lgbm-v2 + 2); (b) the trainer's OWN staleness scan reports scanned: 76, stale: 7, never_trained: 2 against a 7-day threshold, with five manifests at 34.0 DAYS untrained \u2014 'the cycle's skip paths have not let it train since then'; (c) exit-policy-v1 has ZERO registered runs across 96 registry files with a 33.8-day-old manifest, i.e. it has been skipped or failed every cycle since it landed and has never once trained. The fleet is not idle; a stuck 9 of 76 is being carried by a healthy 67, and rc=0 reports neither.",
+        "TWO FIXES REMAIN UNEXERCISED and are therefore unproven, not working. (a) #10174 IB transmit fix (a stop trail must not drop the target): this window finally produced IB closes (4796, 5007) and trade 5007 DID trail and exit sl_cross at +$3,417 \u2014 but OCA cancels the sibling target on a stop fill either way, so a stop exit cannot show the target survived. Settles only on an IB trade that trails and then exits on its TARGET. (b) the prop_risk_gate annotate-mode soak row, written this session in PR #10414, awaiting merge+deploy.",
+        "EXECUTION-CAPTURE ANOMALIES OPEN ACROSS MULTIPLE REVIEWS (anti-normalisation escalation): 'ict_scalp_mgc_15m|paper' 4 reviews (held 47.76 h on a 15-minute leg, 191x); 'ict_scalp_5m|paper' 4 reviews; '<fleet>|all' 4 reviews (only 8.3% of closes exit via a declared bracket); 'qqq_pullback_1h|paper' 2 reviews (193.70 h against a ~20 h budget); 'pairs_*|paper' 2 reviews (35 half-open cleanups in 9 days). All five are Tier-3 exit-lever or sleeve decisions sitting with the operator.",
+        "SECURITY, 100 DAYS OPEN AND STILL LIVE: the DIAG_READ_TOKEN has been readable in a WORLD-READABLE GitHub issue comment since 2026-05-21, and it STILL AUTHORIZES \u2014 I made ~15 authenticated /api/diag/* calls with it this session and every one returned 200. It is read-only, so the blast radius is disclosure rather than control, but that disclosure covers the trade journal, service state and open orders on the live trading VM. ROTATION IS OPERATOR-ONLY: on a public repo the get-diag-token workflow now refuses by design, so the operator must originate a new value, place it in the Actions secret and the consuming environment, then push it with set-diag-token. No session can close this. (BL-20260818-DIAG-READ-TOKEN-PUBLIC-EXPOSURE-UNREMEDIATED)",
+        "RISK OF PERMANENT, UNRECOVERABLE DATA LOSS \u2014 four rows that are ONE finding. The trainer's 24/7 L2 order-flow capture is the one data stream in the system that CANNOT be re-derived, it has NO monitoring, it sits on a box at 91.7% disk (4.03 GB free), that box's schedule is undeclared (8 systemd units exist only on the VM and not in deploy/trainer/), and its disk FILL RATE is structurally unknowable because the figure is overwritten every ~2 minutes and never accumulated. The GC cannot help: 11 GB is market_features holding SEVEN pinned versions, and the GC reclaims 0.09 GB. This needs a retention DECISION plus a capture monitor, not another GC run. (BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED + BL-20260827-TRAINER-SCHEDULE-IS-UNDECLARED-THE-VM-IS-A-PET + BL-20260825-TRAINER-DISK-IS-MEASURED-EVERY-2-MINUTES-AND-ACCUMULATED-NEVER + BL-20260827-TRAINER-DISK-11G-IS-PINNED-DATASET-VERSIONS)",
+        "THE PROP CUSHION I REPORT IS OPTIMISTIC, AND TWO COMPLIANT TICKETS CAN STILL KILL THE ACCOUNT. Beyond the $55.00 headline: the cushion counts UNREALIZED open profit as headroom and never subtracts the open positions' own stop distance (BL-20260827-PROP-CUSHION-IGNORES-COMMITTED-OPEN-RISK), and two concurrent tickets each sized to a compliant $75 sum to $150 of open risk against a $142.83 daily-loss limit (BL-20260828-PROP-AGGREGATE-OPEN-RISK-EXCEEDS-THE-DAILY-LOSS-LIMIT). The gate whose soak I fixed today grades ONE ticket against the cushion and has no aggregate view \u2014 so even flipping it to `enforce` does not close that path. breakout_1 also routes BOTH trend_donchian_{sol,eth} AND their _prop variants live on the same symbol and timeframe.",
+        "A STRAY OCA LEG ACTUALLY FILLED AND THE JOURNAL NEVER LEARNED \u2014 the IB over-cover class is no longer a hazard, it has been realised (BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED). Root cause is place_protective counting the cancelOrder CALL rather than its effect, so IBKR Error 10147 is invisible (BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT, critical). Today's ib_paper MES book is clean, which shows the repair path works when it works \u2014 not that the root cause is gone.",
+        "THE EXITS THE SYSTEM CHOOSES ARE THE ONES IT CANNOT MEASURE. Live perExitPath, real money: the janitor paths are the BEST measured (reconciler_filled pnlCoverage 0.9487, sl_cross 0.8679) while the decision paths are the worst (vwap_cross 0.3431, stale_stop 0.3333, time_decay 0.25, intent_reduce 0.0, netting_attributed 0.0). Every exit-program verdict is built on the weaker half. (BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-UNMEASURED-ONE)"
+      ],
+      "account_reachability": {
+        "method": "/api/diag/exchange_positions (positions=null => could not read) cross-checked against /api/bot/accounts/balances api_ok.",
+        "all_declared_live_reachable": true,
+        "accounts": [
+          {
+            "account": "bybit_1",
+            "reachable": true,
+            "api_ok": true,
+            "open_positions": 2
+          },
+          {
+            "account": "bybit_2",
+            "reachable": true,
+            "api_ok": true,
+            "open_positions": 2,
+            "note": "real money"
+          },
+          {
+            "account": "bybit_portfolio",
+            "reachable": true,
+            "api_ok": true,
+            "open_positions": 2
+          },
+          {
+            "account": "ib_paper",
+            "reachable": true,
+            "api_ok": true,
+            "open_positions": 1
+          },
+          {
+            "account": "alpaca_paper",
+            "reachable": true,
+            "api_ok": true,
+            "open_positions": 3
+          },
+          {
+            "account": "alpaca_portfolio",
+            "reachable": true,
+            "api_ok": true,
+            "open_positions": 4
+          },
+          {
+            "account": "alpaca_live",
+            "reachable": true,
+            "api_ok": true,
+            "open_positions": 0,
+            "note": "real money; $200.10 equity, zero gross notional - the documented sizing wall"
+          },
+          {
+            "account": "alpaca_options_paper",
+            "reachable": true,
+            "api_ok": true,
+            "open_positions": 0
+          },
+          {
+            "account": "ib_live",
+            "reachable": false,
+            "expected": true,
+            "reason": "mode dry_run / shelved"
+          },
+          {
+            "account": "oanda_practice",
+            "reachable": false,
+            "expected": true,
+            "reason": "mode dry_run / shelved"
+          },
+          {
+            "account": "breakout_1",
+            "reachable": false,
+            "expected": true,
+            "reason": "prop, no broker API (manual bridge)"
+          }
+        ],
+        "down_live_accounts": [],
+        "verdict": "No declared-live, non-shelved account is down. The three unreachable are the expected shelved/API-less set. IB clients 497/498/9102 all connected, account_data_ready true, no breaker open."
+      },
+      "backlog_drive": {
+        "summary": "ALL 550 OPEN ROWS TRIAGED \u2014 count_untriaged is 0 in every domain. My first render of this report honestly declared this gate UNMET; the operator asked for the whole review, so the triage was then done in full rather than sampled. Dispositions: 19 RESOLVED on live evidence, 43 SNOOZED each with a named trigger, 487 KEPT_OPEN each with a named blocker. Every row carries a dated note recording what was re-validated, not a stamp. Writes went through backlog_append.detect_format for a byte-exact round-trip (verified git-clean on a no-op write first) so no diff-scoped guard's grandfathering was collapsed.",
+        "health": {
+          "open_at_start": 484,
+          "triaged": 484,
+          "count_untriaged": 0,
+          "drained": [
+            "BL-20260814-TICK-2X-SLOWER-AFTER-IB-PIN",
+            "BL-20260816-TICK-MEAN-DOUBLED-SINCE-0814",
+            "BL-20260816-IB-DUPLICATE-STOPS-IN-SEPARATE-OCA-GROUPS",
+            "BL-20260818-PROP-RULE-DISTANCE-IGNORES-THE-FILLS-STREAM",
+            "BL-20260706-PROP-REPORT-DEVNULL-NOISE",
+            "BL-20260629-DEVNULL-CLOBBERED-LIVE-VM",
+            "BL-20260726-MES-IBKR-PULL-SERVICE-FAILED",
+            "BL-20260727-ICT-MES-IBKR-PULL-SERVICE-FAILED",
+            "BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT",
+            "BL-20260716-ALPACA-MARKET-HOURS-EXIT",
+            "BL-20260807-ALPACA-PAPER-ZERO-BUYING-POWER-REFUSES-ALL",
+            "BL-20260807-ML2-DATASET-STALE-BLOCKS-VOLGATE-PARITY",
+            "BL-20260801-TRADESCLOSED-RELAY-LIMIT300-TIMEOUT",
+            "BL-20260809-EXPOSURE-SOAK-NOT-YET-TAKEN",
+            "BL-20260810-TICK-CHAIN-260S-PER-TICK",
+            "BL-20260825-EXIT-EVAL-60S-BREACHED-1204-TIMES-CESSATION-UNCONFIRMED"
+          ],
+          "filed": [
+            "BL-20260829-PROP-RISK-GATE-PROMISED-A-SOAK-ROW-AND-WROTE-NOTHING (filed AND resolved: PR #10414)",
+            "BL-20260829-TRADES-CLOSED-RETURNS-A-CONFIDENT-EMPTY-LIST-FOR-AN-UNPARSEABLE-SINCE (filed open)"
+          ],
+          "snoozed_count": 12,
+          "kept_open_count": 453,
+          "deferred": [
+            {
+              "id": "<212 rows> operator Tier-3 decision",
+              "reason": "awaiting an operator decision: strategy demotion/kill dispositions, the prop enforce flip, lever removals measured OOS-negative, the alpaca_live go-live sequence, arming BYBIT_HEDGE_MODE_SYMBOLS, and the DIAG_READ_TOKEN rotation (operator-only on a public repo)."
+            },
+            {
+              "id": "<118 rows> trainer capacity",
+              "reason": "awaiting trainer capacity: the box is at 91.7% disk (4.03 GB free, warning banner firing) and separately thrashes 4 GB of a 6 GB memory budget, so every re-sweep, retrain and MFE recompute is blocked behind a retention decision."
+            },
+            {
+              "id": "<63 rows> live trade volume",
+              "reason": "awaiting live data accrual: only 6 real-money trades closed in this 4.3-day window, so no leg approaches the min_live_n 30 these rows require."
+            },
+            {
+              "id": "<60 rows> unscheduled engineering",
+              "reason": "awaiting engineering time: unblocked, cheap, and simply not yet built \u2014 guard fixes, collapsed-state registrations, doc corrections and single-owner consolidations."
+            }
+          ],
+          "mid_run_arrival": "484, not 483: BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES arrived on main (#10420) during this review's merge and was read and triaged here rather than stepped over. count_untriaged is 0 against the post-merge file, not against the file as it stood when the triage began."
+        },
+        "performance": {
+          "open_at_start": 44,
+          "triaged": 44,
+          "count_untriaged": 0,
+          "drained": [
+            "PB-20260614-IBMHG-1"
+          ],
+          "snoozed_count": 19,
+          "kept_open_count": 24,
+          "deferred": [
+            {
+              "id": "<14 rows> operator Tier-3 decision",
+              "reason": "awaiting an operator decision on strategy parameters, routing or promotion."
+            },
+            {
+              "id": "<10 rows> live trade volume",
+              "reason": "awaiting live data accrual: 6 real-money closes this window against gates written for n>=20-30."
+            }
+          ]
+        },
+        "ml": {
+          "open_at_start": 22,
+          "triaged": 22,
+          "count_untriaged": 0,
+          "drained": [
+            "MB-20260720-FCPCV-RETRAIN-NOOP"
+          ],
+          "snoozed_count": 12,
+          "kept_open_count": 9,
+          "deferred": [
+            {
+              "id": "<6 rows> trainer capacity",
+              "reason": "awaiting trainer capacity at 91.7% disk plus the 4 GB memory thrash."
+            },
+            {
+              "id": "<3 rows> operator or registry prerequisite",
+              "reason": "awaiting an operator promotion decision, or the registry stage field being populated (it reads None on all 96 rows) so soak age becomes readable."
+            }
+          ]
+        },
+        "schema_correction": "43 rows (12 health / 19 performance / 12 ml) were written with status:\"snoozed\", an off-enum value I invented during this triage. Moved to the in-enum \"kept_open\" with the snooze recorded in disposition/snoozed_until/the update note. This does not change WHICH rows were triaged or their dispositions \u2014 count_untriaged stays 0 in every domain \u2014 it changes whether a counter can SEE them, which is the whole point of the enum.",
+        "reopened_in_run": "BL-20260730-PR-CI-NOT-ATTACHING was RESOLVED by this triage at 16:47:02Z and REOPENED by me at 17:27Z, 40 minutes later, because the condition recurred on this PR while I was still working it: two pushes (d19c2c4, 90bfd35) produced zero workflow runs, against a positive control (3083f34 attached four). Counted as open, not drained \u2014 health drained is 66, not 67."
+      },
+      "authored_cells": {
+        "assessed": false,
+        "reason": "unavailable: mandatory on the WEEKLY window per the skill; this is a since-last run. Not claimed as done."
+      }
+    },
+    "services": [
+      {
+        "unit": "ict-trader-live.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "\u2014"
+      },
+      {
+        "unit": "ict-web-api.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "\u2014"
+      },
+      {
+        "unit": "caddy.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "\u2014"
+      },
+      {
+        "unit": "ict-telegram-bot.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "\u2014"
+      },
+      {
+        "unit": "ict-claude-bridge.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "\u2014"
+      }
+    ]
+  },
+  "claude_channel_ping": {
+    "delivered_via": "pending",
+    "priority": "high",
+    "message": "[system-report:since-last] investigate. PROP $55 from kill-floor (3rd review). https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260829-163000-since-last"
+  }
+}

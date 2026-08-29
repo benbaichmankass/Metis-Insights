@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260829-163000-since-last",
+      "window": "since-last",
+      "generated_at": "2026-08-29T16:30:00+00:00",
+      "window_start": "2026-08-25T09:25:00+00:00",
+      "window_end": "2026-08-29T16:06:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "Real money moved +$1.46 across 6 closed trades - flat, and the lifetime journal is -$26.42 against a broker-truth -$262.52 for bybit_2 alone. The loudest item is unchanged and now on its THIRD review: the prop account sits $55.00 from the floor that permanently kills it, with its daily-loss distance unmeasured. The genuine win this window is the alert channel: the two floods that were 84.5% of 9 days of ERROR+ both stopped on 08-26 and the channel fell ~60/day to ~9/day.",
+      "html_path": "comms/reports/since-last/20260829T163000Z/report.html",
+      "json_path": "comms/reports/since-last/20260829T163000Z/report.json",
+      "md_path": "comms/reports/since-last/20260829T163000Z/report.md"
+    },
+    {
       "id": "RPT-20260825-092500-since-last",
       "window": "since-last",
       "generated_at": "2026-08-25T09:25:00+00:00",

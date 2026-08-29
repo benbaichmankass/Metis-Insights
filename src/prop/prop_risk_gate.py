@@ -85,7 +85,10 @@ kills the account.
 
   ``off``       — byte-for-byte the pre-2026-08-25 ticket. The rollback path.
   ``annotate``  — the ticket carries a loud caveat block and a soak row is
-                  written. **The suggested SIZE is unchanged.** This is not a
+                  written to ``runtime_logs/prop_ticket_risk_soak.jsonl``
+                  (read it at ``/api/diag/log_file?name=prop_ticket_risk_soak``;
+                  see :func:`record_ticket_risk_soak`).
+                  **The suggested SIZE is unchanged.** This is not a
                   silent annotate: withholding the warning from the one human
                   who can act on it would help nobody, and the ticket text is
                   operator information, not an order.
@@ -312,7 +315,88 @@ def caveat_lines(verdict: Dict[str, Any]) -> list[str]:
     return []
 
 
+def record_ticket_risk_soak(
+    account_id: Optional[str], verdict: Dict[str, Any], *,
+    annotated: bool = False,
+) -> None:
+    """Append one graded ticket to ``runtime_logs/prop_ticket_risk_soak.jsonl``.
+
+    WHY THIS EXISTS (2026-08-29, ``/system-review``)
+    ------------------------------------------------
+    The ``MODE`` block above has promised since 2026-08-25 that at ``annotate``
+    "a soak row is written". **No row was ever written.** This module shipped
+    318 lines with no file write of any kind — ``soak`` appeared exactly once in
+    the whole file, in that docstring. Every sibling ``*_MODE`` gate in this repo
+    writes one and registers a diag read surface for it
+    (``netting_attribution_soak``, ``protection_reassert_soak``,
+    ``cash_settlement_soak``, ``exit_lever_soak``); the gate gating the one
+    account that can be **permanently disabled** had neither.
+
+    That is not a cosmetic gap. ``enforce`` is Tier-3 and the operator is
+    supposed to decide it by reading what the gate WOULD have done — which is
+    exactly the review this file's own MODE block calls for, and exactly the
+    evidence that did not exist. Measured on the day this was written,
+    ``breakout_1`` sat **$55.00** from its $4,700 floor (down from $64.00 at the
+    08-25 review that built this module), and there was no way to ask how many
+    tickets had been graded ``exceeds_cushion`` in between.
+
+    ⚠️ **``off`` WRITES NOTHING**, so that mode stays byte-for-byte the
+    pre-2026-08-25 behaviour, including on disk.
+
+    ⚠️ **``annotated`` IS THE EFFECT, ``global_mode`` IS THE REQUEST.** They are
+    recorded separately for the reason ``NETTING_ATTRIBUTION_MODE`` had to be
+    corrected on 2026-08-09: a row that was graded but whose caveat never
+    reached the operator must never read as one that did.
+
+    ⚠️ **An unknown cushion is ``null``, never ``0.0``.** Zero is a real and
+    terminal reading (the account is AT its floor); *we could not look* is not.
+    The four ``state`` values pass through verbatim — this writer grades nothing
+    of its own.
+
+    Best-effort by construction: any failure returns silently. A ticket must
+    never be lost, delayed, or altered because its observability row could not
+    be written.
+    """
+    import json
+    import os
+    from datetime import datetime, timezone
+
+    try:
+        current = mode()
+        if current == "off":
+            return
+        state = verdict.get("state")
+        row = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "account_id": account_id,
+            "state": state,
+            "global_mode": current,
+            # The EFFECT: did a caveat actually reach the ticket text?
+            "annotated": bool(annotated),
+            # `enforce` is Tier-3 and not the default; recorded so a later
+            # reader can tell an annotate-era row from an enforce-era one
+            # without inferring it from the date.
+            "would_have_capped": bool(state == EXCEEDS),
+            "risk_usd": verdict.get("risk_usd"),
+            "cushion_usd": verdict.get("cushion_usd"),
+            "overshoot_usd": verdict.get("overshoot_usd"),
+            "binding_limit": verdict.get("binding_limit"),
+            "limits_known": verdict.get("limits_known"),
+            "status_freshness": verdict.get("status_freshness"),
+            "last_known_cushion_usd": verdict.get("last_known_cushion_usd"),
+            "last_known_exceeded": verdict.get("last_known_exceeded"),
+            "reason": verdict.get("reason"),
+        }
+        from src.utils.paths import runtime_logs_dir
+        path = os.path.join(str(runtime_logs_dir()), "prop_ticket_risk_soak.jsonl")
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+    except Exception:  # noqa: BLE001 - never lose a ticket over its soak row
+        return
+
+
 __all__ = [
     "grade_ticket_risk", "grade_account_ticket_risk", "caveat_lines", "mode",
+    "record_ticket_risk_soak",
     "WITHIN", "EXCEEDS", "UNKNOWN", "NO_RISK",
 ]
