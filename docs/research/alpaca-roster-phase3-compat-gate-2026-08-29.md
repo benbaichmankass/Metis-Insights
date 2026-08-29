@@ -1,3 +1,54 @@
+# Phase 3: the per-account compat gate — ⚠️ HEADLINE RETRACTED (same day)
+
+> # 🛑 RETRACTED — DO NOT CITE THE VERDICTS BELOW
+>
+> **Everything below this box was measured correctly and interpreted wrongly.**
+> The tool that produced it rescales the R sequence by the account's balance, so
+> the survival / P(breach) arm of every standard verdict here is an artifact of
+> account size rather than a property of the strategy or the account.
+>
+> `scripts/prop/account_compat_matrix.py` synthesises the ledger on a **$5,000**
+> compounding walk (`--base-account-size 5000.0`) and then asks
+> `ledger_to_r_sequence` to recover R with `initial_balance = the account's own
+> size`. That round-trip is exact **only** when the two match. Measured on an
+> 8-trade ledger of known `net_r`:
+>
+> | recovered at | first-trade R vs truth |
+> |---|---|
+> | **$5,000** (== base) | **1.000×** — exact |
+> | $95,542 (`alpaca_portfolio`) | **0.052×** |
+> | $200.10 (`alpaca_live`) | **24.99×**, diverging as the mis-scaled walk compounds |
+>
+> **That manufactures precisely the pattern I reported as the finding.** A small
+> account receives ~25× its true R and breaches at P=1.0; a large one receives
+> ~0.05× and reads survival 1.0 / P(breach) 0.0. "Every paper book ROUTEs, both
+> real-money books skip, the gate split on account size" is what this bug
+> produces on *any* ledger, including a perfectly good one.
+>
+> **What this retracts:** the headline ("the account size is the binding
+> constraint"), every `survival` and `P(breach)` figure, the size-bound vs
+> return-bound split, and the `tlt_pullback_1d` Tier-3 flag — that flag rests on
+> an `alpaca_portfolio` verdict computed at 0.052× R.
+>
+> **What survives:** the Part-2 plumbing result is unaffected and still holds —
+> 10 of 11 accounts graded with `ib_live` alone `UNGRADED` on a real
+> `api_ok: false`, which tests the balance path, not the R math. The emitted
+> ledger sizes (n=8 / 12 / 109 / 124) are also real.
+>
+> **What I got right by accident and should not take credit for:** the extension
+> section already refuted the share-granularity story on the grounds that
+> survival did not track share price. It does not track share price because it
+> tracks *balance*, which I had not yet found.
+>
+> Filed as
+>
+> BL-20260829-COMPAT-MATRIX-RESCALES-R-BY-ACCOUNT-SIZE-SO-THE-VERDICT-TRACKS-BALANCE
+>
+> The five legs need re-grading once the round-trip is fixed. Until then no
+> routing conclusion follows from this document in either direction.
+
+## (original, retained unedited below as the record of what was claimed)
+
 # Phase 3: the per-account compat gate — and it REFUSES both candidates
 
 **2026-08-29 · Tier-1 research. Nothing wired; `alpaca_live` still carries

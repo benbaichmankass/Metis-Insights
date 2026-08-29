@@ -25776,6 +25776,17 @@
         "CI job 99065517723 on head 620ffe5: '5 failed, 13406 passed, 14 skipped'"
       ],
       "status": "open"
+    },
+    {
+      "id": "BL-20260829-COMPAT-MATRIX-RESCALES-R-BY-ACCOUNT-SIZE-SO-THE-VERDICT-TRACKS-BALANCE",
+      "opened": "2026-08-29",
+      "severity": "high",
+      "tier": "1 (research tooling; no live order path)",
+      "status": "open",
+      "title": "account_compat_matrix rescales the R sequence by account_size/base_account_size, so a standard account's verdict is a function of its BALANCE and the MC's scale-invariance is broken",
+      "detail": "scripts/prop/account_compat_matrix.py synthesises the ledger with synth_ledger_from_emit(base_account_size=5000.0, base_risk_pct=0.5) -- pnl on a $5,000 compounding walk. It then calls run_montecarlo(..., account_size=unit.account_size_usd), which calls ledger_to_r_sequence(closed_trades, initial_balance=acct, base_risk_pct=0.5) with acct = THE ACCOUNT'S OWN SIZE. R_k = pnl_k / (balance_before_k * base_risk_pct/100), so recovered R is scaled by roughly base_account_size/account_size. The round-trip is exact ONLY when account_size == base_account_size (5000). The call site's own comment claims the ledger is built 'straight from the emit so it round-trips exactly through montecarlo.ledger_to_r_sequence', which holds only at that one size. MEASURED with an 8-trade ledger of known true net_r [0.8,-1.0,1.5,-1.0,2.0,-0.5,1.1,-1.0]: at 5000 -> identical to truth (1.000x); at 95542.76 (alpaca_portfolio) -> [0.042,-0.053,0.078,...] = 0.052x; at 200.10 (alpaca_live) -> [19.99,-22.81,38.42,...] = 24.99x, diverging as the mis-scaled walk compounds. CONSEQUENCE: the survival / P(breach) arm of the standard gate is dominated by this rescale -- a SMALL account gets ~25x R and breaches at P=1.0, a LARGE one gets ~0.05x and reads survival 1.0 / P(breach) 0.0. That MANUFACTURES the exact pattern a 2026-08-29 session reported as a finding ('every paper book ROUTEs, both real-money books skip, the gate split on account size', 5 legs: tqqq/slv/gld/scha/tlt). RETRACTED in docs/research/alpaca-roster-phase3-compat-gate-2026-08-29.md. NOT a duplicate of BL-20260829-LANE-P-MAY-VOID-THE-GLD-SURVIVAL-SKIP, which claims survival and p_breach are CONSTANTS on standard accounts; the measured survivals here vary (1.0 / 0.4997 / 0.172 / 0.001 / 0.0), so that row does not describe this.",
+      "resolution_criteria": "A test recovers a known net_r sequence UNCHANGED at three different account_size values (200 / 5000 / 95542) through the real synth_ledger_from_emit + ledger_to_r_sequence pair -- it passes at 5000 and fails at the other two today. Reached either by calling ledger_to_r_sequence with initial_balance == the balance the ledger was BUILT at, or by carrying the emit's per-trade net_r through without a balance round-trip. Then the 5 retracted legs are re-graded and the Phase 3 doc carries the corrected verdicts.",
+      "evidence": "Numeric round-trip test run in-session against the real functions (not a reimplementation). Defaults read from the argparse: --base-account-size 5000.0, --base-risk-pct 0.5. Affected runs: 33249719919, 33249723196, 33249755494, 33250370474, 33250373988, plus the 11-leg sweep dispatched 11:50Z."
     }
   ]
 }
