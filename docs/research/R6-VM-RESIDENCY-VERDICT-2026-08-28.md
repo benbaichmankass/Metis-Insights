@@ -77,10 +77,20 @@ runner capture would take a gap at every handoff, and **gaps in an L2 series are
 unbackfillable by construction, which is the same property that makes the data
 valuable.** This is not a compute problem, and R3's result does not touch it.
 
-⚠️ **Not established:** how far back the captured window actually reaches. The service
-has run 44 days continuously and the output is a single append-only 5.7 MB `data.jsonl`;
-I did not read its first row, so I am not stating a window length. The
-forward-only argument holds at any length.
+✅ **NOW ESTABLISHED (2026-08-29, diag #10394) — and it is bigger than the service's own
+uptime.** An earlier revision of this section said the window length was not established
+because I had not read the file's first row. Read: the first row is
+**`2026-06-04T09:50:00Z`** and the file holds **24,218 rows**, so the captured window spans
+**85.6 days at 98.2 % coverage** (24,218 actual against 24,652 expected at one 5 m bar).
+
+⚠️ **Do not infer the window from the service's uptime — they differ, and the file is the
+longer one.** `ActiveEnterTimestamp` is 2026-07-15 (44 days) while the data reaches back
+to June 4, because the output is a single **append-only** `data.jsonl` that survived
+restarts. Reading the unit's uptime as the data's extent would have under-stated the
+irreplaceable window by half. (`NRestarts=0`, `Restart=always`.)
+
+**This strengthens the finding rather than changing it:** what a retirement would end is
+~86 days of continuous L2 microstructure at 98 % completeness, not 44.
 
 ### 2.1 The irony worth stating plainly
 
@@ -169,6 +179,19 @@ and *that* loss is the one thing on this box that cannot be recovered by re-runn
 anything. § 3 reported 41 G on 08-27 and it reads 42 G now — but these are two coarse
 `du -sh` readings, so **I am not claiming a growth rate from them**, only that the
 headroom is thin and what it protects is irreplaceable. Filed.
+
+**A byte-precise anchor was then taken so a rate becomes computable rather than guessed**
+(diag #10394, `df -B1`): at **`2026-08-29T00:18:12Z`, free = 4,237,279,232 B (3.95 GiB)**
+of 48,277,495,808 B. Quote *that* pair against a second timestamped reading; do not
+difference the rounded `-h` figures.
+
+**The active writer was also identified**, which the earlier reading could not say: the
+files touched in the preceding minutes are dataset rebuilds — `market_features/BTCUSDT/5m/v002`
+(1.35 GB, 00:14), `.../15m/v002` (465 MB, 00:17), `.../1h/v002` (112 MB, 00:08) — i.e. the
+nightly `ict-trainer.timer` cycle (it fires 00:05) rewriting the cache in place. So the
+headroom moves on a **nightly cycle**, and a single reading taken mid-rebuild is not the
+steady-state figure. That is a reason to measure the trough across a cycle before sizing
+any retention policy, not a reason to relax about 3.95 GiB.
 
 **6.2 `ict-drift-retrain` exiting 11 is NOT a fault.** It is `RETRAIN_PLAN_ONLY`:
 `dispatch_count=10 cli_exit=11 plan_only=1`, hourly, ~1 min 57 s CPU each time. Worth
