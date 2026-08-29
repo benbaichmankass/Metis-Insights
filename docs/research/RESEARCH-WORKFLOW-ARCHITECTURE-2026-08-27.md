@@ -96,6 +96,26 @@ bought by optimising the trainer; it is bought by leaving it.**
 
 ## 3. What is actually pinned to the VM — and the answer is: almost nothing
 
+> ⚠️ **CORRECTED 2026-08-29 — this section's heading is WRONG, and the table below is
+> right about what it measured.** R6 was run
+> ([`R6-VM-RESIDENCY-VERDICT-2026-08-28.md`](R6-VM-RESIDENCY-VERDICT-2026-08-28.md))
+> and found a process that genuinely requires 24/7 residency:
+> **`ict-orderflow-capture.service`**, a continuous 2-second L2 order-book capture,
+> up 44 days, whose data is **forward-only and unbackfillable by construction**.
+>
+> **It is invisible below, and the reason is the transferable part.** This table was
+> built with `du`. The capture's entire output is **5.7 MB — 0.02 % of the 28 G tree** —
+> so it sits below the resolution of the instrument, and no amount of careful reading
+> of these five rows would have surfaced it. The heading promises *"what is pinned to
+> the VM"*; the table answers *"what DATA is pinned"*. Those two questions come apart
+> exactly on a process with a large residency requirement and a tiny footprint — the
+> repo's own **UNPROVENANCED DIAGNOSTIC OUTPUT class A** (semantic substitution), one
+> level up from code.
+>
+> **Residency is a property of PROCESSES and their input streams, not of stored bytes.**
+> Enumerate units first, disk second. The disk figures themselves re-measure as still
+> accurate (§ 5 of the verdict), so nothing below is retracted — only its scope.
+
 Measured on the box (41 G / 45 G used, 4.0 G free):
 
 | tree | size | genuinely VM-resident? |
@@ -185,17 +205,44 @@ Does this need state that ONLY the VM holds?
 
 ### R6 — Then decide the VM's fate, on evidence
 
-After R3, re-measure what still requires residency. **INFERRED, not measured:** the
-likely answer is the dataset cache (solvable by a fetchable content-addressed store) and
-24/7 cron (solvable by scheduled workflows) — leaving nothing, and freeing 1 OCPU / 6 GB
-for trading ops. **That is a hypothesis to test after R3, not a decision to take now.**
+✅ **MEASURED 2026-08-29 — and the hypothesis below was REFUTED.** Full working:
+[`R6-VM-RESIDENCY-VERDICT-2026-08-28.md`](R6-VM-RESIDENCY-VERDICT-2026-08-28.md).
+
+**The original text, kept as record:** *"INFERRED, not measured: the likely answer is
+the dataset cache (solvable by a fetchable content-addressed store) and 24/7 cron
+(solvable by scheduled workflows) — leaving nothing, and freeing 1 OCPU / 6 GB for
+trading ops. That is a hypothesis to test after R3, not a decision to take now."*
+Labelling it a hypothesis was right; testing it changed the answer.
+
+| inferred residual | measured |
+|---|---|
+| the dataset cache | ❌ **not** residency — 32 version dirs, a retention question, fetchable |
+| 24/7 cron | ⚠️ **partly** — batch timers are runner-portable; **two live-serving timers** (`ict-trainer-forecast` → `fc_*` → the live advisory head, via `ict-trainer-publish`) are re-hostable only with work |
+| *(unlisted)* | 🔴 **`ict-orderflow-capture`** — continuous, forward-only, **irreplaceable** |
+
+⚠️ **R3 proved COMPUTE is portable. It did not prove ACQUISITION is.** The very model R3
+registered as its proof — `btc-regime-5m-lgbm-flow-v1` — is the **order-flow** model,
+trained on columns only that 24/7 capture produces; its manifest says that without the
+microstructure side-stream *"the columns are 0.0 and this collapses to the v2 head."*
+Reading "a runner trained a model" as "the trainer is disposable" inverts what was shown.
+
+**The question R6 replaces itself with, and it is an operator call, not a measurement:**
+**where does the order-flow capture live if the trainer does not?** It needs 87 MB of RAM
+and 0.37 % of a core — it does not need *this* VM, it needs *an* always-on host.
+**Recommendation: do not retire the trainer until that is decided** — doing so silently
+ends the one data stream nothing can reproduce. ⚠️ The trainer disk is at **92 % (42 G used of 45 G,
+3.9 G free — one `df -h` reading, not a trend)** and a full disk stalls that capture
+*silently*, since nothing monitors it —
+both filed (`BL-20260829-TRAINER-DISK-92-PCT-THREATENS-THE-UNBACKFILLABLE-CAPTURE`, `BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED`).
 
 ---
 
 ## 5. What this is NOT
 
 - **Not "move everything to runners today."** R3 is the gate; until a runner-trained
-  model can register, the trainer is still load-bearing for ML.
+  model can register, the trainer is still load-bearing for ML. *(R3 holds as of
+  2026-08-28, so that gate is open — but see R6: the trainer remains load-bearing for
+  **data acquisition**, which is a different claim and was never what R3 tested.)*
 - **Not a throughput problem.** Compute is free and abundant. Every measured leak is a
   landing failure.
 - **Not more guards.** R2 is an assertion inside a run, not a CI checker over a diff.

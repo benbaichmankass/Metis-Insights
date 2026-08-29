@@ -87,7 +87,28 @@ def _run_sweep(tmp_path, monkeypatch, *, rec, classifier, row_over=None):
     Source-grepping cannot answer "does a label failure lose the price write" — only
     running it can. This builds the minimum the sweep touches and captures the update.
     """
+    import datetime as _dt
     import sqlite3
+
+    # ⚠️ THE ROW'S created_at MUST BE RELATIVE, NEVER A LITERAL DATE.
+    #
+    # The sweep's own SELECT filters `datetime(created_at) >= datetime('now',
+    # '-7 days')` (Bybit's closed-pnl retention window). This fixture used to
+    # hard-code "2026-08-22T00:00:00+00:00" -- inside the window on the day the
+    # test was written, and OUTSIDE it exactly 7 days later. It began failing at
+    # 2026-08-29T00:00:00Z with no code change, and took `main` red with it: the
+    # row stopped matching, the sweep processed nothing, and the five behavioural
+    # tests failed as KeyError/empty-capture rather than as anything meaningful.
+    #
+    # Note which half broke: the 6 SOURCE-INSPECTION tests above kept passing, so
+    # the suite reported the implementation as fine while the behavioural half
+    # silently stopped exercising it. A time-bomb fixture does not announce
+    # itself as one -- it looks like a real regression in unrelated code.
+    #
+    # BL-20260829-FIXTURE-DATE-AGES-OUT-OF-THE-QUERY-WINDOW-AND-TAKES-MAIN-RED
+    created_at = (_dt.datetime.now(_dt.timezone.utc)
+                  - _dt.timedelta(days=1)).isoformat()
+
     db_path = tmp_path / "j.db"
     conn = sqlite3.connect(db_path)
     conn.execute(
@@ -99,7 +120,7 @@ def _run_sweep(tmp_path, monkeypatch, *, rec, classifier, row_over=None):
     row = {
         "id": 1, "symbol": "BTCUSDT", "direction": "long", "position_size": 0.001,
         "entry_price": 64108.7, "account_id": "bybit_2",
-        "created_at": "2026-08-22T00:00:00+00:00", "notes": "{}",
+        "created_at": created_at, "notes": "{}",
         "setup_type": "ict_scalp_5m", "exit_reason": "reconciler_filled",
         "status": "closed", "is_backtest": 0, "pnl": None,
     }
