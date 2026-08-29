@@ -188,7 +188,12 @@ def run(args: argparse.Namespace) -> int:
         return 2
 
     snapshots = None
-    if args.balances:
+    # getattr, NOT args.balances: this entry point is called both through argparse
+    # AND with a hand-built Namespace (three tests do exactly that), so a plain
+    # attribute read makes every such caller crash on a field they never set. The
+    # file's own convention is already getattr (see `overrides` above); using it
+    # keeps "no balances supplied" the safe default rather than an AttributeError.
+    if getattr(args, "balances", ""):
         # ⚠️ THIS IS A REAL BALANCE READ, NOT A DEFAULT. The synthetic $10,000
         # account size was REMOVED by Lane P because a fabricated size wearing
         # the label of a measurement is exactly the class this repo's provenance
@@ -223,7 +228,12 @@ def run(args: argparse.Namespace) -> int:
               f"(source={raw.get('source') if isinstance(raw, dict) else 'bare-mapping'}, "
               f"as_of={raw.get('as_of') if isinstance(raw, dict) else 'n/a'})")
 
-    units = all_account_units(snapshots=snapshots)
+    # Pass the kwarg ONLY when balances were actually supplied, so the no-balances
+    # path calls all_account_units() exactly as it did before this flag existed.
+    # A new optional input should be invisible to every caller that does not use
+    # it -- including the tests that patch this function with a narrower lambda.
+    units = (all_account_units(snapshots=snapshots) if snapshots is not None
+             else all_account_units())
     if args.accounts:
         keep = {a.strip() for a in args.accounts.split(",") if a.strip()}
         units = {k: v for k, v in units.items() if k in keep}
