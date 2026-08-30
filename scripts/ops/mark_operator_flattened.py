@@ -37,8 +37,10 @@ exists to record.
 ``exit_price``, ``pnl_percent``) and — importantly — NOT ``exit_price_source``.
 Trade 4934 carries ``bybit_closed_pnl``, genuine broker truth; stamping
 ``operator_flatten_fill`` over it would destroy a more specific provenance in
-exactly the way ``BL-20260824-RECORDED-EXIT-PRICE-OUTNUMBERS-ALL-BROKER-TRUTH``
-records ``order_monitor`` doing. The PRICE's provenance and the CLOSE's CAUSE
+exactly the way
+``BL-20260824-RECORDED-EXIT-PRICE-OUTNUMBERS-ALL-BROKER-TRUTH-COMBINED`` records
+``order_monitor`` doing. (An id must never be line-wrapped: the ref guard scans
+line by line, so a wrapped id reads as a truncated one that resolves to nothing.) The PRICE's provenance and the CLOSE's CAUSE
 are different questions; this script answers only the second.
 
 Usage on the VM:
@@ -139,6 +141,14 @@ def apply(conn: sqlite3.Connection, updates: List[Dict[str, Any]]) -> int:
 
 
 def _self_test() -> int:
+    # data-wiring: creates NO persistent table. This is an in-memory (":memory:")
+    # fixture that exists only for the duration of --self-test. The canonical
+    # store is trade_journal.db::trades in src/units/db/database.py; this script
+    # only ever UPDATEs two of its columns and never creates it. The columns
+    # below are a SUBSET of that DDL, and tests/ops/test_mark_operator_flattened
+    # ::test_the_fixture_columns_exist_in_the_real_ddl asserts so — a fixture
+    # declaring a schema production does not have is how the pairs tests passed
+    # against a fictional order_packages table.
     conn = sqlite3.connect(":memory:")
     conn.execute("""CREATE TABLE trades (id INTEGER PRIMARY KEY, status TEXT,
         exit_reason TEXT, notes TEXT, is_backtest INTEGER, symbol TEXT,
