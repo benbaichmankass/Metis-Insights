@@ -29431,6 +29431,27 @@
       "source": "operator question during /system-review 2026-08-30"
     },
     {
+      "id": "BL-20260830-E35-LANDING-ASSERTION-IS-VACUOUS-ON-A-CUMULATIVE-CORPUS",
+      "opened_at": "2026-08-30T12:20:00+00:00",
+      "opened_by": "claude (research-queue operationalisation, session 018wqzuqBjxkiaEEBr8kJC59)",
+      "severity": "medium",
+      "tier": "1 (research tooling + a workflow assertion; no src/, no config/, no order path)",
+      "status": "open",
+      "area": "research evidence landing (M40 R2)",
+      "title": "e35-bracket-sweep's landing assertion was satisfied by HISTORY, not by the run — it reported `landed` on a run whose rows were all on an unmerged side branch, and could never fail",
+      "detail": "FOUND BY OPERATING THE DISPATCHER, not by reading it. e35-bracket-sweep.yml asserted `--field cell --contains sm --min-rows 1` against docs/research/e35-bracket-corpus.jsonl. That store is CUMULATIVE, so the predicate was satisfied by pre-existing rows and assert_rows_landed's `pending_merge` branch was UNREACHABLE — the check could not fail. MEASURED on run 33306805155 (the first sweep the research-queue dispatcher ever fired): the step reported `landed - 6624 rows with cell containing 'sm' (need >= 1) of 8289 total`, exit 0, while EVERY one of that run's 199 rows sat on the unmerged side branch claude/e35-bracket-corpus-33306805155. POPULATION: all 6,624 matching rows on origin/main predate 2026-08-30; zero came from the run. ONE-WAY FAILURE, in the direction that matters: it can only OVER-report `landed`, and R2 is CREDITED as wired on this workflow (ROADMAP M40 names it as one of the two landing-asserted workflows), so its green read as evidence the rows had arrived. assert_rows_landed.py is NOT at fault and was not changed — its four states are correct and --pushed-ref exists precisely for this case. The INVOCATION was wrong. DISTINCT FROM TWO NEIGHBOURS, deliberately: BL-20260813-CORPUS-RETARGET-CANNOT-OPEN-ITS-OWN-PR explains why no PR opens (a GITHUB_TOKEN push starts no workflows), and BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD-THAT-READS-MAIN is a guard being SILENCED. Here the guard is not silenced — it actively asserts success. CHRONIC, not a one-off: claude/e35-bracket-corpus (an earlier run's branch) is ALSO still unmerged into main. FIXED in the same session by scoping on `sweep_generated_at`. NOTE FOR ANYONE RE-DERIVING: `run_id` is ABSENT from all 8,294 e35 rows — it exists only in the m20 corpus, where it holds a TIMESTAMP rather than a GitHub run id. I asserted run_id in PR #10486's body and corrected it there; keying on it would be wrong in both corpora for different reasons.",
+      "resolution_criteria": "The assertion must be demonstrably able to FAIL: a planted control in which the run's rows are absent from the shared ref must produce `pending_merge` (non-zero), and the same control must return `landed` once the branch is merged — so it is not merely always-failing. Shipped as tests/test_e35_landing_assertion_run_scoped.py, whose load-bearing case PINS the old vacuous predicate's wrong-but-actual behaviour so a revert fails loudly. NOT closed by the fix alone: the SIBLING SWEEP is unaudited — m20-exit-lever-sweep.yml writes an equally cumulative corpus and may assert the same way. This row closes when the sibling has been READ and either found run-scoped or fixed.",
+      "what_to_check": "python3 scripts/ci/assert_rows_landed.py --store docs/research/e35-bracket-corpus.jsonl --ref origin/main --field cell --contains sm --min-rows 1  -> reports `landed` off history alone. Then grep the landing assertion in .github/workflows/m20-exit-lever-sweep.yml and ask whether its predicate is satisfiable by rows the run did not write.",
+      "refs": [
+        "run 33306805155 (first dispatcher-fired sweep)",
+        "PR #10486 (landed the stranded rows; body carries the run_id error + its correction)",
+        "PR #10487 (the fix)",
+        "BL-20260813-CORPUS-RETARGET-CANNOT-OPEN-ITS-OWN-PR",
+        "BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD-THAT-READS-MAIN"
+      ],
+      "source": "research-queue operationalisation 2026-08-30"
+    },
+    {
       "id": "BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1",
       "status": "open",
       "severity": "high",
