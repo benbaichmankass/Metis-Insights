@@ -16,6 +16,21 @@
       "opened_at": "2026-08-30",
       "opened_by": "session_018wqzuqBjxkiaEEBr8kJC59",
       "source": "first run of the research-disposition ledger"
+    },
+    {
+      "id": "BL-20260830-E35-CORPUS-CARRIES-NO-SAMPLE-SIZE-SO-R4-CANNOT-GRADE-IT",
+      "title": "The e35 bracket corpus records no OOS sample size, so its rows cannot be power-graded at all",
+      "area": "research pipeline / M40 R1 results contract",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "detail": "R1 of docs/research/RESEARCH-WORKFLOW-ARCHITECTURE-2026-08-27.md makes a row inadmissible unless it carries 'its power: n, and the minimum detectable effect'. MEASURED over the whole e35 corpus (n=8,321 rows, 42 distinct keys): the ONLY key resembling a sample size is `split_target_oos`, present on 377 rows (4.5%) and carrying the value 50 - which is the sweep's TARGET, not the achieved out-of-sample trade count. There is no e35 equivalent of m20's `base_trades_OOS`. CONSEQUENCE, observed not predicted: the disposition ledger graded 78 unread units on 2026-08-30 and could power-grade every m20 unit (10 clearing the 49.06 floor, 40 below it) while 27 e35 units were left UNREAD because there is nothing in the row to grade them against. NOT a defect in the measurements themselves - the R-deltas and gate verdicts are honest; the gap is that the row cannot state the denominator its own verdict rests on.",
+      "why_it_matters": "R4 makes the power gate BLOCKING precisely because an underpowered run costs compute AND manufactures a false finding. A corpus that cannot report n cannot be put through that gate, so every e35 verdict is consumed on trust. This is the same shape as the repo's own 'ALWAYS STATE THE POPULATION' rule: a number whose denominator is unavailable is not quotable, and 8,321 such rows are currently the largest research artifact the fleet holds.",
+      "next_action": "Add the achieved OOS trade count to the e35 extractor (scripts/research/e35_corpus_extract.py) so new rows carry it, and decide explicitly whether historical rows are backfillable from the sweep reports or must stay ungradeable. Do NOT back-fill a zero or the target value - that would assert an observation nobody made, which is the fabrication class provenance.py exists to stop.",
+      "resolution_criteria": "Closes when a NEW e35 sweep lands rows carrying an achieved OOS sample size AND research_disposition.py can power-grade them (N_FIELD['e35'] stops being None). Historical rows staying ungradeable is an acceptable outcome IF that is recorded as a deliberate decision rather than left implicit.",
+      "opened_at": "2026-08-30",
+      "opened_by": "session_018wqzuqBjxkiaEEBr8kJC59",
+      "source": "first power-grading pass of the disposition ledger"
     }
   ],
   "updated_at": "2026-08-30T13:55:12Z"
