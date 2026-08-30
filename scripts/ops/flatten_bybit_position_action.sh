@@ -33,6 +33,10 @@ PY="${REPO_DIR}/.venv/bin/python3"
 [ -x "${PY}" ] || PY="python3"
 
 ARGS=(--account "${ACCOUNT_ID}" --symbol "${ACTION_SYMBOL}")
+# The operator's reason is the RECORD, not a dispatch formality: it is
+# stamped onto the journal row so the close is attributable as OPERATIONAL
+# rather than as a strategy exit. Empty is allowed (the script says so).
+if [ -n "${ACTION_REASON:-}" ]; then ARGS+=(--reason "${ACTION_REASON}"); fi
 case "${ACTION_APPLY}" in
   true|True)
     echo ">>> flatten-bybit-position: APPLY mode — will place the reduce-only close on ${ACCOUNT_ID}/${ACTION_SYMBOL}"
