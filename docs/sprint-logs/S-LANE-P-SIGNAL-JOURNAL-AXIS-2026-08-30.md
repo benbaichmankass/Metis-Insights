@@ -253,3 +253,64 @@ in one global arbitration at all, or fan out per account. That is order routing.
 ⚠️ **Do not de-route either leg on this evidence**: the allocator's live score and R2's
 backtest EV agree the `bybit_1` leg is the *better* twin, so the naive fix removes the
 wrong one.
+
+
+---
+
+## Session close — 2026-08-30
+
+### Shipped
+| PR | sha | what |
+|---|---|---|
+| **#10485** | `ea6e25a` (merged) | P1 verified by exercising it · P2 detector (`dead_leg.signal_journal_state_for` + audit consumer) · the arbitration-loss diagnosis · 4 backlog rows + 1 resolved · workplan P1 correction |
+| **#10495** | open, auto-merge armed | the `no_signal` audit fix (both halves) · the e35 `clears_when` sharpening |
+
+### Docs sweep
+`canonical-doc-coherence` passes; instruction hierarchy mirrors; no removed gate
+described as live; no 7-stage ladder in the catalog.
+
+**One real drift found and fixed, pre-existing and not from this session:**
+`docs/workplan.md` § "Required pre-filled values" instructed Claude to *use*
+`VM_HOST = "158.178.210.252"` — the x86 micro **terminated 2026-06-16**. The
+file's superseded banner mitigated it but the block still prescribed an action,
+and its *"any notebook or operator-run script"* framing predates the autonomy
+contract. Flagged as dead in place, values kept commented as the record, and
+pointed at the single source (`ARCHITECTURE-CANONICAL` § "VM topology").
+
+**Decision-landing:** the arbitration finding landed in **ROADMAP.md M18** — the
+correct home, because M18's own premise is *"money is never stranded on a worse
+trade when a better one exists"* and this shows it is, 82.5% of the time, for a
+reason no allocator can fix. The row now warns that the soak's headline
+`mean_regret` is **inflated by the twin artifact** and that the 2026-06-30
+"EV-scorer selection does not beat dumb priority" finding was measured on the
+**un-separated** population.
+
+### What is NOT done, stated plainly
+- **P3 is not built.** `trend_donchian_sol` is still signalling into a void
+  right now. Direction chosen, evidence gathered, nothing shipped.
+- **The live alert for the signal-journal axis is not built** — the detector
+  only fires when someone runs the audit.
+- **The compat-table size column is not done.**
+- **e35 half (b) is still unmet** — nothing has opened on those legs yet.
+
+### Two corrections this session made to its own claims
+1. **"The prop twin always wins" — WRONG as stated.** True of both donchian
+   pairs, false on ETH pullback where the non-prop leg won. The arbitration is
+   account-**blind**.
+2. **"45 ruff errors vs a 30 baseline" — WRONG.** Measured with unpinned ruff
+   0.16, whose default-ruleset expansion `requirements-dev.txt` explicitly pins
+   against. At the CI-pinned `0.15.22`, baseline and branch are both clean.
+
+### Process notes worth carrying
+- **Merge starvation is real here.** #10485 conflicted **twice** on
+  `health-review-backlog.json`; `main` moved five times inside the ~13-minute CI
+  windows. All four checks went green on one head at 12:35:33Z and auto-merge
+  still could not fire because a conflict had appeared meanwhile. Claiming the
+  slot did **not** stop another session merging through it (#10490 — harmless,
+  it touched only a queue YAML, verified rather than assumed).
+- **File backlog rows as the LAST commit before pushing.** That array is the
+  single most collision-prone file in the repo
+  (`BL-20260821-BACKLOG-JSON-IS-A-SHARED-MUTABLE-ARRAY`).
+- **Every PR event this session arrived for a superseded head.** Three of three.
+  Acting on any without a fresh fetch would have produced a confident wrong
+  conclusion about readiness.
