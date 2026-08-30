@@ -176,3 +176,47 @@ def test_accepted_but_ineffective_switch_reports_failure(monkeypatch, capsys):
 def test_switch_raising_is_reported_not_swallowed(monkeypatch):
     c = FakeClient(_rows((0, "None", "0")), raise_switch=True)
     assert _run(monkeypatch, c, APPLY) == 4
+
+
+def test_runs_standalone_from_a_foreign_cwd():
+    """Invoking the script BY ABSOLUTE PATH from another cwd must not ImportError.
+
+    REGRESSION for the first live dispatch (issue #10446), which died with
+    ``ModuleNotFoundError: No module named 'src'`` before reaching a single one
+    of the guards this module's other 16 tests cover.
+
+    ⚠️ THE OTHER TESTS CANNOT CATCH THIS CLASS, and that is the point of running
+    a SUBPROCESS here rather than importing. Every in-process test already has
+    the repo root on ``sys.path`` (pytest put it there), so ``from src...``
+    resolves and the missing bootstrap is invisible. On the VM the wrapper runs
+    ``python3 /home/ubuntu/ict-trading-bot/scripts/ops/<this>.py``, and Python
+    seeds ``sys.path[0]`` with the SCRIPT's directory — ``scripts/ops`` — never
+    the cwd. The wrapper's own ``cd "${REPO_DIR}"`` does not help for the same
+    reason, which is what made the omission survive review.
+
+    The assertion is deliberately about the IMPORT, not about success: with no
+    Bybit credentials the script correctly aborts with ``abort_no_client``. That
+    is a clean refusal and a PASS here. A traceback is the failure.
+    """
+    import os
+    import subprocess
+    import sys as _sys
+    import tempfile
+
+    script = _SRC          # the module-level path this file already resolves
+    assert script.is_file(), f"script missing at {script}"
+
+    proc = subprocess.run(
+        [_sys.executable, str(script), "--account", "bybit_1", "--symbol", "SOLUSDT"],
+        cwd=tempfile.gettempdir(),          # a cwd that is NOT the repo root
+        env={k: v for k, v in os.environ.items() if k != "PYTHONPATH"},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    combined = proc.stdout + proc.stderr
+    assert "ModuleNotFoundError" not in combined, (
+        "the sys.path bootstrap regressed — the script cannot import `src` when "
+        f"run by absolute path from {tempfile.gettempdir()}:\n{combined}"
+    )
+    assert "Traceback" not in combined, f"unexpected traceback:\n{combined}"

@@ -68,8 +68,27 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from typing import Any, Dict, List, Optional
+
+# The script lives in scripts/ops/; the repo root is two levels up. Add it to
+# sys.path so `from src...` resolves when the wrapper invokes this by ABSOLUTE
+# PATH — mirrors flatten_bybit_position.py / flatten_ib_position.py.
+#
+# ⚠️ The wrapper's `cd "${REPO_DIR}"` does NOT make this unnecessary, which is
+# exactly why the first live dispatch died here (issue #10446,
+# ModuleNotFoundError: No module named 'src'). Running `python3 /abs/path/x.py`
+# puts the SCRIPT's directory on sys.path[0], never the cwd — so the import
+# failed on the VM while passing in every in-repo test, which imports the module
+# with the repo root already on the path. Pinned by
+# tests/ops/test_bybit_switch_position_mode.py::test_runs_standalone_from_a_foreign_cwd,
+# which invokes it as a SUBPROCESS by absolute path from a temp cwd, the way the
+# wrapper does — an in-process import test cannot catch this class.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 MODE_ONE_WAY = 0      # Bybit v5 "Merged Single"
 MODE_BOTH_SIDES = 3   # Bybit v5 "Both Sides" (hedge). NOT 1 — see the docstring.
