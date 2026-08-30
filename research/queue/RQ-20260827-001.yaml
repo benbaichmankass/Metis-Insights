@@ -3,57 +3,45 @@ title: Re-grade every account against the Lane P compat-matrix standard arm
 status: queued
 cadence: once
 kind: deterministic
-
-question: >-
-  Which per-account compat-matrix verdicts actually MOVE now that the standard
-  arm stops grading an intra-day resetting brake as a terminal account-killer,
-  and refuses (UNGRADED) instead of sizing off a synthetic $10,000 when the live
-  balance cannot be established? The Lane P change is argued from the mechanism;
-  nobody has yet measured how many verdicts it flips, or in which direction.
-
-why_not_inferential: >-
-  This estimates no effect from a sample. It re-runs a DETERMINISTIC grader over
-  a fixed ledger and diffs the verdict set before/after — the same inputs give
-  the same answer every time, so an expected-n and a minimum detectable effect
-  would be theatre rather than a bar. What makes it honest is the before/after
-  diff being complete, not a sample size.
-
+question: Which per-account compat-matrix verdicts actually MOVE now that the standard
+  arm stops grading an intra-day resetting brake as a terminal account-killer, and
+  refuses (UNGRADED) instead of sizing off a synthetic $10,000 when the live balance
+  cannot be established? The Lane P change is argued from the mechanism; nobody has
+  yet measured how many verdicts it flips, or in which direction.
+why_not_inferential: This estimates no effect from a sample. It re-runs a DETERMINISTIC
+  grader over a fixed ledger and diffs the verdict set before/after — the same inputs
+  give the same answer every time, so an expected-n and a minimum detectable effect
+  would be theatre rather than a bar. What makes it honest is the before/after diff
+  being complete, not a sample size.
 routing:
   needs_trainer_resident_data: false
   needs_gpu: false
-  # The harness emits a ledger from public Yahoo candles and scores it; the
-  # heaviest object is one pandas frame of 730 daily bars.
   peak_memory_gb: 2.0
   est_minutes: 12
-  basis: >-
-    Routed to a runner because the compat matrix reads only the repo plus public
-    candles. It needs no trainer-resident dataset — deliberately checked rather
-    than assumed: gld-compat-matrix.yml already runs this exact path on a
-    GitHub-hosted runner today.
-
+  basis: 'Routed to a runner because the compat matrix reads only the repo plus public
+    candles. It needs no trainer-resident dataset — deliberately checked rather than
+    assumed: gld-compat-matrix.yml already runs this exact path on a GitHub-hosted
+    runner today.'
 run:
   workflow: gld-compat-matrix.yml
   inputs:
     strategy: gld_pullback_1h
     symbol: GLD
-    fee_bps: "0"
-    days: "730"
-
+    fee_bps: '0'
+    days: '730'
 lands:
   store: docs/research/gld-compat-matrix-verdicts.jsonl
   assert_field: account_id
   min_rows: 1
-  note: >-
-    R2 — the run is not done when it exits 0, it is done when its rows are
-    readable on main. This note said the workflow "currently uploads an artifact
-    and comments" and that wiring assert_rows_landed.py into it was "tracked
-    separately"; both were overtaken on 2026-08-30. gld-compat-matrix.yml now
-    extracts the verdicts, lands them via commit-to-main, and asserts them
-    RUN-SCOPED (--field run_generated_at --contains the emitting run's stamp),
-    so a run cannot pass by finding a PREVIOUS run's rows already on main —
-    which a bare --min-rows 1 over a cumulative store would have allowed
-    forever. Field beats comment.
-
+  note: R2 — the run is not done when it exits 0, it is done when its rows are readable
+    on main. This note said the workflow "currently uploads an artifact and comments"
+    and that wiring assert_rows_landed.py into it was "tracked separately"; both were
+    overtaken on 2026-08-30. gld-compat-matrix.yml now extracts the verdicts, lands
+    them via commit-to-main, and asserts them RUN-SCOPED (--field run_generated_at
+    --contains the emitting run's stamp), so a run cannot pass by finding a PREVIOUS
+    run's rows already on main — which a bare --min-rows 1 over a cumulative store
+    would have allowed forever. Field beats comment.
 related:
-  - PR 10364 (Lane P — the change whose effect this measures)
-  - BL-20260827-EIGHTEEN-EVIDENCE-WORKFLOWS-UPLOAD-AND-LAND-NOTHING
+- PR 10364 (Lane P — the change whose effect this measures)
+- BL-20260827-EIGHTEEN-EVIDENCE-WORKFLOWS-UPLOAD-AND-LAND-NOTHING
+last_dispatched_at: '2026-08-30T23:34:00+00:00'
