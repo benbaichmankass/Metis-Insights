@@ -82,3 +82,33 @@ def test_a_bad_id_refuses_the_whole_batch(tmp_path):
     assert r.returncode == 2, r.stdout
     still = conn.execute("SELECT exit_reason FROM trades WHERE id=4934").fetchone()[0]
     assert still == "reconciler_filled", "a bad sibling id must not stop a write silently"
+
+
+def test_the_fixture_columns_exist_in_the_real_ddl():
+    """The self-test builds its own in-memory `trades`. A fixture declaring a
+    schema production does not have is how the pairs tests passed against a
+    fictional `order_packages` (BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED),
+    so pin the fixture's columns as a SUBSET of the canonical DDL.
+
+    This test is what makes the `# data-wiring:` annotation in the script true
+    rather than merely present.
+    """
+    ddl = (REPO / "src" / "units" / "db" / "database.py").read_text()
+    start = ddl.index("CREATE TABLE IF NOT EXISTS trades (")
+    real = set()
+    for line in ddl[start:start + 6000].splitlines()[1:]:
+        st = line.strip()
+        if st.startswith(")"):
+            break
+        tok = st.split()
+        if tok and tok[0].isidentifier():
+            real.add(tok[0])
+
+    fixture = {"id", "status", "exit_reason", "notes", "is_backtest", "symbol",
+               "account_id", "pnl", "exit_price"}
+    missing = fixture - real
+    assert not missing, (
+        f"the self-test fixture declares column(s) production's trades table "
+        f"does not have: {sorted(missing)} (known real columns: {len(real)})")
+    # And the two columns the script actually WRITES must be among them.
+    assert {"exit_reason", "notes"} <= real
