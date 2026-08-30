@@ -1370,6 +1370,22 @@ this watching its own PR on 2026-07-30. **Poll CI/PR state through
 do write a shell poller against any API, assert a plausible non-zero denominator
 (`total_count > 0`) before believing a "nothing pending" answer.
 
+⚠️ **`total_count: 0` on a PR usually means MERGE CONFLICT, not "CI hasn't
+started yet" — read `mergeable_state` FIRST** (`pull_request_read` method
+`get`). GitHub builds `pull_request`-event runs against the **merge ref**; when
+that ref cannot be built (`mergeable_state: "dirty"`) the workflows are silently
+skipped, and zero check runs renders identically to *queued* and to *all green*.
+Push events do not cover you either — every CI workflow here is `pull_request` +
+`push: branches: [main]`, so a branch push fires nothing. The fix is the merge,
+and CI fires within seconds of the push that resolves it. **This was already
+documented and it has still cost two sessions ~10 minutes each**
+(`BL-20260720-GH-ACTIONS-PUSH-EVENTS-DEAD` on 2026-07-20 →
+`BL-20260830-ZERO-CHECK-RUNS-READ-AS-CI-NOT-STARTED-NOT-AS-MERGE-CONFLICT` on
+2026-08-30), because the lesson lived only in a 1025-row backlog nobody reads
+mid-task — which is why it is restated here, at the point of use. The fastest
+disproof of an "Actions outage" is another branch's runs in `actions_list`, but
+check `mergeable_state` before you even reach for that.
+
 **Network from inside the session** — governed by the cloud
 environment's **Network access** level (None / Trusted / Full /
 Custom). At the default **Trusted** level outbound is allowlisted to
