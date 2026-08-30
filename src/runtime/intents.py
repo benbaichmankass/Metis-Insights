@@ -1288,16 +1288,35 @@ def aggregate_intents(
     # partitions "would have gated" from "did gate". Both swallow all
     # failures internally so a missing policy file / bad cell cannot
     # break the tick.
+    # COUNT BEFORE THE GATE. `no_intents_for_symbol` used to be reached from two
+    # states that route to completely different owners, and the string denied
+    # one of them outright:
+    #   * nothing built an intent for this symbol — a wiring/quiet question, and
+    #   * intents WERE built and the regime gate removed every one — a gating
+    #     question, on a tick where strategies actively wanted to trade.
+    # Measured 2026-08-29 on SOLUSDT: two legs logged `side=buy` and 0.9s later
+    # the audit row read `no_signal`, so BOTH the journal and the audit reported
+    # a false negative on a symbol two strategies had just voted on.
+    # `BL-20260830-PIPELINE-RESULT-REPORTS-NO-SIGNAL-WHEN-TWO-LEGS-SIGNALLED-AND-LOST-ARBITRATION`.
+    _pre_gate = len(candidates)
     if _regime_router_active():
         candidates = _hard_regime_gate(candidates)
     else:
         _shadow_regime_gate(candidates)
 
     if not candidates:
+        # Three states, never collapsed. `all_intents_gated` is emphatically NOT
+        # "nothing wanted to trade" — it is "everything that wanted to trade was
+        # refused", which is the opposite claim about the same silence.
+        _gated = _pre_gate - len(candidates)
         return _flat_position(
             symbol=norm_symbol,
             contributing=tuple(),
-            reason="no_intents_for_symbol",
+            reason=("all_intents_gated" if _pre_gate > 0 else "no_intents_for_symbol"),
+            meta={
+                "intents_before_gate": _pre_gate,
+                "intents_removed_by_gate": _gated,
+            },
         )
 
     non_flat = tuple(i for i in candidates if i.side != "flat")

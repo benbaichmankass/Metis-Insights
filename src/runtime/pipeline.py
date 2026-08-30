@@ -500,6 +500,37 @@ def _phase(name: str):
         return contextlib.nullcontext()
 
 
+def skip_reason(signal: dict) -> str:
+    """The reason a non-actionable tick is recorded under.
+
+    CARRIES THE REASON THE AGGREGATOR ALREADY COMPUTED. The intent layer renders
+    a no-vote outcome through
+    ``intent_multiplexer._desired_to_pipeline_signal``, which puts the real cause
+    in ``meta["reason"]`` (``no_intents_for_symbol`` / ``all_intents_gated`` /
+    ``all_intents_flat`` / a conflict-resolution reason). Stamping the literal
+    ``no_signal`` over it discarded the one field that says WHY — and
+    ``no_signal`` is precisely the string a reader, or a strategy-silence check,
+    uses to conclude that nothing wanted to trade.
+
+    Measured 2026-08-29 on SOLUSDT: ``trend_donchian_sol`` logged ``side=buy`` at
+    14:59:03.701891 and its twin at 14:59:03.994185; the ``pipeline_result`` row
+    at 14:59:04.639159 read ``reason='no_signal'``. Two legs signalled and the
+    audit recorded that none had — so the journal (no row) and the audit (no
+    signal) agreed on a false negative.
+    ``BL-20260830-PIPELINE-RESULT-REPORTS-NO-SIGNAL-WHEN-TWO-LEGS-SIGNALLED-AND-LOST-ARBITRATION``
+
+    Falls back to ``no_signal`` when the signal carries no reason, so a plain
+    single-strategy tick reads exactly as it did before. A non-string or blank
+    reason also falls back rather than writing a bare ``None`` onto the audit
+    row: an unreadable reason is not a reason.
+    """
+    meta = signal.get("meta") if isinstance(signal, dict) else None
+    reason = meta.get("reason") if isinstance(meta, dict) else None
+    if isinstance(reason, str) and reason.strip():
+        return reason
+    return "no_signal"
+
+
 def run_pipeline(
     settings: dict,
     exchange_client: Any = None,
@@ -611,7 +642,11 @@ def run_pipeline(
 
     if signal.get("side") not in ("buy", "sell"):
         logger.info("No actionable signal; skipping order placement.")
-        result = {"status": "skipped", "reason": "no_signal", "signal": signal}
+        result = {
+            "status": "skipped",
+            "reason": skip_reason(signal),
+            "signal": signal,
+        }
     elif os.path.exists(HALT_FLAG_PATH):
         logger.warning("Trader is HALTED — flag file present. Skipping order placement.")
         result = {"status": "halted", "reason": "halt_flag_active"}
