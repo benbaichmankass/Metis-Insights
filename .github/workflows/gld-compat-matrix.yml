@@ -47,6 +47,7 @@ on:
 permissions:
   contents: read
   issues: write
+  pull-requests: write   # commit-to-main opens the landing PR
 
 concurrency:
   group: gld-compat-matrix-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
@@ -64,6 +65,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          # PAT, not GITHUB_TOKEN: `commit-to-main` pushes a branch and opens a
+          # PR that must TRIGGER the required checks, and a PR authored by
+          # GITHUB_TOKEN does not — its auto-merge would wait forever. Same
+          # reason the research-queue dispatcher checks out this way.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
 
       - name: Parse issue body
         if: github.event_name == 'issues'
@@ -301,6 +308,65 @@ jobs:
                 "account is a Tier-3 config/accounts.yaml decision the operator owns."]
           print("\n".join(L))
           PYEOF
+
+      # ---------------------------------------------------------------- landing
+      # R2: "A job that exits 0 having landed nothing is a FAILED job."
+      #
+      # This workflow ended at `upload-artifact`, and a PM-side session has NO
+      # artifact download (root CLAUDE.md) — so every verdict it had ever computed
+      # died with the run. It is one of the eighteen in
+      # BL-20260827-EIGHTEEN-EVIDENCE-WORKFLOWS-UPLOAD-AND-LAND-NOTHING.
+      #
+      # That became blocking on 2026-08-30: research/queue/RQ-20260827-001.yaml
+      # routes here and declares `lands.store` +`min_rows: 1`, and it is the FIRST
+      # job an armed cron fires. Arming without this would have produced, on day
+      # one, precisely the unlandable result the disposition ledger exists to find.
+      #
+      # ⚠️ THE LANDING PR INHERITS A KNOWN OPEN BUG:
+      # BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH.
+      # `commit-to-main` opens an `automation/*` PR whose checks run ONCE; if the
+      # base is transiently red at that moment, nothing ever re-runs them and the
+      # rows sit unmerged. Measured 2026-08-30: 7 of 7 automation/* branches were
+      # unmerged, three ~68 days old. `scripts/ops/stuck_automation_branches.py`
+      # REPORTS that state; nothing yet repairs it. So a `pending_merge` verdict
+      # below is expected-and-actionable, NOT a failure of this workflow.
+      - name: Extract the verdicts into the committed corpus
+        id: extract
+        run: |
+          set -euo pipefail
+          python3 scripts/research/gld_compat_extract.py --in-dir artifacts/gld \
+            | tee extract.out
+
+      - name: Land the corpus on main
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/research/gld-compat-matrix-verdicts.jsonl
+          message: "gld-compat: land per-account verdicts from run ${{ github.run_id }}"
+          pr-title: "gld-compat: per-account verdicts (run ${{ github.run_id }})"
+          pr-body: |
+            Automated landing of `docs/research/gld-compat-matrix-verdicts.jsonl`.
+            R2 — the run is not done when it exits 0, it is done when its rows are
+            readable on `main`.
+          branch-prefix: automation/gld-compat-verdicts
+
+      # ⚠️ SCOPED ON *THIS RUN'S* STAMP, NEVER ON A FIELD THE STORE ALREADY HOLDS.
+      # The store is cumulative, so `--field account_id --contains bybit` would be
+      # satisfied by history and could never fail. That is not hypothetical: the
+      # e35 assertion reported `landed - 6624 rows, exit 0` for a run whose rows
+      # were entirely on an unmerged branch (fixed in #10487, same shape).
+      - name: Assert the rows actually landed
+        run: |
+          set -uo pipefail
+          STAMP="$(sed -n 's/^run-stamp: //p' extract.out | tail -1)"
+          if [ -z "${STAMP}" ]; then
+            echo "::error::no run-stamp in extract.out — cannot scope the assertion"
+            exit 1
+          fi
+          python3 scripts/ci/assert_rows_landed.py \
+            --store docs/research/gld-compat-matrix-verdicts.jsonl \
+            --ref "origin/${DEFAULT_BRANCH:-main}" \
+            --field run_generated_at --contains "${STAMP}" --min-rows 1
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

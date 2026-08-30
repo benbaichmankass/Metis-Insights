@@ -4,10 +4,29 @@ name: research-queue-dispatch
 # scheduler. Reads research/queue/*.yaml, grades each job against the R4 power
 # gate, routes it by its DECLARED resource needs, and dispatches.
 #
-# ⚠️ THE SCHEDULED RUN IS A DRY RUN. `fire` defaults to false and cron passes
-# nothing, so the cron reports what it WOULD do and spends nothing. Firing is an
-# explicit workflow_dispatch with fire=true. A scheduler whose default action is
-# to spend is one typo away from spending; this one is not.
+# ⚠️ THE SCHEDULE FIRES FOR REAL as of 2026-08-30 (operator-directed: the point
+# of the queue is that experiments run without a session poking them, and a cron
+# that only ever reports has not achieved that). A manual `workflow_dispatch`
+# still defaults to a DRY RUN — `fire` is opt-in there, so a human poking the
+# button by hand does not spend.
+#
+# ⚠️ THE FIRE DECISION IS MADE EXACTLY ONCE, in the job-level `FIRE` env below,
+# and read twice. It MUST stay that way. Before this change the `--fire` flag and
+# the "Land the dispatch stamps" step each tested `inputs.fire` independently,
+# and on a `schedule` event the `inputs` context is EMPTY — so arming the cron by
+# adding `--fire` alone would have fired every due job every day and stamped
+# NOTHING, because the stamp step's `if:` could never be true. An unstamped job
+# re-fires: that is a runaway, and it is the "one typo away from spending" hazard
+# this header used to describe in the abstract.
+#
+# ⚠️ THE SCHEDULE BRANCH IS UNPROVEN UNTIL IT RUNS. `oci-inventory.yml` records
+# the same class (2026-08-20): `github.event_name == 'schedule'` had never once
+# been evaluated by GitHub on that workflow, and they proved it with throwaway
+# probe crons rather than assuming. Expect ~15 min of GitHub scheduling lag and
+# never read a late run as a missed one.
+#
+# ROLLBACK is one line: drop `github.event_name == 'schedule'` from FIRE below and
+# the cron is a dry run again, exactly as before.
 #
 # Why a dry cron is still worth running: it is the only thing that surfaces a
 # queue that has gone invalid, unroutable, or quietly all-blocked. The dispatcher
@@ -50,6 +69,11 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # THE ONE FIRE DECISION. Both consumers below read THIS, never `inputs`
+      # directly — see the header. A scheduled run fires; a hand dispatch fires
+      # only when explicitly asked.
+      FIRE: ${{ github.event_name == 'schedule' || inputs.fire == true }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,7 +95,7 @@ jobs:
         run: |
           set -euo pipefail
           ARGS=(--ref "${{ github.ref_name }}" --max-gpu-dispatches-per-run "${{ inputs.max_gpu || '1' }}")
-          if [ "${{ inputs.fire }}" = "true" ]; then ARGS+=(--fire); fi
+          if [ "${FIRE}" = "true" ]; then ARGS+=(--fire); fi
           if [ -n "${{ inputs.only }}" ]; then ARGS+=(--only "${{ inputs.only }}"); fi
           python3 scripts/research/dispatch_queue.py "${ARGS[@]}" | tee /tmp/dispatch.txt
 
@@ -85,7 +109,9 @@ jobs:
       # ⚠️ Only on a REAL fire. A dry run stamps nothing, so there is nothing to
       # land and this step is skipped rather than opening an empty PR.
       - name: Land the dispatch stamps on main
-        if: inputs.fire == true
+        # Reads the SAME `FIRE` as the flag above. If these two can disagree, a
+        # fired job goes unstamped and re-fires forever.
+        if: env.FIRE == 'true'
         uses: ./.github/actions/commit-to-main
         with:
           # A PAT, not GITHUB_TOKEN: a PR authored by GITHUB_TOKEN does not
