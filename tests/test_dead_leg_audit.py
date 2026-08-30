@@ -13,16 +13,25 @@ import sqlite3
 
 import pytest
 
-from scripts.ops.dead_leg_audit import audit
+from scripts.ops.dead_leg_audit import _render, audit
 
 
-def _db(tmp_path, rows, evals=None):
+def _db(tmp_path, rows, evals=None, pkgs=None):
     """rows: (account_id, strategy_name, status, days_ago, n[, entry_reason])
 
-    *evals* seeds the `signals` dual-write: (strategy, days_ago, n). Left as
-    None the table is ABSENT, which is the `unknown` eval-liveness case — the
-    default here on purpose, so every pre-existing test keeps exercising the
-    "we could not look" branch rather than silently acquiring a healthy one.
+    *evals* seeds the `signals` dual-write: (strategy, days_ago, n[, side]).
+    Left as None the table is ABSENT, which is the `unknown` eval-liveness case
+    — the default here on purpose, so every pre-existing test keeps exercising
+    the "we could not look" branch rather than silently acquiring a healthy one.
+
+    ``side`` defaults to ``None`` (a non-actionable eval tick), so every
+    pre-existing caller keeps meaning exactly what it meant: those rows are
+    evaluations, not order requests, and must not start counting as actionable
+    signals on the signal-vs-journal axis.
+
+    *pkgs* seeds `order_packages`: (strategy_name, days_ago, n). Left as None
+    the table is ABSENT, which makes the signal-vs-journal axis UNREADABLE
+    rather than "zero packages" — the same we-did-not-look default.
     """
     p = tmp_path / "j.db"
     conn = sqlite3.connect(p)
@@ -52,12 +61,26 @@ def _db(tmp_path, rows, evals=None):
             "strategy TEXT, symbol TEXT, side TEXT, qty REAL, status TEXT, "
             "reason TEXT, meta TEXT)"
         )
-        for strat, days_ago, n in evals:
+        for ev in evals:
+            strat, days_ago, n = ev[:3]
+            side = ev[3] if len(ev) > 3 else None
             for _ in range(n):
                 conn.execute(
-                    "INSERT INTO signals (logged_at_utc, strategy) VALUES "
-                    "(datetime('now', ?) || '.0+00:00', ?)",
-                    (f"-{days_ago} days", strat),
+                    "INSERT INTO signals (logged_at_utc, strategy, side) VALUES "
+                    "(datetime('now', ?) || '.0+00:00', ?, ?)",
+                    (f"-{days_ago} days", strat, side),
+                )
+    if pkgs is not None:
+        conn.execute(
+            "CREATE TABLE order_packages (order_package_id TEXT PRIMARY KEY, "
+            "strategy_name TEXT, created_at TEXT, status TEXT)"
+        )
+        for i, (strat, days_ago, n) in enumerate(pkgs):
+            for j in range(n):
+                conn.execute(
+                    "INSERT INTO order_packages (order_package_id, strategy_name, "
+                    "created_at) VALUES (?, ?, datetime('now', ?))",
+                    (f"pkg-{i}-{j}", strat, f"-{days_ago} days"),
                 )
     conn.commit()
     conn.close()
@@ -382,3 +405,195 @@ def test_window_boundary_does_not_swallow_a_day_on_the_iso_separator(tmp_path):
     )
     assert _leg(report, "old")["eval_state"] == "not_evaluating"
     assert _leg(report, "old")["evals_in_window"] == 0
+
+
+# ---------------------------------------------------------------------------
+# THIRD AXIS — "it signalled; did it journal anything?" (Lane P / P2)
+#
+# WHY THIS EXISTS, measured on the live journal 2026-08-30. `trend_donchian_sol`
+# is enabled/live and routed to `bybit_1`. It emitted 144 actionable buy signals
+# between 08-02 and 08-29; its most recent journal row of ANY kind is 06-29, two
+# months earlier, and every one of its 7 trade rows is on `breakout_1` — it has
+# never written a row on `bybit_1`. Nothing alerted for two months, because each
+# existing check answers a DIFFERENT question and all three come back clean:
+# `/health-review`'s silence check reads `*_eval` (it evaluates), the per-ACCOUNT
+# refusal alert sees `bybit_1` placing fine for its other legs, and this audit's
+# own leg table is built from `trades` rows so the leg is simply absent.
+# ---------------------------------------------------------------------------
+
+
+def test_a_leg_that_signals_into_a_void_is_found(tmp_path):
+    """THE case this axis exists for — actionable signals, zero journal rows."""
+    db = _db(
+        tmp_path,
+        [("bybit_1", "other_leg", "closed", 1, 3)],
+        evals=[("trend_donchian_sol", 1, 144, "buy"),
+               ("other_leg", 1, 5, "buy")],
+        pkgs=[("other_leg", 1, 3)],
+    )
+    report = audit(db, days=7)
+
+    found = {r["strategy"]: r for r in report["signal_journal"]}
+    assert list(found) == ["trend_donchian_sol"]
+    assert found["trend_donchian_sol"]["state"] == "signals_never_journaled"
+    assert found["trend_donchian_sol"]["actionable_signals_in_window"] == 144
+    assert found["trend_donchian_sol"]["trade_rows_in_window"] == 0
+    assert found["trend_donchian_sol"]["order_package_rows_in_window"] == 0
+    # It must be absent from every OTHER section — that absence is the bug.
+    assert "trend_donchian_sol" not in [r["strategy"] for r in report["legs"]]
+
+
+def test_the_silent_leg_is_invisible_to_the_order_verdict_axis(tmp_path):
+    """Regression guard on the GAP, not just on the new grader.
+
+    If a future change ever makes a zero-row leg appear in `legs`, this test
+    fails and the author has to decide deliberately — rather than the two axes
+    silently starting to double-report the same leg.
+    """
+    db = _db(tmp_path, [("bybit_1", "filler", "closed", 1, 2)],
+             evals=[("silent", 1, 10, "buy")], pkgs=[])
+    report = audit(db, days=7)
+
+    assert [r["strategy"] for r in report["legs"]] == ["filler"]
+    assert report["dead_legs"] == 0
+    assert [r["strategy"] for r in report["signal_journal"]] == ["silent"]
+
+
+def test_a_refused_leg_is_not_reported_here_it_has_an_owner(tmp_path):
+    """A refusal IS a journal record. Reporting it here would re-report every
+    refusing leg and bury the one leg that writes nothing at all."""
+    db = _db(
+        tmp_path,
+        [("bybit_1", "refusing", "rejected", 1, 9)],
+        evals=[("refusing", 1, 9, "buy")],
+        pkgs=[],
+    )
+    report = audit(db, days=7)
+
+    assert report["signal_journal"] == []
+    assert _leg(report, "refusing")["verdict"] == "signalled_never_placed"
+
+
+def test_order_packages_alone_count_as_journaling(tmp_path):
+    """A leg that journals its DECISION and stops has reached the journal. It is
+    a different question from this one, so it must not be flagged here."""
+    db = _db(tmp_path, [("bybit_1", "filler", "closed", 1, 2)],
+             evals=[("pkg_only", 1, 7, "sell")], pkgs=[("pkg_only", 1, 7)])
+    report = audit(db, days=7)
+
+    assert report["signal_journal"] == []
+
+
+def test_non_actionable_evals_are_not_actionable_signals(tmp_path):
+    """A breakout leg sitting inside its channel evaluates constantly and asks
+    for nothing. `no_actionable_signals` is NOT health and is NOT a finding."""
+    db = _db(tmp_path, [("bybit_1", "filler", "closed", 1, 2)],
+             evals=[("in_channel", 1, 500)], pkgs=[])
+    report = audit(db, days=7)
+
+    assert report["signal_journal"] == []
+    assert report["signal_journal_strategies_graded"] == 1
+
+
+def test_actionable_signals_outside_the_window_do_not_flag(tmp_path):
+    db = _db(tmp_path, [("bybit_1", "filler", "closed", 1, 2)],
+             evals=[("old_leg", 90, 30, "buy")], pkgs=[])
+    report = audit(db, days=7)
+
+    assert report["signal_journal"] == []
+
+
+def test_absent_order_packages_makes_the_axis_unreadable_not_clean(tmp_path):
+    """`we could not look` must never render as `no leg signalled into a void`.
+
+    Reading a missing table as "zero packages" would flag every signalling leg
+    at once — a detector that cries wolf on its own blind spot.
+    """
+    db = _db(tmp_path, [("bybit_1", "filler", "closed", 1, 2)],
+             evals=[("anything", 1, 10, "buy")], pkgs=None)
+    report = audit(db, days=7)
+
+    assert report["signal_journal_strategies_graded"] is None
+    assert report["signal_journal"] == []
+    assert "UNREADABLE" in _render(report)
+
+
+def test_absent_signals_table_makes_the_axis_unreadable_not_clean(tmp_path):
+    """The SIGNAL_DUAL_WRITE_DISABLED case. Reading its absence as "no leg
+    signalled" would silence this axis for the entire fleet."""
+    db = _db(tmp_path, [("bybit_1", "x", "closed", 1, 2)], evals=None, pkgs=[])
+    report = audit(db, days=7)
+
+    assert report["signal_journal_strategies_graded"] is None
+    assert "UNREADABLE" in _render(report)
+
+
+def test_the_denominator_is_reported_beside_the_finding(tmp_path):
+    """A finding count over an unstated population is the error this repo keeps
+    paying for. The render must carry `N of M`."""
+    db = _db(tmp_path, [("bybit_1", "filler", "closed", 1, 2)],
+             evals=[("silent", 1, 12, "buy"), ("quiet", 1, 4, None)], pkgs=[])
+    report = audit(db, days=7)
+
+    assert report["signal_journal_strategies_graded"] == 2
+    assert "1 of 2 strategies graded" in _render(report)
+
+
+def test_journaling_and_no_actionable_signal_are_counted_apart(tmp_path):
+    """"Everything journals" and "almost nothing signalled" are opposite facts
+    about how much this axis actually observed, and a bare finding count of
+    zero looks identical in both. The render must separate them."""
+    db = _db(tmp_path, [("bybit_1", "good", "closed", 1, 2)],
+             evals=[("good", 1, 6, "buy"), ("in_channel", 1, 40, None)],
+             pkgs=[("good", 1, 2)])
+    report = audit(db, days=7)
+
+    assert report["signal_journal_state_counts"] == {
+        "journaling": 1, "no_actionable_signals": 1}
+    rendered = _render(report)
+    assert "1 journaling" in rendered
+    assert "1 had no actionable signal" in rendered
+
+
+def test_package_window_does_not_swallow_a_day_on_the_iso_separator(tmp_path):
+    """`order_packages.created_at` is ISO-8601 with a `T`, while
+    `datetime('now',?)` yields a space separator. Compared as RAW STRINGS they
+    agree on the date and disagree at character 11 (`T` 0x54 vs space 0x20), so
+    an OUT-OF-WINDOW package on the boundary DATE sorts as in-window.
+
+    The direction matters and is why this is not cosmetic: an over-counted
+    package makes a leg that journalled NOTHING in the window look like it
+    journalled something, which SUPPRESSES the exact finding this axis exists
+    to raise. Caught by `timestamp-comparison-guard` on the first draft.
+
+    ⚠️ THE FIXTURE MUST SIT ON THE BOUNDARY DATE OR THE TEST IS VACUOUS. A
+    package 30 or 90 days old is excluded by the buggy string compare too, so
+    it pins nothing — verified by re-introducing the bug and watching such a
+    test still pass. The row below is therefore placed ONE SECOND before the
+    boundary instant, read back out of SQLite rather than computed here, so it
+    shares the boundary's date whenever that date has any time-of-day at all.
+    """
+    db = _db(tmp_path, [("bybit_1", "filler", "closed", 1, 2)],
+             evals=[("silent", 1, 20, "buy")], pkgs=[])
+    conn = sqlite3.connect(db)
+    boundary = conn.execute("SELECT datetime('now', '-7 days')").fetchone()[0]
+    if boundary.endswith("00:00:00"):  # pragma: no cover - 1-in-86400 clock
+        pytest.skip("boundary landed exactly on midnight; no same-date case exists")
+    just_before = conn.execute(
+        "SELECT datetime('now', '-7 days', '-1 seconds')").fetchone()[0]
+    assert just_before[:10] == boundary[:10], "fixture must share the boundary date"
+    conn.execute(
+        "INSERT INTO order_packages (order_package_id, strategy_name, created_at) "
+        "VALUES ('p-boundary', 'silent', ?)",
+        (just_before.replace(" ", "T") + ".000000+00:00",),
+    )
+    conn.commit()
+    conn.close()
+
+    report = audit(db, days=7)
+
+    found = {r["strategy"]: r for r in report["signal_journal"]}
+    assert found["silent"]["order_package_rows_in_window"] == 0, (
+        "an out-of-window package on the boundary DATE was counted as "
+        "in-window, which would suppress this finding")
+    assert found["silent"]["state"] == "signals_never_journaled"
