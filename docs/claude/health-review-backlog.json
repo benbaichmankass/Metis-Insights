@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-29",
+  "updated_at": "2026-08-30",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -29308,6 +29308,18 @@
       "detail": "NOT a live gap today, and the direction of failure is the safe one: all 8 rows currently at status `shipped` use the backticked spelling, so the guard reads every cell it actually grades; and a ref it cannot parse is graded `unreadable`, which FAILS loudly rather than passing vacuously. The cost is a future false CI failure: if any of the 8 bold-only rows is ever shipped, the guard blocks the PR with `no cell id in the ref` on a ref that plainly names one, and the fix will look like editing prose to satisfy a checker. scripts/research/e35_matrix_recheck.py already reads BOTH spellings (backtick first) and its self-test pins that, so the two tools currently disagree about what a ref means. Deliberately NOT fixed in the research PR that found it — a guard change belongs in its own PR with its own test, and widening a regex that decides CI outcomes deserves the thought of whether 'write the ref differently' should ever be the cheapest way to satisfy it.",
       "resolution_criteria": "check_matrix_bracket_values.py resolves both spellings (or the matrix is normalised to one and a check enforces that), with a test case per spelling AND a case asserting an unparseable ref still grades `unreadable` rather than being softened. Verify by flipping one bold-only row to `shipped` in a test fixture and seeing the guard read its cell rather than fail.",
       "refs": "PR #10441 · docs/research/e35-matrix-recheck-2026-08-29.md § 7.3 · scripts/ci/check_matrix_bracket_values.py::_CELL_IN_REF · scripts/research/e35_matrix_recheck.py::cell_id_from_ref"
+    },
+    {
+      "id": "BL-20260830-FULL-SUITE-FAILURE-COUNT-VARIES-RUN-TO-RUN-BY-ONE",
+      "opened": "2026-08-30",
+      "severity": "low",
+      "tier": 1,
+      "status": "open",
+      "area": "tests",
+      "summary": "The full pytest suite produced a failure count that varied run-to-run by one, and the extra failure could not be reproduced or identified. Measured 2026-08-30 in the sandbox (which is missing ccxt/pybit/psutil/sklearn, so it carries a stable 27-failure environment baseline).",
+      "detail": "SEQUENCE, so the denominator is visible: a run on the Tier-3 geometry branch BEFORE one leg was reverted gave 30 failed / 13382 passed. A run on clean origin/main gave 27 / 13385. A run on the same branch AFTER the revert gave 27 / 13385 with a failure set BYTE-IDENTICAL to the baseline in both directions (comm -23 and comm -13 both empty). The reverted leg reproducibly causes exactly 2 failures, verified by re-applying its config value and re-running every test file that names either that leg or the coverage matrix: 2 failed / 100 passed. So 27 + 2 = 29, and the 30-failure run has ONE failure that is unexplained.\n\nIT DID NOT REPRODUCE and it is NOT identified: the run that saw it did not retain its own FAILED lines (the background capture kept only the tail), so there is no name to chase. A fourth run on the branch mid-way through a `git stash` gave 29 and is discarded as an unreliable measurement — its tree changed underneath it.\n\nSUSPECTED but NOT established: an order-dependent or timing-sensitive test, which is the ordinary cause of a +/-1 spread across otherwise identical suites. Recorded as a suspicion. What IS established is that the current tree carries exactly the baseline failures and nothing more, so nothing is being masked by this.\n\nWHY IT IS WORTH A ROW AT ALL: a suite whose count moves by one without explanation quietly erodes the meaning of green, and the next session comparing counts rather than SETS would reach a wrong conclusion cheaply. The set-diff (comm against a clean-tree baseline) is the technique that made this visible and should be the default for any Tier-3 change, not the count.",
+      "resolution_criteria": "Either the flaky test is identified (e.g. by running the suite with -p no:randomly and with several seeds, or by capturing full FAILED lines across repeated runs) and made deterministic, or three consecutive full-suite runs on an unchanged tree produce identical failure SETS, establishing that the variance is gone. Explicitly NOT sufficient: a single green run, or matching counts without comparing the sets.",
+      "refs": "PR #10450 · docs/sprint-logs/S-E35-SHIP-REVERSED-GEOMETRY-2026-08-30.md"
     }
   ]
 }
