@@ -42,6 +42,16 @@ outputs:
   pr:
     description: The opened PR URL (empty when nothing to commit).
     value: ${{ steps.run.outputs.pr }}
+  branch:
+    description: >
+      The throwaway head branch this action pushed the rows to (empty when
+      nothing to commit). Published because a caller that wants to assert its
+      rows landed needs to name the ref they were PUSHED to — that is the only
+      thing separating `pending_merge` (we committed, the merge is owed) from
+      `absent` (we produced nothing), and a caller with no branch name collapses
+      the two. Re-deriving `<prefix>-<run_id>-<attempt>` caller-side would be a
+      second copy of a naming scheme this action owns, free to drift from it.
+    value: ${{ steps.run.outputs.branch }}
 
 runs:
   using: composite
@@ -69,6 +79,7 @@ runs:
           echo "nothing to commit — no PR opened"
           echo "committed=false" >> "$GITHUB_OUTPUT"
           echo "pr=" >> "$GITHUB_OUTPUT"
+          echo "branch=" >> "$GITHUB_OUTPUT"
           exit 0
         fi
         BR="${BRANCH_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
@@ -85,3 +96,4 @@ runs:
         fi
         echo "committed=true" >> "$GITHUB_OUTPUT"
         echo "pr=${PR_URL}" >> "$GITHUB_OUTPUT"
+        echo "branch=${BR}" >> "$GITHUB_OUTPUT"
