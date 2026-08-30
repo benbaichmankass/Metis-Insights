@@ -1,9 +1,28 @@
 """Observe-only soak for the Lane P/P3 per-account arbitration fan-out.
 
 At the shipped default (``annotate``) this writes one row per symbol-tick on
-which at least one account is **starved** — it held a candidate and the global
-winner belongs to a different account. Routing is byte-for-byte unchanged;
-nothing reads these rows back.
+which at least one account held a candidate and did not get an order out of it —
+whether because another account took the winner (``starved``, THE FINDING), or
+because **nothing won the symbol at all** (``no_winner``), or because the winner
+resolved to no account (``winner_unattributed``). Routing is byte-for-byte
+unchanged; nothing reads these rows back.
+
+⚠️ **THE THREE POPULATIONS ARE REPORTED SEPARATELY AND MUST NOT BE POOLED.**
+Until 2026-08-30 a no-winner tick graded every candidate-holding account
+``starved``, and on the whole live file to that point — n=9 rows, 15
+account-gradings — that was **11 of the 13 starved gradings**, so the headline
+``starved_count`` overstated the finding **6.5×** in the sole evidence base for
+a Tier-3 routing change. A no-winner tick has no other account to have lost to;
+its cause is upstream (every candidate held, gated or flat) and a per-account
+fan-out is not its remedy.
+
+⚠️ **A ``no_winner`` ROW IS STILL WRITTEN, DELIBERATELY.** It is the
+DENOMINATOR: dropping it would leave a reader with only the finding and no way
+to see how often the symbol had contenders and still routed nothing — the
+unstated-denominator error this repo keeps paying for. ``fanout_schema`` marks
+a row as post-split; **a row with no ``fanout_schema`` key is a pre-2026-08-30
+row whose ``starved_accounts`` conflates both**, and pooling the two without
+saying so re-creates the overstatement in the analysis instead of the code.
 
 ⚠️ ``ARBITRATION_FANOUT_ACCOUNTS`` — **AN EMPTY ALLOWLIST MEANS *NONE*,
 deliberately the OPPOSITE of ``CONVICTION_SIZING_ACCOUNTS`` and
@@ -113,10 +132,16 @@ def record(
             from src.config.accounts_loader import load_accounts_dict
             accounts = load_accounts_dict()
         verdict = assess(candidate_strategies, winning_strategy, accounts=accounts)
-        # Only a tick where the global scope actually costs someone is worth a
-        # row. A tick where the winner's account holds it anyway is the ordinary
-        # case and would bury the finding under noise.
-        if not verdict["starved_accounts"] and verdict["roster_state"] == "read":
+        # A tick where every candidate-holding account got the winner anyway is
+        # the ordinary case and would bury the finding under noise. Everything
+        # else is worth a row — INCLUDING a no-winner tick, which is not the
+        # finding but IS its denominator (see the module docstring).
+        notable = (
+            verdict["starved_accounts"]
+            or verdict["no_winner_accounts"]
+            or verdict["winner_unattributed_accounts"]
+        )
+        if not notable and verdict["roster_state"] == "read":
             return None
         row = {
             "logged_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -126,6 +151,10 @@ def record(
             "mode": "annotate",
             "global_mode": mode,
             "apply_implemented": False,
+            # Keyed on the STARVED set only: those are the accounts whose
+            # routing a real fan-out would change. A no-winner account is not
+            # one of them, so listing it here would re-imply the very
+            # conflation this row's schema exists to undo.
             "apply_scope": {
                 a: apply_scope_for(a, mode) for a in verdict["starved_accounts"]
             },

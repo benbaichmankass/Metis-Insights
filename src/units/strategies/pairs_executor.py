@@ -548,6 +548,99 @@ def _save_decision_bars(state: Dict[str, str]) -> None:
         pass
 
 
+def _journal_db_path() -> str:
+    """Canonical journal path via the ONE resolver (never a CWD-relative name —
+    that fallback is what `canonical-db-resolver` exists to forbid)."""
+    try:
+        from src.utils.paths import trade_journal_db_path
+        return str(trade_journal_db_path())
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _leg_placement_row(leg: Any, directional: str, observed: Dict[str, Any], *,
+                       placed: bool, trade_id: Optional[str]) -> Dict[str, Any]:
+    """One leg's PLACEMENT facts for the soak row. Pure; never raises.
+
+    ⚠️ ``position_idx`` is **what we SENT**, not what the venue reports back.
+    They are different claims: the venue's own view lives on
+    ``/api/diag/bybit_open_orders`` and is the independent cross-check. Reading
+    this field as a venue confirmation is the semantic substitution that
+    ``BL-20260830-PAIRS-SOAK-RECORDS-NO-POSITION-IDX-SO-HEDGE-MODE-CANNOT-BE-VERIFIED``
+    was filed to end, so the key is deliberately not named anything that
+    suggests a read-back. (That id is spelled in FULL and on ONE line on
+    purpose: an abbreviated or line-wrapped id reads as a real tracking
+    reference while resolving to nothing, which `artifact-validity-guard`
+    caught here — it is the same trap the backlog-id guard exists for.)
+
+    ``position_idx_state`` carries the resolver's OWN four states
+    (``one_way`` / ``hedge_long`` / ``hedge_short`` / ``unresolved``), because a
+    bare ``null`` idx cannot distinguish "no hedge declared, absent kwarg is
+    CORRECT" from "hedge declared but the book was unreadable, so Bybit REFUSED
+    this order" — opposite outcomes. ``position_idx_state`` is **absent** when
+    the account is not Bybit or the order never reached the wire; that is a
+    third thing again and is left absent rather than guessed.
+    """
+    row: Dict[str, Any] = {
+        "symbol": getattr(leg, "symbol", None),
+        "direction": getattr(leg, "direction", None),
+        "placed": bool(placed),
+        "directional_open": directional,
+    }
+    if trade_id is not None:
+        row["trade_id"] = trade_id
+    for k in ("position_idx", "position_idx_state", "position_idx_reason"):
+        if k in observed:
+            row[k] = observed[k]
+    return row
+
+
+def _directional_open_state(account_id: str, symbol: str, db_path: str) -> str:
+    """Was a NON-PAIRS (directional) position open on this account+symbol?
+
+    THREE STATES, NEVER COLLAPSED:
+      * ``present``    — a directional open row exists. **This is the condition
+                         that makes stranding possible at all**: under one-way
+                         netting a pairs leg opposite a standing directional
+                         position does not open a book, it REDUCES that one.
+      * ``absent``     — we looked; there is none.
+      * ``unreadable`` — the journal read failed. Emphatically NOT ``absent``:
+                         "we could not look" and "there was nothing there" are
+                         opposite statements, and only one of them means a clean
+                         open proves something.
+
+    WHY THIS IS RECORDED AT ALL. ``OI-20260830-BYBIT-HEDGE-MODE-ARMED-BUT-UNEXERCISED``
+    clears only on a pair that opened **while a directional position was
+    concurrently open on the same symbol** — because a pair that never faced one
+    was never at risk of stranding, so its clean open is not evidence hedge mode
+    works. That fact was unrecorded anywhere, which made the criterion
+    unsatisfiable no matter how long the sleeve ran.
+
+    Read-only, one short SELECT on the journal the trader has already written.
+    No socket, no order path, never raises.
+    """
+    try:
+        if not os.path.exists(db_path):
+            return "unreadable"
+        # The canonical predicate, IMPORTED not re-derived — order_monitor's
+        # docstring is explicit that two copies could drift into disagreeing
+        # about who owns a row, which is the seam its own alarm came from.
+        from src.runtime.order_monitor import _is_pairs_sleeve_row
+        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT strategy_name, setup_type FROM trades "
+                "WHERE account_id = ? AND symbol = ? AND status = 'open' "
+                "AND COALESCE(is_backtest, 0) = 0",
+                (str(account_id), str(symbol)),
+            ).fetchall()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("pairs: directional-open read FAILED for %s/%s: %s",
+                       account_id, symbol, exc)
+        return "unreadable"
+    return "present" if any(not _is_pairs_sleeve_row(r) for r in rows) else "absent"
+
+
 def _place_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
                 decision: "PairDecision", timeframe: str) -> Dict[str, Any]:
     """Place the two legs on the account, journalled + linked by a shared
@@ -579,7 +672,20 @@ def _place_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
     strat_by_leg = {legs[0].symbol: strat_a, legs[1].symbol: strat_b}
     trade_ids: List[str] = []
     placed_symbols: List[tuple] = []   # (symbol, direction, qty) for unwind
+    # Placement FACTS, kept separate from `decision.legs` on purpose: those are
+    # the pure decision's INTENT (what we meant to place) and these are what
+    # actually happened at the wire. Folding the two together would conflate a
+    # plan with an outcome — and `shadow_open` legs, which place nothing, would
+    # then carry placement fields that describe no order.
+    leg_placement: List[Dict[str, Any]] = []
+    db_path = _journal_db_path()
     for i, leg in enumerate(legs):
+        # Read BEFORE placing: once this leg is in the journal it is itself an
+        # open row, and a directional read taken afterwards would be measuring
+        # our own leg (it is excluded as a pairs row, but the sibling leg on the
+        # other symbol is not — so ordering here is load-bearing, not stylistic).
+        directional = _directional_open_state(account_id, leg.symbol, db_path)
+        observed: Dict[str, Any] = {}
         pkg = OrderPackage(
             strategy=strat_by_leg[leg.symbol], symbol=leg.symbol,
             direction=leg.direction, entry=leg.entry_ref, sl=leg.sl, tp=leg.tp,
@@ -593,9 +699,11 @@ def _place_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
             # and gets qty=0 (the live open_failed, BL-20260716-PAIRS-EXEC); the
             # pair hedge REQUIRES the exact per-leg qtys decide_pair computed.
             tid = execute_pkg(pkg, account_cfg, exchange_client=client,
-                              qty_override=leg.qty)
+                              qty_override=leg.qty, observed=observed)
             trade_ids.append(tid)
             placed_symbols.append((leg.symbol, leg.direction, leg.qty))
+            leg_placement.append(_leg_placement_row(
+                leg, directional, observed, placed=True, trade_id=tid))
         except Exception as exc:  # noqa: BLE001
             logger.error("pairs: leg %s placement failed for %s: %s",
                          leg.symbol, decision.pair, exc)
@@ -606,11 +714,18 @@ def _place_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
             naked = _unwind_legs(client, account_cfg, placed_symbols)
             _alert_partial_placement(decision.pair, account_id, placed_symbols,
                                      failed_leg=leg.symbol, err=str(exc), naked=naked)
+            # The failed leg is recorded too — an `open_failed` row that listed
+            # only the legs that worked would under-report the very event it
+            # exists to describe.
+            leg_placement.append(_leg_placement_row(
+                leg, directional, observed, placed=False, trade_id=None))
             return {"placed": False, "trade_ids": trade_ids,
-                    "error": f"leg {leg.symbol}: {exc}", "naked_legs": naked}
+                    "error": f"leg {leg.symbol}: {exc}", "naked_legs": naked,
+                    "leg_placement": leg_placement}
     logger.info("pairs: opened %s (%s) group=%s account=%s trade_ids=%s",
                 decision.pair, decision.soak.get("direction"), gid, account_id, trade_ids)
-    return {"placed": True, "trade_ids": trade_ids, "error": None}
+    return {"placed": True, "trade_ids": trade_ids, "error": None,
+            "leg_placement": leg_placement}
 
 
 def _unwind_legs(client: Any, account_cfg: dict, placed: Sequence[tuple]) -> List[Dict[str, Any]]:
@@ -1181,6 +1296,12 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
                    if k not in ("symbol_a", "symbol_b")},
                 trade_ids=place_result.get("trade_ids") if place_result else None,
                 place_error=place_result.get("error") if place_result else None,
+                # ALWAYS present on an open/open_failed row (even when every
+                # entry is degraded), so an `open` row with NO `leg_placement`
+                # key can only be a pre-2026-08-30 row. That is the whole
+                # versioning rule for this log — it needs no separate marker,
+                # and it keeps "old row" distinct from "we could not measure".
+                leg_placement=place_result.get("leg_placement") if place_result else None,
             )
             record_pairs_soak(rec)
         except Exception as exc:  # noqa: BLE001 — one pair's failure never stops the rest

@@ -573,3 +573,244 @@ they **did** attach as PR checks and satisfy the required contexts. Worth
 knowing for any session that sees an empty check list: the file's own comment
 puts it best — *"the failure mode is not 'a check went red', it is 'a check
 silently did not run', which renders identically to green."*
+
+---
+
+## Addendum — unit 6: the conflation FIXED, on the live rows (2026-08-30, next session)
+
+**Objective.** Fix `src/runtime/arbitration_fanout.py::fanout_state_for`, which
+graded an account `starved` on a tick where **no strategy won the symbol at
+all** — the defect unit 5 filed as
+`BL-20260830-FANOUT-SOAK-GRADES-A-NO-WINNER-TICK-AS-STARVED` rather than
+hot-fixing at session end. **Tier 1** (observe-only soak, no order path, no
+config, no VM).
+
+### The measurement, re-taken first — not the test suite
+
+The handoff was explicit that all 19 unit tests passed and that the suite was
+therefore not the place to start. Re-read the live file before touching
+anything: `/api/diag/log_file?name=arbitration_fanout_soak&lines=1000` returned
+**9 rows** — the COMPLETE file, not a tail — spanning
+**2026-08-30T14:25:15Z → 19:03:56Z**, carrying **15 account-gradings**.
+
+| population | gradings |
+|---|---|
+| graded `starved` in the live file | **13** |
+| …of which genuine starvation (a winner existed, elsewhere) | **2** |
+| …of which no-winner ticks (`winning_strategy: null`) | **11** |
+| graded `routed` | 2 |
+
+The 2 genuine ones are the lane's own thesis live and identical:
+`trend_donchian_eth_prop` (`breakout_1`) taking ETHUSDT from `bybit_1`, at
+16:16:24Z and 17:00:18Z. The other 7 rows are BTCUSDT with no winner —
+`htf_pullback_trend_2h` (1 account) ×5 and `trend_donchian` (3 accounts) ×2.
+
+**One correction to the filed row, in the direction that matters.** It says the
+headline overstates *"by ~5.5x"*. 5.5 is `11/2` — no-winner gradings per genuine
+one. The factor by which **`starved_count` itself** overstates the finding is
+`13/2 = **6.5×**`, because the old count included the 2 genuine gradings too.
+Same rows, same counts; the row's arithmetic picked the wrong pair. Recorded in
+the row rather than silently corrected.
+
+### Why "no winner ⇒ starved" is wrong even though the docstring held
+
+The old definition was internally consistent — *"held a candidate and did not
+get the winner"*, and with no winner nobody got one. It is wrong for what this
+soak is FOR. Starvation here means **another account took the winner from me**;
+that is the only condition a per-account fan-out can fix. A no-winner tick has
+no other account to have lost to, and its cause lives upstream (every candidate
+held, gated, or flat). Counting it inflates the case for a Tier-3 routing change
+with rows that change is not the remedy for.
+
+### What shipped
+
+- **Two new states**, six in all: `no_winner`, and `winner_unattributed` — a
+  winner that resolves to **no account** in the roster. The second is a roster
+  gap rather than a routing loss, it graded `starved` before too, and it is
+  cross-checked by `unattributed_strategies`, which independently names the
+  unmapped winner. **Never observed live**, and the row says so rather than
+  implying it was found.
+- **`winner_scope_for`** grades the TICK once (`attributed` / `no_winner` /
+  `unattributed`) and every account on that tick is graded against the same
+  reading. An unrecognised scope returns **`unknown`**, never `attributed` —
+  defaulting the other way would silently promote an unreadable tick INTO the
+  finding, which is the exact direction being corrected. Same discipline as
+  *"a count we cannot read is not a count of zero"*, one field over.
+- **The three populations are published side by side** — `starved_count`,
+  `no_winner_count`, `winner_unattributed_count` — and together with `routed`
+  they sum to `accounts_graded` by construction, so the partition is checkable
+  rather than trusted.
+- **A `no_winner` row is still WRITTEN.** It is the DENOMINATOR. Dropping it
+  would have left a reader the finding with no way to see how often the symbol
+  had contenders and still routed nothing, and would ALSO have made the row rate
+  collapse mid-file when only the definition changed.
+- **`fanout_schema: 2`** marks a post-split row. A row with no `fanout_schema`
+  key is pre-split and its `starved_accounts` conflates both, so pooling them
+  without saying so re-creates the overstatement in the analysis instead of the
+  code. `apply_scope` stays keyed on the **starved** set only — a no-winner
+  account is not one a fan-out would rebind.
+
+### Validation
+
+- **26 tests pass** in `tests/test_arbitration_fanout.py` (19 before). The test
+  that asserted *"a flat tick starves every account that wanted to trade"* is
+  **inverted**, carrying a note that restoring it is the bug.
+- **The live 9 rows are pinned as a test** (`test_the_live_nine_rows_split_eleven_two`)
+  with the roster read off the rows' own `per_account[*].candidates` rather than
+  from `accounts.yaml`, so the fixture cannot drift from the rows it claims to
+  replay; it asserts the per-row graded counts `[1,1,1,3,2,3,2,1,1]` reproduce.
+- **Independently re-derived** by a second script that rebuilds the roster from
+  the raw JSONL and asserts each row's own `accounts_graded` reproduces:
+  `13 → 2 starved + 11 no_winner + 0 winner_unattributed`, 15 gradings, 6.5×.
+  Two derivations rather than one, because the first was mine.
+- **168 intent-layer tests pass** (`test_aggregate_intents_*`,
+  `test_multi_strategy_intents`, `test_intent_*`) — routing is untouched.
+- **Guards: 39 pass, 0 real failures.** `layer-guard` exits 127 in this sandbox
+  (`lint-imports` absent); installed it and ran it directly — **6 contracts
+  kept, 0 broken**. The first guard run was rejected for the right reason: the
+  work was uncommitted, and guard relevance is computed from a commit range, so
+  it reported *"this is NOT a clean bill of health for your change"*. Committed
+  and re-ran.
+
+### Deliberately NOT done
+
+- **The per-account fan-out itself.** Still Tier-3 and unbuilt. Fixing the
+  measurement is the whole of this unit; the corrected soak now has to accrue
+  before anything is built on it.
+- **Not registered with `collapsed-state-guard`.** The guard requires every
+  state be branched on by a real consumer, and `routed` / `no_candidates` have
+  none — registering today would either fail it or invite the decorative branch
+  it exists to prevent. This is the same reading `CLAUDE.md` records for
+  `BYBIT_HEDGE_MODE_SYMBOLS`, and it is stated here so a later session does not
+  read the absence as an oversight.
+- **No new backlog row filed.** The finding was already filed; the row is
+  updated with the fix, the corrected ratio, and why it stays `open` — its
+  `resolution_criteria` requires re-reading the LIVE log, which needs the merge
+  to reach the trader first.
+
+### What is unproven, stated plainly
+
+The fix is verified against a **replay of the old rows**. Nobody has yet seen
+the corrected writer produce a row. Tracked as
+`OI-20260830-FANOUT-SOAK-SPLIT-SHIPPED-NOT-YET-READ-LIVE` (loud, 2-day cadence),
+whose `clears_when` needs BOTH a live row carrying `fanout_schema: 2` — proving
+the deployed trader runs the split, not merely that the PR merged — AND a
+post-split file where `starved_count` and `no_winner_count` are both non-zero.
+⚠️ The second half is the load-bearing one: only 2 of 15 gradings were the
+finding, so the corrected soak may read near-zero for a while, and *"the split
+works"* and *"the collision stopped happening"* render **identically** on a
+`starved_count` of 0.
+
+### The transferable lesson
+
+A suite of 19 tests passed continuously while the headline number in the sole
+evidence base for a Tier-3 change was 6.5× wrong. They asserted the definition
+**as written** — including one that asserted the defect explicitly, in a
+docstring that argued for it. No test asked whether the two populations a reader
+would act on were separable at all. The defect was found by reading nine live
+rows, and the fix is pinned by a test built from those same rows rather than
+from the definition.
+
+---
+
+## Addendum — unit 7: making the pairs sleeve's hedge-mode question gradeable (2026-08-30, operator-directed)
+
+**Objective.** Operator asked, after unit 6's incidental finding, what needs fixing
+for the pairs-sleeve measurements. **Tier 1**, except one additive touch to an
+order-path file (below), which the operator approved in-conversation after
+reading the exact change.
+
+### The diagnosis changed once I read the code instead of the log
+
+Unit 6 filed "`pairs_soak` records no `position_idx`" from the *log*. Tracing the
+code first — which the fix required anyway — inverted the framing:
+
+**The order path was never broken.** `_place_pair` → `execute_pkg`
+(`execute.py:118`) → `_submit_order` (called at `:567`, its **sole** call site) →
+`apply_position_idx` (`:1538`). A pairs leg on an armed symbol **did** carry a
+`positionIdx` all along. `apply_position_idx` *returns* `PositionIdx(idx, state,
+reason)`, and `_submit_order` called it **bare** — discarding the answer one line
+after computing it — while `execute_pkg` returns only a `trade_id`. So the single
+place that knew which venue book an order was sent against threw it away.
+
+That distinction is worth stating plainly because the backlog row, read quickly,
+could be taken as "hedge mode is broken for pairs". It is not, and the row now
+says so.
+
+### The second gap mattered more than the one I filed
+
+`OI-20260830-BYBIT-HEDGE-MODE-ARMED-BUT-UNEXERCISED` needs **three** things, and
+I had only chased the first. Criterion (3) requires a **concurrent directional
+position** on the same symbol — because under one-way netting a pairs leg only
+strands when there is a directional book to net against. **That was equally
+unrecorded**, so stamping `position_idx` alone would have left the row exactly as
+unsatisfiable as before. A pair that opened cleanly having never faced a
+directional position is not evidence of anything.
+
+### What shipped
+
+- **`execute.py` — additive only, and this is the order-path file.** An optional
+  `observed` out-dict on `_submit_order` + `execute_pkg`, default `None`. Every
+  pre-existing caller is byte-for-byte unchanged; **no wire-payload change, no
+  control-flow change**. It is documented as write-only, and an AST test asserts
+  the wire path never *branches* on it — an observability out-param that could
+  alter a live order is the one way this could have been dangerous, so it is
+  pinned structurally rather than asserted in prose.
+- **`_directional_open_state(account_id, symbol, db_path)`** — three states,
+  never collapsed: `present` / `absent` / **`unreadable`** (*we could not look*,
+  emphatically not `absent` — only the second makes a clean open meaningful).
+  One read-only SELECT on the journal the trader has already written; no socket.
+  It **imports** `order_monitor._is_pairs_sleeve_row` rather than re-deriving the
+  predicate, because that function's own docstring says two copies could drift
+  into disagreeing about who owns a row — the seam its alarm came from. A test
+  asserts the import and that no `startswith` re-implementation crept in.
+- **`leg_placement` on `open`/`open_failed` rows** — per leg: `position_idx`,
+  `position_idx_state`, `directional_open`, `placed`, `trade_id`. Kept
+  **separate from `legs`** on purpose: `legs` is the pure decision's INTENT, and
+  folding a plan into an outcome would give a `shadow_open` leg placement fields
+  describing no order.
+- **Ordering is load-bearing, not stylistic:** the directional read happens
+  *before* the leg is placed. Afterwards it would partly measure our own pair —
+  this leg is excluded as a pairs row, but the sibling leg on the other symbol is
+  not.
+
+### Two honesty constraints written into the field itself
+
+1. **`position_idx` is what we SENT, never a venue read-back.** The criterion's
+   own wording says *"the venue reports"*, and `/api/diag/bybit_open_orders` is
+   that surface. Recording our sent value and letting it be read as venue
+   confirmation would be precisely the semantic substitution unit 6 was filed
+   about. The docstring, the CLAUDE.md row and the OPEN-ITEMS `clears_when` all
+   say so.
+2. **`directional_open: absent` on both legs does NOT clear the row.** Written
+   into `clears_when`, because a clean open on a pair that faced nothing is the
+   most likely-looking false positive available.
+
+### Validation
+
+- **15 tests** in `tests/test_pairs_leg_placement.py`, including the end-to-end
+  wiring test that fails if anyone drops `observed=observed` from the
+  `execute_pkg` call — a regression that is otherwise **silent**, since the soak
+  keeps writing rows that have merely lost the field.
+- **189 pass / 1 skipped** across every `test_pairs*`, `*execute*` and the
+  fan-out suite — the order path is untouched in behaviour.
+- Guards clean; `canonical-doc-coherence` and `stated-population-guard` pass on
+  the CLAUDE.md edits.
+
+### Not registered with `collapsed-state-guard`, and the honest reason
+
+`bybit_position_mode`'s own docstring predicts it "becomes registrable in the
+same change that first makes the allowlist non-empty". The allowlist is armed and
+`CLAUDE.md` already records that prediction as **wrong**. This change does not
+make it right either: the soak **records** `unresolved`, and recording is not
+branching — `apply_position_idx` still leaves kwargs untouched on both `one_way`
+and `unresolved`. Registering today would still invite the decorative branch the
+guard exists to prevent. Stated here so a later session does not read the absence
+as an oversight. (The module docstring still carries the stale prediction; left
+for whoever owns that file, noted rather than swept.)
+
+### Still unproven
+
+Deployed, not observed. The clearing evidence needs a real pair to open after the
+merge reaches the trader, with `directional_open: present` on at least one leg.
+Tracked by the existing loud row rather than a new one.
