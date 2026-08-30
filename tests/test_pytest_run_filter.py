@@ -46,7 +46,9 @@ does not name, and these tables are mitigation, not a fix.
 """
 from __future__ import annotations
 
+import ast
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -219,6 +221,156 @@ def _committed_docs_readers() -> dict[str, set[str]]:
             found.setdefault(joined, set()).add(
                 path.relative_to(REPO).as_posix())
     return found
+
+
+# ---------------------------------------------------------------------------
+# THE GENERAL CASE. The docs/ scan below covers ONE tree. The class it belongs
+# to (BL-20260813-...) has now recurred FIVE times, and every fix added the one
+# tree just proven while the next was found by an incident. ml/configs/ was the
+# fifth: tests/ml/_manifest_paths.py reads it AS COMMITTED and a manifest-only
+# PR short-circuited to a 12-second green.
+#
+# So this derives the covered set from EVERY tree the suite reads, not just
+# docs/. A new test that reads any committed path fails here until the filter
+# covers it or it is excluded on purpose.
+#
+# WHY AST AND NOT A REGEX OVER SOURCE TEXT. Four false-positive classes were
+# measured while building this, each of which a naive scan reports as a real
+# finding:
+#   1. on-disk vs COMMITTED — `Path.exists()` counts __pycache__/*.pyc, so
+#      src/, tests/ and src/runtime/ all looked uncovered. `git ls-files` is
+#      the only correct source of "a PR could change this".
+#   2. directory vs file — the filter matches `^scripts/`, so the bare string
+#      "scripts" does not match while every file under it does. A directory is
+#      covered iff its committed children are.
+#   3. DOCSTRINGS — a line-regex matched `_REPO_ROOT / "runtime_logs"` inside a
+#      docstring in test_runtime_paths_alignment.py that was *describing the
+#      historical bug*. The real code there calls runtime_logs_dir(). An AST
+#      walk cannot match prose.
+#   4. PREFIX sub-expressions — `ast.walk` visits the inner nodes of a
+#      multi-segment join, so a three-segment path also yields its one- and
+#      two-segment prefixes as separate hits, inflating the count. Only
+#      MAXIMAL chains count.
+#      (This comment deliberately does NOT spell that join out: the docs/ scan
+#      below is a LINE REGEX, and an earlier draft that wrote the example
+#      literally was picked up by it as a real reader of a file named "x" —
+#      false-positive class 3, demonstrated by this very comment.)
+# A check that over-reports gets muted; these four are why the number below is
+# trustworthy.
+# ---------------------------------------------------------------------------
+
+_PATH_ROOTS = {"REPO", "REPO_ROOT", "_REPO_ROOT"}
+
+
+def _tracked() -> set:
+    """Committed files. NOT os.listdir — see false-positive class 1 above."""
+    out = subprocess.run(["git", "ls-files"], cwd=REPO,
+                         capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    return set(out.stdout.split())
+
+
+def _chain(node) -> list | None:
+    """`REPO / "a" / "b"` -> ["a", "b"]; None if not rooted at a repo name."""
+    segs = []
+    while isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        right = node.right
+        if not (isinstance(right, ast.Constant) and isinstance(right.value, str)):
+            return None
+        segs.append(right.value)
+        node = node.left
+    if isinstance(node, ast.Name) and node.id in _PATH_ROOTS:
+        return list(reversed(segs))
+    return None
+
+
+def _committed_readers_any_tree() -> dict:
+    """{committed path -> {test files that read it}} over the whole suite."""
+    tracked = _tracked()
+    found: dict = {}
+    for path in sorted((REPO / "tests").rglob("*.py")):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:
+            continue
+        inner = {id(n.left) for n in ast.walk(tree)
+                 if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Div)
+                 and isinstance(n.left, ast.BinOp)}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.BinOp) or id(node) in inner:
+                continue                      # class 4: maximal chains only
+            segs = _chain(node)
+            if not segs:
+                continue
+            rel = "/".join(segs)
+            if rel in tracked or any(t.startswith(rel + "/") for t in tracked):
+                found.setdefault(rel, set()).add(
+                    path.relative_to(REPO).as_posix())
+    return found
+
+
+def _uncovered_children(rel: str, tracked: set) -> list:
+    """Committed files under *rel* the filter would let short-circuit."""
+    if rel in tracked:                        # class 2: file vs directory
+        return [] if _matches(rel) else [rel]
+    return sorted(t for t in tracked
+                  if t.startswith(rel + "/") and not _matches(t))
+
+
+def test_the_general_scan_finds_the_tree_that_motivated_it():
+    """Negative control FIRST — a scan finding nothing is vacuously green.
+
+    ml/configs/ is the fifth instance of the class and is known to be read by
+    tests/ml/_manifest_paths.py, so the scan must see it. If this ever fails,
+    the scan is broken and the test below proves nothing.
+    """
+    found = _committed_readers_any_tree()
+    assert "ml/configs" in found, sorted(found)
+    assert any("_manifest_paths" in f for f in found["ml/configs"])
+    # class 3 control: a docstring mention must NOT be picked up as a read.
+    assert "runtime_logs" not in found, (
+        "runtime_logs is only named in a DOCSTRING and as a write target; "
+        "picking it up means the scan is matching prose again")
+
+
+def test_every_committed_tree_the_suite_reads_is_covered():
+    """No committed path the suite reads may short-circuit pytest-run.
+
+    This is the general form of the docs/-only check below. It exists because
+    the class recurred five times, each fix covering only the tree just proven.
+    If this fails, add the tree to the grep in pytest-run.yml — do not delete
+    the assertion, and do not narrow the scan.
+    """
+    tracked = _tracked()
+
+    def _excluded(rel: str) -> bool:
+        """Honour DELIBERATELY_EXCLUDED rather than silently overriding it.
+
+        A documented decision outranks a derived one UNTIL evidence falsifies
+        it — and then the decision is narrowed, not deleted. That happened here:
+        `data/` carried "bulk data, not asserted structurally by pytest", but
+        this scan measured three files under it that ARE read as committed
+        (backtest_candles.csv, btc_1m_sample.csv, ict_validate_manifest.csv).
+        The filter now names those three; the bulk tree stays excluded, so the
+        original rationale still holds for everything it was actually about.
+        """
+        for ex in DELIBERATELY_EXCLUDED:
+            top = ex.split("/", 1)[0]
+            if rel == ex or rel == top or rel.startswith(top + "/"):
+                return True
+        return False
+
+    uncovered = {
+        rel: (sorted(readers), _uncovered_children(rel, tracked))
+        for rel, readers in _committed_readers_any_tree().items()
+        if not _excluded(rel)
+    }
+    uncovered = {k: v for k, v in uncovered.items() if v[1]}
+    assert not uncovered, (
+        "these COMMITTED paths are read by the suite but would SHORT-CIRCUIT "
+        "pytest-run, so a PR touching only them merges having executed no "
+        f"tests: { {k: (v[0], v[1][:3]) for k, v in uncovered.items()} }"
+    )
 
 
 def test_the_scan_finds_the_reader_we_already_know_about():
