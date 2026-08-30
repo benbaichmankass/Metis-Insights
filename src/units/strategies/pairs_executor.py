@@ -566,8 +566,12 @@ def _leg_placement_row(leg: Any, directional: str, observed: Dict[str, Any], *,
     They are different claims: the venue's own view lives on
     ``/api/diag/bybit_open_orders`` and is the independent cross-check. Reading
     this field as a venue confirmation is the semantic substitution that
-    ``BL-20260830-PAIRS-SOAK-RECORDS-NO-POSITION-IDX-...`` was filed to end, so
-    the key is deliberately not named anything that suggests a read-back.
+    ``BL-20260830-PAIRS-SOAK-RECORDS-NO-POSITION-IDX-SO-HEDGE-MODE-CANNOT-BE-VERIFIED``
+    was filed to end, so the key is deliberately not named anything that
+    suggests a read-back. (That id is spelled in FULL and on ONE line on
+    purpose: an abbreviated or line-wrapped id reads as a real tracking
+    reference while resolving to nothing, which `artifact-validity-guard`
+    caught here — it is the same trap the backlog-id guard exists for.)
 
     ``position_idx_state`` carries the resolver's OWN four states
     (``one_way`` / ``hedge_long`` / ``hedge_short`` / ``unresolved``), because a
