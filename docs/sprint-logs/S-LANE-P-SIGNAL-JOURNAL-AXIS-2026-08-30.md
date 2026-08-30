@@ -710,3 +710,107 @@ docstring that argued for it. No test asked whether the two populations a reader
 would act on were separable at all. The defect was found by reading nine live
 rows, and the fix is pinned by a test built from those same rows rather than
 from the definition.
+
+---
+
+## Addendum — unit 7: making the pairs sleeve's hedge-mode question gradeable (2026-08-30, operator-directed)
+
+**Objective.** Operator asked, after unit 6's incidental finding, what needs fixing
+for the pairs-sleeve measurements. **Tier 1**, except one additive touch to an
+order-path file (below), which the operator approved in-conversation after
+reading the exact change.
+
+### The diagnosis changed once I read the code instead of the log
+
+Unit 6 filed "`pairs_soak` records no `position_idx`" from the *log*. Tracing the
+code first — which the fix required anyway — inverted the framing:
+
+**The order path was never broken.** `_place_pair` → `execute_pkg`
+(`execute.py:118`) → `_submit_order` (called at `:567`, its **sole** call site) →
+`apply_position_idx` (`:1538`). A pairs leg on an armed symbol **did** carry a
+`positionIdx` all along. `apply_position_idx` *returns* `PositionIdx(idx, state,
+reason)`, and `_submit_order` called it **bare** — discarding the answer one line
+after computing it — while `execute_pkg` returns only a `trade_id`. So the single
+place that knew which venue book an order was sent against threw it away.
+
+That distinction is worth stating plainly because the backlog row, read quickly,
+could be taken as "hedge mode is broken for pairs". It is not, and the row now
+says so.
+
+### The second gap mattered more than the one I filed
+
+`OI-20260830-BYBIT-HEDGE-MODE-ARMED-BUT-UNEXERCISED` needs **three** things, and
+I had only chased the first. Criterion (3) requires a **concurrent directional
+position** on the same symbol — because under one-way netting a pairs leg only
+strands when there is a directional book to net against. **That was equally
+unrecorded**, so stamping `position_idx` alone would have left the row exactly as
+unsatisfiable as before. A pair that opened cleanly having never faced a
+directional position is not evidence of anything.
+
+### What shipped
+
+- **`execute.py` — additive only, and this is the order-path file.** An optional
+  `observed` out-dict on `_submit_order` + `execute_pkg`, default `None`. Every
+  pre-existing caller is byte-for-byte unchanged; **no wire-payload change, no
+  control-flow change**. It is documented as write-only, and an AST test asserts
+  the wire path never *branches* on it — an observability out-param that could
+  alter a live order is the one way this could have been dangerous, so it is
+  pinned structurally rather than asserted in prose.
+- **`_directional_open_state(account_id, symbol, db_path)`** — three states,
+  never collapsed: `present` / `absent` / **`unreadable`** (*we could not look*,
+  emphatically not `absent` — only the second makes a clean open meaningful).
+  One read-only SELECT on the journal the trader has already written; no socket.
+  It **imports** `order_monitor._is_pairs_sleeve_row` rather than re-deriving the
+  predicate, because that function's own docstring says two copies could drift
+  into disagreeing about who owns a row — the seam its alarm came from. A test
+  asserts the import and that no `startswith` re-implementation crept in.
+- **`leg_placement` on `open`/`open_failed` rows** — per leg: `position_idx`,
+  `position_idx_state`, `directional_open`, `placed`, `trade_id`. Kept
+  **separate from `legs`** on purpose: `legs` is the pure decision's INTENT, and
+  folding a plan into an outcome would give a `shadow_open` leg placement fields
+  describing no order.
+- **Ordering is load-bearing, not stylistic:** the directional read happens
+  *before* the leg is placed. Afterwards it would partly measure our own pair —
+  this leg is excluded as a pairs row, but the sibling leg on the other symbol is
+  not.
+
+### Two honesty constraints written into the field itself
+
+1. **`position_idx` is what we SENT, never a venue read-back.** The criterion's
+   own wording says *"the venue reports"*, and `/api/diag/bybit_open_orders` is
+   that surface. Recording our sent value and letting it be read as venue
+   confirmation would be precisely the semantic substitution unit 6 was filed
+   about. The docstring, the CLAUDE.md row and the OPEN-ITEMS `clears_when` all
+   say so.
+2. **`directional_open: absent` on both legs does NOT clear the row.** Written
+   into `clears_when`, because a clean open on a pair that faced nothing is the
+   most likely-looking false positive available.
+
+### Validation
+
+- **15 tests** in `tests/test_pairs_leg_placement.py`, including the end-to-end
+  wiring test that fails if anyone drops `observed=observed` from the
+  `execute_pkg` call — a regression that is otherwise **silent**, since the soak
+  keeps writing rows that have merely lost the field.
+- **189 pass / 1 skipped** across every `test_pairs*`, `*execute*` and the
+  fan-out suite — the order path is untouched in behaviour.
+- Guards clean; `canonical-doc-coherence` and `stated-population-guard` pass on
+  the CLAUDE.md edits.
+
+### Not registered with `collapsed-state-guard`, and the honest reason
+
+`bybit_position_mode`'s own docstring predicts it "becomes registrable in the
+same change that first makes the allowlist non-empty". The allowlist is armed and
+`CLAUDE.md` already records that prediction as **wrong**. This change does not
+make it right either: the soak **records** `unresolved`, and recording is not
+branching — `apply_position_idx` still leaves kwargs untouched on both `one_way`
+and `unresolved`. Registering today would still invite the decorative branch the
+guard exists to prevent. Stated here so a later session does not read the absence
+as an oversight. (The module docstring still carries the stale prediction; left
+for whoever owns that file, noted rather than swept.)
+
+### Still unproven
+
+Deployed, not observed. The clearing evidence needs a real pair to open after the
+merge reaches the trader, with `directional_open: present` on at least one leg.
+Tracked by the existing loud row rather than a new one.

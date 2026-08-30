@@ -124,6 +124,7 @@ def execute_pkg(
     dry_run: Optional[bool] = None,
     qty_override: Optional[float] = None,
     reduce_only: bool = False,
+    observed: Optional[dict] = None,
 ) -> str:
     """Risk-size and execute *pkg* on the account described by *account_cfg*.
 
@@ -164,6 +165,13 @@ def execute_pkg(
         ``/closed`` / hourly-report aggregations can distinguish reduce
         legs from opens. Bybit linear/inverse only — spot accounts do
         not support reduceOnly and the path raises ``ValueError``.
+    observed : dict, optional
+        Write-only out-dict for facts known only at the wire boundary — today
+        the resolved Bybit ``position_idx`` / ``position_idx_state``. Never read
+        and never branched on here, so passing one cannot change what is
+        placed; omitting it (every pre-2026-08-30 caller) is byte-for-byte the
+        old behaviour. See ``_submit_order`` for why it exists and for the
+        SENT-not-read-back caveat.
 
     Returns
     -------
@@ -564,7 +572,8 @@ def execute_pkg(
             exchange_client, _bybit_category(account_cfg), order["symbol"],
         )
 
-    trade_id = _submit_order(exchange_client, order, account_cfg)
+    trade_id = _submit_order(exchange_client, order, account_cfg,
+                             observed=observed)
 
     sl_order_id = tp_order_id = None
     if _tpsl_pre_leg_ids is not None:
@@ -1181,8 +1190,29 @@ def _fetch_linear_total_equity(client: Any) -> Optional[float]:
         return None
 
 
-def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
-    """Place the order via the exchange client and return a trade_id."""
+def _submit_order(client: Any, order: dict, account_cfg: dict,
+                  *, observed: Optional[dict] = None) -> str:
+    """Place the order via the exchange client and return a trade_id.
+
+    ``observed`` is an OPTIONAL out-dict for facts that are known only at the
+    wire boundary and are otherwise lost. It is **write-only from here** — this
+    function never reads it and never branches on it, so passing one cannot
+    change what is placed. Every existing caller omits it and is byte-for-byte
+    unchanged.
+
+    Why it exists (2026-08-30): ``apply_position_idx`` RETURNS the resolved
+    ``PositionIdx`` and this call site discarded it one line after computing it,
+    while ``execute_pkg`` returns only a ``trade_id``. So the single place that
+    knew which Bybit BOOK an order was sent against threw the answer away, and
+    the pairs sleeve — whose whole hedge-mode question is *"did the leg carry a
+    positionIdx?"* — had no way to record it
+    (``BL-20260830-PAIRS-SOAK-RECORDS-NO-POSITION-IDX-SO-HEDGE-MODE-CANNOT-BE-VERIFIED``).
+
+    ⚠️ **What lands here is what we SENT, never a venue read-back.** The venue's
+    own view is a different claim and a different surface
+    (``/api/diag/bybit_open_orders``); conflating the two would be exactly the
+    unprovenanced substitution this repo keeps paying for.
+    """
     exchange = (account_cfg.get("exchange") or "bybit").lower()
 
     # Per-exchange live dispatch. Each broker branch mirrors the bybit
@@ -1535,9 +1565,18 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                 if order.get("reduce_only")
                 else kwargs.get("side")
             )
-            bybit_position_mode.apply_position_idx(
+            _pidx = bybit_position_mode.apply_position_idx(
                 kwargs, account_cfg.get("account_id"), order["symbol"], _pos_side,
             )
+            if observed is not None:
+                # The value that went ON THE WIRE, beside the state that explains
+                # it: `idx is None` means one_way (absent kwarg is CORRECT) OR
+                # unresolved (hedge declared, book unknown, so Bybit REFUSES) —
+                # opposite outcomes that a bare int cannot tell apart.
+                observed["position_idx"] = _pidx.idx
+                observed["position_idx_state"] = _pidx.state
+                if _pidx.reason:
+                    observed["position_idx_reason"] = _pidx.reason
             resp = client.place_order(**kwargs) or {}
             # BL-20260830: this branch used to skip the retCode check that the
             # alpaca / oanda / ib branches all perform, and fall back to

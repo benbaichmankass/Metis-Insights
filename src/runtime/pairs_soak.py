@@ -20,6 +20,37 @@ Event kinds (``event``):
   * ``hold``           — in a position, no exit this tick.
   * ``close``          — spread exit fired; both legs closed.
 
+``leg_placement`` (2026-08-30, on ``open`` / ``open_failed`` only)
+-----------------------------------------------------------------
+One entry per leg carrying what actually happened at the wire — kept SEPARATE
+from ``legs``, which is the pure decision's INTENT. Folding them together would
+conflate a plan with an outcome, and ``shadow_open`` legs (which place nothing)
+would carry placement fields describing no order.
+
+  * ``position_idx`` / ``position_idx_state`` — the Bybit BOOK the leg was sent
+    against, threaded up from ``execute._submit_order``. ⚠️ **This is what we
+    SENT, never a venue read-back** (that is ``/api/diag/bybit_open_orders``,
+    an independent cross-check). ``position_idx_state`` carries the resolver's
+    own four states because a bare ``null`` idx cannot separate *"one_way, an
+    absent kwarg is CORRECT"* from *"hedge declared, book unreadable, so Bybit
+    REFUSED this order"*.
+  * ``directional_open`` — ``present`` / ``absent`` / ``unreadable``: was a
+    NON-PAIRS position open on that symbol when the leg was placed. **Read this
+    before concluding anything from a clean open.** Under one-way netting a
+    pairs leg only strands when there is a directional book to net against, so
+    a pair that opened cleanly with ``absent`` on both legs was never at risk
+    and proves nothing about hedge mode.
+
+⚠️ **An ``open`` row with NO ``leg_placement`` key predates 2026-08-30** — that
+absence is the version marker, and it is why the field is emitted even when
+every entry is degraded. Do not read a missing key as "nothing was measured".
+
+Why it exists: ``BL-20260830-PAIRS-SOAK-RECORDS-NO-POSITION-IDX-SO-HEDGE-MODE-CANNOT-BE-VERIFIED``.
+``OI-20260830-BYBIT-HEDGE-MODE-ARMED-BUT-UNEXERCISED`` clears only on a pairs
+open whose legs carry a hedge ``position_idx`` AND that faced a concurrent
+directional position — and NEITHER fact was recorded anywhere, so the criterion
+could not be met however long the sleeve ran.
+
 Never drives an order — pure observability. The executor writes these; nothing
 reads them back to make a trading decision.
 """
