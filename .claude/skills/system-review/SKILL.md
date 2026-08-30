@@ -254,6 +254,59 @@ grading-freshness guard. Required, non-empty:
   day is what makes this a class rather than a row — see
   `BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET`.
 
+- `review_coverage.research_results_disposition` — **mandatory** (2026-08-30,
+  operator directive: *"we need some mechanism for making sure results are read
+  and logged where they need to be for influencing decision making"*). The
+  RESEARCH sibling of `ml_output_actionability`: that key asks whether ML output
+  gets used, and nothing asked it of backtests, sweeps and corpora.
+
+  **Why it exists.** R1–R6 of `docs/research/RESEARCH-WORKFLOW-ARCHITECTURE-2026-08-27.md`
+  stop at *landed* — R2 makes landing part of the run and no stage covers *read*.
+  Measured 2026-08-30, `grep -c 'corpus\|research/queue'` across the
+  system-review / health-review / performance-review / ml-review /
+  research-driver SKILL.md files returns **0 for all five**: the research
+  pipeline was invisible to every review we run.
+
+  ⚠️ **This is NOT what `provenance-consumer-guard` asks.** Eight scripts read
+  these corpora, so a consumer EXISTS. This asks the question one level over:
+  **was a consumer RUN, on THIS batch, and did a decision come out of it.**
+
+  Run `python3 scripts/research/research_disposition.py --report`. Carries
+  `units_landed_since_last`, `dispositioned`, `unread`, `superseded_unread`, and
+  `verdict` ∈ `actionable` · `landed_but_unread` · `none_landed` ·
+  `unverifiable`. The last two **must** reach `flags_raised[]`.
+
+  ⚠️ **`superseded_unread` is NOT a finding and must not be counted as one** —
+  196 of 288 historical units are superseded by construction, and reporting 288
+  failures on day one is the desensitized-alarm P1. ⚠️ **`unverifiable` means a
+  store could not be READ**, which is not *nothing unread*.
+
+  **A review DISPOSITIONS; it does not merely read** — the same rule
+  `backlog_drive` had to be hardened with. Writing a disposition through
+  `research_disposition.append` REFUSES a vacuous reason, using the same
+  `_NON_REASONS` vocabulary, so "carried forward unchanged" cannot satisfy this
+  key. Measured at introduction: **92 unread / 196 superseded / 0 dispositioned**
+  — every sweep the fleet has ever run landed and was dispositioned by nothing.
+
+- `review_coverage.test_execution_verification` — **mandatory** (2026-08-30,
+  operator directive: *"verify the mechanisms and the tests run since the
+  previous review"*). `since_last_build_verification` is the MECHANISMS half;
+  this is the TESTS half.
+
+  ⚠️ **It is NOT "which test files never run", and a session that goes looking
+  for that will find nothing and report a false all-clear.** Measured: CI runs
+  `pytest -q tests/` **wholesale** over all 824 files, so an unrun test file is
+  not the gap. The real gap is one level over — `pytest-run` is **PATH-FILTERED**,
+  and that workflow's own comments record **FOUR** separate incidents of a
+  *"9-SECOND green pytest-run"* merging and leaving `main` **red**. A green check
+  is not evidence the suite ran.
+
+  Carries `runs_in_window`, `suite_executed` (runs that actually executed the
+  suite, not a filtered short-circuit), `guards_executed`, and `verdict` ∈
+  `executed` · `short_circuited` · `not_run` · `unverifiable`. Anything other
+  than `executed` **must** reach `flags_raised[]`.
+  `docs/CLAUDE-RULES-CANONICAL.md` § "Green is not evidence".
+
 - `review_coverage.flags_raised[]` — the loud flags this review surfaced (may be
   empty only if genuinely nothing is degrading — state that explicitly).
 - `review_coverage.account_reachability` — **mandatory** per-account up/down for
@@ -277,11 +330,22 @@ grading-freshness guard. Required, non-empty:
   open item is non-actionable — "no time" / "didn't look" / triaging only "the
   recent few" is a review FAILURE, not a valid reason.
 
-**STOP and complete the assessment if any of the TEN required keys
+**STOP and complete the assessment if any of the THIRTEEN required keys
 (`strategy_promotion`, `ml_training_health`, `soak_status`, `execution_capture`,
 `backlog_drive`, `account_reachability`, `since_last_build_verification`,
-`backlog_classes`, `ml_output_actionability`, `unexercised_fixes`) is missing or
-empty, OR if any domain's `backlog_drive.count_untriaged > 0`**
+`backlog_classes`, `ml_output_actionability`, `structural_health`,
+`unexercised_fixes`, `research_results_disposition`,
+`test_execution_verification`) is missing or empty, OR if any domain's
+`backlog_drive.count_untriaged > 0`**
+
+⚠️ **This list said TEN and omitted `structural_health` until 2026-08-30**,
+while `_REQUIRED_COVERAGE_KEYS` had enforced it since 2026-08-24 — the same
+declared-vs-enforced drift, in the harmless direction this time (enforced but
+undeclared, rather than the `account_reachability` case of declared but
+unenforced). Both are bugs: the SKILL is what a session reads, the tuple is what
+CI checks, and a reader cannot see the gap from either side alone. **The count
+is stated in words deliberately, so adding a key without updating it reads as
+an obvious contradiction rather than an off-by-one nobody notices.**
 
 ⚠️ **`account_reachability` was declared mandatory here on 2026-06-29 and
 enforced by NOTHING until 2026-08-20** — this text said "six required keys" and
@@ -289,8 +353,8 @@ named it, while `render_system_report.py::_REQUIRED_COVERAGE_KEYS` held five and
 omitted it. Its stated motivation is *"the IB gateway was dark across reviews
 and went unflagged"*, and on 2026-08-20 the full-system audit measured the
 gateway restarting **three times in 33 minutes** (only one scheduled) with
-nothing flagging it. All ten are now in that tuple with real validators. **If
-you add an eleventh key here, add it there in the same commit** — a declared-but-
+nothing flagging it. All THIRTEEN are now in that tuple with real validators. **If
+you add a fourteenth key here, add it there in the same commit** — a declared-but-
 unenforced key is worse than no key, because the skill reads as if it is
 covered. — a review that can't show its
 promotion/training/soak coverage, its *execution-capture* measurement, its
