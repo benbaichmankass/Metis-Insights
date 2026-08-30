@@ -358,6 +358,8 @@ jobs:
             R2 — the run is not done when it exits 0, it is done when its rows are
             readable on `main`.
           branch-prefix: automation/gld-compat-verdicts
+          # Owned by the action, not copied here — see its `verify-merged` docs.
+          verify-merged: "true"
 
       # ⚠️ SCOPED ON *THIS RUN'S* STAMP, NEVER ON A FIELD THE STORE ALREADY HOLDS.
       # The store is cumulative, so `--field account_id --contains bybit` would be
@@ -411,45 +413,13 @@ jobs:
             echo "::error::the landing step did not commit (committed='${LAND_COMMITTED:-}' branch='${LAND_BRANCH:-}'), so 'pending_merge' cannot be told from 'absent'. The extractor emitted a fresh run stamp, so there was something to commit."
             exit 1
           fi
-          # ── WAIT FOR THE OWED MERGE, BOUNDED ────────────────────────────
-          # `commit-to-main` enables AUTO-merge, so the PR merges only after the
-          # required checks pass (~11 min). Asserting at T+0 would therefore
-          # report `pending_merge` on EVERY healthy run, forever — a workflow
-          # that is red whenever it succeeds is the desensitized-alarm P1, and
-          # the research queue would grade this job permanently failed.
-          #
-          # ⚠️ THIS IS NOT THE SAME SHAPE AS trainer-offload-train.yml OR THE
-          # e35 SWEEP, and it must not be "harmonised" with them. Those push a
-          # branch and open NO PR — a human is owed the PR, so `pending_merge`
-          # is their TERMINAL, honest state. Here the merge is automatic and
-          # genuinely arrives, so at T+0 it is a TRANSIENT state. Waiting turns
-          # a guaranteed red into a real signal.
-          #
-          # Bounded at 18 min against the job's 30-min budget, leaving the ~1 min
-          # already spent plus headroom. Exiting the moment it merges, not
-          # sleeping a fixed span. A timeout still ASSERTS rather than passing:
-          # it reports `pending_merge` non-zero, which at that point is a
-          # genuine finding — almost certainly
-          # BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH
-          # (measured 2026-08-30: 7 of 7 automation/* branches unmerged, three
-          # ~68 days old), which is exactly the condition worth waking someone for.
-          DEADLINE=$(( $(date +%s) + 18*60 ))
-          MERGED=no
-          while [ "$(date +%s)" -lt "${DEADLINE}" ]; do
-            STATE="$(gh pr view "${LAND_PR}" --json state --jq .state 2>/dev/null || echo UNKNOWN)"
-            if [ "${STATE}" = "MERGED" ]; then MERGED=yes; break; fi
-            if [ "${STATE}" = "CLOSED" ]; then
-              echo "::error::the landing PR ${LAND_PR} was CLOSED without merging — the rows will never reach main."
-              break
-            fi
-            # UNKNOWN is 'we could not read the PR', NOT 'not merged yet'. Keep
-            # polling rather than concluding, and let the assertion below be the
-            # thing that decides — it reads the refs, not the PR API.
-            echo "landing PR state=${STATE}; waiting for the auto-merge ($(( (DEADLINE - $(date +%s)) / 60 ))m left)"
-            sleep 30
-          done
-          echo "merged=${MERGED} after the bounded wait"
-
+          # The bounded wait for the owed auto-merge now lives in
+          # `commit-to-main` (verify-merged), so by the time this step runs the
+          # PR has merged or that step has already failed the job. This keeps
+          # only the question the action cannot answer: are THIS RUN'S rows in
+          # the file? `if: always()` means it still reports honestly when the
+          # landing step failed — `pending_merge`, naming the owed merge, rather
+          # than `absent`, which would allege the run produced nothing.
           git fetch origin "${DEFAULT_BRANCH:-main}" "${LAND_BRANCH}" 2>/dev/null || true
           echo "asserting THIS run's rows: run_generated_at=${STAMP}"
           python3 scripts/ci/assert_rows_landed.py \

@@ -164,22 +164,46 @@ def test_a_failed_landing_does_not_also_destroy_the_evidence():
         )
 
 
-def test_the_assertion_waits_for_the_owed_automerge():
+def test_the_landing_waits_for_the_owed_automerge():
     """commit-to-main enables AUTO-merge, so at T+0 the rows are never on main.
 
-    Asserting immediately would report `pending_merge` on every healthy run —
-    a workflow that is red whenever it succeeds trains everyone to ignore it,
-    and the research queue would grade this job permanently failed.
+    Landing without waiting would leave `pending_merge` as the verdict on every
+    healthy run — a workflow that is red whenever it succeeds trains everyone to
+    ignore it, and the research queue would grade this job permanently failed.
+
+    The wait lives in the shared action, not inline here: this workflow and
+    research-queue-dispatch.yml both need it, and two copies of a wait keyed on
+    the action's own PR url is how they drift.
     """
-    body = _named("Assert the rows actually landed")["run"]
-    assert "DEADLINE" in body and "MERGED" in body, "no bounded wait for the merge"
-    assert "gh pr view" in body, "the wait must observe the PR, not sleep blind"
-    # A timeout must still ASSERT. Passing on an unmerged branch is the exact
-    # over-reporting `--min-rows 1` over a cumulative store already permitted.
-    assert "exit 0" not in body.split("DEADLINE")[1].split("assert_rows_landed")[0], (
-        "the bounded wait must fall through to the assertion on timeout, "
-        "never exit 0 having given up"
+    land = [s for s in _steps()
+            if str(s.get("uses", "")).endswith("commit-to-main")][0]
+    assert str(land.get("with", {}).get("verify-merged", "")).lower() == "true", (
+        "the landing step must wait for its own auto-merge"
     )
+
+
+def test_the_shared_action_actually_waits_and_fails_rather_than_giving_up():
+    """A timeout must FAIL, never exit 0 having given up.
+
+    Passing on an unmerged branch is precisely the over-reporting that
+    `--min-rows 1` over a cumulative store already permitted once.
+    """
+    body = (REPO / ".github/actions/commit-to-main/action.yml").read_text()
+    assert "VERIFY_MERGED" in body and "DEADLINE" in body, "no bounded wait"
+    assert "gh pr view" in body, "the wait must observe the PR, not sleep blind"
+    tail = body.split("DEADLINE=$")[1]
+    assert "did not merge within" in tail and "exit 1" in tail, (
+        "the wait must exit NON-ZERO on timeout"
+    )
+    # `UNKNOWN` is 'we could not read the PR', not 'not merged'. Concluding
+    # either way from an unreadable state is the collapse this repo files as a bug.
+    assert "UNKNOWN" in tail, "an unreadable PR state must not be read as a verdict"
+
+
+def test_verify_merged_defaults_off_so_existing_callers_are_unchanged():
+    action = yaml.safe_load(
+        (REPO / ".github/actions/commit-to-main/action.yml").read_text())
+    assert action["inputs"]["verify-merged"]["default"] == "false"
 
 
 def test_the_landing_step_is_addressable():

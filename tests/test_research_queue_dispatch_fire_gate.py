@@ -103,3 +103,37 @@ def test_the_assertions_are_not_vacuous(tmp_path, bad_if):
             if "Land the dispatch stamps" in str(s.get("name", ""))][0]
     step["if"] = bad_if
     assert step["if"].strip() != "env.FIRE == 'true'"
+
+
+def test_the_dispatch_stamp_is_verified_to_actually_merge():
+    """The stamp is this workflow's ONLY idempotency, and it was unverified.
+
+    The step's own comment warns that a fired-but-unstamped job "re-fires
+    forever" — and guarded only ONE route to that state (the FIRE gate). The
+    other is the stamp PR stranding: `commit-to-main` exits 0 when the PR is
+    OPENED, so `last_dispatched_at` never reaches main and the dispatcher
+    re-fires the same job every day indefinitely, burning a runner each time and,
+    for a GPU-routed job, real money against the spend ledger.
+
+    Measured the day this cron was armed: 5 stranded `automation/*` branches on
+    origin, the oldest 10 weeks.
+    """
+    land = _stamp_step(_job())
+    assert str(land.get("with", {}).get("verify-merged", "")).lower() == "true", (
+        "the stamp must be verified to MERGE, not merely to have opened a PR — "
+        "an unverified stamp makes the armed cron re-fire forever"
+    )
+
+
+def test_the_job_budget_outlasts_the_merge_wait():
+    """A budget under the wait kills the job mid-wait and reports a false timeout."""
+    import yaml as _yaml
+    wf = _yaml.safe_load(WF.read_text())
+    budget = wf["jobs"]["dispatch"]["timeout-minutes"]
+    action = _yaml.safe_load(
+        (WF.parents[2] / ".github/actions/commit-to-main/action.yml").read_text())
+    wait = int(action["inputs"]["verify-timeout-minutes"]["default"])
+    assert budget > wait, (
+        f"job timeout-minutes ({budget}) must exceed the merge wait ({wait}), "
+        "or a stamp that was about to land is reported as a timeout"
+    )
