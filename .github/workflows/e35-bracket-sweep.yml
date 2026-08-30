@@ -462,10 +462,45 @@ jobs:
       # would blame the job for work it actually did.
       - name: assert the corpus rows landed
         if: always()
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
-          git fetch origin "${DEFAULT_BRANCH:-main}" "${CORPUS_TARGET}" 2>/dev/null || true
+          set -uo pipefail
+          # ⚠️ RUN-SCOPED, AND THAT IS THE WHOLE POINT.
+          #
+          # This asserted `--field cell --contains sm --min-rows 1` until
+          # 2026-08-30. `e35-bracket-corpus.jsonl` is CUMULATIVE, so that
+          # predicate was satisfied by HISTORY and the check could never fail —
+          # `assert_rows_landed`'s `pending_merge` branch was unreachable.
+          # Measured on run 33306805155: it reported
+          #   `landed — 6624 rows with cell containing 'sm' (need >= 1) of 8289`
+          # while EVERY ONE of that run's rows sat on an unmerged side branch.
+          # All 6,624 predate the run. One-way failure: it could only ever
+          # over-report `landed`, which is the direction that matters, because
+          # R2 is credited as wired on this workflow and its green read as
+          # evidence the rows had arrived.
+          #
+          # `sweep_generated_at` is the ONLY run-distinguishing field these rows
+          # carry — `run_id` is absent from all 8,294 of them (it exists only in
+          # the m20 corpus, where it holds a timestamp, not a GitHub run id).
+          if [ ! -f extract.out ]; then
+            echo "::error::extract.out is missing — the extract step did not run, so there is nothing to assert. NOT falling back to a cumulative predicate."
+            exit 1
+          fi
+          STAMP="$(sed -n 's/^run-stamp: //p' extract.out | tail -1)"
+          if [ -z "${STAMP}" ]; then
+            echo "::error::no run-stamp in extract.out — the assertion cannot be scoped to THIS run. Falling back to the cumulative predicate is the defect this replaced, so this fails instead."
+            exit 1
+          fi
+          TARGET="${CORPUS_TARGET:-}"
+          if [ -z "${TARGET}" ]; then
+            echo "::error::CORPUS_TARGET is unset - the push step did not complete, so 'pending_merge' cannot be told from 'absent'."
+            exit 1
+          fi
+          echo "asserting THIS run's rows: sweep_generated_at=${STAMP}"
+          git fetch origin "${DEFAULT_BRANCH:-main}" "${TARGET}" 2>/dev/null || true
           python3 scripts/ci/assert_rows_landed.py \
             --store docs/research/e35-bracket-corpus.jsonl \
             --ref "origin/${DEFAULT_BRANCH:-main}" \
-            --pushed-ref "origin/${CORPUS_TARGET}" \
-            --field cell --contains sm --min-rows 1
+            --pushed-ref "origin/${TARGET}" \
+            --field sweep_generated_at --contains "${STAMP}" --min-rows 1

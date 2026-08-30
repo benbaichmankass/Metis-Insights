@@ -236,7 +236,80 @@ def eval_state_for(
     return "not_evaluating"
 
 
+#: Signal-vs-journal states. A THIRD axis, orthogonal to both the order
+#: ``verdict`` and the ``eval_state`` above, and never merged into either.
+#:
+#: ⚠️ **THIS AXIS EXISTS BECAUSE THE OTHER TWO CANNOT SEE ITS FINDING.**
+#: ``verdict_for`` grades a leg from its journal-row counts and says so in its
+#: own docstring: *a caller with zero rows has observed nothing and must say so
+#: rather than grade it*. ``eval_state_for`` asks only whether the leg RAN. So a
+#: leg that evaluates constantly, emits actionable buy/sell signals, and writes
+#: NOTHING to the journal grades ``evaluating`` on one axis and is absent
+#: entirely from the other — which is not a gap in either, it is a question
+#: neither was asked.
+#:
+#: Measured 2026-08-30 on the live journal, which is why this is not
+#: hypothetical: ``trend_donchian_sol`` is ``enabled: true`` / ``execution:
+#: live`` and routed to ``bybit_1``. It emitted **144 actionable buy signals**
+#: between 2026-08-02 and 2026-08-29, and its most recent journal row of ANY
+#: kind is **2026-06-29** — two months earlier. Every one of its 7 trade rows
+#: is on ``breakout_1``; it has **never** written a row on ``bybit_1``. Nothing
+#: alerted for two months, because ``/health-review``'s silence check reads
+#: ``*_eval`` events (it evaluates, so: fine), ``silent_refusal_alert`` grades
+#: per ACCOUNT (``bybit_1`` places plenty for OTHER legs, so: fine), and this
+#: audit's own leg table is built from ``trades`` rows (it has none, so: absent).
+SIGNAL_JOURNAL_STATES = (
+    "journaling", "signals_never_journaled", "no_actionable_signals", "unknown",
+)
+
+
+def signal_journal_state_for(
+    actionable_signals_in_window: Any,
+    journal_rows_in_window: Any,
+    *,
+    table_present: bool = True,
+) -> str:
+    """Grade one STRATEGY on "it signalled — did it journal anything?".
+
+    ``signals_never_journaled`` is the finding: the leg asked for an order and
+    the journal has no record of one being attempted, refused, or placed.
+
+    ``no_actionable_signals`` is **not** health and must never be rendered as
+    such — it means the leg produced nothing to compare, which is the ordinary
+    state of a breakout leg sitting inside its channel. Whether that silence is
+    itself wrong is ``eval_state_for``'s question, not this one.
+
+    ``unknown`` when the ``signals`` dual-write is absent or unreadable, or a
+    count will not parse — the honest value for *we did not look*. It is
+    deliberately NOT ``no_actionable_signals``: reading a missing table as
+    "this leg never signalled" would silence the entire fleet the moment
+    ``SIGNAL_DUAL_WRITE_DISABLED`` is set, which is the failure this whole
+    family exists to prevent (a detector that cannot fire is worse than none,
+    because its silence reads as a clean bill of health).
+
+    ⚠️ **THE ROW COUNT MUST INCLUDE REFUSALS AND ORDER PACKAGES, NOT JUST
+    FILLS.** A refused order IS a journal record — the leg reached the journal
+    and was turned away, which is ``verdict_for``'s question and already has an
+    owner. Counting fills only would re-report every refusing leg here and bury
+    the one leg that writes nothing at all.
+    """
+    if not table_present:
+        return "unknown"
+    try:
+        signals = int(actionable_signals_in_window or 0)
+        rows = int(journal_rows_in_window or 0)
+    except (TypeError, ValueError):
+        # A count we cannot read is not a count of zero.
+        return "unknown"
+    if signals <= 0:
+        return "no_actionable_signals"
+    if rows <= 0:
+        return "signals_never_journaled"
+    return "journaling"
+
+
 __all__ = [
     "PLACED_STATUSES", "REFUSED_STATUSES", "EVAL_STATES",
-    "bucket_for", "verdict_for", "eval_state_for",
+    "SIGNAL_JOURNAL_STATES",
+    "bucket_for", "verdict_for", "eval_state_for", "signal_journal_state_for",
 ]
