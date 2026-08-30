@@ -40,8 +40,21 @@ def test_yaml_entry_pins_validated_params():
     # BTC leg only (4/6 folds incl. 2025+2026); the ETH folds did not pass,
     # so ETH stays at the WS-C-validated 5.0. Pinned per leg, not by equality.
     assert btc["trail_mult"] == 4.0, "htf_pullback_trend_2h trail_mult drifted from the M20-approved 4.0"
-    for k in ("trend_lookback", "pullback_lookback", "pullback_frac",
-              "atr_period", "atr_stop_mult"):
+    # atr_stop_mult diverges DELIBERATELY since the 2026-08-29 e35 re-check
+    # (Tier-3, operator-approved) — the SECOND param to leave the equality set,
+    # for the same reason trail_mult did, so pin each leg to its OWN evidence
+    # rather than loosening the check to make the two agree:
+    #   * BTC  htf_pullback_trend_2h -> 3.0, cell `sm3` (path_b_wf_pass, wf 4/6,
+    #     d_net_r +20.2306) on sweep run 33277532648.
+    #   * ETH  eth_pullback_2h stays 2.5 — its own e35 verdict is
+    #     `blocked:no_live_bar_count_exit`: every cell that cleared the gate on
+    #     that leg carries a `to<N>` timeout component, and no live unit
+    #     implements a bar-count exit, so it has ZERO shippable cells.
+    # The two legs are not expected to converge again unless ETH later produces
+    # a shippable winner of its own.
+    assert btc["atr_stop_mult"] == 3.0, "htf_pullback_trend_2h atr_stop_mult drifted from the e35 sm3 cell"
+    assert s["atr_stop_mult"] == 2.5, "eth_pullback_2h atr_stop_mult drifted from its WS-C-validated 2.5"
+    for k in ("trend_lookback", "pullback_lookback", "pullback_frac", "atr_period"):
         assert s[k] == btc[k], f"eth_pullback_2h {k} drifted from the BTC leg"
 
 
