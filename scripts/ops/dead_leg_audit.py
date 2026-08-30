@@ -61,7 +61,9 @@ from typing import Any, Dict, List, Optional
 # NOT re-exported here: nothing imports them from this module, and a re-export
 # kept "for compatibility" with no importer is just a second name for the same
 # constant, which is the drift this move exists to remove.
-from src.runtime.dead_leg import bucket_for, eval_state_for, verdict_for  # noqa: E402
+from src.runtime.dead_leg import (  # noqa: E402
+    bucket_for, eval_state_for, signal_journal_state_for, verdict_for,
+)
 
 
 def _resolve_db(explicit: Optional[str]) -> str:
@@ -122,18 +124,27 @@ def _eval_liveness(conn: sqlite3.Connection, days: int) -> Optional[Dict[str, Di
                    COUNT(*)                                              AS ever,
                    SUM(CASE WHEN substr(replace(logged_at_utc,'T',' '),1,19)
                              >= datetime('now', ?) THEN 1 ELSE 0 END)    AS in_window,
-                   MAX(logged_at_utc)                                    AS last_eval
+                   MAX(logged_at_utc)                                    AS last_eval,
+                   -- ACTIONABLE only: a signal that asked for an order. Rides
+                   -- the SAME grouped scan as the eval counts above rather than
+                   -- a second pass over a 2.1M-row table.
+                   SUM(CASE WHEN LOWER(COALESCE(side,'')) IN ('buy','sell')
+                             AND substr(replace(logged_at_utc,'T',' '),1,19)
+                             >= datetime('now', ?) THEN 1 ELSE 0 END)    AS act_in_window,
+                   MAX(CASE WHEN LOWER(COALESCE(side,'')) IN ('buy','sell')
+                            THEN logged_at_utc END)                      AS last_actionable
               FROM signals
              WHERE strategy IS NOT NULL
              GROUP BY strategy
             """,
-            (f"-{int(days)} days",),
+            (f"-{int(days)} days", f"-{int(days)} days"),
         )
         rows = cur.fetchall()
     except sqlite3.Error:
         return None
     return {
-        r[0]: {"ever": r[1] or 0, "in_window": r[2] or 0, "last_eval_utc": r[3]}
+        r[0]: {"ever": r[1] or 0, "in_window": r[2] or 0, "last_eval_utc": r[3],
+               "actionable_in_window": r[4] or 0, "last_actionable_utc": r[5]}
         for r in rows
     }
 
@@ -193,6 +204,38 @@ def audit(db: str, days: int) -> Dict[str, Any]:
         )
         rows = cur.fetchall()
         evals = _eval_liveness(conn, days)
+        # Per-STRATEGY order-package count. A package IS a journal record even
+        # when no trade row follows, so counting `trades` alone would report a
+        # leg that journals its decision and stops as if it journalled nothing.
+        # `None` is *we could not look* and is kept distinct from an empty map.
+        try:
+            pkgs = {
+                r[0]: r[1] for r in conn.execute(
+                    """
+                    SELECT strategy_name, COUNT(*)
+                      FROM order_packages
+                     WHERE strategy_name IS NOT NULL
+                       -- BOTH sides parsed, never compared raw.
+                       -- `order_packages.created_at` is ISO-8601 with a `T`
+                       -- and an offset (`2026-06-29T17:13:53.043253+00:00`)
+                       -- while `datetime('now',?)` yields
+                       -- `YYYY-MM-DD HH:MM:SS`. Compared as STRINGS those
+                       -- agree on the date and disagree at character 11
+                       -- (`T` 0x54 vs space 0x20), so every package on the
+                       -- boundary DATE sorts as in-window regardless of its
+                       -- time — and an over-counted package here would mask
+                       -- the very finding this axis exists to raise, by
+                       -- making a silent leg look like it journalled.
+                       -- `datetime()` also normalises the offset to UTC,
+                       -- which a substr/replace strip would not.
+                       AND datetime(created_at) >= datetime('now', ?)
+                     GROUP BY strategy_name
+                    """,
+                    (f"-{int(days)} days",),
+                ).fetchall()
+            }
+        except sqlite3.Error:
+            pkgs = None
     finally:
         conn.close()
 
@@ -255,9 +298,65 @@ def audit(db: str, days: int) -> Dict[str, Any]:
                 "evals_ever": ev.get("ever"),
             })
 
+    # THIRD AXIS — "it signalled; did it journal anything?".
+    #
+    # Sourced from `signals`, NOT from `legs`, and that is the entire point:
+    # `legs` is built from `trades` rows, so a strategy with zero rows never
+    # gets an entry and is absent from `out`/`dead` altogether. A leg that
+    # signals into a void is invisible to every other section of this report.
+    trade_rows_by_strategy: Dict[str, int] = {}
+    for leg in legs.values():
+        trade_rows_by_strategy[leg["strategy"]] = (
+            trade_rows_by_strategy.get(leg["strategy"], 0) + leg["total_rows"])
+
+    signal_journal: List[Dict[str, Any]] = []
+    state_counts: Dict[str, int] = {}
+    for name, ev in sorted((evals or {}).items()):
+        n_trades = trade_rows_by_strategy.get(name, 0)
+        n_pkgs = (pkgs or {}).get(name, 0)
+        # A package read failure must not be laundered into "zero packages" —
+        # that would turn *we could not look* into the finding itself.
+        table_present = evals is not None and pkgs is not None
+        if not table_present:
+            # The axis is unreadable as a WHOLE. Emitting one `unknown` row per
+            # strategy would restate a single fact N times and bury any real
+            # finding under it; the denominator below goes None and the report
+            # says "we did not look" ONCE. Not a silent skip — a skip whose
+            # reason is rendered.
+            continue
+        state = signal_journal_state_for(
+            ev.get("actionable_in_window"), n_trades + n_pkgs,
+            table_present=table_present,
+        )
+        state_counts[state] = state_counts.get(state, 0) + 1
+        if state in ("journaling", "no_actionable_signals"):
+            # Counted above, not listed. The two are NOT the same fact and the
+            # render reports them separately: "everything journals" and "almost
+            # nothing signalled" look identical in a bare finding count, and the
+            # second means this axis observed very little.
+            continue
+        signal_journal.append({
+            "strategy": name,
+            "state": state,
+            "actionable_signals_in_window": (
+                ev.get("actionable_in_window") if table_present else None),
+            "trade_rows_in_window": n_trades if table_present else None,
+            "order_package_rows_in_window": n_pkgs if pkgs is not None else None,
+            "last_actionable_utc": ev.get("last_actionable_utc"),
+        })
+    signal_journal.sort(
+        key=lambda r: -(r.get("actionable_signals_in_window") or 0))
+
     return {
         "db": db,
         "window_days": days,
+        # STATE THE DENOMINATOR: how many strategies this axis could grade at
+        # all. A short `signal_journal` list over a tiny denominator is not a
+        # clean bill of health.
+        "signal_journal_strategies_graded": (
+            len(evals) if (evals is not None and pkgs is not None) else None),
+        "signal_journal_state_counts": state_counts,
+        "signal_journal": signal_journal,
         # The denominator that licenses every negative below, carried in the
         # payload so a JSON consumer sees it too rather than only the CLI reader.
         "nonbacktest_rows_in_db": total_rows,
@@ -353,6 +452,63 @@ def _render(report: Dict[str, Any]) -> str:
             "raised) — this",
             "is `we did not look`, NOT `every leg is running`. Check "
             "SIGNAL_DUAL_WRITE_DISABLED.",
+        ]
+
+    # THIRD AXIS. Rendered LAST and separately because it is the section whose
+    # subjects appear nowhere else in this report.
+    sj = report.get("signal_journal") or []
+    graded = report.get("signal_journal_strategies_graded")
+    if graded is None:
+        lines += [
+            "",
+            "SIGNAL-vs-JOURNAL axis UNREADABLE (`signals` or `order_packages` "
+            "could not be read) —",
+            "this is `we did not look`, NOT `every leg journals what it "
+            "signals`.",
+        ]
+    elif sj:
+        lines += [
+            "",
+            f"SIGNALLED BUT NEVER JOURNALED ({len(sj)} of {graded} strategies "
+            "graded) — the leg asked",
+            "for an order and the journal has NO record of one being placed, "
+            "refused, or even",
+            "packaged. These legs produce no trade rows, so they appear in NO "
+            "leg line above:",
+        ]
+        _c = report.get("signal_journal_state_counts") or {}
+        lines.append(
+            f"  (of {graded} graded: {_c.get('journaling', 0)} journaling, "
+            f"{_c.get('no_actionable_signals', 0)} with no actionable signal "
+            f"to compare)"
+        )
+        for r in sj:
+            lines.append(
+                f"  🚨 {r['strategy']:<30} "
+                f"{r['actionable_signals_in_window']} actionable signal(s), "
+                f"{r['trade_rows_in_window']} trade + "
+                f"{r['order_package_rows_in_window']} package row(s); "
+                f"last actionable {r['last_actionable_utc']}"
+            )
+        lines += [
+            "",
+            "  ⚠️  This is NOT the same finding as `signalled_never_placed`. "
+            "That leg reached the",
+            "      journal and was turned away — it has rows, and an owner. "
+            "This one has NO rows",
+            "      at all, which is why no per-account detector can see it: an "
+            "account that places",
+            "      fine for its other legs grades healthy, and the silent leg "
+            "is simply absent.",
+        ]
+    else:
+        counts = report.get("signal_journal_state_counts") or {}
+        lines += [
+            "",
+            f"Signal-vs-journal: no strategy signalled into a void "
+            f"({graded} graded — {counts.get('journaling', 0)} journaling, "
+            f"{counts.get('no_actionable_signals', 0)} had no actionable "
+            f"signal to compare).",
         ]
     return "\n".join(lines)
 
