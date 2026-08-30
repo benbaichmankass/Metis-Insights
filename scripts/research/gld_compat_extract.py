@@ -111,7 +111,7 @@ def main(argv=None) -> int:
             fh.write(json.dumps(r, sort_keys=True) + "\n")
 
     # READ IT BACK. `exit 0` from a write is not evidence the write landed.
-    back = [json.loads(l) for l in store.read_text().splitlines() if l.strip()]
+    back = [json.loads(ln) for ln in store.read_text().splitlines() if ln.strip()]
     mine = [r for r in back if r.get("run_generated_at") in set(stamps)]
     if len(mine) != len(incoming):
         print(f"::error::wrote {len(incoming)} rows but read back {len(mine)} for "
@@ -127,9 +127,11 @@ def _selftest() -> int:
 
     def check(name, cond):
         nonlocal ok, fail
-        if cond: ok += 1
+        if cond:
+            ok += 1
         else:
-            fail += 1; print(f"  FAIL: {name}")
+            fail += 1
+            print(f"  FAIL: {name}")
 
     p = {"generated_at": "2026-08-30T10:00:00+00:00", "strategy": "gld_pullback_1h",
          "symbol": "GLD", "rows": [{"account": "alpaca_portfolio", "verdict": "ROUTE",

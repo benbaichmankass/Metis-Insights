@@ -95,7 +95,8 @@ def test_the_job_checks_out_with_a_pat():
 
 def test_round_trip_through_the_store(tmp_path):
     """Positive control for the refusals above: a real payload IS written."""
-    d = tmp_path / "in"; d.mkdir()
+    d = tmp_path / "in"
+    d.mkdir()
     (d / "compat_gld.json").write_text(json.dumps({
         "generated_at": "2026-08-30T10:00:00+00:00", "strategy": "gld_pullback_1h",
         "rows": [{"account": "alpaca_portfolio", "verdict": "ROUTE"}]}))
