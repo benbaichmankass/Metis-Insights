@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-29",
+  "updated_at": "2026-08-30",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -29342,6 +29342,18 @@
       "trigger_condition": "Any of the six dispatched as a system-action, or run by absolute path from a cwd other than the repo root.",
       "resolution_criteria": "Add the existing four-line bootstrap (copy flatten_bybit_position.py:47-54) to each of the six, and prove each fix with a SUBPROCESS test that invokes the script by absolute path from a foreign cwd — an in-process import test cannot fail on this and is therefore vacuous here. Each test must be shown to FAIL with the bootstrap removed before it is trusted (the control run that was done for bybit_switch_position_mode). Closable when all six pass such a test. Better-but-larger alternative, if a reviewer prefers it: have the wrappers export PYTHONPATH=\"${REPO_DIR}\" in _lib.sh so the class cannot recur per-script — that fixes it once at the shared layer rather than six times, and would also cover scripts added later.",
       "evidence": "system-action issue #10446 (the live traceback); scripts/ops/flatten_bybit_position.py:47-54 (the correct idiom, with its own comment naming this exact hazard); tests/ops/test_bybit_switch_position_mode.py::test_runs_standalone_from_a_foreign_cwd (the regression test + its removed-bootstrap control)"
+    },
+    {
+      "id": "BL-20260830-FULL-SUITE-FAILURE-COUNT-VARIES-RUN-TO-RUN-BY-ONE",
+      "opened": "2026-08-30",
+      "severity": "low",
+      "tier": 1,
+      "status": "open",
+      "area": "tests",
+      "summary": "The full pytest suite produced a failure count that varied run-to-run by one, and the extra failure could not be reproduced or identified. Measured 2026-08-30 in the sandbox (which is missing ccxt/pybit/psutil/sklearn, so it carries a stable 27-failure environment baseline).",
+      "detail": "SEQUENCE, so the denominator is visible: a run on the Tier-3 geometry branch BEFORE one leg was reverted gave 30 failed / 13382 passed. A run on clean origin/main gave 27 / 13385. A run on the same branch AFTER the revert gave 27 / 13385 with a failure set BYTE-IDENTICAL to the baseline in both directions (comm -23 and comm -13 both empty). The reverted leg reproducibly causes exactly 2 failures, verified by re-applying its config value and re-running every test file that names either that leg or the coverage matrix: 2 failed / 100 passed. So 27 + 2 = 29, and the 30-failure run has ONE failure that is unexplained.\n\nIT DID NOT REPRODUCE and it is NOT identified: the run that saw it did not retain its own FAILED lines (the background capture kept only the tail), so there is no name to chase. A fourth run on the branch mid-way through a `git stash` gave 29 and is discarded as an unreliable measurement — its tree changed underneath it.\n\nSUSPECTED but NOT established: an order-dependent or timing-sensitive test, which is the ordinary cause of a +/-1 spread across otherwise identical suites. Recorded as a suspicion. What IS established is that the current tree carries exactly the baseline failures and nothing more, so nothing is being masked by this.\n\nWHY IT IS WORTH A ROW AT ALL: a suite whose count moves by one without explanation quietly erodes the meaning of green, and the next session comparing counts rather than SETS would reach a wrong conclusion cheaply. The set-diff (comm against a clean-tree baseline) is the technique that made this visible and should be the default for any Tier-3 change, not the count.",
+      "resolution_criteria": "Either the flaky test is identified (e.g. by running the suite with -p no:randomly and with several seeds, or by capturing full FAILED lines across repeated runs) and made deterministic, or three consecutive full-suite runs on an unchanged tree produce identical failure SETS, establishing that the variance is gone. Explicitly NOT sufficient: a single green run, or matching counts without comparing the sets.",
+      "refs": "PR #10450 · docs/sprint-logs/S-E35-SHIP-REVERSED-GEOMETRY-2026-08-30.md"
     }
   ]
 }
