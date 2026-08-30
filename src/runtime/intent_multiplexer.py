@@ -896,4 +896,28 @@ def multiplexed_intent_signal_builder(
         )
     except Exception:  # noqa: BLE001 — observe-only soak must never break a tick
         logger.debug("allocator_soak: record failed", exc_info=False)
+    # Lane P/P3 (observe-only): what per-ACCOUNT arbitration would change.
+    # `aggregate_intents` above picked ONE winner per SYMBOL globally, before
+    # account fan-out, so two accounts running the same strategy on the same
+    # symbol compete and the loser's account is silently starved — it produces
+    # no order package, so it is invisible to every per-account detector AND to
+    # the journal. Measured live: `trend_donchian_sol` (bybit_1) has 144
+    # actionable buy signals since 08-01 and ZERO journal rows on that account.
+    #
+    # This records the starvation ONLY. It deliberately does NOT re-run
+    # `aggregate_intents` per account to elect a per-account winner, because
+    # that would re-enter `_hard_regime_gate` and re-emit a `regime_hard_gate`
+    # audit row per account per tick — corrupting the one signal that cleanly
+    # partitions "would have gated" from "did gate".
+    #
+    # Routing is UNCHANGED. Fail-permissive.
+    try:
+        from src.runtime.arbitration_fanout_soak import record as _record_fanout
+        _record_fanout(
+            [i.strategy for i in intents],
+            desired.winning_intent.strategy if desired.winning_intent else None,
+            symbol=symbol,
+        )
+    except Exception:  # noqa: BLE001 — observe-only soak must never break a tick
+        logger.debug("arbitration_fanout_soak: record failed", exc_info=False)
     return signal
