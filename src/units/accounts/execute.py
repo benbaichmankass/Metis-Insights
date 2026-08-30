@@ -1538,8 +1538,41 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
             bybit_position_mode.apply_position_idx(
                 kwargs, account_cfg.get("account_id"), order["symbol"], _pos_side,
             )
-            resp = client.place_order(**kwargs)
-            return str((resp.get("result") or {}).get("orderId") or uuid.uuid4().hex)
+            resp = client.place_order(**kwargs) or {}
+            # BL-20260830: this branch used to skip the retCode check that the
+            # alpaca / oanda / ib branches all perform, and fall back to
+            # `uuid.uuid4().hex` when no orderId came back — so a refusal that
+            # RETURNS rather than raises produced a FABRICATED order id and a
+            # journal row for a position the venue never opened.
+            #
+            # pybit's behaviour is mixed, which is the whole argument for
+            # checking: ErrCode 10001 raises (the 20 AVAX venue-max rows carry
+            # the RuntimeError text from the handler below), while this file's
+            # own comment at the sub-min-lot pre-check records that Bybit
+            # "returns retCode != 0 (no exception)" for a below-min-lot qty.
+            # Checking is correct under BOTH, and costs nothing.
+            #
+            # `None` is treated as acceptable to mirror `_submit_test_order`
+            # exactly — a response with no retCode key at all is not a venue
+            # refusal, and the two sibling code paths must not disagree about
+            # what counts as one.
+            ret_code = resp.get("retCode")
+            if ret_code not in (0, "0", None):
+                reason = str(resp.get("retMsg") or "")
+                raise RuntimeError(
+                    f"Bybit refused the order: retCode={ret_code} {reason}".strip()
+                )
+            order_id = (resp.get("result") or {}).get("orderId")
+            if not order_id:
+                # Accepted-looking but nameless. Inventing an id here is what
+                # made a refusal indistinguishable from a fill; a raise routes
+                # it through the handler below, which reports the API failure
+                # and journals the row as exchange_rejected.
+                raise RuntimeError(
+                    "Bybit accepted the order but returned no orderId "
+                    f"(retCode={ret_code!r}) — refusing to fabricate a trade id"
+                )
+            return str(order_id)
     except BelowVenueMinQtyRefusal as exc:
         # BL-20260716-BYBIT2-SUBMIN-QTY: a sub-lot-minimum refusal is a benign
         # per-trade skip, not an exchange/API failure. Do NOT route it through
