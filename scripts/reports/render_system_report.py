@@ -794,6 +794,17 @@ def flags_blob_of(rc: dict) -> str:
     return " ".join(str(f) for f in (rc.get("flags_raised") or []))
 
 
+#: Phrases that make a 'disposition' vacuous. MODULE-LEVEL since 2026-08-30 so
+#: it is IMPORTABLE: `scripts/research/research_disposition.py` enforces the same
+#: rule on research-result dispositions, and a second hand-typed copy of 'what
+#: counts as a non-reason' would be free to drift -- silently WIDENING what
+#: passes as a real reason in one of the two places.
+_NON_REASONS = (
+    "no new evidence", "carried forward", "no time", "didn't look",
+    "did not look", "not looked", "unchanged", "as before", "same as",
+)
+
+
 def _validate_review_coverage(report: dict) -> list[str]:
     """Return a list of coverage violations (empty = clean).
 
@@ -824,10 +835,6 @@ def _validate_review_coverage(report: dict) -> list[str]:
     # actionable — but it must be SAID in `summary`, not achieved by silence.
     #
     # CLAUDE-RULES-CANONICAL § "Backlog governance", rule 5.
-    _NON_REASONS = (
-        "no new evidence", "carried forward", "no time", "didn't look",
-        "did not look", "not looked", "unchanged", "as before", "same as",
-    )
     disposed = 0
     for domain in ("health", "performance", "ml"):
         blk = rc.get("backlog_drive", {}).get(domain) or {}
