@@ -1,9 +1,14 @@
 ---
 name: performance-review
-description: Autonomous review of the ICT trading bot's TRADING PERFORMANCE — per-strategy aggregate stats, per-order-package decision grading, comparison against actual closed-trade PnL, and proposed tweaks to consider. Reviews the M13 AI-analyst insights log (/api/bot/insights/*) and cross-checks its claims against real data. Owns comms/claude_strategy_scores.jsonl (per-decision grading, append-only) and docs/claude/performance-review-backlog.json (future trading follow-ups / strategy tweak ideas). Use when the operator says "run the performance review", "/performance-review", "score the recent trades", or "how are the strategies doing". NOT for ML/model perf (use /ml-review) and NOT for system/pipeline plumbing (use /health-review).
+description: Autonomous review of the ICT trading bot's TRADING PERFORMANCE and its RESEARCH PIPELINE — per-strategy aggregate stats, per-order-package decision grading, comparison against actual closed-trade PnL, and proposed tweaks to consider. Reviews the M13 AI-analyst insights log (/api/bot/insights/*) and cross-checks its claims against real data. ALSO owns the research pipeline end to end (2026-08-30): are backtests queued and routable, are they running, were their results READ and dispositioned, what analysis follows, and what action item comes out. Owns comms/claude_strategy_scores.jsonl (per-decision grading, append-only), docs/claude/performance-review-backlog.json (trading follow-ups) and docs/claude/research-review-backlog.json (research/evidence follow-ups). Also answers \"did anyone read that sweep\", \"is the research queue healthy\", \"/research-review\". Use when the operator says "run the performance review", "/performance-review", "score the recent trades", or "how are the strategies doing". NOT for ML/model perf (use /ml-review) and NOT for system/pipeline plumbing (use /health-review).
 ---
 
-# /performance-review — trading + strategy performance review
+# /performance-review — trading performance + the research pipeline
+
+> Also answers to **`/research-review`**. The two halves share a session because a
+> research verdict (*this bracket cell improves this leg*) and a performance
+> reading (*this leg is bleeding*) are the two inputs to the same decision — but
+> they keep **separate backlogs**, because they are graded against different bars.
 
 > **⚠️ READ FIRST — WHAT THIS SESSION IS.** This is **full end-to-end QA of the
 > trading/strategy layer**, NOT a scan-and-sweep-under-the-rug exercise. Your job
@@ -317,6 +322,104 @@ false` if the generator hasn't run yet) and:
   hours), note it as `insights_staleness: watch`. The generator is
   the responsible owner — not this skill — but staleness affects the
   dashboard users see.
+
+## The research pipeline — is it running, and is anyone READING it?
+
+**Operator directive, 2026-08-30.** Asked what should happen when a review finds
+landed-but-unread results: *"It should read the results and decide what to do
+with them — basically, I want the handling of this pipeline to become part of
+the performance review … ensuring there is a healthy pipeline of backtests,
+monitoring that they are running properly, reviewing and validating results,
+running analyses to infer decisions, and then creating and implementing action
+items based on the findings."*
+
+So this session owns the research pipeline end to end, and it is **five stages,
+not one**. A review that reports "N sweeps ran" has done stage 2 and skipped the
+three that produce a decision.
+
+⚠️ **WHY THIS EXISTS.** R1–R6 of
+[`docs/research/RESEARCH-WORKFLOW-ARCHITECTURE-2026-08-27.md`](../../../docs/research/RESEARCH-WORKFLOW-ARCHITECTURE-2026-08-27.md)
+stop at *landed* — R2 makes landing part of the run and **no stage covers
+read**. Measured 2026-08-30, `grep -c 'corpus\|research/queue'` across the
+system-review / health-review / performance-review / ml-review / research-driver
+SKILL.md files returned **0 for all five**: the research pipeline was invisible
+to every review this repo runs. First survey: **92 unread / 196 superseded /
+0 dispositioned** — every sweep the fleet has ever run landed and was
+dispositioned by nothing.
+
+⚠️ **This is NOT the question `provenance-consumer-guard` asks.** Eight analysis
+scripts read these corpora, so a consumer EXISTS. This asks one level over:
+**was a consumer RUN, on THIS batch, and did a decision come out of it.** A tool
+that *could* have read a result is not a record that anyone did.
+
+### Stage 1 — is the pipeline HEALTHY (are jobs queued and routable)?
+
+Read `research/queue/*.yaml` through `scripts/research/research_queue.py`. Report
+how many jobs are `cleared` / `underpowered` / `undeclared` / `unverifiable` /
+`not_applicable`, and how many route `runner` / `trainer` / `gpu` / `unroutable`.
+⚠️ **`not_applicable` is NOT `cleared`** — a deterministic job never took the
+power test. **An EMPTY queue is a finding, not a clean bill of health**: it means
+nothing is being asked, which is the state that precedes months of silence.
+
+### Stage 2 — is it RUNNING (did the dispatcher fire, did rows land)?
+
+The `research-queue-dispatch` cron is a **DRY RUN by design** — `fire` defaults
+false and cron passes nothing, so a green scheduled run has spent nothing and
+proves only that the queue parses. Check `last_dispatched_at` per job against its
+declared cadence, and check that a fired job's rows actually reached `main`
+(R2's landing assertion). ⚠️ **A landing assertion can pass vacuously on a
+CUMULATIVE store** — `BL-20260830-E35-LANDING-ASSERTION-IS-VACUOUS-ON-A-CUMULATIVE-CORPUS`
+reported `landed — 6624 rows, exit 0` on a run whose rows were entirely on an
+unmerged branch, because the predicate was satisfied by history. Scope any such
+check on the run's OWN stamp.
+
+### Stage 3 — REVIEW and VALIDATE the results (the key)
+
+    python3 scripts/research/research_disposition.py --report
+    python3 scripts/research/research_disposition.py --unread-only
+
+Five states, never collapsed. ⚠️ **`superseded_unread` is NOT a finding** — most
+historical units are superseded by construction, and treating them as failures
+is the desensitized-alarm P1. ⚠️ **`corpus_unreadable` is *we could not look*,**
+never *nothing unread*.
+
+**VALIDATE before you conclude, and the first check is POWER.** Read each unit's
+`n_oos` against the floor its own queue job declared (`n >= (z_α/2 + z_β)² / d²`;
+at α=0.05, power=0.80, d=0.4 that is **49.06**). A leg below it is `underpowered`
+— which is a READ whose answer is *"this cannot answer the question"*, and R4
+converts that into a data-acquisition task rather than a verdict. Measured at
+introduction, m20 units sat at `n_oos` 30–36 with one at **4**. Quoting a verdict
+off those would be the read-a-number-off-the-wrong-population error.
+
+### Stage 4 — RUN THE ANALYSES that turn a result into a decision
+
+Do not re-derive an analysis that exists. `docs/research/RESEARCH-CAPABILITY-INDEX.md`
+routes every one of the 104 research scripts by the QUESTION it answers — use it,
+and if no tool answers your question say so rather than hand-rolling a cruder
+one (`RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED`).
+
+### Stage 5 — RECORD the disposition, and CREATE the action item
+
+A disposition that lives only in the report is not a record. Write it:
+
+    from scripts.research.research_disposition import append
+    append({"corpus": "m20", "run_stamp": "...", "leg": "...",
+            "verdict": "actioned|no_action_warranted|underpowered|superseded",
+            "reason": "<what the numbers said and what follows>",
+            "actions": ["BL-...", "PR #..."]})
+
+⚠️ **`append` REFUSES a vacuous reason**, using the same `_NON_REASONS`
+vocabulary `backlog_drive` is hardened with — "carried forward unchanged" cannot
+satisfy this. `actioned` **must** name what was done. Deferring is permitted; it
+must be SAID, not achieved by silence.
+
+Anything needing follow-up goes to
+**[`docs/claude/research-review-backlog.json`](../../../docs/claude/research-review-backlog.json)**
+via `scripts/ops/backlog_append.py::append_row`, **never by hand**. That file is
+this session's SECOND backlog and is deliberately separate from
+`performance-review-backlog.json`: *"this sweep needs re-running at higher n"*
+and *"this strategy's win rate slipped"* are graded against different bars, and
+one file buries both. Drain it under the same HARD COMPLETION GATE as the other.
 
 ## Underperformance → diagnose, don't demote (BINDING — operator directive 2026-07-30)
 

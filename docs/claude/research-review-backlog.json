@@ -1,0 +1,22 @@
+{
+  "_comment": "RESEARCH-REVIEW backlog — the research/evidence pipeline, NOT trading performance. Split from performance-review-backlog.json 2026-08-30 on the same reasoning as the 2026-05-26 three-way review split: a different RUBRIC wants a different backlog. 'this sweep needs re-running at higher n' and 'this strategy's win rate slipped' are graded against different bars and would bury each other in one file. WHAT BELONGS HERE: a sweep that landed and nobody read; a queue job blocked or underpowered; a harness that produced a number nobody can reproduce; a corpus whose provenance is unclear; an analysis that must be re-run at higher n before it decides anything. WHAT DOES NOT: a strategy tweak (performance), a wiring bug (health), a model promotion (ml). FILE THROUGH scripts/ops/backlog_append.py::append_row, NEVER by hand — it round-trips the exact serialisation and refuses a row restating one already filed.",
+  "schema_version": 1,
+  "items": [
+    {
+      "id": "BL-20260830-M20-CORPUS-78-UNITS-NEVER-READ-MOST-UNDERPOWERED",
+      "title": "78 landed research units were never read, and the m20 half is largely below its own power floor",
+      "area": "research pipeline / M40 R3-R5",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "detail": "First run of scripts/research/research_disposition.py --report (2026-08-30) over the two committed corpora: 92 unread / 196 superseded_unread / 0 dispositioned. This session dispositioned the 14 e35 units from RQ-20260830-002, leaving 78 unread, essentially all m20. POPULATION for the power claim: over the newest run per leg, 318 m20 rows carry base_trades_OOS on 317 of them, and 247 sit BELOW the 49.06 floor implied by the queue's own declared power block (n >= (z_a/2 + z_b)^2 / d^2 at alpha=0.05, power=0.80, d=0.4). Observed values run 30-36 with one leg at 4. NOT A BUG IN THE CORPUS - the rows are honest measurements; the finding is that nobody has read them and that most of them cannot answer their own question at the n they hold.",
+      "why_it_matters": "R1-R6 of the research architecture stop at 'landed'; no stage covered 'read', and no review skill referenced the corpora at all (grep returned 0 across all five). So compute was spent, rows were committed, and no decision was ever derived from them. An underpowered unit is worse than an unread one if it is read carelessly: R4's whole point is that an underpowered run manufactures a false finding, and 329 historical honest_negative verdicts already sit at a median OOS base of 33 trades.",
+      "next_action": "In the next /performance-review, work stage 3 of the research-pipeline section: run --unread-only, grade each unit's n_oos against its declared floor FIRST, and disposition it as 'underpowered' (converting to a data-acquisition task) rather than reading a verdict off it. Do not batch-disposition to clear the count - append() refuses a vacuous reason.",
+      "resolution_criteria": "Closes when every unit reported 'unread' by research_disposition.py carries a ledger entry with a non-vacuous reason, AND the units graded 'underpowered' have either an enqueued data-acquisition job or a stated reason why more n is unobtainable. Re-running the report and seeing a lower number is NOT sufficient - a superseding run also lowers it.",
+      "opened_at": "2026-08-30",
+      "opened_by": "session_018wqzuqBjxkiaEEBr8kJC59",
+      "source": "first run of the research-disposition ledger"
+    }
+  ],
+  "updated_at": "2026-08-30T13:55:12Z"
+}
