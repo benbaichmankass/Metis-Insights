@@ -1,0 +1,75 @@
+id: RQ-20260830-001
+title: Re-sweep trend_donchian's bracket geometry at live parity
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  Does trend_donchian's SHIPPED bracket-geometry cell still clear its gate when
+  re-measured today? It is the census's single highest-value leg (316R left at
+  the 1R rung, 40.1% lose-after-+1R) and it trades REAL MONEY on bybit_2. Its
+  cell was validated once; nothing has re-measured it since, and this repo's own
+  base rate for a shipped exit decision reproducing on re-sweep is 1 in 4.
+
+power:
+  expected_n: 50
+  min_detectable_effect: 0.4
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.80
+  basis: >-
+    n comes from the sweep's OWN declared split target, not from a guess:
+    DEFAULT_SPLIT_TARGET_OOS = 50 (operator Tier-3 decision, #9748, 2026-08-16),
+    which is what split_mode=oos-trades aims the per-leg boundary at. The design
+    is one_sample because the gate is PAIRED — a cell and its base are scored
+    over the same trade sequence, so the unit is the per-trade difference.
+    ⚠️ 0.4 sd is the SMALLEST effect n=50 supports at these levels
+    ((1.96+0.8416)^2 / 0.4^2 = 49.06 <= 50), so this job clears the floor with
+    essentially no margin. Per the queue README the floor is NECESSARY, NOT
+    SUFFICIENT and errs one-directionally: backtest trade sequences are
+    autocorrelated and walk-forward folds overlap, so the true requirement is
+    HIGHER. Read a null result here as underpowered, never as "no effect".
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  # One pandas frame of 1830 days of 1h BTCUSDT bars plus the per-cell scoring.
+  peak_memory_gb: 2.0
+  est_minutes: 25
+  basis: >-
+    Routed to a runner because e35-bracket-sweep.yml fetches from
+    data.binance.vision, not from the trainer — verified by reading the
+    workflow's own header, which states the fetch source is the deliberate
+    difference from m20-exit-lever-sweep.yml and that no VM is touched.
+
+run:
+  workflow: e35-bracket-sweep.yml
+  inputs:
+    only: trend_donchian
+    days: "1830"
+    gate_top: "2"
+    singles_only: "false"
+    max_parallel: "1"
+
+lands:
+  store: docs/research/e35-bracket-corpus.jsonl
+  assert_field: leg
+  min_rows: 1
+  note: >-
+    ⚠️ THE STORE IS READ OFF THE PRODUCER'S OWN `git add`, not off a doc — the
+    mistake assert_rows_landed.py's docstring records as worse than no
+    assertion. e35-bracket-sweep.yml adds docs/research/e35-bracket-corpus.jsonl
+    and already calls assert_rows_landed twice, which is why this job is the
+    cheapest honest test of the dispatch path: the landing half is ALREADY wired
+    here and needs nothing from this change.
+    ⚠️ Landing may transit `pending_merge`: on the protected default branch the
+    sweep retargets its push to the `claude/m20-sweep-corpus`-style side branch
+    plus .github/pr-automerge-request, so rows reach `main` only once that PR
+    auto-merges (BL-20260812-SWEEP-CORPUS-CANNOT-PUSH-TO-MAIN,
+    BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD-THAT-READS-MAIN).
+
+related:
+  - >-
+    OI-20260827-RESEARCH-QUEUE-DISPATCHER-NEVER-FIRED — criterion (a): a real
+    dispatch whose rows land in the declared store, verified by READING it.
