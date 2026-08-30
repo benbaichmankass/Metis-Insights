@@ -227,6 +227,20 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    switch-bybit-position-mode)
+        # 2026-08-30: read, or with apply SWITCH, a Bybit symbol's VENUE
+        # position mode (one-way <-> hedge). T.2 arming for
+        # BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok (report, no-op, or VERIFIED switch)"; priority="normal" ;;
+            # 5 is the script's own "venue accepted the call but the re-read does
+            # NOT show the requested mode" — the books may now disagree with
+            # BYBIT_HEDGE_MODE_SYMBOLS, which refuses orders on this symbol.
+            5) result="SWITCH UNVERIFIED — venue mode did not change; do NOT arm the allowlist"; priority="urgent" ;;
+            *) result="FAILED/refused (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     flatten-ib-position|flatten-bybit-position|flatten-alpaca-position)
         # 2026-06-19/2026-06-29/2026-07-15: one-shot guarded flatten of one
         # IB/Bybit/Alpaca position (dry-run unless apply:true).

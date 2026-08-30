@@ -129,6 +129,7 @@ on:
           - purge-vm-runner
           - flatten-ib-position
           - flatten-bybit-position
+          - switch-bybit-position-mode
           - flatten-alpaca-position
           - cancel-ib-order
           - attach-ib-target
@@ -482,6 +483,18 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*force_client_id[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Ff]orce_client_id[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # switch-bybit-position-mode: target venue position mode + the
+            # account echo that gates apply. NOT reusing ACTION_MODE (taken by
+            # the backtest mode) or MODE (taken by set-account-mode) — a third
+            # meaning on either would be a silent collision.
+            position_mode=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*position_mode[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Pp]osition_mode[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            confirm_account=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*confirm_account[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Cc]onfirm_account[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             # flatten-ib-position: apply gates dry-run (default) vs execute.
             apply=$(printf '%s\n' "${ISSUE_BODY}" \
                      | grep -i -m1 '^[[:space:]]*apply[[:space:]]*:' \
@@ -555,6 +568,8 @@ jobs:
           echo "ENV_SERVICE=${service}" >>"$GITHUB_ENV"
           echo "ENV_FILE_TARGET=${env_file:-}" >>"$GITHUB_ENV"
           echo "ACTION_APPLY=${apply:-}" >>"$GITHUB_ENV"
+          echo "ACTION_POSITION_MODE=${position_mode:-}" >>"$GITHUB_ENV"
+          echo "ACTION_CONFIRM_ACCOUNT=${confirm_account:-}" >>"$GITHUB_ENV"
           echo "ACTION_ORDER_ID=${order_id:-}" >>"$GITHUB_ENV"
           echo "ACTION_PERM_ID=${perm_id:-}" >>"$GITHUB_ENV"
           echo "ACTION_FORCE_PROTECTIVE=${force_protective:-}" >>"$GITHUB_ENV"
@@ -572,7 +587,7 @@ jobs:
             status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|flatten-alpaca-position|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids)
+            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -776,6 +791,57 @@ jobs:
               *)
                 echo "::error::flatten-bybit-position apply must be true or false (got '${ACTION_APPLY}')."
                 exit 1
+                ;;
+            esac
+          fi
+          # switch-bybit-position-mode: account_id + symbol required, same as
+          # flatten-bybit-position. APPLY additionally requires position_mode
+          # AND confirm_account echoing account — a venue position-mode switch
+          # redefines the symbol's books and there is no undo that restores
+          # them, so the target is stated twice or not at all. The python script
+          # re-reads the mode afterwards and exits non-zero on an unverified
+          # switch, so a silent venue no-op cannot report success.
+          if [ "${ACTION}" = "switch-bybit-position-mode" ]; then
+            if [ -z "${ACCOUNT_ID// }" ]; then
+              echo "::error::switch-bybit-position-mode requires 'account: <id>' (issue body) or 'account_id' input."
+              exit 1
+            fi
+            if [ -z "${ACTION_SYMBOL// }" ]; then
+              echo "::error::switch-bybit-position-mode requires 'symbol: <SYM>' (issue body)."
+              exit 1
+            fi
+            if ! printf '%s' "${ACCOUNT_ID}" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+              echo "::error::switch-bybit-position-mode account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
+              exit 1
+            fi
+            if ! printf '%s' "${ACTION_SYMBOL}" | grep -Eq '^[A-Za-z0-9_]+$'; then
+              echo "::error::switch-bybit-position-mode symbol '${ACTION_SYMBOL}' invalid (allowed: A-Z a-z 0-9 _)."
+              exit 1
+            fi
+            case "${ACTION_POSITION_MODE:-}" in
+              ""|one_way|hedge) ;;
+              *)
+                echo "::error::switch-bybit-position-mode position_mode must be one_way or hedge (got '${ACTION_POSITION_MODE}')."
+                exit 1
+                ;;
+            esac
+            case "${ACTION_APPLY:-}" in
+              ""|true|false|True|False) ;;
+              *)
+                echo "::error::switch-bybit-position-mode apply must be true or false (got '${ACTION_APPLY}')."
+                exit 1
+                ;;
+            esac
+            case "${ACTION_APPLY:-}" in
+              true|True)
+                if [ -z "${ACTION_POSITION_MODE// }" ]; then
+                  echo "::error::switch-bybit-position-mode apply requires 'position_mode: one_way|hedge'."
+                  exit 1
+                fi
+                if [ "${ACTION_CONFIRM_ACCOUNT}" != "${ACCOUNT_ID}" ]; then
+                  echo "::error::switch-bybit-position-mode apply requires 'confirm_account: ${ACCOUNT_ID}' to echo the target account (got '${ACTION_CONFIRM_ACCOUNT}')."
+                  exit 1
+                fi
                 ;;
             esac
           fi
@@ -1058,6 +1124,7 @@ jobs:
             cancel-ib-order)                    SCRIPT="cancel_ib_order_action.sh" ;;
             attach-ib-target)                   SCRIPT="attach_ib_target_action.sh" ;;
             flatten-bybit-position)             SCRIPT="flatten_bybit_position_action.sh" ;;
+            switch-bybit-position-mode)         SCRIPT="bybit_switch_position_mode_action.sh" ;;
             flatten-alpaca-position)            SCRIPT="flatten_alpaca_position_action.sh" ;;
             close-stranded-journal-row)         SCRIPT="close_stranded_journal_row_action.sh" ;;
             reconcile-orphan-history)           SCRIPT="reconcile_orphan_history_action.sh" ;;
@@ -1255,6 +1322,9 @@ jobs:
           fi
           if [ "${ACTION}" = "flatten-ib-position" ] || [ "${ACTION}" = "flatten-bybit-position" ] || [ "${ACTION}" = "flatten-alpaca-position" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "switch-bybit-position-mode" ]; then
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_POSITION_MODE=$(printf '%q' "${ACTION_POSITION_MODE:-}") ACTION_CONFIRM_ACCOUNT=$(printf '%q' "${ACTION_CONFIRM_ACCOUNT:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "close-stranded-journal-row" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_EXIT_PRICE=$(printf '%q' "${ACTION_EXIT_PRICE:-}") ${REMOTE_CMD}"
