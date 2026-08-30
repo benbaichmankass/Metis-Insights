@@ -104,6 +104,32 @@ def _load_notes(raw: Any) -> Dict[str, Any]:
     return n if isinstance(n, dict) else {"_original_notes": raw}
 
 
+def _recover_prior_exit_reason(conn: sqlite3.Connection, trade_id: int):
+    """The pre-mark ``exit_reason`` for a row whose notes were shed.
+
+    Reads ``order_packages.close_reason`` on the package linked to this trade.
+    That column is written by the close cascade and is never touched by this
+    script, so it is independent evidence rather than a restatement of the row
+    being repaired. Returns ``None`` when it cannot be established — the caller
+    REFUSES on None; it must not fall back to the row's own (already-marked)
+    label.
+    """
+    try:
+        cur = conn.execute(
+            "SELECT close_reason FROM order_packages WHERE linked_trade_id = ? "
+            "AND close_reason IS NOT NULL AND close_reason != '' "
+            "ORDER BY updated_at DESC LIMIT 1", (trade_id,))
+        got = cur.fetchone()
+    except sqlite3.Error:
+        return None
+    if got is None:
+        return None
+    val = str(got[0] or "").strip()
+    if not val or val == EXIT_REASON:
+        return None  # the cascade carries the mark too — no independent prior
+    return val
+
+
 def plan(conn: sqlite3.Connection, trade_ids: List[int], reason: str
          ) -> Tuple[List[Dict[str, Any]], List[str]]:
     """Return (updates, refusals). A non-empty refusal list means write NOTHING."""
@@ -131,10 +157,35 @@ def plan(conn: sqlite3.Connection, trade_ids: List[int], reason: str
         notes = _load_notes(row["notes"])
         if notes.get(NOTE_FLAG):
             continue  # idempotent: already marked
+        # THREE states, never collapsed — the flag's ABSENCE does not mean
+        # unmarked. Trades 5238/5239 carry `exit_reason=EXIT_REASON` with the
+        # notes keys gone (shed by `dump_capped(notes, 500)` before those keys
+        # were protected). Taking `row["exit_reason"]` as the prior on such a
+        # row records THE MARK ITSELF as what preceded it, destroying the one
+        # field that makes the marking reversible — laundering a value into the
+        # journal, the failure `PROTECTION_REASSERT_MODE` exists to refuse.
+        prior_source = "trades.exit_reason"
         prior = row["exit_reason"]
+        if str(prior or "") == EXIT_REASON:
+            # Marked, notes lost. Recover the prior from an INDEPENDENT
+            # source the marking tool never writes: the linked order package's
+            # `close_reason`, stamped by the close cascade. Evidence, not memory.
+            prior = _recover_prior_exit_reason(conn, tid)
+            prior_source = "order_packages.close_reason"
+            if prior is None:
+                refusals.append(
+                    f"id={tid}: already carries exit_reason={EXIT_REASON!r} but no "
+                    f"{NOTE_FLAG} in notes (marked, notes shed by the cap), and the "
+                    f"prior label is NOT recoverable from order_packages.close_reason "
+                    f"— refusing rather than recording the mark as its own prior")
+                continue
         notes[NOTE_FLAG] = True
         notes["operator_close_reason"] = reason
         notes["pre_mark_exit_reason"] = prior
+        # Which evidence the prior came from. Without it a repaired row is
+        # indistinguishable from a first-time mark, and they are not the same
+        # claim about what was observed.
+        notes["pre_mark_exit_reason_source"] = prior_source
         notes["operator_marked_at"] = now
         updates.append({
             "id": int(row["id"]),
@@ -177,6 +228,21 @@ def _self_test() -> int:
     conn.execute("""CREATE TABLE trades (id INTEGER PRIMARY KEY, status TEXT,
         exit_reason TEXT, notes TEXT, is_backtest INTEGER, symbol TEXT,
         account_id TEXT, pnl REAL, exit_price REAL)""")
+    # data-wiring: creates NO persistent table — an in-memory (":memory:")
+    # --self-test fixture only. The canonical store is
+    # trade_journal.db::order_packages in src/units/db/database.py; this script
+    # never creates it and never WRITES it, it only SELECTs close_reason as the
+    # independent evidence for a repaired row's prior label. History is not
+    # backfilled here because nothing here persists. The four columns below are
+    # a SUBSET of that canonical DDL, asserted by
+    # tests/ops/test_mark_operator_flattened::test_the_fixture_columns_exist_in_the_real_ddl
+    # — which is what makes this annotation true rather than merely present.
+    conn.execute("""CREATE TABLE order_packages (order_package_id TEXT PRIMARY KEY,
+        linked_trade_id INTEGER, close_reason TEXT, updated_at TEXT)""")
+    conn.executemany(
+        "INSERT INTO order_packages VALUES (?,?,?,?)",
+        [("pkg-5", 5, "reconciler_filled", "2026-08-30T09:33:26+00:00"),
+         ("pkg-6", 6, "", "2026-08-30T09:33:26+00:00")])
     conn.executemany(
         "INSERT INTO trades (id,status,exit_reason,notes,is_backtest,symbol,"
         "account_id,pnl,exit_price) VALUES (?,?,?,?,?,?,?,?,?)",
@@ -186,7 +252,13 @@ def _self_test() -> int:
          (2, "open", "", "{}", 0, "ETHUSDT", "bybit_2", None, None),
          (3, "closed", "reconciler_filled", "{}", 1, "BTCUSDT", "bt", 0.0, 1.0),
          (4, "closed", EXIT_REASON, json.dumps({NOTE_FLAG: True}), 0, "ADAUSDT",
-          "bybit_2", -1.0, 1.0)])
+          "bybit_2", -1.0, 1.0),
+         # 5 + 6: marked, notes SHED by the cap (trades 5238/5239 live). 5 has a
+         # recoverable prior on its package; 6 does not.
+         (5, "closed", EXIT_REASON, json.dumps({"_truncated": True}), 0,
+          "BNBUSDT", "bybit_1", -1.0, 1.0),
+         (6, "closed", EXIT_REASON, json.dumps({"_truncated": True}), 0,
+          "BTCUSDT", "bybit_1", -1.0, 1.0)])
     conn.commit()
     fails = []
 
@@ -206,6 +278,19 @@ def _self_test() -> int:
     ck("an OPEN row is refused", any("not 'closed'" in r for r in refs))
     _, refs = plan(conn, [3], "test")
     ck("a BACKTEST row is refused", any("backtest" in r for r in refs))
+    ups, refs = plan(conn, [5], "test")
+    ck("a marked-but-notes-shed row is REPAIRED, not re-marked",
+       refs == [] and len(ups) == 1)
+    ck("its prior comes from the package, NOT from the mark itself",
+       json.loads(ups[0]["notes"])["pre_mark_exit_reason"] == "reconciler_filled")
+    ck("and the prior's SOURCE is recorded",
+       json.loads(ups[0]["notes"])["pre_mark_exit_reason_source"]
+       == "order_packages.close_reason")
+
+    _, refs = plan(conn, [6], "test")
+    ck("an unrecoverable prior REFUSES rather than recording the mark as its own",
+       any("NOT recoverable" in r for r in refs))
+
     _, refs = plan(conn, [999], "test")
     ck("a MISSING id is refused", any("no such trade" in r for r in refs))
     ups, refs = plan(conn, [4], "test")
@@ -261,7 +346,11 @@ def main(argv=None) -> int:
         derived_reason = (reasons.pop() if len(reasons) == 1
                           else "operator flatten (multiple recorded reasons)")
         for r in pending:
+            # `detail_state` is printed because a `shed` detail means the reason
+            # below is a FALLBACK, not what the flatten recorded — the notes cap
+            # dropped the prose (by design; the flag is what survives).
             print(f"  from-intent id={r['id']} {r['account_id']}/{r['symbol']} "
+                  f"detail={r.get('detail_state')} "
                   f"intent_at={r['intent'].get('at')} reason={r['intent'].get('reason')!r}")
         a = argparse.Namespace(**{**vars(a), "reason": a.reason or derived_reason})
     else:
