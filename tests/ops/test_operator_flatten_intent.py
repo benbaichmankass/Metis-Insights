@@ -21,13 +21,29 @@ from src.runtime.operator_flatten_intent import (  # noqa: E402
 
 
 def _db(tmp_path, notes="{}", status="open"):
+    """Build the fixture from the CANONICAL schema, never a hand-rolled subset.
+
+    The first draft declared its own nine-column ``trades`` and passed — until
+    the write was routed through ``Database.update_trade``, which needs
+    ``created_at``. A fixture that declares a schema production does not have
+    is how the pairs tests passed against a fictional ``order_packages``
+    (BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED). Calling ``create_tables``
+    makes the fixture match production BY CONSTRUCTION rather than by my
+    remembering to keep a column list in sync.
+    """
+    from src.units.db.database import Database
     p = tmp_path / "j.db"
+    Database(str(p)).create_tables()
     c = sqlite3.connect(p)
-    c.execute("""CREATE TABLE trades (id INTEGER PRIMARY KEY, status TEXT,
-        exit_reason TEXT, notes TEXT, is_backtest INTEGER, symbol TEXT,
-        account_id TEXT, pnl REAL, exit_price REAL)""")
-    c.execute("INSERT INTO trades VALUES (4934,?,?,?,0,'XRPUSDT','bybit_2',NULL,NULL)",
-              (status, "", notes))
+    # Every NOT NULL column the canonical DDL declares (timestamp, symbol,
+    # direction, entry_price, position_size, account_id) — the constraints are
+    # part of what using the real schema buys.
+    c.execute(
+        "INSERT INTO trades (id, timestamp, symbol, direction, entry_price, "
+        "position_size, account_id, status, exit_reason, notes, is_backtest) "
+        "VALUES (4934, '2026-08-21T21:54:54+00:00', 'XRPUSDT', 'long', 1.4983, "
+        "16.0, 'bybit_2', ?, '', ?, 0)",
+        (status, notes))
     c.commit()
     return p, c
 
