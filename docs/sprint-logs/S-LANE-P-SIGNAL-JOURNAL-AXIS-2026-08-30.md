@@ -315,7 +315,6 @@ reason no allocator can fix. The row now warns that the soak's headline
   Acting on any without a fresh fetch would have produced a confident wrong
   conclusion about readiness.
 
-
 ---
 
 ## Addendum — unit 3: P3, the measurement half (2026-08-30, same session)

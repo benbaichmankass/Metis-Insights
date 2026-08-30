@@ -1185,6 +1185,15 @@ jobs:
           if [ "${ACTION}" = "inspect-closed-pnl" ] && [ -n "${TRADE_ID}" ]; then
             REMOTE_CMD="ACTION_TRADE_ID=$(printf '%q' "${TRADE_ID}") ${REMOTE_CMD}"
           fi
+          case "${ACTION}" in
+            flatten-bybit-position|flatten-ib-position|flatten-alpaca-position)
+              # The reason is stamped onto the journal row at flatten time so
+              # the close is attributable as OPERATIONAL rather than as a
+              # strategy exit. Without this forward the wrapper reads an unset
+              # var and records nothing, which is the silent half of the bug.
+              REMOTE_CMD="ACTION_REASON=$(printf '%q' "${REASON}") ${REMOTE_CMD}"
+              ;;
+          esac
           if [ "${ACTION}" = "mark-operator-flattened" ]; then
             # This action NEVER derives its targets — "an operator flattened
             # this" is not a fact any column carries, which is the whole bug

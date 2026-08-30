@@ -59,6 +59,24 @@ from typing import Any, Iterable
 _DEFAULT_PROTECTED: tuple[str, ...] = (
     "closed_at", "closed_by", "closed_reason", "pnl_source",
     "exit_price_source", "exit_reason_source", "trade_id",
+    # THIRD INSTANCE of the class the comment below describes, measured
+    # 2026-08-30. `closed_by_operator` is the flag that says a close was an
+    # OPERATIONAL flatten rather than a strategy exit, and `pre_mark_exit_reason`
+    # is what makes that marking reversible. Both were stored unprotected, so on
+    # a row already near the cap the shrink dropped them outright.
+    #
+    # NOT a hypothesis — an exact match. Of the 6 rows back-marked in one batch,
+    # trades 5238 (`bybit_1`/BNBUSDT) and 5239 (`bybit_1`/BTCUSDT) came back
+    # carrying `exit_reason='operator_flatten_reconciled'` (a COLUMN, so it
+    # survived) with BOTH notes keys absent, and their surviving key set was
+    # exactly `_DEFAULT_PROTECTED` + `_truncated` — the `_shrink_dict` minimal
+    # envelope, reached once the trimmable strings were exhausted.
+    #
+    # `operator_close_reason` is deliberately NOT protected: it is long free
+    # text, it is the right thing to shed first, and a trimmed reason is still
+    # readable prose. The FLAG is what a consumer branches on, so the flag is
+    # what must survive — the same distinction the sentinel note below draws.
+    "closed_by_operator", "pre_mark_exit_reason",
 )
 _ELLIPSIS = "…"
 # Hard stop on the trim loop so a pathological payload can never spin.

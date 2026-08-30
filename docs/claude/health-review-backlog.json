@@ -29524,6 +29524,26 @@
       "evidence": "/api/diag/audit_query SOLUSDT 2026-08-29T14:58-15:01; src/runtime/pipeline.py:614; src/runtime/intents.py:1296-1312; src/runtime/intent_multiplexer.py::_desired_to_pipeline_signal"
     },
     {
+      "id": "BL-20260830-NOTES-CAP-SPLIT-500-VS-2000-HAS-NO-STATED-RATIONALE",
+      "opened_at": "2026-08-30T12:45:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-30) — operator asked for the origin before any change",
+      "severity": "medium",
+      "tier": "2 (the 500 sites are on the live close path)",
+      "status": "open",
+      "area": "provenance / notes integrity",
+      "title": "trades.notes is capped at TWO budgets — 15 sites at 500, 7 at 2000 — and NO commit has ever justified either; both are ad-hoc char-slice lengths inherited verbatim by a migration whose stated scope was 'only how the blob is encoded'",
+      "detail": "TRACED 2026-08-30 through git history, because the split is what shed a provenance key on live rows and the operator asked why 500 exists BEFORE anything was changed.\n\nWHAT HAPPENED. `b355457c` (#4019, 2026-06-19) replaced 12 `json.dumps(payload)[:N]` sites with `dump_capped(payload, N)` to kill the slice-invalid-JSON footgun. Its diff preserves each site's N VERBATIM (`[:2000]` -> `2000`, `[:500]` -> `500`) and its own message states the scope: 'No order/risk logic changed — only how the notes/signal_logic blob is encoded.' So the encoder migration deliberately did not touch the budgets. Tracing further back, the values are per-site slice lengths chosen ad hoc by whoever wrote each call site (the earliest, `a4b40e60`, introduces a bare `[:2000]`).\n\nSO THE ANSWER TO 'why 500?' IS: no reason was ever recorded, at any point. It is not a row-size budget, not a schema limit, and not a measured choice — it is one author's arbitrary slice length propagated mechanically. That is the finding, and it is what makes the split safe to close rather than something to preserve.\n\nMEASURED NOW: 15 call sites use 500, 7 use 2000 (`grep -oE \"dump_capped\\([^,]*, *[0-9]+\\)\"` over src/). The 500 group is the one that sheds provenance.\n\nWHAT IT COST, live. Six rows were back-marked as operator flattens on 2026-08-30; trades 5238 and 5239 came back with `exit_reason` set (a COLUMN, so it survived) and BOTH notes keys gone. Their surviving key set was exactly `_DEFAULT_PROTECTED` + `_truncated` — `_shrink_dict`'s minimal envelope. The sequence: the marker wrote uncapped notes, then `order_monitor`'s broker-pnl close path (the 500 site) re-read them, added `exit_price_source`, and wrote back capped, dropping the unprotected keys.\n\n⚠️ AT ~320 CHARS EVEN THE PROTECTED SET OVERFLOWS and `dump_capped` emits the barest marker, so protecting a key is not unconditional safety — it is safety above a budget-dependent floor. Asserted in `tests/test_json_notes_operator_flag_protected.py` rather than left to be discovered. 500 is uncomfortably close to that floor for a blob that already carries seven protected keys.\n\nADJACENT: BL-20260826-EXIT-REASON-SOURCE-TRUNCATED-BY-THE-NOTES-CAP is the same cap trimming a different provenance marker, fixed by protecting that key. Three markers have now been lost to this cap and each was fixed one key at a time; harmonising the budget would retire the CLASS instead.",
+      "resolution_criteria": "EITHER (a) the 500 sites are raised to 2000 so one budget governs every trades.notes write — defensible on the evidence above, since no rationale for 500 has ever existed — with a test asserting a single budget and a live read confirming no row regressed; OR (b) 500 is KEPT and a comment at the call sites states the reason it must stay tighter, so the next session does not re-open this. What is NOT acceptable is leaving two undocumented budgets and continuing to protect keys one at a time as each is lost.",
+      "what_to_check": "1. Whether any row is currently near the ~320-char floor where even protected keys are shed. UNKNOWN — I measured the mechanism, not the live distribution of notes lengths.\n2. Whether the 2000 budget is itself safe against the largest real blob (a long signal_logic plus a full close-time key set), or merely larger.\n3. `order_packages.signal_logic` rides the same helper and was not examined.",
+      "refs": [
+        "b355457c (#4019) — the migration that preserved the values verbatim",
+        "a4b40e60 — the earliest bare [:2000] slice",
+        "src/runtime/order_monitor.py:4923 — the 500 site that shed the keys",
+        "BL-20260826-EXIT-REASON-SOURCE-TRUNCATED-BY-THE-NOTES-CAP"
+      ],
+      "source": "operator decision 2026-08-30: investigate why 500 exists before proposing a change"
+    },
+    {
       "id": "BL-20260830-INTENT-TIEBREAK-PICKS-THE-LONGER-STRATEGY-NAME-SO-SPELLING-DECIDES-WHO-TRADES",
       "status": "open",
       "severity": "high",

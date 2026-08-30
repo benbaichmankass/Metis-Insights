@@ -81,6 +81,21 @@ def _db_path() -> str:
     return str(trade_journal_db_path())
 
 
+def _dump_notes(notes: Dict[str, Any]) -> str:
+    """Serialize through the canonical capped writer when it is importable.
+
+    Falls back to plain JSON only when src is unavailable (a bare invocation
+    outside the repo); the fallback is why this is a function rather than an
+    inline call — a silent uncapped write is exactly what caused the 5238/5239
+    key loss, so the degraded path is named rather than implicit.
+    """
+    try:
+        from src.utils.json_notes import dump_capped
+        return dump_capped(notes, 500)
+    except Exception:  # noqa: BLE001
+        return json.dumps(notes)
+
+
 def _load_notes(raw: Any) -> Dict[str, Any]:
     try:
         n = json.loads(raw) if raw else {}
@@ -126,7 +141,16 @@ def plan(conn: sqlite3.Connection, trade_ids: List[int], reason: str
             "symbol": row["symbol"],
             "account_id": row["account_id"],
             "prior_exit_reason": prior,
-            "notes": json.dumps(notes),
+            # Cap it the way every other trades.notes writer does, at the
+            # TIGHTEST budget in use (500 — 15 call sites use it, 7 use 2000).
+            # Writing an uncapped blob here is what let the next capped rewrite
+            # shed these keys on trades 5238/5239: this tool wrote plain JSON,
+            # then order_monitor's broker-pnl close path re-read the notes,
+            # added exit_price_source, and wrote back through
+            # dump_capped(notes, 500). Capping here does not prevent that
+            # rewrite — protecting the keys does — but it stops this tool from
+            # being the one that pushes the blob over budget.
+            "notes": _dump_notes(notes),
         })
     return updates, refusals
 
@@ -212,13 +236,39 @@ def main(argv=None) -> int:
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--db", default=None)
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--from-intent", action="store_true",
+                    help="DERIVE the targets from the operator_flatten_intent "
+                         "marker the flatten script wrote itself, instead of "
+                         "naming ids by hand. This is the durable path: it "
+                         "needs nobody to remember which trades were flattened.")
     a = ap.parse_args(argv)
     if a.self_test:
         return _self_test()
-    if not a.trade_ids or not a.reason:
-        ap.error("--trade-ids and --reason are both required")
-    ids = [int(x) for x in a.trade_ids.split(",") if x.strip()]
+
     conn = sqlite3.connect(a.db or _db_path())
+
+    if a.from_intent:
+        if a.trade_ids:
+            ap.error("--from-intent derives the ids; do not also pass --trade-ids")
+        from src.runtime.operator_flatten_intent import find_unmarked_intent_rows
+        pending = find_unmarked_intent_rows(conn)
+        if not pending:
+            print("No closed rows carry an unmarked operator_flatten_intent.")
+            return 0
+        ids = [r["id"] for r in pending]
+        # The reason is the one the FLATTEN recorded, not one invented now.
+        reasons = {r["intent"].get("reason") or "operator flatten" for r in pending}
+        derived_reason = (reasons.pop() if len(reasons) == 1
+                          else "operator flatten (multiple recorded reasons)")
+        for r in pending:
+            print(f"  from-intent id={r['id']} {r['account_id']}/{r['symbol']} "
+                  f"intent_at={r['intent'].get('at')} reason={r['intent'].get('reason')!r}")
+        a = argparse.Namespace(**{**vars(a), "reason": a.reason or derived_reason})
+    else:
+        if not a.trade_ids or not a.reason:
+            ap.error("--trade-ids and --reason are both required "
+                     "(or use --from-intent)")
+        ids = [int(x) for x in a.trade_ids.split(",") if x.strip()]
     ups, refs = plan(conn, ids, a.reason)
     for r in refs:
         print(f"REFUSED {r}")
