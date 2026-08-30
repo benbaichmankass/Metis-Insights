@@ -30,6 +30,37 @@ inputs:
     description: Body for the auto-merge PR.
     required: false
     default: "Automated data commit (auto-merge)."
+  verify-merged:
+    description: >
+      When "true", block until the auto-merge PR this action opened has actually
+      MERGED, and FAIL if it has not within `verify-timeout-minutes`.
+
+      Off by default so existing callers are byte-for-byte unchanged.
+
+      ⚠️ WITHOUT THIS, THIS ACTION EXITS 0 THE MOMENT THE PR IS *OPENED*. A green
+      caller therefore means "a PR exists", never "the rows are on main" — and
+      those are the two states R2 is entirely about. Measured 2026-08-30: 13
+      workflows call this action, 12 verify nothing, and origin carried 5
+      stranded `automation/*` branches, the oldest 10 weeks. The clean case is
+      `automation/econ-calendar-33232352515-1`: one commit, 444 data rows,
+      written 2026-08-29 and still not on main two days later, from a workflow
+      that exited 0. See
+      BL-20260830-TWELVE-OF-THIRTEEN-COMMIT-TO-MAIN-CALLERS-NEVER-CHECK-THEIR-ROWS-LANDED
+      and, for why a branch strands in the first place,
+      BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH.
+
+      Lives HERE rather than in each caller because the wait is identical
+      everywhere and the naming, the PR url and the failure vocabulary are all
+      this action's. A caller still owns the question this cannot answer — "are
+      MY rows in the file?" — via assert_rows_landed.py --pushed-ref.
+    default: "false"
+  verify-timeout-minutes:
+    description: >
+      How long `verify-merged` waits. Default 18: required checks take ~11 min,
+      so anything under that fails on every healthy run, and a workflow that is
+      red whenever it succeeds is worse than one that is silent. Give the
+      calling job a `timeout-minutes` above this or the job dies mid-wait.
+    default: "18"
   branch-prefix:
     description: Prefix for the throwaway PR head branch.
     required: false
@@ -42,6 +73,16 @@ outputs:
   pr:
     description: The opened PR URL (empty when nothing to commit).
     value: ${{ steps.run.outputs.pr }}
+  branch:
+    description: >
+      The throwaway head branch this action pushed the rows to (empty when
+      nothing to commit). Published because a caller that wants to assert its
+      rows landed needs to name the ref they were PUSHED to — that is the only
+      thing separating `pending_merge` (we committed, the merge is owed) from
+      `absent` (we produced nothing), and a caller with no branch name collapses
+      the two. Re-deriving `<prefix>-<run_id>-<attempt>` caller-side would be a
+      second copy of a naming scheme this action owns, free to drift from it.
+    value: ${{ steps.run.outputs.branch }}
 
 runs:
   using: composite
@@ -55,6 +96,8 @@ runs:
         PR_TITLE: ${{ inputs.pr-title }}
         PR_BODY: ${{ inputs.pr-body }}
         BRANCH_PREFIX: ${{ inputs.branch-prefix }}
+        VERIFY_MERGED: ${{ inputs.verify-merged }}
+        VERIFY_TIMEOUT_MINUTES: ${{ inputs.verify-timeout-minutes }}
       run: |
         set -euo pipefail
         if [ -z "${GH_TOKEN:-}" ]; then
@@ -69,6 +112,7 @@ runs:
           echo "nothing to commit — no PR opened"
           echo "committed=false" >> "$GITHUB_OUTPUT"
           echo "pr=" >> "$GITHUB_OUTPUT"
+          echo "branch=" >> "$GITHUB_OUTPUT"
           exit 0
         fi
         BR="${BRANCH_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
@@ -85,3 +129,36 @@ runs:
         fi
         echo "committed=true" >> "$GITHUB_OUTPUT"
         echo "pr=${PR_URL}" >> "$GITHUB_OUTPUT"
+        echo "branch=${BR}" >> "$GITHUB_OUTPUT"
+
+        if [ "${VERIFY_MERGED:-false}" != "true" ]; then
+          echo "::notice::verify-merged is off — this step is green because a PR was OPENED, which is NOT the same as the rows being on main."
+          exit 0
+        fi
+
+        # Wait for the auto-merge, exiting the moment it lands rather than
+        # sleeping a fixed span.
+        MINS="${VERIFY_TIMEOUT_MINUTES:-18}"
+        case "${MINS}" in ''|*[!0-9]*) MINS=18 ;; esac   # a typo must not mean "do not wait"
+        DEADLINE=$(( $(date +%s) + MINS * 60 ))
+        while [ "$(date +%s)" -lt "${DEADLINE}" ]; do
+          STATE="$(gh pr view "${PR_URL}" --json state --jq .state 2>/dev/null || echo UNKNOWN)"
+          case "${STATE}" in
+            MERGED)
+              echo "merged: ${PR_URL}"
+              exit 0
+              ;;
+            CLOSED)
+              echo "::error::commit-to-main: ${PR_URL} was CLOSED without merging — the rows on ${BR} will never reach main."
+              exit 1
+              ;;
+            *)
+              # UNKNOWN is 'we could not read the PR', NOT 'not merged yet'.
+              # Keep waiting rather than concluding either way.
+              echo "state=${STATE}; waiting ($(( (DEADLINE - $(date +%s)) / 60 ))m left)"
+              sleep 30
+              ;;
+          esac
+        done
+        echo "::error::commit-to-main: ${PR_URL} did not merge within ${MINS}m. The rows are written on ${BR} and are NOT on main. This is almost certainly BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH — the branch's checks ran once against a red base and nothing will ever re-run them. Re-run them, or rebase the branch, then merge it."
+        exit 1
