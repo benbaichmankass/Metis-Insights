@@ -81,6 +81,21 @@ def _db_path() -> str:
     return str(trade_journal_db_path())
 
 
+def _dump_notes(notes: Dict[str, Any]) -> str:
+    """Serialize through the canonical capped writer when it is importable.
+
+    Falls back to plain JSON only when src is unavailable (a bare invocation
+    outside the repo); the fallback is why this is a function rather than an
+    inline call — a silent uncapped write is exactly what caused the 5238/5239
+    key loss, so the degraded path is named rather than implicit.
+    """
+    try:
+        from src.utils.json_notes import dump_capped
+        return dump_capped(notes, 500)
+    except Exception:  # noqa: BLE001
+        return json.dumps(notes)
+
+
 def _load_notes(raw: Any) -> Dict[str, Any]:
     try:
         n = json.loads(raw) if raw else {}
@@ -126,7 +141,16 @@ def plan(conn: sqlite3.Connection, trade_ids: List[int], reason: str
             "symbol": row["symbol"],
             "account_id": row["account_id"],
             "prior_exit_reason": prior,
-            "notes": json.dumps(notes),
+            # Cap it the way every other trades.notes writer does, at the
+            # TIGHTEST budget in use (500 — 15 call sites use it, 7 use 2000).
+            # Writing an uncapped blob here is what let the next capped rewrite
+            # shed these keys on trades 5238/5239: this tool wrote plain JSON,
+            # then order_monitor's broker-pnl close path re-read the notes,
+            # added exit_price_source, and wrote back through
+            # dump_capped(notes, 500). Capping here does not prevent that
+            # rewrite — protecting the keys does — but it stops this tool from
+            # being the one that pushes the blob over budget.
+            "notes": _dump_notes(notes),
         })
     return updates, refusals
 
