@@ -4095,6 +4095,26 @@
           "note": "Re-validated and CORROBORATED by this review's own target_extension_soak reading in CLAUDE.md: 28 of 52 enabled legs declare tp_r >= 50, i.e. no reachable target to extend from. That is the same population this row is about, measured independently."
         }
       ]
+    },
+    {
+      "id": "PB-20260830-XRP-4H-FIRST-CLOSE-UNDER-NEW-BRACKET-UNVERIFIED",
+      "status": "open",
+      "title": "trend_donchian_xrp_4h now carries a REAL 3.0R take-profit on real money where it had none - its first closed trade must be read against broker truth, not against exit_reason",
+      "opened_by": "session 01EcqsSwEGKq9qpireotozUd",
+      "opened_at": "2026-08-30",
+      "source": "operator request 2026-08-30, following PR #10450 (892c9a2c, Tier-3, operator-approved)",
+      "tier": 3,
+      "severity": "medium",
+      "description": "PR #10450 shipped e35 cell tp3_sm2 to trend_donchian_xrp_4h on bybit_2 (REAL MONEY): atr_stop_mult 2.5 -> 2.0 and tp_r 50.0 -> 3.0. 50.0 is the no-target sentinel, so this INTRODUCES a take-profit where the leg previously had none, and it caps a TREND leg at 3R - truncating exactly the rare large winners trend-following depends on. That is a structural change to the leg's payoff shape, not a stop-width tweak, and it is the highest-variance item in the 9 legs that shipped. The backtest supports it (path_b_wf_pass, wf 5/6 effective, net_R 14.3895 vs base 9.1828) but it rests on an e35 run whose CLEAN-leg control FAILED, carried on the fold-level substitute the operator accepted 2026-08-29 - a weaker evidentiary base than B4's. CHECKED AND REFUTED, so the next reader does not re-derive it: bracket_expectation_census.py grades this target reachable=false (cap_r 2.475 at the REFERENCE atr_over_entry=0.02 vs tp_r 3.0), which is PB-20260824's cosmetic-target signature - but PB-20260824's own test is observed byte-identity against the same-stop no-target baseline, and the corpus shows the cells differ on BOTH axes (tp3_sm2 net_R 14.3895 / max_dd 11.2774 vs sm2 net_R 12.1863 / max_dd 12.2738, wf_inert_wins 0). The target BINDS. The census flag is a screening heuristic at a reference volatility, not a measurement for XRPUSDT-4h; cap_r clears 3.0R once the real 4h ATR/entry is at or below 1.65%. Do not read reachable=false here as evidence the change is inert.",
+      "trigger_condition": "The first trade on trend_donchian_xrp_4h / bybit_2 that OPENS after ict-git-sync deploys 892c9a2c and subsequently CLOSES.",
+      "resolution_criteria": "Read the first such closed trade and answer three things, each against broker truth rather than a label. (1) DID THE NEW GEOMETRY ACTUALLY APPLY: the trade's recorded stop and target must correspond to atr_stop_mult 2.0 and tp_r 3.0, cross-checked against /api/bot/config on the RUNNING process - a config file on main is not proof the trader loaded it. (2) HOW IT EXITED: do NOT read trades.exit_reason alone. BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS measured the declared bracket being reached ~3x more often than exit_reason records, and BL-20260822-EXIT-REASON-FROZEN-WHEN-PRICE-ARRIVES-LATE shows the no-record close path hard-codes reconciler_filled before any price exists. Compare the broker-truth exit PRICE against the declared target and stop. (3) IS THE NUMBER A MEASUREMENT: the row's pnlProvenance must be measured (or estimated with that stated); a fabricated or unverified exit price cannot confirm a target hit either way, and per the 2026-08-25 perExitPath cut several exit paths sit at pnlCoverage 0.0. A single trade CANNOT validate or refute the geometry - n=1 - so the criterion is not 'the trade was profitable'. It is that the shipped geometry is confirmed live and its exit is attributable. If the exit price shows the 9.9% venue clamp firing BEFORE the 3.0R target, that WOULD make the target cosmetic in live conditions despite the backtest, and this row should be escalated to a de-ship proposal.",
+      "evidence": "docs/research/e35-bracket-corpus.jsonl run 2026-08-29T22:32:12Z, leg trend_donchian_xrp_4h, cells tp3_sm2 and sm2 (199 cells on that run); docs/research/exit-refinement-coverage.json; docs/sprint-logs/S-E35-SHIP-REVERSED-GEOMETRY-2026-08-30.md; PR #10450 (892c9a2c); board #6927 comments 5467678345 and 5467755522.",
+      "related": [
+        "OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED",
+        "PB-20260824-COSMETIC-TARGETS-ABOVE-CAP-R-SHIP-AS-DECLARED-EXPECTATIONS",
+        "BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS",
+        "BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE"
+      ]
     }
   ],
   "updated_at": "2026-08-22T18:05:00+00:00"
