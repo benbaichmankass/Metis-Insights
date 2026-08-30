@@ -487,6 +487,32 @@ _LOG_FILES: dict[str, Path] = {
     "prop_ticket_risk_soak": _PROP_TICKET_RISK_SOAK_LOG,
     "exit_loop_health_alert_state": _EXIT_LOOP_HEALTH_ALERT_STATE,
     # Daily-cap alert latch.
+    # ── The two "liveness watchdog" state files. THEY ARE DIFFERENT THINGS AND
+    # THE BACKLOG ROW THAT ASKED FOR THEM CONFLATED THEM
+    # (BL-20260823-ALERT-LATCHES-WITHOUT-A-READ-SURFACE, corrected 2026-08-30).
+    # That row calls `liveness_watchdog_state.json` "THE MOST SAFETY-RELEVANT OF
+    # THE THREE ... the per-episode restart budget (--max-restarts / --cooldown-min)".
+    # It is not. Measured by reading both writers:
+    #
+    #   * `heartbeat_check_state.json`  <- scripts/check_heartbeat.py, the EXTERNAL
+    #     dead-man switch behind ict-liveness-watchdog.timer. Its state keys are
+    #     `autoheal_attempts`, `autoheal_exhausted_alerted`,
+    #     `last_autoheal_attempt_ts`. THIS is the restart budget. Once exhausted
+    #     the watchdog goes alert-only and stops auto-restarting the trader, so
+    #     without a read surface "the watchdog will restart the trader if it
+    #     stalls" is an assumption, not an observation.
+    #
+    #   * `liveness_watchdog_state.json` <- src/runtime/liveness_watchdog.py, a
+    #     DIFFERENT watchdog (signals-dispatched vs trades-placed). Its state is
+    #     one key, `slot_key`, an hourly anti-spam slot. Useful, not safety-critical.
+    #
+    # Allowlisting only the second — which is what that row literally asks for —
+    # would have left the budget unreadable while making it look covered. Both are
+    # registered here so the distinction cannot be lost again.
+    "heartbeat_check_state":
+        runtime_logs_dir() / "heartbeat_check_state.json",
+    "liveness_watchdog_state":
+        runtime_logs_dir() / "liveness_watchdog_state.json",
     "daily_cap_alert_state": _DAILY_CAP_ALERT_STATE,
     # PROP CADENCE STATE. The prop bridge is manual, so these three files are
     # the only evidence that the bot is still doing its half of it:
