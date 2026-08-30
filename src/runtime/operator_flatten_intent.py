@@ -107,16 +107,23 @@ def stamp_intent(
                 "account_id": account_id,
                 "symbol": symbol,
             }
+            # Route the WRITE through the canonical helper rather than a raw
+            # UPDATE — writer-conformance-guard flagged the first draft of this
+            # file, correctly: one-off writers are how the canonical-JSON /
+            # closed_at / direction invariants get skipped. The helper's
+            # mobile-push observer keys on the UPDATE dict's own ``status`` /
+            # ``sl`` / ``tp`` keys, and this passes none of them, so a
+            # notes-only stamp fires no notification (asserted in the tests).
+            from src.units.db.database import Database
+            db = Database(db_path)
             ids: List[int] = []
-            with conn:
-                for r in rows:
-                    notes = _decode(r["notes"])
-                    if notes.get(INTENT_KEY):
-                        continue  # idempotent — a re-run must not restamp
-                    notes[INTENT_KEY] = marker
-                    conn.execute("UPDATE trades SET notes = ? WHERE id = ?",
-                                 (json.dumps(notes), int(r["id"])))
-                    ids.append(int(r["id"]))
+            for r in rows:
+                notes = _decode(r["notes"])
+                if notes.get(INTENT_KEY):
+                    continue  # idempotent — a re-run must not restamp
+                notes[INTENT_KEY] = marker
+                db.update_trade(int(r["id"]), {"notes": json.dumps(notes)})
+                ids.append(int(r["id"]))
             out["state"] = "stamped"
             out["stamped_ids"] = ids
             return out
