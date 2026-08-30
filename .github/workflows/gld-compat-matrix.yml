@@ -21,10 +21,18 @@ name: gld-compat-matrix
 #      optional issue-body lines `strategy:`, `symbol:`, `fee_bps:`, `days:`
 #
 # Safety: READS the repo + fetches PUBLIC candles + runs the read-only harness +
-# the read-only compat matrix + comments/uploads the verdict. It does NOT push,
-# deploy, or touch config/accounts.yaml — routing gld_pullback_1h onto an account
-# is a Tier-3 config edit the operator approves separately (this only produces the
-# evidence).
+# the read-only compat matrix + comments/uploads the verdict, and LANDS the
+# flattened verdicts on main via a commit-to-main PR (see the landing steps
+# below). It does NOT deploy and does NOT touch config/accounts.yaml — routing
+# gld_pullback_1h onto an account is a Tier-3 config edit the operator approves
+# separately (this only produces the evidence).
+#
+# ⚠️ THIS HEADER SAID "It does NOT push" UNTIL 2026-08-30 AND THAT IS NO LONGER
+# TRUE. The landing steps were added the same day, so the workflow now opens a PR
+# against main carrying docs/research/gld-compat-matrix-verdicts.jsonl. The write
+# is to a research corpus only — never to config/, src/, or a unit file — but a
+# reader reasoning from the old sentence would conclude this workflow cannot
+# change the repo, which is the dangerous direction. Field beats comment.
 
 on:
   workflow_dispatch:
