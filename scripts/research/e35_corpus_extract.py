@@ -323,6 +323,31 @@ def main() -> int:
         rows = rows_from_report(doc, str(r))
         print(f"  {r}: {len(rows)} cell(s), {len(doc['legs'])} leg(s)")
         incoming.extend(rows)
+    # ---- RUN-SCOPED LANDING STAMPS -------------------------------------
+    # Emitted so the caller can assert THIS RUN's rows landed, rather than
+    # asserting the store is non-empty. `docs/research/e35-bracket-corpus.jsonl`
+    # is CUMULATIVE, so a predicate like `--field cell --contains sm` is
+    # satisfied by history and can never fail: measured 2026-08-30, the landing
+    # assertion reported `landed - 6624 rows` for run 33306805155 whose rows
+    # were ALL on an unmerged side branch (every one of the 6,624 predates it).
+    #
+    # `sweep_generated_at` is the report's own `generated_at`, one per SHARD, so
+    # a stamp identifies the shard that produced it. A caller asserting one
+    # stamp proves THAT shard's rows are readable -- which is what `min_rows: 1`
+    # claims -- not that every shard landed. Stated because the two are
+    # different claims and only the narrower one is supported.
+    stamps = sorted({str(r["sweep_generated_at"]) for r in incoming
+                     if r.get("sweep_generated_at")})
+    for s in stamps:
+        print(f"run-stamp: {s}")
+    if not stamps:
+        # NOT a warning. A caller that cannot scope its assertion must fail
+        # rather than fall back to the cumulative predicate, which is the
+        # defect this block exists to remove.
+        print("::error::extracted rows carry no `sweep_generated_at` - a landing "
+              "assertion cannot be scoped to this run", file=sys.stderr)
+        return 2
+
     corpus = Path(a.corpus)
     existing = load_corpus(corpus)
     merged, sup, add = merge(existing, incoming)
