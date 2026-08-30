@@ -29557,6 +29557,21 @@
       "evidence": "src/runtime/intents.py conflict-resolution key; DEFAULT_PRIORITIES (all six legs = 0); /api/bot/allocator/soak n=277 (3/3 collisions predicted); config/accounts.yaml 2026-07-07 routing-coverage comment"
     },
     {
+      "id": "BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH",
+      "title": "A transient red base permanently strands an auto-merge branch, because nothing ever updates it again",
+      "area": "automation landing / M40 R2",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "detail": "PRs #10398 and #10407 sat open for a day, both red on exactly two checks: session-brief-guard (\"CLAUDE.md's SESSION-BRIEF block is STALE vs the registers\") and 5 pytest failures ALL in tests/test_exit_reason_reclassify_on_late_price.py. Neither relates to what those PRs change (a calendar snapshot; a 9-line append). VERIFIED BY RUNNING EACH CHECK AT EACH COMMIT, not inferred: at their base 76d14af5 the session-brief guard exits 1 and that test file fails 5; on main 15c192bc it exits 0 and 11 pass. The test fix landed in c1f50fc, verified a DESCENDANT of their base. WHY THEY NEVER RECOVER: updated_at was byte-equal to created_at on both. Nothing updates an automation branch after it opens, so checks never re-run and auto-merge waits forever on a frozen snapshot of a base that no longer exists. MY FIRST HYPOTHESIS WAS WRONG and is recorded so it is not re-tried: I blamed the documented GITHUB_TOKEN-does-not-trigger-checks trap, which commit-to-main's own description names. Checks DID run. They ran once, on a bad day. PROVEN BY ACTING, not by argument: updating automation/valuation-snapshots-33254438575-1 flipped #10407's guards failure to success and it then AUTO-MERGED unaided at 12:57:19Z. Same content; only the base moved.",
+      "why_it_matters": "POPULATION: 7 of 7 automation/* branches were unmerged at discovery, and four had no open PR at all. Three grade-order-packages branches are ~68 days old and 60 commits behind. The failure is silent in both directions - the branch looks like it is waiting for CI, and CI looks like it has already spoken. Every one of these carries data the system generated and then dropped on the floor, which is the same class as the unread-research-corpus finding: work performed, never landed, never noticed.",
+      "next_action": "Run scripts/ops/stuck_automation_branches.py (shipped 2026-08-30 in #10493) and adjudicate the four PR-less branches - 'old' is not 'dead' and nobody has established which they are. Then decide whether a stale automation branch should be refreshed automatically (an empty commit is NOT the mechanism - the repo forbids it; merging the base forward is).",
+      "resolution_criteria": "Do NOT close on the detector alone. stuck_automation_branches.py REPORTS; nothing yet re-runs a stale branch's checks, and the four PR-less branches are unadjudicated. Closes when a stale automation branch is refreshed automatically, or the four are adjudicated AND the class has a standing owner.",
+      "opened_at": "2026-08-30",
+      "opened_by": "session_018wqzuqBjxkiaEEBr8kJC59",
+      "source": "triage of why #10398/#10407 were stuck (operator-directed)"
+    },
+    {
       "id": "BL-20260830-PRIORITY-IS-MOOT-COMMENTS-REASON-PER-ACCOUNT-WHILE-ARBITRATION-IS-PER-SYMBOL",
       "status": "open",
       "severity": "medium",

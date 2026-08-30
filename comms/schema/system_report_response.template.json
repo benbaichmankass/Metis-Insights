@@ -370,6 +370,21 @@
           ]
         },
         "summary": "<= 240 chars — what got disposed this run (drained/snoozed/promoted) + why the rest is parked"
+      },
+      "research_results_disposition": {
+        "_comment": "REQUIRED (2026-08-30). The RESEARCH sibling of ml_output_actionability: did a landed sweep/backtest result get READ and dispositioned, or did it just land? Run scripts/research/research_disposition.py --report. superseded_unread is NOT a finding (196 of 288 historical units are superseded by construction); landed_but_unread and unverifiable MUST reach flags_raised[].",
+        "units_landed_since_last": 0,
+        "dispositioned": 0,
+        "unread": 0,
+        "superseded_unread": 0,
+        "verdict": "actionable|landed_but_unread|none_landed|unverifiable"
+      },
+      "test_execution_verification": {
+        "_comment": "REQUIRED (2026-08-30). The TESTS half of since_last_build_verification. NOT 'which test files never run' - CI runs pytest -q tests/ wholesale over all 824 files, so that gap does not exist. pytest-run is PATH-FILTERED and its own comments record FOUR incidents of a 9-SECOND green run merging and leaving main red. A green check is not evidence the suite ran. Anything but 'executed' MUST reach flags_raised[].",
+        "runs_in_window": 0,
+        "suite_executed": 0,
+        "guards_executed": 0,
+        "verdict": "executed|short_circuited|not_run|unverifiable"
       }
     }
   },

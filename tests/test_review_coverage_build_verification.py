@@ -29,11 +29,12 @@ def _validate(rc: dict) -> list[str]:
     return _renderer()._validate_review_coverage({"consolidated": {"review_coverage": rc}})
 
 
-@pytest.mark.parametrize("key", [
-    "strategy_promotion", "ml_training_health", "soak_status", "execution_capture",
-    "backlog_drive", "account_reachability", "since_last_build_verification",
-    "backlog_classes", "ml_output_actionability", "unexercised_fixes",
-])
+# Driven FROM the enforced tuple rather than hand-listed. This was a fourth
+# hand-maintained copy of the key list (SKILL.md prose, the SKILL's STOP list,
+# the tuple, and here), and a hand-list can only ever go STALE — it silently
+# stops covering the newest key, which is precisely the key most likely to be
+# half-wired. Parametrising off the tuple makes the coverage automatic.
+@pytest.mark.parametrize("key", list(_renderer()._REQUIRED_COVERAGE_KEYS))
 def test_every_declared_key_is_actually_enforced(key):
     """SKILL.md's list and the enforced tuple must not drift apart again."""
     assert key in _renderer()._REQUIRED_COVERAGE_KEYS
@@ -119,6 +120,16 @@ def test_a_clean_payload_raises_none_of_these():
         # A clean payload must carry an `exercised` row WITH evidence — the only
         # state that legitimately drains this key. `still_unexercised` would be
         # honest but not clean: it is required to reach flags_raised[].
+        # Added 2026-08-30 with the two new required keys. This payload is the
+        # NON-VACUITY control, so it must stay CLEAN as keys are added — left
+        # short it would fail for the wrong reason and the controls below would
+        # stop proving they can distinguish a clean payload from a broken one.
+        "research_results_disposition": {
+            "units_landed_since_last": 14, "dispositioned": 14,
+            "unread": 0, "superseded_unread": 3, "verdict": "actionable"},
+        "test_execution_verification": {
+            "runs_in_window": 6, "suite_executed": 6,
+            "guards_executed": 6, "verdict": "executed"},
         "unexercised_fixes": [{
             "fix": "#10174 IB transmit", "deployed_sha": "abc1234",
             "verdict": "exercised",
