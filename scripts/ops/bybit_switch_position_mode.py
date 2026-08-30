@@ -162,14 +162,16 @@ def main(argv: Optional[list] = None) -> int:
     if cfg is None:
         out.update(action="abort_unknown_account",
                    detail=f"no account {a.account!r} in accounts.yaml")
-        print(json.dumps(out)); return 2
+        print(json.dumps(out))
+        return 2
 
     from src.units.accounts.clients import bybit_client_for
     client = bybit_client_for(cfg)
     if client is None:
         out.update(action="abort_no_client",
                    detail="bybit_client_for returned None (missing creds?)")
-        print(json.dumps(out)); return 2
+        print(json.dumps(out))
+        return 2
 
     before = read_mode(client, a.category, a.symbol)
     orders = resting_orders(client, a.category, a.symbol)
@@ -180,36 +182,44 @@ def main(argv: Optional[list] = None) -> int:
         out["action"] = "report_only"
         out["detail"] = ("read-only. Re-run with --mode, --confirm-account and --apply to switch."
                          if a.mode else "read-only, no --mode requested.")
-        print(json.dumps(out)); return 0
+        print(json.dumps(out))
+        return 0
 
     # ---- refusals, all of them, before any mutation ----
     if a.mode is None:
         out.update(action="abort_no_mode", detail="--apply requires --mode")
-        print(json.dumps(out)); return 2
+        print(json.dumps(out))
+        return 2
     if a.confirm_account != a.account:
         out.update(action="abort_unconfirmed",
                    detail="--confirm-account must equal --account for --apply")
-        print(json.dumps(out)); return 2
+        print(json.dumps(out))
+        return 2
     if before["read_state"] != "read":
         out.update(action="abort_unreadable_mode",
                    detail=f"read_state={before['read_state']!r} — refusing to switch a mode we could not read")
-        print(json.dumps(out)); return 3
+        print(json.dumps(out))
+        return 3
     if before["mode"] == a.mode:
         out.update(action="noop_already_in_mode", switch_verified=True,
                    detail=f"already {a.mode!r}; nothing to do")
-        print(json.dumps(out)); return 0
+        print(json.dumps(out))
+        return 0
     if before["flat"] is not True:
         out.update(action="abort_not_flat",
                    detail="symbol is NOT flat — every position row must be size 0 before a mode switch")
-        print(json.dumps(out)); return 3
+        print(json.dumps(out))
+        return 3
     if orders["read_state"] != "read":
         out.update(action="abort_orders_unreadable",
                    detail="could not read resting orders — refusing (a resting leg belongs to a book about to be redefined)")
-        print(json.dumps(out)); return 3
+        print(json.dumps(out))
+        return 3
     if orders["count"]:
         out.update(action="abort_resting_orders",
                    detail=f"{orders['count']} resting order(s) — cancel them first")
-        print(json.dumps(out)); return 3
+        print(json.dumps(out))
+        return 3
 
     venue_mode = MODE_BOTH_SIDES if a.mode == HEDGE else MODE_ONE_WAY
     out["venue_mode_sent"] = venue_mode
@@ -219,7 +229,8 @@ def main(argv: Optional[list] = None) -> int:
                                   "retMsg": (resp or {}).get("retMsg")}
     except Exception as exc:  # noqa: BLE001
         out.update(action="switch_failed", detail=f"{type(exc).__name__}: {exc}")
-        print(json.dumps(out)); return 4
+        print(json.dumps(out))
+        return 4
 
     out["applied"] = True
     after = read_mode(client, a.category, a.symbol)

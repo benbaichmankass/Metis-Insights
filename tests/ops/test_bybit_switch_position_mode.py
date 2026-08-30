@@ -20,8 +20,6 @@ import importlib.util
 import pathlib
 import sys
 
-import pytest
-
 _SRC = pathlib.Path(__file__).resolve().parents[2] / "scripts" / "ops" / "bybit_switch_position_mode.py"
 _spec = importlib.util.spec_from_file_location("bybit_switch_position_mode", _SRC)
 mod = importlib.util.module_from_spec(_spec)
