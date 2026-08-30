@@ -172,19 +172,32 @@ If Claude needs the operator to do something on the VM, Claude must provide:
 - Pre-filled variables and paths.
 - Clear instructions for what success should look like.[file:3]
 
-### Required pre-filled values
+### Required pre-filled values — ⚠️ DEAD, DO NOT USE (flagged 2026-08-30)
 
-Claude should use these exact values in any notebook or operator-run script:
+> **The whole of this file is superseded (see the banner at the top), but this
+> block was worse than merely stale: it told Claude to USE a specific host, and
+> that host no longer exists.** `158.178.210.252` is the retired x86 micro,
+> **terminated 2026-06-16** via `terminate-instance`. The live trader has been
+> the Ampere box `ict-bot-arm` (`141.145.193.91`) since the 2026-06-14 cutover —
+> single-sourced in `docs/ARCHITECTURE-CANONICAL.md` § "VM topology" and its
+> `CLAUDE.md` § "VM authority split" mirror, which are the only places a VM
+> address should be read from.
+>
+> The surrounding framing is also retired: *"any notebook or operator-run
+> script"* predates the autonomy contract. The operator originates secret
+> **values** only; VM mutation, propagation, restart and verification all run
+> through a `system-actions` workflow (see `.claude/skills/credentials-and-vm-mutations`).
+>
+> The original values are kept below, struck through, as the historical record
+> rather than deleted — but nothing should read them.
 
 ```python
-SSH_KEY_FILE = 'ict-bot-ovm-private.key'
-VM_USER = 'ubuntu'
-VM_HOST = "158.178.210.252"
-REPO_DIR = '/home/ubuntu/ict-trading-bot'
+# HISTORICAL — the host is terminated; do not copy these values.
+# SSH_KEY_FILE = 'ict-bot-ovm-private.key'
+# VM_USER      = 'ubuntu'
+# VM_HOST      = "158.178.210.252"   # TERMINATED 2026-06-16
+# REPO_DIR     = '/home/ubuntu/ict-trading-bot'
 ```
-
-See `docs/claude/colab-workflows.md` § "Operator VM steps" for the canonical notebook
-structure and `notebooks/operator/rotate_api_keys.ipynb` for the reference template.
 
 ## Cross-references
 
