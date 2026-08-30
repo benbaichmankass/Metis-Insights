@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# wiring: manual-only + CI-reportable. This REPORTS; it gates nothing. Same
+# wiring: manual-only — a session or operator runs this when triaging why an
+# automation branch never landed. It REPORTS and gates nothing, the same
 # posture as scripts/ops/evidence_workflow_inventory.py, and for the same
 # reason: the judgement about what to do with a stuck branch is a human one.
 """Which `automation/*` branches never landed, and how far behind they are.
@@ -101,6 +102,17 @@ def list_branches(prefix: str) -> Optional[List[str]]:
     return sorted(names)
 
 
+def state_for_age(age_hours: float, stale_hours: float) -> str:
+    """`stuck` once a branch is at least `stale_hours` old, else `in_flight`.
+
+    Extracted so the self-test can CALL it. The first version inlined this in
+    ``classify`` and the self-test recomputed the same expression itself — which
+    passes whatever the real code does, the vacuous-control shape this repo
+    keeps catching. ruff spotted the leftover unused fixture that gave it away.
+    """
+    return STUCK if age_hours >= stale_hours else IN_FLIGHT
+
+
 def classify(branch: str, shared_ref: str, stale_hours: float,
              now: Optional[datetime] = None) -> Row:
     sha = _git("rev-parse", f"refs/remotes/origin/{branch}")
@@ -134,7 +146,7 @@ def classify(branch: str, shared_ref: str, stale_hours: float,
     if cnt is not None and cnt.isdigit():
         behind = int(cnt)
 
-    state = STUCK if age >= stale_hours else IN_FLIGHT
+    state = state_for_age(age, stale_hours)
     b = "unknown" if behind is None else str(behind)
     return Row(branch, state, age, behind,
                f"unmerged; {age:.1f}h old; {b} commit(s) behind {shared_ref}")
@@ -145,13 +157,11 @@ def _selftest() -> int:
     known-landed branch stops classifying as `landed`, every other verdict here
     is meaningless and the probe is broken, so it short-circuits."""
     fails: List[str] = []
-    now = datetime(2026, 8, 30, 12, 0, tzinfo=timezone.utc)
 
-    # A row older than the threshold is `stuck`; younger is `in_flight`.
-    # These exercise the boundary directly rather than through git.
+    # Boundary, exercising the REAL function rather than a copy of its rule.
     for age, want in ((0.0, IN_FLIGHT), (5.9, IN_FLIGHT),
                       (6.0, STUCK), (48.0, STUCK)):
-        got = STUCK if age >= DEFAULT_STALE_HOURS else IN_FLIGHT
+        got = state_for_age(age, DEFAULT_STALE_HOURS)
         if got != want:
             fails.append(f"age {age}h should be {want}, got {got}")
 
