@@ -539,6 +539,27 @@ _LOG_FILES: dict[str, Path] = {
     # is strictly worse than no latch.
     "stop_over_cover_alert_state":
         runtime_logs_dir() / "stop_over_cover_alert_state.json",
+    # FOURTH recurrence of the shape the comment above describes, found by a
+    # /system-review drive 2026-08-30 while trying to CLOSE
+    # `BL-20260825-THE-ENTIRE-BYBIT-NAKED-SWEEP-PAGES-NOBODY` — whose criteria
+    # require the latch be "readable on /api/diag/log_file", and it was not.
+    # `_emit_bybit_over_cover_alert` latches through the shared
+    # `_cooldown_admits("bybit_over_cover", ...)`, and `_alert_state_path`
+    # resolves that to `<kind>_alert_state.json`, so the file is
+    # `bybit_over_cover_alert_state.json` — a DIFFERENT file from its IB
+    # sibling above, and it was never registered. Measured the same day:
+    # `?name=stop_over_cover_alert_state` returned `present: true` while
+    # `?name=bybit_over_cover_alert_state` returned nothing.
+    #
+    # ⚠️ THIS ONE GATES A MAINNET ACCOUNT. The IB page it was modelled on
+    # covers `ib_paper`; `bybit_2` is real money. The Bybit page fires at
+    # Level.ERROR (19 real rows measured in /api/bot/logs?level=error on
+    # 2026-08-30), so without this entry "the cooldown is holding" and "the
+    # cooldown is broken and the condition cleared" are indistinguishable on
+    # the one surface a relay-bound session can reach — which is the exact
+    # sentence three rows above, written about a different file.
+    "bybit_over_cover_alert_state":
+        runtime_logs_dir() / "bybit_over_cover_alert_state.json",
     # Same commit, same reason. This one gates the STRATEGY-BUILDER exception
     # page, whose repeat is downgraded ERROR -> WARN; without a read surface,
     # "the latch is holding" and "the latch is broken and everything is WARN"
