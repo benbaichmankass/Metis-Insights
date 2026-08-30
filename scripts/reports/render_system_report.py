@@ -779,6 +779,30 @@ _REQUIRED_COVERAGE_KEYS = (
     #    review needs to report on and check thoroughly until we see it work
     #    correctly."
     "unexercised_fixes",
+    # ── research_results_disposition: operator-directed 2026-08-30. The sibling
+    #    of `ml_output_actionability` for the RESEARCH pipeline. That key asks
+    #    whether ML output gets used; nothing asked it of backtests, sweeps and
+    #    corpora — and `grep -c 'corpus\|research/queue'` over all five review
+    #    SKILL.md files returned 0, so the research pipeline was invisible to
+    #    every review we run. R1-R6 of the research architecture stop at
+    #    *landed*; no stage covers *read*.
+    #
+    #    Measured the day it was added, by `scripts/research/research_disposition.py`:
+    #    **92 unread / 196 superseded_unread / 0 dispositioned** over the two
+    #    corpora. Zero. Every sweep the fleet has ever run landed and was never
+    #    dispositioned by anything that left a record.
+    "research_results_disposition",
+    # ── test_execution_verification: operator-directed 2026-08-30, *"verify the
+    #    mechanisms and the tests run since the previous review"*.
+    #    `since_last_build_verification` covers the MECHANISMS half. This is the
+    #    tests half, and it is NOT "which test files are unrun" — measured, CI
+    #    runs `pytest -q tests/` wholesale over all 824 files, so that gap does
+    #    not exist. The real one is one level over: `pytest-run` is
+    #    PATH-FILTERED, and that workflow's own comments record FOUR separate
+    #    incidents of a "9-SECOND green pytest-run" merging and leaving `main`
+    #    red. A green check is not evidence the suite ran.
+    #    CLAUDE-RULES-CANONICAL § "Green is not evidence".
+    "test_execution_verification",
 )
 
 #: Verdicts a since-last-build row may carry. `UNWIRED` is the finding.
