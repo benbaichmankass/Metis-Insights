@@ -12,6 +12,29 @@
 #   - All scripts read $REPO_DIR (default /home/ubuntu/ict-trading-bot).
 
 REPO_DIR="${REPO_DIR:-/home/ubuntu/ict-trading-bot}"
+
+# Make `from src...` resolve for every wrapper-invoked python script.
+#
+# BL-20260830-OPS-SCRIPTS-IMPORT-SRC-WITHOUT-A-SYS-PATH-BOOTSTRAP. The wrappers
+# all `cd "${REPO_DIR}"` first, which LOOKS sufficient and is not: running
+# `python3 /abs/path/script.py` seeds sys.path[0] with the SCRIPT'S directory
+# (scripts/ops), never the cwd. So the cd is irrelevant and `from src...` fails
+# on the VM while passing in every in-process test, because pytest already puts
+# the repo root on sys.path.
+#
+# Measured 2026-08-30: TEN scripts under scripts/ import src.* with no
+# sys.path bootstrap of their own. The first to ship, bybit_switch_position_mode,
+# died on its very first live dispatch (#10446) before reaching a single one of
+# its four safety guards. Fixing it once here covers the other nine AND every
+# script added later, which is why this is preferred over pasting the four-line
+# idiom into each file.
+#
+# ⚠️ THIS COVERS WRAPPER-INVOKED SCRIPTS ONLY. A script run directly, not via a
+# wrapper that sources this file, still needs its own bootstrap — so the
+# per-script idiom in flatten_bybit_position.py is complementary, not obsolete.
+#
+# Appends rather than overwrites so a caller's own PYTHONPATH survives.
+export PYTHONPATH="${REPO_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
 AUDIT_DIR="${REPO_DIR}/runtime_logs/operator_actions"
 
 log() {
