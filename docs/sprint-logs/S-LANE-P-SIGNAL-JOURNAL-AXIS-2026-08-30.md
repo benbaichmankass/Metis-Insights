@@ -314,3 +314,60 @@ reason no allocator can fix. The row now warns that the soak's headline
 - **Every PR event this session arrived for a superseded head.** Three of three.
   Acting on any without a fresh fetch would have produced a confident wrong
   conclusion about readiness.
+
+
+---
+
+## Addendum — unit 3: P3, the measurement half (2026-08-30, same session)
+
+Operator directed that the silent leg be wrapped up before a new session. The
+Tier-1 half shipped; **the Tier-3 remedy did not, and the leg is still
+signalling into a void.**
+
+**Shipped:** `src/runtime/arbitration_fanout.py` — a PURE assessment (no I/O, no
+audit emission, no order path, so the policy is arguable in tests rather than
+against a live position) plus `arbitration_fanout_soak.py` at
+`ARBITRATION_FANOUT_MODE=annotate`, wired observe-only beside the existing M18
+allocator soak in `intent_multiplexer`, with its
+`/api/diag/log_file?name=arbitration_fanout_soak` entry **in the same commit as
+the writer**.
+
+**Verified against the live case before wiring anything:** fed the real
+`accounts.yaml` roster with `[trend_donchian_sol, trend_donchian_sol_prop]` and
+winner `trend_donchian_sol_prop`, it returns `starved: ['bybit_1']`,
+`breakout_1: routed`, `accounts_graded: 2`.
+
+### A design constraint that shaped the whole thing
+The obvious implementation — re-run `aggregate_intents` on each account's subset
+to elect a per-account winner — **re-enters `_hard_regime_gate` and would re-emit
+a `regime_hard_gate` audit row per account per tick**, corrupting the one signal
+that cleanly partitions "would have gated" from "did gate". That is the evidence
+this whole lane depends on. So the soak measures **starvation** instead:
+side-effect-free, no second copy of the winner rule, and sufficient to size the
+change (an account never starved gains nothing from fanning out).
+
+⚠️ **The cost of that choice is stated in the module, the row and the workplan:
+a `starved` row does NOT mean "this account would have traded."** Whether its
+candidate survives its own gate and conflict resolution is unmeasured.
+
+### Gate polarity — deliberately opposite to two siblings
+`ARBITRATION_FANOUT_ACCOUNTS` **empty means NONE**.
+`CONVICTION_SIZING_ACCOUNTS` and `NETTING_ATTRIBUTION_ACCOUNTS` read empty as
+ALL — which `CLAUDE.md` itself calls *"not a safe default, it is the widest
+one"*. This one would arm a change to **which account an order routes to**, so
+it copies `PROTECTION_REASSERT_ACCOUNTS`. A test asserts it and says in its own
+docstring that harmonising it to match the siblings would be the bug, not the
+fix. The allowlist scopes the **binding, never the measurement**.
+
+`apply` is **not implemented** and does not pretend to be — refused back to
+`annotate`, with `apply_implemented: false` beside the effective `mode` and the
+requested `global_mode` on every row.
+
+### Tests: 19, and one I caught being vacuous
+`test_the_soak_call_cannot_alter_the_routed_signal` as first written set a flag
+and asserted the flag — it proved nothing. Replaced with a **structural** check
+that parses `intent_multiplexer`, locates the soak block and asserts it contains
+no assignment to `signal`, no subscript write and no `return`.
+**Mutation-checked:** injecting `signal["_fanout"] = True` into the block makes
+it fail. That is the claim the PR rests on — at `annotate` the live path is
+unchanged — proven rather than asserted from the diff.

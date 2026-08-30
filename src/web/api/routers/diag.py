@@ -250,6 +250,11 @@ _TARGET_EXTENSION_SOAK_LOG = runtime_logs_dir() / "target_extension_soak.jsonl"
 # defect #8778 shipped with `exit_loop_health`.
 _PROTECTION_REASSERT_SOAK_LOG = runtime_logs_dir() / "protection_reassert_soak.jsonl"
 _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
+#: Lane P/P3 — per-account arbitration fan-out soak. Allowlisted in the SAME
+#: commit as its writer: a soak that is written and cannot be read is the
+#: BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE shape,
+#: and this one is the sole evidence for a Tier-3 routing decision.
+_ARBITRATION_FANOUT_SOAK_LOG = runtime_logs_dir() / "arbitration_fanout_soak.jsonl"
 _PAIRS_SOAK_LOG = runtime_logs_dir() / "pairs_soak.jsonl"
 _EXPOSURE_SOAK_LOG = runtime_logs_dir() / "exposure_soak.jsonl"
 _NETTING_ATTRIBUTION_SOAK_LOG = (
@@ -386,6 +391,7 @@ _LOG_FILES: dict[str, Path] = {
     # M18 P2+ graduates the allocator to actually select the subset. Absent until
     # the first multi-candidate tick runs.
     "allocator_soak": _ALLOCATOR_SOAK_LOG,
+    "arbitration_fanout_soak": _ARBITRATION_FANOUT_SOAK_LOG,
     # M22 D2 market-neutral pairs sleeve soak — per-pair spread/z decision +
     # placement/close outcome (also surfaced publicly at /api/bot/pairs/soak).
     "pairs_soak": _PAIRS_SOAK_LOG,
