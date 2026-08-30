@@ -29622,6 +29622,16 @@
       "severity": "low",
       "tier": "1 (docs + a backlog row; no runtime path)",
       "resolution_criteria": "RESOLVED on landing: `grep -c 'mergeable_state' CLAUDE.md` is non-zero AND the 'PM-side session capabilities' CI-polling paragraph names both BL-20260720-GH-ACTIONS-PUSH-EVENTS-DEAD and this id, so the chain from symptom to cause is followable at the point of use. It REOPENS if a third row of this class is ever filed — that would mean restating it in CLAUDE.md was also not enough, and the next remedy is mechanical (a guard, or a wrapper that reads mergeable_state before reporting check runs) rather than more prose."
+    },
+    {
+      "id": "BL-20260830-FANOUT-SOAK-GRADES-A-NO-WINNER-TICK-AS-STARVED",
+      "status": "open",
+      "severity": "high",
+      "tier": "1",
+      "area": "src/runtime/arbitration_fanout.py::fanout_state_for",
+      "summary": "The arbitration fan-out soak (#10501) grades an account 'starved' on a tick where NO strategy won the symbol at all. Literally the docstring holds -- starved is defined as 'held a candidate and did not get the winner', and with no winner the account did not get one -- but it COLLAPSES two conditions that mean opposite things: (a) another ACCOUNT got the winner and this one was starved of it (the defect the soak exists to measure), and (b) nobody won, so nothing was routed anywhere and no account lost anything. MEASURED on the live soak 2026-08-30, first 9 rows (14:25Z-19:03Z, BTCUSDT 7 / ETHUSDT 2): 13 account-gradings, of which 11 are the NO-WINNER case and only 2 are genuine starvation. So the headline starved_count overstates real starvation by ~5.5x on this sample. This is the sole evidence base for a Tier-3 routing decision, so a naive read of starved_count would materially mislead it.",
+      "resolution_criteria": "Closes when a no-winner tick is graded as its own state (never 'starved') and the soak's summary reports genuine starvation separately from no-winner ticks -- verified by re-reading /api/diag/log_file?name=arbitration_fanout_soak and confirming the two populations are distinguishable without re-deriving them from winning_strategy by hand.",
+      "notes": "The 2 genuine rows are the lane's own thesis confirmed live: bybit_1 starved while breakout_1 routed, winner trend_donchian_eth_prop -- the disjoint-account twin pair from BL-20260830-PRIORITY-CANNOT-RESOLVE-A-DISJOINT-ACCOUNT-TWIN-PAIR. So the soak IS capturing the real signal; the problem is that the real signal is buried under an uninformative one that shares its label. Found by reading the live rows rather than the tests -- the unit tests all pass, because they assert the definition as written rather than whether the two populations are separable. STATE THE POPULATION: n=9 rows over ~4.6h on one process; small, and BTCUSDT-dominated."
     }
   ]
 }
