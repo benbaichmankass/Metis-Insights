@@ -111,7 +111,7 @@ def _live_position(account_cfg: Dict[str, Any], symbol: str) -> Optional[Dict[st
     return {}  # read OK, no matching position → flat
 
 
-def flatten(account_id: str, symbol: str, *, apply: bool) -> Dict[str, Any]:
+def flatten(account_id: str, symbol: str, *, apply: bool, reason: str = "") -> Dict[str, Any]:
     """Core routine. Returns a structured result dict (never raises)."""
     symbol = symbol.upper()
     out: Dict[str, Any] = {
@@ -178,6 +178,10 @@ def flatten(account_id: str, symbol: str, *, apply: bool) -> Dict[str, Any]:
         out["detail"] = f"close_open_position refused/failed: {res.get('error')}"
         return out
 
+    # Record the operator INTENT on the still-open row, before the
+    # reconciler closes it as a generic reconciler_filled.
+    _stamp_flatten_intent(account_id, symbol, out, reason)
+
     # Verify flat (re-read).
     after = _live_position(account_cfg, symbol)
     if after is not None and not after:
@@ -198,14 +202,44 @@ def flatten(account_id: str, symbol: str, *, apply: bool) -> Dict[str, Any]:
     return out
 
 
+
+def _stamp_flatten_intent(account_id: str, symbol: str, out: dict,
+                          reason: str) -> None:
+    """Record on the still-OPEN journal row that an OPERATOR flattened this.
+
+    Without it the reconciler's later close-on-disappear stamps
+    ``reconciler_filled`` and the row becomes indistinguishable from an
+    ordinary strategy exit — so it lands in the exit-geometry corpus as
+    evidence about the strategy, when a human chose the exit time.
+
+    Best-effort by contract: this script's responsibility is the BROKER-side
+    flatten, and a journal write must never turn a successful flatten into a
+    reported failure. The three-state result is recorded under
+    ``out["journal_intent"]`` so a reader can tell *we did not look* from
+    *there was no open row*.
+    """
+    try:
+        from src.runtime.operator_flatten_intent import stamp_intent
+        from src.utils.paths import trade_journal_db_path
+        out["journal_intent"] = stamp_intent(
+            str(trade_journal_db_path()), account_id, symbol,
+            reason=reason or "operator flatten (operational reason not stated)",
+            actor="flatten_ib_position",
+        )
+    except Exception as exc:  # noqa: BLE001
+        out["journal_intent"] = {"state": "unreadable", "stamped_ids": [],
+                                 "error": f"{type(exc).__name__}: {exc}"}
+
 def main(argv: Optional[list] = None) -> int:
     ap = argparse.ArgumentParser(description="One-shot guarded flatten of one IB position.")
     ap.add_argument("--account", default="ib_paper", help="account_id in accounts.yaml (default ib_paper)")
     ap.add_argument("--symbol", required=True, help="bot symbol to flatten, e.g. MGC")
     ap.add_argument("--apply", action="store_true", help="actually place the close (default: dry-run)")
+    ap.add_argument("--reason", default="",
+                    help="WHY this flatten is being done. Recorded on the journal\n                          row so the close is attributable as OPERATIONAL rather\n                          than a strategy exit.")
     args = ap.parse_args(argv)
 
-    result = flatten(args.account, args.symbol, apply=args.apply)
+    result = flatten(args.account, args.symbol, apply=args.apply, reason=args.reason)
     print(json.dumps(result, indent=2, default=str))
     # exit 0 on success/clean-noop/dry-run; 1 on any refusal/failure so the
     # wrapper + system-action can surface a non-zero status.
