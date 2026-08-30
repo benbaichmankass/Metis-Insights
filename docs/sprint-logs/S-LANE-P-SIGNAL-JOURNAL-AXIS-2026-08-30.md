@@ -370,3 +370,123 @@ no assignment to `signal`, no subscript write and no `return`.
 **Mutation-checked:** injecting `signal["_fanout"] = True` into the block makes
 it fail. That is the claim the PR rests on — at `annotate` the live path is
 unchanged — proven rather than asserted from the diff.
+
+## Addendum — unit 4: the reasoning that produced the bug (2026-08-30, same session)
+
+Unit 3 shipped the measurement half of the fan-out. This unit went after the
+remedy, took a different one than planned, and found the cause written down in
+prose.
+
+### The planned fix was evaluated and REJECTED, on evidence
+
+The operator's chosen remedy was **"set explicit priorities instead"** — leave
+the tiebreak comparison alone and give the colliding legs real `priority:`
+values so the tiebreak never reaches the name comparison. It does not work
+here, and shipping it would have traded one silent failure for another.
+
+Two verified facts kill it:
+
+1. **The twins route to DISJOINT accounts.** `trend_donchian_sol` →
+   `{bybit_1}`, `trend_donchian_sol_prop` → `{breakout_1}`; same shape for the
+   ETH pair. They share entries by design (the prop variant differs only in
+   exits), which is why they collide on **every** bar rather than
+   intermittently. So the correct outcome is that **both** trade.
+   `aggregate_intents` elects exactly one winner per symbol, so any ordering
+   starves one of them — and raising the base leg above its twin would starve a
+   **Tier-3 operator-approved live prop leg**, on the account where a breach is
+   terminal.
+
+2. **A two-leg fix would not even settle the symbol.** SOLUSDT is contested by
+   **six** enabled legs and ETHUSDT by six. `trend_donchian_sol` and
+   `trend_donchian_eth` lose to **all five** of their rivals, in **both**
+   tiebreak branches — four others would still outrank the base leg after the
+   twin was ordered.
+
+Filed as `BL-20260830-PRIORITY-CANNOT-RESOLVE-A-DISJOINT-ACCOUNT-TWIN-PAIR`
+(tier 3) rather than half-built. **The fan-out remains the only remedy that
+expresses the intended behaviour.**
+
+### What was actually wrong: the map's own reasoning
+
+Nearly every row of `DEFAULT_PRIORITIES` justified its value of `0` with some
+form of *"this leg runs ALONE on its (symbol, account), so priority is moot —
+it never arbitrates against another strategy."*
+
+`aggregate_intents` elects one winner **per SYMBOL, globally, before** the
+per-account fan-out in `Coordinator.multi_account_execute` — it never sees an
+account. The justification describes a scope the aggregator does not use, and
+the values were chosen on it. **Measured against the live config: 12 symbols
+are contested by more than one enabled leg** — BTCUSDT 7, SOLUSDT 6, ETHUSDT 6,
+XRPUSDT 4, MGC 3, AVAXUSDT 3, and six more at 2 — every contesting leg at `0`,
+so winners are decided entirely by name spelling.
+
+The two branches also disagree with each other by construction: the same-side
+branch maximises a negated-ord tuple (a strict **prefix always loses**, so the
+longer name wins), while the opposing-side branch sorts ascending (the
+**shorter** name wins). The same two legs get opposite winners depending on
+whether they agree on side.
+
+### Second finding: `execution: shadow` does not keep a leg out of the election
+
+That gate is the `execution_mode(...) == "shadow"` fold into `effective_dry` at
+`coordinator.py:1279`, inside `multi_account_execute` — **downstream of this
+election**. A shadow, data-only leg can therefore win a symbol and silence
+every live leg on it for that tick. `eth_pullback_prop_2h` (shadow) beats
+`trend_donchian_eth` (live) head-to-head today, and **6 of the 12 contested
+symbols carry at least one shadow leg** (BTCUSDT: 4 of 7). Six comment blocks
+asserting *"execution:shadow … so its priority never arbitrates a real order"*
+were corrected: it never **places** a real order; it can certainly **suppress**
+one. The safety-floor reasoning for the low values is still sound and the
+values are unchanged — only the never-arbitrates claim is withdrawn.
+
+### What shipped (PR #10507)
+
+Comments and a test. **No priority VALUE changed — behaviour byte-identical.**
+Six mutation-verified tests in `tests/test_priority_arbitration_scope.py`
+pinning the contest sets, the disjoint-account routing, the spelling-decides
+property, the all-five-rivals loss and the shadow-beats-live case. They read the
+**real config on purpose** — a fixture would let the config drift away from the
+assertion, which is the failure the file exists to prevent.
+
+### A test I caught being vacuous — the second this session
+
+The `priority is moot` guard first excluded any line within six lines of a
+`CORRECTED` marker. That was maskable: an unrelated correction elsewhere in the
+block hid an injected bare claim and **the mutation passed**. Rewritten to key
+on the retraction *quotation*, per-line, which a neighbour cannot mask. The
+failure mode is written into the test's own docstring so the weaker form is not
+reintroduced.
+
+### CI caught a third thing, and it was right
+
+`pytest-run` on #10501 failed on
+`test_every_allowlisted_log_file_is_documented`: `arbitration_fanout_soak` was
+added to the diag allowlist **in the same commit as its writer**, as that PR
+claims — but `CLAUDE.md`'s `log_file` enumeration was never updated, so a
+session reading `CLAUDE.md` could not know to ask for it. Exactly the
+`BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE`
+discipline the PR invokes, half-applied. Fixed and mutation-verified. **1
+failed / 13,593 passed — a real failure, not flake.**
+
+### e35 open item: half (b) still unmet, and a second near-miss recorded
+
+Re-read the live surfaces. `trend_donchian_eth_4h` on **bybit_portfolio**
+closed 2026-08-30T14:01:17Z at −$350.75 — after the deploy, on an e35 leg — and
+is disqualified on **both** of the criterion's own tests: opened
+2026-08-21T21:54:56Z (nine days pre-deploy, so it carries the old `2.5`
+`atr_stop_mult`), and `bybit_portfolio` is **paper**, not real money. Its
+`pnlProvenance` is `estimated`, which the criterion also excludes. State the
+population: across all 40 rows of `/api/bot/trades/closed`, every e35-leg row
+was opened 2026-08-21 or 2026-08-22, and the live `/api/bot/positions` (9 open)
+carries no e35 real-money leg at all. **Nothing has opened on any of the ten
+legs since the deploy** — this is "no trade yet", not "the geometry is not
+applying". Recorded in `OPEN-ITEMS.json` so the next session cannot misread it.
+
+### One probe of mine that was wrong, recorded because it nearly cost a step
+
+I checked whether a backlog id existed on `main` with a grep whose character
+class was `[A-Z-]*` — no digits. The id I was looking for
+(`…-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-…`) contains `144`, so the pattern
+matched nothing and I briefly concluded the row lived only on an unmerged
+branch. It was on `main` all along. **A search returning nothing is not proof of absence**; the probe needed
+a positive control it never got.
