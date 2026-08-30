@@ -94,7 +94,11 @@ don't route around it.
 
 This block is rendered from `docs/claude/OPEN-ITEMS.json` + `docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** because `CLAUDE.md` is the only surface that reaches a session before it acts — project **hooks do not run on Claude Code on the web** (verified 2026-08-26: the SessionStart contract's output was absent from the session context), and CI guards fire at merge, which is after the wrong work is already built. It lists only what is DUE or UNPREVENTED, so it shrinks as work lands.
 
-**No monitoring item is due.** (The section is generated — an empty list here means nothing is past its cadence, not that the renderer failed.)
+**1 monitoring item(s) DUE — check and record what you OBSERVED:**
+
+- **`OI-20260830-BYBIT-HEDGE-MODE-ARMED-BUT-UNEXERCISED`** — bybit_1 SOLUSDT+ETHUSDT switched to Bybit HEDGE position mode and the code allowlist armed to match. Venue and env verified in agreement; NO PAIR HAS YET OPENED in hedge mode, so the fix is DEPLOYED, NOT PROVEN.
+  - **Clears when:** A pairs_soak 'open' event is observed for pairs_sol_eth in which BOTH legs are placed and the venue reports position_idx 1 or 2 (not 0) for each, with NO half_open, no stranded leg, and no exchange_rejected on a SOL/ETH order. A run of clean opens retires it. A single absence of stranding is NOT proof: a bar where |z| < entry_z 2.0 opens nothing at all and must not be counted as evidence either way.
+  - Last observed: `never`. To clear for another cycle, set `verified_at` to today AND write what you saw into `observation` — a claim of progress is not an observation.
 
 **Every recorded repeated-mistake class has an executable prevention.**
 
