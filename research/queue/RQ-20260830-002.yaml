@@ -1,0 +1,84 @@
+id: RQ-20260830-002
+title: Monthly re-validation of every SHIPPED bracket-geometry cell on a live leg
+status: queued
+cadence: monthly
+kind: experiment
+
+question: >-
+  Do the bracket-geometry cells currently SHIPPED on live legs still clear the
+  gate that shipped them? A validation is a measurement with a date, not a
+  property — and this repo has measured its own decay: the coverage matrix
+  carries a dedicated `shipped_gate_failed` status for "LIVE in config, but a
+  LATER re-sweep failed its gate", and on the one family where shipped cells
+  were systematically re-measured (trend_donchian at live parity, 2026-08-14)
+  the stale-decision base rate was 3 of 4. Nothing re-measures these on a
+  cadence; every re-sweep so far happened because a session chose to look.
+
+power:
+  expected_n: 50
+  min_detectable_effect: 0.4
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.80
+  basis: >-
+    Identical derivation to RQ-20260830-001 and for the identical reason: n is
+    the sweep's own DEFAULT_SPLIT_TARGET_OOS = 50 (#9748), and the gate is
+    PAIRED (cell vs base over the same trade sequence), so the unit is the
+    per-trade difference and the design is one_sample.
+    ⚠️ THE FLOOR IS PER LEG, AND THIS JOB SWEEPS 14 OF THEM. The declared alpha
+    is the PER-CELL level; the queue README is explicit that a multi-cell sweep
+    "must declare its own adjusted alpha", and a 14-leg pass at alpha=0.05 will
+    produce roughly one spurious verdict by construction. That is tolerable ONLY
+    because this job's output is a WATCHLIST, never a disposition: a leg that
+    fails here is queued for a human re-read, and changing a live lever is
+    Tier-3 regardless. Do not read a single failing leg as a finding.
+    ⚠️ A low-frequency leg (the 1d ones especially) may not reach 50 OOS trades
+    at all; the sweep grades those ungradeable rather than passing them, so read
+    per-leg base_trades_OOS before quoting any verdict from this job.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 90
+  basis: >-
+    Runner, same as RQ-20260830-001 — e35-bracket-sweep.yml shards ONE LEG PER
+    JOB and fetches its own candles (data.binance.vision / dukascopy / yfinance
+    per leg), so no VM is touched and peak memory is per-shard, not cumulative.
+    est_minutes is 14 legs at max_parallel 6, i.e. ~3 waves of the ~25 min a
+    single leg takes in RQ-20260830-001 — an ESTIMATE from that one leg, not a
+    measurement of this fan-out.
+
+run:
+  workflow: e35-bracket-sweep.yml
+  inputs:
+    only: "ada_pullback_2h,iwm_trend_long_1d,mgc_pullback_1d,qqq_trend_long_1d,scha_trend_long_1d,spy_trend_long_1d,tlt_pullback_1h,trend_donchian,trend_donchian_ada_4h,trend_donchian_avax_4h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,uso_trend_1h"
+    days: "1830"
+    gate_top: "2"
+    singles_only: "false"
+    max_parallel: "6"
+
+lands:
+  store: docs/research/e35-bracket-corpus.jsonl
+  assert_field: leg
+  min_rows: 1
+  note: >-
+    Store read off the producer's own `git add`, per assert_rows_landed.py's
+    warning. min_rows is 1 rather than 14 deliberately: the sweep shards per leg
+    and a single leg's data fetch can fail, so requiring all 14 would grade a
+    13-of-14 run as a landing failure — which is a DIFFERENT defect from
+    "nothing landed", and this assertion is only meant to catch the latter.
+    Per-leg completeness is read off the corpus, not off this gate.
+
+related:
+  - >-
+    OI-20260827-RESEARCH-QUEUE-DISPATCHER-NEVER-FIRED — criterion (b): a
+    recurring job observed NOT re-firing on the dispatcher run immediately
+    after its first fire, which is the last_dispatched_at stamp race.
+  - >-
+    The 14 legs are DERIVED, not typed: bracket_geometry status == shipped AND
+    execution == live AND present in e35_shard_plan --ignore-missing-data.
+    Re-derive rather than editing this list by hand when the matrix moves.
+
+last_dispatched_at: null

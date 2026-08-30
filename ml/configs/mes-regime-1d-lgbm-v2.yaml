@@ -35,11 +35,24 @@ trainer_config:
     - log_return
     - log_return_lag_1
     - log_return_lag_2
-    - hour_of_day
+    # hour_of_day REMOVED 2026-08-29 (/system-review). On a 1d bar every row carries the
+    # same hour, so the column is structurally constant and the dataset audit correctly
+    # flagged it dead: zero_fraction 1.0000 >= 0.99, n_unique 1, variance 0.0 over
+    # n_rows 2908. That flag drives manifest_audit_skipped_enforced, which is why this
+    # model had not trained for 34.0 DAYS against a 7-day threshold (last run
+    # 2026-07-26T06:00:58Z) while reporting rc=0 and a green service.
+    # It is a copy-paste from the 5m/15m siblings, where the feature is legitimate.
+    # VERIFIED NOT A CLASS: 55 manifests declare hour_of_day and this is the ONLY one on
+    # a daily bar — the other 54 are 5m/15m/1h/all, where the hour genuinely varies.
+    # dayofweek is KEPT: it does vary on a daily bar.
     - dayofweek
   categorical_columns:
     - vol_bucket
-    - hour_of_day
+    # hour_of_day removed here TOO, and this half is load-bearing: the trainer RAISES
+    # "categorical_columns contains 'hour_of_day' not in feature_columns"
+    # (ml/trainers/lightgbm_multiclass.py:120-123). Dropping it from feature_columns
+    # alone would have turned a skipped manifest into a hard training FAILURE — strictly
+    # worse than the state being fixed.
     - dayofweek
   freeze_regime_spec: true
   vol_feature_column: rolling_log_return_vol
@@ -75,7 +88,15 @@ target_deployment_stage: shadow
 notes: |
   v2 LightGBM head, MES @ 1d. Recurring successor to the orphaned
   mes-regime-classifier-baseline-v0 (MB-20260528-001). Trains on the
-  deep daily ES=F window built by build_mes_1d (yfinance 1d). hour_of_day
-  is constant on a daily bar (kept for schema parity with the 5m/15m
-  manifests; the booster will simply ignore it). Leakage gate forbids
+  deep daily ES=F window built by build_mes_1d (yfinance 1d).
+  hour_of_day was REMOVED from feature_columns and categorical_columns on
+  2026-08-29. This note previously said it was "kept for schema parity with
+  the 5m/15m manifests; the booster will simply ignore it" - and that belief
+  is precisely what cost this manifest 34 days. The BOOSTER would indeed have
+  ignored it; the DATASET AUDIT did not. It flagged the column dead
+  (zero_fraction 1.0000, n_unique 1, variance 0.0 over n_rows 2908), which
+  drives manifest_audit_skipped_enforced, so the manifest was skipped entirely
+  and never trained - while the cycle reported rc=0 and the service read green.
+  Schema parity across timeframes is not a reason to declare a column that
+  cannot vary at this one. Leakage gate forbids
   forward_log_return / forward_log_return_vol / regime_label.

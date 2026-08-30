@@ -159,7 +159,7 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
-    backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|rotate-account-keys|init-diag-token|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm)
+    backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|rotate-account-keys|init-diag-token|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm)
         tier=2
         case "${exit_code}" in
             0) result="ok"; priority="normal" ;;
@@ -225,6 +225,20 @@ case "${action}" in
             # transient — it is not "ok", and it is not a crash either.
             3) result="REFUSED — a runner instance is active; investigate before purging"; priority="high" ;;
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
+    switch-bybit-position-mode)
+        # 2026-08-30: read, or with apply SWITCH, a Bybit symbol's VENUE
+        # position mode (one-way <-> hedge). T.2 arming for
+        # BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok (report, no-op, or VERIFIED switch)"; priority="normal" ;;
+            # 5 is the script's own "venue accepted the call but the re-read does
+            # NOT show the requested mode" — the books may now disagree with
+            # BYBIT_HEDGE_MODE_SYMBOLS, which refuses orders on this symbol.
+            5) result="SWITCH UNVERIFIED — venue mode did not change; do NOT arm the allowlist"; priority="urgent" ;;
+            *) result="FAILED/refused (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
     flatten-ib-position|flatten-bybit-position|flatten-alpaca-position)

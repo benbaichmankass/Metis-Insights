@@ -822,7 +822,19 @@ accounts:
   alpaca_live:
     exchange: alpaca
     account_class: real_money          # REAL MONEY (Alpaca live host).
-    mode: dry_run                      # dry-run-guard: allow — SHELVED to dry_run 2026-07-15 (Tier-3, operator-directed): the open IEF
+    mode: live                         # LIVE, with an EMPTY ROSTER — operator-directed 2026-08-29:
+                                       # "I want the Alpaca live account to be configured correctly for
+                                       # live trading. It just shouldn't have any strategies wired to it
+                                       # in the meantime before we select the roster."
+                                       # ⚠️ THE EMPTY `strategies:` LIST BELOW IS THE ONLY THING KEEPING
+                                       # THIS ACCOUNT FLAT. mode: live + a non-empty roster trades REAL
+                                       # MONEY immediately — there is no second gate behind this one, so
+                                       # adding the first leg back IS the live-trading moment and is
+                                       # Tier-3 in its own right. `strategies: []` is a supported state
+                                       # (ib_live and oanda_practice already run it; every consumer reads
+                                       # `list(cfg.get("strategies") or [])`), but this is the FIRST
+                                       # `mode: live` account to use it.
+                                       # PRIOR: SHELVED to dry_run 2026-07-15 (Tier-3, operator-directed): the open IEF
                                        # position was closed and funds moved to Bybit (the stronger performer for
                                        # now); alpaca_live real-money strategies are paused pending evidence they
                                        # help. RE-ARM to live is gated on the /performance-review portfolio-vs-bybit
@@ -852,27 +864,38 @@ accounts:
     alpaca_env: live                   # selects api.alpaca.markets (vs paper).
     api_key_env: ALPACA_API_KEY_ID_LIVE        # this account's OWN key pair, so
     api_secret_env: ALPACA_API_SECRET_KEY_LIVE # paper + live run concurrently.
-    strategies:                         # Tier-3 pilot — operator-approved 2026-06-25.
-      - spy_trend_long_1d               # daily ETF, paper-validated 2026-06-11+
-      - qqq_trend_long_1d               # daily ETF, paper-validated 2026-06-11+
-      - gld_pullback_1d                 # daily ETF, paper-validated 2026-06-11+
-      - iwm_trend_long_1d               # daily ETF breadth, paper-validated 2026-06-20+
-      - tlt_pullback_1d                 # daily ETF breadth, paper-validated 2026-06-20+
-      - ief_pullback_1d                 # daily ETF breadth, paper-validated 2026-06-20+
-      - gld_pullback_1h                 # intraday ETF pilot, paper-validated 2026-06-20+
-      - slv_trend_1h                    # intraday ETF pilot, paper-validated 2026-06-20+
-      - spy_pullback_1h                 # intraday ETF rollout, paper-validated 2026-06-20+
-      - qqq_pullback_1h                 # intraday ETF rollout, paper-validated 2026-06-20+
-      - tlt_pullback_1h                 # intraday ETF rollout, paper-validated 2026-06-20+
-      - uso_trend_1h                    # intraday ETF rollout, paper-validated 2026-06-20+
-      - slv_pullback_1d                 # daily ETF pullback, sister to gld_pullback_1d — added 2026-06-27 (Tier-3)
-      - gdx_pullback_1d                 # daily ETF pullback, gold miners — added 2026-06-27 (Tier-3)
-      - splg_trend_long_1d              # sub-$100 proxy promotion (2026-07-07, Tier-3, operator-approved):
-      - iaum_pullback_1d                # SPLG (~$84, S&P 500 proxy for SPY) + IAUM (~$41, gold proxy for GLD)
-                                       # — the two proxies that clear BOTH the survival gate and affordability
-                                       # at the normalized risk_pct below. Paper-validated (#5895), risk-sized
-                                       # via the compat sweep (#5911/#5916). SCHA intentionally NOT promoted
-                                       # (marginal edge, paper-only). ROLLBACK: drop these two lines + SPLG/IAUM below.
+    strategies: []                     # EMPTY BY DIRECTION — operator, 2026-08-29. The 16-leg
+                                       # Tier-3 pilot roster (approved 2026-06-25, extended 2026-06-27
+                                       # and 2026-07-07) is REMOVED from real money until a roster is
+                                       # selected on BACKTEST + WALK-FORWARD evidence rather than on a
+                                       # paper soak: "we shouldn't need the paper soak to make the live
+                                       # decision in this case. We should be able to backtest, walk
+                                       # forward on the data."
+                                       #
+                                       # ⚠️ USO IS EXCLUDED ON NON-FINANCIAL GROUNDS AND MUST NOT BE
+                                       # RE-ADDED HERE BY A PERFORMANCE ARGUMENT. Operator, 2026-08-29:
+                                       # "I don't wanna put USO on real money. I don't wanna make money
+                                       # from fossil fuels." This is a STANDING CONSTRAINT, not a
+                                       # provisional one, and it survives any backtest result —
+                                       # `uso_trend_1h` is on paper for RESEARCH ONLY (it may still be
+                                       # useful as a macro-sleeve indicator). Note it is currently the
+                                       # ONLY leg of the old roster with positive measured PnL
+                                       # (+$8,778 measured, n=11, 63.6% win, coverage 0.455 on the paper
+                                       # book), which is exactly why this line exists: the next session
+                                       # to rank legs by PnL will find USO at the top and must not
+                                       # promote it.
+                                       #
+                                       # The old roster, kept here as the record of what was removed:
+                                       #   spy_trend_long_1d, qqq_trend_long_1d, gld_pullback_1d,
+                                       #   iwm_trend_long_1d, tlt_pullback_1d, ief_pullback_1d,
+                                       #   gld_pullback_1h, slv_trend_1h, spy_pullback_1h,
+                                       #   qqq_pullback_1h, tlt_pullback_1h, uso_trend_1h,
+                                       #   slv_pullback_1d, gdx_pullback_1d, splg_trend_long_1d,
+                                       #   iaum_pullback_1d
+                                       # Every one of them still runs on alpaca_paper, so removing them
+                                       # here costs no data — the record keeps accruing.
+                                       # ROLLBACK: this is not a rollback candidate; re-adding any leg is
+                                       # a fresh Tier-3 decision requiring the evidence above.
     symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX, SPLG, IAUM]   # instrument identity
                                        # (mirrors alpaca_paper; sub-$100 proxies SPLG/IAUM
                                        # added 2026-07-07 for the promotion).
@@ -951,8 +974,22 @@ accounts:
                                        # the operator named three values and this is not
                                        # one of them; flagged for a decision (10% of $200
                                        # would be 20).
-      risk_pct: 0.05                   # 5% balance risked per trade ($10 at $200) —
-                                       # operator-directed 2026-08-25 for the
+      risk_pct: 0.02                   # 2% per trade — operator-directed 2026-08-29, restoring the
+                                       # GATE-CLEARED value. The block above records that the survival
+                                       # evidence (#5911/#5916, 2026-07-07) is FOR 2% and "HAS NOT BEEN
+                                       # RE-RUN AT 5%", so 0.05 sat on unmeasured ground; 0.02 is the
+                                       # value the compat matrix actually cleared.
+                                       # ⚠️ INERT WHILE THE ROSTER IS EMPTY — it sizes nothing today. It
+                                       # is set now so the roster decision is not ALSO a risk decision.
+                                       # ⚠️ AND IT DOES NOT CHANGE WHICH SYMBOLS ARE REACHABLE: the block
+                                       # above measured the reachable set IDENTICAL at 2% and 5% (cash,
+                                       # not risk, is the binding term). Re-verified 2026-08-29 through
+                                       # RiskManager.position_size — 8 legs / 6 symbols size > 0 at BOTH
+                                       # settings, matching the 2026-08-25 record exactly.
+                                       # The 0.10 max_dd / 0.10 daily_loss caps are UNCHANGED: the
+                                       # operator named those three values on 2026-08-25 and named only
+                                       # risk_pct on 2026-08-29.
+                                       # PRIOR: 0.05, operator-directed 2026-08-25 for the
                                        # demonstration account. ⚠️ Adds NO symbol: the
                                        # reachable set is identical at 2% and 5% (see
                                        # above). It takes GDX off the round-up crutch

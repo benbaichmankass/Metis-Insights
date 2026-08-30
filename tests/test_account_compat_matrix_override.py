@@ -205,3 +205,69 @@ def test_engine_path_is_unchanged_without_an_override(tmp_path, monkeypatch):
     assert seen["clock_tf"] == "1h"
     assert seen["daily_loss_pct"] == 3.0
     assert seen["signal_ttl_bars"] == 1
+
+
+# ---------------------------------------------------------------------------
+# --balances must be INVISIBLE to a caller that does not use it.
+#
+# The flag shipped 2026-08-29 and broke all three tests above, in two separate
+# ways, because this entry point is driven BOTH by argparse and by hand-built
+# Namespaces: (1) a plain `args.balances` read raised AttributeError on a
+# Namespace that never set it, and (2) passing `snapshots=` unconditionally
+# broke every test that patches `all_account_units` with a narrower lambda.
+# Both are the same underlying mistake -- a new optional input changing the
+# contract for callers that never asked for it.
+# ---------------------------------------------------------------------------
+def test_absent_balances_attr_is_read_as_not_supplied() -> None:
+    """A Namespace with no `balances` attribute must read as 'none supplied'."""
+    import argparse
+
+    args = argparse.Namespace()
+    assert getattr(args, "balances", "") == ""
+
+
+def test_run_does_not_pass_snapshots_when_no_balances(monkeypatch, tmp_path) -> None:
+    """all_account_units() is called with NO kwargs when --balances is unset.
+
+    Asserted on the CALL, not on the verdict: a test that only checked the
+    verdict would still pass if the kwarg were sent, and the kwarg is exactly
+    what broke the sibling tests.
+    """
+    import scripts.prop.account_compat_matrix as m
+
+    seen: list[dict] = []
+
+    def _fake_all_account_units(*a, **kw):
+        seen.append(dict(kw))
+        return {}
+
+    monkeypatch.setattr(m, "all_account_units", _fake_all_account_units)
+
+    # `units` empty -> run() bails right after the call, which is all we need.
+    args = m.build_parser().parse_args(
+        ["--ledger", str(tmp_path / "nope.jsonl"), "--out-dir", str(tmp_path)]
+    ) if hasattr(m, "build_parser") else None
+    if args is None:                      # parser is inline in main(); call directly
+        import argparse
+        args = argparse.Namespace(
+            strategy=None, ledger=str(tmp_path / "nope.jsonl"), data=None,
+            symbol="X", fee_bps_roundtrip=0.0, accounts=None, start=None, end=None,
+            base_account_size=5000.0, base_risk_pct=0.5, clock_tf="1h",
+            horizon_months=6.0, n_paths=10, block_len=4, seed=1,
+            min_p_profitable=0.5, min_survival=0.9, max_p_breach=0.1,
+            override=[], refresh_signals=False, out_dir=str(tmp_path),
+            balances="", asset_class="equity",
+        )
+    (tmp_path / "nope.jsonl").write_text("")
+    try:
+        m.run(args)
+    except SystemExit:
+        pass
+    except Exception:
+        pass
+
+    assert seen, "all_account_units was never called"
+    assert "snapshots" not in seen[0], (
+        "run() passed snapshots= even though --balances was unset; that breaks "
+        "every caller patching all_account_units with a narrower signature"
+    )

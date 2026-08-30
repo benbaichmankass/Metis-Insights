@@ -170,6 +170,15 @@ ALLOWED_KEYS: tuple[str, ...] = (
     "PROTECTION_REASSERT_ACCOUNTS",
     "PROTECTION_REASSERT_COOLDOWN_S",
     "PROTECTION_REASSERT_MAX_ATTEMPTS",
+    # T+1 cash-settlement gate. Both are safe to publish (a mode word and an
+    # account-id list) and BOTH must be readable: the mode alone cannot say
+    # whether the gate BINDS, because an empty ACCOUNTS allowlist means NONE on
+    # this knob -- deliberately the opposite polarity to CONVICTION_SIZING_
+    # ACCOUNTS above -- so `mode=apply` with an empty list is an ARMED-LOOKING
+    # gate that constrains nothing. Reading one without the other is exactly
+    # the confusion BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE records.
+    "ALPACA_CASH_SETTLEMENT_MODE",
+    "ALPACA_CASH_SETTLEMENT_ACCOUNTS",
     "NEWS_INFLUENCE_MODE",
     "NEWS_VETO_ENABLED",
     "NEWS_SOURCE",

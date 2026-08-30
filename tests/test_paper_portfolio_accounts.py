@@ -83,14 +83,49 @@ def test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies():
     accts = _accounts()
     portfolio, real = accts["alpaca_portfolio"], accts["alpaca_live"]
 
-    expected_strats = [s for s in real.get("strategies") or []
-                       if s not in _ALPACA_PROXY_STRATEGIES]
-    assert portfolio.get("strategies") == expected_strats, (
-        "alpaca_portfolio must mirror alpaca_live's roster MINUS the "
-        f"affordability proxies {_ALPACA_PROXY_STRATEGIES} (ROSTER-SYNC)."
-    )
-    # No proxy strategy leaks in.
-    assert _ALPACA_PROXY_STRATEGIES.isdisjoint(set(portfolio.get("strategies") or []))
+    live_strats = real.get("strategies") or []
+    port_strats = portfolio.get("strategies") or []
+    expected_strats = [s for s in live_strats if s not in _ALPACA_PROXY_STRATEGIES]
+
+    # TWO STATES, SPLIT RATHER THAN CONFLATED (2026-08-29).
+    #
+    # The equality invariant below is UNCHANGED for the normal regime — a live
+    # roster and its paper mirror must not drift. What it could not express is
+    # a DELIBERATELY EMPTY live roster, which is the state operator-directed on
+    # 2026-08-29: alpaca_live is `mode: live` with `strategies: []` until a
+    # roster is selected on backtest + walk-forward evidence.
+    #
+    # ⚠️ ASSERTING EQUALITY THERE WOULD FORCE alpaca_portfolio TO BE EMPTIED
+    # TOO, destroying the paper research book that the roster selection depends
+    # on — i.e. the invariant would demand the opposite of its own purpose
+    # ("so the paper read is representative of the live account"). An empty
+    # live roster has nothing to be representative OF.
+    #
+    # So the empty case gets its own assertion, and it is a NEW protection
+    # rather than a relaxation: while live is empty the research book must stay
+    # POPULATED. A silent emptying of alpaca_portfolio would previously have
+    # satisfied equality; now it fails.
+    if live_strats:
+        assert port_strats == expected_strats, (
+            "alpaca_portfolio must mirror alpaca_live's roster MINUS the "
+            f"affordability proxies {_ALPACA_PROXY_STRATEGIES} (ROSTER-SYNC)."
+        )
+    else:
+        assert port_strats, (
+            "alpaca_live's roster is deliberately EMPTY (pending roster "
+            "selection), so alpaca_portfolio is the only place the paper record "
+            "still accrues — it must NOT be emptied in sympathy. If you meant "
+            "to retire the Alpaca research book, do it explicitly, not by "
+            "mirroring an empty live roster."
+        )
+        # ⚠️ CONSEQUENCE, recorded rather than hidden: while live is empty,
+        # `/api/bot/performance`'s `paperPortfolio` block describes a RESEARCH
+        # book, not a mirror of what real money is trading (real money trades
+        # nothing). Do not read it as "the live portfolio on paper" in this
+        # window.
+
+    # No proxy strategy leaks in — holds in BOTH states.
+    assert _ALPACA_PROXY_STRATEGIES.isdisjoint(set(port_strats))
 
     expected_syms = [s for s in real.get("symbols") or []
                      if s not in _ALPACA_PROXY_SYMBOLS]

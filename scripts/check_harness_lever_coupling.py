@@ -65,8 +65,44 @@ _spec.loader.exec_module(_rdm)
 # _UNREPLAYABLE. Keep each key's rationale in the debt matrix's own map comments.
 #
 # NOTE many of these ARE modelled by a DIFFERENT family (e.g. the pullback harness
-# models vol_skip_* / trail_vol_*; the squeeze harness models giveback_* /
-# timeout_bars) — "unmodelled" is always relative to THIS family's harness.
+# models vol_skip_* / trail_vol_*; the squeeze harness models giveback_*) —
+# "unmodelled" is always relative to THIS family's harness.
+#
+# ⚠️ `timeout_bars` IS THE ONE ENTRY HERE WHOSE REASON IS THE OPPOSITE OF THE OTHERS,
+# and this comment said the wrong thing until 2026-08-29. It previously implied only
+# the squeeze harness models `timeout_bars`. MEASURED by reading all three parsers:
+# `--timeout-bars` exists in backtest_trend.py:982 (default 200),
+# backtest_pullback.py:961 (200) AND backtest_squeeze.py:545 (48) — every family
+# models it, via the same flag. `regime_debt_matrix._SQZ_LEVER_FLAG` maps it; the
+# trend/pullback LEVER_FLAG maps do not.
+#
+# ⚠️ DO NOT "FIX" THIS BY MOVING `timeout_bars` INTO _TREND_LEVER_FLAG / _PB_LEVER_FLAG.
+# The code plainly justifies that move and it is the wrong direction. NO LIVE
+# trend/pullback unit implements a bar-count exit — `timeout_bars` is read only by
+# fvg_range_15m.py and fade_breakout_4h.py, each from its own _DEFAULTS, with no
+# generic reader — so live's effective timeout is INFINITE. Promoting the key to
+# LEVER_FLAG would stop regime_debt_matrix naming it in `omitted_levers` and would
+# UPGRADE any trend/pullback leg declaring the key from `approximate` to full
+# fidelity for a key production never reads.
+#
+# ⚠️ NO ENABLED trend/pullback LEG CARRIES THE KEY ANY MORE (2026-08-29,
+# operator-approved): `mgc_pullback_1d` and `mhg_pullback_1d` declared
+# `timeout_bars: 200` and NOTHING read it -- not the live unit, and not the
+# pullback branch of `m20_fleet_exit_sweep.base_args` either (only its `squeeze`
+# and `fvg` branches emit `--timeout-bars`; verified by calling base_args on both
+# legs with and without the key and diffing the arg list). Both were deleted.
+# The entries below therefore have no carrier today and are DELIBERATELY KEPT:
+# they are what stops a future leg re-declaring the key from tripping the guard
+# as an unclassified gap, and deleting them would make that a silent re-entry.
+#
+# So the key stays UNMODELLED, for a corrected reason: not that the harness cannot
+# model it, but that the harness models an exit the LIVE unit does not have, so
+# replaying the config key faithfully would make the backtest LESS like production.
+# MEASURED 2026-08-29 (scripts/research/timeout_binding_audit.py over
+# docs/research/e35-bracket-corpus.jsonl, 41 legs / 1,588 graded pairs): that
+# force-close BINDS on 27.6% of pairs and 18 of 41 legs, so this is not academic.
+# BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES
+# Write-up: docs/research/timeout-bars-harness-vs-live-2026-08-29.md
 _TREND_UNMODELLED: Set[str] = {
     "atr_stop_buffer", "confirm_bars", "giveback_min_mfe_r", "giveback_r",
     "pierce_min", "skip_hours", "timeout_bars",

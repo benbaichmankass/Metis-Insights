@@ -1,6 +1,6 @@
 {
  "_doc": "M20 exit-refinement coverage matrix — one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) — never inferred. ROWS ARE ONE LEG EACH as of 2026-08-09 (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS): bundled rows carried ONE status for a whole family, so the status described only the leg that passed and the roll-up over-counted `shipped`. Exploded rows carry `exploded_from`. The `shadow fleet` row is deliberately NOT exploded — its label does not enumerate its legs and it is execution:shadow, outside the live-leg done-condition. DO NOT ADD A NEW BUNDLED ROW. ⚠️ EVERY `exit_head_ml` VERDICT IN THIS MATRIX WAS MEASURED UNDER AN ORDER-DEPENDENT TIE-BREAK (BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER, 2026-08-15). The E1 fold sort is stable and keyed on entry time alone, so trades sharing a bar inherit the order their legs were passed on the command line; on a pooled family every leg entering on the same bar ties. Measured: the same 7 legs in two orders gave identical trade counts, rows and fold shape, yet 8 of 43 folds differed, mean_auc moved up to 0.0331, and two legs lost a usable fold. 27 of the 33 committed rounds are multi-leg `family_pooled` and so exposed; `per_leg` rounds are immune. NO STATUS HERE HAS BEEN RE-GRADED ON THIS — both orders are equally valid and the AUC term is one of four in the gate, so this is a caveat on provenance, NOT a claim that any cell is wrong. `train_exit_head.py --total-sort` fixes it and is DEFAULT-OFF pending an operator-approved re-measure; rounds now stamp `total_sort` so re-measured and legacy rows stay distinguishable.",
- "updated_at": "2026-08-26T14:40:00+00:00",
+ "updated_at": "2026-08-30",
  "lever_columns": [
   "trail_geometry",
   "stale_stop",
@@ -76,8 +76,8 @@
     "base_oos": 34
    },
    "bracket_geometry": {
-    "status": "honest_negative",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp6=is_oos_fail, tp4=is_oos_fail, sm1.5=is_oos_fail, sm2=is_oos_fail, to96=is_oos_fail, to48=is_oos_fail, sm1.5_to400=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 5.977R, which the harness reports only when the cap actually applies.",
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm2` — path_b_wf_pass, wf_wins_effective 5/6, d_net_r +21.7770, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    }
@@ -138,7 +138,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp6=is_oos_fail, tp4=is_oos_fail, sm1.5=is_oos_fail, sm2=is_oos_fail, to48=is_oos_fail, to24=is_oos_fail, sm1.5_to400=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 4.069R, which the harness reports only when the cap actually applies.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. 1 cell(s) DID clear the gate on this run but every one carries a timeout axis and is unshippable by construction (BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES), so the verdict stands for the shippable surface. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    }
@@ -199,7 +199,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp6=is_oos_fail, tp4=is_oos_fail, sm1.5=is_oos_fail, sm2=is_oos_fail, to96=is_oos_fail, to24=is_oos_fail, sm1.5_to96=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 3.263R, which the harness reports only when the cap actually applies.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    }
@@ -257,8 +257,8 @@
     "denominator_unstated": true
    },
    "bracket_geometry": {
-    "status": "honest_negative",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp4=is_oos_fail, tp2.5=is_oos_fail, sm3=is_oos_fail, sm2=is_oos_fail, to48=is_oos_fail, to96=is_oos_fail, tp4_sm3_to96=wf_fail(3/6 eff). The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 3.606R, which the harness reports only when the cap actually applies.",
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm3` — path_b_wf_pass, wf_wins_effective 4/6, d_net_r +20.2306, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    },
@@ -321,10 +321,11 @@
     "base_oos": 34
    },
    "bracket_geometry": {
-    "status": "passed_unshipped",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp2_sm3.5_to48** (tp+stop+timeout) path A, wf 6/6 effective (inert 0), dOOS +3.6208, split 2025-12-07, n IS=294 OOS=49; dispersion dOOS +2.294 … +9.779, split_sensitive=false, pass_fraction=1.0; also gate-passing but dispersion NOT measured: tp2.5 (wf 5/6 eff), tp3 (wf 4/6 eff), sm3.5 (wf 5/6 eff), sm3 (wf 5/6 eff), to48 (wf 5/6 eff). TIER-3 and operator-gated: `tp_at_r`/stop/timeout are strategy parameterisation, not observability. CAVEAT ON THE STRENGTH OF THIS CELL: it is the argmax of 199 surface cells and the multiple-comparisons cost is UNPRICED (no shuffled-label or random-cell control was run), and the joint result rests on n=2 legs both on ETHUSDT 2h — not two independent confirmations. Do not read it as ship-ready. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 2.737R, which the harness reports only when the cap actually applies.",
+    "status": "blocked:no_live_bar_count_exit",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. WAS `passed_unshipped` on the superseded 2026-08-20 run, whose winner **tp2_sm3.5_to48** carries a `to48` TIMEOUT component. No live trend/pullback/squeeze unit implements a bar-count exit (BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES), so this cell is UNSHIPPABLE BY CONSTRUCTION regardless of its numbers — the same disposition `mes_trend_long_1d` / `tlt_pullback_1d` already carry. ⚠️ Independently, that cell now measures d_net_r **-8.4574** (NEGATIVE) on the 08-29 surface. ⚠️ NOT REPRODUCED IS NOT REFUTED: only the per-axis/joint argmax cells are carried into the gate, and this one was not on this run, so there is NO fresh walk-forward verdict to set against the old 6/6 claim. The leg has ZERO shippable passing cells on the newest run. The prior ref is retained in git history.",
     "tp_geometry": "live_parity",
-    "denominator_unstated": true
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): ⚠️ this leg's BEST validated cell is `tp2_sm3.5_to48 (wf 6/6)`, which prescribes a bar-count timeout live cannot express — it is NOT what a shipment here would declare. The shippable winner is `sm3.5 (wf 5/6)`. Status stays `passed_unshipped` because a deliverable cell does stand; do not ship the headline number."
    }
   },
   {
@@ -387,7 +388,7 @@
    },
    "bracket_geometry": {
     "status": "blocked:no_dispersion_band",
-    "ref": "SWEPT 2026-08-20 (docs/research/e35-bracket-geometry-sweep-2026-08-20.md). Best cell `to96` PASSES the Path-A/B gate, but `m20_split_dispersion` was never run on it, so there is no `split_sensitive` verdict. Recording it as a pass is what BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT's own criteria forbid — the one single-axis cell that WAS checked (`eth_pullback_2h`/`tp2.5`) came back split_sensitive. Corrected 2026-08-20 from `pending`, which was wrong in BOTH directions: it claimed the leg was un-measured (it was measured) and it made the row read as movable-by-a-session when the remedy is a dispersion run, not a sweep.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `blocked:no_dispersion_band` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity"
    }
   },
@@ -450,7 +451,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp6=is_oos_fail, tp4=is_oos_fail, sm1.5=is_oos_fail, sm3=is_oos_fail, to96=is_oos_fail, to400=is_oos_fail, tp4_sm3_to96=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 2.137R, which the harness reports only when the cap actually applies.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    }
@@ -513,8 +514,8 @@
     "base_oos": 33
    },
    "bracket_geometry": {
-    "status": "honest_negative",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp1.5=wf_fail(3/6 eff), tp2=is_oos_fail, sm3=is_oos_fail, sm3.5=is_oos_fail, to400=is_oos_fail, to96=is_oos_fail, tp2.5_sm3.5_to400=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 1.828R, which the harness reports only when the cap actually applies.",
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `tp4` — wf_pass, wf_wins_effective 4/6, d_net_r +12.8231, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    }
@@ -569,8 +570,8 @@
    },
    "_execution_note": "execution corrected 2026-08-13 from `live` -> `shadow`: config/strategies.yaml declares `execution: shadow` for this leg, and the strategy-level gate means it logs order packages but NEVER sends a live order regardless of its account's `mode: live`. The matrix's own _doc puts shadow rows outside the live-leg done-condition, so counting it was inflating the denominator. FIELD BEATS COMMENT.",
    "bracket_geometry": {
-    "status": "honest_negative",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp6=is_oos_fail, tp2=is_oos_fail, sm3.5=is_oos_fail, sm3=is_oos_fail, to96=wf_fail(2/6 eff), to400=is_oos_fail, tp6_to96=wf_fail(2/6 eff). The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 1.814R, which the harness reports only when the cap actually applies.",
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm2` — path_b_wf_pass, wf_wins_effective 4/6, d_net_r +1.0084, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    }
@@ -633,10 +634,11 @@
     "base_oos": 33
    },
    "bracket_geometry": {
-    "status": "passed_unshipped",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp4_sm3_to48** (tp+stop+timeout) path A, wf 6/6 effective (inert 0), dOOS +1.6318, split 2025-12-04, n IS=271 OOS=47; dispersion dOOS +1.154 … +6.776, split_sensitive=false, pass_fraction=1.0; also gate-passing but dispersion NOT measured: sm3.5 (wf 4/6 eff), tp6_sm3.5 (wf 4/6 eff). TIER-3 and operator-gated: `tp_at_r`/stop/timeout are strategy parameterisation, not observability. CAVEAT ON THE STRENGTH OF THIS CELL: it is the argmax of 199 surface cells and the multiple-comparisons cost is UNPRICED (no shuffled-label or random-cell control was run), and the joint result rests on n=2 legs both on ETHUSDT 2h — not two independent confirmations. Do not read it as ship-ready. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 2.674R, which the harness reports only when the cap actually applies.",
+    "status": "blocked:no_live_bar_count_exit",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. WAS `passed_unshipped` on the superseded 2026-08-20 run, whose winner **tp4_sm3_to48** carries a `to48` TIMEOUT component. No live trend/pullback/squeeze unit implements a bar-count exit (BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES), so this cell is UNSHIPPABLE BY CONSTRUCTION regardless of its numbers — the same disposition `mes_trend_long_1d` / `tlt_pullback_1d` already carry. ⚠️ Independently, that cell now measures d_net_r **-0.6569** (NEGATIVE) on the 08-29 surface. ⚠️ NOT REPRODUCED IS NOT REFUTED: only the per-axis/joint argmax cells are carried into the gate, and this one was not on this run, so there is NO fresh walk-forward verdict to set against the old 6/6 claim. The leg has ZERO shippable passing cells on the newest run. The prior ref is retained in git history.",
     "tp_geometry": "live_parity",
-    "denominator_unstated": true
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): ⚠️ this leg's BEST validated cell is `tp4_sm3_to48 (wf 6/6)`, which prescribes a bar-count timeout live cannot express — it is NOT what a shipment here would declare. The shippable winner is `sm3.5 (wf 4/6)`. Status stays `passed_unshipped` because a deliverable cell does stand; do not ship the headline number."
    }
   },
   {
@@ -694,8 +696,8 @@
     "base_oos": 34
    },
    "bracket_geometry": {
-    "status": "honest_negative",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp1=is_oos_fail, tp6=is_oos_fail, sm1.5=is_oos_fail, sm2=is_oos_fail, to48=is_oos_fail, to96=is_oos_fail, tp6_sm1.5=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 1.956R, which the harness reports only when the cap actually applies.",
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm2` — path_b_wf_pass, wf_wins_effective 6/6, d_net_r +28.7348, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    }
@@ -755,8 +757,8 @@
     "base_oos": 35
    },
    "bracket_geometry": {
-    "status": "blocked:no_dispersion_band",
-    "ref": "SWEPT 2026-08-20 (docs/research/e35-bracket-geometry-sweep-2026-08-20.md). Best cell `to48` PASSES the Path-A/B gate, but `m20_split_dispersion` was never run on it, so there is no `split_sensitive` verdict. Recording it as a pass is what BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT's own criteria forbid — the one single-axis cell that WAS checked (`eth_pullback_2h`/`tp2.5`) came back split_sensitive. Corrected 2026-08-20 from `pending`, which was wrong in BOTH directions: it claimed the leg was un-measured (it was measured) and it made the row read as movable-by-a-session when the remedy is a dispersion run, not a sweep.",
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm1.5` — path_b_wf_pass, wf_wins_effective 5/6, d_net_r +27.7150, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity"
    }
   },
@@ -814,8 +816,8 @@
     "base_oos": 34
    },
    "bracket_geometry": {
-    "status": "honest_negative",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp2.5=wf_fail(3/6 eff), tp4=is_oos_fail, sm2=is_oos_fail, sm3=is_oos_fail, to96=is_oos_fail, to400=is_oos_fail, tp3_sm2=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 2.075R, which the harness reports only when the cap actually applies.",
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `tp3_sm2` — path_b_wf_pass, wf_wins_effective 5/6, d_net_r +5.2067, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    }
@@ -874,8 +876,8 @@
     "base_oos": 33
    },
    "bracket_geometry": {
-    "status": "honest_negative",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp4=is_oos_fail, tp6=is_oos_fail, sm2=is_oos_fail, sm1.5=is_oos_fail, to96=is_oos_fail, to400=is_oos_fail, sm2_to96=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 1.576R, which the harness reports only when the cap actually applies.",
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm2` — path_b_wf_pass, wf_wins_effective 5/6, d_net_r +11.2514, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    }
@@ -935,8 +937,8 @@
     "base_oos": 34
    },
    "bracket_geometry": {
-    "status": "honest_negative",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp2=wf_fail(2/6 eff), tp1.5=wf_fail(2/6 eff), sm1.5=is_oos_fail, sm2=is_oos_fail, to96=is_oos_fail, to400=is_oos_fail, tp3_sm1.5_to24=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 1.512R, which the harness reports only when the cap actually applies.",
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm1.5` — path_b_wf_pass, wf_wins_effective 5/6, d_net_r +12.4095, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    }
@@ -986,7 +988,7 @@
    },
    "bracket_geometry": {
     "status": "blocked:dispersion_refused",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). Cell **to24** PASSES the gate (path A, wf 4/6 effective, dOOS +0.1724, split 2023-09-18, n IS=56 OOS=49) but the dispersion check REFUSED it: m20_split_dispersion REFUSED (harness_agreement); root cause BL-20260820-SQUEEZE-MAXDD-IS-GROSS-WHILE-EVERY-SIBLING-IS-NET. A refused dispersion is a REFUSAL, not a caveat — no verdict is recorded for this leg until the harness defect lands."
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `blocked:dispersion_refused` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history."
    }
   },
   {
@@ -1083,9 +1085,10 @@
     "ref": "BLOCKED: insufficient OOS base. OOS n=4 at the corpus-standard split 2025-07-01 and n=12 at 2023-01-01, both under the floor of 25; leg lifetime is 33 trades. Measured twice, PR #8849: split 2025-07-01 (run 31655236776) and again at split 2023-01-01 (run 31655318804) to test whether the window, not the data, was binding. LIVE-PARITY geometry tp_cap_pct=0.099. Rows in docs/research/m20-sweep-corpus.jsonl. Moving the split is NOT the fix: it lifted OOS n from 4 to 12, still short, while shrinking IS. Unblocks when either the leg accrues more OOS trades or the operator settles the evidence standard for low-frequency legs. WHY THIS IS NOT `honest_negative`: the cell terminated at `insufficient_base` — the OOS base is under MIN_OOS_TRADES=25 — which is 'we did not have enough trades to look', the opposite claim from 'we looked and the lever failed'. Recording it as a negative would be the same collapse BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS names. AND the walk-forward — the test whose folds span the FULL history and which this leg's lifetime CAN support — is skipped by that same branch (m20_fleet_exit_sweep.py:1442-1451, `if _thin: ... elif candidate: walkforward(...)`), so the leg is refused the one test its data would sustain. See BL-20260813-THIN-OOS-BLOCKS-THE-WALKFORWARD-IT-COULD-PASS. || STATUS SUFFIX ADDED 2026-08-13 (no re-measurement — the ref already named the cause; only the status string was silent). This cell read a BARE `blocked`, the one cell in the matrix whose status did not carry its reason. That is a collapsed state by the repo's own rule: the roll-up normalises via `base()` (split on ':'), so a bare `blocked` is indistinguishable in the per-reason breakdown from a cell whose cause was never established — 'we know exactly why and it is a thin OOS base' and 'nobody recorded why' landed in the same bucket. Suffix chosen to match what was MEASURED, not what is likely: the sweep ran at EXPLICIT splits (2025-07-01, 2023-01-01) and terminated at insufficient_base with OOS n=4 and n=12 against MIN_OOS_TRADES=25, which is the same terminal state as the mes/mhg `giveback_stop` cells already carrying this suffix. DELIBERATELY NOT `insufficient_lifetime_trades`, even though that is probably where a re-run would land: lifetime 33 is under resolve_split's `2 x target` requirement (2 x 25 = 50), so a derived-split re-run would very likely fall back `leg_too_thin` exactly as spy (48) and qld (31) did in the 2026-08-13 re-sweep. But that is ARITHMETIC ON A RECORDED LIFETIME, NOT A RUN — the cell was measured under fixed splits before PR #8965's resolve_split existed, and stamping the projected reason would be recording a verdict the harness never returned. Consequence worth stating for whoever picks this up: re-running this cell under split-mode=oos-trades is NOT expected to unblock it, so it is a poor candidate for the next sweep. The headline is unmoved (`base()` maps both spellings to `blocked`); only the per-reason breakdown changes, 1 bare -> 0."
    },
    "bracket_geometry": {
-    "status": "passed_unshipped",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp1_sm2_to24** (path B) passed: d_net_R 1.0387, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
-    "denominator_unstated": true
+    "status": "blocked:no_live_bar_count_exit",
+    "ref": "BLOCKED 2026-08-29: EVERY cell that passed this leg's gate prescribes a bar-count timeout (best `tp1_sm2_to24`), and NO live unit implements one — `timeout_bars` is read only by `fvg_range_15m.py` and `fade_breakout_4h.py`, each from its own `_DEFAULTS`, with no generic reader. So no `config/strategies.yaml` change can deliver this verdict; it is not awaiting approval. Giving live a bar-count exit is a Tier-3 order-path change (`BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES`). || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp1_sm2_to24** (path B) passed: d_net_R 1.0387, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN, so the verdict itself is sound — it is the CELL that is undeliverable, not the measurement that is wrong."
    }
   },
   {
@@ -1146,9 +1149,10 @@
     "base_oos": 33
    },
    "bracket_geometry": {
-    "status": "passed_unshipped",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp6_sm1.5** (path B) passed: d_net_R 3.8246, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
-    "denominator_unstated": true
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-29 as cell `tp6_sm1.5` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp6_sm1.5** (path B) passed: d_net_R 3.8246, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    }
   },
   {
@@ -1210,7 +1214,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    }
   },
@@ -1261,9 +1265,10 @@
     "ref": "M20 vol_trail re-sweep 2026-08-13 (relay #8980, split-mode=oos-trades target=25, PR #8965 resolve_split) — split FELL BACK to 2025-07-01, reason leg_too_thin, MEASURED lifetime 48. A 25-trade OOS target needs >=50 lifetime or the IS side fits nothing. All 3 cells insufficient_base. NOTE: this row's PRIOR ref stated 'leg lifetime is 60' — the harness measures 48. The stale figure is why this leg was screened as eligible; the governing number is the sweep harness's own, and it agrees with the E1 exit-head count, not the old ref."
    },
    "bracket_geometry": {
-    "status": "passed_unshipped",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp2_sm1.5** (path B) passed: d_net_R 8.1565, walk-forward 5/6 effective wins (0 inert). 1 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
-    "denominator_unstated": true
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-29 as cell `tp2_sm1.5` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp2_sm1.5** (path B) passed: d_net_R 8.1565, walk-forward 5/6 effective wins (0 inert). 1 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    }
   },
   {
@@ -1314,9 +1319,10 @@
     "denominator_unstated": true
    },
    "bracket_geometry": {
-    "status": "passed_unshipped",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp3_sm2** (path B) passed: d_net_R 6.1948, walk-forward 5/6 effective wins (0 inert). 2 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
-    "denominator_unstated": true
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-29 as cell `tp3_sm2` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp3_sm2** (path B) passed: d_net_R 6.1948, walk-forward 5/6 effective wins (0 inert). 2 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    }
   },
   {
@@ -1477,9 +1483,10 @@
     "denominator_unstated": true
    },
    "bracket_geometry": {
-    "status": "passed_unshipped",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp3_sm2** (path B) passed: d_net_R 4.0387, walk-forward 5/6 effective wins (0 inert). 2 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
-    "denominator_unstated": true
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-29 as cell `tp3_sm2` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp3_sm2** (path B) passed: d_net_R 4.0387, walk-forward 5/6 effective wins (0 inert). 2 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    }
   },
   {
@@ -1530,7 +1537,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on an INERT-FOLD-HONEST basis. Its only gate-'pass' (**tp2.5**) carries wf_wins=5 but wins_effective=2/6 with 3 INERT folds — the gate compares RAW wins against ceil(2*usable/3) (`e35_bracket_geometry_sweep.py:653`), so inert folds count as wins. Recorded as a negative rather than `passed_unshipped`, because recording it as validated is precisely BL-20260817.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    }
   },
@@ -1582,9 +1589,10 @@
     "denominator_unstated": true
    },
    "bracket_geometry": {
-    "status": "passed_unshipped",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp1.5_sm3** (path A) passed: d_net_R 3.9995, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
-    "denominator_unstated": true
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-29 as cell `tp1.5_sm3` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp1.5_sm3** (path A) passed: d_net_R 3.9995, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    }
   },
   {
@@ -1641,7 +1649,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    }
   },
@@ -1704,9 +1712,10 @@
     "base_oos": 33
    },
    "bracket_geometry": {
-    "status": "passed_unshipped",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp2_sm1.5_to24** (path B) passed: d_net_R 8.2232, walk-forward 5/6 effective wins (0 inert). 1 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
-    "denominator_unstated": true
+    "status": "blocked:no_live_bar_count_exit",
+    "ref": "BLOCKED 2026-08-29: EVERY cell that passed this leg's gate prescribes a bar-count timeout (best `tp2_sm1.5_to24`), and NO live unit implements one — `timeout_bars` is read only by `fvg_range_15m.py` and `fade_breakout_4h.py`, each from its own `_DEFAULTS`, with no generic reader. So no `config/strategies.yaml` change can deliver this verdict; it is not awaiting approval. Giving live a bar-count exit is a Tier-3 order-path change (`BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES`). || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp2_sm1.5_to24** (path B) passed: d_net_R 8.2232, walk-forward 5/6 effective wins (0 inert). 1 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN, so the verdict itself is sound — it is the CELL that is undeliverable, not the measurement that is wrong."
    }
   },
   {
@@ -1763,7 +1772,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    }
   },
@@ -1827,7 +1836,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    }
   },
@@ -1885,7 +1894,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    }
   },
@@ -1942,7 +1951,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    }
   },
@@ -2001,8 +2010,9 @@
    },
    "bracket_geometry": {
     "status": "passed_unshipped",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp6_sm1.5_to24** (path B) passed: d_net_R 65.3506, walk-forward 6/6 effective wins (0 inert). 4 of 4 gate-passing cell(s) on this leg survive the inert-fold check.",
-    "denominator_unstated": true
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. Status UNCHANGED at `passed_unshipped`, but THE WINNER NAMED HAS CHANGED. The prior ref's winner **tp6_sm1.5_to24** carries a TIMEOUT component and is unshippable by construction (BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES); quoting it as the passing cell made an unreachable geometry read as a pending ship. The SHIPPABLE winner on the 08-29 run is cell `sm1.5` — path_b_wf_pass, wf_wins_effective 5, d_net_r +46.4640. ⚠️ `passed_unshipped` RECORDS A MEASUREMENT AND IS NOT A RECOMMENDATION TO SHIP — declaring this geometry in config/strategies.yaml is Tier-3 and operator-gated.",
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): ⚠️ this leg's BEST validated cell is `tp6_sm1.5_to24 (wf 6/6)`, which prescribes a bar-count timeout live cannot express — it is NOT what a shipment here would declare. The shippable winner is `sm1.5 (wf 5/6)`. Status stays `passed_unshipped` because a deliverable cell does stand; do not ship the headline number."
    }
   },
   {
@@ -2065,8 +2075,9 @@
    },
    "bracket_geometry": {
     "status": "passed_unshipped",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **sm1.5_to400** (path B) passed: d_net_R 29.9646, walk-forward 5/6 effective wins (0 inert). 3 of 3 gate-passing cell(s) on this leg survive the inert-fold check.",
-    "denominator_unstated": true
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. Status UNCHANGED at `passed_unshipped`, but THE WINNER NAMED HAS CHANGED. The prior ref's winner **sm1.5_to400** carries a TIMEOUT component and is unshippable by construction (BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES); quoting it as the passing cell made an unreachable geometry read as a pending ship. The SHIPPABLE winner on the 08-29 run is cell `sm1.5` — path_b_wf_pass, wf_wins_effective 5, d_net_r +28.1569. ⚠️ `passed_unshipped` RECORDS A MEASUREMENT AND IS NOT A RECOMMENDATION TO SHIP — declaring this geometry in config/strategies.yaml is Tier-3 and operator-gated.",
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CONTAMINATED — the harness's 200-bar force-close BOUND on 17 of 39 graded geometry pairs, so this verdict was measured under an exit production does not have. Its best cell `sm1.5_to400` ties the deliverable `sm1.5` at wf 5/6 (d_net_r 29.96 vs 29.87), so the cell is shippable; the CONFOUND is in the grading."
    }
   },
   {
@@ -2129,7 +2140,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    }
   },
@@ -2191,9 +2202,10 @@
     "base_oos": 30
    },
    "bracket_geometry": {
-    "status": "passed_unshipped",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **sm2** (path B) passed: d_net_R 11.5134, walk-forward 5/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
-    "denominator_unstated": true
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-29 as cell `sm2` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **sm2** (path B) passed: d_net_R 11.5134, walk-forward 5/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    }
   },
   {
@@ -2251,9 +2263,10 @@
     "base_oos": 40
    },
    "bracket_geometry": {
-    "status": "passed_unshipped",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **sm1.5** (path B) passed: d_net_R 46.1961, walk-forward 5/6 effective wins (0 inert). 3 of 3 gate-passing cell(s) on this leg survive the inert-fold check.",
-    "denominator_unstated": true
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-29 as cell `sm1.5` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **sm1.5** (path B) passed: d_net_R 46.1961, walk-forward 5/6 effective wins (0 inert). 3 of 3 gate-passing cell(s) on this leg survive the inert-fold check.",
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    },
    "execution_note": "live -> shadow 2026-08-24 (Tier-3, operator-approved in the /system-review session). PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE: 0 wins in 13 closed trades, -$5,375 at pnlCoverage 0.77; the kill gate had been MET across two consecutive reviews with no decision. The leg still evaluates and logs order packages (shadow, not disabled) so the exit-refinement denominator keeps accruing data on it, but it places no live order. Recorded here because the coverage matrix's execution column IS the denominator and must not disagree with config/strategies.yaml."
   },
@@ -2312,9 +2325,10 @@
     "base_oos": 27
    },
    "bracket_geometry": {
-    "status": "passed_unshipped",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp4_sm2** (path A) passed: d_net_R 23.6075, walk-forward 5/6 effective wins (0 inert). 2 of 3 gate-passing cell(s) on this leg survive the inert-fold check.",
-    "denominator_unstated": true
+    "status": "shipped",
+    "ref": "SHIPPED 2026-08-29 as cell `tp4_sm2` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp4_sm2** (path A) passed: d_net_R 23.6075, walk-forward 5/6 effective wins (0 inert). 2 of 3 gate-passing cell(s) on this leg survive the inert-fold check.",
+    "denominator_unstated": true,
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    }
   },
   {
@@ -2409,7 +2423,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). ⚠️ DATA CAVEAT: this leg is served by the yfinance lane (PROXY_DATA stem), which caps intraday history at ~730 d, so the 1830 d requested was CLAMPED — this verdict rests on ~2 y, not the ~5 y the daily legs used. NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    }
   },
@@ -2460,7 +2474,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). ⚠️ DATA CAVEAT: this leg is served by the yfinance lane (PROXY_DATA stem), which caps intraday history at ~730 d, so the 1830 d requested was CLAMPED — this verdict rests on ~2 y, not the ~5 y the daily legs used. NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    }
   },
@@ -2876,7 +2890,7 @@
    },
    "bracket_geometry": {
     "status": "honest_negative",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp4=is_oos_fail, tp3=is_oos_fail, sm1.5=is_oos_fail, tp6_sm1.5=is_oos_fail, to96=is_oos_fail, tp6_to96=is_oos_fail, sm1.5_to96=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 3.223R, which the harness reports only when the cap actually applies.",
+    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    }
@@ -2927,8 +2941,8 @@
     "denominator_unstated": true
    },
    "bracket_geometry": {
-    "status": "honest_negative",
-    "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp4=is_oos_fail, tp3=is_oos_fail, sm1.5=is_oos_fail, tp6_sm1.5=is_oos_fail, to96=is_oos_fail, to400=is_oos_fail, sm1.5_to96=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 4.339R, which the harness reports only when the cap actually applies.",
+    "status": "blocked:prop_ev_gate_would_be_invalidated",
+    "ref": "RE-CHECKED run 2026-08-29 and a shippable winner EXISTS — cell `sm1.5` (path_b_wf_pass, wf 5/6, d_net_r +13.4198) — but it is **DELIBERATELY NOT SHIPPED**, and this is a REFUSAL on evidence, not a gap. Write-up `docs/research/e35-matrix-recheck-2026-08-29.md`; the block was found on 2026-08-30 while shipping the approved set, by a test that was RIGHT (`test_unit_c_prop_exit_variants`). THREE reasons, any one sufficient: (1) this leg is a CONFIG-ONLY EXIT VARIANT whose design premise (Unit C Phase 0, `docs/research/prop-dynamic-exits-faster-banking-DESIGN.md` § 5) is that its ENTRIES are identical to `trend_donchian_eth` and only `trail_mult`/`tp_r` differ — `atr_stop_mult` is classified an ENTRY param there, deliberately. (2) It was graduated to `execution: live` on a PROP EV/SURVIVAL gate measured on that entry-identical construction (trainer relay #8975, `run_ev_montecarlo` under `config/prop_rulesets/breakout.yaml`: ETH ev_net_usd +$883 @ P(net>0)=0.8477 over 1,110 trades). Changing the stop changes the R denominator, the position size and the BREACH probability, so that gate would no longer describe what runs. (3) `breakout_1` is the one account that can be PERMANENTLY DISABLED by a drawdown breach, and the mandatory per-account compatibility rule requires a prop-ruleset EV/survival evaluation — which the e35 sweep does not provide (it prices `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`, not the prop ruleset). ⚠️ The base leg `trend_donchian_eth` has ZERO shippable cells of its own, so shipping the variant alone would have de-coupled the pair rather than moving both. UNBLOCKS WHEN: `run_ev_montecarlo` is re-run under `breakout.yaml` on the sm1.5 geometry and clears, with operator approval on that evidence.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    }
@@ -3119,6 +3133,12 @@
    {
     "id": "BL-20260827-A-DEFECT-FILED-AGAINST-A-PRODUCER-NEVER-REACHES-THE-ARTIFACTS-IT-PRODUCED",
     "why": "The row this block exists to answer. Kept here so the mechanism names its own origin rather than hiding it."
+   },
+   {
+    "id": "BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES",
+    "why": "CONDITIONS EVERY trend/pullback/squeeze VERDICT IN THIS MATRIX. The harnesses force-close each trade at min(entry_i + timeout_bars, n-1) — default 200 for trend/pullback (backtest_trend.py:982, backtest_pullback.py:961) and 48 for squeeze (backtest_squeeze.py:545) — and NO live unit implements a bar-count exit for those families (only fvg_range_15m.py and fade_breakout_4h.py read timeout_bars, each from its own _DEFAULTS; no generic reader). Live's effective timeout is INFINITE. MEASURED 2026-08-29 by comparing the base arm against to400 at identical geometry over docs/research/e35-bracket-corpus.jsonl (41 legs, 1,588 graded pairs, 11 inert_equals_base rows EXCLUDED not zeroed): the default BINDS on 439/1,588 pairs (27.6%) and on 18 of 41 legs. ⚠️ This REFUTES the premise stated in e35_bracket_geometry_sweep.py:117-120 that the default is 'far outside the binding region' — that generalised one leg's census off exit_reason, which is the loop's DEFAULT label and so conflates a bar-count exit with running off the end of the data. The 23 CLEAN legs are unaffected (the default is provably inert, so their base arm IS live-parity); the 18 CONTAMINATED legs were graded under an exit production lacks. Reproduce: python3 scripts/research/timeout_binding_audit.py. Full write-up + the per-leg classification: docs/research/timeout-bars-harness-vs-live-2026-08-29.md.",
+    "adjudicated": "2026-08-29",
+    "disposition": "conditions_verdicts — per-cell `timeout_binding` notes added to the affected bracket_geometry cells; 2 cells moved passed_unshipped -> blocked:no_live_bar_count_exit. NOT re-graded: raising the harness default and re-running the 18 contaminated legs would re-measure live configuration and belongs behind the same gate as any other re-measurement."
    }
   ],
   "reviewed_not_conditioning": [
@@ -3169,6 +3189,8 @@
   ],
   "pending_adjudication": [],
   "pending_baseline": 0,
-  "adjudicated_at": "2026-08-27"
+  "adjudicated_at": "2026-08-29",
+  "e35_mgc_xauusd_are_one_measurement": "⚠️ `mgc_trend_1h` and `xauusd_trend_1h` are ONE measurement wearing two leg names, not two independent verdicts. `m20_fleet_exit_sweep.PROXY_DATA` maps BOTH `MGC` and `XAUUSD` to the same `GC_F` series, and both legs declare tp_r 50.0 / atr_stop_mult 2.5 — measured 2026-08-29, their e35 rows are IDENTICAL on all 199 cells. This is deliberate (the proxy is the deeper series; see that function's docstring) and is NOT a defect. It matters for READING: counting the two rows as agreeing evidence double-counts, and any control set drawn from them has n=1 independent leg, not 2.",
+  "e35_shipped_leg_shows_zero_passing_cells_by_design": "⚠️ A leg whose bracket_geometry is `shipped` will show ZERO passing cells on a later sweep, and that is the EXPECTED signature rather than a regression: the harness baseline is config-exact, so once the geometry is declared the base IS that geometry and the winning cell can no longer beat itself. Verified rather than asserted — measured 2026-08-26 -> 2026-08-29 over the 8 legs PR #10419 shipped, the base ROSE by the improvement the shipped cell had claimed: 3 of 8 reproduce to four decimal places EXACTLY, all 8 land 0.89-1.03x, median 1.00 (`python3 scripts/research/e35_matrix_recheck.py --b4-outcome`). Reading n=0 as 'the shipped lever stopped working' is the trap; the check that distinguishes them is whether the BASE moved."
  }
 }

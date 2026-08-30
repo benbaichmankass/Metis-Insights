@@ -167,7 +167,7 @@ strategies:
     # ARE the trend edge. donchian 20 unchanged (the plateau centre).
     donchian: 20
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2  # M20 e35 re-check 2026-08-29: cell sm2 (path_b_wf_pass, wf 5/6, d_net_r +21.7770); was 2.5
     trail_mult: 5.0
     trail_decay_arm_r: 6.49   # M20 P4.4 p80 cell (p80 winner-MFE arm, wf 4/6; sweep 2026-07-13)
     trail_decay_tight_mult: 2.5
@@ -991,7 +991,7 @@ strategies:
     pullback_lookback: 10
     pullback_frac: 0.5
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 3  # M20 e35 re-check 2026-08-29: cell sm3 (path_b_wf_pass, wf 4/6, d_net_r +20.2306); was 2.5
     trail_mult: 4.0
     # No fixed profit target — the Chandelier trail is the sole profit-exit
     # (matches the backtest). `tp_r` is a far ~50R sentinel that still satisfies
@@ -1243,7 +1243,7 @@ strategies:
       - ETHUSDT
     donchian: 20
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2.5  # HELD at the base leg's value on purpose — see docs/research/e35-matrix-recheck-2026-08-29.md; the e35 `sm1.5` cell is NOT shipped here
     trail_mult: 3.5          # swap-robust (vs live 5.0) — shorter holds, less swap drag.
     tp_r: 6.0               # ⚠️ NOT a "6R cap" -- same structure as
                             # trend_donchian_sol_prop above: the operative target
@@ -1311,7 +1311,7 @@ strategies:
       - ETHUSDT
     donchian: 20
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2  # M20 e35 re-check 2026-08-29: cell sm2 (path_b_wf_pass, wf 6/6, d_net_r +28.7348); was 2.5
     trail_mult: 5.0
     tp_r: 50.0
     min_confidence: 0.60
@@ -1329,7 +1329,7 @@ strategies:
       - SOLUSDT
     donchian: 20
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 1.5  # M20 e35 re-check 2026-08-29: cell sm1.5 (path_b_wf_pass, wf 5/6, d_net_r +27.7150); was 2.5
     trail_mult: 5.0
     trail_decay_arm_r: 5.57   # M20 P4.4 p80 cell (p80 arm, wf 5/6; sweep 2026-07-13)
     trail_decay_tight_mult: 2.5
@@ -1359,11 +1359,11 @@ strategies:
       - XRPUSDT
     donchian: 20
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2  # M20 e35 re-check 2026-08-29: cell tp3_sm2 (path_b_wf_pass, wf 5/6, d_net_r +5.2067); was 2.5
     trail_mult: 5.0
     stale_exit_bars: 8
     stale_exit_below_r: 0.0
-    tp_r: 50.0
+    tp_r: 3  # M20 e35 re-check 2026-08-29: cell tp3_sm2 (path_b_wf_pass, wf 5/6, d_net_r +5.2067); was 50.0
     min_confidence: 0.80
     skip_hours: "0"   # M21 E-2 round 3 skip_h0 (wf 5/6, 2026-07-14) — skip entries triggered on the UTC-midnight 4h bar (daily roll/funding boundary); stacks on the batch-1 depth declare (measured config-exact on top of min_confidence 0.80)
     vol_skip_above_pctl: 0.9   # M21 E-2 round 4 vol_hi90 (wf 4/6, 2026-07-14) — skip entries whose trigger-bar ATR sits in the hot-vol top decile (trailing 200-bar pctl); IS net_R 57.2 -> 59.1 (dd 16.6 -> 15.5), OOS 9.2 -> 10.2 (dd 7.3 -> 6.3); measured config-exact on top of min_confidence 0.80 + skip_hours "0". Rollback = delete this line.
@@ -1405,7 +1405,7 @@ strategies:
       - ADAUSDT
     donchian: 20
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2  # M20 e35 re-check 2026-08-29: cell sm2 (path_b_wf_pass, wf 5/6, d_net_r +11.2514); was 2.5
     trail_mult: 5.0
     tp_r: 50.0
     min_confidence: 0.60
@@ -1421,7 +1421,7 @@ strategies:
       - AVAXUSDT
     donchian: 20
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 1.5  # M20 e35 re-check 2026-08-29: cell sm1.5 (path_b_wf_pass, wf 5/6, d_net_r +12.4095); was 2.5
     trail_mult: 5.0
     # M20 trail_decay — Tier-3, OPERATOR-APPROVED 2026-08-13. Cell
     # `decay_stall6_t2.5` from the live-parity re-sweep (m20-exit-lever-sweep run
@@ -1535,10 +1535,9 @@ strategies:
     pullback_lookback: 15
     pullback_frac: 0.618
     atr_period: 14
-    atr_stop_mult: 2.0
+    atr_stop_mult: 1.5  # M20 B4 bracket geometry: cell tp6_sm1.5 (path_b_wf_pass, wf 4/6); was 2.0
     trail_mult: 4.0
-    timeout_bars: 200
-    tp_r: 50.0
+    tp_r: 6.0  # M20 B4 bracket geometry: cell tp6_sm1.5 (path_b_wf_pass, wf 4/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
                               # this fresh data-collector builds a track record.
@@ -1578,7 +1577,6 @@ strategies:
     trail_mult: 3.0
     trail_decay_stall_bars: 10   # M20 P4.1 decay cell (stall10 tight1.5 wf 5/6; sweep 2026-07-12, PR #6251)
     trail_decay_tight_mult: 1.5
-    timeout_bars: 200
     tp_r: 50.0
     min_confidence: 0.0
     shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
@@ -1709,9 +1707,9 @@ strategies:
       - SPY
     donchian: 30
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 1.5  # M20 B4 bracket geometry: cell tp2_sm1.5 (path_b_wf_pass, wf 5/6); was 2.5
     trail_mult: 4.0
-    tp_r: 50.0
+    tp_r: 2.0  # M20 B4 bracket geometry: cell tp2_sm1.5 (path_b_wf_pass, wf 5/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -1732,11 +1730,11 @@ strategies:
       - QQQ
     donchian: 30
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2.0  # M20 B4 bracket geometry: cell tp3_sm2 (path_b_wf_pass, wf 5/6); was 2.5
     trail_mult: 4.0
     trail_decay_arm_r: 3.56   # M20 P4.4 p80 cell (p80 arm, wf 5/6; sweep 2026-07-13)
     trail_decay_tight_mult: 2.0
-    tp_r: 50.0
+    tp_r: 3.0  # M20 B4 bracket geometry: cell tp3_sm2 (path_b_wf_pass, wf 5/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -1812,11 +1810,11 @@ strategies:
       - IWM
     donchian: 30
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2.0  # M20 B4 bracket geometry: cell tp3_sm2 (path_b_wf_pass, wf 5/6); was 2.5
     trail_mult: 4.0
     trail_decay_stall_bars: 10   # M20 P4.1 decay cell (stall10 tight2 wf 4/6; sweep 2026-07-12, PR #6251)
     trail_decay_tight_mult: 2.0
-    tp_r: 50.0
+    tp_r: 3.0  # M20 B4 bracket geometry: cell tp3_sm2 (path_b_wf_pass, wf 5/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -1968,7 +1966,7 @@ strategies:
       - SLV
     donchian: 24
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 1.5  # M20 B4 bracket geometry: cell sm1.5 (path_b_wf_pass, wf 5/6); was 2.5
     trail_mult: 4.0
     tp_r: 50.0
     # 0.0 -> 0.3 (2026-08-01, PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE): 2
@@ -2087,7 +2085,7 @@ strategies:
     pullback_lookback: 12
     pullback_frac: 0.5
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2.0  # M20 B4 bracket geometry: cell sm2 (path_b_wf_pass, wf 5/6); was 2.5
     trail_mult: 3.0
     trail_decay_stall_bars: 6   # M20 P4.1 decay cell (stall6 tight1.5 wf 5/6; sweep 2026-07-12, PR #6251)
     trail_decay_tight_mult: 1.5
@@ -2116,7 +2114,7 @@ strategies:
       - USO
     donchian: 24
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2.0  # M20 B4 bracket geometry: cell tp4_sm2 (wf_pass, wf 5/6); was 2.5
     trail_mult: 4.0
     # M20 giveback-stop (fleet sweep 2026-07-12, cell gb1R_afterMFE1R):
     # once the trade has seen >= 1R of open profit, exit at bar close when
@@ -2126,7 +2124,7 @@ strategies:
     # _giveback_verdict; remove these two lines to roll back.
     giveback_min_mfe_r: 1.0
     giveback_r: 1.0
-    tp_r: 50.0
+    tp_r: 4.0  # M20 B4 bracket geometry: cell tp4_sm2 (wf_pass, wf 5/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -2267,11 +2265,11 @@ strategies:
       - SCHA
     donchian: 30
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 3.0  # M20 B4 bracket geometry: cell tp1.5_sm3 (wf_pass, wf 4/6); was 2.5
     trail_mult: 4.0
     trail_decay_arm_r: 2.0   # M20 P4.1 decay cell (arm2R tight2 wf 6/6; sweep 2026-07-12, PR #6251)
     trail_decay_tight_mult: 2.0
-    tp_r: 50.0
+    tp_r: 1.5  # M20 B4 bracket geometry: cell tp1.5_sm3 (wf_pass, wf 4/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -2524,7 +2522,7 @@ strategies:
     # ROLLBACK: set back to 2.5.
     atr_stop_mult: 1.5
     trail_mult: 5.0
-    tp_r: 50.0
+    tp_r: 4  # M20 e35 re-check 2026-08-29: cell tp4 (wf_pass, wf 4/6, d_net_r +12.8231); was 50.0
     min_confidence: 0.0
     vol_skip_below_pctl: 0.1   # M21 E-2 round 4 vol_lo10 (wf 4/6, 2026-07-14) — skip entries whose trigger-bar ATR sits in the dead-vol bottom decile (trailing 200-bar pctl); IS net_R 31.0 -> 32.3 (dd 16.1 -> 15.1), OOS 5.4 -> 7.4 (dd 12.0 -> 10.9). Rollback = delete this line.
     adx_min: 28             # ADX>=28 regime gate (Tier-3, operator-approved 2026-07-20; raised from 25). Per-year OOS walk-forward: 28 wins 2024/25/26, ties 2023, ~flat 2022; lowers maxDD 4/5 yrs, halves the worst year (2025 net -7.6->-2.2, dd 13.1->7.2). Filters ADA marginal-trend fakeouts (ADX just-over-25 entries that fail). XRP stays 25 (grid showed raising it degrades). ROLLBACK: set back to 25.
@@ -2547,7 +2545,7 @@ strategies:
     pullback_lookback: 10
     pullback_frac: 0.5
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2  # M20 e35 re-check 2026-08-29: cell sm2 (path_b_wf_pass, wf 4/6, d_net_r +1.0084); was 2.5
     trail_mult: 5.0
     trail_decay_arm_r: 4.86   # M20 P4.4 p80 cell (p80 arm, wf 4/6; sweep 2026-07-13)
     trail_decay_tight_mult: 2.5

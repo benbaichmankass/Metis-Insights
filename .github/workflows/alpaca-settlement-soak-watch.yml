@@ -1,0 +1,143 @@
+name: alpaca-settlement-soak-watch
+
+# Watch the T+1 cash-settlement soak until it has been EXERCISED at least once,
+# then report what it measured.
+#
+# WHY THIS EXISTS AS A REPO TIMER RATHER THAN A SESSION REMINDER
+# -------------------------------------------------------------
+# `ALPACA_CASH_SETTLEMENT_MODE` ships at `annotate` (PR #10408, merged
+# 2026-08-29). Flipping it to `apply` on `alpaca_live` is Tier-2 and the
+# operator's stated precondition is reading the soak FIRST. But the writer sits
+# at the `buying_power()` call site in `Coordinator.multi_account_execute`, so
+# it only fires when a package is dispatched to an alpaca account — and US
+# equities were shut all weekend. A Claude session's own check-in dies with the
+# session; the precondition needed something durable that survives it.
+#
+# THE THREE STATES THIS REPORTS, NEVER COLLAPSED
+# ----------------------------------------------
+# The trap here is reading an empty soak as a verdict. It has two completely
+# different causes and only one of them is a bug:
+#
+#   not_yet_exercised  soak absent AND no alpaca dispatch since the deploy.
+#                      We did not look — there was nothing to look at. NOT a
+#                      failure, and must never be reported as one.
+#   never_wrote        soak absent AND an alpaca dispatch DID happen after the
+#                      deploy. THIS IS A FINDING: a consumer wired in code that
+#                      never writes — the `unwired-artifact-guard` shape.
+#   measured           soak has rows. Report them.
+#   unreadable         the diag read itself failed. We could not look, which is
+#                      not evidence about the soak either way.
+#
+# So the denominator (the newest alpaca journal row) is established BEFORE the
+# soak is graded, not after — otherwise "empty" is unfalsifiable.
+#
+# ⚠️ `would_have_reduced_usd` WILL READ 0.00 ON alpaca_live, AND THAT IS
+# CORRECT, NOT A FAILURE. `cash_settlement.recent_sales` requires
+# `status='closed'` with a non-null exit price inside a 10-day window, and
+# alpaca_live has ZERO such rows (its recent rows are all `rejected`; its last
+# real position closed in July). T+1 only binds after a SALE. The evidence that
+# the mechanism computes lives on the PAPER accounts, which do sell.
+#
+# Tier 1 — read-only diag GET + an issue comment. No VM mutation, no order
+# path, no secrets in the log.
+
+on:
+  schedule:
+    # Weekdays at 14:30 UTC — one hour after the US cash open (13:30 UTC in
+    # EDT), so the first dispatches of the session have had time to land.
+    # Weekdays only: the soak cannot advance while the venue is shut, and a
+    # weekend run would report `not_yet_exercised` forever, which is precisely
+    # the desensitised-alarm pattern this repo keeps paying for.
+    - cron: '30 14 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: alpaca-settlement-soak-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read the soak and its denominator
+        id: read
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+        run: |
+          set -uo pipefail
+          mkdir -p _soak
+
+          # Both reads are best-effort: a failure is recorded as `unreadable`,
+          # never silently as an empty result (silent-empty-guard's lesson).
+          if bash scripts/ops/diag_fetch.sh 'log_file?name=cash_settlement_soak&lines=60' > _soak/soak.json 2>_soak/soak.err; then
+            echo "soak_read=ok" >> "$GITHUB_OUTPUT"
+          else
+            echo "soak_read=failed" >> "$GITHUB_OUTPUT"
+          fi
+
+          if bash scripts/ops/diag_fetch.sh 'journal?table=trades&limit=150' > _soak/trades.json 2>_soak/trades.err; then
+            echo "trades_read=ok" >> "$GITHUB_OUTPUT"
+          else
+            echo "trades_read=failed" >> "$GITHUB_OUTPUT"
+          fi
+
+          if bash scripts/ops/diag_fetch.sh 'version' > _soak/version.json 2>_soak/version.err; then
+            echo "version_read=ok" >> "$GITHUB_OUTPUT"
+          else
+            echo "version_read=failed" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Grade
+        id: grade
+        run: python3 scripts/ops/grade_settlement_soak.py _soak
+
+      - name: Report
+        if: steps.grade.outputs.should_report == 'true'
+        uses: actions/github-script@v7
+        env:
+          REPORT_BODY: ${{ steps.grade.outputs.report }}
+          SOAK_STATE: ${{ steps.grade.outputs.state }}
+        with:
+          script: |
+            const state = process.env.SOAK_STATE;
+            const body = process.env.REPORT_BODY;
+            const title = 'alpaca T+1 settlement soak — watch log';
+            const marker = '<!-- alpaca-settlement-soak-watch -->';
+
+            const found = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue in:body "${marker}"`,
+              per_page: 1,
+            });
+
+            let number;
+            if (found.data.total_count > 0) {
+              number = found.data.items[0].number;
+              if (found.data.items[0].state === 'closed') {
+                await github.rest.issues.update({
+                  ...context.repo, issue_number: number, state: 'open',
+                });
+              }
+            } else {
+              const created = await github.rest.issues.create({
+                ...context.repo,
+                title,
+                body: `${marker}\nWatch log for the T+1 cash-settlement soak. See \`.github/workflows/alpaca-settlement-soak-watch.yml\` for what each state means — in particular, an empty soak is NOT a failure unless an alpaca dispatch has happened since the deploy.`,
+              });
+              number = created.data.number;
+            }
+
+            await github.rest.issues.createComment({
+              ...context.repo, issue_number: number, body,
+            });
+
+            if (state === 'never_wrote') {
+              core.setFailed('Soak is empty despite an alpaca dispatch after the deploy — the writer is not firing.');
+            }

@@ -171,9 +171,15 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None,
     if account_id:
         try:
             if prop_risk_gate.mode() != "off":
-                caveat = prop_risk_gate.caveat_lines(
-                    prop_risk_gate.grade_account_ticket_risk(
-                        account_id, risk_usd=t.risk_usd))
+                _verdict = prop_risk_gate.grade_account_ticket_risk(
+                    account_id, risk_usd=t.risk_usd)
+                caveat = prop_risk_gate.caveat_lines(_verdict)
+                # The soak row records the EFFECT (`annotated`), not just the
+                # request — a graded ticket whose caveat never reached the
+                # operator must not read as one that did. Best-effort inside
+                # the module; it cannot raise into the ticket path.
+                prop_risk_gate.record_ticket_risk_soak(
+                    account_id, _verdict, annotated=bool(caveat))
         except Exception:  # noqa: BLE001 — never lose the ticket over its caveat
             logger.warning(
                 "render_ticket: prop risk-gate annotation failed for %s — "

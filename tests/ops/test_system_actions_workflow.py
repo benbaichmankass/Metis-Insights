@@ -88,6 +88,7 @@ EXPECTED_ACTIONS = {
     "backfill-monitor-closed-pnl": "backfill_monitor_closed_pnl_action.sh",
     "revert-backfill-monitor-closed-pnl": "revert_backfill_monitor_closed_pnl_action.sh",
     "mark-reconciler-incomplete": "mark_reconciler_incomplete_action.sh",
+    "mark-operator-flattened": "mark_operator_flattened_action.sh",
     "rebuild-pnl-from-bybit": "rebuild_pnl_from_bybit_action.sh",
     "backfill-shadow-predictions": "backfill_shadow_predictions_action.sh",
     # 2026-06-15 — retro-stamp trades.account_class from accounts.yaml,
@@ -204,6 +205,7 @@ EXPECTED_ACTIONS = {
     # reduce-only flatten of a single Bybit exchange position (close an
     # account before a different-account key rotation).
     "flatten-bybit-position": "flatten_bybit_position_action.sh",
+    "switch-bybit-position-mode": "bybit_switch_position_mode_action.sh",
     # 2026-07-15 — Alpaca sibling of flatten-bybit-position: one-shot guarded
     # native flatten of a single Alpaca position. AlpacaClient.close cancels the
     # reserving protective bracket (held_for_orders) then market-closes — the
@@ -322,6 +324,7 @@ TIER_2_ACTIONS = {
     "backfill-monitor-closed-pnl",
     "revert-backfill-monitor-closed-pnl",
     "mark-reconciler-incomplete",
+    "mark-operator-flattened",
     "rebuild-pnl-from-bybit",
     "backfill-shadow-predictions",
     "backfill-account-class",
@@ -352,6 +355,7 @@ TIER_2_ACTIONS = {
     "cancel-ib-order",
     "attach-ib-target",
     "flatten-bybit-position",
+    "switch-bybit-position-mode",
     "flatten-alpaca-position",
     "close-stranded-journal-row",
     "reconcile-orphan-history",

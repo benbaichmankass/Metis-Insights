@@ -136,7 +136,7 @@ def test_yaml_entries_pin_validated_params():
     assert (tlt["trend_lookback"], tlt["pullback_lookback"], tlt["pullback_frac"]) == (60, 12, 0.5)
     # trail_mult 4 -> 3: M20 fleet sweep 2026-07-12 walk-forward PASS
     # (runtime_logs/m20_fleet; Tier-3 exit-lever package).
-    assert (tlt["atr_period"], tlt["atr_stop_mult"], tlt["trail_mult"]) == (14, 2.5, 3.0)
+    assert (tlt["atr_period"], tlt["atr_stop_mult"], tlt["trail_mult"]) == (14, 2.0, 3.0)  # M20 B4 (supersedes the earlier sweep's pin)
     assert tlt["timeframe"] == "1h"
     assert tlt["min_confidence"] == 0.0 and tlt["shadow_model_ids"] == []
     assert tlt["model"] is None
@@ -148,8 +148,8 @@ def test_yaml_entries_pin_validated_params():
     assert uso["long_only"] is True
     assert uso["symbols"] == ["USO"]
     assert uso["signal_prefixes"] == ["uso_trend"]
-    assert (uso["donchian"], uso["atr_period"], uso["atr_stop_mult"]) == (24, 14, 2.5)
-    assert (uso["trail_mult"], uso["tp_r"]) == (4.0, 50.0)
+    assert (uso["donchian"], uso["atr_period"], uso["atr_stop_mult"]) == (24, 14, 2.0)  # M20 B4 (supersedes the earlier sweep's pin)
+    assert (uso["trail_mult"], uso["tp_r"]) == (4.0, 4.0)  # M20 B4 (supersedes the earlier sweep's pin)
     assert uso["timeframe"] == "1h"
     assert uso["min_confidence"] == 0.0 and uso["shadow_model_ids"] == []
     assert uso["model"] is None

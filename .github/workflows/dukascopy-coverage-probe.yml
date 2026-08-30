@@ -27,6 +27,9 @@ on:
       filter:
         description: "Substring to list (empty = the WHOLE catalogue)"
         default: ""
+      symbols:
+        description: "CSV of symbols to PROBE (empty = the 18 blocked-cell symbols)"
+        default: ""
 
 permissions:
   contents: read
@@ -51,15 +54,33 @@ jobs:
           wc -l < /tmp/catalogue.txt
 
       - name: Probe each blocked symbol, and REPORT BOTH FAILURE DIRECTIONS
+        env:
+          PROBE_SYMBOLS: ${{ inputs.symbols }}
         run: |
           set -euo pipefail
           python - <<'PY'
-          import re, subprocess, sys
+          import os, re, subprocess, sys
 
           # The 18 distinct symbols behind the 25 no_free_lane_candle_feed cells.
-          SYMBOLS = ["GDX", "GLD", "IAUM", "IEF", "IWM", "MES", "MGC", "MHG",
-                     "QLD", "QQQ", "SCHA", "SLV", "SPLG", "SPY", "TLT",
-                     "TQQQ", "USO", "XAUUSD"]
+          DEFAULT_SYMBOLS = ["GDX", "GLD", "IAUM", "IEF", "IWM", "MES", "MGC", "MHG",
+                             "QLD", "QQQ", "SCHA", "SLV", "SPLG", "SPY", "TLT",
+                             "TQQQ", "USO", "XAUUSD"]
+
+          # ⚠️ THE HARDCODED LIST WAS ITSELF A COLLAPSED DENOMINATOR (2026-08-29).
+          # A session dispatched this job with `filter` set, expecting it to scope
+          # the PROBE, and got back a report identical to the previous run --
+          # because `filter` only ever scoped the catalogue DUMP two steps up.
+          # The probe silently re-answered a question nobody had asked, and the
+          # two are indistinguishable in the log. So the probed set is now an
+          # input, and it is ECHOED below: a reader must be able to see WHICH
+          # symbols produced a given "unmatched" line, or the absence is
+          # unattributable. Empty input keeps the 18 byte-for-byte.
+          _raw = os.environ.get("PROBE_SYMBOLS", "").strip()
+          SYMBOLS = ([s.strip().upper() for s in _raw.split(",") if s.strip()]
+                     if _raw else list(DEFAULT_SYMBOLS))
+          print(f"probing {len(SYMBOLS)} symbols "
+                f"({'from input' if _raw else 'DEFAULT blocked-cell set'}): "
+                f"{', '.join(SYMBOLS)}\n")
 
           # ⚠️ RUN 1 (32744577414) GOT TWO OF EIGHTEEN WRONG, IN OPPOSITE
           # DIRECTIONS, and both came from matching a raw ticker as a substring:
@@ -128,8 +149,17 @@ jobs:
               if same:
                   print(f"  {sym}: SAME-TICKER US ETF CFD -> {', '.join(same)}")
               if other:
+                  # ⚠️ A SHORT TICKER IS A SUBSTRING OF HALF THE CATALOGUE.
+                  # "SH" hits every instrument containing those two letters, so
+                  # this bucket can run to hundreds of names and drown the very
+                  # line a reader needs. It is CAPPED -- and the cap DECLARES
+                  # itself with the full count, because a silently truncated
+                  # list is indistinguishable from a short one.
+                  shown = other[:12]
+                  more = len(other) - len(shown)
+                  tail = f" ... +{more} more (of {len(other)} total)" if more else ""
                   print(f"  {sym}: ⚠️ NEEDS_ADJUDICATION (not a same-ticker US "
-                        f"ETF CFD) -> {', '.join(other)}")
+                        f"ETF CFD) -> {', '.join(shown)}{tail}")
               if not same:
                   print(f"      ^ {sym} has NO same-ticker ETF CFD. A hit here is "
                         f"a coincidence until a reader says otherwise.")

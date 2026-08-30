@@ -125,6 +125,13 @@ def _evaluate_account(unit, ledger, args, horizon: float) -> Dict[str, Any]:
         risk_pct=unit.risk_pct, base_risk_pct=args.base_risk_pct,
         account_size=unit.account_size_usd, n_paths=args.n_paths,
         block_len=args.block_len, horizons_months=(horizon,), seed=args.seed,
+        # THE LEDGER'S OWN BUILD BALANCE, not this account's size. This tool
+        # scores ONE ledger against EVERY account, so the two are equal only by
+        # coincidence -- and they were, for the prop arm only: breakout_1 is a
+        # $5,000 account and --base-account-size defaults to 5000.0, so the arm
+        # this tool was BUILT for was exact while every standard account (200 /
+        # 305 / 95,542 / 1,342,713) had its R rescaled by built_at/size.
+        ledger_initial_balance=args.base_account_size,
     )
     if unit.kind == "prop":
         ev = run_ev_montecarlo(ledger, unit.ruleset, **common)
@@ -187,7 +194,53 @@ def run(args: argparse.Namespace) -> int:
               f"{args.strategy!r}; it would apply to nothing", file=sys.stderr)
         return 2
 
-    units = all_account_units()
+    snapshots = None
+    # getattr, NOT args.balances: this entry point is called both through argparse
+    # AND with a hand-built Namespace (three tests do exactly that), so a plain
+    # attribute read makes every such caller crash on a field they never set. The
+    # file's own convention is already getattr (see `overrides` above); using it
+    # keeps "no balances supplied" the safe default rather than an AttributeError.
+    if getattr(args, "balances", ""):
+        # ⚠️ THIS IS A REAL BALANCE READ, NOT A DEFAULT. The synthetic $10,000
+        # account size was REMOVED by Lane P because a fabricated size wearing
+        # the label of a measurement is exactly the class this repo's provenance
+        # rules exist to stop -- so this flag must never become a way to put one
+        # back. It accepts ONLY a payload in the shape /api/bot/accounts/balances
+        # serves, and every downstream freshness/api_ok check in
+        # resolve_standard_account_size still applies: a stale row still grades
+        # STALE and refuses, an api_ok=false row still grades UNREADABLE. The
+        # flag changes WHERE the snapshot is read from, never WHETHER it is
+        # believed.
+        #
+        # It exists because on a GitHub runner there is no journal DB, so
+        # load_balance_snapshots() returns None and EVERY standard account
+        # resolves `unreadable` -> the whole standard arm is inert and the
+        # summary prints UNGRADED. all_account_units already accepts a
+        # `snapshots` override, so no live-readable module is touched: the
+        # override lives entirely in this Tier-1 research runner.
+        try:
+            raw = json.loads(Path(args.balances).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"ERROR: --balances {args.balances!r} unreadable: {exc}", file=sys.stderr)
+            return 2
+        # Accept the endpoint envelope {balances:{...}} or a bare mapping.
+        snapshots = raw.get("balances") if isinstance(raw, dict) and "balances" in raw else raw
+        if not isinstance(snapshots, dict):
+            print(f"ERROR: --balances payload is {type(snapshots).__name__}, expected an object "
+                  f"keyed by account_id", file=sys.stderr)
+            return 2
+        # State the denominator: an empty dict is a LOOKED-AND-FOUND-NOTHING,
+        # which resolve_standard_account_size reports differently from None.
+        print(f"balances: loaded {len(snapshots)} account row(s) from {args.balances} "
+              f"(source={raw.get('source') if isinstance(raw, dict) else 'bare-mapping'}, "
+              f"as_of={raw.get('as_of') if isinstance(raw, dict) else 'n/a'})")
+
+    # Pass the kwarg ONLY when balances were actually supplied, so the no-balances
+    # path calls all_account_units() exactly as it did before this flag existed.
+    # A new optional input should be invisible to every caller that does not use
+    # it -- including the tests that patch this function with a narrower lambda.
+    units = (all_account_units(snapshots=snapshots) if snapshots is not None
+             else all_account_units())
     if args.accounts:
         keep = {a.strip() for a in args.accounts.split(",") if a.strip()}
         units = {k: v for k, v in units.items() if k in keep}
@@ -321,6 +374,12 @@ def main(argv: List[str]) -> int:
                    help="Round-trip fee (bps) the emit ledger was generated at — recorded "
                         "onto the output + standard rows for provenance (the net_r already "
                         "bakes the fee in; this is the audit trail, not a re-charge).")
+    p.add_argument("--balances", default="",
+                   help="Path to a JSON balance payload in the shape "
+                        "/api/bot/accounts/balances serves ({balances:{<id>:{balance,ts,api_ok}}}, "
+                        "or a bare mapping). Overrides the journal-DB read, which is unavailable on "
+                        "a GitHub runner. NOT a default size: freshness and api_ok are still enforced "
+                        "downstream, so a stale or unreadable row still refuses.")
     p.add_argument("--accounts", default=None, help="Optional CSV filter of account ids.")
     p.add_argument("--start", default=None)
     p.add_argument("--end", default=None)
