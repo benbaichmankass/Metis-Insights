@@ -34,6 +34,15 @@ corrupt the very evidence this lane depends on. Starvation is side-effect-free,
 needs no second copy of the winner rule, and is sufficient to size the change:
 an account that is never starved gains nothing from fanning out.
 
+⚠️ **``starved`` MEANS *ANOTHER ACCOUNT TOOK THE WINNER FROM ME*, AND NOTHING
+WIDER.** A tick on which NO strategy won the symbol at all is graded
+``no_winner`` and reported as its own population — it has no other account to
+have lost to, and its cause is upstream (candidates held, gated or flat) where
+fanning arbitration out is not the remedy. Until 2026-08-30 those ticks were
+graded ``starved``: on the whole live file (n=9 rows, 15 account-gradings) that
+was **11 of the 13 starved gradings**, overstating the finding 6.5× in the sole
+evidence base for the Tier-3 change. Do not re-merge the two.
+
 ⚠️ **SO DO NOT READ A ``starved`` ROW AS "THIS ACCOUNT WOULD HAVE TRADED".** It
 would have had a *contest of its own*; whether its candidate then survives its
 own regime gate and conflict resolution is unmeasured here, and asserting it
@@ -55,18 +64,61 @@ logger = logging.getLogger(__name__)
 #: routes to a different reader:
 #:   * ``routed``       — this account holds the global winner. Fanning out
 #:                        changes nothing for it this tick.
-#:   * ``starved``      — THE FINDING. It held ≥1 candidate and the winner
-#:                        belongs to a DIFFERENT account, so it produces no
-#:                        order package today purely because of the global
-#:                        scope. It would have had a contest of its own.
+#:   * ``starved``      — THE FINDING. It held ≥1 candidate, a winner exists,
+#:                        and the winner belongs to a DIFFERENT account — so it
+#:                        produces no order package today purely because of the
+#:                        global scope. It would have had a contest of its own.
+#:   * ``no_winner``    — it held ≥1 candidate and **nothing won the symbol at
+#:                        all** this tick. NOT starvation: no other account took
+#:                        anything from it, so a per-account fan-out cannot be
+#:                        credited with changing this row. See the ⚠️ below.
+#:   * ``winner_unattributed`` — a winner exists but resolves to NO account in
+#:                        the roster, so we cannot say this account lost to
+#:                        another one. Either a roster gap or a strategy that
+#:                        should not be winning; both are findings, neither is
+#:                        starvation. (Never observed live as of 2026-08-30 —
+#:                        it is representable, and before this state existed it
+#:                        graded ``starved``.)
 #:   * ``no_candidates`` — it held none. Not health, not a finding: there was
 #:                        nothing to arbitrate, and reading this as "fan-out
 #:                        would not help" over a quiet window is the
 #:                        unstated-denominator error.
 #:   * ``unknown``      — *we could not look*: the account roster was
-#:                        unreadable, or the winner's account could not be
-#:                        resolved. Emphatically NOT ``no_candidates``.
-FANOUT_STATES = ("routed", "starved", "no_candidates", "unknown")
+#:                        unreadable, the winner's account could not be
+#:                        resolved, or a count/scope we cannot read. Emphatically
+#:                        NOT ``no_candidates``.
+#:
+#: ⚠️ **``no_winner`` WAS GRADED ``starved`` UNTIL 2026-08-30 AND THAT INFLATED
+#: THE ONLY EVIDENCE THIS LANE HAS.** The original reasoning — *"nothing routed
+#: at all while strategies were asking to, so that IS starvation"* — describes a
+#: real condition, but not the one this soak exists to size. Starvation here
+#: means **another account took the winner from me**; a tick with no winner has
+#: no such other account, and its cause lives upstream (every candidate held,
+#: gated, or flat), where fanning arbitration out per account is not the remedy.
+#: Measured on the whole live file the day the soak shipped (n=9 rows,
+#: 2026-08-30T14:25Z→19:03Z, 15 account-gradings): **13 graded ``starved``, of
+#: which 11 were no-winner ticks and only 2 were the finding** — the headline
+#: overstated it **6.5×**. The two populations are per-ROW disjoint (a winner
+#: either exists or does not), so they separate cleanly and neither is dropped.
+FANOUT_STATES = (
+    "routed",
+    "starved",
+    "no_winner",
+    "winner_unattributed",
+    "no_candidates",
+    "unknown",
+)
+
+#: Whether a winner exists this tick and whether it is attributable to an
+#: account. Decided ONCE per symbol-tick in :func:`assess` and passed down, so
+#: every account on a tick is graded against the same reading.
+WINNER_SCOPES = ("attributed", "no_winner", "unattributed")
+
+#: Bumped when the row shape changes in a way a reader of the accumulated log
+#: must branch on. **A row with no ``fanout_schema`` key is a pre-2026-08-30
+#: row and its ``starved_accounts`` CONFLATES starvation with no-winner ticks**
+#: — do not pool it with a v2 row's ``starved_count`` without saying so.
+FANOUT_SCHEMA = 2
 
 
 def accounts_by_strategy(
@@ -93,14 +145,38 @@ def accounts_by_strategy(
     return {k: tuple(v) for k, v in out.items()}
 
 
+def winner_scope_for(
+    winning_strategy: Optional[str],
+    winner_accounts: Any,
+) -> str:
+    """Grade the TICK's winner before any account is graded. See :data:`WINNER_SCOPES`.
+
+    Three readings, never collapsed, because each sends the reader somewhere
+    different: ``attributed`` (a contest happened and somebody won it — the only
+    reading under which another account can have been starved), ``no_winner``
+    (nothing won, so there is no other account to have lost to), and
+    ``unattributed`` (something won but no account claims it — a roster gap, not
+    a routing loss).
+    """
+    if not winning_strategy:
+        return "no_winner"
+    return "attributed" if winner_accounts else "unattributed"
+
+
 def fanout_state_for(
     account_candidate_count: Any,
     holds_winner: Any,
     *,
     roster_known: bool = True,
+    winner_scope: str = "attributed",
 ) -> str:
     """Grade ONE account for one symbol on one tick. See :data:`FANOUT_STATES`."""
     if not roster_known or holds_winner is None:
+        return "unknown"
+    if winner_scope not in WINNER_SCOPES:
+        # A scope we cannot read is not a scope of "attributed". Defaulting the
+        # other way would silently promote an unreadable tick into the finding,
+        # which is the direction this module was just corrected for.
         return "unknown"
     try:
         n = int(account_candidate_count or 0)
@@ -108,7 +184,13 @@ def fanout_state_for(
         return "unknown"  # a count we cannot read is not a count of zero
     if n <= 0:
         return "no_candidates"
-    return "routed" if holds_winner else "starved"
+    if holds_winner:
+        return "routed"
+    if winner_scope == "no_winner":
+        return "no_winner"
+    if winner_scope == "unattributed":
+        return "winner_unattributed"
+    return "starved"
 
 
 def assess(
@@ -123,15 +205,28 @@ def assess(
     in tests rather than against a live position, which is the lesson of
     ``BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG``.
 
-    ``winning_strategy`` is ``None`` on a flat tick; every account with
-    candidates is then ``starved`` — correctly, because nothing routed at all
-    while strategies were asking to.
+    ⚠️ **``starved_count`` COUNTS ONLY ACCOUNTS THAT LOST TO ANOTHER ACCOUNT.**
+    A tick where ``winning_strategy`` is ``None`` — nothing won the symbol at
+    all — puts every candidate-holding account in ``no_winner_accounts``, a
+    SEPARATE population reported beside it, because a fan-out has no other
+    account to take the winner from and so cannot be credited with that row.
+    Until 2026-08-30 those rows were counted as starvation and 11 of the live
+    file's 13 starved gradings were them; see :data:`FANOUT_STATES`.
+
+    ⚠️ **READ ``accounts_graded`` BESIDE ANY COUNT.** A short starved list over
+    a tiny denominator is not a clean bill of health, and the three populations
+    (``starved`` / ``no_winner`` / ``winner_unattributed``) are mutually
+    exclusive per row but only sum to ``accounts_graded`` together with
+    ``routed``.
     """
     by_strategy = accounts_by_strategy(accounts)
     roster_known = by_strategy is not None
     by_strategy = by_strategy or {}
 
     winner_accounts = set(by_strategy.get(winning_strategy or "", ()))
+    # Decided ONCE for the tick, so every account on it is graded against the
+    # same reading of the winner rather than each re-deriving it.
+    scope = winner_scope_for(winning_strategy, winner_accounts)
     per_account: Dict[str, Dict[str, Any]] = {}
     unattributed: list = []
 
@@ -140,7 +235,9 @@ def assess(
         if not accts:
             # A candidate whose strategy maps to no account. Recorded, never
             # silently dropped — it is either a roster gap or a strategy that
-            # should not be emitting, and both are findings.
+            # should not be emitting, and both are findings. When the WINNER is
+            # the unmapped one it also lands here, which is the cross-check on
+            # the `winner_unattributed` grade below.
             unattributed.append(str(strategy))
             continue
         for a in accts:
@@ -152,17 +249,33 @@ def assess(
             len(row["candidates"]),
             (account_id in winner_accounts) if roster_known else None,
             roster_known=roster_known,
+            winner_scope=scope,
         )
         row["holds_winner"] = account_id in winner_accounts if roster_known else None
 
-    starved = sorted(a for a, r in per_account.items() if r["state"] == "starved")
+    def _in(state: str) -> list:
+        return sorted(a for a, r in per_account.items() if r["state"] == state)
+
+    starved = _in("starved")
+    no_winner = _in("no_winner")
+    winner_unattributed = _in("winner_unattributed")
     return {
+        "fanout_schema": FANOUT_SCHEMA,
         "roster_state": "read" if roster_known else "unreadable",
         "winning_strategy": winning_strategy,
+        "winner_scope": scope,
         "winner_accounts": sorted(winner_accounts),
         "per_account": per_account,
+        # THE FINDING — a winner existed and belonged to someone else.
         "starved_accounts": starved,
         "starved_count": len(starved),
+        # NOT the finding, reported beside it rather than folded into it or
+        # dropped: dropping it would remove the denominator that says how often
+        # the symbol had contenders and still routed nothing.
+        "no_winner_accounts": no_winner,
+        "no_winner_count": len(no_winner),
+        "winner_unattributed_accounts": winner_unattributed,
+        "winner_unattributed_count": len(winner_unattributed),
         # STATE THE DENOMINATOR: how many accounts this tick could be graded at
         # all. A short starved list over a tiny denominator is not a clean
         # bill of health.
@@ -171,4 +284,12 @@ def assess(
     }
 
 
-__all__ = ["FANOUT_STATES", "accounts_by_strategy", "fanout_state_for", "assess"]
+__all__ = [
+    "FANOUT_STATES",
+    "WINNER_SCOPES",
+    "FANOUT_SCHEMA",
+    "accounts_by_strategy",
+    "winner_scope_for",
+    "fanout_state_for",
+    "assess",
+]
