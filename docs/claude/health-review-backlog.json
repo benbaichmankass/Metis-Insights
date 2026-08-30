@@ -29296,6 +29296,18 @@
       "trigger_condition": "Any PR whose diff touches only ml/configs/retired/ (or any future tree the suite reads and the filter does not name).",
       "resolution_criteria": "EITHER (c): test_docs_committed_readers_are_all_covered (or a sibling) DERIVES the covered set from the paths tests actually read, so a newly-read tree fails the guard instead of waiting for an incident — demonstrated by showing it fails on the current filter and passes after the filter is corrected. OR, as an interim, (a)/(b): the filter names the retired tree AND tests/test_pytest_run_filter.py::COVERED gains an entry citing test_torch_sequence_contract as the reader, with the perturbation above as the evidence. Interim closure MUST record that the class is unretired and that instance 3's green-tick ambiguity remains open, so this does not close the way instance 3 did.",
       "evidence": "tests/test_pytest_run_filter.py (docstring: four prior instances; _filter_regex/_matches); .github/workflows/pytest-run.yml (the grep -Eq relevance pattern); tests/ml/_manifest_paths.py::manifest_path; tests/ml/test_torch_sequence_contract.py:50,57; PR #10435 job 99160852992 log: '##[notice]No code/config/workflow files changed — skipping the pip install + test-run steps (short-circuit, MB-20260706-CI-MINUTES)', 12s green; BL-20260813-PYTEST-RUN-SHORTCIRCUITS-SO-MAIN-MERGES-UNVERIFIED; BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT"
+    },
+    {
+      "id": "BL-20260829-MATRIX-BRACKET-VALUES-READS-ONLY-THE-BACKTICKED-CELL-SPELLING",
+      "opened": "2026-08-29",
+      "severity": "low",
+      "tier": 1,
+      "status": "open",
+      "area": "ci-guards",
+      "summary": "scripts/ci/check_matrix_bracket_values.py resolves a matrix cell id with ONE regex requiring the backticked spelling (cell `tp3_sm2`), but refs are written in TWO spellings — 10 use backticks and 8 use a bold **tp2_sm3.5_to48** form with no backticks. Measured 2026-08-29 over the 52-row exit-refinement coverage matrix.",
+      "detail": "NOT a live gap today, and the direction of failure is the safe one: all 8 rows currently at status `shipped` use the backticked spelling, so the guard reads every cell it actually grades; and a ref it cannot parse is graded `unreadable`, which FAILS loudly rather than passing vacuously. The cost is a future false CI failure: if any of the 8 bold-only rows is ever shipped, the guard blocks the PR with `no cell id in the ref` on a ref that plainly names one, and the fix will look like editing prose to satisfy a checker. scripts/research/e35_matrix_recheck.py already reads BOTH spellings (backtick first) and its self-test pins that, so the two tools currently disagree about what a ref means. Deliberately NOT fixed in the research PR that found it — a guard change belongs in its own PR with its own test, and widening a regex that decides CI outcomes deserves the thought of whether 'write the ref differently' should ever be the cheapest way to satisfy it.",
+      "resolution_criteria": "check_matrix_bracket_values.py resolves both spellings (or the matrix is normalised to one and a check enforces that), with a test case per spelling AND a case asserting an unparseable ref still grades `unreadable` rather than being softened. Verify by flipping one bold-only row to `shipped` in a test fixture and seeing the guard read its cell rather than fail.",
+      "refs": "PR #10441 · docs/research/e35-matrix-recheck-2026-08-29.md § 7.3 · scripts/ci/check_matrix_bracket_values.py::_CELL_IN_REF · scripts/research/e35_matrix_recheck.py::cell_id_from_ref"
     }
   ]
 }
