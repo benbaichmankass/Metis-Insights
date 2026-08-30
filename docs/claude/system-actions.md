@@ -819,6 +819,36 @@ Then poll the issue's comments for the github-actions[bot] reply.
 
 ---
 
+## 7.2 DISPATCH ONE AT A TIME — a batch silently drops the middle
+
+⚠️ **Open ONE system-action issue, wait for its comment, then open the next.**
+Batching them does not queue them; it DROPS them, and the drop is silent.
+
+`system-actions.yml` declares `concurrency: {group: system-actions,
+cancel-in-progress: false}`. That flag prevents cancelling the RUNNING job, but
+GitHub still keeps at most **one pending run per group** — a third dispatch
+evicts the second. So a batch of N collapses to **the first and the last**,
+deterministically.
+
+Measured 2026-08-30: six `switch-bybit-position-mode` issues opened within ~30s
+(#10514–#10519). Runs 7412 and 7416/7417 succeeded; runs **7413, 7414, 7415 were
+cancelled** and their issues sat OPEN with **no comment**.
+Re-fired one at a time, all three succeeded first try. The same signature appears at run 7391
+earlier the same day and went unnoticed.
+
+**The silence is the dangerous part.** This relay reports outcomes by commenting
+on the issue and closing it; a cancelled run never reaches that step, so the
+issue stays open and quiet — byte-identical to *still queued*. A session polling
+it cannot distinguish a dead dispatch from a slow one and will wait forever.
+
+**And the payload can be a live-order setting.** That batch was six VENUE
+position-mode switches. Three silently not running, followed by an env flip that
+armed all four symbols, would have left the two halves disagreeing — and
+disagreement means Bybit **refuses every order** on the un-switched symbol. The
+contract is not politeness; it is what keeps a half-applied sequence from
+looking finished. Full record:
+`BL-20260830-BATCHED-SYSTEM-ACTIONS-SILENTLY-CANCEL-EACH-OTHER`.
+
 ## 8. Runner architecture (control-plane choice)
 
 The workflow runs on `runs-on: ubuntu-latest` (GitHub-hosted) and
