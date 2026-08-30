@@ -1255,6 +1255,26 @@ themselves** (the repo Actions secret, and the consuming environment's
 `DIAG_READ_TOKEN`); `set-diag-token` then pushes it to the VM, moving it
 one way only and never handing it back.
 
+🛑 **THE DIAG-TOKEN ROTATION QUESTION IS CLOSED — DO NOT RAISE IT.** Operator
+decision, 2026-08-30: the token is **not being rotated again**, and the exposure
+is an accepted risk. The live value has been readable in a public issue comment
+since 2026-05-21 and **still authorizes** — re-measured 2026-08-30T05:09:21Z,
+`/api/diag/version` → HTTP 200 (`git_sha 35211baf`) — so this is closed on
+evidence, not on fatigue. Two rotation attempts have failed to take (2026-08-18,
+and one on 2026-08-30), because the restore mechanism is itself broken
+(`BL-20260713-SET-DIAG-TOKEN-RESTORE-BROKEN`, which stays OPEN); proposing a
+rotation before that is fixed is proposing an action that does not work. What is
+accepted: any reader of that comment holds a working bearer for `/api/diag/*`,
+which is **read-only** — diagnostics, journal SELECTs, service state, log tails.
+It is not an order path, cannot place/modify/cancel a trade, and carries no
+exchange credentials, so the harm is disclosure of internals, not loss of funds.
+Do not file a successor row, do not add it to `OPEN-ITEMS.json`, and do not put
+it in a review's `flags_raised[]`. Full record:
+`BL-20260818-DIAG-READ-TOKEN-PUBLIC-EXPOSURE-UNREMEDIATED` (`wont_fix`).
+⚠️ **The one thing that reopens it:** if `/api/diag/*` ever gains a WRITE route
+or starts returning secrets, the read-only premise this decision rests on is
+gone — re-put it to the operator rather than assuming it carries over.
+
 **Trainer VM** has no HTTP diag API — read it via the `trainer-vm-diag`
 relay (arbitrary SSH bash, label `trainer-vm-diag-request`). SSH from a
 web session is impossible regardless (proxy is HTTP/HTTPS-only), so
