@@ -155,6 +155,46 @@ def supported_symbols() -> frozenset[str]:
 # MTF setup; VWAP is the higher-frequency mean-reversion strategy. Tune
 # this map (or override via StrategyIntent.priority) without changing
 # the aggregator.
+#
+# ⚠️ "PRIORITY IS MOOT — THIS LEG RUNS ALONE ON ITS (SYMBOL, ACCOUNT)" IS
+# NOT A VALID REASON TO LEAVE A VALUE AT 0, AND IT WAS WRITTEN ON MOST OF
+# THE ROWS BELOW UNTIL 2026-08-30. Backlog:
+# BL-20260830-PRIORITY-IS-MOOT-COMMENTS-REASON-PER-ACCOUNT-WHILE-ARBITRATION-IS-PER-SYMBOL
+# ``aggregate_intents``
+# elects ONE winner **per SYMBOL, globally, BEFORE the per-account fan-out**
+# in ``Coordinator.multi_account_execute`` — it never sees an account at
+# all. So two legs on the same symbol arbitrate against each other even
+# when they are routed to DIFFERENT accounts, and the loser produces no
+# order package on ITS OWN account. The per-(symbol, account) reasoning
+# those comments encoded is the reasoning the aggregator does not do.
+#
+# MEASURED 2026-08-30 against the live config: SOLUSDT is contested by SIX
+# enabled legs and ETHUSDT by SIX, every one of them at value 0 here — so
+# the winner is decided entirely by the name tiebreaker (see the two
+# branches in ``aggregate_intents``: same-side ``max()`` over a negated-ord
+# tuple, where a name that is a strict PREFIX of another always loses, and
+# the opposing-side branch, which sorts ascending and picks the SHORTER
+# name — the two disagree with each other). ``trend_donchian_sol`` and
+# ``trend_donchian_eth`` lose to all five of their rivals in BOTH branches;
+# the first has 144 actionable signals since 2026-08-01 and ZERO journal
+# rows on bybit_1.
+#
+# ⚠️ AND ``execution: shadow`` DOES NOT EXCLUDE A LEG FROM THIS CONTEST.
+# That gate lives in ``Coordinator.multi_account_execute`` (the
+# ``execution_mode(...) == "shadow"`` fold into ``effective_dry``), which
+# runs AFTER this election — so a shadow, data-only leg can win a symbol
+# and silence every live leg on it for that tick. ``eth_pullback_prop_2h``
+# (shadow) beats ``trend_donchian_eth`` (live) head-to-head today.
+#
+# ⚠️ RAISING A VALUE HERE CANNOT FIX A DISJOINT-ACCOUNT TWIN PAIR, and
+# reading it as the remedy is the trap. ``trend_donchian_sol`` (bybit_1)
+# and ``trend_donchian_sol_prop`` (breakout_1) share entries by design and
+# route to accounts with NO overlap, so the correct outcome is that BOTH
+# trade. This map elects exactly one winner per symbol, so whichever way
+# the pair is ordered, one of them is starved — ordering the base leg above
+# the prop twin only moves the starvation onto a Tier-3 operator-approved
+# live prop leg. The remedy is the per-account fan-out (Lane P/P3), not a
+# number here.
 DEFAULT_PRIORITIES: Dict[str, int] = {
     "turtle_soup": 50,
     "vwap": 40,
@@ -164,10 +204,13 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # approval after a backtest validates the priority change.
     "ict_scalp_5m": 30,
     # M27 P0 Batch-1 alt variants (2026-07-21) — each is a single-instrument
-    # ict_scalp instance (SOL/XRP/AVAX), no established peer on their own
-    # symbol on bybit_1 to conflict with. Deliberately 0 (the untested-roster
-    # floor, same as the trend_donchian_sol/eth prop alt variants) so a wiring
-    # slip can't override the established roster.
+    # ict_scalp instance (SOL/XRP/AVAX). Deliberately 0 (the untested-roster
+    # floor) so a wiring slip can't override the established roster.
+    # ⚠️ CORRECTED 2026-08-30: this row read "no established peer on their own
+    # symbol on bybit_1 to conflict with". False for SOL — ict_scalp_sol_5m and
+    # ict_scalp_sol_15m share SOLUSDT with four other enabled legs, and on the
+    # name tiebreaker they BEAT trend_donchian_sol. At equal priority the floor
+    # does not hold the ordering it was chosen to hold.
     "ict_scalp_sol_5m": 0,
     "ict_scalp_xrp_5m": 0,
     "ict_scalp_avax_5m": 0,
@@ -190,10 +233,20 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # safety floor so a wiring slip can't let it override turtle_soup /
     # vwap / ict_scalp on any account that runs more than one strategy.
     "trend_donchian": 20,
+    # ⚠️ THE SIX ROWS BELOW EACH SAY SOME VARIANT OF "execution:shadow
+    # (data-only), so its priority never arbitrates a real order". CORRECTED
+    # 2026-08-30: the second clause does not follow from the first. A shadow
+    # leg IS elected here — the execution gate is downstream, in
+    # multi_account_execute — so a shadow leg that WINS its symbol starves
+    # every live leg on it for that tick. It never PLACES a real order; it can
+    # certainly SUPPRESS one. Measured: 6 of the 12 contested symbols carry at
+    # least one shadow leg (BTCUSDT has 4 of 7). The "safety floor" reasoning
+    # for the low values is still sound and the values are unchanged; it is
+    # the never-arbitrates claim that is withdrawn.
+    #
     # fade_breakout_4h — the floor of the roster (S9, 2026-05-24). Wired
-    # execution:shadow (data-only, never sends a live order), so its
-    # priority never arbitrates a real order; the lowest value is the
-    # safety floor for the unproven strategy.
+    # execution:shadow (data-only, never sends a live order); the lowest value
+    # is the safety floor for the unproven strategy.
     "fade_breakout_4h": 10,
     # squeeze_breakout_4h — the floor (S9, 2026-05-24). execution:shadow
     # (data-only), so its priority never arbitrates a real order.
@@ -255,32 +308,55 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # eth_pullback_2h — M15 WS-C alt sleeve (2026-06-11); sole strategy on
     # ETHUSDT (bybit_1 demo), value 0 mirrors the other single-symbol legs.
     "eth_pullback_2h": 0,
-    # eth_pullback_prop_2h — swap-robust prop variant (2026-06-25, DRAFT Tier-3);
-    # sole strategy on (ETHUSDT, breakout_1), execution: shadow, value 0 mirrors
-    # the other single-symbol legs (priority is moot — never arbitrates).
+    # eth_pullback_prop_2h — swap-robust prop variant (2026-06-25, DRAFT Tier-3)
+    # on (ETHUSDT, breakout_1 + bybit_1), execution: shadow.
+    # ⚠️ CORRECTED 2026-08-30: this row read "sole strategy on (ETHUSDT,
+    # breakout_1) ... priority is moot — never arbitrates". BOTH halves were
+    # false. ETHUSDT is contested by SIX enabled legs, and being
+    # execution: shadow does NOT keep this leg out of the election (that gate
+    # is downstream, in multi_account_execute) — head-to-head this shadow leg
+    # BEATS the live trend_donchian_eth on the name tiebreaker. Value held at 0
+    # pending the Tier-3 ordering decision; see the header block.
     "eth_pullback_prop_2h": 0,
     # mgc_pullback_1d / mhg_pullback_1d — the WS-A metals sleeve (2026-06-02).
-    # Micro Gold + Micro Copper daily HTF-pullback diversifiers. Each runs ALONE
-    # on its own symbol (MGC / MHG) on ib_paper, so priority is moot — they never
-    # arbitrate against another strategy. Value 0 follows mes_trend_long_1d.
+    # Micro Gold + Micro Copper daily HTF-pullback diversifiers.
+    # ⚠️ CORRECTED 2026-08-30: this row read "Each runs ALONE on its own symbol
+    # (MGC / MHG) on ib_paper, so priority is moot". True of MHG (1 enabled leg)
+    # and FALSE of MGC, which carries THREE enabled legs — mgc_pullback_1d,
+    # ict_scalp_mgc_15m and the shadow mgc_trend_1h — all at 0, so their
+    # ordering is decided by spelling. Value 0 follows mes_trend_long_1d.
     "mgc_pullback_1d": 0,
     "mhg_pullback_1d": 0,
-    # trend_donchian_sol / _eth — PROP-account alt variants (PB-20260616-004) on
-    # the Breakout manual-bridge account. Each runs ALONE on its (symbol,
-    # prop-account), so priority is moot — they never arbitrate against another
-    # strategy. Value 0 follows the other single-symbol legs.
+    # trend_donchian_sol / _eth — alt variants (PB-20260616-004). ⚠️ CORRECTED
+    # 2026-08-30: this row read "Each runs ALONE on its (symbol, prop-account),
+    # so priority is moot — they never arbitrate against another strategy", and
+    # it was wrong twice over. (1) ROUTING: both are routed to **bybit_1**
+    # (paper), NOT to the prop account — their _prop twins below are the
+    # breakout_1 legs. (2) ARBITRATION: both DO arbitrate, and both LOSE — to
+    # all five rivals on their symbol, in both branches. trend_donchian_sol has
+    # 144 actionable signals since 2026-08-01 and zero journal rows. These are
+    # the two starved legs. Value held at 0 because raising them would starve
+    # their Tier-3-approved live prop twins instead; see the header block.
     "trend_donchian_sol": 0,
     "trend_donchian_eth": 0,
-    # SWAP-ROBUST prop exit variants (Unit C, Phase 0, 2026-06-29; DRAFT Tier-3) —
-    # tightened-exit prop-only siblings of trend_donchian_sol/_eth on breakout_1.
-    # Each runs ALONE on its (symbol, prop-account) so priority is moot. Value 0.
+    # SWAP-ROBUST prop exit variants (Unit C, Phase 0, 2026-06-29) — tightened-exit
+    # prop-only siblings of trend_donchian_sol/_eth on breakout_1, live since
+    # 2026-08-13 (Tier-3, operator-approved). ⚠️ CORRECTED 2026-08-30: "Each runs
+    # ALONE on its (symbol, prop-account) so priority is moot" was false — each
+    # shares its symbol with five other enabled legs and, being the LONGER name,
+    # each currently WINS the same-side tiebreak against its own base twin and
+    # starves it. That is an accident of spelling, not a decision. Value 0.
     "trend_donchian_sol_prop": 0,
     "trend_donchian_eth_prop": 0,
     # trend_4h + pullback_2h alt cells (2026-06-18) — bybit_1 DEMO soak,
     # paper_ready (WS-C k-fold: net-of-fee positive + 2x-fee headroom, fail only
-    # the strict every-fold gate; SRQ-20260618-001 / -002). Each runs ALONE on
-    # its (symbol, bybit_1) so priority is moot — never arbitrates against
-    # another strategy. Value 0 follows the other single-symbol legs.
+    # the strict every-fold gate; SRQ-20260618-001 / -002).
+    # ⚠️ CORRECTED 2026-08-30: this row read "Each runs ALONE on its (symbol,
+    # bybit_1) so priority is moot — never arbitrates against another strategy".
+    # False: trend_donchian_sol_4h and sol_pullback_2h share SOLUSDT with four
+    # other enabled legs, and trend_donchian_eth_4h shares ETHUSDT with five.
+    # They arbitrate on every tick where two of them fire the same side.
+    # Value 0 held pending the Tier-3 ordering decision.
     "trend_donchian_eth_4h": 0,
     "trend_donchian_sol_4h": 0,
     "trend_donchian_xrp_4h": 0,

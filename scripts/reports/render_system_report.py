@@ -779,6 +779,30 @@ _REQUIRED_COVERAGE_KEYS = (
     #    review needs to report on and check thoroughly until we see it work
     #    correctly."
     "unexercised_fixes",
+    # ── research_results_disposition: operator-directed 2026-08-30. The sibling
+    #    of `ml_output_actionability` for the RESEARCH pipeline. That key asks
+    #    whether ML output gets used; nothing asked it of backtests, sweeps and
+    #    corpora — and `grep -c 'corpus\|research/queue'` over all five review
+    #    SKILL.md files returned 0, so the research pipeline was invisible to
+    #    every review we run. R1-R6 of the research architecture stop at
+    #    *landed*; no stage covers *read*.
+    #
+    #    Measured the day it was added, by `scripts/research/research_disposition.py`:
+    #    **92 unread / 196 superseded_unread / 0 dispositioned** over the two
+    #    corpora. Zero. Every sweep the fleet has ever run landed and was never
+    #    dispositioned by anything that left a record.
+    "research_results_disposition",
+    # ── test_execution_verification: operator-directed 2026-08-30, *"verify the
+    #    mechanisms and the tests run since the previous review"*.
+    #    `since_last_build_verification` covers the MECHANISMS half. This is the
+    #    tests half, and it is NOT "which test files are unrun" — measured, CI
+    #    runs `pytest -q tests/` wholesale over all 824 files, so that gap does
+    #    not exist. The real one is one level over: `pytest-run` is
+    #    PATH-FILTERED, and that workflow's own comments record FOUR separate
+    #    incidents of a "9-SECOND green pytest-run" merging and leaving `main`
+    #    red. A green check is not evidence the suite ran.
+    #    CLAUDE-RULES-CANONICAL § "Green is not evidence".
+    "test_execution_verification",
 )
 
 #: Verdicts a since-last-build row may carry. `UNWIRED` is the finding.
@@ -792,6 +816,17 @@ def flags_blob_of(rc: dict) -> str:
     appear in the flags, not merely exist in its own coverage block.
     """
     return " ".join(str(f) for f in (rc.get("flags_raised") or []))
+
+
+#: Phrases that make a 'disposition' vacuous. MODULE-LEVEL since 2026-08-30 so
+#: it is IMPORTABLE: `scripts/research/research_disposition.py` enforces the same
+#: rule on research-result dispositions, and a second hand-typed copy of 'what
+#: counts as a non-reason' would be free to drift -- silently WIDENING what
+#: passes as a real reason in one of the two places.
+_NON_REASONS = (
+    "no new evidence", "carried forward", "no time", "didn't look",
+    "did not look", "not looked", "unchanged", "as before", "same as",
+)
 
 
 def _validate_review_coverage(report: dict) -> list[str]:
@@ -824,10 +859,6 @@ def _validate_review_coverage(report: dict) -> list[str]:
     # actionable — but it must be SAID in `summary`, not achieved by silence.
     #
     # CLAUDE-RULES-CANONICAL § "Backlog governance", rule 5.
-    _NON_REASONS = (
-        "no new evidence", "carried forward", "no time", "didn't look",
-        "did not look", "not looked", "unchanged", "as before", "same as",
-    )
     disposed = 0
     for domain in ("health", "performance", "ml"):
         blk = rc.get("backlog_drive", {}).get(domain) or {}
