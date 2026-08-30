@@ -164,6 +164,21 @@
    "refs": "PR #10414 · BL-20260829-PROP-RISK-GATE-PROMISED-A-SOAK-ROW-AND-WROTE-NOTHING · BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE"
   },
   {
+   "id": "OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED",
+   "opened": "2026-08-30",
+   "kind": "monitoring",
+   "loud": true,
+   "check_every_days": 2,
+   "verified_at": "2026-08-30",
+   "last_checked": "2026-08-30",
+   "observation": "Merged to main. NOT yet confirmed on the running trader: the values reach the VM through ict-git-sync and config is hot-read, but no read of /api/bot/config has yet shown the new numbers, and no trade has yet opened under them.",
+   "summary": "Tier-3, operator-approved 2026-08-30: e35 bracket geometry shipped to 9 legs (10 fields). THREE route to bybit_2 = REAL MONEY (trend_donchian, trend_donchian_eth_4h, trend_donchian_xrp_4h). It is DEPLOYED, not PROVEN, and those are different facts. A 10th approved leg (trend_donchian_eth_prop) was HELD — see detail.",
+   "detail": "⚠️ THE 10TH APPROVED LEG WAS NOT SHIPPED. trend_donchian_eth_prop's sm1.5 cell is real (path_b_wf_pass, wf 5/6, +13.4198) but it is a config-only EXIT variant whose design premise is ENTRY-IDENTITY with trend_donchian_eth (atr_stop_mult is an entry param there, deliberately), it was graduated to execution: live on a prop EV/survival gate measured on that construction (relay #8975, run_ev_montecarlo under breakout.yaml, +$883 @ P(net>0)=0.8477 over 1,110 trades), and breakout_1 can be PERMANENTLY DISABLED by a drawdown breach. A stop change moves the R denominator, the size and the breach probability, so that gate would no longer describe what runs. Caught by test_unit_c_prop_exit_variants, which was RIGHT; the test was NOT weakened. Unblocks only on a fresh run_ev_montecarlo under breakout.yaml plus operator approval on that evidence.\n\n⚠️ TWO OF THE TEN SHIPPED CHANGE STRATEGY SHAPE, NOT STOP WIDTH, and one of those is real money: ada_pullback_2h tp_r 50.0 -> 4.0 and trend_donchian_xrp_4h tp_r 50.0 -> 3.0 introduce a take-profit where the leg previously had NONE (50 is the no-target sentinel). Capping a TREND leg at 3R truncates exactly the rare large winners trend-following depends on. The walk-forward passed it (path_b_wf_pass, wf 5/6) and the operator approved the full set; this row exists so the first real close on that leg is LOOKED AT rather than assumed fine.\n\n⚠️ avax_pullback_2h sm2 shipped at d_net_r +1.0084 against my own written recommendation to DROP it. The operator reaffirmed the full 15 after reading that. It is execution: shadow, so nothing live moves — recorded so the decision is attributable, not re-litigated.\n\n⚠️ EVERY ONE OF THESE RESTS ON A RUN WHOSE CLEAN-LEG CONTROL FAILED as specified, with a fold-level substitute the operator accepted on 2026-08-29. That is a weaker evidentiary base than B4 had, and it is the reason to watch rather than to wait.\n\nThe matrix cells are now `shipped`, so `matrix-bracket-values` enforces all 18 shipped cells against config/strategies.yaml on every PR — a silent drift back is now a CI failure rather than a discovery.",
+   "clears_when": "BOTH: (a) /api/bot/config read back shows the new atr_stop_mult/tp_r on all 10 legs, confirming ict-git-sync carried them to the running trader; and (b) at least one CLOSED trade exists on a real-money leg under the new geometry and has been read. Explicitly NOT sufficient: the PR merging, CI green, or the guard passing — the guard compares the matrix to the repo, and neither of them is the running trader.",
+   "why_it_cannot_be_closed_by_time": "Nothing about waiting makes a config value reach a process or a trade close under it. The 4h legs open rarely, so the soak can look identical to a broken deploy for days — which is exactly the state this row distinguishes.",
+   "refs": "PR #10444 (the re-check) · docs/research/e35-matrix-recheck-2026-08-29.md · BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES"
+  },
+  {
    "id": "OI-20260829-E35-REVERSED-LEGS-ARE-A-TIER-3-PROPOSAL-SET-NOT-APPLIED",
    "opened": "2026-08-29",
    "kind": "background_awareness",
