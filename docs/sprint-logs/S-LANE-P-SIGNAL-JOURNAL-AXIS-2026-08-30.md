@@ -191,3 +191,65 @@ and cannot move.
   satisfiable by trade 4904 — it is a closed trade, on a real-money e35 leg,
   after the deploy. What is required is a trade **OPENED** after the deploy.
   Recommend the owning session amend it to say so.
+
+
+---
+
+## Addendum — unit 2: the detector's finding, DIAGNOSED (2026-08-30, same session)
+
+Unit 1 shipped a detector and filed `high` that the cause was unknown. It is now known,
+and it is an **arbitration loss, not a wiring bug** — the first of the two candidate
+causes, which had opposite remedies.
+
+**The decisive evidence** (`/api/bot/allocator/soak?symbol=SOLUSDT`, row 2026-08-29T14:55:37Z):
+
+| candidate | entry | sl | confidence | `ev_net_r` score | routed |
+|---|---|---|---|---|---|
+| `trend_donchian_sol` (bybit_1) | 105.33 | 103.82107143 | 0.9941 | **6.811619** | ✗ |
+| `trend_donchian_sol_prop` (breakout_1) | 105.33 | 103.82107143 | 0.9941 | 5.906347 | ✓ |
+
+`executed_strategy_id: trend_donchian_sol_prop` · `allocator_choice: trend_donchian_sol` ·
+`agree: false` · `regret_score: 0.905272`.
+
+Identical entry, SL and confidence: these are the **same 1h Donchian strategy on SOLUSDT
+routed to two accounts**. `aggregate_intents` picks ONE winner per SYMBOL **globally,
+before account fan-out**, so they collide and the prop twin wins — which is why the
+`bybit_1` leg never reaches an order package. Over the SOLUSDT soak population:
+`total_scanned 47, disagree 42, disagree_pct 89.4, mean_regret 0.778926`.
+
+**⚠️ The routed leg is the lower-scoring one, by the system's own scorer.** And this is
+not a lone reading: **Lane R's R2** independently recorded the same inversion from the
+backtest side (`trend_donchian_sol` EV +$1,162 / P 0.9137 vs the routed
+`trend_donchian_sol_prop` +$611 / 0.7603). R2 saw the outcome; this is the mechanism.
+The two are **the same defect from two ends** and the workplan now says so, so they are
+not worked twice.
+
+### Two causes REFUTED, recorded so they are not re-tested
+- **Not the loaded-strategy set.** 52 strategies loaded incl. `trend_donchian_sol`
+  (`running: true`, live on `bybit_1`, trader ticking at 1.6s age); all six SOL legs
+  resolve an intent builder and carry `symbols=['SOLUSDT']`.
+- **Not a regime OFF-cell.** `regime_hard_gate` **and** `regime_shadow_gate` on SOLUSDT
+  over three days return **zero** rows — consistent with the standing record that no SOL
+  `trend_vol` cell is authored and the 2026-07-06 walk-forward says none should be.
+
+### A second defect found while tracing it
+`pipeline_result` for SOLUSDT at 14:59:04 reads `reason='no_signal'` — **0.9s after two
+legs logged `side=buy`**. The information dies in three stages: `intents.py` reaches
+`_flat_position(reason='no_intents_for_symbol')` *after* the regime gate has filtered
+candidates (so one string covers "nothing signalled", "all gated", and "intents lost");
+`_desired_to_pipeline_signal` correctly carries it into `meta`; then `pipeline.py:614`
+overwrites it with the generic literal. Filed as
+`BL-20260830-PIPELINE-RESULT-REPORTS-NO-SIGNAL-WHEN-TWO-LEGS-SIGNALLED-AND-LOST-ARBITRATION`.
+
+**That is the audit-side twin of the two-month blind spot**: the journal had no row *and*
+the audit affirmatively said nothing signalled, so both surfaces agreed on a false
+negative. The true state existed only in `allocator_soak` — observe-only, and read by no
+health check.
+
+### What is NOT done, and why
+**The remedy is Tier-3 and is not mine to push.** It is Lane P/**P3** — decide whether a
+prop leg and a paper/real leg of the *same* strategy on the *same* symbol should compete
+in one global arbitration at all, or fan out per account. That is order routing.
+⚠️ **Do not de-route either leg on this evidence**: the allocator's live score and R2's
+backtest EV agree the `bybit_1` leg is the *better* twin, so the naive fix removes the
+wrong one.
