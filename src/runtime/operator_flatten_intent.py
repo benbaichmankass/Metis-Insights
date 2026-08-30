@@ -27,6 +27,37 @@ close-time keys (``closed_by``, ``exit_price_source``). So a marker written
 here survives the reconciler's close, and nothing in the close path has to
 learn about it.
 
+⚠️ THAT ARGUMENT WAS TRUE AND STILL INSUFFICIENT — the marker did NOT survive
+its first live exercise, and the shape below is what fixes it. The merge is
+real; what killed the marker was the ``dump_capped(notes, 500)`` the close then
+writes. The marker was one 5-key DICT (~217 chars) and ``_shrink_dict`` only
+ever trims *strings*, so it could be neither shortened nor kept: it pushed the
+blob from 410 to 627 chars and was then deleted wholesale by the minimal-envelope
+fallback it had itself triggered. Measured on live trade 4905
+(``bybit_portfolio``/ETHUSDT, closed 2026-08-30T14:01:17Z): stamped at 13:58:26,
+closed 3 minutes later carrying exactly the protected set + ``_truncated`` and no
+marker — while all six of its ``bybit_portfolio`` siblings, closed by the same
+path without a marker, retain their entry-time keys untruncated. Reproduced from
+sibling 4887's own notes: +marker → envelope, -marker → 410 chars, nothing lost.
+
+So the marker is now TWO keys, the flag/prose split ``json_notes`` already draws
+for ``closed_by_operator`` vs ``operator_close_reason``:
+
+``operator_flatten_intent``         a bare ``True``. PROTECTED in
+                                    ``_DEFAULT_PROTECTED``, and small enough that
+                                    protecting it cannot itself overflow the
+                                    envelope (measured: 344 chars with it, under
+                                    the 500 cap).
+``operator_flatten_intent_detail``  the ``{at, reason, by, ...}`` dict.
+                                    Deliberately UNPROTECTED — it is the first
+                                    thing that should be shed, and losing it costs
+                                    the prose, never the fact.
+
+``_shrink_dict`` gained the matching rung in the same change: when no trimmable
+string remains it now sheds the largest unprotected value ONE AT A TIME before
+falling back to the envelope, so this payload lands at 458 chars with every other
+key intact rather than collapsing.
+
 WHAT THIS DOES NOT DO. It does not set ``exit_reason`` and it touches no
 monetary field. At stamp time the row is still OPEN and has no exit; the
 conversion to ``exit_reason='operator_flatten_reconciled'`` happens afterwards
@@ -44,8 +75,14 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-#: Key stamped into ``trades.notes`` on an OPEN row at flatten time.
+#: Flag stamped into ``trades.notes`` on an OPEN row at flatten time. A bare
+#: ``True`` — this is what a consumer branches on, and it is PROTECTED against
+#: the notes cap (``json_notes._DEFAULT_PROTECTED``).
 INTENT_KEY = "operator_flatten_intent"
+#: The human-readable half (``at`` / ``reason`` / ``by`` / ``account_id`` /
+#: ``symbol``). Deliberately NOT protected: on a blob near the cap this is the
+#: right thing to shed, and a marking that loses its prose is still a marking.
+INTENT_DETAIL_KEY = "operator_flatten_intent_detail"
 
 
 def _decode(raw: Any) -> Dict[str, Any]:
@@ -121,7 +158,8 @@ def stamp_intent(
                 notes = _decode(r["notes"])
                 if notes.get(INTENT_KEY):
                     continue  # idempotent — a re-run must not restamp
-                notes[INTENT_KEY] = marker
+                notes[INTENT_KEY] = True
+                notes[INTENT_DETAIL_KEY] = marker
                 db.update_trade(int(r["id"]), {"notes": json.dumps(notes)})
                 ids.append(int(r["id"]))
             out["state"] = "stamped"
@@ -147,14 +185,25 @@ def find_unmarked_intent_rows(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
         "AND notes LIKE ?", (f"%{INTENT_KEY}%",),
     ).fetchall():
         notes = _decode(r["notes"])
-        intent = notes.get(INTENT_KEY)
-        if not isinstance(intent, dict):
+        flag = notes.get(INTENT_KEY)
+        if not flag:
             continue
         if notes.get("closed_by_operator"):
             continue  # already marked
+        # Three states, never collapsed — the detail is droppable by design, so
+        # a reader must be able to tell "the flatten recorded no prose" from
+        # "the notes cap shed it" from "this row predates the flag/detail split".
+        detail = notes.get(INTENT_DETAIL_KEY)
+        if isinstance(detail, dict):
+            detail_state = "full"
+        elif isinstance(flag, dict):
+            # Legacy inline shape: the whole marker WAS the flag's value.
+            detail, detail_state = flag, "legacy_inline"
+        else:
+            detail, detail_state = {}, "shed"
         found.append({
             "id": int(r["id"]), "account_id": r["account_id"],
             "symbol": r["symbol"], "exit_reason": r["exit_reason"],
-            "intent": intent,
+            "intent": detail, "detail_state": detail_state,
         })
     return found

@@ -261,7 +261,11 @@ def main(argv=None) -> int:
         derived_reason = (reasons.pop() if len(reasons) == 1
                           else "operator flatten (multiple recorded reasons)")
         for r in pending:
+            # `detail_state` is printed because a `shed` detail means the reason
+            # below is a FALLBACK, not what the flatten recorded — the notes cap
+            # dropped the prose (by design; the flag is what survives).
             print(f"  from-intent id={r['id']} {r['account_id']}/{r['symbol']} "
+                  f"detail={r.get('detail_state')} "
                   f"intent_at={r['intent'].get('at')} reason={r['intent'].get('reason')!r}")
         a = argparse.Namespace(**{**vars(a), "reason": a.reason or derived_reason})
     else:

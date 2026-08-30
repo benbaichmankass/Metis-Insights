@@ -16,8 +16,9 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from src.runtime.operator_flatten_intent import (  # noqa: E402
-    INTENT_KEY, find_unmarked_intent_rows, stamp_intent,
+    INTENT_DETAIL_KEY, INTENT_KEY, find_unmarked_intent_rows, stamp_intent,
 )
+from src.utils.json_notes import dump_capped  # noqa: E402
 
 
 def _db(tmp_path, notes="{}", status="open"):
@@ -48,35 +49,98 @@ def _db(tmp_path, notes="{}", status="open"):
     return p, c
 
 
+# The entry-time notes a real `bybit_portfolio` row carries (live trade 4887),
+# and the close-time keys `_close_trade_from_order_status` adds. Using a
+# realistic payload is not decoration: the first version of this test used a
+# one-key dict and `json.dumps`, so it passed while production lost the marker
+# to `dump_capped(notes, 500)` on the very first live flatten (trade 4905).
+_ENTRY_NOTES = {
+    "trade_id": "c0fa25f7-7e94-4d9f-a369-2936efe3a99a",
+    "is_dry": False,
+    "confidence": 0.5266,
+    "signal_logic": "",
+    "entry_exec_time": "2026-08-21T12:12:29.820000+00:00",
+}
+_CLOSE_KEYS = {
+    "closed_at": "2026-08-30T14:01:17.564681+00:00",
+    "closed_by": "monitor_reconciler",
+    "closed_reason": "reconciler — Bybit reports order filled and position flat",
+    "exit_price_source": "bybit_closed_pnl",
+    "exit_reason_source": "unresolved",
+}
+
+
 def test_stamp_then_reconciler_close_then_derive(tmp_path):
-    """The whole chain. This is the test the incident needed."""
-    p, c = _db(tmp_path, notes=json.dumps({"confidence": 0.53}))
+    """The whole chain. This is the test the incident needed.
+
+    ⚠️ The close MUST go through `dump_capped(notes, 500)` — the same call
+    `order_monitor._close_trade_from_order_status` makes. Simulating it with a
+    plain `json.dumps` is what let this suite report green on 2026-08-30 while
+    the marker was being deleted on the live journal: the merge was never the
+    problem, the CAP was.
+    """
+    p, c = _db(tmp_path, notes=json.dumps(_ENTRY_NOTES))
     res = stamp_intent(str(p), "bybit_2", "XRPUSDT",
                        reason="bybit_2 hedge switch flat-symbol guard",
                        actor="flatten_bybit_position")
     assert res["state"] == "stamped" and res["stamped_ids"] == [4934]
 
-    # Simulate the reconciler close EXACTLY as order_monitor does it:
-    # decode the existing notes, add close-time keys, write back. If it
-    # replaced instead of merging, the marker would be lost here — which is
-    # the load-bearing assumption of the whole design.
+    # Simulate the reconciler close EXACTLY as order_monitor does it: decode
+    # the existing notes, add close-time keys, write back THROUGH THE CAP.
     row = c.execute("SELECT notes FROM trades WHERE id=4934").fetchone()[0]
     notes = json.loads(row)
-    notes.update({"closed_by": "monitor_reconciler",
-                  "exit_price_source": "bybit_closed_pnl"})
+    notes.update(_CLOSE_KEYS)
     c.execute("UPDATE trades SET status='closed', exit_reason='reconciler_filled', "
-              "notes=? WHERE id=4934", (json.dumps(notes),))
+              "notes=? WHERE id=4934", (dump_capped(notes, 500),))
     c.commit()
 
-    # The entry-time key, the marker, and the close-time key all coexist.
+    # The marker and the close-time keys coexist. The detail may or may not
+    # have been shed — that is by design — but the FLAG must survive.
     after = json.loads(c.execute("SELECT notes FROM trades WHERE id=4934").fetchone()[0])
-    assert after["confidence"] == 0.53
     assert after["closed_by"] == "monitor_reconciler"
-    assert after[INTENT_KEY]["reason"] == "bybit_2 hedge switch flat-symbol guard"
+    assert after["closed_at"] == _CLOSE_KEYS["closed_at"]
+    assert after[INTENT_KEY] is True, (
+        "the marker must survive the notes cap — the live-trade-4905 defect"
+    )
 
     pending = find_unmarked_intent_rows(c)
     assert [r["id"] for r in pending] == [4934]
     assert pending[0]["exit_reason"] == "reconciler_filled"
+
+
+def test_the_detail_is_shed_before_the_flag_and_the_state_says_so(tmp_path):
+    """`detail_state` keeps 'the prose was shed' distinct from 'there was none'
+    and from the legacy inline shape. A derived marking that silently loses its
+    reason must at least be able to SAY it lost it."""
+    p, c = _db(tmp_path, notes=json.dumps(_ENTRY_NOTES))
+    stamp_intent(str(p), "bybit_2", "XRPUSDT",
+                 reason="switching bybit_portfolio to hedge position mode",
+                 actor="flatten_bybit_position")
+    notes = json.loads(c.execute("SELECT notes FROM trades WHERE id=4934").fetchone()[0])
+    notes.update(_CLOSE_KEYS)
+    c.execute("UPDATE trades SET status='closed', exit_reason='reconciler_filled', "
+              "notes=? WHERE id=4934", (dump_capped(notes, 500),))
+    c.commit()
+
+    stored = json.loads(c.execute("SELECT notes FROM trades WHERE id=4934").fetchone()[0])
+    (row,) = find_unmarked_intent_rows(c)
+    if INTENT_DETAIL_KEY in stored:
+        assert row["detail_state"] == "full"
+        assert row["intent"]["reason"].startswith("switching")
+    else:
+        assert row["detail_state"] == "shed"
+        assert row["intent"] == {}
+
+
+def test_the_legacy_inline_marker_still_derives(tmp_path):
+    """Rows stamped before the flag/detail split carry the whole dict as the
+    flag's value. They must keep working — and be labelled as legacy, not
+    silently folded into `full`."""
+    p, c = _db(tmp_path, status="closed", notes=json.dumps(
+        {INTENT_KEY: {"reason": "legacy", "at": "2026-08-30T13:58:26+00:00"}}))
+    (row,) = find_unmarked_intent_rows(c)
+    assert row["detail_state"] == "legacy_inline"
+    assert row["intent"]["reason"] == "legacy"
 
 
 def test_an_already_marked_row_is_not_rediscovered(tmp_path):
@@ -94,7 +158,8 @@ def test_stamping_is_idempotent(tmp_path):
     assert b["stamped_ids"] == [], "a re-run must not restamp or overwrite the reason"
     c = sqlite3.connect(p)
     notes = json.loads(c.execute("SELECT notes FROM trades WHERE id=4934").fetchone()[0])
-    assert notes[INTENT_KEY]["reason"] == "r", "the FIRST observation is the honest one"
+    assert notes[INTENT_DETAIL_KEY]["reason"] == "r", \
+        "the FIRST observation is the honest one"
 
 
 def test_no_open_rows_is_not_confused_with_unreadable(tmp_path):
