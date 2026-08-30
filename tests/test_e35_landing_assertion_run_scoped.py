@@ -51,20 +51,23 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path]:
     work = tmp_path / "work"
     subprocess.run(["git", "clone", str(origin), str(work)],
                    check=True, capture_output=True)
-    _git(work, "config", "user.email", "t@t"); _git(work, "config", "user.name", "t")
+    _git(work, "config", "user.email", "t@t")
+    _git(work, "config", "user.name", "t")
     store = work / STORE
     store.parent.mkdir(parents=True, exist_ok=True)
 
     # main: history only. Note it ALREADY satisfies `cell contains sm`.
     store.write_text("\n".join(_row(OLD_STAMP, f"sm{i}") for i in range(20)) + "\n")
-    _git(work, "add", STORE); _git(work, "commit", "-m", "history")
+    _git(work, "add", STORE)
+    _git(work, "commit", "-m", "history")
     _git(work, "push", "origin", "main")
 
     # side branch: history + THIS RUN's rows (the retarget case).
     _git(work, "checkout", "-b", "side")
     store.write_text(store.read_text()
                      + "\n".join(_row(RUN_STAMP, f"sm{i}") for i in range(5)) + "\n")
-    _git(work, "add", STORE); _git(work, "commit", "-m", "this run")
+    _git(work, "add", STORE)
+    _git(work, "commit", "-m", "this run")
     _git(work, "push", "origin", "side")
     _git(work, "checkout", "main")
     return work, origin
