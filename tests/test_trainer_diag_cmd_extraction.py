@@ -133,6 +133,79 @@ def test_a_script_line_is_not_mistaken_for_a_top_level_key():
     assert "example.com" in out
 
 
+def test_a_fenced_script_line_starting_word_colon_is_not_a_top_level_key():
+    """BL-20260830-TRAINERDIAG-FENCED-KEY-TRUNC.
+
+    The sibling test above only covers script lines with NO colon at column 0
+    (`echo x`, `python3 y`) and a URL whose colon is mid-line. Plenty of real
+    code begins `word:` at column 0 — `try:` / `else:` / `except:` / `finally:`
+    in an embedded python heredoc, a shell `case` label — and the YAML-key
+    terminator fired on those, truncating the command mid-script.
+
+    Observed live on trainer-diag #10452: an embedded `try:` cut the script at
+    line 15, leaving an unterminated heredoc.
+    """
+    body = (
+        "```\n"
+        "cmd:\n"
+        "echo before\n"
+        "python3 - <<'PY'\n"
+        "try:\n"
+        "    import torch\n"
+        "except Exception as e:\n"
+        "    print(e)\n"
+        "PY\n"
+        "echo after\n"
+        "```\n"
+    )
+    out = _extract(body)
+    assert "echo before" in out
+    assert "try:" in out, "the python heredoc was truncated at `try:`"
+    assert "except Exception as e:" in out
+    assert "echo after" in out, "everything after the heredoc was dropped"
+
+
+def test_fenced_truncation_would_have_run_a_partial_script_silently():
+    """The reason the bug is worse than it looks: the PREFIX STILL RUNS.
+
+    #10452 errored only by luck — its cut landed mid-heredoc. A cut landing on
+    a complete statement yields plausible output and exit 0 with the remainder
+    silently gone, so a partial answer cannot be told from a complete one.
+    """
+    body = (
+        "```\n"
+        "cmd:\n"
+        "echo REAL_WORK\n"
+        "cat > /tmp/cfg.yaml <<'EOF'\n"
+        "retention_days: 30\n"
+        "EOF\n"
+        "echo MUST_ALSO_RUN\n"
+        "```\n"
+    )
+    out = _extract(body)
+    assert "echo REAL_WORK" in out
+    assert "retention_days: 30" in out
+    assert "echo MUST_ALSO_RUN" in out, (
+        "a heredoc-written YAML key truncated the block; the prefix would "
+        "have run and returned exit 0 as if complete"
+    )
+
+
+def test_unfenced_block_still_stops_at_a_top_level_key_after_the_fix():
+    """Regression guard: the !fence qualifier must not weaken the UNFENCED
+    terminator, which is what BL-20260607-002 added."""
+    body = (
+        "cmd: |\n"
+        "  echo work\n"
+        "reason: this is prose and must never execute\n"
+        "  echo never\n"
+    )
+    out = _extract(body)
+    assert "echo work" in out
+    assert "reason" not in out
+    assert "echo never" not in out
+
+
 def test_multiple_fenced_blocks_only_the_cmd_one_is_taken():
     body = (
         "```\n"

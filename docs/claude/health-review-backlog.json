@@ -12702,7 +12702,7 @@
       "opened_at": "2026-08-07T13:00:00+00:00",
       "opened_by": "claude (metis-ml2-cell-audit-cont 6ewta2)",
       "severity": "low",
-      "status": "kept_open",
+      "status": "resolved",
       "source": "trainer-vm-diag #8575 (silent truncation) vs #8573/#8577 (worked). .github/workflows/trainer-vm-diag.yml awk extractor.",
       "title": "[infra][Tier-1] trainer-vm-diag: a column-0 Python `try:` inside a heredoc silently TRUNCATES the command (third extraction trap in this family)",
       "description": "REPRO: a `cmd: |` block containing a python heredoc whose body has `try:` at column 0. Observed trainer-diag #8575; the identical structure with `try:` INDENTED ran fine (#8577).\n\nCAUSE: the extractor's stop rule is `found && /^[A-Za-z0-9_-]+:/ { exit }` — 'stop at the next unindented top-level YAML-ish key'. Python's `try:` / `else:` / `finally:` at column 0 match that regex exactly, so awk exits mid-heredoc. The truncated script is then fed to bash, which reports only `warning: here-document delimited by end-of-file (wanted PYEOF)` — the error names the heredoc, not the extractor, so it reads as a quoting mistake in the body rather than a parser collision.\n\nThis is the THIRD trap in this extractor's family (BL-20260720-TRAINERDIAG-FENCE fenced blocks; BL-20260731-TRAINERDIAG-TRAILING-PROSE executing prose). Note the extractor preserves indentation VERBATIM, so the naive fix — indenting the cmd block for readability — breaks heredocs a different way (an indented `PYEOF` delimiter is not recognised; observed #8571/#8572). Both failure modes cost this session four round trips.\n\nASKS (either): (a) require the stop-key to be a KNOWN body key rather than any `word:`; or (b) document the two rules together in docs/claude/diag-relay.md — 'cmd block must be flush-left AND must contain no column-0 `word:` line' — since satisfying one naively breaks the other.",
@@ -12730,9 +12730,16 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated: third of three independent cmd-extraction defects in the trainer relay (with BL-20260731-TRAINERDIAG-DOUBLE-EXECUTION and BL-20260807-TRAINER-DIAG-RELAY-SILENT-CMD-TRUNCATION). Work as one class."
+        },
+        {
+          "at": "2026-08-30T08:45:00+00:00",
+          "by": "claude (/system-review continuation, session full-system-review-v68vcm)",
+          "disposition": "resolved",
+          "note": "FIXED. Root cause characterised and repaired in .github/workflows/trainer-vm-diag.yml. The extractor's terminator `found && /^[A-Za-z0-9_-]+:/{exit}` — 'stop at the next top-level YAML key' — was applied INSIDE a fenced block, where the content is CODE, not YAML. A great many code lines legitimately begin `word:` at column 0: `try:` / `else:` / `except:` / `finally:` in an embedded python heredoc, a shell `case` label, a heredoc-written YAML key. The rule now carries `!fence`; a fenced block already has an unambiguous terminator (its closing fence), so the YAML-key rule is not needed there. Unfenced blocks are unaffected and still stop at a top-level key (BL-20260607-002). REPRODUCED INDEPENDENTLY THIS SESSION on trainer-diag #10452, whose embedded `try:` cut the script so bash reported `here-document at line 15 delimited by end-of-file`. EVIDENCE THE FIX IS REAL, NOT ASSUMED: tests/test_trainer_diag_cmd_extraction.py extracts the awk program from the workflow itself (no copy to drift), and two new tests were verified NON-VACUOUS by reverting the one-token change and observing both fail, then pass with it restored (12 passed / 2 failed-when-reverted). Three pre-existing regression cases the parser was built for — BL-20260607-002 (unfenced ends at top-level key), #8157 (fenced ends at closing fence), #9400 (unfenced ends at prose) — all still pass and still exclude their bad lines. NOTE ON A VACUOUS TEST CAUGHT IN PASSING: the first draft of the second test used a shell `case` block, which contains NO column-0 `word:` and therefore passed against the broken parser too; it was rewritten to a heredoc-written YAML key. NOT YET EXERCISED LIVE: GitHub runs the workflow from the default branch for `issues` events, so live proof requires the merge, then one trainer-diag whose cmd contains a column-0 `try:` returning the FULL script."
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-08-10T05:05:00+00:00",
+      "resolved_at": "2026-08-30T08:45:00+00:00"
     },
     {
       "id": "BL-20260807-IBPAPER-UPNL-CONTRADICTS-EXCHANGE-TRUTH",
@@ -13203,6 +13210,13 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated: silent truncation reporting success over a cut command. One of the three trainer-relay cmd-extraction defects; and see BL-20260816-TRUNCATION-STRIPS-THE-FIELDS-THAT-CERTIFY-A-RESPONSE — I hit the same CLASS today on the system-action comment cap (last 50,000 of 66,841 bytes kept, oldest 22 rows silently dropped, while the retained tail carried `truncated: false`)."
+        },
+        {
+          "at": "2026-08-30T08:45:00+00:00",
+          "by": "claude (/system-review continuation, session full-system-review-v68vcm)",
+          "disposition": "kept_open",
+          "note": "PRIMARY EVIDENCE REFUTED, AND THE PROPOSED NEXT STEP WITH IT. This row's headline evidence is that 'the echoed Command in the result comment ends mid-token', read as proof the EXECUTION was cut. It is not: the comment renderer did `cmd.slice(0, 500)` with NO ellipsis and NO marker, so the `**Command:**` field showed a silent 500-char display prefix of a command that had been executed IN FULL. A MID-TOKEN cut is the signature of a character slice; the genuine execution-truncation bug (the sibling row, column-0 `word:`) cuts at LINE boundaries, so the two are distinguishable and were being conflated. MEASURED 2026-08-30 on trainer-diag #10452: the echo ended at exactly 499 chars, byte-for-byte where a 500-char slice lands. CONSEQUENCE FOR THIS ROW'S PLAN: the stated Step 1 — 'find the boundary with a deliberate ladder of increasing cmd: lengths' — would have searched for a length cap that does not exist on the execution path, and any 'boundary' it found would have been the 500-char DISPLAY cap misread as an execution limit. Do not run it. FIXED IN THE SAME CHANGE: the echo now appends '(echo truncated for display — showing first 500 of N chars; the FULL command was executed)', matching the marker the OUTPUT field below it already carried. That asymmetry — output marked, command unmarked — is why the one field a reader uses to check WHAT RAN was the one field that lied. WHAT REMAINS OPEN, and why this is not resolved: whether #8598's and #8728's executions were ALSO genuinely truncated is still unsettled. Their surviving evidence is that sections after the cut produced no output, which is consistent with execution truncation but also with those sections running and finding nothing. POPULATION: 2 historical instances, neither re-readable now. The column-0 fix may have resolved them both; that cannot be asserted without a reproduction.",
+          "next_check": "after the fix merges, re-run an #8598-shaped cmd (long, multi-section, containing a column-0 `word:`) and confirm every section's output appears; do NOT pursue a length ladder"
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"

@@ -200,7 +200,28 @@ jobs:
               # (alpha/digit/_/-, then `:`). Indented lines (with a
               # leading space or tab) are part of the cmd block and
               # continue to print.
-              found && /^[A-Za-z0-9_-]+:/{
+              #
+              # ⚠️ NOT INSIDE A FENCE. Within a fenced block the content is
+              # CODE, not YAML, and a great many code lines legitimately begin
+              # `word:` at column 0 — `try:` / `else:` / `except:` / `finally:`
+              # in an embedded python heredoc, a shell `case` label, a jq or
+              # awk snippet. Applying a YAML-key terminator to them truncates
+              # the command MID-SCRIPT.
+              #
+              # The danger is not the truncation, it is that the PREFIX STILL
+              # RUNS: a cut landing on a complete statement returns plausible
+              # output and exit 0 with the remainder silently gone, so a
+              # partial answer is indistinguishable from a complete one. That
+              # is the class this repo calls an unasserted denominator.
+              # Measured 2026-08-30 on trainer-diag #10452, whose embedded
+              # `try:` cut the script at line 15; it errored only by luck of
+              # landing mid-heredoc (BL-20260830-TRAINERDIAG-FENCED-KEY-TRUNC).
+              #
+              # A fenced block already has an unambiguous terminator — its
+              # closing fence, handled below — so this rule is not needed
+              # there. Unfenced blocks are unaffected and still stop here
+              # (BL-20260607-002).
+              found && !fence && /^[A-Za-z0-9_-]+:/{
                 exit
               }
               # Track fence state across the WHOLE body, so a `cmd:` written
@@ -325,13 +346,38 @@ jobs:
             const cmd = fs.readFileSync('/tmp/trainer_diag_cmd.sh', 'utf8').trim();
             const MAX = 55_000;
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // The echoed command is display-capped, and the cap MUST announce
+            // itself. It did not until 2026-08-30: `cmd.slice(0, 500)` rendered
+            // a silent, unmarked prefix under the label `**Command:**`, while
+            // the OUTPUT immediately below it carried an explicit
+            // "(first N of M bytes)" + "... (truncated)". So the one field a
+            // reader uses to check WHAT RAN was the one field that lied, and a
+            // long command's echo ended mid-token with nothing saying why.
+            //
+            // That cost a real misdiagnosis: BL-20260807-TRAINER-DIAG-RELAY-
+            // SILENT-CMD-TRUNCATION read a mid-token echo as evidence the
+            // EXECUTION had been cut and proposed hunting a length boundary
+            // with "a ladder of increasing cmd: lengths" — a search for a cap
+            // that does not exist on the execution path. Measured 2026-08-30 on
+            // #10452: the echo ended at exactly 499 chars, byte-for-byte where
+            // a 500-char slice lands. The execution truncation in that case was
+            // a different bug entirely (the column-0 `word:` rule above).
+            //
+            // A display cap is fine; an unlabelled one is an unprovenanced
+            // diagnostic. Say so, and say how much was hidden.
+            const CMD_ECHO_MAX = 500;
+            const cmdEcho = cmd.length <= CMD_ECHO_MAX
+              ? cmd
+              : cmd.slice(0, CMD_ECHO_MAX)
+                + `\n... (echo truncated for display — showing first ${CMD_ECHO_MAX} of `
+                + `${cmd.length} chars; the FULL command was executed)`;
             const header = [
               `**trainer-vm-diag** result`,
               `Run: ${runUrl}`,
               ``,
               `**Command:**`,
               '```bash',
-              cmd.slice(0, 500),
+              cmdEcho,
               '```',
               ''
             ].join('\n');
