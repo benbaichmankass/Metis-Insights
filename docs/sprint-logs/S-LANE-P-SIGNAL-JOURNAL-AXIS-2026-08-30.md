@@ -490,3 +490,86 @@ class was `[A-Z-]*` — no digits. The id I was looking for
 matched nothing and I briefly concluded the row lived only on an unmerged
 branch. It was on `main` all along. **A search returning nothing is not proof of absence**; the probe needed
 a positive control it never got.
+
+## Addendum — unit 5: the soak I shipped had the defect it exists to catch (2026-08-30, same session)
+
+Units 1–4 closed with all four PRs merged. This unit is what turned up while
+doing the ordinary session-close check that the P3 soak was actually writing
+rows — and it is a finding against **my own code from unit 3**.
+
+### The soak IS live and IS capturing the real signal
+
+`/api/diag/log_file?name=arbitration_fanout_soak` — `present: true`, first rows
+at 2026-08-30T14:25Z. So the writer is exercised, not merely deployed, and the
+"shipped but unexercised" concern that applies to two other open items does not
+apply here.
+
+Better: **the lane's thesis is confirmed live.** Two rows show `bybit_1`
+**starved** while `breakout_1` **routed**, winner `trend_donchian_eth_prop` —
+the exact disjoint-account twin pair from
+`BL-20260830-PRIORITY-CANNOT-RESOLVE-A-DISJOINT-ACCOUNT-TWIN-PAIR`. The defect
+this lane spent four PRs characterising is now observable in production data.
+
+### And the headline metric is wrong
+
+`fanout_state_for` grades an account **`starved`** on a tick where **no strategy
+won the symbol at all**. The docstring literally holds — `starved` is "held a
+candidate and did not get the winner", and with no winner the account did not
+get one — but it collapses two conditions that mean opposite things:
+
+- **(a)** another **account** got the winner and this one was starved of it —
+  the defect the soak exists to measure;
+- **(b)** nobody won, so nothing was routed anywhere and no account lost
+  anything.
+
+**STATE THE POPULATION.** First 9 rows, 14:25Z–19:03Z (BTCUSDT 7 / ETHUSDT 2),
+**13 account-gradings**:
+
+| population | gradings |
+|---|---|
+| no winner elected | `bybit_1` ×7, `bybit_2` ×2, `bybit_portfolio` ×2 = **11** |
+| a winner elected | `bybit_1` starved ×2, `breakout_1` routed ×2 = **2 genuine** |
+
+So `starved_count` **overstates real starvation ~5.5× on this sample** — in the
+sole evidence base for the Tier-3 per-account fan-out decision. n=9 over ~4.6h
+on one process is small and BTCUSDT-dominated; 11 vs 2 is not a sampling
+artefact, but the precise ratio is not load-bearing.
+
+### Why the tests did not catch it
+
+**All 19 unit tests pass.** They assert the definition *as written* rather than
+whether the two populations are *separable*. That is the whole lesson of this
+unit: unit 3's PR argued at length for four never-collapsed states and shipped a
+fifth condition collapsed into one of them — and the collapse was invisible from
+the code and the suite, and obvious from ten minutes of production rows.
+
+This is the same class the repo already names (`collapsed-state-guard`,
+§ "Collapsed states"), applied to code written the same day by the session that
+was invoking that discipline. Filed as
+`BL-20260830-FANOUT-SOAK-GRADES-A-NO-WINNER-TICK-AS-STARVED` (severity high,
+tier 1) rather than hot-fixed at session end; the fix is the next session's
+first work item, because the soak's numbers gate a Tier-3 routing change and
+should not accrue further under a misleading label.
+
+### Two process corrections recorded against myself
+
+1. **I reported the coordination-board `✅ DONE` as posted when it was not.** I
+   posted the `▶️ START` and then asserted the DONE in a summary without making
+   the call. Caught by checking rather than trusting the transcript; posted for
+   real at session close.
+2. **I wrote the handoff prompt while #10513 was still in flight**, which the
+   `session-handoff` skill's own gate forbids when a downstream session is
+   pointed at that branch. Corrected by driving #10513 to green and amending the
+   prompt so the next session starts from `main` with no dependency on it.
+
+### A repo-level CI failure re-observed, not new
+
+#10513's `pull_request` checks **never attached** — zero check runs, and marking
+it ready-for-review did not fire them either despite `ready_for_review` being in
+the workflow's own `types` list. This is `BL-20260730-PR-CI-NOT-ATTACHING`
+recurring. All four required workflows were dispatched manually
+(`workflow_dispatch`), which is the remedy those files exist to provide, and
+they **did** attach as PR checks and satisfy the required contexts. Worth
+knowing for any session that sees an empty check list: the file's own comment
+puts it best — *"the failure mode is not 'a check went red', it is 'a check
+silently did not run', which renders identically to green."*

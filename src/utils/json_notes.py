@@ -77,6 +77,18 @@ _DEFAULT_PROTECTED: tuple[str, ...] = (
     # readable prose. The FLAG is what a consumer branches on, so the flag is
     # what must survive — the same distinction the sentinel note below draws.
     "closed_by_operator", "pre_mark_exit_reason",
+    # FOURTH instance, measured 2026-08-30 on live trade 4905 — and the one
+    # that showed protection alone is not the whole fix. `operator_flatten_intent`
+    # is the flag saying an OPEN row was flattened by a human; it was stored as a
+    # 5-key DICT, so `_shrink_dict` could neither trim it (strings only) nor keep
+    # it (unprotected), and its ~217 chars are what pushed a 410-char blob to 627
+    # and triggered the envelope that then deleted it. The value is now a bare
+    # BOOLEAN, with the free text moved to the unprotected
+    # `operator_flatten_intent_detail` — the same flag/prose split
+    # `closed_by_operator` vs `operator_close_reason` already draws below. A
+    # protected key must be SMALL: protecting a large value only moves the
+    # overflow into the envelope, where it takes `closed_at` down with it.
+    "operator_flatten_intent",
 )
 _ELLIPSIS = "…"
 # Hard stop on the trim loop so a pathological payload can never spin.
@@ -182,7 +194,39 @@ def _shrink_dict(
             if isinstance(v, str) and len(v) > longest:
                 key, longest = k, len(v)
         if key is None or longest == 0:
-            break  # nothing left to trim
+            # NO TRIMMABLE STRING LEFT — and the old code jumped straight from
+            # here to the minimal envelope, which drops EVERY unprotected key at
+            # once. That all-or-nothing step is what made an untrimmable value
+            # (a nested dict; `_shrink_dict` only ever trims *strings*) both
+            # push a blob over budget AND take the whole blob down with it.
+            #
+            # Measured 2026-08-30 on live trade 4905 (`bybit_portfolio`/ETHUSDT):
+            # the operator-flatten marker — a 5-key dict, ~217 chars — was
+            # stamped on the open row, and the reconciler's close then wrote
+            # `dump_capped(notes, 500)` over a 627-char blob whose only strings
+            # were already protected or empty. Result: the minimal envelope, 7
+            # keys, and the marker gone. Reproduced exactly: the SAME blob
+            # without the marker is 410 chars and truncates nothing (which is
+            # what its six `bybit_portfolio` siblings all show).
+            #
+            # So shed ONE key at a time — the largest unprotected value by
+            # serialized length — and re-check. Degradation is now gradual:
+            # the same payload sheds the 217-char marker detail and lands at
+            # 458 chars with every other key intact, instead of collapsing to
+            # the envelope. The minimal fallback below still catches the case
+            # where nothing unprotected remains.
+            drop = None
+            drop_len = -1
+            for k, v in work.items():
+                if k == "_truncated" or k in protected:
+                    continue
+                v_len = len(_dumps({k: v}, ensure_ascii))
+                if v_len > drop_len:
+                    drop, drop_len = k, v_len
+            if drop is None:
+                break  # nothing unprotected left to shed
+            work.pop(drop, None)
+            continue
         cur = work[key]
         # Halve (shedding at least 8 chars) and mark the cut with an ellipsis.
         new_len = max(0, min(len(cur) - 8, len(cur) // 2))
