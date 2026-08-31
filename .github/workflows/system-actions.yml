@@ -1320,7 +1320,7 @@ jobs:
           # the one measurement that would settle
           # BL-20260808-FUNDING-PULLER-SAME-RANGE-CAP-EXPOSURE could not be taken.
           # The next windowed action should be a word here, not a new branch.
-          case " pull-exchange-fills pull-exchange-funding " in
+          case " pull-exchange-fills pull-exchange-funding pull-bybit-transaction-log " in
             *" ${ACTION} "*)
               REMOTE_CMD="ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
               ;;
