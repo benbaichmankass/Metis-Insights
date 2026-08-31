@@ -101,6 +101,7 @@ on:
           - backfill-fabricated-exits
           - migrate-closed-at-iso
           - pull-exchange-fills
+          - pull-bybit-transaction-log
           - pull-exchange-funding
           - net-r-regrade
           - inspect-closed-pnl

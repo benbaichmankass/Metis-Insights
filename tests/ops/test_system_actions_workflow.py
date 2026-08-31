@@ -125,6 +125,12 @@ EXPECTED_ACTIONS = {
     # (which fills NULLs). Wraps migrate_closed_at_to_iso.py.
     "migrate-closed-at-iso": "migrate_closed_at_to_iso_action.sh",
     "pull-exchange-fills": "pull_exchange_fills_action.sh",
+    # Bybit's OWN wallet ledger (/v5/account/transaction-log) into the
+    # venue-truth store. The on-demand sibling of the hourly 7-day timer:
+    # only this path can ask for the deep ACTION_DAYS window a HISTORICAL
+    # gap needs, and the deep window is WALKED in <=7-day chunks because
+    # Bybit caps the queryable RANGE, not the retention.
+    "pull-bybit-transaction-log": "pull_bybit_transaction_log_action.sh",
     # Slice B / B1 — pull perp funding into the exchange_funding store so the
     # broker-truth sweep can attribute funding_paid_usd.
     "pull-exchange-funding": "pull_exchange_funding_action.sh",
@@ -336,6 +342,7 @@ TIER_2_ACTIONS = {
     "backfill-exit-labels",
     "migrate-closed-at-iso",
     "pull-exchange-fills",
+    "pull-bybit-transaction-log",
     "pull-exchange-funding",
     "pull-mes-ibkr-history",
     "pull-mes-ibkr-history-daily",

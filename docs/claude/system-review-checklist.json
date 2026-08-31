@@ -44,8 +44,8 @@
       "evidence": "MEASURED from position_telemetry (n=96; CLOSED n=47; 46 with both peak_r and open_r; 45 ever positive). capture=(peak_r-giveback_r)/peak_r: mean 0.431, median 0.345. Kept >=95% of peak: 11/45. GAVE BACK >=95% of peak: 17/45. Worst legs qqq_pullback_1h 0.106, xrp_pullback_2h 0.154, slv_trend_1h 0.183; best trend_donchian_avax_4h 0.869. CAVEAT: peak_r_is_lower_bound on 47/47 rows, so every ratio is an UPPER BOUND on true capture — real capture is worse."
     },
     "since_last_build_verification": {
-      "status": "not_started",
-      "evidence": ""
+      "status": "done",
+      "evidence": "count_shipped=23, enumerated from `git log --since=2026-08-29 --diff-filter=A` over src/ scripts/ deploy/ .github/ -- the full list, not a sample. VERDICTS: 0 UNWIRED. 18 scripts each carry >=1 runner/skill/action reference; 5 src/ modules each have >=1 importer and >=1 test file (arbitration_fanout, arbitration_fanout_soak, bybit_wallet_truth, cash_settlement, operator_flatten_intent). The one refs=0 entry, .github/workflows/alpaca-settlement-soak-watch.yml, is a SELF-TRIGGERING workflow (schedule: weekdays 14:30 UTC) -- refs=0 is the correct shape for it, and it is `wired_not_yet_exercised` (merged Sat 08-29, first weekday fire is 09-01). check_unwired_artifacts.py: unwired=2 / doc_only=105 / skill_invoked=9; BOTH unwired entries (scripts/ml/fetch_fred_macro.py, scripts/validate_registry_vm.py) were last touched 2026-08-26 and so PREDATE this window -- no capability shipped since the last review is unwired. For scale, the SKILL.md baseline was 12 unwired / 149 doc_only."
     },
     "research_results_disposition": {
       "status": "not_started",
@@ -68,8 +68,8 @@
       "evidence": "Multiple: 4th-recurrence latch gap, the liveness-file conflation, the never-written builder latch, the stale broker-truth ledger."
     },
     "health_review.security_check": {
-      "status": "not_started",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Two-part detection sweep, both probes positive-controlled before their negatives were trusted. (1) SECRETS: 116 changed non-doc code files since 2026-08-29 scanned for credential literals -> 0 hits. The FIRST pass was case-sensitive and its control (BYBIT_API_KEY=\"...\") did NOT fire, so that negative was discarded; re-run with -i, control fires, scan still clean. (2) AUTH DENIALS: ict-web-api access log walked in five 12h chunks from 2026-08-29T00:00Z with a quote-delimited '\" 401|403|407|429 ' pattern (port numbers cannot false-positive) -> 0 denials. Control fires on a synthetic 401 line, and the one fully-swept window shows a real status mix (200x768 / 404x18 / 422x2), proving the log records non-200s and a 401 would have been seen. STATE THE POPULATION: 4 of 5 chunks hit the 1000-line cap, so coverage is the TAIL of each window, not the period -- filed as BL-20260831-DIAG-JOURNALCTL-CAPS-AT-1000-LINES-REGARDLESS-OF-THE-SINCE-WINDOW. No breach or intrusion signal found where it was looked for."
     },
     "health_review.soak_decisions_due": {
       "status": "done",

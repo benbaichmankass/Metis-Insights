@@ -29840,6 +29840,18 @@
         "BL-20260713-BYBIT2-PNL-UNDERRECORD",
         "BL-20260826-JOURNAL-READS-DO-NOT-CONSULT-THE-BROKER-TRUTH-LEDGER"
       ]
+    },
+    {
+      "id": "BL-20260831-DIAG-JOURNALCTL-CAPS-AT-1000-LINES-REGARDLESS-OF-THE-SINCE-WINDOW",
+      "title": "/api/diag/journalctl caps at 1000 lines regardless of `since`, so a 'nothing suspicious since the last review' sweep cannot be made from it",
+      "detail": "The /system-review security_check mandate is a breach-DETECTION sweep over the period since the last review. /api/diag/journalctl accepts `since`/`until` but the line cap is applied INDEPENDENTLY of the window, and it returns the TAIL of the window, so a widened `since` does not widen coverage -- it silently returns the last N lines and reports success. MEASURED 2026-08-31 while running the sweep: ict-web-api walked in five 12h chunks from 2026-08-29T00:00Z, lines=1000 (the max), and FOUR OF FIVE chunks came back at exactly 1000 lines, i.e. truncated; only the final partial-day chunk (921 lines) was swept whole. On ict-trader-live it is far worse -- lines=400 covered 38 SECONDS (06:40:05Z -> 06:40:43Z). So the honest coverage of a 'clean' auth sweep is 'the last 1000 lines of each chunk I happened to request', not the period, and nothing in the envelope says so. WHY IT MATTERS BEYOND THIS ONE SWEEP: this is the unasserted-denominator sub-class (CLAUDE.md 'Diagnostic provenance' C) on the surface a review uses to assert a NEGATIVE. An empty result reads as a clean negative and is actually an unstated truncation -- the exact shape of BL-20260807-TRAINER-DIAG-RELAY-SILENT-CMD-TRUNCATION on the trainer relay, now the SECOND instance, on the live-VM surface. THE PROBE ITSELF WAS FINE: positive-controlled against a synthetic 401 line, and the one fully-swept window shows a real status mix (200x768 / 404x18 / 422x2), so a 401/403 would have been seen where it was looked for. The defect is coverage, not detection. RESOLUTION CRITERIA: the envelope declares its own coverage -- return `truncated: true|false` plus the actual first/last timestamps served, so a consumer can never read a capped tail as a swept window; optionally support paging (`until` walk-back) so a period CAN be swept whole. Registering the state with collapsed-state-guard would fit the existing pattern.",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "filed_at": "2026-08-31T06:55:00Z",
+      "filed_by": "system-review 2026-08-31",
+      "area": "diag/observability",
+      "resolution_criteria": "GET /api/diag/journalctl returns a `truncated` boolean plus the actual first/last timestamps SERVED, and a walk of ict-web-api over a >=24h window with lines=1000 shows `truncated:false` on every chunk (or the envelope names the chunks it could not cover) -- verified against the live VM, not in a test."
     }
   ]
 }
