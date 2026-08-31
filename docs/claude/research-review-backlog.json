@@ -177,6 +177,26 @@
         "OI-20260831-42-RESEARCH-UNITS-ARE-UNREAD-AND-NOBODY-IS-SCHEDULED-TO-READ-THEM",
         "BL-20260831-EVERY-PASSING-E35-CELL-IS-IN-THE-BATCH-THE-POWER-GATE-CANNOT-READ"
       ]
+    },
+    {
+      "id": "BL-20260831-N-FIELDS-DECIDING-MEASUREMENT-IS-RECORDED-BUT-NOT-PINNED",
+      "severity": "low",
+      "tier": 1,
+      "opened": "2026-08-31",
+      "status": "open",
+      "area": "research/e35-power-gate",
+      "not_a_duplicate_of": "BL-20260831-E35-CORPUS-HAS-NO-ACHIEVED-OOS-COUNT (resolved, 0.50 lexical overlap, read before filing). That row is WHY N_FIELD['e35'] became base_oos_trades at all. THIS row is that the measurement JUSTIFYING that choice is unguarded — a different object (the evidence, not the field). backlog_search returned 8 rows, all lexical; none names this.",
+      "summary": "N_FIELD's deciding argument — split_target_oos is a run TARGET, not an achieved MEASUREMENT — now rests on a measured figure (280/287 = 97.6% of corpus rows have base_oos_trades != split_target_oos) that NO test pins. #10610's test guards a coverage ceiling and the observed value set; neither would fail if the target began tracking the achieved count, which is the exact development that would reopen the choice.",
+      "evidence": "Measured 2026-08-31 on docs/research/e35-bracket-corpus.jsonl (8,520 rows): 287 rows carry BOTH split_target_oos and base_oos_trades; 280 (97.6%) differ; where the target is 60 the achieved count takes 11 distinct values including 4, 5 and 8. Recorded in scripts/research/research_disposition.py's N_FIELD comment (PR #10611) with an explicit warning that it is NOT pinned. tests/test_e35_achieved_oos_count.py::test_split_target_oos_is_still_the_wrong_field_for_the_power_gate (PR #10610) asserts (a) non_null < rows*0.5 and (b) vals <= OBSERVED_SPLIT_TARGETS. Neither references base_oos_trades, so both would still pass on a corpus where the target had become a perfect proxy for the achieved count.",
+      "why_it_matters": "The original justification had two legs and one ALREADY EXPIRED: the 'exactly one distinct value, 50' argument died when the re-sweep ran at target 60, and the pin that caught it turned main RED for both concurrent sessions. The surviving leg is now the only thing holding N_FIELD, and it is the one with no tripwire — so the same silent-rot failure is set up to recur on the argument that replaced the one that just rotted. That is the shape the original test's own docstring existed to prevent.",
+      "resolution_criteria": "tests/test_e35_achieved_oos_count.py carries an assertion that FAILS when split_target_oos begins tracking base_oos_trades — e.g. differ/both > 0.5 over rows carrying both fields, with a denominator guard so a 0/0 cannot read as a clean pass. Proven to fire by a planted control in which target == achieved (must FAIL) and one in which no row carries both (must FAIL), alongside the real corpus passing. NOT closed by widening OBSERVED_SPLIT_TARGETS or by the comment continuing to say it is unpinned — the comment already says that; the gap is the absent assertion.",
+      "refs": [
+        "scripts/research/research_disposition.py",
+        "tests/test_e35_achieved_oos_count.py",
+        "PR #10610",
+        "PR #10611",
+        "docs/research/e35-bracket-corpus.jsonl"
+      ]
     }
   ],
   "updated_at": "2026-08-31"
