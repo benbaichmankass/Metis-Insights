@@ -145,6 +145,31 @@ def rows_from_report(doc: Dict[str, Any], source: str) -> List[Dict[str, Any]]:
                 "fee_bps_roundtrip": fee,
                 "split_mode": split_meta.get("split_mode"),
                 "split_target_oos": split_meta.get("split_target_oos"),
+                # ⚠️ ACHIEVED OOS SAMPLE SIZE — NOT `split_target_oos`.
+                #
+                # `split_target_oos` is a TARGET and, measured over the whole
+                # corpus on 2026-08-31, it is non-null on 377 of 8,321 rows
+                # (4.5%) with exactly ONE distinct value: 50. It is a run
+                # setting, not a measurement, so it cannot answer "was this
+                # cell judged on enough data?" — and R4's power gate needs
+                # exactly that. Without an achieved n every e35 unit is
+                # UNGRADEABLE, which is where 28 of them sat.
+                #
+                # The producer has emitted the real counts all along
+                # (`e35_bracket_geometry_sweep.gate`: `base_is_trades` /
+                # `base_oos_trades`, both `run_cell(...)["total_trades"]`) and
+                # this extractor simply never read them. Written-and-never-read
+                # is the `exit_price_source` shape this repo already pays for.
+                #
+                # These are the BASE arm's counts, which is deliberate: the base
+                # is the denominator every cell in the leg is judged against, so
+                # it is constant per (leg, split) and comparable across cells.
+                # `None` where a report predates the field — never 0, because a
+                # zero would assert a measured empty sample.
+                # Read off the GATE record (`g`), which is where the sweep
+                # writes them — not the cell dict.
+                "base_is_trades": (g or {}).get("base_is_trades"),
+                "base_oos_trades": (g or {}).get("base_oos_trades"),
                 # gate verdict — None means NOT GATED, never "gated and passed"
                 "gate_verdict": (g or {}).get("verdict"),
                 "gate_is_passed": ((g or {}).get("is") or {}).get("passed"),
