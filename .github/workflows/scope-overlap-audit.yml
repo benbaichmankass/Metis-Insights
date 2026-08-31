@@ -1,0 +1,148 @@
+name: scope-overlap-audit
+
+# NON-BLOCKING detector: does this PR touch a file another LIVE session has
+# already declared on the coordination board?
+#
+# WHY THIS AND NOT A MERGE SERIALIZER (W3, and the plan was wrong)
+#   W3 was planned as a merge serializer. The measurement refuted the premise.
+#   Over 2026-08-30T19:13Z->2026-08-31T12:53Z, 39 merges landed on main — one
+#   every 27.3 min, MEDIAN 15.9 min between merges from different sources.
+#   Nothing was racing for the merge button, and `require-up-to-date` has been
+#   off since 2026-08-10 so one merge does not invalidate another PR's checks.
+#
+#   The one real collision in that window: PR #10582 went `dirty` because
+#   #10579 and #10580 landed under it — and those two merged 23 MINUTES APART,
+#   already serial. Serialising merges would not have prevented it. The branch
+#   was simply old, which no merge ordering fixes.
+#
+#   Nor was it under-declaration: the other session's 11:41Z START named
+#   `docs/claude/OPEN-ITEMS.json` explicitly. The declaration existed and was
+#   correct. What failed is that a declared scope never reaches a session that
+#   is ALREADY RUNNING — the PreToolUse guard that would catch it is never
+#   invoked on Claude Code on the web (BL-20260820-PROJECT-HOOKS-INERT-ON-WEB).
+#
+#   So this carries information that already exists to the one surface a
+#   running session cannot miss: its own PR.
+#
+# IT GATES NOTHING, DELIBERATELY
+#   A required check verifying the board protocol was considered and REJECTED
+#   with the operator on 2026-08-20 (see merge-claim-audit.yml): presence-only,
+#   so it would be cheaper to satisfy by posting a formulaic comment than by
+#   doing the work — enforcing the ARTIFACT of the protocol, not the protocol.
+#   The same reasoning holds here. This reports and stops.
+#
+# WHY pull_request_target AND NOT pull_request: it must post a comment, and a
+# fork PR's GITHUB_TOKEN is read-only. It NEVER checks out or executes PR code
+# — it reads the changed-file LIST and the board through the API, and runs one
+# committed script from the BASE ref — so it carries none of the usual
+# pull_request_target risk, which comes entirely from running untrusted content.
+#
+# THREE STATES, NEVER COLLAPSED: overlap / no_overlap / could_not_check.
+# It comments only on `overlap` and `could_not_check` — silent on the happy
+# path, like merge-claim-audit, because a comment on every PR is noise. The
+# verdict is ALWAYS written to the job summary, so "it ran and found nothing"
+# stays distinguishable from "it did not run".
+#
+# Tier-1: read-only, no VM, no order path, no secret beyond GITHUB_TOKEN.
+
+on:
+  pull_request_target:
+    types: [opened, ready_for_review, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: scope-overlap-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # The BASE ref, never the PR head — the script that runs must be the one
+      # on main, not one the PR could have edited.
+      - name: Checkout base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Self-test before trusting any verdict
+        run: python3 scripts/ci/check_scope_overlap.py --self-test
+
+      - name: Collect the changed files and the board's recent STARTs
+        uses: actions/github-script@v7
+        env:
+          BOARD_ISSUE: '6927'
+          LOOKBACK_HOURS: '24'
+        with:
+          script: |
+            const fs = require('fs');
+            const pr = context.payload.pull_request;
+            let changed = [], starts = [];
+            try {
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner, repo: context.repo.repo,
+                pull_number: pr.number, per_page: 100,
+              });
+              changed = files.map(f => f.filename);
+            } catch (e) { core.warning(`changed-file read failed: ${e.message}`); }
+
+            try {
+              const since = new Date(Date.now() - Number(process.env.LOOKBACK_HOURS) * 3600e3);
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: Number(process.env.BOARD_ISSUE),
+                since: since.toISOString(), per_page: 100,
+              });
+              // A START declares scope. A QUESTION, a DONE, a merge-slot claim
+              // and an audit comment declare nothing, so they are not read.
+              const isStart = b => /(?:▶️|:arrow_forward:)?\s*\*{0,2}START\*{0,2}\b/i.test((b || '').slice(0, 400));
+              // The branch is the identity comparable against a PR head ref.
+              const branchOf = b => (String(b).match(/`(claude\/[^`\s]+)`/) || [])[1] || '';
+              starts = comments.filter(c => isStart(c.body)).map(c => ({
+                branch: branchOf(c.body), body: c.body,
+                url: c.html_url, created_at: c.created_at,
+              }));
+            } catch (e) { core.warning(`board read failed: ${e.message}`); }
+
+            fs.writeFileSync('/tmp/overlap.json', JSON.stringify({
+              pr: pr.number, my_branch: pr.head.ref,
+              changed_files: changed, starts,
+            }));
+            core.info(`collected ${changed.length} changed file(s), ${starts.length} START(s)`);
+
+      - name: Assess and report
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execFileSync } = require('child_process');
+            const out = execFileSync('python3',
+              ['scripts/ci/check_scope_overlap.py', '--input', '/tmp/overlap.json'],
+              { encoding: 'utf8' });
+            const v = JSON.parse(out);
+
+            // ALWAYS recorded, so a silent happy path is still observable.
+            await core.summary
+              .addHeading('scope-overlap audit')
+              .addRaw(`**state:** \`${v.state}\` · declared paths compared: ${v.parsed} · `
+                      + `explicitly excluded: ${v.explicitly_excluded}\n\n`)
+              .addRaw(v.markdown)
+              .write();
+
+            if (v.state === 'no_overlap') {
+              core.info('no overlap — staying silent on the PR');
+              return;
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: v.markdown + '\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_',
+            });

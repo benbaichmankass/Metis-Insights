@@ -266,6 +266,20 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # The scope-overlap detector's LIVE check needs the coordination board,
+        # so it cannot run here — a guard whose verdict depends on a GitHub read
+        # reds on an outage rather than on a defect. Only the self-test runs, and
+        # that is the part worth pinning: its 28 planted controls include the
+        # real 2026-08-31 comment whose "Not touching:" line the first version
+        # read as a DECLARATION, firing on the one file the other session had
+        # promised to avoid. An inverted alarm is worse than no alarm.
+        "name": "scope-overlap-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_scope_overlap.py", "--self-test"],
+        ],
+    },
+    {
         "name": "recurrence-ledger-guard",
         "when": None,
         "steps": [
