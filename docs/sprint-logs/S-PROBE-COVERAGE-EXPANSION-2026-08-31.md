@@ -73,11 +73,11 @@
 ## Documentation Updated
 - `CLAUDE.md` — the `arbitration_fanout_soak` paragraph corrected (below).
 - `docs/claude/OPEN-ITEMS.json` — 4 probes added, 4 reasons rewritten, 2 observations extended.
-- `docs/claude/health-review-backlog.json` — one row filed through `backlog_append.py` (the similarity check did not refuse).
+- `docs/claude/health-review-backlog.json` — **no new row**; the existing `BL-20260831-STRAY-OCA-SWEEP-ANNOTATE-COMPUTES-A-VERDICT-AND-DISCARDS-IT` updated in place (2 lines changed, asserted before writing).
 - This log + the `ROADMAP.md` ledger row.
 
 ## Contradictions or Drift Found
-- **`BL-20260831-STRAY-OCA-SWEEP-DISCARDS-ITS-OWN-PLAN-AND-WRITES-NO-SOAK` (filed).** `_sweep_stray_oca_groups` builds the whole classification and its ONE call site (`ib_client.py:1829`) **discards the return value**; the only durable output is a `logger.warning` to journald. `CLAUDE.md` tells a Tier-2 reviewer the allowlist *"scopes the CANCEL, never the MEASUREMENT … so the rows a reviewer needs before widening actually exist"* — **they do not exist**, before arming a path that cancels a live position's protective legs. 5th recurrence of the ships-without-a-read-surface class.
+- **`BL-20260831-STRAY-OCA-SWEEP-ANNOTATE-COMPUTES-A-VERDICT-AND-DISCARDS-IT` — INDEPENDENTLY RE-DERIVED, ALREADY FILED, AND NOT FILED TWICE.** `_sweep_stray_oca_groups` builds the whole classification and its ONE call site (`ib_client.py:1829`) **discards the return value**; the only durable output is a `logger.warning` to journald. `CLAUDE.md` tells a Tier-2 reviewer the allowlist *"scopes the CANCEL, never the MEASUREMENT … so the rows a reviewer needs before widening actually exist"* — **they do not exist**, before arming a path that cancels a live position's protective legs. 5th recurrence of the ships-without-a-read-surface class. ⚠️ **It was already filed at 07:12Z today by `system-review`, with BETTER evidence than mine (three verification methods to my two).** I reached it from the other end — the probe side — wrote it up as a fresh row, and `backlog_append`'s similarity check **refused it at overlap 0.88**. That is the mechanism working, so my row was DROPPED and the existing one updated with the single thing it lacked: the consumer-side consequence, that the OPEN-ITEMS row's stated unblock condition was ARMING when the real blocker is the WRITER — a session following it would have armed a live-cancel path and still had nothing to read. A 4th resolution criterion was appended so the fix closes the probe too.
 - **`CLAUDE.md` was stale by ~12 hours in the dangerous direction, and is corrected.** It read *"as of 2026-08-31T07:51Z the soak held zero rows … so the fan-out has never elected or routed anything."* Measured on the COMPLETE file (35 rows, not a truncated tail): **11 rows carry `mode: apply` / `applied: true`**, 08:07:07Z → 20:12:09Z, each naming `bybit_1`. ⚠️ **But no contested symbol has been resolved** — all 11 read `starved_count: 0` on a single account, so the fan-out has only run where per-account election is a **no-op**. Evidence the code path executes; not evidence it routes correctly under contention.
 - **A candidate for E35 half (b) surfaced and is recorded, ungraded.** Trade 5250, `bybit_2`, real money, `trend_donchian_xrp_4h`, opened 2026-08-30T23:46:39Z — after the deploy — `pnlProvenance: measured`. It clears both tests that disqualified the two prior near-misses. It does **not** clear the row: `journalTrust` is `known_divergent` (and `clears_when` asks for broker truth), and it exited on its **stop**, so it says nothing about the `tp_r 50→3` change that is why that leg is singled out.
 
@@ -87,7 +87,7 @@
 - `probes.yml` gained `actions: read` + `GITHUB_TOKEN`. Read-only; it cannot dispatch or cancel a run.
 
 ## Deferred Items
-- Writing the stray-OCA soak writer (filed, not built — it is a `src/` change on the IB order path and belongs with its own review).
+- Writing the stray-OCA soak writer (already filed by another session, not built here — it is a `src/` change on the IB order path and belongs with its own review).
 - Clearing E35 half (b) — needs the venue-side read on trade 5250, which this session did not do.
 
 ## Next Recommended Sprint

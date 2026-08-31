@@ -179,7 +179,13 @@ class _Ordered(argparse.Action):
     convenience, it is what lets the declaration say what clears_when says.
     """
 
-    def __call__(self, parser, ns, value, option_string=None):
+    def __call__(
+        self,
+        parser,  # inert: argparse.Action's required signature; this action only appends to `ns`
+        ns,
+        value,
+        option_string=None,
+    ):
         ns.ordered = getattr(ns, "ordered", None) or []
         ns.ordered.append((option_string.lstrip("-"), value))
 
