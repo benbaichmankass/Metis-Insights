@@ -158,6 +158,25 @@
         "run 33411906178",
         "PR #10604"
       ]
+    },
+    {
+      "id": "BL-20260831-SUPERSEDED-UNREAD-IS-256-AND-NOBODY-HAS-ESTABLISHED-HOW-MUCH-OF-IT-IS-BENIGN",
+      "severity": "low",
+      "tier": 1,
+      "opened": "2026-08-31",
+      "status": "open",
+      "area": "research/disposition",
+      "not_a_duplicate_of": "backlog_search returned 8 rows at 0.67 overlap, all lexical (exit-head E1 gate, fold-dispersion branch, target nakedness) and none about the disposition ledger's state counts. The closest CONCEPTUAL relative is OI-20260831-42-RESEARCH-UNITS-ARE-UNREAD, which this row succeeds and deliberately narrows: that row was about units nobody read AT ALL, which is now zero.",
+      "summary": "`research_disposition.py --report` shows superseded_unread 256 against unread 0 and dispositioned 103. OI-20260831-42-RESEARCH-UNITS-ARE-UNREAD called that pile 'the same defect in the past tense', and this row exists to record that the claim is NOT established -- and that today produced direct evidence against it being uniformly true.",
+      "evidence": "A unit is `superseded_unread` when a NEWER run stamp exists for the same (corpus, leg) and the older one was never dispositioned. On 2026-08-31 this session created 27 of them itself, and created them by doing exactly the right thing: the 2026-08-29 target-50 measurements of 27 legs were superseded by a target-60 re-sweep that WAS read and dispositioned, with each prior passing cell addressed by name in the successor's reason text. Those 27 are not unread results; they are the expected residue of re-measuring at adequate power. The count moved 229 -> 256 across that work, i.e. every one of the 27 added is accounted for. What is NOT established is the other 229: nobody has checked whether each was superseded by a measurement that was itself read, or whether some were superseded by a run that also went unread -- which would be a genuine gap and is the only part of this pile that is a defect.",
+      "why_it_matters": "The number is large and looks alarming, and a review session reading `superseded_unread: 256` beside `unread: 0` can reasonably conclude the pile was swept under a rug. It was not, at least not for the 27 this session can speak to. But asserting the whole 256 is benign would be exactly the unprovenanced conclusion this repo keeps paying for, so the honest state is that ~11% is demonstrably benign and 89% is UNMEASURED -- not benign, and not a defect either.",
+      "resolution_criteria": "A one-shot pass over the ledger + corpora that partitions the 256 into (a) superseded by a run stamp that IS dispositioned -- benign, the re-measurement residue; and (b) superseded by a run stamp that is ITSELF unread or superseded -- a real gap, since no measurement of that leg was ever read. Only (b) is work. Reporting a bare count again, in either direction, does not resolve this. NOT closed by re-running --report.",
+      "refs": [
+        "scripts/research/research_disposition.py",
+        "docs/research/research-disposition-ledger.jsonl",
+        "OI-20260831-42-RESEARCH-UNITS-ARE-UNREAD-AND-NOBODY-IS-SCHEDULED-TO-READ-THEM",
+        "BL-20260831-EVERY-PASSING-E35-CELL-IS-IN-THE-BATCH-THE-POWER-GATE-CANNOT-READ"
+      ]
     }
   ],
   "updated_at": "2026-08-31"
