@@ -30026,6 +30026,26 @@
         "comms/broker_truth_ledger.json",
         "issue #10609"
       ]
+    },
+    {
+      "id": "BL-20260831-STRAY-OCA-APPLY-PATH-HAS-NO-SOAK-SO-ITS-CANCEL-IS-UNPROVABLE",
+      "severity": "medium",
+      "tier": 1,
+      "opened": "2026-08-31",
+      "status": "open",
+      "area": "runtime/protection",
+      "not_a_duplicate_of": "BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE is the same CLASS and this is a RECURRENCE of it, filed deliberately as such: that row's fix added five cadence/latch files to the diag allowlist, and this path shipped afterwards with the same gap, so the earlier fix did not generalise to new writers. Distinct object: this is an ORDER-PATH apply gate, not a cadence/latch state file.",
+      "summary": "PROTECTION_STRAY_GROUP_MODE=apply CANCELS a live position's resting protective legs and writes NO soak file — the verdict reaches `logger` only. So the one thing that would prove the cancel was correct is observable solely through /api/diag/journalctl (rolling, unstructured), and no field-matching probe can be written against it.",
+      "evidence": "Verified 2026-08-31 by reading the producer, not inferred. src/runtime/stray_oca_groups.py is a PURE decision function — grep for soak/jsonl/emit/write returns 0 file writes. ib_client._sweep_stray_oca_groups hands its result to _log_cancel_verdict (ib_client.py:2938), which calls `logger.error`/`logger.warning` only. `stray_oca_soak` is ABSENT from src/web/api/routers/diag.py::_LOG_FILES; the only entry in that family is `protection_reassert_soak`, which belongs to the DIFFERENT re-assert path. Found because scripts/ops/run_probes.py --check refused a new monitoring row for declaring neither `probe` nor `probe_absent_reason` — the guard forced the discovery.",
+      "why_it_matters": "The gate was ARMED on ib_paper on 2026-08-31 (Tier-2, operator-approved; issues #10614/#10615, verified on /proc). Its OPEN-ITEMS row was written with a clears_when asking for a soak row showing `acted: true` — A ROW THAT CANNOT EXIST. So as shipped, an operator-approved order-path capability is running with no structured evidence trail, and its own tracking row was unsatisfiable until corrected. This is precisely the shape CLAUDE.md documents twice over for this subsystem: `logger.error` reaches the systemd journal and NOTHING else — not outcomes.jsonl, not Telegram, not /api/bot/logs — which is why both the IB and Bybit over-cover pages had to be given real emitters. The cancel is the most consequential action in the module and the least observable.",
+      "resolution_criteria": "src/runtime/stray_oca_groups.py (or its ib_client call site) writes runtime_logs/stray_oca_soak.jsonl carrying, per decision: the effective `mode` beside `global_mode` and `apply_scope`, `acted`, the five never-collapsed leg states, the groups cancelled, and the `verify_state`/`still_resting` read-back — AND `stray_oca_soak` is added to diag.py::_LOG_FILES IN THE SAME COMMIT as the writer (a soak that cannot be read is the #8778 lesson). Then OI-20260831-STRAY-OCA-SWEEP-ARMED-ON-IB-PAPER-BUT-HAS-NEVER-CANCELLED gains a real `probe` and drops its probe_absent_reason. NOT closed by: adding the allowlist entry alone (there is no file yet), or by relying on journalctl (rolling and unstructured).",
+      "refs": [
+        "src/runtime/stray_oca_groups.py",
+        "src/units/accounts/ib_client.py",
+        "src/web/api/routers/diag.py",
+        "OI-20260831-STRAY-OCA-SWEEP-ARMED-ON-IB-PAPER-BUT-HAS-NEVER-CANCELLED",
+        "BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE"
+      ]
     }
   ]
 }

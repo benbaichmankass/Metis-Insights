@@ -167,7 +167,7 @@
       "status": "open",
       "area": "research/disposition",
       "not_a_duplicate_of": "backlog_search returned 8 rows at 0.67 overlap, all lexical (exit-head E1 gate, fold-dispersion branch, target nakedness) and none about the disposition ledger's state counts. The closest CONCEPTUAL relative is OI-20260831-42-RESEARCH-UNITS-ARE-UNREAD, which this row succeeds and deliberately narrows: that row was about units nobody read AT ALL, which is now zero.",
-      "summary": "`research_disposition.py --report` shows superseded_unread 256 against unread 0 and dispositioned 103. OI-20260831-42-RESEARCH-UNITS-ARE-UNREAD called that pile 'the same defect in the past tense', and this row exists to record that the claim is NOT established -- and that today produced direct evidence against it being uniformly true.",
+      "summary": "⚠️ THIS ROW'S 'unread 0' IS STALE AS OF 2026-08-31T17:20:54Z — a gld_compat run landed 11 UNREAD units after it was written; re-measured the same day the counts are 103 dispositioned / 256 superseded_unread / 11 unread (tracked in OI-20260831-RESEARCH-READ-DEBT-11-UNREAD-AND-256-SUPERSEDED-UNREAD). The 256 figure and this row's actual subject are UNAFFECTED. Original: `research_disposition.py --report` shows superseded_unread 256 against unread 0 and dispositioned 103. OI-20260831-42-RESEARCH-UNITS-ARE-UNREAD called that pile 'the same defect in the past tense', and this row exists to record that the claim is NOT established -- and that today produced direct evidence against it being uniformly true.",
       "evidence": "A unit is `superseded_unread` when a NEWER run stamp exists for the same (corpus, leg) and the older one was never dispositioned. On 2026-08-31 this session created 27 of them itself, and created them by doing exactly the right thing: the 2026-08-29 target-50 measurements of 27 legs were superseded by a target-60 re-sweep that WAS read and dispositioned, with each prior passing cell addressed by name in the successor's reason text. Those 27 are not unread results; they are the expected residue of re-measuring at adequate power. The count moved 229 -> 256 across that work, i.e. every one of the 27 added is accounted for. What is NOT established is the other 229: nobody has checked whether each was superseded by a measurement that was itself read, or whether some were superseded by a run that also went unread -- which would be a genuine gap and is the only part of this pile that is a defect.",
       "why_it_matters": "The number is large and looks alarming, and a review session reading `superseded_unread: 256` beside `unread: 0` can reasonably conclude the pile was swept under a rug. It was not, at least not for the 27 this session can speak to. But asserting the whole 256 is benign would be exactly the unprovenanced conclusion this repo keeps paying for, so the honest state is that ~11% is demonstrably benign and 89% is UNMEASURED -- not benign, and not a defect either.",
       "resolution_criteria": "A one-shot pass over the ledger + corpora that partitions the 256 into (a) superseded by a run stamp that IS dispositioned -- benign, the re-measurement residue; and (b) superseded by a run stamp that is ITSELF unread or superseded -- a real gap, since no measurement of that leg was ever read. Only (b) is work. Reporting a bare count again, in either direction, does not resolve this. NOT closed by re-running --report.",
@@ -176,6 +176,26 @@
         "docs/research/research-disposition-ledger.jsonl",
         "OI-20260831-42-RESEARCH-UNITS-ARE-UNREAD-AND-NOBODY-IS-SCHEDULED-TO-READ-THEM",
         "BL-20260831-EVERY-PASSING-E35-CELL-IS-IN-THE-BATCH-THE-POWER-GATE-CANNOT-READ"
+      ]
+    },
+    {
+      "id": "BL-20260831-N-FIELDS-DECIDING-MEASUREMENT-IS-RECORDED-BUT-NOT-PINNED",
+      "severity": "low",
+      "tier": 1,
+      "opened": "2026-08-31",
+      "status": "open",
+      "area": "research/e35-power-gate",
+      "not_a_duplicate_of": "BL-20260831-E35-CORPUS-HAS-NO-ACHIEVED-OOS-COUNT (resolved, 0.50 lexical overlap, read before filing). That row is WHY N_FIELD['e35'] became base_oos_trades at all. THIS row is that the measurement JUSTIFYING that choice is unguarded — a different object (the evidence, not the field). backlog_search returned 8 rows, all lexical; none names this.",
+      "summary": "N_FIELD's deciding argument — split_target_oos is a run TARGET, not an achieved MEASUREMENT — now rests on a measured figure (280/287 = 97.6% of corpus rows have base_oos_trades != split_target_oos) that NO test pins. #10610's test guards a coverage ceiling and the observed value set; neither would fail if the target began tracking the achieved count, which is the exact development that would reopen the choice.",
+      "evidence": "Measured 2026-08-31 on docs/research/e35-bracket-corpus.jsonl (8,520 rows): 287 rows carry BOTH split_target_oos and base_oos_trades; 280 (97.6%) differ; where the target is 60 the achieved count takes 11 distinct values including 4, 5 and 8. Recorded in scripts/research/research_disposition.py's N_FIELD comment (PR #10611) with an explicit warning that it is NOT pinned. tests/test_e35_achieved_oos_count.py::test_split_target_oos_is_still_the_wrong_field_for_the_power_gate (PR #10610) asserts (a) non_null < rows*0.5 and (b) vals <= OBSERVED_SPLIT_TARGETS. Neither references base_oos_trades, so both would still pass on a corpus where the target had become a perfect proxy for the achieved count.",
+      "why_it_matters": "The original justification had two legs and one ALREADY EXPIRED: the 'exactly one distinct value, 50' argument died when the re-sweep ran at target 60, and the pin that caught it turned main RED for both concurrent sessions. The surviving leg is now the only thing holding N_FIELD, and it is the one with no tripwire — so the same silent-rot failure is set up to recur on the argument that replaced the one that just rotted. That is the shape the original test's own docstring existed to prevent.",
+      "resolution_criteria": "tests/test_e35_achieved_oos_count.py carries an assertion that FAILS when split_target_oos begins tracking base_oos_trades — e.g. differ/both > 0.5 over rows carrying both fields, with a denominator guard so a 0/0 cannot read as a clean pass. Proven to fire by a planted control in which target == achieved (must FAIL) and one in which no row carries both (must FAIL), alongside the real corpus passing. NOT closed by widening OBSERVED_SPLIT_TARGETS or by the comment continuing to say it is unpinned — the comment already says that; the gap is the absent assertion.",
+      "refs": [
+        "scripts/research/research_disposition.py",
+        "tests/test_e35_achieved_oos_count.py",
+        "PR #10610",
+        "PR #10611",
+        "docs/research/e35-bracket-corpus.jsonl"
       ]
     }
   ],
