@@ -66,7 +66,14 @@ jobs:
        github.event.issue.user.login == github.repository_owner &&
        contains(github.event.issue.labels.*.name, 'probes-now'))
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # BUDGET = work + wait + slack. Sized against the DECLARED bound, not
+    # today's row count: run_probes.py allows DEFAULT_TIMEOUT_S=120 per
+    # monitoring row, and there are 11, so the work half is bounded at ~22m
+    # even though only 3 rows carry a probe right now. Sizing to today's 3
+    # would make this budget silently wrong the moment someone adds a probe —
+    # which is the whole point of the row that added it.
+    # 60 = ~22m worst-case probe work + the 30m `verify-merged` wait + slack.
+    timeout-minutes: 60
     steps:
       - name: Checkout main
         uses: actions/checkout@v4

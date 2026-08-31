@@ -64,7 +64,15 @@ jobs:
        github.event.issue.user.login == github.repository_owner &&
        contains(github.event.issue.labels.*.name, 'due-list-now'))
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # BUDGET = work + wait + slack, and the WAIT dominates.
+    # `commit-to-main` with `verify-merged` waits up to 30m for the auto-merge
+    # PR to land, so a budget under 35 kills the job mid-wait and reports a
+    # TIMEOUT for a merge that was about to succeed — the exact failure
+    # tests/test_commit_to_main_callers.py pins (it caught this workflow at 20).
+    # 40 = ~5m of render work + the 30m wait + 5m slack. If the action's wait
+    # default is ever widened, that test fails here rather than silently
+    # consuming this margin, which is how gld-compat-matrix lost its own.
+    timeout-minutes: 40
     steps:
       - name: Checkout main
         uses: actions/checkout@v4

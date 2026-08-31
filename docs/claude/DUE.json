@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-08-31T12:56:53+00:00",
+  "generated_at": "2026-08-31T13:47:30+00:00",
   "verdict": "partial",
   "unreadable_sources": [
     "red_crons",
@@ -10,7 +10,7 @@
   "sources": {
     "open_items": {
       "state": "read",
-      "rows": 13,
+      "rows": 14,
       "note": ""
     },
     "operator_owed": {
@@ -40,8 +40,8 @@
     }
   },
   "counts": {
-    "due": 18,
-    "loud": 14
+    "due": 19,
+    "loud": 15
   },
   "rows": [
     {
@@ -94,6 +94,15 @@
       "id": "OI-20260830-BYBIT-HEDGE-MODE-ARMED-BUT-UNEXERCISED",
       "title": "A pairs_soak `open` row exists in which at least one leg was placed carrying a hedge `position_idx` (1 or 2), and at least one leg reports a concurrent non-pairs `directional_open: present` — the nett",
       "why_due": "probe FAILED — its declared observation did not hold",
+      "age_days": null,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260831-42-RESEARCH-UNITS-ARE-UNREAD-AND-NOBODY-IS-SCHEDULED-TO-READ-THEM",
+      "title": "The research chain now PRODUCES, LANDS and is READABLE end to end (the 2026-08-31 live probe: dispatch 33388490432 -> sweep 33388518030 -> #10576/#10577, both merged; 995 rows carry `RQ-20260831-002`/",
+      "why_due": "loud row — must be reported on every session",
       "age_days": null,
       "loud": true,
       "link": ""

@@ -408,11 +408,20 @@ jobs:
         uses: ./.github/actions/commit-to-main
         with:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          paths: docs/research/e35-bracket-corpus.jsonl
+          # ⚠️ BOTH FILES, and the second is not optional decoration. The
+          # extractor archives every superseded measurement to
+          # `-history.jsonl` BEFORE rewriting the corpus; if only the corpus is
+          # committed, the archive is written on the runner and thrown away
+          # with it — a sidecar that never lands is exactly the
+          # produced-but-never-read class it exists to fix. `commit-to-main`
+          # word-splits this input, so the space-separated pair is deliberate.
+          paths: docs/research/e35-bracket-corpus.jsonl docs/research/e35-bracket-corpus-history.jsonl
           message: "corpus: e35 bracket sweep run ${{ github.run_id }}"
           pr-title: "corpus: e35 bracket sweep (run ${{ github.run_id }})"
           pr-body: |
-            Automated landing of `docs/research/e35-bracket-corpus.jsonl`.
+            Automated landing of `docs/research/e35-bracket-corpus.jsonl` and
+            the superseded-measurement archive
+            `docs/research/e35-bracket-corpus-history.jsonl`.
             R2 — the run is not done when it exits 0, it is done when its rows
             are readable on `main`.
           branch-prefix: automation/e35-bracket-corpus

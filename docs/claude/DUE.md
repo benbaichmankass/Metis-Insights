@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-08-31T12:56:53+00:00 · verdict **partial**_
+_Generated 2026-08-31T13:47:30+00:00 · verdict **partial**_
 
 > ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
 
@@ -16,6 +16,8 @@ _Generated 2026-08-31T12:56:53+00:00 · verdict **partial**_
   - Bybit HEDGE position mode is now live on ALL EIGHT (account, symbol) pairs — bybit_1 SOL/ETH/BNB/BTC and bybit_2 BTC/ETH/XRP/ADA (bybit_2 is MAINNET). The mechanism is proven WIRED (a real pair opened
 - 🔔 **OI-20260830-BYBIT-HEDGE-MODE-ARMED-BUT-UNEXERCISED** (probes) — probe FAILED — its declared observation did not hold
   - A pairs_soak `open` row exists in which at least one leg was placed carrying a hedge `position_idx` (1 or 2), and at least one leg reports a concurrent non-pairs `directional_open: present` — the nett
+- 🔔 **OI-20260831-42-RESEARCH-UNITS-ARE-UNREAD-AND-NOBODY-IS-SCHEDULED-TO-READ-THEM** (open_items) — loud row — must be reported on every session
+  - The research chain now PRODUCES, LANDS and is READABLE end to end (the 2026-08-31 live probe: dispatch 33388490432 -> sweep 33388518030 -> #10576/#10577, both merged; 995 rows carry `RQ-20260831-002`/
 - 🔔 **OI-20260831-LIVE-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW** (open_items · 0d) — loud row — must be reported on every session
   - The live Bybit wallet-truth path works and is MEASURED, but it does not and cannot currently reproduce the -$262.52 figure it was built to replace -- the two are over almost disjoint windows. Switchin
 - 🔔 **OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED** (open_items · 0d) — loud row — must be reported on every session
