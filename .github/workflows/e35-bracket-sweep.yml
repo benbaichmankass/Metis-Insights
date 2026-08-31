@@ -498,9 +498,25 @@ jobs:
             exit 1
           fi
           echo "asserting THIS run's rows: sweep_generated_at=${STAMP}"
-          git fetch origin "${DEFAULT_BRANCH:-main}" "${TARGET}" 2>/dev/null || true
+          # ⚠️ TWO FETCHES, NOT ONE, AND THE FIRST MUST SUCCEED.
+          # `git fetch` aborts ATOMICALLY on an unknown refspec, so one fetch
+          # naming both refs updates NEITHER when the second is gone — and the
+          # `|| true` swallows the fatal, leaving the assertion to read a
+          # checkout-time origin/main and report `absent` for rows that landed.
+          # LATENT here rather than active: this workflow pushes TARGET without
+          # a PR, so nothing deletes it. It became ACTIVE on gld-compat-matrix,
+          # whose commit-to-main merges with --delete-branch, and cost a false
+          # failure on run 33340468235. Fixed here too rather than left for the
+          # day someone deletes a merged TARGET — same defect, same shape.
+          git fetch origin "${DEFAULT_BRANCH:-main}"
+          PUSHED=()
+          if git fetch origin "${TARGET}" 2>/dev/null; then
+            PUSHED=(--pushed-ref "origin/${TARGET}")
+          else
+            echo "target branch ${TARGET} is gone — its rows must be on ${DEFAULT_BRANCH:-main}"
+          fi
           python3 scripts/ci/assert_rows_landed.py \
             --store docs/research/e35-bracket-corpus.jsonl \
             --ref "origin/${DEFAULT_BRANCH:-main}" \
-            --pushed-ref "origin/${TARGET}" \
+            "${PUSHED[@]}" \
             --field sweep_generated_at --contains "${STAMP}" --min-rows 1

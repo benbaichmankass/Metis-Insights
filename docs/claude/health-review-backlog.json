@@ -29705,6 +29705,21 @@
       "related": [
         "BL-20260831-ARMED-CRON-DEADLOCKED-ON-A-TEST-THAT-NEEDS-THE-QUEUE-TO-HAVE-WORK"
       ]
+    },
+    {
+      "id": "BL-20260831-COMBINED-GIT-FETCH-MADE-A-LANDING-ASSERTION-FAIL-A-RUN-THAT-SUCCEEDED",
+      "status": "resolved",
+      "severity": "high",
+      "tier": "1",
+      "area": ".github/workflows/gld-compat-matrix.yml + e35-bracket-sweep.yml (landing assertion)",
+      "summary": "`git fetch` aborts ATOMICALLY on an unknown refspec, so `git fetch origin main \"$BRANCH\" 2>/dev/null || true` updates NEITHER ref when the branch is gone — and `commit-to-main` merges with `--delete-branch`, so on the SUCCESS path the landing branch IS gone by the time the assertion runs. The assertion then read a checkout-time `origin/main` that PREDATES the merge and reported `absent`. MEASURED on gld-compat-matrix run 33340468235: 'Land the corpus on main' SUCCEEDED in 95s (so `verify-merged` observed MERGED, and PR #10535 is in main's history), then 'Assert the rows actually landed' failed INSTANTLY. Mechanism verified directly, not inferred — against a real deleted branch, `git fetch origin main <gone>` prints `fatal: couldn't find remote ref` and leaves origin/main un-updated; against a branch that still exists the same command succeeds and updates it. ⚠️ AN ASSERTION BUILT TO STOP FALSE 'landed' CLAIMS WAS MANUFACTURING FALSE 'absent' ONES, which is the worse direction: it fails correct runs, and a check that is red when the system works is the desensitized-alarm P1. The `|| true` is what hid the fatal.",
+      "detail": "FIXED as two fetches: the default branch on its own and WITHOUT `|| true` (a swallowed failure there is precisely 'we did not look' rendered as 'the rows are absent'), then the landing branch separately and tolerantly, with `--pushed-ref` passed ONLY when that branch actually resolves — a --pushed-ref naming a deleted ref would make `pending_merge` unreadable again, which is the defect BL-20260830 already covers one layer up. The gone-branch path SAYS SO in the log rather than leaving a reader to infer it from an absent flag.\n\n⚠️ FIXED IN THE SIBLING TOO, WHERE IT IS LATENT RATHER THAN ACTIVE. e35-bracket-sweep.yml carries the identical combined fetch; it pushes its TARGET branch WITHOUT a PR, so nothing deletes it and the fetch succeeds today. It becomes active the moment a merged TARGET is deleted. Fixing only the tree just proven is the recurrence pattern this repo keeps paying for (the pytest-run short-circuit class reached FIVE instances that way).\n\nFOUND BY the armed research-queue cron firing for real. The dispatcher's own failure was a different defect; this one only surfaced because the dispatched gld-compat runs ALSO read as failed while their landing PRs (#10535, #10537) were plainly merged on main — a contradiction that had to be resolved rather than filed as 'both failed'.",
+      "resolution_criteria": "RESOLVED in both workflows, with five pins and a positive control (exactly those five fail against the pre-fix files, the other sixteen unmoved). ⚠️ NOT closed as a CLASS: no guard forbids a combined `git fetch` of a required ref and an optional one, and there are other multi-ref fetches in .github/workflows/. The open half is to establish whether any remaining one can name a ref that may legitimately vanish — ⚠️ with the denominator stated, not by a grep that returned nothing.",
+      "found_by": "session 765316b0 — surfaced by the probe cron's dispatched runs, 2026-08-31",
+      "related": [
+        "BL-20260831-ARMED-CRON-DEADLOCKED-ON-A-TEST-THAT-NEEDS-THE-QUEUE-TO-HAVE-WORK",
+        "BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH"
+      ]
     }
   ]
 }
