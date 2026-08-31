@@ -33,15 +33,52 @@ runs.
 
 | state | meaning |
 |---|---|
-| `cleared` | declares n, effect and basis; n meets the floor |
-| `underpowered` | declares them and n is below the floor — **blocked**, converts to a data-acquisition task |
-| `undeclared` | does not declare them — **blocked**, and emphatically not "fine" |
-| `unverifiable` | declared, but `basis` is missing — a number with no derivation is a wish |
-| `not_applicable` | `kind: deterministic` with a written `why_not_inferential` |
+| state | meaning | runs? |
+|---|---|---|
+| `cleared` | declares n, effect and basis; n meets the floor AND observed data supports it | yes |
+| `accruing` | declared data-acquisition — the author states up front it cannot answer yet, and what would change that | **yes** |
+| `not_applicable` | `kind: deterministic` with a written `why_not_inferential` | yes |
+| `underpowered` | n is below the floor — the DESIGN asks for too small a sample | **yes** |
+| `infeasible` | n clears the floor and **observed data refutes it** — the SCOPE is wrong, not the design | **yes** |
+| `undeclared` | does not declare them — emphatically not "fine" | blocked |
+| `unverifiable` | declared, but `basis` or `feasibility` is missing / unreadable | blocked |
 
-⚠️ **`not_applicable` is not `cleared`.** A deterministic job faced no bar; a
-cleared one faced it and met it. Tallying them together would report "N jobs
-cleared the power gate" over a population where some never took the test.
+⚠️ **`underpowered` and `infeasible` RUN as of 2026-08-31, and this table said
+`blocked` until then — do not re-quote that.** Operator directive: *"I'd rather
+err on the lenient side here and not exclude tests that may [give] some
+insights."* Both are verdicts about how much DATA exists, not about whether the
+run is worth making: a sweep over a thin leg still emits real numbers, what it
+cannot emit is a POWERED verdict. Blocking was also self-fulfilling — a leg that
+never runs never accrues the trades that would clear its own floor.
+
+⚠️ **The front-end guard did not go away; it narrowed to the two states it was
+always about.** The original ask was that an experiment "provide certain
+statistical relevance expectations based on data" before entering the queue.
+That is `undeclared` (nobody did the arithmetic) and `unverifiable` (we cannot
+check the arithmetic they did) — both still blocked. The distinction is the one
+the operator drew: a measurement that cannot produce results *yet* is
+legitimate and runs; one nobody thought about is refused.
+
+⚠️ **Leniency at the front door is only safe because of strictness at the
+reading.** Three things carry it: the verdict is stamped onto every row the run
+lands (`research_power_state`), `research_disposition.py --report` prints the
+admission census, and `research_disposition.append` **refuses** to close any
+`accruing` / `underpowered` / `infeasible` unit with a terminal verdict
+(`actioned`, `no_action_warranted`). A test pins the runnable set and the
+refusal set together so neither can widen alone.
+
+⚠️ **Five different states may run, for five different reasons.**
+`not_applicable` faced no bar, `cleared` faced it and met it, `accruing` faced
+it and declared up front it would fail, `underpowered` and `infeasible` faced it
+and fell short by design and by data respectively. Tallying them together
+reports "N jobs cleared the power gate" over a population where most did not.
+Consumers must branch on the state, never on `runnable`.
+
+⚠️ **`underpowered` and `infeasible` are not interchangeable**, and reporting one
+as the other sends the author to rewrite the wrong half of their design.
+*Underpowered* = your n is too small for your own effect size → fix the design.
+*Infeasible* = your n is fine on paper and these legs cannot deliver it → narrow
+the scope, declare accrual, or wait for data.
 
 **Route** (`route_state`) — `runner` · `trainer` · `gpu` · `unroutable`.
 `unroutable` is a **refusal**, never a fallback: a job declaring both a GPU and
@@ -80,6 +117,31 @@ power:
   alpha: 0.05                # 0.10 | 0.05 | 0.01 — untabulated values are REFUSED
   power: 0.80                # 0.80 | 0.90 | 0.95
   basis: >-                  # HOW expected_n was derived. Empty ⇒ unverifiable.
+
+  # REQUIRED. `basis` is prose and cannot be checked — this is the part the gate
+  # goes and VERIFIES. Its own comment said "a number with no stated derivation
+  # is a wish", but any non-empty string was accepted as the derivation, which
+  # is the `new-table-wiring-guard` lesson: a guard cheaper to lie to than to
+  # satisfy is worse than no guard. Worked example — RQ-20260830-002 declared
+  # expected_n: 50 against a floor of 49.06 and CLEARED, legitimately, by 0.94,
+  # while 5 of its 14 legs are 1d equity legs (~20 trades/year) that achieved
+  # 4, 5, 6, 7 and 8. Knowable in advance. Nothing asked.
+  feasibility:
+    source: corpus           # corpus | none
+    corpus: e35              # a key in research_disposition.CORPORA
+    statistic: min_per_leg   # min_per_leg | median_per_leg | max_per_leg
+    legs: [trend_donchian]   # OPTIONAL but usually right — scopes the statistic
+                             # to the legs THIS job runs on. Without it a
+                             # per-leg claim is graded against a fleet-wide
+                             # number: e35's fleet max is 50 (sol_4h) while
+                             # trend_donchian has never exceeded 49, so an
+                             # unscoped max_per_leg would certify a single-leg
+                             # job on a DIFFERENT leg's data.
+    # For a genuinely new leg with no history, use instead:
+    #   source: none
+    #   accrual_basis: >-    # REQUIRED with `none`, or it is an opt-out rather
+    #                        # than an answer. Say why no observed data supports
+    #                        # expected_n and what would change that. ⇒ accruing.
 
 # kind: deterministic → required instead
 why_not_inferential: >-      # why no sample/effect applies. Empty ⇒ blocked.

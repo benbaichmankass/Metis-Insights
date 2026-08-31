@@ -58,6 +58,80 @@ from src.runtime.strategy_monocle import (  # noqa: E402
     _same_bar_entry_for_strategy,
 )
 
+def _fanout_apply_rounds(signal):
+    """The per-account dispatch rounds, or ``[]`` when the fan-out is not armed.
+
+    ``apply_rounds`` is written ONLY by
+    ``intent_multiplexer._attach_fanout_plan`` and ONLY when
+    ``ARBITRATION_FANOUT_MODE=apply`` AND at least one electing account is on
+    the ``ARBITRATION_FANOUT_ACCOUNTS`` allowlist. At the shipped ``annotate``
+    default the key is absent and this returns ``[]``, so the caller takes the
+    unchanged single-dispatch path byte-for-byte.
+
+    Fail-**closed**: any malformed plan returns ``[]`` and falls back to the
+    global-winner dispatch. Losing the fan-out costs a starved account one
+    tick — the state the system is already in — whereas acting on a plan we
+    could not read is a live order on unverified routing.
+    """
+    try:
+        plan = ((signal or {}).get("meta") or {}).get("arbitration_fanout") or {}
+        rounds = plan.get("apply_rounds") or []
+        out = []
+        for r in rounds:
+            if not isinstance(r, dict):
+                return []
+            if not r.get("strategy") or not r.get("accounts"):
+                return []
+            if r.get("side") not in ("long", "short"):
+                return []
+            if r.get("entry") is None or r.get("sl") is None or r.get("tp") is None:
+                return []
+            out.append(r)
+        return out
+    except Exception:  # noqa: BLE001 — an unreadable plan is "no fan-out"
+        logger.debug("arbitration_fanout: apply_rounds unreadable", exc_info=False)
+        return []
+
+
+def _round_order_package(signal, round_, settings):
+    """Build ONE round's OrderPackage from the ELECTED strategy's own geometry.
+
+    Deliberately NOT ``_signal_to_order_package`` with a patched strategy name:
+    that would carry the GLOBAL winner's entry/sl/tp under a different
+    strategy's name — placing one strategy's trade under another's label, which
+    is worse than the starvation this fixes. Every price here comes from the
+    elected candidate.
+    """
+    from src.core.coordinator import OrderPackage
+
+    try:
+        meta = dict((signal or {}).get("meta") or {})
+        meta["strategy_name"] = str(round_["strategy"])
+        # The tick's plan is shared context, not this round's decision — strip
+        # it so a package can never be mistaken for carrying its own fan-out.
+        meta.pop("arbitration_fanout", None)
+        meta["arbitration_fanout_round"] = {
+            "strategy": str(round_["strategy"]),
+            "accounts": list(round_["accounts"]),
+        }
+        return OrderPackage(
+            strategy=str(round_["strategy"]),
+            symbol=str((signal or {}).get("symbol") or settings.get("SYMBOL") or "BTCUSDT"),
+            direction=str(round_["side"]),
+            entry=float(round_["entry"]),
+            sl=float(round_["sl"]),
+            tp=float(round_["tp"]),
+            confidence=float(round_.get("confidence") or 0.0),
+            meta=meta,
+        )
+    except Exception:  # noqa: BLE001 — a bad round is skipped, never guessed at
+        logger.warning(
+            "arbitration_fanout: could not build package for round %r — skipping",
+            (round_ or {}).get("strategy"), exc_info=False,
+        )
+        return None
+
+
 _OUTCOME_LEVEL_BY_STATUS: Dict[str, Level] = {
     # Happy / expected
     "submitted": Level.INFO,
@@ -918,11 +992,42 @@ def run_pipeline(
                             )
                     else:
                         pkg = _signal_to_order_package(signal, settings)
-                        with _phase("dispatch"):
-                            multi_results = coord.multi_account_execute(pkg)
-                        _sized_qty = (pkg.meta or {}).get(
-                            "sized_qty_by_account", {}
-                        )
+                        _rounds = _fanout_apply_rounds(signal)
+                        if _rounds:
+                            # Per-account arbitration fan-out. One dispatch
+                            # round per DISTINCT elected strategy, each scoped
+                            # to the accounts that elected it — so an account
+                            # whose own candidate lost the GLOBAL election is
+                            # no longer dropped by `pkg.strategy in assigned`
+                            # and silenced without a journal row.
+                            multi_results = []
+                            _sized_qty = {}
+                            with _phase("dispatch"):
+                                for _round in _rounds:
+                                    _rp = _round_order_package(
+                                        signal, _round, settings
+                                    )
+                                    if _rp is None:
+                                        continue
+                                    multi_results.extend(
+                                        coord.multi_account_execute(
+                                            _rp,
+                                            account_scope=frozenset(
+                                                _round["accounts"]
+                                            ),
+                                        )
+                                    )
+                                    _sized_qty.update(
+                                        (_rp.meta or {}).get(
+                                            "sized_qty_by_account", {}
+                                        )
+                                    )
+                        else:
+                            with _phase("dispatch"):
+                                multi_results = coord.multi_account_execute(pkg)
+                            _sized_qty = (pkg.meta or {}).get(
+                                "sized_qty_by_account", {}
+                            )
                     result = {
                         "status": "multi_account_dispatched",
                         "multi_account_results": multi_results,

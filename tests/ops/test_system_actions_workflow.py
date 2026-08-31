@@ -125,6 +125,12 @@ EXPECTED_ACTIONS = {
     # (which fills NULLs). Wraps migrate_closed_at_to_iso.py.
     "migrate-closed-at-iso": "migrate_closed_at_to_iso_action.sh",
     "pull-exchange-fills": "pull_exchange_fills_action.sh",
+    # Bybit's OWN wallet ledger (/v5/account/transaction-log) into the
+    # venue-truth store. The on-demand sibling of the hourly 7-day timer:
+    # only this path can ask for the deep ACTION_DAYS window a HISTORICAL
+    # gap needs, and the deep window is WALKED in <=7-day chunks because
+    # Bybit caps the queryable RANGE, not the retention.
+    "pull-bybit-transaction-log": "pull_bybit_transaction_log_action.sh",
     # Slice B / B1 — pull perp funding into the exchange_funding store so the
     # broker-truth sweep can attribute funding_paid_usd.
     "pull-exchange-funding": "pull_exchange_funding_action.sh",
@@ -336,6 +342,7 @@ TIER_2_ACTIONS = {
     "backfill-exit-labels",
     "migrate-closed-at-iso",
     "pull-exchange-fills",
+    "pull-bybit-transaction-log",
     "pull-exchange-funding",
     "pull-mes-ibkr-history",
     "pull-mes-ibkr-history-daily",
@@ -915,3 +922,67 @@ def test_workflow_parses_and_forwards_both_force_keys():
         assert f"'^[[:space:]]*{key}[[:space:]]*:'" in wf, f"{key} not parsed"
         assert f'echo "{env}=' in wf, f"{env} not exported to GITHUB_ENV"
         assert f"{env}=$(printf '%q'" in wf, f"{env} not forwarded in REMOTE_CMD"
+
+
+def test_every_wrapper_that_reads_ACTION_DAYS_has_it_FORWARDED() -> None:
+    """A windowed action whose ACTION_DAYS never reaches the VM silently runs
+    its DEFAULT window and exits 0 over it.
+
+    MEASURED 2026-08-31, on this session's own change.
+    `pull-bybit-transaction-log` was registered in EXPECTED_ACTIONS, the tier
+    alternation, the choice options, notify_run.sh and the docs -- and NOT in
+    the word list that forwards ACTION_DAYS over SSH. Its wrapper reads
+    `DAYS="${ACTION_DAYS:-7}"`, so a dispatch asking for ACTION_DAYS=60 would
+    have pulled **7 days** and reported success.
+
+    Not cosmetic: that action exists ONLY to close a 48-day historical gap in
+    the real-money broker-truth ledger, so a 7-day run is precisely the "reports
+    success over almost nothing" failure its own docstring warns about, and the
+    green would have been read as a completed backfill.
+
+    The comment above that `case` already said "The next windowed action should
+    be a word here, not a new branch." It was not followed. A comment cannot
+    enforce; this can.
+
+    ⚠️ FORWARDING HAS TWO SHAPES AND BOTH COUNT. Three actions use the `case`
+    word list; five use their own `if [ "${ACTION}" = ... ]` branch because they
+    forward other variables alongside. A probe that checked only the case list
+    reports those five as broken -- it did, on the first draft, and they are
+    fine. The denominator has to cover both or the test manufactures findings.
+    """
+    wf = WORKFLOW.read_text()
+
+    case_m = re.search(
+        r'case\s+"([^"]*)"\s+in\s*\n\s*\*"\s*\$\{ACTION\}\s*"\*\)\s*\n'
+        r'\s*REMOTE_CMD="ACTION_DAYS=',
+        wf,
+    )
+    forwarded = set(case_m.group(1).split()) if case_m else set()
+
+    lines = wf.splitlines()
+    for i, ln in enumerate(lines):
+        g = re.search(r'if \[ "\$\{ACTION\}" = "([a-z0-9-]+)" \]; then', ln)
+        if g and i + 1 < len(lines):
+            nxt = lines[i + 1]
+            if "REMOTE_CMD=" in nxt and "ACTION_DAYS=" in nxt:
+                forwarded.add(g.group(1))
+
+    assert forwarded, ("found no ACTION_DAYS forwarding at all -- the probe is "
+                       "broken, not the workflow (a negative needs a denominator)")
+
+    needs = sorted(
+        action for action, script in EXPECTED_ACTIONS.items()
+        if (OPS_DIR / script).is_file()
+        and "ACTION_DAYS" in (OPS_DIR / script).read_text(encoding="utf-8")
+    )
+    assert needs, ("no wrapper reads ACTION_DAYS -- the probe found nothing to "
+                   "check, which means it is broken")
+
+    missing = [a for a in needs if a not in forwarded]
+    assert not missing, (
+        f"wrapper(s) {missing} read ACTION_DAYS but the workflow never forwards "
+        f"it, so each silently runs its DEFAULT window and reports success over "
+        f"it. Add the action as a WORD to the `case` list in system-actions.yml "
+        f"(preferred), or forward it in its own if-branch alongside whatever "
+        f"else it needs."
+    )

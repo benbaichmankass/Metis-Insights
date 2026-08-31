@@ -70,7 +70,7 @@ jobs:
         github.event.issue.user.login == 'github-actions[bot]') &&
        contains(github.event.issue.labels.*.name, 'gld-compat-matrix-request'))
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
         with:
@@ -420,12 +420,40 @@ jobs:
           # the file? `if: always()` means it still reports honestly when the
           # landing step failed — `pending_merge`, naming the owed merge, rather
           # than `absent`, which would allege the run produced nothing.
-          git fetch origin "${DEFAULT_BRANCH:-main}" "${LAND_BRANCH}" 2>/dev/null || true
+          # ⚠️ TWO FETCHES, NOT ONE, AND THE FIRST MUST SUCCEED.
+          #
+          # This was `git fetch origin main "${LAND_BRANCH}" ... || true` and it
+          # produced a FALSE NEGATIVE on a run that fully succeeded (33340468235).
+          # `commit-to-main` merges with --delete-branch, so on the SUCCESS path
+          # the landing branch is GONE by the time this runs. `git fetch` aborts
+          # atomically on an unknown refspec — verified, not assumed: with a real
+          # deleted branch it prints `fatal: couldn't find remote ref` and does
+          # NOT update origin/main — so `main` was never fetched either, the
+          # assertion read the checkout-time ref that PREDATES the merge, and
+          # reported `absent` for rows that were already on main. The `|| true`
+          # swallowed the fatal.
+          #
+          # An assertion built to stop false "landed" claims was manufacturing
+          # false "absent" ones, which is the worse direction here: it fails a
+          # correct run and trains the reader to ignore it.
+          git fetch origin "${DEFAULT_BRANCH:-main}"
+
+          # The landing branch may legitimately be absent — that IS the merged
+          # case. Fetch it separately and tolerantly, and only claim a pushed-ref
+          # when we actually hold one; passing a ref that does not resolve would
+          # make `pending_merge` unreadable again.
+          PUSHED=()
+          if git fetch origin "${LAND_BRANCH}" 2>/dev/null; then
+            PUSHED=(--pushed-ref "origin/${LAND_BRANCH}")
+            echo "landing branch still present — pending_merge is distinguishable"
+          else
+            echo "landing branch is gone (deleted on merge) — its rows must be on ${DEFAULT_BRANCH:-main}"
+          fi
           echo "asserting THIS run's rows: run_generated_at=${STAMP}"
           python3 scripts/ci/assert_rows_landed.py \
             --store docs/research/gld-compat-matrix-verdicts.jsonl \
             --ref "origin/${DEFAULT_BRANCH:-main}" \
-            --pushed-ref "origin/${LAND_BRANCH}" \
+            "${PUSHED[@]}" \
             --field run_generated_at --contains "${STAMP}" --min-rows 1
 
       # `if: always()` — a failed landing assertion must not also destroy the

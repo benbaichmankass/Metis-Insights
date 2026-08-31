@@ -1,0 +1,156 @@
+# TRADE-PRIORITISATION RESEARCH — A DESIGN, NOT A DISPATCHABLE JOB.
+#
+# ⚠️ THIS LIVES HERE AND NOT IN `research/queue/` DELIBERATELY. It was written
+# as an RQ job first; the dispatcher's validator correctly refused it, because
+# `run.workflow` and `lands.store` are REQUIRED and neither exists yet — the
+# work it describes needs a harness arm built before any workflow could fire it
+# (see `blocked_on`). Setting `status: blocked` did not help: the validator
+# demands those fields whatever the status, so the README's documented
+# `blocked` status is currently unrepresentable
+# (BL-20260831-RESEARCH-QUEUE-CANNOT-EXPRESS-A-BLOCKED-JOB).
+#
+# Leaving it in the queue would have printed `invalid=1` on EVERY dispatcher
+# run — an alarm firing on correct content, which this repo treats as its own
+# P1. So the design is preserved intact here and tracked from the
+# performance-review backlog; promote it back into `research/queue/` verbatim
+# once the two blockers are cleared.
+#
+# Tracked by: BL-20260831-TRADE-PRIORITISATION-IS-UNPROVEN-CONFIDENCE-IS-A-START-NOT-A-RESULT
+
+id: RQ-20260831-002
+title: Establish how competing trades should be prioritised — confidence is a start, not a proof
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  When two or more strategies contend for the same symbol on the same tick, which
+  ranking signal picks the trade that actually performs better? Confidence became
+  the live primary key on 2026-08-31 because it is evidence about the trade
+  rather than about the strategy's NAME, which is what it replaced. That was a
+  correctness argument, NOT a demonstration that confidence maximises outcome —
+  and the operator asked for exactly that distinction to be carried as open work:
+  "the confidence score is a good start, but it isn't proven that it's
+  necessarily what's gonna give us the best trade every time".
+
+why_this_and_not_the_existing_soak: >-
+  `conviction_arbitration` has logged would-be-vs-actual since 2026-06-17 and is
+  what justified the switch — but it measures AGREEMENT, never OUTCOME. It can
+  say confidence would have picked a different strategy on 51.5% of contests
+  (n=371, 2026-06-17 -> 2026-08-30); it cannot say whether that strategy would
+  have made money. Now that conviction IS the live key, that soak's
+  `agrees_with_actual` largely degenerates and the open question moves entirely
+  to outcome. Nothing currently measures it.
+
+the_hard_part: >-
+  THIS IS A COUNTERFACTUAL PROBLEM AND A LIVE-ONLY DESIGN CANNOT SOLVE IT. We
+  observe the WINNER's outcome and never the loser's, so a live correlation
+  between `decided_by` and realised R is confounded by which strategies tend to
+  win under each tier. The counterfactual is only observable by REPLAY, which is
+  why this job is routed to `scripts/backtest_system.py` — it routes signals
+  through the REAL `aggregate_intents`, so swapping the ranking key and
+  re-running is a genuine A/B over the same price history.
+  ⚠️ The harness manages ONE shared book, so it measures the ranking key, NOT the
+  per-account fan-out. Do not read a result here as evidence about fan-out
+  routing; that is a separate question with its own OPEN-ITEMS row
+  (OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED).
+
+arms:
+  - name: confidence_first
+    detail: the shipped 2026-08-31 key — confidence -> declared priority -> recent 3d PnL -> timestamp -> name
+  - name: priority_first
+    detail: the pre-2026-08-31 key, as the baseline the switch was made against
+  - name: recent_pnl_first
+    detail: promote the track-record tier above confidence
+  - name: random_tiebreak
+    detail: >-
+      THE CONTROL, and the arm most likely to be skipped and most necessary. If
+      confidence_first does not beat a random tiebreak, the ranking is decorative
+      and the honest finding is that arbitration order does not matter — which is
+      a publishable negative, not a failure.
+
+power:
+  expected_n: 1780
+  min_detectable_effect: 0.2
+  effect_units: sd
+  design: two_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    The unit is a CONTESTED tick (>= 2 non-flat intents on one symbol), because
+    an uncontested tick has no ranking to evaluate. Measured on the live
+    `conviction_arbitration` soak: 371 contests over the 74 days from
+    2026-06-17T18:16Z to 2026-08-30T23:34Z = 5.01/day, so a 365-day replay at the
+    same strategy density yields ~1,829; 1,780 is that figure rounded down as the
+    declared expectation. The two_sample floor at d=0.2 is
+    2*(1.96+0.8416)^2/0.2^2 = 393 per group, so this clears by ~4.5x.
+    ⚠️ THREE CAVEATS, none of which the floor accounts for. (1) The 5.01/day rate
+    is from the LIVE roster; a replay's contest density depends on which
+    strategies the harness actually covers, and its documented v1 coverage is a
+    SUBSET (four BTCUSDT members). If the replay's realised contest count comes
+    in far under 1,780, this job is underpowered in fact whatever this block
+    declares — RECORD THE ACHIEVED COUNT and re-grade, the same failure
+    RQ-20260831-001 exists to fix for the e35 corpus. (2) Backtest trade
+    sequences are autocorrelated, so the iid floor is a LOWER bound and the true
+    requirement is higher. (3) Four arms means multiplicity; declare the
+    correction before reading any pairwise result.
+
+route: runner
+
+blocked_on: >-
+  NO WORKFLOW CAN FIRE THIS YET, and saying otherwise would be the exact defect
+  this queue's own validator caught when this file first declared none. Two
+  things are missing, in order:
+  (1) `scripts/backtest_system.py` has no ARM for the ranking key — it routes
+  signals through the REAL `aggregate_intents`, which is what makes it the right
+  harness, but that also means it always uses whatever key is compiled in. It
+  needs a flag selecting the arm (the same shape as its existing
+  `--flip-policy`), so the four arms below are reachable at all.
+  (2) A dispatchable workflow wrapping that run, matching the shape of
+  `e35-bracket-sweep.yml`, plus a `lands.store` for the per-arm rows.
+  ⚠️ THIS IS DELIBERATELY `blocked` AND NOT `queued`. A queued job with a
+  fabricated `run.workflow` would be dispatched, fail, and read as a broken job
+  rather than as unbuilt capability — and the dispatcher would have been told a
+  workflow exists when it does not. `blocked` is the honest state and the
+  register bounds it: it names what unblocks it rather than expiring.
+
+success_criteria: >-
+  A ranking is preferred only if it beats `random_tiebreak` on net-of-cost
+  outcome at the declared power, on the CONTESTED subset (not the whole book —
+  including uncontested ticks dilutes the effect toward zero and would make every
+  arm look identical). Report per-arm: net PnL, expectancy in R, maxDD, and the
+  contested-tick count actually achieved.
+  ⚠️ A NULL RESULT IS A REAL RESULT AND MUST BE RECORDED AS ONE. If no arm beats
+  the control, the finding is that arbitration order does not drive outcome at
+  this sample, and the correct follow-up is to stop investing in the ranking and
+  look at why — most likely the confidence score itself (see below).
+
+known_confound: >-
+  THE CONFIDENCE SCORE IS PARTLY SATURATED and this job cannot separate "the
+  ranking signal is wrong" from "the signal is right but too blunt to act on".
+  Measured: `1.0` is 20.5% of per-intent observations, and 50.1% of contests have
+  EVERY contender at an identical confidence, so on half the population
+  confidence cannot rank at all and the outcome attributed to `confidence_first`
+  is really the outcome of the tier below it. Read this job's result beside
+  BL-20260831-CONFIDENCE-SATURATES-AT-ONE-SO-HALF-OF-ARBITRATIONS-CANNOT-BE-DECIDED-ON-IT,
+  and stratify by the live `decided_by` field so the two halves are reported
+  separately rather than averaged into one uninterpretable number.
+
+refs:
+  - PR #10544
+  - BL-20260831-CONFIDENCE-SATURATES-AT-ONE-SO-HALF-OF-ARBITRATIONS-CANNOT-BE-DECIDED-ON-IT
+  - BL-20260831-CONFIDENCE-IS-CARRIED-TO-THE-ELECTION-AND-READ-BY-NEITHER-SORT-KEY
+  - OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED
+  - src/runtime/intents.py::_election_sort_key
+  - src/runtime/election_track_record.py
+  - docs/research/M18-allocator-backtest-findings-2026-06-29.md
+
+prior_art: >-
+  M18's capital allocator asked an adjacent question — whether an EV-ranked
+  SELECTION beats dumb priority across the opportunity set — and the answer was
+  NO: sizing-normalised edge -$7, ranker OOS AUC ~0.51. That is the closest
+  precedent and it is a negative one, which is why `random_tiebreak` is a
+  declared arm here rather than an afterthought. ⚠️ It is NOT the same question
+  (that ranked ACROSS symbols for capital allocation; this ranks WITHIN one
+  symbol for arbitration) so it does not settle this — but a session proposing to
+  skip the control should read it first.
