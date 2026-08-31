@@ -1,0 +1,68 @@
+id: RQ-20260831-002
+title: Thin-leg bracket-geometry accrual — the five 1d equity legs that cannot reach the power floor
+status: queued
+cadence: monthly
+kind: experiment
+question: 'Are the shipped bracket-geometry cells on the five LOW-FREQUENCY 1d equity
+  legs (iwm, mgc, qqq, scha, spy) still behaving as they did when they shipped? This
+  job exists to ACCRUE the observations that might one day answer that, not to answer
+  it now — see power.feasibility.accrual_basis. Split out of RQ-20260830-002 on 2026-08-31
+  by operator decision, because pooling them with the nine capable legs made a single
+  unit that could satisfy neither: the thin legs dragged any min_per_leg feasibility
+  claim to 4, while their presence let a fleet-wide statistic launder the fact that
+  they cannot reach the floor at all.'
+power:
+  expected_n: 8
+  min_detectable_effect: 0.4
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'expected_n is the BEST achieved OOS count across these five legs, measured
+    on run 33361845836 (2026-08-31): scha 4, iwm 5, qqq 6, mgc 7, spy 8. It is deliberately
+    NOT 50 — the sweep TARGETS 50, and these legs cannot deliver it. Stating 8 is stating
+    what the data shows; stating 50 would restate the target back as if it were a measurement,
+    which is the exact substitution the feasibility check exists to catch. ⚠️ 8 IS FAR
+    BELOW the 49.06 floor for d=0.4 and that is the POINT: this unit does not claim to
+    be powered, it claims to be honest about not being.'
+  feasibility:
+    source: none
+    accrual_basis: >-
+      DECLARED ACCRUAL. These five legs trade roughly 20 times a year, so the OOS window
+      the sweep can place holds 4 to 8 trades against a floor of 49.06. No cadence fixes
+      that — at 20 trades/year a 49-trade OOS window is about two and a half YEARS of
+      forward data, and the split derivation cannot manufacture trades that were never
+      taken. So this job runs to accumulate observations and to keep the geometry under
+      periodic eyes; NO verdict it produces may be read as evidence a shipped cell has
+      decayed. WHAT WOULD CHANGE THIS, in order of plausibility: (1) accept a much larger
+      min_detectable_effect for this leg family specifically — d=1.0 puts the floor at
+      7.85, which 8 clears, and would let this become a real (if coarse) test; (2) pool
+      the five legs into one cross-sectional test rather than five per-leg ones, which
+      changes the unit of analysis and needs its own design; (3) wait years. Option (1)
+      is the cheap one and is a research-design call, not a code change.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 35
+  basis: Runner. e35-bracket-sweep.yml shards ONE LEG PER JOB and fetches its own candles,
+    so no VM is touched and peak memory is per-shard. est_minutes is 5 legs at max_parallel
+    6, i.e. a single wave of the ~25 min a leg takes — an ESTIMATE carried over from
+    RQ-20260830-001's single-leg timing, not a measurement of this fan-out.
+run:
+  workflow: e35-bracket-sweep.yml
+  inputs:
+    research_unit: RQ-20260831-002
+    only: iwm_trend_long_1d,mgc_pullback_1d,qqq_trend_long_1d,scha_trend_long_1d,spy_trend_long_1d
+    days: '1830'
+    gate_top: '2'
+    singles_only: 'false'
+    max_parallel: '6'
+lands:
+  store: docs/research/e35-bracket-corpus.jsonl
+  assert_field: leg
+  min_rows: 1
+  note: 'min_rows is 1, not 5, for the reason RQ-20260830-002 states: the sweep shards
+    per leg and one leg''s data fetch can fail, so requiring all 5 would grade a 4-of-5
+    run as a LANDING failure — a different defect from "nothing landed", and this gate
+    only catches the latter.'

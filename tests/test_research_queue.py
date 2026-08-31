@@ -180,10 +180,12 @@ def test_every_declared_power_state_is_produced_by_some_input():
             grade_power(_entry(power={"expected_n": 400, "min_detectable_effect": 0.3})).state,
             grade_power(_entry(kind=KIND_DETERMINISTIC, why_not_inferential="x")).state,
             # accruing: declared data-acquisition, runs but is not a test
-            grade_power(_entry(power={"expected_n": 5, "min_detectable_effect": 0.3,
-                                      "basis": "b",
-                                      "feasibility": {"source": "none",
-                                                      "accrual_basis": "no history yet"}})).state,
+            grade_power(_entry(
+                power={"expected_n": 5, "min_detectable_effect": 0.3, "basis": "b",
+                       "feasibility": {"source": "none",
+                                       "accrual_basis": "no history yet"}},
+                run={"workflow": "w.yml",
+                     "inputs": {"research_unit": "RQ-20260827-999"}})).state,
         }
     # infeasible needs an observation that REFUTES the declared n, so it cannot
     # share the generous patch above.
@@ -359,6 +361,9 @@ def test_dispatcher_is_a_dry_run_unless_fire_is_passed(tmp_path):
     job["power"] = dict(job["power"],
                         feasibility={"source": "none",
                                      "accrual_basis": "fixture: no corpus history"})
+    # An accruing unit must thread its own id to the producer, or the "do not
+    # read this as a test result" label never reaches the rows it lands.
+    job["run"] = dict(job["run"], inputs={"research_unit": "RQ-20260827-999"})
     (tmp_path / "RQ-20260827-999.yaml").write_text(yaml.safe_dump(job, sort_keys=False))
     out = _run_dispatcher("--queue-dir", str(tmp_path), "--json")
     assert out.returncode == 0, out.stderr
@@ -480,7 +485,7 @@ def test_the_gpu_cap_actually_stops_the_second_burst(tmp_path, monkeypatch):
         )
     fired: list = []
     monkeypatch.setattr(dq, "_fire",
-                        lambda entry, *, route, ref: (fired.append(entry["id"]), (True, "stub"))[1])
+                        lambda entry, *, route, ref, power_state='': (fired.append(entry["id"]), (True, "stub"))[1])
     rc = dq.main(["--queue-dir", str(tmp_path), "--fire",
                   "--max-gpu-dispatches-per-run", "2", "--json"])
     assert rc == 0
@@ -501,7 +506,7 @@ def test_a_failed_fire_is_not_stamped(tmp_path, monkeypatch):
         "run: {workflow: w.yml}\n"
         "lands: {store: docs/research/x.jsonl}\n"
     )
-    monkeypatch.setattr(dq, "_fire", lambda entry, *, route, ref: (False, "boom"))
+    monkeypatch.setattr(dq, "_fire", lambda entry, *, route, ref, power_state='': (False, "boom"))
     dq.main(["--queue-dir", str(tmp_path), "--fire"])
     assert yaml.safe_load(job.read_text()).get("last_dispatched_at") is None
 
@@ -520,7 +525,7 @@ def test_a_successful_fire_is_stamped(tmp_path, monkeypatch):
         "run: {workflow: w.yml}\n"
         "lands: {store: docs/research/x.jsonl}\n"
     )
-    monkeypatch.setattr(dq, "_fire", lambda entry, *, route, ref: (True, "stub"))
+    monkeypatch.setattr(dq, "_fire", lambda entry, *, route, ref, power_state='': (True, "stub"))
     dq.main(["--queue-dir", str(tmp_path), "--fire"])
     assert yaml.safe_load(job.read_text()).get("last_dispatched_at")
 
@@ -692,10 +697,11 @@ def test_source_none_without_an_accrual_basis_is_not_a_free_pass():
 def test_accruing_runs_but_is_never_cleared():
     """The state that makes tightening admission safe: without it a thin leg
     must either lie about its n or be blocked outright."""
-    v = grade_power(_entry(power={"expected_n": 5, "min_detectable_effect": 0.3,
-                                  "basis": "b",
-                                  "feasibility": {"source": "none",
-                                                  "accrual_basis": "no history yet"}}))
+    v = grade_power(_entry(
+        power={"expected_n": 5, "min_detectable_effect": 0.3, "basis": "b",
+               "feasibility": {"source": "none", "accrual_basis": "no history yet"}},
+        run={"workflow": "w.yml",
+             "inputs": {"research_unit": "RQ-20260827-999"}}))
     assert v.state == ACCRUING
     assert v.runnable, "you cannot accrue data without running"
     assert ACCRUING != CLEARED and ACCRUING in RUNNABLE_POWER_STATES
@@ -711,3 +717,88 @@ def test_the_corpus_reader_works_however_this_module_was_imported():
     from scripts.research.research_queue import observed_n_by_leg as obs
     assert obs("e35"), "the live e35 corpus carries achieved counts; reader is blind"
     assert obs("no_such_corpus") == {}
+
+
+def test_accruing_requires_the_unit_to_thread_its_own_identity():
+    """`accruing` means "do not read this run's output as a test result" — a
+    claim about ROWS, made in a YAML file the rows never reference. Unless the
+    unit passes its id to the producer, the extractor stamps nothing, the rows
+    land indistinguishable from a real test's, and research_disposition grades
+    them as ordinary units.
+
+    That is the exact hole this requirement closes, and it was REAL: ACCRUING
+    shipped without it, and nothing outside research_queue.py referenced the
+    state at all.
+    """
+    block = {"expected_n": 5, "min_detectable_effect": 0.3, "basis": "b",
+             "feasibility": {"source": "none", "accrual_basis": "why"}}
+    # no run.inputs at all
+    v = grade_power(_entry(power=block, run={"workflow": "w.yml"}))
+    assert v.state == UNVERIFIABLE, "an unthreaded accruing unit must not pass"
+    assert "research_unit" in v.reason
+
+    # threaded, but naming a DIFFERENT unit — a copy-paste, which is the likely
+    # real-world failure and would stamp the wrong provenance onto the rows.
+    v2 = grade_power(_entry(power=block,
+                            run={"workflow": "w.yml",
+                                 "inputs": {"research_unit": "RQ-SOMEONE-ELSE"}}))
+    assert v2.state == UNVERIFIABLE, "a mismatched identity must not pass"
+
+
+def test_the_extractor_stamps_what_the_gate_promises():
+    """The two ends of the chain must agree on the key names, or the gate
+    enforces a declaration the producer never reads."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "_e35x", REPO / "scripts/research/e35_corpus_extract.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    src = (REPO / "scripts/research/e35_corpus_extract.py").read_text()
+    assert '"research_unit": research_unit' in src
+    assert '"research_power_state": research_power_state' in src
+    assert "RESEARCH_UNIT" in src and "RESEARCH_POWER_STATE" in src
+    # and the workflow must actually set them, or the stamp is always empty
+    wf = (REPO / ".github/workflows/e35-bracket-sweep.yml").read_text()
+    assert "RESEARCH_UNIT: ${{ inputs.research_unit }}" in wf
+    assert "RESEARCH_POWER_STATE: ${{ inputs.power_state }}" in wf
+
+
+def test_the_dispatcher_supplies_the_computed_power_state_not_a_declared_one(monkeypatch, tmp_path):
+    """`power_state` is a SAFETY label — "do not read this run's output as a
+    test result". A hand-written one in the YAML could drift from the verdict
+    the gate actually computed, which is the class of defect this whole chain
+    exists to close. So the unit opts in by naming ITSELF, and the dispatcher
+    rides the COMPUTED verdict alongside it.
+
+    Asserts the real call site, not a re-implementation of the injection: what
+    matters is that `_fire` is handed the graded state.
+    """
+    from scripts.research import dispatch_queue as dq
+    seen = {}
+
+    def _capture(entry, *, route, ref, power_state=""):
+        seen[entry["id"]] = power_state
+        return True, "stub"
+
+    monkeypatch.setattr(dq, "_fire", _capture)
+    job = _entry(id="RQ-20260827-999")
+    job["power"] = dict(job["power"],
+                        feasibility={"source": "none", "accrual_basis": "fixture"})
+    job["run"] = dict(job["run"], inputs={"research_unit": "RQ-20260827-999"})
+    (tmp_path / "RQ-20260827-999.yaml").write_text(yaml.safe_dump(job, sort_keys=False))
+    dq.main(["--queue-dir", str(tmp_path), "--fire", "--ref", "main"])
+
+    assert seen.get("RQ-20260827-999") == ACCRUING, (
+        f"the dispatcher must hand _fire the COMPUTED verdict; got {seen!r}"
+    )
+
+
+def test_fire_only_injects_power_state_for_a_unit_that_named_itself():
+    """`gh workflow run -f <input-the-workflow-never-declared>` ERRORS, so blind
+    injection would break every caller that has not declared the input. Opting
+    in by declaring `research_unit` is the unit asserting its workflow takes
+    both."""
+    src = (REPO / "scripts/research/dispatch_queue.py").read_text()
+    assert 'if inputs.get("research_unit") and power_state:' in src, (
+        "the injection must be conditional on the unit having named itself"
+    )

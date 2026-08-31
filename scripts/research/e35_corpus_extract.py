@@ -51,10 +51,11 @@ no config and no order path.
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_CORPUS = REPO / "docs" / "research" / "e35-bracket-corpus.jsonl"
@@ -96,8 +97,25 @@ def measurement_key(row: Dict[str, Any]) -> str:
                     ("leg", "cell", "tp_cap_pct", "split_mode", "split_target_oos"))
 
 
+def research_provenance() -> Tuple[Optional[str], Optional[str]]:
+    """Which queue unit dispatched this run, and its power verdict.
+
+    Read from the environment at CALL time (not import) so a test can drive
+    both states without reloading the module.
+
+    ⚠️ EMPTY IS `None`, AND `None` MEANS "NOT QUEUE-DISPATCHED" — a manual run,
+    or a row extracted before this stamp shipped. It does NOT mean the run was
+    a test. A consumer that reads the absence as a clearance has reintroduced
+    exactly the hole this stamp closes.
+    """
+    unit = (os.environ.get("RESEARCH_UNIT") or "").strip() or None
+    state = (os.environ.get("RESEARCH_POWER_STATE") or "").strip() or None
+    return unit, state
+
+
 def rows_from_report(doc: Dict[str, Any], source: str) -> List[Dict[str, Any]]:
     """One row per measured CELL, with the gate verdict joined on when present."""
+    research_unit, research_power_state = research_provenance()
     gen = doc.get("generated_at")
     cap = doc.get("tp_cap_pct")
     fee = doc.get("fee_bps_roundtrip")
@@ -118,6 +136,21 @@ def rows_from_report(doc: Dict[str, Any], source: str) -> List[Dict[str, Any]]:
                 "corpus": CORPUS_TAG,
                 "source": source,
                 "sweep_generated_at": gen,
+                # ⚠️ WHICH QUEUE UNIT PRODUCED THIS ROW, AND UNDER WHAT POWER
+                # VERDICT. Without these two a row from an ACCRUING job — one
+                # that declared UP FRONT it cannot answer its question yet — is
+                # byte-indistinguishable from a real test's row, and
+                # research_disposition grades it as an ordinary unit. That is a
+                # safety label with no reader, which is worse than no label:
+                # the queue then claims a protection that does not exist.
+                #
+                # `None` means NOT QUEUE-DISPATCHED (a manual/ad-hoc run, or a
+                # row extracted before this stamp shipped). It does NOT mean
+                # "was a test" — a consumer must not read the absence as a
+                # clearance, which is why the key is always PRESENT rather than
+                # omitted when unknown.
+                "research_unit": research_unit,
+                "research_power_state": research_power_state,
                 "leg": leg.get("leg"),
                 "symbol": leg.get("symbol"),
                 "timeframe": leg.get("tf"),

@@ -164,11 +164,24 @@ def _stamp(path: Path, when: datetime) -> Optional[str]:
         return f"{type(exc).__name__}: {exc}"
 
 
-def _fire(entry: Dict[str, Any], *, route: str, ref: str) -> tuple:
+def _fire(entry: Dict[str, Any], *, route: str, ref: str,
+          power_state: str = "") -> tuple:
     """Dispatch via `gh workflow run`. Returns (ok, detail)."""
     run = entry.get("run") or {}
     workflow = str(run.get("workflow"))
-    inputs = run.get("inputs") or {}
+    inputs = dict(run.get("inputs") or {})
+    # ⚠️ THE UNIT DECLARES ITS IDENTITY; THE DISPATCHER SUPPLIES THE VERDICT.
+    # `power_state` is deliberately NOT hand-written in the YAML: it is a SAFETY
+    # label ("do not read this run's output as a test result"), and a
+    # hand-declared safety label can drift from the verdict the gate actually
+    # computed — which is the whole class of defect this chain exists to close.
+    # So the unit opts in by naming itself, and the COMPUTED state rides along.
+    #
+    # Injected only when the unit already declares `research_unit`, because
+    # `gh workflow run -f <input-the-workflow-never-declared>` ERRORS. Opting in
+    # by declaring the identity is the unit asserting its workflow accepts both.
+    if inputs.get("research_unit") and power_state:
+        inputs["power_state"] = power_state
     cmd = ["gh", "workflow", "run", workflow, "--ref", ref]
     for key, value in inputs.items():
         cmd += ["-f", f"{key}={value}"]
@@ -259,7 +272,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             decisions.append(row)
             continue
 
-        ok, detail = _fire(entry, route=route.state, ref=args.ref)
+        ok, detail = _fire(entry, route=route.state, ref=args.ref,
+                           power_state=power.state)
         row.update(outcome=DISPATCHED if ok else DISPATCH_FAILED, detail=detail)
         if ok:
             # Stamp only a SUCCESSFUL fire. Stamping a failed one would mark the
