@@ -186,3 +186,64 @@ def test_the_conflict_branch_does_not_rank_by_target_size():
     ], symbol="SOLUSDT")
     assert desired.winning_intent.strategy == "small_long"
     assert desired.side == "long"
+
+
+# --- the ranking must be falsifiable from the audit log --------------------
+
+
+def _decided(*intents):
+    return aggregate_intents(list(intents), symbol="SOLUSDT").meta.get("decided_by")
+
+
+def test_decided_by_names_the_term_that_actually_separated_the_winner():
+    """"Ranked by confidence" is a claim about the CODE.
+
+    Whether confidence ever DECIDES anything is a claim about the data, and on
+    the measured population it decides only ~half the time. Without this field
+    a reader cannot tell a system where confidence drives routing from one
+    where every contest falls through to the last-resort terms.
+    """
+    assert _decided(_i("a", confidence=0.9), _i("b", confidence=0.2)) == "confidence"
+    assert _decided(
+        _i("a", confidence=0.5, priority=1), _i("b", confidence=0.5, priority=9)
+    ) == "declared_priority"
+    # Everything ties -> the honest answer is the last-resort term, named.
+    assert _decided(_i("bbb", confidence=0.5), _i("aaa", confidence=0.5)) == "name"
+
+
+def test_decided_by_reports_recent_pnl_when_that_is_what_broke_the_tie(monkeypatch):
+    monkeypatch.setattr(tr, "recent_pnl_map", lambda force=False: (
+        {"aaa_loser": (-250.0, tr.MEASURED), "zzz_winner": (+400.0, tr.MEASURED)},
+        tr.MEASURED,
+    ))
+    assert _decided(
+        _i("aaa_loser", confidence=0.5), _i("zzz_winner", confidence=0.5)
+    ) == "recent_pnl"
+
+
+def test_decided_by_on_the_conflict_branch_too():
+    """The branch tag says 'priority_conflict'; the FIELD says what decided."""
+    desired = aggregate_intents([
+        _i("long_high_conf", side="long", confidence=0.9),
+        _i("short_low_conf", side="short", confidence=0.1),
+    ], symbol="SOLUSDT")
+    assert desired.meta["resolution"] == "priority_conflict"   # legacy branch tag
+    assert desired.meta["decided_by"] == "confidence"          # what actually decided
+
+
+def test_decided_by_never_raises_into_the_election():
+    """Observability must never break a tick."""
+    from src.runtime.intents import ELECTION_TERM_UNKNOWN, deciding_term
+
+    class _Bad:
+        strategy = "bad"
+
+    assert deciding_term(_Bad(), [_Bad(), _Bad()]) == ELECTION_TERM_UNKNOWN
+
+
+def test_a_single_candidate_is_uncontested_not_a_decision():
+    """One intent had no contest — saying a term 'decided' it would be false."""
+    from src.runtime.intents import ELECTION_TERM_UNCONTESTED, deciding_term
+
+    only = _i("solo", confidence=0.5)
+    assert deciding_term(only, [only]) == ELECTION_TERM_UNCONTESTED

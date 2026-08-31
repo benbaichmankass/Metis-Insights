@@ -1458,6 +1458,74 @@ def _election_sort_key(
     )
 
 
+#: The election key's terms, in order, so a decision can name which one decided.
+#: Index i here corresponds to index i of the CONFLICT key; the reinforcement
+#: key carries ``target_qty`` in front, handled by the offset in
+#: :func:`deciding_term`.
+ELECTION_TERMS = (
+    "confidence",
+    "declared_priority",
+    "recent_pnl",
+    "timestamp",
+    "name",
+)
+#: The reinforcement branch's extra leading term.
+ELECTION_TERM_TARGET_QTY = "target_qty"
+#: Returned when a single candidate had no contest, or the terms cannot be read.
+ELECTION_TERM_UNCONTESTED = "uncontested"
+ELECTION_TERM_UNKNOWN = "unknown"
+
+
+def deciding_term(
+    winner: StrategyIntent,
+    candidates: "Iterable[StrategyIntent]",
+    *,
+    include_target_qty: bool = True,
+) -> str:
+    """Which term of the election key actually separated the winner.
+
+    ⚠️ THIS IS THE OBSERVABILITY FOR THE RANKING ITSELF, and it exists because
+    the ranking without it is unfalsifiable from outside. "Ranked by
+    confidence" is a claim about the CODE; whether confidence ever decides
+    anything is a claim about the DATA, and on the measured population it
+    decides only ~half the time (50.1% of contests are exact confidence ties —
+    ``conviction_arbitration`` soak, n=371). Without this field a reader cannot
+    tell a system where confidence drives routing from one where every contest
+    falls through to the last-resort terms — which is the same "shipped and
+    unreadable" gap this repo keeps paying for.
+
+    Returns one of :data:`ELECTION_TERMS` (plus ``target_qty``), or
+    ``uncontested`` when there was no runner-up, or ``unknown`` when the keys
+    could not be compared. Never guesses.
+    """
+    try:
+        others = [c for c in candidates if c is not winner]
+        if not others:
+            return ELECTION_TERM_UNCONTESTED
+        names = (
+            (ELECTION_TERM_TARGET_QTY,) + ELECTION_TERMS
+            if include_target_qty
+            else ELECTION_TERMS
+        )
+        w_key = _election_sort_key(winner, include_target_qty=include_target_qty)
+        # The runner-up is the next-best candidate, so the first term on which
+        # the winner beats IT is the term that actually decided the election.
+        runner_up = min(
+            others,
+            key=lambda c: _election_sort_key(
+                c, include_target_qty=include_target_qty
+            ),
+        )
+        r_key = _election_sort_key(runner_up, include_target_qty=include_target_qty)
+        for name, w_val, r_val in zip(names, w_key, r_key):
+            if w_val != r_val:
+                return name
+        # Every term identical — the winner came out of min()'s stable ordering.
+        return ELECTION_TERM_UNKNOWN
+    except Exception:  # noqa: BLE001 — observability must never break a tick
+        return ELECTION_TERM_UNKNOWN
+
+
 def _track_record_rank(strategy: str) -> float:
     """Recent-PnL sort term, isolated so a track-record failure cannot reorder.
 
@@ -1689,6 +1757,9 @@ def elect_from_gated(
                 "resolution": "same_direction",
                 "contributing_strategies": sorted({i.strategy for i in contributing}),
                 "winning_strategy": winner.strategy,
+                # WHICH TERM DECIDED — see `deciding_term`. Without it, "ranked
+                # by confidence" is unfalsifiable from the audit log.
+                "decided_by": deciding_term(winner, same_side),
             },
         )
 
@@ -1732,9 +1803,17 @@ def elect_from_gated(
             f"dropped={[(lost.strategy, lost.side, lost.effective_priority()) for lost in losers]}"
         ),
         meta={
+            # ⚠️ The name "priority_conflict" is the BRANCH tag and is now
+            # partly a misnomer: since 2026-08-31 this branch ranks by
+            # confidence FIRST and declared priority only below it. The tag is
+            # kept because consumers and historical rows key on it; read
+            # `decided_by` for what actually decided, never the branch name.
             "resolution": "priority_conflict",
             "winning_strategy": winner.strategy,
             "winning_priority": winner.effective_priority(),
+            "decided_by": deciding_term(
+                winner, non_flat, include_target_qty=False
+            ),
             "dropped_intents": [
                 {
                     "strategy": lost.strategy,
