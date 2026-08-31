@@ -58,7 +58,10 @@ different field, `gate_oos_d_net_r`, and it is much smaller:
 | `spy_pullback_1h` | `sm1.5` | +28.16 | **+4.46** | **0.16** |
 
 Both are real fields and neither is wrong; quoting the first as the expected improvement
-is what would be wrong. **spy retains 16% of its headline out of sample.**
+is what would be wrong. **spy retains 4.46/28.16 = 16% of its headline out of sample (n = 58 OOS trades)** —
+population: the `sm1.5` cell of `spy_pullback_1h` on the 2026-08-31 run, achieved
+`base_oos_trades` 58 against `base_is_trades` 78, at `split_target_oos` 60.
+(gld's `sm1.5` on the same run: 59 OOS against 156 IS.)
 
 ---
 
@@ -111,7 +114,8 @@ with more drawdown* — not a free improvement.
 
 Four independent reasons to decline, any one of which would be enough:
 
-1. **OOS is +4.46 against a +28.16 headline** — 16% retention.
+1. **OOS is +4.46 against a +28.16 headline** — 16% retention over n = 58 OOS trades
+   (`base_oos_trades` 58 vs `base_is_trades` 78, 08-31 run, `split_target_oos` 60).
 2. **A single fold carries it.** 2023 contributes **+22.36** of the +28.16; 2024 is
    **−12.33**. Remove 2023 and the cell is roughly flat-to-negative.
 3. **The leg is flagged CONTAMINATED** in the matrix's own `timeout_binding` field: the
