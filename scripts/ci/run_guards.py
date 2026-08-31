@@ -298,6 +298,8 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ops/probe_lib.py"],
             ["python3", "scripts/ops/probe_soak.py", "--self-test"],
             ["python3", "scripts/ops/probe_file.py", "--self-test"],
+            ["python3", "scripts/ops/probe_api.py", "--self-test"],
+            ["python3", "scripts/ops/probe_actions_log.py", "--self-test"],
             ["python3", "scripts/ops/run_probes.py", "--check"],
         ],
     },
