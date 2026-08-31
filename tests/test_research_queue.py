@@ -109,11 +109,28 @@ def test_power_cleared_when_n_meets_the_floor():
     assert v.required_n == pytest.approx(required_n(0.3))
 
 
-def test_power_underpowered_blocks_rather_than_running_a_weak_answer():
+def test_power_underpowered_RUNS_but_is_never_cleared():
+    """⚠️ THIS TEST ASSERTED THE OPPOSITE UNTIL 2026-08-31, and its old name
+    (`..._blocks_rather_than_running_a_weak_answer`) is the policy that changed.
+
+    Operator directive: *"I'd rather err on the lenient side here and not
+    exclude tests that may [give] some insights."* An underpowered run still
+    emits real numbers; what it cannot emit is a POWERED verdict. Blocking it
+    was also self-fulfilling — a leg that never runs never accrues the trades
+    that would clear its own floor.
+
+    The standard did not move, the DOOR did: the state is still distinct from
+    CLEARED, still stamped onto every row the run lands, and
+    `research_disposition.append` refuses to close it (asserted in
+    tests/test_research_disposition.py, which is where the compensating half
+    lives).
+    """
     with _observing({'leg_a': 10_000.0}):
         v = grade_power(_entry(power={"expected_n": 10, "min_detectable_effect": 0.3,
                                       "basis": "b", "feasibility": {"source": "corpus", "corpus": "e35", "statistic": "min_per_leg"}}))
-    assert v.state == UNDERPOWERED and not v.runnable
+    assert v.state == UNDERPOWERED
+    assert v.runnable, "leniency directive 2026-08-31: a data shortfall does not exclude the run"
+    assert v.state != CLEARED, "runnable is NOT cleared — consumers must branch on the state"
     assert "data-acquisition" in v.reason
 
 
@@ -639,7 +656,11 @@ def test_infeasible_is_not_underpowered_and_names_the_short_legs():
     the author to rewrite the wrong half of their design."""
     with _observing({"thin_leg": 4.0, "fat_leg": 400.0}):
         v = grade_power(_entry())           # expected_n 400, min_per_leg -> 4
-    assert v.state == INFEASIBLE and not v.runnable
+    # RUNNABLE since the 2026-08-31 leniency directive — see
+    # test_power_underpowered_RUNS_but_is_never_cleared for the reasoning. The
+    # DIAGNOSIS is what this test is about, and it is unchanged.
+    assert v.state == INFEASIBLE and v.runnable
+    assert v.state != CLEARED
     assert v.state != UNDERPOWERED
     assert "thin_leg=4" in v.reason, "the refusal must name which leg falls short"
     assert "SCOPE" in v.reason
@@ -745,19 +766,86 @@ def test_accruing_requires_the_unit_to_thread_its_own_identity():
     assert v2.state == UNVERIFIABLE, "a mismatched identity must not pass"
 
 
-def test_the_extractor_stamps_what_the_gate_promises():
-    """The two ends of the chain must agree on the key names, or the gate
-    enforces a declaration the producer never reads."""
+def _e35_extract_mod():
     import importlib.util
     spec = importlib.util.spec_from_file_location(
         "_e35x", REPO / "scripts/research/e35_corpus_extract.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    src = (REPO / "scripts/research/e35_corpus_extract.py").read_text()
-    assert '"research_unit": research_unit' in src
-    assert '"research_power_state": research_power_state' in src
-    assert "RESEARCH_UNIT" in src and "RESEARCH_POWER_STATE" in src
-    # and the workflow must actually set them, or the stamp is always empty
+    return mod
+
+
+def _minimal_report():
+    """The smallest report shape `rows_from_report` accepts. Deliberately
+    minimal: this asserts the STAMP travels, not the geometry."""
+    return {
+        "generated_at": "2026-08-31T00:00:00+00:00",
+        "tp_cap_pct": 0.099,
+        "fee_bps_roundtrip": 7.5,
+        "legs": [{
+            "leg": "trend_donchian",
+            "symbol": "BTCUSDT",
+            "tf": "1h",
+            "family": "trend",
+            "execution": "live",
+            "base": {},
+            "cells": [{"cell": "tp_r=3.0", "axis": "tp_r"}],
+            "gate": [{"cell": "tp_r=3.0",
+                      "split_meta": {"split_mode": "oos-trades",
+                                     "split_target_oos": 50}}],
+        }],
+    }
+
+
+def test_an_emitted_row_actually_carries_the_stamp(monkeypatch):
+    """RUN THE EXTRACTOR AND READ THE ROW — do not grep the source.
+
+    The predecessor of this test asserted five SUBSTRINGS of
+    `e35_corpus_extract.py` and the workflow YAML. That is the presence-only
+    antipattern this repo names as its own bug class (`new-table-wiring-guard`:
+    *a guard that is cheaper to lie to than to satisfy is worse than no
+    guard*) — every one of those assertions would still pass if
+    `research_provenance()` returned a constant, if the env names were read
+    from the wrong variables, or if the keys were overwritten further down the
+    builder. It proved the strings exist, never that a row comes out stamped.
+    """
+    monkeypatch.setenv("RESEARCH_UNIT", "RQ-20260831-777")
+    monkeypatch.setenv("RESEARCH_POWER_STATE", ACCRUING)
+    rows = _e35_extract_mod().rows_from_report(_minimal_report(), "unit-test")
+
+    assert rows, "the fixture must produce at least one row, or this proves nothing"
+    for r in rows:
+        assert r["research_unit"] == "RQ-20260831-777"
+        assert r["research_power_state"] == ACCRUING
+
+
+def test_an_unstamped_row_carries_the_keys_as_none_rather_than_omitting_them(monkeypatch):
+    """The NEGATIVE control, and the half that matters most.
+
+    A missing key makes a consumer branch on ABSENCE, and absence is not one of
+    the states — `research_disposition` must be able to say
+    `not_queue_dispatched` (a manual/ad-hoc run) as a value, distinctly from a
+    row that declared a real verdict. If the builder omitted the keys when
+    unset, the positive test above would still pass while the distinction the
+    whole chain rests on would be gone.
+    """
+    monkeypatch.delenv("RESEARCH_UNIT", raising=False)
+    monkeypatch.delenv("RESEARCH_POWER_STATE", raising=False)
+    rows = _e35_extract_mod().rows_from_report(_minimal_report(), "unit-test")
+
+    assert rows
+    for r in rows:
+        assert "research_unit" in r and "research_power_state" in r, (
+            "the keys must be PRESENT-and-null, never omitted")
+        assert r["research_unit"] is None
+        assert r["research_power_state"] is None
+
+
+def test_the_workflow_passes_the_env_the_extractor_reads():
+    """The one link a Python-level round-trip genuinely cannot reach: the
+    workflow's env block. Kept as a string check because there is no way to
+    execute the YAML here — but it is now the ONLY string check, rather than
+    standing in for the whole chain."""
     wf = (REPO / ".github/workflows/e35-bracket-sweep.yml").read_text()
     assert "RESEARCH_UNIT: ${{ inputs.research_unit }}" in wf
     assert "RESEARCH_POWER_STATE: ${{ inputs.power_state }}" in wf
@@ -802,3 +890,36 @@ def test_fire_only_injects_power_state_for_a_unit_that_named_itself():
     assert 'if inputs.get("research_unit") and power_state:' in src, (
         "the injection must be conditional on the unit having named itself"
     )
+
+
+def test_the_runnable_set_and_the_disposition_refusal_cover_the_same_states():
+    """The leniency directive is only safe as a PAIR: every state the queue now
+    lets run for a data-shortfall reason must be one `research_disposition`
+    refuses to close with a terminal verdict. Widening one without the other
+    turns "we ran it anyway, honestly labelled" into "we ran it and nothing
+    stops us calling the answer a result".
+
+    The two modules duplicate the vocabulary deliberately (the disposition
+    reader must stay importable when the queue package is not), so pin them.
+    """
+    import importlib.util
+    from scripts.research.research_queue import DATA_SHORTFALL_STATES
+    spec = importlib.util.spec_from_file_location(
+        "_rd_pin", REPO / "scripts/research/research_disposition.py")
+    rd = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rd)
+
+    assert set(rd.DATA_SHORTFALL_STATES) == set(DATA_SHORTFALL_STATES)
+    # every shortfall state must actually be runnable, or the pairing is moot
+    for st in DATA_SHORTFALL_STATES:
+        assert st in RUNNABLE_POWER_STATES, (
+            f"{st!r} is refused at disposition but blocked at dispatch — the "
+            f"refusal is then guarding a door nobody can reach")
+    # and the BLOCKING states must NOT be in the refusal set: a job that never
+    # ran has no rows to close, and folding them in would blur why each blocks
+    for st in (UNDECLARED, UNVERIFIABLE):
+        assert st not in DATA_SHORTFALL_STATES
+        assert st not in RUNNABLE_POWER_STATES, (
+            "the front-end guard the operator originally asked for lives here: "
+            "an experiment that declares no statistical expectation, or whose "
+            "declaration cannot be checked, is still refused entry")

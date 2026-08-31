@@ -133,6 +133,21 @@ N_FIELD = {"e35": "base_oos_trades", "m20": "base_trades_OOS", "gld_compat": Non
 #: is not importable; a test pins the two equal so they cannot drift.
 ACCRUING_STATE = "accruing"
 
+#: Mirrors research_queue.DATA_SHORTFALL_STATES — the admission verdicts that
+#: mean "there is not enough DATA to answer this yet", as opposed to "nobody
+#: declared what would count as an answer".
+#:
+#: ⚠️ THIS SET IS THE OTHER HALF OF A LENIENCY DECISION AND MUST NOT SHRINK
+#: BELOW THE QUEUE'S. Operator directive 2026-08-31 made `underpowered` and
+#: `infeasible` RUNNABLE — *"I'd rather err on the lenient side here and not
+#: exclude tests that may [give] some insights"*. That is only safe because
+#: nothing may CLOSE such a unit as answered. Widening the front door without
+#: widening this refusal converts "we ran it anyway, honestly labelled" into
+#: "we ran it and nothing stops us calling the answer a result", which is the
+#: precise failure the admission gate was built to prevent. A test pins this
+#: equal to the queue's tuple so the two cannot drift apart.
+DATA_SHORTFALL_STATES = ("accruing", "underpowered", "infeasible")
+
 DISPOSITIONED = "dispositioned"
 UNREAD = "unread"
 SUPERSEDED_UNREAD = "superseded_unread"
@@ -145,6 +160,13 @@ STATES = (DISPOSITIONED, UNREAD, SUPERSEDED_UNREAD, NO_ROWS, CORPUS_UNREADABLE)
 #: read whose answer is "this cannot answer the question", which R4 converts into
 #: a data-acquisition task rather than a verdict.
 VERDICTS = ("actioned", "no_action_warranted", "underpowered", "superseded")
+
+#: The verdicts that CLOSE the question. `underpowered` and `superseded` are
+#: deliberately NOT here: both are honest non-answers, and a unit admitted as
+#: `accruing` may legitimately be recorded as either. What must not happen is a
+#: unit the ADMISSION GATE accepted on the explicit basis that it cannot answer
+#: its question yet being recorded as having answered it.
+TERMINAL_VERDICTS = ("actioned", "no_action_warranted")
 
 
 def _non_reasons() -> tuple[str, ...]:
@@ -280,9 +302,87 @@ def survey(corpora=None, ledger: Path = LEDGER) -> dict:
             out["units"].append({
                 "corpus": corpus, "run_stamp": stamp, "leg": leg,
                 "rows": meta["rows"], "n_oos": meta["n_oos"], "state": st,
+                # ⚠️ THESE TWO ARE THE READER. `load_units` recorded them from
+                # 2026-08-31 and NOTHING read them back — written-and-never-read,
+                # the `exit_price_source` shape this repo has already paid for
+                # (12 writers, 1 unrelated reader). A field a reviewer can see in
+                # the store but not in the tool's output is one the tool is
+                # implicitly asserting does not matter.
+                "power_state": meta["power_state"],
+                "research_unit": meta["research_unit"],
             })
     out["summary"] = counts
     return out
+
+
+#: What `append` was able to establish about the unit's admission state.
+#: NEVER COLLAPSED, and the reason is the usual one: `unit_absent` and
+#: `corpus_unreadable` are *we could not look*, which is a different fact from
+#: `clear` (*we looked and it was not accruing*). Folding either into `clear`
+#: would let a corpus outage silently launder exactly the writes this refuses.
+ACCRUAL_CHECKS = ("clear", "accruing_overridden", "unit_absent", "corpus_unreadable")
+
+
+def _accrual_check(entry: dict, non_reasons=None) -> str:
+    """Grade the unit's admission state, and REFUSE a terminal verdict on one
+    the R4 gate admitted as `accruing`.
+
+    WHY THIS EXISTS. The admission gate marks a unit with one of the
+    DATA_SHORTFALL_STATES — "there is not enough data to answer this yet" —
+    and the extractor stamps that onto every row it produces. Until 2026-08-31
+    the chain STOPPED THERE: nothing prevented the same unit being closed
+    `actioned` or `no_action_warranted`. The gate's whole promise is that such
+    a result is not read as a test result, and the ledger is the one place that
+    promise could be broken on the record.
+
+    ⚠️ IT CARRIES MORE WEIGHT SINCE THE SAME DAY'S LENIENCY DECISION. When
+    `underpowered` and `infeasible` BLOCKED, the front door did most of the
+    work and this was a backstop. Now that all three shortfall states RUN, this
+    refusal is the ONLY thing standing between a deliberately-thin run and a
+    ledger entry claiming it answered something.
+
+    ⚠️ ONLY THE TERMINAL VERDICTS ARE REFUSED. `underpowered` and `superseded`
+    are honest non-answers and are exactly what an accruing unit SHOULD be
+    recorded as; refusing them would leave the reviewer no legal way to write
+    down what they found, which is how a gate teaches people to route around it.
+
+    ⚠️ IT FAILS OPEN ON AN UNREADABLE CORPUS, AND STAMPS THAT IT DID. This gates
+    a bookkeeping RECORD, not an order, so blocking every disposition during a
+    corpus outage would suppress honest reading to prevent a rare dishonest one.
+    What must not happen is the distinction vanishing — hence the stamp.
+    """
+    override = str(entry.get("accrual_override_reason") or "").strip()
+    try:
+        state, units = load_units(entry["corpus"])
+    except Exception:  # noqa: BLE001  # allow-silent: recorded as corpus_unreadable below, never as `clear`
+        return "corpus_unreadable"
+    if state != "read":
+        return "corpus_unreadable"
+    meta = units.get((entry["run_stamp"], entry["leg"]))
+    if meta is None:
+        return "unit_absent"
+    admitted = meta.get("power_state")
+    if admitted not in DATA_SHORTFALL_STATES:
+        return "clear"
+    if entry["verdict"] not in TERMINAL_VERDICTS:
+        return "clear"
+    if len(override) < 20:
+        raise ValueError(
+            f"unit was admitted as {admitted!r} and cannot be closed "
+            f"{entry['verdict']!r}. The gate let this job RUN on the stated "
+            "basis that there is not enough data to answer its question yet, "
+            "so recording an answer contradicts its own admission. Record "
+            "'underpowered' or 'superseded', or state an "
+            "`accrual_override_reason` saying what changed such that this unit "
+            "IS now decidable."
+        )
+    low = override.lower()
+    for bad in (non_reasons if non_reasons is not None else _non_reasons()):
+        if bad in low:
+            raise ValueError(
+                f"accrual_override_reason reads as a non-reason ({bad!r})"
+            )
+    return "accruing_overridden"
 
 
 def append(entry: dict, ledger: Path = LEDGER, non_reasons=None) -> dict:
@@ -311,6 +411,8 @@ def append(entry: dict, ledger: Path = LEDGER, non_reasons=None) -> dict:
             )
     if entry["verdict"] == "actioned" and not entry.get("actions"):
         raise ValueError("verdict 'actioned' must name what was done in `actions`")
+    entry = dict(entry)
+    entry["accrual_check"] = _accrual_check(entry, non_reasons=non_reasons)
     ledger.parent.mkdir(parents=True, exist_ok=True)
     with ledger.open("a") as fh:
         fh.write(json.dumps(entry, sort_keys=True) + "\n")
@@ -414,11 +516,25 @@ def main() -> int:
         return 2
 
     print("state counts:", json.dumps(s["summary"]))
+    # The admission-state census. Printed BESIDE the state counts because a
+    # reviewer deciding what to read next needs to know how much of the pile is
+    # accrual-tainted before reading any of it.
+    census: dict = {}
+    for u in s["units"]:
+        k = u["power_state"] or "not_queue_dispatched"
+        census[k] = census.get(k, 0) + 1
+    print("admission states:", json.dumps(census, sort_keys=True))
     rows = [u for u in s["units"] if not a.unread_only or u["state"] == UNREAD]
     for u in sorted(rows, key=lambda u: (u["state"], u["corpus"], u["run_stamp"])):
         n = "n/a" if u["n_oos"] is None else u["n_oos"]
+        # `not_queue_dispatched` rather than a blank or a dash: the unit came
+        # from a manual run (or predates the stamp), which is NOT a clearance
+        # and must not render as one.
+        ps = u["power_state"] or "not_queue_dispatched"
+        ru = u["research_unit"] or "-"
         print(f"  {u['state']:<18} {u['corpus']:<4} {u['leg']:<26} "
-              f"rows={u['rows']:<5} n_oos={n:<6} {u['run_stamp']}")
+              f"rows={u['rows']:<5} n_oos={n:<6} power={ps:<20} "
+              f"unit={ru:<18} {u['run_stamp']}")
     return 0
 
 

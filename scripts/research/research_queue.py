@@ -44,9 +44,21 @@ found nothing"*.
 ``power_state`` — may this job run at all?
   ``cleared``        the entry declares n, effect and basis, and the declared n
                      meets the floor for the declared effect.
-  ``underpowered``   it declares them and the n does NOT meet the floor. BLOCKED.
-                     Per R4 this converts to a data-acquisition task; it is not a
-                     job that runs and reports a weak answer.
+  ``underpowered``   it declares them and the n does NOT meet the floor. It
+                     RUNS (operator directive 2026-08-31, see
+                     ``RUNNABLE_POWER_STATES``) and its output may never be read
+                     as a test result. ⚠️ THIS LINE SAID "BLOCKED. Per R4 this
+                     converts to a data-acquisition task; it is not a job that
+                     runs and reports a weak answer" UNTIL 2026-08-31 — do not
+                     re-quote that. The R4 intent is intact and now lands where
+                     it belongs: the run happens, the verdict is stamped onto
+                     every row it produces, and ``research_disposition.append``
+                     refuses to close the unit with a terminal verdict. What
+                     changed is the DOOR, not the standard.
+  ``infeasible``     declared, and the corpus CONTRADICTS the declared n — these
+                     legs have never produced it. Also RUNS, same reasoning: a
+                     thin leg still emits real numbers, and never running it is
+                     how it stays thin forever.
   ``undeclared``     the entry does not declare them. **BLOCKED, and emphatically
                      not "fine"** — this is the state that today's advisory
                      regime produces by default, and § R4 measured its cost: 329
@@ -122,18 +134,51 @@ POWER_STATES = (CLEARED, UNDERPOWERED, UNDECLARED, UNVERIFIABLE, NOT_APPLICABLE,
 
 #: The power_states that may run.
 #:
+#: ⚠️ THE DATA-SHORTFALL STATES RUN (operator directive 2026-08-31: *"I'd
+#: rather err on the lenient side here and not exclude tests that may [give]
+#: some insights"*). ``UNDERPOWERED`` and ``INFEASIBLE`` used to BLOCK, and
+#: that was the wrong door to enforce at. Both are verdicts about how much
+#: DATA there is — "your n is too small for your own effect size", "these legs
+#: have never produced that n" — and neither is a statement that the run is
+#: worthless. A sweep over a thin leg still emits real numbers; what it cannot
+#: emit is a POWERED verdict. Blocking it is also self-fulfilling: a leg that
+#: is never run never accrues the trades that would clear the floor.
+#:
+#: ⚠️ THE GUARD DID NOT MOVE, IT MOVED DOWNSTREAM. The operator's original ask
+#: was that an experiment "provide certain statistical relevance expectations
+#: based on data" before entering the queue, and that is still enforced — by
+#: ``UNDECLARED`` and ``UNVERIFIABLE``, which remain BLOCKING. Those are the
+#: "the author never did the arithmetic, or we cannot check the arithmetic they
+#: did" cases. The distinction the operator drew is exactly this one: a
+#: measurement that cannot produce results YET (legitimate, run it, label it)
+#: versus one nobody thought about (refuse it).
+#:
+#: ⚠️ LENIENCY AT THE FRONT DOOR REQUIRES STRICTNESS AT THE READING, or it is
+#: just a hole. Three things carry that: the verdict is stamped onto every row
+#: the run lands (``research_power_state``), the disposition CLI reports the
+#: admission census, and ``research_disposition.append`` REFUSES to close any
+#: shortfall unit with a terminal verdict. Widening this tuple without that
+#: refusal would turn "we ran it anyway, honestly labelled" into "we ran it and
+#: nothing stops us calling the answer a result".
+#:
 #: ⚠️ ``NOT_APPLICABLE`` IS NOT ``CLEARED`` AND MUST NEVER BE FOLDED INTO IT.
 #: A deterministic job faced no power bar; a cleared one faced it and met it.
 #: Collapsing them would let a reader tally "N jobs cleared the power gate" over
 #: a population where some never took the test — the unstated-denominator error
 #: (`diagnostic-provenance` sub-class C) applied to our own governance.
-#: ⚠️ ``ACCRUING`` IS RUNNABLE AND IS NOT ``CLEARED`` EITHER. Same rule as
-#: ``NOT_APPLICABLE`` one line up: three different things may run, for three
+#: ⚠️ NEITHER IS ANY OTHER MEMBER. Five different things may now run, for five
 #: different reasons, and a tally of "N jobs cleared the power gate" that pools
-#: them is counting over a population where some never took the test and some
-#: took it and declared they would fail. Consumers must branch on the state, not
-#: on ``runnable``.
-RUNNABLE_POWER_STATES = (CLEARED, NOT_APPLICABLE, ACCRUING)
+#: them counts over a population where some never took the test, some declared
+#: up front they would fail it, and some are contradicted by the corpus.
+#: Consumers must branch on the state, NEVER on ``runnable``.
+RUNNABLE_POWER_STATES = (CLEARED, NOT_APPLICABLE, ACCRUING,
+                         UNDERPOWERED, INFEASIBLE)
+
+#: The states meaning "there is not enough DATA to answer this yet" — as
+#: opposed to "nobody declared what would count as an answer". They RUN, and
+#: their output may never be read as a test result. `research_disposition`
+#: imports this to decide which units it refuses to close.
+DATA_SHORTFALL_STATES = (ACCRUING, UNDERPOWERED, INFEASIBLE)
 
 #: A job is inferential (estimates an effect from a sample → the R4 gate binds)
 #: or deterministic (re-grades / rebuilds / extracts → no sample, no effect).
