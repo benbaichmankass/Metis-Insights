@@ -66,3 +66,4 @@ lands:
     per leg and one leg''s data fetch can fail, so requiring all 5 would grade a 4-of-5
     run as a LANDING failure — a different defect from "nothing landed", and this gate
     only catches the latter.'
+last_dispatched_at: '2026-08-31T11:46:12+00:00'
