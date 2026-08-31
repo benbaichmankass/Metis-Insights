@@ -98,6 +98,40 @@ CREATE TABLE IF NOT EXISTS exchange_funding (
 );
 CREATE INDEX IF NOT EXISTS idx_exchange_funding_acct_time
     ON exchange_funding (account_id, datetime(funding_time) DESC);
+
+-- bybit_transaction_log: the venue's OWN wallet ledger (/v5/account/transaction-log,
+-- pybit get_transaction_log). Added 2026-08-31 by operator directive, replacing a
+-- hand-pasted UM CSV export as the source of account-level wallet truth
+-- (BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED: the
+-- authoritative figure for a real-money account froze on 2026-07-13 while the
+-- account kept trading). It lives HERE, beside exchange_fills, because this store
+-- is already the standalone venue-truth store and is deliberately NOT a projection
+-- of trade_journal.db -- so a reconciliation read can never contend with, or be
+-- contaminated by, the money DB it exists to check.
+--
+-- `change` is the signed wallet delta for the row (the UM export's "Change"
+-- column). It is stored VERBATIM alongside the raw payload; the P&L definition
+-- -- which types count, which currencies -- lives in src/runtime/bybit_wallet_truth.py
+-- so it is arguable in tests rather than baked into a schema.
+CREATE TABLE IF NOT EXISTS bybit_transaction_log (
+    txn_id       TEXT PRIMARY KEY,
+    account_id   TEXT NOT NULL,
+    txn_type     TEXT NOT NULL,
+    currency     TEXT,
+    symbol       TEXT,
+    change_usd   REAL,
+    fee          REAL,
+    funding      REAL,
+    cash_balance REAL,
+    txn_time     TEXT NOT NULL,
+    txn_time_ms  INTEGER,
+    raw          TEXT,
+    inserted_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_bybit_txnlog_acct_time
+    ON bybit_transaction_log (account_id, txn_time_ms DESC);
+CREATE INDEX IF NOT EXISTS idx_bybit_txnlog_type
+    ON bybit_transaction_log (account_id, txn_type);
 """
 
 
@@ -215,6 +249,123 @@ def upsert_funding(
 # ---------------------------------------------------------------------------
 # Aggregates (read-side, used by /api/bot/pnl/exchange)
 # ---------------------------------------------------------------------------
+
+
+def upsert_transaction_log(
+    rows: Iterable[Mapping[str, Any]],
+    account_id: str,
+    path: Optional[Path] = None,
+) -> int:
+    """Idempotent insert of Bybit transaction-log rows. Returns rows inserted.
+
+    Keyed on the venue's own ``id``, so re-pulling an overlapping window is a
+    no-op rather than a double-count -- which matters more here than for fills,
+    because these rows are SUMMED into an account-level P&L figure and a
+    duplicate would move it.
+    """
+    p = init_db(path)
+    conn = sqlite3.connect(str(p))
+    inserted = 0
+    try:
+        for row in rows:
+            txn_id = str(row.get("id") or row.get("txn_id") or "").strip()
+            if not txn_id:
+                # A row we cannot key is a row we cannot de-duplicate; skipping
+                # it is safer than minting a synthetic key that would let the
+                # same money be counted twice on the next overlapping pull.
+                continue
+            ms = row.get("transactionTime") or row.get("txn_time_ms")
+            try:
+                ms_i = int(ms) if ms not in (None, "") else None
+            except (TypeError, ValueError):
+                ms_i = None
+            iso = (
+                datetime.fromtimestamp(ms_i / 1000.0, tz=timezone.utc).isoformat()
+                if ms_i
+                else str(row.get("txn_time") or "")
+            )
+
+            def _num(key: str):
+                v = row.get(key)
+                if v in (None, ""):
+                    return None
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return None
+
+            cur = conn.execute(
+                "INSERT OR IGNORE INTO bybit_transaction_log ("
+                "txn_id, account_id, txn_type, currency, symbol, change_usd, "
+                "fee, funding, cash_balance, txn_time, txn_time_ms, raw"
+                ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    txn_id,
+                    account_id,
+                    str(row.get("type") or "").upper(),
+                    str(row.get("currency") or "").upper() or None,
+                    row.get("symbol") or None,
+                    _num("change"),
+                    _num("fee"),
+                    _num("funding"),
+                    _num("cashBalance"),
+                    iso,
+                    ms_i,
+                    json.dumps(dict(row), default=str),
+                ),
+            )
+            inserted += cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+        conn.commit()
+    finally:
+        conn.close()
+    return inserted
+
+
+def list_transaction_log(
+    account_id: Optional[str] = None,
+    since_ms: Optional[int] = None,
+    until_ms: Optional[int] = None,
+    path: Optional[Path] = None,
+) -> list[dict[str, Any]]:
+    """Transaction-log rows for an account/window, shaped for
+    ``bybit_wallet_truth.compute_wallet_truth``.
+
+    Returns ``[]`` for a genuinely empty window. The CALLER decides whether an
+    empty list means "flat" or "never pulled" -- this function only reports what
+    the store holds, and conflating those is the collapse the wallet-truth
+    module's states exist to prevent.
+    """
+    p = init_db(path)
+    conn = sqlite3.connect(str(p))
+    conn.row_factory = sqlite3.Row
+    try:
+        sql = ["SELECT * FROM bybit_transaction_log WHERE 1=1"]
+        args: list[Any] = []
+        if account_id:
+            sql.append("AND account_id = ?")
+            args.append(account_id)
+        if since_ms is not None:
+            sql.append("AND txn_time_ms >= ?")
+            args.append(int(since_ms))
+        if until_ms is not None:
+            sql.append("AND txn_time_ms <= ?")
+            args.append(int(until_ms))
+        sql.append("ORDER BY txn_time_ms ASC")
+        out = []
+        for r in conn.execute(" ".join(sql), tuple(args)).fetchall():
+            out.append({
+                "id": r["txn_id"],
+                "type": r["txn_type"],
+                "currency": r["currency"],
+                "symbol": r["symbol"],
+                "change": r["change_usd"],
+                "fee": r["fee"],
+                "funding": r["funding"],
+                "transactionTime": r["txn_time_ms"],
+            })
+        return out
+    finally:
+        conn.close()
 
 
 def _account_filter(account_id: Optional[str]) -> tuple[str, tuple[Any, ...]]:

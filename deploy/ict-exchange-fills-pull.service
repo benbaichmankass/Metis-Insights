@@ -66,6 +66,20 @@ ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_exchange
 # both pullers are fail-soft internally (skip a missing-cred account, exit 2 only
 # when ALL creds are missing — a deploy problem worth failing the unit loudly).
 ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_alpaca_fills.py --all-alpaca-accounts --days 7
+# Bybit WALLET LEDGER (/v5/account/transaction-log), added 2026-08-31 by operator
+# directive. Until now the authoritative account-level realized figure came from an
+# operator pasting a UM CSV export, so it FROZE on 2026-07-13 while bybit_2 kept
+# trading -- 59 closed real-money trades with no wallet-truth counterpart
+# (BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED). We hold
+# live credentials and the venue serves the same quantity, so a human is not in this
+# loop any more.
+#
+# Deliberately a THIRD ExecStart on this existing hourly unit rather than a new
+# timer: same creds, same venue, same cadence, same fail-soft contract -- a smaller
+# deploy surface on a path already proven to work. The 7-day lookback overlaps every
+# run by design; the store is keyed on the venue's own row id so a re-pull inserts
+# nothing (a double-count here would MOVE an account-level P&L figure).
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/ops/pull_bybit_transaction_log.py --all-bybit-accounts --days 7
 StandardOutput=journal
 StandardError=journal
 
