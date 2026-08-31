@@ -89,6 +89,83 @@ the backlogs being *worked down* is. The **Review-coverage guard** below fails a
 run that skipped the promotion / training / soak assessment or that shows no
 backlog drive.
 
+## THE CHECKLIST — render it on EVERY status update (operator-directed 2026-08-31)
+
+**The review is DONE only when every item in the checklist is ticked.** Not when
+the report renders, not when the session runs long, not when a session judges in
+prose that it has covered enough.
+
+    python scripts/ops/system_review_checklist.py            # the chart
+    python scripts/ops/system_review_checklist.py --check    # non-zero if incomplete
+
+Operator directive: *"every time that I ask for a status update, the session
+knows to give me the chart with the items that are in the review mandate, a
+checklist of what was actually done versus not done or is still in work. And
+another row for notes ... we need clear log keeping so that I can also
+understand what the state is."*
+
+So: **any time the operator asks where things stand, render that chart in the
+reply.** Do not summarise it in prose instead — prose is what let a review report
+completion with a third of its mandate untouched.
+
+- State lives in `docs/claude/system-review-checklist.json` (committed, so the
+  state survives a session and a fresh session inherits it rather than starting
+  a new private tally).
+- **The item list is DERIVED**, not typed: it reads
+  `render_system_report.py::_REQUIRED_COVERAGE_KEYS` — the tuple CI actually
+  enforces — plus the three sub-reviews, the report and the ping. A typed list
+  drifts, and it already had: the prose below says "TEN required keys" while
+  that tuple holds **13**. Field beats comment.
+- **Five statuses, never collapsed:** `not_started` (nobody looked) ·
+  `in_progress` · `blocked` (and on what) · `done` · `n_a`. "Not started" and
+  "blocked" are different facts and a chart that conflates them is useless.
+- **`done` REQUIRES evidence and `n_a` REQUIRES a reason** — both are refused
+  without one, because an unevidenced tick is precisely what this exists to stop.
+- Update the row the moment an item completes, not at the end; a session that
+  compacts mid-run must not lose what it already did.
+- **The three sub-reviews are broken into their own sub-items**, derived from
+  each one's response template (`comms/schema/*_review_response.template.json`).
+  A single opaque `performance_review` row cannot show which half of it was
+  skipped — operator, 2026-08-31.
+
+### The backlog metric is BURN-DOWN, not triage coverage (operator, 2026-08-31)
+
+The old gate demanded every open row be re-triaged each run. That measures
+**looking**. Operator: *"the backlog shouldn't really be growing ... we should
+be getting things done from the backlog ... it's not so much a decision of
+prioritization as much as making sure that we're working correctly to actually
+get through the backlog and not just let it grow and then triage it to no avail
+every time."*
+
+So `backlog_drive` reports **net burn-down** — rows CLOSED against rows OPENED —
+via `system_review_checklist.py::backlog_burndown()`. Measured 2026-08-31 across
+all three backlogs:
+
+    month     opened  closed     net   cumulative open
+    2026-05       43       8     +35        35
+    2026-06      231      94    +137       172
+    2026-07      249     175     +74       246
+    2026-08      536     326    +210       456
+
+We close real volume — 326 rows in August — and still file **1.64x** what we
+close, so the pile has grown every single month. That, not the triage
+percentage, is the number a review must move.
+
+Three binding rules:
+
+1. **RESOLVED ROWS ARE NEVER RE-TRIAGED.** They are kept for historical
+   reference — that is how a recurrence gets recognised as one — and treating
+   them as work-to-do is the treadmill itself.
+2. **Do not re-derive what a previous session already established.** A row
+   carrying a recent `updates[]` entry has been re-validated; read it and build
+   on it. Re-triaging from scratch every run is how sessions spend a whole
+   budget re-discovering the same nine rows.
+3. **Prefer CLOSING a row to touching it.** A run that touches forty rows and
+   closes none has moved nothing. Where a class has a structural fix
+   (`backlog_classes`), fixing the class closes its members together — that is
+   the only way the arithmetic above ever turns negative.
+
+
 ## Review-coverage guard (mandatory — 2026-06-23)
 
 Before rendering, the consolidated payload MUST carry a populated

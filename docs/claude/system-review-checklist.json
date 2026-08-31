@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "run": "system-review 2026-08-30/31 (session 19b15dec)",
+  "started_at": "2026-08-30T19:00:00+00:00",
+  "items": {
+    "account_reachability": {
+      "status": "done",
+      "evidence": "All declared-live accounts probed. Services clean; the 3 unreadable accounts are the DECLARED exclusions (ib_live/oanda_practice dry, breakout_1 API-less), not outages. Trainer up (mirror age 14s)."
+    },
+    "ml_training_health": {
+      "status": "done",
+      "evidence": "2 cycles/24h, timer active (next 00:33Z). Manifests 68 ok/0 failed/3 skipped; dataset builds 120 ok/0 failed. ZERO manifest_quarantine rows over 200 cycle events. Registry 96 models (advisory 3 / shadow 29 / candidate 63 / research_only 1)."
+    },
+    "soak_status": {
+      "status": "done",
+      "evidence": "35 model/stage rows accruing, top n=8430. Two APPARENT stalls both checked and dissolved: mes-regime-5m-lgbm-yz-v1 is bucket=OFFLINE (correctly not scored); the exit head's 5-day silence is ZERO open donchian positions, not a break. Neither filed."
+    },
+    "ml_output_actionability": {
+      "status": "done",
+      "evidence": "Verdict: producing_but_thin. Last cycle trained=0 (already_done 76, carried_done 68, refusals 8); only 2 trained_with_refusals across 200 events; 5 persistently-refusing manifests named. Consumers ARE real: 3 advisory heads gate live routing via ml_vol_regime_for_symbol; 29 shadow heads feed shadow_predictions.jsonl."
+    },
+    "unexercised_fixes": {
+      "status": "done",
+      "evidence": "4 fixes graded on a 363-row ERROR feed (2026-08-21..29, not at cap). EXERCISED: durable target-naked cooldown 35.0/day -> 0.3/day (99.0%) with 17 live latch keys proving suppression not resolution; bybit_over_cover page (20 rows, first 08-26); ib_stop_over_cover (6 rows). STILL_UNEXERCISED: strategy_builder_exception latch — state file present:false, never written; filed BL-20260830-BUILDER-EXCEPTION-LATCH-HAS-NEVER-BEEN-WRITTEN."
+    },
+    "structural_health": {
+      "status": "done",
+      "evidence": "Population: all closed non-backtest, window=all. Finding: pairs zero-coverage class GROWING 117 -> 159 closes in 5 days (+35.9%), pairs_half_open_cleanup fastest at +64.5%. Hypothesis 'zero coverage is an ACCOUNT property' REFUTED by control on the same paper book (sl 0.5867, tp 0.4667). Dated prediction left for the next review."
+    },
+    "backlog_classes": {
+      "status": "done",
+      "evidence": "Read the WHOLE open set (540 open+kept_open: 474 health / 44 perf / 22 ml) before disposing of rows. 4 tight classes with >=2 verified members + a structural fix each: no-read-surface (16), guard-is-vacuous (8), shipped-never-exercised (15), fictional-schema fixture (2). Broad lexical hits (provenance 294, exit 279) rejected as house VOCABULARY, not defect classes."
+    },
+    "strategy_promotion": {
+      "status": "done",
+      "evidence": "Real-money per-strategy measured (n=413, PF 0.8614). ETH 15m gate RESOLVED on evidence: a dated decision existed since 2026-07-06 (walk-forward FAIL) — it was never an unactioned gate, and the 'mandatory flag' is retired. vwap (318/413 trades, -$62.93) confirmed already enabled:false/shadow — historical, not a live bleed."
+    },
+    "backlog_drive": {
+      "status": "in_progress",
+      "evidence": "9 rows driven (2 resolved, 7 updated/filed). REFRAMED per operator 2026-08-31: the metric is NET BURN-DOWN, not triage coverage. Measured: opened vs closed = 43/8, 231/94, 249/175, 536/326 — net POSITIVE every month, cumulative 456 open. We close real volume (326 in Aug) but file 1.64x it. Resolved rows are kept for historical reference and are NEVER re-triaged."
+    },
+    "execution_capture": {
+      "status": "done",
+      "evidence": "MEASURED from position_telemetry (n=96; CLOSED n=47; 46 with both peak_r and open_r; 45 ever positive). capture=(peak_r-giveback_r)/peak_r: mean 0.431, median 0.345. Kept >=95% of peak: 11/45. GAVE BACK >=95% of peak: 17/45. Worst legs qqq_pullback_1h 0.106, xrp_pullback_2h 0.154, slv_trend_1h 0.183; best trend_donchian_avax_4h 0.869. CAVEAT: peak_r_is_lower_bound on 47/47 rows, so every ratio is an UPPER BOUND on true capture — real capture is worse."
+    },
+    "since_last_build_verification": {
+      "status": "done",
+      "evidence": "count_shipped=23, enumerated from `git log --since=2026-08-29 --diff-filter=A` over src/ scripts/ deploy/ .github/ -- the full list, not a sample. VERDICTS: 0 UNWIRED. 18 scripts each carry >=1 runner/skill/action reference; 5 src/ modules each have >=1 importer and >=1 test file (arbitration_fanout, arbitration_fanout_soak, bybit_wallet_truth, cash_settlement, operator_flatten_intent). The one refs=0 entry, .github/workflows/alpaca-settlement-soak-watch.yml, is a SELF-TRIGGERING workflow (schedule: weekdays 14:30 UTC) -- refs=0 is the correct shape for it, and it is `wired_not_yet_exercised` (merged Sat 08-29, first weekday fire is 09-01). check_unwired_artifacts.py: unwired=2 / doc_only=105 / skill_invoked=9; BOTH unwired entries (scripts/ml/fetch_fred_macro.py, scripts/validate_registry_vm.py) were last touched 2026-08-26 and so PREDATE this window -- no capability shipped since the last review is unwired. For scale, the SKILL.md baseline was 12 unwired / 149 doc_only."
+    },
+    "research_results_disposition": {
+      "status": "in_progress",
+      "evidence": "Surveyed with scripts/research/research_disposition.py: 64 dispositioned / 39 unread / 229 superseded_unread at start. ⚠️ The 229 are NOT a finding -- the tool's own contract declares superseded_unread moot by design ('reading it is moot, and calling that a failure is how a detector trains its reader to ignore it'), so the work queue is the 39. DRAINED 11 of them (gld_compat, run 2026-08-31T05:20:34Z, all 11 accounts) -> unread now 28. Verdict no_action_warranted, written to docs/research/research-disposition-ledger.jsonl with the reasoning, not just a stamp. Two things checked rather than assumed: fee_bps_roundtrip=0 across all 44 rows LOOKS like the ~25x fee mis-charge this repo records for this exact strategy and is REFUTED -- the workflow sets it deliberately as the correction ('GLD is commission-free on Alpaca'); and the 10 ROUTE verdicts are a risk-ruleset clearance, not a routing recommendation, since 7 are venues that cannot list a US equity ETF -> filed BL-20260831-COMPAT-MATRIX-ROUTE-VERDICT-HAS-NO-INSTRUMENT-AVAILABILITY-AXIS. REMAINING 28: 23 e35 legs (run 2026-08-29T22:xx, 199 bracket cells each over an 8,321-row corpus), 1 m20, 4 others -- substantive per-leg gate analysis, not a stamp exercise."
+    },
+    "test_execution_verification": {
+      "status": "done",
+      "evidence": "The question is whether the suite EXECUTED, not whether a job reported success -- this repo has a recorded history of a 'TEN-SECOND green pytest-run' that merged and left main RED, four times. Evidence it genuinely ran, three ways. (1) COUNT + DURATION from the run's own log on 18b48aee: '2 failed, 13730 passed, 14 skipped, 74 warnings in **836.19s**'. A short-circuited selection cannot produce 13,744 collected tests over 14 minutes. (2) THE FAILURES WERE REAL AND SPECIFIC, which is stronger evidence of execution than a green: the run failed on exactly the two guards my own diff broke (test_no_action_exists_in_the_workflow_that_is_absent_from_EXPECTED_ACTIONS on 'pull-bybit-transaction-log', and the api-tier coverage claim 99 vs 100). A vacuous run cannot fail on the right assertions. (3) THE FILTER IS PINNED AND SELECTS BROADLY HERE: 15 files in this diff match the workflow's selection regex (.py / scripts/ / src/ / tests/ / .github/workflows/), and tests/test_pytest_run_filter.py -- the guard that exists specifically so the filter cannot be silently narrowed -- passes 23/23 locally. LOCAL CORROBORATION on the current head: 444 passed / 1 skipped across the affected files, and the new derived soak-coverage test was written to FAIL FIRST (it did, on exactly conflict_taxonomy_soak and macro_thesis_soak) before the fix made it pass -- non-vacuity demonstrated rather than assumed."
+    },
+    "consolidated_report": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "operator_ping": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "health_review.findings": {
+      "status": "done",
+      "evidence": "Multiple: 4th-recurrence latch gap, the liveness-file conflation, the never-written builder latch, the stale broker-truth ledger."
+    },
+    "health_review.security_check": {
+      "status": "done",
+      "evidence": "Two-part detection sweep, both probes positive-controlled before their negatives were trusted. (1) SECRETS: 116 changed non-doc code files since 2026-08-29 scanned for credential literals -> 0 hits. The FIRST pass was case-sensitive and its control (BYBIT_API_KEY=\"...\") did NOT fire, so that negative was discarded; re-run with -i, control fires, scan still clean. (2) AUTH DENIALS: ict-web-api access log walked in five 12h chunks from 2026-08-29T00:00Z with a quote-delimited '\" 401|403|407|429 ' pattern (port numbers cannot false-positive) -> 0 denials. Control fires on a synthetic 401 line, and the one fully-swept window shows a real status mix (200x768 / 404x18 / 422x2), proving the log records non-200s and a 401 would have been seen. STATE THE POPULATION: 4 of 5 chunks hit the 1000-line cap, so coverage is the TAIL of each window, not the period -- filed as BL-20260831-DIAG-JOURNALCTL-CAPS-AT-1000-LINES-REGARDLESS-OF-THE-SINCE-WINDOW. No breach or intrusion signal found where it was looked for."
+    },
+    "health_review.soak_decisions_due": {
+      "status": "done",
+      "evidence": "ETH 15m promotion gate surfaced AND resolved on evidence (2026-07-06 walk-forward FAIL); retired as a standing flag."
+    },
+    "health_review.new_work_compliance": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "health_review.anomalies": {
+      "status": "done",
+      "evidence": "pairs zero-coverage growing 117->159; builder latch never written; bybit_2 ledger frozen 48 days."
+    },
+    "health_review.backlog_drain": {
+      "status": "in_progress",
+      "evidence": "9 rows driven; see backlog_drive."
+    },
+    "health_review.backlog_coverage": {
+      "status": "done",
+      "evidence": "Whole open set read: 540 open (474/44/22). Burn-down measured: net +35/+137/+74/+210 per month; we file 1.64x what we close."
+    },
+    "health_review.sprint_doc_review": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "performance_review.strategy_performance": {
+      "status": "done",
+      "evidence": "n=413 real money, window=all: PF 0.8614, net -$30.15 (-$36.63 measured), coverage 0.7579, per-strategy + per-exit-path measured. 7d: 12 trades, PF 0.671, all five legs negative."
+    },
+    "performance_review.trade_decision_grades": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "performance_review.insights_review": {
+      "status": "done",
+      "evidence": "M13 insights cache cross-checked against the journal, live 2026-08-31T06:57Z. All three endpoints cache_present:true, model_id template:v1, cache_age 45-46s -- the generator is running, not stale. AGREEMENT IS EXACT, checked by arithmetic rather than by eye: /insights/summary claims 'Win rate 0.0% over 2 closed trades' with row_counts.trades=2, and /api/bot/performance?window=24h independently returns totalTrades 2 / wins 0 / winRate 0.0 / totalPnl -3.7381 -- which is exactly the two real-money closes in that window (-1.2872 ETHUSDT + -2.4509 XRPUSDT = -3.7381). Grades: summary `watch` (correct -- 0% of 2), health `good`, recent `good`. ONE APPARENT DISCREPANCY INVESTIGATED AND DISSOLVED: /insights/recent publishes a data_window ENDING 2026-08-28 while its cache is 46s old, which reads as a 3-day-stale feed. It is not -- the builder selects `t.timestamp AS opened_at` and keys the window on OPEN time, and the two newest closes (08-30T09:48, 09:46) OPENED on 08-21 and 08-22. Confirmed the system is not in an entry drought either: 20 open positions with the newest opened 2026-08-31T06:24Z. Reported as dissolved rather than filed."
+    },
+    "performance_review.proposed_tweaks": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "performance_review.backlog_drain": {
+      "status": "in_progress",
+      "evidence": "shares the backlog_drive count."
+    },
+    "performance_review.paper_book_tracker": {
+      "status": "done",
+      "evidence": "Ran scripts/ops/paper_book_tracker.py against live closed trades: BOOK n=14, net -$2,647.41, WR 14.3%, active_cells 5/10, and it raised DECAY WATCH (recent window net-negative + below floor). ⚠️ I am NOT reporting that flag as a system finding, for two stated reasons. (1) DENOMINATOR: I fed it a 200-row page of /api/bot/trades/closed, which is HARD-CAPPED at 200 (limit=201 correctly returns a 422, verified) -- so the cohort is whatever those rows span, not the book's history. (2) CONCENTRATION: 2 of the 14 trades (ada_pullback_2h, -$1,819.99, mean -$910/trade) carry 69% of the loss, so this is two trades, not a decay signal. RE-READ ON THE UNCAPPED SURFACE (/api/bot/performance?window=30d, computed in SQL over the full window): paper n=430 net +$232,195 at pnlCoverage **0.0744**, and paperPortfolio n=42 net +$7,574 at 0.2619. ⚠️ NO PnL CONCLUSION MAY BE DRAWN FROM THE PAPER BOOK -- 7.4% of it is a measurement. The extremes show why: mgc_pullback_1d n=1 net -$19,116.00 and mhg_pullback_1d n=1 net -$18,343.75, both at coverage 0.0 -- single rows carrying five figures on a futures multiplier, which is the fabricated-mark class CLAUDE.md already records (the 4 orphaned ib_paper rows at +$284,084.92). The honest paper read is 'coverage too thin to judge', and that IS the finding."
+    },
+    "performance_review.real_money_allocation_benchmark": {
+      "status": "done",
+      "evidence": "Real money, /api/bot/performance?window=30d (SQL over the full window, not a capped page): n=29, winRate 51.7%, totalPnl +$34.756, totalPnlMeasured +$34.756 (they AGREE -- no fabricated row is carrying the headline), pnlCoverage 0.5862, profitFactor 1.99. BENCHMARKED AGAINST THE LIFETIME FIGURE MEASURED EARLIER THIS SESSION (n=413, window=all): PF 0.8614, net -$30.15. So the last 30 days are BETTER than lifetime on both axes -- PF 0.8614 -> 1.99 and net negative -> positive. ⚠️ STATE THE POPULATION: n=29 is a small sample and one trade moves it materially, so this is 'the recent window is not deteriorating' rather than 'the book has turned'. The 7d cut measured earlier (12 trades, PF 0.671, all five legs negative) sits INSIDE this 30d window and is negative, which is the honest counterweight: 30d positive, 7d negative, n small throughout. vs PAPER: not comparable and deliberately not compared -- paper coverage is 0.0744, so its +$232k headline is 93% unmeasured. Real (0.5862) is the only book whose PnL is majority measured."
+    },
+    "performance_review.anomalies": {
+      "status": "done",
+      "evidence": "perExitPath structure: real money 3 paths at 0.0 coverage; paper 8; the pairs sleeve 159 closes never venue-confirmed."
+    },
+    "ml_review.trainer_findings": {
+      "status": "done",
+      "evidence": "2 cycles/24h, timer armed, manifests 68 ok/0 failed, builds 120 ok/0 failed, disk 85.7% (improved from 91.7%), 5 refusing manifests named."
+    },
+    "ml_review.model_status": {
+      "status": "done",
+      "evidence": "Registry 96 rows reconciled EXACTLY three ways against trainer_status: LIVE 3 = advisory 3, SHADOW 29 = shadow 29, OFFLINE 64 = candidate 63 + research_only 1."
+    },
+    "ml_review.promotion_recommendations": {
+      "status": "done",
+      "evidence": "ETH 15m: no promotion — a dated 2026-07-06 FAIL already stands, and promotion without an authored cell changes nothing."
+    },
+    "ml_review.experiments_proposed": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "ml_review.backlog_drain": {
+      "status": "in_progress",
+      "evidence": "shares the backlog_drive count."
+    },
+    "ml_review.anomalies": {
+      "status": "done",
+      "evidence": "Two apparent soak stalls investigated and both dissolved (OFFLINE de-wire; zero open donchian positions) — neither filed, deliberately."
+    }
+  },
+  "notes": [
+    "**Unplanned work took priority, at operator direction.** The Bybit wallet-truth build (below) was not in the mandate; it displaced checklist progress deliberately because the operator judged it more serious. Recorded so the shortfall is not read as drift.",
+    "**Real-money reconciliation was running off a hand-pasted CSV.** The authoritative figure for bybit_2 froze on 2026-07-13 while the account kept trading — 59 closed real-money trades unreconciled. In the ledger's own window the journal under-records by 11.0x (-$23.77 vs -$262.52 wallet truth, a $238.75 gap). Filed BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED.",
+    "**Built the live replacement** (~1050 lines, 24 tests): pull Bybit's own /v5/account/transaction-log hourly into the venue-truth store, recompute wallet truth on demand at /api/diag/bybit_wallet_truth. Control: dropping the transfer exclusion makes bybit_2 read +$4,737.48 instead of -$262.52 — a $5,000 sign flip — and fails 3 tests.",
+    "**DEPLOY IS PENDING and journalTrust still reads the frozen ledger.** That switch is deliberately a separate change, to follow a first live pull being INSPECTED. Until then the route honestly reports not_pulled / realized_usd: null for all three Bybit accounts.",
+    "**bybit_2's historical mess is NOT ongoing** — checked so it does not read as alarming: 119 orphans all fall 2026-05-02..2026-07-05 with ZERO since 2026-08-01; 347 exchange_rejects are 325 in May and 0 in the last 7 days; both dominated by vwap, now disabled. The 16 remaining unreconciled orphans all carry reconcile_investigated_at, so the silent orphan_unreconciled banner is CORRECT under its own predicate (verified by evaluating that predicate, not assumed).",
+    "**The checklist item list is DERIVED, not typed** — it reads render_system_report.py::_REQUIRED_COVERAGE_KEYS, which CI enforces. That tuple holds **13** keys while SKILL.md's prose still says 'the TEN required keys'. Field beats comment; the prose is stale and should be corrected.",
+    "**BACKLOG IS GROWING EVERY MONTH — measured, not asserted.** opened/closed: 43/8, 231/94, 249/175, 536/326. Net +35, +137, +74, +210; cumulative 456 open. We are closing real volume and still filing 1.64x it. The old 'triage every open row' gate measured LOOKING; it is replaced by net burn-down, which measures CLOSING.",
+    "**Resolved rows are kept for history and never re-triaged** — that is how a recurrence is recognised as one. The work queue is OPEN rows only.",
+    "**The three sub-reviews are now 22 derived sub-items** (from their own response templates) instead of 3 opaque rows, so a half-done sub-review can no longer read as done. That is why the total moved 18 -> 37 and the done-count did not: the same work is simply now shown at the resolution it actually has."
+  ]
+}

@@ -89,3 +89,76 @@ def test_no_snapshot_anchor_is_not_graded_unavailable(monkeypatch):
     r = prop_reconcile.reconstruct_equity("a", {"account_id": "a"})
     assert r["balance_basis"] == "snapshot"
     assert r["equity_used_usd"] is None
+
+
+# ── Report time is not event time (BL-20260828 / re-measured 2026-08-31) ──────
+#
+# The manual bridge has no broker feed, so the operator reads a balance off the
+# terminal and types the fill in minutes later. Selecting on `reported_at`
+# alone therefore re-applies a close the snapshot ALREADY held.
+
+SNAP_0831 = {"account_id": "breakout_1", "balance": 4787.34, "equity": 4787.34,
+             "reported_at": "2026-08-30T19:33:29.584285+00:00"}
+
+
+def test_a_later_reported_gain_with_no_event_time_does_not_inflate_the_cushion(
+    monkeypatch,
+):
+    """THE MEASURED 2026-08-31 CASE, and the dangerous direction.
+
+    Snapshot 18 -> 19 moved +33.34; the SOLUSDT close reported 5.5 min after
+    snapshot 19 carries +35.28 gross of a -2.08 commission = +33.20, matching to
+    $0.14 -- so the snapshot plainly already embodied it. Applying it again put
+    `equity_used_usd` at 4822.62 and the cushion to the $4,700 floor at 122.62
+    when it was 87.34.
+
+    That is the number `prop_risk_gate` caps against, so an inflated cushion
+    does not merely mislead a panel -- it makes the gate AUTHORISE a ticket that
+    breaches the floor.
+    """
+    monkeypatch.setattr(
+        prop_reconcile.prop_journal, "list_fills",
+        lambda **kw: [{"pnl": 35.28, "closed_at": None,
+                       "reported_at": "2026-08-30T19:39:00.972519+00:00"}])
+    r = prop_reconcile.reconstruct_equity("breakout_1", SNAP_0831)
+    assert r["fills_applied"] == 0
+    assert r["fills_withheld_unplaceable_gain"] == 1
+    assert r["equity_used_usd"] == pytest.approx(4787.34)
+    assert r["equity_used_usd"] - 4700.0 == pytest.approx(87.34, abs=0.01)
+
+
+def test_an_unplaceable_LOSS_is_still_applied(monkeypatch):
+    """The asymmetry, asserted rather than left to the reader.
+
+    Only 4 of the 19 pnl-carrying fills on the live table have `closed_at`, so
+    a rule that required an event time would silently drop 79% of the stream --
+    worse than the bug. A loss we cannot place may SHRINK a safety cushion; a
+    gain we cannot place may not GROW one. False pessimism costs a refused
+    trade, false optimism costs the account.
+    """
+    monkeypatch.setattr(
+        prop_reconcile.prop_journal, "list_fills",
+        lambda **kw: [{"pnl": -40.00, "closed_at": None,
+                       "reported_at": "2026-08-30T19:39:00.972519+00:00"}])
+    r = prop_reconcile.reconstruct_equity("breakout_1", SNAP_0831)
+    assert r["fills_applied"] == 1
+    assert r["equity_used_usd"] == pytest.approx(4747.34, abs=0.01)
+
+
+def test_a_known_event_time_places_a_gain_exactly_in_both_directions(monkeypatch):
+    """When `closed_at` IS present we need neither the asymmetry nor a guess."""
+    before = [{"pnl": 50.0, "closed_at": "2026-08-30T18:00:00+00:00",
+               "reported_at": "2026-08-30T19:39:00+00:00"}]
+    after = [{"pnl": 50.0, "closed_at": "2026-08-30T20:00:00+00:00",
+              "reported_at": "2026-08-30T20:05:00+00:00"}]
+    monkeypatch.setattr(prop_reconcile.prop_journal, "list_fills",
+                        lambda **kw: before)
+    r = prop_reconcile.reconstruct_equity("breakout_1", SNAP_0831)
+    assert r["fills_applied"] == 0, "a gain that closed BEFORE the snapshot is in it"
+    assert r["equity_used_usd"] == pytest.approx(4787.34)
+
+    monkeypatch.setattr(prop_reconcile.prop_journal, "list_fills",
+                        lambda **kw: after)
+    r = prop_reconcile.reconstruct_equity("breakout_1", SNAP_0831)
+    assert r["fills_applied"] == 1, "a gain that closed AFTER it is genuinely new"
+    assert r["equity_used_usd"] == pytest.approx(4837.34, abs=0.01)

@@ -101,6 +101,7 @@ on:
           - backfill-fabricated-exits
           - migrate-closed-at-iso
           - pull-exchange-fills
+          - pull-bybit-transaction-log
           - pull-exchange-funding
           - net-r-regrade
           - inspect-closed-pnl
@@ -588,7 +589,7 @@ jobs:
             status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids)
+            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-bybit-transaction-log|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -1095,6 +1096,7 @@ jobs:
             backfill-fabricated-exits)          SCRIPT="backfill_fabricated_exits_action.sh" ;;
             migrate-closed-at-iso)              SCRIPT="migrate_closed_at_to_iso_action.sh" ;;
             pull-exchange-fills)                SCRIPT="pull_exchange_fills_action.sh" ;;
+            pull-bybit-transaction-log)         SCRIPT="pull_bybit_transaction_log_action.sh" ;;
             pull-exchange-funding)              SCRIPT="pull_exchange_funding_action.sh" ;;
             net-r-regrade)                      SCRIPT="net_r_regrade_action.sh" ;;
             inspect-closed-pnl)                 SCRIPT="inspect_closed_pnl_action.sh" ;;
@@ -1318,7 +1320,7 @@ jobs:
           # the one measurement that would settle
           # BL-20260808-FUNDING-PULLER-SAME-RANGE-CAP-EXPOSURE could not be taken.
           # The next windowed action should be a word here, not a new branch.
-          case " pull-exchange-fills pull-exchange-funding " in
+          case " pull-exchange-fills pull-exchange-funding pull-bybit-transaction-log " in
             *" ${ACTION} "*)
               REMOTE_CMD="ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
               ;;
