@@ -1,6 +1,6 @@
 id: RQ-20260830-001
 title: Re-sweep trend_donchian's bracket geometry at live parity
-status: queued
+status: done
 cadence: once
 kind: experiment
 question: Does trend_donchian's SHIPPED bracket-geometry cell still clear its gate
@@ -25,6 +25,12 @@ power:
     and errs one-directionally: backtest trade sequences are autocorrelated and walk-forward
     folds overlap, so the true requirement is HIGHER. Read a null result here as underpowered,
     never as "no effect".'
+  feasibility:
+    source: corpus
+    corpus: e35
+    statistic: min_per_leg
+    legs:
+      - trend_donchian
 routing:
   needs_trainer_resident_data: false
   needs_gpu: false

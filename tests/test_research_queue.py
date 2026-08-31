@@ -12,6 +12,7 @@ state nothing tests is a state nothing produces.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import subprocess
 import sys
@@ -26,7 +27,8 @@ sys.path.insert(0, str(REPO))
 from scripts.research.research_queue import (  # noqa: E402
     CLEARED, GPU, KIND_DETERMINISTIC, NOT_APPLICABLE, POWER_STATES, ROUTE_STATES,
     RUNNABLE_POWER_STATES, RUNNER, TRAINER, UNDECLARED, UNDERPOWERED, UNROUTABLE,
-    UNVERIFIABLE, grade_power, grade_route, load_queue, required_n, validate,
+    UNVERIFIABLE, ACCRUING, INFEASIBLE,
+    grade_power, grade_route, load_queue, required_n, validate,
 )
 
 QUEUE_DIR = REPO / "research" / "queue"
@@ -37,13 +39,38 @@ def _entry(**kw):
         "id": "RQ-20260827-999", "title": "t", "question": "q",
         "cadence": "once", "status": "queued",
         "kind": "experiment",
-        "power": {"expected_n": 400, "min_detectable_effect": 0.3, "basis": "b"},
+        # `feasibility` is required since the admission guard landed: `basis` is
+        # prose and cannot be checked, so expected_n must ALSO name observed data.
+        # These fixtures ground against a patched observer (see `_observing`) so
+        # the arithmetic tests stay about the arithmetic.
+        "power": {"expected_n": 400, "min_detectable_effect": 0.3, "basis": "b",
+                  "feasibility": {"source": "corpus", "corpus": "e35",
+                                  "statistic": "min_per_leg"}},
         "routing": {"peak_memory_gb": 2.0},
         "run": {"workflow": "w.yml"},
         "lands": {"store": "docs/research/x.jsonl"},
     }
     base.update(kw)
     return base
+
+
+
+
+@contextlib.contextmanager
+def _observing(mapping):
+    """Patch the corpus observer so a feasibility check is deterministic.
+
+    Without this the fixture tests would grade against whatever the live e35
+    corpus happens to hold — the live-state coupling that deadlocked the
+    dispatcher dry-run test earlier in this file's history.
+    """
+    from scripts.research import research_queue as _rq
+    original = _rq.observed_n_by_leg
+    _rq.observed_n_by_leg = lambda corpus: dict(mapping)
+    try:
+        yield
+    finally:
+        _rq.observed_n_by_leg = original
 
 
 # --------------------------------------------------------------------------
@@ -76,14 +103,16 @@ def test_required_n_rejects_a_non_positive_effect():
 # 2. Every power state is reachable, and none collapses into another
 # --------------------------------------------------------------------------
 def test_power_cleared_when_n_meets_the_floor():
-    v = grade_power(_entry())
+    with _observing({'leg_a': 10_000.0}):
+        v = grade_power(_entry())
     assert v.state == CLEARED and v.runnable
     assert v.required_n == pytest.approx(required_n(0.3))
 
 
 def test_power_underpowered_blocks_rather_than_running_a_weak_answer():
-    v = grade_power(_entry(power={"expected_n": 10, "min_detectable_effect": 0.3,
-                                  "basis": "b"}))
+    with _observing({'leg_a': 10_000.0}):
+        v = grade_power(_entry(power={"expected_n": 10, "min_detectable_effect": 0.3,
+                                      "basis": "b", "feasibility": {"source": "corpus", "corpus": "e35", "statistic": "min_per_leg"}}))
     assert v.state == UNDERPOWERED and not v.runnable
     assert "data-acquisition" in v.reason
 
@@ -101,15 +130,17 @@ def test_power_unverifiable_when_the_basis_is_missing():
 
 
 def test_raw_units_require_an_sd_so_an_effect_is_never_read_as_a_d():
-    v = grade_power(_entry(power={"expected_n": 400, "min_detectable_effect": 2.5,
-                                  "effect_units": "R", "basis": "b"}))
+    with _observing({'leg_a': 10_000.0}):
+        v = grade_power(_entry(power={"expected_n": 400, "min_detectable_effect": 2.5,
+                                      "effect_units": "R", "basis": "b", "feasibility": {"source": "corpus", "corpus": "e35", "statistic": "min_per_leg"}}))
     assert v.state == UNVERIFIABLE
     assert "'R'" in v.reason, "the refusal must echo the author's own spelling"
 
 
 def test_raw_units_with_an_sd_standardise_correctly():
-    v = grade_power(_entry(power={"expected_n": 400, "min_detectable_effect": 1.0,
-                                  "sd": 2.0, "effect_units": "R", "basis": "b"}))
+    with _observing({'leg_a': 10_000.0}):
+        v = grade_power(_entry(power={"expected_n": 400, "min_detectable_effect": 1.0,
+                                      "sd": 2.0, "effect_units": "R", "basis": "b", "feasibility": {"source": "corpus", "corpus": "e35", "statistic": "min_per_leg"}}))
     assert v.state == CLEARED and v.effect_size_d == pytest.approx(0.5)
 
 
@@ -138,13 +169,26 @@ def test_an_unknown_kind_is_refused_not_defaulted():
 
 
 def test_every_declared_power_state_is_produced_by_some_input():
-    produced = {
-        grade_power(_entry()).state,
-        grade_power(_entry(power={"expected_n": 10, "min_detectable_effect": 0.3, "basis": "b"})).state,
-        grade_power(_entry(power=None)).state,
-        grade_power(_entry(power={"expected_n": 400, "min_detectable_effect": 0.3})).state,
-        grade_power(_entry(kind=KIND_DETERMINISTIC, why_not_inferential="x")).state,
-    }
+    """Every state must have a REACHABLE input. A state nobody can produce is a
+    branch that will never be exercised and will rot into a lie."""
+    with _observing({"leg_a": 10_000.0}):
+        produced = {
+            grade_power(_entry()).state,
+            grade_power(_entry(power={"expected_n": 10, "min_detectable_effect": 0.3,
+                                      "basis": "b", "feasibility": {"source": "corpus", "corpus": "e35", "statistic": "min_per_leg"}})).state,
+            grade_power(_entry(power=None)).state,
+            grade_power(_entry(power={"expected_n": 400, "min_detectable_effect": 0.3})).state,
+            grade_power(_entry(kind=KIND_DETERMINISTIC, why_not_inferential="x")).state,
+            # accruing: declared data-acquisition, runs but is not a test
+            grade_power(_entry(power={"expected_n": 5, "min_detectable_effect": 0.3,
+                                      "basis": "b",
+                                      "feasibility": {"source": "none",
+                                                      "accrual_basis": "no history yet"}})).state,
+        }
+    # infeasible needs an observation that REFUTES the declared n, so it cannot
+    # share the generous patch above.
+    with _observing({"leg_a": 3.0}):
+        produced.add(grade_power(_entry()).state)
     assert produced == set(POWER_STATES)
 
 
@@ -260,6 +304,14 @@ def test_every_committed_job_is_both_powered_and_routable():
     """A committed job that the gate would refuse is a queue nobody can run."""
     jobs, _ = load_queue(QUEUE_DIR)
     for job in jobs:
+        # ⚠️ SCOPED TO JOBS THAT CAN STILL RUN. A `done` / `blocked` / `retired`
+        # job's power state is HISTORY, and demanding it be runnable would mean
+        # a job could never be recorded as having run and failed to answer —
+        # which is exactly what the `infeasible` state exists to record. This is
+        # a narrower population, not a weaker assertion: it still catches the
+        # thing the test was written for, a QUEUED job nobody can run.
+        if str(job.raw.get("status") or "").strip() not in ("queued", "running"):
+            continue
         p, r = grade_power(job.raw), grade_route(job.raw)
         assert p.runnable, f"{job.path.name}: power={p.state} — {p.reason}"
         assert r.runnable, f"{job.path.name}: route={r.state} — {r.reason}"
@@ -297,8 +349,17 @@ def test_dispatcher_is_a_dry_run_unless_fire_is_passed(tmp_path):
     condition is not testing the code; here it was testing that someone had
     left work undone.
     """
-    (tmp_path / "RQ-20260827-999.yaml").write_text(
-        yaml.safe_dump(_entry(id="RQ-20260827-999"), sort_keys=False))
+    # ⚠️ SELF-CONTAINED FEASIBILITY, for the same reason the queue dir is a
+    # fixture. `_entry()`'s default grounds against the LIVE e35 corpus, whose
+    # min_per_leg is 4 — so a 400-n fixture would grade `infeasible` and this
+    # test would once again be asserting something about production data rather
+    # than about the dispatcher. `source: none` keeps the job runnable on its
+    # own declaration.
+    job = _entry(id="RQ-20260827-999")
+    job["power"] = dict(job["power"],
+                        feasibility={"source": "none",
+                                     "accrual_basis": "fixture: no corpus history"})
+    (tmp_path / "RQ-20260827-999.yaml").write_text(yaml.safe_dump(job, sort_keys=False))
     out = _run_dispatcher("--queue-dir", str(tmp_path), "--json")
     assert out.returncode == 0, out.stderr
     payload = json.loads(out.stdout)
@@ -546,3 +607,107 @@ def test_the_stamp_reads_back_as_written(tmp_path):
 def test_stamping_a_non_mapping_is_an_error_not_a_blind_append(tmp_path):
     p, err = _stamped(tmp_path, "- just\n- a list\n")
     assert err and "not a YAML mapping" in err
+
+
+# --------------------------------------------------------------------------
+# 9. The ADMISSION guard — expected_n must be grounded in observed data
+#
+# `basis` is prose and was presence-checked only: its own comment says "a number
+# with no stated derivation is a wish", but any non-empty string counted as the
+# derivation. That is the `new-table-wiring-guard` lesson — a guard cheaper to
+# lie to than to satisfy is worse than no guard — and it admitted RQ-20260830-002
+# declaring expected_n=50 for 14 legs, five of which achieved 4-8.
+# --------------------------------------------------------------------------
+_CORPUS_FEAS = {"source": "corpus", "corpus": "e35", "statistic": "min_per_leg"}
+
+
+def test_expected_n_without_a_feasibility_block_is_unverifiable():
+    """Prose alone can no longer admit a job."""
+    v = grade_power(_entry(power={"expected_n": 400, "min_detectable_effect": 0.3,
+                                  "basis": "b"}))
+    assert v.state == UNVERIFIABLE and not v.runnable
+    assert "feasibility" in v.reason
+
+
+def test_infeasible_is_not_underpowered_and_names_the_short_legs():
+    """Different diagnosis, different remedy — reporting one as the other sends
+    the author to rewrite the wrong half of their design."""
+    with _observing({"thin_leg": 4.0, "fat_leg": 400.0}):
+        v = grade_power(_entry())           # expected_n 400, min_per_leg -> 4
+    assert v.state == INFEASIBLE and not v.runnable
+    assert v.state != UNDERPOWERED
+    assert "thin_leg=4" in v.reason, "the refusal must name which leg falls short"
+    assert "SCOPE" in v.reason
+
+
+def test_a_could_not_look_read_is_unverifiable_never_infeasible():
+    """An unreadable corpus is OUR blind spot, not evidence against the job."""
+    with _observing({}):
+        v = grade_power(_entry())
+    assert v.state == UNVERIFIABLE
+    assert "could not look" in v.reason
+    assert v.state != INFEASIBLE
+
+
+def test_a_declared_leg_with_no_observation_does_not_read_as_refuted():
+    """The ordering bug this file caught: with an empty read every declared leg
+    lands in `missing`, so a total read failure was reported as a fact about the
+    leg. The could-not-look guard must win."""
+    entry = _entry(power={"expected_n": 400, "min_detectable_effect": 0.3, "basis": "b",
+                          "feasibility": dict(_CORPUS_FEAS, legs=["absent_leg"])})
+    with _observing({}):
+        v = grade_power(entry)
+    assert "could not look" in v.reason
+
+
+def test_feasibility_is_scoped_to_the_legs_the_job_runs_on():
+    """A per-leg claim graded against a fleet-wide statistic is the semantic
+    substitution `diagnostic-provenance-guard` exists to catch. Live instance:
+    e35's fleet max is 50 (sol_4h) while trend_donchian has never exceeded 49."""
+    fleet = {"trend_donchian": 49.0, "sol_4h": 50.0}
+    scoped = _entry(power={"expected_n": 50, "min_detectable_effect": 0.4, "basis": "b",
+                           "feasibility": dict(_CORPUS_FEAS, legs=["trend_donchian"])})
+    with _observing(fleet):
+        assert grade_power(scoped).state == INFEASIBLE, (
+            "scoped to its own leg, 50 > 49 and the job cannot deliver its n"
+        )
+        unscoped = _entry(power={"expected_n": 50, "min_detectable_effect": 0.4,
+                                 "basis": "b",
+                                 "feasibility": dict(_CORPUS_FEAS,
+                                                     statistic="max_per_leg")})
+        assert grade_power(unscoped).state == CLEARED, (
+            "unscoped max_per_leg is satisfied by a DIFFERENT leg — which is "
+            "why declaring the legs matters"
+        )
+
+
+def test_source_none_without_an_accrual_basis_is_not_a_free_pass():
+    """Otherwise any author opts out of grounding by writing one word."""
+    v = grade_power(_entry(power={"expected_n": 400, "min_detectable_effect": 0.3,
+                                  "basis": "b", "feasibility": {"source": "none"}}))
+    assert v.state == UNVERIFIABLE and not v.runnable
+    assert "accrual_basis" in v.reason
+
+
+def test_accruing_runs_but_is_never_cleared():
+    """The state that makes tightening admission safe: without it a thin leg
+    must either lie about its n or be blocked outright."""
+    v = grade_power(_entry(power={"expected_n": 5, "min_detectable_effect": 0.3,
+                                  "basis": "b",
+                                  "feasibility": {"source": "none",
+                                                  "accrual_basis": "no history yet"}}))
+    assert v.state == ACCRUING
+    assert v.runnable, "you cannot accrue data without running"
+    assert ACCRUING != CLEARED and ACCRUING in RUNNABLE_POWER_STATES
+    assert "must not be read as a test result" in v.reason
+
+
+def test_the_corpus_reader_works_however_this_module_was_imported():
+    """It loads its sibling BY PATH. A bare `import research_disposition` only
+    resolves with scripts/research on sys.path — the tests import this module as
+    `scripts.research.research_queue`, where it does not — so the bare form
+    returned {} and every corpus-grounded job graded unverifiable in CI while
+    grading correctly from a shell."""
+    from scripts.research.research_queue import observed_n_by_leg as obs
+    assert obs("e35"), "the live e35 corpus carries achieved counts; reader is blind"
+    assert obs("no_such_corpus") == {}
