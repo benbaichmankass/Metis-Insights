@@ -2269,7 +2269,7 @@ def get_bybit_wallet_truth(
                 rows = list_transaction_log(
                     acct.account_id, since_ms=start_ms, until_ms=end_ms
                 )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001  # allow-silent: this is the OPPOSITE of a silent empty -- the failure is converted into the DECLARED `unreadable` state carrying its reason, never into [] or 0.0. Collapsing 'we could not read the store' into 'the account was flat' is the exact defect bybit_wallet_truth's four states exist to prevent, and one account's store error must not blind the others.
                 out.append(
                     _wt.compute_wallet_truth(
                         acct.account_id, None,
@@ -2291,7 +2291,7 @@ def get_bybit_wallet_truth(
                 d["state"] = _wt.STATE_NOT_PULLED
                 d["reason"] = "no rows stored for this account in this window"
             out.append(d)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: returns `error` + `count: None` (never 0, never an empty accounts list read as 'no accounts'), so a broken route is distinguishable from a venue with nothing to report. A diag read must not 500 the surface an operator uses to diagnose.
         return {
             "captured_at": datetime.now(timezone.utc).isoformat(),
             "error": f"{type(exc).__name__}: {exc}",
