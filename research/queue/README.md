@@ -67,6 +67,16 @@ admission census, and `research_disposition.append` **refuses** to close any
 (`actioned`, `no_action_warranted`). A test pins the runnable set and the
 refusal set together so neither can widen alone.
 
+**Record a disposition with `research_disposition.py --record`** (added
+2026-08-31) — `--corpus` `--run-stamp` `--leg` `--verdict` `--reason`, plus
+`--dry-run` to see the `accrual_check` verdict without writing. It routes to
+`append`, which keeps owning every rule above. ⚠️ **Do not hand-roll a snippet
+that writes the ledger directly.** Until that flag existed there was no other
+way — `main` exposed only the read flags — and all 75 entries written before
+it bypassed `append` entirely, so the refusals this section describes never
+ran on any of them. A raw write is one forgotten import away from skipping
+the whole gate.
+
 ⚠️ **Five different states may run, for five different reasons.**
 `not_applicable` faced no bar, `cleared` faced it and met it, `accruing` faced
 it and declared up front it would fail, `underpowered` and `infeasible` faced it
