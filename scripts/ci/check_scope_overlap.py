@@ -180,7 +180,35 @@ def matches(changed: str, declared: str) -> bool:
     return False
 
 
-def assess(changed_files, starts, *, my_branch: str) -> dict:
+def attribution(st: dict, *, my_branch: str, my_pr: int | None) -> str:
+    """Whose START is this? THREE states, and the third is the whole point.
+
+    `mine` / `other` / `unattributable`. The first live fires of this detector
+    (PRs #10590 and #10592, 2026-08-31) were BOTH false positives that reported
+    this session's own START back at it, because self-exclusion had exactly one
+    key — a backticked `claude/...` branch in the body — and that session's START
+    named its PR number instead. An unparseable branch fell through to the
+    `other` branch of an implicit two-way test, so "we could not tell whose this
+    is" was silently rendered as "another session declared this".
+
+    A detector whose first two findings are noise is the desensitized-alarm P1,
+    and this one was built expressly to avoid that.
+
+    `unattributable` is NOT resolved toward `mine`. Suppressing a real overlap is
+    the dangerous direction; the caller reports these separately and says so.
+    """
+    branch = st.get("branch") or ""
+    if branch:
+        return "mine" if my_branch and branch == my_branch else "other"
+    # No branch to compare. A START that names THIS PR identifies itself — but
+    # only consult that when the branch is absent, so a START that legitimately
+    # MENTIONS another PR can never suppress a real overlap.
+    if my_pr and re.search(rf"#{my_pr}\b", st.get("body") or ""):
+        return "mine"
+    return "unattributable"
+
+
+def assess(changed_files, starts, *, my_branch: str, my_pr: int | None = None) -> dict:
     """`starts` is [{author_hint, branch, body, url, created_at}, ...]."""
     if not changed_files:
         return {"state": "could_not_check",
@@ -196,11 +224,11 @@ def assess(changed_files, starts, *, my_branch: str) -> dict:
                           "'nobody declared anything'",
                 "hits": [], "parsed": 0, "explicitly_excluded": 0, "unparsed_hints": []}
 
-    hits, parsed_total, excluded_total, hints_total = [], 0, 0, []
+    hits, unattributed, parsed_total, excluded_total, hints_total = [], [], 0, 0, []
     for st in starts:
-        # A session never collides with itself. Branch is the identity that is
-        # actually comparable against a PR's head ref.
-        if st.get("branch") and my_branch and st["branch"] == my_branch:
+        # A session never collides with itself.
+        who = attribution(st, my_branch=my_branch, my_pr=my_pr)
+        if who == "mine":
             continue
         declared, excluded, hints = parse_declared_paths(st.get("body", ""))
         parsed_total += len(declared)
@@ -209,14 +237,19 @@ def assess(changed_files, starts, *, my_branch: str) -> dict:
         for f in changed_files:
             for d in sorted(declared):
                 if matches(f, d):
-                    hits.append({"file": f, "declared": d,
-                                 "branch": st.get("branch"), "url": st.get("url"),
-                                 "at": st.get("created_at")})
+                    row = {"file": f, "declared": d,
+                           "branch": st.get("branch"), "url": st.get("url"),
+                           "at": st.get("created_at"), "attribution": who}
+                    (hits if who == "other" else unattributed).append(row)
                     break
     return {
-        "state": "overlap" if hits else "no_overlap",
+        # Still exactly three states. An unattributable hit IS worth surfacing —
+        # it may be another session — so it counts toward `overlap`; what changes
+        # is that render() never CLAIMS it belongs to another session.
+        "state": "overlap" if (hits or unattributed) else "no_overlap",
         "reason": "",
         "hits": hits,
+        "unattributed_hits": unattributed,
         # Always shipped: a `no_overlap` over 0 parsed paths establishes nothing.
         "parsed": parsed_total,
         # Shipped so a reader can see negations were honoured rather
@@ -245,8 +278,23 @@ def render(v: dict, *, pr: int, changed_n: int) -> str:
     for h in v["hits"]:
         lines.append(f"- `{h['file']}` — declared as `{h['declared']}` by "
                      f"[`{h['branch']}`]({h['url']}) at {h['at']}")
+    # Reported, never merged into the list above: the heading there asserts
+    # "another session", and for these we do not know that. Saying it anyway is
+    # what made this detector's first two live fires noise.
+    un = v.get("unattributed_hits") or []
+    if un:
+        lines += ["", "**Declared by a START we could not attribute** — its comment "
+                  "names no `claude/...` branch and does not name this PR, so we "
+                  "cannot tell whether it is another session or your own. Resolved "
+                  "toward reporting, not toward silence: suppressing a real overlap "
+                  "is the worse error.", ""]
+        for h in un:
+            lines.append(f"- `{h['file']}` — declared as `{h['declared']}` by "
+                         f"[an unattributed START]({h['url']}) at {h['at']}")
     lines += ["",
-              f"_Compared {changed_n} changed file(s) against {v['parsed']} declared path(s)._"]
+              f"_Compared {changed_n} changed file(s) against {v['parsed']} declared "
+              f"path(s) — {len(v['hits'])} attributed to another session, "
+              f"{len(un)} unattributable._"]
     if v["unparsed_hints"]:
         lines += ["",
                   "⚠️ **This list is a LOWER BOUND.** These declarations were prose the "
@@ -309,6 +357,48 @@ def _self_test() -> int:
     ok(v_neg["state"] == "no_overlap" and v_neg["explicitly_excluded"] >= 1,
        "end to end: the excluded file reports no_overlap AND surfaces the exclusion count")
 
+    # ── ATTRIBUTION: the regression planted from the REAL false positives ──
+    # PRs #10590 and #10592 (2026-08-31) were this detector's first two live
+    # fires and BOTH reported this session's own START back at it. The START
+    # named its PR number, not a `claude/...` branch, so `branchOf` yielded ""
+    # and the implicit two-way test filed it under "another session".
+    mine_no_branch = {
+        "branch": "", "url": "u", "created_at": "t",
+        "body": ("▶️ START · session_012LgMzB\n"
+                 "**Touching:** `.github/workflows/pytest-run.yml`, "
+                 "`.github/workflows/pytest-collect.yml`, "
+                 "`.github/workflows/guards.yml`. PR **#10590** (draft)."),
+    }
+    changed = [".github/workflows/pytest-run.yml",
+               ".github/workflows/pytest-collect.yml",
+               ".github/workflows/guards.yml"]
+
+    ok(attribution(mine_no_branch, my_branch="claude/x", my_pr=10590) == "mine",
+       "a START naming THIS PR is mine even with no parseable branch — the exact "
+       "miss that made #10590's own START read as a foreign declaration")
+    v_self = assess(changed, [mine_no_branch], my_branch="claude/x", my_pr=10590)
+    ok(v_self["state"] == "no_overlap" and not v_self["hits"],
+       "end to end: the live #10590 false positive does not reproduce")
+
+    ok(attribution(mine_no_branch, my_branch="claude/x", my_pr=99999) == "unattributable",
+       "the same START against a DIFFERENT PR is unattributable — not silently "
+       "promoted to another session, and not silently claimed as mine either")
+    v_un = assess(changed, [mine_no_branch], my_branch="claude/x", my_pr=99999)
+    ok(v_un["state"] == "overlap" and not v_un["hits"] and len(v_un["unattributed_hits"]) == 3,
+       "an unattributable hit is REPORTED (suppressing a real overlap is the worse "
+       "error) but is kept out of `hits`, which asserts 'another session'")
+    md_un = render(v_un, pr=99999, changed_n=3)
+    ok("could not attribute" in md_un and "unattributable" in md_un,
+       "and the rendered comment says so rather than asserting another session")
+
+    ok(attribution({"branch": "claude/other", "body": "#10590"},
+                   my_branch="claude/mine", my_pr=10590) == "other",
+       "a PARSED branch always wins: a START that merely MENTIONS this PR can "
+       "never suppress a real overlap")
+    ok(attribution({"branch": "claude/mine", "body": ""},
+                   my_branch="claude/mine", my_pr=None) == "mine",
+       "the original branch-equality path still excludes")
+
     ok(matches("tests/test_x.py", "tests/"), "a trailing-slash prefix matches beneath it")
     ok(matches("scripts/ci/a.py", "scripts/ci"), "a bare directory matches as a prefix")
     ok(not matches("tests_other/x.py", "tests/"), "the prefix does not leak across a sibling dir")
@@ -363,7 +453,8 @@ def main(argv=None) -> int:
         ap.error("pass --self-test or --input")
     data = json.loads(open(args.input, encoding="utf-8").read())
     v = assess(data.get("changed_files") or [], data.get("starts") or [],
-               my_branch=data.get("my_branch") or "")
+               my_branch=data.get("my_branch") or "",
+               my_pr=data.get("pr"))
     print(json.dumps({**v, "markdown": render(v, pr=data.get("pr", 0),
                                               changed_n=len(data.get("changed_files") or []))},
                      indent=2, ensure_ascii=False))
