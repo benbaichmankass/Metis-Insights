@@ -35,7 +35,22 @@ on:
     # EMPTY — every base_ref expression in this file falls back to 'main'
     # (the only branch the queue serves; pull_request trigger is main-scoped).
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    # ⚠️ `ready_for_review` is deliberately ABSENT. Every Claude PR is opened
+    # as a draft (harness rule), and a draft ALREADY runs these checks here via
+    # `opened` + `synchronize` — so re-running on the ready transition re-tests
+    # an IDENTICAL sha. It is not merely redundant: the fresh runs reset the
+    # head's status to pending, and GitHub then refuses the merge with
+    # "3 of 3 required status checks are in progress" for a PR that was green.
+    # The trigger CREATED the block it looks like it guards against.
+    # Measured 2026-08-31: four PRs, ~15 min of wall clock each.
+    # Introduced with no recorded rationale (#1644, 2026-05-21 — copied in with
+    # the trigger set when pytest-run was created), so nothing is being undone.
+    # ⚠️ This does NOT change REQUIRED_CONTEXTS in branch-protection-sync.yml
+    # (still pytest-collect / pytest-run / guards), which is the operation
+    # CLAUDE.md warns can deadlock every open PR.
+    # ⚠️ RE-ADD IT if drafts ever stop running checks: a draft with no runs and
+    # no ready trigger would be unmergeable forever.
+    types: [opened, synchronize, reopened]
     branches: [main]
   push:
     branches: [main]
