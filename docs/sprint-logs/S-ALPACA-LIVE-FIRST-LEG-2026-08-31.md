@@ -53,6 +53,45 @@ blocked on modelling T+1 settlement before any leg goes live.
    mirrors too; that was put back with evidence and withdrawn. Filed
    `BL-20260831-CASH-SETTLEMENT-GATE-HAS-NO-ACCOUNT-TYPE-GUARD` (medium, Tier-2).
 
+## CI rounds — three failures, all real, none skipped
+
+The PR did not go green first try. Recording each, because two were findings
+rather than chores:
+
+1. **`mergeable_state: dirty` — a MERGE CONFLICT, and zero check runs had
+   fired.** `main` moved to `3eeca69` mid-session, so GitHub could not build
+   the merge ref and silently skipped every workflow. Zero check runs reads
+   identically to *queued* and to *all green*; reading `mergeable_state` first
+   is what separated them. Resolved by merging `origin/main` in. The conflict
+   was in `OPEN-ITEMS.json`, where PR #10628 had **deduped** a row — a naive
+   keep-both resolution would have resurrected it, so the file was rebuilt from
+   main's version and this session's two edits re-applied on top.
+2. **`guards` → `probe-guard`.** The new monitoring row declared neither
+   `probe` nor `probe_absent_reason`. A REAL probe was attempted first and the
+   attempt surfaced a worse bug: `probe_soak.py` crashes on a bare-list payload
+   and exits **1**, which its own contract defines as "read, nothing matched".
+   Its docstring reserves code 2 for exactly that case. On a row whose expected
+   state is already `fail`, a crash and the truth render identically. Shipped
+   `probe_absent_reason` naming that, and filed
+   `BL-20260831-PROBE-SOAK-CRASHES-ON-A-BARE-LIST-PAYLOAD-AND-REPORTS-IT-AS-A-REAL-NEGATIVE`.
+   Deliberately did **not** bundle the tooling fix into a real-money PR.
+3. **`pytest-run` → 1 failed of 13,898.**
+   `test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies` asserts the paper
+   mirror EQUALS the live roster minus proxies. With live at
+   `['tlt_pullback_1h']` that demanded `alpaca_portfolio` be cut 14 legs → 1,
+   deleting the research book the eventual roster selection depends on — the
+   same harm the test's own 2026-08-29 note records for the empty case, one
+   state over. Rewritten as three states (empty / staged subset / aligned).
+   ⚠️ **This gives up the superset direction** and says so in the test: a leg
+   added to the MIRROR and not to live no longer fails here. That was never the
+   representativeness risk, and the INSTRUMENT-level `symbols` equality is
+   unchanged and still exact. What it GAINS: the direction that protects real
+   money — a live leg with no paper counterpart — is now asserted in EVERY
+   state, including the empty one, where the old code asserted only
+   non-emptiness. **Operator review wanted**: this modifies a guard over a
+   real-money roster relationship, which is beyond what was approved in
+   conversation.
+
 ## Validation Performed
 - **Env verified authoritatively, not from `.env`.** `get-env` (#10631/#10632) read
   `/proc/<MainPID>/environ`: `ALPACA_CASH_SETTLEMENT_MODE` process `'apply'` / declared
@@ -70,6 +109,12 @@ blocked on modelling T+1 settlement before any leg goes live.
 - `python3 scripts/check_account_class.py` exit 0; cross-config check confirms every account
   strategy exists in `strategies.yaml`; `scripts/ci/check_open_items.py` OK at 23 items.
 - ⚠️ `pytest` is unavailable in this sandbox — the unit suite ran in CI on the PR, not locally.
+- The relaxed ROSTER-SYNC assertion was checked by CONTROL, not by reading: a live leg
+  missing from the mirror fails, a live roster swapped to an unmirrored leg fails, an
+  emptied mirror fails, and the staged subset passes.
+- `probe_soak` was tested against the real endpoint before concluding a probe was
+  infeasible — the 1000-row journal tail spans a month and holds 80 `alpaca_live` rows,
+  so the predicate had a real denominator; the blocker was the helper, not the data.
 
 ## Documentation Updated
 - `config/accounts.yaml` — the `alpaca_live` roster block.
