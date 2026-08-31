@@ -304,3 +304,85 @@ def test_the_e35_sibling_got_the_same_fix():
     )
     assert not any('git fetch origin "${DEFAULT_BRANCH:-main}" "${TARGET}"' in b
                    for b in bodies), "e35's combined fetch reintroduced"
+
+
+# ---------------------------------------------------------------------------
+# e35's landing chain — the same eight hops, closed 2026-08-31.
+#
+# e35 pushed a side branch and printed an honest hand-off saying a human had to
+# open the PR. Accurate, and still a broken pipeline: the research queue drives
+# this workflow on a monthly cadence, so "a human finishes it" means the rows
+# pile up unmerged and no later session reads them. Measured on run
+# 33361845836 — 14/14 legs green, 2,786 rows written, 0 rows on main.
+# ---------------------------------------------------------------------------
+def _e35() -> dict:
+    return yaml.safe_load(
+        (REPO / ".github/workflows/e35-bracket-sweep.yml").read_text())
+
+
+def _e35_corpus_job() -> dict:
+    return _e35()["jobs"]["corpus"]
+
+
+def test_e35_lands_through_commit_to_main_not_a_bare_side_branch_push():
+    """A GITHUB_TOKEN push starts no workflows, so the job cannot open its own
+    PR. The PAT-authenticated shared action is the only thing that can."""
+    steps = _e35_corpus_job()["steps"]
+    land = [s for s in steps
+            if s.get("uses") == "./.github/actions/commit-to-main"]
+    assert len(land) == 1, (
+        "e35's corpus job must land through the shared commit-to-main action; "
+        "a bare `git push` to a per-run branch leaves the merge owed to a human"
+    )
+    assert land[0].get("id") == "land", (
+        "the landing step needs id 'land' — the assertion reads its outputs"
+    )
+    bodies = "\n".join(s.get("run", "") for s in steps)
+    assert 'git push origin "HEAD:refs/heads/${TARGET}"' not in bodies, (
+        "the side-branch push is back; that is the state that owed the merge"
+    )
+
+
+def test_e35_landing_waits_for_the_merge():
+    """Without this the step exits 0 when the PR OPENS, so the assertion below
+    reads pending_merge on every healthy run and gets switched off."""
+    land = [s for s in _e35_corpus_job()["steps"]
+            if s.get("uses") == "./.github/actions/commit-to-main"][0]
+    assert str(land["with"].get("verify-merged")).lower() == "true", (
+        "e35's landing must verify the merge, not just the push"
+    )
+
+
+def test_e35_corpus_job_budget_outlasts_the_merge_wait():
+    """A budget shorter than the wait cancels a healthy landing mid-wait and
+    reports a timeout for a PR that was merging correctly."""
+    action = yaml.safe_load(
+        (REPO / ".github/actions/commit-to-main/action.yml").read_text())
+    wait = int(action["inputs"]["verify-timeout-minutes"]["default"])
+    budget = int(_e35_corpus_job()["timeout-minutes"])
+    assert budget > wait, (
+        f"corpus job budget {budget}m must exceed commit-to-main's {wait}m wait"
+    )
+
+
+def test_e35_corpus_job_may_open_a_pull_request():
+    """contents:write alone cannot open the landing PR."""
+    perms = _e35_corpus_job()["permissions"]
+    assert perms.get("pull-requests") == "write", (
+        "commit-to-main opens a PR; the job needs pull-requests: write"
+    )
+
+
+def test_e35_assertion_guards_on_both_committed_and_branch():
+    """`committed=false` is the legitimate no-op (corpus byte-identical);
+    an empty branch beside committed=true is a broken landing. Collapsing the
+    two would let a failed push read as a quiet success."""
+    body = [s for s in _e35_corpus_job()["steps"]
+            if s.get("name") == "assert the corpus rows landed"][0]["run"]
+    assert "LAND_COMMITTED" in body and "LAND_BRANCH" in body, (
+        "the assertion must read the landing step's outputs"
+    )
+    assert "CORPUS_TARGET" not in body, (
+        "CORPUS_TARGET is gone with the push step; reading it would make the "
+        "guard always fire"
+    )
