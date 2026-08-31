@@ -29722,6 +29722,21 @@
       ]
     },
     {
+      "id": "BL-20260831-E35-CORPUS-HAS-NO-ACHIEVED-OOS-COUNT",
+      "status": "resolved",
+      "severity": "high",
+      "tier": "1",
+      "area": "scripts/research/e35_corpus_extract.py + scripts/research/research_disposition.py::N_FIELD",
+      "summary": "The e35 bracket corpus carried NO achieved OOS sample size, so R4's power gate could grade nothing and every e35 disposition unit read ungradeable — 70 units, 28 of them explicitly stuck. The only n-shaped field was `split_target_oos`, and it is wrong twice over: a run TARGET rather than a measurement, and MEASURED over the whole corpus on 2026-08-31 it is non-null on 377 of 8,321 rows (4.5%) with exactly ONE distinct value, 50. Keying the gate on it would have graded 4.5% of the corpus against a constant and called the rest unknown. ⚠️ THE PRODUCER EMITTED THE REAL COUNTS ALL ALONG. `e35_bracket_geometry_sweep.gate` writes `base_is_trades` / `base_oos_trades` on every gate record, both `run_cell(...)['total_trades']`, and the extractor simply never read them — written-and-never-read, the `exit_price_source` shape this repo already pays for, one layer down in the research tooling. ⚠️ THE SHARPEST EVIDENCE THAT THIS MATTERED: RQ-20260830-002's own `power.basis` instructs a reader to \"read per-leg base_trades_OOS before quoting any verdict from this job\" — an instruction that was IMPOSSIBLE to follow, because no such field existed in the corpus. The monthly job shipped with an unusable caveat and nobody noticed.",
+      "detail": "FIXED: the extractor now carries `base_is_trades` / `base_oos_trades` off the gate record, and `N_FIELD[\"e35\"]` reads `base_oos_trades` instead of None. Four pins with a positive control (three fail against the pre-fix files). `None` where a report predates the field — never 0, since a zero asserts a measured empty sample.\n\n⚠️ NAMING DIVERGENCE, LEFT DELIBERATELY. m20 calls this `base_trades_OOS`; the e35 producer writes `base_oos_trades`. The extractor carries the PRODUCER's name rather than harmonising to m20's, because field-beats-comment and renaming at the extractor boundary would make the corpus disagree with the sweep that wrote it. N_FIELD is per-corpus precisely so the two can differ.\n\n⚠️ BACK-FILL IS IMPOSSIBLE FROM A SESSION, INVESTIGATED RATHER THAN ASSUMED. The extractor's input is `report.json`, which is NOT committed anywhere in the repo (checked); those files exist only as workflow artifacts, and root CLAUDE.md states a PM-side session has no artifact download. So the 8,321 pre-fix rows keep `n_oos: null` — correctly ungradeable, not silently zeroed — until their legs are RE-SWEPT. Verified after the fix: 0 of 70 e35 units carry an achieved n, which is the expected reading and confirms the fix is forward-looking only. It does NOT retroactively unblock the units that were already stuck.\n\nRQ-20260831-001 was queued as the re-sweep that clears them, rather than waiting ~30 days for RQ-20260830-002's next monthly run.",
+      "resolution_criteria": "RESOLVED in the tooling. ⚠️ NOT resolved in the DATA: closes fully when a post-fix sweep has landed rows carrying `base_oos_trades` and the disposition tool grades a non-zero number of e35 units on it — verified by reading `n_oos` off real rows, not by the extractor's tests passing. RQ-20260831-001 is that run. ⚠️ Read the achieved counts per leg when it lands: a low-frequency leg (the 1d ones) may not reach the 49.06 floor at all, and that is a legitimate `underpowered` verdict rather than a defect.",
+      "found_by": "session 765316b0 — operator-approved follow-up, 2026-08-31",
+      "related": [
+        "RQ-20260831-001 (the re-sweep queued to clear the ungradeable units)",
+        "RQ-20260830-002 (its power.basis names a field that did not exist)"
+      ]
+    },
+    {
       "id": "BL-20260831-CONFIDENCE-IS-CARRIED-TO-THE-ELECTION-AND-READ-BY-NEITHER-SORT-KEY",
       "status": "open",
       "severity": "high",
