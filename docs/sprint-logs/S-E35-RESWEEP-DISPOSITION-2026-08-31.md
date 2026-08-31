@@ -81,7 +81,7 @@ This is the disposition ledger's **first `actioned` verdict in 117 entries**
 (the prior 90 were 36 `no_action_warranted` + 54 `underpowered`).
 
 ## Contradictions or Drift Found
-* **`BL-20260831-CORPUS-JOB-SCANS-EVERY-LEG-REPORT-TWICE…` (new).** The #10583
+* **`BL-20260831-CORPUS-JOB-SCANS-EVERY-LEG-REPORT-TWICE-SO-THE-HISTORY-SIDECAR-ARCHIVES-THE-RUNS-OWN-ROWS` (new).** The #10583
   history sidecar's **first live exercise** archived 10,547 rows, of which only
   5,174 are genuine supersedes — the other **5,373 are copies of this run's own
   rows**. Cause, confirmed from the `source` field rather than inferred: the
