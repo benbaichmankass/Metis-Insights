@@ -290,7 +290,14 @@ GUARDS: List[Dict[str, Any]] = [
         "when": None,
         "steps": [
             ["python3", "scripts/ops/run_probes.py", "--self-test"],
+            # One self-test per probe BINARY. probe_lib holds the shared
+            # predicate engine + the three-state exit contract, and every probe
+            # binary re-runs its controls before its own — so a change that
+            # broke `could_not_look` reds here rather than being discovered as a
+            # confident negative on a schedule.
+            ["python3", "scripts/ops/probe_lib.py"],
             ["python3", "scripts/ops/probe_soak.py", "--self-test"],
+            ["python3", "scripts/ops/probe_file.py", "--self-test"],
             ["python3", "scripts/ops/run_probes.py", "--check"],
         ],
     },

@@ -49,72 +49,27 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import probe_lib  # noqa: E402
+
 _FETCH = Path("scripts/ops/diag_fetch.sh")
 
-EXIT_PASS, EXIT_FAIL, EXIT_COULD_NOT_LOOK = 0, 1, 2
-
-
-def _die_unlooked(msg: str) -> int:
-    # Note the wording: never "no rows matched". This path never establishes that.
-    print(f"probe-soak: COULD NOT LOOK — {msg}")
-    return EXIT_COULD_NOT_LOOK
-
-
-# ── predicate ──────────────────────────────────────────────────────────────
-
-def _walk(row, path: str):
-    """Yield every value at a dotted path. `[]` fans out over a list.
-
-    `legs[].position_idx` yields one value per leg, so "any leg" and "this
-    specific field" are both expressible without a query language.
-    """
-    cur = [row]
-    for part in path.split("."):
-        nxt = []
-        fan = part.endswith("[]")
-        key = part[:-2] if fan else part
-        for c in cur:
-            if not isinstance(c, dict) or key not in c:
-                continue
-            v = c[key]
-            if fan:
-                if isinstance(v, list):
-                    nxt.extend(v)
-            else:
-                nxt.append(v)
-        cur = nxt
-    return cur
-
-
-def _coerce(s: str):
-    low = s.lower()
-    if low in {"true", "false"}:
-        return low == "true"
-    if low == "null":
-        return None
-    try:
-        return int(s)
-    except ValueError:
-        pass
-    try:
-        return float(s)
-    except ValueError:
-        return s
-
-
-def parse_condition(spec: str):
-    """`path=value` (equals) or `path~a,b,c` (membership). Returns a callable."""
-    if "~" in spec and ("=" not in spec or spec.index("~") < spec.index("=")):
-        path, raw = spec.split("~", 1)
-        wanted = {_coerce(x.strip()) for x in raw.split(",") if x.strip() != ""}
-        if not wanted:
-            raise ValueError(f"empty membership set in {spec!r}")
-        return lambda row: any(v in wanted for v in _walk(row, path.strip()))
-    if "=" in spec:
-        path, raw = spec.split("=", 1)
-        want = _coerce(raw.strip())
-        return lambda row: any(v == want for v in _walk(row, path.strip()))
-    raise ValueError(f"condition {spec!r} must be `path=value` or `path~a,b`")
+# ⚠️ THE PREDICATE ENGINE AND THE EXIT CONTRACT LIVE IN `probe_lib`, NOT HERE.
+# They were local to this file until 2026-08-31, when a second and third probe
+# SOURCE arrived. Copying them would have given the repo two definitions of what
+# `legs[].position_idx~1,2` means, free to drift — the argument CLAUDE.md makes
+# for `provenance.py` and for `_regime_score_semantics.py`, where two probes
+# re-derived one answer independently and both got it wrong on the same day.
+# The names below are re-exported so the three probe declarations already in
+# OPEN-ITEMS.json, and this file's own tests, keep working unchanged.
+EXIT_PASS = probe_lib.EXIT_PASS
+EXIT_FAIL = probe_lib.EXIT_FAIL
+EXIT_COULD_NOT_LOOK = probe_lib.EXIT_COULD_NOT_LOOK
+_walk = probe_lib.walk
+_coerce = probe_lib.coerce
+parse_condition = probe_lib.parse_condition
+_die_unlooked = probe_lib.die_unlooked
 
 
 # ── fetch ──────────────────────────────────────────────────────────────────
@@ -153,17 +108,7 @@ def fetch_rows(path: str, root: Path) -> tuple[list[dict] | None, str]:
     else:
         return None, f"unrecognised envelope (keys={sorted(payload)[:8]})"
 
-    rows: list[dict] = []
-    for r in raw:
-        if isinstance(r, dict):
-            rows.append(r)
-        elif isinstance(r, str):
-            try:
-                obj = json.loads(r)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(obj, dict):
-                rows.append(obj)
+    rows = probe_lib.normalise_rows(raw)
     return rows, f"read {len(rows)} row(s) from {path}"
 
 
@@ -173,6 +118,11 @@ def main(argv=None) -> int:
     ap.add_argument("--path", help="diag path, e.g. /api/diag/log_file?name=pairs_soak&lines=1000")
     ap.add_argument("--require", action="append", default=[],
                     help="condition `path=value` or `path~a,b`; ALL must hold on ONE row. Repeatable.")
+    ap.add_argument("--positive-control",
+                    help="a condition that DOES hold in this log today. If it does not "
+                         "fire, the verdict is could_not_look — a reader proven blind "
+                         "must not emit a confident negative (RULE ONE: show the probe "
+                         "can find a positive before trusting that it is quiet).")
     ap.add_argument("--root", default=".")
     args = ap.parse_args(argv)
 
@@ -183,6 +133,8 @@ def main(argv=None) -> int:
 
     try:
         conds = [parse_condition(c) for c in args.require]
+        control = (parse_condition(args.positive_control)
+                   if args.positive_control else None)
     except ValueError as exc:
         return _die_unlooked(str(exc))
 
@@ -190,18 +142,13 @@ def main(argv=None) -> int:
     if rows is None:
         return _die_unlooked(note)
 
-    hits = [r for r in rows if all(c(r) for c in conds)]
-    if hits:
-        print(f"probe-soak: PASS — {len(hits)} of {len(rows)} row(s) match "
-              f"{args.require} ({note})")
-        return EXIT_PASS
-    # The denominator is the finding when it is zero.
-    print(f"probe-soak: FAIL — 0 of {len(rows)} row(s) match {args.require} ({note}). "
-          f"{'A ZERO DENOMINATOR IS NOT A NEGATIVE — the log read empty.' if not rows else ''}")
-    return EXIT_FAIL
+    return probe_lib.report(rows, conds, args.require, note,
+                            control, args.positive_control or "")
 
 
 def _self_test() -> int:
+    # The predicate + exit-contract controls now live with the code they guard.
+    probe_lib.self_test()
     fired = 0
 
     def ok(cond, label):
@@ -209,25 +156,7 @@ def _self_test() -> int:
         assert cond, f"control FAILED: {label}"
         fired += 1
 
-    row = {"a": 1, "state": "exceeds_cushion", "applied": True,
-           "legs": [{"position_idx": 0}, {"position_idx": 2}]}
-    ok(parse_condition("state=exceeds_cushion")(row), "equals matches")
-    ok(not parse_condition("state=within_cushion")(row), "equals rejects")
-    ok(parse_condition("applied=true")(row), "`true` coerces to bool, not the string 'true'")
-    ok(not parse_condition("applied=false")(row), "bool coercion is not truthiness of a string")
-    ok(parse_condition("legs[].position_idx~1,2")(row),
-       "`[]` fans out — ANY leg satisfying the set is a match")
-    ok(not parse_condition("legs[].position_idx~1")(row),
-       "the fan-out does not match a value no leg carries")
-    ok(not parse_condition("missing.key=1")(row), "an absent path never matches")
-    ok(not parse_condition("legs[].position_idx=9")(row), "absent value in a fan-out")
-
-    try:
-        parse_condition("garbage")
-        ok(False, "an unparseable condition raises")
-    except ValueError:
-        ok(True, "an unparseable condition raises")
-
+    # This file still owns the FETCH half, so those controls stay here.
     saved = os.environ.pop("DIAG_READ_TOKEN", None)
     try:
         rows, note = fetch_rows("/api/diag/log_file?name=x", Path("."))
@@ -237,18 +166,10 @@ def _self_test() -> int:
         if saved is not None:
             os.environ["DIAG_READ_TOKEN"] = saved
 
-    import contextlib
-    import io
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        rc = _die_unlooked("planted")
-    said = buf.getvalue()
-    ok(rc == EXIT_COULD_NOT_LOOK, "the could-not-look path returns its own code")
-    ok("COULD NOT LOOK" in said and "match" not in said.lower(),
-       "and it words itself as an unread, never as a negative result — a reader "
-       "must not be able to mistake it for 'nothing matched'")
     ok(EXIT_COULD_NOT_LOOK != EXIT_FAIL,
        "could_not_look and fail are different exit codes — the whole point")
+    ok(parse_condition is probe_lib.parse_condition,
+       "the engine is the SHARED one, not a local copy that could drift")
 
     print(f"probe-soak: self-test OK — {fired} planted controls all fire")
     return 0
