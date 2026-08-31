@@ -47,6 +47,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import pathlib
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -64,6 +66,12 @@ _OPEN_ITEMS = Path("docs/claude/OPEN-ITEMS.json")
 _OPERATOR_OWED = Path("docs/claude/operator-owed-register.json")
 _RESEARCH_QUEUE = Path("research/queue")
 _PROBES = Path("docs/claude/PROBES.json")
+_PROBES_WORKFLOW = Path(".github/workflows/probes.yml")
+# Slack on top of the declared cadence before a report is called stale. The
+# probes job carries `timeout-minutes: 60`, so a run that starts on time can
+# still be committing an hour later; 6h absorbs that plus a retry without
+# absorbing a whole missed day.
+_PROBE_STALE_SLACK_H = 6.0
 
 REPO = "benbaichmankass/Metis-Insights"
 _API = "https://api.github.com"
@@ -223,9 +231,79 @@ def src_operator_owed(root: Path, today: date) -> SourceResult:
     return SourceResult("operator_owed", "read", rows)
 
 
+def probe_cadence_hours(root: Path) -> tuple[float | None, str]:
+    """Expected hours between probe runs, read from the cron the workflow DECLARES.
+
+    Deliberately not a hardcoded 24. The threshold has to move when the schedule
+    moves, or the first person to make probes twice-daily silently gets a
+    staleness check that is a full day too generous.
+
+    Returns (hours, basis). `None` hours means we could not derive it — which is
+    its own state upstream, never quietly treated as fresh.
+    """
+    p = root / _PROBES_WORKFLOW
+    try:
+        text = p.read_text(encoding="utf-8")
+    except OSError as exc:
+        return None, f"cannot read {_PROBES_WORKFLOW}: {type(exc).__name__}"
+    m = re.search(r"""cron:\s*['"]([^'"]+)['"]""", text)
+    if not m:
+        return None, f"no cron found in {_PROBES_WORKFLOW}"
+    cron = m.group(1).split()
+    if len(cron) != 5:
+        return None, f"cron {' '.join(cron)!r} is not 5 fields"
+    _minute, hour, dom, _month, dow = cron
+    # Only the shapes this repo actually uses. An unrecognised one returns None
+    # rather than a guess — a wrong threshold is worse than a stated gap.
+    if hour.startswith("*/"):
+        try:
+            return float(int(hour[2:])), f"every {hour[2:]}h (cron {' '.join(cron)})"
+        except ValueError:
+            return None, f"cannot parse hour field {hour!r}"
+    if hour == "*":
+        return 1.0, f"hourly (cron {' '.join(cron)})"
+    if hour.isdigit() and dom == "*" and dow == "*":
+        return 24.0, f"daily (cron {' '.join(cron)})"
+    if hour.isdigit() and dow != "*":
+        return 168.0, f"weekly (cron {' '.join(cron)})"
+    return None, f"unrecognised cron shape {' '.join(cron)!r}"
+
+
+# FOUR states, never collapsed. `undateable` and `cadence_unknown` are both
+# "we could not establish freshness" — and they are NOT the same as `fresh`.
+PROBE_FRESHNESS = ("fresh", "stale", "undateable", "cadence_unknown")
+
+
+def probe_freshness(generated_at: Any, cadence_h: float | None, now: datetime
+                    ) -> tuple[str, float | None]:
+    """Grade the probe report's own age. Returns (state, age_hours).
+
+    ⚠️ `undateable` resolves toward REPORTING, not toward silence: a report that
+    cannot be dated cannot be shown to be current, and the fail-safe reading of
+    evidence behind a due-list is stale. Same polarity as `prop_balance`'s
+    refusal on an undateable snapshot.
+    """
+    ts = None
+    if isinstance(generated_at, str):
+        try:
+            ts = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+        except ValueError:
+            ts = None
+    if ts is None:
+        return "undateable", None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    age_h = (now - ts).total_seconds() / 3600.0
+    if cadence_h is None:
+        return "cadence_unknown", age_h
+    return ("stale" if age_h > cadence_h + _PROBE_STALE_SLACK_H else "fresh"), age_h
+
+
 def src_probes(
     root: Path,
-    today: date,  # inert: every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
+    today: date,  # inert: every source shares ONE signature so `collect` dispatches them uniformly; this one grades against `now`, which carries the time of day `today` throws away
+    *,
+    now: datetime | None = None,
 ) -> SourceResult:
     """Probe results — a FAILED probe is a signal nobody is otherwise watching.
 
@@ -235,6 +313,10 @@ def src_probes(
     stays `could_not_run` all the way through to the due-list rather than
     collapsing into "quiet".
     """
+    # Injected in tests so a freshness verdict is asserted against a FIXED clock;
+    # `collect` calls this positionally, so the uniform dispatch is unchanged.
+    now = now or datetime.now(timezone.utc)
+
     p = root / _PROBES
     if not p.exists():
         return SourceResult("probes", "not_applicable", note=f"{_PROBES} absent — no run yet")
@@ -244,13 +326,50 @@ def src_probes(
     except Exception as exc:  # noqa: BLE001
         return SourceResult("probes", "could_not_read", note=f"{type(exc).__name__}: {exc}")
 
+    # HOW OLD IS THIS EVIDENCE? Until 2026-08-31 nothing asked. The renderer read
+    # the committed file and reported its verdicts with no age, so a probes run
+    # that overran its 60-min timeout or failed to commit rendered YESTERDAY's
+    # verdicts as today's, silently — the exact collapse the rest of this
+    # machinery exists to prevent, sitting in the newest part of it.
+    cadence_h, basis = probe_cadence_hours(root)
+    fresh, age_h = probe_freshness(env.get("generated_at"), cadence_h, now)
+    age_str = f"{age_h:.1f}h" if age_h is not None else "unknown age"
+    observed = env.get("generated_at") or "an unrecorded time"
+
     rows = []
+    if fresh == "stale":
+        rows.append(_row(
+            "probes", "PROBE-REPORT-STALE",
+            f"probe report is {age_str} old — expected {basis}",
+            "EVERY probe verdict below was observed at "
+            f"{observed}, NOT today. The probes job did not land a fresh report, "
+            "so treat its rows as a record of that run and check the workflow.",
+            age_days=int(age_h // 24) if age_h is not None else None,
+            loud=True))
+    elif fresh == "undateable":
+        rows.append(_row(
+            "probes", "PROBE-REPORT-UNDATEABLE",
+            "probe report carries no readable `generated_at`",
+            "a report that cannot be dated cannot be shown to be current — its "
+            "verdicts are being read without knowing when they were observed",
+            loud=True))
+    elif fresh == "cadence_unknown":
+        rows.append(_row(
+            "probes", "PROBE-CADENCE-UNKNOWN",
+            f"report is {age_str} old; expected cadence could not be derived — {basis}",
+            "we have an age and no threshold to judge it against, so freshness "
+            "is UNGRADED here — not confirmed fresh"))
+
+    # When the evidence is not fresh, every verdict below carries WHEN it was
+    # observed. A stale `pass` read as today's is the dangerous direction.
+    stamp = "" if fresh == "fresh" else f" [observed {observed}, {age_str} ago]"
+
     for r in results:
         state = r.get("state")
         if state == "fail":
             rows.append(_row("probes", r.get("id", "(no id)"),
                              (r.get("checks") or "")[:200],
-                             "probe FAILED — its declared observation did not hold",
+                             "probe FAILED — its declared observation did not hold" + stamp,
                              loud=True))
         elif state == "could_not_run" and r.get("reason") != "no_probe_declared":
             # A probe that BROKE is its own finding: the row it watches is now
@@ -258,8 +377,10 @@ def src_probes(
             # a known, declared gap and is deliberately NOT surfaced here.
             rows.append(_row("probes", r.get("id", "(no id)"),
                              f"probe could not run ({r.get('reason')})",
-                             "we did not look — this row is currently unwatched"))
-    return SourceResult("probes", "read", rows)
+                             "we did not look — this row is currently unwatched" + stamp))
+
+    return SourceResult("probes", "read", rows,
+                        note=f"freshness={fresh} age={age_str} cadence={basis}")
 
 
 def src_research_queue(
@@ -491,7 +612,66 @@ def _self_test() -> int:
     assert src_red_crons(Path("."), today, token="").state == "could_not_read"
     assert src_unlanded_automation(Path("."), today, token="").state == "could_not_read"
 
-    print("due-list: self-test OK — 13 planted controls all fire")
+    # ── PROBE FRESHNESS: the gap this renderer shipped with ────────────────
+    # Until 2026-08-31 `src_probes` read the committed file and never read its
+    # timestamp, so an overrun or failed probes run rendered yesterday's
+    # verdicts as today's with no caveat. These controls plant that.
+    import tempfile
+
+    _T0 = datetime(2026, 8, 31, 12, 0, tzinfo=timezone.utc)
+
+    def _probe_root(generated_at, cron='"20 5 * * *"'):
+        d = pathlib.Path(tempfile.mkdtemp())
+        (d / "docs" / "claude").mkdir(parents=True)
+        (d / ".github" / "workflows").mkdir(parents=True)
+        (d / ".github" / "workflows" / "probes.yml").write_text(
+            f"on:\n  schedule:\n    - cron: {cron}\n", encoding="utf-8")
+        env = {"results": [{"id": "OI-X", "state": "fail", "checks": "c"}]}
+        if generated_at is not None:
+            env["generated_at"] = generated_at
+        (d / "docs" / "claude" / "PROBES.json").write_text(json.dumps(env), encoding="utf-8")
+        return d
+
+    # cadence comes from the DECLARED cron, not a hardcoded 24
+    assert probe_cadence_hours(_probe_root("x"))[0] == 24.0, "daily cron reads as 24h"
+    assert probe_cadence_hours(_probe_root("x", cron='"0 */4 * * *"'))[0] == 4.0, \
+        "an every-4h cron must move the threshold with it — a hardcoded 24 would " \
+        "give a twice-daily schedule a full day of false freshness"
+    assert probe_cadence_hours(_probe_root("x", cron='"bogus"'))[0] is None, \
+        "an unparseable cron yields NO threshold rather than a guessed one"
+
+    # fresh / stale, against a fixed clock
+    fresh = src_probes(_probe_root("2026-08-31T05:20:00+00:00"), _T0.date(), now=_T0)
+    assert not any(r["id"].startswith("PROBE-REPORT") for r in fresh.rows), \
+        "a report from this morning must raise no freshness row"
+    assert "freshness=fresh" in fresh.note
+
+    stale = src_probes(_probe_root("2026-08-29T05:20:00+00:00"), _T0.date(), now=_T0)
+    ids = [r["id"] for r in stale.rows]
+    assert "PROBE-REPORT-STALE" in ids, \
+        "THE ACCEPTANCE CONTROL: a backdated report must report STALE"
+    assert next(r for r in stale.rows if r["id"] == "PROBE-REPORT-STALE")["loud"], \
+        "and it must be loud — a silent staleness row is the bug it replaces"
+    assert "freshness=stale" in stale.note
+
+    # every verdict from a stale report carries WHEN it was observed
+    verdict_row = next(r for r in stale.rows if r["id"] == "OI-X")
+    assert "observed 2026-08-29" in verdict_row["why_due"], \
+        "a stale FAIL read as today's is the dangerous direction — stamp it"
+    fresh_row = next(r for r in fresh.rows if r["id"] == "OI-X")
+    assert "observed" not in fresh_row["why_due"], "a fresh row is not stamped"
+
+    # the two 'we could not establish freshness' states stay APART from fresh
+    und = src_probes(_probe_root(None), _T0.date(), now=_T0)
+    assert "PROBE-REPORT-UNDATEABLE" in [r["id"] for r in und.rows], \
+        "an undateable report resolves toward REPORTING, never toward silence"
+    unk = src_probes(_probe_root("2026-08-31T05:20:00+00:00", cron='"bogus"'),
+                     _T0.date(), now=_T0)
+    assert "PROBE-CADENCE-UNKNOWN" in [r["id"] for r in unk.rows], \
+        "an underivable cadence leaves freshness UNGRADED, not confirmed fresh"
+    assert set(PROBE_FRESHNESS) == {"fresh", "stale", "undateable", "cadence_unknown"}
+
+    print("due-list: self-test OK — 26 planted controls all fire")
     return 0
 
 
