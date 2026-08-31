@@ -59,17 +59,36 @@ cleanup() { cd /tmp; rm -rf "$WORK"; echo "--- cleaned up; disk after ---"; df -
 trap cleanup EXIT
 
 echo "=== build llama.cpp ==="
-if ! git clone --depth 1 https://github.com/ggml-org/llama.cpp.git >/dev/null 2>&1; then
+# ⚠️ EVERY FAILURE PATH PRINTS ITS OWN CAUSE. The first version redirected the
+# clone and configure steps to /dev/null, so the 2026-08-31 run reported
+# `could_not_build (cmake configure failed)` and NOTHING about why — it took a
+# second, separate trainer round-trip (#10586) to learn that `cmake` was simply
+# not installed. A bucket without a cause is an honest label and a useless
+# diagnosis, which is the whole defect class this repo calls unprovenanced
+# diagnostic output. The tail is capped so a wall of build noise cannot bury
+# the RESULT line the reader is actually looking for.
+if ! git clone --depth 1 https://github.com/ggml-org/llama.cpp.git > /tmp/_clone.log 2>&1; then
+  echo "--- clone failure, last 15 lines ---"; tail -15 /tmp/_clone.log
   echo "RESULT: could_not_build (clone failed)"; exit 0
 fi
 cd llama.cpp
-if ! cmake -B build -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF >/dev/null 2>&1; then
+# Report the toolchain BEFORE configuring, so a missing tool is visible in the
+# log itself rather than needing a separate probe.
+echo "--- toolchain ---"
+for t in cmake make gcc g++ ninja; do
+  printf '%-6s ' "$t"
+  command -v "$t" >/dev/null 2>&1 && "$t" --version 2>&1 | head -1 || echo "MISSING"
+done
+if ! cmake -B build -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF > /tmp/_cfg.log 2>&1; then
+  echo "--- cmake configure failure, last 25 lines ---"; tail -25 /tmp/_cfg.log
   echo "RESULT: could_not_build (cmake configure failed)"; exit 0
 fi
-if ! cmake --build build -j1 --target llama-bench llama-cli >/dev/null 2>&1; then
-  echo "RESULT: could_not_build (compile failed — see tail below)"
-  cmake --build build -j1 --target llama-bench 2>&1 | tail -25
-  exit 0
+# Log-and-tail rather than re-run-on-failure: the original re-invoked the whole
+# build to obtain its error text, which on a 1-core box means paying for a
+# failed compile twice.
+if ! cmake --build build -j1 --target llama-bench llama-cli > /tmp/_build.log 2>&1; then
+  echo "--- compile failure, last 25 lines ---"; tail -25 /tmp/_build.log
+  echo "RESULT: could_not_build (compile failed)"; exit 0
 fi
 echo "build OK"
 
