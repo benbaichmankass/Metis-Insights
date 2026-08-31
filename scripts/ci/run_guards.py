@@ -226,6 +226,38 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # The hand-maintained cron watch list in claude-run-failure-alert.yml
+        # has been asserted-complete and been false TWICE (2026-08-21 count
+        # said 12 and "ALL 12 are now listed"; measured 2026-08-31 there were
+        # 14, with `research-queue-dispatch` — the research queue's own
+        # scheduler — unwatched after already failing twice). A scheduled run
+        # that dies notifies NOBODY, so an unwatched cron is not merely
+        # un-alerted, it is unobservable. `when: None` so it runs on every
+        # diff: a cron added in a PR that touches no workflow file still
+        # changes the population this guard is about.
+        "name": "cron-failure-watch",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_cron_failure_watch.py", "--self-test"],
+            ["python3", "scripts/ci/check_cron_failure_watch.py"],
+        ],
+    },
+    {
+        # `docs/claude/INDEX.md` is the surface a session reads to answer "is
+        # there already a skill for this?". Measured 2026-08-31 it named 12 of
+        # 31 — a negative read off it had no denominator, so a session would
+        # improvise a capability that already existed
+        # (RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED). `when: None`: a PR that
+        # adds a skill need not touch the index, which is precisely the case
+        # that must fail.
+        "name": "skills-index",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_skills_index.py", "--self-test"],
+            ["python3", "scripts/ci/check_skills_index.py"],
+        ],
+    },
+    {
         "name": "recurrence-ledger-guard",
         "when": None,
         "steps": [

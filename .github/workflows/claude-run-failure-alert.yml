@@ -60,15 +60,32 @@ on:
       # while the trigger that actually fired was `schedule` — so the schedule
       # path is silent on success AND failure.
       #
-      # POPULATION, stated because the first count of it was wrong — and it was
-      # STILL wrong (re-counted 2026-08-21 by parsing every workflow's `on:`
-      # block rather than grepping, since a commented-out cron reads like a live
-      # one to grep). There are **12** cron'd workflows, not 10.
+      # POPULATION, stated because every count of it so far has been wrong.
+      # Re-counted 2026-08-21 by parsing every workflow's `on:` block rather
+      # than grepping (a commented-out cron reads like a live one to grep):
+      # that count said **12**, corrected up from 10, and "ALL 12 are now
+      # listed."
       #
-      #   * ALL 12 are now listed. `Health Snapshot` and `oci-inventory` were
-      #     the two exclusions; both are in as of 2026-08-21, once the
-      #     self-ping dedupe below made listing them safe (operator-directed:
-      #     "dedupe first, then list").
+      # ⚠️ MEASURED AGAIN 2026-08-31: there are **14**, and **2 were unlisted**
+      # — `alpaca-settlement-soak-watch` and `research-queue-dispatch`. The
+      # second is the research queue's own scheduler and had ALREADY FAILED
+      # TWICE (2026-08-29, 2026-08-30) with nothing pinging. So this list has
+      # now been asserted-complete and been false TWICE, and the count in this
+      # comment was stale within ten days of being corrected.
+      #
+      # ⚠️ DO NOT MAINTAIN THIS LIST BY HAND OR RE-QUOTE A COUNT FROM THIS
+      # COMMENT. `cron-failure-watch` (scripts/ci/check_cron_failure_watch.py,
+      # registered in scripts/ci/run_guards.py) now DERIVES the cron'd set from
+      # the workflow files and fails CI when one is unwatched — so the next
+      # cron added announces itself on its own commit instead of ten days
+      # later in an audit. It also checks the reverse direction: an entry here
+      # naming no real workflow `name:` is INERT (GitHub matches on name, not
+      # filename), which is an alarm that looks armed and is not.
+      #
+      #   * `Health Snapshot` and `oci-inventory` were the two historical
+      #     exclusions; both are in as of 2026-08-21, once the self-ping
+      #     dedupe below made listing them safe (operator-directed: "dedupe
+      #     first, then list").
       #
       # WHY THEY WERE EXCLUDED, and the correction that closed it. Both send
       # their own operator ping, so listing them naively double-pinged. The
@@ -126,6 +143,11 @@ on:
       # silent modes (pre-notify step failure, cancelled, timed_out) covered.
       - oci-inventory
       - Health Snapshot
+      # ── added 2026-08-31: the two the hand-maintained list had missed.
+      #    research-queue-dispatch is the research queue's scheduler and
+      #    had already failed twice unobserved when this was measured.
+      - alpaca-settlement-soak-watch
+      - research-queue-dispatch
     types: [completed]
 
 permissions:

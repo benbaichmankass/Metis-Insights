@@ -1,6 +1,38 @@
 # Recurring Sessions — Audit, Strategy Improvement, Model Training
 
-**Status**: Binding spec. Every recurring session must follow this format.
+> # ⚠️ HISTORICAL — NOT A BINDING SPEC (measured and re-labelled 2026-08-31)
+>
+> **This document called itself "Binding spec" and declared a cadence that
+> nothing runs.** Below it names a bi-daily Hardening & Stability Audit, a
+> weekly Strategy Improvement Review and a weekly Model Training & Evaluation,
+> with prompts under `docs/sprints/recurring-*-prompt.md`.
+>
+> **Measured 2026-08-31, repo-wide, excluding tests and the module itself:**
+> `src/bot/recurring_dispatch.py` exposes `log_trigger()` and
+> `build_starter_prompt()` — the two functions that would actually START one of
+> these sessions — and **both have zero callers**. Only
+> `render_roadmap_summary()` is wired (into `src/units/ui/processor.py`, an
+> unrelated Telegram roll-up). No workflow references the prompts. So the
+> cadence has never fired on its own.
+>
+> **What actually governs recurring work is the skills** —
+> `.claude/skills/{system-review,health-review,performance-review,ml-review,
+> full-system-audit,backlog-drain,research-driver}` — invoked by the operator
+> or by a session, not by this spec.
+>
+> **Why this banner rather than deletion.** Two governance models declaring
+> themselves binding is worse than one, because a session that finds this file
+> first will follow a cadence nobody operates and produce artifacts nothing
+> reads. The content is kept as the record of what the cadence was intended to
+> be — the *shape* (E2E check first, then targeted work, then a structured
+> operator ping) is sound and is an input to the cadence redesign, which is why
+> it is preserved rather than removed.
+>
+> **Do not cite this file as authority.** If a recurring cadence is re-armed, it
+> should be re-specified against the skills that exist now.
+
+
+**Status**: HISTORICAL (see the banner above). Was declared "Binding spec"; measured 2026-08-31 as having no live trigger.
 **Owners**: Operator (Ben) sets cadence; Claude executes.
 **Cadence (initial)**:
 - **Hardening & Stability Audit**: bi-daily (every 2 days)
