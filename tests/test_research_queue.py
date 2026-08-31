@@ -745,19 +745,86 @@ def test_accruing_requires_the_unit_to_thread_its_own_identity():
     assert v2.state == UNVERIFIABLE, "a mismatched identity must not pass"
 
 
-def test_the_extractor_stamps_what_the_gate_promises():
-    """The two ends of the chain must agree on the key names, or the gate
-    enforces a declaration the producer never reads."""
+def _e35_extract_mod():
     import importlib.util
     spec = importlib.util.spec_from_file_location(
         "_e35x", REPO / "scripts/research/e35_corpus_extract.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    src = (REPO / "scripts/research/e35_corpus_extract.py").read_text()
-    assert '"research_unit": research_unit' in src
-    assert '"research_power_state": research_power_state' in src
-    assert "RESEARCH_UNIT" in src and "RESEARCH_POWER_STATE" in src
-    # and the workflow must actually set them, or the stamp is always empty
+    return mod
+
+
+def _minimal_report():
+    """The smallest report shape `rows_from_report` accepts. Deliberately
+    minimal: this asserts the STAMP travels, not the geometry."""
+    return {
+        "generated_at": "2026-08-31T00:00:00+00:00",
+        "tp_cap_pct": 0.099,
+        "fee_bps_roundtrip": 7.5,
+        "legs": [{
+            "leg": "trend_donchian",
+            "symbol": "BTCUSDT",
+            "tf": "1h",
+            "family": "trend",
+            "execution": "live",
+            "base": {},
+            "cells": [{"cell": "tp_r=3.0", "axis": "tp_r"}],
+            "gate": [{"cell": "tp_r=3.0",
+                      "split_meta": {"split_mode": "oos-trades",
+                                     "split_target_oos": 50}}],
+        }],
+    }
+
+
+def test_an_emitted_row_actually_carries_the_stamp(monkeypatch):
+    """RUN THE EXTRACTOR AND READ THE ROW — do not grep the source.
+
+    The predecessor of this test asserted five SUBSTRINGS of
+    `e35_corpus_extract.py` and the workflow YAML. That is the presence-only
+    antipattern this repo names as its own bug class (`new-table-wiring-guard`:
+    *a guard that is cheaper to lie to than to satisfy is worse than no
+    guard*) — every one of those assertions would still pass if
+    `research_provenance()` returned a constant, if the env names were read
+    from the wrong variables, or if the keys were overwritten further down the
+    builder. It proved the strings exist, never that a row comes out stamped.
+    """
+    monkeypatch.setenv("RESEARCH_UNIT", "RQ-20260831-777")
+    monkeypatch.setenv("RESEARCH_POWER_STATE", ACCRUING)
+    rows = _e35_extract_mod().rows_from_report(_minimal_report(), "unit-test")
+
+    assert rows, "the fixture must produce at least one row, or this proves nothing"
+    for r in rows:
+        assert r["research_unit"] == "RQ-20260831-777"
+        assert r["research_power_state"] == ACCRUING
+
+
+def test_an_unstamped_row_carries_the_keys_as_none_rather_than_omitting_them(monkeypatch):
+    """The NEGATIVE control, and the half that matters most.
+
+    A missing key makes a consumer branch on ABSENCE, and absence is not one of
+    the states — `research_disposition` must be able to say
+    `not_queue_dispatched` (a manual/ad-hoc run) as a value, distinctly from a
+    row that declared a real verdict. If the builder omitted the keys when
+    unset, the positive test above would still pass while the distinction the
+    whole chain rests on would be gone.
+    """
+    monkeypatch.delenv("RESEARCH_UNIT", raising=False)
+    monkeypatch.delenv("RESEARCH_POWER_STATE", raising=False)
+    rows = _e35_extract_mod().rows_from_report(_minimal_report(), "unit-test")
+
+    assert rows
+    for r in rows:
+        assert "research_unit" in r and "research_power_state" in r, (
+            "the keys must be PRESENT-and-null, never omitted")
+        assert r["research_unit"] is None
+        assert r["research_power_state"] is None
+
+
+def test_the_workflow_passes_the_env_the_extractor_reads():
+    """The one link a Python-level round-trip genuinely cannot reach: the
+    workflow's env block. Kept as a string check because there is no way to
+    execute the YAML here — but it is now the ONLY string check, rather than
+    standing in for the whole chain."""
     wf = (REPO / ".github/workflows/e35-bracket-sweep.yml").read_text()
     assert "RESEARCH_UNIT: ${{ inputs.research_unit }}" in wf
     assert "RESEARCH_POWER_STATE: ${{ inputs.power_state }}" in wf

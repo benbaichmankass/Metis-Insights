@@ -172,3 +172,120 @@ def test_a_registered_corpus_that_exists_yields_units():
 def test_n_field_is_declared_for_every_corpus():
     """A missing key is a KeyError at read time, on a path nobody exercises often."""
     assert set(rd.N_FIELD) == set(rd.CORPORA)
+
+
+# --------------------------------------------------------------------------
+# The terminal-verdict refusal: a unit the ADMISSION GATE accepted as
+# `accruing` cannot be recorded as having answered its question.
+#
+# These call `append` for real and let it read a patched `load_units`, rather
+# than re-implementing the predicate — a test that recomputes the rule proves
+# only that the test and the code agree with themselves.
+# --------------------------------------------------------------------------
+import contextlib  # noqa: E402
+
+
+@contextlib.contextmanager
+def _unit_state(power_state):
+    """Patch the corpus reader so the accrual check is deterministic."""
+    original = rd.load_units
+    rd.load_units = lambda corpus: (
+        "read", {("T", "l"): {"rows": 1, "n_oos": 50,
+                              "power_state": power_state, "research_unit": "RQ-X"}})
+    try:
+        yield
+    finally:
+        rd.load_units = original
+
+
+def _body(**kw):
+    b = {"corpus": "m20", "run_stamp": "T", "leg": "l",
+         "verdict": "no_action_warranted",
+         "reason": "Both folds clear the gate and no cell moves; nothing to ship."}
+    b.update(kw)
+    return b
+
+
+@pytest.mark.parametrize("verdict", ["actioned", "no_action_warranted"])
+def test_an_accruing_unit_cannot_be_closed_with_a_terminal_verdict(tmp_path, verdict):
+    body = _body(verdict=verdict)
+    if verdict == "actioned":
+        body["actions"] = ["BL-XXXX"]
+    with _unit_state(rd.ACCRUING_STATE):
+        with pytest.raises(ValueError, match="accruing"):
+            rd.append(body, ledger=tmp_path / "l.jsonl")
+
+
+@pytest.mark.parametrize("verdict", ["underpowered", "superseded"])
+def test_an_accruing_unit_may_still_be_recorded_as_an_honest_non_answer(tmp_path, verdict):
+    """The non-vacuity control, and the half that keeps the gate usable.
+
+    Refusing these too would leave a reviewer no legal way to write down what
+    they found, which is how a gate teaches people to route around it.
+    """
+    led = tmp_path / "l.jsonl"
+    with _unit_state(rd.ACCRUING_STATE):
+        rd.append(_body(verdict=verdict), ledger=led)
+    assert json.loads(led.read_text())["verdict"] == verdict
+
+
+def test_a_cleared_unit_closes_normally_and_is_stamped_clear(tmp_path):
+    led = tmp_path / "l.jsonl"
+    with _unit_state("cleared"):
+        rd.append(_body(), ledger=led)
+    assert json.loads(led.read_text())["accrual_check"] == "clear"
+
+
+def test_an_override_admits_the_close_but_must_state_a_real_reason(tmp_path):
+    led = tmp_path / "l.jsonl"
+    with _unit_state(rd.ACCRUING_STATE):
+        with pytest.raises(ValueError, match="non-reason"):
+            rd.append(_body(accrual_override_reason=
+                            "no new evidence bearing on this item, carried forward"),
+                      ledger=led)
+        rd.append(_body(accrual_override_reason=
+                        "the post-raise run landed n=57 per leg, so this unit IS "
+                        "decidable now despite its accrual admission."), ledger=led)
+    assert json.loads(led.read_text())["accrual_check"] == "accruing_overridden"
+
+
+def test_an_unreadable_corpus_admits_the_write_but_records_that_it_could_not_look(tmp_path):
+    """Fail-OPEN, and stamp it. This gates a bookkeeping RECORD, not an order,
+    so blocking every disposition during a corpus outage would suppress honest
+    reading to prevent a rare dishonest one. What must not happen is the
+    distinction vanishing into `clear`."""
+    led = tmp_path / "l.jsonl"
+    original = rd.load_units
+    rd.load_units = lambda corpus: ("corpus_unreadable", {})
+    try:
+        rd.append(_body(), ledger=led)
+    finally:
+        rd.load_units = original
+    assert json.loads(led.read_text())["accrual_check"] == "corpus_unreadable"
+
+
+def test_a_unit_absent_from_the_corpus_is_not_recorded_as_clear(tmp_path):
+    led = tmp_path / "l.jsonl"
+    original = rd.load_units
+    rd.load_units = lambda corpus: ("read", {})
+    try:
+        rd.append(_body(), ledger=led)
+    finally:
+        rd.load_units = original
+    assert json.loads(led.read_text())["accrual_check"] == "unit_absent"
+
+
+def test_the_accrual_state_string_matches_the_queue_module(tmp_path):
+    """The two modules duplicate the literal deliberately (research_disposition
+    must stay readable when the queue package is not importable). Pin them."""
+    from scripts.research.research_queue import ACCRUING
+    assert rd.ACCRUING_STATE == ACCRUING
+
+
+def test_the_survey_carries_the_admission_fields_a_reader_needs():
+    """Written-and-never-read control: `load_units` recorded these two fields
+    from 2026-08-31 and NOTHING read them back until the same day."""
+    s = rd.survey()
+    assert s["units"], "the live stores must yield units, or this proves nothing"
+    for u in s["units"]:
+        assert "power_state" in u and "research_unit" in u

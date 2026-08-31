@@ -56,6 +56,10 @@ on:
           "this was a test".
         required: false
         default: ""
+      split_target_oos:
+        description: "How many OOS trades the derived IS/OOS boundary AIMS AT. Empty = the script default (50). ⚠️ THE TARGET IS NOT THE ACHIEVED COUNT: the harness windows CANDLES, so boundary loss lands the achieved n BELOW the target. Measured on the 9 capable legs of the 2026-08-31 run, target 50 achieved 46-50 (shortfall 0-4), so 50 leaves 8 of 9 legs UNDER the 49.06 power floor. Set ABOVE the floor by more than the observed shortfall — do not set it AT the floor, which is BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS."
+        required: false
+        default: ''
       power_state:
         description: >-
           That unit's R4 power verdict. `accruing` means the unit declared up
@@ -224,6 +228,7 @@ jobs:
             --only "${{ matrix.leg }}" \
             --gate-top "${{ inputs.gate_top || '2' }}" \
             ${{ inputs.singles_only == 'true' && '--singles-only' || '' }} \
+            ${{ inputs.split_target_oos && format('--split-target-oos "{0}"', inputs.split_target_oos) || '' }} \
             --out "out/${{ matrix.leg }}"
 
       # A leg's result must outlive this runner, and the artifact is what makes
