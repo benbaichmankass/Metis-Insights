@@ -45,7 +45,8 @@ from src.runtime.intents import (
     DEFAULT_PRIORITIES,
     DesiredPosition,
     StrategyIntent,
-    aggregate_intents,
+    elect_from_gated,
+    gate_intents,
     intent_from_signal,
 )
 from src.runtime.runtime_flags import is_strategy_paused
@@ -860,7 +861,15 @@ def multiplexed_intent_signal_builder(
             },
         }
 
-    desired = aggregate_intents(intents, symbol=symbol)
+    # Gate ONCE, then elect. `aggregate_intents` is exactly this composition,
+    # but spelling it out is what lets the per-account fan-out below elect N
+    # times off the SAME gated set without re-emitting a `regime_hard_gate`
+    # row per account per tick (which would corrupt the one signal that
+    # partitions "would have gated" from "did gate").
+    _gated, _pre_gate = gate_intents(intents, symbol=symbol)
+    desired = elect_from_gated(
+        _gated, symbol=symbol, intents_before_gate=_pre_gate
+    )
     logger.info(
         "intent_multiplexer: aggregated %d intents → side=%s target_qty=%s "
         "reason=%s",
@@ -904,13 +913,10 @@ def multiplexed_intent_signal_builder(
     # the journal. Measured live: `trend_donchian_sol` (bybit_1) has 144
     # actionable buy signals since 08-01 and ZERO journal rows on that account.
     #
-    # This records the starvation ONLY. It deliberately does NOT re-run
-    # `aggregate_intents` per account to elect a per-account winner, because
-    # that would re-enter `_hard_regime_gate` and re-emit a `regime_hard_gate`
-    # audit row per account per tick — corrupting the one signal that cleanly
-    # partitions "would have gated" from "did gate".
+    # The soak below still records the starvation regardless of mode — the
+    # allowlist scopes the BINDING, never the MEASUREMENT.
     #
-    # Routing is UNCHANGED. Fail-permissive.
+    # Fail-permissive throughout.
     try:
         from src.runtime.arbitration_fanout_soak import record as _record_fanout
         _record_fanout(
@@ -920,4 +926,97 @@ def multiplexed_intent_signal_builder(
         )
     except Exception:  # noqa: BLE001 — observe-only soak must never break a tick
         logger.debug("arbitration_fanout_soak: record failed", exc_info=False)
+
+    # Lane P/P4 — the APPLY half. At the shipped `annotate` default this
+    # attaches NOTHING and routing is byte-for-byte unchanged; only
+    # `ARBITRATION_FANOUT_MODE=apply` plus a non-empty
+    # `ARBITRATION_FANOUT_ACCOUNTS` allowlist puts rounds on the signal for
+    # the pipeline to dispatch.
+    #
+    # ⚠️ The election runs off `_gated`, NOT `intents` — the candidate batch
+    # attached above is deliberately the pre-gate opportunity set (that is what
+    # an allocator ranks), and electing from it would route candidates the
+    # regime router refused.
+    try:
+        _attach_fanout_plan(
+            signal, _gated, symbol=symbol, intents_before_gate=_pre_gate
+        )
+    except Exception:  # noqa: BLE001 — a planner failure must never strand a tick
+        logger.debug("arbitration_fanout: plan attach failed", exc_info=False)
     return signal
+
+
+def _attach_fanout_plan(
+    signal: Dict[str, Any],
+    gated_candidates,
+    *,
+    symbol: str,
+    intents_before_gate: int,
+) -> None:
+    """Attach the per-account election plan to ``signal['meta']`` in apply mode.
+
+    Writes ``meta['arbitration_fanout']`` with the plan, and — ONLY when the
+    mode is ``apply`` and at least one electing account is allowlisted —
+    ``apply_rounds``, which is the key the pipeline dispatches on. A held-back
+    account is still planned and still reported; it simply does not appear in
+    ``apply_rounds``, so a reviewer can see exactly what apply WOULD have
+    routed before widening the allowlist (the correction
+    ``NETTING_ATTRIBUTION_ACCOUNTS`` needed on 2026-08-09, where narrowing the
+    set at the top of the pass made the account being staged toward invisible).
+    """
+    from src.runtime.arbitration_fanout import plan_per_account_election
+    from src.runtime.arbitration_fanout_soak import (
+        allowlisted_accounts,
+        apply_scope_for,
+        resolve_mode,
+    )
+
+    mode = resolve_mode()
+    if mode == "off":
+        return
+
+    plan = plan_per_account_election(
+        gated_candidates,
+        accounts=_load_accounts_dict(),
+        elect_fn=elect_from_gated,
+        intents_before_gate=intents_before_gate,
+    )
+    allow = allowlisted_accounts()
+    plan["global_mode"] = mode
+    plan["apply_scope"] = {
+        a: apply_scope_for(a, mode)
+        for a, r in plan.get("per_account", {}).items()
+        if r.get("state") == "elected"
+    }
+
+    rounds = plan.get("rounds") or []
+    if mode == "apply" and allow:
+        scoped = [
+            {"strategy": r["strategy"],
+             "accounts": [a for a in r["accounts"] if a in allow]}
+            for r in rounds
+        ]
+        scoped = [r for r in scoped if r["accounts"]]
+        if scoped:
+            plan["apply_rounds"] = scoped
+    plan["applied"] = bool(plan.get("apply_rounds"))
+
+    meta = signal.setdefault("meta", {})
+    if isinstance(meta, dict):
+        meta["arbitration_fanout"] = plan
+
+
+def _load_accounts_dict():
+    """Roster read, isolated so a config failure is ``unreadable``, not empty.
+
+    An empty dict would make ``accounts_by_strategy`` grade every account
+    ``no_candidates`` — a clean negative over a file nobody read. ``None`` is
+    *we could not look*, which the planner renders as ``roster_state:
+    unreadable`` and plans nothing from.
+    """
+    try:
+        from src.config.accounts_loader import load_accounts_dict
+        return load_accounts_dict()
+    except Exception:  # noqa: BLE001
+        logger.debug("arbitration_fanout: roster read failed", exc_info=False)
+        return None
