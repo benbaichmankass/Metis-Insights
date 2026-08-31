@@ -66,6 +66,31 @@
 - Deferred item 1: the Bybit **sub-account join** — new work, not a flip; it is what the wallet-truth row's superseded `clears_when` now requires.
 - Deferred item 2: pinning the 97.6% target-vs-achieved measurement (filed as `BL-20260831-N-FIELDS-DECIDING-MEASUREMENT-IS-RECORDED-BUT-NOT-PINNED`, deliberately left to #10610's author rather than opened as a third concurrent edit to that file).
 
+## Post-Wrap Addendum (docs sweep, same session)
+
+A `/doc-freshness` pass after the main wrap found three things the log above predates:
+
+- **Two OPEN-ITEMS rows chased one condition.** `OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED` and the
+  `OI-20260831-…-ARMED-BUT-HAS-NEVER-CANCELLED` row I filed had the SAME `clears_when`. Merged into the
+  older canonical row (it carries the investigation history); my duplicate was removed. Its id still reads
+  `UNARMED` and is deliberately not renamed — ROADMAP and several backlog rows link it by name — so its
+  summary is authoritative and says so.
+- **`ROADMAP.md` still said "NOTHING IS ARMED"** about this sweep, inside a verbatim historical paragraph.
+  Corrected in place with a dated marker rather than rewritten, since the paragraph is a record.
+  ⚠️ I briefly mis-read that line as evidence I had armed past a live blocker. I had not: the MES finding
+  was read first (it is the operator's "investigate the MES blocker" decision, recorded in that row's own
+  `observation`), and the venue re-read at 21:09:25Z confirms the analysis rather than contradicting it.
+- **The research READ debt was unlogged.** Filed
+  `OI-20260831-RESEARCH-READ-DEBT-11-UNREAD-AND-256-SUPERSEDED-UNREAD`. 11 live-unread `gld_compat` units
+  from a 17:20:54Z run, which arrived *after* the backlog row asserting "unread 0" — that row's figure was
+  corrected in place.
+
+**A near-miss worth recording:** my first edit to `research-review-backlog.json` reformatted the whole file
+(202/202) because I wrote `indent=1` where that file uses `indent=2`. Reverted and redone through
+`backlog_append.detect_format`, giving **1/1**. `OPEN-ITEMS.json` really is `indent=1`; the two registers
+differ, and assuming one format across them is exactly the ~21k-line re-attribution `backlog_append.py`
+exists to prevent.
+
 ## Next Recommended Sprint
 - Suggested next sprint: work the stray-OCA arming to its clears_when — read the soak for a real `acted:true` cancel and confirm the surviving protection against a FRESH `/api/diag/ib_open_orders` read; then take the two-leg e35 decision.
 - Why next: the arming is a live order-path capability that is deployed and unproven, and it acts on positions that exist right now.
