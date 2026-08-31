@@ -29720,6 +29720,22 @@
         "BL-20260831-ARMED-CRON-DEADLOCKED-ON-A-TEST-THAT-NEEDS-THE-QUEUE-TO-HAVE-WORK",
         "BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH"
       ]
+    },
+    {
+      "id": "BL-20260831-CONFIDENCE-IS-CARRIED-TO-THE-ELECTION-AND-READ-BY-NEITHER-SORT-KEY",
+      "status": "open",
+      "severity": "high",
+      "tier": "3",
+      "area": "src/runtime/intents.py::aggregate_intents (same-side key ~:1491, _conflict_sort_key ~:1544) + StrategyIntent.confidence (:591, populated :824)",
+      "summary": "The strategy-confidence score is carried to the arbitration decision point and is read by NEITHER election sort key. Same-side: (target_qty, effective_priority, -timestamp, tuple(-ord(c) for c in name)) via max(). Conflict branch: (-effective_priority, timestamp, name). `confidence` appears in neither, and is used only by the FLIP_CONFIDENCE_THRESHOLD override -- which is DISARMED at 0.0 and hard-returns before reading any confidence. So the ranking signal the system spent months building is present at the decision and never consulted.",
+      "detail": "MEASURED 2026-08-31, and the tiebreak is worse than arbitrary -- it is DETERMINISTIC AND PERMANENT. `target_qty` is the inert 0.0 sentinel (BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES) and all six SOLUSDT contenders are DEFAULT_PRIORITIES 0 (verified: trend_donchian_sol, trend_donchian_sol_prop, trend_donchian_eth, trend_donchian_eth_prop, ict_scalp_sol_5m all -> 0), so the key falls to timestamp and then NAME. On a debounced closed-bar tick both donchian twins emit for the same bar, so NAME decides. Verified directly: tuple(-ord(c)) comparison under max() picks `trend_donchian_sol_prop` over `trend_donchian_sol`, because the shorter name is a strict PREFIX of the longer and a prefix tuple compares SMALLER. CONSEQUENCE: a strategy whose name is a prefix of a competitor's can NEVER win the same-side election. That is the mechanism behind the measured 0-of-60 in BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-AND-STARVES-ITS-PAPER-SIBLING -- not small-sample bad luck, which is how it had been read. Note the CONFLICT branch sorts ascending and would pick the opposite name, so the two branches disagree about the same pair; only the same-side branch is exercised by the twins (both long). OPERATOR DIRECTION 2026-08-31: prioritisation should use the confidence score, plus active management (re-scoring an open trade to decide whether it should stay live against a better new trade). SCOPE NOTE: this is the decision RULE. The structural half -- WHO decides -- is per-account arbitration, shipped separately in PR #10544 at the annotate default; ranking by confidence GLOBALLY would still starve accounts, so the structural fix lands first and this is built on top of it.",
+      "resolution_criteria": "NOT resolved by adding `confidence` to the sort key and calling it done. Requires: (1) a walk-forward or A/B on scripts/backtest_system.py showing confidence-ranked selection beats the current priority->timestamp->name key on a floor-clearing population, per-symbol and net of cost -- the M18 allocator precedent is the warning here, since its EV ranker measured OOS AUC ~0.51 and did NOT beat dumb priority (docs/research/M18-allocator-backtest-findings-2026-06-29.md); (2) the prefix defect fixed regardless of whether confidence ranking ships, since a name-prefix strategy can never win today and that is a bug on its own; (3) Tier-3 operator approval on the final key. A change that only reorders the tiebreak without evidence is not a fix.",
+      "found_by": "session ec146208 -- found while building the per-account arbitration fan-out (PR #10544), after the operator challenged the alphabetical tiebreak directly. Verified by reading both sort keys and computing the tuple comparison, not inferred.",
+      "related": [
+        "BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-AND-STARVES-ITS-PAPER-SIBLING",
+        "BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES",
+        "BL-20260830-FANOUT-SOAK-GRADES-A-NO-WINNER-TICK-AS-STARVED"
+      ]
     }
   ]
 }
