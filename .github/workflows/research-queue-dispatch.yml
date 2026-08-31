@@ -42,26 +42,6 @@ on:
     # 06:20 UTC daily — after the IB gateway's 06:05 reset window, so a red run
     # here is never just the gateway restarting.
     - cron: "20 6 * * *"
-    # ── THROWAWAY PROBE CRONS — 2026-08-30, REMOVE THE SAME DAY ──────────────
-    # Delete these two lines (and this comment block) once the probe has fired.
-    # They exist to prove ONE thing that a hand `workflow_dispatch` structurally
-    # CANNOT prove: that the `schedule` branch of the FIRE gate below actually
-    # fires. The bug #10509 fixed is that the `inputs` context is EMPTY on a
-    # schedule event, so `inputs.fire` is unreadable there — which means the
-    # only event that exercises the fixed path is a real schedule event. Waiting
-    # for 06:20Z would be an 11-hour blind window on a gate that was wrong until
-    # today, and "it will probably fire" is not a verification.
-    #
-    # Precedent: oci-inventory.yml proved its own schedule branch this way on
-    # 2026-08-20 — probe crons merged and removed the same day.
-    #
-    # TWO crons, not one, deliberately: GitHub's scheduler runs late under load
-    # (routinely 5–20 min, occasionally skipping a tick entirely on a busy
-    # runner pool), so a single probe that is missed proves nothing and burns
-    # the session. The second is the retry.
-    - cron: "50 20 * * *"
-    - cron: "20 21 * * *"
-    # ─────────────────────────────────────────────────────────────────────────
   workflow_dispatch:
     inputs:
       fire:

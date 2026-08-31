@@ -15,7 +15,7 @@ why_this_and_not_the_monthly_job: >-
   RQ-20260830-002 sweeps the same 14 legs monthly and its NEXT run (~2026-09-30)
   would also carry the counts. This one-shot exists because that is 30 days of
   every e35 verdict staying ungradeable, and because RQ-20260830-002's own
-  power.basis already instructs a reader to "read per-leg base_trades_OOS before
+  power.basis already instructs a reader to "read per-leg base_oos_trades before
   quoting any verdict from this job" — an instruction that was IMPOSSIBLE to
   follow, since the field did not exist in the corpus. The monthly job shipped
   with an unusable caveat. This run makes it usable.
@@ -80,3 +80,4 @@ lands:
 related:
   - 'BL-20260831-E35-CORPUS-HAS-NO-ACHIEVED-OOS-COUNT (the defect this run exists to clear)'
   - 'RQ-20260830-002 (the monthly job whose power.basis names a field that did not exist)'
+last_dispatched_at: '2026-08-31T05:48:43+00:00'
