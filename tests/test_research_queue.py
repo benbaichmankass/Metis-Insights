@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
@@ -274,13 +275,52 @@ def _run_dispatcher(*args):
     )
 
 
-def test_dispatcher_is_a_dry_run_unless_fire_is_passed():
-    out = _run_dispatcher("--queue-dir", str(QUEUE_DIR), "--json")
+def test_dispatcher_is_a_dry_run_unless_fire_is_passed(tmp_path):
+    """Dry run GRADES but never dispatches.
+
+    ⚠️ RUNS AGAINST A FIXTURE QUEUE, NOT THE LIVE ONE, AND THAT IS THE POINT.
+    This asserted `"would_dispatch" in outcomes` against `QUEUE_DIR` — the real
+    `research/queue` — until 2026-08-31, which silently required THE LIVE QUEUE
+    TO ALWAYS HOLD A DUE JOB. A fully caught-up queue is the CORRECT steady
+    state, and it failed this test.
+
+    That produced a deadlock the first time the armed cron actually fired
+    (run 33340458710): the dispatcher stamped `last_dispatched_at`, every job
+    became `not_due`, the stamp PR's own CI failed on THIS assertion, so the
+    stamp never merged, so the job stayed due and re-fired on the next cron —
+    indefinitely. The dispatcher doing its job is what broke it, and the only
+    reason it was visible at all is that `commit-to-main`'s `verify-merged`
+    (shipped hours earlier) turns an unmerged stamp into a red run instead of
+    an exit-0.
+
+    A test whose passing depends on production state being in a particular
+    condition is not testing the code; here it was testing that someone had
+    left work undone.
+    """
+    (tmp_path / "RQ-20260827-999.yaml").write_text(
+        yaml.safe_dump(_entry(id="RQ-20260827-999"), sort_keys=False))
+    out = _run_dispatcher("--queue-dir", str(tmp_path), "--json")
     assert out.returncode == 0, out.stderr
     payload = json.loads(out.stdout)
     outcomes = {d["outcome"] for d in payload["decisions"]}
-    assert "dispatched" not in outcomes
-    assert "would_dispatch" in outcomes
+    assert "dispatched" not in outcomes, "a dry run must never dispatch"
+    assert "would_dispatch" in outcomes, (
+        "a freshly-queued job must grade would_dispatch on a dry run")
+
+
+def test_the_live_queue_is_readable_and_every_job_is_valid():
+    """What the old test was REALLY worth keeping: the live queue parses.
+
+    Deliberately says NOTHING about how many jobs are due — an empty-of-due
+    queue is a caught-up queue, not a broken one.
+    """
+    jobs, err = load_queue(QUEUE_DIR)
+    assert err is None, err
+    assert jobs, "the live queue is empty — that is a different finding, not a pass"
+    # QueueJob carries its OWN errors — a malformed file comes back counted and
+    # refused rather than dropped, so this reads them rather than re-validating.
+    bad = {j.id: j.errors for j in jobs if j.errors}
+    assert not bad, f"live queue holds structurally invalid job(s): {bad}"
 
 
 def test_dispatcher_exits_nonzero_when_it_could_not_read_the_queue(tmp_path):
@@ -422,3 +462,87 @@ def test_a_successful_fire_is_stamped(tmp_path, monkeypatch):
     monkeypatch.setattr(dq, "_fire", lambda entry, *, route, ref: (True, "stub"))
     dq.main(["--queue-dir", str(tmp_path), "--fire"])
     assert yaml.safe_load(job.read_text()).get("last_dispatched_at")
+
+
+# ---------------------------------------------------------------------------
+# The stamp must not destroy the job's prose (2026-08-31).
+#
+# `_stamp` used yaml.safe_dump until the armed cron's first real fire. PyYAML
+# does not model comments, so a load/dump cycle DELETES every `#` line and
+# reflows every `>-` block scalar. Measured on PR #10534: RQ-20260827-001 went
+# 2 comments -> 0, with question/why_not_inferential/basis/note all reflowed —
+# 27 insertions, 39 deletions for what should be ONE added line.
+#
+# Those blocks are the job's REASONING. Losing them inside an auto-merged
+# "chore(...): dispatch stamps (auto)" PR nobody reads is how a queue decays
+# into a set of opaque job names.
+# ---------------------------------------------------------------------------
+
+
+def _stamped(tmp_path, body: str):
+    from datetime import datetime, timezone
+    from scripts.research.dispatch_queue import _stamp
+    p = tmp_path / "RQ-20260827-999.yaml"
+    p.write_text(body)
+    err = _stamp(p, datetime(2026, 8, 31, 3, 0, 0, tzinfo=timezone.utc))
+    return p, err
+
+
+_PROSE_JOB = """id: RQ-20260827-999
+title: t
+status: queued
+cadence: once
+
+# This comment is the point of the test.
+question: >-
+  A block scalar whose wrapping carries meaning, and which a YAML
+  round-trip would reflow into something else.
+
+routing:
+  # A nested comment too.
+  peak_memory_gb: 2.0
+run:
+  workflow: w.yml
+  inputs:
+    days: "730"
+lands:
+  store: docs/research/x.jsonl
+"""
+
+
+def test_stamping_preserves_comments_and_block_scalars(tmp_path):
+    p, err = _stamped(tmp_path, _PROSE_JOB)
+    assert err is None, err
+    after = p.read_text()
+    assert after.count("#") == _PROSE_JOB.count("#"), "a comment was destroyed"
+    assert ">-" in after, "the block scalar was reflowed"
+    assert 'days: "730"' in after, "an unrelated quoted scalar was rewritten"
+
+
+def test_stamping_adds_exactly_one_line(tmp_path):
+    p, err = _stamped(tmp_path, _PROSE_JOB)
+    assert err is None, err
+    assert len(p.read_text().splitlines()) == len(_PROSE_JOB.splitlines()) + 1
+
+
+def test_restamping_replaces_in_place_rather_than_appending(tmp_path):
+    """A recurring job stamps every fire; appending would grow the file forever."""
+    p, _ = _stamped(tmp_path, _PROSE_JOB)
+    from datetime import datetime, timezone
+    from scripts.research.dispatch_queue import _stamp
+    _stamp(p, datetime(2026, 9, 1, 4, 0, 0, tzinfo=timezone.utc))
+    text = p.read_text()
+    assert text.count("last_dispatched_at:") == 1
+    assert "2026-09-01T04:00:00+00:00" in text
+
+
+def test_the_stamp_reads_back_as_written(tmp_path):
+    """A targeted text edit can leave a file that parses and says something else."""
+    p, err = _stamped(tmp_path, _PROSE_JOB)
+    assert err is None
+    assert yaml.safe_load(p.read_text())["last_dispatched_at"] == "2026-08-31T03:00:00+00:00"
+
+
+def test_stamping_a_non_mapping_is_an_error_not_a_blind_append(tmp_path):
+    p, err = _stamped(tmp_path, "- just\n- a list\n")
+    assert err and "not a YAML mapping" in err

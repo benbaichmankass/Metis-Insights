@@ -126,6 +126,18 @@ jobs:
           #               deploy/*.service set matches the canonical list, and
           #               tests/test_check_diag_unit_allowlist.py over the units.
           #   comms/    — schema templates the suite validates against.
+          #   .github/actions/ — added 2026-08-30, the FOURTH tree-shaped
+          #               recurrence. `.github/workflows/` was covered and its
+          #               SIBLING was not, so a PR touching only a shared
+          #               composite action — code every workflow that calls it
+          #               executes — short-circuited the suite. Found the moment
+          #               it mattered: tests/test_gld_compat_landing.py became the
+          #               tree's first reader in the same PR that taught
+          #               commit-to-main to verify its own merge, and
+          #               test_every_committed_tree_the_suite_reads_is_covered
+          #               failed on that push. The guard is the general form of
+          #               this list and it earned its keep; the list is still the
+          #               thing that has to be edited.
           # PROVEN, not theorised: PR #8994 changed only scripts/ops/purge_vm_runner.sh,
           # short-circuited to a 9-SECOND green pytest-run, and merged to main
           # without executing a single test. A required check that reports success
@@ -179,7 +191,7 @@ jobs:
           # on the backlog row; it is a bigger change than this one.
           #
           # Pinned in tests/test_pytest_run_filter.py::COVERED.
-          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$'; then
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^\.github/actions/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"

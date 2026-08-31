@@ -21,10 +21,18 @@ name: gld-compat-matrix
 #      optional issue-body lines `strategy:`, `symbol:`, `fee_bps:`, `days:`
 #
 # Safety: READS the repo + fetches PUBLIC candles + runs the read-only harness +
-# the read-only compat matrix + comments/uploads the verdict. It does NOT push,
-# deploy, or touch config/accounts.yaml — routing gld_pullback_1h onto an account
-# is a Tier-3 config edit the operator approves separately (this only produces the
-# evidence).
+# the read-only compat matrix + comments/uploads the verdict, and LANDS the
+# flattened verdicts on main via a commit-to-main PR (see the landing steps
+# below). It does NOT deploy and does NOT touch config/accounts.yaml — routing
+# gld_pullback_1h onto an account is a Tier-3 config edit the operator approves
+# separately (this only produces the evidence).
+#
+# ⚠️ THIS HEADER SAID "It does NOT push" UNTIL 2026-08-30 AND THAT IS NO LONGER
+# TRUE. The landing steps were added the same day, so the workflow now opens a PR
+# against main carrying docs/research/gld-compat-matrix-verdicts.jsonl. The write
+# is to a research corpus only — never to config/, src/, or a unit file — but a
+# reader reasoning from the old sentence would conclude this workflow cannot
+# change the repo, which is the dangerous direction. Field beats comment.
 
 on:
   workflow_dispatch:
@@ -338,6 +346,7 @@ jobs:
             | tee extract.out
 
       - name: Land the corpus on main
+        id: land
         uses: ./.github/actions/commit-to-main
         with:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
@@ -349,26 +358,109 @@ jobs:
             R2 — the run is not done when it exits 0, it is done when its rows are
             readable on `main`.
           branch-prefix: automation/gld-compat-verdicts
+          # Owned by the action, not copied here — see its `verify-merged` docs.
+          verify-merged: "true"
 
       # ⚠️ SCOPED ON *THIS RUN'S* STAMP, NEVER ON A FIELD THE STORE ALREADY HOLDS.
       # The store is cumulative, so `--field account_id --contains bybit` would be
       # satisfied by history and could never fail. That is not hypothetical: the
       # e35 assertion reported `landed - 6624 rows, exit 0` for a run whose rows
       # were entirely on an unmerged branch (fixed in #10487, same shape).
+      #
+      # ⚠️ `--pushed-ref` IS WHAT MAKES THE VERDICT FAIR RATHER THAN MERELY STRICT,
+      # and omitting it is the defect this step shipped with. `commit-to-main`
+      # opens an AUTO-MERGE PR: the merge waits on required checks (~11 min), so
+      # at the instant this step runs the rows are ALWAYS still on the side
+      # branch and never yet on main. Measured on run 33331071521 — the first
+      # real execution of this path — the assertion reported:
+      #   `absent — only 0 rows ... among 0 total rows`
+      # for a run that had emitted 124 trades, scored every account, and pushed
+      # a perfectly good commit. `absent` blames the job for work it did. The
+      # true state is `pending_merge`, and it is unreachable without naming the
+      # ref the rows were pushed to — so the two collapsed into one. That is the
+      # same conflation this repo files as a bug class everywhere else, and the
+      # step's own comment block already called `pending_merge`
+      # "expected-and-actionable" while making it impossible to report.
+      #
+      # `pending_merge` is still NON-ZERO, deliberately: R2 says the run is done
+      # when the rows are readable on main, and they are not yet. It just names
+      # the owed merge instead of alleging the run produced nothing.
       - name: Assert the rows actually landed
+        if: always()
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          LAND_COMMITTED: ${{ steps.land.outputs.committed }}
+          LAND_BRANCH: ${{ steps.land.outputs.branch }}
+          LAND_PR: ${{ steps.land.outputs.pr }}
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
         run: |
           set -uo pipefail
+          if [ ! -f extract.out ]; then
+            echo "::error::extract.out is missing — the extract step did not run, so there is nothing to assert. NOT falling back to a cumulative predicate."
+            exit 1
+          fi
           STAMP="$(sed -n 's/^run-stamp: //p' extract.out | tail -1)"
           if [ -z "${STAMP}" ]; then
             echo "::error::no run-stamp in extract.out — cannot scope the assertion"
             exit 1
           fi
+          # Every extracted row carries the payload's own `generated_at`, so a
+          # run that produced rows ALWAYS produces a diff. `committed=false`
+          # therefore means the landing did not happen, not that it was a
+          # harmless no-op — and without a branch `pending_merge` cannot be told
+          # from `absent`, so this refuses rather than guessing.
+          if [ "${LAND_COMMITTED:-}" != "true" ] || [ -z "${LAND_BRANCH:-}" ]; then
+            echo "::error::the landing step did not commit (committed='${LAND_COMMITTED:-}' branch='${LAND_BRANCH:-}'), so 'pending_merge' cannot be told from 'absent'. The extractor emitted a fresh run stamp, so there was something to commit."
+            exit 1
+          fi
+          # The bounded wait for the owed auto-merge now lives in
+          # `commit-to-main` (verify-merged), so by the time this step runs the
+          # PR has merged or that step has already failed the job. This keeps
+          # only the question the action cannot answer: are THIS RUN'S rows in
+          # the file? `if: always()` means it still reports honestly when the
+          # landing step failed — `pending_merge`, naming the owed merge, rather
+          # than `absent`, which would allege the run produced nothing.
+          # ⚠️ TWO FETCHES, NOT ONE, AND THE FIRST MUST SUCCEED.
+          #
+          # This was `git fetch origin main "${LAND_BRANCH}" ... || true` and it
+          # produced a FALSE NEGATIVE on a run that fully succeeded (33340468235).
+          # `commit-to-main` merges with --delete-branch, so on the SUCCESS path
+          # the landing branch is GONE by the time this runs. `git fetch` aborts
+          # atomically on an unknown refspec — verified, not assumed: with a real
+          # deleted branch it prints `fatal: couldn't find remote ref` and does
+          # NOT update origin/main — so `main` was never fetched either, the
+          # assertion read the checkout-time ref that PREDATES the merge, and
+          # reported `absent` for rows that were already on main. The `|| true`
+          # swallowed the fatal.
+          #
+          # An assertion built to stop false "landed" claims was manufacturing
+          # false "absent" ones, which is the worse direction here: it fails a
+          # correct run and trains the reader to ignore it.
+          git fetch origin "${DEFAULT_BRANCH:-main}"
+
+          # The landing branch may legitimately be absent — that IS the merged
+          # case. Fetch it separately and tolerantly, and only claim a pushed-ref
+          # when we actually hold one; passing a ref that does not resolve would
+          # make `pending_merge` unreadable again.
+          PUSHED=()
+          if git fetch origin "${LAND_BRANCH}" 2>/dev/null; then
+            PUSHED=(--pushed-ref "origin/${LAND_BRANCH}")
+            echo "landing branch still present — pending_merge is distinguishable"
+          else
+            echo "landing branch is gone (deleted on merge) — its rows must be on ${DEFAULT_BRANCH:-main}"
+          fi
+          echo "asserting THIS run's rows: run_generated_at=${STAMP}"
           python3 scripts/ci/assert_rows_landed.py \
             --store docs/research/gld-compat-matrix-verdicts.jsonl \
             --ref "origin/${DEFAULT_BRANCH:-main}" \
+            "${PUSHED[@]}" \
             --field run_generated_at --contains "${STAMP}" --min-rows 1
 
+      # `if: always()` — a failed landing assertion must not also destroy the
+      # evidence. Run 33331071521 skipped this step because the assertion above
+      # failed, so the one run that most needed its compat_*.json kept none.
       - name: Upload artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gld-compat-matrix-${{ github.run_id }}

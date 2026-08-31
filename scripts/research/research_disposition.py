@@ -73,16 +73,60 @@ REPO = Path(__file__).resolve().parents[2]
 
 LEDGER = REPO / "docs/research/research-disposition-ledger.jsonl"
 
-#: The corpora this covers, and the field carrying each row's run stamp.
+#: The corpora this covers: (path, run-stamp field, LEG field).
+#:
+#: ⚠️ THE LEG FIELD IS PER-CORPUS AND MUST NOT GO BACK TO A HARDCODED "leg".
+#: It was hardcoded until 2026-08-30, and the failure mode is the one this whole
+#: module exists to prevent. `load_units` skips any row missing stamp-or-leg, so
+#: a corpus whose rows name their unit anything else contributes ZERO units —
+#: SILENTLY, and indistinguishably from a corpus that is genuinely empty. The
+#: read stage would report nothing unread and be believed.
+#:
+#: Found by landing one: gld_compat rows carry `account_id`, never `leg`, so
+#: registering it with the old signature would have produced a corpus that reads
+#: as fully dispositioned while nobody had read a single row.
+#:
+#: ⚠️ REGISTERING A NEW CORPUS IS PART OF LANDING IT. A producer that writes to
+#: a store absent from this table has built a landing nothing can READ, which is
+#: the R1-R6 gap (the chain ends at `landed`) reproduced one level down.
 CORPORA = {
-    "e35": (REPO / "docs/research/e35-bracket-corpus.jsonl", "sweep_generated_at"),
-    "m20": (REPO / "docs/research/m20-sweep-corpus.jsonl", "sweep_generated_at"),
+    "e35": (REPO / "docs/research/e35-bracket-corpus.jsonl", "sweep_generated_at", "leg"),
+    "m20": (REPO / "docs/research/m20-sweep-corpus.jsonl", "sweep_generated_at", "leg"),
+    # The decision unit here is the ACCOUNT, not the strategy: RQ-20260827-001
+    # asks which PER-ACCOUNT verdicts move, so each account's verdict is what
+    # someone has to read and rule on. One run yields ~11 units, deliberately.
+    "gld_compat": (
+        REPO / "docs/research/gld-compat-matrix-verdicts.jsonl",
+        "run_generated_at",
+        "account_id",
+    ),
 }
 
-#: Per-corpus field holding the OOS sample size, for the R4 power gate. `None`
-#: where the corpus does not carry one — reported as `n_oos: null`, NEVER 0. A
-#: zero would assert a measured empty sample; absent is not empty.
-N_FIELD = {"e35": None, "m20": "base_trades_OOS"}
+#: Per-corpus field holding the ACHIEVED OOS sample size, for the R4 power gate.
+#: `None` where the corpus does not carry one — reported as `n_oos: null`, NEVER
+#: 0. A zero would assert a measured empty sample; absent is not empty.
+#:
+#: ⚠️ e35 IS `base_oos_trades`, NOT `split_target_oos`. It read `None` until
+#: 2026-08-31 and every e35 unit was therefore UNGRADEABLE. The tempting field
+#: is `split_target_oos`, and it is the wrong one twice over: it is a run
+#: TARGET rather than a measurement, and measured over the whole corpus it is
+#: non-null on 377 of 8,321 rows (4.5%) with exactly one distinct value, 50.
+#: Keying the gate on it would have graded 4.5% of the corpus against a constant
+#: and called the rest unknown.
+#:
+#: ⚠️ ROWS EXTRACTED BEFORE 2026-08-31 CARRY NO ACHIEVED COUNT AND CANNOT BE
+#: BACK-FILLED FROM A SESSION. The source `report.json` files are not committed
+#: — they exist only as workflow artifacts, and root CLAUDE.md states a PM-side
+#: session has no artifact download. So those rows stay `n_oos: null` (correctly
+#: ungradeable) until their legs are RE-SWEPT, which is the multi-hour run the
+#: corpus exists to avoid. The fix is forward-looking; it does not retroactively
+#: unblock the units that were already stuck.
+#: `gld_compat` is None because that job is DETERMINISTIC — its queue unit's
+#: `why_not_inferential` says an expected-n would be "theatre rather than a bar",
+#: since re-running a fixed grader over a fixed ledger gives the same answer every
+#: time. So `n_oos: null` here means "no sample size APPLIES", not "we failed to
+#: read one"; the R4 power gate correctly declines to grade it.
+N_FIELD = {"e35": "base_oos_trades", "m20": "base_trades_OOS", "gld_compat": None}
 
 DISPOSITIONED = "dispositioned"
 UNREAD = "unread"
@@ -118,7 +162,7 @@ def load_units(corpus: str) -> tuple[str, dict]:
     not empty: "the store is not there" and "the store holds nothing" are
     different facts, and only one of them is safe to report as no findings.
     """
-    path, stamp_field = CORPORA[corpus]
+    path, stamp_field, leg_field = CORPORA[corpus]
     n_field = N_FIELD[corpus]
     if not path.exists():
         return CORPUS_UNREADABLE, {}
@@ -130,7 +174,7 @@ def load_units(corpus: str) -> tuple[str, dict]:
                 if not line:
                     continue
                 row = json.loads(line)
-                stamp, leg = row.get(stamp_field), row.get("leg")
+                stamp, leg = row.get(stamp_field), row.get(leg_field)
                 if not stamp or not leg:
                     continue
                 u = units.setdefault((stamp, leg), {"rows": 0, "n_oos": None})
@@ -282,7 +326,7 @@ def _selftest() -> int:
     # ── a missing corpus is UNREADABLE, never empty ──────────────────────────
     real = CORPORA["m20"]
     try:
-        CORPORA["m20"] = (Path("/nonexistent/nope.jsonl"), "sweep_generated_at")
+        CORPORA["m20"] = (Path("/nonexistent/nope.jsonl"), "sweep_generated_at", "leg")
         check("a missing corpus reads as corpus_unreadable",
               load_units("m20")[0] == CORPUS_UNREADABLE)
     finally:

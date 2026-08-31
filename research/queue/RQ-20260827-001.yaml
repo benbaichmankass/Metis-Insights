@@ -45,10 +45,16 @@ lands:
   min_rows: 1
   note: >-
     R2 — the run is not done when it exits 0, it is done when its rows are
-    readable on main. The workflow currently uploads an artifact and comments;
-    wiring assert_rows_landed.py into it is tracked separately and this job's
-    landing assertion is what will exercise it.
+    readable on main. This note said the workflow "currently uploads an artifact
+    and comments" and that wiring assert_rows_landed.py into it was "tracked
+    separately"; both were overtaken on 2026-08-30. gld-compat-matrix.yml now
+    extracts the verdicts, lands them via commit-to-main, and asserts them
+    RUN-SCOPED (--field run_generated_at --contains the emitting run's stamp),
+    so a run cannot pass by finding a PREVIOUS run's rows already on main —
+    which a bare --min-rows 1 over a cumulative store would have allowed
+    forever. Field beats comment.
 
 related:
   - PR 10364 (Lane P — the change whose effect this measures)
   - BL-20260827-EIGHTEEN-EVIDENCE-WORKFLOWS-UPLOAD-AND-LAND-NOTHING
+last_dispatched_at: '2026-08-30T22:56:22+00:00'
