@@ -21372,7 +21372,7 @@
       "opened": "2026-08-18",
       "severity": "high",
       "tier": "1 (a read route; the sibling IB route already exists)",
-      "status": "open",
+      "status": "resolved",
       "area": "diag read surfaces / exit coverage verification",
       "title": "Resting-bracket state is unreadable from any session for 33 of 34 open trades - /api/diag/ib_open_orders is IB-only",
       "detail": "BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE was resolved by adding /api/diag/ib_open_orders, which reduces nothing and lets a session check the boolean/quantity coverage verdicts against actual rows. There is no equivalent for bybit or alpaca. Measured 2026-08-18 via scripts/ops/exit_path_coverage.py: of 34 open non-backtest trades, broker-bracket state is UNOBSERVABLE for 34 - 33 because the account is not an IB account (read_state `not_ib`) and 1 because ib_paper returned `could_not_look`. So the audit can grade zero of them on broker reality and correctly reports `unknown` rather than inventing an answer.\n\nThis is the READ half of BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT, and it is a distinct remedy: that row is about the SWEEP's grading, this is about a session being able to contradict the sweep at all. Both live sweeps (_check_broker_naked_bybit_positions, _check_broker_naked_equity_positions) reduce broker state to a verdict before anyone sees it, which is exactly the condition that let the stripped MGC take-profit sit undetected for seven days on the IB side.\n\nNote the ib_paper `could_not_look` in the same read: the IB gateway was not answering at 2026-08-18T09:4xZ, so even the one venue with a read surface was unreadable at that moment - which the audit reports as unknown, not as absent. | STATUS NORMALISED 2026-08-22 (workplan 0.1 Step 0): the free-text status 'measured_open' was collapsed to 'open' so the open set is countable. The original wording is preserved here verbatim; the mapping failed TOWARD open wherever the text signalled remaining work.",
@@ -21406,8 +21406,15 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "HALF RESOLVED ON LIVE EVIDENCE — narrow this row to ALPACA. The Bybit surface now EXISTS and works: I called /api/diag/bybit_open_orders?account_id=bybit_2 this review and got read_state `orders_read`, position_count 2, order_count 4, with per-position stop_loss/take_profit/tpsl_mode/position_idx and the Partial-mode legs in result.orders (CLAUDE.md dates it 2026-08-22). Incidental but useful: both bybit_2 positions report position_idx 0, confirming one-way NETTING on the real-money account. ALPACA still has no equivalent, so 'unreadable for 33 of 34 open trades' is no longer the right denominator."
+        },
+        {
+          "at": "2026-08-31T06:20:00+00:00",
+          "by": "/system-review 2026-08-31 backlog CLOSE pass",
+          "disposition": "resolved",
+          "note": "RESOLVED — and EXERCISED, not merely shipped. Both routes the criterion asks for now exist with the three-state read_state discipline: `/api/diag/bybit_open_orders` (2026-08-22) and `/api/diag/alpaca_open_orders` (2026-08-25, whose own docstring names this row).\n\nTHE DISTINCTION THIS SESSION KEEPS INSISTING ON: a route existing is not a route working. Called live 2026-08-31, `/api/diag/alpaca_open_orders` returns for all 11 declared accounts:\n\n    alpaca_paper          orders_read   orders=6  positions=3\n    alpaca_portfolio      orders_read   orders=8  positions=4\n    alpaca_live           orders_read   orders=0  positions=0\n    alpaca_options_paper  orders_read   orders=0  positions=0\n    (the 7 non-Alpaca accounts correctly read `not_alpaca` with count=null, never 0)\n\nThose two populated accounts ARE the gap this row was filed about: the route's own measurement records that of 15 open trades whose broker-bracket state was unobservable on 2026-08-25, **12 were alpaca** (`alpaca_paper` 6, `alpaca_portfolio` 6). They are now readable, with 14 resting orders served across them.\n\n⚠️ ONE CLAUSE IS INFERRED, NOT RE-MEASURED, AND I AM SAYING SO RATHER THAN LETTING IT PASS. The criterion also asks that `exit_path_coverage.py`'s `broker_observability` count for these venues drop to the genuinely-unreadable remainder. I did NOT re-run that tool; I verified the underlying fact it measures — that a session can now read resting bracket state for both venues — by reading it. If a future run of `exit_path_coverage` still reports those accounts unobservable, that is a defect in the TOOL's wiring to the new routes, and is a new row, not a re-opening of this one."
         }
-      ]
+      ],
+      "resolved_at": "2026-08-31T06:20:00+00:00"
     },
     {
       "id": "BL-20260818-RR-FLOOR-MISSING-FROM-THE-HARNESS-ITS-MOTIVATING-LEG-USES",
