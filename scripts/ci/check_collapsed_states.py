@@ -62,7 +62,69 @@ REPO = Path(__file__).resolve().parents[2]
 # The declared registry. Adding a three-state contract here is how it becomes
 # enforced. Keep `states` to the literal tokens the code emits/branches on.
 # ---------------------------------------------------------------------------
+#: Contracts whose unread-state finding PRE-DATES the 2026-08-31 registry-self-
+#: satisfaction fix and is NOT failed, only REPORTED — loudly, every run.
+#:
+#: ⚠️ THIS IS A DATED DEBT LIST, NOT AN EXEMPTION. Until 2026-08-31 the
+#: unread-state check (3) could not fire at all (see `_REGISTRY_PATH` below):
+#: every contract was satisfied by its own registry entry. Turning the check on
+#: revealed four genuine findings at once, three of them belonging to other
+#: work. Failing CI on all of them would have made the fix un-landable and the
+#: check would have stayed off — which is how a vacuous guard survives.
+#:
+#: So they are named, printed, and OWED. Adding to this list is not a way to
+#: silence a NEW finding: `--strict` fails on everything, and a contract
+#: registered after this date has no claim on it.
+GRANDFATHERED_UNREAD = {
+    # Mine, from the same change that found this. Its states ARE branched on —
+    # via the imported constants (`RUNNABLE_POWER_STATES`, `v.state == CLEARED`)
+    # rather than string literals — which this guard's evidence model cannot
+    # see. Satisfying it today would mean sprinkling literals into consumers
+    # that correctly import the vocabulary, i.e. writing worse code to please a
+    # guard. The evidence model is the thing to fix.
+    "research_queue.power_state",
+    "operator_owed.state",
+    "over_cover.state",
+    "netting_attribution.anchor_status",
+}
+
+#: This file. Excluded from the consumer scan — see the loop below.
+_REGISTRY_PATH = Path(__file__).resolve()
+
+
 CONTRACTS: List[Dict[str, object]] = [
+    {
+        "name": "research_queue.power_state",
+        # The producer is the GATE itself: `grade_power` returns a PowerVerdict
+        # whose `state` is one of these seven, and the vocabulary is defined as
+        # literals in this module and nowhere else.
+        #
+        # No `producer_field` is declared, deliberately. The states are named
+        # module constants (`CLEARED = "cleared"`), so the literal never shares
+        # a line with the word `state` — narrowing to a field here would fail
+        # for a spelling reason rather than a correctness one, and inviting a
+        # rename to satisfy the guard is how a guard starts shaping code badly.
+        "producer": "scripts/research/research_queue.py",
+        "consumer_token": (r"\bpower_state\b|\bPOWER_STATES\b|"
+                           r"\bRUNNABLE_POWER_STATES\b|\bACCRUING_STATE\b"),
+        "states": ["cleared", "underpowered", "undeclared", "unverifiable",
+                   "not_applicable", "infeasible", "accruing"],
+        "why": (
+            "The R4 admission gate decides whether an experiment is allowed to "
+            "spend runner minutes, and its verdict is STAMPED ONTO EVERY ROW "
+            "the run lands (`research_power_state`). So the state is not an "
+            "internal grade: it travels into the corpus and is the only thing "
+            "separating a row from a job that DECLARED UP FRONT it cannot "
+            "answer its question yet (`accruing`) from a real test's row. "
+            "Collapsing `accruing` into `cleared` would let the queue claim a "
+            "protection that does not exist; collapsing `unverifiable` into "
+            "`underpowered` would report 'we could not look' as 'the data "
+            "refutes it', which are opposite statements about the same job. "
+            "`infeasible` is the one the corpus REFUTES, and it is deliberately "
+            "distinct from `underpowered` (author's own declared n too small) "
+            "because only one of the two is fixed by waiting."
+        ),
+    },
     {
         "name": "harness_r.r_cost_basis",
         # The PRODUCER of the persisted field is the recorder: it declares the
@@ -588,11 +650,17 @@ def _states_in(text: str, states: List[str], field: str = "") -> set:
 
 def main(argv: List[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--strict", action="store_true",
+                    help="also fail on GRANDFATHERED_UNREAD contracts")
     ap.add_argument("--verbose", action="store_true")
     a = ap.parse_args(argv[1:])
 
     files = _py_files()
     findings: List[str] = []
+    # Reported every run, but non-failing unless --strict. Kept as its own
+    # list rather than a flag on `findings` so a grandfathered item can
+    # never be silently counted as clean.
+    owed: List[str] = []
     if a.verbose:
         print(f"collapsed-state-guard: {len(CONTRACTS)} contract(s) over "
               f"{len(files)} python files")
@@ -637,6 +705,26 @@ def main(argv: List[str]) -> int:
         for f in files:
             if f == prod_path:
                 continue
+            # ⚠️ THIS REGISTRY IS NOT A CONSUMER OF ITSELF — measured
+            # 2026-08-31, and without this line the guard's central check was
+            # STRUCTURALLY VACUOUS for 19 of its 20 contracts.
+            #
+            # A contract entry contains its own `consumer_token` pattern as
+            # source text (so the token matches) AND every state literal in its
+            # `states` list (so `_states_in` returns all of them). So the file
+            # that DECLARES a contract automatically satisfied it: check (3),
+            # "state(s) X are produced but NO consumer branches on them",
+            # could not fire however many states were genuinely unread.
+            # Registering a contract was itself the evidence that it held.
+            #
+            # That is precisely this guard's own stated failure mode — "a guard
+            # that is cheaper to lie to than to satisfy is worse than no guard"
+            # (the `new-table-wiring-guard` lesson it cites) — reproduced one
+            # level up, on the guard rather than on an annotation. Nothing had
+            # to be written wrongly for it to happen; declaring the contract
+            # was enough.
+            if f == _REGISTRY_PATH:
+                continue
             txt = f.read_text(encoding="utf-8", errors="replace")
             if not token.search(txt):
                 continue
@@ -668,13 +756,22 @@ def main(argv: List[str]) -> int:
         covered = set().union(*(s for _, s in consumers)) if consumers else set()
         unread = [s for s in states if s not in covered]
         if unread:
-            findings.append(
+            (findings if (a.strict or name not in GRANDFATHERED_UNREAD)
+             else owed).append(
                 f"{name}: state(s) {unread} are produced but NO consumer "
                 f"branches on them. A state nothing reads IS the collapse — "
                 f"every caller is silently treating it as one of the others. "
                 f"({c['why']})")
         elif a.verbose:
             print(f"  ok {name}: {len(consumers)} consumer(s), all states read")
+
+    if owed:
+        print("\ncollapsed-state-guard: GRANDFATHERED (reported, not failed)\n"
+              + "-" * 60)
+        for o in owed:
+            print(f"  ~ {o}\n")
+        print("These pre-date the 2026-08-31 self-satisfaction fix. Run with "
+              "--strict to fail on them.\n")
 
     if findings:
         print("\ncollapsed-state-guard: FINDINGS\n" + "=" * 60)

@@ -219,6 +219,12 @@ jobs:
           pr-title: "chore(gpu-spend): burst gpu-${{ github.run_id }} cost (auto)"
           pr-body: "Automated GPU-burst spend-ledger append (the $10 budget-gate input). Data-only; auto-merge."
           branch-prefix: automation/gpu-spend-ledger
+          # ⚠️ NOT decoration: without this the step exits 0 the moment the PR
+          # OPENS, and "the push succeeded" is silently treated as "the rows
+          # arrived". They are different claims and only one is what a later
+          # session depends on. The action owns the bounded wait — do not copy
+          # a timeout here.
+          verify-merged: "true"
 
       - name: Preserve ledger row (recovery artifact on land failure)
         if: always() && steps.ledger.outcome == 'success' && steps.commit_ledger.outcome == 'failure'

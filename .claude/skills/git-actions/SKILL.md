@@ -49,3 +49,16 @@ mutations — they wrap this skill with the right shapes.)
 - You **cannot** read run logs or download artifacts from a session. If a
   workflow's only output is an artifact, have it comment the key result back on
   the issue instead.
+
+## Dispatch one at a time
+
+⚠️ **One system-action issue in flight at a time — open it, wait for its
+comment, then open the next.** `system-actions.yml` uses a single concurrency
+group, and GitHub keeps at most one PENDING run per group, so a third dispatch
+evicts the second. A batch of N collapses to the first and the last.
+
+A cancelled run never comments, so its issue stays OPEN and silent — identical
+to *still queued*. Measured 2026-08-30: 6 dispatched, 3 cancelled, all 3 fine
+when re-fired serially (`BL-20260830-BATCHED-SYSTEM-ACTIONS-SILENTLY-CANCEL-EACH-OTHER`).
+If an issue has no comment after a few minutes, check the workflow run list
+before concluding it is queued.

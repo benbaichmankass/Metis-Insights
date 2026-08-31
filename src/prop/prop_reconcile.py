@@ -322,28 +322,75 @@ def reconstruct_equity(
                 "fills_applied": None, "fills_pnl_usd": None,
                 "equity_provenance": None}
 
-    applied, total = 0, 0.0
+    # ⚠️ REPORT TIME IS NOT EVENT TIME, AND ON A MANUAL BRIDGE THEY ROUTINELY
+    # DISAGREE. This used to select on `reported_at` alone, so a close the
+    # operator had ALREADY read into their snapshot was applied a SECOND time
+    # merely because they typed it in afterwards
+    # (BL-20260828-RULE-DISTANCE-DOUBLE-COUNTS-A-LATE-REPORTED-EARLIER-FILL).
+    #
+    # MEASURED TWICE, IN BOTH DIRECTIONS:
+    #   2026-08-28  a -77.22 close re-applied -> distance_to_dd_floor -19.29,
+    #               i.e. the panel declared the account DEAD when it was not.
+    #   2026-08-31  a +35.28 close re-applied -> equity_used 4822.62 against a
+    #               snapshot of 4787.34, so the cushion to the $4,700 floor read
+    #               122.62 when it was 87.34. The snapshot delta was +33.34 and
+    #               the close is +35.28 gross of a -2.08 commission = +33.20,
+    #               matching to $0.14 -- so the snapshot plainly already held it.
+    #
+    # The optimistic direction is the dangerous one: it does not just mislead a
+    # panel, it is the number `prop_risk_gate` caps against, so an inflated
+    # cushion makes the gate AUTHORISE a ticket that breaches.
+    #
+    # THE RULE IS ASYMMETRIC, DELIBERATELY. An event time is the honest
+    # discriminator, but it is mostly absent: measured on the live table, only
+    # 4 of the 19 pnl-carrying fills have `closed_at`. So selecting on event
+    # time alone would silently drop 79% of the stream, which is worse than the
+    # bug. Instead:
+    #   * event time KNOWN  -> place it exactly, in BOTH directions.
+    #   * event time UNKNOWN -> apply only a LOSS. A fill we cannot place must
+    #     never GROW a safety cushion; it may shrink one. We accept false
+    #     pessimism (a refused trade) and refuse false optimism (a breached
+    #     floor), because only one of those is terminal.
+    # The withheld gains are COUNTED, not dropped silently -- a reader must be
+    # able to see that the reconstruction is deliberately conservative.
+    applied, total, withheld_gain = 0, 0.0, 0
     for f in fills:
         pnl = f.get("pnl")
         if pnl is None:
             continue  # an open/filled report carries no realized pnl
-        at = _parse_iso(f.get("reported_at"))
-        if at is None or at <= snap_at:
-            continue
         try:
-            total += float(pnl)
+            pnl_f = float(pnl)
         except (TypeError, ValueError):
             continue
+        event_at = _parse_iso(f.get("closed_at"))
+        if event_at is not None:
+            if event_at <= snap_at:
+                continue  # the snapshot already reflects it
+        else:
+            # Unplaceable. A gain may not inflate the cushion.
+            if pnl_f >= 0:
+                report_at = _parse_iso(f.get("reported_at"))
+                if report_at is not None and report_at > snap_at:
+                    withheld_gain += 1
+                continue
+            report_at = _parse_iso(f.get("reported_at"))
+            if report_at is None or report_at <= snap_at:
+                continue
+        total += pnl_f
         applied += 1
 
     if applied == 0:
-        return base
+        return {**base, "fills_withheld_unplaceable_gain": withheld_gain}
     return {
         "balance_basis": "snapshot_plus_fills",
         "fills_applied": applied,
         "fills_pnl_usd": round(total, 8),
         "equity_used_usd": round(float(equity) + total, 8),
         "equity_provenance": "estimated",
+        # How many later-reported GAINS were deliberately not applied because
+        # they could not be placed in time. Non-zero means the cushion below is
+        # conservative BY CONSTRUCTION, not that the stream was empty.
+        "fills_withheld_unplaceable_gain": withheld_gain,
     }
 
 
@@ -475,6 +522,25 @@ def compute_rule_distance(
         "equity_provenance": recon.get("equity_provenance"),
         "fills_applied_since_snapshot": recon.get("fills_applied"),
         "fills_pnl_since_snapshot_usd": recon.get("fills_pnl_usd"),
+        # How many later-reported GAINS reconstruct_equity deliberately WITHHELD
+        # because they carried no `closed_at` and so could not be placed against
+        # the snapshot. Non-zero means the cushion above is conservative BY
+        # CONSTRUCTION, not that the fill stream was empty.
+        #
+        # ⚠️ THIS FORWARD IS THE WHOLE POINT AND IT WAS MISSING FOR ONE COMMIT.
+        # `reconstruct_equity` computed the counter on both of its return paths
+        # and `compute_rule_distance` cherry-picked the two keys above and not
+        # this one, so the value was written and never read — the exact class
+        # `provenance-consumer-guard` exists to catch, shipped inside the change
+        # whose own comment says the withheld gains are "COUNTED, not dropped
+        # silently". Measured on the live panel at 2026-08-31T08:40Z: the fix
+        # was correctly live (distance_to_dd_floor_usd 122.62 -> 87.34 on an
+        # unchanged snapshot) and this key was ABSENT from the only surface a
+        # reader reaches. A `None` here means the reconstruction did not report
+        # one — never that zero gains were withheld.
+        "fills_withheld_unplaceable_gain": recon.get(
+            "fills_withheld_unplaceable_gain"
+        ),
         "status_present": bool(status),
         "status_age_hours": age_hours,
         "status_freshness": freshness,

@@ -221,3 +221,168 @@ def test_commit_to_main_publishes_the_branch_it_pushed():
         "callers cannot report `pending_merge` without the branch, and "
         "re-deriving it per caller is a naming scheme this action owns"
     )
+
+
+# ---------------------------------------------------------------------------
+# The assertion must not fail a run that SUCCEEDED (2026-08-31).
+#
+# `git fetch` aborts ATOMICALLY on an unknown refspec. `commit-to-main` merges
+# with --delete-branch, so on the SUCCESS path the landing branch is gone by the
+# time the assertion runs — and `git fetch origin main "$LAND_BRANCH" || true`
+# therefore updated NEITHER ref, leaving the assertion to read a checkout-time
+# origin/main that predates the merge and report `absent`.
+#
+# Measured on run 33340468235: "Land the corpus on main" SUCCEEDED in 95s (so
+# verify-merged saw MERGED, and #10535 is in main's history), then the assertion
+# failed instantly. Verified the mechanism directly rather than inferring it —
+# with a real deleted branch, `git fetch origin main <gone>` prints
+# `fatal: couldn't find remote ref` and does NOT update origin/main.
+#
+# An assertion built to stop false "landed" claims was manufacturing false
+# "absent" ones, which is the worse direction: it fails correct runs and trains
+# the reader to ignore it.
+# ---------------------------------------------------------------------------
+
+
+def _assert_step_body():
+    return _named("Assert the rows actually landed")["run"]
+
+
+def test_the_default_branch_is_fetched_on_its_own():
+    """One fetch naming both refs updates NEITHER when the second is gone."""
+    body = _assert_step_body()
+    assert 'git fetch origin "${DEFAULT_BRANCH:-main}"\n' in body, (
+        "the default branch must be fetched by itself — a combined fetch aborts "
+        "atomically when the landing branch has been deleted on merge"
+    )
+    assert 'git fetch origin "${DEFAULT_BRANCH:-main}" "${LAND_BRANCH}"' not in body, (
+        "combined fetch reintroduced: this is the false-negative from run 33340468235"
+    )
+
+
+def test_the_main_fetch_is_not_swallowed():
+    """`|| true` on the main fetch is what hid the fatal for a whole run."""
+    for line in _assert_step_body().splitlines():
+        if 'git fetch origin "${DEFAULT_BRANCH:-main}"' in line:
+            assert "|| true" not in line, (
+                "a swallowed main fetch means the assertion reads a stale ref and "
+                "cannot tell 'we did not look' from 'the rows are absent'"
+            )
+            return
+    raise AssertionError("no default-branch fetch found at all")
+
+
+def test_pushed_ref_is_only_claimed_when_the_branch_resolves():
+    """A --pushed-ref naming a deleted branch makes pending_merge unreadable again."""
+    body = _assert_step_body()
+    assert "PUSHED=()" in body and '"${PUSHED[@]}"' in body, (
+        "--pushed-ref must be conditional on the branch actually being fetchable"
+    )
+    assert '--pushed-ref "origin/${LAND_BRANCH}" \\' not in body, (
+        "unconditional --pushed-ref reintroduced"
+    )
+
+
+def test_a_deleted_landing_branch_is_reported_not_treated_as_an_error():
+    """Branch gone IS the merged case — it must read as success, and say so."""
+    body = _assert_step_body()
+    assert "gone" in body.lower(), (
+        "the deleted-branch path must state that the rows are expected on main, "
+        "so a reader is not left inferring it from a missing --pushed-ref"
+    )
+
+
+def test_the_e35_sibling_got_the_same_fix():
+    """Latent there, but 'each fix covering only the tree just proven' is the
+    recurrence pattern this repo keeps paying for."""
+    wf = yaml.safe_load(
+        (REPO / ".github/workflows/e35-bracket-sweep.yml").read_text())
+    bodies = [s.get("run", "") for j in wf["jobs"].values()
+              for s in j.get("steps", [])]
+    assert any('git fetch origin "${DEFAULT_BRANCH:-main}"\n' in b for b in bodies), (
+        "e35 still uses the combined fetch"
+    )
+    assert not any('git fetch origin "${DEFAULT_BRANCH:-main}" "${TARGET}"' in b
+                   for b in bodies), "e35's combined fetch reintroduced"
+
+
+# ---------------------------------------------------------------------------
+# e35's landing chain — the same eight hops, closed 2026-08-31.
+#
+# e35 pushed a side branch and printed an honest hand-off saying a human had to
+# open the PR. Accurate, and still a broken pipeline: the research queue drives
+# this workflow on a monthly cadence, so "a human finishes it" means the rows
+# pile up unmerged and no later session reads them. Measured on run
+# 33361845836 — 14/14 legs green, 2,786 rows written, 0 rows on main.
+# ---------------------------------------------------------------------------
+def _e35() -> dict:
+    return yaml.safe_load(
+        (REPO / ".github/workflows/e35-bracket-sweep.yml").read_text())
+
+
+def _e35_corpus_job() -> dict:
+    return _e35()["jobs"]["corpus"]
+
+
+def test_e35_lands_through_commit_to_main_not_a_bare_side_branch_push():
+    """A GITHUB_TOKEN push starts no workflows, so the job cannot open its own
+    PR. The PAT-authenticated shared action is the only thing that can."""
+    steps = _e35_corpus_job()["steps"]
+    land = [s for s in steps
+            if s.get("uses") == "./.github/actions/commit-to-main"]
+    assert len(land) == 1, (
+        "e35's corpus job must land through the shared commit-to-main action; "
+        "a bare `git push` to a per-run branch leaves the merge owed to a human"
+    )
+    assert land[0].get("id") == "land", (
+        "the landing step needs id 'land' — the assertion reads its outputs"
+    )
+    bodies = "\n".join(s.get("run", "") for s in steps)
+    assert 'git push origin "HEAD:refs/heads/${TARGET}"' not in bodies, (
+        "the side-branch push is back; that is the state that owed the merge"
+    )
+
+
+def test_e35_landing_waits_for_the_merge():
+    """Without this the step exits 0 when the PR OPENS, so the assertion below
+    reads pending_merge on every healthy run and gets switched off."""
+    land = [s for s in _e35_corpus_job()["steps"]
+            if s.get("uses") == "./.github/actions/commit-to-main"][0]
+    assert str(land["with"].get("verify-merged")).lower() == "true", (
+        "e35's landing must verify the merge, not just the push"
+    )
+
+
+def test_e35_corpus_job_budget_outlasts_the_merge_wait():
+    """A budget shorter than the wait cancels a healthy landing mid-wait and
+    reports a timeout for a PR that was merging correctly."""
+    action = yaml.safe_load(
+        (REPO / ".github/actions/commit-to-main/action.yml").read_text())
+    wait = int(action["inputs"]["verify-timeout-minutes"]["default"])
+    budget = int(_e35_corpus_job()["timeout-minutes"])
+    assert budget > wait, (
+        f"corpus job budget {budget}m must exceed commit-to-main's {wait}m wait"
+    )
+
+
+def test_e35_corpus_job_may_open_a_pull_request():
+    """contents:write alone cannot open the landing PR."""
+    perms = _e35_corpus_job()["permissions"]
+    assert perms.get("pull-requests") == "write", (
+        "commit-to-main opens a PR; the job needs pull-requests: write"
+    )
+
+
+def test_e35_assertion_guards_on_both_committed_and_branch():
+    """`committed=false` is the legitimate no-op (corpus byte-identical);
+    an empty branch beside committed=true is a broken landing. Collapsing the
+    two would let a failed push read as a quiet success."""
+    body = [s for s in _e35_corpus_job()["steps"]
+            if s.get("name") == "assert the corpus rows landed"][0]["run"]
+    assert "LAND_COMMITTED" in body and "LAND_BRANCH" in body, (
+        "the assertion must read the landing step's outputs"
+    )
+    assert "CORPUS_TARGET" not in body, (
+        "CORPUS_TARGET is gone with the push step; reading it would make the "
+        "guard always fire"
+    )

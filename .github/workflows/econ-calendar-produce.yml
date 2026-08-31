@@ -64,7 +64,7 @@ jobs:
        github.event.issue.user.login == github.repository_owner &&
        contains(github.event.issue.labels.*.name, 'econ-calendar-produce-now'))
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 45
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -120,6 +120,12 @@ jobs:
           pr-title: "chore(m1): economic-calendar PIT snapshots (auto)"
           pr-body: "Point-in-time economic-calendar snapshots — daily FMP capture + regen (econ-calendar-produce). Data-only; auto-merge. Live-path config/economic_calendar.yaml is NOT touched here (operator-gated)."
           branch-prefix: automation/econ-calendar
+          # ⚠️ NOT decoration: without this the step exits 0 the moment the PR
+          # OPENS, and "the push succeeded" is silently treated as "the rows
+          # arrived". They are different claims and only one is what a later
+          # session depends on. The action owns the bounded wait — do not copy
+          # a timeout here.
+          verify-merged: "true"
 
       - name: Comment + close issue (issue-driven path)
         if: github.event_name == 'issues'

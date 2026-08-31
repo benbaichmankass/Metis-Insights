@@ -257,6 +257,12 @@ _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 _ARBITRATION_FANOUT_SOAK_LOG = runtime_logs_dir() / "arbitration_fanout_soak.jsonl"
 _PAIRS_SOAK_LOG = runtime_logs_dir() / "pairs_soak.jsonl"
 _EXPOSURE_SOAK_LOG = runtime_logs_dir() / "exposure_soak.jsonl"
+# Two observe-only soaks that shipped a writer and no reader, found 2026-08-31
+# by deriving the expected set from the SOAK_LOG_NAME constants rather than
+# enumerating it (2 of 10 were unreachable). A soak exists to be READ before
+# a mode is flipped, so an unreadable one is the feature ABSENT, not degraded.
+_CONFLICT_TAXONOMY_SOAK_LOG = runtime_logs_dir() / "conflict_taxonomy_soak.jsonl"
+_MACRO_THESIS_SOAK_LOG = runtime_logs_dir() / "macro_thesis_soak.jsonl"
 _NETTING_ATTRIBUTION_SOAK_LOG = (
     runtime_logs_dir() / "netting_attribution_soak.jsonl"
 )
@@ -397,6 +403,8 @@ _LOG_FILES: dict[str, Path] = {
     "pairs_soak": _PAIRS_SOAK_LOG,
     # Gross-exposure observation soak (also public at /api/bot/exposure/soak).
     "exposure_soak": _EXPOSURE_SOAK_LOG,
+    "conflict_taxonomy_soak": _CONFLICT_TAXONOMY_SOAK_LOG,
+    "macro_thesis_soak": _MACRO_THESIS_SOAK_LOG,
     # Netting partial-close ATTRIBUTION soak (BL-20260801). One line per journal
     # row the reconciler would reduce/close to account for a netted partial
     # close, with the SELECTION basis (`leg_gone` / `fifo`) and the PRICE
@@ -487,6 +495,32 @@ _LOG_FILES: dict[str, Path] = {
     "prop_ticket_risk_soak": _PROP_TICKET_RISK_SOAK_LOG,
     "exit_loop_health_alert_state": _EXIT_LOOP_HEALTH_ALERT_STATE,
     # Daily-cap alert latch.
+    # ── The two "liveness watchdog" state files. THEY ARE DIFFERENT THINGS AND
+    # THE BACKLOG ROW THAT ASKED FOR THEM CONFLATED THEM
+    # (BL-20260823-ALERT-LATCHES-WITHOUT-A-READ-SURFACE, corrected 2026-08-30).
+    # That row calls `liveness_watchdog_state.json` "THE MOST SAFETY-RELEVANT OF
+    # THE THREE ... the per-episode restart budget (--max-restarts / --cooldown-min)".
+    # It is not. Measured by reading both writers:
+    #
+    #   * `heartbeat_check_state.json`  <- scripts/check_heartbeat.py, the EXTERNAL
+    #     dead-man switch behind ict-liveness-watchdog.timer. Its state keys are
+    #     `autoheal_attempts`, `autoheal_exhausted_alerted`,
+    #     `last_autoheal_attempt_ts`. THIS is the restart budget. Once exhausted
+    #     the watchdog goes alert-only and stops auto-restarting the trader, so
+    #     without a read surface "the watchdog will restart the trader if it
+    #     stalls" is an assumption, not an observation.
+    #
+    #   * `liveness_watchdog_state.json` <- src/runtime/liveness_watchdog.py, a
+    #     DIFFERENT watchdog (signals-dispatched vs trades-placed). Its state is
+    #     one key, `slot_key`, an hourly anti-spam slot. Useful, not safety-critical.
+    #
+    # Allowlisting only the second — which is what that row literally asks for —
+    # would have left the budget unreadable while making it look covered. Both are
+    # registered here so the distinction cannot be lost again.
+    "heartbeat_check_state":
+        runtime_logs_dir() / "heartbeat_check_state.json",
+    "liveness_watchdog_state":
+        runtime_logs_dir() / "liveness_watchdog_state.json",
     "daily_cap_alert_state": _DAILY_CAP_ALERT_STATE,
     # PROP CADENCE STATE. The prop bridge is manual, so these three files are
     # the only evidence that the bot is still doing its half of it:
@@ -539,6 +573,27 @@ _LOG_FILES: dict[str, Path] = {
     # is strictly worse than no latch.
     "stop_over_cover_alert_state":
         runtime_logs_dir() / "stop_over_cover_alert_state.json",
+    # FOURTH recurrence of the shape the comment above describes, found by a
+    # /system-review drive 2026-08-30 while trying to CLOSE
+    # `BL-20260825-THE-ENTIRE-BYBIT-NAKED-SWEEP-PAGES-NOBODY` — whose criteria
+    # require the latch be "readable on /api/diag/log_file", and it was not.
+    # `_emit_bybit_over_cover_alert` latches through the shared
+    # `_cooldown_admits("bybit_over_cover", ...)`, and `_alert_state_path`
+    # resolves that to `<kind>_alert_state.json`, so the file is
+    # `bybit_over_cover_alert_state.json` — a DIFFERENT file from its IB
+    # sibling above, and it was never registered. Measured the same day:
+    # `?name=stop_over_cover_alert_state` returned `present: true` while
+    # `?name=bybit_over_cover_alert_state` returned nothing.
+    #
+    # ⚠️ THIS ONE GATES A MAINNET ACCOUNT. The IB page it was modelled on
+    # covers `ib_paper`; `bybit_2` is real money. The Bybit page fires at
+    # Level.ERROR (19 real rows measured in /api/bot/logs?level=error on
+    # 2026-08-30), so without this entry "the cooldown is holding" and "the
+    # cooldown is broken and the condition cleared" are indistinguishable on
+    # the one surface a relay-bound session can reach — which is the exact
+    # sentence three rows above, written about a different file.
+    "bybit_over_cover_alert_state":
+        runtime_logs_dir() / "bybit_over_cover_alert_state.json",
     # Same commit, same reason. This one gates the STRATEGY-BUILDER exception
     # page, whose repeat is downgraded ERROR -> WARN; without a read surface,
     # "the latch is holding" and "the latch is broken and everything is WARN"
@@ -2158,6 +2213,105 @@ def get_broker_account_status(
             "shared_uid_groups": {u: a for u, a in uid_groups.items() if len(a) > 1},
             "unread_bybit_accounts": unread,
         },
+    }
+
+
+@router.get("/bybit_wallet_truth")
+def get_bybit_wallet_truth(
+    request: Request,
+    account_id: str | None = None,
+    days: int = 30,
+) -> dict[str, Any]:
+    """**Live** account-level wallet truth for Bybit, from the venue's own
+    transaction log — the read surface for the API figure that replaced a
+    hand-pasted CSV (operator directive 2026-08-31).
+
+    ``src/runtime/broker_truth.py`` records the authoritative realized figure
+    for an account whose per-row journal cannot be trusted, and it was populated
+    from an operator's UM export — so it FROZE on 2026-07-13 while ``bybit_2``
+    kept trading, leaving 59 closed real-money trades with no wallet-truth
+    counterpart (``BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED``).
+    The rows are now pulled hourly by
+    ``scripts/ops/pull_bybit_transaction_log.py``; this route recomputes the
+    same quantity from them on demand.
+
+    ⚠️ **THIS IS THE COMMITTED LEDGER'S LIVE SIBLING, NOT ITS REPLACEMENT IN
+    THE CONSUMER PATH — YET.** ``/api/bot/trades/closed``'s ``journalTrust``
+    still reads the frozen file. Switching that read is a separate, reviewable
+    change that should follow a first live pull being INSPECTED here; shipping
+    both at once would swap the authority for a number nobody had looked at.
+
+    ⚠️ **Read ``state``, never the money alone.** Four states, never collapsed
+    (``src/runtime/bybit_wallet_truth.py``): ``measured_api`` · ``no_rows_in_window``
+    (we looked; the window is empty — a real observation) · ``unreadable``
+    (we could not look) · ``not_pulled`` (nothing has ever been stored for this
+    account — emphatically NOT "no P&L"). ``realized_usd`` is ``None``, never
+    ``0.0``, unless the state is ``measured_api``; a genuinely flat window
+    reports a measured ``0.0``, which is a different fact.
+
+    ⚠️ ``non_usd_rows`` / ``currencies_seen`` are the denominator for the USD
+    figure: coin rows are COUNTED and REPORTED, never converted (a rate we do
+    not hold would be FABRICATED precision) — so a partial answer can never read
+    as a complete one.
+
+    Pure read: one read-only SQLite open on the venue-truth store, no socket, no
+    order path, cannot refuse a trade. Tier 1.
+    """
+    _require_diag_token(request)
+    import time as _time
+
+    out: list[dict[str, Any]] = []
+    try:
+        from src.runtime import bybit_wallet_truth as _wt
+        from src.runtime.exchange_accounts import live_bybit_fill_accounts
+        from src.runtime.exchange_fills_store import list_transaction_log
+
+        end_ms = int(_time.time() * 1000)
+        start_ms = end_ms - max(int(days), 1) * 86_400_000
+        accounts = [
+            a for a in live_bybit_fill_accounts()
+            if account_id is None or a.account_id == account_id
+        ]
+        for acct in accounts:
+            try:
+                rows = list_transaction_log(
+                    acct.account_id, since_ms=start_ms, until_ms=end_ms
+                )
+            except Exception as exc:  # noqa: BLE001  # allow-silent: this is the OPPOSITE of a silent empty -- the failure is converted into the DECLARED `unreadable` state carrying its reason, never into [] or 0.0. Collapsing 'we could not read the store' into 'the account was flat' is the exact defect bybit_wallet_truth's four states exist to prevent, and one account's store error must not blind the others.
+                out.append(
+                    _wt.compute_wallet_truth(
+                        acct.account_id, None,
+                        window_start_ms=start_ms, window_end_ms=end_ms,
+                        unreadable_reason=f"store_read_failed: {exc}",
+                    ).as_dict()
+                )
+                continue
+            v = _wt.compute_wallet_truth(
+                acct.account_id, rows,
+                window_start_ms=start_ms, window_end_ms=end_ms,
+            )
+            d = v.as_dict()
+            if not rows:
+                # The store holding nothing for this account is ambiguous from
+                # the store alone: never pulled, or pulled and genuinely empty.
+                # The puller has run for zero accounts before first deploy, so
+                # NOT_PULLED is the honest reading until a row exists.
+                d["state"] = _wt.STATE_NOT_PULLED
+                d["reason"] = "no rows stored for this account in this window"
+            out.append(d)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: returns `error` + `count: None` (never 0, never an empty accounts list read as 'no accounts'), so a broken route is distinguishable from a venue with nothing to report. A diag read must not 500 the surface an operator uses to diagnose.
+        return {
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "error": f"{type(exc).__name__}: {exc}",
+            "accounts": [],
+            "count": None,
+        }
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "requested_account_id": account_id,
+        "window_days": days,
+        "count": len(out),
+        "accounts": out,
     }
 
 

@@ -12,40 +12,107 @@ question: 'Do the bracket-geometry cells currently SHIPPED on live legs still cl
   4. Nothing re-measures these on a cadence; every re-sweep so far happened because
   a session chose to look.'
 power:
-  expected_n: 50
+  expected_n: 56
   min_detectable_effect: 0.4
   effect_units: sd
   design: one_sample
   alpha: 0.05
   power: 0.8
-  basis: 'Identical derivation to RQ-20260830-001 and for the identical reason: n
-    is the sweep''s own DEFAULT_SPLIT_TARGET_OOS = 50 (#9748), and the gate is PAIRED
-    (cell vs base over the same trade sequence), so the unit is the per-trade difference
-    and the design is one_sample. ⚠️ THE FLOOR IS PER LEG, AND THIS JOB SWEEPS 14
-    OF THEM. The declared alpha is the PER-CELL level; the queue README is explicit
-    that a multi-cell sweep "must declare its own adjusted alpha", and a 14-leg pass
-    at alpha=0.05 will produce roughly one spurious verdict by construction. That
-    is tolerable ONLY because this job''s output is a WATCHLIST, never a disposition:
-    a leg that fails here is queued for a human re-read, and changing a live lever
-    is Tier-3 regardless. Do not read a single failing leg as a finding. ⚠️ A low-frequency
-    leg (the 1d ones especially) may not reach 50 OOS trades at all; the sweep grades
-    those ungradeable rather than passing them, so read per-leg base_trades_OOS before
-    quoting any verdict from this job.'
+  basis: 'The gate is PAIRED (cell vs base over the same trade sequence), so the
+    unit is the per-trade difference and the design is one_sample; the floor at
+    d=0.4 / alpha=0.05 / power=0.80 is 49.06. ⚠️ `expected_n: 56` is DERIVED FROM
+    THE RAISE, not from the sweep default: `split_target_oos` is 60 here (see
+    feasibility.accrual_basis for the measurement behind that value) and the
+    target is not the achieved count — boundary loss ran 0-4 over the 9 capable
+    legs, so 60 - 4 = 56 is the honest floor of what to expect. ⚠️ THIS ROW SAID
+    `expected_n: 50` AND CITED DEFAULT_SPLIT_TARGET_OOS UNTIL 2026-08-31; do not
+    re-quote that. It declared the TARGET as the expectation, which is exactly
+    the conflation that put 8 of 9 legs under the floor while the gate read
+    cleared. ⚠️ THE FLOOR IS PER LEG, AND THIS JOB NOW SWEEPS 9 OF THEM, not 14.
+    The five 1d equity legs (~20 trades/year, achieved 4-8) cannot reach the
+    floor at any cadence and moved to RQ-20260831-002 as a declared accrual; do
+    not re-add them here. The declared alpha is the PER-CELL level and the queue
+    README requires a multi-cell sweep to declare its own adjusted alpha — a
+    9-leg pass at alpha=0.05 still produces roughly one spurious verdict by
+    construction. That is tolerable ONLY because this job''s output is a
+    WATCHLIST, never a disposition: a leg that fails here is queued for a human
+    re-read, and changing a live lever is Tier-3 regardless. Do not read a
+    single failing leg as a finding. Read per-leg `base_oos_trades` (the e35
+    producer''s name — m20 calls it `base_trades_OOS`) before quoting any
+    verdict from this job.'
+  feasibility:
+    source: corpus
+    corpus: e35
+    statistic: min_per_leg
+    legs:
+    - ada_pullback_2h
+    - tlt_pullback_1h
+    - trend_donchian
+    - trend_donchian_ada_4h
+    - trend_donchian_avax_4h
+    - trend_donchian_eth_4h
+    - trend_donchian_sol_4h
+    - trend_donchian_xrp_4h
+    - uso_trend_1h
+    basis: >-
+      GROUNDED ON THE CORPUS, AND IT CURRENTLY GRADES `infeasible` — WHICH IS
+      THE HONEST STATE AND NO LONGER BLOCKS. Until the 2026-08-31 leniency
+      directive (*"I'd rather err on the lenient side here and not exclude
+      tests that may [give] some insights"*) `infeasible` was a REFUSAL, so
+      grounding this unit on the corpus would have graded the NEW config
+      against PRE-RAISE rows, returned infeasible, and blocked the very
+      dispatch that produces the post-raise evidence — a deadlock. That is why
+      an earlier version of this block declared `source: none` with a written
+      accrual instead. The directive removed the deadlock, so the machine now
+      derives the verdict from data rather than taking the author's word, and
+      this block AUTO-CLEARS: no human has to come back and flip it.
+      THE MEASUREMENT, and state the population: over these 9 legs (newest run
+      per leg, e35 corpus, `base_oos_trades` non-null, run of 2026-08-31) a
+      `split_target_oos` of 50 ACHIEVED 46, 48, 48, 49, 49, 49, 49, 49, 50 —
+      shortfall 0-4, max 4, n=9 — so min_per_leg is 46 against a floor of
+      49.06 and 8 of the 9 sit under it. The target is not the achieved count:
+      the harness windows CANDLES, not trades, so the boundary loses a few near
+      the edge.
+      THE FIX ALREADY APPLIED: `split_target_oos` raised 50 -> 60 (see
+      run.inputs). 60 clears the floor by 10 against a max observed shortfall
+      of 4, and stays under the BINDING clamp — `lifetime // 2` on
+      trend_donchian_xrp_4h, IS 82 + OOS 49 = 131 -> 65 — so no leg is clamped
+      and every leg keeps IS >= OOS. ⚠️ 60 is a CHOSEN value with a measured
+      basis over n=9, not a tuned one, and the max of 9 draws systematically
+      UNDERSTATES the tail; if a future run lands a leg below 50, raise again
+      rather than reading one miss as noise. Deliberately NOT 55: margin 5
+      against an observed shortfall of 4 is the target-at-the-floor mistake in
+      miniature (BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS).
+      ⚠️ THE FIRST POST-RAISE RUN GRADES AGAINST PRE-RAISE ROWS, and that is a
+      known limitation rather than a mistake here: `observed_n_by_leg` keeps the
+      BEST observation per leg with NO notion of the run configuration that
+      produced it (BL-20260831-FEASIBILITY-OBSERVATIONS-ARE-BLIND-TO-RUN-CONFIG).
+      Under leniency that is harmless — the unit runs either way and the verdict
+      is stamped on its rows — but it means the `infeasible` grade will persist
+      for exactly one cycle after the raise and then flip to `cleared` on its
+      own once a target-60 run lands ~56 per leg. Do not read the interim
+      `infeasible` as evidence the raise failed.
+      ⚠️ WHILE THIS GRADES `infeasible` OR `underpowered`, no verdict from this
+      job may be read as evidence a shipped cell has decayed, and
+      `research_disposition.append` will REFUSE to close any of its units
+      `actioned` or `no_action_warranted`.
 routing:
   needs_trainer_resident_data: false
   needs_gpu: false
   peak_memory_gb: 2.0
-  est_minutes: 90
+  est_minutes: 60
   basis: Runner, same as RQ-20260830-001 — e35-bracket-sweep.yml shards ONE LEG PER
     JOB and fetches its own candles (data.binance.vision / dukascopy / yfinance per
     leg), so no VM is touched and peak memory is per-shard, not cumulative. est_minutes
-    is 14 legs at max_parallel 6, i.e. ~3 waves of the ~25 min a single leg takes
+    is 9 legs at max_parallel 6, i.e. ~2 waves of the ~25 min a single leg takes
     in RQ-20260830-001 — an ESTIMATE from that one leg, not a measurement of this
     fan-out.
 run:
   workflow: e35-bracket-sweep.yml
   inputs:
-    only: ada_pullback_2h,iwm_trend_long_1d,mgc_pullback_1d,qqq_trend_long_1d,scha_trend_long_1d,spy_trend_long_1d,tlt_pullback_1h,trend_donchian,trend_donchian_ada_4h,trend_donchian_avax_4h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,uso_trend_1h
+    only: ada_pullback_2h,tlt_pullback_1h,trend_donchian,trend_donchian_ada_4h,trend_donchian_avax_4h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,uso_trend_1h
+    research_unit: RQ-20260830-002
+    split_target_oos: '60'
     days: '1830'
     gate_top: '2'
     singles_only: 'false'

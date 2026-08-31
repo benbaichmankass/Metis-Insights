@@ -110,13 +110,51 @@ def _stamp(path: Path, when: datetime) -> Optional[str]:
     bookkeeping it has to write. That is deliberately not built here: it needs
     the store readable from the runner and it is a larger change than this PR
     should carry. Tracked, not silently omitted.
+    ⚠️ **WRITTEN AS A TARGETED TEXT EDIT, NEVER A YAML ROUND-TRIP.** It used
+    ``yaml.safe_dump`` until 2026-08-31, which is lossy in a way nobody sees
+    until the prose is gone: PyYAML does not model comments, so a load/dump
+    cycle DELETES every ``#`` line and reflows every ``>-`` block scalar into a
+    plain or single-quoted one. Measured on the first real stamp
+    (PR #10534, run 33340458710): ``RQ-20260827-001.yaml`` went from 2 comments
+    to 0, with `question`, `why_not_inferential`, `basis` and `note` all
+    reflowed — 27 insertions, 39 deletions for what should be ONE added line.
+
+    Those blocks are the job's REASONING (why it is not inferential, why it
+    routes to a runner, what its landing assertion actually proves). Losing
+    them silently, inside an auto-merged "chore(...): dispatch stamps (auto)"
+    PR nobody reads, is how a queue becomes a set of opaque job names.
+
+    So the write is a line-level edit: replace an existing ``last_dispatched_at:``
+    line in place, or append one. Everything else stays byte-for-byte. The file
+    is still PARSED first, so a malformed job is still an error rather than a
+    file we append to blindly.
     """
     import yaml
 
     try:
-        raw = yaml.safe_load(path.read_text()) or {}
-        raw["last_dispatched_at"] = when.replace(microsecond=0).isoformat()
-        path.write_text(yaml.safe_dump(raw, sort_keys=False, allow_unicode=True))
+        text = path.read_text()
+        raw = yaml.safe_load(text)
+        if not isinstance(raw, dict):
+            return f"{path.name}: not a YAML mapping"
+        stamp = when.replace(microsecond=0).isoformat()
+        line = f"last_dispatched_at: '{stamp}'"
+
+        lines = text.splitlines()
+        for i, existing in enumerate(lines):
+            # Top-level key only: a nested one would be indented.
+            if existing.startswith("last_dispatched_at:"):
+                lines[i] = line
+                break
+        else:
+            lines.append(line)
+        path.write_text("\n".join(lines) + "\n")
+
+        # Read back and CHECK, rather than trusting the edit: the value must
+        # parse to what we meant to write. A targeted text edit can produce a
+        # file that still parses and says something else.
+        back = yaml.safe_load(path.read_text())
+        if not isinstance(back, dict) or str(back.get("last_dispatched_at")) != stamp:
+            return f"{path.name}: stamp did not read back as written"
         return None
     except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
         # NARROW, and the failure is RETURNED rather than swallowed: the caller
@@ -126,11 +164,24 @@ def _stamp(path: Path, when: datetime) -> Optional[str]:
         return f"{type(exc).__name__}: {exc}"
 
 
-def _fire(entry: Dict[str, Any], *, route: str, ref: str) -> tuple:
+def _fire(entry: Dict[str, Any], *, route: str, ref: str,
+          power_state: str = "") -> tuple:
     """Dispatch via `gh workflow run`. Returns (ok, detail)."""
     run = entry.get("run") or {}
     workflow = str(run.get("workflow"))
-    inputs = run.get("inputs") or {}
+    inputs = dict(run.get("inputs") or {})
+    # ⚠️ THE UNIT DECLARES ITS IDENTITY; THE DISPATCHER SUPPLIES THE VERDICT.
+    # `power_state` is deliberately NOT hand-written in the YAML: it is a SAFETY
+    # label ("do not read this run's output as a test result"), and a
+    # hand-declared safety label can drift from the verdict the gate actually
+    # computed — which is the whole class of defect this chain exists to close.
+    # So the unit opts in by naming itself, and the COMPUTED state rides along.
+    #
+    # Injected only when the unit already declares `research_unit`, because
+    # `gh workflow run -f <input-the-workflow-never-declared>` ERRORS. Opting in
+    # by declaring the identity is the unit asserting its workflow accepts both.
+    if inputs.get("research_unit") and power_state:
+        inputs["power_state"] = power_state
     cmd = ["gh", "workflow", "run", workflow, "--ref", ref]
     for key, value in inputs.items():
         cmd += ["-f", f"{key}={value}"]
@@ -221,7 +272,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             decisions.append(row)
             continue
 
-        ok, detail = _fire(entry, route=route.state, ref=args.ref)
+        ok, detail = _fire(entry, route=route.state, ref=args.ref,
+                           power_state=power.state)
         row.update(outcome=DISPATCHED if ok else DISPATCH_FAILED, detail=detail)
         if ok:
             # Stamp only a SUCCESSFUL fire. Stamping a failed one would mark the

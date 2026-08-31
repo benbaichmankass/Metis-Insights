@@ -269,8 +269,16 @@ def test_the_allowlist_scopes_the_binding_never_the_measurement(monkeypatch, tmp
 
 
 def test_effective_mode_can_never_read_as_applied(monkeypatch, tmp_path):
-    """`apply` is NOT implemented. The row must say so rather than let a reader
-    infer that routing changed."""
+    """Effective mode is what HAPPENED, never what was REQUESTED.
+
+    ⚠️ The GUARANTEE is unchanged; only this test's premise moved. It used to
+    read *"`apply` is NOT implemented. The row must say so"* and asserted
+    `apply_implemented is False`. Apply shipped 2026-08-31, so that assertion
+    became a test PINNING A LIE — it would have kept the field asserting the
+    capability does not exist, which is what a review session reads the log
+    for. The mode assertion below is untouched and still passes: no `plan` is
+    handed to `record`, so nothing was applied, whatever the env asked for.
+    """
     monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "apply")
     monkeypatch.setenv("ARBITRATION_FANOUT_ACCOUNTS", "bybit_1")
     monkeypatch.setattr(soak, "_log_path", lambda: tmp_path / "s.jsonl")
@@ -279,7 +287,38 @@ def test_effective_mode_can_never_read_as_applied(monkeypatch, tmp_path):
                       accounts=_ACCOUNTS)
     assert row["mode"] == "annotate", "effective mode is what HAPPENED"
     assert row["global_mode"] == "apply", "beside what was REQUESTED"
-    assert row["apply_implemented"] is False
+    assert row["applied"] is False, "nothing reached the wire"
+    # The capability EXISTS; this row simply did not exercise it.
+    assert row["apply_implemented"] is True
+    # And *we did not look* must not read as *it elected nothing*.
+    assert row["plan_state"] == "absent"
+    assert row["accounts_planned"] is None
+
+
+def test_a_row_that_DID_apply_says_so(monkeypatch, tmp_path):
+    """The other half: when rounds really reached the wire the row must show it.
+
+    Without this, `mode` could be pinned to "annotate" forever and the soak
+    would under-report the mechanism running — the inverse of the defect above
+    and just as blinding.
+    """
+    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "apply")
+    monkeypatch.setenv("ARBITRATION_FANOUT_ACCOUNTS", "bybit_1")
+    monkeypatch.setattr(soak, "_log_path", lambda: tmp_path / "s.jsonl")
+    rounds = [{"strategy": "trend_donchian_sol", "accounts": ["bybit_1"],
+               "side": "long", "entry": 100.0, "sl": 95.0, "tp": 115.0}]
+    row = soak.record(
+        ["trend_donchian_sol", "trend_donchian_sol_prop"],
+        "trend_donchian_sol_prop", symbol="SOLUSDT", accounts=_ACCOUNTS,
+        plan={"roster_state": "read", "rounds": rounds, "apply_rounds": rounds,
+              "accounts_planned": 2, "accounts_elected": 2,
+              "per_account": {"bybit_1": {"elected": "trend_donchian_sol"}}},
+    )
+    assert row["mode"] == "apply"
+    assert row["applied"] is True
+    assert row["plan_state"] == "planned"
+    assert row["rounds_applied"][0]["accounts"] == ["bybit_1"]
+    assert row["elected_by_account"]["bybit_1"] == "trend_donchian_sol"
 
 
 def test_a_clean_tick_writes_no_row(monkeypatch, tmp_path):

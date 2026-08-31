@@ -3185,6 +3185,14 @@
    {
     "id": "BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED",
     "why": "An open QUESTION about unexplained scalp holds, explicitly recorded as currently unmeasurable. It motivates work rather than qualifying a verdict."
+   },
+   {
+    "id": "BL-20260831-CONFIDENCE-IS-CARRIED-TO-THE-ELECTION-AND-READ-BY-NEITHER-SORT-KEY",
+    "why": "Does NOT condition any cell here. The row is about the intent-election sort key in src/runtime/intents.py -- WHICH strategy wins a same-symbol contest live -- and it names scripts/backtest_system.py only as the harness where a future confidence-ranking walk-forward must be run, in its resolution criteria. It reports no defect in that harness and impugns no measurement it has produced. This matrix's cells are per-strategy exit-lever verdicts, which are computed per leg and do not depend on the arbitration order between legs. Note the prefix half of the same finding (a name-prefix strategy could never win) WAS a real live-routing defect and is fixed in the same PR; it likewise changes no cell here, because these verdicts are not produced by the live election."
+   },
+   {
+    "id": "BL-20260831-TRADE-PRIORITISATION-IS-UNPROVEN-CONFIDENCE-IS-A-START-NOT-A-RESULT",
+    "why": "Does NOT condition any cell here. The row is about which STRATEGY wins a same-symbol arbitration, and names scripts/backtest_system.py only as the harness where a future four-arm ranking A/B must run — it reports no defect in that harness and impugns no measurement it has produced. These cells are per-strategy exit-lever verdicts computed per leg; arbitration decides which leg TRADES, not how a leg's exit performs once it has. Note the row's own design explicitly warns the reverse direction too: that harness manages ONE shared book, so it cannot speak to per-account routing either."
    }
   ],
   "pending_adjudication": [],
