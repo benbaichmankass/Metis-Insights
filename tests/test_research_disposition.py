@@ -300,3 +300,115 @@ def test_the_survey_carries_the_admission_fields_a_reader_needs():
     assert s["units"], "the live stores must yield units, or this proves nothing"
     for u in s["units"]:
         assert "power_state" in u and "research_unit" in u
+
+
+# ---------------------------------------------------------------------------
+# The WRITE half's CLI surface (added 2026-08-31).
+#
+# `append` shipped complete and well-guarded, and `main` exposed only the read
+# flags — so recording a disposition meant importing the module from an ad-hoc
+# snippet, which is how all 75 pre-existing ledger entries were written. A
+# mechanism whose supported path is "hand-roll a snippet" is one whose
+# validation is one forgotten import away from being skipped, so these tests
+# assert the guards are reachable THROUGH THE CLI, not merely present in the
+# module.
+# ---------------------------------------------------------------------------
+
+def _corpus(tmp_path, rows):
+    p = tmp_path / "c.jsonl"
+    p.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    return p
+
+
+def _cli(*args, cwd=None):
+    return subprocess.run(
+        [sys.executable, "scripts/research/research_disposition.py", *args],
+        cwd=cwd or REPO, capture_output=True, text=True)
+
+
+def test_record_is_reachable_from_the_cli_at_all():
+    """The regression this file exists to prevent: no write flag on the CLI."""
+    r = _cli("--help")
+    assert r.returncode == 0
+    for flag in ("--record", "--corpus", "--run-stamp", "--leg", "--verdict",
+                 "--reason", "--dry-run", "--force"):
+        assert flag in r.stdout, f"{flag} is not exposed on the CLI"
+
+
+def test_record_refuses_a_unit_the_corpus_does_not_hold(tmp_path, monkeypatch):
+    """A disposition for a nonexistent unit reads as COVERAGE of nothing.
+
+    `_accrual_check` grades this `unit_absent`, but only INSIDE `append` — after
+    the row is committed — and `state_for_unit` checks ledger membership FIRST,
+    so such a row reports `dispositioned` forever. The check must run BEFORE the
+    write.
+    """
+    r = _cli("--record", "--dry-run", "--corpus", "e35", "--leg", "no_such_leg_xyz",
+             "--run-stamp", "1999-01-01T00:00:00+00:00", "--verdict", "underpowered",
+             "--reason", "a reason long enough to clear the twenty character floor")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "reads as COVERAGE of something that does not exist" in r.stderr
+
+
+def test_the_absent_unit_check_is_skippable_only_on_the_record(tmp_path):
+    """--force is allowed, but stamps the skip onto the entry.
+
+    An escape hatch that leaves no trace is how the check gets routed around.
+    """
+    led = tmp_path / "led.jsonl"
+    rd.append({"corpus": "e35", "run_stamp": "T", "leg": "l",
+               "verdict": "underpowered", "unit_absent_override": True,
+               "reason": "a reason long enough to clear the twenty character floor"},
+              ledger=led, non_reasons=("carried forward unchanged",))
+    row = json.loads(led.read_text().splitlines()[0])
+    assert row["unit_absent_override"] is True
+    assert row["accrual_check"] == "unit_absent"
+
+
+def test_cli_refuses_a_non_reason_rather_than_recording_it():
+    """The non-reason vocabulary must bite through the CLI, not just in-module."""
+    r = _cli("--record", "--dry-run", "--corpus", "e35", "--leg", "x",
+             "--run-stamp", "T", "--verdict", "underpowered",
+             "--reason", "no new evidence bearing on this item, carried forward unchanged")
+    assert r.returncode != 0
+    assert "non-reason" in r.stderr or "does not exist" in r.stderr
+
+
+def test_cli_refuses_closing_an_accruing_unit_terminally():
+    """The R4 admission promise, reachable from the CLI.
+
+    Uses a REAL accruing unit from the committed corpus, so this fails if the
+    accrual gate ever stops being consulted on the write path.
+    """
+    import scripts.research.research_disposition as m
+    state, units = m.load_units("e35")
+    if state != "read":
+        pytest.skip("e35 corpus unreadable in this checkout")
+        return
+    accruing = [(s, leg) for (s, leg), meta in units.items()
+                if meta.get("power_state") in m.DATA_SHORTFALL_STATES]
+    if not accruing:
+        pytest.skip("no accruing unit in the committed corpus")
+        return
+    stamp, leg = sorted(accruing)[0]
+    r = _cli("--record", "--dry-run", "--corpus", "e35", "--leg", leg,
+             "--run-stamp", stamp, "--verdict", "no_action_warranted",
+             "--reason", "the bracket cells read acceptable on inspection of the rows")
+    assert r.returncode != 0, r.stdout
+    assert "cannot be closed" in r.stderr
+
+
+def test_dry_run_writes_nothing():
+    before = (REPO / "docs/research/research-disposition-ledger.jsonl")
+    n_before = len(before.read_text().splitlines()) if before.exists() else 0
+    state, units = rd.load_units("e35")
+    if state != "read" or not units:
+        pytest.skip("e35 corpus unreadable")
+        return
+    stamp, leg = sorted(units)[0]
+    r = _cli("--record", "--dry-run", "--corpus", "e35", "--leg", leg,
+             "--run-stamp", stamp, "--verdict", "underpowered",
+             "--reason", "a reason long enough to clear the twenty character floor")
+    n_after = len(before.read_text().splitlines()) if before.exists() else 0
+    assert n_after == n_before, "--dry-run appended to the real ledger"
+    assert r.returncode == 0, r.stdout + r.stderr

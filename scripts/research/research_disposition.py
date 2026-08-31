@@ -67,6 +67,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -497,16 +498,141 @@ def _selftest() -> int:
     return 0 if fail == 0 else 1
 
 
+def _record(a) -> int:
+    """Write ONE disposition through `append`, with a pre-flight existence check.
+
+    ⚠️ THE WRITE HALF HAD NO REACHABLE SURFACE UNTIL 2026-08-31. `append` was
+    complete and well-guarded from the day it shipped, and `main` exposed only
+    `--report` / `--unread-only` / `--selftest` — so the ONLY way to record a
+    disposition was to import the module from an ad-hoc snippet. Measured: no
+    production caller anywhere in the repo, and all 75 existing ledger entries
+    were written that way. That is the `exit_price_source` shape inverted: not a
+    field written and never read, but a reader with no way to write down what it
+    read. A mechanism whose supported path is "hand-roll a snippet" is one whose
+    validation (`_accrual_check`, the non-reason vocabulary) is one forgotten
+    import away from being skipped entirely.
+
+    ⚠️ IT REFUSES A UNIT THE CORPUS DOES NOT HOLD, BEFORE WRITING. `_accrual_check`
+    already grades that case `unit_absent`, but it does so INSIDE `append`, after
+    the entry is committed — so a typo'd leg or stamp lands a ledger row claiming
+    coverage of a unit that does not exist, and `survey` then reports it
+    `dispositioned` forever (`state_for_unit` checks membership in `seen` FIRST).
+    A disposition for a nonexistent unit is worse than a missing one: it reads as
+    coverage. The check is skippable only via `--force`, which stamps
+    `unit_absent_override` on the entry so the skip is on the record rather than
+    invisible.
+    """
+    entry = {
+        "corpus": a.corpus,
+        "run_stamp": a.run_stamp,
+        "leg": a.leg,
+        "verdict": a.verdict,
+        "reason": a.reason,
+        "actions": a.actions or [],
+        "dispositioned_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "dispositioned_by": a.by,
+    }
+    if a.accrual_override_reason:
+        entry["accrual_override_reason"] = a.accrual_override_reason
+
+    if a.corpus not in CORPORA:
+        print(f"::error::unknown corpus {a.corpus!r}; known: {sorted(CORPORA)}",
+              file=sys.stderr)
+        return 2
+    state, units = load_units(a.corpus)
+    if state != "read":
+        # Never "nothing to disposition" — we could not look.
+        print(f"::error::corpus {a.corpus!r} is UNREADABLE; refusing to record "
+              "against a store we could not read", file=sys.stderr)
+        return 2
+    present = (a.run_stamp, a.leg) in units
+    if not present and not a.force:
+        near = sorted({leg for (_s, leg) in units if leg == a.leg})
+        stamps = sorted({s for (s, leg) in units if leg == a.leg})
+        print(f"::error::no unit ({a.run_stamp!r}, {a.leg!r}) in corpus "
+              f"{a.corpus!r}. A disposition for a unit the corpus does not hold "
+              "reads as COVERAGE of something that does not exist.",
+              file=sys.stderr)
+        if near:
+            print(f"  leg {a.leg!r} exists under stamps: {stamps}", file=sys.stderr)
+        else:
+            print(f"  leg {a.leg!r} is not in this corpus at all.", file=sys.stderr)
+        print("  Re-check the stamp/leg, or pass --force (recorded on the entry).",
+              file=sys.stderr)
+        return 2
+    if not present:
+        entry["unit_absent_override"] = True
+
+    if a.dry_run:
+        # Validate without writing: run the same guards `append` runs.
+        try:
+            for f in ("corpus", "run_stamp", "leg", "verdict", "reason"):
+                if not entry.get(f):
+                    raise ValueError(f"disposition needs a non-empty {f!r}")
+            if entry["verdict"] not in VERDICTS:
+                raise ValueError(f"verdict must be one of {VERDICTS}")
+            if len(str(entry["reason"]).strip()) < 20:
+                raise ValueError("reason is too short to be a reason")
+            low = str(entry["reason"]).lower()
+            for bad in _non_reasons():
+                if bad in low:
+                    raise ValueError(f"reason reads as a non-reason ({bad!r})")
+            check = _accrual_check(entry)
+        except ValueError as exc:
+            print(f"::error::{exc}", file=sys.stderr)
+            return 1
+        print(f"(dry-run: nothing written) accrual_check={check}")
+        return 0
+
+    try:
+        written = append(entry)
+    except ValueError as exc:
+        print(f"::error::{exc}", file=sys.stderr)
+        return 1
+    print(f"recorded {a.corpus}/{a.leg} @ {a.run_stamp}: "
+          f"verdict={written['verdict']} accrual_check={written['accrual_check']}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--report", action="store_true", help="grade every unit")
     ap.add_argument("--unread-only", action="store_true",
                     help="list only the finding state")
     ap.add_argument("--selftest", action="store_true")
+    rec = ap.add_argument_group(
+        "record one disposition",
+        "The WRITE half. Routes to `append`, which owns every validation rule; "
+        "this adds only the stamps and a pre-flight existence check.")
+    rec.add_argument("--record", action="store_true",
+                     help="append one disposition to the ledger")
+    rec.add_argument("--corpus", help=f"one of {sorted(CORPORA)}")
+    rec.add_argument("--run-stamp", dest="run_stamp")
+    rec.add_argument("--leg")
+    rec.add_argument("--verdict", choices=VERDICTS)
+    rec.add_argument("--reason", help="what the numbers said and what follows")
+    rec.add_argument("--actions", action="append", default=[],
+                     help="repeatable; REQUIRED when --verdict actioned")
+    rec.add_argument("--accrual-override-reason", dest="accrual_override_reason",
+                     help="what changed such that an accruing unit IS decidable")
+    rec.add_argument("--by", default="", help="who is recording this")
+    rec.add_argument("--force", action="store_true",
+                     help="record even though the corpus holds no such unit "
+                          "(stamps `unit_absent_override` on the entry)")
+    rec.add_argument("--dry-run", action="store_true",
+                     help="validate and print the accrual_check; write nothing")
     a = ap.parse_args()
 
     if a.selftest:
         return _selftest()
+
+    if a.record:
+        missing = [f for f in ("corpus", "run_stamp", "leg", "verdict", "reason")
+                   if not getattr(a, f, None)]
+        if missing:
+            print(f"::error::--record needs {missing}", file=sys.stderr)
+            return 2
+        return _record(a)
 
     s = survey()
     if CORPUS_UNREADABLE in (s["ledger_state"], *s["corpora"].values()):
