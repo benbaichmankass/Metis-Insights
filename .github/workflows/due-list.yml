@@ -1,0 +1,135 @@
+name: due-list
+
+# W1 of the 2026-08-31 operations plan — the ONE surface that answers
+# "what is due right now?".
+#
+# WHY IT EXISTS
+#   The audit measured 17 separate work registers and no place that answers that
+#   question. The consequence is not missed detection — this repo detects very
+#   well — it is that a detected signal has no OWNER. `replay-pregate-nightly`
+#   failed identically on 2026-08-13 and again on 2026-08-31, and the response
+#   in between was to add it to an alert list. Detection was raised twice;
+#   disposition never happened.
+#
+# WHAT IT DOES NOT DO
+#   It decides nothing, closes nothing and grades nothing. Every row it emits is
+#   a pointer for a session to judge (operator directive 2026-08-31: actions are
+#   autonomous, decisions are the operator's).
+#
+# THE STATE RULE
+#   Each source reports read / could_not_read / not_applicable, and the envelope
+#   verdict is all_sources_read / partial / no_sources_read. An empty due-list is
+#   only meaningful at `all_sources_read`. This is the `curl … || echo '{}'`
+#   defect in CLAUDE.md turned into a contract: the list must be able to say
+#   "I could not look", never silently "nothing is due".
+#
+#   Both GitHub-backed sources need a token. THE RUN IS STILL USEFUL WITHOUT ONE
+#   — it degrades to `partial` and names them — so this workflow does not fail
+#   when they are unreadable; it lands an honestly-labelled lower bound.
+#
+# HOW IT LANDS ON PROTECTED main
+#   Same contract as the other producers: check out with BRANCH_PROTECTION_TOKEN
+#   and hand off to ./.github/actions/commit-to-main, which opens a PAT-authored
+#   auto-merge PR so the required on:pull_request checks actually run.
+#   `verify-merged: true` because "the PR opened" is not "the list landed", and
+#   only the second is what the next session reads.
+#
+# Tier-1: observability producer. No order path, no live-VM mutation, no secret
+# beyond the PAT that opens the PR.
+
+on:
+  schedule:
+    # 05:50 UTC — before the working day and after the overnight crons have
+    # reported, so the first read of the morning is of a fresh list.
+    - cron: "50 5 * * *"
+  workflow_dispatch:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: due-list
+  cancel-in-progress: false
+
+jobs:
+  render:
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       github.event.issue.user.login == github.repository_owner &&
+       contains(github.event.issue.labels.*.name, 'due-list-now'))
+    runs-on: ubuntu-latest
+    # BUDGET = work + wait + slack, and the WAIT dominates.
+    # `commit-to-main` with `verify-merged` waits up to 30m for the auto-merge
+    # PR to land, so a budget under 35 kills the job mid-wait and reports a
+    # TIMEOUT for a merge that was about to succeed — the exact failure
+    # tests/test_commit_to_main_callers.py pins (it caught this workflow at 20).
+    # 40 = ~5m of render work + the 30m wait + 5m slack. If the action's wait
+    # default is ever widened, that test fails here rather than silently
+    # consuming this margin, which is how gld-compat-matrix lost its own.
+    timeout-minutes: 40
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Self-test the renderer before trusting its output
+        run: python3 scripts/ops/render_due_list.py --self-test
+
+      - name: Render the due-list
+        id: render
+        env:
+          # Read-only; only the two GitHub-backed sources use it. Absent → those
+          # sources report could_not_read and the verdict degrades to `partial`,
+          # which is the honest outcome, not a failure.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/render_due_list.py --write
+          python3 scripts/ops/render_due_list.py --check
+          {
+            echo "md<<DUEEOF"
+            cat docs/claude/DUE.md
+            echo "DUEEOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Land the due-list on main (auto-merge PR)
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/DUE.json docs/claude/DUE.md
+          message: "chore(ops): refresh the due-list"
+          pr-title: "chore(ops): refresh the due-list (auto)"
+          pr-body: "Automated due-list refresh (W1). Generated artifact only; auto-merge."
+          branch-prefix: automation/due-list
+          verify-merged: "true"
+
+      - name: Comment + close issue (issue-driven path)
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        env:
+          DUE_MD: ${{ steps.render.outputs.md }}
+        with:
+          script: |
+            const body = '🟢 **due-list** refreshed.\n\n' + (process.env.DUE_MD || '(no output captured)');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed',
+            });

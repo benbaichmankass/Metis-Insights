@@ -1,0 +1,149 @@
+name: probes
+
+# W2 of the 2026-08-31 operations plan — run the declared probes on the
+# `monitoring` rows of docs/claude/OPEN-ITEMS.json and land the results.
+#
+# WHY (operator directive, 2026-08-31)
+#   "automated scripts that know to run periodically to check when things are
+#    soaking and when they're done soaking and need to be given a decision …
+#    so that instead of the session review having to do a whole pull of the live
+#    VM, we can just see that a test that we set up that definitely verifies
+#    what we're checking for passed or didn't pass."
+#
+# THE CONTRACT, AND IT IS NOT NEGOTIABLE
+#   **A probe REPORTS. A session CLEARS the row.** Nothing in this workflow
+#   writes `verified_at`, writes `observation`, or removes a row — an executable
+#   control in run_probes.py --self-test asserts the runner never opens
+#   OPEN-ITEMS.json for writing. `clears_when` on these rows names observations
+#   a command exiting 0 is not, so a probe that could clear one would be a
+#   machine asserting an observation nobody made.
+#
+#   Every probe declares `is_not` — what a PASS still does not establish — and
+#   that field is carried into the RESULTS, not just the declaration, so a
+#   reader cannot see a green without its limit.
+#
+# THREE STATES, NEVER COLLAPSED: pass / fail / could_not_run. A probe that could
+# not be read must never render as "nothing found" — that is the same state
+# these rows are ALREADY in, so the wrong answer would be indistinguishable from
+# the expected one.
+#
+# WHY THIS RUN NEVER FAILS ON A `fail`
+#   A failing probe is the NORMAL state of most of these rows (they are open
+#   precisely because the thing has not been observed yet). Failing the workflow
+#   on one would fire the cron-failure alert on correct behaviour, which is the
+#   desensitized-alarm P1 this repo has already paid for twice. The results land
+#   in docs/claude/PROBES.json, the due-list renders the failures, and the
+#   `duty` pass gives each one an owner. The workflow fails only if the RUNNER
+#   itself is broken.
+#
+# Tier-1: read-only. The diag bearer serves GET /api/diag/* only — no order
+# path, no mutation, no VM write.
+
+on:
+  schedule:
+    # 05:20 UTC — 30 minutes before `due-list` at 05:50, so the due-list of the
+    # morning renders against probe results from the same morning.
+    - cron: "20 5 * * *"
+  workflow_dispatch:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: probes
+  cancel-in-progress: false
+
+jobs:
+  run:
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       github.event.issue.user.login == github.repository_owner &&
+       contains(github.event.issue.labels.*.name, 'probes-now'))
+    runs-on: ubuntu-latest
+    # BUDGET = work + wait + slack. Sized against the DECLARED bound, not
+    # today's row count: run_probes.py allows DEFAULT_TIMEOUT_S=120 per
+    # monitoring row, and there are 11, so the work half is bounded at ~22m
+    # even though only 3 rows carry a probe right now. Sizing to today's 3
+    # would make this budget silently wrong the moment someone adds a probe —
+    # which is the whole point of the row that added it.
+    # 60 = ~22m worst-case probe work + the 30m `verify-merged` wait + slack.
+    timeout-minutes: 60
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Self-test before trusting any verdict
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/run_probes.py --self-test
+          python3 scripts/ops/probe_soak.py --self-test
+
+      - name: Validate the declarations
+        run: python3 scripts/ops/run_probes.py --check
+
+      - name: Run the probes
+        id: run
+        env:
+          # Read-only bearer for /api/diag/*. Absent → every soak probe reports
+          # could_not_run (never `fail`), which is the honest degraded state.
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+          DIAG_BASE_URL: ${{ secrets.DIAG_BASE_URL }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/run_probes.py --run --write
+          {
+            echo "md<<PROBEEOF"
+            python3 scripts/ops/run_probes.py --run --markdown
+            echo "PROBEEOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Refresh the due-list so a failed probe reaches the duty pass
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/render_due_list.py --write
+          python3 scripts/ops/render_due_list.py --check
+
+      - name: Land the results on main (auto-merge PR)
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/PROBES.json docs/claude/DUE.json docs/claude/DUE.md
+          message: "chore(ops): refresh probe results"
+          pr-title: "chore(ops): refresh probe results (auto)"
+          pr-body: "Automated probe run (W2). Results only — no row is cleared by this. Auto-merge."
+          branch-prefix: automation/probes
+          verify-merged: "true"
+
+      - name: Comment + close issue (issue-driven path)
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        env:
+          PROBE_MD: ${{ steps.run.outputs.md }}
+        with:
+          script: |
+            const body = '🟢 **probes** run complete.\n\n' + (process.env.PROBE_MD || '(no output captured)');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed',
+            });
