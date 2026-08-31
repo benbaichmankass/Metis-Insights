@@ -1486,16 +1486,49 @@ def elect_from_gated(
         # decided entirely by the tiebreakers. See the docstring — this
         # is the inert-conditional class, and reading the line as if the
         # size comparison discriminated is the mistake it causes.
-        winner = max(
+        # ⚠️ THE NAME TIEBREAK WAS A `max()` OVER `tuple(-ord(c) for c in name)`
+        # UNTIL 2026-08-31, AND IT DID NOT DO WHAT ITS OWN COMMENT SAID.
+        #
+        # That comment read: *"max() wants 'earlier alphabet' to win, so we
+        # negate by sorting descending"*. Per-character negation reverses the
+        # ALPHABET but cannot reverse LENGTH — a shorter tuple that is a prefix
+        # of a longer one still compares SMALLER, so `max()` picked the LONGER
+        # name. A strategy whose name is a strict prefix of a competitor's could
+        # therefore NEVER win this branch. Measured 2026-08-31:
+        #
+        #     max() picks: trend_donchian_sol_prop   (over trend_donchian_sol)
+        #     max() picks: trend_donchian_sol_4h     (over trend_donchian_sol)
+        #
+        # This is not a tie-break detail. Every SOLUSDT contender is
+        # DEFAULT_PRIORITIES 0 and `target_qty` is the inert 0.0 sentinel
+        # (BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES), so on a
+        # debounced closed-bar tick the NAME decides — deterministically and
+        # permanently. It is the mechanism behind the measured 0-of-60 in
+        # BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-AND-STARVES-ITS-PAPER-SIBLING,
+        # which had been read as small-sample bad luck, and it is why
+        # per-account arbitration ALONE does not free `trend_donchian_sol`: it
+        # loses to `trend_donchian_sol_prop` across accounts AND to
+        # `trend_donchian_sol_4h` inside its own.
+        #
+        # Fixed as `min()` over the sign-inverted key, which is exactly the
+        # documented intent on every axis (largest qty, highest priority,
+        # earliest timestamp, earliest name) and is now structurally IDENTICAL
+        # to `_conflict_sort_key` below — which never had the defect, because it
+        # sorts ascending and compares the name directly. Two keys expressing
+        # one ordering is how they drifted into disagreeing about the same pair.
+        #
+        # ⚠️ This does NOT make the ordering *good*. Ranking by name is still
+        # arbitrary; `StrategyIntent.confidence` reaches this line and is read
+        # by neither key
+        # (BL-20260831-CONFIDENCE-IS-CARRIED-TO-THE-ELECTION-AND-READ-BY-NEITHER-SORT-KEY).
+        # This change only makes the code do what it always claimed to.
+        winner = min(
             same_side,
             key=lambda i: (
-                i.target_qty,
-                i.effective_priority(),
-                -i.timestamp,
-                # Alphabetical strategy name negation: max() wants
-                # "earlier alphabet" to win, so we negate by sorting
-                # descending; flip with a tuple trick.
-                tuple(-ord(c) for c in i.strategy.lower()),
+                -i.target_qty,
+                -i.effective_priority(),
+                i.timestamp,
+                i.strategy.lower(),
             ),
         )
         contributing = same_side
