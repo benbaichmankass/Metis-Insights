@@ -25,8 +25,6 @@ import importlib.util
 import textwrap
 from pathlib import Path
 
-import pytest
-
 REPO = Path(__file__).resolve().parents[1]
 GUARD = REPO / "scripts" / "ci" / "check_collapsed_states.py"
 
