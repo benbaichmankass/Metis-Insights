@@ -1338,6 +1338,39 @@ def aggregate_intents(
     -------
     DesiredPosition
     """
+    candidates, _pre_gate = gate_intents(intents, symbol=symbol)
+    return elect_from_gated(
+        candidates, symbol=symbol, intents_before_gate=_pre_gate
+    )
+
+
+def gate_intents(
+    intents: Iterable[StrategyIntent],
+    *,
+    symbol: str = "BTCUSDT",
+) -> "tuple[tuple, int]":
+    """Filter *intents* to ``symbol`` and apply the regime router ONCE.
+
+    Returns ``(surviving_candidates, intents_before_gate)``.
+
+    **This is the half with side effects.** It emits one ``regime_hard_gate``
+    (or ``regime_shadow_gate``) audit row per candidate per call — which is
+    exactly what makes that log cleanly partition "would have gated" from
+    "did gate". Calling it twice for one tick DOUBLE-COUNTS that partition,
+    corrupting the only signal that separates the two.
+
+    That is the entire reason this split exists. Per-account arbitration was
+    blocked precisely because re-running ``aggregate_intents`` re-ran the gate
+    (``BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-AND-STARVES-ITS-PAPER-SIBLING``).
+    A caller needing several elections from one tick's candidate set calls
+    this ONCE and then calls ``elect_from_gated`` per election.
+
+    ⚠️ ``intents_before_gate`` is the count BEFORE the gate and MUST be
+    carried into ``elect_from_gated``. It is the only thing separating
+    ``all_intents_gated`` ("everything that wanted to trade was refused")
+    from ``no_intents_for_symbol`` ("nothing wanted to trade") — opposite
+    claims about the same silence.
+    """
     norm_symbol = symbol.upper().replace("/", "")
     candidates = tuple(
         i for i in intents
@@ -1379,6 +1412,35 @@ def aggregate_intents(
         candidates = _hard_regime_gate(candidates)
     else:
         _shadow_regime_gate(candidates)
+    return candidates, _pre_gate
+
+
+def elect_from_gated(
+    candidates: tuple,
+    *,
+    symbol: str = "BTCUSDT",
+    intents_before_gate: Optional[int] = None,
+) -> DesiredPosition:
+    """Elect one ``DesiredPosition`` from an ALREADY-GATED candidate tuple.
+
+    **Pure** — no audit emission, no policy load, no env read. Safe to call
+    repeatedly within one tick (once per account / per book), which
+    ``aggregate_intents`` is not.
+
+    ``candidates`` must already be filtered to ``symbol`` and already have had
+    the regime router applied by ``gate_intents``. This function does NOT
+    re-filter and does NOT re-gate — a caller that passes un-gated intents
+    gets an election over candidates the router would have refused.
+
+    ``intents_before_gate`` defaults to ``len(candidates)``, which makes an
+    empty input report ``no_intents_for_symbol``. Pass the real pre-gate count
+    from ``gate_intents`` whenever you have it, or a fully-gated tick reports
+    "nothing wanted to trade" when the truth is "everything was refused".
+    """
+    norm_symbol = symbol.upper().replace("/", "")
+    _pre_gate = (
+        len(candidates) if intents_before_gate is None else int(intents_before_gate)
+    )
 
     if not candidates:
         # Three states, never collapsed. `all_intents_gated` is emphatically NOT
