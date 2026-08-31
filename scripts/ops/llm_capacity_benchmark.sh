@@ -93,8 +93,24 @@ fi
 echo "build OK"
 
 echo "=== fetch a small GGUF ==="
+# `LLMBENCH_MODEL_URL` runs a DIFFERENT arm without editing this file.
+#
+# The 2026-08-31 run answered the 1.5B question — 7.19 t/s generation, and a
+# sample that fabricated a causal claim and truncated before finishing. The
+# operator's next question is whether a different SIZE changes that, and the
+# arithmetic only predicts it: a 3B roughly halves the speed and should raise
+# quality, a 0.5B does the reverse. Predicting is not measuring, so the arm has
+# to be runnable.
+#
+# ⚠️ IT IS PREPENDED, NEVER SUBSTITUTED. The built-in list stays as the
+# fallback, so a typo'd or dead override degrades to the known-good default
+# and still produces a comparable run, rather than returning
+# `could_not_obtain_model` and wasting the whole build. The `model:` line below
+# reports which URL actually served, so a fallback can never be mistaken for
+# the arm that was asked for — the one fact a reader of two runs needs.
 MODEL=""
 for U in \
+  ${LLMBENCH_MODEL_URL:+"$LLMBENCH_MODEL_URL"} \
   "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf" \
   "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf" \
   "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf" ; do
@@ -102,7 +118,12 @@ for U in \
   if timeout 900 curl -fsSL -o m.gguf "$U"; then MODEL="$U"; break; fi
 done
 if [ -z "$MODEL" ]; then echo "RESULT: could_not_obtain_model"; exit 0; fi
-ls -lh m.gguf; echo "model: $MODEL"
+ls -lh m.gguf
+echo "model: $MODEL"
+if [ -n "${LLMBENCH_MODEL_URL:-}" ] && [ "$MODEL" != "$LLMBENCH_MODEL_URL" ]; then
+  echo "⚠️ requested override did NOT serve — fell back to the default list."
+  echo "   requested: $LLMBENCH_MODEL_URL"
+fi
 
 echo "=== llama-bench ==="
 timeout 1800 ./build/bin/llama-bench -m m.gguf -t 1 -p 128 -n 64 -r 2 2>&1 | tail -20
