@@ -864,7 +864,72 @@ accounts:
     alpaca_env: live                   # selects api.alpaca.markets (vs paper).
     api_key_env: ALPACA_API_KEY_ID_LIVE        # this account's OWN key pair, so
     api_secret_env: ALPACA_API_SECRET_KEY_LIVE # paper + live run concurrently.
-    strategies: []                     # EMPTY BY DIRECTION — operator, 2026-08-29. The 16-leg
+    strategies:                        # ⚠️ NO LONGER EMPTY as of 2026-08-31 — this account now
+      - tlt_pullback_1h                # ROUTES REAL MONEY. Tier-3, operator-approved in
+                                       # conversation 2026-08-31 ("get this taken care of so we can
+                                       # actually have something routed to the real money"), on the
+                                       # explicit leg choice put to the operator and confirmed.
+                                       #
+                                       # ⚠️ THIS IS A PLUMBING TEST, NOT AN EDGE BET, AND MUST NOT BE
+                                       # REPORTED AS ONE. Its purpose is to prove three things paper
+                                       # cannot answer: that real fills reconcile against exchange
+                                       # truth, that whole-share sizing behaves on a CASH book, and
+                                       # that silent_refusal_alert grades this account healthy. The
+                                       # candidate set carries NO positive measured record on either
+                                       # paper population once uso_trend_1h is excluded (see the USO
+                                       # block below — a standing non-financial exclusion).
+                                       #
+                                       # WHY THIS LEG, measured 2026-08-31 against
+                                       # trade_journal.db::order_packages (filter_state: applied
+                                       # asserted on every read — an unknown filter column is IGNORED
+                                       # by that route and silently returns the whole table):
+                                       #   leg                n(pkgs)  long     affordable?
+                                       #   tlt_pullback_1h    74       33 (44.6%)  TLT $82.45 -> 2 sh
+                                       #   gdx_pullback_1d     7        0 ( 0.0%)  never fires long
+                                       #   slv_pullback_1d     6        1           too little flow
+                                       #   tlt_pullback_1d     6        3           too little flow
+                                       #   ief_pullback_1d     2        1           too little flow
+                                       #   slv_trend_1h       35       17           execution: shadow
+                                       # tlt_pullback_1h carries 5-10x the flow of any other
+                                       # affordable, long-capable leg (13 long packages in August
+                                       # alone, ~1 every 2.4 days), is execution: live in
+                                       # config/strategies.yaml, declares no strategy-level
+                                       # side_filter, and TLT is already in this account's `symbols`.
+                                       # Window 2026-06-22 -> 2026-08-28, n=74, 0 ungradeable.
+                                       #
+                                       # ⚠️ THE CASH WALL IS WHAT SIZES THIS, NOT risk_pct. Demanded
+                                       # single-trade exposure at risk_pct 0.02 is 4.70x MEDIAN
+                                       # (entry/risk_distance median 234.9 over the 33 long packages),
+                                       # i.e. the sizer asks for ~11x the account and the 0.9 cash
+                                       # wall clamps it to 2 shares (~$165 of a $200.10 book). Realised
+                                       # risk at the declared stop is therefore ~$0.75, NOT the $4.00
+                                       # the 2% implies. Do not "fix" the apparent mismatch by raising
+                                       # risk_pct — the reachable set is IDENTICAL at 2% and 5% because
+                                       # cash, not risk, is the binding term (measured 2026-08-25 and
+                                       # re-verified 2026-08-29 through RiskManager.position_size).
+                                       #
+                                       # ⚠️ SIDE-FILTER INTERACTION IS LOAD-BEARING: `side_filter: long`
+                                       # above is not merely policy here — this is a CASH account with
+                                       # shorting_enabled: false, so the short 55.4% of this leg's flow
+                                       # is structurally unexecutable regardless. Expect roughly HALF
+                                       # this leg's signals to be journalled as suppressed would-be
+                                       # trades. That is correct behaviour, not a fault.
+                                       #
+                                       # ⚠️ T+1 PRECONDITION: ALPACA_CASH_SETTLEMENT_MODE=apply with
+                                       # ALPACA_CASH_SETTLEMENT_ACCOUNTS=alpaca_live was armed FIRST
+                                       # (Tier-2, issues #10629/#10630) so the gate binds before the
+                                       # first order, per the operator's 2026-08-29 directive to model
+                                       # T+1 before any leg goes live. At $200 the whole balance
+                                       # recycles every trade, so one unsettled buy is a good-faith
+                                       # violation. The paper mirrors stay unarmed — they are
+                                       # multiplier: 4 MARGIN books and alpaca_portfolio measured a
+                                       # NEGATIVE venue_cash, which under `apply` yields basis 0.00 and
+                                       # would halt it outright.
+                                       #
+                                       # ROLLBACK: restore `strategies: []`. That is the entire gate —
+                                       # there is no mode flip in front of it.
+                                       #
+                                       # PRIOR — EMPTY BY DIRECTION, operator 2026-08-29. The 16-leg
                                        # Tier-3 pilot roster (approved 2026-06-25, extended 2026-06-27
                                        # and 2026-07-07) is REMOVED from real money until a roster is
                                        # selected on BACKTEST + WALK-FORWARD evidence rather than on a
