@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 # wiring: docs/claude/OPEN-ITEMS.json `probe.cmd`; run by scripts/ops/run_probes.py
-"""Probe GitHub Actions JOB LOGS for a literal a `monitoring` row clears on — W3.
+"""Probe GitHub Actions JOB LOGS for a literal a `monitoring` row clears on — work-plan item 3.
+
+⚠️ NOT "W3". The 2026-08-31 operations plan's W-sequence already uses W3 for
+the MERGE SERIALIZER, which was refuted by measurement and deliberately not
+built — `.github/workflows/scope-overlap-audit.yml` carries that record so no
+session re-proposes it. This work is item 3 of the artifact's five-item work
+plan (probe coverage), a continuation of W2. The two enumerations are
+different sequences and a third (`full-system-audit W2`) exists in ROADMAP.md,
+so a bare W-number is ambiguous here — say which plan.
 
 WHY A FOURTH SOURCE
 -------------------
