@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "run": "system-review 2026-08-30/31 (session 19b15dec)",
+  "started_at": "2026-08-30T19:00:00+00:00",
+  "items": {
+    "account_reachability": {
+      "status": "done",
+      "evidence": "All declared-live accounts probed. Services clean; the 3 unreadable accounts are the DECLARED exclusions (ib_live/oanda_practice dry, breakout_1 API-less), not outages. Trainer up (mirror age 14s)."
+    },
+    "ml_training_health": {
+      "status": "done",
+      "evidence": "2 cycles/24h, timer active (next 00:33Z). Manifests 68 ok/0 failed/3 skipped; dataset builds 120 ok/0 failed. ZERO manifest_quarantine rows over 200 cycle events. Registry 96 models (advisory 3 / shadow 29 / candidate 63 / research_only 1)."
+    },
+    "soak_status": {
+      "status": "done",
+      "evidence": "35 model/stage rows accruing, top n=8430. Two APPARENT stalls both checked and dissolved: mes-regime-5m-lgbm-yz-v1 is bucket=OFFLINE (correctly not scored); the exit head's 5-day silence is ZERO open donchian positions, not a break. Neither filed."
+    },
+    "ml_output_actionability": {
+      "status": "done",
+      "evidence": "Verdict: producing_but_thin. Last cycle trained=0 (already_done 76, carried_done 68, refusals 8); only 2 trained_with_refusals across 200 events; 5 persistently-refusing manifests named. Consumers ARE real: 3 advisory heads gate live routing via ml_vol_regime_for_symbol; 29 shadow heads feed shadow_predictions.jsonl."
+    },
+    "unexercised_fixes": {
+      "status": "done",
+      "evidence": "4 fixes graded on a 363-row ERROR feed (2026-08-21..29, not at cap). EXERCISED: durable target-naked cooldown 35.0/day -> 0.3/day (99.0%) with 17 live latch keys proving suppression not resolution; bybit_over_cover page (20 rows, first 08-26); ib_stop_over_cover (6 rows). STILL_UNEXERCISED: strategy_builder_exception latch — state file present:false, never written; filed BL-20260830-BUILDER-EXCEPTION-LATCH-HAS-NEVER-BEEN-WRITTEN."
+    },
+    "structural_health": {
+      "status": "done",
+      "evidence": "Population: all closed non-backtest, window=all. Finding: pairs zero-coverage class GROWING 117 -> 159 closes in 5 days (+35.9%), pairs_half_open_cleanup fastest at +64.5%. Hypothesis 'zero coverage is an ACCOUNT property' REFUTED by control on the same paper book (sl 0.5867, tp 0.4667). Dated prediction left for the next review."
+    },
+    "backlog_classes": {
+      "status": "done",
+      "evidence": "Read the WHOLE open set (540 open+kept_open: 474 health / 44 perf / 22 ml) before disposing of rows. 4 tight classes with >=2 verified members + a structural fix each: no-read-surface (16), guard-is-vacuous (8), shipped-never-exercised (15), fictional-schema fixture (2). Broad lexical hits (provenance 294, exit 279) rejected as house VOCABULARY, not defect classes."
+    },
+    "strategy_promotion": {
+      "status": "done",
+      "evidence": "Real-money per-strategy measured (n=413, PF 0.8614). ETH 15m gate RESOLVED on evidence: a dated decision existed since 2026-07-06 (walk-forward FAIL) — it was never an unactioned gate, and the 'mandatory flag' is retired. vwap (318/413 trades, -$62.93) confirmed already enabled:false/shadow — historical, not a live bleed."
+    },
+    "backlog_drive": {
+      "status": "in_progress",
+      "evidence": "9 of 540 open rows driven (2 resolved, 7 updated/filed). The gate requires count_untriaged==0 per domain; it is NOT met. Filing rate measured at 23.8/day over the last 12 days."
+    },
+    "health_review": {
+      "status": "in_progress",
+      "evidence": "Substantial parts run (services, account reachability, alert-delivery, ERROR-feed analysis, orphan/reject audit on bybit_2) but NOT the full skill with its own 100%-triage gate."
+    },
+    "performance_review": {
+      "status": "in_progress",
+      "evidence": "Aggregates measured (413 real-money trades, per-strategy, per-exit-path, coverage 0.7579). NOT done: per-order-package A-F decision grading to comms/claude_strategy_scores.jsonl."
+    },
+    "ml_review": {
+      "status": "in_progress",
+      "evidence": "Trainer health, registry, soak accrual and the ETH promotion question all covered. NOT done: the full per-model status pass and experiments_proposed."
+    },
+    "execution_capture": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "since_last_build_verification": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "research_results_disposition": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "test_execution_verification": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "consolidated_report": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "operator_ping": {
+      "status": "not_started",
+      "evidence": ""
+    }
+  },
+  "notes": [
+    "**Unplanned work took priority, at operator direction.** The Bybit wallet-truth build (below) was not in the mandate; it displaced checklist progress deliberately because the operator judged it more serious. Recorded so the shortfall is not read as drift.",
+    "**Real-money reconciliation was running off a hand-pasted CSV.** The authoritative figure for bybit_2 froze on 2026-07-13 while the account kept trading — 59 closed real-money trades unreconciled. In the ledger's own window the journal under-records by 11.0x (-$23.77 vs -$262.52 wallet truth, a $238.75 gap). Filed BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED.",
+    "**Built the live replacement** (~1050 lines, 24 tests): pull Bybit's own /v5/account/transaction-log hourly into the venue-truth store, recompute wallet truth on demand at /api/diag/bybit_wallet_truth. Control: dropping the transfer exclusion makes bybit_2 read +$4,737.48 instead of -$262.52 — a $5,000 sign flip — and fails 3 tests.",
+    "**DEPLOY IS PENDING and journalTrust still reads the frozen ledger.** That switch is deliberately a separate change, to follow a first live pull being INSPECTED. Until then the route honestly reports not_pulled / realized_usd: null for all three Bybit accounts.",
+    "**bybit_2's historical mess is NOT ongoing** — checked so it does not read as alarming: 119 orphans all fall 2026-05-02..2026-07-05 with ZERO since 2026-08-01; 347 exchange_rejects are 325 in May and 0 in the last 7 days; both dominated by vwap, now disabled. The 16 remaining unreconciled orphans all carry reconcile_investigated_at, so the silent orphan_unreconciled banner is CORRECT under its own predicate (verified by evaluating that predicate, not assumed).",
+    "**The checklist item list is DERIVED, not typed** — it reads render_system_report.py::_REQUIRED_COVERAGE_KEYS, which CI enforces. That tuple holds **13** keys while SKILL.md's prose still says 'the TEN required keys'. Field beats comment; the prose is stale and should be corrected.",
+    "**The 100%-backlog-triage gate is not satisfiable in one session at current size** (540 open, +23.8/day). Not offered as an excuse for this run's shortfall — a scoping decision is owed either way."
+  ]
+}
