@@ -83,7 +83,7 @@ jobs:
        github.event.issue.user.login == github.repository_owner &&
        contains(github.event.issue.labels.*.name, 'econ-calendar-backfill-now'))
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 55
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -222,6 +222,12 @@ jobs:
             first prints; ALFRED is the documented upgrade path). A model
             expectation must never be read as an archived survey consensus.
           branch-prefix: automation/econ-calendar-backfill
+          # ⚠️ NOT decoration: without this the step exits 0 the moment the PR
+          # OPENS, and "the push succeeded" is silently treated as "the rows
+          # arrived". They are different claims and only one is what a later
+          # session depends on. The action owns the bounded wait — do not copy
+          # a timeout here.
+          verify-merged: "true"
 
       - name: Comment + close issue (issue-driven path)
         if: github.event_name == 'issues'

@@ -64,7 +64,7 @@ jobs:
        github.event.issue.user.login == github.repository_owner &&
        contains(github.event.issue.labels.*.name, 'econ-event-study-now'))
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 47
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -236,6 +236,12 @@ jobs:
           pr-title: "chore(m1): econ-surprise event-study scorecard (auto)"
           pr-body: "Economic-surprise → forward-price event-study scorecards (econ-event-study). Observe-only, data-only; auto-merge. Verdict caps at insufficient_history until PIT-consensus history accrues."
           branch-prefix: automation/econ-event-study
+          # ⚠️ NOT decoration: without this the step exits 0 the moment the PR
+          # OPENS, and "the push succeeded" is silently treated as "the rows
+          # arrived". They are different claims and only one is what a later
+          # session depends on. The action owns the bounded wait — do not copy
+          # a timeout here.
+          verify-merged: "true"
 
       - name: Comment + close issue (issue-driven path)
         if: github.event_name == 'issues'

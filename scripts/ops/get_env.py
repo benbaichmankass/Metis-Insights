@@ -99,6 +99,22 @@ ALLOWED_KEYS: tuple[str, ...] = (
     "CONVICTION_SIZING_ACCOUNTS",
     "NETTING_ATTRIBUTION_MODE",
     "NETTING_ATTRIBUTION_ACCOUNTS",
+    # ARBITRATION_FANOUT_* (2026-08-31): per-account arbitration — which ACCOUNT
+    # an order routes to when several contend for one symbol. Same mode + scope
+    # shape as the pairs above, and allowlisted in the SAME change that made the
+    # apply path real rather than after arming it, which is the whole lesson of
+    # the PROP_SCREENSHOT_BACKEND note below.
+    # ⚠️ `..._ACCOUNTS` EMPTY MEANS **NONE** (the PROTECTION_REASSERT polarity,
+    # deliberately inverted from CONVICTION_SIZING_ACCOUNTS / NETTING_*, where
+    # empty means ALL). So "unset" and "armed everywhere" are opposite readings
+    # of the same blank here too — and worse, arming is TWO coordinated settings
+    # (mode=apply AND a non-empty allowlist), so a reader who can see only one
+    # of them cannot tell an armed system from an inert one. Both keys or
+    # neither.
+    # Both values are safe to publish: a fixed mode string, and an account-id
+    # CSV — the same class as ACCOUNT_DOWN_ALERT_SKIP, which carries no secret.
+    "ARBITRATION_FANOUT_MODE",
+    "ARBITRATION_FANOUT_ACCOUNTS",
     # PROTECTION_REASSERT_* (2026-08-23): re-asserts a diverged protective leg at
     # its journal-declared level — an order-path mutation gated by a mode + a
     # scope allowlist, the same shape as the two above. `..._ACCOUNTS` is the

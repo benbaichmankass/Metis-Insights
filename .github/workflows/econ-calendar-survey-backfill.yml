@@ -60,7 +60,7 @@ jobs:
        github.event.issue.user.login == github.repository_owner &&
        contains(github.event.issue.labels.*.name, 'econ-survey-backfill-now'))
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 80
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -178,6 +178,12 @@ jobs:
             This raises M3's joinable overlap, which was 11 rows purely because the forward
             producer had only ever pulled one window.
           branch-prefix: automation/econ-survey-backfill
+          # ⚠️ NOT decoration: without this the step exits 0 the moment the PR
+          # OPENS, and "the push succeeded" is silently treated as "the rows
+          # arrived". They are different claims and only one is what a later
+          # session depends on. The action owns the bounded wait — do not copy
+          # a timeout here.
+          verify-merged: "true"
 
       - name: Comment + close issue (issue-driven path)
         if: github.event_name == 'issues'
