@@ -29,7 +29,7 @@ power:
     a leg that fails here is queued for a human re-read, and changing a live lever
     is Tier-3 regardless. Do not read a single failing leg as a finding. ⚠️ A low-frequency
     leg (the 1d ones especially) may not reach 50 OOS trades at all; the sweep grades
-    those ungradeable rather than passing them, so read per-leg base_trades_OOS before
+    those ungradeable rather than passing them, so read per-leg base_oos_trades (the e35 producer''s name — m20 calls it base_trades_OOS) before
     quoting any verdict from this job.'
 routing:
   needs_trainer_resident_data: false
