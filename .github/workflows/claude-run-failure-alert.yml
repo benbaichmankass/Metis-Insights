@@ -148,6 +148,15 @@ on:
       #    had already failed twice unobserved when this was measured.
       - alpaca-settlement-soak-watch
       - research-queue-dispatch
+      # ── added 2026-08-31 in the same PR that created it. `due-list` renders
+      #    the one surface that answers "what is due right now?", so a silent
+      #    failure of it makes every OTHER register invisible at once — the
+      #    worst single cron to leave unwatched.
+      - due-list
+      # `probes` is the mechanism that watches the monitoring rows. A silent
+      # failure of it means every row it covers is quietly unwatched WHILE the
+      # last-known results file still reads as current — the worst shape.
+      - probes
     types: [completed]
 
 permissions:

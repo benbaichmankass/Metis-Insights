@@ -412,6 +412,16 @@ jobs:
                 description: 'Triggers gld-compat-matrix workflow — score gld_pullback_1h @ GLD (corrected 0-bps fee) against every account ruleset on a free GH runner; the alpaca_portfolio ROUTE verdict is the M36 Track B routing evidence gate.',
               },
               {
+                name: 'due-list-now',
+                color: '0e8a16',
+                description: 'Triggers due-list workflow — re-render docs/claude/DUE.{json,md} from every structured register.',
+              },
+              {
+                name: 'probes-now',
+                color: '0e8a16',
+                description: 'Triggers probes workflow — run the declared probes on OPEN-ITEMS monitoring rows. Reports only; clears nothing.',
+              },
+              {
                 name: 'set-diag-token',
                 color: 'b60205',
                 description: 'Triggers set-diag-token workflow — push the DIAG_READ_TOKEN repo secret onto the live VM + restart web-api.',

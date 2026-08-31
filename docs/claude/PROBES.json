@@ -1,0 +1,143 @@
+{
+  "generated_at": "2026-08-31T12:40:46.862526+00:00",
+  "contract": "A probe REPORTS. A session CLEARS the row. Nothing here writes verified_at, observation, or removes a row.",
+  "states": [
+    "pass",
+    "fail",
+    "could_not_run"
+  ],
+  "monitoring_rows": 11,
+  "rows_with_a_probe": 3,
+  "rows_without_a_probe": 8,
+  "counts": {
+    "pass": 1,
+    "fail": 2,
+    "could_not_run": 8
+  },
+  "results": [
+    {
+      "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "Neither half is reachable from a scheduled probe. (a) needs /api/bot/logs?level=error, which is not under /api/diag/* and so is not served by the diag bearer this runner holds; (b) needs cancel-ib-order EXERCISED against the real gateway, which is an action, not an observation — a probe that triggered it would be making a Tier-2 mutation on a schedule.",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "The observable is a HUMAN-shaped event — an uncontaminated session reporting on a due item and citing the brief as where it saw it. No machine can witness that, and a probe that claimed to would be asserting an observation nobody made.",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "PROBE-ABLE ONCE ARMED, NOT BEFORE. The sweep ships at `annotate` with an empty allowlist, so no soak row can carry an `apply`d classification yet; a probe now would return a permanent, meaningless fail. Attach one against /api/diag/log_file?name=protection_reassert_soak (or the stray-group soak) in the same change that arms PROTECTION_STRAY_GROUP_ACCOUNTS.",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "The trainer VM has NO diag HTTP surface (relay-only, per CLAUDE.md), so this runner cannot read the capture's freshness at all. Worse, the row's own clause (a) demands the alarm be SHOWN firing against PLANTED staleness — a probe of the data's freshness would test the data, not the alarm, which is the semantic substitution the row is written to prevent.",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "Half (a) reads /api/bot/config, not /api/diag/*, so the diag bearer does not serve it. Half (b) needs a closed trade OPENED AFTER a named deploy sha, read against BROKER TRUTH — a journal+venue join no single soak log carries. A probe covering only (a) would pass while the row's whole point is (b).",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260830-BYBIT-HEDGE-MODE-ARMED-BUT-UNEXERCISED",
+      "checks": "A pairs_soak `open` row exists in which at least one leg was placed carrying a hedge `position_idx` (1 or 2), and at least one leg reports a concurrent non-pairs `directional_open: present` — the netting collision this row exists to observe.",
+      "is_not": "⚠️ The `[]` fan-out is ANY-of, so the two leg conditions need not hold on the SAME leg — a pass does not establish clause (1) 'BOTH legs', and it checks clause (2) 'no half_open and no stranded leg' not at all. It is a strictly WEAKER predicate than `clears_when` by construction: treat a pass as 'go read this row', never as the criterion met. `position_idx` is also what we SENT, not a venue read-back — cross-check /api/diag/bybit_open_orders.",
+      "cmd": [
+        "python3",
+        "scripts/ops/probe_soak.py",
+        "--path",
+        "/api/diag/log_file?name=pairs_soak&lines=1000",
+        "--require",
+        "event=open",
+        "--require",
+        "leg_placement[].position_idx~1,2",
+        "--require",
+        "leg_placement[].directional_open=present"
+      ],
+      "state": "fail",
+      "reason": "exit_1",
+      "detail": "probe-soak: FAIL — 0 of 1000 row(s) match ['event=open', 'leg_placement[].position_idx~1,2', 'leg_placement[].directional_open=present'] (read 1000 row(s) from /api/diag/log_file?name=pairs_soak&lines=1000)."
+    },
+    {
+      "id": "OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED",
+      "checks": "An arbitration_fanout_soak row exists in which the deployed code carries the apply path (`apply_implemented: true`), the caller passed a plan (`plan_state: planned`), and the fan-out took EFFECT (`applied: true`) rather than being held back by the allowlist.",
+      "is_not": "A soak row proves the DECISION, never the ORDER. This row's clause (c) needs a `trades` row on an account the same soak row lists in `rounds_applied[*].accounts`, and this probe cannot see the journal. It also cannot tell an EMPTY log (the state as of 2026-08-31T07:51Z — no rows since the arm) from a log full of non-matching rows; read the printed denominator.",
+      "cmd": [
+        "python3",
+        "scripts/ops/probe_soak.py",
+        "--path",
+        "/api/diag/log_file?name=arbitration_fanout_soak&lines=1000",
+        "--require",
+        "apply_implemented=true",
+        "--require",
+        "plan_state=planned",
+        "--require",
+        "applied=true"
+      ],
+      "state": "pass",
+      "reason": "exit_0",
+      "detail": "probe-soak: PASS — 1 of 24 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 24 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
+    },
+    {
+      "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
+      "checks": "A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.",
+      "is_not": "A pass shows the ROW EXISTS. It does not show the ticket the operator actually received carried the reduced size — read the row and the emitted ticket before clearing. A FAIL over a non-zero denominator is the expected state of this row (armed, never capped); a fail over ZERO rows means the log read empty and nothing was established.",
+      "cmd": [
+        "python3",
+        "scripts/ops/probe_soak.py",
+        "--path",
+        "/api/diag/log_file?name=prop_ticket_risk_soak&lines=1000",
+        "--require",
+        "global_mode=enforce",
+        "--require",
+        "state=exceeds_cushion",
+        "--require",
+        "would_have_capped=true"
+      ],
+      "state": "fail",
+      "reason": "exit_1",
+      "detail": "probe-soak: FAIL — 0 of 2 row(s) match ['global_mode=enforce', 'state=exceeds_cushion', 'would_have_capped=true'] (read 2 row(s) from /api/diag/log_file?name=prop_ticket_risk_soak&lines=1000)."
+    },
+    {
+      "id": "OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "The observable is in the research CORPUS, read via `research_disposition.py --report`, not in a diag soak log. A probe is genuinely buildable here and is the obvious next one to add — it is absent because it needs the corpus reader wired as a probe, not because the condition is unobservable.",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "The observable is inside one GPU-routed RUN's own output, and the row explicitly refuses a dry run as evidence. A scheduled probe cannot produce that without FIRING a GPU job, which spends real budget — an action, not an observation.",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "Both halves live in a CI job LOG (`session-brief: verdict=inherited`, `stale-branch refresh -> …`), reachable only through the GitHub Actions API, which this runner's diag bearer does not cover. Buildable against the Actions API later; deliberately not faked against a local re-run, which the row already rules out as synthetic.",
+      "checks": null,
+      "is_not": null
+    }
+  ]
+}
