@@ -48,6 +48,21 @@ on:
         required: false
         default: "6"
 
+      research_unit:
+        description: >-
+          Queue unit id that dispatched this run (RQ-...). Stamped onto every
+          corpus row so a later reader can tell WHICH unit produced it.
+          Empty for a manual run — which means NOT QUEUE-DISPATCHED, never
+          "this was a test".
+        required: false
+        default: ""
+      power_state:
+        description: >-
+          That unit's R4 power verdict. `accruing` means the unit declared up
+          front it cannot answer yet, so its rows must never be read as a test
+          result. Stamped beside research_unit for exactly that reason.
+        required: false
+        default: ""
 permissions:
   contents: read
 
@@ -338,6 +353,14 @@ jobs:
 
       - name: Extract per-cell rows into the committed corpus
         id: extract
+        env:
+          # ⚠️ THIS IS WHAT MAKES `accruing` MEAN ANYTHING DOWNSTREAM. The
+          # extractor stamps both onto every row; without them a row from a
+          # job that declared it cannot answer yet is byte-indistinguishable
+          # from a real test's row, and research_disposition grades it as an
+          # ordinary unit. Empty is NOT-QUEUE-DISPATCHED, never "was a test".
+          RESEARCH_UNIT: ${{ inputs.research_unit }}
+          RESEARCH_POWER_STATE: ${{ inputs.power_state }}
         run: |
           set -euo pipefail
           # The extractor REFUSES an empty scan rather than exiting 0, so a run

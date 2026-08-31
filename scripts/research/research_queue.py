@@ -458,10 +458,36 @@ def grade_power(entry: Dict[str, Any]) -> PowerVerdict:
                                 "supports expected_n and what would change that, "
                                 "or the declaration is an opt-out rather than an "
                                 "answer")
+        # ⚠️ AN ACCRUING UNIT MUST THREAD ITS OWN IDENTITY TO THE PRODUCER, or
+        # the label is decorative. `accruing` means "do not read this run's
+        # output as a test result" — a claim about ROWS, made in a YAML file the
+        # rows never reference. Unless the unit passes its id to the workflow,
+        # the extractor stamps nothing, the rows land byte-indistinguishable
+        # from a real test's, and research_disposition grades them as ordinary
+        # units. That is a safety label with no reader, which is worse than no
+        # label because the queue then claims a protection that does not exist.
+        #
+        # NOT auto-injected by the dispatcher, deliberately: `gh workflow run -f
+        # <unknown-input>` ERRORS, so blind injection would break every workflow
+        # that has not declared these inputs. Requiring the DECLARATION puts the
+        # check where the rest of admission already lives, and fails loudly at
+        # grade time instead of at dispatch time.
+        declared_inputs = ((entry.get("run") or {}).get("inputs") or {})
+        threaded = str(declared_inputs.get("research_unit") or "").strip()
+        entry_id = str(entry.get("id") or "").strip()
+        if threaded != entry_id or not entry_id:
+            return PowerVerdict(
+                UNVERIFIABLE, need, n, d,
+                f"an accruing unit must declare `run.inputs.research_unit: "
+                f"{entry_id or '<its own id>'}` so the producer stamps the label "
+                f"onto the rows it lands; got {threaded!r}. Without it 'do not "
+                f"read this as a test result' is a claim the rows cannot carry",
+            )
         return PowerVerdict(ACCRUING, need, n, d,
                             f"declared data-acquisition: n={n:g} against floor "
                             f"{need:.1f}; RUNS, and its output must not be read "
-                            f"as a test result")
+                            f"as a test result (identity threaded to the producer "
+                            f"as research_unit={entry_id})")
 
     # --- corpus-grounded: go and LOOK ----------------------------------
     corpus = str(feasibility.get("corpus") or "").strip()
