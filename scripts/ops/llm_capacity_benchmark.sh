@@ -108,8 +108,33 @@ echo "=== llama-bench ==="
 timeout 1800 ./build/bin/llama-bench -m m.gguf -t 1 -p 128 -n 64 -r 2 2>&1 | tail -20
 
 echo "=== end-to-end summariser-shaped prompt ==="
-/usr/bin/time -v timeout 900 ./build/bin/llama-cli -m m.gguf -t 1 -n 200 -no-cnv \
-  -p "Summarise for a trading operator, in 5 bullets: a live account refused 9 of 30 orders with venue error 110007 (insufficient margin) while its account-level available-balance field read empty and margin had to be derived from the per-coin block. What happened, why it matters, and what to check next." \
-  2>&1 | tail -40
+# ASK THE BINARY WHICH FLAG IT HAS; do not assume one.
+# The 2026-08-31 run reached `RESULT: benchmarked` with the llama-bench numbers
+# intact and this step DEAD — `error: invalid argument: -no-cnv`, exit 1, 0.02s.
+# llama.cpp renamed the single-shot flag across versions and the build we clone
+# is whatever HEAD is that day, so a hardcoded spelling is a coin flip.
+#
+# It failed in the WORST way available: the throughput half succeeded, the
+# script still printed `benchmarked`, and a reader taking that word at face
+# value would believe the model's OUTPUT had been seen. It had not.
+CNV_FLAG=""
+for F in -no-cnv --no-conversation -st --single-turn; do
+  if ./build/bin/llama-cli --help 2>&1 | grep -q -- "$F"; then CNV_FLAG="$F"; break; fi
+done
+echo "single-shot flag: ${CNV_FLAG:-<none found — running without one>}"
 
-echo "RESULT: benchmarked"
+PROMPT="Summarise for a trading operator, in 5 bullets: a live account refused 9 of 30 orders with venue error 110007 (insufficient margin) while its account-level available-balance field read empty and margin had to be derived from the per-coin block. What happened, why it matters, and what to check next."
+
+GEN_OK=0
+# shellcheck disable=SC2086 -- CNV_FLAG is deliberately unquoted: empty must expand to nothing.
+if /usr/bin/time -v timeout 900 ./build/bin/llama-cli -m m.gguf -t 1 -n 200 $CNV_FLAG \
+     -p "$PROMPT" 2>&1 | tail -40; then GEN_OK=1; fi
+
+# THREE states, because "we could not run the generation" is not "we ran it".
+# `benchmarked` must never again be printed over a generation step that died —
+# a caller reading the word would conclude the output had been judged.
+if [ "$GEN_OK" = "1" ]; then
+  echo "RESULT: benchmarked"
+else
+  echo "RESULT: benchmarked_throughput_only (llama-bench numbers are valid; the generation step did NOT run)"
+fi
