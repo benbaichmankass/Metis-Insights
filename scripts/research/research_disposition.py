@@ -102,15 +102,31 @@ CORPORA = {
     ),
 }
 
-#: Per-corpus field holding the OOS sample size, for the R4 power gate. `None`
-#: where the corpus does not carry one — reported as `n_oos: null`, NEVER 0. A
-#: zero would assert a measured empty sample; absent is not empty.
+#: Per-corpus field holding the ACHIEVED OOS sample size, for the R4 power gate.
+#: `None` where the corpus does not carry one — reported as `n_oos: null`, NEVER
+#: 0. A zero would assert a measured empty sample; absent is not empty.
+#:
+#: ⚠️ e35 IS `base_oos_trades`, NOT `split_target_oos`. It read `None` until
+#: 2026-08-31 and every e35 unit was therefore UNGRADEABLE. The tempting field
+#: is `split_target_oos`, and it is the wrong one twice over: it is a run
+#: TARGET rather than a measurement, and measured over the whole corpus it is
+#: non-null on 377 of 8,321 rows (4.5%) with exactly one distinct value, 50.
+#: Keying the gate on it would have graded 4.5% of the corpus against a constant
+#: and called the rest unknown.
+#:
+#: ⚠️ ROWS EXTRACTED BEFORE 2026-08-31 CARRY NO ACHIEVED COUNT AND CANNOT BE
+#: BACK-FILLED FROM A SESSION. The source `report.json` files are not committed
+#: — they exist only as workflow artifacts, and root CLAUDE.md states a PM-side
+#: session has no artifact download. So those rows stay `n_oos: null` (correctly
+#: ungradeable) until their legs are RE-SWEPT, which is the multi-hour run the
+#: corpus exists to avoid. The fix is forward-looking; it does not retroactively
+#: unblock the units that were already stuck.
 #: `gld_compat` is None because that job is DETERMINISTIC — its queue unit's
 #: `why_not_inferential` says an expected-n would be "theatre rather than a bar",
 #: since re-running a fixed grader over a fixed ledger gives the same answer every
 #: time. So `n_oos: null` here means "no sample size APPLIES", not "we failed to
 #: read one"; the R4 power gate correctly declines to grade it.
-N_FIELD = {"e35": None, "m20": "base_trades_OOS", "gld_compat": None}
+N_FIELD = {"e35": "base_oos_trades", "m20": "base_trades_OOS", "gld_compat": None}
 
 DISPOSITIONED = "dispositioned"
 UNREAD = "unread"
