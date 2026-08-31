@@ -31,6 +31,32 @@ questions. ``change`` is the signed net movement of the wallet for that row
 ``cashFlow`` excludes fees. Summing the wrong column reproduces the shape of
 number this whole family exists to stop trusting.
 
+⚠️ **THE FIGURE IS SCOPED TO THE CREDENTIALS' OWN SUB-ACCOUNT, AND THAT IS WHY
+IT CANNOT REPLACE THE HAND LEDGER FOR ``bybit_2``.** MEASURED 2026-08-31 after a
+deep pull (``pull-bybit-transaction-log days=150``, issue #10609): over the hand
+ledger's own window this path returns **-1.52** where the ledger says
+**-262.52**. That is not a discrepancy to investigate — it is an exact match on
+a SUBSET. The ledger's own note records the figure as *"stitched across two
+sub-accounts (MAIN -1.52 + SUB -261.01)"*, so this path reproduces MAIN **to the
+cent** and cannot see SUB at all; the account switched sub-accounts on
+2026-05-10.
+
+⚠️ **NO ``days`` VALUE FIXES THIS, AND CALLING IT "WINDOWED" WOULD SAY THAT IT
+DOES.** Retention was tested and is not the constraint: asking back to
+**2025-07-27** returns exactly the same 631 rows as asking back to 2026-04-15,
+and the earliest row sits between 2026-04-18 and 2026-04-23 (bracketed by
+shrinking the window until the count fell off 631). So the honest label for
+``realized_usd`` is **"this sub-account only"**, never "a shorter window" — a
+consumer told the latter would reasonably widen the window and conclude the
+figure is now complete.
+
+⚠️ **DO NOT POINT ``journalTrust`` AT THIS FOR ``bybit_2`` WITHOUT SOLVING THE
+SUB-ACCOUNT JOIN.** The hand ledger's -262.52 is what currently marks that
+real-money account ``known_divergent``. This path returns -1.52, which sits
+beside the journal's own ~-33 and would make the account read as broadly
+reconciled — retiring a real divergence flag on a figure that is missing
+-261.01 of it. That is the exact failure ``journalTrust`` exists to prevent.
+
 ⚠️ **TRANSFERS ARE NOT P&L.** ``TRANSFER_IN`` / ``TRANSFER_OUT`` are deposits and
 withdrawals; including them makes a funded account look profitable. They are
 excluded via :data:`NON_PNL_TYPES`, which is an explicit named constant so the
