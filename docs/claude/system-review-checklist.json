@@ -37,23 +37,11 @@
     },
     "backlog_drive": {
       "status": "in_progress",
-      "evidence": "9 of 540 open rows driven (2 resolved, 7 updated/filed). The gate requires count_untriaged==0 per domain; it is NOT met. Filing rate measured at 23.8/day over the last 12 days."
-    },
-    "health_review": {
-      "status": "in_progress",
-      "evidence": "Substantial parts run (services, account reachability, alert-delivery, ERROR-feed analysis, orphan/reject audit on bybit_2) but NOT the full skill with its own 100%-triage gate."
-    },
-    "performance_review": {
-      "status": "in_progress",
-      "evidence": "Aggregates measured (413 real-money trades, per-strategy, per-exit-path, coverage 0.7579). NOT done: per-order-package A-F decision grading to comms/claude_strategy_scores.jsonl."
-    },
-    "ml_review": {
-      "status": "in_progress",
-      "evidence": "Trainer health, registry, soak accrual and the ETH promotion question all covered. NOT done: the full per-model status pass and experiments_proposed."
+      "evidence": "9 rows driven (2 resolved, 7 updated/filed). REFRAMED per operator 2026-08-31: the metric is NET BURN-DOWN, not triage coverage. Measured: opened vs closed = 43/8, 231/94, 249/175, 536/326 — net POSITIVE every month, cumulative 456 open. We close real volume (326 in Aug) but file 1.64x it. Resolved rows are kept for historical reference and are NEVER re-triaged."
     },
     "execution_capture": {
-      "status": "not_started",
-      "evidence": ""
+      "status": "done",
+      "evidence": "MEASURED from position_telemetry (n=96; CLOSED n=47; 46 with both peak_r and open_r; 45 ever positive). capture=(peak_r-giveback_r)/peak_r: mean 0.431, median 0.345. Kept >=95% of peak: 11/45. GAVE BACK >=95% of peak: 17/45. Worst legs qqq_pullback_1h 0.106, xrp_pullback_2h 0.154, slv_trend_1h 0.183; best trend_donchian_avax_4h 0.869. CAVEAT: peak_r_is_lower_bound on 47/47 rows, so every ratio is an UPPER BOUND on true capture — real capture is worse."
     },
     "since_last_build_verification": {
       "status": "not_started",
@@ -74,6 +62,94 @@
     "operator_ping": {
       "status": "not_started",
       "evidence": ""
+    },
+    "health_review.findings": {
+      "status": "done",
+      "evidence": "Multiple: 4th-recurrence latch gap, the liveness-file conflation, the never-written builder latch, the stale broker-truth ledger."
+    },
+    "health_review.security_check": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "health_review.soak_decisions_due": {
+      "status": "done",
+      "evidence": "ETH 15m promotion gate surfaced AND resolved on evidence (2026-07-06 walk-forward FAIL); retired as a standing flag."
+    },
+    "health_review.new_work_compliance": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "health_review.anomalies": {
+      "status": "done",
+      "evidence": "pairs zero-coverage growing 117->159; builder latch never written; bybit_2 ledger frozen 48 days."
+    },
+    "health_review.backlog_drain": {
+      "status": "in_progress",
+      "evidence": "9 rows driven; see backlog_drive."
+    },
+    "health_review.backlog_coverage": {
+      "status": "done",
+      "evidence": "Whole open set read: 540 open (474/44/22). Burn-down measured: net +35/+137/+74/+210 per month; we file 1.64x what we close."
+    },
+    "health_review.sprint_doc_review": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "performance_review.strategy_performance": {
+      "status": "done",
+      "evidence": "n=413 real money, window=all: PF 0.8614, net -$30.15 (-$36.63 measured), coverage 0.7579, per-strategy + per-exit-path measured. 7d: 12 trades, PF 0.671, all five legs negative."
+    },
+    "performance_review.trade_decision_grades": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "performance_review.insights_review": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "performance_review.proposed_tweaks": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "performance_review.backlog_drain": {
+      "status": "in_progress",
+      "evidence": "shares the backlog_drive count."
+    },
+    "performance_review.paper_book_tracker": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "performance_review.real_money_allocation_benchmark": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "performance_review.anomalies": {
+      "status": "done",
+      "evidence": "perExitPath structure: real money 3 paths at 0.0 coverage; paper 8; the pairs sleeve 159 closes never venue-confirmed."
+    },
+    "ml_review.trainer_findings": {
+      "status": "done",
+      "evidence": "2 cycles/24h, timer armed, manifests 68 ok/0 failed, builds 120 ok/0 failed, disk 85.7% (improved from 91.7%), 5 refusing manifests named."
+    },
+    "ml_review.model_status": {
+      "status": "done",
+      "evidence": "Registry 96 rows reconciled EXACTLY three ways against trainer_status: LIVE 3 = advisory 3, SHADOW 29 = shadow 29, OFFLINE 64 = candidate 63 + research_only 1."
+    },
+    "ml_review.promotion_recommendations": {
+      "status": "done",
+      "evidence": "ETH 15m: no promotion — a dated 2026-07-06 FAIL already stands, and promotion without an authored cell changes nothing."
+    },
+    "ml_review.experiments_proposed": {
+      "status": "not_started",
+      "evidence": ""
+    },
+    "ml_review.backlog_drain": {
+      "status": "in_progress",
+      "evidence": "shares the backlog_drive count."
+    },
+    "ml_review.anomalies": {
+      "status": "done",
+      "evidence": "Two apparent soak stalls investigated and both dissolved (OFFLINE de-wire; zero open donchian positions) — neither filed, deliberately."
     }
   },
   "notes": [
@@ -83,6 +159,8 @@
     "**DEPLOY IS PENDING and journalTrust still reads the frozen ledger.** That switch is deliberately a separate change, to follow a first live pull being INSPECTED. Until then the route honestly reports not_pulled / realized_usd: null for all three Bybit accounts.",
     "**bybit_2's historical mess is NOT ongoing** — checked so it does not read as alarming: 119 orphans all fall 2026-05-02..2026-07-05 with ZERO since 2026-08-01; 347 exchange_rejects are 325 in May and 0 in the last 7 days; both dominated by vwap, now disabled. The 16 remaining unreconciled orphans all carry reconcile_investigated_at, so the silent orphan_unreconciled banner is CORRECT under its own predicate (verified by evaluating that predicate, not assumed).",
     "**The checklist item list is DERIVED, not typed** — it reads render_system_report.py::_REQUIRED_COVERAGE_KEYS, which CI enforces. That tuple holds **13** keys while SKILL.md's prose still says 'the TEN required keys'. Field beats comment; the prose is stale and should be corrected.",
-    "**The 100%-backlog-triage gate is not satisfiable in one session at current size** (540 open, +23.8/day). Not offered as an excuse for this run's shortfall — a scoping decision is owed either way."
+    "**BACKLOG IS GROWING EVERY MONTH — measured, not asserted.** opened/closed: 43/8, 231/94, 249/175, 536/326. Net +35, +137, +74, +210; cumulative 456 open. We are closing real volume and still filing 1.64x it. The old 'triage every open row' gate measured LOOKING; it is replaced by net burn-down, which measures CLOSING.",
+    "**Resolved rows are kept for history and never re-triaged** — that is how a recurrence is recognised as one. The work queue is OPEN rows only.",
+    "**The three sub-reviews are now 22 derived sub-items** (from their own response templates) instead of 3 opaque rows, so a half-done sub-review can no longer read as done. That is why the total moved 18 -> 37 and the done-count did not: the same work is simply now shown at the resolution it actually has."
   ]
 }

@@ -123,6 +123,48 @@ completion with a third of its mandate untouched.
   without one, because an unevidenced tick is precisely what this exists to stop.
 - Update the row the moment an item completes, not at the end; a session that
   compacts mid-run must not lose what it already did.
+- **The three sub-reviews are broken into their own sub-items**, derived from
+  each one's response template (`comms/schema/*_review_response.template.json`).
+  A single opaque `performance_review` row cannot show which half of it was
+  skipped — operator, 2026-08-31.
+
+### The backlog metric is BURN-DOWN, not triage coverage (operator, 2026-08-31)
+
+The old gate demanded every open row be re-triaged each run. That measures
+**looking**. Operator: *"the backlog shouldn't really be growing ... we should
+be getting things done from the backlog ... it's not so much a decision of
+prioritization as much as making sure that we're working correctly to actually
+get through the backlog and not just let it grow and then triage it to no avail
+every time."*
+
+So `backlog_drive` reports **net burn-down** — rows CLOSED against rows OPENED —
+via `system_review_checklist.py::backlog_burndown()`. Measured 2026-08-31 across
+all three backlogs:
+
+    month     opened  closed     net   cumulative open
+    2026-05       43       8     +35        35
+    2026-06      231      94    +137       172
+    2026-07      249     175     +74       246
+    2026-08      536     326    +210       456
+
+We close real volume — 326 rows in August — and still file **1.64x** what we
+close, so the pile has grown every single month. That, not the triage
+percentage, is the number a review must move.
+
+Three binding rules:
+
+1. **RESOLVED ROWS ARE NEVER RE-TRIAGED.** They are kept for historical
+   reference — that is how a recurrence gets recognised as one — and treating
+   them as work-to-do is the treadmill itself.
+2. **Do not re-derive what a previous session already established.** A row
+   carrying a recent `updates[]` entry has been re-validated; read it and build
+   on it. Re-triaging from scratch every run is how sessions spend a whole
+   budget re-discovering the same nine rows.
+3. **Prefer CLOSING a row to touching it.** A run that touches forty rows and
+   closes none has moved nothing. Where a class has a structural fix
+   (`backlog_classes`), fixing the class closes its members together — that is
+   the only way the arithmetic above ever turns negative.
+
 
 ## Review-coverage guard (mandatory — 2026-06-23)
 

@@ -39,14 +39,54 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 STATE = ROOT / "docs/claude/system-review-checklist.json"
 RENDERER = ROOT / "scripts/reports/render_system_report.py"
 
-#: Items that are not coverage keys but ARE part of the mandate.
+#: Sub-review response templates — the sub-items are DERIVED from the schema
+#: each sub-review must actually fill, not typed here. Operator directive
+#: 2026-08-31: *"you have, like, things like performance review and an ml
+#: review ... maybe we should break those down into subcategories also. Just
+#: like to see, like, what items are in there exactly."* A single opaque
+#: `performance_review` row cannot show which half of it was skipped.
+_SUBREVIEWS: tuple[tuple[str, str], ...] = (
+    ("health_review", "comms/schema/health_review_response.template.json"),
+    ("performance_review", "comms/schema/performance_review_response.template.json"),
+    ("ml_review", "comms/schema/ml_review_response.template.json"),
+)
+
+#: Envelope/metadata fields in those templates that are not units of WORK.
+_ENVELOPE = frozenset({
+    "request_id", "reviewed_at", "reviewer", "window_start", "window_end",
+    "recommended_action", "claude_channel_ping", "overall_assessment",
+    "operator_attention_required",
+})
+
+#: Mandate items that belong to no schema.
 _FIXED_ITEMS: tuple[tuple[str, str], ...] = (
-    ("health_review", "Run /health-review (technical/pipeline/data health)"),
-    ("performance_review", "Run /performance-review (per-trade grading, strategy aggregates)"),
-    ("ml_review", "Run /ml-review (trainer, registry, promotion ladder)"),
     ("consolidated_report", "Render the consolidated system report with --strict"),
     ("operator_ping", "Send the single consolidated Telegram ping"),
 )
+
+
+def subreview_items() -> list[dict[str, str]]:
+    """One item per substantive field of each sub-review's response schema."""
+    out: list[dict[str, str]] = []
+    for review, rel in _SUBREVIEWS:
+        path = ROOT / rel
+        if not path.is_file():
+            raise SystemExit(f"{rel} missing — cannot derive {review} sub-items")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        fields = [k for k in data if not k.startswith("_") and k not in _ENVELOPE]
+        if not fields:
+            raise SystemExit(
+                f"parsed {rel} and found no work fields — the probe is broken, "
+                "not the schema (a negative needs a denominator)"
+            )
+        for f in fields:
+            out.append({
+                "id": f"{review}.{f}",
+                "label": f"{review}.{f}",
+                "kind": "subreview",
+            })
+    return out
+
 
 STATUSES = ("not_started", "in_progress", "blocked", "done", "n_a")
 _GLYPH = {
@@ -72,8 +112,72 @@ def coverage_keys() -> list[str]:
 def canonical_items() -> list[dict[str, str]]:
     items = [{"id": k, "label": f"review_coverage.{k}", "kind": "coverage"}
              for k in coverage_keys()]
+    items += subreview_items()
     items += [{"id": i, "label": lbl, "kind": "mandate"} for i, lbl in _FIXED_ITEMS]
     return items
+
+
+def backlog_burndown() -> dict[str, Any]:
+    """Opened vs CLOSED per month across the three backlogs.
+
+    Operator directive 2026-08-31: *"the backlog shouldn't really be growing ...
+    we should be getting things done from the backlog ... it's not so much a
+    decision of prioritization as much as making sure that we're working
+    correctly to actually get through the backlog and not just let it grow and
+    then triage it to no avail every time."*
+
+    So the metric that matters is NET BURN-DOWN, not triage coverage. A gate
+    demanding every open row be re-triaged each run measures LOOKING; this
+    measures CLOSING. Measured 2026-08-31 the answer was uncomfortable: net
+    +35 / +137 / +74 / +210 per month — we file ~1.64x what we close.
+
+    ⚠️ RESOLVED ROWS ARE NEVER RE-TRIAGED. They are kept for historical
+    reference (that is how a recurrence gets recognised as one), and counting
+    them as work-to-do is precisely the treadmill.
+    """
+    import collections
+    files = {
+        "health": ROOT / "docs/claude/health-review-backlog.json",
+        "perf": ROOT / "docs/claude/performance-review-backlog.json",
+        "ml": ROOT / "docs/claude/ml-review-backlog.json",
+    }
+    CLOSED = {"resolved", "wont_fix", "invalid", "superseded"}
+    opened: Any = collections.Counter()
+    closed: Any = collections.Counter()
+    open_now = 0
+    for path in files.values():
+        if not path.is_file():
+            continue
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        key = next(k for k, v in doc.items()
+                   if isinstance(v, list) and v and isinstance(v[0], dict))
+        for r in doc[key]:
+            o = (r.get("opened_at") or "")[:7]
+            if o:
+                opened[o] += 1
+            if r.get("status") in CLOSED:
+                ra = (r.get("resolved_at") or "")[:7]
+                if not ra:
+                    ups = [u for u in (r.get("updates") or []) if isinstance(u, dict)]
+                    for u in reversed(ups):
+                        if u.get("disposition") in CLOSED:
+                            ra = (u.get("at") or "")[:7]
+                            break
+                    if not ra and ups:
+                        ra = (ups[-1].get("at") or "")[:7]
+                if ra:
+                    closed[ra] += 1
+            else:
+                open_now += 1
+    months = sorted(set(opened) | set(closed))
+    return {
+        "open_now": open_now,
+        "by_month": [
+            {"month": m, "opened": opened[m], "closed": closed[m],
+             "net": opened[m] - closed[m]}
+            for m in months
+        ],
+    }
 
 
 def load_state(path: pathlib.Path = STATE) -> dict[str, Any]:

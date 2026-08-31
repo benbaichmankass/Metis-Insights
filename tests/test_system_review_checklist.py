@@ -30,11 +30,32 @@ def test_every_enforced_coverage_key_is_an_item():
         assert k in ids, f"{k} is enforced by CI but absent from the checklist"
 
 
-def test_the_three_subreviews_and_the_report_are_items():
+def test_subreviews_are_broken_into_DERIVED_sub_items():
+    """Operator 2026-08-31: a single opaque `performance_review` row cannot show
+    which half of it was skipped. Sub-items come from each sub-review's own
+    response template, not from a typed list."""
     ids = {i["id"] for i in cl.canonical_items()}
-    for k in ("health_review", "performance_review", "ml_review",
-              "consolidated_report", "operator_ping"):
+    for k in ("consolidated_report", "operator_ping"):
         assert k in ids
+    for review in ("health_review", "performance_review", "ml_review"):
+        subs = [i for i in ids if i.startswith(review + ".")]
+        assert len(subs) >= 5, f"{review} expanded into only {len(subs)} sub-items"
+        assert review not in ids, "the opaque parent row must be gone"
+    # spot-check that they really came from the schemas
+    assert "performance_review.trade_decision_grades" in ids
+    assert "ml_review.promotion_recommendations" in ids
+
+
+def test_burndown_counts_closed_rows_and_never_retriages_them():
+    """The metric is CLOSING, not looking. Resolved rows are history, not work."""
+    b = cl.backlog_burndown()
+    assert b["open_now"] > 0
+    assert b["by_month"], "no months parsed -- the probe is broken, not the data"
+    for m in b["by_month"]:
+        assert m["net"] == m["opened"] - m["closed"]
+        assert m["closed"] >= 0
+    total_closed = sum(m["closed"] for m in b["by_month"])
+    assert total_closed > 0, "a backlog with zero closures would mean the probe missed them"
 
 
 def test_review_is_not_complete_while_anything_is_outstanding():
