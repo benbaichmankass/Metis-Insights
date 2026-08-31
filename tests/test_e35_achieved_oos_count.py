@@ -66,7 +66,7 @@ def _extract(tmp_path, report) -> list[dict]:
         [sys.executable, str(EXTRACT), str(run_dir), "--corpus", str(store)],
         cwd=str(REPO), capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
-    return [json.loads(l) for l in store.read_text().splitlines() if l.strip()]
+    return [json.loads(ln) for ln in store.read_text().splitlines() if ln.strip()]
 
 
 def test_the_achieved_oos_count_reaches_the_corpus(tmp_path):
