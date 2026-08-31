@@ -313,11 +313,16 @@ jobs:
     # the opposite of what sharding buys.
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # ⚠️ MUST OUTLAST `commit-to-main`'s `verify-merged` wait (30m default).
+    # A job budget shorter than the wait cancels the step mid-wait and reports
+    # a timeout for a PR that was merging correctly — the run then looks broken
+    # on a healthy landing. Was 20 while the wait was absent.
+    timeout-minutes: 45
     permissions:
       # The ONLY job here that writes. Kept off the workflow's top-level
       # `contents: read` so the sweep shards stay read-only.
       contents: write
+      pull-requests: write   # commit-to-main opens the landing PR
     steps:
       - uses: actions/checkout@v4
         with:
@@ -339,91 +344,56 @@ jobs:
           # that produced no report cannot land here as a silent success.
           python3 scripts/research/e35_corpus_extract.py collected | tee extract.out
 
-      - name: Commit + push the corpus
-        env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          set -euo pipefail
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/research/e35-bracket-corpus.jsonl
-          if git diff --cached --quiet; then
-            echo "corpus byte-identical to the committed copy — this run"
-            echo "superseded rows that matched what was already recorded."
-            exit 0
-          fi
-          # WHERE IT LANDS. A dispatch on the default branch cannot push there:
-          # branch protection declines a bare commit it cannot give required
-          # checks to (GH006). That is STRUCTURAL, so the fix is to retarget,
-          # never to retry — measured on the lever sweep as four dispatches
-          # that swept every leg and then threw every row away at this step
-          # (BL-20260812-SWEEP-CORPUS-CANNOT-PUSH-TO-MAIN).
-          TARGET="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
-          RETARGETED=0
-          if [ "$TARGET" = "${DEFAULT_BRANCH:-main}" ]; then
-            # ⚠️ THE TARGET IS PER-RUN, AND A FIXED NAME IS WHY THIS STEP KEPT
-            # THROWING AWAY A COMPLETED SWEEP. It used to be the constant
-            # "claude/e35-bracket-corpus". That branch is long-lived and has
-            # DIVERGED from the default branch, so a push of default-branch
-            # history to it is a non-fast-forward and is rejected — measured
-            # 2026-08-29 at 3,625 branch-only commits against 57 default-only,
-            # with BOTH sides touching docs/research/e35-bracket-corpus.jsonl.
-            #
-            # The retry loop below cannot fix that and makes it worse: it
-            # rebases default-branch history onto the divergent branch, hits a
-            # conflict in the corpus file itself, aborts, and re-pushes the same
-            # non-fast-forward. Three attempts, then exit 1 — a 43-minute,
-            # 41-leg sweep discarded at the last step with every artifact green
-            # (run 33274767713; run 32783849276 the same way on 2026-08-24).
-            #
-            # This is the SAME CLASS the comment above already names for GH006:
-            # a structural refusal that a retry cannot clear. The fix there was
-            # to retarget rather than retry; the fix here is that the retarget
-            # must land somewhere a fast-forward is guaranteed. A per-run branch
-            # is empty until this push creates it, so it cannot diverge from
-            # anything and the push cannot be non-fast-forward.
-            #
-            # NOT force-push: that would silently discard whatever a previous
-            # run had landed on a shared name, which is the failure mode this
-            # whole job exists to prevent.
-            TARGET="claude/e35-bracket-corpus-${GITHUB_RUN_ID}"
-            RETARGETED=1
-            echo "::notice::dispatched on ${DEFAULT_BRANCH:-main} (protected) — routing the corpus to the per-run branch '$TARGET' to preserve the rows."
-          fi
-          echo "corpus target branch: $TARGET (retargeted=$RETARGETED)"
-          {
-            echo "corpus: e35 bracket sweep run $(date -u +%Y-%m-%dT%H:%MZ)"
-            echo
-            cat extract.out
-            echo
-            echo "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
-          } > .commitmsg
-          git commit -F .commitmsg
-          # A push can lose a genuine race with a concurrent dispatch, which IS
-          # retryable — unlike the protection refusal above.
-          for attempt in 1 2 3; do
-            if git push origin "HEAD:refs/heads/${TARGET}"; then
-              echo "pushed to ${TARGET} on attempt ${attempt}"
-              break
-            fi
-            if [ "$attempt" = "3" ]; then
-              echo "::error::could not push the corpus to ${TARGET} after 3 attempts — the rows are in this run's artifact and are NOT lost, but nothing has recorded them"
-              exit 1
-            fi
-            git fetch origin "${TARGET}" || true
-            git rebase "origin/${TARGET}" || git rebase --abort || true
-            sleep $((attempt * 5))
-          done
-          if [ "$RETARGETED" = "1" ]; then
-            # ⚠️ NO CLAIM THAT ANYTHING DOWNSTREAM FINISHES THIS. A push made
-            # with GITHUB_TOKEN starts no workflows (the recursion guard), so
-            # this job cannot open or green its own PR — measured on the lever
-            # sweep's first default-branch dispatch, which landed rows and
-            # triggered ZERO runs (BL-20260813-CORPUS-RETARGET-CANNOT-OPEN-ITS-OWN-PR).
-            # A loud, accurate hand-off beats a claim that is not true.
-            echo "::notice::corpus rows are on '${TARGET}'. A HUMAN OR A SESSION must open the PR — this job cannot, and no workflow will fire from its push."
-          fi
-          echo "CORPUS_TARGET=${TARGET}" >> "$GITHUB_ENV"
+      # ------------------------------------------------------------ landing
+      # ⚠️ THIS PUSHED A SIDE BRANCH AND OWED THE MERGE TO A HUMAN UNTIL
+      # 2026-08-31. It landed rows nobody read.
+      #
+      # The old step committed to `claude/e35-bracket-corpus-${GITHUB_RUN_ID}`
+      # and printed a loud, honest hand-off saying a human or a session had to
+      # open the PR — accurate, and still a broken pipeline: this workflow is
+      # driven by the research queue on a monthly cadence, so "a human finishes
+      # it" means the rows accumulate on unmerged branches and no later session
+      # can read them. Measured on run 33361845836: all 14 legs green, the
+      # aggregate green, the extract green, the push green, 2,786 rows written,
+      # and `assert the corpus rows landed` correctly failed `pending_merge`
+      # with 0 rows on main. The hand-off note was true and nothing acted on it.
+      #
+      # THE TWO REFUSALS THAT SHAPED THE OLD STEP ARE REAL AND ARE NOT REGRESSED
+      # by this change — do not "simplify" back to a direct push:
+      #   * a dispatch on the default branch CANNOT push there (branch
+      #     protection declines a bare commit it cannot give required checks to,
+      #     GH006 — BL-20260812-SWEEP-CORPUS-CANNOT-PUSH-TO-MAIN); and
+      #   * a FIXED side-branch name diverges and makes the push a
+      #     non-fast-forward that no retry can clear (measured 2026-08-29 at
+      #     3,625 branch-only commits, discarding a 43-minute 41-leg sweep).
+      # Both are structural refusals, so the fix is to retarget, never to retry.
+      #
+      # `commit-to-main` satisfies both by construction — it commits to a
+      # per-run throwaway branch (empty until this push creates it, so it cannot
+      # diverge) and opens an auto-merge PR with a PAT. The PAT is the whole
+      # point: a GITHUB_TOKEN push starts no workflows, which is precisely why
+      # the old step could not open or green its own PR
+      # (BL-20260813-CORPUS-RETARGET-CANNOT-OPEN-ITS-OWN-PR). This is the same
+      # mechanism `gld-compat-matrix` already lands through.
+      - name: Land the corpus on main
+        id: land
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/research/e35-bracket-corpus.jsonl
+          message: "corpus: e35 bracket sweep run ${{ github.run_id }}"
+          pr-title: "corpus: e35 bracket sweep (run ${{ github.run_id }})"
+          pr-body: |
+            Automated landing of `docs/research/e35-bracket-corpus.jsonl`.
+            R2 — the run is not done when it exits 0, it is done when its rows
+            are readable on `main`.
+          branch-prefix: automation/e35-bracket-corpus
+          # ⚠️ NOT decoration, and NOT copied from the caller: the action owns
+          # the bounded wait. Without it this step exits 0 the moment the PR
+          # OPENS, and the assertion below then always reads `pending_merge` on
+          # a perfectly healthy run — the check would be permanently red and
+          # would be switched off, which is the desensitized-alarm failure.
+          verify-merged: "true"
 
       # ------------------------------------------------------------- landing
       # WHY THIS STEP EXISTS. Until 2026-08-27 this job ended above, and "the
@@ -455,15 +425,24 @@ jobs:
       # perfectly healthy sweep `absent`, forever.
       #
       # `--pushed-ref` is what makes the verdict fair rather than merely strict.
-      # When this workflow is dispatched on the protected default branch it
-      # RETARGETS the corpus push to a side branch (see above), so the rows are
-      # genuinely written and genuinely unreadable. That is `pending_merge` — its
-      # own state, non-zero, and deliberately NOT reported as `absent`, which
-      # would blame the job for work it actually did.
+      # The landing step commits to a per-run branch and opens an auto-merge PR,
+      # so between the commit and the merge the rows are genuinely written and
+      # genuinely unreadable. That is `pending_merge` — its own state, non-zero,
+      # and deliberately NOT reported as `absent`, which would blame the job for
+      # work it actually did.
+      #
+      # ⚠️ THIS PARAGRAPH DESCRIBED A RETARGETED SIDE-BRANCH PUSH UNTIL
+      # 2026-08-31 and is kept corrected rather than deleted: with
+      # `verify-merged` the rows are normally on main BY THE TIME this runs, so
+      # a `pending_merge` here is no longer the expected steady state — it now
+      # means the wait timed out, and the PR's own checks are the thing to read.
       - name: assert the corpus rows landed
         if: always()
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          LAND_COMMITTED: ${{ steps.land.outputs.committed }}
+          LAND_BRANCH: ${{ steps.land.outputs.branch }}
+          LAND_PR: ${{ steps.land.outputs.pr }}
         run: |
           set -uo pipefail
           # ⚠️ RUN-SCOPED, AND THAT IS THE WHOLE POINT.
@@ -492,22 +471,30 @@ jobs:
             echo "::error::no run-stamp in extract.out — the assertion cannot be scoped to THIS run. Falling back to the cumulative predicate is the defect this replaced, so this fails instead."
             exit 1
           fi
-          TARGET="${CORPUS_TARGET:-}"
-          if [ -z "${TARGET}" ]; then
-            echo "::error::CORPUS_TARGET is unset - the push step did not complete, so 'pending_merge' cannot be told from 'absent'."
+          # ⚠️ `committed` AND `branch`, NOT just one. `committed=false` is the
+          # legitimate no-op (the corpus was byte-identical, so there was
+          # nothing to land); an EMPTY branch alongside `committed=true` is a
+          # broken landing. Collapsing them would let a failed push read as a
+          # quiet success, which is the one direction that matters here.
+          if [ "${LAND_COMMITTED:-}" != "true" ] || [ -z "${LAND_BRANCH:-}" ]; then
+            echo "::error::the landing step did not commit (committed='${LAND_COMMITTED:-}' branch='${LAND_BRANCH:-}'), so 'pending_merge' cannot be told from 'absent'. The extractor emitted a fresh run stamp, so there was something to commit."
             exit 1
           fi
+          TARGET="${LAND_BRANCH}"
           echo "asserting THIS run's rows: sweep_generated_at=${STAMP}"
           # ⚠️ TWO FETCHES, NOT ONE, AND THE FIRST MUST SUCCEED.
           # `git fetch` aborts ATOMICALLY on an unknown refspec, so one fetch
           # naming both refs updates NEITHER when the second is gone — and the
           # `|| true` swallows the fatal, leaving the assertion to read a
           # checkout-time origin/main and report `absent` for rows that landed.
-          # LATENT here rather than active: this workflow pushes TARGET without
-          # a PR, so nothing deletes it. It became ACTIVE on gld-compat-matrix,
-          # whose commit-to-main merges with --delete-branch, and cost a false
-          # failure on run 33340468235. Fixed here too rather than left for the
-          # day someone deletes a merged TARGET — same defect, same shape.
+          # ⚠️ THIS SAID THE BUG WAS "LATENT here rather than active, because
+          # this workflow pushes TARGET without a PR, so nothing deletes it".
+          # THAT IS NO LONGER TRUE AS OF 2026-08-31: the landing step now goes
+          # through commit-to-main, which merges with --delete-branch, so the
+          # branch IS deleted on the happy path and the second fetch fails on
+          # every healthy run. This is the ACTIVE case now — exactly the shape
+          # that cost gld-compat-matrix a false failure on run 33340468235.
+          # The two-fetch form below is what makes that a non-event.
           git fetch origin "${DEFAULT_BRANCH:-main}"
           PUSHED=()
           if git fetch origin "${TARGET}" 2>/dev/null; then
