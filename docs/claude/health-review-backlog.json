@@ -30046,6 +30046,25 @@
         "OI-20260831-STRAY-OCA-SWEEP-ARMED-ON-IB-PAPER-BUT-HAS-NEVER-CANCELLED",
         "BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE"
       ]
+    },
+    {
+      "id": "BL-20260831-THREE-DIFFERENT-W-NUMBER-SEQUENCES-COLLIDE-AND-ONE-POINTS-AT-A-REFUTED-DESIGN",
+      "opened": "2026-08-31",
+      "severity": "low",
+      "tier": 1,
+      "status": "open",
+      "area": "docs",
+      "summary": "`W<n>` is used as a work-item label by at least THREE unrelated enumerations in this repo, so a bare W-number is ambiguous — and one collision already sent a session's commits, docs and ROADMAP row pointing at a design that was refuted and deliberately not built.",
+      "why_it_matters": "Not cosmetic, because the collision resolves toward a REFUTED artefact. `W3` in the 2026-08-31 operations plan is the MERGE SERIALIZER — measured against 39 merges at a 15.9 min median, found unnecessary, and recorded inline in `.github/workflows/scope-overlap-audit.yml` precisely so no future session re-proposes it. A session doing probe coverage (item 3 of the artifact's FIVE-ITEM work plan, a continuation of W2) stamped `W3` on four modules, a ROADMAP row, a sprint log and four commit messages. A later reader chasing that label lands on the serializer's do-not-build note. The commit messages are immutable, so that ambiguity is now permanent in the history.",
+      "evidence": "Three sequences observed 2026-08-31: (1) the operations plan — W2 = probes/due-list machinery (`.github/workflows/probes.yml:3`), W3 = merge serializer (refuted), W4 = research artifacts (refuted), W5 = CLAUDE.md split (deferred), W6 = local LLM, W7 = backlog schema; (2) the audit artifact's five-item work plan — item 1 = due-list age grading (PR #10600), item 3 = probe coverage; (3) an unrelated `full-system-audit W2` at ROADMAP.md:866. `S-OPERATING-MACHINERY-AUDIT-2026-08-31.md` uses BOTH scheme (1) and scheme (2) within six lines — line 52 'W3 — tell a PR when it touches a file another live session declared' vs line 58 '**work-plan item 1**'. Corrected in S-PROBE-COVERAGE-EXPANSION-2026-08-31 with a Contradictions row noting the commits cannot be.",
+      "refs": [
+        ".github/workflows/scope-overlap-audit.yml",
+        "docs/sprint-logs/S-OPERATING-MACHINERY-AUDIT-2026-08-31.md",
+        "docs/sprint-logs/S-PROBE-COVERAGE-EXPANSION-2026-08-31.md",
+        "ROADMAP.md"
+      ],
+      "not_a_duplicate_of": "⚠️ FILED WITH similar_ok=True AFTER A REFUSAL THAT WAS A LEXICAL FALSE POSITIVE, recorded so the next filer can judge the tool rather than trust it blindly. backlog_append refused at overlap 0.67 against BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT, which is about the exit-evaluation loop breaching a 60s timing requirement — a different subsystem, a different failure, nothing to do with work-item labels. The tool says itself it is TOKEN OVERLAP ONLY with no semantics; this is what that limitation looks like from the filing side. An earlier backlog_search on the same text returned 8 matches at <=0.57, all similarly unrelated.",
+      "resolution_criteria": "Either (a) the operations plan's W-sequence and the artifact's item numbering are reconciled into ONE scheme and the audit sprint log stops using both, or (b) a one-line convention in CLAUDE.md that a bare `W<n>` is not a valid reference and the plan must be named (`operations-plan W3` / `work-plan item 3` / `full-system-audit W2`). Verified by grepping the sprint-log corpus for a bare `W<digit>` that does not name its plan and finding none NEWER than the fix date — older ones stay as record."
     }
   ]
 }
