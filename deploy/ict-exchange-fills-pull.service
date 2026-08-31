@@ -56,7 +56,15 @@ Environment=DATA_DIR=/data/bot-data
 # Quick Bybit API call (~5s for a day's fills); cap generously for a slow
 # session. A read/auth failure exits non-zero and the unit is marked failed —
 # the next timer fire retries; no state is left half-written (exec_id PK).
-TimeoutStartSec=300
+# Raised 300 -> 600 on 2026-08-31 when the THIRD puller (bybit transaction log)
+# was added. This budget covers ALL ExecStart lines combined, and the new one
+# can page up to MAX_PAGES=50 per account across 3 Bybit accounts on a 7-day
+# lookback. At 300s a slow venue could have systemd kill the unit mid-run:
+# harmless to the DATA (inserts are idempotent on the venue's row id, so the
+# next fire re-covers the window) but it would mark the unit failed and, worse,
+# leave the wallet-truth window silently short while the unit looks merely
+# flaky. 600s keeps the whole chain inside one budget.
+TimeoutStartSec=600
 # Run under the trader venv so ccxt imports (same interpreter the trader uses
 # for Bybit) — not system /usr/bin/python3.
 ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_exchange_fills.py --all-bybit-accounts --days 7
