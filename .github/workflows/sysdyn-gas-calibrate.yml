@@ -48,7 +48,7 @@ jobs:
        github.event.issue.user.login == github.repository_owner &&
        contains(github.event.issue.labels.*.name, 'sysdyn-gas-calibrate-now'))
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 50
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -134,6 +134,12 @@ jobs:
           pr-title: "chore(m29): sysdyn gas-seed calibration + mispricing scorecards (auto)"
           pr-body: "M29 P1b (price-only) + P1c (observed EIA storage anchor + real weather HDD + price readout) calibration scorecards, plus the M28 Phase-B sysdyn model-implied MISPRICING construction graded through the S2 signal + S3 PnL gate. Research data; auto-merge."
           branch-prefix: automation/sysdyn-gas-calibrate
+          # ⚠️ NOT decoration: without this the step exits 0 the moment the PR
+          # OPENS, and "the push succeeded" is silently treated as "the rows
+          # arrived". They are different claims and only one is what a later
+          # session depends on. The action owns the bounded wait — do not copy
+          # a timeout here.
+          verify-merged: "true"
 
       - name: Comment + close issue (issue-driven path)
         if: github.event_name == 'issues'
