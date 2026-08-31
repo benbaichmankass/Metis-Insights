@@ -221,3 +221,86 @@ def test_commit_to_main_publishes_the_branch_it_pushed():
         "callers cannot report `pending_merge` without the branch, and "
         "re-deriving it per caller is a naming scheme this action owns"
     )
+
+
+# ---------------------------------------------------------------------------
+# The assertion must not fail a run that SUCCEEDED (2026-08-31).
+#
+# `git fetch` aborts ATOMICALLY on an unknown refspec. `commit-to-main` merges
+# with --delete-branch, so on the SUCCESS path the landing branch is gone by the
+# time the assertion runs — and `git fetch origin main "$LAND_BRANCH" || true`
+# therefore updated NEITHER ref, leaving the assertion to read a checkout-time
+# origin/main that predates the merge and report `absent`.
+#
+# Measured on run 33340468235: "Land the corpus on main" SUCCEEDED in 95s (so
+# verify-merged saw MERGED, and #10535 is in main's history), then the assertion
+# failed instantly. Verified the mechanism directly rather than inferring it —
+# with a real deleted branch, `git fetch origin main <gone>` prints
+# `fatal: couldn't find remote ref` and does NOT update origin/main.
+#
+# An assertion built to stop false "landed" claims was manufacturing false
+# "absent" ones, which is the worse direction: it fails correct runs and trains
+# the reader to ignore it.
+# ---------------------------------------------------------------------------
+
+
+def _assert_step_body():
+    return _named("Assert the rows actually landed")["run"]
+
+
+def test_the_default_branch_is_fetched_on_its_own():
+    """One fetch naming both refs updates NEITHER when the second is gone."""
+    body = _assert_step_body()
+    assert 'git fetch origin "${DEFAULT_BRANCH:-main}"\n' in body, (
+        "the default branch must be fetched by itself — a combined fetch aborts "
+        "atomically when the landing branch has been deleted on merge"
+    )
+    assert 'git fetch origin "${DEFAULT_BRANCH:-main}" "${LAND_BRANCH}"' not in body, (
+        "combined fetch reintroduced: this is the false-negative from run 33340468235"
+    )
+
+
+def test_the_main_fetch_is_not_swallowed():
+    """`|| true` on the main fetch is what hid the fatal for a whole run."""
+    for line in _assert_step_body().splitlines():
+        if 'git fetch origin "${DEFAULT_BRANCH:-main}"' in line:
+            assert "|| true" not in line, (
+                "a swallowed main fetch means the assertion reads a stale ref and "
+                "cannot tell 'we did not look' from 'the rows are absent'"
+            )
+            return
+    raise AssertionError("no default-branch fetch found at all")
+
+
+def test_pushed_ref_is_only_claimed_when_the_branch_resolves():
+    """A --pushed-ref naming a deleted branch makes pending_merge unreadable again."""
+    body = _assert_step_body()
+    assert "PUSHED=()" in body and '"${PUSHED[@]}"' in body, (
+        "--pushed-ref must be conditional on the branch actually being fetchable"
+    )
+    assert '--pushed-ref "origin/${LAND_BRANCH}" \\' not in body, (
+        "unconditional --pushed-ref reintroduced"
+    )
+
+
+def test_a_deleted_landing_branch_is_reported_not_treated_as_an_error():
+    """Branch gone IS the merged case — it must read as success, and say so."""
+    body = _assert_step_body()
+    assert "gone" in body.lower(), (
+        "the deleted-branch path must state that the rows are expected on main, "
+        "so a reader is not left inferring it from a missing --pushed-ref"
+    )
+
+
+def test_the_e35_sibling_got_the_same_fix():
+    """Latent there, but 'each fix covering only the tree just proven' is the
+    recurrence pattern this repo keeps paying for."""
+    wf = yaml.safe_load(
+        (REPO / ".github/workflows/e35-bracket-sweep.yml").read_text())
+    bodies = [s.get("run", "") for j in wf["jobs"].values()
+              for s in j.get("steps", [])]
+    assert any('git fetch origin "${DEFAULT_BRANCH:-main}"\n' in b for b in bodies), (
+        "e35 still uses the combined fetch"
+    )
+    assert not any('git fetch origin "${DEFAULT_BRANCH:-main}" "${TARGET}"' in b
+                   for b in bodies), "e35's combined fetch reintroduced"
