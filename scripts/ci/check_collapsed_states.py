@@ -51,10 +51,11 @@ Exit 0 clean, 1 on a finding. Tier-1 CI tooling; reads the repo, writes nothing.
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -68,23 +69,34 @@ REPO = Path(__file__).resolve().parents[2]
 #: ⚠️ THIS IS A DATED DEBT LIST, NOT AN EXEMPTION. Until 2026-08-31 the
 #: unread-state check (3) could not fire at all (see `_REGISTRY_PATH` below):
 #: every contract was satisfied by its own registry entry. Turning the check on
-#: revealed four genuine findings at once, three of them belonging to other
-#: work. Failing CI on all of them would have made the fix un-landable and the
-#: check would have stayed off — which is how a vacuous guard survives.
+#: surfaced four items at once and this list was created to hold them.
 #:
-#: So they are named, printed, and OWED. Adding to this list is not a way to
-#: silence a NEW finding: `--strict` fails on everything, and a contract
+#: ⚠️ THAT LIST SAID "four genuine findings"; ON MEASUREMENT ONLY ONE WAS.
+#: Three were the guard's own evidence model reading correct code as a
+#: collapse — it credited only bare string literals, so a consumer branching on
+#: the producer's imported CONSTANT (`v.state == INFEASIBLE`) was invisible,
+#: and the only way to "fix" it was to write worse code. Crediting constant
+#: names (`_state_constants`) cleared all three with NO consumer change. State
+#: the population before calling a guard's output a finding: a guard reporting
+#: on its own blind spot is not evidence about the code.
+#:
+#: What remains is named, printed, and OWED. Adding to this list is not a way
+#: to silence a NEW finding: `--strict` fails on everything, and a contract
 #: registered after this date has no claim on it.
 GRANDFATHERED_UNREAD = {
-    # Mine, from the same change that found this. Its states ARE branched on —
-    # via the imported constants (`RUNNABLE_POWER_STATES`, `v.state == CLEARED`)
-    # rather than string literals — which this guard's evidence model cannot
-    # see. Satisfying it today would mean sprinkling literals into consumers
-    # that correctly import the vocabulary, i.e. writing worse code to please a
-    # guard. The evidence model is the thing to fix.
-    "research_queue.power_state",
-    "operator_owed.state",
-    "over_cover.state",
+    # ⚠️ THREE ENTRIES WERE REMOVED 2026-08-31, THE SAME DAY THEY WERE ADDED,
+    # and they are named here so the removal is not mistaken for an exemption
+    # being quietly widened: `research_owed.state`-style debts are only ever
+    # discharged by measurement. `research_queue.power_state`,
+    # `operator_owed.state` and `over_cover.state` now pass on their OWN
+    # evidence — none of their consumers changed. What changed is the guard:
+    # `_states_in` credits the producer's module CONSTANT NAMES, not only bare
+    # string literals, so a consumer writing `v.state == INFEASIBLE` is finally
+    # visible. Three of the four "findings" the check surfaced on the day it
+    # started working were therefore the guard penalising the better practice,
+    # which is why they were never fixed by editing the consumers.
+    #
+    # The one that survives is a real unread state.
     "netting_attribution.anchor_status",
 }
 
@@ -616,7 +628,62 @@ def _py_files() -> List[Path]:
     return out
 
 
-def _states_in(text: str, states: List[str], field: str = "") -> set:
+def _import_line_numbers(text: str) -> set:
+    """1-indexed line numbers occupied by `import` / `from ... import` stmts.
+
+    Excluded from constant-name evidence below. Without this, a single
+    `from research_queue import (CLEARED, ACCRUING, ...)` would satisfy the
+    whole contract while branching on nothing — the "cheaper to lie to than to
+    satisfy" hazard this guard exists to prevent, re-introduced by the very
+    change that makes constants count. Literals cannot appear in an import, so
+    dropping these lines costs the literal path nothing.
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return set()
+    out: set = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            end = getattr(node, "end_lineno", None) or node.lineno
+            out.update(range(node.lineno, end + 1))
+    return out
+
+
+def _state_constants(prod_text: str, states: List[str]) -> Dict[str, List[str]]:
+    """`{state: [MODULE_CONSTANT_NAMES]}` declared in the producer module.
+
+    Only module-level `NAME = "<state>"` assignments count, and only for states
+    the contract declares. A consumer that writes `verdict.state == INFEASIBLE`
+    is doing the RIGHT thing and was invisible to a literal-only scan — so the
+    guard penalised the better practice and could only be satisfied by
+    sprinkling bare strings into modules that import the vocabulary properly.
+    """
+    out: Dict[str, List[str]] = {}
+    try:
+        tree = ast.parse(prod_text)
+    except SyntaxError:
+        return out
+    wanted = set(states)
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            targets, value = [node.target], node.value
+        else:
+            continue
+        if not (isinstance(value, ast.Constant) and isinstance(value.value, str)):
+            continue
+        if value.value not in wanted:
+            continue
+        for t in targets:
+            if isinstance(t, ast.Name):
+                out.setdefault(value.value, []).append(t.id)
+    return out
+
+
+def _states_in(text: str, states: List[str], field: str = "",
+               const_names: Optional[Dict[str, List[str]]] = None) -> set:
     """Which declared states this text references, ignoring override lines.
 
     The annotation is excluded from its own evidence — otherwise writing the
@@ -641,11 +708,22 @@ def _states_in(text: str, states: List[str], field: str = "") -> set:
     keeps the file-wide behaviour, so registering the narrower check is opt-in
     per contract and no existing contract changes meaning.
     """
-    keep = [ln for ln in text.splitlines() if not _OVERRIDE.search(ln)]
+    lines = text.splitlines()
+    skip = _import_line_numbers(text) if const_names else set()
+    keep = [ln for i, ln in enumerate(lines, 1)
+            if not _OVERRIDE.search(ln) and i not in skip]
     if field:
         keep = [ln for ln in keep if re.search(rf"\b{re.escape(field)}\b", ln)]
     body = "\n".join(keep)
-    return {s for s in states if re.search(rf"[\"']{re.escape(s)}[\"']", body)}
+
+    found = set()
+    for s in states:
+        pats = [rf"[\"']{re.escape(s)}[\"']"]
+        for name in (const_names or {}).get(s, ()):
+            pats.append(rf"\b{re.escape(name)}\b")
+        if re.search("|".join(pats), body):
+            found.add(s)
+    return found
 
 
 def main(argv: List[str]) -> int:
@@ -691,6 +769,14 @@ def main(argv: List[str]) -> int:
                 f"{missing} {scope} — a contract naming a state its own module "
                 f"does not produce is a dead claim, not a guarantee.")
 
+        # Constant names are derived from the PRODUCER and credited only in the
+        # consumer scan below — never in (1). Producer integrity must keep
+        # asking "does this module actually emit the literal?", and crediting
+        # `CLEARED = "cleared"` for the state `cleared` there would make every
+        # contract self-satisfying at its own declaration site, which is the
+        # 2026-08-31 registry bug one module over.
+        const_names = _state_constants(prod_text, states)
+
         # (2)+(3) consumers.
         #
         # A "consumer" is a file that references the contract's own token —
@@ -728,7 +814,14 @@ def main(argv: List[str]) -> int:
             txt = f.read_text(encoding="utf-8", errors="replace")
             if not token.search(txt):
                 continue
-            seen = _states_in(txt, states)
+            # ⚠️ CONSTANT NAMES COUNT HERE, LITERALS ONLY IN (1) — a consumer
+            # writing `verdict.state == INFEASIBLE` branches correctly and was
+            # invisible to a literal-only scan, so the guard penalised the
+            # better practice and could be satisfied only by sprinkling bare
+            # strings into modules that import the vocabulary properly.
+            # Import lines are excluded (`_import_line_numbers`), so a single
+            # `from x import (A, B, C)` cannot stand in for a branch.
+            seen = _states_in(txt, states, const_names=const_names)
             if not seen:
                 continue
             rel = f.relative_to(REPO).as_posix()
