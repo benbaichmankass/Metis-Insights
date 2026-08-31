@@ -191,7 +191,21 @@ def test_the_shared_action_actually_waits_and_fails_rather_than_giving_up():
     body = (REPO / ".github/actions/commit-to-main/action.yml").read_text()
     assert "VERIFY_MERGED" in body and "DEADLINE" in body, "no bounded wait"
     assert "gh pr view" in body, "the wait must observe the PR, not sleep blind"
-    tail = body.split("DEADLINE=$")[1]
+    # ⚠️ `partition`, NOT `split(...)[1]`. The intent is "everything after the
+    # deadline is established", and while there was exactly ONE `DEADLINE=$`
+    # assignment those were the same string. The one-shot stale-branch refresh
+    # (2026-08-31) added a SECOND — it resets the budget after re-triggering the
+    # checks — so `[1]` silently narrowed to the span BETWEEN the two and stopped
+    # before the timeout branch. The test then failed on a change that did not
+    # touch the failure path at all.
+    #
+    # This restores the original semantics rather than relaxing them: with one
+    # occurrence `partition(...)[2] == split(...)[1]` exactly, and with several it
+    # keeps meaning what the docstring says. Do not "fix" a future failure here by
+    # slicing narrower — the assertion below is the point, and a window that
+    # shrinks whenever the script grows is a test that decays into a tripwire for
+    # unrelated edits.
+    tail = body.partition("DEADLINE=$")[2]
     assert "did not merge within" in tail and "exit 1" in tail, (
         "the wait must exit NON-ZERO on timeout"
     )
