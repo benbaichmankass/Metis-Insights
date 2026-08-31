@@ -113,6 +113,16 @@ CREATE INDEX IF NOT EXISTS idx_exchange_funding_acct_time
 -- column). It is stored VERBATIM alongside the raw payload; the P&L definition
 -- -- which types count, which currencies -- lives in src/runtime/bybit_wallet_truth.py
 -- so it is arguable in tests rather than baked into a schema.
+-- # data-wiring: SOURCE OF TRUTH IS THE VENUE, not trade_journal.db. These rows
+-- are Bybit's own wallet ledger, pulled from /v5/account/transaction-log by
+-- scripts/ops/pull_bybit_transaction_log.py and keyed on the venue's row id.
+-- This is deliberately NOT a projection of the canonical store: the whole point
+-- is to CHECK trade_journal.db against the venue, and a projection of the thing
+-- under test cannot falsify it (the INDEPENDENCE axis). History backfills by
+-- re-running the puller with a wider --days: inserts are idempotent on txn_id,
+-- so a wider window fills gaps without moving any figure already computed.
+-- Read by src/runtime/bybit_wallet_truth.py via list_transaction_log, surfaced
+-- at /api/diag/bybit_wallet_truth.
 CREATE TABLE IF NOT EXISTS bybit_transaction_log (
     txn_id       TEXT PRIMARY KEY,
     account_id   TEXT NOT NULL,

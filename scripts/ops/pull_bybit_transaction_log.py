@@ -5,8 +5,7 @@ venue-truth store, continuously — the LIVE replacement for a pasted CSV export
 WHY (operator directive, 2026-08-31). The authoritative realized figure for
 ``bybit_2`` came from an operator's UM CSV export and therefore froze on
 2026-07-13 while the account kept trading — 59 closed real-money trades with no
-wallet-truth counterpart (``BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-
-CLOSES-UNRECONCILED``). We hold live API credentials for every Bybit account and
+wallet-truth counterpart (``BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED``). We hold live API credentials for every Bybit account and
 the venue serves the same quantity the export shows, so there is no reason for a
 human to be in this loop:
 
