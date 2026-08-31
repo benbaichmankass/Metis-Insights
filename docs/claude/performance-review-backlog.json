@@ -4115,6 +4115,22 @@
         "BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS",
         "BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE"
       ]
+    },
+    {
+      "id": "BL-20260831-TRADE-PRIORITISATION-IS-UNPROVEN-CONFIDENCE-IS-A-START-NOT-A-RESULT",
+      "status": "open",
+      "severity": "high",
+      "tier": "3",
+      "area": "src/runtime/intents.py::_election_sort_key (live arbitration ranking) + docs/research/trade-prioritisation-research-DESIGN.yaml",
+      "summary": "Confidence became the live primary ranking key for competing trades on 2026-08-31 on a CORRECTNESS argument — it is evidence about the trade, unlike the strategy NAME it replaced. It has NOT been shown to pick the better-performing trade. Operator, 2026-08-31: 'the confidence score is a good start, but it isn't proven that it's necessarily what's gonna give us the best trade every time'.",
+      "detail": "WHAT IS ESTABLISHED vs WHAT IS NOT, because conflating them is how this gets treated as finished. ESTABLISHED: ranking by name was arbitrary and is gone; confidence would pick a different winner than the old key on 51.5% of contests (conviction_arbitration soak, n=371, 2026-06-17 -> 2026-08-30). NOT ESTABLISHED: that the strategy confidence prefers is the one that performs better. The soak measures AGREEMENT, never OUTCOME — and now that conviction IS the live key its agreement figure largely degenerates, so nothing currently measures the open question at all. === IT IS A COUNTERFACTUAL PROBLEM. We observe the winner's outcome and never the loser's, so a live correlation between the new `decided_by` field and realised R is confounded by which strategies tend to win under each tier. Only a REPLAY makes the counterfactual observable, which is why the design routes to scripts/backtest_system.py — it runs signals through the REAL aggregate_intents, so swapping the key is a genuine A/B over one price history. === FULL DESIGN, INTACT: docs/research/trade-prioritisation-research-DESIGN.yaml — four arms (confidence_first / priority_first / recent_pnl_first / random_tiebreak), a declared power block, success criteria and the saturation confound. It is NOT in research/queue/ because the dispatcher's validator requires a run.workflow and lands.store that do not exist yet; see BL-20260831-RESEARCH-QUEUE-CANNOT-EXPRESS-A-BLOCKED-JOB. === ⚠️ random_tiebreak IS A DECLARED ARM, NOT AN AFTERTHOUGHT. M18's allocator asked the adjacent question and the answer was NO (edge -$7, ranker OOS AUC ~0.51). If confidence_first does not beat a random tiebreak, the honest finding is that arbitration ORDER does not drive outcome — a publishable negative, and the signal to stop investing here and look at the confidence score itself instead.",
+      "resolution_criteria": "(1) Build the two blockers the design names: a ranking-key arm on scripts/backtest_system.py (the shape of its existing --flip-policy) and a workflow that fires it. (2) Run the four arms and report per-arm net PnL, expectancy in R, maxDD and the ACHIEVED contested-tick count — not the declared one. (3) STRATIFY BY `decided_by`: on the ~50% of contests where confidence ties, the outcome attributed to confidence_first is really the outcome of the tier below it, so a pooled number is uninterpretable. (4) Evaluate on the CONTESTED subset only; including uncontested ticks dilutes the effect toward zero and makes every arm look identical. ⚠️ A NULL RESULT CLOSES THIS ROW — it is an answer, not a failure to be re-run until something wins.",
+      "found_by": "session ec146208 — operator-directed follow-up while graduating conviction arbitration into the live election (PR #10544). Filed as open work at the moment of shipping rather than after, precisely so the correctness fix is not mistaken for an outcome result.",
+      "related": [
+        "BL-20260831-CONFIDENCE-SATURATES-AT-ONE-SO-HALF-OF-ARBITRATIONS-CANNOT-BE-DECIDED-ON-IT",
+        "BL-20260831-CONFIDENCE-IS-CARRIED-TO-THE-ELECTION-AND-READ-BY-NEITHER-SORT-KEY",
+        "BL-20260831-RESEARCH-QUEUE-CANNOT-EXPRESS-A-BLOCKED-JOB"
+      ]
     }
   ],
   "updated_at": "2026-08-22T18:05:00+00:00"

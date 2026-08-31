@@ -29767,6 +29767,20 @@
         "BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES",
         "BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-AND-STARVES-ITS-PAPER-SIBLING"
       ]
+    },
+    {
+      "id": "BL-20260831-RESEARCH-QUEUE-CANNOT-EXPRESS-A-BLOCKED-JOB",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1",
+      "area": "scripts/research/dispatch_queue.py (validator) + research/queue/README.md",
+      "summary": "`research/queue/README.md` documents `blocked` as a supported status, but the dispatcher's validator requires `run.workflow` and `lands.store` REGARDLESS of status — and a blocked job is blocked precisely because those do not exist yet. So the documented status is unrepresentable, and any attempt to use it grades `invalid` on every dispatcher run.",
+      "detail": "MEASURED 2026-08-31 while filing a genuine piece of blocked research (trade prioritisation, see the related row). The file declared `status: blocked` with a written `blocked_on` naming both missing pieces; `dispatch_queue.py --only ...` still returned: '`run.workflow` is required ... `lands.store` is required'. === WHY IT MATTERS RATHER THAN BEING COSMETIC. The only two dispositions available are both wrong: leave it queued with a FABRICATED workflow name (the dispatcher fires it, it fails, and the queue has been told a workflow exists when it does not), or leave it invalid — which prints `invalid=1` on EVERY dispatcher run for correct content. This repo treats an alarm that fires on correct behaviour as its own P1 (the desensitized-alarm class), so the second is not a neutral option. The practical effect is that blocked research CANNOT live in the queue and gets pushed out to docs/ + a backlog row, which is exactly the fragmentation the queue was built to end. === NOT YET ESTABLISHED: whether the right fix is to exempt `status: blocked` from the two required fields, or to require a `blocked_on` in their place so a blocked job still declares something actionable. The second is more in keeping with the queue's own design (every state names what moves it), but that is a judgement for whoever fixes it, not a decision this row makes.",
+      "resolution_criteria": "A job with `status: blocked` and a non-empty `blocked_on` validates and grades as blocked — NOT invalid, and NOT dispatched — with the dispatcher summary counting it separately from `invalid` so a blocked job never reads as a broken one. Verify by re-promoting docs/research/trade-prioritisation-research-DESIGN.yaml into research/queue/ unchanged and confirming it grades `blocked`; that file was written as a queue job and is the natural regression case.",
+      "found_by": "session ec146208 — hit directly while trying to file blocked research through the sanctioned surface, not found by inspection.",
+      "related": [
+        "BL-20260831-TRADE-PRIORITISATION-IS-UNPROVEN-CONFIDENCE-IS-A-START-NOT-A-RESULT"
+      ]
     }
   ]
 }
