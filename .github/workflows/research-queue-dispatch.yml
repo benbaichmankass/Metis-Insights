@@ -68,9 +68,27 @@ permissions:
 jobs:
   dispatch:
     runs-on: ubuntu-latest
-    # 35, not 15: `verify-merged` below waits up to 18 min for the stamp PR to
-    # merge (required checks take ~11). A 15-min budget would kill the job
-    # mid-wait and report a timeout for a stamp that was about to land.
+    # 35, not 15: `verify-merged` below blocks until the stamp PR merges, and a
+    # budget under that wait kills the job mid-wait and reports a timeout for a
+    # stamp that was about to land.
+    #
+    # ⚠️ THIS COMMENT SAID "waits up to 18 min" AND WAS STALE. The wait is
+    # `commit-to-main`'s `verify-timeout-minutes`, which this workflow does not
+    # set — so it takes that action's DEFAULT, and the default moved 18 -> 30.
+    # The arithmetic a reader would do from the old text was wrong by 12 min.
+    #
+    # MEASURED on run 33388490432 (2026-08-31), rather than estimated:
+    #   job total                                    16m04s
+    #   set-up + checkout + pip + grade + dispatch      14s
+    #   "Land the dispatch stamps on main" (the wait) 15m45s
+    # So the budget is 30 (wait) + ~0.2 (everything else) and 35 leaves ~5 min
+    # of real headroom. It is NOT thin — an earlier read of this called it
+    # 32-34 of 35 by assuming minutes of startup; startup is fourteen seconds.
+    #
+    # The 30-min default is also vindicated by that run: 15m45s is 52.5% of 30
+    # but 87.5% of the old 18, i.e. this exact shape of run was a coin-flip
+    # before the default was raised. Raise this number only if the WAIT's own
+    # default rises above ~33.
     timeout-minutes: 35
     env:
       # THE ONE FIRE DECISION. Both consumers below read THIS, never `inputs`

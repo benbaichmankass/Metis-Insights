@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-08-31T12:52:51+00:00 · verdict **partial**_
+_Generated 2026-08-31T12:56:53+00:00 · verdict **partial**_
 
 > ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
 
@@ -27,7 +27,7 @@ _Generated 2026-08-31T12:52:51+00:00 · verdict **partial**_
 - 🔔 **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (open_items · 0d) — loud row — must be reported on every session
   - The research queue's GPU route and its spend-gate preflight have NEVER been exercised. Do not describe the GPU spend gates as verified.
 - 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (open_items · 0d) — loud row — must be reported on every session
-  - The R4 gate's `infeasible` state is now a LABEL rather than a refusal, and it has still never travelled end to end — no corpus row carries any admission stamp. It is deployed, not proven; do not cite 
+  - The stamp chain IS proven live as of 2026-08-31 (995 rows carry `accruing`, read from the corpus). What remains unproven is this row's own subject: the `infeasible` grade has never been produced by a 
 - 🔔 **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (open_items · 0d) — loud row — must be reported on every session
   - session-brief-guard is diff-scoped now, so a brief that goes stale on the CLOCK can no longer fail a PR that did not touch the registers. The `inherited` verdict has NEVER been emitted by a real CI ru
 - 🔔 **OI-20260831-TRADE-PRIORITISATION-IS-LIVE-BUT-UNPROVEN-AND-ITS-AB-HARNESS-DOES-NOT-EXIST** (open_items) — loud row — must be reported on every session

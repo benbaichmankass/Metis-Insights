@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-08-31T12:52:51+00:00",
+  "generated_at": "2026-08-31T12:56:53+00:00",
   "verdict": "partial",
   "unreadable_sources": [
     "red_crons",
@@ -146,7 +146,7 @@
     {
       "source": "open_items",
       "id": "OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE",
-      "title": "The R4 gate's `infeasible` state is now a LABEL rather than a refusal, and it has still never travelled end to end — no corpus row carries any admission stamp. It is deployed, not proven; do not cite ",
+      "title": "The stamp chain IS proven live as of 2026-08-31 (995 rows carry `accruing`, read from the corpus). What remains unproven is this row's own subject: the `infeasible` grade has never been produced by a ",
       "why_due": "loud row — must be reported on every session",
       "age_days": 0,
       "loud": true,
