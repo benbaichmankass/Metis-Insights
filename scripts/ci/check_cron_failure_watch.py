@@ -75,7 +75,9 @@ _EXEMPT_RE = re.compile(r"#\s*cron-watch-exempt:\s*(.+?)\s+[—-]{1,2}\s*(.+?)\s
 
 def _strip_comments(block: str) -> str:
     """Drop comment-only lines so a commented-out `cron:` is not read as live."""
-    return "\n".join(l for l in block.splitlines() if not l.lstrip().startswith("#"))
+    return "\n".join(
+        line for line in block.splitlines() if not line.lstrip().startswith("#")
+    )
 
 
 def on_block(text: str) -> str:
