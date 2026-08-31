@@ -56,12 +56,12 @@
       "evidence": "The question is whether the suite EXECUTED, not whether a job reported success -- this repo has a recorded history of a 'TEN-SECOND green pytest-run' that merged and left main RED, four times. Evidence it genuinely ran, three ways. (1) COUNT + DURATION from the run's own log on 18b48aee: '2 failed, 13730 passed, 14 skipped, 74 warnings in **836.19s**'. A short-circuited selection cannot produce 13,744 collected tests over 14 minutes. (2) THE FAILURES WERE REAL AND SPECIFIC, which is stronger evidence of execution than a green: the run failed on exactly the two guards my own diff broke (test_no_action_exists_in_the_workflow_that_is_absent_from_EXPECTED_ACTIONS on 'pull-bybit-transaction-log', and the api-tier coverage claim 99 vs 100). A vacuous run cannot fail on the right assertions. (3) THE FILTER IS PINNED AND SELECTS BROADLY HERE: 15 files in this diff match the workflow's selection regex (.py / scripts/ / src/ / tests/ / .github/workflows/), and tests/test_pytest_run_filter.py -- the guard that exists specifically so the filter cannot be silently narrowed -- passes 23/23 locally. LOCAL CORROBORATION on the current head: 444 passed / 1 skipped across the affected files, and the new derived soak-coverage test was written to FAIL FIRST (it did, on exactly conflict_taxonomy_soak and macro_thesis_soak) before the fix made it pass -- non-vacuity demonstrated rather than assumed."
     },
     "consolidated_report": {
-      "status": "not_started",
-      "evidence": ""
+      "status": "n_a",
+      "note": "DEFERRED BY EXPLICIT OPERATOR SCOPING, not skipped. The operator scoped this session to the live prop/reconciliation items and then to the retrospective, and is running a separate session to review the /system-review skill itself. Recorded n_a with the reason rather than done, because no report was produced."
     },
     "operator_ping": {
-      "status": "not_started",
-      "evidence": ""
+      "status": "n_a",
+      "note": "DEFERRED with the report above — the ping exists to deliver that artifact, so sending one without it would notify about nothing. The operator was updated in-session throughout, and the coordination board (#6927) carries the DONE plus the three live caveats for other sessions."
     },
     "health_review.findings": {
       "status": "done",
