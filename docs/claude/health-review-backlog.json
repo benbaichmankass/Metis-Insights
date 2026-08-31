@@ -16045,6 +16045,11 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated and it COMPOUNDS a live observation: at 16:06Z today /api/diag/version read git_sha eb061699 against git_sha_on_disk fccd9a16 with restart_pending true — code pulled, process not restarted. It resolved by 16:22Z. A deploy that skips its own version assertion when DIAG_READ_TOKEN is unset and still reports success is exactly how that state goes unnoticed."
+        },
+        {
+          "at": "2026-08-31",
+          "by": "session ec146208",
+          "note": "RE-OBSERVED LIVE, 18 days after filing — the condition still holds and the row is correctly still open. Deploying PR #10544 (per-account arbitration, merged 12e4a9e) via pull-and-deploy issue #10553, the run printed \">>> Skipping post-deploy version assertion (DIAG_READ_TOKEN unset and /etc/ict-trading-bot/diag_token not readable).\" and then reported \"wrapper exit code: 0\" / completed. So a deploy of a Tier-3 order-path change reported success while its own verification step no-opped. === THE CODE WAS IN FACT FINE, WHICH IS THE POINT. An independent /api/diag/version read (direct path, served by ict-bot.duckdns.org) returned git_sha 12e4a9eb == git_sha_on_disk, restart_pending false, and /api/diag/status showed uptime 254s with a 38s heartbeat — so the restart genuinely rolled the code forward. The defect is not that the deploy was wrong; it is that the deploy's OWN output could not distinguish that from a stale-code deploy, and a session that trusted it would have had no way to tell. Establishing it took a separate manual read this session. === NOTE THE INTERACTION with BL-20260823-DIAG-VERSION-REPORTS-DISK-SHA-NOT-RUNNING-CODE (resolved): now that /api/diag/version reports the RUNNING sha rather than the disk sha, this assertion would finally be meaningful if it ran — which raises the value of fixing the skip, because the check it skips is no longer vacuous."
         }
       ]
     },
