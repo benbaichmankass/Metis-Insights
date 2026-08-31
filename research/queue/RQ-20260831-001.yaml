@@ -1,6 +1,6 @@
 id: RQ-20260831-001
 title: Re-sweep the shipped bracket-geometry legs to capture an ACHIEVED OOS count
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -42,6 +42,10 @@ power:
     ⚠️ ALPHA IS PER-CELL AND THIS SWEEPS 14 LEGS, so ~1 spurious verdict is
     expected by construction. Output is a WATCHLIST, never a disposition.
 
+  feasibility:
+    source: corpus
+    corpus: e35
+    statistic: min_per_leg
 routing:
   needs_trainer_resident_data: false
   needs_gpu: false

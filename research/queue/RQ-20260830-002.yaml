@@ -31,6 +31,24 @@ power:
     leg (the 1d ones especially) may not reach 50 OOS trades at all; the sweep grades
     those ungradeable rather than passing them, so read per-leg base_oos_trades (the e35 producer''s name — m20 calls it base_trades_OOS) before
     quoting any verdict from this job.'
+  feasibility:
+    source: none
+    accrual_basis: >-
+      DECLARED ACCRUAL, not a test — this makes the machine agree with what this
+      unit's own power.basis already says in prose: "this job's output is a
+      WATCHLIST, never a disposition: a leg that fails here is queued for a human
+      re-read". Grounding it against the corpus instead would grade it INFEASIBLE
+      and block it, which would be the wrong remedy for a job that never claimed
+      to settle anything. Measured on the run that landed 2026-08-31, the 14
+      shipped legs achieved OOS n of 4, 5, 6, 7, 8, 46, 48, 48, 49, 49, 49, 49,
+      49, 50 against a floor of 49.06 — so only ONE leg clears, and the five 1d
+      equity legs (~20 trades/year) cannot reach it at any cadence. WHAT WOULD
+      CHANGE THIS: a decision on
+      BL-20260831-E35-MONTHLY-JOB-TARGETS-AN-N-BELOW-ITS-OWN-POWER-FLOOR — either
+      split the 9 legs that can reach 50 into a real test and leave the 5 thin
+      ones accruing, or accept a larger min_detectable_effect so the floor drops
+      below what the legs deliver. Until then no verdict from this job may be
+      read as evidence a shipped cell has decayed.
 routing:
   needs_trainer_resident_data: false
   needs_gpu: false
