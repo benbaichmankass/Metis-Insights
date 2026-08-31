@@ -826,6 +826,7 @@ class Coordinator:
         dry_run: Optional[bool] = None,
         account_type: Optional[str] = None,
         balance_fetcher: Optional[Callable[["TradingAccount"], float]] = None,
+        account_scope: Optional[frozenset] = None,
     ) -> List[Dict[str, Any]]:
         """Execute *pkg* on all accounts loaded from accounts.yaml.
 
@@ -860,6 +861,30 @@ class Coordinator:
         account_type : str, optional
             When set, only execute on accounts matching this type
             (``"regular"`` | ``"prop"``).
+        account_scope : frozenset, optional
+            **NARROWS ONLY — it can never widen the eligible set.** When set,
+            an account must ALSO be in this set to be dispatched to; every
+            existing eligibility rule (configured, symbol→exchange routing,
+            and the account's own declared ``strategies``) still applies
+            unchanged and is evaluated first. ``None`` (the default) is
+            byte-for-byte the pre-2026-08-31 behaviour.
+
+            This is the per-account arbitration fan-out's dispatch handle
+            (``ARBITRATION_FANOUT_MODE=apply``). The global election picks ONE
+            winner per symbol before any account is consulted, so an account
+            running its own candidate on that symbol is dropped here by
+            ``pkg.strategy in assigned`` and produces no order package at all —
+            invisible to the journal AND to every per-account detector
+            (``BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-AND-STARVES-ITS-PAPER-SIBLING``:
+            ``trend_donchian_sol`` won 0 of 60 SOLUSDT ticks and wrote zero
+            rows on ``bybit_1``). The fan-out dispatches one round per elected
+            strategy, each scoped to the accounts that elected it.
+
+            ⚠️ The scope is a SAFETY NARROWING, not the routing decision. It
+            cannot cause a strategy to reach an account that does not declare
+            it — that is still enforced by ``assigned`` below, independently.
+            A caller passing a bad scope loses dispatches; it can never gain
+            an unauthorised one.
         balance_fetcher : callable, optional
             ``(account) -> balance_usd`` override. When None the
             in-process default is used: read ``meta['account_balance_usd']``
@@ -1093,7 +1118,15 @@ class Coordinator:
                 return False  # explicit empty: block all strategies
             if not pkg.strategy:
                 return True  # legacy package without a strategy tag
-            return pkg.strategy in assigned
+            if pkg.strategy not in assigned:
+                return False
+            # Per-account arbitration fan-out (ARBITRATION_FANOUT_MODE=apply).
+            # LAST, and NARROWING ONLY: every rule above has already passed, so
+            # this can subtract an account from the eligible set but can never
+            # add one. `None` = no fan-out in play = unchanged behaviour.
+            if account_scope is not None:
+                return str(getattr(account_obj, "name", "")) in account_scope
+            return True
 
         accounts = [a for a in accounts if _eligible_for_dispatch(a)]
         logger.info(

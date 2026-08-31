@@ -284,12 +284,183 @@ def assess(
     }
 
 
+PLAN_STATES = (
+    "elected",         # this account elected a live winner from its OWN candidates
+    "elected_flat",    # it has candidates, but its own election came out flat
+    "no_candidates",   # it runs none of this tick's candidates — correctly silent
+    "unknown",         # roster unreadable — we could not look
+)
+
+
+def plan_per_account_election(
+    candidates: Sequence[Any],
+    *,
+    accounts: Optional[Mapping[str, Mapping[str, Any]]],
+    elect_fn,
+    intents_before_gate: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Elect a winner PER ACCOUNT from one ALREADY-GATED candidate set.
+
+    PURE, like :func:`assess` — no I/O, no audit emission, no order path. The
+    election is **injected** (``elect_fn``) rather than imported, so this module
+    stays free of order-path imports and the policy is arguable in tests rather
+    than against a live position
+    (``BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG``).
+
+    ⚠️ ``candidates`` MUST already have been through ``intents.gate_intents``.
+    ``elect_fn`` is ``intents.elect_from_gated``, which deliberately does NOT
+    re-gate — passing un-gated intents here elects over candidates the regime
+    router would have refused. Gating once and electing N times is the entire
+    reason that split exists: re-running the aggregator per account re-emits a
+    ``regime_hard_gate`` row per account per tick, corrupting the one signal
+    that partitions "would have gated" from "did gate".
+
+    ⚠️ **AN ACCOUNT ONLY EVER ELECTS FROM STRATEGIES IT DECLARES.** The whole
+    defect being fixed is a strategy reaching an account that never asked for
+    it; a planner that could route one would be a worse version of the same
+    bug. The invariant is asserted below, not merely intended.
+
+    ⚠️ **``no_candidates`` IS NOT A FAILURE.** An account that runs none of this
+    tick's candidates is correctly silent, and folding it in with the accounts
+    that DID contend would restate the unstated-denominator error this module
+    was rewritten to remove. Read ``accounts_planned`` beside any count.
+
+    Returns ``rounds`` — the dispatch plan, one entry per DISTINCT elected
+    strategy with the accounts that elected it. Accounts electing the same
+    strategy share a round so the fan-out is one dispatch per package, not one
+    per account.
+    """
+    by_strategy = accounts_by_strategy(accounts)
+    roster_known = by_strategy is not None
+    by_strategy = by_strategy or {}
+
+    # strategy -> the candidate object, so a round can carry real geometry.
+    by_name: Dict[str, Any] = {}
+    for cand in candidates or ():
+        name = str(getattr(cand, "strategy", "") or "")
+        if name:
+            by_name.setdefault(name, cand)
+
+    per_account: Dict[str, Dict[str, Any]] = {}
+    for strategy, accts in by_strategy.items():
+        if strategy not in by_name:
+            continue
+        for account_id in accts:
+            row = per_account.setdefault(
+                str(account_id), {"candidates": [], "elected": None, "state": "unknown"}
+            )
+            row["candidates"].append(str(strategy))
+
+    if not roster_known:
+        # We could not look. Emphatically NOT "no account had candidates".
+        return {
+            "fanout_schema": FANOUT_SCHEMA,
+            "roster_state": "unreadable",
+            "per_account": {},
+            "rounds": [],
+            "accounts_planned": 0,
+            "accounts_elected": 0,
+        }
+
+    rounds_by_strategy: Dict[str, list] = {}
+    for account_id, row in per_account.items():
+        own = tuple(by_name[s] for s in row["candidates"])
+        if not own:
+            row["state"] = "no_candidates"
+            continue
+        try:
+            desired = elect_fn(
+                own, symbol=_symbol_of(own), intents_before_gate=intents_before_gate
+            )
+        except Exception:  # noqa: BLE001 — a planner failure must never strand a tick
+            logger.debug(
+                "arbitration_fanout: per-account election failed for %s",
+                account_id, exc_info=False,
+            )
+            row["state"] = "unknown"
+            continue
+        winner = getattr(desired, "winning_intent", None)
+        side = str(getattr(desired, "side", "flat") or "flat")
+        if winner is None or side == "flat":
+            row["state"] = "elected_flat"
+            continue
+        elected = str(getattr(winner, "strategy", "") or "")
+        # THE INVARIANT: never route a strategy to an account that does not
+        # declare it. Asserted, not assumed.
+        if elected not in row["candidates"]:
+            logger.warning(
+                "arbitration_fanout: election returned %r for %s, which declares "
+                "%s — refusing to plan it",
+                elected, account_id, row["candidates"],
+            )
+            row["state"] = "unknown"
+            continue
+        row["elected"] = elected
+        row["state"] = "elected"
+        rounds_by_strategy.setdefault(elected, []).append(str(account_id))
+
+    # Each round carries the ELECTED strategy's OWN geometry. It must not
+    # inherit the global winner's entry/sl/tp — that would place a different
+    # strategy's trade under this strategy's name, which is a worse defect
+    # than the starvation being fixed. A candidate missing any leg of its
+    # geometry is DROPPED from the plan rather than defaulted: a fabricated
+    # stop is not a stop.
+    rounds = []
+    for strategy, accts in sorted(rounds_by_strategy.items()):
+        cand = by_name.get(strategy)
+        entry = getattr(cand, "entry", None)
+        sl = getattr(cand, "sl", None)
+        tp = getattr(cand, "tp", None)
+        side = str(getattr(cand, "side", "") or "")
+        if entry is None or sl is None or tp is None or side not in ("long", "short"):
+            logger.warning(
+                "arbitration_fanout: %s elected by %s but has incomplete "
+                "geometry (side=%r entry=%r sl=%r tp=%r) — dropping the round",
+                strategy, sorted(accts), side, entry, sl, tp,
+            )
+            for account_id in accts:
+                per_account[account_id]["state"] = "unknown"
+                per_account[account_id]["elected"] = None
+            continue
+        rounds.append({
+            "strategy": strategy,
+            "accounts": sorted(accts),
+            "side": side,
+            "entry": float(entry),
+            "sl": float(sl),
+            "tp": float(tp),
+            "confidence": float(getattr(cand, "confidence", 0.0) or 0.0),
+        })
+    return {
+        "fanout_schema": FANOUT_SCHEMA,
+        "roster_state": "read",
+        "per_account": per_account,
+        "rounds": rounds,
+        # STATE THE DENOMINATOR: how many accounts were considered at all, vs
+        # how many actually came out with something to place.
+        "accounts_planned": len(per_account),
+        "accounts_elected": sum(
+            1 for r in per_account.values() if r["state"] == "elected"
+        ),
+    }
+
+
+def _symbol_of(candidates: Sequence[Any]) -> str:
+    for cand in candidates or ():
+        sym = str(getattr(cand, "symbol", "") or "")
+        if sym:
+            return sym
+    return "BTCUSDT"
+
+
 __all__ = [
     "FANOUT_STATES",
     "WINNER_SCOPES",
     "FANOUT_SCHEMA",
+    "PLAN_STATES",
     "accounts_by_strategy",
     "winner_scope_for",
     "fanout_state_for",
     "assess",
+    "plan_per_account_election",
 ]

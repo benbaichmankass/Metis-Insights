@@ -704,10 +704,43 @@ class TestMultiplexerWiring:
         )
         assert signal["side"] == "buy"
         assert sorted(signal["meta"]["contributing_strategies"]) == ["turtle_soup", "vwap"]
-        # With equal targets (both intents default to 0) Turtle Soup wins
-        # by priority.
-        assert signal["meta"]["strategy_name"] == "turtle_soup"
+        # ⚠️ THIS ASSERTION CHANGED 2026-08-31 AND THE CHANGE IS THE POINT.
+        # It used to read: "With equal targets (both intents default to 0)
+        # Turtle Soup wins by priority" -> `turtle_soup`. The election now
+        # ranks by CONFIDENCE before declared priority (operator-directed:
+        # ranking must be evidence-based), and these two fixtures differ:
+        # turtle_soup 0.6, vwap 0.7. So vwap wins on the evidence despite
+        # turtle_soup's higher declared priority.
+        #
+        # If this ever flips back to `turtle_soup` while the confidences are
+        # unchanged, confidence has stopped being the primary key.
+        assert signal["meta"]["strategy_name"] == "vwap"
         assert signal["meta"]["aggregated_via"] == "multi_strategy_intent_layer"
+
+    def test_declared_priority_still_decides_when_confidence_ties(self):
+        """Priority is BELOW confidence, not removed.
+
+        The companion to the assertion above: with the confidences equal, the
+        higher declared priority must still win. Without this, "confidence
+        first" could silently become "priority never matters".
+        """
+        base = {
+            "symbol": "BTCUSDT", "side": "buy",
+            "price": 50_000.0, "stop_loss": 49_500.0, "take_profit": 51_500.0,
+        }
+        signal = multiplexed_intent_signal_builder(
+            {"SYMBOL": "BTCUSDT"},
+            builders={
+                "turtle_soup": lambda s: {
+                    **base, "meta": {"strategy_name": "turtle_soup", "confidence": 0.7}
+                },
+                "vwap": lambda s: {
+                    **base, "meta": {"strategy_name": "vwap", "confidence": 0.7}
+                },
+            },
+            strategies=["turtle_soup", "vwap"],
+        )
+        assert signal["meta"]["strategy_name"] == "turtle_soup"
 
     def test_conflict_resolved_to_one_signal(self):
         """Opposing signals → one winner, one signal out (not two)."""
