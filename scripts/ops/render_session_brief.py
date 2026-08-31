@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# wiring: scripts/ci/check_session_brief.py (session-brief-guard) + manual --write
+# wiring: scripts/ci/run_guards.py::session-brief-guard (--self-test, --check) + manual --write
 """Render the SESSION BRIEF into ``CLAUDE.md`` — the only channel that reaches a session in time.
 
 WHY THIS EXISTS
@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -95,10 +96,18 @@ def due_items(items: list, today: date) -> list:
     return out
 
 
-def render(today: date | None = None) -> str:
+def render(today: date | None = None, *,
+           open_items: dict | None = None,
+           recurrence: dict | None = None) -> str:
+    """Render the brief. Pass the registers explicitly to render a REF other than HEAD.
+
+    `today` is threaded rather than read inside, because the diff-scoped check
+    renders BOTH sides with the SAME date — that is what makes the clock term
+    cancel (see `check_verdict`).
+    """
     today = today or datetime.now(timezone.utc).date()
-    oi = _load(_OPEN_ITEMS)
-    rl = _load(_RECURRENCE)
+    oi = open_items if open_items is not None else _load(_OPEN_ITEMS)
+    rl = recurrence if recurrence is not None else _load(_RECURRENCE)
     due = due_items(oi.get("items") or [], today)
     unprevented = [c for c in (rl.get("classes") or [])
                    if not c.get("prevention") and not c.get("unpreventable_because")]
@@ -159,10 +168,83 @@ def current_block(text: str) -> str | None:
     return text[i:j]
 
 
+#: What a `--check` run concluded. Never collapsed: "the brief is stale" and
+#: "THIS DIFF made it stale" are different facts, and only the second is this
+#: PR's to fix.
+VERDICTS = ("clean", "inherited", "introduced_registers_changed",
+            "introduced_block_edited", "no_block", "base_unreadable")
+_FAILING = ("introduced_registers_changed", "introduced_block_edited",
+            "no_block", "base_unreadable")
+
+
+def _git_show(ref: str, path: str) -> str | None:
+    """The file's content at `ref`, or None if we could not read it.
+
+    None is *we could not look*, never *it is absent* — the caller grades that
+    as `base_unreadable` and FAILS, preserving the pre-diff-scoping behaviour
+    rather than silently disabling the guard on a git glitch.
+    """
+    try:
+        out = subprocess.run(["git", "show", f"{ref}:{path}"],
+                             capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout if out.returncode == 0 else None
+
+
+def check_verdict(*, want_head: str, have_head: str | None,
+                  base_readable: bool,
+                  want_base: str | None = None,
+                  have_base: str | None = None) -> str:
+    """Did THIS DIFF make the brief stale? A pure function, so it is arguable in tests.
+
+    ⚠️ THE CLOCK IS WHY THIS EXISTS. `render()` calls `datetime.now()` and
+    `due_items` flips a monitoring row to DUE once its cadence elapses — so the
+    COMMITTED block in `CLAUDE.md` goes stale at a UTC-midnight boundary with no
+    commit anywhere, and the whole-tree check then reds EVERY open PR until a
+    human re-renders. A branch cut inside that window is stranded permanently,
+    because nothing re-runs its checks.
+
+    Measured 2026-08-31: `OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED`
+    (`verified_at 2026-08-29`, `check_every_days 2`) crossed into DUE at 00:00Z;
+    the automation PRs opened at 00:47Z and 01:22Z both failed this guard on
+    content they never touched, while `pytest-run` was green on both
+    (`BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH`).
+
+    BOTH sides are rendered with the SAME `today`, so the time term is identical
+    on each and cancels: the clock alone can never fail a PR. What survives is
+    the register content and the committed block, which is exactly what a diff
+    can change.
+
+    ⚠️ `inherited` is NOT "the brief is fine" — it is "this PR did not break it".
+    The caller prints it loudly and exits 0.
+    """
+    if have_head is None:
+        return "no_block"
+    if have_head.strip() == want_head.strip():
+        return "clean"
+    if not base_readable or want_base is None or have_base is None:
+        return "base_unreadable"
+    if want_head.strip() != want_base.strip():
+        # The diff changed what the brief SHOULD say (it touched the registers),
+        # so re-rendering is this author's job — and doing it also clears any
+        # inherited drift. Without this branch a clock-stale base would let a
+        # genuine register change through unrendered.
+        return "introduced_registers_changed"
+    if have_head.strip() != have_base.strip():
+        return "introduced_block_edited"
+    return "inherited"
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--write", action="store_true", help="update CLAUDE.md in place")
     ap.add_argument("--check", action="store_true", help="exit 1 if CLAUDE.md is stale")
+    ap.add_argument("--base", default="",
+                    help="diff-scope --check against this ref (e.g. origin/main): a "
+                         "staleness that already exists on the base was not introduced "
+                         "by this diff, so it is REPORTED rather than failed. Omit for "
+                         "the strict whole-tree answer.")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args(argv)
     if a.self_test:
@@ -173,18 +255,60 @@ def main(argv=None) -> int:
     have = current_block(text)
 
     if a.check:
-        if have is None:
+        # Render BOTH sides with ONE date, so the clock term cancels.
+        today = datetime.now(timezone.utc).date()
+        want = render(today)
+        want_base = have_base = None
+        base_readable = False
+        if a.base:
+            oi_b = _git_show(a.base, str(_OPEN_ITEMS))
+            rl_b = _git_show(a.base, str(_RECURRENCE))
+            md_b = _git_show(a.base, str(_CLAUDE_MD))
+            if oi_b is not None and rl_b is not None and md_b is not None:
+                try:
+                    want_base = render(today, open_items=json.loads(oi_b),
+                                       recurrence=json.loads(rl_b))
+                    have_base = current_block(md_b)
+                    base_readable = have_base is not None
+                except (ValueError, TypeError):
+                    base_readable = False
+
+        v = check_verdict(want_head=want, have_head=have,
+                          base_readable=(base_readable if a.base else True),
+                          want_base=want_base, have_base=have_base)
+
+        if v == "clean":
+            print("session-brief: OK — CLAUDE.md matches the registers.")
+            return 0
+        if v == "inherited":
+            # ⚠️ NOT a clean bill of health. The brief IS stale; this diff did
+            # not make it stale. Failing here strands a PR (often an automated
+            # data commit with no author) for a clock tick it cannot control.
+            print("::notice::session-brief: the brief is STALE, but the SAME staleness is "
+                  f"already on {a.base} and this diff did not introduce it — reporting, not "
+                  "failing. Whoever next touches the registers should run: "
+                  "python3 scripts/ops/render_session_brief.py --write")
+            print(f"session-brief: verdict=inherited (base={a.base})")
+            return 0
+        if v == "no_block":
             print("::error::CLAUDE.md carries no SESSION-BRIEF block. It is the only surface that "
                   "reaches a session before its first tool call; without it the registers are "
                   "files nobody is made to open. Run: python3 scripts/ops/render_session_brief.py --write")
             return 1
-        if have.strip() != want.strip():
-            print("::error::CLAUDE.md's SESSION-BRIEF block is STALE vs the registers — a session "
-                  "would read something that is no longer true, which is worse than reading nothing. "
-                  "Run: python3 scripts/ops/render_session_brief.py --write")
+        if v == "base_unreadable":
+            print(f"::error::session-brief: the block is STALE and {a.base or '<no base>'} could "
+                  "NOT be read, so whether this diff introduced it is UNKNOWN — we did not look, "
+                  "which is not the same as 'it was already broken'. Failing closed (the "
+                  "pre-diff-scoping behaviour). Run: python3 scripts/ops/render_session_brief.py --write")
             return 1
-        print("session-brief: OK — CLAUDE.md matches the registers.")
-        return 0
+        reason = ("this diff changes the registers, so re-rendering is part of it"
+                  if v == "introduced_registers_changed"
+                  else "this diff edits the SESSION-BRIEF block and it still does not match")
+        print(f"::error::CLAUDE.md's SESSION-BRIEF block is STALE and THIS DIFF introduced it — "
+              f"{reason}. A session would read something that is no longer true, which is worse "
+              f"than reading nothing. Run: python3 scripts/ops/render_session_brief.py --write")
+        print(f"session-brief: verdict={v} (base={a.base})")
+        return 1
 
     if a.write:
         if have is None:
@@ -220,6 +344,36 @@ def _self_test() -> int:
         good = bool(got) == want
         ok &= good
         print(f"  self-test ({label}): {'PASS' if good else 'FAIL'}")
+
+    # The diff-scoping verdict. Stated as data so the policy is arguable here
+    # rather than against a live PR.
+    A, B = "brief-A", "brief-B"
+    vcases = [
+        ("head matches — clean",
+         dict(want_head=A, have_head=A, base_readable=True, want_base=A, have_base=A),
+         "clean"),
+        ("THE CLOCK CASE: both sides stale identically, diff changed nothing",
+         dict(want_head=B, have_head=A, base_readable=True, want_base=B, have_base=A),
+         "inherited"),
+        ("this diff changed the registers without re-rendering",
+         dict(want_head=B, have_head=A, base_readable=True, want_base=A, have_base=A),
+         "introduced_registers_changed"),
+        ("this diff hand-edited the block and it still does not match",
+         dict(want_head=A, have_head=B, base_readable=True, want_base=A, have_base=A),
+         "introduced_block_edited"),
+        ("no block at all",
+         dict(want_head=A, have_head=None, base_readable=True, want_base=A, have_base=A),
+         "no_block"),
+        ("base unreadable — we did not look, so fail closed",
+         dict(want_head=B, have_head=A, base_readable=False),
+         "base_unreadable"),
+    ]
+    for label, kw, want in vcases:
+        got = check_verdict(**kw)
+        good = got == want
+        ok &= good
+        print(f"  self-test (verdict: {label}): {'PASS' if good else f'FAIL got={got}'}")
+
     print("session-brief self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
