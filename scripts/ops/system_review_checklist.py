@@ -191,6 +191,25 @@ def load_state(path: pathlib.Path = STATE) -> dict[str, Any]:
         raise SystemExit(f"{path} is unreadable — refusing to render a false checklist")
 
 
+def unknown_keys(state: dict[str, Any]) -> list[str]:
+    """Item keys in the STATE that match no mandate item.
+
+    A typo'd key was SILENTLY IGNORED: the row stayed `not_started` while the
+    evidence sat in the file, so a session could write a finished item and read
+    back a checklist saying it had never been touched. Measured 2026-08-31 --
+    `review_coverage.test_execution_verification` was written with the rendered
+    display prefix rather than the bare id, and the only tell was the done-count
+    failing to move.
+
+    That is the same accept-and-report-success shape this checklist exists to
+    catch elsewhere, so it is surfaced rather than dropped. It is reported, not
+    raised: a stale key from a renamed item must not make the whole checklist
+    unrenderable, which would be a worse failure than the one being fixed.
+    """
+    known = {it["id"] for it in canonical_items()}
+    return sorted(k for k in (state.get("items") or {}) if k not in known)
+
+
 def verdict(state: dict[str, Any]) -> tuple[bool, list[str]]:
     """(is_done, outstanding_ids). Done ONLY when every item is done/n_a."""
     got = state.get("items") or {}
@@ -217,6 +236,14 @@ def render(state: dict[str, Any]) -> str:
 
     run = state.get("run") or "(unnamed run)"
     out = [f"# SYSTEM REVIEW CHECKLIST — {run}", ""]
+    stray = unknown_keys(state)
+    if stray:
+        out.append(
+            f"> ⚠️ **{len(stray)} state key(s) match no mandate item and are being "
+            f"IGNORED** — their evidence is not counted anywhere: {', '.join(stray)}. "
+            "Use the bare item id, not the rendered `section.` display prefix."
+        )
+        out.append("")
     out.append(
         f"**{counts['done']}/{len(items)} done** · {counts['in_progress']} in work · "
         f"{counts['blocked']} blocked · {counts['not_started']} not started · "

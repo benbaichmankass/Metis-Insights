@@ -117,3 +117,29 @@ def test_render_shows_every_item_and_a_verdict():
         assert i["label"] in out, f"{i['label']} missing from the rendered chart"
     assert "REVIEW IS" in out
     assert "Notes" in out, "the operator asked for a notes row; it must always render"
+
+
+def test_an_unknown_state_key_is_reported_not_silently_ignored():
+    """A typo'd item key used to vanish: the row stayed `not_started` while the
+    evidence sat in the file, so a session could write a finished item and read
+    back a checklist claiming it was never touched. The only tell was the
+    done-count failing to move -- which is exactly the accept-and-report-success
+    shape this checklist exists to catch in the review itself.
+
+    Measured 2026-08-31: `review_coverage.test_execution_verification` was
+    written with the rendered display prefix instead of the bare id.
+    """
+    state = {
+        "run": "probe",
+        "items": {"review_coverage.bogus_probe": {"status": "done",
+                                                  "evidence": "x"}},
+        "notes": [],
+    }
+    assert cl.unknown_keys(state) == ["review_coverage.bogus_probe"]
+    assert "match no mandate item" in cl.render(state)
+
+    # ...and a REAL id is not reported, so the check is not vacuous.
+    real = cl.canonical_items()[0]["id"]
+    ok = {"run": "probe", "items": {real: {"status": "done", "evidence": "x"}},
+          "notes": []}
+    assert cl.unknown_keys(ok) == []
