@@ -38,16 +38,41 @@ runs.
 | `cleared` | declares n, effect and basis; n meets the floor AND observed data supports it | yes |
 | `accruing` | declared data-acquisition — the author states up front it cannot answer yet, and what would change that | **yes** |
 | `not_applicable` | `kind: deterministic` with a written `why_not_inferential` | yes |
-| `underpowered` | n is below the floor — the DESIGN asks for too small a sample | blocked |
-| `infeasible` | n clears the floor and **observed data refutes it** — the SCOPE is wrong, not the design | blocked |
+| `underpowered` | n is below the floor — the DESIGN asks for too small a sample | **yes** |
+| `infeasible` | n clears the floor and **observed data refutes it** — the SCOPE is wrong, not the design | **yes** |
 | `undeclared` | does not declare them — emphatically not "fine" | blocked |
 | `unverifiable` | declared, but `basis` or `feasibility` is missing / unreadable | blocked |
 
-⚠️ **Three different states may run, for three different reasons.**
-`not_applicable` faced no bar, `cleared` faced it and met it, `accruing` faced it
-and declared it would fail. Tallying them together reports "N jobs cleared the
-power gate" over a population where some never took the test. Consumers must
-branch on the state, never on `runnable`.
+⚠️ **`underpowered` and `infeasible` RUN as of 2026-08-31, and this table said
+`blocked` until then — do not re-quote that.** Operator directive: *"I'd rather
+err on the lenient side here and not exclude tests that may [give] some
+insights."* Both are verdicts about how much DATA exists, not about whether the
+run is worth making: a sweep over a thin leg still emits real numbers, what it
+cannot emit is a POWERED verdict. Blocking was also self-fulfilling — a leg that
+never runs never accrues the trades that would clear its own floor.
+
+⚠️ **The front-end guard did not go away; it narrowed to the two states it was
+always about.** The original ask was that an experiment "provide certain
+statistical relevance expectations based on data" before entering the queue.
+That is `undeclared` (nobody did the arithmetic) and `unverifiable` (we cannot
+check the arithmetic they did) — both still blocked. The distinction is the one
+the operator drew: a measurement that cannot produce results *yet* is
+legitimate and runs; one nobody thought about is refused.
+
+⚠️ **Leniency at the front door is only safe because of strictness at the
+reading.** Three things carry it: the verdict is stamped onto every row the run
+lands (`research_power_state`), `research_disposition.py --report` prints the
+admission census, and `research_disposition.append` **refuses** to close any
+`accruing` / `underpowered` / `infeasible` unit with a terminal verdict
+(`actioned`, `no_action_warranted`). A test pins the runnable set and the
+refusal set together so neither can widen alone.
+
+⚠️ **Five different states may run, for five different reasons.**
+`not_applicable` faced no bar, `cleared` faced it and met it, `accruing` faced
+it and declared up front it would fail, `underpowered` and `infeasible` faced it
+and fell short by design and by data respectively. Tallying them together
+reports "N jobs cleared the power gate" over a population where most did not.
+Consumers must branch on the state, never on `runnable`.
 
 ⚠️ **`underpowered` and `infeasible` are not interchangeable**, and reporting one
 as the other sends the author to rewrite the wrong half of their design.

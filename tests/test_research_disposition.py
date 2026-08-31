@@ -207,12 +207,23 @@ def _body(**kw):
 
 
 @pytest.mark.parametrize("verdict", ["actioned", "no_action_warranted"])
-def test_an_accruing_unit_cannot_be_closed_with_a_terminal_verdict(tmp_path, verdict):
+@pytest.mark.parametrize("admitted", ["accruing", "underpowered", "infeasible"])
+def test_a_data_shortfall_unit_cannot_be_closed_with_a_terminal_verdict(
+        tmp_path, verdict, admitted):
+    """⚠️ THE COMPENSATING HALF OF THE 2026-08-31 LENIENCY DIRECTIVE.
+
+    `underpowered` and `infeasible` became RUNNABLE that day. This refusal is
+    the only thing that then stands between a deliberately-thin run and a
+    ledger entry claiming it answered something — so it is parametrized over
+    the whole shortfall set rather than just `accruing`, and
+    tests/test_research_queue.py pins the two modules' sets equal so neither
+    can widen alone.
+    """
     body = _body(verdict=verdict)
     if verdict == "actioned":
         body["actions"] = ["BL-XXXX"]
-    with _unit_state(rd.ACCRUING_STATE):
-        with pytest.raises(ValueError, match="accruing"):
+    with _unit_state(admitted):
+        with pytest.raises(ValueError, match=admitted):
             rd.append(body, ledger=tmp_path / "l.jsonl")
 
 

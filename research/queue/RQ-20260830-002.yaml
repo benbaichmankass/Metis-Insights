@@ -41,42 +41,61 @@ power:
     producer''s name — m20 calls it `base_trades_OOS`) before quoting any
     verdict from this job.'
   feasibility:
-    source: none
-    accrual_basis: >-
-      DECLARED ACCRUAL FOR EXACTLY ONE CYCLE, because the run configuration
-      just CHANGED and nothing has yet run under it. `split_target_oos` was
-      raised 50 -> 60 on 2026-08-31 (operator-approved), which is the fix for
-      BL-20260831-E35-MONTHLY-JOB-TARGETS-AN-N-BELOW-ITS-OWN-POWER-FLOOR.
-      THE BASIS FOR 60, and state the population: over the 9 capable legs
-      (newest run per leg, e35 corpus, `base_oos_trades` non-null, run of
-      2026-08-31) a target of 50 ACHIEVED 46, 48, 48, 49, 49, 49, 49, 49, 50 —
-      shortfall 0-4, max 4, n=9 — so 8 of the 9 sit under the 49.06 floor and
-      only ONE clears. The target is not the achieved count: the harness
-      windows CANDLES, not trades, so the boundary loses a few near the edge.
-      60 clears the floor by 10 against a max observed shortfall of 4 (2.5x
-      margin) and stays under the BINDING clamp, which is
-      `lifetime // 2` on trend_donchian_xrp_4h: IS 82 + OOS 49 = 131 -> 65. So
-      no leg is clamped and every leg keeps IS >= OOS. ⚠️ 60 is a CHOSEN value
-      with a measured basis over n=9, not a tuned one, and the max of 9 draws
-      systematically UNDERSTATES the tail — if a future run lands a leg below
-      50, raise again rather than reading one miss as noise. Deliberately NOT
-      55: that is margin 5 against an observed shortfall of 4, i.e. the
-      target-at-the-floor mistake in miniature.
-      WHY THIS STAYS `source: none` RATHER THAN GOING CORPUS-GROUNDED NOW: the
-      corpus holds only PRE-RAISE observations (min_per_leg 46), so grading
-      against them would return INFEASIBLE and block the very dispatch that
-      produces the post-raise evidence — a deadlock. A configuration nothing
-      has ever run cannot have corpus-grounded feasibility.
-      CLEARS WHEN: one run lands under `split_target_oos: 60` and its rows show
-      min_per_leg >= 50 across these 9 legs. At that point switch this block to
-      `source: corpus, corpus: e35, statistic: min_per_leg, legs: [the 9]`.
-      ⚠️ That switch must NOT be made while pre-raise rows are the newest
-      evidence for any leg — `observed_n_by_leg` keeps the BEST observation per
-      leg with no notion of the run configuration that produced it
-      (BL-20260831-FEASIBILITY-OBSERVATIONS-ARE-BLIND-TO-RUN-CONFIG), so it
-      would silently count target-50 rows as evidence about a target-60 run.
-      Until the switch, no verdict from this job may be read as evidence a
-      shipped cell has decayed.
+    source: corpus
+    corpus: e35
+    statistic: min_per_leg
+    legs:
+    - ada_pullback_2h
+    - tlt_pullback_1h
+    - trend_donchian
+    - trend_donchian_ada_4h
+    - trend_donchian_avax_4h
+    - trend_donchian_eth_4h
+    - trend_donchian_sol_4h
+    - trend_donchian_xrp_4h
+    - uso_trend_1h
+    basis: >-
+      GROUNDED ON THE CORPUS, AND IT CURRENTLY GRADES `infeasible` — WHICH IS
+      THE HONEST STATE AND NO LONGER BLOCKS. Until the 2026-08-31 leniency
+      directive (*"I'd rather err on the lenient side here and not exclude
+      tests that may [give] some insights"*) `infeasible` was a REFUSAL, so
+      grounding this unit on the corpus would have graded the NEW config
+      against PRE-RAISE rows, returned infeasible, and blocked the very
+      dispatch that produces the post-raise evidence — a deadlock. That is why
+      an earlier version of this block declared `source: none` with a written
+      accrual instead. The directive removed the deadlock, so the machine now
+      derives the verdict from data rather than taking the author's word, and
+      this block AUTO-CLEARS: no human has to come back and flip it.
+      THE MEASUREMENT, and state the population: over these 9 legs (newest run
+      per leg, e35 corpus, `base_oos_trades` non-null, run of 2026-08-31) a
+      `split_target_oos` of 50 ACHIEVED 46, 48, 48, 49, 49, 49, 49, 49, 50 —
+      shortfall 0-4, max 4, n=9 — so min_per_leg is 46 against a floor of
+      49.06 and 8 of the 9 sit under it. The target is not the achieved count:
+      the harness windows CANDLES, not trades, so the boundary loses a few near
+      the edge.
+      THE FIX ALREADY APPLIED: `split_target_oos` raised 50 -> 60 (see
+      run.inputs). 60 clears the floor by 10 against a max observed shortfall
+      of 4, and stays under the BINDING clamp — `lifetime // 2` on
+      trend_donchian_xrp_4h, IS 82 + OOS 49 = 131 -> 65 — so no leg is clamped
+      and every leg keeps IS >= OOS. ⚠️ 60 is a CHOSEN value with a measured
+      basis over n=9, not a tuned one, and the max of 9 draws systematically
+      UNDERSTATES the tail; if a future run lands a leg below 50, raise again
+      rather than reading one miss as noise. Deliberately NOT 55: margin 5
+      against an observed shortfall of 4 is the target-at-the-floor mistake in
+      miniature (BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS).
+      ⚠️ THE FIRST POST-RAISE RUN GRADES AGAINST PRE-RAISE ROWS, and that is a
+      known limitation rather than a mistake here: `observed_n_by_leg` keeps the
+      BEST observation per leg with NO notion of the run configuration that
+      produced it (BL-20260831-FEASIBILITY-OBSERVATIONS-ARE-BLIND-TO-RUN-CONFIG).
+      Under leniency that is harmless — the unit runs either way and the verdict
+      is stamped on its rows — but it means the `infeasible` grade will persist
+      for exactly one cycle after the raise and then flip to `cleared` on its
+      own once a target-60 run lands ~56 per leg. Do not read the interim
+      `infeasible` as evidence the raise failed.
+      ⚠️ WHILE THIS GRADES `infeasible` OR `underpowered`, no verdict from this
+      job may be read as evidence a shipped cell has decayed, and
+      `research_disposition.append` will REFUSE to close any of its units
+      `actioned` or `no_action_warranted`.
 routing:
   needs_trainer_resident_data: false
   needs_gpu: false

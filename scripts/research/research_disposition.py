@@ -133,6 +133,21 @@ N_FIELD = {"e35": "base_oos_trades", "m20": "base_trades_OOS", "gld_compat": Non
 #: is not importable; a test pins the two equal so they cannot drift.
 ACCRUING_STATE = "accruing"
 
+#: Mirrors research_queue.DATA_SHORTFALL_STATES — the admission verdicts that
+#: mean "there is not enough DATA to answer this yet", as opposed to "nobody
+#: declared what would count as an answer".
+#:
+#: ⚠️ THIS SET IS THE OTHER HALF OF A LENIENCY DECISION AND MUST NOT SHRINK
+#: BELOW THE QUEUE'S. Operator directive 2026-08-31 made `underpowered` and
+#: `infeasible` RUNNABLE — *"I'd rather err on the lenient side here and not
+#: exclude tests that may [give] some insights"*. That is only safe because
+#: nothing may CLOSE such a unit as answered. Widening the front door without
+#: widening this refusal converts "we ran it anyway, honestly labelled" into
+#: "we ran it and nothing stops us calling the answer a result", which is the
+#: precise failure the admission gate was built to prevent. A test pins this
+#: equal to the queue's tuple so the two cannot drift apart.
+DATA_SHORTFALL_STATES = ("accruing", "underpowered", "infeasible")
+
 DISPOSITIONED = "dispositioned"
 UNREAD = "unread"
 SUPERSEDED_UNREAD = "superseded_unread"
@@ -312,13 +327,19 @@ def _accrual_check(entry: dict, non_reasons=None) -> str:
     """Grade the unit's admission state, and REFUSE a terminal verdict on one
     the R4 gate admitted as `accruing`.
 
-    WHY THIS EXISTS. The admission gate can mark a unit `accruing` — "this job
-    cannot answer its question yet, and says so up front" — and the extractor
-    stamps that onto every row it produces. Until 2026-08-31 the chain STOPPED
-    THERE: nothing prevented the same unit being closed `actioned` or
-    `no_action_warranted`. The gate's whole promise is that an accruing result
-    is not read as a test result, and the ledger is the one place that promise
-    could be broken on the record.
+    WHY THIS EXISTS. The admission gate marks a unit with one of the
+    DATA_SHORTFALL_STATES — "there is not enough data to answer this yet" —
+    and the extractor stamps that onto every row it produces. Until 2026-08-31
+    the chain STOPPED THERE: nothing prevented the same unit being closed
+    `actioned` or `no_action_warranted`. The gate's whole promise is that such
+    a result is not read as a test result, and the ledger is the one place that
+    promise could be broken on the record.
+
+    ⚠️ IT CARRIES MORE WEIGHT SINCE THE SAME DAY'S LENIENCY DECISION. When
+    `underpowered` and `infeasible` BLOCKED, the front door did most of the
+    work and this was a backstop. Now that all three shortfall states RUN, this
+    refusal is the ONLY thing standing between a deliberately-thin run and a
+    ledger entry claiming it answered something.
 
     ⚠️ ONLY THE TERMINAL VERDICTS ARE REFUSED. `underpowered` and `superseded`
     are honest non-answers and are exactly what an accruing unit SHOULD be
@@ -340,18 +361,20 @@ def _accrual_check(entry: dict, non_reasons=None) -> str:
     meta = units.get((entry["run_stamp"], entry["leg"]))
     if meta is None:
         return "unit_absent"
-    if meta.get("power_state") != ACCRUING_STATE:
+    admitted = meta.get("power_state")
+    if admitted not in DATA_SHORTFALL_STATES:
         return "clear"
     if entry["verdict"] not in TERMINAL_VERDICTS:
         return "clear"
     if len(override) < 20:
         raise ValueError(
-            f"unit was admitted as {ACCRUING_STATE!r} and cannot be closed "
-            f"{entry['verdict']!r}. The gate accepted this job on the stated "
-            "basis that it cannot answer its question yet, so recording an "
-            "answer contradicts its own admission. Record 'underpowered' or "
-            "'superseded', or state an `accrual_override_reason` saying what "
-            "changed such that this unit IS now decidable."
+            f"unit was admitted as {admitted!r} and cannot be closed "
+            f"{entry['verdict']!r}. The gate let this job RUN on the stated "
+            "basis that there is not enough data to answer its question yet, "
+            "so recording an answer contradicts its own admission. Record "
+            "'underpowered' or 'superseded', or state an "
+            "`accrual_override_reason` saying what changed such that this unit "
+            "IS now decidable."
         )
     low = override.lower()
     for bad in (non_reasons if non_reasons is not None else _non_reasons()):

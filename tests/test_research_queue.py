@@ -109,11 +109,28 @@ def test_power_cleared_when_n_meets_the_floor():
     assert v.required_n == pytest.approx(required_n(0.3))
 
 
-def test_power_underpowered_blocks_rather_than_running_a_weak_answer():
+def test_power_underpowered_RUNS_but_is_never_cleared():
+    """⚠️ THIS TEST ASSERTED THE OPPOSITE UNTIL 2026-08-31, and its old name
+    (`..._blocks_rather_than_running_a_weak_answer`) is the policy that changed.
+
+    Operator directive: *"I'd rather err on the lenient side here and not
+    exclude tests that may [give] some insights."* An underpowered run still
+    emits real numbers; what it cannot emit is a POWERED verdict. Blocking it
+    was also self-fulfilling — a leg that never runs never accrues the trades
+    that would clear its own floor.
+
+    The standard did not move, the DOOR did: the state is still distinct from
+    CLEARED, still stamped onto every row the run lands, and
+    `research_disposition.append` refuses to close it (asserted in
+    tests/test_research_disposition.py, which is where the compensating half
+    lives).
+    """
     with _observing({'leg_a': 10_000.0}):
         v = grade_power(_entry(power={"expected_n": 10, "min_detectable_effect": 0.3,
                                       "basis": "b", "feasibility": {"source": "corpus", "corpus": "e35", "statistic": "min_per_leg"}}))
-    assert v.state == UNDERPOWERED and not v.runnable
+    assert v.state == UNDERPOWERED
+    assert v.runnable, "leniency directive 2026-08-31: a data shortfall does not exclude the run"
+    assert v.state != CLEARED, "runnable is NOT cleared — consumers must branch on the state"
     assert "data-acquisition" in v.reason
 
 
@@ -639,7 +656,11 @@ def test_infeasible_is_not_underpowered_and_names_the_short_legs():
     the author to rewrite the wrong half of their design."""
     with _observing({"thin_leg": 4.0, "fat_leg": 400.0}):
         v = grade_power(_entry())           # expected_n 400, min_per_leg -> 4
-    assert v.state == INFEASIBLE and not v.runnable
+    # RUNNABLE since the 2026-08-31 leniency directive — see
+    # test_power_underpowered_RUNS_but_is_never_cleared for the reasoning. The
+    # DIAGNOSIS is what this test is about, and it is unchanged.
+    assert v.state == INFEASIBLE and v.runnable
+    assert v.state != CLEARED
     assert v.state != UNDERPOWERED
     assert "thin_leg=4" in v.reason, "the refusal must name which leg falls short"
     assert "SCOPE" in v.reason
@@ -869,3 +890,36 @@ def test_fire_only_injects_power_state_for_a_unit_that_named_itself():
     assert 'if inputs.get("research_unit") and power_state:' in src, (
         "the injection must be conditional on the unit having named itself"
     )
+
+
+def test_the_runnable_set_and_the_disposition_refusal_cover_the_same_states():
+    """The leniency directive is only safe as a PAIR: every state the queue now
+    lets run for a data-shortfall reason must be one `research_disposition`
+    refuses to close with a terminal verdict. Widening one without the other
+    turns "we ran it anyway, honestly labelled" into "we ran it and nothing
+    stops us calling the answer a result".
+
+    The two modules duplicate the vocabulary deliberately (the disposition
+    reader must stay importable when the queue package is not), so pin them.
+    """
+    import importlib.util
+    from scripts.research.research_queue import DATA_SHORTFALL_STATES
+    spec = importlib.util.spec_from_file_location(
+        "_rd_pin", REPO / "scripts/research/research_disposition.py")
+    rd = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rd)
+
+    assert set(rd.DATA_SHORTFALL_STATES) == set(DATA_SHORTFALL_STATES)
+    # every shortfall state must actually be runnable, or the pairing is moot
+    for st in DATA_SHORTFALL_STATES:
+        assert st in RUNNABLE_POWER_STATES, (
+            f"{st!r} is refused at disposition but blocked at dispatch — the "
+            f"refusal is then guarding a door nobody can reach")
+    # and the BLOCKING states must NOT be in the refusal set: a job that never
+    # ran has no rows to close, and folding them in would blur why each blocks
+    for st in (UNDECLARED, UNVERIFIABLE):
+        assert st not in DATA_SHORTFALL_STATES
+        assert st not in RUNNABLE_POWER_STATES, (
+            "the front-end guard the operator originally asked for lives here: "
+            "an experiment that declares no statistical expectation, or whose "
+            "declaration cannot be checked, is still refused entry")
