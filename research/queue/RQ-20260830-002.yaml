@@ -63,7 +63,8 @@ routing:
 run:
   workflow: e35-bracket-sweep.yml
   inputs:
-    only: ada_pullback_2h,iwm_trend_long_1d,mgc_pullback_1d,qqq_trend_long_1d,scha_trend_long_1d,spy_trend_long_1d,tlt_pullback_1h,trend_donchian,trend_donchian_ada_4h,trend_donchian_avax_4h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,uso_trend_1h
+    only: ada_pullback_2h,tlt_pullback_1h,trend_donchian,trend_donchian_ada_4h,trend_donchian_avax_4h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,uso_trend_1h
+    research_unit: RQ-20260830-002
     days: '1830'
     gate_top: '2'
     singles_only: 'false'

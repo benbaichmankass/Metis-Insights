@@ -128,6 +128,11 @@ CORPORA = {
 #: read one"; the R4 power gate correctly declines to grade it.
 N_FIELD = {"e35": "base_oos_trades", "m20": "base_trades_OOS", "gld_compat": None}
 
+#: Mirrors research_queue.ACCRUING. Duplicated as a literal rather than
+#: imported because this module must stay readable when the queue package
+#: is not importable; a test pins the two equal so they cannot drift.
+ACCRUING_STATE = "accruing"
+
 DISPOSITIONED = "dispositioned"
 UNREAD = "unread"
 SUPERSEDED_UNREAD = "superseded_unread"
@@ -177,8 +182,33 @@ def load_units(corpus: str) -> tuple[str, dict]:
                 stamp, leg = row.get(stamp_field), row.get(leg_field)
                 if not stamp or not leg:
                     continue
-                u = units.setdefault((stamp, leg), {"rows": 0, "n_oos": None})
+                u = units.setdefault((stamp, leg), {"rows": 0, "n_oos": None,
+                                                    "power_state": None,
+                                                    "research_unit": None})
                 u["rows"] += 1
+                # ⚠️ THE READER THAT MAKES `accruing` MEAN SOMETHING. Without
+                # it a row from a job that declared UP FRONT it cannot answer
+                # its question yet is graded as an ordinary unit, and the
+                # queue's "do not read this as a test result" is a promise
+                # nothing keeps.
+                #
+                # WORST-STATE WINS across a unit's rows: if ANY row came from an
+                # accruing run the whole unit is accrual-tainted, because a unit
+                # is only as gradeable as its least gradeable evidence. Taking
+                # the newest or the majority would let one clean row launder a
+                # unit that is mostly accrual.
+                #
+                # `None` = NOT QUEUE-DISPATCHED (manual run, or extracted before
+                # the stamp shipped). It is NOT a clearance and must never be
+                # read as one — which is why it stays a distinct value rather
+                # than defaulting to something that looks like a pass.
+                ps = row.get("research_power_state")
+                if isinstance(ps, str) and ps.strip():
+                    if u["power_state"] != ACCRUING_STATE:
+                        u["power_state"] = ps.strip()
+                ru = row.get("research_unit")
+                if isinstance(ru, str) and ru.strip() and not u["research_unit"]:
+                    u["research_unit"] = ru.strip()
                 if n_field:
                     v = row.get(n_field)
                     if isinstance(v, (int, float)):
