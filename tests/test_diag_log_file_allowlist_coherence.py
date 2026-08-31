@@ -40,6 +40,24 @@ def _code_names() -> set:
     return names
 
 
+def _declared_soak_logs() -> set:
+    """Every ``SOAK_LOG_NAME``/``_SOAK_NAME`` constant declared under ``src/``.
+
+    Derived, never enumerated -- the whole point of the sibling test below.
+    """
+    names = set()
+    for path in (ROOT / "src").rglob("*.py"):
+        for value in re.findall(
+            r'(?:SOAK_LOG_NAME|_SOAK_NAME)\s*=\s*"([a-z0-9_]+)\.jsonl"',
+            path.read_text(encoding="utf-8", errors="ignore"),
+        ):
+            names.add(value)
+    assert names, ("parsed src/ but found no SOAK_LOG_NAME constants -- the "
+                   "probe is broken, not the allowlist (a negative needs a "
+                   "denominator)")
+    return names
+
+
 def _documented_names() -> set:
     doc = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
     m = re.search(r"GET /api/diag/log_file\?name=\{([^}]*)\}", doc)
@@ -126,4 +144,41 @@ def test_every_cooldown_latch_has_a_read_surface():
         "permanently-broken latch is indistinguishable from a working one. Add "
         "the name to _LOG_FILES in diag.py (and to the CLAUDE.md log_file row, "
         "which test_every_allowlisted_log_file_is_documented pins)."
+    )
+
+
+def test_every_declared_soak_log_has_a_read_surface():
+    """The SOAK sibling of the latch test above -- same class, one level over.
+
+    MEASURED 2026-08-31 during a /system-review: **2 of 10** modules declaring a
+    ``SOAK_LOG_NAME`` had no way to read the file back --
+    ``conflict_taxonomy_soak`` and ``macro_thesis_soak``. Both are observe-only
+    surfaces whose entire purpose is to be READ before a gate is flipped, so an
+    unreadable soak is not a degraded feature, it is the feature absent.
+
+    This is the same defect the cooldown-latch test above was written for
+    (`BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE`,
+    four instances), and the same one measured that day in
+    ``_sweep_stray_oca_groups``, whose ``annotate`` mode computes a verdict and
+    discards it. Enumerating names cannot catch the NEXT one; deriving them can,
+    so this fails on the commit that adds an unreadable soak.
+
+    ⚠️ A soak may legitimately be exposed under a DIFFERENT allowlist key than
+    its filename -- ``package_leg_coverage_state.json`` is served as
+    ``package_leg_coverage`` -- which is why the check allows either the bare
+    stem or the stem with a ``_state``/``_soak`` suffix trimmed. A filename-only
+    match would have false-positived on exactly that row.
+    """
+    code = _code_names()
+    missing = sorted(
+        n for n in _declared_soak_logs()
+        if n not in code and n.removesuffix("_soak") not in code
+    )
+    assert not missing, (
+        f"declared soak log(s) with no diag read surface: {missing}. A soak "
+        "exists to be READ before a mode is flipped -- an observe-only writer "
+        "nobody can read is the 'written and never read' shape this repo keeps "
+        "paying for. Add the name to _LOG_FILES in diag.py (and to the "
+        "CLAUDE.md log_file row, which "
+        "test_every_allowlisted_log_file_is_documented pins)."
     )

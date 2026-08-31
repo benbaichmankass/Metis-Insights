@@ -257,6 +257,12 @@ _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 _ARBITRATION_FANOUT_SOAK_LOG = runtime_logs_dir() / "arbitration_fanout_soak.jsonl"
 _PAIRS_SOAK_LOG = runtime_logs_dir() / "pairs_soak.jsonl"
 _EXPOSURE_SOAK_LOG = runtime_logs_dir() / "exposure_soak.jsonl"
+# Two observe-only soaks that shipped a writer and no reader, found 2026-08-31
+# by deriving the expected set from the SOAK_LOG_NAME constants rather than
+# enumerating it (2 of 10 were unreachable). A soak exists to be READ before
+# a mode is flipped, so an unreadable one is the feature ABSENT, not degraded.
+_CONFLICT_TAXONOMY_SOAK_LOG = runtime_logs_dir() / "conflict_taxonomy_soak.jsonl"
+_MACRO_THESIS_SOAK_LOG = runtime_logs_dir() / "macro_thesis_soak.jsonl"
 _NETTING_ATTRIBUTION_SOAK_LOG = (
     runtime_logs_dir() / "netting_attribution_soak.jsonl"
 )
@@ -397,6 +403,8 @@ _LOG_FILES: dict[str, Path] = {
     "pairs_soak": _PAIRS_SOAK_LOG,
     # Gross-exposure observation soak (also public at /api/bot/exposure/soak).
     "exposure_soak": _EXPOSURE_SOAK_LOG,
+    "conflict_taxonomy_soak": _CONFLICT_TAXONOMY_SOAK_LOG,
+    "macro_thesis_soak": _MACRO_THESIS_SOAK_LOG,
     # Netting partial-close ATTRIBUTION soak (BL-20260801). One line per journal
     # row the reconciler would reduce/close to account for a netted partial
     # close, with the SELECTION basis (`leg_gone` / `fifo`) and the PRICE
