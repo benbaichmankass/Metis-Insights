@@ -48,8 +48,8 @@
       "evidence": "count_shipped=23, enumerated from `git log --since=2026-08-29 --diff-filter=A` over src/ scripts/ deploy/ .github/ -- the full list, not a sample. VERDICTS: 0 UNWIRED. 18 scripts each carry >=1 runner/skill/action reference; 5 src/ modules each have >=1 importer and >=1 test file (arbitration_fanout, arbitration_fanout_soak, bybit_wallet_truth, cash_settlement, operator_flatten_intent). The one refs=0 entry, .github/workflows/alpaca-settlement-soak-watch.yml, is a SELF-TRIGGERING workflow (schedule: weekdays 14:30 UTC) -- refs=0 is the correct shape for it, and it is `wired_not_yet_exercised` (merged Sat 08-29, first weekday fire is 09-01). check_unwired_artifacts.py: unwired=2 / doc_only=105 / skill_invoked=9; BOTH unwired entries (scripts/ml/fetch_fred_macro.py, scripts/validate_registry_vm.py) were last touched 2026-08-26 and so PREDATE this window -- no capability shipped since the last review is unwired. For scale, the SKILL.md baseline was 12 unwired / 149 doc_only."
     },
     "research_results_disposition": {
-      "status": "not_started",
-      "evidence": ""
+      "status": "in_progress",
+      "evidence": "Surveyed with scripts/research/research_disposition.py: 64 dispositioned / 39 unread / 229 superseded_unread at start. ⚠️ The 229 are NOT a finding -- the tool's own contract declares superseded_unread moot by design ('reading it is moot, and calling that a failure is how a detector trains its reader to ignore it'), so the work queue is the 39. DRAINED 11 of them (gld_compat, run 2026-08-31T05:20:34Z, all 11 accounts) -> unread now 28. Verdict no_action_warranted, written to docs/research/research-disposition-ledger.jsonl with the reasoning, not just a stamp. Two things checked rather than assumed: fee_bps_roundtrip=0 across all 44 rows LOOKS like the ~25x fee mis-charge this repo records for this exact strategy and is REFUTED -- the workflow sets it deliberately as the correction ('GLD is commission-free on Alpaca'); and the 10 ROUTE verdicts are a risk-ruleset clearance, not a routing recommendation, since 7 are venues that cannot list a US equity ETF -> filed BL-20260831-COMPAT-MATRIX-ROUTE-VERDICT-HAS-NO-INSTRUMENT-AVAILABILITY-AXIS. REMAINING 28: 23 e35 legs (run 2026-08-29T22:xx, 199 bracket cells each over an 8,321-row corpus), 1 m20, 4 others -- substantive per-leg gate analysis, not a stamp exercise."
     },
     "test_execution_verification": {
       "status": "not_started",
@@ -104,8 +104,8 @@
       "evidence": ""
     },
     "performance_review.insights_review": {
-      "status": "not_started",
-      "evidence": ""
+      "status": "done",
+      "evidence": "M13 insights cache cross-checked against the journal, live 2026-08-31T06:57Z. All three endpoints cache_present:true, model_id template:v1, cache_age 45-46s -- the generator is running, not stale. AGREEMENT IS EXACT, checked by arithmetic rather than by eye: /insights/summary claims 'Win rate 0.0% over 2 closed trades' with row_counts.trades=2, and /api/bot/performance?window=24h independently returns totalTrades 2 / wins 0 / winRate 0.0 / totalPnl -3.7381 -- which is exactly the two real-money closes in that window (-1.2872 ETHUSDT + -2.4509 XRPUSDT = -3.7381). Grades: summary `watch` (correct -- 0% of 2), health `good`, recent `good`. ONE APPARENT DISCREPANCY INVESTIGATED AND DISSOLVED: /insights/recent publishes a data_window ENDING 2026-08-28 while its cache is 46s old, which reads as a 3-day-stale feed. It is not -- the builder selects `t.timestamp AS opened_at` and keys the window on OPEN time, and the two newest closes (08-30T09:48, 09:46) OPENED on 08-21 and 08-22. Confirmed the system is not in an entry drought either: 20 open positions with the newest opened 2026-08-31T06:24Z. Reported as dissolved rather than filed."
     },
     "performance_review.proposed_tweaks": {
       "status": "not_started",
