@@ -122,3 +122,87 @@ def test_window_is_passed_to_the_venue(tmp_path):
     assert p["endTime"] == 1_000_000_000_000
     assert p["startTime"] == 1_000_000_000_000 - 3 * 86_400_000
     assert p["accountType"] == "UNIFIED"
+
+
+# ── the Bybit V5 range cap ────────────────────────────────────────────────────
+
+class RangeCappedClient:
+    """Models Bybit V5's real behaviour: a call returns only rows inside the
+    FIRST 7 days of whatever range you ask for. Asking for 60 days therefore
+    yields the slice [start, start+7d] — the window MOVES rather than widening.
+    """
+
+    CAP_MS = 7 * 86_400_000
+
+    def __init__(self, rows):
+        self.rows = rows
+        self.calls = []
+
+    def get_transaction_log(self, **p):
+        self.calls.append(p)
+        lo = p["startTime"]
+        hi = min(p["endTime"], lo + self.CAP_MS)
+        got = [r for r in self.rows if lo <= r["transactionTime"] <= hi]
+        return {"result": {"list": got, "nextPageCursor": ""}}
+
+
+def _spread(now_ms, days, per_day=1):
+    out = []
+    for d in range(days):
+        for i in range(per_day):
+            t = now_ms - d * 86_400_000 - i
+            out.append({"id": f"d{d}-{i}", "type": "TRADE", "currency": "USDT",
+                        "change": "-1.0", "transactionTime": t})
+    return out
+
+
+def test_a_deep_window_is_WALKED_not_asked_for_in_one_call(tmp_path):
+    """The bug this pins: `--days 60` in a single call returns a 7-day slice and
+    reports success. The fills puller already paid for it
+    (BL-20260808-FILLS-WINDOW-TOO-SHORT-TO-REPAIR-HISTORY); this asserts the
+    transaction-log puller does not repeat it."""
+    now = 1_760_000_000_000
+    rows = _spread(now, days=60)
+    c = RangeCappedClient(rows)
+    db = tmp_path / "s.sqlite"
+
+    inserted = puller.pull_one_account(
+        "bybit_2", "k", "s", demo=False, days=60, store_path=db,
+        client_factory=lambda *a, **kw: c, now_ms=now,
+    )
+    # 60 days walked in <=7-day chunks
+    assert len(c.calls) >= 8, f"only {len(c.calls)} call(s) — the range was not walked"
+    assert inserted == 60, f"expected all 60 days stored, got {inserted}"
+
+
+def test_a_single_call_would_have_returned_only_a_slice(tmp_path):
+    """The CONTROL: without chunking the same client yields ~7 rows, not 60.
+    Without this, the test above could pass for the wrong reason."""
+    now = 1_760_000_000_000
+    c = RangeCappedClient(_spread(now, days=60))
+    one_shot = puller.fetch_transaction_log(
+        c, start_ms=now - 60 * 86_400_000, end_ms=now
+    )
+    assert len(one_shot) <= 8, (
+        f"the fake is not modelling the range cap ({len(one_shot)} rows) — "
+        "a negative needs a denominator"
+    )
+
+
+def test_chunk_edges_overlap_harmlessly(tmp_path):
+    """Chunk boundaries re-see rows; the store keys on the venue id, so a
+    re-walk must not double-count the money."""
+    now = 1_760_000_000_000
+    db = tmp_path / "s.sqlite"
+    def mk():
+        return RangeCappedClient(_spread(now, days=21))
+
+    for _ in range(2):
+        puller.pull_one_account(
+            "bybit_2", "k", "s", demo=False, days=21, store_path=db,
+            client_factory=lambda *a, **kw: mk(), now_ms=now,
+        )
+    import src.runtime.bybit_wallet_truth as wt
+    from src.runtime.exchange_fills_store import list_transaction_log
+    v = wt.compute_wallet_truth("bybit_2", list_transaction_log("bybit_2", path=db))
+    assert v.realized_usd == -21.0, f"two walks moved the figure: {v.realized_usd}"

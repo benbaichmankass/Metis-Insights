@@ -50,6 +50,18 @@ logger = logging.getLogger("pull_bybit_transaction_log")
 MAX_PAGES = 50
 PAGE_LIMIT = 100
 
+#: Bybit V5 caps the queryable RANGE, not just the page. A single call with
+#: ``startTime = now - 60d`` does NOT return 60 days — it returns the 7-day
+#: slice at the START of that range, so the window MOVES instead of widening
+#: and a deep backfill silently comes back nearly empty while reporting success.
+#: The fills puller already paid for this
+#: (BL-20260808-FILLS-WINDOW-TOO-SHORT-TO-REPAIR-HISTORY: `--days 90` returned
+#: candidates=0 on all three accounts while `--days 7` returned 63/3/13, and a
+#: 90-day window cannot hold fewer rows than the 7 days nested inside it).
+#: So a deep window is WALKED in <= 7-day chunks, never asked for in one call.
+#: Found here by reading that sibling's comment BEFORE deploying, not after.
+MAX_RANGE_DAYS = 7
+
 
 def _default_client(api_key: str, api_secret: str, demo: bool):
     from pybit.unified_trading import HTTP  # imported lazily: VM-only dep
@@ -115,11 +127,24 @@ def pull_one_account(
     end = int(now_ms if now_ms is not None else time.time() * 1000)
     start = end - int(days) * 86_400_000
     client = client_factory(api_key, api_secret, demo)
-    rows = fetch_transaction_log(client, start_ms=start, end_ms=end)
+
+    # Walk the range in <= MAX_RANGE_DAYS chunks (see the constant). Dedup is
+    # the store's job -- it keys on the venue's own row id -- so overlapping
+    # chunk edges cost nothing and a re-run inserts zero.
+    chunk_ms = MAX_RANGE_DAYS * 86_400_000
+    rows: list[dict[str, Any]] = []
+    chunks = 0
+    lo = start
+    while lo < end:
+        hi = min(lo + chunk_ms, end)
+        rows.extend(fetch_transaction_log(client, start_ms=lo, end_ms=hi))
+        chunks += 1
+        lo = hi
+
     inserted = upsert_transaction_log(rows, account_id, path=store_path)
     logger.info(
-        "transaction-log: account=%s demo=%s days=%d fetched=%d inserted=%d",
-        account_id, demo, days, len(rows), inserted,
+        "transaction-log: account=%s demo=%s days=%d chunks=%d fetched=%d inserted=%d",
+        account_id, demo, days, chunks, len(rows), inserted,
     )
     return inserted
 
