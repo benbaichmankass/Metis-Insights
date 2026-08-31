@@ -312,7 +312,19 @@ def _self_test() -> int:
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     saved_api = globals()["API_BASE"]
     globals()["API_BASE"] = f"http://127.0.0.1:{srv.server_port}"
+    # ⚠️ THE SELF-TEST SETS ITS OWN CREDENTIAL RATHER THAN INHERITING ONE.
+    # It did not, and CI caught it: every control that calls main() needs a
+    # token to get past the credential check, and the author had only ever run
+    # this as `GITHUB_TOKEN=x python3 …`. In the guards job no token is
+    # exported, so `main()` correctly returned 2 (could_not_look) and the very
+    # first end-to-end control failed. A test whose verdict depends on ambient
+    # environment is not a test — it passes or fails on how it was invoked.
+    # Both names are handled: GH_TOKEN alone would otherwise satisfy the
+    # credential check and make the no-token control below unreachable.
     saved_tok = os.environ.get("GITHUB_TOKEN")
+    saved_gh = os.environ.get("GH_TOKEN")
+    os.environ["GITHUB_TOKEN"] = "self-test-token"
+    os.environ.pop("GH_TOKEN", None)
     try:
         rows, note = scan("o/r", "ci.yml", "tok", 5, None)
         ok(rows is not None and len(rows) == 1, "a run's job logs are fetched and combined")
@@ -370,8 +382,11 @@ def _self_test() -> int:
            "no repository is likewise an unread")
     finally:
         globals()["API_BASE"] = saved_api
-        if saved_tok is not None:
-            os.environ["GITHUB_TOKEN"] = saved_tok
+        for name, val in (("GITHUB_TOKEN", saved_tok), ("GH_TOKEN", saved_gh)):
+            if val is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = val
         srv.shutdown()
 
     ok(MAX_RUNS <= 20 and MAX_LOG_BYTES <= 8_000_000,
