@@ -522,6 +522,25 @@ def compute_rule_distance(
         "equity_provenance": recon.get("equity_provenance"),
         "fills_applied_since_snapshot": recon.get("fills_applied"),
         "fills_pnl_since_snapshot_usd": recon.get("fills_pnl_usd"),
+        # How many later-reported GAINS reconstruct_equity deliberately WITHHELD
+        # because they carried no `closed_at` and so could not be placed against
+        # the snapshot. Non-zero means the cushion above is conservative BY
+        # CONSTRUCTION, not that the fill stream was empty.
+        #
+        # ⚠️ THIS FORWARD IS THE WHOLE POINT AND IT WAS MISSING FOR ONE COMMIT.
+        # `reconstruct_equity` computed the counter on both of its return paths
+        # and `compute_rule_distance` cherry-picked the two keys above and not
+        # this one, so the value was written and never read — the exact class
+        # `provenance-consumer-guard` exists to catch, shipped inside the change
+        # whose own comment says the withheld gains are "COUNTED, not dropped
+        # silently". Measured on the live panel at 2026-08-31T08:40Z: the fix
+        # was correctly live (distance_to_dd_floor_usd 122.62 -> 87.34 on an
+        # unchanged snapshot) and this key was ABSENT from the only surface a
+        # reader reaches. A `None` here means the reconstruction did not report
+        # one — never that zero gains were withheld.
+        "fills_withheld_unplaceable_gain": recon.get(
+            "fills_withheld_unplaceable_gain"
+        ),
         "status_present": bool(status),
         "status_age_hours": age_hours,
         "status_freshness": freshness,

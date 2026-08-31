@@ -29942,6 +29942,19 @@
       "filed_by": "system-review 2026-08-31",
       "area": "runtime/protection",
       "resolution_criteria": "`_sweep_stray_oca_groups` writes one row per graded symbol to a soak log (carrying the effective `mode` beside `global_mode` and `apply_scope`, and the per-group state), that log is registered in diag.py's `_LOG_FILES` allowlist IN THE SAME COMMIT as the writer, and `/api/diag/log_file?name=<it>` returns a graded row for ib_paper MGC or MHG — verified on the live VM, not in a test."
+    },
+    {
+      "id": "BL-20260831-WITHHELD-GAIN-COUNTER-NEVER-REACHED-THE-PANEL",
+      "opened": "2026-08-31",
+      "severity": "medium",
+      "tier": 1,
+      "status": "resolved",
+      "resolved_at": "2026-08-31T08:50:00Z",
+      "area": "prop",
+      "title": "The withheld-gain counter was computed on both return paths and forwarded to nothing — written and never read, inside the change whose comment promises it is counted",
+      "detail": "PR #10532 fixed the prop cushion double-count and added `fills_withheld_unplaceable_gain` so a reader could see the reconstruction is conservative BY CONSTRUCTION rather than that the fill stream was empty. `reconstruct_equity` sets it on BOTH return paths (prop_reconcile.py:383 and :393). `compute_rule_distance` then cherry-picks `fills_applied` and `fills_pnl_usd` into renamed panel keys (:523-524) and never forwards this one — so the value died at the seam and never reached /api/bot/prop/status, the only surface anyone reads.\n\nMEASURED, not inferred: at 2026-08-31T08:40Z, minutes after 0dabfca7 deployed, the panel returned equity_used_usd 4787.34, distance_to_dd_floor_usd 87.34, fills_applied_since_snapshot 0, balance_basis snapshot, equity_provenance measured — the fix itself correctly live — and the key ABSENT. The withheld count should have read 1 (the +35.28 SOLUSDT close, reported_at 2026-08-30T19:39:00.97Z, closed_at None).\n\nWHY THE EXISTING TEST COULD NOT CATCH IT: test_a_gain_reported_after_the_snapshot_is_not_double_counted asserts the key on `reconstruct_equity`'s OWN return value and passed throughout. The defect lived entirely at the seam between two individually-correct functions — the S-PROVENANCE-EXITLEAK shape, where line-by-line audits keep returning clean.\n\nHOW IT WAS FOUND, which is the transferable part: it was NOT found by review. It was found because the deploy-verification plan had nominated this key as the decisive control (it cannot exist pre-deploy, so its appearance proves the new code is running), and the control did not fire. A verification plan that names a field the change ITSELF introduces doubles as a wiring test for that field.\n\nRECURRENCE of the produced-but-never-propagated class: same shape as BL-20260814-TP-GEOMETRY-RECORDED-IN-PROSE-WHILE-THE-CONSUMER-READS-A-FIELD and BL-20260815-EXIT-HEAD-CORPUS-GEOMETRY-NEVER-PROPAGATED-TO-MATRIX, in a new module. Filed as a recurrence, not a duplicate: those fixes were scoped to their own call sites and nothing generalised.",
+      "resolution_criteria": "compute_rule_distance forwards fills_withheld_unplaceable_gain, and a test reads it off compute_rule_distance (the PANEL) rather than off reconstruct_equity, with non-vacuity shown by removing the forward. SATISFIED: test_the_withheld_gain_counter_REACHES_THE_PANEL — fails with the forward removed while the other 10 tests in the file still pass, which is the demonstration that a unit-level assertion could not see it. NOT yet satisfied: live confirmation on /api/bot/prop/status after this lands and deploys — expect the key present and == 1 while snapshot 19 and the +35.28 fill are both still in place.",
+      "refs": "PR #10532 · issues #10562/#10563/#10564 · src/prop/prop_reconcile.py"
     }
   ]
 }

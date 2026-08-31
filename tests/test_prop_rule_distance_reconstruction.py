@@ -162,3 +162,42 @@ def test_a_known_event_time_places_a_gain_exactly_in_both_directions(monkeypatch
     r = prop_reconcile.reconstruct_equity("breakout_1", SNAP_0831)
     assert r["fills_applied"] == 1, "a gain that closed AFTER it is genuinely new"
     assert r["equity_used_usd"] == pytest.approx(4837.34, abs=0.01)
+
+
+def test_the_withheld_gain_counter_REACHES_THE_PANEL(monkeypatch):
+    """The counter must survive the hop from `reconstruct_equity` to the panel.
+
+    MEASURED ON THE LIVE VM, 2026-08-31T08:40Z, minutes after 0dabfca7 deployed.
+    The fix itself was correctly live -- `distance_to_dd_floor_usd` had moved
+    122.62 -> 87.34 against an UNCHANGED snapshot (id 19) with the SAME +35.28
+    fill still present, so identical inputs and a different output. But
+    ``fills_withheld_unplaceable_gain`` was **absent from
+    /api/bot/prop/status**: ``reconstruct_equity`` computed it on both return
+    paths and ``compute_rule_distance`` forwarded ``fills_applied`` and
+    ``fills_pnl_usd`` and not this one. Written and never read -- the class
+    ``provenance-consumer-guard`` exists to catch, shipped inside the change
+    whose own comment promises the withheld gains are "COUNTED, not dropped
+    silently".
+
+    THE UNIT-LEVEL ASSERTION ABOVE COULD NOT CATCH IT, which is the point of
+    this test: `test_a_gain_reported_after_the_snapshot_is_not_double_counted`
+    asserts the key on `reconstruct_equity`'s OWN return value and passed
+    throughout. The defect lived entirely at the seam between the two
+    functions, so only a test that reads the PANEL can see it.
+    """
+    monkeypatch.setattr(
+        prop_reconcile.prop_journal, "list_fills",
+        lambda **kw: [{"pnl": 35.28, "closed_at": None,
+                       "reported_at": "2026-08-30T19:39:00.972519+00:00"}])
+    rd = prop_reconcile.compute_rule_distance("breakout_1", SNAP_0831)
+
+    assert "fills_withheld_unplaceable_gain" in rd, (
+        "the withheld-gain counter never reaches the only surface a reader "
+        "reaches; compute_rule_distance must forward it"
+    )
+    assert rd["fills_withheld_unplaceable_gain"] == 1
+
+    # NON-VACUITY: the panel is genuinely reporting the un-inflated cushion,
+    # so a passing key is not riding on some unrelated code path.
+    assert rd["fills_applied_since_snapshot"] == 0
+    assert rd["distance_to_dd_floor_usd"] == pytest.approx(87.34, abs=0.01)
