@@ -29751,6 +29751,22 @@
         "BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES",
         "BL-20260830-FANOUT-SOAK-GRADES-A-NO-WINNER-TICK-AS-STARVED"
       ]
+    },
+    {
+      "id": "BL-20260831-CONFIDENCE-SATURATES-AT-ONE-SO-HALF-OF-ARBITRATIONS-CANNOT-BE-DECIDED-ON-IT",
+      "status": "open",
+      "severity": "high",
+      "tier": "3",
+      "area": "strategy confidence (StrategyIntent.confidence, populated from each builder's meta['confidence']) as consumed by src/runtime/intents.py::_election_sort_key",
+      "summary": "The strategy confidence score saturates: `1.0` is 20.5% of per-intent observations, and on 50.1% of live arbitrations EVERY contender's confidence is IDENTICAL, so the score cannot decide the contest it is now the primary key for. Ranking by confidence is correct and shipped; on half the population it is inert.",
+      "detail": "MEASURED on the live `conviction_arbitration` soak — n=371 arbitration records, 2026-06-17T18:16Z -> 2026-08-30T23:34Z, read via /api/diag/log_file?name=conviction_arbitration&lines=1000 (371 of 371 lines parsed, so the page was not truncated). Population: every tick on which >= 2 non-flat intents contended for one symbol; 363 same_direction, 8 priority_conflict. === THE THREE NUMBERS. (1) Conviction-based arbitration would pick a DIFFERENT winner than the pre-2026-08-31 key on 191/371 = 51.5% of contests. (2) Confidence DIFFERENTIATES the contenders on 185/371 = 49.9%. (3) On the remaining 186 = 50.1% every contender's confidence is EXACTLY EQUAL. Across 442 distinct values the single value `1.0` accounts for 154 of 751 per-intent observations = 20.5%. So the signal is genuinely continuous — 442 distinct values is not a boolean — but it is blunt at the top, and the saturation is a large part of why half the contests tie. === WHY THIS IS NOW LOAD-BEARING RATHER THAN COSMETIC. Until 2026-08-31 the election ranked by priority -> timestamp -> NAME and confidence was carried to the decision and never read (BL-20260831-CONFIDENCE-IS-CARRIED-TO-THE-ELECTION-AND-READ-BY-NEITHER-SORT-KEY). Confidence is now the primary discriminator (operator-directed: ranking must be evidence-based), so its resolution directly determines which strategy trades. A score that pins at 1.0 hands the decision to the tier below it on half of all contests. === WHAT THIS IS NOT. It is NOT an argument to revert to name-based ranking, and NOT a claim the confidence score is wrong — only that its DISCRIMINATION is insufficient at the top of its range. The tier below it is now recent 3-day per-strategy PnL (src/runtime/election_track_record.py), so a tie no longer falls to the alphabet; that mitigates the consequence without fixing the cause. === NOT YET ESTABLISHED, and a fix must start here: WHICH builders emit 1.0 and whether it is a clamp, a default, or a genuine saturated reading. The soak carries per_intent[].strategy beside the confidence, so the attribution is computable from the same 371 rows without any new instrumentation — that is the first step, not a redesign.",
+      "resolution_criteria": "(1) ATTRIBUTE IT FIRST: from the existing conviction_arbitration rows, the per-strategy distribution of confidence, naming which builders emit 1.0 and how often. A fix proposed before this is a guess. (2) Establish per builder whether 1.0 is a hard clamp, an unset default, or a real reading — these need different fixes and conflating them is how the wrong one ships. (3) A re-scoring that measurably reduces the exact-tie rate below the measured 50.1% baseline on a comparable population. (4) Tier-3 approval, because the score is now the primary live routing key. ⚠️ RE-MEASURE the 50.1% before and after on the SAME population definition (>= 2 non-flat contenders, one symbol, one tick) — a different denominator would make any improvement unfalsifiable.",
+      "found_by": "session ec146208 — surfaced while graduating conviction arbitration into the live election on operator direction. Measured from the live soak, not inferred: the first row read already showed two contenders both at confidence 1.0, which prompted quantifying it across the whole file.",
+      "related": [
+        "BL-20260831-CONFIDENCE-IS-CARRIED-TO-THE-ELECTION-AND-READ-BY-NEITHER-SORT-KEY",
+        "BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES",
+        "BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-AND-STARVES-ITS-PAPER-SIBLING"
+      ]
     }
   ]
 }

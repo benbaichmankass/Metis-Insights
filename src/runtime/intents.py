@@ -1344,6 +1344,135 @@ def aggregate_intents(
     )
 
 
+def _election_confidence(intent: StrategyIntent) -> float:
+    """Decision-time strategy confidence, coerced. Unreadable -> 0.0.
+
+    0.0 sorts LAST among differentiated candidates, which is the safe
+    direction: an intent whose confidence we cannot read must not out-rank one
+    that published a real score.
+    """
+    try:
+        return float(getattr(intent, "confidence", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _election_sort_key(
+    intent: StrategyIntent, *, include_target_qty: bool = True
+) -> tuple:
+    """Rank competing intents by EVIDENCE, not by name. Lowest tuple wins.
+
+    Operator directive 2026-08-31: *"it should come down to other things that
+    actually are evidence based to support why one trade is better than a
+    different trade"* — the name is not such a thing, and neither is emission
+    order.
+
+    THIS IS THE GRADUATION OF `conviction_arbitration`, NOT A NEW IDEA. That
+    module has computed this exact winner as an observe-only annotation since
+    2026-06-17, describing `StrategyIntent.confidence` as *"the hook already
+    exists, currently ignored"* and naming its own graduation *"a future
+    deliberate change to aggregate_intents itself"*. This is that change, so
+    the live decision is now the function whose disagreement with the old one
+    has been accruing for two and a half months rather than an untested one.
+
+    MEASURED on that soak, n=371 arbitrations 2026-06-17 -> 2026-08-30
+    (363 same_direction, 8 priority_conflict):
+
+      * confidence would pick a DIFFERENT winner than the old key on
+        **191/371 = 51.5%** of contests;
+      * it DIFFERENTIATES the contenders on **185/371 = 49.9%**;
+      * on the other **186 (50.1%) every contender's confidence is IDENTICAL**.
+
+    ⚠️ THAT LAST NUMBER IS WHY DETERMINISTIC TIEBREAKS REMAIN, and they are not
+    a ranking signal smuggled back in. Half of all live contests are exact
+    confidence ties, so *something* must break them; the alternative is a
+    nondeterministic winner flapping between ticks on a live order path, which
+    is strictly worse than an arbitrary-but-stable one. They sit BELOW every
+    evidence term and are labelled as determinism, not merit.
+
+    ⚠️ CONFIDENCE IS PARTLY SATURATED: `1.0` is 20.5% of per-intent
+    observations across 442 distinct values. So the signal is real but blunt at
+    the top, and the 50.1% tie rate is substantially that saturation. Making it
+    discriminate there is a strategy-scoring question, filed separately — it is
+    NOT fixed by this ordering, and a reader should not take "ranked by
+    confidence" to mean "ranked well" on the saturated half.
+
+    Term order:
+      0. ``-target_qty``      — the spec's *"keep at least the larger valid
+         target size"* reinforcement rule. Kept FIRST and unchanged: it is
+         INERT on the live path (every directional intent carries the 0.0
+         sentinel, BL-20260810) but it is a real documented rule that the
+         backtest harness and tests DO exercise by pre-sizing, so dropping it
+         would silently change a sizing contract this directive said nothing
+         about. Because it is inert live, confidence is the FIRST term that
+         actually discriminates in production.
+      1. ``-confidence``      — the evidence. Higher wins.
+      2. ``-effective_priority`` — the operator's DECLARED precedence. Below
+         evidence deliberately, per the directive above. ⚠️ THIS IS A REAL
+         SEMANTIC CHANGE, not a formality: a strategy with higher declared
+         priority now LOSES to a competitor with higher confidence. Measured
+         inert on the contenders seen live (all DEFAULT_PRIORITIES 0), but
+         `tests/test_multi_strategy_intents.py` exercises it directly —
+         turtle_soup (priority-favoured, confidence 0.6) now loses to vwap
+         (0.7). If an operator ever intends a declared priority to be
+         ABSOLUTE, this term's position is the thing to revisit.
+      3. ``track_record_rank`` — RECENT REALISED PnL over the last 3 days,
+         from ``election_track_record``. This is the tier that breaks the
+         50.1% of contests confidence cannot, and it exists because the
+         operator rejected a name-based fallback outright (2026-08-31):
+         *"the deterministic fallback shouldn't be the fucking name. It should
+         be some other metric that ... actually shows which one might be
+         better"*. A stable tiebreak is not the same as a meaningful one.
+         An ungraded strategy sorts LAST in this tier (``+inf``), never 0.0 —
+         it cannot win on a record it has not demonstrated.
+      4. ``timestamp``        — determinism only (earliest emission).
+      5. ``strategy.lower()`` — determinism only, and now a LAST RESORT
+         reached only when target, confidence, priority AND recent PnL all
+         tie exactly. NOT a merit ranking; ranking on it is what this change
+         removed.
+
+    ⚠️ NEWS SCORE CANNOT SERVE AS A TIEBREAK HERE and was considered. Competing
+    intents are on the SAME symbol by construction (``gate_intents`` filters to
+    one symbol first) and the news score is per-symbol, so it is identical for
+    every contender and can never separate them.
+
+    ⚠️ ``include_target_qty`` IS NOT A STYLE KNOB. The reinforcement branch
+    (same direction) implements the spec's *"keep at least the larger valid
+    target size"*, so target size leads there. The CONFLICT branch (long vs
+    short) has no such rule — its spec is that the better candidate wins
+    outright — and putting target size first there would let a bigger-target
+    SHORT beat a better-supported LONG on size alone. The two branches
+    genuinely differ on this one term and on nothing else; unifying them
+    completely is a bug, and unifying everything BUT this term is what stops
+    them drifting apart again.
+    """
+    terms: tuple = ()
+    if include_target_qty:
+        terms += (-intent.target_qty,)
+    return terms + (
+        -_election_confidence(intent),
+        -intent.effective_priority(),
+        _track_record_rank(intent.strategy),
+        intent.timestamp,
+        intent.strategy.lower(),
+    )
+
+
+def _track_record_rank(strategy: str) -> float:
+    """Recent-PnL sort term, isolated so a track-record failure cannot reorder.
+
+    Fail-permissive to a NEUTRAL 0.0 (not +inf): if the module cannot be read
+    at all, every candidate must receive the same value so this term reorders
+    nothing and the election falls through to its next term unchanged. A
+    tiebreak that cannot be read must never change a live routing decision.
+    """
+    try:
+        from src.runtime.election_track_record import track_record_rank
+        return float(track_record_rank(strategy))
+    except Exception:  # noqa: BLE001 — never let a tiebreak break a tick
+        return 0.0
+
+
 def gate_intents(
     intents: Iterable[StrategyIntent],
     *,
@@ -1517,20 +1646,12 @@ def elect_from_gated(
         # sorts ascending and compares the name directly. Two keys expressing
         # one ordering is how they drifted into disagreeing about the same pair.
         #
-        # ⚠️ This does NOT make the ordering *good*. Ranking by name is still
-        # arbitrary; `StrategyIntent.confidence` reaches this line and is read
-        # by neither key
-        # (BL-20260831-CONFIDENCE-IS-CARRIED-TO-THE-ELECTION-AND-READ-BY-NEITHER-SORT-KEY).
-        # This change only makes the code do what it always claimed to.
-        winner = min(
-            same_side,
-            key=lambda i: (
-                -i.target_qty,
-                -i.effective_priority(),
-                i.timestamp,
-                i.strategy.lower(),
-            ),
-        )
+        # THE RANKING SIGNAL IS `confidence`, NOT THE NAME (operator-directed
+        # 2026-08-31: *"it should come down to other things that actually are
+        # evidence based to support why one trade is better than a different
+        # trade"*). See `_election_sort_key` for the full basis and the
+        # measurement behind it.
+        winner = min(same_side, key=_election_sort_key)   # reinforcement: size leads
         contributing = same_side
         # P3 conviction arbitration — OBSERVE-ONLY (design § 3.4, no gate). Log
         # what conviction-weighted reinforcement WOULD pick vs today's max-qty
@@ -1574,14 +1695,13 @@ def elect_from_gated(
     # Conflict — priority-based deterministic resolution. Highest
     # effective_priority wins; tiebreakers earliest timestamp then
     # strategy name alphabetical.
-    def _conflict_sort_key(intent: StrategyIntent) -> tuple:
-        return (
-            -intent.effective_priority(),
-            intent.timestamp,
-            intent.strategy.lower(),
-        )
-
-    ordered = sorted(non_flat, key=_conflict_sort_key)
+    # ONE key for both branches. They used to be two expressions of "the same"
+    # ordering and had already drifted into disagreeing about the same pair;
+    # a single function is what stops that recurring.
+    ordered = sorted(
+        non_flat,
+        key=lambda i: _election_sort_key(i, include_target_qty=False),
+    )
     winner = ordered[0]
     losers = tuple(ordered[1:])
     # The contributing set for the winning side is every same-direction
