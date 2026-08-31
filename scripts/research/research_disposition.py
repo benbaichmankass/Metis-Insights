@@ -110,10 +110,24 @@ CORPORA = {
 #: ⚠️ e35 IS `base_oos_trades`, NOT `split_target_oos`. It read `None` until
 #: 2026-08-31 and every e35 unit was therefore UNGRADEABLE. The tempting field
 #: is `split_target_oos`, and it is the wrong one twice over: it is a run
-#: TARGET rather than a measurement, and measured over the whole corpus it is
-#: non-null on 377 of 8,321 rows (4.5%) with exactly one distinct value, 50.
-#: Keying the gate on it would have graded 4.5% of the corpus against a constant
-#: and called the rest unknown.
+#: TARGET rather than a measurement, and it is sparse — non-null on 566 of
+#: 8,520 rows (6.6%). Keying the gate on it would grade 6.6% of the corpus
+#: against a run setting and call the rest unknown.
+#:
+#: ⚠️ THIS COMMENT SAID "exactly one distinct value, 50" UNTIL 2026-08-31 — do
+#: not re-quote that. The re-sweep ran at target 60, so the corpus carries
+#: {50: 377, 60: 189}. The constant was only ever CIRCUMSTANTIAL support; the
+#: primary reason is target-is-not-measurement, and that is now measurable
+#: rather than inferred: of the 287 rows carrying BOTH fields, 280 (97.6%) have
+#: `base_oos_trades != split_target_oos`, and where the target is 60 the
+#: achieved count takes 11 distinct values including 4, 5 and 8. The choice of
+#: `base_oos_trades` is therefore on STRONGER evidence than when it was made.
+#:
+#: ⚠️ THAT 97.6% FIGURE IS RECORDED HERE, NOT PINNED BY A TEST — do not read it
+#: as guarded. `tests/test_e35_achieved_oos_count.py` pins two DIFFERENT things
+#: (a coverage ceiling and the observed value set {50, 60}); neither would fail
+#: if `split_target_oos` started tracking the achieved count. Re-measure before
+#: relying on it.
 #:
 #: ⚠️ ROWS EXTRACTED BEFORE 2026-08-31 CARRY NO ACHIEVED COUNT AND CANNOT BE
 #: BACK-FILLED FROM A SESSION. The source `report.json` files are not committed
