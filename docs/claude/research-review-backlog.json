@@ -94,6 +94,25 @@
       "refs": [
         "scripts/research/research_disposition.py::load_units"
       ]
+    },
+    {
+      "id": "BL-20260831-EVERY-PASSING-E35-CELL-IS-IN-THE-BATCH-THE-POWER-GATE-CANNOT-READ",
+      "severity": "high",
+      "tier": 1,
+      "opened": "2026-08-31",
+      "status": "open",
+      "area": "research/disposition",
+      "not_a_duplicate_of": "BL-20260831-E35-CORPUS-SUPERSEDES-THE-BASELINE-ITS-MONTHLY-JOB-ASKS-ABOUT (lexical overlap 0.67, read before filing). That row is a WRITE/RETENTION defect -- measurement_key has no time component, so a re-sweep destroys the prior measurement -- and its remedy shipped as the history sidecar. This row is a READ/POWER defect: nothing is being destroyed, the rows are all present, and they cannot be GRADED because the batch holding them predates the achieved-n stamp. Same subsystem and near-identical vocabulary; different mechanism, different remedy, and the sidecar does not touch it.",
+      "summary": "The e35 corpus's positive results and its readable results are DISJOINT SETS, and the disposition mechanism can currently only read the empty one. Measured 2026-08-31: the 14 units that carry an achieved-n and were dispositioned this session hold 98 gated cells and ZERO passes; the 28 units that carry no achieved-n -- and therefore cannot be power-graded or legally dispositioned -- hold 189 gated cells and ALL 17 passes in the corpus (15 path_b_wf_pass, 2 wf_pass). So the pipeline's answer to 'what did the sweep find' is currently 'nothing', and that is an artefact of WHICH BATCH is gradeable rather than a result. This reframes the ungradeable-28 row from a bookkeeping nuisance into a priority inversion: the ungradeable batch is where the signal is.",
+      "evidence": "Population: docs/research/e35-bracket-corpus.jsonl on main at c52225d1. The 27 e35 unread units all carry the 2026-08-29 sweep stamp; the 14 dispositioned all carry 2026-08-31; the two LEG sets are disjoint (verified) and no unread leg has a newer stamp, so they are current rather than superseded. Corpus-wide gate_verdict census: is_oos_fail 300, path_b_wf_pass 35, wf_fail 31, wf_pass 11. Largest OOS deltas, all in the unreadable batch: gld_pullback_1h/tp6_sm1.5_to24 +19.9214 at 6/6 effective folds; gld_pullback_1h/sm1.5 +16.9531 at 5/6; tlt_pullback_1d/tp2_sm1.5_to24 +10.1370 at 5/6; trend_donchian_eth/to48 +9.0521 at 4/6; spy_pullback_1h/sm1.5 +8.8415 at 5/6. ⚠️ NOT ALL 17 ARE ECONOMICALLY MEANINGFUL and path_b is the weaker gate: m20_ack_corpus_disagreements.py states path_b_wf_pass 'says the net_R gain held across folds; it says nothing about rate_ok', warning that '+0.001 net_R is arithmetically nonzero and economically nothing'. Three trend_donchian_eth_prop cells sit at +0.1238, mes_trend_long_1d at +0.2437, avax_pullback_2h at +0.4241 -- exactly the shape that warning names. The handful above +8 are the ones worth a look. ⚠️ ALSO: a naive pass-matcher looking for verdicts named 'pass'/'ok'/'promote' returns ZERO on this corpus, because every passing verdict is spelled wf_pass or path_b_wf_pass. This session's first probe did exactly that and reported '0 passed' across all 28 units before the verdict census caught it.",
+      "resolution_criteria": "The 28 legs from the 2026-08-29 batch are re-swept so they carry base_oos_trades and become power-gradeable, and their 17 passing cells are then dispositioned on the record -- each either actioned with the change named, or refused with the reason (path_b-only, sub-economic delta, or under the floor). Closing this by dispositioning the 28 WITHOUT power, or by re-running the sweep and not reading the passes, does not count. State the population when reporting the outcome: the claim 'the sweep found nothing' is currently true only of the readable half.",
+      "refs": [
+        "docs/research/e35-bracket-corpus.jsonl",
+        "BL-20260831-28-E35-UNITS-ARE-PERMANENTLY-UNGRADEABLE-AND-THE-VERDICT-VOCABULARY-CANNOT-SAY-SO",
+        "OI-20260831-42-RESEARCH-UNITS-ARE-UNREAD-AND-NOBODY-IS-SCHEDULED-TO-READ-THEM",
+        "scripts/research/m20_ack_corpus_disagreements.py",
+        "scripts/research/m20_path_b_floor.py::wf_pass"
+      ]
     }
   ],
   "updated_at": "2026-08-31"
