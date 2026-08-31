@@ -138,11 +138,44 @@ echo "=== end-to-end summariser-shaped prompt ==="
 # It failed in the WORST way available: the throughput half succeeded, the
 # script still printed `benchmarked`, and a reader taking that word at face
 # value would believe the model's OUTPUT had been seen. It had not.
+# ⚠️ CAPTURE THE HELP ONCE; DO NOT PIPE IT INTO `grep -q` UNDER `pipefail`.
+# MEASURED 2026-08-31 on the 3B run (trainer, llama.cpp build e4b9af0), after the
+# first two explanations were both refuted:
+#   * the candidate list is NOT stale — `-st` and `--single-turn` are BOTH present
+#     in that build's 562-line help text;
+#   * `--help` does NOT exit non-zero — it exits 0.
+# The mechanism is SIGPIPE. `grep -q` exits the instant it matches, closing the
+# pipe while llama-cli is still writing 562 lines; llama-cli dies with 141
+# (128+13), and this file's `set -uo pipefail` makes the PIPELINE report 141 —
+# so the `if` was FALSE even though grep had matched. Measured directly:
+#     without pipefail : grep matched (rc=0)
+#     with    pipefail : if-branch SKIPPED (rc=141)
+#     control (echo|grep, producer exits 0) : TAKEN
+# The bigger the help text the more reliably it fires, which is why the earlier
+# 1.5B run on an older build selected `--single-turn` and this one selected
+# nothing.
+#
+# WHY IT MATTERED: with no flag, llama-cli ran in CONVERSATION mode, produced its
+# answer and then sat waiting for input until the 900s timeout — burning a
+# quarter-hour of a 1-core box per run. That is a silent degradation: #10597
+# stopped `benchmarked` being printed over a DEAD step, but a step that runs and
+# then hangs still reads as healthy.
+#
+# The fix is not a bigger candidate list. One capture into a variable, then a
+# `case` match, which involves no pipeline and so cannot be defeated this way.
+HELP_TEXT="$(./build/bin/llama-cli --help 2>&1 || true)"
+echo "help text: $(printf '%s' "$HELP_TEXT" | wc -l) line(s)"   # the denominator
 CNV_FLAG=""
 for F in -no-cnv --no-conversation -st --single-turn; do
-  if ./build/bin/llama-cli --help 2>&1 | grep -q -- "$F"; then CNV_FLAG="$F"; break; fi
+  case "$HELP_TEXT" in *"$F"*) CNV_FLAG="$F"; break ;; esac
 done
-echo "single-shot flag: ${CNV_FLAG:-<none found — running without one>}"
+# An EMPTY help text and a help text with no candidate are different findings:
+# the first means we could not look.
+if [ -z "$HELP_TEXT" ]; then
+  echo "single-shot flag: <COULD NOT READ --help — not evidence that no flag exists>"
+else
+  echo "single-shot flag: ${CNV_FLAG:-<none of the candidates present in this build>}"
+fi
 
 PROMPT="Summarise for a trading operator, in 5 bullets: a live account refused 9 of 30 orders with venue error 110007 (insufficient margin) while its account-level available-balance field read empty and margin had to be derived from the per-coin block. What happened, why it matters, and what to check next."
 

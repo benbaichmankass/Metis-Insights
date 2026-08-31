@@ -36,8 +36,11 @@ name: probes
 #   `duty` pass gives each one an owner. The workflow fails only if the RUNNER
 #   itself is broken.
 #
-# Tier-1: read-only. The diag bearer serves GET /api/diag/* only — no order
-# path, no mutation, no VM write.
+# Tier-1: read-only, across all four sources. The diag bearer serves GET
+# /api/diag/* only; the /api/bot/* reader carries NO credential at all (that
+# surface is unauthenticated, measured 2026-08-31); the corpus reader touches
+# only committed files; the Actions-log reader holds `actions: read`. No order
+# path, no mutation, no VM write, and nothing here can fire a job.
 
 on:
   schedule:
@@ -52,6 +55,10 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
+  # Read-only, and only so the Actions-log probes can fetch job logs for the two
+  # rows whose clears_when literal is printed nowhere else. It grants no ability
+  # to dispatch or cancel a run.
+  actions: read
 
 concurrency:
   group: probes
@@ -69,9 +76,11 @@ jobs:
     # BUDGET = work + wait + slack. Sized against the DECLARED bound, not
     # today's row count: run_probes.py allows DEFAULT_TIMEOUT_S=120 per
     # monitoring row, and there are 11, so the work half is bounded at ~22m
-    # even though only 3 rows carry a probe right now. Sizing to today's 3
-    # would make this budget silently wrong the moment someone adds a probe —
-    # which is the whole point of the row that added it.
+    # however many rows carry a probe. Sizing to the probed count would make
+    # this budget silently wrong the moment someone adds one — and it has
+    # already moved 3 -> 7 (2026-08-31, W3), which is exactly why the bound and
+    # not the census is what this number is derived from. Do not "correct" it
+    # to the current count.
     # 60 = ~22m worst-case probe work + the 30m `verify-merged` wait + slack.
     timeout-minutes: 60
     steps:
@@ -91,7 +100,14 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/ops/run_probes.py --self-test
+          # One per probe BINARY. A binary whose controls do not fire must never
+          # get as far as emitting a verdict — this step is what stops a broken
+          # reader from writing a confident line into PROBES.json.
+          python3 scripts/ops/probe_lib.py
           python3 scripts/ops/probe_soak.py --self-test
+          python3 scripts/ops/probe_file.py --self-test
+          python3 scripts/ops/probe_api.py --self-test
+          python3 scripts/ops/probe_actions_log.py --self-test
 
       - name: Validate the declarations
         run: python3 scripts/ops/run_probes.py --check
@@ -103,6 +119,11 @@ jobs:
           # could_not_run (never `fail`), which is the honest degraded state.
           DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
           DIAG_BASE_URL: ${{ secrets.DIAG_BASE_URL }}
+          # Two rows clear on a literal printed only into a CI JOB LOG, so their
+          # probes read the Actions API. Absent → those probes report
+          # could_not_run (never `fail`), which is the honest degraded state.
+          # The default GITHUB_TOKEN is enough: `actions: read` on this repo.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           python3 scripts/ops/run_probes.py --run --write
