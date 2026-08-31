@@ -56,11 +56,21 @@ inputs:
     default: "false"
   verify-timeout-minutes:
     description: >
-      How long `verify-merged` waits. Default 18: required checks take ~11 min,
-      so anything under that fails on every healthy run, and a workflow that is
-      red whenever it succeeds is worse than one that is silent. Give the
-      calling job a `timeout-minutes` above this or the job dies mid-wait.
-    default: "18"
+      How long `verify-merged` waits. Default 30.
+
+      ⚠️ IT WAS 18, CHOSEN AGAINST A "~11 min" FIGURE THAT IS NOT THIS REPO'S.
+      MEASURED on the first real stamp merge (dispatcher run 33361821570,
+      2026-08-31): the wait took 15m45s of the 18m budget — 87.5% — and merged
+      with 2m15s to spare. `pytest-run` alone is 12.9-14.6 min on main and was
+      observed at 15.3, before queue time. So 18 made every stamp a coin-flip on
+      CI variance, and a timeout is not cosmetic: `verify-merged` FAILS the job,
+      the stamp does not land, and the queue job re-fires on the next cron.
+
+      30 keeps a real margin over the observed worst case without waiting all
+      day on a genuinely stranded branch. Give the calling job a
+      `timeout-minutes` above this or the job dies mid-wait — research-queue
+      dispatch carries 35 for exactly that reason.
+    default: "30"
   branch-prefix:
     description: Prefix for the throwaway PR head branch.
     required: false
