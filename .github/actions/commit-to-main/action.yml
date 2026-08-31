@@ -161,8 +161,11 @@ runs:
           esac
         done
         # ⚠️ READ THE PR'S OWN CHECKS FIRST — do not assume a cause.
-        # This message named BL-20260830-A-TRANSIENT-RED-BASE... as "almost
-        # certainly" the reason. On the very first real timeout (PR #10534,
+        # This message named the stranded-automerge row (referenced in FULL in
+        # the echo below) as "almost certainly" the reason. ⚠️ Do not abbreviate
+        # a backlog id in a comment: check_backlog_refs scans line by line, so a
+        # truncated id resolves to nothing and reads as tracked while being
+        # tracked by nobody — which is what this very comment did on first draft. On the very first real timeout (PR #10534,
         # dispatcher run 33340458710) that was WRONG: the base was green and
         # `pytest-run` failed on the branch's own content. Naming one cause
         # confidently sends the reader to re-run checks that will fail again.
