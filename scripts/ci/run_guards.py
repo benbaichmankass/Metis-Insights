@@ -209,7 +209,15 @@ GUARDS: List[Dict[str, Any]] = [
         "when": None,
         "steps": [
             ["python3", "scripts/ops/render_session_brief.py", "--self-test"],
-            ["python3", "scripts/ops/render_session_brief.py", "--check"],
+            # ⚠️ `--base` is what stops this guard failing a PR for a staleness
+            # it did not introduce. The brief goes stale on a CLOCK (render()
+            # calls datetime.now()), so without diff-scoping every open PR reds
+            # at a UTC-midnight cadence boundary and a branch cut inside that
+            # window is stranded permanently — measured 2026-08-31 on two
+            # automation PRs that were green on everything else
+            # (BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH).
+            ["python3", "scripts/ops/render_session_brief.py", "--check",
+             "--base", "origin/main"],
         ],
     },
     {

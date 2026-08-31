@@ -71,6 +71,33 @@ inputs:
       `timeout-minutes` above this or the job dies mid-wait — research-queue
       dispatch carries 35 for exactly that reason.
     default: "30"
+  refresh-stale-branch:
+    description: >
+      When "true" (the default), a `verify-merged` wait that is not progressing
+      MERGES CURRENT MAIN INTO THE THROWAWAY BRANCH ONCE, so the required checks
+      re-run against a base that has moved.
+
+      ⚠️ WHY: a branch's checks run once, on the sha the PR was opened with, and
+      NOTHING ever re-runs them. So a base that was red — or merely different —
+      when the branch was cut strands it permanently, even after main is fixed.
+      Measured 2026-08-31: two automation PRs (#10538, #10539) sat stranded on
+      `session-brief-guard`, which renders the SESSION BRIEF with
+      `datetime.now()` — so the committed block goes stale at a UTC-midnight
+      cadence boundary with no commit anywhere, and every PR open across that
+      boundary reds on content it never touched. `pytest-run` was green on both.
+      Merging main in produced a new head sha and both cleared.
+
+      That specific cause is fixed at its root (the guard is diff-scoped now),
+      but the STRUCTURE that turns any transient red base into a permanent
+      strand is not, and this is the generic remedy.
+
+      Bounded deliberately: at most ONE attempt per run, and only when main has
+      actually moved — a merge that produces no new sha produces no new checks,
+      so attempting it would be a pure no-op that still costs a poll. A conflict
+      aborts and leaves the branch exactly as it was.
+
+      Set "false" for byte-for-byte the pre-2026-08-31 wait.
+    default: "true"
   branch-prefix:
     description: Prefix for the throwaway PR head branch.
     required: false
@@ -108,6 +135,7 @@ runs:
         BRANCH_PREFIX: ${{ inputs.branch-prefix }}
         VERIFY_MERGED: ${{ inputs.verify-merged }}
         VERIFY_TIMEOUT_MINUTES: ${{ inputs.verify-timeout-minutes }}
+        REFRESH_STALE_BRANCH: ${{ inputs.refresh-stale-branch }}
       run: |
         set -euo pipefail
         if [ -z "${GH_TOKEN:-}" ]; then
@@ -151,6 +179,36 @@ runs:
         MINS="${VERIFY_TIMEOUT_MINUTES:-18}"
         case "${MINS}" in ''|*[!0-9]*) MINS=18 ;; esac   # a typo must not mean "do not wait"
         DEADLINE=$(( $(date +%s) + MINS * 60 ))
+
+        # ── one-shot stale-branch refresh ───────────────────────────────────
+        # A branch's checks run once, on the sha the PR opened with, and nothing
+        # re-runs them — so a base that was red when the branch was cut strands
+        # it forever. Merging current main in mints a new head sha, which is the
+        # only thing that re-triggers the required checks.
+        #
+        # Attempted at most ONCE, a third of the way in (never before 3m), and
+        # only if main has actually MOVED: a merge producing no new sha produces
+        # no new checks, so trying would burn a poll for nothing.
+        #
+        # ⚠️ The states are NOT collapsed. `not_needed_up_to_date` (we looked,
+        # there was nothing to merge) and `skipped_fetch_failed` (we could not
+        # look) are opposite facts about why nothing happened, and a reader
+        # debugging a strand needs to tell them apart.
+        REFRESH_TRIED=0
+        REFRESH_STATE="not_attempted"
+        REFRESH_AT=$(( $(date +%s) + (MINS * 60 / 3) ))
+        MIN_WAIT=$(( $(date +%s) + 180 ))
+        # An explicit `if`, not `[ ... ] && VAR=...`. ⚠️ The reason is NOT the one
+        # first written here — "set -e kills the job on a false test" — which was
+        # measured and is FALSE mid-script: bash exempts a failing command in an
+        # && list and execution continues (verified 2026-08-31, exit 0). It IS
+        # true when such a list is the script's LAST statement (exit 1 there).
+        # So the `if` buys immunity to a later edit moving this to the end, not a
+        # bug fix; the claim is written down because a plausible-sounding shell
+        # rule that does not hold is exactly what gets copied into the next file.
+        if [ "${REFRESH_AT}" -lt "${MIN_WAIT}" ]; then REFRESH_AT="${MIN_WAIT}"; fi
+        [ "${REFRESH_STALE_BRANCH:-true}" = "true" ] || REFRESH_STATE="disabled"
+
         while [ "$(date +%s)" -lt "${DEADLINE}" ]; do
           STATE="$(gh pr view "${PR_URL}" --json state --jq .state 2>/dev/null || echo UNKNOWN)"
           case "${STATE}" in
@@ -165,7 +223,26 @@ runs:
             *)
               # UNKNOWN is 'we could not read the PR', NOT 'not merged yet'.
               # Keep waiting rather than concluding either way.
-              echo "state=${STATE}; waiting ($(( (DEADLINE - $(date +%s)) / 60 ))m left)"
+              if [ "${REFRESH_TRIED}" -eq 0 ] && [ "${REFRESH_STATE}" != "disabled" ] \
+                 && [ "$(date +%s)" -ge "${REFRESH_AT}" ]; then
+                REFRESH_TRIED=1
+                if ! git fetch -q origin main; then
+                  REFRESH_STATE="skipped_fetch_failed"
+                elif git merge-base --is-ancestor FETCH_HEAD HEAD; then
+                  REFRESH_STATE="not_needed_up_to_date"
+                elif ! git merge FETCH_HEAD -m "Merge main so the required checks re-run against the current base"; then
+                  git merge --abort || true
+                  REFRESH_STATE="failed_conflict"
+                elif ! git push origin "HEAD:refs/heads/${BR}"; then
+                  REFRESH_STATE="failed_push"
+                else
+                  REFRESH_STATE="refreshed"
+                  # The fresh checks deserve the full budget, not the remainder.
+                  DEADLINE=$(( $(date +%s) + MINS * 60 ))
+                fi
+                echo "::notice::commit-to-main: stale-branch refresh -> ${REFRESH_STATE}"
+              fi
+              echo "state=${STATE}; refresh=${REFRESH_STATE}; waiting ($(( (DEADLINE - $(date +%s)) / 60 ))m left)"
               sleep 30
               ;;
           esac
@@ -179,5 +256,5 @@ runs:
         # dispatcher run 33340458710) that was WRONG: the base was green and
         # `pytest-run` failed on the branch's own content. Naming one cause
         # confidently sends the reader to re-run checks that will fail again.
-        echo "::error::commit-to-main: ${PR_URL} did not merge within ${MINS}m. The rows are written on ${BR} and are NOT on main. CHECK THE PR'S OWN CHECK RUNS BEFORE ASSUMING A CAUSE — the two look identical from here: (a) the branch's checks FAILED on its own content, which a re-run will not fix; or (b) they were never re-run after a transient red base (BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH), which a re-run or rebase does fix."
+        echo "::error::commit-to-main: ${PR_URL} did not merge within ${MINS}m (stale-branch refresh: ${REFRESH_STATE}). The rows are written on ${BR} and are NOT on main. CHECK THE PR'S OWN CHECK RUNS BEFORE ASSUMING A CAUSE — the two look identical from here: (a) the branch's checks FAILED on its own content, which a re-run will not fix; or (b) they were never re-run after a transient red base (BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH), which a re-run or rebase does fix."
         exit 1
