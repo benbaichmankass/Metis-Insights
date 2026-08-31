@@ -62,6 +62,23 @@
 - **TRAINER-UNMONITORED** — two: no trainer HTTP surface, and — the binding one — the criterion is about an **alarm**, so probing the file's freshness would test the DATA under the ALARM's label (sub-class A substitution) and pass every day while no alarm existed.
 - **SESSION-BRIEF-NEVER-READ** — a witness for a session's own **reasoning provenance**, which no artifact carries. Permanently unprobeable; a probe grepping for a citation would read a self-report as evidence of its own cause.
 
+### The 3B arm — throughput and footprint MEASURED, answer quality NOT
+
+Dispatched via `LLMBENCH_MODEL_URL` (#10621). Same Qwen2.5 family and Q4_K_M quant as the 1.5B, so size is the only variable. The positive control in the dispatch confirmed the override served (`model:` names the 3B URL, no fallback warning), so this is genuinely the 3B arm.
+
+| | pp128 t/s | tg64 t/s | peak RSS |
+|---|---|---|---|
+| Qwen2.5-**1.5B** Q4_K_M | 22.35 ± 0.24 | 7.19 ± 0.34 | 2.86 GB |
+| Qwen2.5-**3B** Q4_K_M | **10.57 ± 0.04** | **3.91 ± 0.00** | **4.79 GB** |
+
+2.1× slower on prompt, 1.84× on generation, and **4.79 GB of a 5.9 GB box** — it fits, with ~1.1 GB of headroom.
+
+⚠️ **THE ANSWER WAS NEVER GENERATED, so the operator's actual question is UNANSWERED for the 3B.** `RESULT: benchmarked_throughput_only`, exit status **124** (timeout), 15:01.52 wall clock, and the captured output is fourteen `>` prompts followed by `Exiting...` — llama-cli sat in interactive mode and never produced a completion. Cause: the missing single-shot flag, root-caused in #10625 as SIGPIPE under `pipefail` and fixed in this branch.
+
+**This is the three-state contract working exactly as designed.** #10597 exists so `benchmarked` is never printed over a generation step that did not run, and it wasn't — the run graded itself `benchmarked_throughput_only` and named which half is valid. A reader cannot mistake this for a measured answer.
+
+**What may NOT be concluded from this run:** anything about 3B answer quality. The 1.5B's answer was measured and inadequate (fabricated a causal claim, misattributed the fault, truncated); the 3B's is simply unmeasured. Re-running costs a full rebuild plus a 2 GB re-download on a 1-core box — the EXIT trap cleaned up (disk back to 7.4 G) — and needs the SIGPIPE fix on `main` first.
+
 ## Validation Performed
 - `probe_lib` 27 planted controls · `probe_file` 10 · `probe_api` 16 · `probe_actions_log` 16 · `run_probes` 17 — all fire.
 - **Behavioural regression check on the refactor, not just a green self-test**: the three already-shipped declarations re-run against the LIVE diag surface — `pairs_soak` PASS 7/200, `arbitration_fanout_soak` PASS 19/35, `prop_ticket_risk_soak` FAIL 0/2.
