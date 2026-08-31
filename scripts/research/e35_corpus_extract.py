@@ -54,6 +54,7 @@ import argparse
 import os
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -276,18 +277,37 @@ def load_corpus(path: Path) -> List[Dict[str, Any]]:
 
 
 def merge(existing: List[Dict[str, Any]],
-          incoming: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], int, int]:
-    """(rows, superseded, added). Incoming supersedes on identity."""
+          incoming: List[Dict[str, Any]],
+          ) -> tuple[List[Dict[str, Any]], int, int, List[Dict[str, Any]]]:
+    """(rows, superseded, added, displaced). Incoming supersedes on identity.
+
+    ⚠️ `displaced` IS THE MEASUREMENT THIS FUNCTION USED TO DESTROY, and it is
+    returned rather than recomputed by the caller so there is exactly ONE
+    definition of "superseded" (a second copy in `main` is how the two drift).
+
+    WHY IT EXISTS. `measurement_key` carries no time component, so re-running a
+    cell REPLACES its previous measurement. That is deliberate for the corpus —
+    a reader wants the CURRENT verdict per cell — but it silently made every
+    longitudinal question unanswerable. Measured on the first queue-dispatched
+    e35 run (2026-08-31, run 33388518030): of 995 re-swept cells, **995 already
+    had a prior row and only 40 survived**, so ~955 measurements left the repo.
+    RQ-20260831-002 is a MONTHLY job whose question is "are the shipped cells
+    still behaving as they did when they shipped?" — it was erasing its own
+    baseline every run. Operator decision 2026-08-31: sidecar them.
+    Backlog: BL-20260831-E35-CORPUS-SUPERSEDES-THE-BASELINE-ITS-MONTHLY-JOB-ASKS-ABOUT
+    """
     by_key = {r.get("measurement_key"): r for r in existing}
     superseded = added = 0
+    displaced: List[Dict[str, Any]] = []
     for r in incoming:
         k = r.get("measurement_key")
         if k in by_key:
             superseded += 1
+            displaced.append(by_key[k])
         else:
             added += 1
         by_key[k] = r
-    return list(by_key.values()), superseded, added
+    return list(by_key.values()), superseded, added, displaced
 
 
 def find_reports(paths: Iterable[str]) -> List[Path]:
@@ -335,12 +355,18 @@ def selftest() -> int:
     chk("corpus tag stamped", g["corpus"], CORPUS_TAG)
     chk("run settings travel", (g["tp_cap_pct"], g["split_target_oos"]), (0.099, 50))
     # supersede, not append
-    merged, sup, add = merge(rows, rows)
+    merged, sup, add, displaced = merge(rows, rows)
     chk("re-extract supersedes", (len(merged), sup, add), (2, 2, 0))
+    # The displaced rows are the whole point — a count alone would let the
+    # sidecar be wired to nothing and still pass.
+    chk("displaced rows are RETURNED, not just counted", len(displaced), 2)
+    chk("a displaced row is the OLD row", displaced[0]["measurement_key"],
+        rows[0]["measurement_key"])
     doc2 = json.loads(json.dumps(doc))
     doc2["legs"][0]["leg"] = "leg_b"
-    merged2, sup2, add2 = merge(rows, rows_from_report(doc2, "t"))
+    merged2, sup2, add2, displaced2 = merge(rows, rows_from_report(doc2, "t"))
     chk("a different leg is ADDED", (len(merged2), sup2, add2), (4, 0, 2))
+    chk("an ADD displaces nothing", displaced2, [])
     # foreign schema refused LOUDLY
     for bad, why in ((["not", "a", "dict"], "list"),
                      ({"verdicts": {}}, "lever verdicts.json"),
@@ -360,6 +386,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("paths", nargs="*", help="report.json files or dirs to scan")
     ap.add_argument("--corpus", default=str(DEFAULT_CORPUS))
+    ap.add_argument("--history", default="",
+                    help="append-only sidecar for superseded rows "
+                         "(default: <corpus stem>-history.jsonl). "
+                         "Set to '-' to disable, which DESTROYS the "
+                         "prior measurement of every re-run cell.")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
@@ -408,13 +439,60 @@ def main() -> int:
 
     corpus = Path(a.corpus)
     existing = load_corpus(corpus)
-    merged, sup, add = merge(existing, incoming)
+    merged, sup, add, displaced = merge(existing, incoming)
     print(f"corpus {corpus}: {len(existing)} -> {len(merged)} rows "
           f"({add} added, {sup} superseded)")
     if a.dry_run:
-        print("(dry-run: nothing written)")
+        print(f"(dry-run: nothing written; {len(displaced)} row(s) would be "
+              f"archived to history)")
         return 0
     corpus.parent.mkdir(parents=True, exist_ok=True)
+
+    # ── history sidecar ────────────────────────────────────────────────────
+    # ⚠️ WRITTEN BEFORE THE CORPUS, DELIBERATELY. The corpus write is what
+    # DESTROYS the displaced rows; archiving after it would mean a sidecar
+    # failure loses them permanently with the corpus already rewritten. Order
+    # is the whole safety property, so a failure here RETURNS NON-ZERO rather
+    # than warning — a run that cannot preserve the measurement it is about to
+    # overwrite has not succeeded.
+    #
+    # Append-only: a superseded row is never itself superseded, so this file is
+    # only ever extended and needs no merge. `superseded_at` + `superseded_by`
+    # are stamped because both rows already carry a `sweep_generated_at` and
+    # without them the archive has no ordering — you could not tell which
+    # measurement replaced which.
+    if a.history != "-" and displaced:
+        history = Path(a.history) if a.history else corpus.with_name(
+            corpus.stem + "-history.jsonl")
+        stamp = datetime.now(timezone.utc).isoformat()
+        by_key_incoming = {r.get("measurement_key"): r for r in incoming}
+        try:
+            history.parent.mkdir(parents=True, exist_ok=True)
+            before = sum(1 for _ in history.open()) if history.exists() else 0
+            with history.open("a") as fh:
+                for row in displaced:
+                    out = dict(row)
+                    out["superseded_at"] = stamp
+                    out["superseded_by_sweep"] = (
+                        by_key_incoming.get(row.get("measurement_key"), {})
+                        .get("sweep_generated_at"))
+                    fh.write(json.dumps(out, ensure_ascii=False, default=str) + "\n")
+            after = sum(1 for _ in history.open())
+            if after - before != len(displaced):
+                print(f"::error::history {history}: appended {len(displaced)} row(s) "
+                      f"but the file grew by {after - before}", file=sys.stderr)
+                return 1
+            print(f"history {history}: {before} -> {after} rows "
+                  f"({len(displaced)} archived)")
+        except OSError as exc:
+            print(f"::error::could not archive {len(displaced)} superseded row(s) to "
+                  f"{history} ({exc}). REFUSING to rewrite the corpus, because that "
+                  f"write is what would destroy them.", file=sys.stderr)
+            return 1
+    elif a.history == "-" and displaced:
+        print(f"::warning::--history '-' — {len(displaced)} superseded measurement(s) "
+              f"are being DESTROYED, not archived.")
+
     with corpus.open("w") as fh:
         for row in sorted(merged, key=lambda r: (str(r.get("leg")), str(r.get("cell")))):
             fh.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
