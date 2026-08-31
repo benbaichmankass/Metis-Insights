@@ -917,32 +917,39 @@ def multiplexed_intent_signal_builder(
     # allowlist scopes the BINDING, never the MEASUREMENT.
     #
     # Fail-permissive throughout.
+    # Lane P/P4 — the APPLY half. At the shipped `annotate` default this
+    # attaches NOTHING to the signal and routing is byte-for-byte unchanged;
+    # only `ARBITRATION_FANOUT_MODE=apply` plus a non-empty
+    # `ARBITRATION_FANOUT_ACCOUNTS` allowlist puts rounds on the signal for the
+    # pipeline to dispatch.
+    #
+    # ⚠️ The election runs off `_gated`, NOT `intents` — the candidate batch
+    # attached above is deliberately the pre-gate opportunity set (that is what
+    # an allocator ranks), and electing from it would route candidates the
+    # regime router refused.
+    #
+    # ⚠️ THIS RUNS BEFORE THE SOAK, DELIBERATELY. The soak row is the only
+    # durable record that the fan-out acted, so it must be able to record the
+    # PLAN — recording the global election's would-be starvation alone says
+    # what the fan-out was built to fix and nothing about whether it ran.
+    _plan = None
+    try:
+        _plan = _attach_fanout_plan(
+            signal, _gated, symbol=symbol, intents_before_gate=_pre_gate
+        )
+    except Exception:  # noqa: BLE001 — a planner failure must never strand a tick
+        logger.debug("arbitration_fanout: plan attach failed", exc_info=False)
+
     try:
         from src.runtime.arbitration_fanout_soak import record as _record_fanout
         _record_fanout(
             [i.strategy for i in intents],
             desired.winning_intent.strategy if desired.winning_intent else None,
             symbol=symbol,
+            plan=_plan,
         )
     except Exception:  # noqa: BLE001 — observe-only soak must never break a tick
         logger.debug("arbitration_fanout_soak: record failed", exc_info=False)
-
-    # Lane P/P4 — the APPLY half. At the shipped `annotate` default this
-    # attaches NOTHING and routing is byte-for-byte unchanged; only
-    # `ARBITRATION_FANOUT_MODE=apply` plus a non-empty
-    # `ARBITRATION_FANOUT_ACCOUNTS` allowlist puts rounds on the signal for
-    # the pipeline to dispatch.
-    #
-    # ⚠️ The election runs off `_gated`, NOT `intents` — the candidate batch
-    # attached above is deliberately the pre-gate opportunity set (that is what
-    # an allocator ranks), and electing from it would route candidates the
-    # regime router refused.
-    try:
-        _attach_fanout_plan(
-            signal, _gated, symbol=symbol, intents_before_gate=_pre_gate
-        )
-    except Exception:  # noqa: BLE001 — a planner failure must never strand a tick
-        logger.debug("arbitration_fanout: plan attach failed", exc_info=False)
     return signal
 
 
@@ -952,8 +959,13 @@ def _attach_fanout_plan(
     *,
     symbol: str,
     intents_before_gate: int,
-) -> None:
+) -> Optional[Dict[str, Any]]:
     """Attach the per-account election plan to ``signal['meta']`` in apply mode.
+
+    Returns the plan so the caller can hand it to the soak — that row is the
+    only durable record that this ran. Returns ``None`` at ``off``, which the
+    soak renders as ``plan_state: absent`` (*we did not look*) rather than as
+    an empty election.
 
     Writes ``meta['arbitration_fanout']`` with the plan, and — ONLY when the
     mode is ``apply`` and at least one electing account is allowlisted —
@@ -973,7 +985,7 @@ def _attach_fanout_plan(
 
     mode = resolve_mode()
     if mode == "off":
-        return
+        return None
 
     plan = plan_per_account_election(
         gated_candidates,
@@ -1004,6 +1016,7 @@ def _attach_fanout_plan(
     meta = signal.setdefault("meta", {})
     if isinstance(meta, dict):
         meta["arbitration_fanout"] = plan
+    return plan
 
 
 def _load_accounts_dict():

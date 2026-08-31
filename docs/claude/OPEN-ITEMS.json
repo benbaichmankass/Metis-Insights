@@ -3,7 +3,7 @@
  "what_this_is": "The SHORT list every session reads at START — and its live contents are RENDERED INTO CLAUDE.md by scripts/ops/render_session_brief.py, because CLAUDE.md is the only channel that reliably reaches a session before its first tool call. Hooks do NOT run on Claude Code on the web (verified 2026-08-26: the SessionStart contract's output was absent from the session context; 1,379 consecutive 'Found 0 total hooks in registry' log lines on 2026-08-20), and CI guards fire at MERGE, which is far too late to make the work correct in the first place.",
  "every_row_declares_how_it_leaves": "`clears_when` names the OBSERVABLE condition that removes the row. 'the fix works' is not one; 'the mechanism is seen acting on a named trade' is. A row nobody can tell is finished never gets cleared.",
  "loud_means_report_it_every_session": "A row with `loud: true` must be REPORTED ON in the session's closing summary — checked and stated, not silently carried. Operator directive 2026-08-26: 'keep a LOUD backlog item for EVERY SESSION to check and report on it till it's implemented correctly and the mechanism has been verified.'",
- "updated_at": "2026-08-30T22:45:00+00:00",
+ "updated_at": "2026-08-31",
  "items": [
   {
    "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
@@ -216,6 +216,29 @@
     "src/runtime/arbitration_fanout.py",
     "docs/sprint-logs/S-LANE-P-SIGNAL-JOURNAL-AXIS-2026-08-30.md"
    ]
+  },
+  {
+   "id": "OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED",
+   "opened": "2026-08-31",
+   "kind": "monitoring",
+   "loud": true,
+   "summary": "Per-account arbitration (the fan-out) and the election name-tiebreak fix are SHIPPED at their safe defaults. Neither has been ARMED on the live fleet, and the fan-out has never routed a real order. Deployed is not proven.",
+   "detail": "TWO SEPARATE CHANGES, and they must not be conflated when checking. (1) THE FAN-OUT: `aggregate_intents` elected ONE winner per SYMBOL globally, so an account holding its own candidate produced no order package at all -- invisible to the journal AND to every per-account detector. Fixed by electing per account (`arbitration_fanout.plan_per_account_election` + a narrowing-only `account_scope` on `multi_account_execute`). It ships at `ARBITRATION_FANOUT_MODE=annotate` with an EMPTY `ARBITRATION_FANOUT_ACCOUNTS`, and ARMING IS TWO COORDINATED SETTINGS -- mode=apply AND a non-empty allowlist; either alone routes nothing. So live routing is UNCHANGED today. (2) THE TIEBREAK: the same-side key was `max()` over `tuple(-ord(c) for c in name)`, which reverses the alphabet but cannot reverse LENGTH, so a name that is a strict PREFIX of a competitor's could never win. Measured: max() picked `trend_donchian_sol_prop` over `trend_donchian_sol`, AND `trend_donchian_sol_4h` over it too. Fixed to `min()` over the sign-inverted key. ⚠️ THIS ONE IS LIVE ON MERGE -- it is not behind a mode -- so it changes which strategy wins real same-side contests from the first tick after deploy. ⚠️ WHY BOTH WERE NEEDED: the fan-out alone would NOT have freed `trend_donchian_sol`. It loses to `trend_donchian_sol_prop` across accounts (the fan-out's case) and to `trend_donchian_sol_4h` INSIDE bybit_1 (the tiebreak's case). A session checking only one will conclude the fix failed. ⚠️ THE STARVED ACCOUNT IS THE SOAK BOOK. `bybit_1` runs 26 strategies, class paper, no paper_role -- it exists so every strategy trades and the ML data accrues. So the cost of this defect was never PnL on a paper account; it was the training feed that account exists to produce, and `bybit_portfolio` (paper_role: portfolio) was on the same list, meaning the live-portfolio mirror was not mirroring.",
+   "clears_when": "THREE things, and a passing test is NONE of them. (a) ARMED: `/api/diag/log_file?name=arbitration_fanout_soak` shows rows with `apply_implemented: true` AND `plan_state: planned` AND `applied: true` -- read the EFFECT (`applied`), never `global_mode`, which is only what was asked for. A row with a non-empty `rounds_planned` and `applied: false` is the STAGED state (the allowlist held it back), which is progress and is NOT this criterion. (b) ROUTED: a `trades` row on an account that the SAME soak row lists in `rounds_applied[*].accounts`, on a symbol where `starved_count` was previously non-zero. This is the only evidence the decision became an ORDER -- a soak row proves the decision and nothing more. (c) THE TIEBREAK BIT: `trend_donchian_sol` (or any prefix-named leg) appearing as a WINNER in the audit -- `/api/diag/audit_query?strategy=trend_donchian_sol`, or a journal row on bybit_1. Measured baseline to compare against: it won 0 of 60 SOLUSDT buy-side ticks 2026-08-01..08-27 and wrote ZERO journal rows on bybit_1 since being routed there 2026-07-07. === NOT EVIDENCE: a quiet sleeve. A tick where no account held a second candidate had no contest to arbitrate, so a clean result there says nothing -- the same trap OI-20260830-BYBIT-HEDGE-MODE's criterion (3) exists to close. Check `starved_count` and `accounts_planned` on the soak rows to confirm a contest actually occurred.",
+   "why_it_cannot_be_closed_by_time": "Nothing about this expires. At the shipped default the fan-out is inert by construction, so it can sit un-exercised indefinitely and look fine; and the tiebreak half is live but only observable when two same-side candidates with prefix-related names actually contend. Both need a positive observation on a real contest, not the passage of time.",
+   "refs": [
+    "PR #10544",
+    "BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-AND-STARVES-ITS-PAPER-SIBLING",
+    "BL-20260831-CONFIDENCE-IS-CARRIED-TO-THE-ELECTION-AND-READ-BY-NEITHER-SORT-KEY",
+    "BL-20260830-FANOUT-SOAK-GRADES-A-NO-WINNER-TICK-AS-STARVED",
+    "src/runtime/arbitration_fanout.py",
+    "src/runtime/arbitration_fanout_soak.py",
+    "src/runtime/intents.py::gate_intents/elect_from_gated"
+   ],
+   "check_every_days": 3,
+   "verified_at": "2026-08-31",
+   "last_checked": "2026-08-31",
+   "observation": "2026-08-31 (session ec146208): SHIPPED, NOT ARMED, NOT EXERCISED. Verified by construction rather than by observation: `ARBITRATION_FANOUT_ACCOUNTS` is empty and empty means NONE for this knob (the PROTECTION_REASSERT polarity), so no round can reach the wire. 44 tests cover the mechanism -- 19 apply-path, 9 seam (multiplexer -> signal meta -> pipeline -> dispatch, asserting the starved account actually receives a scoped order with its OWN geometry), 9 observability, 10 tiebreak (the prefix regression parametrized over 5 pairs, asserted BOTH orderings). A live conflict cannot be fabricated on the VM, so tests are the strongest evidence available short of production and are NOT a substitute for criteria (a)/(b)/(c). NOTE the soak's own prose and its `apply_implemented` field both asserted the capability did not exist until this session -- a reviewer reading the log before 2026-08-31 would have concluded the fan-out was never built."
   }
  ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
