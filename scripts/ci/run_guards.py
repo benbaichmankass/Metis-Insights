@@ -266,6 +266,38 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # Every `monitoring` row must declare a probe OR why it has none, so
+        # "nothing probes this" stays distinguishable from "a probe ran and was
+        # quiet". `--check` validates DECLARATIONS ONLY — it runs no probe and
+        # opens no socket, because a guard whose verdict depends on the live VM
+        # reds on an outage rather than on a defect. The probes themselves run
+        # on the `probes` schedule.
+        "name": "probe-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/run_probes.py", "--self-test"],
+            ["python3", "scripts/ops/probe_soak.py", "--self-test"],
+            ["python3", "scripts/ops/run_probes.py", "--check"],
+        ],
+    },
+    {
+        # The due-list is the one surface that answers "what is due right now?"
+        # across every structured register. This does NOT check freshness — a
+        # committed snapshot is stale by construction and a clock-based failure
+        # would red every unrelated PR (the lesson session-brief-guard already
+        # learned, OI-20260831-SESSION-BRIEF-DIFF-SCOPING-...). It checks the
+        # one thing that is never acceptable: a list that claims completeness
+        # it never had. A `partial` verdict MUST name the source it could not
+        # read, or an empty section reads as "nothing is due" when it means
+        # "nobody looked" — the `curl … || echo '{}'` failure in CLAUDE.md.
+        "name": "due-list-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/render_due_list.py", "--self-test"],
+            ["python3", "scripts/ops/render_due_list.py", "--check"],
+        ],
+    },
+    {
         "name": "recurrence-ledger-guard",
         "when": None,
         "steps": [

@@ -54,6 +54,7 @@ reasonably conclude none existed. The authoritative list is the directory itself
 
 **Review cadence**
 
+- `duty` — The DUTY PASS — the short, bounded session that gives every detected signal an OWNER: reads the one generated due-list (`docs/claude/DUE.md`) and drives each row to a written disposition (acted / filed / escalated / not-due). Start here; it is not a review and never replaces one.
 - `system-review` — Master SYSTEM REVIEW session — the WORK is the review; the report is just its deliverable.
 - `system-report` — Back-compat alias for /system-review — the master SYSTEM REVIEW session (the work is the review; the report is its deliverable).
 - `health-review` — Autonomous layer-2 review of the LIVE ICT TRADING BOT's TECHNICAL runtime health — pipeline plumbing, DB integrity, data validity, service state, alert delivery, sprint-doc drift.
