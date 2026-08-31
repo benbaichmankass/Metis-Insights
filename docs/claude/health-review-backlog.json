@@ -29676,6 +29676,35 @@
         "BL-20260820-OCI-INVENTORY-CRON-HAS-NEVER-FIRED (the probe-cron precedent this session copied)",
         "PR 10524 (the probe crons whose premise this invalidates)"
       ]
+    },
+    {
+      "id": "BL-20260831-ARMED-CRON-DEADLOCKED-ON-A-TEST-THAT-NEEDS-THE-QUEUE-TO-HAVE-WORK",
+      "status": "resolved",
+      "severity": "high",
+      "tier": "1",
+      "area": "tests/test_research_queue.py::test_dispatcher_is_a_dry_run_unless_fire_is_passed",
+      "summary": "The research-queue cron was armed 2026-08-30 and DEADLOCKED on its first real fire. `test_dispatcher_is_a_dry_run_unless_fire_is_passed` asserted `\"would_dispatch\" in outcomes` against QUEUE_DIR = the LIVE `research/queue`, which silently requires the live queue to ALWAYS hold a due job. A fully caught-up queue is the CORRECT steady state and it FAILS that assertion. So: the dispatcher fires and stamps `last_dispatched_at` -> every job grades `not_due` -> the stamp PR's own CI fails on this test -> the stamp never merges -> the job stays due -> it re-fires on the next cron. Indefinitely. THE DISPATCHER WORKING CORRECTLY IS WHAT BREAKS IT. OBSERVED, not theorised: schedule runs 33340458710 (22:56:08Z) and 33342140520 (23:33:46Z), both `event=schedule`, both `conclusion=failure`, the second being the re-fire. Stamp PR #10534 open and unmerged with `pytest-run` red. ⚠️ IT WAS ONLY VISIBLE BECAUSE `commit-to-main` GAINED `verify-merged` HOURS EARLIER (PR #10524). Without it the dispatcher would have exited 0 on an unmerged stamp and this would have re-fired daily, green, forever — which is exactly the failure that row was written about.",
+      "detail": "FIXED by pointing the test at a FIXTURE queue (tmp_path + one synthetic due job), which is what it was always trying to assert: a dry run grades but never dispatches. The half worth keeping from the old test — that the LIVE queue parses and holds no structurally invalid job — is now a separate test that says NOTHING about how many jobs are due.\n\nVERIFIED against the real failing state rather than by argument: stamping every job (the caught-up `not_due=3` state that deadlocked) now passes 52/52. The 'before' control is not a plant — it is PR #10534's own CI.\n\nTHE CLASS: a test whose passing depends on PRODUCTION STATE being in a particular condition. It was not testing the code; it was testing that someone had left work undone. Worth a sweep for siblings — any test reading a live directory/DB and asserting non-emptiness has this shape, and it is invisible until the system catches up.",
+      "resolution_criteria": "RESOLVED in this change. Reopen if a research-queue stamp PR is ever again observed red on a test that reads the live queue. ⚠️ The wider sweep for sibling tests (live-state non-emptiness assertions elsewhere) is NOT done and is tracked as the follow-up in BL-20260831-STAMP-WRITER-DESTROYED-THE-QUEUE-UNITS-PROSE's detail.",
+      "found_by": "session 765316b0 — the probe cron fired for real and this is what it caught, 2026-08-31",
+      "related": [
+        "PR 10524 (verify-merged, which made it visible)",
+        "PR 10534 (the stranded stamp)"
+      ]
+    },
+    {
+      "id": "BL-20260831-STAMP-WRITER-DESTROYED-THE-QUEUE-UNITS-PROSE",
+      "status": "resolved",
+      "severity": "medium",
+      "tier": "1",
+      "area": "scripts/research/dispatch_queue.py::_stamp",
+      "summary": "`_stamp` wrote `last_dispatched_at` with `yaml.safe_dump`, a full load/dump round-trip. PyYAML does not model comments, so every `#` line is DELETED and every `>-` block scalar reflowed. MEASURED on the first real stamp (PR #10534, run 33340458710): RQ-20260827-001.yaml went from 2 comments to 0, with `question`, `why_not_inferential`, `basis` and `note` all reflowed — 27 insertions / 39 deletions for what should be ONE added line. ⚠️ THIS ONE SUCCEEDS SILENTLY, which makes it worse than the deadlock filed beside it. The loss rides inside an auto-merged `chore(research-queue): dispatch stamps (auto)` PR that nobody reads, and the blocks destroyed are the job's REASONING — why it is not inferential, why it routes to a runner, what its landing assertion actually proves. A queue whose prose is stripped one fire at a time decays into a set of opaque job names, and nothing would ever report it.",
+      "detail": "FIXED as a targeted line-level edit: replace an existing top-level `last_dispatched_at:` line in place, else append one; everything else stays byte-for-byte. The file is still PARSED first (a malformed job is an error, not something we append to blindly) and the value is READ BACK and checked, because a text edit can produce a file that still parses and says something else.\n\nFive pins, positive-controlled: restoring the yaml.safe_dump writer fails three of them.\n\nNOT DONE, and it is the generalisation: no guard stops the NEXT tool from round-tripping a human-authored YAML/JSON through a dumper that cannot represent comments. config/ is full of load-bearing comments and several ops scripts write config files. A `yaml.safe_dump` over a committed, hand-authored file is the pattern; whether a guard should refuse it is the open question this row hands on.",
+      "resolution_criteria": "RESOLVED for the dispatcher. The OPEN half: audit for other writers that round-trip a hand-authored committed file through yaml.safe_dump / json.dump and would strip comments or reformat prose — `scripts/ops/` and anything writing `config/` first. Close that half by either converting them to targeted edits or establishing that none exist, ⚠️ with the denominator stated, not by a search that returned nothing.",
+      "found_by": "session 765316b0 — the probe cron fired for real and this is what it caught, 2026-08-31",
+      "related": [
+        "BL-20260831-ARMED-CRON-DEADLOCKED-ON-A-TEST-THAT-NEEDS-THE-QUEUE-TO-HAVE-WORK"
+      ]
     }
   ]
 }

@@ -160,5 +160,11 @@ runs:
               ;;
           esac
         done
-        echo "::error::commit-to-main: ${PR_URL} did not merge within ${MINS}m. The rows are written on ${BR} and are NOT on main. This is almost certainly BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH — the branch's checks ran once against a red base and nothing will ever re-run them. Re-run them, or rebase the branch, then merge it."
+        # ⚠️ READ THE PR'S OWN CHECKS FIRST — do not assume a cause.
+        # This message named BL-20260830-A-TRANSIENT-RED-BASE... as "almost
+        # certainly" the reason. On the very first real timeout (PR #10534,
+        # dispatcher run 33340458710) that was WRONG: the base was green and
+        # `pytest-run` failed on the branch's own content. Naming one cause
+        # confidently sends the reader to re-run checks that will fail again.
+        echo "::error::commit-to-main: ${PR_URL} did not merge within ${MINS}m. The rows are written on ${BR} and are NOT on main. CHECK THE PR'S OWN CHECK RUNS BEFORE ASSUMING A CAUSE — the two look identical from here: (a) the branch's checks FAILED on its own content, which a re-run will not fix; or (b) they were never re-run after a transient red base (BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH), which a re-run or rebase does fix."
         exit 1
