@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260820-EXIT-REASON-UNCLASSIFIED-IS-THE-MODAL-VALUE
+type: question
+parent_intent: null
+title: |-
+  781 of 1226 live closed trades (63.7%) carry an exit_reason the producer itself declares it could not classify — and no consumer states the share
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Publish the share rather than only the buckets: any surface that reports an exit-reason distribution must ship the unclassified count beside it (the pnlCoverage / rCoverage / measured_n discipline already used elsewhere). Separately, reduce it at the source where cheap — the Bybit /v5/execution/list lookup already runs for reconciler_filled and persists close_exec_type to notes but does NOT refine exit_reason, so some of the 541 may already be resolvable from data on the row. Closed when (a) a consumer states the unclassified share, and (b) the share is either measurably reduced or documented as irreducible with the reason. Do NOT close by renaming the bucket.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260820-EXIT-REASON-UNCLASSIFIED-IS-THE-MODAL-VALUE
+  status_at_migration: open
+  severity: high
+  tier: '1'
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260820-EXIT-REASON-UNCLASSIFIED-IS-THE-MODAL-VALUE
+verdict: null

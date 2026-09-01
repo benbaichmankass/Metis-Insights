@@ -1,0 +1,36 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260525-005
+type: commitment
+parent_intent: null
+title: |-
+  prop-mission-policy-baseline-v0 emits all-zero shadow scores — degenerate, prop-account-infra-blocked (NOT MES/IBKR-related)
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-05-25T10:35:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Either (a) a prop account trades so account_context has 'taken' positives and the model learns non-degenerate per-strategy rates, or (b) the model is demoted from shadow / scoped so it no longer emits meaningless 0.000 predictions against non-prop live signals (a manifest/scoring change, Tier-3-aware).
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260525-005
+  status_at_migration: kept_open
+  severity: medium
+  tier: '3'
+  opened_by: claude (model-status review)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- docs/claude/health-review-backlog.json#BL-20260525-005
+verdict: null
+next_action_at_migration: |-
+  Take option (b): demote prop-mission-policy-baseline-v0 to `candidate` (manifest line 53 + `python -m ml promote-stage --new-stage candidate` on the trainer) so it drops out of shadow auto-wiring and stops writing degenerate 0.000 rows. Option (a) is structurally blocked FOREVER: prop fills live in prop_tickets/prop_fills, ISOLATED from `trades`, so the account_context family can never see prop 'taken' positives.

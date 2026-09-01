@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260818-MIRROR-LEGS-DIVERGENT-TRAILED-STOPS
+type: question
+parent_intent: null
+title: |-
+  Mirror legs of ONE order package diverge in HOLD DURATION, exit mechanism and PnL measurability — not merely in stop level
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Establish why one leg of a single package exits on `intent_reduce` at 12h while its siblings run 21 days (candidate: the intent layer reduced only the bybit_1 leg, so per-account intent resolution is not package-coherent). Then either make package legs exit coherently or record why divergence is intended. Verified by an open-book invariant check that legs of one order_package_id agree on exit mechanism and close within a stated tolerance.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260818-MIRROR-LEGS-DIVERGENT-TRAILED-STOPS
+  status_at_migration: open
+  severity: critical
+  tier: Tier-2
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260818-MIRROR-LEGS-DIVERGENT-TRAILED-STOPS
+verdict: null

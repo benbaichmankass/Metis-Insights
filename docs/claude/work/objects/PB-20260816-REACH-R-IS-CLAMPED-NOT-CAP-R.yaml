@@ -1,0 +1,36 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R
+type: question
+parent_intent: null
+title: |-
+  exit_plan_state.targets[].reach_r is an OBSERVE-ONLY clamped counterfactual; reading it as the reachability ceiling manufactures false `inert` on any arm above 5.0R
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-16T20:05:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Add a docstring note at `src/runtime/exit_plan_realism.py::clamp_exit_plan` (and/or the `exit_plan_state` column comment in `src/units/db/database.py`) stating that the clamped target is OBSERVE-ONLY and must not be read as the reachability ceiling, naming the venue cap as the operative one. Verifiable by grepping `DEFAULT_MAX_REACH_R` and confirming the observe-only status is stated where the value is produced, not only in the registry's basis_note (which a code-side reader never opens). Closing on 'the registry documents it' is NOT sufficient -- that is the surface that already had it and still produced two inverted revisions in one session.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/performance-review-backlog.json
+  row_id: PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R
+  status_at_migration: open
+  severity: low
+  tier: |-
+    1 (a docstring/consumer question; the clamp itself is correct and no runtime behaviour is proposed)
+  opened_by: claude (session_01Xk2ozj, uso_trend_1h reachability measurement)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/performance-review-backlog.json#PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R
+verdict: null

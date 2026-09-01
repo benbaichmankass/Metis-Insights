@@ -1,0 +1,36 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260829-LANE-P-MAY-VOID-THE-GLD-SURVIVAL-SKIP
+type: question
+parent_intent: null
+title: |-
+  Lane P removed the DRAWDOWN contribution to survival/p_breach on standard accounts (correctly), leaving them sensitive ONLY to single-day loss concentration — and the compat gate still consumes both with full authority while never branching on the `dd_model_state` field that says the drawdown was not modelled
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  TWO things, and the first no longer depends on the second. (1) Re-run BL-20260803's alpaca_portfolio survival check against a DAY-CONCENTRATED loss book and record whether the 0.871 verdict reproduces — that is what settles the held routing decision, and the 'constants' reading must not be used to settle it. (2) Either make `route` branch on `dd_model_state` (a `not_terminal` state means the survival/breach conjuncts are measuring only the daily-loss axis, and the verdict should SAY so rather than read as a full durability gate), or register the field with collapsed-state-guard so the missing consumer is enforced rather than left to a comment. A comment instructing a human to read a field is not a consumer.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260829-LANE-P-MAY-VOID-THE-GLD-SURVIVAL-SKIP
+  status_at_migration: open
+  severity: medium
+  tier: |-
+    1 (a re-run + a row disposition; the code change it follows from is already merged)
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260829-LANE-P-MAY-VOID-THE-GLD-SURVIVAL-SKIP
+verdict: null

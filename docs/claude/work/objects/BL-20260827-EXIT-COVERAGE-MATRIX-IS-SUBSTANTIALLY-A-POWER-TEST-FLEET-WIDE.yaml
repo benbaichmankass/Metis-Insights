@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260827-EXIT-COVERAGE-MATRIX-IS-SUBSTANTIALLY-A-POWER-TEST-FLEET-WIDE
+type: question
+parent_intent: null
+title: |-
+  RECURRENCE, generalised: the M20 coverage matrix grades 468 cells at a MEDIAN OOS base of 33 trades, so 70.3% honest_negative is largely 'we could not tell' rather than 'the lever does not help' -- and the identical finding was filed for ONE lever column 13 days ago and never carried across
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  ALL of: (a) per-cell LEVER-FIRE count recorded (how many trades the lever actually modified) -- the real denominator, named as an open gap by the skill itself; (b) an effect-vs-noise test in the gate, so a verdict requires the effect to exceed its own sampling error and not merely carry the right sign; (c) an `underpowered` status distinct from `honest_negative`, and THE MATRIX RE-GRADED under it -- a large share of the 329 is expected to move; (d) the base count promoted from prose to a STRUCTURED field, since 71% of negatives state none. Adding the status without re-grading does NOT close this. Until (a)-(d), the 70.3%-negative headline must not be cited as evidence that exits do not matter for these strategies.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260827-EXIT-COVERAGE-MATRIX-IS-SUBSTANTIALLY-A-POWER-TEST-FLEET-WIDE
+  status_at_migration: open
+  severity: high
+  tier: '1'
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260827-EXIT-COVERAGE-MATRIX-IS-SUBSTANTIALLY-A-POWER-TEST-FLEET-WIDE
+verdict: null

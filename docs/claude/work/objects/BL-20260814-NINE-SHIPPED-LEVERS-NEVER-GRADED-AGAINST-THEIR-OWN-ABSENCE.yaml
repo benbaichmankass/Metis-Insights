@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE
+type: question
+parent_intent: null
+title: |-
+  6 SHIPPED levers have no lever-OFF row — never graded against their own absence (was filed as 9; 2 were never gradeable and 1 was a stale matrix cell)
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-14T10:38:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  (1) A lever-OFF sweep runs over these nine (leg, lever) pairs at live parity (--tp-cap-pct 0.099, --without-declared-lever <lever>) and the rows land in the corpus. (2) Each of the nine cells' `ref` records the OFF-arm result -- the d_net_r_OOS, the verdict, and base_trades_OOS -- so a reader can see whether the shipped lever earns its place, the same way the 22 already-swept pairs do. (3) Any cell whose OFF arm shows the shipped lever is WORSE than its absence is raised to the operator as a Tier-3 disposition question; the row is NOT closed by silently re-grading a live cell. (4) A cell whose OFF arm returns `insufficient_base` is recorded as such -- 'we could not grade it' is a third state and must not read as 'the lever is fine'.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE
+  status_at_migration: kept_open
+  severity: medium
+  tier: 1 (research measurement; any resulting disposition change is Tier-3)
+  opened_by: claude (M20 overnight session 2026-08-13)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE
+verdict: null

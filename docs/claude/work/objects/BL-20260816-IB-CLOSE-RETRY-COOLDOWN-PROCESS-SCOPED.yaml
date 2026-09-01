@@ -1,0 +1,39 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260816-IB-CLOSE-RETRY-COOLDOWN-PROCESS-SCOPED
+type: question
+parent_intent: null
+title: |-
+  IB_CLOSE_RETRY_COOLDOWN_S's deferral lives in a module global, so EVERY trader restart re-opens the close-retry churn window the cooldown exists to close -- and this repo restarts the trader on every merge to main
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-16T12:45:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  1. The deferral survives a restart -- persisted to `runtime_logs/` keyed on (account, symbol, direction) with its set-time, in the shape the three *_alert_state.json latches already use, and reloaded on first read rather than assumed empty.
+  2. The persisted read is three-state and says which: `deferral_active` / `no_deferral` (we looked, nothing is deferred) / `could_not_read` (we did not look). A read failure MUST NOT resolve to 'no deferral' -- that is the current behaviour dressed up, and it is the collapsed-state failure the guard exists to catch. Register with collapsed-state-guard.
+  3. A test that asserts a simulated restart INSIDE the cooldown window does not re-attempt the close: set the marker, drop the module state, reload, assert the monitor defers. The existing tests cannot catch this because they never cross a process boundary.
+  4. CLAUDE.md's `IB_CLOSE_RETRY_COOLDOWN_S` row loses the unqualified 'fail-safe' claim and states both directions explicitly.
+  5. MEASURED, not merely shipped: across at least one real deploy while a deferral is active on ib_paper, `/api/diag/ib_open_orders` shows no new MKT close order for that (account, symbol, direction). Verifying this requires the gateway reachable -- a `read_state: could_not_look` run is NOT evidence of absence.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260816-IB-CLOSE-RETRY-COOLDOWN-PROCESS-SCOPED
+  status_at_migration: open
+  severity: medium
+  tier: 2 (order path)
+  opened_by: claude (sysrev-0816 session, operator-directed during the MGC RTH check-in)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260816-IB-CLOSE-RETRY-COOLDOWN-PROCESS-SCOPED
+verdict: null

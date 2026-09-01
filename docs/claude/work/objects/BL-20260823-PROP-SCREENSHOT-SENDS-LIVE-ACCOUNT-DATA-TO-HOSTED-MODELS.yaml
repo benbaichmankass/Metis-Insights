@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260823-PROP-SCREENSHOT-SENDS-LIVE-ACCOUNT-DATA-TO-HOSTED-MODELS
+type: question
+parent_intent: null
+title: |-
+  The prop screenshot reader sent broker account data (balance, equity, account number, open positions) to Anthropic and Google — and the local backend the operator expected it to use does not exist
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-23T14:03:26.481622+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  ["THE EGRESS IS CLOSED AND STAYS CLOSED - this half is DONE. PROP_SCREENSHOT_BACKEND defaults to `local`, which refuses; no image reaches a hosted provider from this path. Operator 2026-08-23 WITHDREW the local-backend driver ('perhaps it's not worth pursuing ... we'll not do the screenshots via Telegram. I'll just keep on handing them to you in a cloud chat'), so `local` now means DELIBERATELY NOT SERVED rather than NOT BUILT YET. Do not 'fix' the refusal by changing the default, and do not re-open a local-vision build against this row.", 'The replacement path is the operator handing the screenshot to a Claude session, which files through the SAME prop_report.ingest_report chokepoint via the prop-report relay - exercised 2026-08-23 as fill id 34. Nothing further is owed on the screenshot axis.', "DONE 2026-08-23, measured with a stated denominator. THREE python call sites repo-wide can reach a hosted model: scripts/llm/delegate.py, src/prop/screenshot_parse.py, src/runtime/insights/generator.py. (1) screenshot_parse - WAS sending live account data; now refuses by default. (2) insights/generator - CAN send trade data but is MEASURED in template mode: model_id 'template:v1' on all three live caches read directly from the producer's own stamp, plus 28,808 calls month-to-date at 0 tokens / $0.00 across all four endpoints. Nothing leaves. (3) delegate.py - scope-guarded default-deny to public repo code + docs. Non-python: m20-exit-lever-sweep.yml was a FALSE POSITIVE (a 'Co-Authored-By: ...@anthropic.com' line in a commit message); sync-vm-secrets.yml mirrors secrets and sends no payload; run_insights_cycle.sh / vm_bootstrap.sh only source or write the key. CAVEAT: the usage figure is MONTH-TO-DATE (August); prior months are not measurable from this surface.", "DONE 2026-08-23, with a stated denominator: 13 M37 claims were TESTED and 13 HELD. Existence (7): scope_guard.py, delegate.py, oci_inventory.py, the llm-delegate SKILL.md (the discoverability fix), llm-delegate.yml, oci-inventory.yml, comms/cloud/expected_topology.json. Behaviour (6), probed rather than read: the scope guard is genuinely DEFAULT-DENY - 9 hostile probes all refused (config/accounts.yaml, config/strategies.yaml, config/prop_rulesets/breakout.yaml, trade_journal.db, .env, comms/broker_truth_ledger.json, comms/gpu_spend_ledger.json, runtime_logs/outcomes.jsonl, and a ../../etc/passwd traversal); it PERMITS public code+docs (src/*.py, docs/*.md, README.md, scripts/llm/*.py); its size cap REFUSES rather than truncates (order_monitor.py at 497,089 bytes vs MAX_FILE_BYTES=262144 - found while probing, and it is the guard being right, not over-strict, since a truncated file yields confident answers about code the model never saw); the result envelope really is three-state (completed/failed/not_attempted, with not_attempted used for scope refusal, missing key AND missing instruction, so an empty answer cannot read as 'found nothing'); oci_inventory NEVER writes its own baseline (EXPECTED_PATH is only read_text/is_file; --emit-expected prints for a human to review and commit) - which is the claim that a checker rewriting its baseline on drift could never fail; and the burst worker is TEXT-ONLY (zero image/vision/inline_data/base64 across scripts/llm/*.py). ⚠️ WHAT WAS NOT TESTED, stated so this does not read as total: the four GitHub run-id claims (32131324874, 32351336623, 32351503893, 32362843960) were not re-fetched, and the delegate PRECISION figures (17/19 pilot, 20/20 substantive vs 0/20 citations) are historical gradings that cannot be re-derived without re-running the tasks. So: every claim about what EXISTS and how it BEHAVES held; the claims about what was MEASURED on specific past runs are unverified here.", "NEW, arising from the audit above, and CORRECTED 2026-08-23 once the key became readable: INSIGHTS_MODEL_MODE is one env var away from sending trade data to a hosted model, and NOTHING WATCHES IT. ⚠️ I first wrote 'template mode is the CODE DEFAULT, not a control' — that overstated the fragility and is retracted. Measured on ict-claude-bridge via the now-allowlisted get-env: `INSIGHTS_MODEL_MODE process='template' declared='template' declared via: env_file`, i.e. it is EXPLICITLY PINNED in /home/ubuntu/ict-trading-bot/.env, not merely falling through to a code default. That is a deliberate declaration and it survives restarts. What STANDS is the rest: a declaration is not a GUARD - nothing alerts if it is changed - so the remedy is unchanged, either alert on a non-template mode or state explicitly that the flip is a deliberate operator action with no guard behind it."]
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260823-PROP-SCREENSHOT-SENDS-LIVE-ACCOUNT-DATA-TO-HOSTED-MODELS
+  status_at_migration: open
+  severity: high
+  tier: 2 (egress path on an operator-facing flow)
+  opened_by: full-system-audit-2026-08-23 (operator-reported)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260823-PROP-SCREENSHOT-SENDS-LIVE-ACCOUNT-DATA-TO-HOSTED-MODELS
+verdict: null

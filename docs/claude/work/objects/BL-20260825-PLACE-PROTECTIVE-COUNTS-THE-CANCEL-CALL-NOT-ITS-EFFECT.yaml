@@ -1,0 +1,41 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT
+type: commitment
+parent_intent: null
+title: |-
+  IB over-cover ROOT CAUSE: place_protective's pre-cancel counts the cancelOrder CALL, never its effect, so IBKR Error 10147 is invisible and every re-arm mints ANOTHER disjoint OCA group
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-25T15:05:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  1. _cancel_resting_orders_for_symbol reports its EFFECT, not its calls: after cancelling it re-reads account-wide and returns a per-leg three-state result -- confirmed_gone / refused_not_found (IBKR 10147) / unverified (we could not look) -- never collapsing the last two. Register the contract with collapsed-state-guard.
+  2. place_protective BRANCHES on that result. The invariant to pin: never place a fresh bracket while legs it attempted to cancel are still resting. Refusing is safe precisely because those legs ARE the protection -- the cost is that the trail does not advance, which is visible and alertable, whereas arming anyway is the accumulation this row describes. The genuinely-naked case (pre-cancel found nothing) must still arm.
+  3. Thread oca_key through the modify path so the ordinary re-arm is idempotent: order_monitor._apply_update -> execute.modify_open_order -> IBClient.modify_protective -> place_protective. Today exactly ONE of the two place_protective call sites passes it (order_monitor:6950, naked autoprotect); execute.py:2536 passes symbol/direction/qty/sl/tp and nothing else. MIND THE MIGRATION -- order_monitor:7670 already records that a scoped cancel will not match legs resting in legacy oca-protect-<reqId> groups, so switching the modify path to the scoped key WITHOUT criterion 2 in place makes existing positions worse, not better. Criterion 2 lands first.
+  4. A regression test that plants a resting leg the cancel cannot remove and asserts place_protective refuses to arm a second group -- driven by a simulated 10147, not by a return-value stub, so it pins the wrapper-error path that is the actual defect.
+  5. Clear the live ib_paper MHG state and re-read to confirm exactly one group. Which leg survives is decided by the journal's declared stop_loss, never guessed -- BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG is what happens otherwise. Trade 4796 declares stop_loss 6.25157143, which matches order 433 (6.2515), NOT the newest group's 441 (6.255) and not 417 (6.231).
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT
+  status_at_migration: open
+  severity: critical
+  tier: 2 (order path)
+  opened_by: claude (system-review fix round, MHG over-cover apply)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT
+verdict: null
+next_action_at_migration: |-
+  Criterion 2 SHIPPED as a JOIN, not a refusal (see the 2026-08-25 update — the refuse form was withdrawn on a corrected mechanism). Remaining: criterion 3 (thread oca_key through the modify path, which makes the group deterministic per trade and the join a no-op), criterion 5 (clear the live ib_paper MHG orphan oca-protect-446 at the venue), and confirm on the next trader restart that a re-arm JOINS rather than adding a group.

@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT
+type: question
+parent_intent: null
+title: |-
+  M20 has swept 8 families of post-entry exit override and the ladder rungs BENEATH a fixed take-profit, but the take-profit LEVEL itself has never been a swept dimension — on a fleet where E0 says a level fixed at entry decides 78.5% of exits
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  POPULATION BEHIND THIS ROW'S FIGURES, so a closing measurement can be compared against the same denominator: XRPUSDT 503 of 503 harness trades and SOLUSDT 567 of 567, ict_scalp 15m over the Binance public archive 2021-08-16 through 2026-08-19 (175,200 bars per leg); the 78.5% bracket-decided figure is E0's own, over 284 xrp_pullback_2h harness trades and is quoted, not re-measured here. Run a net-of-cost, walk-forward sweep of the ENTRY BRACKET TRIPLE (tp_at_r, stop distance, timeout_bars) per leg, using the existing m20 fold structure and the existing Path A / Path B gate so the result is commensurable with the 8 lever columns already in the matrix -- this is a new DIMENSION for the coverage matrix, not a new gate. It must be graded net of fees, because a lower target raises turnover and a fee-free R comparison would flatter it exactly where it is most likely to pass; the existing sweeps' fee-free R basis is not sufficient for this axis. Report the per-leg optimum WITH its dispersion band (m20_split_dispersion), since a triple tuned on one split is the split_sensitive refusal case. Any resulting change to config/strategies.yaml is TIER-3 and operator-gated: tp_at_r is strategy parameterisation, not observability. Closes when the matrix carries a bracket-geometry column with a verdict per leg, or when the sweep returns an honest negative recording that the shipped triple is already at the optimum.  || 2026-08-20: the column exists, so what REMAINS to close this row is narrower and is now three concrete items, not a re-run: (1) a dispersion band for the 2 `pending` gate-passing cells (sol_pullback_2h/`to96`, trend_donchian_sol_4h/`to48`) — `m20_split_dispersion`, no new sweep needed; (2) the squeeze maxDD gross-vs-net fix, after which squeeze_breakout_4h/`to24` can be graded; (3) a decision on the 24 feed-blocked legs — either a non-Binance candle source or an explicit narrowing of this row's scope to the crypto fleet. A multiple-comparisons control on the 2 `passed_unshipped` cells is a PRECONDITION of proposing them to the operator, not of closing this row.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT
+  status_at_migration: open
+  severity: high
+  tier: '1'
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT
+verdict: null

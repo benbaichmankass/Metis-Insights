@@ -1,0 +1,38 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260822-MGC-TARGET-NAKED-AND-MONITOR-BLIND-TOGETHER
+type: commitment
+parent_intent: null
+title: |-
+  ib_paper/MGC is target-naked AND monitor-blind at the same time, and each alert cites the other's missing half as its backstop
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-22T18:30:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Either (a) a measured co-occurrence rate is on record and the operator has decided the two-row rendering is adequate, with the reason stated; or (b) a position holding both conditions surfaces as a single row that names the stop as the only remaining protection, demonstrated on a real or synthetic co-occurrence. A row closed on 'the Sunday routine flattened MGC' does NOT satisfy this - that clears the instance, not the class.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260822-MGC-TARGET-NAKED-AND-MONITOR-BLIND-TOGETHER
+  status_at_migration: open
+  severity: medium
+  tier: |-
+    1 (observation + alerting shape) — any protection change on the position is Tier-2
+  opened_by: claude (s4-pairs-control 2026-08-22, M20 readiness infra check)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260822-MGC-TARGET-NAKED-AND-MONITOR-BLIND-TOGETHER
+verdict: null
+next_action_at_migration: |-
+  TIER-1: decide whether the banner feed should compose - i.e. whether a position carrying BOTH ib_target_naked and monitor_blindness should surface as one higher-severity row naming the stop as sole remaining protection, rather than two rows each citing the other. MEASURE FIRST, do not build blind: count how often the two co-occur on one position over the available banner/outcome history. If it is rare, a composed banner is not worth the code; if it is common, the two-row rendering has been understating the state routinely. Explicitly NOT proposed here: any change to what protection is placed - that is Tier-2 and belongs with BL-20260816-COVERAGE-IS-ONE-SIDED.

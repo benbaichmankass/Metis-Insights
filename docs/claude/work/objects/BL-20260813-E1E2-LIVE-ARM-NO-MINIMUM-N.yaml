@@ -1,0 +1,36 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N
+type: commitment
+parent_intent: null
+title: |-
+  E1->E2 gate's live arm has no minimum-n: counted as confirmation at n=15, discounted at n=24
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-13'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  CLOSE when (a) the live arm for the three shipped donchian heads has been re-evaluated at accrued n and the result recorded, AND (b) the E1->E2 gate either declares a minimum-n for its live arm or records an explicit decision not to. If (a) shows the sign no longer agrees, this escalates to Tier-3 (three live heads trimming winners on real money) and must NOT be closed on the re-measurement alone.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N
+  status_at_migration: kept_open
+  severity: high
+  tier: '3'
+  opened_by: session_01Wekhce (M20 exit-coverage matrix)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- docs/claude/health-review-backlog.json#BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N
+verdict: null
+next_action_at_migration: |-
+  RE-EVALUATE the live arm for the three shipped donchian heads (trend_donchian, _eth, _sol) at their ACCRUED n -- live since 2026-07-12, ~1 month, so materially more than the n=15 they were promoted on. PR #6211 committed to two follow-ups that I did NOT verify ever happened: a mandatory health-review mechanics check on the first head-driven exit, and the realized future_r_delta record accruing for /ml-review. Check both. Then decide whether the E1->E2 live arm should carry an explicit minimum-n (and whether 'agrees in sign' is the right test at any n).

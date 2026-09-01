@@ -1,0 +1,38 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS
+type: commitment
+parent_intent: null
+title: |-
+  On broker-truth exit prices the declared bracket is reached ~3x more often than the exit_reason records -- workplan item 1.1 is substantially an ATTRIBUTION defect, not a mechanism one
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  1) The 3-row residue is diagnosed from the trader journal at close time. Three candidates are ALREADY eliminated (later price refinement, reduce leg, netted-sibling cascade -- see next_action); the surviving one is the _resolve_protective_levels symbol+direction fallback grading a trade against another trade's bracket on a netting account. Confirm or kill THAT, by name. 2) The backfill hypothesis is decided on a POWERED population (re-run when broker-truth coverage rises, or over the full 1293 closed rows rather than the newest 500) -- a p=0.111 result is not acted on. 3) IF a repair is proposed, it re-derives exit_reason ONLY for rows where the stored exit price is broker-truth AND crosses a level, states the row count before and after, and is approved as a money-DB mutation. 4) The 41.0% between-the-brackets residue is characterised separately -- it is the genuine non-bracket exit population and is what a mechanism fix would target.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS
+  status_at_migration: open
+  severity: high
+  tier: |-
+    1 to measure (done) -- 2/3 to repair historical rows, because rewriting exit_reason is a money-DB data mutation
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS
+verdict: null
+next_action_at_migration: |-
+  Start at the 3-row residue -- trades 4928 (AVAXUSDT/bybit_1, 2026-08-22T13:39Z), 4733 (BTCUSDT/bybit_2 REAL MONEY, 2026-08-18T05:14Z), 4180 (BTCUSDT/bybit_2 REAL MONEY, 2026-07-29T14:31Z). All three crossed the STOP by a hair (0.0159/0.0074/0.0210 R). THREE candidates are already eliminated: a later price refinement (no call site writes exit_price without exit_reason, and the site that closed them hands the classifier the same avg_exit_price it stores); a reduce leg (neither marker set); and the netted-sibling cascade (it stamps closed_by=monitor_reconciler_netted_cascade plus an exit_reason_source field, and all three carry plain closed_by=monitor_reconciler). THE SURVIVING CANDIDATE is the level-lookup fallback: _classify_broker_exit resolves via _resolve_linked_package_id and, on a miss, falls back to _resolve_protective_levels(symbol, direction), which returns the most recent matching package for that symbol+direction rather than THIS trade's -- so on a netting account with concurrent same-symbol packages it can grade against another trade's bracket. All three are ict_scalp legs on netting Bybit accounts. Confirm or kill it by pulling the trader journal around those three timestamps and checking whether trades.order_package_id was populated at close time (it is populated on all three today).

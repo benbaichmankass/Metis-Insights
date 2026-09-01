@@ -1,0 +1,40 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: |-
+  PB-20260816-REACHABILITY-REGISTRY-IGNORES-THE-CORPUS-TP-REACH-IT-KEEPS-RE-MEASURING
+type: commitment
+parent_intent: null
+title: |-
+  config/lever_reachability.json has been buying entry-conditioned cap_R one leg at a time via bespoke relays, while m20-sweep-corpus already carries the same measurement for 34 legs and nothing reads it
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-16'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  OBSERVABLE: for a leg whose registry row carries NO entry-conditioned basis, the corpus alone yields cap_R median/min/max/n and a reach share against that leg's arm_r, without dispatching a relay. Demonstrate on a leg that currently has none — reproducing a leg that already has a bespoke block proves only that the join works where the answer was already known.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/performance-review-backlog.json
+  row_id: |-
+    PB-20260816-REACHABILITY-REGISTRY-IGNORES-THE-CORPUS-TP-REACH-IT-KEEPS-RE-MEASURING
+  status_at_migration: open
+  severity: medium
+  tier: |-
+    1 to WIRE (a read path over two committed artefacts). Every arm_r verdict it would inform stays Tier-3 and the operator's.
+  opened_by: overnight M20 session (2026-08-16)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/performance-review-backlog.json#PB-20260816-REACHABILITY-REGISTRY-IGNORES-THE-CORPUS-TP-REACH-IT-KEEPS-RE-MEASURING
+verdict: null
+next_action_at_migration: |-
+  Join docs/research/m20-sweep-corpus.jsonl's live_tp_reach_r_{n,median,min,max}_{IS,OOS} onto config/lever_reachability.json by leg, as a RECORDED SECONDARY basis with the caveat below — never as a verdict flip. The natural home is scripts/ci/check_lever_reachability.py (which today has ZERO references to the field) or the coverage roll-up. Cheapest first step is a read-only report, not a writer.
