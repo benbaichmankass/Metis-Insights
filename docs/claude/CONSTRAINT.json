@@ -1,0 +1,258 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-01T21:28:25+00:00",
+  "generator": "scripts/ops/constraint_readout.py",
+  "cycle_priority": {
+    "cycle_id": "CY-20260901-OPERATING-LAYER",
+    "basis": "DECIDED",
+    "set_by": "operator",
+    "present": true
+  },
+  "constraint": {
+    "verdict": "insufficient_basis",
+    "verdict_note": "6 of 584 objects (1.0%) have an ASSESSED `blocked_on` basis, below the declared floor of 50%. **No stage is named.** 578 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them — it is nobody having looked. A stage computed over this graph would describe the 6 rows somebody assessed, not the system.",
+    "named_stage": null,
+    "population": 584,
+    "assessed": 6,
+    "assessed_coverage": 0.010273972602739725,
+    "min_assessed_coverage": 0.5,
+    "basis_counts": {
+      "blocked": 6,
+      "declared_none": 0,
+      "unstated": 578,
+      "malformed": 0
+    },
+    "stage_counts": {
+      "QUESTION": 0,
+      "EVIDENCE": 78,
+      "DECISION": 0,
+      "DEPLOYMENT": 0,
+      "OBSERVATION": 0,
+      "CAPABILITY": 8,
+      "INTEGRITY": 498,
+      "(unstated)": 0
+    },
+    "lifecycle_counts": {
+      "dormant": 578,
+      "waiting": 4,
+      "in_flight": 2
+    },
+    "chain_stages_with_no_objects": [
+      "QUESTION",
+      "DECISION",
+      "DEPLOYMENT",
+      "OBSERVATION"
+    ],
+    "held_up_candidates": {
+      "CAPABILITY": 6
+    },
+    "holds_on_waiting_targets": [
+      {
+        "object_id": "WO-20260901-PHASE-G",
+        "ref": "WO-20260901-PHASE-D"
+      },
+      {
+        "object_id": "WO-20260901-PHASE-H",
+        "ref": "WO-20260901-PHASE-B"
+      }
+    ],
+    "edge_kinds": {
+      "external_event": 6,
+      "object": 4
+    },
+    "hold_states": {
+      "unverifiable_outside_store": 6,
+      "holding": 4
+    },
+    "blocked_objects": [
+      {
+        "id": "WO-20260901-PHASE-A",
+        "stage": "CAPABILITY",
+        "lifecycle": "waiting",
+        "title": "Phase A — survival — the plan carries itself forward",
+        "edges": [
+          {
+            "kind": "external_event",
+            "ref": "a COLD session reporting on this work, citing the CLAUDE.md brief",
+            "since": "2026-09-01",
+            "ref_state": "not_in_store_by_design",
+            "target_lifecycle": null,
+            "hold_state": "unverifiable_outside_store"
+          }
+        ]
+      },
+      {
+        "id": "WO-20260901-PHASE-B",
+        "stage": "CAPABILITY",
+        "lifecycle": "waiting",
+        "title": "Phase B — visibility — the read-only work view and the daily digest",
+        "edges": [
+          {
+            "kind": "external_event",
+            "ref": "the work view rendered from the deployed SPA, by someone who is not this session",
+            "since": "2026-09-01",
+            "ref_state": "not_in_store_by_design",
+            "target_lifecycle": null,
+            "hold_state": "unverifiable_outside_store"
+          },
+          {
+            "kind": "external_event",
+            "ref": "the daily digest firing once on a real cadence",
+            "since": "2026-09-01",
+            "ref_state": "not_in_store_by_design",
+            "target_lifecycle": null,
+            "hold_state": "unverifiable_outside_store"
+          }
+        ]
+      },
+      {
+        "id": "WO-20260901-PHASE-C",
+        "stage": "CAPABILITY",
+        "lifecycle": "waiting",
+        "title": "Phase C — migration, the WIP ceiling, and the priority that reaches a session",
+        "edges": [
+          {
+            "kind": "external_event",
+            "ref": "a cold session stating this cycle's priority and citing the CLAUDE.md brief as where it read it",
+            "since": "2026-09-01",
+            "ref_state": "not_in_store_by_design",
+            "target_lifecycle": null,
+            "hold_state": "unverifiable_outside_store"
+          }
+        ]
+      },
+      {
+        "id": "WO-20260901-PHASE-D",
+        "stage": "CAPABILITY",
+        "lifecycle": "waiting",
+        "title": "Phase D — the constraint, computed rather than judged",
+        "edges": [
+          {
+            "kind": "external_event",
+            "ref": "a session writing TRUE blocked_on edges, taking assessed coverage over the declared 50% floor so E1 can name a stage instead of refusing",
+            "since": "2026-09-01",
+            "ref_state": "not_in_store_by_design",
+            "target_lifecycle": null,
+            "hold_state": "unverifiable_outside_store"
+          },
+          {
+            "kind": "external_event",
+            "ref": "a demonstration that the readout supersedes docs/claude/DUE.* in full, or an operator decision to keep both",
+            "since": "2026-09-01",
+            "ref_state": "not_in_store_by_design",
+            "target_lifecycle": null,
+            "hold_state": "unverifiable_outside_store"
+          }
+        ]
+      },
+      {
+        "id": "WO-20260901-PHASE-G",
+        "stage": "CAPABILITY",
+        "lifecycle": "dormant",
+        "title": "Phase G — the forcing function — retirement, and the E2 pull rule",
+        "edges": [
+          {
+            "kind": "object",
+            "ref": "WO-20260901-PHASE-D",
+            "since": "2026-09-01",
+            "ref_state": "resolved",
+            "target_lifecycle": "waiting",
+            "hold_state": "holding"
+          }
+        ]
+      },
+      {
+        "id": "WO-20260901-PHASE-H",
+        "stage": "CAPABILITY",
+        "lifecycle": "dormant",
+        "title": "Phase H — the control half — decisions from the UI, and the read gate",
+        "edges": [
+          {
+            "kind": "object",
+            "ref": "WO-20260901-PHASE-B",
+            "since": "2026-09-01",
+            "ref_state": "resolved",
+            "target_lifecycle": "waiting",
+            "hold_state": "holding"
+          },
+          {
+            "kind": "object",
+            "ref": "BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED",
+            "since": "2026-09-01",
+            "ref_state": "resolved",
+            "target_lifecycle": "dormant",
+            "hold_state": "holding"
+          },
+          {
+            "kind": "object",
+            "ref": "BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN",
+            "since": "2026-09-01",
+            "ref_state": "resolved",
+            "target_lifecycle": "dormant",
+            "hold_state": "holding"
+          }
+        ]
+      }
+    ],
+    "read_errors": []
+  },
+  "money": {
+    "read_state": "read",
+    "source": "https://ict-bot.duckdns.org/api/bot/performance?window=30d",
+    "window": "30d",
+    "totalTrades": 29,
+    "winRate": 51.7,
+    "totalPnl": 30.9315,
+    "totalPnlMeasured": 30.9315,
+    "pnlCoverage": 0.6207,
+    "pnlMeasuredCount": 18,
+    "pnlEstimatedCount": 11,
+    "pnlFabricatedCount": 0,
+    "pnlUnverifiedCount": 0,
+    "journalTrust": {
+      "readState": "read",
+      "accountsKnownDivergent": [
+        "bybit_2"
+      ],
+      "accountsUnrecorded": [],
+      "accountsUnreadable": []
+    },
+    "error": null,
+    "population_note": "Real-money only, closed non-backtest rows inside the window; paper rides in a separate sub-block on the same route and is never blended."
+  },
+  "flight": {
+    "ceiling": 8,
+    "ceiling_source": "scripts/ci/check_wip_ceiling.py::CEILING (imported, not restated)",
+    "in_flight": 2,
+    "in_flight_ids": [
+      "WO-20260901-PHASE-E",
+      "WO-20260901-PHASE-F"
+    ],
+    "waiting": 4,
+    "waiting_ids": [
+      "WO-20260901-PHASE-A",
+      "WO-20260901-PHASE-B",
+      "WO-20260901-PHASE-C",
+      "WO-20260901-PHASE-D"
+    ],
+    "headroom": 6,
+    "stalled_days_threshold": 14,
+    "stalled_basis": "declared_dates_only",
+    "stalled_basis_note": "Computed from `opened_at` and each edge's `since`. NOT a filesystem or git observation of when the object last changed.",
+    "stalled": [],
+    "movement_date_unstated": 0
+  },
+  "operator": {
+    "from_work_store_edges": [],
+    "from_work_store_note": "Zero here does NOT mean no decision is pending — it means no object DECLARES one, and 578 of 584 objects have never been assessed for edges at all.",
+    "operator_owed_register": {
+      "read_state": "read",
+      "count": 0,
+      "terminal_count": 5,
+      "unrecognised": [],
+      "carry_limit": 2,
+      "status_vocabulary_source": "src.runtime.operator_owed (imported)",
+      "open_items": []
+    }
+  }
+}

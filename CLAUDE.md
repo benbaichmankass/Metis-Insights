@@ -92,7 +92,7 @@ don't route around it.
 
 ### ⚠️ SESSION BRIEF — what is DUE right now (generated; read before your first tool call)
 
-This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/OPEN-ITEMS.json` + `docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** because `CLAUDE.md` is the only surface that reaches a session before it acts — project **hooks do not run on Claude Code on the web** (verified 2026-08-26: the SessionStart contract's output was absent from the session context), and CI guards fire at merge, which is after the wrong work is already built. It lists only what is DUE or UNPREVENTED, so it shrinks as work lands.
+This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CONSTRAINT.json` + `docs/claude/OPEN-ITEMS.json` + `docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** because `CLAUDE.md` is the only surface that reaches a session before it acts — project **hooks do not run on Claude Code on the web** (verified 2026-08-26: the SessionStart contract's output was absent from the session context), and CI guards fire at merge, which is after the wrong work is already built. It lists only what is DUE or UNPREVENTED, so it shrinks as work lands.
 
 **🎯 THIS CYCLE'S PRIORITY — CY-20260901-OPERATING-LAYER**
 
@@ -100,6 +100,13 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/OPE
 
 - **What that means for you:** Prefer work that makes the system steer over work that makes it execute better. If you are about to start something that is neither the current phase nor pulled by a held-up stage, that is the thing to re-argue before starting it.
 - Set by **operator** on `2026-09-01` · basis **DECIDED** · intent `IN-20260901-OPERATING-LAYER`
+
+**📉 THE COMPUTED READOUT BEHIND THAT PRIORITY** (`docs/claude/READOUT.md`, from `scripts/ops/constraint_readout.py`, generated `2026-09-01` — **it is a dated snapshot, not a live read**; re-run the script rather than trusting its age)
+
+- **No stage is named — verdict `insufficient_basis`.** Only 6 of 584 objects (1.0%) have an ASSESSED `blocked_on` basis, below the 50.0% floor. **578 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them** — it is nobody having looked. Do not read this as *nothing is blocked*.
+- ⚠️ **Chain coverage is partial:** `QUESTION`, `DECISION`, `DEPLOYMENT`, `OBSERVATION` hold **zero** objects, so the store cannot locate a hold-up there. A stage histogram over it describes what got migrated, not the chain.
+- **2 in flight** against a ceiling of 8 · 4 waiting · 0 stopped moving (≥14d, declared dates only).
+- **If you are about to write a real `blocked_on` edge, that is the single highest-value thing you can do to this store** — the diagnosis is refusing for want of assessed edges, not for want of machinery.
 
 **5 monitoring item(s) DUE — check and record what you OBSERVED:**
 
