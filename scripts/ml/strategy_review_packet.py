@@ -1453,6 +1453,48 @@ def _strategies_for_btc(cfg: Mapping[str, Mapping[str, Any]]) -> List[str]:
     return out
 
 
+def _strategies_all(cfg: Mapping[str, Mapping[str, Any]]) -> List[str]:
+    """Every ENABLED strategy.
+
+    Deliberately filtered to enabled: a disabled strategy has no decision to
+    prepare, and grading it would put HOLD rows in the index for legs nobody is
+    running. ``enabled`` defaults True to match the repo's declared-permissive
+    convention — a strategy is demoted by an EXPLICIT flag, never by omission.
+    """
+    return sorted(
+        name for name, block in cfg.items()
+        if isinstance(block, Mapping) and block.get("enabled", True)
+    )
+
+
+def write_index(rows: List[Dict[str, Any]], out_dir: Path) -> Path:
+    """Write the day's INDEX.json — one row per strategy GRADED, action first.
+
+    ⚠️ **This is the DENOMINATOR and it is why it is always committed.** The
+    per-strategy packets are committed selectively (only where an action is
+    proposed), so without the index a reader could not tell "48 strategies were
+    graded and held" from "only 4 were graded at all" — the unstated-population
+    error this repo has a top-level rule against. The index carries every
+    strategy the run graded, including every HOLD.
+    """
+    utc_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    day_dir = Path(out_dir) / utc_date
+    day_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "utc_date": utc_date,
+        "graded": len(rows),
+        "by_action": {
+            a: sum(1 for r in rows if r.get("proposed_action") == a)
+            for a in sorted({r.get("proposed_action") for r in rows if r.get("proposed_action")})
+        },
+        "rows": sorted(rows, key=lambda r: (r.get("proposed_action") or "", r.get("strategy") or "")),
+    }
+    path = day_dir / "INDEX.json"
+    path.write_text(json.dumps(payload, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    return path
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     p = argparse.ArgumentParser(description="Generate M7 strategy review packets.")
     p.add_argument("--strategy", action="append", default=[], help="strategy name (repeatable)")
@@ -1460,6 +1502,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--all-btc-strategies",
         action="store_true",
         help="iterate every strategy whose symbols include BTCUSDT (excludes MES).",
+    )
+    p.add_argument(
+        "--all-strategies",
+        action="store_true",
+        help="iterate every ENABLED strategy in config/strategies.yaml (the cron path).",
     )
     p.add_argument(
         "--window-days",
@@ -1493,10 +1540,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     targets: List[str] = list(args.strategy)
     if args.all_btc_strategies:
         targets = sorted(set(targets) | set(_strategies_for_btc(cfg)))
+    if args.all_strategies:
+        targets = sorted(set(targets) | set(_strategies_all(cfg)))
     if not targets:
-        p.error("provide --strategy NAME or --all-btc-strategies")
+        p.error("provide --strategy NAME, --all-btc-strategies or --all-strategies")
 
     window_start, window_end = _parse_window(args.window_days)
+    index_rows: List[Dict[str, Any]] = []
 
     for strategy in targets:
         packet = build_packet(
@@ -1509,8 +1559,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             shadow_soak_days=args.shadow_soak_days,
         )
         json_path, md_path = write_packet(packet, out_dir)
+        index_rows.append({
+            "strategy": strategy,
+            "proposed_action": packet.get("proposed_action"),
+            "n_closed": packet.get("n_closed"),
+            "win_rate": packet.get("win_rate"),
+            "expectancy": packet.get("expectancy"),
+            "pnl_total": packet.get("pnl_total"),
+            "reasons": packet.get("reasons"),
+            "packet_json": str(json_path),
+        })
         print(f"[{strategy}] action={packet['proposed_action']:<14} -> {md_path}")
 
+    index_path = write_index(index_rows, out_dir)
+    print(f"index -> {index_path} ({len(index_rows)} graded)")
     return 0
 
 

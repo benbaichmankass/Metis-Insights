@@ -6,6 +6,26 @@
  "updated_at": "2026-09-01",
  "items": [
   {
+   "id": "OI-20260901-OPERATING-LAYER-BUILD-IS-IN-FLIGHT-AND-CARRIED-ONLY-BY-THIS-ROW",
+   "opened": "2026-09-01",
+   "kind": "monitoring",
+   "loud": true,
+   "check_every_days": 1,
+   "verified_at": "2026-09-01",
+   "last_checked": "2026-09-01",
+   "summary": "The operating-model redesign (operator-directed, 2026-09-01) is DESIGNED and its build has begun. Phase A of 8 is in flight. ⚠️ THE DESIGN IS FOUR DOCUMENTS UNDER docs/design/ THAT NOTHING ELSE POINTS AT — this row is the ONLY thing that puts them in front of a session, so if it is dropped the work is lost to the exact failure it diagnoses. Read docs/claude/work/ for what is in flight; the build plan for the phase order.",
+   "detail": "WHAT IT IS: the value chain (QUESTION→EVIDENCE→DECISION→DEPLOYMENT→OBSERVATION) with CAPABILITY and INTEGRITY feeding it; work as typed objects carrying their own context; priority set by the operator each cycle at whichever stage is HELD UP, bounded by a WIP ceiling of 8; 24 functions graded 5 work / 14 partial / 5 missing, the five missing all being STEERING. Store: docs/claude/work/ (intents/ objects/ steps/, one file per object). Design: docs/design/operating-model-DESIGN.md, -schema-and-state-, -function-derivation-, -build-plan-. ⚠️ THE STORE IS NOT YET A COMPLETE PICTURE OF THE SYSTEM'S WORK and must not be read as one — it holds the build's own 8 phases and nothing else; the ~572 carried backlog rows migrate in Phase C, together with the ceiling, because rows arriving unbounded would render as 572 things in flight. ⚠️ PHASE F IS THE ONLY ONE UNBLOCKED TODAY (blocked_on is empty and that is a claim, not a gap) AND IT IS THE ONE THAT TOUCHES THE MEASURED CONSTRAINT: strategy_review_packet.py is 1,518 lines writing to a gitignored path with no cron, so no decision packet has ever been committed. A session with capacity should take F, not wait for A.",
+   "clears_when": "The build reaches a state where it is carried by something OTHER than this row — i.e. Phase B has shipped the work view AND a session has been observed reading it. ⚠️ THIS ROW MUST NOT BE CLEARED BECAUSE THE PHASES ARE PROGRESSING. Progress is tracked in docs/claude/work/objects/*.yaml; this row exists solely because the build is invisible without it, so clearing it while that is still true removes the only thing carrying the work. ⚠️ AND IT MUST NOT BE CLEARED ON A DEPLOY: the session brief itself is UNPROVEN (OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION), so 'the row renders' is not evidence a session read it. The observation needed is a COLD session — one not pointed here by its prompt — reporting on this row and citing the CLAUDE.md brief as where it saw it.",
+   "why_it_cannot_be_closed_by_time": "Waiting is the failure mode this row exists to prevent. A design that nobody acts on and a design being acted on look identical from the register; the difference is only visible in whether the phase objects move. Time passing is evidence of neither.",
+   "observation": "2026-09-01 (this session): OPENED on the day the design series landed and Phase A was built. Store seeded at docs/claude/work/ with 1 intent and 8 phase objects; lifecycle A=in_flight, F=ready, the other six dormant behind typed blocked_on edges. NOTHING HAS BEEN OBSERVED YET — no cold session has read this row, which is precisely its clears_when. Do not read the row's existence as evidence the mechanism works.",
+   "refs": [
+    "OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION",
+    "BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED",
+    "BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN"
+   ],
+   "probe_absent_reason": "MISSING CAPABILITY: the observable is a FRESH session's behaviour — whether a cold session reports on this row citing the brief. No probe can watch that; only a later session's closing summary can attest it. A probe asserting the row RENDERS would be the semantic substitution this repo has a guard family for: rendering is not reading."
+  },
+  {
    "id": "OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON",
    "opened": "2026-09-01",
    "kind": "monitoring",

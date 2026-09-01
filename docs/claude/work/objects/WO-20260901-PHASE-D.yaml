@@ -1,0 +1,33 @@
+id: WO-20260901-PHASE-D
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: "Phase D — the constraint, computed rather than judged"
+stage: CAPABILITY
+lifecycle: dormant
+owner: claude
+opened_at: 2026-09-01
+closed_at: null
+review_trigger: >-
+  Re-read when the phase it depends on closes, or when the operator changes the cycle
+  priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
+
+done_condition: >-
+  The cycle's priority has a computed readout behind it, AND docs/claude/DUE.*
+  is deleted rather than left running beside it.
+
+blocked_on:
+  - kind: object
+    ref: WO-20260901-PHASE-C
+    since: 2026-09-01
+    note: >-
+      E1 walks the typed blocked_on edges, which only exist once the carried rows
+      are migrated with their dependencies.
+
+note: >-
+  E1 is genuinely new — verified by search, nothing in the repo names a
+  bottleneck stage. render_due_list.py is 746 lines that say what is DUE,
+  never where the chain is stuck.
+
+evidence:
+  - docs/design/operating-layer-build-plan-DESIGN.md
+verdict: null

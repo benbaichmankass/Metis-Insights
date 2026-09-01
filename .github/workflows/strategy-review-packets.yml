@@ -1,0 +1,264 @@
+name: strategy-review-packets
+
+# M7 strategy-review packets — the CRON and the COMMITTED PATH.
+# Phase F / C3 of the operating-layer build plan.
+#
+# WHAT WAS BROKEN. `scripts/ml/strategy_review_packet.py` is ~1,500 lines that
+# emit a real action badge (KILL / DEMOTE_SHADOW / TUNE / HOLD / PROMOTE) with
+# reasons and a Tier-3 SLA — a genuine decision-packet generator for the stage
+# this system's constraint actually sits at. Measured 2026-09-01: it writes under
+# `runtime_logs/strategy_reviews/`, which `.gitignore:29` ignores, and
+# `git log --all` over that path returns **0 commits — no packet has ever been
+# committed**. It was reachable only by an operator opening a `system-action`
+# issue, so in practice it did not run.
+#
+# ⚠️ "Nothing runs it" would be too strong and is NOT the finding: the
+# `generate-strategy-review-packets` system-action exists and works. What was
+# missing is a CADENCE and a DURABLE OUTPUT.
+#
+# WHY GENERATION IS ON THE VM. The generator reads the live trade journal
+# (`sqlite mode=ro`). The runner has no journal, and copying a money DB to a
+# hosted runner to render a report would be a far worse trade than one SSH.
+#
+# TWO CONSUMERS, TWO PATHS, DELIBERATELY:
+#   * `runtime_logs/strategy_reviews/` ON THE VM — what `GET
+#     /api/bot/strategies/{name}/review` serves. Today's packets, live.
+#   * `comms/strategy_reviews/` IN THE REPO — the durable record a later session
+#     or cycle reads. `runtime_logs/` is gitignored and a VM re-provision takes
+#     it with it, so the API path alone is not a record.
+#
+# WHAT IS COMMITTED, AND WHY IT IS NOT EVERYTHING. 52 enabled strategies × daily
+# would be ~19,000 files a year. So: **`INDEX.json` always, full packets only
+# where an action is proposed.** ⚠️ The index is the DENOMINATOR and is why it
+# is unconditional — it carries every strategy graded, INCLUDING every HOLD, so
+# a reader can never mistake "48 graded and held" for "only 4 were graded at
+# all". Dropping the HOLD rows to save space would reintroduce exactly the
+# unstated-population error this repo has a top-level rule against.
+#
+# ⚠️ DO NOT ASSUME THE CRON FIRES. `probes.yml` and `due-list.yml` both landed
+# 2026-08-31 with valid crons and have **zero** `schedule` runs since
+# (`OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON`, open).
+# Scheduling in this repo demonstrably works elsewhere — `health-snapshot` has
+# 438 schedule runs — so this is unexplained rather than impossible. The
+# `workflow_dispatch` path below exists so the mechanism can be PROVEN now
+# instead of inferred from a cron nobody has watched fire.
+
+on:
+  schedule:
+    # 04:40 UTC — operator-directed 2026-09-01, two hours earlier than the first
+    # draft, so the day's packets are waiting when they wake up. A decision
+    # packet nobody reads before deciding is the C3 failure one level up, so WHEN
+    # it lands is part of the repair rather than a detail.
+    #
+    # ⚠️ The first draft said 06:40 "after the IB-gateway daily reset (06:05) so
+    # the journal is not being read across a broker bounce". That reason was
+    # WEAKER THAN IT SOUNDED and is retracted rather than quietly dropped: this
+    # generator opens the trade journal `mode=ro` and NEVER touches IB, so the
+    # gateway reset window (~03:45–05:45 UTC) is not a constraint on it at all. A
+    # broker bounce does not disturb a sqlite read, and the trader writes to that
+    # journal continuously regardless.
+    #
+    # What IS load-bearing about the time, and still holds at 04:40: it collides
+    # with no other cadence — probes (05:20), due-list (05:50) and health-snapshot
+    # (every 6h on the hour) are all clear — so 52 nice'd packet builds never
+    # stack on top of another job on the 2-OCPU money box.
+    - cron: "40 4 * * *"
+  workflow_dispatch:
+  # Issue-driven so a Claude Code on the web session can fire it. Mirrors
+  # health-snapshot.yml / vm-diag-snapshot.yml / system-actions.yml.
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: strategy-review-packets
+  cancel-in-progress: false
+
+jobs:
+  packets:
+    if: |
+      github.event_name != 'issues' ||
+      ((github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'strategy-review-packets'))
+    runs-on: ubuntu-latest
+    # 45, not 25: `commit-to-main` with verify-merged waits up to its own
+    # 30-minute default for the PR to MERGE, so a 25-minute job timeout would
+    # kill the job mid-wait and report a false failure (which now pages, since
+    # this workflow is on claude-run-failure-alert's watch list). Matches
+    # econ-calendar-produce.yml, the sibling using the same action.
+    timeout-minutes: 45
+    env:
+      VM_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      VM_USER: ubuntu
+      VM_REPO: /home/ubuntu/ict-trading-bot
+      WINDOW_DAYS: "7"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        run: |
+          set -eu
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          if ! ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null 2>&1; then
+            echo "::error::VM_SSH_KEY is not a parseable OpenSSH private key."
+            exit 1
+          fi
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Generate packets on the VM
+        id: generate
+        run: |
+          set -euo pipefail
+          # Invoke the EXISTING wrapper, not the python module directly. It owns
+          # the venv, `load_runtime_secrets`, the DB path, and — the one that
+          # actually bit during review — the OUTPUT ROOT, which resolves to
+          # ${DATA_DIR}/runtime_logs (i.e. /data/bot-data/runtime_logs on the
+          # live VM) and NOT ${VM_REPO}/runtime_logs. A second invocation path
+          # here would silently tar an empty directory.
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+              "$VM_USER@$VM_HOST" \
+              "ACTION_ALL_STRATEGIES=1 ACTION_WINDOW_DAYS=$WINDOW_DAYS \
+               nice -n 10 bash $VM_REPO/scripts/ops/generate_strategy_review_packets_action.sh" \
+              | tee /tmp/generate.log
+          # The wrapper prints its resolved root as `===== <root>/strategy_reviews/<date>/ =====`.
+          # Parse it rather than reconstructing it — reconstructing is what got
+          # the path wrong.
+          REVIEW_DIR="$(sed -n 's/^===== \(.*\/strategy_reviews\/[0-9-]*\)\/ =====$/\1/p' /tmp/generate.log | tail -1)"
+          if [ -z "$REVIEW_DIR" ]; then
+            echo "::error::could not parse the packet output dir from the wrapper's log"
+            exit 1
+          fi
+          echo "review_dir=$REVIEW_DIR" >> "$GITHUB_OUTPUT"
+          echo "resolved packet dir on VM: $REVIEW_DIR"
+
+      - name: Pull the day's packets back
+        id: pull
+        run: |
+          set -euo pipefail
+          DAY="$(date -u +%F)"
+          REVIEW_DIR="${{ steps.generate.outputs.review_dir }}"
+          echo "day=$DAY" >> "$GITHUB_OUTPUT"
+          # No `|| true` on the tar: an SSH failure must not degrade into an
+          # empty directory that reads exactly like "the fleet had nothing to
+          # say". That is the silent-empty defect class, and the whole point of
+          # this workflow is a record a later session can trust.
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+              "$VM_USER@$VM_HOST" \
+              "tar -C \"$(dirname "$REVIEW_DIR")\" -cf - \"$(basename "$REVIEW_DIR")\"" \
+              > /tmp/packets.tar
+          mkdir -p /tmp/packets && tar -C /tmp/packets -xf /tmp/packets.tar
+          test -f "/tmp/packets/$DAY/INDEX.json" \
+            || { echo "::error::no INDEX.json for $DAY — the generator did not complete"; exit 1; }
+
+      - name: Select what to commit (index always; packets where an action is proposed)
+        id: select
+        run: |
+          set -euo pipefail
+          DAY="${{ steps.pull.outputs.day }}"
+          DEST="comms/strategy_reviews/$DAY"
+          mkdir -p "$DEST"
+          cp "/tmp/packets/$DAY/INDEX.json" "$DEST/INDEX.json"
+          python3 - "$DAY" "$DEST" <<'PY'
+          import json, shutil, sys
+          from pathlib import Path
+          day, dest = sys.argv[1], Path(sys.argv[2])
+          src = Path("/tmp/packets") / day
+          idx = json.loads((src / "INDEX.json").read_text())
+          rows = idx.get("rows", [])
+          # HOLD is the no-decision-needed verdict; its row stays in the index
+          # (the denominator) but its packet is not committed.
+          actionable = [r for r in rows if (r.get("proposed_action") or "HOLD") != "HOLD"]
+          copied = 0
+          for r in actionable:
+              for ext in ("json", "md"):
+                  p = src / f"{r['strategy']}.{ext}"
+                  if p.exists():
+                      shutil.copy2(p, dest / p.name); copied += 1
+          # ⚠️ REFUSE TO COMMIT A VACUOUS INDEX, and fail FAST rather than late.
+          # Verified end-to-end against scripts/ops/check_artifact_validity.py:
+          # `rows` is one of its HEURISTIC_INPUT_KEYS and _numeric() reads a list
+          # as its LENGTH, so an index with rows: [] is flagged
+          # "VACUOUS (heuristic): rows=0". The guard is RIGHT -- 0 graded while 52
+          # strategies are enabled means something broke. But without this check
+          # the failure surfaces ~30 minutes later, inside the auto-merge wait,
+          # as a confusing timeout that PAGES (this workflow is on
+          # claude-run-failure-alert's watch list). Here it fails in ~2 minutes
+          # naming the actual cause.
+          # NOTE this does not contradict write_index() still writing the zero
+          # index on the VM: that file is the honest record that the run happened
+          # and graded nothing. What is refused is COMMITTING it as an artifact.
+          if not rows:
+              raise SystemExit(
+                  "::error::index graded 0 strategies while the fleet is non-empty. "
+                  "Refusing to commit a vacuous artifact. Check the generator's log: "
+                  "the wrapper exits 1 when no selector is passed, and returns an "
+                  "empty day dir if the journal was unreadable."
+              )
+          print(f"graded={len(rows)} actionable={len(actionable)} files_copied={copied}")
+          print(f"by_action={idx.get('by_action')}")
+          with open(__import__("os").environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"graded={len(rows)}\n")
+              fh.write(f"actionable={len(actionable)}\n")
+              fh.write(f"by_action={json.dumps(idx.get('by_action', {}))}\n")
+          PY
+
+      - name: Land on main (auto-merge PR)
+        id: commit
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: comms/strategy_reviews
+          message: "chore(m7): strategy review packets"
+          pr-title: "chore(m7): strategy review packets (auto)"
+          pr-body: >
+            Daily M7 strategy-review packets. INDEX.json carries EVERY strategy
+            graded (the denominator, including every HOLD); full packets are
+            committed only where an action is proposed. Data-only, no live-path
+            change.
+          branch-prefix: automation/strategy-reviews
+          # Not decoration: without it the step exits 0 the moment the PR OPENS,
+          # and "the push succeeded" would silently stand in for "the packets
+          # landed" — different claims, and only the second is what a later
+          # session depends on.
+          verify-merged: "true"
+
+      - name: Comment + close issue (issue-driven path)
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        env:
+          GRADED: ${{ steps.select.outputs.graded }}
+          ACTIONABLE: ${{ steps.select.outputs.actionable }}
+          BY_ACTION: ${{ steps.select.outputs.by_action }}
+          COMMITTED: ${{ steps.commit.outputs.committed }}
+          PR: ${{ steps.commit.outputs.pr }}
+        with:
+          script: |
+            const body = [
+              '📋 **strategy-review-packets**',
+              '',
+              `graded: ${process.env.GRADED} · actionable: ${process.env.ACTIONABLE}`,
+              `by_action: \`${process.env.BY_ACTION}\``,
+              '',
+              process.env.COMMITTED === 'true'
+                ? `landed via auto-merge PR: ${process.env.PR}`
+                : 'no packet change this run.',
+              '',
+              '---',
+              '_Generated by [Claude Code](https://claude.ai/code)_',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed',
+            });

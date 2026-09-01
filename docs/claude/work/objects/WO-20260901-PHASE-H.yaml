@@ -1,0 +1,47 @@
+id: WO-20260901-PHASE-H
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: "Phase H — the control half — decisions from the UI, and the read gate"
+stage: CAPABILITY
+lifecycle: dormant
+owner: claude
+opened_at: 2026-09-01
+closed_at: null
+review_trigger: >-
+  Re-read when the phase it depends on closes, or when the operator changes the cycle
+  priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
+
+done_condition: >-
+  The operator answers a decision from the UI, and the API's read surface is
+  gated.
+
+blocked_on:
+  - kind: object
+    ref: WO-20260901-PHASE-B
+    since: 2026-09-01
+    note: >-
+      The control half extends the read view; building both at once would couple
+      the cheap half to the gated one.
+  - kind: object
+    ref: BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED
+    since: 2026-09-01
+    note: >-
+      Gating reads is only tractable once there is nothing else left to keep
+      working.
+  - kind: object
+    ref: BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN
+    since: 2026-09-01
+    note: >-
+      A route gate is authentication, not authorization: one token would otherwise
+      open all 22 tables.
+
+note: >-
+  require_session is genuinely default-deny and already tested; exactly two
+  routes attach it today. /api/auth/login was built for this and NO consumer
+  has ever called it. ⚠️ A static site cannot hold a secret — the SPA is
+  served from GitHub Pages, so the operator logs in and the browser holds a
+  short-lived session token.
+
+evidence:
+  - docs/design/operating-layer-build-plan-DESIGN.md
+verdict: null

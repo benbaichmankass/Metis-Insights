@@ -302,6 +302,11 @@ jobs:
                 description: 'Triggers vm-net-fix workflow — open VM-local firewall (ufw + iptables) for the dashboard API port.',
               },
               {
+                name: 'strategy-review-packets',
+                color: '0e8a16',
+                description: 'Triggers strategy-review-packets workflow — M7 decision packets for every enabled strategy, landed under comms/strategy_reviews/.',
+              },
+              {
                 name: 'health-snapshot-trigger',
                 color: '0e8a16',
                 description: 'Triggers health-snapshot-pr workflow from a sandbox session (issue-driven dispatch).',

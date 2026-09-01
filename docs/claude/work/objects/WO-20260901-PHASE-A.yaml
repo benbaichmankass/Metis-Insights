@@ -1,0 +1,57 @@
+id: WO-20260901-PHASE-A
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: "Phase A — survival — the plan carries itself forward"
+stage: CAPABILITY
+lifecycle: waiting
+owner: claude
+opened_at: 2026-09-01
+closed_at: null
+review_trigger: >-
+  Re-read when the phase it depends on closes, or when the operator changes the cycle
+  priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
+
+done_condition: >-
+  A session that arrives COLD, pointed at nothing, states which phase this
+  build is on and what the next step is, CITING the CLAUDE.md session brief as
+  where it saw it. A passing test is not that observation, and neither is this
+  session reporting on its own work.
+
+blocked_on:
+  - kind: external_event
+    ref: a COLD session reporting on this work, citing the CLAUDE.md brief
+    since: 2026-09-01
+    note: >-
+      Everything Phase A ships is BUILT and pushed. It is deliberately NOT `done`:
+      its done_condition is an OBSERVATION nobody has made yet, and the channel it
+      rides is itself unproven (OI-20260826). `waiting` is the honest state — a
+      `done` here would be the collapse the six-state vocabulary exists to prevent,
+      and would quietly convert "we deployed it" into "we verified it".
+
+note: >-
+  Rides scripts/ops/render_session_brief.py, which renders OPEN-ITEMS.json
+  into CLAUDE.md — the only surface reaching a session before its first tool
+  call. ⚠️ That channel is ITSELF unproven: OI-20260826-SESSION-BRIEF-NEVER-
+  READ-BY-A-FRESH-SESSION is open and says no fresh session has ever been
+  observed acting on it. So this object's done-condition is an OBSERVATION,
+  not a deploy.
+
+carried_out_of_scope:
+  - what: >-
+      Delete the two dead Routines (Health Check Routine trig_015diTGEy9jATecSPMFmPyNF,
+      Sprint Continue Work trig_01SvpLKYiTKgXkeLgV7Q3pEr) — both enabled:true with
+      next_run_at 0001-01-01, never fired, naming the pre-rename repo and branches that no
+      longer exist.
+    why: >-
+      OPERATOR-ONLY. Attempted 2026-09-01 and refused by the control plane: both were created
+      via http_api, and an agent may only delete or disable routines it created itself.
+      delete_trigger AND update_trigger(enabled=false) both refused. No runner path exists —
+      this is the Claude Code Remote control plane, not a VM action.
+    ⚠️: >-
+      Until the operator removes them the register keeps two routines reading enabled:true
+      that can never fire. Health Check Routine also holds an unused stored OAuth token from
+      2026-05-10, retired with it.
+
+evidence:
+  - docs/design/operating-layer-build-plan-DESIGN.md
+verdict: null

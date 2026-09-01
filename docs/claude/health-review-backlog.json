@@ -30157,6 +30157,54 @@
         "OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED"
       ],
       "found_by": "session 01HYXKHpDQeWv3u4rjWWoL2J (Lane P), first dispatched probes run"
+    },
+    {
+      "id": "BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-01",
+      "area": "web api / access posture",
+      "title": "The generic DB explorer is unauthenticated and reaches device_tokens.token unredacted, while the dedicated /devices route is gated and returns only a suffix",
+      "detail": "Measured 2026-09-01 from a sandbox session with NO credentials against https://ict-bot.duckdns.org. /api/bot/db/tables returns 200 and exposes 22 tables; /api/bot/db/table/device_tokens?limit=1 returns 200 with columns [id, token, platform, label, subscriptions, created_at, last_seen_at] -- the RAW token column. The dedicated /api/bot/devices route returns 401 AND deliberately emits only token_suffix, which is what establishes that public exposure was never the intent: two paths to one asset, one gated and one not. db_explorer.py's own docstring asserts the premise this violates -- 'No secrets live in either DB (credentials are env/config and redacted elsewhere)' -- the field-beats-comment shape. PROPORTION, stated rather than implied: device_tokens holds 0 rows today so nothing is leaking; it becomes live on first device registration, which is the Android app's only write to the bot; and an FCM registration token is a device identifier rather than a directly usable credential, since sending push additionally requires the FCM server key, which is not exposed here. The operator decided 2026-09-01 to archive the Android app off the live feed, which removes the PRODUCER and so the live risk -- but the ungated any-table path outlives that decision and is the actual defect. Population for the wider surface: /api/bot/{stats,config,positions,trades/closed,accounts/balances,order-packages,prop/fills,logs} all 200 unauthenticated; signals holds 2,273,237 rows, balance_snapshots 29,716, trades 5,288, order_packages 4,254. Documented gates DO hold: /api/bot/devices, /api/diag/*, /api/pnl and /api/status all 401.",
+      "resolution_criteria": "The generic explorer is narrowed to a TABLE ALLOWLIST plus COLUMN REDACTION (operator decision 2026-09-01), verified by: (a) an unauthenticated GET of /api/bot/db/table/device_tokens returns 404 or omits the token column -- demonstrated against the live host, not asserted from the diff; and (b) a table added to the schema WITHOUT being added to the allowlist is unreachable, which is the inversion that matters -- a new table must be invisible until someone admits it deliberately, rather than exposed until someone notices. Also correct db_explorer.py's docstring premise, since the next person to add a table will read it and trust it. NOT satisfied by archiving the Android app: that removes this table's producer and leaves the path.",
+      "refs": [
+        "docs/design/operating-layer-schema-and-state-DESIGN.md",
+        "BL-20260818-DIAG-READ-TOKEN-PUBLIC-EXPOSURE-UNREMEDIATED"
+      ],
+      "found_by": "operating-model design session, 2026-09-01 (exposure assessment requested by the operator)"
+    },
+    {
+      "id": "BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED",
+      "severity": "medium",
+      "tier": 2,
+      "status": "open",
+      "opened": "2026-09-01",
+      "area": "consumers / access posture",
+      "title": "Operator decision 2026-09-01: the Svelte SPA is the only live consumer; retire the Android app and the Streamlit dashboard off the live feed and archive them",
+      "detail": "Operator directive 2026-09-01, in the operating-model design session: 'the android app isn't in use, only the git pages' -- so the Android app and the Streamlit dashboard are to be pulled off the live feed and archived. This is a PRECONDITION for the access-posture decision taken in the same session (gate the API's READ surface behind a token, with the SPA authenticating via the existing /api/auth/login): gating is tractable precisely because there is then only one consumer to keep working. Measured 2026-09-01: require_session already exists, is genuinely default-deny and fail-closed, is asserted by the test suite, and is attached to EXACTLY TWO routes -- /api/pnl and /api/status -- with PUBLIC_ROUTES at src/web/api/auth.py:44 as the tested opt-out list. So the gating work is attaching an existing gate, not building one. Archiving Android also removes the producer for device_tokens (see the sibling row on the ungated DB explorer).",
+      "resolution_criteria": "THREE things, and the third is the one that is easy to skip. (1) The Android app and the Streamlit dashboard no longer call the live API -- demonstrated by their absence from the consumer set, not by intent. (2) The repos/entry points are archived with a banner saying what replaced them and when, so a future session does not read them as live (the recurring-sessions.md precedent: a doc that called itself binding while nothing ran it). (3) Every CLAUDE.md and architecture reference that names Streamlit or the Android app as a live consumer is corrected -- the bot repo's CLAUDE.md currently opens its dashboard section with 'consumed by two front-ends', and the API table annotates routes with 'Streamlit dashboard' / 'Android app' throughout. Stale prose here is the field-beats-comment failure this repo keeps paying for.",
+      "refs": [
+        "docs/design/operating-layer-schema-and-state-DESIGN.md"
+      ],
+      "found_by": "operating-model design session, 2026-09-01 (operator decision)"
+    },
+    {
+      "id": "BL-20260901-DECISION-RECORD-SAYS-SHADOW-WHILE-CONFIG-SAYS-LIVE-SQUEEZE-BREAKOUT-4H",
+      "severity": "medium",
+      "tier": 3,
+      "status": "open",
+      "opened": "2026-09-01",
+      "area": "decision-record",
+      "title": "config/strategy_changelog.json records squeeze_breakout_4h DEMOTED live->shadow (Tier-3, operator-approved, 2026-06-01) while config/strategies.yaml sets execution: live EXPLICITLY today",
+      "detail": "MEASURED 2026-09-01 from CURRENT FILE STATE (see the population caveat below — the history is NOT available in this clone). config/strategy_changelog.json carries, under squeeze_breakout_4h, a 2026-06-01 entry: 'DEMOTED execution: live -> shadow ... Tier-3, operator-approved', citing 60 closed trades at 0% win and net -20R, and saying 'Re-promote only on a fresh net-positive window.' Read through the canonical loader (scripts/ml/strategy_review_packet.load_strategies_yaml, i.e. the `strategies:` wrapper key — reading the raw YAML top level returns nothing and is how this was first misread), config/strategies.yaml today has squeeze_breakout_4h with execution: 'live' PRESENT AND EXPLICIT, and enabled: True. ⚠️ STATE THE POPULATION / BLAST RADIUS: it is routed to exactly ONE account, bybit_1, which is mode: live but account_class: PAPER. So this is NOT real money, and describing it as 'running live' without that qualifier overstates it. ⚠️ WHAT IS NOT ESTABLISHED, and must not be asserted: WHEN or WHY the config value changed, and whether a later operator decision re-promoted it and simply was not logged. This session's clone is SHALLOW (git rev-parse --is-shallow-repository = true; 58 reachable commits, earliest 2026-08-31), so `git log -- config/strategies.yaml` returns 1 commit and any history-based claim from here is an artifact of clone depth rather than a fact. An investigating session must `git fetch --unshallow` first. This is a RECURRENCE of a class already twice fixed on other surfaces — BL-20260814-MATRIX-STATUS-CONTRADICTS-LIVE-CONFIG-ON-SIX-LEVER-CELLS (coverage matrix vs config) and BL-20260823-STALE-COMMENT-CLAIMS-PROP-VARIANTS-ARE-SHADOW (a money-path comment vs config), both resolved. That it has now recurred on the CANONICAL DECISION RECORD is the finding: the two earlier fixes were per-surface, and nothing compares the decision record against the config it is supposed to govern. Related: the changelog's most recent ENTRY is dated 2026-07-28 (53 entries, earliest 2026-05-06), so the record has not been written to in over a month while Tier-3 decisions demonstrably continued — which is C4 of the operating-layer build plan.",
+      "resolution_criteria": "EITHER (a) the config and the record are reconciled — a session establishes on UNSHALLOWED history whether a re-promotion decision was taken, and then either logs that decision to strategy_changelog.json (if it was operator-approved and merely unrecorded) or restores execution: shadow (if the demotion was never reversed). ⚠️ Both directions are Tier-3 and need explicit operator approval — do NOT flip the execution gate on inference. AND (b) an executable check compares the decision record's latest execution verdict per strategy against config/strategies.yaml and FAILS on a divergence, so this class stops needing a human to notice it on a third surface. A one-off reconciliation without (b) closes the instance and leaves the class, which is what the two prior fixes did.",
+      "refs": [
+        "BL-20260814-MATRIX-STATUS-CONTRADICTS-LIVE-CONFIG-ON-SIX-LEVER-CELLS",
+        "BL-20260823-STALE-COMMENT-CLAIMS-PROP-VARIANTS-ARE-SHADOW",
+        "docs/design/operating-layer-build-plan-DESIGN.md"
+      ],
+      "found_by": "operating-layer build, Phase F (C4 premise verification), 2026-09-01"
     }
   ]
 }
