@@ -1,6 +1,6 @@
 """GET /api/bot/performance — windowed aggregate performance stats.
 
-Tier-1 read endpoint backing the Android Performance tab (and any other
+Tier-1 read endpoint built for the Android Performance tab (retired from the live feed 2026-09-01; the SPA and any other
 consumer that wants headline trade analytics over a selectable window).
 
 Why this exists: the consumers previously pulled ``/api/bot/trades/closed``
@@ -773,7 +773,7 @@ def get_performance(
     rows so a consumer can render Real and Paper as separate sections
     without a second request. A ``paper`` sub-block carries the identical
     payload under the clearer name (account_class convention, 2026-06-15);
-    ``demo`` is retained as a back-compat alias for the Android app.
+    ``demo`` is retained as a back-compat alias from the retired Android app.
 
     Trades with ``pnl IS NULL`` are excluded from both — see ``_query`` for
     why ("0-pnl closed trade" complaint, reconciler fallback path).

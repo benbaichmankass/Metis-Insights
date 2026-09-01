@@ -73,24 +73,26 @@ none of them.
 **Transport note (corrected 2026-08-09):** the rationale here used to describe
 the Vercel rewrite proxying `/api/*` with CORS as the gate. That stack was
 **retired 2026-05-12** and purged from the repo (see `CLAUDE.md` § "Dashboard
-consumer"). Today's consumers are the **Streamlit** app (server-side upstream
-call, so CORS is not load-bearing for it), the **Svelte SPA** on GitHub Pages
-(browser-direct), and the **Android** app. The tier is unchanged — these are
-unauthenticated reads — but the transport rationale was two-and-a-half months
-stale and read as current.
+consumer"). **Today there is exactly ONE consumer: the Svelte SPA** on GitHub
+Pages (browser-direct, so CORS **is** load-bearing). The **Streamlit** app and
+the **Android** app were retired from the live feed on **2026-09-01**
+(`BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED`); the note here
+previously listed all three as current. The tier is unchanged — these are
+unauthenticated reads — but a consumer list that names retired consumers is
+the same staleness this paragraph was already written to complain about.
 
 | Endpoint | Source | Notes |
 |---|---|---|
 | `GET /api/health` | `src/web/api/main.py` | Liveness check. Always public. Defined outside `routers/`, so outside the guard's population. |
 | `GET /api/bot/accounts/balances` | `routers/accounts.py` | Latest per-account balance snapshot from `trade_journal.db::balance_snapshots` (JSON file fallback; `source` records which served). **Read-only and connection-free — never opens an exchange socket.** |
 | `GET /api/bot/allocator/soak` | `routers/allocator.py` | M18 P0c capital-allocator shadow-soak tail: would-pick vs actually-routed + regret, on ≥2-candidate ticks. Observe-only; nothing reads it back. |
-| `GET /api/bot/backtests` | `routers/backtests.py` | Rows from `trade_journal.db::backtest_results`. ⚠️ **HISTORICAL ONLY — the writer was removed 2026-08-20** (the M5 `/test` consumer ran one hardcoded ICT engine regardless of the strategy named and stamped fabricated `0.0` metrics). The route is deliberately KEPT so the Streamlit Backtesting tab and Android `BotApi.kt:1903` do not 404; the rows are kept as a record and their zeros must not be read as measured. Headline metrics only; `limit` clamped 1..200; missing DB / table both collapse to `[]`. Real backtests: `/api/bot/backtests/sweeps`. |
+| `GET /api/bot/backtests` | `routers/backtests.py` | Rows from `trade_journal.db::backtest_results`. ⚠️ **HISTORICAL ONLY — the writer was removed 2026-08-20** (the M5 `/test` consumer ran one hardcoded ICT engine regardless of the strategy named and stamped fabricated `0.0` metrics). The route is deliberately KEPT so the SPA's Backtesting tab does not 404 (the Streamlit Backtesting tab and Android `BotApi.kt:1903` were the other consumers until they retired 2026-09-01); the rows are kept as a record and their zeros must not be read as measured. Headline metrics only; `limit` clamped 1..200; missing DB / table both collapse to `[]`. Real backtests: `/api/bot/backtests/sweeps`. |
 | `GET /api/bot/backtests/sweeps` | `routers/backtests.py` | Strategy-improvement / validation sweeps mirrored from the trainer VM (`runtime_logs/trainer_mirror/backtests/`). File-backed; newest-first by date. |
 | `GET /api/bot/candles` | `routers/candles.py` | OHLCV from the same exchange the strategies trade the symbol on (Bybit / IBKR), via the signal builders' own fetcher. **The one Tier-1 route that reaches an external venue** — bounded by a short in-process cache and a shared single-worker executor that serialises IB access. Best-effort: empty `candles` + `error` on any failure. |
 | `GET /api/bot/config` | `routers/bot_config.py` | **Added S-064 (2026-05-09).** Effective config view (accounts, strategies, risk caps, halt flag, live/dry per account). Allowlist for accounts; recursive secret-key denylist for strategy params. **Never echoes `api_key_env` / `api_secret_env` values** — the redaction is what keeps this Tier 1. |
 | `GET /api/bot/db/tables` | `routers/db_explorer.py` | Federated read-only schema overview across `trade_journal.db` + the `trainer_store.db` sidecar; each table tagged with its owning `db`. Neither DB holds a secret. |
 | `GET /api/bot/db/table/{table}` | `routers/db_explorer.py` | One paginated page of a table. **SELECT-only** on a read-only (`mode=ro`) connection; table/column identifiers validated against the live schema (no identifier injection), filter values bound; `limit` 1..500; 404 on unknown table. |
-| `GET /api/bot/devices/event-kinds` | `routers/devices.py` | The canonical push event-kind taxonomy (`src.runtime.mobile_push.event_kinds`), so the Android Notifications screen needn't mirror the list. Static data, no device rows, **ungated** — unlike its siblings in the Tier-2 token table below. |
+| `GET /api/bot/devices/event-kinds` | `routers/devices.py` | The canonical push event-kind taxonomy (`src.runtime.mobile_push.event_kinds`), so the (retired 2026-09-01) Android Notifications screen needn't mirror the list. Static data, no device rows, **ungated** — unlike its siblings in the Tier-2 token table below. |
 | `POST /api/bot/devices/register` | `routers/devices.py` | ⚠️ **WRITE — Tier-1 carve-out (1) above.** Upsert a device by its FCM token; idempotent on token. **No gate** (`_check_admin_token` is not called here): a device must be able to enrol itself before it holds any credential. The raw token is never echoed back — only `token_suffix` (last 8 chars). Unknown subscription kinds → 400. |
 | `GET /api/bot/exit-ladder/soak` | `routers/exit_ladder.py` | ExitPlan laddered-vs-single-target shadow soak (dynamic-take-profit P3). Observe-only — nothing reads it back to drive an exit. |
 | `GET /api/bot/exposure/soak` | `routers/exposure.py` | **Added 2026-08-09 (#8684).** Gross-exposure observation soak + a per-account `max_multiple` roll-up (read it beside `measured_n`). Observe-only; connection-free. |
@@ -111,7 +113,7 @@ stale and read as current.
 | `GET /api/bot/learning/courses` | `routers/learning.py` | Index of the interactive audio+quiz courses. |
 | `GET /api/bot/learning/courses/{course_id}` | `routers/learning.py` | One course. `course_id` validated `[a-z0-9][a-z0-9_-]*` and resolved strictly under `comms/learning/courses/` — **no path traversal** (400). |
 | `GET /api/bot/learning/progress` | `routers/learning.py` | Per-resource learning progress from `trade_journal.db::learning_progress`. Degraded envelope (never a 5xx) on a DB error. |
-| `POST /api/bot/learning/progress` | `routers/learning.py` | ⚠️ **WRITE — Tier-1 carve-out (1) above.** Upsert one resource's progress. **Deliberately unauthenticated** so both the dashboard and the Android app can record progress without holding `DASHBOARD_API_TOKEN` (the same shape as `POST /devices/register`). Operator observability only: no trading impact, no order path, no notification, no secret in the store. 400 on a bad status / missing id. |
+| `POST /api/bot/learning/progress` | `routers/learning.py` | ⚠️ **WRITE — Tier-1 carve-out (1) above.** Upsert one resource's progress. **Deliberately unauthenticated** so the SPA can record progress without holding `DASHBOARD_API_TOKEN` (the same shape as `POST /devices/register`). Operator observability only: no trading impact, no order path, no notification, no secret in the store. 400 on a bad status / missing id. |
 | `GET /api/bot/liquidity` | `routers/liquidity.py` | **Added S-064 (2026-05-09).** Per-symbol liquidity zones from `runtime_logs/liquidity_state.json`; `limit` / `sweeps_limit` clamped 1..100; missing file → 200 with empty arrays. |
 | `GET /api/bot/logs` | `routers/dashboard.py` | Merged tail of the pipeline audit log + `outcomes.jsonl`. `limit` 1..1000 (default 100); `since` / `level` optional. **Operator-facing log text — the one Tier-1 route where a future log line could leak something; keep secrets out of the logs, not out of this route.** |
 | `GET /api/bot/ml/status` | `routers/training_center.py` | Trainer mirror status. File-backed read of `runtime_logs/trainer_mirror/`; no trainer-VM contact. |
@@ -153,7 +155,7 @@ stale and read as current.
 | `GET /api/bot/trades/closed` | `routers/trades_closed.py` | **Added S-557 (2026-05-09).** Closed non-backtest trades, newest-first; `limit` clamped 1..200 (default 50). Each row carries `pnlProvenance` so a consumer can caveat a fabricated/unverified figure. Paper excluded by default. |
 | `GET /api/bot/trades/scores` | `routers/trade_scores.py` | **Added 2026-05-11 (#820).** Per-trade shadow-prediction score aggregates, joining each trade's open→close window against the shadow log. `limit` clamped 1..200. |
 | `GET /api/pnl/history` | `routers/pnl_history.py` | **Added S-063 (2026-05-09) — the route this file was created for.** Per-day realised P&L; `days` clamped 1..90; `account_id` scopes to one account. Paper excluded. Distinct from the session-gated `GET /api/pnl` below. |
-| `WS /ws/market` | `routers/market_ws.py` | **WebSocket** (P2b) — pushes live candle + open-position/uPnL snapshots on a ~2s server loop so the Android app streams instead of polling. **Read-only, no order path**; reuses the `/candles` fetcher and `/positions` reader. IB-pacing-aware cadence (crypto ~2s, IBKR futures ~8s). **Access tier is 1; its *deploy* was Tier-2** (a new live service surface) — those are different questions and the deploy tier is not an access gate. |
+| `WS /ws/market` | `routers/market_ws.py` | **WebSocket** (P2b) — pushes live candle + open-position/uPnL snapshots on a ~2s server loop so a client streams instead of polling (built for the retired Android app; the SPA consumes it over WSS through Caddy). **Read-only, no order path**; reuses the `/candles` fetcher and `/positions` reader. IB-pacing-aware cadence (crypto ~2s, IBKR futures ~8s). **Access tier is 1; its *deploy* was Tier-2** (a new live service surface) — those are different questions and the deploy tier is not an access gate. |
 | `GET /` · `GET /login` · `GET /static/*` | UI surfaces / `app.mount` | Login redirect target, login page, static assets. Outside `routers/`, so outside the guard's population. |
 
 ---
@@ -162,9 +164,12 @@ stale and read as current.
 
 ### 2a — JWT (`require_session`)
 
-HS256, 1h TTL, allowlisted email. Neither the Streamlit dashboard nor the
-Android app calls these today — both consume only no-session routes — so the
-gate is currently invisible to every live consumer. `POST /api/auth/login`
+HS256, 1h TTL, allowlisted email. **No consumer has ever called these** — the
+retired Streamlit dashboard and Android app consumed only no-session routes,
+and the Svelte SPA does not call them yet either — so the gate is currently
+invisible to every live consumer. ⚠️ That is what **Phase H** changes: with the
+other two consumers retired, attaching `require_session` to the read surface
+becomes tractable, because there is nothing else left to keep working. `POST /api/auth/login`
 mints the token and is itself in `PUBLIC_ROUTES` because you need it to get a
 token in the first place.
 

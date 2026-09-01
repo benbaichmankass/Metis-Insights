@@ -69,14 +69,14 @@ _HALT_FLAG_PATH = None
 # this set (notably ``api_key_env`` / ``api_secret_env``) is dropped.
 # ``symbols`` (2026-06-11): the per-account instrument list is the
 # canonical "what does the system trade" enumeration — consumers
-# (Streamlit dashboard, Android app) derive their symbol selectors from
+# (the Svelte SPA — the only live consumer since 2026-09-01) derive their symbol selectors from
 # it instead of hardcoding, so a new instrument shows up without an app
 # change.
 _ACCOUNT_PUBLIC_FIELDS = frozenset({
     "type", "exchange", "market_type", "strategies", "symbols", "risk",
     "enabled",
     # account_class (2026-06-15): the paper/real funding category. Consumers
-    # (dashboard, Android) read the category from here. Not secret-bearing.
+    # (the SPA) reads the category from here. Not secret-bearing.
     "account_class",
     # paper_role (2026-07-16): for paper accounts, distinguishes the
     # live-PORTFOLIO mirror (`portfolio`) from a data-only SOAK book

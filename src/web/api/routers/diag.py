@@ -95,7 +95,7 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # caddy.service is outside the guard's scan entirely -- it is neither
     # flagged as uncovered nor flagged as stale if this line is deleted.
     # That invisibility is exactly why it went unwatched: a Caddy outage
-    # takes the SPA + WSS down while Streamlit (which calls the API
+    # takes the SPA + WSS down; it used to leave Streamlit (which called the API
     # server-side over plain HTTP) stays green, so nothing else reports it.
     # Do not remove without giving the SPA transport another liveness
     # surface first.

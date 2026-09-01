@@ -1,6 +1,6 @@
 """S11 (M11) — dashboard transparency: net positions + strategy attribution.
 
-Two Tier-1 read-only endpoints consumed by the Streamlit dashboard:
+Two Tier-1 read-only endpoints consumed by the Svelte SPA:
 
   GET /api/bot/positions/net
       Returns the current signed net qty per symbol aggregated across all
