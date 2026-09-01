@@ -1,9 +1,9 @@
 {
-  "generated_from_observed_at": "2026-08-31T00:47:28Z",
+  "generated_from_observed_at": "2026-09-01T01:22:35Z",
   "countries": [
     "US"
   ],
-  "count": 380,
+  "count": 385,
   "events": [
     {
       "event_id": "evt-fomc-2026-06-17-us",
@@ -1107,7 +1107,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-s-p-global-services-pmi-2026-07-24-us",
@@ -1131,7 +1131,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-spglobal-manufacturing-2026-07-24-us",
@@ -1155,7 +1155,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-consumer-confidence-2026-07-28-us",
@@ -1179,7 +1179,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-mba-mortgage-applications-2026-07-29-us",
@@ -1251,7 +1251,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-continuing-jobless-claims-2026-07-30-us",
@@ -1683,7 +1683,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-michigan-consumer-expectations-index-2026-07-31-us",
@@ -1803,7 +1803,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-baker-hughes-us-oil-rig-count-2026-07-31-us",
@@ -1923,7 +1923,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-spglobal-manufacturing-2026-08-03-us",
@@ -1947,7 +1947,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-construction-spending-mom-2026-08-03-us",
@@ -2139,7 +2139,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-loan-officer-survey-report-2026-08-03-us",
@@ -2211,7 +2211,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-goods-and-services-trade-balance-2026-08-04-us",
@@ -2427,7 +2427,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-mba-mortgage-applications-2026-08-05-us",
@@ -2475,7 +2475,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-adp-employment-change-2026-08-05-us",
@@ -2523,7 +2523,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-s-p-global-services-pmi-2026-08-05-us",
@@ -2547,7 +2547,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-ism-services-2026-08-05-us",
@@ -2691,7 +2691,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-fed-s-daly-speech-2026-08-06-us",
@@ -2715,7 +2715,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-challenger-job-cuts-2026-08-06-us",
@@ -2955,7 +2955,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-average-hourly-earnings-mom-2026-08-07-us",
@@ -3147,7 +3147,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-baker-hughes-us-oil-rig-count-2026-08-07-us",
@@ -3291,7 +3291,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-3-month-bill-auction-2026-08-10-us",
@@ -3483,7 +3483,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-3-year-note-auction-2026-08-11-us",
@@ -3723,7 +3723,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-10-year-note-auction-2026-08-12-us",
@@ -3795,7 +3795,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-continuing-jobless-claims-2026-08-13-us",
@@ -3939,7 +3939,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-eia-natgas-storage-2026-08-13-us",
@@ -4035,7 +4035,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-retail-sales-control-2026-08-14-us",
@@ -4995,7 +4995,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-continuing-jobless-claims-2026-08-20-us",
@@ -5043,7 +5043,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-initial-jobless-claims-2026-08-20-us",
@@ -5163,7 +5163,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-4-week-bill-auction-2026-08-20-us",
@@ -5547,7 +5547,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-new-home-sales-change-mom-2026-08-25-us",
@@ -5691,7 +5691,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-api-crude-stocks-2026-08-25-us",
@@ -6219,7 +6219,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-fed-s-goolsbee-speech-2026-08-27-us",
@@ -6243,7 +6243,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-chicago-fed-national-activity-index-2026-08-27-us",
@@ -6411,7 +6411,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-eia-natgas-storage-2026-08-27-us",
@@ -6459,7 +6459,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-kansas-fed-manufacturing-activity-2026-08-27-us",
@@ -6555,7 +6555,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-fed-s-hammack-speech-2026-08-28-us",
@@ -6579,7 +6579,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-chicago-pmi-2026-08-28-us",
@@ -6627,7 +6627,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-jackson-hole-symposium-2026-08-28-us",
@@ -6651,7 +6651,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-michigan-consumer-expectations-index-2026-08-28-us",
@@ -6723,7 +6723,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-uom-1-year-consumer-inflation-expectations-2026-08-28-us",
@@ -6795,7 +6795,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-baker-hughes-us-oil-rig-count-2026-08-28-us",
@@ -6915,7 +6915,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-chicago-pmi-2026-08-31-us",
@@ -7035,7 +7035,31 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
+    },
+    {
+      "event_id": "evt-fed-s-barr-speech-2026-09-01-us",
+      "kind": "fed_s_barr_speech",
+      "event_name": "Fed's Barr speech",
+      "entity": "US",
+      "country": "US",
+      "scheduled_for": "2026-09-01",
+      "scheduled_at": "2026-09-01T13:05:00Z",
+      "status": "scheduled",
+      "impact": "MEDIUM",
+      "impact_score": 0.5,
+      "frequency": null,
+      "expected": {
+        "metric": "fed_s_barr_speech",
+        "consensus": null,
+        "consensus_raw": null,
+        "prior": null
+      },
+      "realized_outcome": null,
+      "resolved_at": null,
+      "source": "bigdata:fxstreet",
+      "source_url": "https://www.fxstreet.com",
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-spglobal-manufacturing-2026-09-01-us",
@@ -7051,15 +7075,15 @@
       "frequency": null,
       "expected": {
         "metric": "spglobal_manufacturing",
-        "consensus": null,
-        "consensus_raw": null,
+        "consensus": 53.2,
+        "consensus_raw": "53.2",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-construction-spending-mom-2026-09-01-us",
@@ -7075,15 +7099,15 @@
       "frequency": null,
       "expected": {
         "metric": "construction_spending_mom",
-        "consensus": 0.2,
-        "consensus_raw": "0.2",
+        "consensus": 0.0,
+        "consensus_raw": "0.0",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-ism-manufacturing-2026-09-01-us",
@@ -7099,15 +7123,15 @@
       "frequency": null,
       "expected": {
         "metric": "ism_manufacturing",
-        "consensus": 55.3,
-        "consensus_raw": "55.3",
+        "consensus": 55.2,
+        "consensus_raw": "55.2",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-ism-manufacturing-employment-index-2026-09-01-us",
@@ -7131,7 +7155,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-ism-manufacturing-new-orders-index-2026-09-01-us",
@@ -7155,7 +7179,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-ism-manufacturing-prices-paid-2026-09-01-us",
@@ -7179,7 +7203,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-jolts-job-openings-2026-09-01-us",
@@ -7195,15 +7219,15 @@
       "frequency": null,
       "expected": {
         "metric": "jolts_job_openings",
-        "consensus": 7.39,
-        "consensus_raw": "7.39",
+        "consensus": 7.3,
+        "consensus_raw": "7.3",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-realclearmarkets-tipp-economic-optimism-mom-2026-09-01-us",
@@ -7227,7 +7251,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-52-week-bill-auction-2026-09-01-us",
@@ -7251,7 +7275,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-total-vehicle-sales-2026-09-01-us",
@@ -7267,15 +7291,15 @@
       "frequency": null,
       "expected": {
         "metric": "total_vehicle_sales",
-        "consensus": null,
-        "consensus_raw": null,
+        "consensus": 16.3,
+        "consensus_raw": "16.3",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-api-crude-stocks-2026-09-01-us",
@@ -7299,7 +7323,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-mba-mortgage-applications-2026-09-02-us",
@@ -7323,7 +7347,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-adp-employment-change-2026-09-02-us",
@@ -7347,7 +7371,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-factory-orders-mom-2026-09-02-us",
@@ -7371,7 +7395,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-eia-crude-stocks-2026-09-02-us",
@@ -7395,7 +7419,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-eia-distillate-stocks-change-2026-09-02-us",
@@ -7419,7 +7443,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-eia-gasoline-stocks-change-2026-09-02-us",
@@ -7443,7 +7467,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-eia-heating-oil-stocks-change-2026-09-02-us",
@@ -7467,7 +7491,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-fed-s-beige-book-2026-09-02-us",
@@ -7491,7 +7515,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-challenger-job-cuts-2026-09-03-us",
@@ -7515,7 +7539,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-continuing-jobless-claims-2026-09-03-us",
@@ -7539,7 +7563,31 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
+    },
+    {
+      "event_id": "evt-fed-s-waller-speech-2026-09-03-us",
+      "kind": "fed_s_waller_speech",
+      "event_name": "Fed's Waller speech",
+      "entity": "US",
+      "country": "US",
+      "scheduled_for": "2026-09-03",
+      "scheduled_at": "2026-09-03T12:30:00Z",
+      "status": "scheduled",
+      "impact": "MEDIUM",
+      "impact_score": 0.5,
+      "frequency": null,
+      "expected": {
+        "metric": "fed_s_waller_speech",
+        "consensus": null,
+        "consensus_raw": null,
+        "prior": null
+      },
+      "realized_outcome": null,
+      "resolved_at": null,
+      "source": "bigdata:fxstreet",
+      "source_url": "https://www.fxstreet.com",
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-goods-and-services-trade-balance-2026-09-03-us",
@@ -7555,15 +7603,15 @@
       "frequency": null,
       "expected": {
         "metric": "goods_and_services_trade_balance",
-        "consensus": -86.4,
-        "consensus_raw": "-86.4",
+        "consensus": -90.0,
+        "consensus_raw": "-90.0",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-goods-trade-balance-2026-09-03-us",
@@ -7587,7 +7635,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-initial-jobless-claims-2026-09-03-us",
@@ -7611,7 +7659,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-initial-jobless-claims-4-week-average-2026-09-03-us",
@@ -7635,7 +7683,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-nonfarm-productivity-2026-09-03-us",
@@ -7651,15 +7699,15 @@
       "frequency": null,
       "expected": {
         "metric": "nonfarm_productivity",
-        "consensus": null,
-        "consensus_raw": null,
+        "consensus": 1.4,
+        "consensus_raw": "1.4",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-unit-labor-costs-2026-09-03-us",
@@ -7675,15 +7723,15 @@
       "frequency": null,
       "expected": {
         "metric": "unit_labor_costs",
-        "consensus": null,
-        "consensus_raw": null,
+        "consensus": 1.3,
+        "consensus_raw": "1.3",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-s-p-global-composite-pmi-2026-09-03-us",
@@ -7699,15 +7747,15 @@
       "frequency": null,
       "expected": {
         "metric": "s_p_global_composite_pmi",
-        "consensus": null,
-        "consensus_raw": null,
+        "consensus": 56.0,
+        "consensus_raw": "56.0",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-s-p-global-services-pmi-2026-09-03-us",
@@ -7723,15 +7771,15 @@
       "frequency": null,
       "expected": {
         "metric": "s_p_global_services_pmi",
-        "consensus": null,
-        "consensus_raw": null,
+        "consensus": 56.8,
+        "consensus_raw": "56.8",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-ism-services-2026-09-03-us",
@@ -7747,15 +7795,15 @@
       "frequency": null,
       "expected": {
         "metric": "ism_services",
-        "consensus": 54.1,
-        "consensus_raw": "54.1",
+        "consensus": 54.3,
+        "consensus_raw": "54.3",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-ism-services-employment-index-2026-09-03-us",
@@ -7779,7 +7827,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-ism-services-new-orders-index-2026-09-03-us",
@@ -7803,7 +7851,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-ism-services-prices-paid-2026-09-03-us",
@@ -7827,7 +7875,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-eia-natgas-storage-2026-09-03-us",
@@ -7851,7 +7899,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-4-week-bill-auction-2026-09-03-us",
@@ -7875,7 +7923,31 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
+    },
+    {
+      "event_id": "evt-fed-s-hammack-speech-2026-09-03-us",
+      "kind": "fed_s_hammack_speech",
+      "event_name": "Fed's Hammack speech",
+      "entity": "US",
+      "country": "US",
+      "scheduled_for": "2026-09-03",
+      "scheduled_at": "2026-09-03T19:00:00Z",
+      "status": "scheduled",
+      "impact": "MEDIUM",
+      "impact_score": 0.5,
+      "frequency": null,
+      "expected": {
+        "metric": "fed_s_hammack_speech",
+        "consensus": null,
+        "consensus_raw": null,
+        "prior": null
+      },
+      "realized_outcome": null,
+      "resolved_at": null,
+      "source": "bigdata:fxstreet",
+      "source_url": "https://www.fxstreet.com",
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-average-hourly-earnings-mom-2026-09-04-us",
@@ -7891,15 +7963,15 @@
       "frequency": null,
       "expected": {
         "metric": "average_hourly_earnings_mom",
-        "consensus": 0.2,
-        "consensus_raw": "0.2",
+        "consensus": 0.3,
+        "consensus_raw": "0.3",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-average-weekly-hours-2026-09-04-us",
@@ -7923,7 +7995,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-avg-hourly-earnings-yoy-2026-09-04-us",
@@ -7939,15 +8011,15 @@
       "frequency": null,
       "expected": {
         "metric": "avg_hourly_earnings_yoy",
-        "consensus": null,
-        "consensus_raw": null,
+        "consensus": 3.0,
+        "consensus_raw": "3.0",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-labor-force-participation-rate-2026-09-04-us",
@@ -7971,7 +8043,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-nfp-2026-09-04-us",
@@ -7987,15 +8059,15 @@
       "frequency": null,
       "expected": {
         "metric": "nfp",
-        "consensus": 45.0,
-        "consensus_raw": "45.0",
+        "consensus": 58.0,
+        "consensus_raw": "58.0",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-u6-underemployment-rate-2026-09-04-us",
@@ -8019,7 +8091,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-unemployment-rate-2026-09-04-us",
@@ -8035,15 +8107,15 @@
       "frequency": null,
       "expected": {
         "metric": "unemployment_rate",
-        "consensus": 4.2,
-        "consensus_raw": "4.2",
+        "consensus": 4.1,
+        "consensus_raw": "4.1",
         "prior": null
       },
       "realized_outcome": null,
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-baker-hughes-us-oil-rig-count-2026-09-04-us",
@@ -8067,7 +8139,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-cftc-gold-nc-net-positions-2026-09-04-us",
@@ -8091,7 +8163,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-cftc-oil-nc-net-positions-2026-09-04-us",
@@ -8115,7 +8187,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-cftc-s-p-500-nc-net-positions-2026-09-04-us",
@@ -8139,7 +8211,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-labor-day-2026-09-07-us",
@@ -8163,7 +8235,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-nfib-business-optimism-index-2026-09-08-us",
@@ -8187,7 +8259,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-adp-employment-change-4-week-average-2026-09-08-us",
@@ -8211,7 +8283,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-redbook-index-yoy-2026-09-08-us",
@@ -8235,7 +8307,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-3-month-bill-auction-2026-09-08-us",
@@ -8259,7 +8331,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-6-month-bill-auction-2026-09-08-us",
@@ -8283,7 +8355,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-3-year-note-auction-2026-09-08-us",
@@ -8307,7 +8379,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-consumer-credit-change-2026-09-08-us",
@@ -8331,7 +8403,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-api-crude-stocks-2026-09-08-us",
@@ -8355,7 +8427,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-mba-mortgage-applications-2026-09-09-us",
@@ -8379,7 +8451,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-eia-crude-stocks-2026-09-09-us",
@@ -8403,7 +8475,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-eia-distillate-stocks-change-2026-09-09-us",
@@ -8427,7 +8499,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-eia-gasoline-stocks-change-2026-09-09-us",
@@ -8451,7 +8523,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-eia-heating-oil-stocks-change-2026-09-09-us",
@@ -8475,7 +8547,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-10-year-note-auction-2026-09-09-us",
@@ -8499,7 +8571,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-continuing-jobless-claims-2026-09-10-us",
@@ -8523,7 +8595,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-initial-jobless-claims-2026-09-10-us",
@@ -8547,7 +8619,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-initial-jobless-claims-4-week-average-2026-09-10-us",
@@ -8571,7 +8643,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-ppi-mom-2026-09-10-us",
@@ -8595,7 +8667,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-ppi-yoy-2026-09-10-us",
@@ -8619,31 +8691,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
-    },
-    {
-      "event_id": "evt-wholesale-inventories-2026-09-10-us",
-      "kind": "wholesale_inventories",
-      "event_name": "Wholesale Inventories",
-      "entity": "US",
-      "country": "US",
-      "scheduled_for": "2026-09-10",
-      "scheduled_at": "2026-09-10T12:30:00Z",
-      "status": "scheduled",
-      "impact": "LOW",
-      "impact_score": 0.2,
-      "frequency": null,
-      "expected": {
-        "metric": "wholesale_inventories",
-        "consensus": null,
-        "consensus_raw": null,
-        "prior": null
-      },
-      "realized_outcome": null,
-      "resolved_at": null,
-      "source": "bigdata:fxstreet",
-      "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-existing-home-sales-change-mom-2026-09-10-us",
@@ -8667,7 +8715,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-existing-home-sales-mom-2026-09-10-us",
@@ -8691,7 +8739,31 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
+    },
+    {
+      "event_id": "evt-wholesale-inventories-2026-09-10-us",
+      "kind": "wholesale_inventories",
+      "event_name": "Wholesale Inventories",
+      "entity": "US",
+      "country": "US",
+      "scheduled_for": "2026-09-10",
+      "scheduled_at": "2026-09-10T14:00:00Z",
+      "status": "scheduled",
+      "impact": "LOW",
+      "impact_score": 0.2,
+      "frequency": null,
+      "expected": {
+        "metric": "wholesale_inventories",
+        "consensus": null,
+        "consensus_raw": null,
+        "prior": null
+      },
+      "realized_outcome": null,
+      "resolved_at": null,
+      "source": "bigdata:fxstreet",
+      "source_url": "https://www.fxstreet.com",
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-eia-natgas-storage-2026-09-10-us",
@@ -8715,7 +8787,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-4-week-bill-auction-2026-09-10-us",
@@ -8739,7 +8811,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-30-year-bond-auction-2026-09-10-us",
@@ -8763,7 +8835,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-monthly-budget-statement-2026-09-10-us",
@@ -8787,7 +8859,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-consumer-price-index-core-s-a-2026-09-11-us",
@@ -8811,7 +8883,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-core-cpi-mom-2026-09-11-us",
@@ -8835,7 +8907,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-core-cpi-yoy-2026-09-11-us",
@@ -8859,7 +8931,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-cpi-mom-2026-09-11-us",
@@ -8883,7 +8955,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-cpi-yoy-2026-09-11-us",
@@ -8907,7 +8979,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-michigan-consumer-expectations-index-2026-09-11-us",
@@ -8931,7 +9003,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-michigan-sentiment-2026-09-11-us",
@@ -8955,7 +9027,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-uom-1-year-consumer-inflation-expectations-2026-09-11-us",
@@ -8979,7 +9051,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-uom-5-year-consumer-inflation-expectation-2026-09-11-us",
@@ -9003,7 +9075,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-usda-wasde-report-2026-09-11-us",
@@ -9027,7 +9099,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-baker-hughes-us-oil-rig-count-2026-09-11-us",
@@ -9051,7 +9123,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-cftc-gold-nc-net-positions-2026-09-11-us",
@@ -9075,7 +9147,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-cftc-oil-nc-net-positions-2026-09-11-us",
@@ -9099,7 +9171,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
     },
     {
       "event_id": "evt-cftc-s-p-500-nc-net-positions-2026-09-11-us",
@@ -9123,7 +9195,55 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-31T00:47:28Z"
+      "observed_at": "2026-09-01T01:22:35Z"
+    },
+    {
+      "event_id": "evt-3-month-bill-auction-2026-09-14-us",
+      "kind": "3_month_bill_auction",
+      "event_name": "3-Month Bill Auction",
+      "entity": "US",
+      "country": "US",
+      "scheduled_for": "2026-09-14",
+      "scheduled_at": "2026-09-14T15:30:00Z",
+      "status": "scheduled",
+      "impact": "LOW",
+      "impact_score": 0.2,
+      "frequency": null,
+      "expected": {
+        "metric": "3_month_bill_auction",
+        "consensus": null,
+        "consensus_raw": null,
+        "prior": null
+      },
+      "realized_outcome": null,
+      "resolved_at": null,
+      "source": "bigdata:fxstreet",
+      "source_url": "https://www.fxstreet.com",
+      "observed_at": "2026-09-01T01:22:35Z"
+    },
+    {
+      "event_id": "evt-6-month-bill-auction-2026-09-14-us",
+      "kind": "6_month_bill_auction",
+      "event_name": "6-Month Bill Auction",
+      "entity": "US",
+      "country": "US",
+      "scheduled_for": "2026-09-14",
+      "scheduled_at": "2026-09-14T15:30:00Z",
+      "status": "scheduled",
+      "impact": "LOW",
+      "impact_score": 0.2,
+      "frequency": null,
+      "expected": {
+        "metric": "6_month_bill_auction",
+        "consensus": null,
+        "consensus_raw": null,
+        "prior": null
+      },
+      "realized_outcome": null,
+      "resolved_at": null,
+      "source": "bigdata:fxstreet",
+      "source_url": "https://www.fxstreet.com",
+      "observed_at": "2026-09-01T01:22:35Z"
     }
   ]
 }
