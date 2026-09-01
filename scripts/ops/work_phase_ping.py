@@ -22,6 +22,13 @@ between the commit and the send, and it fails BACK: an un-committed row is a
 ping that never happened, never a ping wrongly shown as delivered. Delivery is
 deduped VM-side on a hash of the raw line.
 """
+# wiring: manual-only - session-invoked by whoever lands a phase, and that is
+# the POINT rather than an omission: this is Phase A of the operating-layer
+# build, and making close-out fire without the session's cooperation is Phase E
+# (the lease + reaper). Wiring it to a runner now would claim an autonomy the
+# design has not built yet. `transitions()` is deliberately a pure diff over two
+# git refs so that Phase E's autonomous caller can invoke it unchanged.
+
 from __future__ import annotations
 
 import argparse

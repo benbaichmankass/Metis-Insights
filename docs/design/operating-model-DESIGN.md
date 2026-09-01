@@ -211,6 +211,16 @@ Granted to run with no operator involvement: **C2** evidence disposition · **D2
 
 **No GitHub workflow in the repo invokes Claude.** `continue-work.yml` states it in its own header — it validates a handoff file and surfaces it "so the next session or a human operator can pick up the work with one click." So today every session in this system starts with an operator click; autonomy lives entirely in Routines, outside the repo, mostly dead.
 
+⚠️ **Standing convention (operator-directed, 2026-09-01): every Routine is created BY
+CLAUDE, via `create_trigger`.** The control plane permits an agent to delete or update only
+routines it created itself, so an `http_api`-created routine is one **no session can ever
+repair** — which is exactly how two of them came to sit `enabled: true` with no schedule,
+naming a repo renamed in July and branches that no longer exist, for four months. Both were
+attempted and refused on 2026-09-01 (`delete_trigger` AND `update_trigger(enabled=false)`).
+A routine a session cannot fix is a mechanism that looks armed and is not, and the fix has to
+be a hand-off every time. So: routines are created by an agent, and a routine that needs to
+outlive its creating session is created deliberately rather than inherited.
+
 **Constraints to design around:** routine minimum interval is normally hourly · a routine delivers a *prompt*, so its usefulness is entirely a function of the state it can read on arrival · a running session has no inbox and cannot receive an answer mid-run without polling or being re-fired.
 
 ## Where each function runs
