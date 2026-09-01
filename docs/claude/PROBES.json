@@ -1,20 +1,28 @@
 {
-  "generated_at": "2026-09-01T05:38:50.771089+00:00",
+  "generated_at": "2026-09-01T10:13:20.626767+00:00",
   "contract": "A probe REPORTS. A session CLEARS the row. Nothing here writes verified_at, observation, or removes a row.",
   "states": [
     "pass",
     "fail",
     "could_not_run"
   ],
-  "monitoring_rows": 14,
-  "rows_with_a_probe": 7,
+  "monitoring_rows": 15,
+  "rows_with_a_probe": 8,
   "rows_without_a_probe": 7,
   "counts": {
     "pass": 3,
     "fail": 2,
-    "could_not_run": 9
+    "could_not_run": 10
   },
   "results": [
+    {
+      "id": "OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "MISSING CAPABILITY: the observable is the GitHub Actions run list filtered to event=schedule, and the probe runner reaches the diag surface, not the Actions API. The one reader that COULD reach it — probe_actions_log.py — is itself broken (reads 0 of 40 job logs, BL-20260901-...), and in any case it greps a run's LOG for a literal rather than asking whether a run EXISTS with a given trigger, which",
+      "checks": null,
+      "is_not": null
+    },
     {
       "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
       "state": "could_not_run",
@@ -33,11 +41,23 @@
     },
     {
       "id": "OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED",
+      "checks": "A stray_oca_soak row exists in which the sweep GRADED a non-keyed protective group as a stray (`decision: stray_unkeyed`) AND actually cancelled it (`acted: true`) rather than being held back by PROTECTION_STRAY_GROUP_ACCOUNTS. Those are two different facts and both are required: `acted` is the EFFECT, `decision` is the finding, and a row carrying the finding at `mode: annotate` is the STAGED state, not a cancel. The positive control (`decision` present with any of its three values) is what separates 'the sweep ran and found no strays' from 'the log is absent or unreadable' — without it an empty log emits a confident negative, which is the state this row has been in since 2026-08-26.",
+      "is_not": "A PASS does not clear this row. `clears_when` asks for the position's REMAINING protection to be confirmed correct afterwards — that the sibling keyed group and the keep-target still rest at the journal's levels — and this probe reads the sweep's OWN account of what it did, never the venue. The soak records `cancel_calls_made` and a `verify_state`, but `BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT` is exactly the defect of trusting a self-report, so the confirming read is /api/diag/ib_open_orders on a FRESH client (that route's own view is monotonically stale, BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW). It also cannot see whether the cancelled group was genuinely this trade's abandoned protection rather than something a human placed — `ungrouped` is refused for that reason and `stray_unkeyed` is an inference from the group NAME.",
+      "cmd": [
+        "python3",
+        "scripts/ops/probe_soak.py",
+        "--path",
+        "/api/diag/log_file?name=stray_oca_soak&lines=1000",
+        "--require",
+        "decision=stray_unkeyed",
+        "--require",
+        "acted=true",
+        "--positive-control",
+        "decision~stray_unkeyed,no_strays,could_not_look"
+      ],
       "state": "could_not_run",
-      "reason": "no_probe_declared",
-      "detail": "MISSING CAPABILITY: THE SWEEP WRITES NO SOAK LOG — there is no read surface at all, so a probe has nothing to read. ⚠️ THIS FIELD PREVIOUSLY SAID 'PROBE-ABLE ONCE ARMED … attach one in the same change that arms PROTECTION_STRAY_GROUP_ACCOUNTS'. THAT INSTRUCTION COULD NOT BE FOLLOWED and is superseded: arming would NOT make it probeable, because the missing half is the WRITER, and a session followi",
-      "checks": null,
-      "is_not": null
+      "reason": "exit_2",
+      "detail": "probe: COULD NOT LOOK — the POSITIVE CONTROL 'decision~stray_unkeyed,no_strays,could_not_look' matched 0 of 0 row(s) (read 0 row(s) from /api/diag/log_file?name=stray_oca_soak&lines=1000). The reader is unproven on this source, so a quiet result here is NOT a negative — it is an unread. Either the source moved, the schema changed, or the control is stale."
     },
     {
       "id": "OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED",
@@ -50,7 +70,7 @@
     {
       "id": "OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED",
       "checks": "HALF (b) ONLY — the half this row still owes. Half (a) is already recorded SATISFIED in the observation (all eleven field values read back from the live /api/bot/config on 2026-08-30, with /api/diag/version showing git_sha 892c9a2c), so re-probing it would test a settled question. This looks for a CLOSED trade that is real-money, on one of the nine shipped e35 legs, whose pnlProvenance is measured or estimated (clears_when explicitly rules out fabricated and unverified), and — the word clears_when calls 'the whole criterion' — OPENED AFTER the deploy rather than merely closed after it. The boundary 2026-08-30T14:05:00+00:00 is not the commit time: it is the instant the observation records half (a) as MEASURED true on the running trader, so a matching trade demonstrably opened under config confirmed live. It is conservative by construction — it may exclude a qualifying trade opened slightly earlier, which errs toward under-reporting, the safe direction for a criterion that must not be cleared spuriously. `openedAt` is compared lexicographically, which is chronological ONLY because the route serves a +00:00 offset (measured); a switch to a 'Z' suffix would silently break it, and the positive control is what would catch that. The control is the leg-name set itself, matching 40 of 200 rows on 2026-08-31 — so a renamed leg turns this into could_not_look rather than a permanent quiet negative.",
-      "is_not": "A pass does NOT establish that the trade was closed BY THE STRATEGY. clears_when forbids grading the exit off exit_reason alone, and the row's own near-miss is the proof: trade 4904 read 'reconciler_filled' for what was an OPERATOR FLATTEN. No field on this route separates a strategy exit from an operator action, so that judgement stays a session's. Nor does a pass establish BROKER TRUTH, which clears_when asks for: pnlProvenance grades how THIS ROW's number was derived, while journalTrust grades whether the ACCOUNT reconciles with the venue wallet at all, and they are different questions — a 'measured' row on a 'known_divergent' account is exactly that gap, and bybit_2 is such an account. Finally it cannot tell whether the trade exercised the CHANGED geometry: a trade on ada_pullback_2h or trend_donchian_xrp_4h that closed on its stop says nothing about the tp_r 50->3/4 change those two legs received, which is the part of the ship the row most wants looked at. Read the matching row, then read PB-20260830-XRP-4H-FIRST-CLOSE-UNDER-NEW-BRACKET-UNVERIFIED, before grading any first close.",
+      "is_not": "A pass does NOT establish that the trade was closed BY THE STRATEGY. clears_when forbids grading the exit off exit_reason alone, and the row's own near-miss is the proof: trade 4904 read 'reconciler_filled' for what was an OPERATOR FLATTEN. No field on this route separates a strategy exit from an operator action, so that judgement stays a session's. Nor does a pass establish BROKER TRUTH, which clears_when asks for: pnlProvenance grades how THIS ROW's number was derived, while journalTrust grades whether the ACCOUNT reconciles with the venue wallet at all, and they are different questions — a 'measured' row on a 'known_divergent' account is exactly that gap, and bybit_2 is such an account. Finally it cannot tell whether the trade exercised the CHANGED geometry: a trade on ada_pullback_2h or trend_donchian_xrp_4h that closed on its stop says nothing about the tp_r 50->3/4 change those two legs received, which is the part of the ship the row most wants looked at. Read the matching row, then read PB-20260830-XRP-4H-FIRST-CLOSE-UNDER-NEW-BRACKET-UNVERIFIED, before grading any first close. ⚠️ AND AS OF 2026-09-01 A PASS IS STRICTLY WEAKER THAN THE CRITERION, BECAUSE (b) GAINED A CLAUSE THIS PROBE CANNOT SEE. It reads /api/bot/trades/closed, which carries no entry/sl geometry, so it cannot compute cap_r = 0.099*entry/risk and therefore cannot tell whether the DECLARED tp_r or the VENUE CLAMP set that trade's target. It returned `pass` on 2026-09-01T05:38:50Z — correctly, on trade 5250 — and that trade is clamp-bound (cap_r 2.892634 < tp_r 3) and does NOT satisfy (b). So this probe is now a PRE-FILTER: a `fail` still means no candidate exists at all, which is useful and honest, but a `pass` means only 'a candidate passed the clauses I can see' and a session must then check cap_r against that leg's tp_r from the order package before grading. Deliberately not extended to compute cap_r: that would put a second copy of the clamp arithmetic outside src/runtime/tp_venue_cap.py, the module that exists precisely because the literal was once declared thirteen times under three names with nothing binding them together.",
       "cmd": [
         "python3",
         "scripts/ops/probe_api.py",
