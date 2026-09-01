@@ -503,6 +503,66 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "strategy_reviews.read_state",
+        "producer": "src/web/api/routers/strategy_review.py",
+        "producer_field": "read_state",
+        # Deliberately NARROW — `read_state` alone fires on the diag order-read
+        # routes, whose identically-named field carries DIFFERENT states.
+        # Coincidence-firing is what produces a routinely-overridden alarm,
+        # the failure this guard's own ib_venue_session contract records.
+        "consumer_token": r"\bstrategy-reviews\b|\bget_committed_strategy_reviews\b|\bstrategy_reviews_committed\b",
+        "states": ["index_read", "absent", "unreadable"],
+        "why": (
+            "index_read = we read the committed INDEX and the counts are real; "
+            "absent = no record has ever been committed for that day; "
+            "unreadable = WE COULD NOT LOOK (the file is there and will not "
+            "parse). The collapse to avoid is the last into a zeroed first: a "
+            "corrupt index answered as `graded: 0, rows: []` reads exactly like "
+            "'the fleet was graded and proposed nothing' — a confident clean "
+            "negative over a population nobody looked at, which is sub-class C "
+            "of the diagnostic-provenance defect and the CONSUMER side of "
+            "silent-empty-guard. It matters more here than on a soak surface "
+            "because this record exists to be read BEFORE a Tier-3 decision: "
+            "'no strategy needs attention' and 'we could not tell' are opposite "
+            "inputs to that decision. Counts are therefore None, never 0, "
+            "whenever the state is not index_read — 0 graded is a REAL reading "
+            "(a run that graded nothing) and must stay distinguishable. "
+            "COVERAGE CAVEAT, stated rather than papered over: this route is "
+            "NEW and its only consumer today is the test suite, so the state "
+            "coverage above is satisfied by tests. It is registered now anyway "
+            "— the states exist and the guard's job is to stop a later change "
+            "quietly folding them together."
+        ),
+    },
+    {
+        "name": "strategy_reviews.freshness",
+        "producer": "src/web/api/routers/strategy_review.py",
+        "producer_field": "freshness",
+        # Deliberately NARROW for the same reason, and this one was MEASURED: a
+        # first cut using a bare `\bfreshness\b` fired on
+        # src/prop/standard_account_size.py, scripts/ops/manager_lease.py and
+        # tests/test_news_layer.py — three unrelated freshness notions that
+        # merely share the word.
+        "consumer_token": r"\bstrategy-reviews\b|\b_grade_freshness\b|\bget_committed_strategy_reviews\b",
+        "states": ["fresh", "stale", "undateable", "absent"],
+        "why": (
+            "fresh = inside the daily cadence's tolerance; stale = older than "
+            "it; undateable = a timestamp we could not parse, so the record "
+            "cannot be SHOWN to be current; absent = no record at all. This is "
+            "the same defect /api/bot/prop/status grew `status_freshness` for, "
+            "one level up: a decision packet's whole purpose is to be read "
+            "BEFORE deciding, and a three-week-old packet rendered beside a "
+            "confident KILL/PROMOTE badge is indistinguishable from a current "
+            "one. `undateable` must fail SAFE to not-fresh rather than "
+            "optimistically passing, matching prop_balance's refusal on an "
+            "undateable row — a record whose age is unknown is not a record "
+            "shown to be fresh. `age_hours` is None for BOTH `absent` and "
+            "`undateable`, so the VERDICT is the field to read and the null "
+            "cannot separate them. COVERAGE CAVEAT: as above, the consumer "
+            "today is the test suite."
+        ),
+    },
+    {
         "name": "ib_venue_session.state",
         "producer": "src/runtime/ib_trading_hours.py",
         # Deliberately NARROW. The first cut used `\bvenue_session\b|

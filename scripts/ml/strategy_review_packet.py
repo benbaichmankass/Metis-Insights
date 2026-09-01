@@ -1027,7 +1027,7 @@ def decide(
     if n == 0:
         decision.action = "hold"
         decision.reasons.append("no closed trades in window — insufficient evidence.")
-    elif n < 20:
+    elif n < MIN_CLOSED_FOR_ACTION:
         # Minimum-evidence floor (PB-20260630-004): below 20 closed trades the
         # low-n matrix below could emit a real-money KILL / DEMOTE_SHADOW off
         # 1-5 trades (win<=0.10, exp<0, a policy-OFF cell) — statistical noise,
@@ -1035,7 +1035,7 @@ def decide(
         # path is intact.
         decision.action = "hold"
         decision.reasons.append(
-            f"insufficient evidence (n_closed={n} < 20) — no KILL/DEMOTE fires at "
+            f"insufficient evidence (n_closed={n} < {MIN_CLOSED_FOR_ACTION}) — no KILL/DEMOTE fires at "
             "very low n; hold until more trades close."
         )
     elif n < 30:
@@ -1489,6 +1489,21 @@ def is_actionable(action: Optional[str]) -> bool:
     return action.strip().lower() != NO_ACTION_VERDICT
 
 
+# The minimum-evidence floor (PB-20260630-004). Below this many closed trades
+# the matrix is forced to HOLD, because a real-money KILL/DEMOTE off 1-5 trades
+# is statistical noise, not evidence.
+#
+# ⚠️ PUBLISHED ON THE INDEX, for the reason `no_action_verdict` is: a consumer
+# that re-derives a rule the generator owns eventually spells it differently,
+# and that is not hypothetical here — re-deriving the ACTION vocabulary in the
+# workflow is what produced the 105-file PR. The only honest alternative for a
+# consumer wanting the evidence split is pattern-matching the English in
+# `reasons`, which is sub-class A of the diagnostic-provenance defect (the
+# label naming a quantity the accessor does not return) and is exactly why
+# Phase F defers C4.
+MIN_CLOSED_FOR_ACTION = 20
+
+
 def write_index(rows: List[Dict[str, Any]], out_dir: Path) -> Path:
     """Write the day's INDEX.json — one row per strategy GRADED, action first.
 
@@ -1508,6 +1523,20 @@ def write_index(rows: List[Dict[str, Any]], out_dir: Path) -> Path:
         "graded": len(rows),
         # Published so a consumer never re-derives (and mis-spells) the rule.
         "no_action_verdict": NO_ACTION_VERDICT,
+        # ⚠️ THE COMPANION TO `actionable`, AND IT CHANGES WHAT `actionable: 0`
+        # MEANS. Zero actionable reads as "the fleet is fine"; it can equally
+        # mean "nothing could be graded". Measured on the 2026-09-01 run —
+        # population: all 52 enabled strategies, window 7 days — `n_closed` was
+        # 0 for 34 legs and never exceeded 8, so 52/52 sat under this floor and
+        # the run COULD NOT have proposed an action whatever the PnL. Without
+        # this field that is indistinguishable from a clean bill of health.
+        "min_closed_for_action": MIN_CLOSED_FOR_ACTION,
+        "below_evidence_floor": sum(
+            1 for r in rows if r.get("below_evidence_floor") is True
+        ),
+        "evidence_floor_unknown": sum(
+            1 for r in rows if r.get("below_evidence_floor") is None
+        ),
         "actionable": sum(1 for r in rows if r.get("actionable")),
         "by_action": {
             a: sum(1 for r in rows if r.get("proposed_action") == a)
@@ -1597,6 +1626,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             "proposed_action": action,
             "actionable": is_actionable(action),
             "n_closed": headline.get("n_closed"),
+            # A NUMERIC, generator-owned answer to "could this row have
+            # produced an action at all?". None when n_closed is itself
+            # unknown — we did not look, which is not "it had enough".
+            "below_evidence_floor": (
+                None if headline.get("n_closed") is None
+                else headline.get("n_closed") < MIN_CLOSED_FOR_ACTION
+            ),
             "win_rate": headline.get("win_rate"),
             "expectancy": headline.get("expectancy"),
             "pnl_total": headline.get("pnl_total"),
