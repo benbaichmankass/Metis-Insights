@@ -221,6 +221,20 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # EXACTLY ONE MANAGEMENT SESSION AT A TIME — an operator requirement
+        # (2026-09-01), not a convention. The lease's refusal paths are the whole
+        # mechanism, so a lease whose `held_fresh` and `unreadable` branches never
+        # run is indistinguishable from no lease: this runs them every CI pass.
+        # ⚠️ Self-test ONLY. It deliberately does NOT read the live lease file:
+        # CI is not a management session, and a guard that graded the live lease
+        # would red every PR opened while a manager legitimately holds it.
+        "name": "manager-lease-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/manager_lease.py", "--self-test"],
+        ],
+    },
+    {
         # A repeated mistake must produce a PREVENTION, not another row.
         # GATE 0 item G4. Operator-approved 2026-08-26 on the test "if it's
         # affecting things that are being read or filed before they're actually
