@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP
+type: question
+parent_intent: null
+title: |-
+  m20_exit_head_round.py STRUCTURALLY cannot produce a live-parity book -- no --tp-cap-pct option exists and it calls base_args positionally, so every exit-head round on disk (11 confirmed, incl. donchian_1h_nested) contains ZERO take-profit exits
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-14T04:33:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Observable: (a) m20_exit_head_round.py accepts a --tp-cap-pct and threads it into base_args, with the live-parity value as the DEFAULT (matching m20-exit-lever-sweep.yml, whose header argues at length for exactly that) rather than an opt-in a caller can forget; (b) a planted positive control demonstrates it -- a round run at the default must emit trades whose exit_reason distribution CONTAINS take-profit exits, verified by running one, since a quiet pass proves nothing and the arg-string method is already known void; (c) the 11 confirmed no-TP round directories are annotated on disk (a marker file naming the geometry), because artifacts outlive docs and are read directly -- the same requirement as BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-DEGENERATE; (d) a decision is RECORDED on whether any exit_head_ml cell graded off those rounds needs re-running, including the three shipped donchian-1h cells. NOT resolution: adding a caveat to a doc and leaving the driver unable to pass the flag.
+
+  PROGRESS 2026-08-14 (a)(b)(c) DONE, ONLY (d) REMAINS AND IT IS THE OPERATOR'S. (a)(b) shipped in PR #9150: --tp-cap-pct with live parity as the DEFAULT + _round_meta stamped into round_report.json, four can-fail-verified tests. (c) all 11 affected round dirs annotated on disk from full populations (n=100..1992, zero take-profit exits in all 11); scalp_15m/scalp_5m stamp no exit_reason and were deliberately left UNMARKED as undetermined. (b)'s PLANTED POSITIVE CONTROL IS NOW SATISFIED BY MEASUREMENT, not by the arg string (that method is void): the first round run at the DEFAULT (runtime_logs/m20_exit_head/prop_1h, relays #9156/#9157/#9158) emitted 95 take-profit exits across its two legs -- trend_donchian_eth_prop 50/984 (5.1%) and trend_donchian_sol_prop 45/310 (14.5%) -- where the eleven pre-fix rounds contain ZERO. The round also self-reports _round_meta.tp_geometry = live_parity. STILL OPEN, (d): whether any exit_head_ml cell graded off the 11 no-TP rounds needs re-running, INCLUDING THE THREE SHIPPED DONCHIAN-1H CELLS. That is Tier-3 and unchanged. NEW EVIDENCE BEARING ON IT: the live-parity round returned the FIRST NON-SCALP E1 CANDIDATE (trend_donchian_eth_prop, auc 0.6138 on n_oos 902 -- against ict_scalp_sol_5m's 0.6149 on 800). That does NOT overturn the scalp-scoping read, because every non-scalp honest_negative that formed it was measured on a no-TP book and is not comparable; what it shows is that the read rests on geometry-conditioned evidence, which raises rather than settles the value of (d).
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP
+  status_at_migration: kept_open
+  severity: medium
+  tier: '1'
+  opened_by: claude (M20 overnight session 2026-08-13)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP
+verdict: null

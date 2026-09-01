@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260821-BOARD-POST-RECEIPT-IS-PER-BRANCH
+type: question
+parent_intent: null
+title: |-
+  board-post.yml's idempotency receipt is committed PER-BRANCH while the request merges to main -- so any request that reaches main receipt-less is re-posted by every future branch that files a board post; measured as 3 copies of one comment
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-21T07:10:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  ['PREFER AN ANCESTRY TEST OVER BACKFILLING RECEIPTS (proposed by the author of board-post.yml, 2026-08-21): a request file that is reachable from origin/main is FINISHED BY DEFINITION, so the relay can skip it regardless of whether a receipt exists on the current branch. Backfilling makes each individual case correct; the ancestry test makes the class impossible. The 003 backfill already merged (#10086) is the instance fix and does not close this row.', "Make the skip decision independent of which branch is running -- e.g. resolve the receipt against origin/main as well as the current branch, or key idempotency on something durable (a marker committed alongside the request, or an existence check against the issue's own recent comments) rather than on a branch-local file.", 'Whatever is chosen, it must NOT reintroduce either known pathology: no [skip ci] on a commit that can become a PR head, and no unbounded self-retrigger.', 'PROVE it with a real two-branch exercise: leave a receipt-less request on main, push a NEW board post from a fresh branch, and confirm exactly ONE comment appears -- reading the board itself, never the receipt file (misreading the receipt as the post is the error that produced the earlier four duplicates).', 'Sweep automation/board-posts/ on main for any other receipt-less request before closing, and backfill or remove them; 003 was found only because it was about to fire a fourth time.', "Fix or correct the 'PR keeps its CI' claim in BOTH pr-opener.yml and board-post.yml headers -- staging outside the trigger path prevents the retrigger, NOT the zero-check head. Either stop the relay taking the head (e.g. push results to a side ref or an artifact rather than the PR branch), or state plainly in both headers that a relay run leaves the PR needing an ordinary commit to re-arm CI.", 'Treat the fix as covering ALL push-path relays, not board-post alone: pr-opener, pr-close, claude-pr-automerge and vm-driver share the identical results-commit-takes-the-head shape. A fix for one that leaves the others is not a fix.', "Handle the merge-from-main path explicitly: main permanently carries other PRs' spent request files under the trigger paths, so a routine sync re-fires a relay through no action of the author's. Either make the relays no-op WITHOUT committing when there is nothing pending, or stop them pushing to the PR branch at all."]
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260821-BOARD-POST-RECEIPT-IS-PER-BRANCH
+  status_at_migration: open
+  severity: medium
+  tier: 1 (CI / GitHub Actions)
+  opened_by: claude (exit-integrity continuation)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260821-BOARD-POST-RECEIPT-IS-PER-BRANCH
+verdict: null

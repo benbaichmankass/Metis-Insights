@@ -1,0 +1,38 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: |-
+  BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES
+type: question
+parent_intent: null
+title: |-
+  the trend and pullback HARNESSES force-close every trade at timeout_bars (default 200) and the LIVE units implement no such exit at all -- a second instance of the class BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP was marked resolved for
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  BOTH: (a) the divergence is closed in one direction -- either the live trend/pullback units honour timeout_bars, or the harnesses stop modelling it and the affected coverage-matrix verdicts are re-graded; and (b) the OTHER harness parameters have been enumerated against their live counterparts, so the class is closed rather than this one instance. A passing test is not enough for (a): it needs a live trade observed closing (or not closing) on bar count as the chosen direction predicts. Fixing the htf_pullback_trend_2h docstring alone does NOT clear this row -- that is the symptom, not the divergence.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: |-
+    BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES
+  status_at_migration: open
+  severity: high
+  tier: |-
+    1 to establish and document; wiring timeout_bars into the live units, or removing it from the harness, is an ORDER-PATH change and Tier-2/3.
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES
+verdict: null

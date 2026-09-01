@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260817-SELFTESTS-DECLARED-BUT-NEVER-RUN-IN-CI
+type: question
+parent_intent: null
+title: |-
+  6 of 14 scripts that declare a `--self-test` are never run with it by run_guards.py — triage which (if any) guard a real invariant
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-17'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Each of the 6 named scripts has an explicit recorded disposition — either a `run_guards.py` entry running it with `--self-test` (verifiable by re-running the AST scan in `check_selftest_wiring.py`'s SCOPE docstring and seeing the run-with-flag count rise from 8), or a one-line note in this row stating it is developer-invoked by design and why. The row closes when the scan's 'never run with the flag' list contains only scripts carrying such a note — i.e. zero UNTRIAGED entries, not necessarily zero entries.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260817-SELFTESTS-DECLARED-BUT-NEVER-RUN-IN-CI
+  status_at_migration: open
+  severity: low
+  tier: 1 — CI wiring / tooling. No live path.
+  opened_by: overnight M20 session (2026-08-16/17)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260817-SELFTESTS-DECLARED-BUT-NEVER-RUN-IN-CI
+verdict: null

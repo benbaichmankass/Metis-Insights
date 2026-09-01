@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY
+type: commitment
+parent_intent: null
+title: |-
+  SPLG — a LIVE real-money cell — returns ONE stale bar from the yfinance lane, so any research on it is measuring a single 2026-07-17 print while the job reports success
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-25T08:00:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Either (a) establish a working research price source for SPLG — the obvious candidate is the alpaca lane the live trader already uses, which would ALSO remove the yfinance dependency for every US-equity research question; or (b) record SPLG as research-blind on the yfinance lane so no sweep silently reports a one-bar result as a measurement. Whichever, the affordability/backtest tooling must keep declaring a thin or stale book rather than printing a bare number (shipped in this PR: `last_close` now carries an inline UNSOUND caveat plus `as_of` and `bars` when fewer than 15 bars or older than 5 d).
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY
+  status_at_migration: open
+  severity: medium
+  tier: '1'
+  opened_by: claude (session_01Gi3mgq; found by the new affordability probe)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY
+verdict: null
+next_action_at_migration: |-
+  Cheap first probe: re-request SPLG at `--interval 60` (the 1h lane), which returned 3,456 bars for SPY/SH/PSQ/QQQ on the same venue — if 1h works and 1d does not, the gap is narrower than 'SPLG is unavailable' and the workaround is trivial.

@@ -58,6 +58,7 @@ END = "<!-- SESSION-BRIEF:END -->"
 
 _OPEN_ITEMS = Path("docs/claude/OPEN-ITEMS.json")
 _RECURRENCE = Path("docs/claude/RECURRENCE-LEDGER.json")
+_CYCLE_PRIORITY = Path("docs/claude/CYCLE-PRIORITY.json")
 _CLAUDE_MD = Path("CLAUDE.md")
 
 
@@ -96,9 +97,55 @@ def due_items(items: list, today: date) -> list:
     return out
 
 
+def priority_lines(priority: dict, today: date) -> list:
+    """A3 — the cycle's priority, rendered so a session inherits it without being told.
+
+    ⚠️ **AN ABSENT PRIORITY IS RENDERED, NOT SKIPPED.** "no priority is set" and
+    "the renderer broke" must not look identical — that is the collapsed-state
+    defect this repo has a CI guard for, and a vanishing section reads as a bug.
+
+    Kept to a few lines on purpose. The brief must SHRINK as work lands; a
+    priority block that grew into a manifesto would be one more wall to skim
+    past, which is the failure mode of the thing this replaces.
+    """
+    cur = (priority or {}).get("current")
+    if not isinstance(cur, dict) or not str(cur.get("priority") or "").strip():
+        return ["**No cycle priority is set.** (Generated from "
+                "`docs/claude/CYCLE-PRIORITY.json` — this line means the register "
+                "carries no current priority, NOT that the renderer failed. If you "
+                "are about to choose what to work on, there is nothing steering that "
+                "choice and you should say so rather than inventing one.)", ""]
+
+    L = [f"**🎯 THIS CYCLE'S PRIORITY — {cur.get('cycle_id', '(unnamed cycle)')}**", ""]
+    L.append(f"> {str(cur['priority']).strip()}")
+    L.append("")
+    if str(cur.get("what_it_means_for_a_session") or "").strip():
+        L.append(f"- **What that means for you:** {cur['what_it_means_for_a_session'].strip()}")
+
+    set_by = cur.get("set_by") or "unknown"
+    set_at = cur.get("set_at") or "unknown"
+    basis = cur.get("basis") or "unstated"
+    L.append(f"- Set by **{set_by}** on `{set_at}` · basis **{basis}** · "
+             f"intent `{cur.get('intent_ref', '(none)')}`")
+
+    review_by = _day(cur.get("review_by"))
+    if review_by is None:
+        L.append("- ⚠️ **No `review_by` date** — so nothing will ever mark this stale. "
+                 "A priority that cannot expire is one nobody has to re-argue.")
+    elif today > review_by:
+        L.append(f"- ⚠️ **STALE — was due for review on `{review_by}`, "
+                 f"{(today - review_by).days} day(s) ago.** It is still the last thing "
+                 f"decided, which is why it is still shown; it is not evidence anyone "
+                 f"currently holds it. Re-affirm or replace it in "
+                 f"`docs/claude/CYCLE-PRIORITY.json`.")
+    L.append("")
+    return L
+
+
 def render(today: date | None = None, *,
            open_items: dict | None = None,
-           recurrence: dict | None = None) -> str:
+           recurrence: dict | None = None,
+           priority: dict | None = None) -> str:
     """Render the brief. Pass the registers explicitly to render a REF other than HEAD.
 
     `today` is threaded rather than read inside, because the diff-scoped check
@@ -108,6 +155,7 @@ def render(today: date | None = None, *,
     today = today or datetime.now(timezone.utc).date()
     oi = open_items if open_items is not None else _load(_OPEN_ITEMS)
     rl = recurrence if recurrence is not None else _load(_RECURRENCE)
+    cp = priority if priority is not None else _load(_CYCLE_PRIORITY)
     due = due_items(oi.get("items") or [], today)
     unprevented = [c for c in (rl.get("classes") or [])
                    if not c.get("prevention") and not c.get("unpreventable_because")]
@@ -115,7 +163,8 @@ def render(today: date | None = None, *,
     L = [BEGIN, ""]
     L.append("### ⚠️ SESSION BRIEF — what is DUE right now (generated; read before your first tool call)")
     L.append("")
-    L.append("This block is rendered from `docs/claude/OPEN-ITEMS.json` + "
+    L.append("This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + "
+             "`docs/claude/OPEN-ITEMS.json` + "
              "`docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** "
              "because `CLAUDE.md` is the only surface that reaches a session before it acts — "
              "project **hooks do not run on Claude Code on the web** (verified 2026-08-26: the "
@@ -123,6 +172,10 @@ def render(today: date | None = None, *,
              "fire at merge, which is after the wrong work is already built. It lists only what is "
              "DUE or UNPREVENTED, so it shrinks as work lands.")
     L.append("")
+
+    # A3 — the priority comes FIRST. A session reads top-down and stops early;
+    # what steers the choice of work has to arrive before the list of work.
+    L.extend(priority_lines(cp, today))
 
     if due:
         L.append(f"**{len(due)} monitoring item(s) DUE — check and record what you OBSERVED:**")
@@ -264,10 +317,21 @@ def main(argv=None) -> int:
             oi_b = _git_show(a.base, str(_OPEN_ITEMS))
             rl_b = _git_show(a.base, str(_RECURRENCE))
             md_b = _git_show(a.base, str(_CLAUDE_MD))
+            # ⚠️ The priority register MUST be read at the base too. If it fell
+            # through to reading HEAD from disk, the priority term would be
+            # identical on both sides and CANCEL — so changing the cycle priority
+            # without re-rendering would grade `inherited` and pass, which is
+            # exactly the drift this guard exists to catch. A register that is
+            # newly rendered into the brief has to be newly diffed as well.
+            # A base that predates this file reads as `{}` (absent, not
+            # unreadable): the register did not exist there, which is a fact we
+            # CAN establish, unlike a git failure.
+            cp_b_raw = _git_show(a.base, str(_CYCLE_PRIORITY))
             if oi_b is not None and rl_b is not None and md_b is not None:
                 try:
                     want_base = render(today, open_items=json.loads(oi_b),
-                                       recurrence=json.loads(rl_b))
+                                       recurrence=json.loads(rl_b),
+                                       priority=json.loads(cp_b_raw) if cp_b_raw else {})
                     have_base = current_block(md_b)
                     base_readable = have_base is not None
                 except (ValueError, TypeError):
@@ -344,6 +408,66 @@ def _self_test() -> int:
         good = bool(got) == want
         ok &= good
         print(f"  self-test ({label}): {'PASS' if good else 'FAIL'}")
+
+    # --- A3: priority propagation -------------------------------------------
+    pr = {"current": {"cycle_id": "CY-1", "priority": "Do the steering half.",
+                      "what_it_means_for_a_session": "Prefer steering work.",
+                      "set_by": "operator", "set_at": "2026-09-01",
+                      "basis": "DECIDED", "intent_ref": "IN-1",
+                      "review_by": "2026-09-08"}}
+    pcases = [
+        ("a set priority is rendered, with its cycle id",
+         "CY-1" in "\n".join(priority_lines(pr, t)), True),
+        ("the priority TEXT itself reaches the session",
+         "Do the steering half." in "\n".join(priority_lines(pr, t)), True),
+        ("who set it and on what basis are carried, not just the text",
+         "operator" in "\n".join(priority_lines(pr, t))
+         and "DECIDED" in "\n".join(priority_lines(pr, t)), True),
+        ("AN ABSENT PRIORITY IS RENDERED, never silently skipped",
+         "No cycle priority is set" in "\n".join(priority_lines({}, t)), True),
+        ("a null current renders the same explicit absence",
+         "No cycle priority is set" in "\n".join(priority_lines({"current": None}, t)), True),
+        ("an empty priority STRING is an absence, not a blank quote",
+         "No cycle priority is set" in "\n".join(
+             priority_lines({"current": {"priority": "   "}}, t)), True),
+        ("a priority past review_by is marked STALE, not dropped",
+         "STALE" in "\n".join(priority_lines(pr, date(2026, 9, 20))), True),
+        ("a STALE priority is still SHOWN — it is the last thing decided",
+         "Do the steering half." in "\n".join(priority_lines(pr, date(2026, 9, 20))), True),
+        ("a priority with no review_by is flagged as unable to expire",
+         "cannot expire" in "\n".join(priority_lines(
+             {"current": dict(pr["current"], review_by=None)}, t)).replace(
+                 "never expire", "cannot expire")
+         or "No `review_by`" in "\n".join(priority_lines(
+             {"current": dict(pr["current"], review_by=None)}, t)), True),
+        ("the priority reaches the RENDERED BRIEF, not just its helper",
+         "CY-1" in render(t, open_items={}, recurrence={}, priority=pr), True),
+        ("the brief renders the absence too",
+         "No cycle priority is set" in render(t, open_items={}, recurrence={},
+                                              priority={}), True),
+    ]
+    for label, got, want in pcases:
+        good = got == want
+        ok &= good
+        print(f"  self-test (priority: {label}): {'PASS' if good else 'FAIL'}")
+
+    # ⚠️ THE CANCELLATION TRAP. `--check` renders both sides with one date so the
+    # CLOCK cancels. A register that is rendered but NOT read at the base would
+    # cancel the same way — and a priority change would then pass unrendered,
+    # which is the drift this guard exists to catch. This asserts the two sides
+    # actually differ when only the priority differs.
+    other = {"current": dict(pr["current"], priority="Something else entirely.")}
+    a_side = render(t, open_items={}, recurrence={}, priority=pr)
+    b_side = render(t, open_items={}, recurrence={}, priority=other)
+    good = a_side != b_side
+    ok &= good
+    print("  self-test (priority: a priority-only change CHANGES the rendered brief, "
+          f"so --check cannot cancel it away): {'PASS' if good else 'FAIL'}")
+    good = check_verdict(want_head=b_side, have_head=a_side, base_readable=True,
+                         want_base=a_side, have_base=a_side) == "introduced_registers_changed"
+    ok &= good
+    print("  self-test (priority: changing the priority without re-rendering is graded "
+          f"INTRODUCED, not inherited): {'PASS' if good else 'FAIL'}")
 
     # The diff-scoping verdict. Stated as data so the policy is arguable here
     # rather than against a live PR.

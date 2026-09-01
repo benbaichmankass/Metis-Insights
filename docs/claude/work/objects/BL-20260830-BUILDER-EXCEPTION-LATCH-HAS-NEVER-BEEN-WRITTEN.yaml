@@ -1,0 +1,38 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260830-BUILDER-EXCEPTION-LATCH-HAS-NEVER-BEEN-WRITTEN
+type: commitment
+parent_intent: null
+title: |-
+  The strategy-builder exception latch shipped 2026-08-25 and its state file has never been written — the ERROR-feed drop that looks like its win is the MES candle outage ending
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-30T20:32:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  (a) `/api/diag/log_file?name=strategy_builder_exception_alert_state` returns `present: true` with at least one key, captured during or after a real burst of repeating strategy-builder exceptions; AND (b) that same burst shows the expected SHAPE in `/api/bot/logs?level=error` — a small non-zero residual of first-per-window pages rather than either the pre-fix flood or a hard zero, since a hard zero cannot distinguish a working latch from an absent fault; AND (c) if the next burst again leaves no state file, this is re-classified from still_unexercised to a real defect and the writer path is read. Do NOT close this by citing a fall in `no candle data` volume — that fall is already measured and already attributed to the outage ending.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260830-BUILDER-EXCEPTION-LATCH-HAS-NEVER-BEEN-WRITTEN
+  status_at_migration: open
+  severity: medium
+  tier: |-
+    1 to verify and to read the writer path; 2 only if the writer turns out to be broken
+  opened_by: claude (/system-review 2026-08-30, unexercised_fixes pass)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260830-BUILDER-EXCEPTION-LATCH-HAS-NEVER-BEEN-WRITTEN
+verdict: null
+next_action_at_migration: |-
+  Wait for or induce the next repeating builder exception and re-read the state file. If it stays absent, read the writer path in the builder-exception classifier for a latch call that is never reached.

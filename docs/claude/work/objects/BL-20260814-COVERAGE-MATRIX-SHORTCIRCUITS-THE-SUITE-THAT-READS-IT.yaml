@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT
+type: question
+parent_intent: null
+title: |-
+  pytest-run short-circuits on docs/ changes, but 39 test files read docs/ -- the exclusion's stated justification is per-file and was never checked per-file
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-14T09:20:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  (1) DONE -- enumerated mechanically; 4 committed readers, all now covered. (2) DONE -- tests/test_pytest_run_filter.py::test_docs_committed_readers_are_all_covered re-derives the set FROM THE TESTS on every run and fails when a new committed docs/ reader is not covered, so instance 5 cannot merge quietly. It ships with a negative control (test_the_scan_finds_the_reader_we_already_know_about) so a scan that silently stops matching cannot read as a clean pass. (3) OPEN, and it is the one that matters: pytest-run still reports an IDENTICAL green tick whether it ran 10,677 tests or zero. Every fix so far, including this one, has widened the allowlist rather than removed that ambiguity. Done = a skipped run is visibly distinct at the merge button (a neutral/skipped conclusion, or a required check that reports what it executed). Until then the class can recur through any tree the allowlist does not name. (4) OPEN, cheaper alternative worth pricing first: move the four committed-doc assertions into the `guards` job, which never short-circuits -- that removes the CI-minutes cost this PR just accepted on ARCHITECTURE-CANONICAL.md.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT
+  status_at_migration: kept_open
+  severity: medium
+  tier: 1 (CI / tooling)
+  opened_by: claude (M20 overnight session 2026-08-13)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT
+verdict: null

@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: |-
+  BL-20260817-SYSTEM-ACTION-RUN-CONCLUSION-CAN-BE-FAILURE-AFTER-THE-ACTION-SUCCEEDED
+type: question
+parent_intent: null
+title: |-
+  A system-action run can report conclusion=failure AFTER the action succeeded — re-running on that signal double-applies it
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-17'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Two independent fixes, both wanted. (1) DOC: system-actions.md and the confirmation guidance must state that a run conclusion of failure does NOT mean the action did not run, and that the authoritative signal is the 'Wrapper exit code:' line in the run log — especially before re-dispatching any MUTATING action. (2) WORKFLOW: make the comment-back step resilient (retry on 5xx, and/or continue-on-error so a comment failure cannot mark a successful action red). Do NOT resolve this by making the workflow retry the ACTION on a comment failure — that is the double-apply bug this row exists to prevent.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: |-
+    BL-20260817-SYSTEM-ACTION-RUN-CONCLUSION-CAN-BE-FAILURE-AFTER-THE-ACTION-SUCCEEDED
+  status_at_migration: open
+  severity: high
+  tier: '1'
+  opened_by: session 9952b154 (M20 exit-refinement)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260817-SYSTEM-ACTION-RUN-CONCLUSION-CAN-BE-FAILURE-AFTER-THE-ACTION-SUCCEEDED
+verdict: null
