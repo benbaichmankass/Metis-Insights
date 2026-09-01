@@ -3,7 +3,7 @@ type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: "Phase B — visibility — the read-only work view and the daily digest"
 stage: CAPABILITY
-lifecycle: dormant
+lifecycle: ready
 owner: claude
 opened_at: 2026-09-01
 closed_at: null
@@ -15,12 +15,15 @@ done_condition: >-
   The operator can see what is in flight without opening the repo, and
   receives one rolled-up daily summary of autonomous activity.
 
-blocked_on:
-  - kind: object
-    ref: WO-20260901-PHASE-A
-    since: 2026-09-01
-    note: >-
-      Nothing to render until the store exists.
+  # ⚠️ CORRECTED 2026-09-01, and the correction is the point. This edge read
+  # `object: WO-20260901-PHASE-A`, which was WRONG in the direction that matters:
+  # Phase A is `waiting` on a COLD SESSION'S OBSERVATION that may be days away,
+  # so the graph reported this phase blocked when its real dependency — THE STORE
+  # EXISTS — has been satisfied since A's first commit. A false blocker is worse
+  # than a missing one: it is exactly what E1's constraint computation would later
+  # read, and it would have said "we are waiting" while two phases were available.
+  # An edge must name the CONDITION, never the object that happened to create it.
+blocked_on: []   # the store exists; nothing else gates the read view.
 
 note: >-
   Only the READ half. The route follows src/web/api/routers/roadmap.py (475

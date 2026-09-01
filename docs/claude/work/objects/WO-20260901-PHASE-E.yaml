@@ -15,19 +15,23 @@ done_condition: >-
   Killing a session mid-work loses nothing, DEMONSTRATED by killing one. Not
   asserted from a test.
 
+  # ⚠️ CORRECTED 2026-09-01, and the correction is the point. This edge read
+  # `object: WO-20260901-PHASE-A`, which was WRONG in the direction that matters:
+  # Phase A is `waiting` on a COLD SESSION'S OBSERVATION that may be days away,
+  # so the graph reported this phase blocked when its real dependency — THE STORE
+  # EXISTS — has been satisfied since A's first commit. A false blocker is worse
+  # than a missing one: it is exactly what E1's constraint computation would later
+  # read, and it would have said "we are waiting" while two phases were available.
+  # An edge must name the CONDITION, never the object that happened to create it.
 blocked_on:
-  - kind: object
-    ref: WO-20260901-PHASE-A
-    since: 2026-09-01
-    note: >-
-      The lease and the reaper act on work objects.
   - kind: capability
     ref: DASHBOARD_API_TOKEN propagation to the session environment
     since: 2026-09-01
     note: >-
-      Operator-decided 2026-09-01. Propagation only — the value already exists on
-      the VM at /etc/ict-trader/web-api.env, so no secret is originated and there
-      is no operator hand-off.
+      The ONLY real blocker left on this phase. Operator-decided 2026-09-01;
+      propagation only, the value already exists on the VM at
+      /etc/ict-trader/web-api.env, so nothing is originated. The store-exists
+      edge that also sat here was the same false blocker corrected above.
 
 note: >-
   F2 close-out verification and F5 exit verification are ONE hook, not two:
