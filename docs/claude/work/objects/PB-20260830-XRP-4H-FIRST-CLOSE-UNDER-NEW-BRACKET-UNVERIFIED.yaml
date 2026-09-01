@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: PB-20260830-XRP-4H-FIRST-CLOSE-UNDER-NEW-BRACKET-UNVERIFIED
+type: question
+parent_intent: null
+title: |-
+  trend_donchian_xrp_4h now carries a REAL 3.0R take-profit on real money where it had none - its first closed trade must be read against broker truth, not against exit_reason
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-30'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Read the first such closed trade and answer three things, each against broker truth rather than a label. (1) DID THE NEW GEOMETRY ACTUALLY APPLY: the trade's recorded stop and target must correspond to atr_stop_mult 2.0 and tp_r 3.0, cross-checked against /api/bot/config on the RUNNING process - a config file on main is not proof the trader loaded it. (2) HOW IT EXITED: do NOT read trades.exit_reason alone. BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS measured the declared bracket being reached ~3x more often than exit_reason records, and BL-20260822-EXIT-REASON-FROZEN-WHEN-PRICE-ARRIVES-LATE shows the no-record close path hard-codes reconciler_filled before any price exists. Compare the broker-truth exit PRICE against the declared target and stop. (3) IS THE NUMBER A MEASUREMENT: the row's pnlProvenance must be measured (or estimated with that stated); a fabricated or unverified exit price cannot confirm a target hit either way, and per the 2026-08-25 perExitPath cut several exit paths sit at pnlCoverage 0.0. A single trade CANNOT validate or refute the geometry - n=1 - so the criterion is not 'the trade was profitable'. It is that the shipped geometry is confirmed live and its exit is attributable. If the exit price shows the 9.9% venue clamp firing BEFORE the 3.0R target, that WOULD make the target cosmetic in live conditions despite the backtest, and this row should be escalated to a de-ship proposal.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/performance-review-backlog.json
+  row_id: PB-20260830-XRP-4H-FIRST-CLOSE-UNDER-NEW-BRACKET-UNVERIFIED
+  status_at_migration: open
+  severity: medium
+  tier: '3'
+  opened_by: session 01EcqsSwEGKq9qpireotozUd
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/performance-review-backlog.json#PB-20260830-XRP-4H-FIRST-CLOSE-UNDER-NEW-BRACKET-UNVERIFIED
+verdict: null

@@ -199,6 +199,33 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # A5 — the WIP ceiling of 8 work objects IN FLIGHT (operating-layer
+        # Phase C). ⚠️ THIS IS A DIFFERENT POPULATION FROM open-items-guard
+        # ABOVE, and the distinction is load-bearing: the REGISTER is uncapped
+        # (check_open_items.MAX_ITEMS is None, operator-reversed 2026-08-26)
+        # while the IN-FLIGHT SET is capped. Conflating them re-introduces the
+        # eviction rule that told sessions to delete knowledge to satisfy a rule
+        # nothing enforced — so this guard's self-test asserts MAX_ITEMS is
+        # still None and fails loudly if someone caps the register believing
+        # they are implementing the ceiling.
+        #
+        # `when: None` so it runs on every diff, for the same reason the
+        # register guard does: a ceiling that is only checked when someone
+        # happens to touch the work store is not a ceiling. The store is filled
+        # by many sessions, and the ninth parent is added by whoever is last.
+        "name": "wip-ceiling-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_wip_ceiling.py", "--self-test"],
+            # The migration that FILLS the store ships with the ceiling that
+            # bounds it, so its mapping is exercised here too — a migration that
+            # silently started emitting `in_flight` or `accepted` rows would
+            # defeat the ceiling from the inside.
+            ["python3", "scripts/ops/migrate_backlog_to_work_objects.py", "--self-test"],
+            ["python3", "scripts/ci/check_wip_ceiling.py"],
+        ],
+    },
+    {
         # The registers only work if their contents reach a session BEFORE it
         # acts. Hooks do not run on Claude Code on the web (verified
         # 2026-08-26) and CI fires at merge, so CLAUDE.md's inlined SESSION

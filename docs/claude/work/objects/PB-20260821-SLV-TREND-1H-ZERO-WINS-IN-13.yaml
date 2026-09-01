@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13
+type: commitment
+parent_intent: null
+title: |-
+  slv_trend_1h: 0 wins in 13 closed trades over 30d, -5,374.59 paper, and it is the only large loser whose loss is well MEASURED (coverage 0.77) — a KILL/DEMOTE candidate with credible evidence
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-21T07:05:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Each of the four legs carries a current M7 packet and an operator decision (kill / demote to shadow / hold with a stated reason).
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/performance-review-backlog.json
+  row_id: PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13
+  status_at_migration: open
+  severity: high
+  tier: 3 (strategy disposition)
+  opened_by: claude (/system-review 2026-08-21, session dcf5220b)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/performance-review-backlog.json#PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13
+verdict: null
+next_action_at_migration: |-
+  Run the M7 strategy-review packet for slv_trend_1h, eth_pullback_2h, htf_pullback_trend_2h and tlt_pullback_1h (generate-strategy-review-packets, Tier-1) and bring the resulting KILL/DEMOTE_SHADOW badges to the operator with the coverage figure stated beside each verdict. eth_pullback_2h additionally has PB-20260618-015 and PB-20260816-ETHPULLBACK-FILL-RATE-12PCT already open against it.

@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260820-BRACKET-GEOMETRY-COLUMN-HAS-NO-AGREEMENT-CHECK
+type: question
+parent_intent: null
+title: |-
+  The new bracket_geometry column is declared CORPUS_EXEMPT, so nothing re-checks its statuses against the artifacts they were derived from — a later hand-edit would be caught nowhere
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  ⚠️ REWRITTEN 2026-08-20 — the original criteria were NOT IMPLEMENTABLE and would have produced a guard that passes vacuously. They said the guard should 'read the e35 report directory', but `runtime_logs/` is gitignored (.gitignore:29) and those 19 reports are 37MB and untracked, so CI can never see them and a guard pointed there would find nothing and report clean — the unasserted-denominator trap (diagnostic-provenance sub-class C) this repo already names. PRECONDITION NOW DONE: the 133 gate rows are extracted to the committed `docs/research/e35-bracket-gate-corpus.jsonl` (123KB, 19 legs, verdicts 112 is_oos_fail / 4 wf_fail / 17 wf_pass, reconciling exactly with the results doc), so the evidence survives the container that produced it. CLOSES when a guard re-derives each `bracket_geometry` cell's status from THAT file and fails on disagreement. Note the shape mismatch that makes this a refactor rather than a one-line add: check_matrix_corpus_agreement.py is 652 lines built around a single corpus keyed on (leg, LEVER), and a bracket triple is a DIMENSION with no lever to key on — so either that guard grows a second keying mode or this gets a sibling guard. Do NOT close it by deleting the CORPUS_EXEMPT_LEVERS entry (that fails CI without checking anything).
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260820-BRACKET-GEOMETRY-COLUMN-HAS-NO-AGREEMENT-CHECK
+  status_at_migration: open
+  severity: medium
+  tier: '1'
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260820-BRACKET-GEOMETRY-COLUMN-HAS-NO-AGREEMENT-CHECK
+verdict: null

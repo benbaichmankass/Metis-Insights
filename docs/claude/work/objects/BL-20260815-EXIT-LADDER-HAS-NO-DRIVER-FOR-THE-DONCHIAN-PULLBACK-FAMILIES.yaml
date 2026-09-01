@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260815-EXIT-LADDER-HAS-NO-DRIVER-FOR-THE-DONCHIAN-PULLBACK-FAMILIES
+type: question
+parent_intent: null
+title: |-
+  exit_ladder is sweepable on the donchian/pullback harnesses but NO driver emits the column, so the 2 open cells cannot be closed by re-running anything
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-15'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  scripts/research/m20_fleet_exit_sweep.py emits an `exit_ladder` cell for a donchian or pullback leg (i.e. `--levers exit_ladder` is an accepted choice and produces a graded cell, not `no_harness_levers`), AND a run of .github/workflows/m20-exit-lever-sweep.yml with levers=exit_ladder on trend_donchian_sol_prop + trend_donchian_eth_prop returns a status for both cells, AND those two cells in docs/research/exit-refinement-coverage.json are no longer `pending`. REPRODUCTION CHECK required before the new verdicts are trusted: re-derive exit_ladder for one already-verdicted donchian leg (e.g. trend_donchian_eth) and state whether it reconciles with its stored 2026-07-12 honest_negative -- and if it does not, say so rather than overwriting, since the stored row was measured on the pre-2026-08-10 no-TP geometry and a disagreement is expected rather than a failure of the port.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260815-EXIT-LADDER-HAS-NO-DRIVER-FOR-THE-DONCHIAN-PULLBACK-FAMILIES
+  status_at_migration: kept_open
+  severity: medium
+  tier: '1'
+  opened_by: session_01WekhceSkxLeuDLuXJMionS (M20 overnight)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260815-EXIT-LADDER-HAS-NO-DRIVER-FOR-THE-DONCHIAN-PULLBACK-FAMILIES
+verdict: null

@@ -125,7 +125,15 @@ def _make_repo(tmp_path, base_due, head_due, head_extra_row):
     (r / "docs/claude/RECURRENCE-LEDGER.json").write_text(json.dumps(rl))
     # A CLAUDE.md whose block was rendered when NOTHING was due.
     fresh_oi, fresh_rl = _registers(due=False)
-    block = G.render(open_items=fresh_oi, recurrence=fresh_rl)
+    # ⚠️ PIN ALL THREE REGISTERS, not two. `render()` loads any register it is
+    # not handed from disk, CWD-RELATIVELY -- so an unpinned one is read from
+    # whatever repo the TEST PROCESS is running in, while `--check` later reads
+    # it from the FIXTURE repo. The two disagree and the head grades stale.
+    # This bit when A3 added CYCLE-PRIORITY.json as a third register: the two
+    # older ones were already pinned here and the new one was not, so the block
+    # was built carrying the REAL repo's cycle priority and checked against a
+    # fixture that has no priority file at all.
+    block = G.render(open_items=fresh_oi, recurrence=fresh_rl, priority={})
     (r / "CLAUDE.md").write_text(f"# doc\n\n{block}\n\ntail\n")
     _git(r, "add", "-A")
     _git(r, "commit", "-qm", "base")

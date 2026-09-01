@@ -1,0 +1,39 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260825-EXIT-PROVENANCE-IS-STRUCTURED-BY-EXIT-PATH-SIX-PATHS-AT-ZERO
+type: question
+parent_intent: null
+title: |-
+  PnL coverage is not a global 42.9% — it is STRUCTURED BY EXIT PATH, and six whole exit paths (267 closes: the entire pairs sleeve, the entire intent-reduce path, netting attribution, reconciler_incomplete) carry ZERO broker-truth exit prices
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-25T12:45:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  1. PUBLISH COVERAGE PER EXIT PATH, not only per strategy. A path that has NEVER been measured must be distinguishable from one below a floor — the collapsed-state discipline applied to coverage. Until this exists the finding is re-derivable only by pulling the whole table by hand, which is how it stayed invisible.
+  2. FOR EACH OF THE SIX ZERO PATHS, one of: (a) wire it to a fills reader so it records broker truth; or (b) record explicitly that it CANNOT (e.g. the pairs executor closes legs the fills store does not attribute) and stamp its closes with an honest ESTIMATED/UNMEASURED source rather than leaving the field to imply a measurement. Either is acceptable; silence is not.
+  3. ANY published aggregate that mixes paths states its measured share. The existing `totalPnlMeasured`/`pnlCoverage` pair is the right shape — it just does not have a per-path cut.
+  4. Re-measure and quote the population. The claim to beat: six paths at 0.0% over 267 closes, from 1,347 closed non-backtest rows on 2026-08-25.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260825-EXIT-PROVENANCE-IS-STRUCTURED-BY-EXIT-PATH-SIX-PATHS-AT-ZERO
+  status_at_migration: open
+  severity: high
+  tier: |-
+    1 to measure and to publish the per-path cut; 2+ for anything that changes how an exit path records its price
+  opened_by: claude (/system-review 2026-08-25, structural pass over the whole trades table)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260825-EXIT-PROVENANCE-IS-STRUCTURED-BY-EXIT-PATH-SIX-PATHS-AT-ZERO
+verdict: null

@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-UNMEASURED-ONE
+type: question
+parent_intent: null
+title: |-
+  Strategy-DECIDED exits carry less provenance than janitor closes — 27.0% measured vs 52.0%, with 41.8% of decided closes carrying no stamp at all; vwap_cross is 22.9% of real-money closes and 65.7% of it is unstamped
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-24T18:40:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  (1) Every DECIDED close path stamps exit_price_source at the point of close, with the same three-state discipline exit_anchor uses — a monitor-derived level is NOT a fill and must not be stamped as one (see BL-20260824-RECORDED-EXIT-PRICE-OUTNUMBERS-ALL-BROKER-TRUTH-COMBINED). (2) Unverified share of DECIDED closes falls below 10% on trades opened after the fix deploys — measured on that cohort only, never back-filled, since a zero stamped onto an old row asserts an observation nobody made. (3) A test pins that each decided path writes a stamp. Tier-2: it changes what the monitor records at close.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-UNMEASURED-ONE
+  status_at_migration: open
+  severity: high
+  tier: '2'
+  opened_by: claude (/system-review 2026-08-24, structural pass — operator-directed)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-UNMEASURED-ONE
+verdict: null

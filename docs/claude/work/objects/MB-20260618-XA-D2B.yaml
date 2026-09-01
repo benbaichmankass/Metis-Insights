@@ -1,0 +1,36 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: MB-20260618-XA-D2B
+type: commitment
+parent_intent: null
+title: |-
+  D2b — make the c_reg conviction lens real (regime class-prob vector + alignment/calibrator + signal-time xa feed)
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: '2026-06-18T22:45:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  c_reg is populated from the cross-asset regime read in the observe-only conviction (visible in the conviction_sizing soak log) and verified sane; D4 (actual sizing influence) remains separately M16-P2+ backtest-gated + operator-approved.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/ml-review-backlog.json
+  row_id: MB-20260618-XA-D2B
+  status_at_migration: kept_open
+  severity: low
+  tier: '1'
+  opened_by: claude (S-CROSS-ASSET-PROBE D2a)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- docs/claude/ml-review-backlog.json#MB-20260618-XA-D2B
+verdict: null
+next_action_at_migration: |-
+  Build half already shipped and the whole chain verified (regime_alignment.py exists; strategy_signal_builders.py:379-387 calls load_regime_alignment_cached and passes regime_alignment; conviction_inputs.py:99-104 populates c_reg, weighted 0.15 in conviction.py:31). Only verification is outstanding: read /api/diag/log_file?name=conviction_sizing and confirm c_reg is populated (not None) and sane on cross-asset-covered symbols.

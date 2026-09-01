@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS
+type: commitment
+parent_intent: null
+title: |-
+  The Bybit bracket audit grades 5 dimensions and NONE of them is price — the same blind spot broker_bracket_reconcile was built to close on the IB side
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-21T08:20:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  bybit-bracket-audit grades a price dimension, its roll-up names it, and a planted divergence is shown to FAIL the check before a clean result is trusted.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS
+  status_at_migration: open
+  severity: medium
+  tier: 1 (extend an existing read-only audit)
+  opened_by: claude (/system-review 2026-08-21, session dcf5220b)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS
+verdict: null
+next_action_at_migration: |-
+  Tier-1: add a price comparison to scripts/ops/bybit_bracket_audit.py — per open journal row, compare the resting leg trigger against trades.stop_loss / take_profit_1 with a venue-tick tolerance, and report a divergence as its own graded dimension so the roll-up's 'clean across ALL N dimensions' line stays honest about what it checked. Reuse broker_bracket_reconcile's tolerance semantics rather than inventing a second definition.

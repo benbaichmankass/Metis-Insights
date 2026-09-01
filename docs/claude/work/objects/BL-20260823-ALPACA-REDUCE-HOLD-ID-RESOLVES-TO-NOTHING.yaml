@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260823-ALPACA-REDUCE-HOLD-ID-RESOLVES-TO-NOTHING
+type: question
+parent_intent: null
+title: |-
+  133 distinct tracking ids are cited across src/tests/scripts/docs/.github and resolve to NO backlog row -- 513 citations, 11.5% of everything cited, including ids CLAUDE.md itself leans on
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-23'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  ['Determine which of the 133 were NEVER FILED versus FILED-THEN-DELETED, from git history on the three backlog files. The remedies differ and the split is the finding: never-filed is a discipline gap; filed-then-deleted is a deletion policy that destroys provenance, and resolved rows are otherwise retained, so deletion would be anomalous.', 'check_backlog_refs.py gains a way to record a finding ABOUT a dangling id. Today it cannot be done -- this row had to omit the ids it is about. Use a VERIFIED escape (the collapsed-state-guard discipline: an annotation naming something that must actually exist), not a presence-only marker, which is how new-table-wiring-guard taught contributors to lie to it.', "An `--all` sweep mode reporting the standing population, so the number is watched rather than rediscovered. The guard already has refs_everywhere(); it runs diff-scoped. Reproduce today with: grep -rEoh '\\b(BL|MB|FU|PB|SRQ)-[0-9]{8}-[A-Z0-9-]+' src tests scripts docs .github | sort | uniq -c, minus the filed ids.", "Decide the policy ONCE and write it down: either dangling ids are a CI failure repo-wide (a migration, since 133 rows would have to be filed or 513 citations corrected first) or they are tolerated outside backlog files and the diff scope is the deliberate line. Today the answer is only inferable from the guard's behaviour.", 'The CLAUDE.md citations are triaged first regardless of the policy chosen -- it is the file every session reads before acting, so a dangling reference there misleads at the highest leverage point in the repo.']
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260823-ALPACA-REDUCE-HOLD-ID-RESOLVES-TO-NOTHING
+  status_at_migration: open
+  severity: medium
+  tier: 1 (docs / traceability)
+  opened_by: full-system-audit-2026-08-23 (surfaced by check_backlog_refs while citing it)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260823-ALPACA-REDUCE-HOLD-ID-RESOLVES-TO-NOTHING
+verdict: null

@@ -1,0 +1,36 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET
+type: question
+parent_intent: null
+title: |-
+  On IB, moving a stop re-minted the whole bracket through the un-transmitted path — so a trade LOST ITS TAKE-PROFIT the moment it started trailing, and no IB winner could ever reach its target
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-23'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  ["ANSWERED 2026-08-23, and the answer is NO: the contaminated population is NOT reconstructible from the journal. Tested, not assumed — all four candidate anchors were checked and each fails for a specific reason: (1) `trades.stop_loss` is OVERWRITTEN IN PLACE by order_monitor._apply_update's `db.update_trade(trade_id, trade_sync)`; (2) `order_packages.sl` is overwritten in place by the same path's `db.update_order_package(pkg_id, updates)`; (3) the append-only `signals` dual-write records decision CONTEXT (event, timeframe, regime, adx_14, pattern, confidence, price) but carries NO protective geometry — verified against live MES rows, meta is `{event, timeframe, regime, adx_14, regime_source}`; (4) `position_telemetry` is UPSERT-on-order_package_id and its `rToStop` is derived from the CURRENT stop, so it holds no trajectory either, and it covers only donchian/pullback legs. There is no entry-time stop anywhere that survives the first trail. So do NOT report a number for the historical population — there is none to report, and a partial count would be worse than the honest 'unknown'.", 'GOING FORWARD IS THE ONLY MEASURABLE DIRECTION, and it needs one small write: stamp the trade when its protective bracket is re-armed or amended (a counter and/or first/last timestamp on the row). That is Tier-2 (a write on the trader path) so it is PROPOSED here, not shipped. Without it the same question will be equally unanswerable next time — and note the re-arm currently writes NOTHING durable at all: _attempt_naked_autoprotect returns a bool and logs only on FAILURE.', "⚠️ THE RE-ARM LEAVES NO DURABLE RECORD, which is a defect in its own right: `_attempt_naked_autoprotect` returns a bool and logs ONLY on failure - no journal write, no soak row, no outcome emit - and `modify_protective` likewise stamps nothing on the trade. So a repair that mutates a live position's protective bracket is invisible afterwards. Propose stamping the trade (Tier-2, a write on the trader path) so the population is measurable GOING FORWARD even if the history is lost.", "The exit-geometry / exit-head research must not calibrate on IB live exit outcomes until this is quantified: for a contaminated trade 'the target was never hit' describes a mechanism that had been removed. Carried into docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md as a blocking caveat.", "PROVE THE FIX ON A NEW BRACKET: a bracket born AFTER the deploy must carry BOTH a STP and a LMT in one OCA group (/api/diag/ib_open_orders). Until then report it as 'deployed but NOT YET EXERCISED' - an unexercised fix and a working one look identical.", 'TRADE-REVIEW CHECK (added 2026-08-24, operator-directed standing watch) — the order-book check alone is NOT sufficient and MGC 4773 proves it: both legs rested, the target was 233.9 pts in the money, and the close still came from the monitor via `tp_cross`. Resolution additionally requires at least one IB close where the ATTACHED TARGET demonstrably acted (exit at/through the declared take-profit with a non-monitor `exit_reason`), with the population stated (n IB closes examined, split across target-acted / monitor-closed-while-LMT-rested / stop-closed-uninformative / none-closed). A `tp_cross` close while a LMT rested at or better than the exit price REOPENS this row rather than draining it.']
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET
+  status_at_migration: open
+  severity: critical
+  tier: |-
+    2 (fix shipped in #10174; the CONTAMINATION it leaves in the evidence base is unmeasured)
+  opened_by: full-system-audit-2026-08-23
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET
+verdict: null

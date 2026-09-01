@@ -1,0 +1,43 @@
+# TEMPLATE — copy to `wip-ceiling-exception.yaml` (drop the .template) only when you
+# actually need a ninth work object in flight. `scripts/ci/check_wip_ceiling.py` reads
+# the real filename; this one is inert and exists so the shape is not guessed at 2am.
+#
+# ⚠️ READ THIS FIRST: THE USUAL ANSWER IS NOT AN EXCEPTION.
+# The ceiling counts `in_flight` ONLY. `waiting` is free — an object blocked on an
+# operator decision or an external event is not consuming the attention the ceiling
+# rations. If something you have in flight is really parked, move it to `waiting` with
+# a TRUE `blocked_on` edge and you are back under the cap honestly. Filing an exception
+# to keep a parked object marked in_flight is how a ceiling stops meaning anything.
+#
+# ⚠️ FILING THIS DOES NOT UNBLOCK YOU. `decision: pending` still FAILS CI, by design —
+# the ceiling's whole function is that a ninth parent needs a human to say yes. It
+# converts "we need a ninth" from a session's private call into a decision on the
+# record. Do not file it expecting to proceed; file it expecting to be asked why.
+
+# Every id currently in flight that this exception is meant to cover.
+# ⚠️ It covers ONLY what it NAMES. An exception with an empty or stale `covers` list is
+# a permanent cap raise wearing an exception's clothes, and the guard refuses it.
+covers:
+  - WO-EXAMPLE-ONE
+  - WO-EXAMPLE-TWO
+
+# pending | approved | refused
+# Written `pending` by the session that needs the ninth; changed to approved/refused by
+# the operator. A session must not write `approved` for its own request.
+decision: pending
+
+# Required for `approved`. An approval with nobody's name and no date on it is not a
+# decision, it is a session approving itself — the guard refuses that too.
+approved_by: null
+approved_at: null
+
+justification: >-
+  Why a ninth is genuinely necessary rather than convenient. State what would have to
+  be dropped or parked instead and why that is worse — an exception that does not say
+  what the alternative was is not an argument, it is a request. Name the population:
+  how many are in flight, and how long the excess is expected to last.
+
+expires: >-
+  A date, or the observable event that ends the exception. An exception with no end is
+  a cap raise. When it expires the excess objects must be back under the ceiling or the
+  exception re-argued — not silently renewed.

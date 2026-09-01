@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: |-
+  BL-20260827-COMPAT-MATRIX-STANDARD-ARM-BORROWED-A-TYPE-WITH-NO-MEMBER-FOR-ITS-CONCEPT
+type: question
+parent_intent: null
+title: |-
+  ROOT CAUSE of the standard-arm defect: PropRuleset offers only `static` and `trailing` drawdown, neither of which is a standard account's intraday resetting brake, so _standard_ruleset absorbed the new concept into the nearest member and produced a confident wrong number instead of an error
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  A THIRD drawdown shape (or a distinct standard-account limit type) expressing 'intraday, from today's high, resets daily, refuses a trade rather than killing the account', so p_breach becomes 'probability this cell trips the daily brake' and is NOT terminal; PLUS a real account size or an explicit refusal to grade rather than a $10,000 substitution; PLUS every prior standard-column citation re-graded or withdrawn (at least one exists: BL-20260803-GLD-ALPACA-PORTFOLIO-SURVIVAL-SKIP quotes survival 0.871 < 0.90 as a routing finding). Deleting the survival gate does NOT close this -- the fragility question it asks is legitimate and is the only thing standing between a fragile cell and live capital.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: |-
+    BL-20260827-COMPAT-MATRIX-STANDARD-ARM-BORROWED-A-TYPE-WITH-NO-MEMBER-FOR-ITS-CONCEPT
+  status_at_migration: open
+  severity: high
+  tier: 3 (changes promotion verdicts)
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260827-COMPAT-MATRIX-STANDARD-ARM-BORROWED-A-TYPE-WITH-NO-MEMBER-FOR-ITS-CONCEPT
+verdict: null

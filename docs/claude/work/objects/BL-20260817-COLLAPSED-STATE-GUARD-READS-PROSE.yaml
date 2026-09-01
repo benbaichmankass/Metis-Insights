@@ -1,0 +1,38 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260817-COLLAPSED-STATE-GUARD-READS-PROSE
+type: question
+parent_intent: null
+title: |-
+  collapsed-state-guard counts PROSE as a branch — a docstring naming every state satisfies the coverage it exists to enforce, and one quoted state in a comment fails a file that branches correctly
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-17T16:20:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  1. Gather evidence from CODE, not raw text: strip comments and string bodies before the scan (`tokenize`, or `ast` with docstring nodes dropped) so a state counts only where it appears as a literal in executable position. Reproduce case (b) as a test FIRST — a prose-only file must go from 'all states read' to 'no consumer branches on them' — otherwise the fix is unverified against the failure it targets.
+  2. Then handle the constants half, which the same pass makes tractable: resolve `th.UNKNOWN`-style attribute references against the producer module's own declared constants, so a constants-based consumer stops reading as zero evidence. Until this lands, contracts over constants-based APIs are satisfied only by whichever files happen to use literals, which is luck, not coverage.
+  3. Re-run `--all` across the existing 13 contracts and REPORT THE DELTA. Do not assume the change is inert: any contract whose coverage was silently resting on a docstring will newly fail, and each such failure is a REAL finding this guard has been missing — triage them, do not annotate them away.
+  4. If a state is genuinely unread, that is the collapse the guard names; fix the consumer, not the guard.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260817-COLLAPSED-STATE-GUARD-READS-PROSE
+  status_at_migration: open
+  severity: medium
+  tier: 1 (CI guard)
+  opened_by: claude (exit-eval-interval session)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260817-COLLAPSED-STATE-GUARD-READS-PROSE
+verdict: null

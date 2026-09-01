@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260821-AVAX-SCALP-SIZES-ABOVE-THE-VENUE-MAXIMUM
+type: commitment
+parent_intent: null
+title: |-
+  ict_scalp_avax_5m sized ~34,000 AVAX against a venue maximum of 22,000 and was exchange-rejected 20 times — the sizer has no venue-max clamp on this path
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-21T07:05:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Zero ErrCode 10001 rejections on this leg over 30 days, AND a submit-path record (log line or diag field) that names which source resolved the lot rule and whether a ceiling was found -- so a future 'no rejections' reading can be told apart from 'the clamp is still inert and the sizer happened to stay under the cap'. The second clause is load-bearing: 22 of 22 accepted orders were already under the cap without any clamp firing, so absence of rejections alone proves nothing.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260821-AVAX-SCALP-SIZES-ABOVE-THE-VENUE-MAXIMUM
+  status_at_migration: open
+  severity: high
+  tier: 2 (diagnosis is read-only; the fix touches sizing)
+  opened_by: claude (/system-review 2026-08-21, session dcf5220b)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260821-AVAX-SCALP-SIZES-ABOVE-THE-VENUE-MAXIMUM
+verdict: null
+next_action_at_migration: |-
+  TIER-1 HALF: DONE 2026-08-22 -- the basis is 'venue_available' and position_size == max_qty_by_margin exactly. WHAT REMAINS, and the ORDER matters: (1) OBSERVABILITY FIRST -- every path to venue_max=None is silent or DEBUG and the success path never records which source answered, so no fix can be verified today. legalize_qty already returns `source` on LegalizedQty; log it (and whether a ceiling resolved) on the submit path, or expose it on a diag read. Tier-1. (2) THEN the clamp fix, which belongs to BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK, not here: venue_max must distinguish 'the venue published no maximum' from 'we could not look', and the second must not pass through. Tier-2. (3) SEPARATELY, and this is the larger question: a leg whose size is routinely the MARGIN CEILING rather than a risk number is not sized by the risk model at all. ict_scalp_avax_5m is the worst paper strategy over 30d (-7,620.73 / 20 trades / 45.0% win). Whether that leg should be sized off available margin at 3x leverage is a Tier-3 sizing question, not a clamp question.

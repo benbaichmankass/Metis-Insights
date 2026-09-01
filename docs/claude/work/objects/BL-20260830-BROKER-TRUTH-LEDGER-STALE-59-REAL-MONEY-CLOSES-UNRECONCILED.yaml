@@ -1,0 +1,39 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED
+type: commitment
+parent_intent: null
+title: |-
+  The bybit_2 broker-truth ledger stopped at 2026-07-13 — 59 real-money closes over 48 days have never been reconciled, and a consumer cannot tell that window from the measured one
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-31T05:30:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  (a) A fresh Bybit UM export covering 2026-07-13 -> present is stitched into `comms/broker_truth_ledger.json` via the reviewed `scripts/ops/reconcile_netting_pnl.py --emit-ledger` path, so `window_end` advances and the 59 (and counting) post-window closes acquire a wallet-truth counterpart; AND (b) the ledger's COVERAGE is legible to a consumer — a row outside the reconciled window must be distinguishable from one inside it, rather than both reading `known_divergent`, so 'never measured' and 'measured and divergent' stop being the same string; AND (c) a recorded cadence or trigger for refreshing the ledger, since a hand-populated authoritative figure with no refresh rule will go stale again by construction — this row IS that recurrence.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED
+  status_at_migration: open
+  severity: high
+  tier: |-
+    1 to measure and to make coverage legible; the export itself is an operator action (venue UI)
+  opened_by: |-
+    claude (/system-review 2026-08-30, operator pushback on 'known_divergent as expected')
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED
+verdict: null
+next_action_at_migration: |-
+  Ask the operator for a Bybit UM export covering 2026-07-13 -> present (the ledger is populated BY HAND from that export — this is one of the narrow genuine operator hand-offs), then re-run the reviewed --emit-ledger path and advance window_end.

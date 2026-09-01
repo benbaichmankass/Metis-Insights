@@ -1,0 +1,38 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260822-PACKAGE-CLOSE-REASON-IS-NOT-THE-EXIT-RECORD
+type: commitment
+parent_intent: null
+title: |-
+  order_packages.close_reason mixes real exits with BOOKKEEPING REPAIRS, so any exit-mechanism share computed from it is measuring two different things at once -- and it is the field workplan item 1.1's headline is built on
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  ['Every exit-mechanism claim in the workplan and in the review skills names WHICH field it read (trades.exit_reason vs order_packages.close_reason) and states the pairs/non-pairs split.', 'The 200-row cap on /api/bot/order-packages is stated wherever that route backs a share, or the claim is recomputed off the DB explorer where the population is controllable.', "A single owner for 'how did this trade exit' -- one accessor both the reviews and the reports read -- rather than two fields that disagree by construction."]
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260822-PACKAGE-CLOSE-REASON-IS-NOT-THE-EXIT-RECORD
+  status_at_migration: open
+  severity: high
+  tier: |-
+    1 (measurement validity -- it decides what workplan item 1.1 and gate G.2 are measuring)
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260822-PACKAGE-CLOSE-REASON-IS-NOT-THE-EXIT-RECORD
+verdict: null
+next_action_at_migration: |-
+  When item 1.1 is next worked, recompute its headline from trades.exit_reason with the pairs split stated. Do not re-derive it from order_packages.close_reason.

@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260815-REMOTE-RELAY-USED-TO-LEARN-A-SCHEMA-THE-REPO-DEFINES
+type: question
+parent_intent: null
+title: |-
+  Analysis sessions burn multi-minute trainer-relay round trips guessing JSON schemas that the writer, in this repo, defines exactly. The remote is treated as the source of truth for a shape the local source already fixes.
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-15T07:15:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  ALL THREE observable, checkable by reading the artifacts: (1) `.claude/skills/diag-data` (or the trainer-relay section it points at) contains an explicit step ordering 'grep the local writer for the shape' BEFORE composing a relay that parses a JSON artifact, and requiring the relay body to state the accessor's provenance as `shape per <file>:<line>`. (2) A relay readout that reads an exit-head round reads `rounds.jsonl` (the canonical corpus shape, no accessor) rather than walking `round_report.json` -- demonstrated by at least one posted relay issue after this row was filed. (3) That same relay body states an EXPECTED value for one already-established artifact (a known-answer control) and the returned output reproduces it. Verification: point at the relay issue number that satisfies (2) and (3), and the skill diff that satisfies (1). Closing this row on 'I will be more careful' is exactly the disposition that failed -- the prose lesson was already written after the second instance and three more followed.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260815-REMOTE-RELAY-USED-TO-LEARN-A-SCHEMA-THE-REPO-DEFINES
+  status_at_migration: kept_open
+  severity: medium
+  tier: '1'
+  opened_by: claude (M20 overnight session 2026-08-15)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260815-REMOTE-RELAY-USED-TO-LEARN-A-SCHEMA-THE-REPO-DEFINES
+verdict: null

@@ -1,0 +1,41 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY
+type: question
+parent_intent: null
+title: |-
+  Why the MGC take-profit never fired: IB protective-leg DETECTION is account-wide+boolean while CANCELLATION is session-scoped+symbol-wide - no trade owns its bracket, and nothing can verify one exists
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-14T11:52:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  1. [MET 2026-08-16, verified live 2026-08-23 — /api/diag/ib_open_orders returned read_state='orders_read' with 4 resting ib_paper legs and read_state='could_not_look' with count=null for ib_live, the three-state contract behaving as designed] ADD AN IB OPEN-ORDERS READ SURFACE FIRST (Tier-1, no order path). Without it none of the fixes below can be verified and the next occurrence is equally invisible. Safe to ship alone.
+  2. Make protection TRADE-attributable, not symbol-attributable: persist the placed OCA group + leg ids onto the trade row (the columns already exist for Bybit) and have place_protective cancel only the CALLING trade's own legs.
+  3. [MET 2026-08-16 — protection_coverage returns stop_qty and target_qty SEPARATELY beside the back-compat covered_qty, classifying each leg through _protective_leg_side with the STOP family tested FIRST so a 'STP LMT' cannot manufacture target coverage; has_protective_orders keeps the combined test deliberately, that being its own question, and its docstring now forbids naked-detection use] Make has_protective_orders return COVERED QUANTITY (or None when unconfirmable) instead of a boolean and compare to the exchange position size - the PR #8000 Bybit shape. Skip rather than guess when coverage is ungradeable.
+  4. Reconcile the detection/cancellation scope asymmetry explicitly: both read reqAllOpenOrders, or document the difference as intentional WITH the restart-stacking consequence stated.
+  5. [RESOLVED 2026-08-23, was HELD — the operator's rule ('if the trade has already passed where its brackets should have been since it opened, close it out') disposes it: MGC's declared target 4393.02071429 was passed by 233.88+ points, so the position is scheduled to be FLATTENED by the 2026-08-23T22:30Z Routine. NOTE the live position is MGC trade 4773 at 95 lots, while this row was filed against a 105-lot position — confirm the id before acting rather than assuming they are the same trade] Tier-3 / operator: disposition of the 105-lot MGC position, which separately blocks every mgc_trend_1h signal via flip_suppressed_hold_policy. HELD pending operator decision (2026-08-14: investigate + report, do not touch).
+  6. Regression test: two open trades on one symbol from different strategies; re-arming one must not remove the other's legs. Confirm it FAILS against the current symbol-scoped implementation.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY
+  status_at_migration: kept_open
+  severity: medium
+  tier: |-
+    2 (broker-naked re-arm path; detection change is Tier-1, the re-arm behaviour change is Tier-2)
+  opened_by: claude (/system-review 2026-08-14)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY
+verdict: null

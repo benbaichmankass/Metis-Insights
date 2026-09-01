@@ -1,0 +1,36 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS
+type: question
+parent_intent: null
+title: |-
+  _TP_SENTINEL_CAP_PCT is a Bybit ErrCode 10001 workaround applied unconditionally; on the ALPACA-ONLY legs (GLD, SCHA) no venue is known to require it
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-16T14:05:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  POPULATION: the 2 ALPACA-ONLY arm-declaring legs — gld_pullback_1d (GLD, n=112) and scha_trend_long_1d (SCHA, n=65), measured entry-conditioned 2010-03-26 to 2026-06-12 (relay #9710). qqq_trend_long_1d is excluded: it also routes to ib_paper, where a ~10% NBBO rule may make the cap correct. Closes on EITHER (a) a recorded paper-account result showing Alpaca REFUSES a take-profit further than 9.9% of entry, which closes this as correct-as-is with the evidence attached; or (b) Alpaca accepts it AND the cap resolution is made route-aware with operator approval, verified by reading a live order package on an Alpaca-routed leg whose tp is no longer clamped to entry*1.099. A code change alone does NOT close it — the check is a real order package with an un-clamped tp, because the clamp lives in a signal builder that runs before per-account routing, so a fix applied at the wrong layer would look correct in diff and change nothing. Reading more documentation does NOT close it either: the open question is an undocumented API validation, which only an order attempt reveals.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/performance-review-backlog.json
+  row_id: PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS
+  status_at_migration: open
+  severity: medium
+  tier: |-
+    3 (moves where order geometry is resolved, and would change the TP actually placed on live legs)
+  opened_by: claude (session_01Xk2ozj, M20 harness<->live population parity)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/performance-review-backlog.json#PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS
+verdict: null

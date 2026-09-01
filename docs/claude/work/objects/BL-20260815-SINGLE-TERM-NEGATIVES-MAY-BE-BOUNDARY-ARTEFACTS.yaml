@@ -1,0 +1,36 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260815-SINGLE-TERM-NEGATIVES-MAY-BE-BOUNDARY-ARTEFACTS
+type: question
+parent_intent: null
+title: |-
+  An exit_head_ml verdict that sits ONE FOLD FLIP from the opposite outcome is a boundary artefact risk — and the CANDIDATE column is 2.7x more exposed than the negative one (8/14 vs 4/19), measured by arithmetic over the committed rounds.
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-15T01:50:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  BOTH columns' fragile-cell counts are recorded with their population stated (DONE: 8/14 candidates, 4/19 negatives over the 33 committed rounds), AND an offset screen has been run on at least the fragile CANDIDATES, since those are the cells that would justify a live change. Closes on the screen being run and its unanimity recorded — NOT on any cell being re-graded and NOT on the gate changing; both are Tier-3 and belong to the operator.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260815-SINGLE-TERM-NEGATIVES-MAY-BE-BOUNDARY-ARTEFACTS
+  status_at_migration: kept_open
+  severity: medium
+  tier: |-
+    1 (research measurement; no live path, no gate changed, no matrix status flipped)
+  opened_by: claude (M20 overnight session 2026-08-15)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260815-SINGLE-TERM-NEGATIVES-MAY-BE-BOUNDARY-ARTEFACTS
+verdict: null

@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-DEGENERATE
+type: question
+parent_intent: null
+title: |-
+  The regime-flip replay writes `verdict: PASS` on legs where the lever NEVER FIRED -- 12 of 14 fleet passes have flip_pct 0.0, so the plain reading of the label is wrong 86% of the time
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-14T04:20:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Observable: (a) the flip replay emits a verdict that CANNOT be read as a positive when the lever never fired -- either a distinct third state (e.g. `no_fire` / `degenerate_tie`, registered with collapsed-state-guard so producer and consumer are both checked) or a verdict that is refused unless flip_pct > 0; AND (b) a planted positive control demonstrates it -- an artifact with flip_pct 0.0 must NOT come back `PASS`, verified by running it, since a quiet pass proves nothing; AND (c) the existing 12 degenerate-PASS artifacts are either re-emitted or annotated so a future reader of the ON-DISK files is not misled by the stale label. NOT resolution: documenting the caveat in a doc and leaving the field as-is -- the artifacts outlive the doc and are read directly.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-DEGENERATE
+  status_at_migration: kept_open
+  severity: low
+  tier: '1'
+  opened_by: claude (M20 overnight session 2026-08-13)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-DEGENERATE
+verdict: null

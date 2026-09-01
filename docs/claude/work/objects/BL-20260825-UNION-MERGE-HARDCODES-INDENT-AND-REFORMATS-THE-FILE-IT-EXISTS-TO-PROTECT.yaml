@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: |-
+  BL-20260825-UNION-MERGE-HARDCODES-INDENT-AND-REFORMATS-THE-FILE-IT-EXISTS-TO-PROTECT
+type: question
+parent_intent: null
+title: |-
+  backlog_union_merge.py hardcoded indent=2 while asserting parity with backlog_append — and reformatted all 4.8 MB of the health backlog on the one PR that used it
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-25T23:15:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  RESOLVED when a conflict is resolved through backlog_union_merge.py against a file whose on-disk format differs from indent=2, and the resulting diff is confined to the rows that actually changed — verified by git --numstat on that commit, not by reading the tool. Until such a conflict occurs the fix is shipped-but-unexercised and belongs in the review_coverage.unexercised_fixes block, NOT closed on the code landing: this row's own subject is a tool whose docstring asserted a property it did not have, so a code citation is precisely the evidence that should not close it.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: |-
+    BL-20260825-UNION-MERGE-HARDCODES-INDENT-AND-REFORMATS-THE-FILE-IT-EXISTS-TO-PROTECT
+  status_at_migration: open
+  severity: medium
+  tier: 1 (docs tooling)
+  opened_by: claude (system-review; found in my OWN diff, and caused by my own tool use)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260825-UNION-MERGE-HARDCODES-INDENT-AND-REFORMATS-THE-FILE-IT-EXISTS-TO-PROTECT
+verdict: null

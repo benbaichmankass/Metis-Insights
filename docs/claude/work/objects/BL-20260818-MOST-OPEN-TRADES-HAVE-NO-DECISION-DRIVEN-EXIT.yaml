@@ -1,0 +1,38 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT
+type: commitment
+parent_intent: null
+title: |-
+  22 of 34 open trades can close ONLY by price reaching a level fixed at entry - no path closes them on anything learned since
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Basis for the counts above: scripts/ops/exit_path_coverage.py run 2026-08-18 against the live journal, 34 open non-backtest rows, self-test 7/7 with planted controls. RESOLVED when either (a) the price_only count is driven down by operator-approved declares plus the pullback-family mechanism work, or (b) the operator records a decision that price-only is the intended posture for a named subset, with that subset carried in the audit as an accepted exclusion rather than a finding. Progress is measurable by re-running the audit: it prints by_verdict and the cause split.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT
+  status_at_migration: open
+  severity: critical
+  tier: |-
+    3 (each new declare is a Tier-3 value; the AUDIT and the cause split are Tier-1 and already landed)
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT
+verdict: null
+next_action_at_migration: |-
+  ✅ OPERATOR DISPOSITION RECORDED 2026-08-23T04:3xZ (four options offered: declare-the-9 / record-price-only-as-intended / both / defer): **DECLARE THE 9 FIRST** — resolution path (a), starting with the `all_undeclared` trend_donchian subset (4711, 4701, 4700, 4574, 4550, 4547, 4350, 4348, 4347). Chosen because that module already implements ALL FOUR M20 mechanisms and declares ZERO of them, so this is a config declare against proven, instrumented code rather than new mechanism work. ⚠️ EACH DECLARED VALUE IS STILL A TIER-3 VALUE and needs its own approval — the operator approved the APPROACH, not a set of numbers. ⚠️ MEASURE THE DROP, DO NOT ASSERT IT: re-run scripts/ops/exit_path_coverage.py afterward and quote by_verdict + the cause split; the row is explicit that progress is measurable that way. The other two causes (10 `unknown`, not 'fine') are NOT covered by this disposition and stay open. ⚠️ MEASURED 2026-08-24 BEFORE ACTING, and the values CANNOT YET BE RESPONSIBLY CHOSEN (docs/research/declare-the-9-cannot-be-valued-yet-2026-08-24.md): (a) only 3 of the 9 named trades are still OPEN (4711, 4350, 4347) — six closed between 08-23 and 08-24, so the trade list is two-thirds stale; the unit of action was always the LEG, which is unaffected. (b) 9 ENABLED trend_donchian-MODULE legs declare none of the four — a coincidence of number with the 9 trades, not the same set, and the two must not be conflated. (c) A declare only reaches `decision_exit_live` when arm_reach == reachable FOR THAT FILL; an unreachable one grades ABSENT and the trade STAYS price_only under a new cause, and an unmeasured one grades `unknown` — so two of the three landings are not progress. (d) Declaring blind demonstrably lands unreachable: fleet-wide arm_reach is no_arm_declared 35 / unreachable 19 / reachable 6, i.e. 19 of 25 DECLARED arms are inert, including two on this very module (qqq_trend_long_1d arm 3.56 vs cap 2.13; trend_donchian_sol_4h arm 5.57 vs cap 1.44). (e) Per-leg telemetry n is 1-4 and TWO legs have zero rows; trend_donchian_eth_4h's cap_r spans 1.396-8.632 (6.2x) over n=4. The working template is scha_trend_long_1d (arm 2.0 vs cap 2.778 -> reachable), and it is arithmetic, not taste. NEXT: derive cap_r per HISTORICAL fill from the journal (cap_r = 0.099 * entry / (atr_stop_mult * ATR)) rather than from live telemetry, propose an arm at a stated percentile, and quote the reachable fraction — with the admission criterion written down BEFORE that run.
