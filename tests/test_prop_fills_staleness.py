@@ -122,6 +122,148 @@ class TestBalanceMove:
 
 # ── detector A: a crossed bracket with no close report ────────────────
 
+
+# ── which instants place a fill in the window (2026-09-01) ────────────
+#
+# `prop_journal.insert_fill` is IDEMPOTENT: its UPDATE branch overwrites
+# `reported_at` with `now` on a re-report while preserving `created_at`. So a
+# corrective re-report — routine on a manual bridge — could push an already-
+# reported close out of the window it explains, and latch an `alert` banner on
+# a correctly-journaled trade. That is the desensitized-alarm P1 this whole
+# module exists to avoid, arriving through its own window filter.
+
+def _rich_fill(**kw):
+    """A fill carrying only the timestamp fields a case actually names."""
+    row = {"account_id": "breakout_1"}
+    for k, v in kw.items():
+        row[k] = v.isoformat() if hasattr(v, "isoformat") else v
+    return row
+
+
+class TestFillEvidenceTimes:
+    def test_every_parseable_instant_is_returned_under_its_own_name(self):
+        t = datetime(2026, 8, 30, 19, 33, tzinfo=timezone.utc)
+        got = fs.fill_evidence_times(
+            _rich_fill(created_at=t, reported_at=t, closed_at=t)
+        )
+        assert set(got) == {"created_at", "reported_at", "closed_at"}
+
+    def test_an_absent_field_contributes_nothing(self):
+        t = datetime(2026, 8, 30, 19, 33, tzinfo=timezone.utc)
+        assert set(fs.fill_evidence_times(_rich_fill(created_at=t))) == {"created_at"}
+
+    def test_an_unparseable_instant_is_omitted_not_defaulted(self):
+        """A row that cannot be placed in time must not be placed by default."""
+        got = fs.fill_evidence_times(
+            _rich_fill(created_at="not-a-timestamp", reported_at=None, closed_at="")
+        )
+        assert got == {}
+
+    def test_opened_at_is_deliberately_NOT_evidence(self):
+        """An OPEN is not evidence that a REALIZED move was reported.
+
+        Counting it would let an opening report inside the window explain a
+        close nobody reported — widening the suppression surface to buy
+        nothing this predicate needs.
+        """
+        t = datetime(2026, 8, 30, 19, 33, tzinfo=timezone.utc)
+        assert fs.fill_evidence_times(_rich_fill(opened_at=t)) == {}
+        assert "opened_at" not in fs._FILL_EVIDENCE_FIELDS
+
+
+class TestReReportCannotManufactureAFinding:
+    """The live 2026-08-30 `18->19` false positive, reproduced exactly."""
+
+    START = datetime(2026, 8, 30, 13, 37, 39, 446290, tzinfo=timezone.utc)
+    END = datetime(2026, 8, 30, 19, 33, 29, 584285, tzinfo=timezone.utc)
+    FIRST_REPORT = datetime(2026, 8, 30, 19, 33, 17, 466421, tzinfo=timezone.utc)
+    CORRECTION = datetime(2026, 8, 30, 19, 39, 0, 972519, tzinfo=timezone.utc)
+
+    def _snaps(self):
+        return [_snap(19, 4787.34, self.END), _snap(18, 4754.0, self.START)]
+
+    def test_the_live_false_positive_is_now_explained(self):
+        """`prop_fills` id 41: first reported 12.1s INSIDE, corrected 5m31s outside."""
+        fill = _rich_fill(created_at=self.FIRST_REPORT, reported_at=self.CORRECTION)
+        a = fs.assess_balance_move(self._snaps(), [fill], delta_threshold=25.0)
+        assert a["delta"] == pytest.approx(33.34, abs=0.01)
+        assert a["balance_state"] == "explained"
+        assert a["fills_in_window"] == 1
+        # …and it says WHICH instant placed it, rather than asserting a count.
+        assert a["fills_in_window_bases"] == {"created_at": 1}
+
+    def test_reported_at_ALONE_would_still_have_called_it_a_finding(self):
+        """Pins the defect, so a revert to the single-field filter fails here."""
+        fill = _rich_fill(created_at=self.FIRST_REPORT, reported_at=self.CORRECTION)
+        assert not (self.START < self.CORRECTION <= self.END)
+        assert self.START < self.FIRST_REPORT <= self.END
+        assert fs.assess_balance_move(
+            self._snaps(), [fill], delta_threshold=25.0
+        )["balance_state"] == "explained"
+
+    def test_a_fill_first_reported_AFTER_the_window_still_does_not_explain_it(self):
+        """Widening the basis must not make every later fill explain everything."""
+        late = self.END + timedelta(hours=3)
+        fill = _rich_fill(created_at=late, reported_at=late)
+        a = fs.assess_balance_move(self._snaps(), [fill], delta_threshold=25.0)
+        assert a["balance_state"] == "unreported"
+        assert a["fills_in_window"] == 0
+
+    def test_a_backfill_carrying_its_TRADE_time_explains_the_window_it_repairs(self):
+        """A late repair is the NORMAL fix here; report time can never place it."""
+        fill = _rich_fill(
+            created_at=self.END + timedelta(hours=3),
+            reported_at=self.END + timedelta(hours=3),
+            closed_at=self.START + timedelta(hours=1),
+        )
+        a = fs.assess_balance_move(self._snaps(), [fill], delta_threshold=25.0)
+        assert a["balance_state"] == "explained"
+        assert a["fills_in_window_bases"] == {"closed_at": 1}
+
+
+class TestTheGenuineGapStillFires:
+    """The control: widening the basis must not blunt the detector."""
+
+    def test_the_2026_08_20_gap_is_still_a_finding(self):
+        snaps = [
+            _snap(11, 4871.0, datetime(2026, 8, 23, 8, 11, tzinfo=timezone.utc)),
+            _snap(10, 4982.86, datetime(2026, 8, 20, 18, 57, tzinfo=timezone.utc)),
+        ]
+        # The repair that exists for this gap (live fill id 33) carries its
+        # close time only in prose, so NO instant it holds lands in the window.
+        repair = _rich_fill(
+            created_at=datetime(2026, 8, 23, 11, 4, 22, tzinfo=timezone.utc),
+            reported_at=datetime(2026, 8, 23, 11, 4, 22, tzinfo=timezone.utc),
+        )
+        a = fs.assess_balance_move(snaps, [repair], delta_threshold=25.0)
+        assert a["balance_state"] == "unreported"
+        assert a["fills_in_window"] == 0
+
+
+class TestBasesIsNeverCollapsed:
+    def test_None_before_we_counted_is_not_the_same_as_empty_after(self):
+        """`None` = we never counted (early return). `{}` = we counted, nothing matched."""
+        start = datetime(2026, 8, 30, 13, 37, tzinfo=timezone.utc)
+        end = datetime(2026, 8, 30, 19, 33, tzinfo=timezone.utc)
+        noise = fs.assess_balance_move(
+            [_snap(2, 100.5, end), _snap(1, 100.0, start)], [], delta_threshold=25.0
+        )
+        assert noise["balance_state"] == "within_noise"
+        assert noise["fills_in_window_bases"] is None
+
+        finding = fs.assess_balance_move(
+            [_snap(2, 200.0, end), _snap(1, 100.0, start)], [], delta_threshold=25.0
+        )
+        assert finding["balance_state"] == "unreported"
+        assert finding["fills_in_window_bases"] == {}
+
+    def test_the_key_is_ALWAYS_present_so_nobody_branches_on_absence(self):
+        for snaps in ([], [_snap(1, 100.0, datetime(2026, 8, 30, tzinfo=timezone.utc))]):
+            assert "fills_in_window_bases" in fs.assess_balance_move(
+                snaps, [], delta_threshold=25.0
+            )
+
+
 class TestCrossings:
     def _pos(self, key="k1"):
         return {"key": key, "account_id": "breakout_1", "symbol": "ETHUSDT",
