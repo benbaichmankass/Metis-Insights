@@ -1570,6 +1570,41 @@ below are the contract.
   the one-off `m28-value-grade-push`/`m28-merge-push` workflows. **Only
   needed when the MCP is 403** — the normal path is `merge_pull_request` /
   `enable_pr_auto_merge` via the MCP under the merge protocol.
+- **The OTHER TWO relays for that same 403 — `pr-opener` and `board-post`.**
+  ⚠️ **This list named only `claude-pr-automerge` until 2026-09-01, and the
+  omission had a measured cost**: the strings `pr-opener` and `board-post`
+  appeared **zero times** in this file, `docs/claude/coordination-board.md`
+  (the board's own body of record), `docs/CLAUDE-RULES-CANONICAL.md` and the
+  `session-coordination` skill — measured with a positive control
+  (`claude-pr-automerge` appears 3× here). A session hit the 403 on
+  2026-09-01, read these docs, correctly concluded no board path existed, and
+  found both relays only by reading `.github/workflows/` after every documented
+  path had failed. **A capability that is built but unreachable from the surface
+  its user reads is, for that user, identical to no capability at all**
+  (`BL-20260901-COORDINATION-BOARD-WRITES-403-FROM-THIS-SESSION-WHILE-READS-SUCCEED`).
+  - **`.github/workflows/pr-opener.yml`** — OPEN a PR with a full title and
+    body: drop `automation/pr-requests/<name>.json`
+    (`{head, base, title, body, draft}`) and push it. The URL comes back at
+    `automation/pr-results/<name>.txt`. **Use a fresh filename per PR** — the
+    result file is the idempotency key, so reusing a name is a silent no-op.
+    ⚠️ Its results commit is pushed by `github-actions[bot]`, and GitHub does
+    not trigger workflows for `GITHUB_TOKEN` pushes, so when that commit lands
+    last the PR shows **zero checks** — blocked, not green. Push one ordinary
+    commit yourself to arm CI.
+  - **`.github/workflows/board-post.yml`** — POST to the coordination board
+    (#6927) when `add_issue_comment` 403s: drop
+    `automation/board-posts/<name>.md`, whose entire contents become the
+    comment, and push it on a `claude/**` branch; read
+    `automation/board-results/<name>.txt` back. An empty body is **refused**
+    and a failed post **fails the run**, deliberately louder than `pr-opener`
+    — a session that believes it claimed the board and did not is invisible to
+    every other session and to itself. **So a 403 is never a reason to skip the
+    board.**
+  - ⚠️ **Distinguish this 403 from the transient drop documented above.** A
+    write-scope boundary returns `403 Resource not accessible by integration`
+    on writes while `issue_read` on the *same* object succeeds; retrying with
+    backoff will not clear it, and neither will `gh` (absent) or `curl` to
+    `api.github.com` (403 at the proxy). Reach for a relay, not a retry loop.
 - **Broker-credential propagation (Actions → VM)** —
   `.github/workflows/sync-vm-secrets.yml` is the canonical path for
   mirroring broker-credential Actions secrets to the live trader's
