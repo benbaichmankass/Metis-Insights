@@ -30364,6 +30364,56 @@
       "evidence": "Live reads 2026-09-01T21:2x-21:3xZ via https://ict-bot.duckdns.org: /api/bot/notifications (banner kind prop_fills_stale, since 2026-08-30T19:33:29.584285Z); /api/bot/db/table/prop_account_status?limit=100 (19 rows, total 19); /api/bot/db/table/prop_fills?limit=200 (41 rows, total 41); /api/diag/log_file?name=prop_fills_staleness_state (latch = exactly {'balance:18->19': {... 'fills_in_window': 0}}, __last_check__ 2026-09-01T20:47:57Z). Re-grade of all 18 pairs through the patched pure function: 1 verdict changed (18->19), control 10->11 still `unreported`. Corrective re-reports present on ids 20 (+4270s drift) and 41 (+344s drift).",
       "next_action": "Manager to review + merge the draft PR, then confirm (b) on the fleet after the restart and one cadence window. NOTE pytest and lint-imports are absent from the sandbox: 39 pure tests were exercised under a stdlib harness (12 of them new) and 11 fixture-based tests in this file were NOT run and must go green in CI.",
       "updates": []
+    },
+    {
+      "id": "BL-20260901-SEND-PING-ACCEPTS-WHY-AND-UNPROVEN-WITHOUT-KIND-AND-SILENTLY-DISCARDS-THEM",
+      "opened_at": "2026-09-01",
+      "opened_by": "claude-session-ping-system-test",
+      "severity": "medium",
+      "tier": 1,
+      "status": "fixed_pending_merge",
+      "area": "notifications",
+      "title": "scripts/send_ping.py accepted --why / --unproven with NO --kind, discarded them, and reported the send as successful -- so a caller who asked for a Format-B second line got a bare body and exit 0",
+      "detail": "MEASURED, not reasoned. During the operator-requested ping-system test (2026-09-01T22:23Z) `python3 scripts/send_ping.py --why 'this should not vanish' --target claude 'LOCAL TEST body'` exited 0, logged 'queued ... bot drains within ~5 s', and wrote {\"priority\": \"normal\", \"body\": \"LOCAL TEST body\"} -- the why-line gone with no warning anywhere. Same for --unproven. MECHANISM: main() reads args.why / args.unproven ONLY inside `if args.kind:`, so with no class they are accepted by argparse and never looked at again. WHY IT MATTERS AND WHY THE EXISTING GUARDS DO NOT COVER IT: the MIRROR case has always been refused (`--kind` without `--why` exits 1, 'Format B's second line is the whole point'), and PR #10683 adds this direction at the WORKFLOW and WRAPPER layers -- but neither reaches this file, and #10683's own body states the script keeps its own guards precisely because it 'is also reachable directly on the VM'. The asymmetry is the defect: one direction is a hard error, the opposite one is silent. It is the same shape as the module's own rule that a withheld ping must never read as a sent one -- a caller who asked for a formatted ping had no way to tell they did not get one. BLAST RADIUS TODAY IS SMALL AND THAT IS WHY IT WAS FIXABLE SAFELY: exactly one caller in the tree passes --why (scripts/ops/notify_run.sh:388) and it always pairs it with --kind state_change, so no existing producer changes behaviour. FIX: a guard in send_ping.main() refusing --why/--unproven without --kind, queueing NOTHING (a guard that reports failure and still enqueues the stripped body would deliver the ping it refused) and leaving the passthrough path byte-for-byte unchanged -- passthrough is the PRIMARY path, carrying the operator's own text unaltered, so a guard that made a plain ping harder to send would be worse than the bug. 3 tests added to tests/test_send_ping.py, all pass. Filed WITH the fix rather than as a post-it.",
+      "refs": [
+        "scripts/send_ping.py",
+        "scripts/ops/send_ping_action.sh",
+        "src/runtime/claude_ping.py",
+        "PR #10683"
+      ]
+    },
+    {
+      "id": "BL-20260901-SYSTEM-ACTIONS-CANCELS-A-SUPERSEDED-PENDING-RUN-AND-COMMENTS-NOTHING-BACK-SO-A-DISPATCHED-ACTION-IS-SILENTLY-LOST",
+      "opened_at": "2026-09-01",
+      "opened_by": "claude-session-ping-system-test",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "area": "workflows",
+      "title": "Three system-actions dispatched within 15s: the MIDDLE one was cancelled by the concurrency queue, its issue was left OPEN with NO comment, and nothing anywhere said the action never ran",
+      "detail": "OBSERVED. Issues #10690 (22:24:53Z), #10691 (22:25:00Z), #10692 (22:25:08Z), all `action: send-ping`. Runs: 33566171789 success, 33566180621 **cancelled**, 33566191528 success. #10691's send-ping NEVER EXECUTED -- no ping was enqueued -- and the issue is still open with ZERO comments, while its two neighbours each got the usual '✅ system-action completed' comment and were closed. MECHANISM: system-actions.yml declares `concurrency: {group: system-actions, cancel-in-progress: false}`. That setting protects a RUNNING job, but GitHub keeps only ONE pending run per group, so a third queued run cancels the second while it waits. So the failure mode is specifically a BURST: fire three and the middle one evaporates. WHY IT MATTERS BEYOND THIS TEST: the issue-comment-back is the ONLY result surface a PM-side session has for a system-action, and a cancelled run posts nothing -- so the observable difference between 'the action ran' and 'the action was silently dropped' is an ABSENT comment, which is indistinguishable from 'still queued'. A session that fires a batch and reads two successes would conclude all three ran. This is the read-a-clean-negative-off-a-surface-that-cannot-report class (an absent row read as a clean answer), applied to the dispatch layer. NOT FIXED HERE -- the test session re-fired the lost action as #10693 (succeeded) and stopped batching. CANDIDATE REMEDIES, none evaluated: (a) an `if: cancelled()` step that comments the cancellation onto the issue, which is the smallest honest change; (b) a wider concurrency key so independent actions do not share one queue slot; (c) leaving the behaviour and documenting 'dispatch system-actions one at a time', which is what this session did by hand and is exactly the kind of unwritten discipline that decays.",
+      "refs": [
+        ".github/workflows/system-actions.yml",
+        "issue #10691",
+        "issue #10693",
+        "run 33566180621"
+      ]
+    },
+    {
+      "id": "BL-20260901-PING-DELIVERY-IS-UNOBSERVABLE-BOTH-INBOX-DRAINERS-LOG-ONLY-ON-FAILURE",
+      "opened_at": "2026-09-01",
+      "opened_by": "claude-session-ping-system-test",
+      "severity": "low",
+      "tier": 1,
+      "status": "open",
+      "area": "notifications",
+      "title": "Neither ping drainer logs a SUCCESSFUL delivery, so no surface can positively confirm a ping reached Telegram -- only the operator's own eyes can, and 'no error in the journal' is the strongest evidence available",
+      "detail": "OBSERVED while trying to verify the operator-requested ping test. src/bot/claude_bridge.py::_drain_pending_claude_pings logs on a send EXCEPTION and on `not sent` (creds missing), then on success simply `path.unlink()` -- no log line. src/bot/cloud_notifier.py::_drain_one_ping_dir is the same shape on the trader side (warnings for an unset TELEGRAM_CHAT_ID, a stale straggler, a malformed file; nothing on success). So the ONLY positive evidence a delivery produced is a message on a phone. MEASURED CONSEQUENCE: for ping P1a (queued 22:25:13Z to /data/bot-data/runtime_logs/pending_claude_pings/618165607635-urgent.json) the ict-claude-bridge journal over the full 22:24:00Z+ window returned 56 lines, ALL apscheduler job-tick noise and ZERO warnings. That is CONSISTENT WITH delivery and is not proof of it -- and the distinction matters, because the failure branches leave the file in place for retry, so an accumulating inbox is the real signal and there is no read surface for the inbox either (`pending_claude_pings` is not in diag's log_file allowlist and there is no route that lists it). STATE THE POPULATION: this is an absence over a stated window, not a positive read. CANDIDATE REMEDIES, none evaluated: an INFO line on a confirmed send naming the file and the resolved route (claude_route().describe() already exists and is already used in the failure path), and/or a diag counter for inbox depth so a stranded backlog is visible without a message ever arriving. The second is what would have let this test answer 'did it deliver' without waking the operator.",
+      "refs": [
+        "src/bot/claude_bridge.py",
+        "src/bot/cloud_notifier.py",
+        "src/web/api/routers/diag.py"
+      ]
     }
   ]
 }
