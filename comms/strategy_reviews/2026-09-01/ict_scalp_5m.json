@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "strategy": "ict_scalp_5m",
+  "window_start": "2026-08-25T12:03:05.898236+00:00",
+  "window_end": "2026-09-01T12:03:05.898236+00:00",
+  "execution": "live",
+  "enabled": true,
+  "headline": {
+    "n_decisions": 5,
+    "n_filled": 5,
+    "last_fill_at": "2026-08-28T15:45:22.163153+00:00",
+    "n_closed": 5,
+    "n_closed_untrusted_pnl": 0,
+    "n_wins": 3,
+    "win_rate": 0.6,
+    "pnl_total": 1.7118,
+    "expectancy": 0.34235010999999993,
+    "max_drawdown": -10.0092,
+    "avg_hold_seconds": 15719,
+    "fill_rate": 1.0,
+    "rejection_cluster": null
+  },
+  "regime_cells": [
+    {
+      "cell": {
+        "trend": "chop",
+        "vol": "calm"
+      },
+      "n_decisions": 1,
+      "n_closed": 1,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 1,
+      "win_rate": 1.0,
+      "pnl_total": 1.144,
+      "expectancy": 1.144,
+      "regime_policy_cell": "unknown"
+    },
+    {
+      "cell": {
+        "trend": "chop",
+        "vol": "volatile"
+      },
+      "n_decisions": 2,
+      "n_closed": 2,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 2,
+      "win_rate": 1.0,
+      "pnl_total": 10.577,
+      "expectancy": 5.28848503,
+      "regime_policy_cell": "unknown"
+    },
+    {
+      "cell": {
+        "trend": "trending",
+        "vol": "volatile"
+      },
+      "n_decisions": 2,
+      "n_closed": 2,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 0,
+      "win_rate": 0.0,
+      "pnl_total": -10.0092,
+      "expectancy": -5.004609755000001,
+      "regime_policy_cell": "unknown"
+    }
+  ],
+  "execution_diagnostics": {
+    "entry_slippage_bps": 4.4705,
+    "fill_rate": 1.0,
+    "dispatch_latency_seconds": 2.336,
+    "confidence_distribution": {
+      "min": 0.7101,
+      "max": 1.0,
+      "p50": 0.803,
+      "std": 0.09804771491472918,
+      "n": 5
+    }
+  },
+  "backtest_anchor": null,
+  "proposed_action": "hold",
+  "reasons": [
+    "insufficient evidence (n_closed=5 < 20) \u2014 no KILL/DEMOTE fires at very low n; hold until more trades close."
+  ],
+  "alternative": "none",
+  "tier": 1,
+  "sla_due_by": null,
+  "generated_at": "2026-09-01T12:03:28.439900+00:00",
+  "generated_by": "scripts/ml/strategy_review_packet.py v1.0"
+}

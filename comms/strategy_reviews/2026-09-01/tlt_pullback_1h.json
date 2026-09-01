@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "strategy": "tlt_pullback_1h",
+  "window_start": "2026-08-25T12:03:05.898236+00:00",
+  "window_end": "2026-09-01T12:03:05.898236+00:00",
+  "execution": "live",
+  "enabled": true,
+  "headline": {
+    "n_decisions": 8,
+    "n_filled": 1,
+    "last_fill_at": "2026-08-28T17:18:14.115620+00:00",
+    "n_closed": 1,
+    "n_closed_untrusted_pnl": 0,
+    "n_wins": 0,
+    "win_rate": 0.0,
+    "pnl_total": -12.0,
+    "expectancy": -12.0,
+    "max_drawdown": -12.0,
+    "avg_hold_seconds": 242871,
+    "fill_rate": 0.125,
+    "rejection_cluster": null
+  },
+  "regime_cells": [
+    {
+      "cell": {
+        "trend": "chop",
+        "vol": "unknown"
+      },
+      "n_decisions": 1,
+      "n_closed": 1,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 0,
+      "win_rate": 0.0,
+      "pnl_total": -12.0,
+      "expectancy": -12.0,
+      "regime_policy_cell": "unknown"
+    },
+    {
+      "cell": {
+        "trend": "transitional",
+        "vol": "unknown"
+      },
+      "n_decisions": 3,
+      "n_closed": 0,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 0,
+      "win_rate": null,
+      "pnl_total": 0.0,
+      "expectancy": null,
+      "regime_policy_cell": "unknown"
+    },
+    {
+      "cell": {
+        "trend": "trending",
+        "vol": "unknown"
+      },
+      "n_decisions": 4,
+      "n_closed": 0,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 0,
+      "win_rate": null,
+      "pnl_total": 0.0,
+      "expectancy": null,
+      "regime_policy_cell": "unknown"
+    }
+  ],
+  "execution_diagnostics": {
+    "entry_slippage_bps": 0.0,
+    "fill_rate": 0.125,
+    "dispatch_latency_seconds": 2.537,
+    "confidence_distribution": {
+      "min": 0.5686,
+      "max": 0.8966,
+      "p50": 0.6698500000000001,
+      "std": 0.09585934683169918,
+      "n": 8
+    }
+  },
+  "backtest_anchor": null,
+  "proposed_action": "hold",
+  "reasons": [
+    "insufficient evidence (n_closed=1 < 20) \u2014 no KILL/DEMOTE fires at very low n; hold until more trades close."
+  ],
+  "alternative": "none",
+  "tier": 1,
+  "sla_due_by": null,
+  "generated_at": "2026-09-01T12:03:34.410913+00:00",
+  "generated_by": "scripts/ml/strategy_review_packet.py v1.0"
+}
