@@ -147,6 +147,54 @@ rather than chores:
 - `BL-20260821-ALPACA-LIVE-REFUSES-EVERY-ORDER-127-OF-127` still describes a state that no
   longer holds; not closed here.
 
+## Day 2 — 2026-09-01: first RTH, and the finding it surfaced
+
+**No trade, and that is the expected outcome.** `alpaca_live` rows unchanged at
+335, newest still `2026-08-28T19:00:38Z`, 0 non-rejected (`filter_state:
+applied` asserted). The discriminating check rules out silent dropping:
+`tlt_pullback_1h` produced **zero** order_packages since the go-live on ANY
+account (total still 74), so the leg has not signalled — ~1.8 trading days
+against a ~2.4-day long cadence. Control: `uso_trend_1h`, an Alpaca equity leg,
+fired today, so the equity session gate is working.
+
+**✅ The T+1 allowlist is proven on the order path**, not just in the env:
+`cash_settlement_soak` at `2026-09-01T13:30Z` reads `mode=apply` /
+`scope=not_allowlisted` / `applied=False` for both mirrors. And
+`alpaca_portfolio`'s basis read **69,177.83** today against **0.00** twice
+yesterday — the negative-cash condition is **intermittent**, exactly as argued
+when the mirrors were excluded. Arming it there would have halted that account
+unpredictably rather than cleanly, which is the worse failure.
+
+**⚠️ THE REAL FINDING: `SILENT_REFUSAL_SKIP` is still `alpaca_live`.** The one
+account that just started trading real money is the one account whose refusal
+detector is off (verified on `/proc/<MainPID>/environ`, issue #10661). Found via
+its latch: `alerting:true` / `cause:risk_refused` with `updated_at` **frozen at
+`2026-08-21T12:38:38Z`** while `__last_check__` advanced to today — eleven days.
+The quiet-release branch built for exactly this case IS deployed and cannot fire,
+because its loop does `continue` on `aid in skip`. So the stale latch cannot
+clear **and no new alert can fire**. Escalated in place on the existing open row
+`BL-20260823-ALPACA-LIVE-IS-EXEMPT-FROM-BOTH-DETECTORS-THAT-WATCH-IT` rather
+than duplicated. **Not flipped autonomously** — Tier-2, the row's own criteria
+put the disposition with the operator, and un-skipping re-arms alerting on an
+account whose cash-clamp refusals are expected.
+
+**Doc-governance finding, operator-prompted.** Asked why a binding session-end
+sweep did not prevent three stale surfaces, the measurement was: `VALUE_CONTRACTS`
+holds **3** ids, **none** an env knob, against **67** env knobs in CLAUDE.md's
+table — **0 of 67 covered**, so `canonical-doc-coherence` passed on all three,
+and that PASS had been quoted as evidence. And coverage alone would not have
+saved it: the check only fires on a doc that ASSERTS a contradicting value, and
+the stale row asserted none. Filed
+`BL-20260901-DOC-FRESHNESS-CANNOT-SEE-A-FLIPPED-ENV-KNOB-AND-ITS-GUARD-COVERS-0-OF-67`.
+
+**Monitoring transferred off the timer.** At operator direction the continued
+check moved from a session-bound `send_later` trigger into
+`OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED`,
+which now carries a runnable HOW-TO-CHECK block (the queries, the baselines, the
+`filter_state` assertion, and the warning that this account's
+`silent_refusal_alert` entry is frozen and must not be read as healthy). The
+trigger was deleted — a timer dies with its session; the register does not.
+
 ## Next Recommended Sprint
 Verify the first real order end to end — read `trades` for `account_id=alpaca_live` with a
 status other than `rejected`, reconcile the fill against exchange truth, and confirm
