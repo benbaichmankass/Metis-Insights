@@ -117,12 +117,15 @@
       "branches": [
         "Metis-Insights:claude/phase-f-c3-decision-prep"
       ],
-      "prs": [],
+      "prs": [
+        "Metis-Insights#10681"
+      ],
       "why": "strategy_review_packet.py is 1,518 lines writing to a gitignored path with no cron — C3 has never produced a durable artifact. Scoped to C3 only; C4 is deferred in the build plan for a stated reason (the changelog's execution verdict exists only as PROSE, so a guard matching English for it is diagnostic-provenance sub-class A).",
       "last_observed": {
-        "at": "2026-09-01T21:17Z",
-        "state": "spawned_not_yet_observed",
-        "note": "SPAWNED, NOT OBSERVED. Registered at creation, before the session has taken a turn — so this row proves it EXISTS, never that it is working. Poll get_session for current state."
+        "at": "2026-09-01T21:47Z",
+        "status_category": "review_ready",
+        "state": "pr_open_not_yet_read_by_manager",
+        "note": "PR EXISTS; the manager has NOT read its diff. Tier-1. Phase F is the one build-plan phase deliberately UNBLOCKED and the only one touching the measured constraint (DECISION)."
       }
     },
     {
@@ -134,12 +137,15 @@
       "branches": [
         "Metis-Insights:claude/phase-d-constraint-readout"
       ],
-      "prs": [],
+      "prs": [
+        "Metis-Insights#10680"
+      ],
       "why": "E1 walks the typed blocked_on edges and names the held-up stage; A1 rebuilt on it. WARNED in the prompt that ~583 migrated objects carry blocked_on: [] with basis NOT_ASSESSED, so a naive computation would confidently report 'nothing blocked' — the readout must separate declared_none from unstated and report the denominator.",
       "last_observed": {
-        "at": "2026-09-01T21:17Z",
-        "state": "spawned_not_yet_observed",
-        "note": "SPAWNED, NOT OBSERVED. Registered at creation, before the session has taken a turn — so this row proves it EXISTS, never that it is working. Poll get_session for current state."
+        "at": "2026-09-01T21:47Z",
+        "status_category": "review_ready",
+        "state": "pr_open_not_yet_read_by_manager",
+        "note": "PR EXISTS; the manager has NOT read its diff. Tier-1. Merge pending CI green — and Phase G is blocked on this PR's MERGE, not on the phase being observed working, so this one gates a spawn."
       }
     },
     {
@@ -151,12 +157,94 @@
       "branches": [
         "Metis-Insights:claude/alpaca-ext-hours-close-qty"
       ],
-      "prs": [],
+      "prs": [
+        "Metis-Insights#10679"
+      ],
       "why": "397 consecutive close failures on alpaca_paper/GLD since 2026-09-01T20:12Z: 'extended-hours limit close rejected: insufficient qty available (requested 39, available 0)'. BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE was fixed for AlpacaClient.close and NOT for _close_extended_hours. Order path -> DRAFT PR only, no merge, operator approval required.",
       "last_observed": {
-        "at": "2026-09-01T21:17Z",
+        "at": "2026-09-01T21:47Z",
+        "status_category": "review_ready",
+        "state": "observed_pr_read_by_manager",
+        "needs_action": "OPERATOR ACTION, relayed: the live GLD wedge (Alpaca OCO parent 2e843e04-5487-470c-a702-70e796fbd05e, pending_cancel since 2026-08-27T14:11:32Z) needs a paper-console / venue-side cancel. NO bot-side lever clears it and the PR does not claim to.",
+        "note": "⚠️ THE BRIEFED DIAGNOSIS IN THIS ROW'S `why` WAS REFUTED BY THE SESSION, and that is a finding rather than a failure. #10666 already ported the qty_available fix at 2026-09-01T16:23Z, it IS deployed, and the REGULAR-hours path fails identically inside RTH — so there was no working sibling to port from. Actual cause is broker-side: Alpaca accepted our cancel, moved the order to pending_cancel, and never completed it, so 39 shares stay held_for_orders and qty_available is 0 on every path. Recurrence of BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL. Do not re-read the `why` above as the diagnosis."
+      }
+    },
+    {
+      "session_id": "session_01J16qHJHbnvqDyRWWAvdiRD",
+      "owns_object": null,
+      "title": "Claude Telegram channel — route the drain to the dedicated bot",
+      "spawned_at": "2026-09-01T21:17Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [],
+      "prs": [],
+      "why": "The dedicated Claude bot (@ict_cluade_bot) was configured, resolvable and INERT: #10664 built telegram_routes.py and converted cloud_notifier, but claude_bridge's drain kept hardcoding the trader token, so the 20:58:49Z ping WAS delivered — to the trader chat. The manager absorbed the code fix itself (#10674, merged) before this session could take it, which is the process failure the operator called out; the session remains registered because it EXISTS and a cold successor must not orphan it.",
+      "last_observed": {
+        "at": "2026-09-01T21:47Z",
+        "state": "spawned_scope_overtaken_by_manager",
+        "note": "⚠️ ITS SCOPE WAS TAKEN BY THE MANAGER (#10674) — recorded here rather than quietly dropped, because that is exactly the manager-does-IC-work failure the operator named at 21:0xZ. Poll it before assigning anything: it may have done work nobody has read. It was NEVER registered until now, which is its own gap in this registry."
+      }
+    },
+    {
+      "session_id": "session_01LvzsinECH8HPCyauVJZBZw",
+      "owns_object": "WO-20260901-PHASE-H",
+      "title": "Phase H preconditions — db-explorer default-deny allowlist + column redaction",
+      "spawned_at": "2026-09-01T21:17Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "Metis-Insights:claude/phase-h-preconditions-db-explorer-gate"
+      ],
+      "prs": [
+        "Metis-Insights#10682"
+      ],
+      "why": "BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN: the generic Data Explorer is an UNAUTHENTICATED Tier-1 read surface that reached device_tokens.token via SELECT *, while the dedicated /api/bot/devices route is token-gated AND returns only token_suffix.",
+      "last_observed": {
+        "at": "2026-09-01T21:47Z",
+        "status_category": "review_ready",
+        "state": "observed_pr_read_by_manager",
+        "note": "⚠️ READ THE SEVERITY CORRECTION, do not quote this as a leak: device_tokens is EMPTY on the live host (rows = 0, consistent with the standing 'push channel is dark' finding), so this was an open PATH and not a realised leak. The larger unauthenticated surface is the OTHER 21 tables — signals 2,301,022 rows, trades 5,313, order_packages 4,272 — world-readable today; the session filed that separately rather than widening scope, and it is what Phase H's require_session attachment is for. Live verification (a) is NOT satisfied by the commit and the session says so: it needs the narrowed route DEPLOYED."
+      }
+    },
+    {
+      "session_id": "session_01Xj5Puf96WC1YGKdZT4TikJ",
+      "owns_object": null,
+      "title": "prop fills-staleness — grade the alert before writing anything to the prop journal",
+      "spawned_at": "2026-09-01T21:17Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "Metis-Insights:claude/prop-fills-gap-20260901"
+      ],
+      "prs": [
+        "Metis-Insights#10678"
+      ],
+      "why": "A prop_fills_stale banner was live. Spawned with an explicit prohibition on FABRICATING a fill to close a journal gap — the manual bridge's only truth is what the operator reports.",
+      "last_observed": {
+        "at": "2026-09-01T21:47Z",
+        "status_category": "review_ready",
+        "state": "observed_pr_read_by_manager",
+        "note": "IT PROVED THE ALERT A FALSE POSITIVE and wrote no fill — the prohibition held. prop_fills id 41 has created_at 12.1s INSIDE the window but reported_at 5m31s outside it, because insert_fill's UPDATE branch overwrites reported_at; membership now takes `any` of fill_evidence_times (created_at, reported_at, closed_at; opened_at deliberately excluded). Re-graded 18 consecutive pairs: exactly ONE verdict flips, and the genuine −$111.86 gap still grades `unreported` — which is the check that the fix did not simply silence the detector. BLOCKED ON CI: session-brief-guard fails on this branch (it touches the registers CLAUDE.md's brief renders from)."
+      }
+    },
+    {
+      "session_id": "session_012633idhLGncZaWVMVSuXJM",
+      "owns_object": null,
+      "title": "CI-green the three approved drafts (#10678 #10679 #10682)",
+      "spawned_at": "2026-09-01T21:45Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "Metis-Insights:claude/prop-fills-gap-20260901",
+        "Metis-Insights:claude/alpaca-ext-hours-close-qty",
+        "Metis-Insights:claude/phase-h-preconditions-db-explorer-gate"
+      ],
+      "prs": [
+        "Metis-Insights#10678",
+        "Metis-Insights#10679",
+        "Metis-Insights#10682"
+      ],
+      "why": "The three operator-approved drafts are not mergeable yet: #10678's guards job FAILED on session-brief-guard, and #10679/#10682 had ZERO check runs when read (unknown, not green). The manager owns the MERGE and deliberately did NOT take the fix — operator directive 2026-09-01: 'the manager session only manages and does not take even small items'.",
+      "last_observed": {
+        "at": "2026-09-01T21:45Z",
         "state": "spawned_not_yet_observed",
-        "note": "SPAWNED, NOT OBSERVED. Registered at creation, before the session has taken a turn — so this row proves it EXISTS, never that it is working. Poll get_session for current state."
+        "note": "SPAWNED, NOT OBSERVED at spawn time. This row proves the session EXISTS, never that it is working. Poll get_session for current state. ⚠️ It touches three branches it does not own, which is deliberate and is the one case where that is right — but it is prohibited from changing their SUBSTANCE, from weakening any guard or test to get green, and from merging or un-drafting."
       }
     }
   ]
