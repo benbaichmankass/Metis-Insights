@@ -76,14 +76,16 @@
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "spawn_reason": "OPERATOR-DIRECTED TEST OF THE DELEGATION FLOW: the operator threw a Telegram warning at the manager to see it spawn, investigate, rectify and report back. The condition is real and live.",
       "branches": [
-        "Metis-Insights:claude/gld-close-failure-loop (expected; not yet pushed)"
+        "Metis-Insights:claude/gld-close-failure-loop"
       ],
-      "prs": [],
+      "prs": [
+        "Metis-Insights#10666"
+      ],
       "last_observed": {
-        "at": "2026-09-01T14:41Z",
-        "status_category": "working",
-        "needs_action": null,
-        "note": "Just spawned; nothing observed yet. Handed the ONE measurement that inverts the naive reading: /api/diag/exchange_positions shows the venue DOES hold GLD long 39.0, so 'available: 0' is shares RESERVED by a resting order, not a vanished position. Given as a hypothesis to confirm or REFUTE, not as a finding."
+        "at": "2026-09-01T15:20Z",
+        "status_category": "review_ready",
+        "needs_action": "PR could not be opened from the sub-session (the known read-only-MCP 403); ABSORBED by the manager -- Metis-Insights#10666 opened as DRAFT.",
+        "note": "Tier 2: it changes a live close path (_close_extended_hours) and the close-fail pager. Draft until one operator OK. Its own status line read 'branch pushed, refspec fixed, HEAD == upstream; GLD not deployed' -- deployed is exactly what it is NOT, and the draft state keeps that true."
       }
     },
     {
