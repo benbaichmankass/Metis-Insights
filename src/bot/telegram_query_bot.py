@@ -596,12 +596,78 @@ def main():
             first=2,
             name="drain_pending_pings",
         )
-        # Also drain the Claude/operational-update inbox through THIS (working,
-        # trader-token) bot, so /system-report + review pings land on
-        # @bict_trading_bot. Replaces the separate, inactive ict-claude-bridge
-        # (2026-06-22 fold-in). Same {priority, body} file schema.
+        # The Claude/operational-update inbox (/system-report + review pings).
+        #
+        # HISTORY, because it decides the failure posture. The separate
+        # ict-claude-bridge sat inactive on the Ampere VM (its token never
+        # carried over the cutover), so these pings were silently NEVER
+        # DELIVERED; 2026-06-22 folded them into THIS bot's drain, which fixed
+        # delivery at the cost of putting operational pings among trade alerts.
+        #
+        # The operator provisioned a dedicated Claude bot (2026-09-01) to split
+        # them back apart. So: prefer the dedicated bot, and ⚠️ FALL BACK TO
+        # THIS ONE rather than to silence — a bad or missing Claude token must
+        # degrade to the 2026-06-22 behaviour (delivered, less specific), never
+        # re-create the outage that fold-in was written to end. Separation is a
+        # nice-to-have; delivery is not.
+        #
+        # ⚠️ The CHAT ID is unchanged. In a DM Telegram's chat.id IS the
+        # operator's user id, identical for every bot, so a different token is
+        # what makes a different conversation (src/bot/telegram_routes.py).
+        _claude_bot_cell: dict = {}
+
+        async def _resolve_claude_bot():
+            """Return the dedicated bot, or None to fall back. Resolved ONCE.
+
+            Validated with get_me() before first use: an unusable token that
+            merely *exists* would otherwise make every send fail and leave the
+            pings on disk, retried every 5s forever — stranded in a way that
+            looks identical to a quiet inbox. Checking once converts that into
+            a single loud line and a working fallback.
+            """
+            if "bot" in _claude_bot_cell:
+                return _claude_bot_cell["bot"]
+            try:
+                from src.bot.telegram_routes import claude_route
+                route = claude_route()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("claude ping route unresolvable (%s) — using the trader bot", exc)
+                _claude_bot_cell["bot"] = None
+                return None
+            # `isolated` is the right predicate, NOT `deliverable`: a route can be
+            # deliverable via the shared trader token, which is precisely the
+            # un-separated state this change exists to leave behind. It keys on the
+            # TOKEN alone by design — at a DM the chat id is the operator's and is
+            # shared by every bot, so requiring a dedicated chat would report a
+            # correctly-separated route as un-separated forever.
+            if not route.isolated:
+                # describe() names the VARIABLE that answered, never its value.
+                logger.warning(
+                    "claude pings: no dedicated bot (token_state=%s; %s) — delivering "
+                    "via the trader bot, so they land among trade alerts",
+                    route.token_state, route.describe(),
+                )
+                _claude_bot_cell["bot"] = None
+                return None
+            try:
+                from telegram import Bot
+                candidate = Bot(token=route.token)
+                me = await candidate.get_me()
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "claude pings: the DEDICATED bot token is set but unusable (%s) — "
+                    "falling back to the trader bot so pings are still delivered", exc,
+                )
+                _claude_bot_cell["bot"] = None
+                return None
+            logger.info("claude pings: delivering via the dedicated bot @%s", me.username)
+            _claude_bot_cell["bot"] = candidate
+            return candidate
+
         async def _drain_claude_pings(context) -> None:
-            await _drain_pending_pings(context, pings_dir=PENDING_CLAUDE_PINGS_DIR)
+            bot = await _resolve_claude_bot()
+            await _drain_pending_pings(
+                context, pings_dir=PENDING_CLAUDE_PINGS_DIR, bot=bot)
 
         application.job_queue.run_repeating(
             _drain_claude_pings,
