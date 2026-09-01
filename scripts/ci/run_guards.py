@@ -369,6 +369,14 @@ GUARDS: List[Dict[str, Any]] = [
             # self-test proves it can find a positive — a similarity probe
             # that silently matches nothing would make every filing look novel.
             ["python3", "scripts/ops/backlog_search.py", "--self-test"],
+            # The round-trip check that pytest-run CANNOT run on a backlog-only
+            # PR: the three backlogs are deliberately excluded from its relevance
+            # filter (they change on nearly every PR), so the test that catches a
+            # hand-spliced row could not fire on the PR that introduced one.
+            # Measured 2026-09-01: append_row then refused EVERY write repo-wide
+            # and the signal surfaced hours later on three unrelated PRs. This job
+            # never short-circuits, which is the entire reason the check lives here.
+            ["python3", "scripts/ops/backlog_append.py", "--check-live"],
             ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
             ["python3", "scripts/ops/check_allow_degraded.py"],
             ["python3", "scripts/ops/check_research_index.py", "--list"],
