@@ -30126,6 +30126,23 @@
         "OI-20260829-E35-REVERSED-LEGS-ARE-A-TIER-3-PROPOSAL-SET-NOT-APPLIED"
       ],
       "found_by": "session 01HYXKHpDQeWv3u4rjWWoL2J (Lane P), while doing the venue-side read E35 half (b) asks for"
+    },
+    {
+      "id": "BL-20260901-PROBE-ACTIONS-LOG-READS-0-OF-20-JOB-LOGS-AND-ITS-NOTE-CANNOT-SAY-WHY",
+      "severity": "high",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-01",
+      "area": "probes / observability readers",
+      "title": "probe_actions_log lists runs fine but reads 0 of 20 job logs on a GitHub runner, and its aggregate note collapses every HTTP cause into one count",
+      "detail": "FIRST REAL RUN OF THE READER, and it does not work. Measured 2026-09-01 in probes.yml run #32 (workflow_dispatch on main, GitHub-hosted ubuntu-latest, docs/claude/PROBES.json generated_at 2026-09-01T05:38:50Z). Both probe_actions_log rows returned could_not_run / exit_2:\n  gpu-burst-train.yml: '20 run(s) listed but NONE had readable logs (20 unread)'\n  guards.yml:          '20 run(s) listed but NONE had readable logs (20 unread)'\nSo LISTING works - the API is reachable and the token authenticates - and LOG DOWNLOAD fails on 20 of 20, twice, on two unrelated workflows. 0/40.\n\nTHE HANDOFF'S HYPOTHESIS IS REFUTED, and recording that matters more than the fix. The standing note said 'SUSPECT THE READER - api.github.com is 403 from a web sandbox'. That 403 is real but is NOT the cause here: this ran on a GitHub-hosted runner, not in a sandbox, and the run-listing calls succeeded from the same process with the same bearer. A session acting on the old hypothesis would chase sandbox egress and find nothing.\n\nALSO REFUTED: a missing permission. probes.yml declares `actions: read` explicitly, with a comment saying it exists for exactly these two probes.\n\nCANDIDATE CAUSES, none asserted, because the note does not carry the evidence to choose between them: (a) GET /actions/jobs/{id}/logs answers 302 to a signed cross-host blob URL, and urllib.request.urlopen follows redirects while RE-SENDING the `Authorization: Bearer` header, which blob hosts reject - the classic trap, and the reader does no header stripping; (b) the `Accept: application/vnd.github+json` header on an endpoint that returns plain text via redirect; (c) log retention, which is ruled out for runs this recent. Corroborating but not decisive: mcp__github__get_job_logs returned HTTP 404 for the probes job itself minutes earlier in the same session, from a different client.\n\nTHE READER'S THREE-STATE CONTRACT BEHAVED CORRECTLY and should not be changed - it returned could_not_look rather than a false `fail`, which is the whole design and is why this is diagnosable at all.\n\nCONSEQUENCE: OI-20260831-PROBE-READERS-SHIPPED-BUT-THE-ACTIONS-ONE-HAS-NEVER-RUN-FOR-REAL does NOT clear - its clears_when names a could_not_run as the failure signal, and the signal has now fired. The two rows it feeds (GPU-route/spend-gate and session-brief diff-scoping) remain unprobeable.",
+      "resolution_criteria": "TWO THINGS, and the second is the one that generalises. (1) probe_actions_log returns a GRADED verdict (pass or fail) for at least one of its two rows in a committed docs/claude/PROBES.json, read from the results file rather than a local self-test against the fake server - which is what the reader already passes today and is exactly why this went unnoticed. (2) The aggregate note carries the DISTINCT HTTP causes seen, not just an unread COUNT: '20 unread' cannot distinguish 404 from 403 from 410-expired from a timeout, and those are different findings with different fixes - the collapsed-state defect this repo keeps paying for, occurring inside the reader built to avoid it. The per-job branch already computes the code (it even special-cases 410); it is discarded on the way up.",
+      "refs": [
+        "OI-20260831-PROBE-READERS-SHIPPED-BUT-THE-ACTIONS-ONE-HAS-NEVER-RUN-FOR-REAL",
+        "OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED",
+        "OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED"
+      ],
+      "found_by": "session 01HYXKHpDQeWv3u4rjWWoL2J (Lane P), first dispatched probes run"
     }
   ]
 }
