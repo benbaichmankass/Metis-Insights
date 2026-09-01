@@ -30386,6 +30386,74 @@
       "resolution_criteria": "BOTH: (a) docs/api-tier-policy.md's population sentence states the enumerator's ACTUAL route total and the ACTUAL set of endpoints with no route under src/web/api/routers/, verified against a `scripts/check_api_tier_policy.py --list` run recorded in the closing PR; and (b) a test asserts that sentence's figures against the enumerator, so a future route addition reddens CI the same way the banner already does. (a) ALONE DOES NOT CLOSE THIS -- restating an unchecked sentence leaves it unchecked, and this row exists because it drifted while unchecked. A close that reports only 'the numbers are correct now' is not evidence; name the test."
     },
     {
+      "id": "BL-20260901-WORK-STORE-EDGES-ARE-1-PERCENT-ASSESSED-SO-THE-CONSTRAINT-CANNOT-BE-COMPUTED",
+      "title": "The work store's blocked_on edges are 1.0% assessed (6 of 584), so E1 constraint diagnosis refuses to name a stage — the machinery is built and the input is missing",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "detail": "STATE THE POPULATION: all 584 docs/claude/work/objects/*.yaml, 0 parse failures, measured 2026-09-01 by scripts/ops/constraint_readout.py. SIX objects carry any blocked_on edge; 578 carry an empty list, 576 of them stating blocked_on_basis: NOT_ASSESSED and 8 carrying no basis key at all. Assessed coverage is therefore 1.0% against the readout's declared 50% floor, so E1 verdicts `insufficient_basis` and NAMES NO STAGE. WHY THIS IS A FINDING AND NOT JUST THE MIGRATION WORKING AS DESIGNED: Phase C was right to migrate without inventing edges (a false blocker is worse than a missing one) and Phase D is right to refuse. But the operating model states that A1 depends on E1 and that E2 capability build is PULLED by a held-up stage, never self-started -- and neither is enforceable while the graph cannot name one. So the redesign's own forcing function is inert until edges are written, and nothing currently schedules that work: 578 dormant rows have no owner and no session is assigned to assess them. THE DANGEROUS READING, which the readout is built to block: a naive walk over these edges reports 'nothing is blocked' across 578 objects with total confidence, because an empty blocked_on renders identically whether it is a claim or an absence. WHAT WOULD CLOSE THIS: assessed coverage over 50%, reached by sessions writing TRUE edges on rows they actually understand -- NOT by a bulk pass, which would reproduce the exact defect the migration avoided.",
+      "resolution_criteria": "`python3 scripts/ops/constraint_readout.py` prints verdict `computed` with a named stage, over an assessed coverage above the declared 50% floor (today 6/584 = 1.0%). ⚠️ COVERAGE REACHED BY A BULK PASS DOES NOT COUNT and closes nothing: the edges must be written by sessions that understand the rows, because an invented edge is read by the computation as a true blocker. Read `assessed` beside `population` in docs/claude/CONSTRAINT.json -- never the verdict alone.",
+      "next_action": "Decide (operator or a manager session) how edge assessment gets scheduled: most plausibly, any session touching a row's subject assesses that row's edges before leaving, and Phase G's pull rule is deferred until coverage clears the floor. Re-measure with `python3 scripts/ops/constraint_readout.py` -- it prints the denominator on every run.",
+      "opened_by": "claude (operating-layer Phase D)",
+      "opened_at": "2026-09-01",
+      "evidence": [
+        "docs/claude/READOUT.md",
+        "docs/claude/CONSTRAINT.json",
+        "scripts/ops/constraint_readout.py",
+        "docs/claude/work/objects/WO-20260901-PHASE-D.yaml"
+      ]
+    },
+    {
+      "id": "BL-20260901-AN-OBJECT-EDGE-TO-A-WAITING-TARGET-PROPAGATES-A-HOLD-THE-DELIVERY-DOES-NOT-JUSTIFY",
+      "title": "A blocked_on object edge is graded by the target's lifecycle, but `waiting` covers both 'not delivered' and 'delivered, awaiting an observation' — so a delivered capability keeps propagating a false hold downstream",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "detail": "STATE THE POPULATION: the 5 `kind: object` edges in the store on 2026-09-01, of which 3 pointed at a target whose lifecycle is `waiting`. MECHANISM: this repo deliberately holds an object at `waiting` when the thing is BUILT but its done_condition is an observation nobody has made -- WO-20260901-PHASE-A/B/C all sit there on exactly that reasoning, and that reasoning is correct for the object itself. It is wrong for its DEPENDENTS: a dependent needs the CAPABILITY, not the observation. MEASURED INSTANCE: WO-20260901-PHASE-D carried `object -> WO-20260901-PHASE-C` with the note 'E1 walks the typed blocked_on edges, which only exist once the carried rows are migrated'. The migration LANDED; Phase C is `waiting` solely on an unobserved cold-session read of the priority. So the graph reported Phase D blocked by a capability already delivered, which is precisely the false-blocker class the store's README warns about ('on 2026-09-01 three edges written as object: WO-PHASE-A ... made the graph report two phases blocked that were available') -- the SAME class recurring on the SAME day, in a different shape. Two more live edges have it now: PHASE-G -> PHASE-D and PHASE-H -> PHASE-B. INTERIM HANDLING, not a fix: constraint_readout.py publishes `holds_on_waiting_targets` with the caveat rather than resolving it into a state nobody measured. THE STRUCTURAL FIX is a schema question and deliberately not taken here -- either split `waiting` into 'waiting_on_delivery' vs 'waiting_on_observation' (a sixth/seventh lifecycle state, which the design warns against multiplying), or let an object edge name WHAT it needs from the target rather than the target alone.",
+      "resolution_criteria": "A written decision in the operating-layer schema design saying whether a `kind: object` edge names the TARGET or the target's DELIVERABLE, and the store + scripts/ops/constraint_readout.py both reflecting it -- verified by `holds_on_waiting_targets` in docs/claude/CONSTRAINT.json becoming either empty or individually justified, rather than a standing caveat. ⚠️ The caveat disappearing because no object happens to be `waiting` that day does NOT close this: the ambiguity is structural, so it closes on the schema decision, not on a quiet reading.",
+      "next_action": "Design decision on the operating-layer schema: does a `kind: object` edge name the target, or the target's deliverable? Until then, a session writing an object edge should say in its `note` what specifically it needs, so a reader can grade the hold by hand.",
+      "opened_by": "claude (operating-layer Phase D)",
+      "opened_at": "2026-09-01",
+      "evidence": [
+        "docs/claude/READOUT.md",
+        "docs/claude/work/objects/WO-20260901-PHASE-D.yaml",
+        "docs/claude/work/README.md"
+      ]
+    },
+    {
+      "id": "BL-20260901-A-READOUT-RE-DERIVED-THE-OPERATOR-OWED-STATUS-FIELD-AND-INVENTED-FIVE-OPEN-ITEMS",
+      "title": "constraint_readout.py's first run filtered operator-owed items on `state` (the field is `status`) and reported all 5 TERMINAL items as decisions waiting on the operator — including one CLAUDE.md forbids raising",
+      "severity": "medium",
+      "tier": 1,
+      "status": "resolved",
+      "detail": "Caught pre-merge, in the session that wrote it, by reading the register against src/runtime/operator_owed.py rather than trusting the rendered output. THE DEFECT: the readout's item-4 filter did `str(i.get('state','open')).lower() not in ('closed','resolved','done')`. docs/claude/operator-owed-register.json has no `state` key -- the field is `status`, with vocabulary OPEN_STATUSES = ('open','dispatched','snoozed') and TERMINAL_STATUSES = ('resolved','withdrawn') declared in src/runtime/operator_owed.py. So the default fired for every row and all 5 items rendered as OPEN when 4 are `resolved` and 1 is `withdrawn`. WHY IT MATTERS BEYOND THE COUNT: one of the five is OO-20260825-DIAG-READ-TOKEN-ROTATION, which the operator CLOSED and which CLAUDE.md marks with a standing instruction not to raise again ('THE DIAG-TOKEN ROTATION QUESTION IS CLOSED -- DO NOT RAISE IT ... do not file a successor row'). A readout consumed as a work list had therefore manufactured five tasks for a human, one of them explicitly forbidden, and it read as computed. THE GENERAL FORM, which is the transferable part: this is the same class as the WIP ceiling being imported rather than restated -- a second, local copy of another module's vocabulary is free to drift, and here it never even matched. It is also sub-class C of the diagnostic-provenance defect (an unasserted denominator: the filter formed no real predicate and its output was indistinguishable from a filter that matched everything). FIXED by importing OPEN_STATUSES/TERMINAL_STATUSES from the grading module, bucketing an unrecognised status into its own third bucket rather than guessing, refusing to grade at all if the import fails, and a named regression assertion in the module's --self-test.",
+      "resolution_criteria": "ALREADY MET, in the change that filed this row: constraint_readout.py imports OPEN_STATUSES/TERMINAL_STATUSES from src.runtime.operator_owed, refuses to grade at all if that import fails, buckets an unrecognised status separately rather than guessing, and carries a named regression assertion in its --self-test ('a register of terminal items reports ZERO open, not all of them'). Verified by `python3 scripts/ops/constraint_readout.py --self-test` and by section 4 of docs/claude/READOUT.md reading '0 OPEN item(s) ... 5 terminal, not listed'.",
+      "next_action": "None -- fixed in the same change. Kept as a filed row because the lesson is general: any new consumer of a register must import that register's status vocabulary from the module that grades it, never re-derive it.",
+      "opened_by": "claude (operating-layer Phase D)",
+      "opened_at": "2026-09-01",
+      "evidence": [
+        "scripts/ops/constraint_readout.py",
+        "src/runtime/operator_owed.py",
+        "docs/claude/operator-owed-register.json"
+      ]
+    },
+    {
+      "id": "BL-20260901-COORDINATION-BOARD-WRITES-403-FROM-THIS-SESSION-WHILE-READS-SUCCEED",
+      "title": "board-post.yml — the relay that exists precisely so a 403-scoped session can reach the coordination board — is named in ZERO of the four documents a session consults, so the session it was built for cannot find it",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "detail": "⚠️ THIS ROW WAS FILED WITH A FALSE PREMISE EARLIER IN THE SAME SESSION AND IS CORRECTED HERE RATHER THAN RE-FILED. It originally read 'CLAUDE.md ships a workaround for the PR half of this 403 and NONE for the board half'. That is WRONG: .github/workflows/board-post.yml exists and does exactly that job (BL-20260820-NO-BOARD-POST-RELAY-FOR-READONLY-MCP, already fixed). The correction is kept visible because the mistake IS the finding — I concluded 'no relay exists' from CLAUDE.md, which is what any session in this position would do.\n\nWHAT IS ACTUALLY WRONG. MEASURED 2026-09-01 by whole-file grep, with a positive control (the same probe finds 'claude-pr-automerge' in CLAUDE.md 3x): the strings 'board-post' and 'pr-opener' appear ZERO times in ALL FOUR of the documents a session would consult -- CLAUDE.md, docs/claude/coordination-board.md (which CLAUDE.md names as the board's own BODY OF RECORD), .claude/skills/session-coordination/SKILL.md, and docs/CLAUDE-RULES-CANONICAL.md. CLAUDE.md's 'Workarounds shipped' list names the diag relay, system-actions, web-api recover, trainer diag, label bootstrap, secret sync and claude-pr-automerge -- and neither of the two relays that cover PR-open and board-post.\n\nWHY THAT IS THE HIGH-SEVERITY HALF. board-post.yml's own header states it was built because 'a read-only session was structurally unable to comply with a binding rule; its only options were to skip the board or to stop'. The relay closed the capability gap and left the DISCOVERY gap wide open, so for a 403-scoped session the outcome is identical to having no relay at all -- and its silence on the board is indistinguishable from no session running. Reproduced live in this session: add_issue_comment on #6927 returned 403 'Resource not accessible by integration' twice minutes apart while issue_read succeeded (so a write-scope boundary, NOT the transient hosted-MCP drop CLAUDE.md documents); create_pull_request 403'd identically; `gh` is not installed and curl to api.github.com 403s from the sandbox proxy. I followed CLAUDE.md, concluded no board path existed, and found both relays only by reading .github/workflows/ directly AFTER the documented paths had failed.\n\nTHE GENERAL FORM, which is the transferable part and is a class this repo already names: a capability that is BUILT but unreachable from the surface its user actually reads is the 'shipped and working are different states' distinction applied to DOCUMENTATION -- the same shape as a written-and-never-read provenance field, or a state file shipped without a read surface (BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE). The relay was verified to work; nothing verified that anyone could find it.",
+      "resolution_criteria": "board-post.yml AND pr-opener.yml are named, with their request-file paths, in docs/claude/coordination-board.md and in CLAUDE.md's PM-side capabilities section, at the point where a session hitting a 403 would be reading -- i.e. beside the 403 discussion, not in a separate list. ⚠️ VERIFIED BY A SESSION THAT HITS THE 403 AND REACHES THE BOARD WITHOUT READING .github/workflows/, and says so; a grep confirming the words are present is a deploy, not an observation. PARTIALLY MET in the Phase D PR, which adds both to coordination-board.md and CLAUDE.md -- the observation half is untouched by that.",
+      "next_action": "Done in the Phase D change for the doc half. Remaining: whether the session-coordination SKILL and docs/CLAUDE-RULES-CANONICAL.md should carry it too -- the SKILL is the surface the skill-first lookup rule sends a session to FIRST, so it is arguably the most load-bearing of the four and is deliberately left to whoever owns that skill.",
+      "opened_by": "claude (operating-layer Phase D)",
+      "opened_at": "2026-09-01",
+      "evidence": [
+        "docs/claude/coordination-board.md",
+        "CLAUDE.md"
+      ]
+    },
+    {
       "id": "BL-20260901-PROP-FILLS-STALENESS-FILTERS-ON-A-MUTABLE-REPORTED-AT-SO-A-CORRECTION-MANUFACTURES-A-FINDING",
       "opened_at": "2026-09-01",
       "opened_by": "claude-session-prop-fills-gap",

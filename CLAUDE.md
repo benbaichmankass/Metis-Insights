@@ -92,7 +92,7 @@ don't route around it.
 
 ### ⚠️ SESSION BRIEF — what is DUE right now (generated; read before your first tool call)
 
-This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/OPEN-ITEMS.json` + `docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** because `CLAUDE.md` is the only surface that reaches a session before it acts — project **hooks do not run on Claude Code on the web** (verified 2026-08-26: the SessionStart contract's output was absent from the session context), and CI guards fire at merge, which is after the wrong work is already built. It lists only what is DUE or UNPREVENTED, so it shrinks as work lands.
+This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CONSTRAINT.json` + `docs/claude/OPEN-ITEMS.json` + `docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** because `CLAUDE.md` is the only surface that reaches a session before it acts — project **hooks do not run on Claude Code on the web** (verified 2026-08-26: the SessionStart contract's output was absent from the session context), and CI guards fire at merge, which is after the wrong work is already built. It lists only what is DUE or UNPREVENTED, so it shrinks as work lands.
 
 **🎯 THIS CYCLE'S PRIORITY — CY-20260901-OPERATING-LAYER**
 
@@ -101,7 +101,14 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/OPE
 - **What that means for you:** Prefer work that makes the system steer over work that makes it execute better. If you are about to start something that is neither the current phase nor pulled by a held-up stage, that is the thing to re-argue before starting it.
 - Set by **operator** on `2026-09-01` · basis **DECIDED** · intent `IN-20260901-OPERATING-LAYER`
 
-**7 monitoring item(s) DUE — check and record what you OBSERVED:**
+**📉 THE COMPUTED READOUT BEHIND THAT PRIORITY** (`docs/claude/READOUT.md`, from `scripts/ops/constraint_readout.py`, generated `2026-09-01` — **it is a dated snapshot, not a live read**; re-run the script rather than trusting its age)
+
+- **No stage is named — verdict `insufficient_basis`.** Only 6 of 584 objects (1.0%) have an ASSESSED `blocked_on` basis, below the 50.0% floor. **578 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them** — it is nobody having looked. Do not read this as *nothing is blocked*.
+- ⚠️ **Chain coverage is partial:** `QUESTION`, `DECISION`, `DEPLOYMENT`, `OBSERVATION` hold **zero** objects, so the store cannot locate a hold-up there. A stage histogram over it describes what got migrated, not the chain.
+- **2 in flight** against a ceiling of 8 · 4 waiting · 0 stopped moving (≥14d, declared dates only).
+- **If you are about to write a real `blocked_on` edge, that is the single highest-value thing you can do to this store** — the diagnosis is refusing for want of assessed edges, not for want of machinery.
+
+**8 monitoring item(s) DUE — check and record what you OBSERVED:**
 
 - **`OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED`** — The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.
   - **Clears when:** BOTH: (a) a NEW disjoint-group over-cover is detected and PAGES the operator through outcomes.jsonl — verified by finding the row in /api/bot/logs?level=error, not by reading the code; and (b) cancel-ib-order is exercised against the real gateway and reports a cancel's outcome correctly. A synthetic test passing is NOT either half.
@@ -120,6 +127,9 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/OPE
   - Last observed: `never`. To clear for another cycle, set `verified_at` to today AND write what you saw into `observation` — a claim of progress is not an observation.
 - **`OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED`** — Phase F/C3 is now COMPLETE AS PLUMBING — cron (#10649), committed path, and a reader (GET /api/bot/strategy-reviews, PR #10681) — and the decision surface STILL PROPOSES NOTHING. Population: the committed 2026-09-01 index, all 52 enabled strategies, window 7 days. graded 52, actionable 0, by_action {'hold': 52}. n_closed was 0 for 34 legs, 1-4 for 14, 5-19 for 4, and NEVER above 8, against the generator's own MIN_CLOSED_FOR_ACTION = 20 floor — so 52/52 were ungradeable and no leg could produce a KILL/DEMOTE whatever its PnL, including 13 LOSING legs carrying -35,446 of provenance-trusted pnl between them. At a 7-day window a leg needs ~3 closes/day while the whole fleet closed 50 that week, so this repeats every run. ⚠️ TWO THINGS ARE DEPLOYED AND UNOBSERVED, and they are DIFFERENT CLAIMS. (a) THE CRON HAS NEVER HAD THE OPPORTUNITY TO FIRE: the workflow landed 2026-09-01T11:58Z and fires 04:40 UTC, so its first scheduled slot is 2026-09-02T04:40Z — a THIRD state, neither 'fired and worked' nor 'fired and failed'. Both runs to date (#10652, #10656) were dispatch-driven, and OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON is the live counter-example forbidding correct cron syntax being read as evidence. (b) THE EVIDENCE BLOCK HAS ONLY EVER READ `unknown`: the generator now publishes min_closed_for_action + per-row below_evidence_floor and the route grades floor_state, but the one committed index PREDATES those fields, so none_gradeable / partly_gradeable / all_gradeable have never been emitted by a real run. ⚠️ AND A ROUTE IS NOT A READER — nothing renders this yet, so the written-and-never-read defect is moved one hop, not eliminated. Do NOT report C3 as having moved the measured DECISION constraint on the strength of the plumbing.
   - **Clears when:** ALL THREE, and none substitutes for another: (1) a committed INDEX.json produced by a SCHEDULED run — verified by the run's EVENT being `schedule`, never by the file existing, since a dispatch-driven run writes a byte-identical artifact; (2) that index carries min_closed_for_action AND its evidence.floor_state reads a value OTHER than `unknown`, i.e. the publication is exercised rather than merely deployed; and (3) an operator decision on the window/floor pair is recorded. ⚠️ A RUN THAT SIMPLY EMITS AN ACTION DOES NOT CLEAR THIS: a KILL fired off a window widened far enough to make anything gradeable is the same low-n hazard the floor exists to prevent, one level up. ⚠️ THE ROUTE RETURNING 200 CLEARS NOTHING EITHER — that is a deploy, not an observation, and grading `unknown` correctly is the route WORKING while the condition persists.
+  - Last observed: `never`. To clear for another cycle, set `verified_at` to today AND write what you saw into `observation` — a claim of progress is not an observation.
+- **`OI-20260901-CONSTRAINT-READOUT-SHIPPED-AND-IT-REFUSES-NOBODY-HAS-ACTED-ON-THE-REFUSAL`** — E1/A1 shipped (operating-layer Phase D, PR #10680): scripts/ops/constraint_readout.py computes the constraint over the work store's typed blocked_on edges and renders the four-item readout to docs/claude/READOUT.md, with its headline in the CLAUDE.md session brief under the cycle priority. ⚠️ IT NAMES NO STAGE, and that is the correct output: measured over all 584 objects (0 parse failures), only 6 carry an ASSESSED blocked_on basis — 1.0% against a declared 50% floor — so the verdict is `insufficient_basis`. THE MACHINERY IS BUILT AND THE DIAGNOSIS IS NOT AVAILABLE; those are different facts and only the first shipped. ⚠️ THE RISK THIS ROW WATCHES IS NOT THAT THE READOUT IS WRONG — it is that a permanently-refusing readout gets SKIMMED PAST, becoming one more block in a brief that is supposed to shrink. The design makes two things depend on it (A1 depends on E1; E2 capability build is PULLED by a held-up stage, never self-started) and BOTH are unenforceable while no stage can be named. verified_at is deliberately null: no observation has been made, and dating it today would be a claim of one.
+  - **Clears when:** A session that was NOT pointed here by its prompt reads the readout line in the CLAUDE.md brief and WRITES AT LEAST ONE TRUE blocked_on edge on a row it actually understands, saying which row and why — i.e. it ACTED on the refusal rather than noting it. ⚠️ RENDERING IS NOT EVIDENCE: that the block appears in CLAUDE.md is a deploy, not an observation — the same distinction that keeps OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION open. ⚠️ A BULK PASS OVER THE 578 UNASSESSED ROWS DOES NOT CLEAR THIS AND IS A HARM: an invented edge is read by the computation as a true blocker, and a false blocker is worse than a missing one — the work store's README records that exact failure happening on 2026-09-01. ⚠️ COVERAGE RISING WITH NO ATTRIBUTABLE SESSION DOES NOT CLEAR IT EITHER; record WHICH session did it. ⚠️ AND 'a session read it and ignored it' does NOT clear this — that is a different and more useful finding, and belongs in `observation` rather than being treated as a pass.
   - Last observed: `never`. To clear for another cycle, set `verified_at` to today AND write what you saw into `observation` — a claim of progress is not an observation.
 - **`OI-20260901-PROP-FILLS-STALE-BANNER-IS-A-KNOWN-FALSE-POSITIVE-UNTIL-THE-FIX-MERGES`** — THE `prop_fills_stale` ALERT BANNER ON breakout_1 IS A KNOWN FALSE POSITIVE — DO NOT CHASE IT AS A MISSING TRADE. It has read 'Prop journal is missing trades: breakout_1 / Balance moved by $33.34 … with no fills reported in between' at severity `alert` since 2026-08-30T19:33:29Z. The journal is NOT missing that trade: `prop_fills` id 41 (SOLUSDT long 49 @ 105.04 -> 105.76, pnl 35.28, closed) was FIRST reported at `created_at` 2026-08-30T19:33:17.466421Z — 12.1 SECONDS INSIDE the window — and a corrective re-report moved its `reported_at` to 19:39:00.972519Z, 5m31s outside it. `prop_journal.insert_fill`'s idempotent UPDATE overwrites `reported_at` while preserving `created_at`, and detector B filtered on `reported_at` alone. Fix prepared on branch `claude/prop-fills-gap-20260901` as a DRAFT PR (membership is now `any` of `fill_evidence_times`); NOT MERGED, NOT DEPLOYED — the manager owns the merge. Filed as BL-20260901-PROP-FILLS-STALENESS-FILTERS-ON-A-MUTABLE-REPORTED-AT-SO-A-CORRECTION-MANUFACTURES-A-FINDING. ⚠️ WHY THIS IS A REGISTER ROW AND NOT ONLY A BACKLOG ROW: the banner sits on the operator's `alert` channel and, because a `balance_moved_unreported` latch is pruned only when a NEWER snapshot supersedes the pair, it is UNCLEARABLE BY THE OPERATOR on a flat, quiet account. Every session and review reading /api/bot/notifications before the merge will see it and could repeat this investigation — or worse, ask the operator for a screenshot that is not needed and write a fill that would DUPLICATE id 41. ⚠️ NOBODY SHOULD WRITE A FILL FOR THIS. ⚠️ SEPARATELY, AND IT GENERALISES: the real 2026-08-20 -> 08-23 -$111.86 gap still grades `unreported` even though it WAS repaired (fill id 33), because that row carries its close time only in prose — `closed_at` is populated on 4 of 41 fills (BL-20260825). So a persistent `unreported` is never by itself proof of a missing trade.
   - **Clears when:** The `prop_fills_stale` banner for breakout_1 is ABSENT from a live read of /api/bot/notifications, observed AFTER the draft PR merges, the trader restarts on the merged sha, and one cadence window (PROP_FILLS_STALENESS_CHECK_SECONDS, default 3600s) has elapsed. ⚠️ THE MERGE DOES NOT CLEAR THIS — a merge is a deploy, not an observation, and the trader must restart AND re-run the detector before the latch re-grades. ⚠️ NEITHER DOES A GREEN TEST: the 18->19 pair re-grading `explained` in a harness is already established and is not the fleet. ⚠️ AND DO NOT CLEAR IT BY EDITING THE LATCH FILE — the point is that the corrected predicate empties `findings` by itself; a hand-cleared latch would clear the banner while leaving the defect, and would destroy the only evidence the fix works. If the banner does NOT clear after a restart plus a cadence window, the deploy did not take or the fix is wrong, and THAT is the finding — record which.
@@ -1571,6 +1581,49 @@ below are the contract.
   the one-off `m28-value-grade-push`/`m28-merge-push` workflows. **Only
   needed when the MCP is 403** — the normal path is `merge_pull_request` /
   `enable_pr_auto_merge` via the MCP under the merge protocol.
+- **The OTHER TWO relays for that same 403 — `pr-opener` and `board-post`.**
+  ⚠️ **This list named only `claude-pr-automerge` until 2026-09-01, and the
+  omission had a measured cost**: the strings `pr-opener` and `board-post`
+  appeared **zero times** in this file, `docs/claude/coordination-board.md`
+  (the board's own body of record), `docs/CLAUDE-RULES-CANONICAL.md` and the
+  `session-coordination` skill — measured with a positive control
+  (`claude-pr-automerge` appears 3× here). A session hit the 403 on
+  2026-09-01, read these docs, correctly concluded no board path existed, and
+  found both relays only by reading `.github/workflows/` after every documented
+  path had failed. **A capability that is built but unreachable from the surface
+  its user reads is, for that user, identical to no capability at all**
+  (`BL-20260901-COORDINATION-BOARD-WRITES-403-FROM-THIS-SESSION-WHILE-READS-SUCCEED`).
+  - **`.github/workflows/pr-opener.yml`** — OPEN a PR with a full title and
+    body: drop `automation/pr-requests/<name>.json`
+    (`{head, base, title, body, draft}`) and push it. The URL comes back at
+    `automation/pr-results/<name>.txt`. **Use a fresh filename per PR** — the
+    result file is the idempotency key, so reusing a name is a silent no-op.
+    ⚠️ Its results commit is pushed by `github-actions[bot]`, and GitHub does
+    not trigger workflows for `GITHUB_TOKEN` pushes, so when that commit lands
+    last the PR shows **zero checks** — blocked, not green. Push one ordinary
+    commit yourself to arm CI.
+    ⚠️ **THIS APPLIES TO `board-post.yml` TOO, and `pr-opener.yml`'s header does
+    not say so** — it documents the trap only for itself. Both relays commit a
+    result file back the same way, so **every board post you make on an open
+    PR's branch re-buries that PR's checks**, and the more diligently you use
+    the board the more often it happens. Measured on PR #10680 (2026-09-01): it
+    hit twice in one PR, once per relay. Read `mergeable_state` to tell the two
+    zero-check causes apart — `blocked` is this (no checks fired), `dirty` is a
+    merge conflict, and both render as `total_count: 0`.
+  - **`.github/workflows/board-post.yml`** — POST to the coordination board
+    (#6927) when `add_issue_comment` 403s: drop
+    `automation/board-posts/<name>.md`, whose entire contents become the
+    comment, and push it on a `claude/**` branch; read
+    `automation/board-results/<name>.txt` back. An empty body is **refused**
+    and a failed post **fails the run**, deliberately louder than `pr-opener`
+    — a session that believes it claimed the board and did not is invisible to
+    every other session and to itself. **So a 403 is never a reason to skip the
+    board.**
+  - ⚠️ **Distinguish this 403 from the transient drop documented above.** A
+    write-scope boundary returns `403 Resource not accessible by integration`
+    on writes while `issue_read` on the *same* object succeeds; retrying with
+    backoff will not clear it, and neither will `gh` (absent) or `curl` to
+    `api.github.com` (403 at the proxy). Reach for a relay, not a retry loop.
 - **Broker-credential propagation (Actions → VM)** —
   `.github/workflows/sync-vm-secrets.yml` is the canonical path for
   mirroring broker-credential Actions secrets to the live trader's

@@ -112,6 +112,31 @@ def _registers(due: bool, extra: bool = False):
     return {"items": items}, {"classes": []}
 
 
+#: Registers `render()` accepts but that the fixture has no fixed content for.
+#: Derived from the signature rather than listed, so it cannot go stale.
+def _register_params():
+    """Every keyword-only register parameter `render()` declares."""
+    import inspect
+
+    return [
+        n
+        for n, prm in inspect.signature(G.render).parameters.items()
+        if prm.kind is inspect.Parameter.KEYWORD_ONLY
+    ]
+
+
+def _render_pinned(**pinned):
+    """`G.render` with EVERY register pinned — the named ones, `{}` for the rest.
+
+    The point is that a register added to `render()` later is pinned to an
+    empty dict automatically instead of silently falling through to a
+    CWD-relative disk read of the real repo.
+    """
+    kw = {n: {} for n in _register_params()}
+    kw.update(pinned)
+    return G.render(**kw)
+
+
 def _make_repo(tmp_path, base_due, head_due, head_extra_row):
     """A repo whose base and head differ only as the arguments say."""
     r = tmp_path / "repo"
@@ -125,15 +150,27 @@ def _make_repo(tmp_path, base_due, head_due, head_extra_row):
     (r / "docs/claude/RECURRENCE-LEDGER.json").write_text(json.dumps(rl))
     # A CLAUDE.md whose block was rendered when NOTHING was due.
     fresh_oi, fresh_rl = _registers(due=False)
-    # ⚠️ PIN ALL THREE REGISTERS, not two. `render()` loads any register it is
-    # not handed from disk, CWD-RELATIVELY -- so an unpinned one is read from
-    # whatever repo the TEST PROCESS is running in, while `--check` later reads
-    # it from the FIXTURE repo. The two disagree and the head grades stale.
-    # This bit when A3 added CYCLE-PRIORITY.json as a third register: the two
-    # older ones were already pinned here and the new one was not, so the block
-    # was built carrying the REAL repo's cycle priority and checked against a
-    # fixture that has no priority file at all.
-    block = G.render(open_items=fresh_oi, recurrence=fresh_rl, priority={})
+    # ⚠️ PIN EVERY REGISTER, not all-but-the-newest. `render()` loads any
+    # register it is not handed from disk, CWD-RELATIVELY -- so an unpinned one
+    # is read from whatever repo the TEST PROCESS is running in, while `--check`
+    # later reads it from the FIXTURE repo. The two disagree and the head grades
+    # stale.
+    #
+    # This has now bitten TWICE, identically, one register apart:
+    #   - A3 added CYCLE-PRIORITY.json as a third register; the two older ones
+    #     were pinned here and the new one was not, so the block was built
+    #     carrying the REAL repo's cycle priority and checked against a fixture
+    #     that has no priority file at all.
+    #   - Phase D added CONSTRAINT.json as a FOURTH; the comment above said
+    #     "PIN ALL THREE" and this call pinned exactly those three, so
+    #     `test_a_clean_head_passes` graded `inherited` instead of `clean`.
+    #
+    # So the count is no longer written down anywhere a human has to update it.
+    # `_render_pinned` passes an empty dict for EVERY keyword-only register
+    # parameter `render()` declares, and `test_every_register_is_pinned_by_the_fixture`
+    # fails the moment a new one appears un-pinned -- which is the third
+    # recurrence, prevented mechanically rather than by another comment.
+    block = _render_pinned(open_items=fresh_oi, recurrence=fresh_rl)
     (r / "CLAUDE.md").write_text(f"# doc\n\n{block}\n\ntail\n")
     _git(r, "add", "-A")
     _git(r, "commit", "-qm", "base")
@@ -191,6 +228,38 @@ def test_a_diff_that_changes_the_registers_without_re_rendering_still_fails(tmp_
     out = _check(repo)
     assert out.returncode == 1, out.stdout + out.stderr
     assert "verdict=introduced_registers_changed" in out.stdout
+
+
+def test_every_register_is_pinned_by_the_fixture():
+    """Third-recurrence preventer for the un-pinned-register bug.
+
+    `_render_pinned` is only safe if it really covers every register, so assert
+    the two things that could make it lie: that `render()` still exposes its
+    registers as keyword-only parameters (a positional refactor would silently
+    empty the list), and that the fixture's own call goes through the helper.
+
+    Not a source-grep for the helper name alone — that would be presence-only
+    evidence. The first assertion MEASURES the parameter set the helper is
+    built from.
+    """
+    params = _register_params()
+    assert params, (
+        "render() exposes no keyword-only registers, so _render_pinned would "
+        "pin nothing and the fixture would silently read the real repo again"
+    )
+    # The registers render() reads from disk when not handed them.
+    assert {"open_items", "recurrence", "priority", "constraint"} <= set(params)
+    import inspect
+
+    body = inspect.getsource(_make_repo)
+    assert "_render_pinned(" in body, (
+        "the fixture stopped building its block through _render_pinned — that "
+        "is how a newly-added register goes un-pinned"
+    )
+    assert "G.render(" not in body, (
+        "the fixture went back to calling G.render directly, which pins only "
+        "the registers someone remembered to name"
+    )
 
 
 def test_a_clean_head_passes(tmp_path):

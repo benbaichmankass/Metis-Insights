@@ -173,6 +173,34 @@ has stopped moving · decisions waiting on the operator.
 **Done when:** the cycle's priority has a computed readout behind it, and the due-list is
 **deleted** rather than left running beside it.
 
+> **STATUS 2026-09-01 — BUILT, and the diagnosis REFUSES. Read both halves.**
+> `scripts/ops/constraint_readout.py` ships E1 and A1; the four-item readout renders to
+> [`docs/claude/READOUT.md`](../claude/READOUT.md) + `CONSTRAINT.json` and its headline
+> reaches a session through the `CLAUDE.md` brief, under the priority.
+>
+> ⚠️ **IT NAMES NO STAGE, and that is the correct output rather than a shortfall.**
+> Measured over all 584 objects (0 parse failures): **6 carry an ASSESSED `blocked_on`
+> basis — 1.0%** — while 578 carry an empty list stating `NOT_ASSESSED`. Below the
+> declared 50% coverage floor the verdict is `insufficient_basis` and no stage is named.
+> **The constraint is not computable yet because the edges have not been written**, which
+> is a finding about the store, not about the machinery. A stage named over that graph
+> would be the fabricated-answer-wearing-a-computed-label class this plan warns about
+> three paragraphs above its own justification.
+>
+> ⚠️ **Two things this plan asserted that the build had to correct.**
+> (a) *"E1 walks the typed `blocked_on` edges and names the held-up stage"* assumes the
+> stage histogram is informative. It is not: the store holds `INTEGRITY` 498 ·
+> `EVIDENCE` 78 · `CAPABILITY` 8 and **zero** objects on QUESTION, DECISION, DEPLOYMENT
+> or OBSERVATION, because migration's source was three review backlogs — registers of
+> defects. A histogram over it describes the migration. `chain_coverage` publishes the
+> empty stages so a consumer cannot miss it.
+> (b) **The due-list was NOT deleted**, and the reason is measured: `render_due_list.py`
+> also draws on `PROBES.json`, monitoring cadences, the recurrence ledger, red scheduled
+> crons and unlanded automation PRs — **four source classes with no counterpart in the
+> readout**. Deleting it would drop live signals. The overlap is exactly one class
+> (operator-owed items). Retiring it needs those four carried first, or an operator
+> decision to drop them; both are recorded on `WO-20260901-PHASE-D`.
+
 ## Phase E — no work is lost, and rules are verified at exit
 
 **Builds:** F2 verified close-out + lease + reaper · F5 exit verification. **Retires:**

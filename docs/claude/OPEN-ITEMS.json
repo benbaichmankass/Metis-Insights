@@ -584,6 +584,27 @@
         "docs/design/operating-layer-build-plan-DESIGN.md"
       ]
     },
+    {
+        "id": "OI-20260901-CONSTRAINT-READOUT-SHIPPED-AND-IT-REFUSES-NOBODY-HAS-ACTED-ON-THE-REFUSAL",
+        "probe_absent_reason": "A probe could assert `verdict == insufficient_basis` in docs/claude/CONSTRAINT.json, but that is the CURRENT state and asserting it would make the probe PASS for exactly as long as nothing improves — a green that means 'still broken'. What clears this is a session ACTING on the refusal (writing true edges), and nothing records that a session read the line and did something. Deliberately unprobed rather than probed wrong.",
+        "opened": "2026-09-01",
+        "kind": "monitoring",
+        "loud": true,
+        "check_every_days": 3,
+        "verified_at": null,
+        "last_checked": null,
+        "summary": "E1/A1 shipped (operating-layer Phase D, PR #10680): scripts/ops/constraint_readout.py computes the constraint over the work store's typed blocked_on edges and renders the four-item readout to docs/claude/READOUT.md, with its headline in the CLAUDE.md session brief under the cycle priority. ⚠️ IT NAMES NO STAGE, and that is the correct output: measured over all 584 objects (0 parse failures), only 6 carry an ASSESSED blocked_on basis — 1.0% against a declared 50% floor — so the verdict is `insufficient_basis`. THE MACHINERY IS BUILT AND THE DIAGNOSIS IS NOT AVAILABLE; those are different facts and only the first shipped. ⚠️ THE RISK THIS ROW WATCHES IS NOT THAT THE READOUT IS WRONG — it is that a permanently-refusing readout gets SKIMMED PAST, becoming one more block in a brief that is supposed to shrink. The design makes two things depend on it (A1 depends on E1; E2 capability build is PULLED by a held-up stage, never self-started) and BOTH are unenforceable while no stage can be named. verified_at is deliberately null: no observation has been made, and dating it today would be a claim of one.",
+        "clears_when": "A session that was NOT pointed here by its prompt reads the readout line in the CLAUDE.md brief and WRITES AT LEAST ONE TRUE blocked_on edge on a row it actually understands, saying which row and why — i.e. it ACTED on the refusal rather than noting it. ⚠️ RENDERING IS NOT EVIDENCE: that the block appears in CLAUDE.md is a deploy, not an observation — the same distinction that keeps OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION open. ⚠️ A BULK PASS OVER THE 578 UNASSESSED ROWS DOES NOT CLEAR THIS AND IS A HARM: an invented edge is read by the computation as a true blocker, and a false blocker is worse than a missing one — the work store's README records that exact failure happening on 2026-09-01. ⚠️ COVERAGE RISING WITH NO ATTRIBUTABLE SESSION DOES NOT CLEAR IT EITHER; record WHICH session did it. ⚠️ AND 'a session read it and ignored it' does NOT clear this — that is a different and more useful finding, and belongs in `observation` rather than being treated as a pass.",
+        "observation": "None yet. The Phase D session cannot be the test: it BUILT the readout and was pointed at Phase D by its prompt, so it is contaminated on exactly the ground the MHG and cycle-priority rows already name. Baseline for a later reader, measured 2026-09-01 by `python3 scripts/ops/constraint_readout.py`: population 584, assessed 6, coverage 1.0%, blocked 6 / declared_none 0 / unstated 578 / malformed 0, verdict insufficient_basis, named_stage null. Re-run it and compare `assessed` against 6 — the denominator prints on every run, so this is checkable rather than trusted.",
+        "refs": [
+            "scripts/ops/constraint_readout.py",
+            "docs/claude/READOUT.md",
+            "docs/claude/CONSTRAINT.json",
+            "docs/claude/work/objects/WO-20260901-PHASE-D.yaml",
+            "BL-20260901-WORK-STORE-EDGES-ARE-1-PERCENT-ASSESSED-SO-THE-CONSTRAINT-CANNOT-BE-COMPUTED",
+            "https://github.com/benbaichmankass/Metis-Insights/pull/10680"
+        ]
+    },
   {
    "id": "OI-20260901-PROP-FILLS-STALE-BANNER-IS-A-KNOWN-FALSE-POSITIVE-UNTIL-THE-FIX-MERGES",
    "probe_absent_reason": "A PROBE IS POSSIBLE AND IS DELIBERATELY NOT ARMED YET. The observable — is the `prop_fills_stale` banner for breakout_1 present on /api/bot/notifications — is machine-readable, so this becomes probeable the moment the fix merges and deploys. It is not armed now because the banner is EXPECTED to be present until then: a probe would sit red on a condition already known, understood and fixed-in-draft, which is the desensitized-alarm P1 this row is itself about. ⚠️ A probe asserting the LATCH FILE is empty would be the WRONG OBSERVABLE — the latch is rewritten by the trader on its own cadence, so an empty latch shows the detector ran, never that the banner a human sees has cleared.",
