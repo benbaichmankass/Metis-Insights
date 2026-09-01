@@ -37,7 +37,10 @@
         "Metis-Insights:claude/phase-b-work-view-digest",
         "ict-trader-dashboard:claude/phase-b-work-view"
       ],
-      "prs": ["Metis-Insights#10654", "ict-trader-dashboard#210"],
+      "prs": [
+        "Metis-Insights#10654",
+        "ict-trader-dashboard#210"
+      ],
       "last_observed": {
         "at": "2026-09-01T13:35Z",
         "status_category": "review_ready",
@@ -51,13 +54,36 @@
       "title": "Phase C — migration, the WIP ceiling, and priority propagation",
       "spawned_at": "2026-09-01T12:08:17Z",
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "branches": ["Metis-Insights:claude/operating-layer-phase-c"],
-      "prs": ["Metis-Insights#10657"],
+      "branches": [
+        "Metis-Insights:claude/operating-layer-phase-c"
+      ],
+      "prs": [
+        "Metis-Insights#10657"
+      ],
       "last_observed": {
         "at": "2026-09-01T13:35Z",
         "status_category": "need_input",
         "needs_action": "STALE. Reads 'open PR + post board comment, 403' with updated_at frozen at 12:40:48Z. BOTH were absorbed by the manager: PR #10657 opened, board comment posted on issue #6927. The flag cannot be cleared without the session running another turn; archive it once #10657 merges.",
         "note": "Its self-reported guard result (PASS 62 / FAIL 3, 'all three reproduce on origin/main') did NOT hold. CI returned PASS 64 / FAIL 1, and the one failure was diff-scoped -- caused by its own change, not pre-existing. Fixed by the manager in 7d4b94f; guards now green. This is the case for re-running a sub-session's report rather than relaying it."
+      }
+    },
+    {
+      "session_id": "session_019SqqtiDAZr8w7z5wpJw5cP",
+      "owns_object": null,
+      "owns_object_note": "NO work object, deliberately. This is an INCIDENT spawned from a live Telegram page, not a phase of the build. Inventing an object to satisfy the schema would put a fabricated row in the store; the honest value is null with this note. If it turns into standing work it gets an object then.",
+      "title": "GLD close-failure loop on alpaca_paper (30+ CRITICALs)",
+      "spawned_at": "2026-09-01T14:41:34Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "spawn_reason": "OPERATOR-DIRECTED TEST OF THE DELEGATION FLOW: the operator threw a Telegram warning at the manager to see it spawn, investigate, rectify and report back. The condition is real and live.",
+      "branches": [
+        "Metis-Insights:claude/gld-close-failure-loop (expected; not yet pushed)"
+      ],
+      "prs": [],
+      "last_observed": {
+        "at": "2026-09-01T14:41Z",
+        "status_category": "working",
+        "needs_action": null,
+        "note": "Just spawned; nothing observed yet. Handed the ONE measurement that inverts the naive reading: /api/diag/exchange_positions shows the venue DOES hold GLD long 39.0, so 'available: 0' is shares RESERVED by a resting order, not a vanished position. Given as a hypothesis to confirm or REFUTE, not as a finding."
       }
     }
   ]
