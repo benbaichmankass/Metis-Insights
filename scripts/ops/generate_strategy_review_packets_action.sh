@@ -15,6 +15,7 @@
 #   strategy: <name>           (optional; repeatable via comma-separated list)
 #   window_days: <int>         (optional, default 7)
 #   all_btc: <true|1>          (optional; iterate every BTCUSDT strategy)
+#   all_strategies: <true|1>   (optional; every ENABLED strategy — the cron path)
 #   shadow_soak_days: <int>    (optional, default 0 — only matters for promote)
 #
 # Either `strategy:` or `all_btc: true` must be supplied (the python
@@ -34,6 +35,7 @@ DB_PATH="$(runtime_db_path)"
 STRATEGY="${ACTION_STRATEGY:-}"
 WINDOW_DAYS="${ACTION_WINDOW_DAYS:-7}"
 ALL_BTC="${ACTION_ALL_BTC:-}"
+ALL_STRATEGIES="${ACTION_ALL_STRATEGIES:-}"
 SHADOW_SOAK_DAYS="${ACTION_SHADOW_SOAK_DAYS:-0}"
 PRINT_PACKETS="${ACTION_PRINT_PACKETS:-}"
 
@@ -43,13 +45,18 @@ case "${ALL_BTC,,}" in
     *) ALL_BTC=0 ;;
 esac
 
+case "${ALL_STRATEGIES,,}" in
+    1|true|yes|on) ALL_STRATEGIES=1 ;;
+    *) ALL_STRATEGIES=0 ;;
+esac
+
 case "${PRINT_PACKETS,,}" in
     1|true|yes|on) PRINT_PACKETS=1 ;;
     *) PRINT_PACKETS=0 ;;
 esac
 
-if [ "${ALL_BTC}" -ne 1 ] && [ -z "${STRATEGY}" ]; then
-    log "ERROR: provide 'strategy: <name>' or 'all_btc: true' in the issue body"
+if [ "${ALL_BTC}" -ne 1 ] && [ "${ALL_STRATEGIES}" -ne 1 ] && [ -z "${STRATEGY}" ]; then
+    log "ERROR: provide 'strategy: <name>', 'all_btc: true' or 'all_strategies: true'"
     record_audit "generate-strategy-review-packets" "error" \
         "{\"reason\": \"no strategy or all_btc flag\"}" >/dev/null || true
     exit 1
@@ -71,6 +78,16 @@ CMD=(python3 -m scripts.ml.strategy_review_packet
 
 if [ "${ALL_BTC}" -eq 1 ]; then
     CMD+=(--all-btc-strategies)
+fi
+
+# The CRON path (.github/workflows/strategy-review-packets.yml). Kept in THIS
+# wrapper rather than invoked directly by the workflow so there is exactly one
+# place that knows how to run the generator on the VM — the venv, the runtime
+# secrets, and above all the DB path and the output root, which resolve to
+# ${DATA_DIR}/runtime_logs and NOT ${REPO_DIR}/runtime_logs. A second
+# invocation path would have got that wrong (it did, in review).
+if [ "${ALL_STRATEGIES}" -eq 1 ]; then
+    CMD+=(--all-strategies)
 fi
 
 # Comma-split STRATEGY → repeated --strategy NAME flags.

@@ -37,6 +37,10 @@ name: claude-run-failure-alert
 on:
   workflow_run:
     workflows:
+      # A cron whose run DIES notifies nobody otherwise, and this repo has a live
+      # instance of that class open (probes.yml / due-list.yml, zero schedule runs
+      # since landing). Watching it is the cheap half.
+      - strategy-review-packets
       - trainer-vm-diag
       - vm-diag-snapshot
       - system-actions
