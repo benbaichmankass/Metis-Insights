@@ -68,6 +68,7 @@ logger = logging.getLogger(__name__)
 
 from src.bot.telegram_routes import (  # noqa: E402
     _PROP_TOKEN_ORDER,
+    claude_route as _claude_route,
     prop_route as _prop_route,
 )
 
@@ -349,23 +350,41 @@ async def _drain_pending_claude_pings(context: ContextTypes.DEFAULT_TYPE) -> Non
         prefix = _PRIORITY_ICONS.get(priority, _PRIORITY_ICONS["normal"])
         text = f"{prefix} {body}"
 
-        # Bot restructure (2026-06-17): Claude's operational updates now deliver
-        # via the TRADER bot (@bict_trading_bot, TELEGRAM_BOT_TOKEN) — folded off
-        # the comms bot, which is being repurposed as the prop-account bot. The
-        # trader bot uses no Claude thread, so the message lands in the operator's
-        # main chat (the claude-thread pinning is intentionally dropped here).
-        # Sent via the stdlib direct path so delivery no longer depends on this
-        # service's own (prop-bot) Application; success → delete, failure → keep
-        # for the next-tick retry (semantics unchanged).
+        # DESTINATION IS RESOLVED, NOT HARDCODED (2026-09-01).
+        #
+        # This block read `bot_token=os.environ.get("TELEGRAM_BOT_TOKEN")` — the
+        # TRADER bot — from the 2026-06-17 fold (de2ba96e), when the old comms
+        # bot was repurposed for prop and Claude pings had nowhere else to go.
+        #
+        # ⚠️ THAT LEFTOVER IS WHY THE DEDICATED BOT DID NOTHING. #10664 shipped
+        # src/bot/telegram_routes.py as the ONE OWNER of routing, and it already
+        # knows the operator's new bot (TELEGRAM_CLAUDE_BOT_SECRET) — but it
+        # converted the PROP path and left this one, the path every send_ping
+        # ping actually travels. So the token was present, the router resolved
+        # it, and the only consumer that mattered ignored it: `claude_route()`
+        # could never report `isolated`, however correctly it was configured.
+        # Measured 2026-09-01: a real ping enqueued at 20:58:49Z was confirmed
+        # delivered — into the trader chat, while the operator watched the new
+        # bot and correctly reported that nothing arrived.
+        #
+        # ⚠️ FALLBACK IS NOT SILENCE, and that is the whole safety argument for
+        # changing a delivery path. `claude_route()` falls back to the trader
+        # token when no dedicated one is set, so on a VM without the secret this
+        # is byte-for-byte the previous behaviour. The change cannot lose a ping;
+        # at worst it delivers exactly where it delivered yesterday.
+        route = _claude_route()
         try:
             from src.runtime.notify import send_telegram_direct
 
             sent = send_telegram_direct(
                 text, parse_mode=None, mirror_to_fcm=False,
-                bot_token=os.environ.get("TELEGRAM_BOT_TOKEN"),
+                bot_token=route.token, chat_id=route.chat_id,
             )
         except Exception as exc:  # noqa: BLE001
-            logger.warning("claude ping inbox: trader-bot send failed for %s — %s", name, exc)
+            logger.warning(
+                "claude ping inbox: send failed for %s via %s — %s",
+                name, route.describe(), exc,
+            )
             continue   # leave file in place; retry next tick
 
         # Only delete on a CONFIRMED send. send_telegram_direct returns False
@@ -436,11 +455,23 @@ def main() -> None:
             first=CLAUDE_PING_DRAIN_INTERVAL_S,
             name="drain_pending_claude_pings",
         )
+    # ⚠️ STATE THE ROUTE AT STARTUP. A fallback route delivers perfectly well
+    # into the WRONG conversation, which is indistinguishable from working
+    # unless something says so — exactly how the dedicated bot sat unused while
+    # every surface looked healthy. `describe()` names the VARIABLE that
+    # answered, never the value.
+    _cr = _claude_route()
     logger.info(
         "Claude update channel starting (one-way; allowed_chat=%s, "
-        "thread_id=%s, inbox=%s)",
-        ALLOWED_CHAT_ID, THREAD_ID, PENDING_CLAUDE_PINGS_DIR,
+        "thread_id=%s, inbox=%s) | claude ping route -> %s",
+        ALLOWED_CHAT_ID, THREAD_ID, PENDING_CLAUDE_PINGS_DIR, _cr.describe(),
     )
+    if not _cr.isolated:
+        logger.warning(
+            "claude ping route is NOT isolated (%s) — pings will land in the "
+            "shared trader conversation. Set TELEGRAM_CLAUDE_BOT_SECRET on this "
+            "VM to separate them.", _cr.describe(),
+        )
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

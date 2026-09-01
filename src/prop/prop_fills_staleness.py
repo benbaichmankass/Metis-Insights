@@ -41,6 +41,19 @@ TWO DETECTORS, BOTH PROOF-ANCHORED, DELIBERATELY NOT ONE.
   incident, and it can only fire once the operator HAS reported — it is
   impossible for it to punish unavailability.
 
+**WHAT COUNTS AS "REPORTED IN THE WINDOW" IS EVERY INSTANT THE FILL CARRIES,
+NOT ONE MUTABLE FIELD** (2026-09-01). B filtered on ``reported_at`` alone, and
+``prop_journal.insert_fill``'s idempotent UPDATE branch OVERWRITES that field
+with ``now`` on every re-report while preserving ``created_at`` — so a
+corrective re-report could push an already-reported close out of the window it
+explains and latch an ``alert`` banner on a correctly-journaled trade. It did:
+the ``18->19`` pair stood latched for two days over a fill whose first report
+landed 12.1 s INSIDE the window and whose correction landed 5 m 31 s outside
+it. Membership is now ``any`` of :func:`fill_evidence_times`. See
+:func:`assess_balance_move` for the measurement and for the residual — the
+trade-time field ``closed_at`` is populated on only 4 of 41 live fills, so a
+late backfill still usually cannot be dated into the window it repairs.
+
 **B does not require the fills to RECONCILE with the delta, deliberately.**
 Measured on the live journal: the 2026-08-19 snapshot pair moved **+$245.00**
 while the two fills reported in that window summed to **+$235.97**, and the
@@ -221,6 +234,46 @@ def _sl_tp_state() -> Dict[str, Dict[str, Any]]:
     return data if isinstance(data, dict) else {}
 
 
+# ── when is a fill EVIDENCE that the book was reported? ───────────────
+
+# The instants at which a fill row can be placed in time, and what each one
+# actually means. Detector B asks "was anything reported inside this window",
+# so it must consider every instant it HAS rather than one chosen field.
+#
+# ``created_at``   IMMUTABLE — ``prop_journal.insert_fill`` sets it only on the
+#                  INSERT branch, so it is the instant the close was FIRST
+#                  reported and it survives every later correction.
+# ``reported_at``  MUTABLE — the same function's idempotent UPDATE branch
+#                  overwrites it with ``now`` on every re-report. Kept, because
+#                  a fill first reported before the window and re-reported
+#                  inside it genuinely was reported inside it; never trusted
+#                  alone, because it moves.
+# ``closed_at``    The VENUE's own close time, when the report carried it. This
+#                  is the only field that can place a LATE BACKFILL in the
+#                  window it repairs.
+#
+# ``opened_at`` is deliberately NOT here. An opening report is not evidence
+# that a REALIZED move was reported, so counting it would let an open inside
+# the window explain a close that nobody reported — widening the suppression
+# surface to buy nothing this predicate needs.
+_FILL_EVIDENCE_FIELDS = ("created_at", "reported_at", "closed_at")
+
+
+def fill_evidence_times(fill: Dict[str, Any]) -> Dict[str, datetime]:
+    """``{field: instant}`` for each of :data:`_FILL_EVIDENCE_FIELDS` that parses.
+
+    An absent or unparseable field is simply OMITTED — it never contributes a
+    placeholder instant, because a row that cannot be placed in time must not
+    be placed in a window by default (in either direction).
+    """
+    out: Dict[str, datetime] = {}
+    for name in _FILL_EVIDENCE_FIELDS:
+        ts = _parse_iso(fill.get(name))
+        if ts is not None:
+            out[name] = ts
+    return out
+
+
 # ── detector A: a crossed bracket that never got a close report ───────
 
 def assess_crossings(
@@ -310,6 +363,44 @@ def assess_balance_move(
     fill reported in the same second as the snapshot that reflects it counts as
     explaining it — the 2026-07-17 pair in the live table has exactly that
     shape (fill 22:14:08, snapshot 22:14:19).
+
+    A FILL IS PLACED BY EVERY INSTANT IT CARRIES, NOT BY ONE MUTABLE FIELD
+    (2026-09-01). This used to filter on ``reported_at`` alone, and
+    ``prop_journal.insert_fill``'s idempotent UPDATE branch **overwrites**
+    ``reported_at`` with ``now`` on every re-report while preserving
+    ``created_at``. So a corrective re-report — routine on a manual bridge —
+    could move an already-reported close OUT of the window that it explains,
+    and grade a correctly-journaled trade ``unreported`` on a latched
+    ``alert``-severity banner. That is the desensitized-alarm P1 arriving
+    inside the detector built to avoid it, and it was not hypothetical: the
+    live ``18->19`` pair (window ending 2026-08-30T19:33:29.584285Z, delta
+    +$33.34) latched for two days over ``prop_fills`` id 41, whose
+    ``created_at`` 19:33:17.466421Z sits **12.1 s inside** the window and whose
+    ``reported_at`` 19:39:00.972519Z sits 5 m 31 s outside it.
+
+    Membership is therefore ``any`` of :func:`fill_evidence_times` falling in
+    the interval. Re-graded against the live table: of the 18 consecutive
+    snapshot pairs, exactly one verdict changes — ``18->19``, from
+    ``unreported`` to ``explained`` — and the genuine 2026-08-20→08-23
+    −$111.86 gap still grades ``unreported``, which is the control that says
+    this widened the basis without blunting the detector.
+
+    ⚠️ **THE TRADE-TIME HALF IS ONLY AS GOOD AS THE COLUMN, AND THE COLUMN IS
+    MOSTLY EMPTY.** ``closed_at`` is what lets a LATE BACKFILL explain the
+    window it repairs — but it is populated on **4 of 41** live fills (4 of the
+    18 ``closed`` rows). Measured consequence: the original
+    ``BL-20260823`` −$111.86 pair WAS repaired — fill id 33, a 2026-08-22 round
+    trip at −111.77 — and still grades ``unreported``, because that row carries
+    the close time only in its prose ``reason`` and not in ``closed_at``. This
+    function cannot invent the instant; capturing it is a report-path fix,
+    already filed as
+    ``BL-20260825-PROP-FILLS-RECORD-WHEN-THEY-WERE-REPORTED-NOT-WHEN-THEY-TRADED``
+    (an INGEST gap, not a schema one — both columns already exist). Do not read
+    a persistent ``unreported`` as proof of a missing trade without checking
+    whether a backfill exists that simply cannot be dated.
+
+    ``fills_in_window_bases`` names WHICH field placed each counted fill, so
+    the verdict states its own derivation instead of asserting a bare count.
     """
     out: Dict[str, Any] = {
         "balance_state": "insufficient_snapshots",
@@ -321,6 +412,10 @@ def assess_balance_move(
         "window_start": None,
         "window_end": None,
         "fills_in_window": None,
+        # `None` (we never counted — an early return) is not `{}` (we counted
+        # and no instant matched). Both keys are always PRESENT, so a consumer
+        # never branches on absence.
+        "fills_in_window_bases": None,
     }
     if len(snapshots) < 2:
         return out
@@ -359,11 +454,19 @@ def assess_balance_move(
         return out
 
     in_window = 0
+    bases: Dict[str, int] = {}
     for f in fills:
-        ts = _parse_iso(f.get("reported_at"))
-        if ts is not None and start < ts <= end:
-            in_window += 1
+        matched = [
+            name for name, ts in fill_evidence_times(f).items()
+            if start < ts <= end
+        ]
+        if not matched:
+            continue
+        in_window += 1
+        for name in matched:
+            bases[name] = bases.get(name, 0) + 1
     out["fills_in_window"] = in_window
+    out["fills_in_window_bases"] = bases
     out["balance_state"] = "explained" if in_window else "unreported"
     return out
 
@@ -609,6 +712,7 @@ __all__ = [
     "stale_fill_accounts",
     "assess_balance_move",
     "assess_crossings",
+    "fill_evidence_times",
     "describe_balance",
     "describe_crossing",
 ]
