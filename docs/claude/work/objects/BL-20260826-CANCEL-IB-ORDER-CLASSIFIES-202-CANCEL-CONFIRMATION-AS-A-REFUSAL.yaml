@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260826-CANCEL-IB-ORDER-CLASSIFIES-202-CANCEL-CONFIRMATION-AS-A-REFUSAL
+type: question
+parent_intent: null
+title: |-
+  cancel-ib-order labels IBKR 202 (the cancel CONFIRMATION) as "venue REFUSED", and cites 10147 whatever code arrived
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-26T04:40:00Z'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  _cancel_error_capture (or its consumer) distinguishes IBKR INFORMATIONAL codes - 202 at minimum - from genuine rejections, so a 202 renders as a successful cancel rather than retCode 1 / 'venue REFUSED'; and the 10147 note is emitted ONLY when the captured code is 10147. A test asserts both: a captured 202 does not render as a refusal, and a captured non-10147 refusal does not print the 10147 sentence.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260826-CANCEL-IB-ORDER-CLASSIFIES-202-CANCEL-CONFIRMATION-AS-A-REFUSAL
+  status_at_migration: open
+  severity: high
+  tier: '1'
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260826-CANCEL-IB-ORDER-CLASSIFIES-202-CANCEL-CONFIRMATION-AS-A-REFUSAL
+verdict: null

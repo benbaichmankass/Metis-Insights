@@ -1,0 +1,36 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260823-ALPACA-BYBIT-SWEEPS-EXPOSE-PRICES-BUT-DO-NOT-GRADE
+type: question
+parent_intent: null
+title: |-
+  The price axis is PRODUCED on all three venues but CONSUMED on only one -- the Alpaca and Bybit naked sweeps now carry stop_prices and never grade them, and bybit_2 is the mainnet account
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-23'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  ["_check_broker_naked_bybit_positions grades stop_prices through grade_protection_price and declares the verdict in its summary up front (a 'stop_price_diverges' key present at 0, so 'we looked and found none' cannot read as 'we did not look'). DETECT-ONLY, asserted by a test that the block calls none of cancel / modify_open_order / place_protective / _attempt_naked_autoprotect. The QUANTITY verdict must be byte-unchanged -- assert it, do not assume it.", '_check_broker_naked_equity_positions does the same for Alpaca, with the same detect-only assertion and the same byte-unchanged quantity verdict.', "The tick tolerance for each venue resolves through profile_loader.tick_size_for (or a stated equivalent that likewise returns None on an unknown symbol). A symbol with no resolvable tick must grade 'no_tick_size' and NOT 'agrees' -- there is a test for this on the IB side; mirror it rather than re-deriving it.", "A DISCRIMINATING run on live payloads: at least one correctly-bracketed position graded clean and at least one divergence flagged in the SAME run, per venue where the live book supplies both. If today's book supplies no divergence on a venue, say so explicitly and state the denominator -- a run that flags nothing over an unstated population is not evidence of cleanliness.", 'State the measured divergence population per venue when this closes: how many open positions were graded, how many diverged, and how many could not be graded (unreadable price, unknown tick). A close that reports only the divergences without the denominator repeats the sub-class-C failure this programme keeps naming.']
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260823-ALPACA-BYBIT-SWEEPS-EXPOSE-PRICES-BUT-DO-NOT-GRADE
+  status_at_migration: open
+  severity: high
+  tier: '2 (order-path adjacent: it decides whether a live position is graded protected)'
+  opened_by: |-
+    full-system-audit-2026-08-23 (BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND criterion 5 residual)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260823-ALPACA-BYBIT-SWEEPS-EXPOSE-PRICES-BUT-DO-NOT-GRADE
+verdict: null

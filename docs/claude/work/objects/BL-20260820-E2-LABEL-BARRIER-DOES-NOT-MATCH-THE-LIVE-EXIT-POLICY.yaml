@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260820-E2-LABEL-BARRIER-DOES-NOT-MATCH-THE-LIVE-EXIT-POLICY
+type: question
+parent_intent: null
+title: |-
+  Every E2 artifact scores label_hold against a 2.0R upper barrier while the live ict_scalp legs take profit at 1.5R and NO harness trade ever realises above it — the counterfactual being scored is one the fleet cannot execute
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Re-run the E2 ladder with the label's upper barrier MATCHED to the leg's own tp_at_r (read from config/strategies.yaml, never hardcoded, so a leg whose target changes does not silently de-match), and report it BESIDE the tp_r=2.0 arm rather than replacing it -- the two answer different questions and the 2.0 arm is the comparable history. Do NOT fold this into the same run as any gate or feature change: it is a substrate change and confounding it with another would make both uninterpretable, which is the error the horizon arm's own expected_hold_bars pinning exists to avoid. Add an assertion (or a loud manifest field) in build_intrabar_exit_panel.py recording BOTH the label barrier and the leg's live tp_at_r, so a future mismatch is visible in the artifact instead of needing to be re-derived from two config files. Closes when an artifact states the pair and a matched-barrier arm exists.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260820-E2-LABEL-BARRIER-DOES-NOT-MATCH-THE-LIVE-EXIT-POLICY
+  status_at_migration: open
+  severity: high
+  tier: '1'
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260820-E2-LABEL-BARRIER-DOES-NOT-MATCH-THE-LIVE-EXIT-POLICY
+verdict: null

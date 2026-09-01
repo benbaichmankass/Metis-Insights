@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260823-BACKLOG-TRIAGE-SEES-47-PERCENT-OF-THE-LIVE-ROWS
+type: question
+parent_intent: null
+title: |-
+  A review session filtering `status == "open"` sees 174 of 371 live rows, and ageing by `opened_at` silently drops 92 — the backlog's own triage has an unstated denominator
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-23'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  ["One shared helper that answers 'which rows are LIVE?' and 'when was this row opened?', imported by every consumer instead of each re-deriving it — the same single-owner shape src/runtime/provenance.py has for measured-vs-manufactured. Today at least three readers (check_backlog_criteria.py, the review skills, ad-hoc session probes like the one that found this) each pick their own status filter and date key.", '`kept_open` is either folded into the live set everywhere or given a documented meaning that justifies excluding it. Right now it is 197 rows — larger than `open` — with no statement of what distinguishes them, and the sampled ones read as ordinary live work.', "The `opened` vs `opened_at` split is resolved: either normalise the 92 rows to `opened_at` (a data migration, and note it will rewrite those rows — use scripts/ops/backlog_append.py's round-trip discipline so the diff does not re-attribute the whole file), or have the shared accessor read both and say so. Do NOT leave a reader to discover it.", 'check_backlog_criteria.py grows a check for the SHAPE split, not just field presence: a row whose date key or status value is outside the declared vocabulary should fail loudly, because both splits above passed every existing guard while being invisible.']
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260823-BACKLOG-TRIAGE-SEES-47-PERCENT-OF-THE-LIVE-ROWS
+  status_at_migration: open
+  severity: high
+  tier: 1 (consumers + a guard; the DATA is fine, the readers are not)
+  opened_by: full-system-audit-2026-08-23
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260823-BACKLOG-TRIAGE-SEES-47-PERCENT-OF-THE-LIVE-ROWS
+verdict: null

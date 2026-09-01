@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: SRQ-20260715-REALMONEY-ALLOC-BENCHMARK
+type: question
+parent_intent: null
+title: |-
+  [recurring] Real-money allocation benchmark — does a ready-for-live portfolio beat the incumbent live book (bybit-only) on risk-adjusted PnL, incl. regime diversification?
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: '2026-07-15T06:30:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  RECURRING — not closed by a single run. Retire only if the operator drops the real-money-allocation gate. Each run records real_money_allocation_benchmark in the response and refreshes this item's verdict.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/performance-review-backlog.json
+  row_id: SRQ-20260715-REALMONEY-ALLOC-BENCHMARK
+  status_at_migration: kept_open
+  severity: null
+  tier: '3'
+  opened_by: claude (operator directive 2026-07-15)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/performance-review-backlog.json#SRQ-20260715-REALMONEY-ALLOC-BENCHMARK
+verdict: null

@@ -1,0 +1,36 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: PB-20260817-SPRINT-LOG-TEMPLATE-HAS-NO-GUARD
+type: commitment
+parent_intent: null
+title: The sprint-log format is documented as MANDATORY and nothing enforces it
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-17'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Either (a) a CI check that every file added under docs/sprint-logs/ carries all 14 '## ' section names from the template -- diff-scoped so the ~200 existing logs are grandfathered, the same shape as diagnostic-provenance-guard -- with a self-test proving it FAILS on a log missing a section (not merely passes on a good one); or (b) an explicit decision, recorded in CLAUDE.md, that the template is advisory rather than mandatory, so the hierarchy stops claiming an enforcement that does not exist. Either resolves it; the current state -- 'mandatory' with zero enforcement and measured drift -- is the one that should not persist.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/performance-review-backlog.json
+  row_id: PB-20260817-SPRINT-LOG-TEMPLATE-HAS-NO-GUARD
+  status_at_migration: open
+  severity: low
+  tier: '1'
+  opened_by: session m31-p5-rr (found by non-compliance in my own log)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/performance-review-backlog.json#PB-20260817-SPRINT-LOG-TEMPLATE-HAS-NO-GUARD
+verdict: null
+next_action_at_migration: |-
+  A review session picks (a) or (b). If (a): grandfather by diff scope, and check NAMES not a count. Cheap either way; the measurement above is the whole investigation.

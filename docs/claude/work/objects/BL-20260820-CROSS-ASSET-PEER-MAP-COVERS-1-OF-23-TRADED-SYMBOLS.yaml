@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260820-CROSS-ASSET-PEER-MAP-COVERS-1-OF-23-TRADED-SYMBOLS
+type: question
+parent_intent: null
+title: |-
+  cross-asset peer coverage: the CONFIG half is done (5 of 6 live crypto symbols carry measurement-backed peers, every uncovered name explicitly declared absent) and the MEASUREMENT half is not -- 16 non-crypto traded symbols have no correlation data at all, so no peer can be chosen for them
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  NARROWED 2026-08-20 to the half that is still open -- do NOT close this on the config work, which is already done. Closed when a correlation measurement exists for the non-crypto book (the 16 equity/ETF/futures names above) and for AVAXUSDT, on a stated basis and window matching comms/research/crypto_correlation_2026-08-18.json's shape (daily log returns, both a 90d and a 365d window, n recorded per pair), AND config/cross_asset.yaml is updated from it so each of those symbols either carries measurement-backed peers or an explicit 'measured, no suitable peer' entry. A peer chosen on intuition, sector membership, or asset-class kinship does NOT close this. If the measurement shows a symbol has no peer above a stated rho floor, record the floor and the finding -- that is a close, not a failure. If this row is ever split, the equity/ETF correlation gap must land on the successor row before this one closes: it is currently the only place that gap is written down.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260820-CROSS-ASSET-PEER-MAP-COVERS-1-OF-23-TRADED-SYMBOLS
+  status_at_migration: open
+  severity: medium
+  tier: '1'
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260820-CROSS-ASSET-PEER-MAP-COVERS-1-OF-23-TRADED-SYMBOLS
+verdict: null

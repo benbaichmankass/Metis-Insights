@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN
+type: commitment
+parent_intent: null
+title: |-
+  expectancyR and dollar PnL disagree in SIGN on multiple legs — trend_donchian_ada_4h reports 62.6R expectancy, ict_scalp_5m reports +34.84R on real money against -$0.54
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-21T07:05:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Over a 30d window of at least 20 closed trades, no per-strategy expectancyR exceeds a stated plausible bound without an explicit outlier annotation, and the real-money totalR sign matches its totalPnl sign.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/performance-review-backlog.json
+  row_id: PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN
+  status_at_migration: open
+  severity: high
+  tier: 1 (measurement)
+  opened_by: claude (/system-review 2026-08-21, session dcf5220b)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/performance-review-backlog.json#PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN
+verdict: null
+next_action_at_migration: |-
+  Tier-1: floor or reject the R denominator when |entry - stop| is below a venue-tick-derived minimum, and report rTradeCount alongside a max|R| so a single outlier is visible. Then re-check whether any past promotion decision rested on an R aggregate containing one.

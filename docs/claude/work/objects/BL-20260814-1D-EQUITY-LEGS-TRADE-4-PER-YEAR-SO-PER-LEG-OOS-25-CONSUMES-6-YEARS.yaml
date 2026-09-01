@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260814-1D-EQUITY-LEGS-TRADE-4-PER-YEAR-SO-PER-LEG-OOS-25-CONSUMES-6-YEARS
+type: question
+parent_intent: null
+title: |-
+  The 1d equity legs produce ~4 backtest entries/year over 16.5 years of data — the OOS window is capped by the STRATEGY'S TRADE RATE, not by data depth or live accrual
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-14T12:20:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  (1) The measured trade rate (IWM 65 trades / 6,028 calendar days = 3.94 entries/year; SPLG 72 / 6,023 = 4.37) and the measured time in market (IWM 2,546 of 6,028 calendar days = 42.2%; SPLG 2,863 of 6,023 = 47.5%) are recorded where a future session meets the constraint -- beside the legs' matrix cells or in the M20 memo -- so nobody re-derives 'the window is thin' as a data or accrual problem a third time. (2) An explicit decision is recorded on what evidence standard applies to a ~4-trade/year leg, given per-leg OOS >= 25 leaves ~32 as the ceiling and pooling is already ruled out: either the standard is met as-is and these legs are simply always near the floor, or the fleet is declared ungradeable to that standard and the reason is written down. It must NOT stay implicit. (3) The SCHA frame's provenance is established -- which builder writes it, on what cadence -- or SCHA is added to the builder list. A live leg trading a frame no documented job refreshes is a staleness risk independent of M20. (4) Any future claim about a leg's trade count states whether it is a BACKTEST or LIVE count; conflating them is what produced the wrong answer here.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260814-1D-EQUITY-LEGS-TRADE-4-PER-YEAR-SO-PER-LEG-OOS-25-CONSUMES-6-YEARS
+  status_at_migration: kept_open
+  severity: medium
+  tier: 1 (measurement + evidence-standard question; no live path)
+  opened_by: claude (M20 session 2026-08-14)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260814-1D-EQUITY-LEGS-TRADE-4-PER-YEAR-SO-PER-LEG-OOS-25-CONSUMES-6-YEARS
+verdict: null

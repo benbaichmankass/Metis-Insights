@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260819-BOARD-BODY-OVERWRITTEN-BY-ISSUE-WRITE-UPDATE
+type: question
+parent_intent: null
+title: |-
+  issue_write method=update REPLACES an issue body — I destroyed the coordination board's description trying to post a merge claim
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  (2) DONE 2026-08-20 — docs/claude/coordination-board.md carries a top-level section naming add_issue_comment as the tool and issue_write method=update as the destructive one, the protocol names the tool inline at step 2, and .claude/skills/session-coordination/SKILL.md carries the same warning. (1) RE-SCOPED so it is resolvable either way, because it previously depended on an unverified premise: IF GitHub's 'edited' dropdown holds the pre-2026-08-19 body, restore it and delete the reconstruction notice; IF it does not, then the reconstruction IS the record and the criterion is met instead by syncing the current body back into docs/claude/coordination-board.md (restoring the angle brackets the body had to replace with braces). Either way the end state is one body that matches the file. (3) DEDUP: A same-day duplicate row filed by the concurrent session under an id ending -by-update-verb (deliberately not written in full here: it is not on main yet, and naming an unfiled id is the dangling reference check_backlog_refs exists to stop — it caught exactly that on this row) is the same finding and is not yet on main. Per the dedup precedent set on this backlog the EARLIER row (this one) survives and the later one's distinct provenance is merged in — done above. Whoever lands second should drop their row rather than adding a seventh id for a sixth occurrence. FALSIFIER UNCHANGED: if this recurs AFTER 2026-08-20 despite the doc naming the tool, the documentation fix is refuted and the row should be re-scoped to a mechanical guard rather than more prose.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260819-BOARD-BODY-OVERWRITTEN-BY-ISSUE-WRITE-UPDATE
+  status_at_migration: open
+  severity: high
+  tier: '1'
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260819-BOARD-BODY-OVERWRITTEN-BY-ISSUE-WRITE-UPDATE
+verdict: null

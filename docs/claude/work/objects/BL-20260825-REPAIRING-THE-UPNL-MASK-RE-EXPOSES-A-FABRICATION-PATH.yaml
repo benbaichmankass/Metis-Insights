@@ -1,0 +1,36 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260825-REPAIRING-THE-UPNL-MASK-RE-EXPOSES-A-FABRICATION-PATH
+type: question
+parent_intent: null
+title: |-
+  ib_paper uPnL currently reads 'unavailable' because of a SEPARATE defect, and that defect is the only thing suppressing a mark-price fallback with a known fabrication history — fixing the mask without fixing provenance re-opens BL-20260807
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-25T09:50:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Before the clientId collision is repaired: establish what markprice_local would produce for ib_paper against exchange truth (requires the ib_paper exchange-position read to work, or an equivalent broker-side read), and confirm the multiplier handling that produced BL-20260807's $119,490. Then either (a) restore the fallback WITH its provenance label surfaced and a bound on the estimate, or (b) leave it declaring 'unavailable' deliberately and record THAT as the intended state rather than as a bug. Closing this row by making the number appear again, without either establishing its correctness or declaring it an estimate, is the failure mode this row exists to prevent.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260825-REPAIRING-THE-UPNL-MASK-RE-EXPOSES-A-FABRICATION-PATH
+  status_at_migration: open
+  severity: high
+  tier: '2'
+  opened_by: |-
+    claude (session_01X2zMCh, Lane 0 closeout; found by asking what happens AFTER 0.5 is fixed)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260825-REPAIRING-THE-UPNL-MASK-RE-EXPOSES-A-FABRICATION-PATH
+verdict: null

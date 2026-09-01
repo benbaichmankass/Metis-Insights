@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED
+type: question
+parent_intent: null
+title: |-
+  rr_floor exists in both harnesses and ZERO live units — a passing sweep cell could not have been declared
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Basis: the grep counts above and the guard's first run, both 2026-08-18. RESOLVED when either (a) a sweep on some leg shows rr_floor clearing the gate AND the lever is implemented in the live units so a declare is real, or (b) the operator records that rr_floor stays research-only, in which case the exemption text should say so instead of pointing here as pending work. Removing it from LEVERS is never the resolution.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED
+  status_at_migration: open
+  severity: high
+  tier: 3 (implementing it in the units is live exit-path work)
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED
+verdict: null

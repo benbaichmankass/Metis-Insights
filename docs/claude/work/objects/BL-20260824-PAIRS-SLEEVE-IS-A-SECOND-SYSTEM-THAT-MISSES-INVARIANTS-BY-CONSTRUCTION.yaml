@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: |-
+  BL-20260824-PAIRS-SLEEVE-IS-A-SECOND-SYSTEM-THAT-MISSES-INVARIANTS-BY-CONSTRUCTION
+type: question
+parent_intent: null
+title: |-
+  The pairs sleeve is an isolated order path that silently misses every cross-cutting invariant the main pipeline acquired — 79 of 79 closes carry no provenance stamp
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-24T18:40:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  (1) The pairs sleeve stamps provenance on close, satisfying the same criteria as BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-UNMEASURED-ONE. (2) Enumerate every cross-cutting invariant the main pipeline enforces and record, per invariant, whether the sleeve satisfies it, is deliberately exempt (with the reason), or is missing it. (3) That enumeration becomes a CI guard so a future isolated path cannot silently skip them — presence-only markers are not acceptable (the new-table-wiring-guard lesson: a guard cheaper to lie to than to satisfy is worse than none). Keep the sleeve RUNNING throughout — it is bybit_1 demo-only, so in-place work carries no real-money risk.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: |-
+    BL-20260824-PAIRS-SLEEVE-IS-A-SECOND-SYSTEM-THAT-MISSES-INVARIANTS-BY-CONSTRUCTION
+  status_at_migration: open
+  severity: medium
+  tier: '2'
+  opened_by: claude (/system-review 2026-08-24, structural pass — operator-directed)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260824-PAIRS-SLEEVE-IS-A-SECOND-SYSTEM-THAT-MISSES-INVARIANTS-BY-CONSTRUCTION
+verdict: null

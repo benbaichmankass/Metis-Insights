@@ -1,0 +1,40 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER
+type: question
+parent_intent: null
+title: |-
+  IBClient.close ABANDONS the market order it just placed when the flatten is not confirmed flat -- so a failed close leaves MORE resting sell orders than it started with, and every retry adds one
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-16T11:20:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  1. SHIPPED: close() cancels its own order on the not-confirmed path and declares the outcome three ways -- cancelled / already_filled (a fill raced the cancel; nothing rests and the position may now be FLAT) / cancel_failed (an order STILL RESTS). Never collapsed to a boolean.
+  2. SHIPPED: the symbol-wide cancel returns {seen, cancelled, failed, account_wide_seen} and WARNs when the account holds more legs than this session can see. account_wide_seen is None when that read failed -- not zero.
+  3. NOT DONE, deliberately: the symbol-wide READ is not widened to reqAllOpenOrders. Cancelling is symbol-wide and one IB symbol's legs span several trades, so widening the read before the cancel is TRADE-scoped would let one partial close strip every sibling's protection -- a bigger blast radius than this bug. That is criterion 2/4 of BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY.
+  4. OPEN: no wire exists to cancel ONE IB order. The allowlist has cancel-stale-tpsl-legs (Bybit only). Needed for the existing stranded order 6, and blocked on an unverified question -- IB documents cancellation as own-client-only unless the client holds the gateway MASTER client id, and the placing ops session has exited with a PID-derived id. reqGlobalCancel would work but cancels everything including the stop.
+  5. LIVE VERIFICATION: after deploy, a failed close must leave ZERO abandoned orders on /api/diag/ib_open_orders. Until that read exists this is untested against a real gateway.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER
+  status_at_migration: open
+  severity: high
+  tier: 2 (order path)
+  opened_by: |-
+    claude (exit-eval-interval session, operator-directed after the ib_paper/MGC flatten failed)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER
+verdict: null

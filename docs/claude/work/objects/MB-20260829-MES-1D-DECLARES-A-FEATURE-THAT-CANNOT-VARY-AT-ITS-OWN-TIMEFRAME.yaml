@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: MB-20260829-MES-1D-DECLARES-A-FEATURE-THAT-CANNOT-VARY-AT-ITS-OWN-TIMEFRAME
+type: commitment
+parent_intent: null
+title: |-
+  mes-regime-1d-lgbm-v2 listed hour_of_day as a feature on a DAILY bar, so the dataset audit correctly flagged it dead and the model had not trained in 34 days while the cycle reported rc=0
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-29T17:50:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  TWO things, and the first alone does not close it. (a) mes-regime-1d-lgbm-v2 TRAINS: a training_cycle.jsonl row with status manifest_ok and a fresh registered run for that model_id dated after this change deploys — a passing YAML parse is NOT that observation, and neither is the absence of the audit flag. (b) The other five enforced skips each have a NAMED cause read from dataset_audit.jsonl (not inferred from this one), and the 7-stale / 2-never-trained population is either explained or reduced. Explicitly NOT sufficient: fixing this manifest and reporting the trainer healthy, since 67 models were already training while these 9 were stuck and rc=0 reported neither.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/ml-review-backlog.json
+  row_id: MB-20260829-MES-1D-DECLARES-A-FEATURE-THAT-CANNOT-VARY-AT-ITS-OWN-TIMEFRAME
+  status_at_migration: open
+  severity: medium
+  tier: 1 (ML manifest on a SHADOW-stage head; no order path, no advisory influence)
+  opened_by: /system-review 2026-08-29
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/ml-review-backlog.json#MB-20260829-MES-1D-DECLARES-A-FEATURE-THAT-CANNOT-VARY-AT-ITS-OWN-TIMEFRAME
+verdict: null
+next_action_at_migration: |-
+  Fix shipped in the /system-review PR #10414. After merge + the trainer's git-sync, read training_cycle.jsonl for a manifest_ok on mes-regime-1d-lgbm-v2, then pull the untruncated dataset_audit rows for the remaining five (query them one manifest at a time — the whole-tail read overflows the relay's comment cap, which is how their causes were lost this run).

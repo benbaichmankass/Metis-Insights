@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260816-IB-PROTECTION-CHECKS-GRADE-STOPS-ONLY-A-STRIPPED-TP-IS-INVISIBLE
+type: question
+parent_intent: null
+title: |-
+  MGC trade 4487 has its stop but NO take-profit leg at the broker — confirmed by rows, and every protection check reads the position as fully covered
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-16T10:45:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  (a) The exit-coverage check grades the BRACKET the trade declared, not merely the presence of a stop — a position whose journal row carries a takeProfit but whose broker OCA group holds no corresponding limit leg is DETECTED and alerted, with a test that fails on the stop-only-105-lot shape measured here; AND (b) trade 4487 reaches a recorded disposition (operator-chosen), noting that a limit at the original TP is marketable today. Detection is the durable half and must not be skipped in favour of only fixing 4487.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260816-IB-PROTECTION-CHECKS-GRADE-STOPS-ONLY-A-STRIPPED-TP-IS-INVISIBLE
+  status_at_migration: open
+  severity: medium
+  tier: 2 (exit-coverage detection)
+  opened_by: claude (sysrev-0816)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260816-IB-PROTECTION-CHECKS-GRADE-STOPS-ONLY-A-STRIPPED-TP-IS-INVISIBLE
+verdict: null

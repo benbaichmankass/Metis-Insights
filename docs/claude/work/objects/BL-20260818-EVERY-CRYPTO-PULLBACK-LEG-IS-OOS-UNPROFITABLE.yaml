@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE
+type: commitment
+parent_intent: null
+title: |-
+  All 6 crypto pullback legs are unprofitable out-of-sample — the '13 of 42 cells pass' headline sits on a family with no OOS edge
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  ["Per leg, IN THIS ORDER: (1) a deeper dive recorded, (2) a fine-tuning ATTEMPT run and its M8 sweep artifact on record, (3) only then a disposition for whatever still fails. Operator directive 2026-08-23, canonical in CLAUDE-RULES-CANONICAL.md § 'Tune before demote'. A demotion proposed without step 2 is out of order regardless of how bad the base looks.", 'The geometry blocker clears FIRST for any leg whose take-profit is set by the venue cap rather than a declared target — tuning a leg whose reward side is chosen by an exchange boundary measures the cap, not the strategy. That is xrp_pullback_2h (R:R 0.687) and ada_pullback_2h (0.843) today; see BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT.', 'Declaring an exit lever still does NOT resolve this row: 11 of the 13 passing Path-A cells leave the leg losing in at least one window. That finding is unchanged and is the reason the dive has to be deeper than the exit axis.', 'If a leg is retuned its cells must be RE-RUN, not re-read.', 'Extending the measurement to the 12 uncorpused equity/ETF/futures pullback legs is separate work and is not a condition of closing this.']
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE
+  status_at_migration: open
+  severity: critical
+  tier: 3 (strategy dispositions)
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE
+verdict: null
+next_action_at_migration: |-
+  ✅ OPERATOR DISPOSITION RECORDED 2026-08-23T04:3xZ (asked directly, four options offered: demote-5-to-shadow / kill / keep-and-accept / retune-first): **RETUNE FIRST, THEN RE-DECIDE.** The six legs stay `execution: live` while a retune runs; the disposition per leg is deferred to after it. ⚠️ THE ROW'S OWN CONSTRAINT BINDS THE RETUNE: a retuned leg's cells must be RE-RUN, not re-read, and a Path-A delta must be added to its own leg's OWN base (that arithmetic is what turned '13 of 42 cells pass' into 'the family has no OOS edge'). MEASURED THE SAME DAY, because the headline overstates the money at risk: of the 5 OOS-negative legs, the WORST (htf_pullback_trend_2h, -14.61R) routes ONLY to bybit_1 (account_class PAPER), as does sol_pullback_2h (-2.58R). Three carry consequence — eth_pullback_2h (-6.80R) and xrp_pullback_2h (-0.59R) both route to bybit_2 (REAL MONEY), and eth_pullback_prop_2h (-11.78R) routes to breakout_1 (PROP). ⚠️ FLAGGED TO THE OPERATOR, NOT YET DECIDED: the PROP leg is the asymmetric one. A prop breach is TERMINAL ($150 daily-loss limit, $4,700 static-DD floor on a $5k account), not a drawdown you retune back from — so 'keep live while retuning' has a different shape there than on the paper legs. ✅ CARVE-OUT TAKEN 2026-08-23 (Tier-3, operator-approved): eth_pullback_prop_2h demoted live -> shadow in config/strategies.yaml. The other FIVE legs stay live under the retune-first disposition. ⚠️ This REVERSES an operator-approved promotion — the leg was promoted shadow -> live on 2026-06-25 on corrected-swap evidence; the reversal rests on NEW evidence (OOS -11.78R) plus the prop asymmetry, not on that promotion having been wrong. ⚠️ Two honest mitigations that were NOT in the original warning: the prop venue is a MANUAL-TICKET bridge and the operator gates each ticket, so nothing auto-executed; and the leg's paper routing on bybit_1 goes shadow too (the gate is per-STRATEGY, not per-account). Revert only after a retune whose cells were RE-RUN clears this leg's own base.

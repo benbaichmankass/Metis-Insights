@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260816-M21-ENTRY-SWEEPS-STILL-CALL-BASE-ARGS-POSITIONALLY
+type: commitment
+parent_intent: null
+title: |-
+  Both M21 entry sweeps drop the live TP cap; the M21 matrix has 27 DECISION cells and no geometry tracking
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-16'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  ALL THREE, each observable: (1) `grep -n 'resample)' scripts/research/m21_entry_sweep.py scripts/research/m21_entry_head_round.py` returns NO base_args call — both pass a 6th positional tp_cap_pct — AND each file's --tp-cap-pct argparse default is 0.099, mirroring m20_flip_replay_sweep.py; (2) an M21 sweep run emits `tp_geometry: live_parity_capped` for a donchian/pullback leg, produced by calling m20_fleet_exit_sweep.tp_geometry_for rather than a re-derived label — the same A/B that verified the M20 fix (relay #9534) shows the capped and uncapped arms differ in TRADE COUNT, not just in verdict, which is what proves the cap reached the harness; (3) the count this row could not establish is established: the number of the 27 M21 decision cells (23 shipped + 4 passed_unshipped) that sit on a LIVE_TP_CAPPED_FAMILIES leg, derived from M21's own row->leg mapping and NOT from classify() over the matrix's composite `strategy` labels. A restated figure with no stated mapping does not close this.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260816-M21-ENTRY-SWEEPS-STILL-CALL-BASE-ARGS-POSITIONALLY
+  status_at_migration: kept_open
+  severity: medium
+  tier: '1'
+  opened_by: session_01WekhceSkxLeuDLuXJMionS (M20 overnight)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260816-M21-ENTRY-SWEEPS-STILL-CALL-BASE-ARGS-POSITIONALLY
+verdict: null
+next_action_at_migration: |-
+  (1) Apply the M20 fix to both files: add --tp-cap-pct defaulting to 0.099 and pass it as the 6th positional to base_args. The geometry-stamp derivation is now a shared function, m20_fleet_exit_sweep.tp_geometry_for (extracted 2026-08-16), so both should stamp via that rather than re-deriving -- a third copy is how the 2026-08-10 fleet-sweep fix failed to reach its siblings in the first place. (2) Establish the real capped-family denominator over the 27 decision cells using M21's own row->leg mapping, and split the composite rows if that mapping does not exist. (3) Decide whether M21 needs an evidence-vintage surface; today nothing reports that these cells are conditioned on a no-take-profit book. None of this is Tier-3: the sweeps are research tooling and the remedy is re-measurement, not a config change. But re-measurement may move a 'shipped' entry cell, and THAT adjudication is the operator's.

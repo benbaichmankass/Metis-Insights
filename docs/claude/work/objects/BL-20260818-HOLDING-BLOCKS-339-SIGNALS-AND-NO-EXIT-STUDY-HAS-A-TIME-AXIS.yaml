@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260818-HOLDING-BLOCKS-339-SIGNALS-AND-NO-EXIT-STUDY-HAS-A-TIME-AXIS
+type: question
+parent_intent: null
+title: |-
+  339 signals were refused because a position was already open — and every exit study to date compares R, never R per unit of TIME
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Basis: the 1000-row journal scan above, window verified to cover the live hold, refusal reasons read from notes.reason rather than inferred. RESOLVED when an exit study reports R PER DAY HELD alongside R — specifically time-to-reach-X%-of-cap versus time-from-X-to-exit, which needs the per-bar path the summary emitter does not carry — AND that study covers the four legs where occupancy actually binds, which first requires an equity/ETF corpus on the trainer. Do NOT close this by adding a time column to the crypto-only study: the crypto legs are where the mechanism does NOT bite.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260818-HOLDING-BLOCKS-339-SIGNALS-AND-NO-EXIT-STUDY-HAS-A-TIME-AXIS
+  status_at_migration: open
+  severity: high
+  tier: 1 (measurement gap); any resulting lever is Tier-3
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260818-HOLDING-BLOCKS-339-SIGNALS-AND-NO-EXIT-STUDY-HAS-A-TIME-AXIS
+verdict: null

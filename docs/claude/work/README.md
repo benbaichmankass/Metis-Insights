@@ -45,9 +45,72 @@ filed through `scripts/ops/backlog_append.py::append_row`, never by hand. **What
 must KNOW before it plans** is still `docs/claude/OPEN-ITEMS.json`. This store is neither —
 it is what is being *worked*, and what it depends on.
 
-⚠️ **Seeded 2026-09-01 with the operating-layer build's own phases and nothing else.** The
-carried rows — the ~572 not-closed backlog items, the registers, the live legs — migrate in
-**Phase C, together with the WIP ceiling**, deliberately: rows arriving without a cap would
-render as hundreds of things in flight, which is the condition the redesign exists to end.
-Until then this store is **not** a complete picture of the system's work, and must not be
-read as one.
+## The migration — what landed, and what it does NOT mean
+
+**Phase C migrated the carried rows on 2026-09-01, together with the WIP ceiling**, because
+rows arriving without a cap would render as hundreds of things in flight — the condition the
+redesign exists to end.
+
+Measured at migration (population = rows with `status` in `open`/`kept_open`, across the four
+review backlogs; run `python3 scripts/ops/migrate_backlog_to_work_objects.py` to re-measure):
+
+| Source | Carried in | Of total |
+|---|---|---|
+| `health-review-backlog.json` | 497 | 1,062 |
+| `performance-review-backlog.json` | 45 | 111 |
+| `ml-review-backlog.json` | 22 | 106 |
+| `research-review-backlog.json` | 11 | 12 |
+| **Total migrated (bulk pass)** | **575** | 1,291 |
+
+Store afterwards: **584 objects, 1 `in_flight`.** (575 from the bulk pass + the build's own
+8 phases + 1 for a row filed later in the same session — the migration is idempotent and
+picks up newly-carried rows on a re-run, skipping every object that already exists so a
+hand-added edge or owner survives.)
+
+⚠️ **READ THE `lifecycle`, NOT THE COUNT.** 584 objects is not 584 things in flight, and a
+view that renders it that way has misread the store. Every migrated row arrived `dormant` —
+**carried, not started, and not queued**. A row becomes `in_flight` only when given the three
+things migration deliberately does not give it: an **owner**, a real dependency **edge**, and
+a place under an **intent**.
+
+⚠️ **`blocked_on: []` on a migrated row is NOT the claim that nothing blocks it.** Each one
+carries `blocked_on_basis: NOT_ASSESSED` saying exactly that. No edge was derived in bulk and
+none is claimed. **Write a true edge before moving a row out of `dormant`** — an invented edge
+is read by the constraint computation as a real blocker, and *a false blocker is worse than a
+missing one*: on 2026-09-01 three edges written as `object: WO-PHASE-A`, when the real
+dependency was "the store exists", made the graph report two phases blocked that were
+available.
+
+**Absences were carried through, not filled in.** Of the 575: 39 have no title, 154 no
+`opened_at`, and 51 no `resolution_criteria` — the last of these get a loud `⚠️ UNKNOWN`
+done-condition, because an object that cannot say what would end it can never be finished,
+only abandoned.
+
+**The backlogs were not rewritten.** The migration reads them and never opens one for writing;
+they were byte-identical after the run. New findings are still filed there through
+`scripts/ops/backlog_append.py::append_row`, never by hand and never here — the backlog row
+stays the state of record for the FINDING, while the object is the state of record for the
+WORK of dealing with it.
+
+## The ceiling (A5) — enforced, not advisory
+
+`scripts/ci/check_wip_ceiling.py` **refuses a ninth `in_flight` object.** `waiting` is
+deliberately free: a thing blocked on an operator decision or an external event is not
+consuming the attention the ceiling rations, and making the ceiling punish honesty about
+blockage would defeat the six-state vocabulary.
+
+Exceeding it is possible but not private. It requires a written justification at
+`docs/claude/work/wip-ceiling-exception.yaml` naming **the exact object ids** it covers —
+- `decision: pending` **still fails.** Filed is not granted; the ceiling's whole function is
+  that a ninth parent needs a human to say yes.
+- `decision: approved` passes only for the ids it names, and only with `approved_by` +
+  `approved_at`. An approval with nobody's name on it is a session approving itself, and a
+  blanket exception naming nothing is a permanent cap raise wearing an exception's clothes.
+
+⚠️ **TWO POPULATIONS. THE REGISTER IS UNCAPPED; THE IN-FLIGHT SET IS CAPPED.**
+`scripts/ci/check_open_items.py` keeps `MAX_ITEMS = None` and **that stays** — the operator
+reversed the old cap on 2026-08-26 (*"we don't want to cap the number of bugs we can track,
+we want to ensure that they are actually being tracked, fixed, and learned from"*). Capping a
+register of KNOWN PROBLEMS just deletes knowledge. The ceiling guard's self-test asserts
+`MAX_ITEMS is None`, so a future change that caps the register believing it is implementing
+the ceiling fails loudly instead.

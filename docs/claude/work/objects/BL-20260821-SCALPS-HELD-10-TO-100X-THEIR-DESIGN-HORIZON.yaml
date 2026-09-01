@@ -1,0 +1,37 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON
+type: commitment
+parent_intent: null
+title: |-
+  Every mean-reversion and scalp leg is held 10-100x its own bar horizon — 15m scalps to 11 days, 5m scalps to 41h at p90 — the exact class BYBIT_TPSL_MODE=full caused in June, now with a different mechanism
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-21T07:05:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  p90 bars-held for every scalp and pullback leg falls within 3x its backtested horizon, and declared-bracket exits rise above 50% of closes for those families.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON
+  status_at_migration: open
+  severity: critical
+  tier: 3 (the remedy is a time/stall exit lever on live legs)
+  opened_by: claude (/system-review 2026-08-21, session dcf5220b)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON
+verdict: null
+next_action_at_migration: |-
+  ✅ TIER-1 HALF SHIPPED 2026-08-22 (#10157): per-strategy bars-held (median / p90 / expected / p90_ratio) in the review-coverage execution_capture block, with an ESCALATION GUARD so a leg past 3.0x reaches flags_raised[] rather than sitting in a table cell. Bars render as integers; null is the dash, never 0. ⚠️ WIRING, NOT MEASUREMENT — the producer is a review session filling the template, so the first real numbers arrive on the next /system-review. ✅ OPERATOR DISPOSITION RECORDED 2026-08-23T04:3xZ (four options offered: take-profit-path / max-hold / both / wait-one-cycle): **THE ict_scalp TAKE-PROFIT CLOSE PATH FIRST** — remedy (a). Give ict_scalp a take-profit close path in monitor() so it stops depending solely on an unverified venue bracket. Its step 1 is TIER-1 and can start now (measure why trade 4487 had no resting target: read what `execute` passed as `tp` on the entry and whether a TP child was ever created); the fix itself is Tier-3. Tracked as its own CRITICAL, BL-20260818-ICT-SCALP-HAS-NO-TAKE-PROFIT-CLOSE-PATH. ⏸️ DEFERRED, NOT DROPPED: remedy (b), the max-hold / stall exit on the scalp and pullback families. Its parameter must come from the backtested horizon, not a guess — and the bars-held tracking shipped above is what will supply the measured p90 per leg to set it against.

@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260820-EXIT-LEVER-BREAKEVEN-IS-BELOW-THE-REPO-OWN-FEE-CONSTANT
+type: question
+parent_intent: null
+title: |-
+  The only positive E3 lever cell breaks even at 0.02-0.05 R of extra cost per early exit, while the repo's OWN shared fee constant resolves to 0.08-0.16 R on this instrument — and the same arithmetic puts the leg's fee-free mean edge inside its own round-trip cost
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  POPULATION BEHIND THIS ROW'S FIGURES: XRPUSDT 503 of 503 harness trades (SOLUSDT 567 of 567 for the baseline mean), ict_scalp 15m over the Binance public archive 2021-08-16 through 2026-08-19, 4 anchored walk-forward folds with every reported delta out-of-sample; the ATR(14)/close median of 0.4592% is over 351 samples drawn across 175,200 bars. TWO SEPARABLE PIECES, do not merge them. (1) THE LEVER: re-run the banking cell through m20_fleet_exit_sweep.py, where entries re-sequence and the shared cost model is applied, and record the verdict in the coverage matrix. The screen's own asymmetry says what to expect -- a screen that ignores the turnover an earlier exit creates flatters a banking lever, so a cell that is already marginal there should not survive. Closes on a matrix verdict either way. (2) THE BASELINE, which is the piece that matters: measure the per-trade round-trip cost in R DIRECTLY from the harness -- risk = abs(entry - sl) is computed per trade at scripts/backtest_ict_scalp.py:494, so the distribution of fee_r is exactly computable rather than inferred from ATR -- and report the leg's mean R gross AND net through execution_costs.roundtrip_cost_r, with slippage and funding included rather than defaulted to zero. State the population. If the net mean is at or below zero for any live leg, that is a finding about the FLEET and not about exits, and it routes to /performance-review, not here. Do NOT close this row by fixing only the lever half.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260820-EXIT-LEVER-BREAKEVEN-IS-BELOW-THE-REPO-OWN-FEE-CONSTANT
+  status_at_migration: open
+  severity: high
+  tier: '1'
+  opened_by: null
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260820-EXIT-LEVER-BREAKEVEN-IS-BELOW-THE-REPO-OWN-FEE-CONSTANT
+verdict: null

@@ -1,0 +1,36 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260820-LABEL-DESCRIPTIONS-EXCEED-GITHUB-CAP
+type: question
+parent_intent: null
+title: |-
+  62 of 79 label descriptions in bootstrap-labels.yml exceed the 100-char GitHub cap the file itself documents; harmless today only because the sync loop is get-then-skip, so deleting any one of them makes its recreation 422 and turns the bootstrap red
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-20T08:45:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Truncate the 62 over-cap descriptions to <=100 chars, moving the rationale into a YAML comment above each entry where length is unconstrained, and add an assertion inside the sync step that fails the run when any DECLARED description exceeds the cap -- so a violation surfaces at edit time rather than at some future recreation. Do NOT close by observing that the bootstrap currently passes: it passes because the labels already exist, which is the definition of a latent fault. Cheap positive control: create then delete a throwaway label with an over-cap description and confirm the run goes red before the fix and green after.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260820-LABEL-DESCRIPTIONS-EXCEED-GITHUB-CAP
+  status_at_migration: open
+  severity: low
+  tier: '1'
+  opened_by: |-
+    claude (system-review-trade-mechanics-falsp8; found while adding the missing oci-inventory label)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260820-LABEL-DESCRIPTIONS-EXCEED-GITHUB-CAP
+verdict: null

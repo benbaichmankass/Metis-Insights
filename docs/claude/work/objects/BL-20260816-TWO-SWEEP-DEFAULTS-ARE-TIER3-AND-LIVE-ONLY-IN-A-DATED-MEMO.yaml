@@ -1,0 +1,35 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260816-TWO-SWEEP-DEFAULTS-ARE-TIER3-AND-LIVE-ONLY-IN-A-DATED-MEMO
+type: question
+parent_intent: null
+title: |-
+  m20_fleet_exit_sweep's --tp-cap-pct and --split-target-oos defaults are both Tier-3 proposals recorded ONLY in a dated operator memo, which no review cadence drains
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-16T13:28:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  The operator has recorded a decision on EACH default (change it, or keep it with a dated 'keep' rationale), and that decision lives somewhere a review cadence reads -- this row closed, or the value changed in m20_fleet_exit_sweep.py with the memo section 4 updated to match. A merged code change alone does NOT close it: the other half is that already-recorded sweep numbers get re-interpreted or explicitly marked as produced under the old default, which is the part that silently rots otherwise.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260816-TWO-SWEEP-DEFAULTS-ARE-TIER3-AND-LIVE-ONLY-IN-A-DATED-MEMO
+  status_at_migration: open
+  severity: medium
+  tier: 3 (changes what every future sweep measures)
+  opened_by: claude (overnight M20 session, at session close-out)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/claude/health-review-backlog.json#BL-20260816-TWO-SWEEP-DEFAULTS-ARE-TIER3-AND-LIVE-ONLY-IN-A-DATED-MEMO
+verdict: null

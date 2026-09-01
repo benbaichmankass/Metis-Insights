@@ -1,0 +1,34 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE
+type: question
+parent_intent: null
+title: |-
+  The 9.9% TP sentinel clamp is applied with NO reference to the SL distance, so a high-ATR instrument gets a target NEARER than its stop (R:R < 1) and nothing checks, refuses, or reports it - live on real money right now - REFRAMED: the real defect is that 29 of 52 enabled legs place the exchange's rejection threshold as their target, and the remedy is M20's active-management build, NOT a reward-to-risk floor
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-08-23'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  SUPERSEDED BY THE OPERATOR REFRAME - this row no longer resolves by adding a reward-to-risk floor, and MUST NOT be closed by one. It closes as part of M20's active-management build, whose specification already owns it (docs/design/exit-mechanism-construction-PROCESS.md): (1) a bracket carries an EXPECTATION at entry - 'where do we expect this to exit, and why' becomes a required output of the entry decision, replacing tp_r: 50.0 on all 29 legs; (2) revision is conditioned on the strategy's OWN thesis - state where the move is expected to exhaust, and if price nears the target while the exhaustion condition has not fired, EXTEND. 'Extend the target' has NO implementation anywhere in the harness or the live monitor today, and that missing capability is what this finding is actually about; (3) amending a resting level costs nothing while exiting early costs 0.082-0.163 R against a fee-free mean edge of +0.1376 R (XRP) / +0.1167 R (SOL), which is the direct argument against the refuse-the-signal option. ACCEPTANCE TEST, operator-directed ('Fix forward means applying the infra we are about to build to the open trades'): the two currently-open sub-1 positions - XRP trade 4934 on bybit_2 (REAL MONEY) and the ada_pullback_2h leg - are the FIRST trades the bracket-revision capability is applied to when it lands. They are neither left to run on the geometry they were given nor hand-re-cut now. If the capability cannot state where those two are expected to exit and revise their levels accordingly, it is not finished. The Tier-1 half that CAN ship independently is the missing READER: declared reward-to-risk graded where the order package is formed and surfaced, so a sub-1 package is visible without anyone thinking to ask - but shipping that alone does not close this row.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE
+  status_at_migration: open
+  severity: high
+  tier: 3 (order-path geometry / strategy params)
+  opened_by: operator (live observation) + full-system-audit-2026-08-23
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- docs/claude/health-review-backlog.json#BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE
+verdict: null

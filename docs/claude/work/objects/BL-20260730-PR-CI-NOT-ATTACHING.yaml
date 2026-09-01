@@ -1,0 +1,36 @@
+# MIGRATED from a review backlog by scripts/ops/migrate_backlog_to_work_objects.py
+# (Phase C, 2026-09-01). Arrives `dormant`: carried, not started, not queued.
+# ⚠️ `blocked_on: []` here is NOT a claim that nothing blocks this — see
+# `blocked_on_basis` below. Write a TRUE edge before moving this out of dormant.
+id: BL-20260730-PR-CI-NOT-ATTACHING
+type: commitment
+parent_intent: null
+title: |-
+  PR CI attachment: the 'does not run on ANY PR' premise is REFUTED as of 2026-08-10 (PR #8733 attached 4 pull_request check runs); residual question is whether the original observation used the commit-status API, which reports 0 for Actions checks
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-07-30T17:45:00+00:00'
+closed_at: null
+review_trigger: |-
+  Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
+done_condition: |-
+  Establish the RATE of PR check attachment over a named window of pushes to claude/** branches, with the denominator stated. THREE method requirements, each from a specific error already made on this row: (a) score from the workflow-run list's `event` field, NOT from get_check_runs — that surface cannot distinguish a webhook-triggered run from a manually dispatched one, which is how a 2026-08-29 measurement scored an attaching push as a miss; (b) wait at least 5 minutes before scoring a miss — observed push-to-run-creation latency is ~2.5 minutes and every false miss came from checking inside it; (c) do NOT workflow_dispatch on any sha you intend to score, since the dispatch occupies the concurrency group and confounds the observation. Explicitly NOT sufficient: observing attachment on one or two heads (the existence proof that wrongly closed this row twice), or a rate computed without the `event` field.
+blocked_on: []
+blocked_on_basis: |-
+  NOT_ASSESSED — migrated in bulk 2026-09-01; no dependency edge was derived for this row and none is claimed. The empty list above is therefore NOT the claim 'nothing blocks this'. ⚠️ Write a real edge before moving this out of `dormant`: an invented edge would be read by the constraint computation as a true blocker, and a false blocker is worse than a missing one.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260730-PR-CI-NOT-ATTACHING
+  status_at_migration: open
+  severity: high
+  tier: '1'
+  opened_by: claude (provenance IB-executions session)
+  migrated_on: '2026-09-01'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- docs/claude/health-review-backlog.json#BL-20260730-PR-CI-NOT-ATTACHING
+verdict: null
+next_action_at_migration: |-
+  Escalated medium -> high on the same-day recurrence. The premise question is now closed (delivery IS intermittent, proven on one PR both ways), so the work is detection, not diagnosis: nothing today distinguishes 'checks pending' from 'checks will never arrive', and they look identical. Add a positive-denominator assertion wherever CI state is polled — treat total_count==0 on a PR older than a few minutes as ABSENT (actionable) rather than pending — and keep workflow_dispatch on every required check as the standing recovery path (now true for all four).
