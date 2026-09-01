@@ -42,6 +42,7 @@ from src.bot.cloud_notifier import (
     _read_loadavg,
     _read_meminfo_mb,
     _read_uptime_human,
+    claude_ping_failover_grace_s,
     get_service_status,
 )
 from src.bot.comms_handler import install_comms_handlers
@@ -665,9 +666,31 @@ def main():
             return candidate
 
         async def _drain_claude_pings(context) -> None:
+            # ⚠️ THIS BOT IS THE FAILOVER, NOT AN OWNER (2026-09-01,
+            # BL-20260901-CLAUDE-PING-TWO-DRAINERS-ONE-QUEUE).
+            #
+            # `ict-claude-bridge.service` drains this SAME directory on its own
+            # 5s tick, and each drainer does read → send → unlink — so the file
+            # is still on disk for the whole Telegram POST and a tick landing
+            # inside that window delivers it a SECOND time. Measured live on
+            # 2026-09-01: one enqueue at 22:10:17Z arrived in both the dedicated
+            # channel and the trader chat, because the bridge's POST took 3.28s
+            # (22:10:19.93 → 22:10:23.21) and this bot's 22:10:21 tick read the
+            # file mid-flight.
+            #
+            # ⚠️ DELETING THIS DRAIN IS THE WRONG FIX and would re-open a known
+            # outage — it exists because the bridge sat dead on the Ampere VM
+            # and these pings were silently never delivered for weeks
+            # (2026-06-22, see the block above). So it stays, and it defers:
+            # the grace makes it take only what the bridge demonstrably has
+            # not. Healthy bridge → this delivers nothing. Dead bridge →
+            # everything, ≤ grace seconds late. Separation is a nice-to-have;
+            # delivery is not.
             bot = await _resolve_claude_bot()
             await _drain_pending_pings(
-                context, pings_dir=PENDING_CLAUDE_PINGS_DIR, bot=bot)
+                context, pings_dir=PENDING_CLAUDE_PINGS_DIR, bot=bot,
+                deliver_only_older_than_s=claude_ping_failover_grace_s(),
+            )
 
         application.job_queue.run_repeating(
             _drain_claude_pings,

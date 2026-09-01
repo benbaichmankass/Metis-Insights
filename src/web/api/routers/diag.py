@@ -137,7 +137,14 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     "ict-db-integrity.service",
     "ict-db-integrity.timer",
     # 2026-05-29 — the Claude update-channel drainer (@claude_ict_comms_bot).
-    # It is the SOLE consumer of runtime_logs/pending_claude_pings, but was
+    # ⚠️ CORRECTED 2026-09-01: this said it is "the SOLE consumer of
+    # runtime_logs/pending_claude_pings". That stopped being true on
+    # 2026-06-22, when the drain was ALSO folded into ict-telegram-bot.service
+    # (src/bot/telegram_query_bot.py) because this bridge was dead on the
+    # Ampere VM. Two live drainers on one queue is what double-delivered a ping
+    # on 2026-09-01 (BL-20260901-CLAUDE-PING-TWO-DRAINERS-ONE-QUEUE); the
+    # trader-bot drain is now the grace-gated FAILOVER and this bridge is the
+    # OWNER, which is a different claim from being the only consumer. It was
     # never queryable from the diag surface, so when the channel went silent
     # (operator received no pings) there was no read path to see whether the
     # bridge was active or what its send errors were. Adding it here makes

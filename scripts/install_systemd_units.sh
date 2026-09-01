@@ -262,8 +262,18 @@ if [ -f "${_R4GATE_DROPIN_SRC}" ]; then
 fi
 
 # Why ict-claude-bridge needs the data-dir drop-in:
-#   The bridge is the SOLE drainer of the Claude update channel — it reads
+#   The bridge is the OWNER of the Claude update channel — it reads
 #   $DATA_DIR/runtime_logs/pending_claude_pings (via runtime_logs_dir()).
+#   ⚠️ CORRECTED 2026-09-01: this said "the SOLE drainer". It has not been
+#   since 2026-06-22, when ict-telegram-bot.service was given the same drain
+#   as a fallback (src/bot/telegram_query_bot.py) after this bridge sat dead
+#   on the Ampere VM. Both then ticked the same directory every 5s and
+#   double-delivered a ping on 2026-09-01
+#   (BL-20260901-CLAUDE-PING-TWO-DRAINERS-ONE-QUEUE). The trader-bot drain is
+#   now grace-gated so it only takes what this bridge has demonstrably not —
+#   which makes the DATA_DIR drop-in below MORE load-bearing, not less: if the
+#   bridge resolves the wrong directory it drains nothing, and every ping now
+#   waits out the failover grace before the fallback picks it up.
 #   Producers (send-ping system-action, notify_on_pull) write to that same
 #   canonical inbox now that they load DATA_DIR. If the bridge inherits no
 #   DATA_DIR (stripped from .env) it falls back to <repo>/runtime_logs and
