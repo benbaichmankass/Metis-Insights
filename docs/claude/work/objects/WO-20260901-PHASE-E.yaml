@@ -1,0 +1,42 @@
+id: WO-20260901-PHASE-E
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: "Phase E — no work is lost, and rules are verified at exit"
+stage: CAPABILITY
+lifecycle: dormant
+owner: claude
+opened_at: 2026-09-01
+closed_at: null
+review_trigger: >-
+  Re-read when the phase it depends on closes, or when the operator changes the cycle
+  priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
+
+done_condition: >-
+  Killing a session mid-work loses nothing, DEMONSTRATED by killing one. Not
+  asserted from a test.
+
+blocked_on:
+  - kind: object
+    ref: WO-20260901-PHASE-A
+    since: 2026-09-01
+    note: >-
+      The lease and the reaper act on work objects.
+  - kind: capability
+    ref: DASHBOARD_API_TOKEN propagation to the session environment
+    since: 2026-09-01
+    note: >-
+      Operator-decided 2026-09-01. Propagation only — the value already exists on
+      the VM at /etc/ict-trader/web-api.env, so no secret is originated and there
+      is no operator hand-off.
+
+note: >-
+  F2 close-out verification and F5 exit verification are ONE hook, not two:
+  same moment, same mechanism, same session. close_session.py (354 ln) already
+  does the right things but is SESSION-INVOKED, so a session that dies never
+  runs it. ⚠️ The transit contract is part of the done-condition: three states
+  never collapsed (not_submitted · in_transit · committed), and transit fails
+  BACK never forward.
+
+evidence:
+  - docs/design/operating-layer-build-plan-DESIGN.md
+verdict: null

@@ -1,0 +1,36 @@
+id: WO-20260901-PHASE-C
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: "Phase C — migration, the WIP ceiling, and the priority that reaches a session"
+stage: CAPABILITY
+lifecycle: dormant
+owner: claude
+opened_at: 2026-09-01
+closed_at: null
+review_trigger: >-
+  Re-read when the phase it depends on closes, or when the operator changes the cycle
+  priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
+
+done_condition: >-
+  A session knows this cycle's priority without being told, and the ceiling
+  refuses a ninth parent.
+
+blocked_on:
+  - kind: object
+    ref: WO-20260901-PHASE-A
+    since: 2026-09-01
+    note: >-
+      The rows need somewhere to land.
+
+note: >-
+  Migration and the ceiling ship TOGETHER, deliberately: ~572 not-closed
+  backlog rows arriving unbounded would render as 572 things in flight, which
+  is the condition the redesign exists to end. Carried rows arrive dormant or
+  accepted by default. ⚠️ scripts/ci/check_open_items.py keeps MAX_ITEMS =
+  None — the REGISTER is uncapped, the IN-FLIGHT SET is capped; conflating
+  those populations would re-introduce the eviction rule the operator reversed
+  on 2026-08-26.
+
+evidence:
+  - docs/design/operating-layer-build-plan-DESIGN.md
+verdict: null

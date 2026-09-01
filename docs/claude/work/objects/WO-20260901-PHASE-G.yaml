@@ -1,0 +1,35 @@
+id: WO-20260901-PHASE-G
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: "Phase G — the forcing function — retirement, and the E2 pull rule"
+stage: CAPABILITY
+lifecycle: dormant
+owner: claude
+opened_at: 2026-09-01
+closed_at: null
+review_trigger: >-
+  Re-read when the phase it depends on closes, or when the operator changes the cycle
+  priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
+
+done_condition: >-
+  Something has actually been REMOVED, and a capability PR carries the stage
+  it unblocks.
+
+blocked_on:
+  - kind: object
+    ref: WO-20260901-PHASE-D
+    since: 2026-09-01
+    note: >-
+      The pull rule requires E1 to be able to NAME the held-up stage a capability
+      claims to unblock; without it the rule is unenforceable.
+
+note: >-
+  6 strategy retirements have ever occurred, none in five weeks against 45
+  live legs, and nothing has ever retired a skill, register, workflow or
+  guard. Complexity is monotonic by construction until something removes. ⚠️ A
+  retirement is done when the old thing is GONE, not when the replacement
+  ships.
+
+evidence:
+  - docs/design/operating-layer-build-plan-DESIGN.md
+verdict: null

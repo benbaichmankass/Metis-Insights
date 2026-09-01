@@ -1,0 +1,36 @@
+id: IN-20260901-OPERATING-LAYER
+title: The system steers itself, instead of only executing well
+status: live
+opened_at: 2026-09-01
+review_cadence: weekly
+
+why: >-
+  Measured 2026-09-01 across the working tree, populations stated in the design series:
+  the system built EXECUTION and INTEGRITY to a high standard and never built the
+  STEERING. Of 24 declared functions, 5 work, 14 are partial and 5 are missing outright —
+  and all five missing ones are steering (priority propagation, WIP control, constraint
+  diagnosis, capability build as a governed function, capability retirement). The
+  consequences are measurable rather than felt: backlog net +425 rows in August against
+  +37 in May; 196 dated sprint logs of which 1.0% deployed to real money, deployment being
+  the only category that FELL while throughput tripled; 256 of 370 research units
+  superseded before anyone read them; 1 of 117 dispositions producing an action; 6 strategy
+  retirements ever, none in five weeks; 21 of 32 milestones simultaneously active.
+
+  The root cause is not rigour, effort or tooling — all three are unusually strong. It is
+  that one undifferentiated session type does three incompatible jobs, guided by a
+  ~403,000-token map no session can hold, with four competing "what next" surfaces and no
+  arbiter, and no forcing function that removes anything.
+
+done_looks_like: >-
+  The operator's cycle decision has a computed constraint behind it; work in flight is
+  capped and visible; a session inherits its context from the work rather than from the
+  corpus; and something has actually been retired. NOT "all 8 phases merged" — a phase that
+  merged and changed nobody's behaviour has not delivered this intent.
+
+⚠️_this_intent_is_capability_work: >-
+  E2 capability build is supposed to be PULLED by a held-up stage, never self-started. This
+  is pulled by an operator directive instead, because E1 (constraint diagnosis) does not
+  exist yet to give a diagnosis. That is a legitimate source — A2 priority is operator-set
+  by design — but it is a DIFFERENT one, and recording it as a constraint finding would be
+  the unprovenanced conclusion this repo keeps paying for. The measured constraint is
+  DECISION, and only phase F acts on it directly.

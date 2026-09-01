@@ -1,0 +1,32 @@
+id: WO-20260901-PHASE-F
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: "Phase F — the repairs — decision preparation and decision recording"
+stage: CAPABILITY
+lifecycle: ready
+owner: claude
+opened_at: 2026-09-01
+closed_at: null
+review_trigger: >-
+  Re-read when the phase it depends on closes, or when the operator changes the cycle
+  priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
+
+done_condition: >-
+  A strategy-review packet is committed on a cadence and read, and a Tier-3
+  approval lands in exactly one place.
+
+blocked_on: []   # nothing blocks this — a CLAIM, not an absence of information
+
+note: >-
+  ⚠️ THIS IS THE ONLY PHASE THAT IS UNBLOCKED TODAY, and it is the only one
+  that touches the MEASURED constraint (DECISION). It depends on nothing this
+  build produces. strategy_review_packet.py is 1,518 lines that emit a real
+  action badge with reasons and an SLA, and write to a GITIGNORED path with no
+  cron — so no packet has ever been committed. The repair is a cron and a
+  committed path. C4: strategy_changelog.json has been dead since 2026-07-28,
+  and squeeze_breakout_4h runs live today against a written record saying it
+  was demoted for a 0% win rate over 60 closes.
+
+evidence:
+  - docs/design/operating-layer-build-plan-DESIGN.md
+verdict: null

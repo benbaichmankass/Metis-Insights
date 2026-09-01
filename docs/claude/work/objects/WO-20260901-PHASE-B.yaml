@@ -1,0 +1,36 @@
+id: WO-20260901-PHASE-B
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: "Phase B — visibility — the read-only work view and the daily digest"
+stage: CAPABILITY
+lifecycle: dormant
+owner: claude
+opened_at: 2026-09-01
+closed_at: null
+review_trigger: >-
+  Re-read when the phase it depends on closes, or when the operator changes the cycle
+  priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
+
+done_condition: >-
+  The operator can see what is in flight without opening the repo, and
+  receives one rolled-up daily summary of autonomous activity.
+
+blocked_on:
+  - kind: object
+    ref: WO-20260901-PHASE-A
+    since: 2026-09-01
+    note: >-
+      Nothing to render until the store exists.
+
+note: >-
+  Only the READ half. The route follows src/web/api/routers/roadmap.py (475
+  ln), which already parses repo files into a view — file-backed, Tier 1,
+  cached on mtime, degrading to an empty envelope rather than a 5xx. ⚠️ The
+  digest pings on STATE CHANGES and never on activity: 202 of 376
+  CRITICAL/ERROR rows in one measured window were a single un-latched alarm,
+  which trained the operator past the one channel reserved for an unprotected
+  position.
+
+evidence:
+  - docs/design/operating-layer-build-plan-DESIGN.md
+verdict: null
