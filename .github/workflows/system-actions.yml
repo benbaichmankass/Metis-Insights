@@ -178,6 +178,28 @@ on:
         options:
           - claude
           - trader
+      kind:
+        # ⚠️ BLANK IS THE DEFAULT AND MUST STAY THE DEFAULT.
+        # The passthrough shape carries the OPERATOR'S OWN TEXT (a session
+        # saying something now, in its own words). Format B is a house style
+        # for MACHINE-generated events; forcing an operator sentence into
+        # "headline / why" would rewrite what a human chose to say. So an
+        # empty `kind` is not a degraded mode — it is the primary one, and
+        # every path below is a no-op when it is empty.
+        # A plain string rather than a `choice`: a choice cannot offer a blank
+        # default without carrying a magic sentinel value, and a sentinel that
+        # means "no class" is exactly the collapsed state this repo refuses.
+        description: "Ping class (send-ping only; blank = passthrough, the default). decision | state_change | lifecycle"
+        required: false
+        default: ""
+      why:
+        description: "Format-B line 2 — what CHANGED for the reader (send-ping; REQUIRED when kind is set)"
+        required: false
+        default: ""
+      unproven:
+        description: "What this does NOT yet establish (send-ping, optional; appended to the why line)"
+        required: false
+        default: ""
       env_key:
         description: "Env var name (set-env / get-env; e.g. TELEGRAM_CLAUDE_THREAD_ID. get-env accepts ALL)"
         required: false
@@ -284,6 +306,9 @@ jobs:
           DISPATCH_MESSAGE: ${{ inputs.message }}
           DISPATCH_PRIORITY: ${{ inputs.priority }}
           DISPATCH_TARGET: ${{ inputs.target }}
+          DISPATCH_KIND: ${{ inputs.kind }}
+          DISPATCH_WHY: ${{ inputs.why }}
+          DISPATCH_UNPROVEN: ${{ inputs.unproven }}
           DISPATCH_ENV_KEY: ${{ inputs.env_key }}
           DISPATCH_ENV_VALUE: ${{ inputs.env_value }}
           DISPATCH_SERVICE: ${{ inputs.service }}
@@ -302,6 +327,9 @@ jobs:
             message="${DISPATCH_MESSAGE}"
             priority="${DISPATCH_PRIORITY}"
             target="${DISPATCH_TARGET}"
+            kind="${DISPATCH_KIND}"
+            why="${DISPATCH_WHY}"
+            unproven="${DISPATCH_UNPROVEN}"
             env_key="${DISPATCH_ENV_KEY}"
             env_value="${DISPATCH_ENV_VALUE}"
             service="${DISPATCH_SERVICE}"
@@ -437,6 +465,23 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*target[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Tt]arget[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # send-ping Format-B params (2026-09-01). `kind` is a single token;
+            # `why` and `unproven` are prose and keep their internal spaces,
+            # trailing-trimmed like `message` and `reason`.
+            # ⚠️ All three ABSENT is the passthrough shape and stays the
+            # default — see the `kind:` input above for why that matters.
+            kind=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*kind[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Kk]ind[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            why=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*why[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ww]hy[[:space:]]*:[[:space:]]*//' \
+                     | sed -E 's/[[:space:]]+$//' || true)
+            unproven=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*unproven[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Uu]nproven[[:space:]]*:[[:space:]]*//' \
+                     | sed -E 's/[[:space:]]+$//' || true)
             # set-env / get-env: env_key/service are single tokens; env_value
             # preserves internal spaces (trailing trim only).
             env_key=$(printf '%s\n' "${ISSUE_BODY}" \
@@ -561,6 +606,20 @@ jobs:
           } >>"$GITHUB_ENV"
           echo "ACTION_PRIORITY=${priority}" >>"$GITHUB_ENV"
           echo "ACTION_TARGET=${target}" >>"$GITHUB_ENV"
+          # ACTION_WHY / ACTION_UNPROVEN are prose and may contain spaces, so
+          # they ride via heredoc like ACTION_MESSAGE. ACTION_KIND is a single
+          # token. All three are empty on the passthrough path.
+          echo "ACTION_KIND=${kind:-}" >>"$GITHUB_ENV"
+          {
+            echo "ACTION_WHY<<__WHY_EOF__"
+            printf '%s\n' "${why:-}"
+            echo "__WHY_EOF__"
+          } >>"$GITHUB_ENV"
+          {
+            echo "ACTION_UNPROVEN<<__UNPROVEN_EOF__"
+            printf '%s\n' "${unproven:-}"
+            echo "__UNPROVEN_EOF__"
+          } >>"$GITHUB_ENV"
           echo "ENV_KEY=${env_key}" >>"$GITHUB_ENV"
           {
             echo "ENV_VALUE<<__ENVVAL_EOF__"
@@ -640,6 +699,40 @@ jobs:
           # send-ping requires a non-empty message.
           if [ "${ACTION}" = "send-ping" ] && [ -z "${ACTION_MESSAGE// }" ]; then
             echo "::error::send-ping requires 'message' (workflow_dispatch input) or 'message: <text>' (issue body)."
+            exit 1
+          fi
+          # send-ping Format-B validation (2026-09-01). Both halves fail HERE,
+          # at the workflow layer, rather than on the VM.
+          #
+          # ⚠️ WHY THE LOUD PLACEMENT MATTERS. `send_ping.py` already refuses
+          # `--kind` without `--why` and already rejects an unknown class -- but
+          # it does so as a nonzero exit inside an SSH'd wrapper, which surfaces
+          # as a generic "script returned nonzero" on a run page nobody opens.
+          # The same defect caught here names the field. This is deliberately
+          # NOT a replacement for the script's own checks: the script is also
+          # reachable directly on the VM, so it keeps its guards and these are
+          # the outer, legible pair. Two checks of the same rule is the correct
+          # shape when one of them is the only one a reader will ever see.
+          if [ "${ACTION}" = "send-ping" ] && [ -n "${ACTION_KIND// }" ]; then
+            case "${ACTION_KIND}" in
+              decision|state_change|lifecycle) ;;
+              *)
+                echo "::error::send-ping kind '${ACTION_KIND}' is not a class. Must be one of: decision, state_change, lifecycle -- or LEAVE IT BLANK for the passthrough shape, which is the default and carries your text unaltered."
+                exit 1
+                ;;
+            esac
+            if [ -z "${ACTION_WHY// }" ]; then
+              echo "::error::send-ping kind='${ACTION_KIND}' requires 'why' -- Format B's second line is the whole point (src/runtime/claude_ping.py). An event with nothing to say about what CHANGED is activity, and activity must not ping. Drop 'kind' to send your text as-is."
+              exit 1
+            fi
+          fi
+          # `why`/`unproven` without a `kind` is a silent no-op otherwise: the
+          # producer only reads them under --kind, so they would be accepted and
+          # discarded. Refusing is the honest direction -- the caller believes
+          # they attached a second line.
+          if [ "${ACTION}" = "send-ping" ] && [ -z "${ACTION_KIND// }" ] \
+             && { [ -n "${ACTION_WHY// }" ] || [ -n "${ACTION_UNPROVEN// }" ]; }; then
+            echo "::error::send-ping got 'why'/'unproven' with no 'kind'. Those fields are only read on the Format-B path, so this would have been accepted and silently dropped. Set kind: decision|state_change|lifecycle, or remove them."
             exit 1
           fi
           # ...AND the message must not be a bare YAML block-scalar marker.
@@ -1355,6 +1448,10 @@ jobs:
           fi
           if [ "${ACTION}" = "send-ping" ]; then
             REMOTE_CMD="ACTION_MESSAGE=$(printf '%q' "${ACTION_MESSAGE}") ACTION_PRIORITY=$(printf '%q' "${ACTION_PRIORITY:-normal}") ACTION_TARGET=$(printf '%q' "${ACTION_TARGET:-claude}") ${REMOTE_CMD}"
+            # Format-B params. Forwarded ALWAYS, empty on the passthrough
+            # path, so the wrapper sees the same variables either way rather
+            # than having to distinguish "unset" from "empty".
+            REMOTE_CMD="ACTION_KIND=$(printf '%q' "${ACTION_KIND:-}") ACTION_WHY=$(printf '%q' "${ACTION_WHY:-}") ACTION_UNPROVEN=$(printf '%q' "${ACTION_UNPROVEN:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "send-prop-test-ping" ]; then
             REMOTE_CMD="ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL:-SOLUSDT}") ACTION_STRATEGY=$(printf '%q' "${ACTION_STRATEGY:-trend_donchian_sol}") ${REMOTE_CMD}"
