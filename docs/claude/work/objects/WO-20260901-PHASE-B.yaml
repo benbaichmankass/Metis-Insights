@@ -3,7 +3,7 @@ type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: "Phase B — visibility — the read-only work view and the daily digest"
 stage: CAPABILITY
-lifecycle: ready
+lifecycle: in_flight
 owner: claude
 opened_at: 2026-09-01
 closed_at: null
