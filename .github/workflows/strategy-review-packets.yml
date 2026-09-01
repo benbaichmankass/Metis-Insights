@@ -173,9 +173,26 @@ jobs:
           src = Path("/tmp/packets") / day
           idx = json.loads((src / "INDEX.json").read_text())
           rows = idx.get("rows", [])
-          # HOLD is the no-decision-needed verdict; its row stays in the index
+          # "hold" is the no-decision-needed verdict; its row stays in the index
           # (the denominator) but its packet is not committed.
-          actionable = [r for r in rows if (r.get("proposed_action") or "HOLD") != "HOLD"]
+          # ⚠️ READ THE INDEX'S OWN `actionable` FLAG — DO NOT RE-DERIVE IT HERE.
+          # The first version of this line was
+          #     [r for r in rows if (r.get("proposed_action") or "HOLD") != "HOLD"]
+          # and `Decision.action` emits LOWERCASE ("hold"/"kill"/"tune"/…), so it
+          # matched nothing: all 52 graded strategies counted as actionable and
+          # the first run opened a 105-file PR. The uppercase spelling came from
+          # this repo's prose, which renders the vocabulary as KILL/HOLD/…; the
+          # field is the truth. The generator now publishes `actionable` per row
+          # and `no_action_verdict` on the envelope precisely so no consumer has
+          # to spell the value at all.
+          if not all("actionable" in r for r in rows):
+              raise SystemExit(
+                  "::error::INDEX.json rows carry no `actionable` flag — the VM is "
+                  "running a generator that predates it. Refusing to guess the "
+                  "verdict spelling (that guess is what produced the 105-file PR). "
+                  "Deploy the current scripts/ml/strategy_review_packet.py first."
+              )
+          actionable = [r for r in rows if r.get("actionable")]
           copied = 0
           for r in actionable:
               for ext in ("json", "md"):

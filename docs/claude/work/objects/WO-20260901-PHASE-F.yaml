@@ -31,8 +31,22 @@ scope_split:
   c3_decision_preparation: >-
     IN FLIGHT 2026-09-01. The cron (.github/workflows/strategy-review-packets.yml),
     --all-strategies, write_index(), and the committed path comms/strategy_reviews/.
-    ⚠️ NOT done until a dispatched run has actually COMMITTED an INDEX.json — a
-    green run with no committed index is a failure, not a pass.
+    ⚠️ THE DONE-CONDITION BELOW WAS TOO WEAK AND THE FIRST RUN PROVED IT. It read
+    "NOT done until a dispatched run has actually COMMITTED an INDEX.json — a green
+    run with no committed index is a failure, not a pass." A run on 2026-09-01
+    committed one (#10652, merged) and the criterion would have PASSED a broken
+    artifact: all 52 rows carried null n_closed/win_rate/expectancy/pnl_total
+    (the builder read them off the packet's top level; they live under
+    packet["headline"]), and the selection filter compared proposed_action against
+    "HOLD" while Decision.action emits lowercase — so every graded strategy counted
+    as actionable and the PR carried 105 files against a design that commits
+    selectively. Existence of an artifact is not evidence about its content; this
+    is the "green is not evidence" class applied to my own done-condition.
+    ⚠️ REVISED CRITERION: NOT done until a committed INDEX.json carries (a) non-null
+    metrics on the rows, (b) the `actionable` flag per row and an `actionable` count
+    on the envelope, and (c) a file count consistent with the selection rule — one
+    index plus two files per actionable row, NOT one per graded row. Verify by
+    reading the committed file, never by the run's conclusion.
   c4_decision_recording: >-
     DEFERRED, with a stated reason rather than silently dropped. C4 wants one
     decision record instead of four forked surfaces, and the obvious first move —

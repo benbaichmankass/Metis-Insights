@@ -136,7 +136,33 @@ on a wipe — which is the F2 close-out failure the operating model exists to pr
 
 ## 3 · How a session writes
 
-**Decided (operator, 2026-09-01): `DASHBOARD_API_TOKEN`.** Measured the same day from
+⚠️ **SUPERSEDED THE SAME DAY (operator, 2026-09-01): the token does NOT go in the session
+environment, and Phase E must be redesigned so it does not need one there.**
+
+**What changed the answer was looking at the destination.** The session environment's own
+config field states: *"These are visible to anyone using this environment — don't add
+secrets or credentials."* Propagating a **write** credential into a field explicitly
+warned against is a materially different act from the "propagation, not origination"
+framing below — that framing was about where the value COMES FROM and silently ignored
+where it would LAND. `DASHBOARD_API_TOKEN` also authorises prop-journal writes, so the
+exposure is wider than the read token that already sits there.
+
+**The consequence for Phase E, stated rather than left implicit:** its lease/heartbeat
+cannot depend on a session-held write credential. The lease belongs in the repo like
+everything else the wipe test covers, at the cost of commit noise — which is the
+trade this document already makes everywhere else (*the repo is the single source of
+truth*). The design below is therefore **not** the plan of record; it is kept because the
+reasoning is still the honest account of how the decision was first reached and why it
+was wrong.
+
+⚠️ **Not reopened, and must not be:** the `DIAG_READ_TOKEN` already present in that field
+is covered by the operator's standing 2026-08-30 decision, and that surface is NARROWER
+than the public issue comment the value already sits in. Its reopener (a WRITE route on
+`/api/diag/*`, or secrets in its responses) is not met by anything here.
+
+---
+
+**Superseded reasoning, kept as the record — decided (operator, 2026-09-01): `DASHBOARD_API_TOKEN`.** Measured the same day from
 inside a session: `DIAG_READ_TOKEN` is present and `/api/diag/version` returns 200 over
 the Caddy host, but **`DASHBOARD_API_TOKEN` is unset**, so token-gated writes are closed
 to a session today. Closing that is a propagation step, not an origination — the value
