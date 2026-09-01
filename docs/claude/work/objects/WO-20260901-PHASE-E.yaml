@@ -190,6 +190,34 @@ lease_design:
       `--session-id`, or the CLI reads the session id from the environment when
       one is available.
 
+  the_ttl_is_not_expensive_to_maintain_and_a_session_measured_it_wrong:
+    rule: >-
+      ⚠️ CORRECTION to what PR #10670 said about this object, filed by the
+      session that said it. That PR argued the 90 min TTL is "shorter than the
+      cost of maintaining it", because branch protection refuses a direct push
+      to `main` so every heartbeat costs a commit, a PR and a CI run. The
+      DIRECTION is right and the ARITHMETIC was wrong.
+
+      Measured 2026-09-01 on this repo's own runs: a LEASE-ONLY PR completes
+      `pytest-run` in **15 s** — `Determine relevant changed files` finds
+      nothing test-relevant in a JSON state file — against **~950 s** for a PR
+      touching `src/` and `tests/` in the same hour. The session had the
+      mixed-PR figure in mind and generalised it to the heartbeat. End to end a
+      heartbeat is ~2-3 min, which sits comfortably inside a 90 min TTL.
+
+      ⚠️ WHY THIS IS WORTH A ROW RATHER THAN A QUIET EDIT: the wrong claim runs
+      in the DANGEROUS direction. "Maintaining the lock costs more than the lock
+      is worth" is precisely the argument that would justify lengthening the TTL
+      or weakening the lease — on a cost that does not exist. A safety mechanism
+      relaxed on an unmeasured premise is the shape this repo keeps paying for.
+
+      WHAT REMAINS TRUE from #10670: the lease DID lapse for 215 min while its
+      holder was alive and working, and no other session claimed it in that
+      window, so the failure was a lease nobody held rather than two managers
+      concurrently. The real cause is that nothing PROMPTS the heartbeat — it
+      is remembered, not scheduled — which is a different defect from the one
+      that PR named, and the one actually worth fixing.
+
 note: >-
   F2 close-out verification and F5 exit verification are ONE hook, not two:
   same moment, same mechanism, same session. close_session.py (354 ln) already
