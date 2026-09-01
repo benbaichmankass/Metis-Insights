@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-01T22:53Z",
+  "updated_at": "2026-09-01T23:20Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -104,9 +104,9 @@
     {
       "id": "MI-04-PHASE-F",
       "title": "Phase F / C3 decision preparation -- the one phase touching the measured constraint",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01MDjxAnncsh71UiRAWtYHkH",
-      "note": "#10681 was FULLY GREEN at 22:49Z and the merge was REFUSED at 22:52Z with 405 merge conflicts — main moved underneath it when #10680 landed first. Conflict resolution delegated to session_01GmjT7SLhVQNJtWnY1asEEb. The PR itself is unchanged and still approved-to-merge on green.",
+      "note": "MERGED 23:18Z as bc19d0f4 — the conflict from #10680 landing first was resolved by session_01GmjT7SLhVQNJtWnY1asEEb and all six checks came back green. landed_unproven: C3 has not been observed producing a decision packet on the fleet.",
       "pr": "#10681"
     },
     {
@@ -176,7 +176,7 @@
       "title": "Hold and heartbeat the manager lease",
       "state": "in_flight",
       "owner": "manager",
-      "note": "Heartbeat 2026-09-01T22:53:21Z, expires 2026-09-02T00:23:21Z. Landed in this PR — an unpushed heartbeat protects nothing."
+      "note": "Heartbeat 2026-09-01T23:20Z. Landed in this PR — an unpushed heartbeat protects nothing."
     },
     {
       "id": "MI-12-STALE-AUTOMATION-PR",
@@ -188,9 +188,9 @@
     {
       "id": "MI-13-BACKLOG-DRAIN",
       "title": "Drain the review backlogs (1,072 rows in health-review alone)",
-      "state": "queued",
-      "owner": null,
-      "note": "A dedicated /backlog-drain skill exists for this. Reviews FILE and one skill CLOSES; the measured filed-vs-closed ratio is the disease the operating layer exists to treat."
+      "state": "in_flight",
+      "owner": "session_01FYEGu7tBoA6u4N1xyCdHDS",
+      "note": "STARTED 23:00Z against health-review-backlog.json (1,072 rows), class-first per the backlog-drain skill. The operator's trigger was that the workplan items are SPAWNED, not finished. Deliverable includes the rows it REFUSED to close with reasons — those are what stop the next drain re-examining the same rows."
     },
     {
       "id": "MI-14-CI-GREEN-THE-THREE-DRAFTS",
@@ -222,20 +222,29 @@
     {
       "id": "MI-17-PING-TEST-MATRIX",
       "title": "Operator-requested: exercise every ping class and gate end to end",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01P6QyGg3ZJrXcNaEUBTj2ei",
-      "pr": null,
+      "pr": "#10695",
       "blocked_on": null,
-      "note": "Operator, 2026-09-01T22:14Z: 'I also still want to test the other pings', then 'no send it as soon as it's ready' — so NO daylight gate. Phase 1 (passthrough x priority x target) PASSED and is operator-confirmed: urgent renders a siren, low the quiet dot, normal the info glyph, and target=trader vs target=claude each reached the right bot. Phase 2 running: decision fired twice back-to-back (both MUST land), state_change for the Format-B two-line render, lifecycle twice inside 300 s (the second MUST report `withheld` WITH a reason — send_ping.py exits 0 either way, so the exit code cannot tell you which happened), plus the hard-error cases. ⚠️ P2a landed 22:31Z and rendered Format B correctly — first time that path has ever been exercised. Also surfaced: a system-action run can be CANCELLED as superseded in the concurrency queue with NO comment posted back (P1b, issue #10691) — a dispatched action that vanishes silently."
+      "note": "MERGED 23:19Z as aef7944b. EVERY RULE HELD EXCEPT ONE, and that one is fixed in the same PR: send_ping.py accepted --why/--unproven with NO --kind, discarded them, and reported success — while the MIRROR case (--kind without --why) has always been a hard error. One direction refused loudly, the opposite was silent. === WHAT PASSED: decision fired twice back-to-back and BOTH sent; state_change rendered Format B as two lines with `unproven` APPENDED to the why-line, not a third line; lifecycle's second ping inside 300s came back `withheld: rate-limited: 71s since last (< 300s)` carrying the limiter's own reason — which matters because send_ping.py exits 0 either way; all three malformed-input cases were hard errors, never a fallback to passthrough. === ⚠️ UNVERIFIED AND STATED AS SUCH: only 2 of 6 claude-targeted pings have a positive `ok=True status_code=200` send line, because the two drainers have DIFFERENT observability — cloud_notifier's path logs nothing either way, so whether a ping is traceable is decided by the same race as MI-18. Filed as BL-20260901-TWO-DRAINERS-RACE-ONE-CLAUDE-PING-INBOX-AND-ONLY-ONE-OF-THEM-LOGS-A-DELIVERY. Rendered prefixes and Telegram's own two-line rendering remain operator-only observations."
     },
     {
-      "id": "MI-18-DUPLICATE-DELIVERY-WAS-NOT-REAL",
-      "title": "The 'ping delivered twice' bug did not exist; the session fixing it was archived mid-fix",
-      "state": "dropped",
-      "owner": "manager",
+      "id": "MI-18-DUPLICATE-DELIVERY-IS-REAL-I-WAS-WRONG-TO-DROP-IT",
+      "title": "The ping duplicate IS real and measured; I archived the session fixing it and told the board it was not",
+      "state": "in_flight",
+      "owner": "session_01LqVvgvusnN87neBn5ayzhg (archived; its PR #10694 stands)",
+      "pr": "#10694",
+      "blocked_on": null,
+      "note": "⚠️ THIS ROW PREVIOUSLY READ `dropped` WITH 'THE DEFECT WAS NEVER DEMONSTRATED'. THAT WAS WRONG AND IS RETRACTED. The session had already measured it from the live journals: 22:10:19.934 bridge drain tick STARTS, 22:10:21 trader-bot tick reads the SAME file and delivers it, 22:10:23.212 bridge POST returns and unlinks. Both drainers do read -> send -> unlink, so the file survives the whole POST; the bridge's POST took 3.28s against ~1ms on every other tick that day. The copies went to different BOTS because ict-telegram-bot started at 21:37:37Z, before the secret was set at 22:08:26Z, and _resolve_claude_bot() caches once per process. === WHERE MY REASONING FAILED: I read the operator's later 'nothing showed up in both feeds' as REFUTING the earlier 'sent to both channels'. It does not. The mechanism is INTERMITTENT BY CONSTRUCTION — a duplicate needs the winning drainer's POST to exceed the ~2s phase gap between two 5s ticks. Absence on later pings is what the mechanism PREDICTS. === AND THE DUPLICATE IS THE LESS SERIOUS HALF: when the race is won outright one copy is sent, but WHICH CHAT it lands in is decided by scheduler phase, and an operator cannot learn where to look for a channel picked at random. === #10695 reached the same mechanism independently and called it correctly ('predicts intermittent duplication rather than reliable doubling'). Two sessions, same finding, while I had told the board it was not real. === STATUS: #10694 is Tier-2 and stays DRAFT — it changes a live service's drain behaviour and needs ict-telegram-bot.service restarted after merge, which is an operator OK I do not have overnight. FIRST ITEM ON THE MORNING REPORT."
+    },
+    {
+      "id": "MI-19-SYSTEM-ACTION-CANCELLED-RUNS-ARE-SILENT",
+      "title": "A superseded pending system-action run is cancelled with NO comment posted back",
+      "state": "queued",
+      "owner": null,
       "pr": null,
       "blocked_on": null,
-      "note": "DROPPED because the defect was never demonstrated. At 22:12Z the operator said the channel test 'was sent to both the new and old channels'; I read that as one payload delivered twice and spawned a Tier-2 session, handing it two jobs registered under the name drain_pending_claude_pings as the leading candidate. At 22:29Z the operator checked both feeds deliberately: 'nothing showed up in both feeds'. The batch spans both bots BY DESIGN — P1a/P1c were target=claude and P1b target=trader — so each ping went to exactly one place. ⚠️ THE FIX WOULD NOT HAVE BEEN HARMLESS: notify.py:29 records a prior incident where de-duplicating that queue caused a ping to be SILENTLY LOST, which is strictly worse than a duplicate. The session was already 'implementing fix + regression tests' when archived. Two jobs sharing a name was a fact about the code and was never evidence of a duplicate delivery; I presented a grep as a lead in a way that made it easy to treat as the answer. Branch claude/claude-ping-double-delivery-x4mq2p must not be merged. A future observation needs both chats checked at a named timestamp, not this thread resumed."
+      "note": "Found by the ping test (#10695) when P1b vanished. Three send-ping actions dispatched inside 15s and the MIDDLE run was cancelled: issue left open, zero comments, nothing anywhere saying the action never ran. `cancel-in-progress: false` protects a RUNNING job, but GitHub keeps only one PENDING run per concurrency group, so a third queued run cancels the second. ⚠️ THE ISSUE COMMENT IS THE ONLY RESULT SURFACE A PM-SIDE SESSION HAS, so 'silently dropped' is indistinguishable from 'still queued' — a session can wait forever on a run that is already dead. The test session's workaround was to dispatch strictly one at a time, which is exactly the sort of unwritten discipline that decays. Filed as BL-20260901-SYSTEM-ACTIONS-CANCELS-A-SUPERSEDED-PENDING-RUN-AND-COMMENTS-NOTHING-BACK-SO-A-DISPATCHED-ACTION-IS-SILENTLY-LOST."
     }
   ]
 }
