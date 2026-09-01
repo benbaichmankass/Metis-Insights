@@ -166,11 +166,23 @@ def test_ceiling_hit_is_loud_and_under_ceiling_is_not():
     assert "WIP CEILING HIT" not in quiet, "positive control: not-hit stays quiet"
 
 
-def test_ceiling_is_never_reported_as_enforced():
+def test_ceiling_is_reported_as_enforced_because_it_is():
+    """RENAMED 2026-09-01, because the old name asserted the opposite of the truth.
+
+    It was `test_ceiling_is_never_reported_as_enforced` and was correct when
+    Phase B shipped. Phase C (#10657) shipped check_wip_ceiling.py, and a ninth
+    in_flight object is now genuinely REFUSED — so a digest still saying
+    "declared, not enforced" tells a reader they may open one. The dangerous
+    direction, which is why the name changed rather than the assertion being
+    loosened.
+    """
     wip = wd.standing_state("HEAD")["wip"]
-    assert wip["enforced"] is False
-    assert wip["state"] == "declared_not_enforced"
-    assert "not a gate" in wd.render(wd.build_digest("HEAD", "HEAD"))
+    assert wip["enforced"] is True
+    assert wip["state"] == "enforced_in_ci"
+    rendered = wd.render(wd.build_digest("HEAD", "HEAD"))
+    assert "not a gate" not in rendered, (
+        "the digest must not tell a reader the ceiling is advisory — it is a gate")
+    assert "IS a gate" in rendered
 
 
 # ── coverage: never claims to be the whole picture ───────────────────────
@@ -178,7 +190,9 @@ def test_ceiling_is_never_reported_as_enforced():
 def test_digest_declares_the_store_incomplete():
     d = wd.build_digest("HEAD", "HEAD")
     assert d["coverageComplete"] is False
+    # Still names Phase C — but as history now, not as a pending migration.
     assert "Phase C" in wd.render(d)
+    assert "COMPLETE" in wd.render(d)
 
 
 # ── the latch fails loud ─────────────────────────────────────────────────
@@ -224,3 +238,29 @@ def test_dry_run_writes_nothing(tmp_path, monkeypatch):
 
 def test_self_test_passes():
     assert wd._self_test() == 0
+
+
+# ── the two surfaces may never disagree again ────────────────────────────
+
+def test_digest_and_route_publish_the_same_ceiling_facts():
+    """The regression this whole change exists to prevent.
+
+    These facts lived in TWO places. Phase C shipped the enforcement and updated
+    neither, so the deployed SPA told the operator the ceiling was advisory while
+    it would in fact fail their CI. Fixing only the route would have left the
+    digest saying it — the same sentence corrected once and still wrong somewhere
+    else.
+
+    Both now import src/utils/work_facts.py. This asserts they actually AGREE,
+    rather than trusting that they both import it: a future edit that reintroduces
+    a local literal fails here instead of reaching the operator.
+    """
+    from src.utils import work_facts
+    from src.web.api.routers import work as route
+
+    digest_wip = wd.standing_state("HEAD")["wip"]
+    route_wip = route.get_work()["wip"]
+
+    assert digest_wip["ceiling"] == route_wip["ceiling"] == work_facts.WIP_CEILING
+    assert digest_wip["enforced"] == route_wip["enforced"] == work_facts.CEILING_ENFORCED
+    assert digest_wip["state"] == route_wip["state"] == work_facts.CEILING_STATE

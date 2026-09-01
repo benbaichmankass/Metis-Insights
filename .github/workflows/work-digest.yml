@@ -1,0 +1,123 @@
+name: work-digest
+
+# Phase B's daily roll-up, on a real cadence. Operator decision 2026-09-01:
+# a standalone daily workflow, not folded into an existing job.
+#
+# WHY IT EXISTS
+#   scripts/ops/work_digest.py shipped with #10654 and had NO trigger — it
+#   appeared in 0 of 125 workflow files, so it had never fired and could not.
+#   It was deferred to claude/workflows-audit-restructure-fz0sw9, a branch that
+#   DOES NOT EXIST on origin, so it was not waiting on another session's paths;
+#   it was waiting on nobody.
+#
+# ⚠️ A SCHEDULED WORKFLOW IN THIS REPO IS NOT EVIDENCE THAT IT FIRES.
+#   probes.yml and due-list.yml are both merged, enabled, carry correct cron
+#   syntax — and have never once fired
+#   (OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON).
+#   So this file being green on the day it lands says nothing. The digest is
+#   DEPLOYED, and stays that way until a RUN with event=schedule is observed.
+#   The `workflow_dispatch` below exists so that observation can be forced
+#   rather than waited for — but a dispatch run is NOT a cron run, and reading
+#   one as the other is exactly the substitution that left those two dead.
+#
+# WHAT IT PINGS
+#   STATE CHANGES ONLY, NEVER ACTIVITY — the definition is imported by the
+#   script from work_phase_ping.PING_WORTHY, so the per-event path and this
+#   roll-up cannot drift. A digest that narrated activity would rebuild the
+#   desensitized-alarm failure on a daily cadence (202 of 376 CRITICAL/ERROR
+#   rows in one measured window were a single un-latched alarm).
+#
+# WHAT IT DOES NOT DO
+#   It does not send anything. It appends to docs/claude/pending-pings.jsonl;
+#   the VM's scripts/notify_on_pull.py drains that queue on the next
+#   ict-git-sync pull. So the digest is truth in transit between the commit and
+#   the send, and it fails BACK: an uncommitted row is a digest that never
+#   happened, never one wrongly shown as delivered. That is why the commit step
+#   uses verify-merged — "the PR opened" is not "the digest landed".
+#
+# Tier-1: an observability producer. No order path, no live-VM mutation, no
+# secret beyond the PAT that opens the auto-merge PR.
+
+on:
+  schedule:
+    # 06:20 UTC — after probes (05:20) and due-list (05:50), so a day's digest
+    # is rendered against registers those two have already refreshed.
+    - cron: "20 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: work-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    # BUDGET = work + wait + slack, and the WAIT dominates: commit-to-main with
+    # verify-merged waits up to 30m for the auto-merge PR to land, so a budget
+    # under 35 kills the job mid-wait and reports a failure for a merge that was
+    # about to succeed. 40 = ~5m of work + the 30m wait + 5m slack. This is the
+    # value tests/test_commit_to_main_callers.py pins; it caught due-list at 20.
+    timeout-minutes: 40
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          # A digest is a diff over a WINDOW, so the history must reach back
+          # past it. A shallow clone would silently produce an empty digest —
+          # indistinguishable from a quiet day, which is the failure this whole
+          # file is about.
+          fetch-depth: 0
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Self-test the digest before trusting its output
+        run: python3 scripts/ops/work_digest.py --self-test
+
+      - name: Resolve the 24h window
+        id: window
+        run: |
+          set -euo pipefail
+          # The window is the last 24h of main, resolved to a REAL commit rather
+          # than a date expression, so the digest reports over a range that
+          # exists. `--before` returns nothing when the repo was quiet for a day;
+          # fall back to the root commit, which yields a digest over everything
+          # since — a loud over-report is recoverable, a silent empty one is not.
+          BASE="$(git rev-list -1 --before='24 hours ago' main || true)"
+          if [ -z "$BASE" ]; then
+            BASE="$(git rev-list --max-parents=0 main | tail -1)"
+            echo "::warning::work-digest: no commit older than 24h on main; " \
+                 "falling back to the root commit, so this digest covers ALL history."
+          fi
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "work-digest: window $BASE..main"
+
+      - name: Render the digest
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/work_digest.py \
+            --base "${{ steps.window.outputs.base }}" --head main --write
+
+      - name: Land the digest on main (auto-merge PR)
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/pending-pings.jsonl
+          message: "chore(ops): queue the daily work digest"
+          pr-title: "chore(ops): queue the daily work digest (auto)"
+          pr-body: >-
+            Automated daily work digest (Phase B). Queues one rolled-up summary
+            of state changes onto pending-pings.jsonl; the VM drains it on the
+            next git-sync. Generated artifact only; auto-merge.
+          branch-prefix: automation/work-digest
+          # "the PR opened" is not "the digest landed", and only the second is
+          # what reaches the operator.
+          verify-merged: "true"
