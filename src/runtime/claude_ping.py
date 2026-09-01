@@ -43,8 +43,9 @@ THREE CLASSES, and they are gated differently on purpose
 
 ⚠️ THE RATE LIMIT IS DURABLE, NOT PER-PROCESS. A module-global counter resets on
 every restart, which is how one un-latched alarm put 202 of 376 CRITICALs on the
-operator's channel in a single window (BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-
-ON-EVERY-RESTART). State lives on disk beside the other alert latches.
+operator's channel in a single window
+(BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART). State lives on disk
+beside the other alert latches.
 
 ⚠️ AN UNREADABLE LIMITER SENDS. Failing loud is the only safe direction on a
 notification path: a broken limiter that suppressed would be indistinguishable
