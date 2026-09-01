@@ -89,6 +89,20 @@ COVERED = {
     # a docs/ path literal; these are the ones not writing a tmp_path
     # fixture. See test_docs_committed_readers_are_all_covered below, which
     # re-derives this set from the tests on every run so it cannot go stale.
+    # ⚠️ THE INTERPOLATED-PATH BLIND SPOT (2026-09-01). Both derivations below
+    # missed these: the literal scan wants a docs/ literal, the AST scan resolves
+    # constants, and tests/test_backlog_append.py builds the path from a LOOP
+    # VARIABLE — f"docs/claude/{name}-review-backlog.json". So they are pinned by
+    # hand here on purpose, and the reason is recorded so a future cleanup does
+    # not "de-duplicate" them back out on the grounds that the scan should find
+    # them. It cannot.
+    "docs/claude/health-review-backlog.json":
+        "test_the_live_backlogs_all_round_trip reads it AS COMMITTED; a break "
+        "here makes backlog_append refuse EVERY write repo-wide",
+    "docs/claude/performance-review-backlog.json":
+        "same reader, same failure mode",
+    "docs/claude/ml-review-backlog.json":
+        "same reader, same failure mode",
     "docs/research/exit-refinement-coverage.json":
         "test_exit_head_per_leg reads THE REAL matrix (not a fixture); PR #9208 "
         "changed only this file, short-circuited to a TEN-SECOND green "
