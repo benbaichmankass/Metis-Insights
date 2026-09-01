@@ -17,7 +17,8 @@ from __future__ import annotations
 
 import json
 import logging
-import os
+# `os` was dropped 2026-09-01: the env reads it served moved to
+# src/bot/telegram_routes.py, which now owns the resolution order.
 from datetime import timezone
 from typing import Any, Dict, List, Optional
 

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# wiring: manual-only - a DIAGNOSTIC a human or session runs ON THE VM to prove a
+# Telegram route delivers. It must NOT be wired to a workflow or timer: every run
+# sends a real message to the operator, so a scheduled one would be recurring noise
+# -- the desensitized-alarm failure this repo has a standing rule against, caused by
+# the very tool built to verify the channel that noise is being moved off.
 """Send ONE test ping down each resolved Telegram route, and report what happened.
 
 Runs ON THE VM, where the tokens live. That is the point: the token is read from
