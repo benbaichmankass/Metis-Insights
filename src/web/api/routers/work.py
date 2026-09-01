@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -136,6 +137,35 @@ def _load_yaml(path: Path) -> tuple[dict[str, Any] | None, str | None]:
     return data, None
 
 
+def _jsonable(value: Any) -> Any:
+    """Coerce a parsed-YAML value into something JSON-serialisable.
+
+    ⚠️ This is what makes the "never a 5xx" contract REAL rather than nominal.
+    ``extra`` preserves whatever free-form keys an object file carries, and YAML
+    yields native ``date`` / ``datetime`` objects for an unquoted ``2026-09-01``.
+    FastAPI's encoder happens to handle those two, but the store's schema is
+    deliberately open — a future key holding any other non-encodable type would
+    raise at RESPONSE-render time, i.e. *after* ``_build_index``'s try/except,
+    turning a Tier-1 read surface into a 500 that the module's own error
+    handling could never catch.
+
+    Dates become ISO strings (what the API already emits for the known fields,
+    so nothing changes shape); anything else unrecognised becomes its ``str()``
+    rather than being dropped — a value we could not type is still a value the
+    reader should see, and silently omitting it is the gap this file refuses to
+    serve elsewhere.
+    """
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_jsonable(v) for v in value]
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    return str(value)
+
+
 def _grade_lifecycle(value: Any) -> str:
     """Map a raw ``lifecycle`` value onto a declared state, or ``unknown``.
 
@@ -171,16 +201,16 @@ def _normalise_blocked_on(raw: Any) -> tuple[list[dict[str, Any]], str]:
         if isinstance(item, dict):
             edges.append(
                 {
-                    "kind": item.get("kind"),
-                    "ref": item.get("ref"),
-                    "since": item.get("since"),
-                    "note": item.get("note"),
+                    "kind": _jsonable(item.get("kind")),
+                    "ref": _jsonable(item.get("ref")),
+                    "since": _jsonable(item.get("since")),
+                    "note": _jsonable(item.get("note")),
                 }
             )
         else:
             # A bare scalar edge is not the typed shape the design requires;
             # surface it rather than dropping it.
-            edges.append({"kind": None, "ref": item, "since": None, "note": None})
+            edges.append({"kind": None, "ref": _jsonable(item), "since": None, "note": None})
     return edges, "declared"
 
 
@@ -212,7 +242,7 @@ _OBJECT_KNOWN_KEYS = frozenset(
 def _object_row(data: dict[str, Any], path: Path) -> dict[str, Any]:
     lifecycle = _grade_lifecycle(data.get("lifecycle"))
     edges, blocked_state = _normalise_blocked_on(data.get("blocked_on"))
-    extra = {k: v for k, v in data.items() if k not in _OBJECT_KNOWN_KEYS}
+    extra = {str(k): _jsonable(v) for k, v in data.items() if k not in _OBJECT_KNOWN_KEYS}
     return {
         "id": data.get("id") or path.stem,
         "type": data.get("type"),
@@ -222,15 +252,15 @@ def _object_row(data: dict[str, Any], path: Path) -> dict[str, Any]:
         "lifecycle": lifecycle,
         "lifecycleDeclared": data.get("lifecycle"),
         "owner": data.get("owner"),
-        "openedAt": data.get("opened_at"),
-        "closedAt": data.get("closed_at"),
+        "openedAt": _jsonable(data.get("opened_at")),
+        "closedAt": _jsonable(data.get("closed_at")),
         "reviewTrigger": data.get("review_trigger"),
         "doneCondition": data.get("done_condition"),
         "blockedOn": edges,
         "blockedOnState": blocked_state,
         "note": data.get("note"),
-        "evidence": data.get("evidence") or [],
-        "verdict": data.get("verdict"),
+        "evidence": _jsonable(data.get("evidence") or []),
+        "verdict": _jsonable(data.get("verdict")),
         "hasVerdict": data.get("verdict") is not None,
         "extra": extra,
         "path": f"docs/claude/work/objects/{path.name}",
@@ -243,11 +273,11 @@ def _intent_row(data: dict[str, Any], path: Path) -> dict[str, Any]:
         "id": data.get("id") or path.stem,
         "title": data.get("title"),
         "status": data.get("status"),
-        "openedAt": data.get("opened_at"),
+        "openedAt": _jsonable(data.get("opened_at")),
         "reviewCadence": data.get("review_cadence"),
         "why": data.get("why"),
         "doneLooksLike": data.get("done_looks_like"),
-        "extra": {k: v for k, v in data.items() if k not in known},
+        "extra": {str(k): _jsonable(v) for k, v in data.items() if k not in known},
         "path": f"docs/claude/work/intents/{path.name}",
     }
 
@@ -261,9 +291,9 @@ def _step_row(data: dict[str, Any], path: Path) -> dict[str, Any]:
         "lifecycle": _grade_lifecycle(data.get("lifecycle")),
         "lifecycleDeclared": data.get("lifecycle"),
         "owner": data.get("owner"),
-        "openedAt": data.get("opened_at"),
+        "openedAt": _jsonable(data.get("opened_at")),
         "note": data.get("note"),
-        "extra": {k: v for k, v in data.items() if k not in known},
+        "extra": {str(k): _jsonable(v) for k, v in data.items() if k not in known},
         "path": f"docs/claude/work/steps/{path.name}",
     }
 

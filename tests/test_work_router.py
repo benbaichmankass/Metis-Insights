@@ -279,3 +279,41 @@ def test_real_store_object_route_round_trips():
 def test_real_store_rejects_traversal_over_http():
     client = TestClient(app)
     assert client.get("/api/bot/work/object/..%2F..%2Fsecrets").status_code in (400, 404)
+
+
+# ── the "never a 5xx" contract holds end to end ──────────────────────────
+
+def test_whole_envelope_is_json_serialisable(tmp_path, monkeypatch):
+    """A non-encodable value would 500 at RESPONSE render — AFTER the module's
+    own try/except — so the contract has to hold at build time, not just in
+    _build_index's error handling."""
+    import json
+
+    root = _store(tmp_path)
+    # An unquoted YAML date parses to datetime.date; a nested one lands inside
+    # `extra`, which preserves arbitrary free-form keys by design.
+    _obj(
+        root,
+        "WO-dates",
+        "id: WO-dates\nlifecycle: ready\nopened_at: 2026-09-01\n"
+        "scope_split:\n  when: 2026-09-02\n  nested:\n    - 2026-09-03\n",
+    )
+    _point_at(monkeypatch, root)
+
+    d = wk.get_work()
+    json.dumps(d)  # must not raise
+    obj = d["objects"][0]
+    assert obj["openedAt"] == "2026-09-01"
+    assert obj["extra"]["scope_split"]["when"] == "2026-09-02"
+    assert obj["extra"]["scope_split"]["nested"] == ["2026-09-03"]
+
+
+def test_jsonable_stringifies_an_unknown_type_rather_than_dropping_it():
+    """A value we could not type is still a value the reader should see."""
+    class Weird:
+        def __str__(self):
+            return "weird-value"
+
+    assert wk._jsonable(Weird()) == "weird-value"
+    # Positive control: ordinary scalars pass through untouched.
+    assert wk._jsonable("s") == "s" and wk._jsonable(3) == 3 and wk._jsonable(None) is None
