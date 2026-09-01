@@ -127,6 +127,68 @@ lease_design:
       later. In particular the prompt must forbid asking the operator directly:
       write the question into the PR or the coordination board, and let the
       manager escalate.
+    must_push_before_reporting_done: >-
+      ⚠️ THE PROMPT MUST REQUIRE A PUSHED BRANCH BEFORE A SUB-SESSION MAY REPORT
+      DONE. Added 2026-09-01 because THIS PHASE'S OWN DONE-CONDITION FAILED a
+      real test, by accident, on the day it was written.
+
+      WHAT HAPPENED. A sub-session spawned to mirror Claude pings to the
+      dedicated Telegram bot finished IDLE with status_detail "patch ready; 249
+      tests pass; awaiting user push + gate conditions". It had never pushed a
+      branch. `git ls-remote` showed no branch of its; `ListAgents` reported no
+      reachable peers, confirming the measured constraint above — a manager
+      CANNOT message a sub-session. So the work existed only inside a container
+      nothing could reach, and the manager redid it by hand.
+
+      WHY THIS IS THE PHASE FAILING AND NOT MERELY AN OPERATOR SLIP. The
+      done-condition is "killing a session mid-work loses nothing, DEMONSTRATED
+      by killing one". Nobody killed this one — it FINISHED — and the work was
+      still lost. SESSIONS.json did its job exactly as designed: it proved a
+      session EXISTED. It cannot preserve what that session MADE. A registry is
+      not a durable store, and the two were being asked to be the same thing.
+
+      THE RULE: a sub-session's report of "done" is not evidence of anything the
+      manager can act on unless a branch exists on `origin`. The spawn prompt
+      must say so, and a manager polling a `review_ready` sub-session must check
+      for the branch rather than trusting the status line. ⚠️ Note the status
+      line said "awaiting user push", i.e. the sub-session KNEW it had not
+      pushed and reported ready anyway — so the prompt must make pushing a
+      PRECONDITION of reporting, not a step the session may defer.
+
+  the_lease_must_live_on_main:
+    rule: >-
+      ⚠️ WHILE THE LEASE FILE SITS ON A FEATURE BRANCH, EVERY HEARTBEAT RESTARTS
+      THAT BRANCH'S CI. Found by doing it: at 2026-09-01T16:13Z a heartbeat push
+      to claude/operating-layer-phase-e-lease discarded an in-flight pytest-run
+      about two minutes from completing, for a lease that did not expire for
+      another hour. Cost: one ~14-minute cycle, for nothing.
+
+      The design treated "where does the lease live" as answered by "the repo",
+      and did not notice that the repo has two very different places — a branch
+      under review, where a write is a CI event, and `main`, where a heartbeat
+      is an ordinary Tier-1 commit that perturbs nothing. Only the second is
+      compatible with a heartbeat cadence measured in tens of minutes.
+
+      RESOLVED by #10660 landing the file on `main`. Recorded rather than
+      dropped because the same trap returns for any future coordination file
+      introduced on a branch: a file that is WRITTEN on a cadence must not live
+      where writing it triggers a pipeline.
+
+  status_without_a_session_id_tells_the_holder_to_stand_down:
+    rule: >-
+      `manager_lease.py status` with no `--session-id` cannot identify its
+      caller, so it prints the held-by-someone-else message — "DO NOT MANAGE" —
+      even to the session that actually holds the lease. Measured 2026-09-01:
+      the bare form said DO NOT MANAGE while `status --session-id <holder>` said
+      "you hold it", about the same file at the same moment.
+
+      ⚠️ THE POLARITY IS CORRECT AND MUST NOT BE FLIPPED: telling the holder to
+      stand down is recoverable, telling a rival to proceed is the one outcome
+      the operator forbade. The defect is the DOC, which tells a session to run
+      the bare form (CLAUDE.md § "If you are MANAGING"), so the intended reader
+      gets the wrong answer on the intended path. Either the doc names
+      `--session-id`, or the CLI reads the session id from the environment when
+      one is available.
 
 note: >-
   F2 close-out verification and F5 exit verification are ONE hook, not two:
