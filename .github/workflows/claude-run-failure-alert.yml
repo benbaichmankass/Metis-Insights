@@ -45,6 +45,7 @@ on:
       # VM to drain), so a failed run and a quiet day look identical to the
       # operator.
       - work-digest
+      - work-decision-commit
       - strategy-review-packets
       - trainer-vm-diag
       - vm-diag-snapshot
