@@ -1,0 +1,213 @@
+{
+  "_comment": [
+    "THE MANAGER'S CHECKLIST. Every work item in the CURRENT manager session's",
+    "scope, and the state of each.",
+    "",
+    "OPERATOR DIRECTIVE, 2026-09-01, verbatim in intent: 'every manager session",
+    "keeps a detailed checklist of work items in its scope (this may be updated",
+    "as work progresses and the workplan is adapted, eg an unforeseen blocker",
+    "that needs to be resolved to release the rest of the items) - and every",
+    "status update should start with the checklist, then summary of what has",
+    "been done (recently) and what's next.'",
+    "",
+    "SO THE REPORTING CONTRACT IS FIXED: checklist -> recently done -> next.",
+    "In that order, every time. A status update that opens with a narrative is",
+    "not following this.",
+    "",
+    "WHY IT LIVES IN THE REPO AND NOT IN A SESSION'S CONTEXT. Same reason as",
+    "MANAGER-LEASE.json and SESSIONS.json: it must survive its holder's DEATH",
+    "and be readable by a manager arriving COLD. A checklist held only in",
+    "context is lost exactly when a successor most needs it, and re-deriving it",
+    "costs the successor the hours that produced it.",
+    "",
+    "IT IS ADAPTIVE, NOT A FROZEN PLAN. The directive is explicit that it",
+    "changes as work progresses -- an unforeseen blocker that must be resolved",
+    "to release the rest is a first-class edit, not a failure of planning. Add",
+    "the blocker as its own item, point the blocked items at it, and say so.",
+    "",
+    "STATES ARE NEVER COLLAPSED. 'delegated' is not 'in progress' and neither is",
+    "'done'; 'blocked' names WHAT it waits on. Most importantly 'done' means",
+    "MERGED AND OBSERVED, while 'landed_unproven' means the code is in and its",
+    "effect has NOT been seen on the fleet -- the distinction this whole system",
+    "keeps paying for when it is skipped.",
+    "",
+    "THE MANAGER DOES NOT EXECUTE THESE ITEMS. Operator-directed the same day:",
+    "'the manager session only manages and does not take even small items,",
+    "because that means they're not focused on what they're actually supposed",
+    "to be doing.' An item with owner 'manager' is a MANAGEMENT act (a merge, a",
+    "deploy, a lease heartbeat, a spawn), never a build."
+  ],
+  "schema_version": 1,
+  "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+  "updated_at": "2026-09-01T21:47Z",
+  "cycle": "CY-20260901-OPERATING-LAYER",
+  "states": {
+    "done": "merged AND its effect observed",
+    "landed_unproven": "merged; effect NOT yet observed on the fleet",
+    "in_flight": "a session is actively working it",
+    "blocked": "waiting on a named thing; see blocked_on",
+    "queued": "scoped and agreed, nobody started it",
+    "triage": "noticed, not yet scoped",
+    "dropped": "deliberately not doing; reason required"
+  },
+  "items": [
+    {
+      "id": "MI-01-PING-FORMAT",
+      "title": "Format-B ping system: one owner, three classes, gating",
+      "state": "landed_unproven",
+      "owner": "manager (SHOULD HAVE BEEN DELEGATED)",
+      "prs": [
+        10669,
+        10671
+      ],
+      "note": "Merged and CI-green. NOT observed: no ping in this format has been seen arriving anywhere. The operator's own read is the evidence that matters and it has not happened."
+    },
+    {
+      "id": "MI-02-CLAUDE-CHANNEL",
+      "title": "Claude pings reach the DEDICATED bot @ict_cluade_bot, not the trader chat",
+      "state": "in_flight",
+      "owner": "session_01J16qHJHbnvqDyRWWAvdiRD",
+      "prs": [
+        10674
+      ],
+      "blocked_on": [
+        {
+          "kind": "pr",
+          "ref": "10674",
+          "since": "2026-09-01T21:16Z",
+          "what": "manager merges when pytest-run goes green"
+        },
+        {
+          "kind": "deploy",
+          "ref": "set-env TELEGRAM_CLAUDE_BOT_SECRET",
+          "since": "2026-09-01T21:16Z",
+          "what": "token is in Actions, not yet on the VM; needs service: ict-claude-bridge.service (the suffix is required)"
+        }
+      ],
+      "note": "Root cause: #10664 built the router and converted cloud_notifier, leaving claude_bridge's drain hardcoding the trader token. The bot was configured, resolvable and INERT. A 20:58:49Z ping WAS delivered -- to the trader chat."
+    },
+    {
+      "id": "MI-03-MORNING-DIGEST",
+      "title": "The 06:20 work digest is the operator's morning report, on the Claude bot",
+      "state": "blocked",
+      "owner": "session_01J16qHJHbnvqDyRWWAvdiRD",
+      "blocked_on": [
+        {
+          "kind": "item",
+          "ref": "MI-02-CLAUDE-CHANNEL",
+          "since": "2026-09-01T21:22Z",
+          "what": "there is no separated channel to deliver into yet"
+        }
+      ],
+      "note": "Cadence raised daily -> every 4h in #10669, keeping the 06:20 slot because it lands after probes (05:20) and due-list (05:50). WARNING: scheduled workflows in this repo have NEVER fired on cron (OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON), so correct cron syntax is not evidence it will run."
+    },
+    {
+      "id": "MI-04-PHASE-F",
+      "title": "Phase F / C3 decision preparation -- the one phase touching the measured constraint",
+      "state": "in_flight",
+      "owner": "session_01MDjxAnncsh71UiRAWtYHkH",
+      "note": "PR #10681 IS OPEN. The manager has NOT read its diff and must before merging. Tier-1, so the merge is the manager's alone once CI is green.",
+      "pr": "#10681"
+    },
+    {
+      "id": "MI-05-PHASE-D",
+      "title": "Phase D / E1 constraint diagnosis -- the constraint computed rather than judged",
+      "state": "in_flight",
+      "owner": "session_01Eb2CgctP8MGHD2Pnh8gpqF",
+      "note": "PR #10680 IS OPEN. Manager has NOT read its diff. ⚠️ THIS ONE GATES A SPAWN: MI-06 unblocks on this PR's MERGE, not on Phase D being observed working — a false-hold shape the board flagged.",
+      "pr": "#10680"
+    },
+    {
+      "id": "MI-06-PHASE-G",
+      "title": "Phase G -- the forcing function: retirement, and the capability pull rule",
+      "state": "blocked",
+      "owner": null,
+      "blocked_on": [
+        {
+          "kind": "item",
+          "ref": "MI-05-PHASE-D",
+          "since": "2026-09-01T21:17Z",
+          "what": "the pull rule is only enforceable once E1 can name the held-up stage"
+        }
+      ],
+      "note": "Unblocks on #10680 MERGING, not on Phase D being proven. Spawn immediately on that merge; holding it until Phase D is 'observed working' is the false-hold the board named."
+    },
+    {
+      "id": "MI-07-PHASE-H-PRECONDITIONS",
+      "title": "Phase H preconditions: retire Android+Streamlit from the live feed; narrow the DB explorer",
+      "state": "in_flight",
+      "owner": "session_01LvzsinECH8HPCyauVJZBZw",
+      "note": "PR #10682 OPEN, READ BY THE MANAGER, operator-approved. Default-deny table allowlist + column redaction on the db explorer. ⚠️ SEVERITY, honestly: device_tokens is EMPTY on the live host (rows=0), so this closed a PATH and not a realised leak — do not restate it as a leak. The bigger surface is the OTHER 21 tables (signals 2.3M rows, trades 5,313) still world-readable unauthenticated; filed separately, and it is Phase H's actual job. ⚠️ Its live verification (a) needs the narrowed route DEPLOYED and is NOT satisfied by the merge — this lands as landed_unproven, never done.",
+      "pr": "#10682"
+    },
+    {
+      "id": "MI-08-PHASE-H",
+      "title": "Phase H -- the control half: decisions answerable from the UI, and the read gate",
+      "state": "queued",
+      "owner": null,
+      "blocked_on": [
+        {
+          "kind": "item",
+          "ref": "MI-07-PHASE-H-PRECONDITIONS",
+          "since": "2026-09-01T21:22Z",
+          "what": "attaching require_session is only tractable once the other consumers are archived"
+        }
+      ]
+    },
+    {
+      "id": "MI-09-GLD-CLOSE",
+      "title": "alpaca_paper GLD will not flatten -- 397 consecutive close failures",
+      "state": "in_flight",
+      "owner": "session_01Hd8opmCBcNQRchwdasWpvL",
+      "note": "PR #10679 OPEN, READ BY THE MANAGER, operator-approved. ⚠️ THE MANAGER'S HYPOTHESIS IS REFUTED, not merely 'different': #10666 already ported the qty_available fix at 16:23Z, it IS deployed, and the REGULAR-hours path fails identically inside RTH — so there was no working sibling to port from and porting would have fixed nothing. Cause is broker-side: Alpaca accepted our cancel, left OCO parent 2e843e04 in pending_cancel since 2026-08-27, 39 shares stay held_for_orders. Recurrence of BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL. ⚠️ MERGING THIS DOES NOT CLEAR THE WEDGE — that needs OPERATOR/venue action (relayed). alpaca_live shares this code and trades GLD, so the exposure is structural; measured FLAT at 21:23Z, so nothing real is stranded now.",
+      "pr": "#10679"
+    },
+    {
+      "id": "MI-10-PROP-FILLS",
+      "title": "breakout_1 prop journal missing terminal trades since 2026-08-30",
+      "state": "in_flight",
+      "owner": "session_01Xj5Puf96WC1YGKdZT4TikJ",
+      "note": "PR #10678 OPEN, READ BY THE MANAGER, operator-approved. It proved the banner a FALSE POSITIVE and wrote no fill — the no-fabrication prohibition held. reported_at is overwritten by insert_fill's UPDATE branch, so membership now takes `any` of created_at/reported_at/closed_at. Re-graded 18 pairs: exactly one verdict flips and the genuine −$111.86 gap still grades `unreported`, which is the check that it did not silence the detector. BLOCKED ON CI — see MI-14.",
+      "pr": "#10678"
+    },
+    {
+      "id": "MI-11-MANAGER-LEASE",
+      "title": "Hold and heartbeat the manager lease",
+      "state": "in_flight",
+      "owner": "manager",
+      "note": "Heartbeat 2026-09-01T21:45:38Z, expires 23:15:38Z. A heartbeat that is not PUSHED protects nothing — this one ships in the same PR as the write."
+    },
+    {
+      "id": "MI-12-STALE-AUTOMATION-PR",
+      "title": "#10398 econ-calendar PIT snapshots (auto) -- open since 2026-08-29",
+      "state": "triage",
+      "owner": null,
+      "note": "An automation PR three days old. Nobody has disposed of it. Merge, close, or find why it stalled -- an auto-PR nobody lands is the shape of a mechanism that has quietly stopped working."
+    },
+    {
+      "id": "MI-13-BACKLOG-DRAIN",
+      "title": "Drain the review backlogs (1,072 rows in health-review alone)",
+      "state": "queued",
+      "owner": null,
+      "note": "A dedicated /backlog-drain skill exists for this. Reviews FILE and one skill CLOSES; the measured filed-vs-closed ratio is the disease the operating layer exists to treat."
+    },
+    {
+      "id": "MI-14-CI-GREEN-THE-THREE-DRAFTS",
+      "title": "Get the three approved drafts to green CI so the manager can merge them",
+      "state": "in_flight",
+      "owner": "session_012633idhLGncZaWVMVSuXJM",
+      "pr": null,
+      "blocked_on": null,
+      "note": "THE UNFORESEEN BLOCKER THAT HOLDS THE THREE APPROVED MERGES, added as its own item per the operator's rule that an adaptation is a first-class edit. #10678's guards job FAILED on exactly one guard — session-brief-guard (render_session_brief.py --check --base origin/main, exit 1), because the PR touches the registers the CLAUDE.md SESSION BRIEF is rendered from. #10679 and #10682 showed ZERO check runs when read, which is UNKNOWN and not green — and in this repo a zero usually means a merge conflict, so the session is told to read mergeable_state first. Delegated rather than taken: the manager owns the MERGE, not the fix. ⚠️ The session is prohibited from weakening any guard or test to get green; a guard failing correctly is a legitimate outcome it must report rather than route around."
+    },
+    {
+      "id": "MI-15-SESSIONS-REGISTRY-INCOMPLETE",
+      "title": "The sub-session registry was missing 3 of the 6 sessions this manager spawned",
+      "state": "landed_unproven",
+      "owner": "manager",
+      "pr": null,
+      "blocked_on": null,
+      "note": "FOUND WHILE REFRESHING THE CHECKLIST, and it is the exact failure SESSIONS.json exists to prevent: the Claude-channel, Phase-H-preconditions and prop-fills sessions existed ONLY in this manager's context. Had this session died, three live sub-sessions — two of them holding operator-approved PRs — would have been silently orphaned. All four (those three plus the new CI-green session) are registered in this PR. ⚠️ landed_unproven, NOT done: the registry is only proven when a manager arriving COLD actually resumes from it, and no such takeover has happened. Registering is a deploy, not an observation."
+    }
+  ]
+}
