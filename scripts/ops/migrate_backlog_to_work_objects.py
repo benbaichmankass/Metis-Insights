@@ -240,6 +240,10 @@ def migrate(*, write: bool, migrated_on: str) -> Dict[str, Any]:
     per_source: Dict[str, int] = {}
     absences = {"no_title": 0, "no_opened_at": 0, "no_done_condition": 0}
     types = {"question": 0, "commitment": 0}
+    # Counted from the objects actually built, never asserted from the
+    # constructor: the migration's whole safety argument is that nothing
+    # arrives in flight, and an argument you cannot check is not one.
+    lifecycles: dict = {}
 
     if write:
         OBJECTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -269,9 +273,11 @@ def migrate(*, write: bool, migrated_on: str) -> Dict[str, Any]:
             if write:
                 dest.write_text(to_yaml(obj), encoding="utf-8")
             written += 1
+            lifecycles[obj["lifecycle"]] = lifecycles.get(obj["lifecycle"], 0) + 1
 
     return {"written": written, "skipped_existing": skipped,
             "per_source": per_source, "absences": absences, "types": types,
+            "lifecycles": lifecycles,
             "carried_total": sum(per_source.values())}
 
 
@@ -295,7 +301,21 @@ def main(argv=None) -> int:
         print(f"    {rel}: {n}")
     print(f"  type split (from the row's own next_action field): {s['types']}")
     print(f"  absences carried through rather than filled: {s['absences']}")
-    print("  every object written is lifecycle=dormant — carried, NOT in flight.")
+    # Quantified deliberately. This line read "every object written is
+    # lifecycle=dormant" with no denominator, and diagnostic-provenance-guard
+    # failed it (sub-class C, unquantified universal claim). It was right: a
+    # run that wrote NOTHING printed the same reassuring sentence as one that
+    # wrote 584 correct objects. This is the migration's core safety property
+    # -- that it cannot blow the WIP ceiling -- so it is precisely the claim
+    # that has to carry the population it ranges over.
+    lc = s["lifecycles"]
+    dormant = lc.get("dormant", 0)
+    if s["written"] and dormant == s["written"]:
+        print(f"  lifecycle: {dormant} of {s['written']} object(s) "
+              f"{'written' if a.write else 'to write'} are dormant "
+              f"— carried, NOT in flight.")
+    else:
+        print(f"  lifecycle: {dormant} dormant of {s['written']}; full split {lc}")
     return 0
 
 
