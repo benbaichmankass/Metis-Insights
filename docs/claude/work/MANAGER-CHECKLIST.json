@@ -244,7 +244,7 @@
       "owner": null,
       "pr": null,
       "blocked_on": null,
-      "note": "Found by the ping test (#10695) when P1b vanished. Three send-ping actions dispatched inside 15s and the MIDDLE run was cancelled: issue left open, zero comments, nothing anywhere saying the action never ran. `cancel-in-progress: false` protects a RUNNING job, but GitHub keeps only one PENDING run per concurrency group, so a third queued run cancels the second. ⚠️ THE ISSUE COMMENT IS THE ONLY RESULT SURFACE A PM-SIDE SESSION HAS, so 'silently dropped' is indistinguishable from 'still queued' — a session can wait forever on a run that is already dead. The test session's workaround was to dispatch strictly one at a time, which is exactly the sort of unwritten discipline that decays. Filed as BL-20260901-SYSTEM-ACTIONS-CANCELS-A-SUPERSEDED-PENDING-RUN."
+      "note": "Found by the ping test (#10695) when P1b vanished. Three send-ping actions dispatched inside 15s and the MIDDLE run was cancelled: issue left open, zero comments, nothing anywhere saying the action never ran. `cancel-in-progress: false` protects a RUNNING job, but GitHub keeps only one PENDING run per concurrency group, so a third queued run cancels the second. ⚠️ THE ISSUE COMMENT IS THE ONLY RESULT SURFACE A PM-SIDE SESSION HAS, so 'silently dropped' is indistinguishable from 'still queued' — a session can wait forever on a run that is already dead. The test session's workaround was to dispatch strictly one at a time, which is exactly the sort of unwritten discipline that decays. Filed as BL-20260901-SYSTEM-ACTIONS-CANCELS-A-SUPERSEDED-PENDING-RUN-AND-COMMENTS-NOTHING-BACK-SO-A-DISPATCHED-ACTION-IS-SILENTLY-LOST."
     }
   ]
 }
