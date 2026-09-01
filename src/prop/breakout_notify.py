@@ -115,18 +115,33 @@ def emit_prop_signal(ticket: Ticket, *, push: bool = True, telegram: bool = True
 def _prop_bot_token() -> Optional[str]:
     """The Telegram bot token for prop tickets.
 
-    Prefer the dedicated prop bot (`TELEGRAM_PROP_BOT_TOKEN`), then the
-    repurposed comms bot (`TELEGRAM_CLAUDE_BOT_TOKEN`), and FINALLY fall back to
-    the trader bot (`TELEGRAM_BOT_TOKEN`). The last fallback (added 2026-06-22)
+    ⚠️ THE ORDER BELOW IS STALE PROSE IF READ AS THE CURRENT ONE — corrected
+    2026-09-01. The live order is owned by `telegram_routes._PROP_TOKEN_ORDER`
+    and now leads with `TELEGRAM_PROP_TRADE_BOT`, the operator's name for the
+    renamed secret. Read the field, not this paragraph; it is kept only for the
+    history in its last sentences, which still explains WHY the trader-bot
+    fallback exists.
+
+    Historical order: the dedicated prop bot (`TELEGRAM_PROP_BOT_TOKEN`), then
+    the repurposed comms bot (`TELEGRAM_CLAUDE_BOT_TOKEN`), and FINALLY the
+    trader bot (`TELEGRAM_BOT_TOKEN`). That last fallback (added 2026-06-22)
     matters: on the Ampere VM neither prop nor claude token carried over the
     cutover, so this returned None → `send_telegram_direct` silently skipped the
     send and prop tickets were journaled but never delivered. The trader bot
     token IS set (trade alerts work), so this guarantees prop tickets always
     reach the operator; set TELEGRAM_PROP_BOT_TOKEN to route them to a dedicated
-    prop channel instead."""
-    return (os.environ.get("TELEGRAM_PROP_BOT_TOKEN")
-            or os.environ.get("TELEGRAM_CLAUDE_BOT_TOKEN")
-            or os.environ.get("TELEGRAM_BOT_TOKEN"))
+    prop channel instead.
+
+    ⚠️ DELEGATES as of 2026-09-01. The order used to be spelled out here, and
+    `bot/claude_bridge.py` spelled its own version separately — two copies of one
+    resolution order, which is how they drift. `src/bot/telegram_routes.py` owns
+    it now, and it additionally reports WHICH variable answered, so "prop tickets
+    reached the operator" can be told apart from "prop tickets reached the PROP
+    channel". Those were indistinguishable from outside before.
+    """
+    from src.bot.telegram_routes import prop_route
+
+    return prop_route().token
 
 
 def _fmt(value: Any) -> str:

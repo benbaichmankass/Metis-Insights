@@ -66,7 +66,31 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-TELEGRAM_TOKEN = os.environ["TELEGRAM_CLAUDE_BOT_TOKEN"]
+from src.bot.telegram_routes import (  # noqa: E402
+    _PROP_TOKEN_ORDER,
+    prop_route as _prop_route,
+)
+
+# ⚠️ THIS BRIDGE IS THE PROP BOT, despite every name on this line's history.
+# It used to read `os.environ["TELEGRAM_CLAUDE_BOT_TOKEN"]` directly — a bare
+# KeyError that would kill the service outright the moment that variable was
+# absent. It became absent on 2026-09-01, when the operator renamed the Actions
+# secret to TELEGRAM_PROP_TRADE_BOT to reflect what it actually drives. The VM's
+# .env still carried the old name, so nothing broke that day; a re-provision
+# would have crash-looped the prop bridge with a KeyError naming a variable that
+# no longer exists anywhere.
+#
+# Resolution is delegated to the ONE owner, which accepts the new name, the
+# older prop name, and the legacy one, so a mid-transition VM keeps working.
+TELEGRAM_TOKEN = _prop_route().token
+if not TELEGRAM_TOKEN:
+    # Fail LOUD and specific, never with a KeyError naming one variable of three.
+    raise SystemExit(
+        "claude_bridge: no prop-bot token. This bridge serves the PROP channel "
+        "(the name is historical). Set one of: "
+        + ", ".join(_PROP_TOKEN_ORDER)
+        + " — or TELEGRAM_BOT_TOKEN to fall back to the trader bot."
+    )
 ALLOWED_CHAT_ID = int(os.environ["TELEGRAM_CHAT_ID"])
 
 
