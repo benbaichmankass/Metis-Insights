@@ -281,10 +281,23 @@ The trading system's own architecture is not the problem and does not need re-ar
 
 **Settled here:** the value chain and its two support functions · priority by held-up stage, called by the operator each cycle · work as typed objects carrying their own context · the step-with-a-parent unit · object + role pack · four-way rule binding · the roadmap as intent + work, reconciled · blocked as a dependency edge so the constraint is computed · the 24 functions, their dependencies, and where each runs · five session types plus the cycle, with PRODUCE split from DISPOSE · continuous flow with checkpoints, light daily and deep weekly · ad-hoc work entering only as a work object · the autonomy grant and its notification condition · the coordination layer's three mechanisms · the decision round-trip by urgency · the dashboard in the SPA · the calibrations and migration posture above.
 
-**Not settled, and deliberately absent:** the work-object schema and where coordination state lives (the next pass); what gets built, changed or removed; how the existing 32 skills, 124 workflows, 64 guards and 13 registers map onto these functions; and the order of any of it.
+**Not settled here, and deliberately absent from THIS document:** the work-object schema and where coordination state lives; what gets built, changed or removed; how the existing 32 skills, 124 workflows, 64 guards and 13 registers map onto these functions; and the order of any of it. ⚠️ **All but the last of those have since been settled in the three passes that followed — see the closing note below.** This paragraph is left as written because it records what this document itself decided; do not read it as the current state of the series.
 
 **The next stage is a single design pass covering the work-object schema and where coordination state lives** — the operator's call, on the grounds that these are the same problem approached from two sides. What a work object contains determines what the store must hold; where the store lives determines what a session and the dashboard can each do with it. Everything else waits on that: the coordination layer, the decision round-trip, the dashboard and the readout all sit on top of it.
 
 Only after that: derive, function by function, what capability already exists and works, what exists but is broken or unread, and what is genuinely missing — and only from that derivation, a build plan.
+
+---
+
+## ✅ The series is complete (2026-09-01)
+
+Both stages named above happened, in that order, and the series is four documents:
+
+1. **This document** — structure, the value chain, work as typed objects, the 24 functions, session types, rhythm, the autonomy grant, the calibrations.
+2. **[`operating-layer-schema-and-state-DESIGN.md`](./operating-layer-schema-and-state-DESIGN.md)** — the work-object schema; **the repo is the single source of truth** and the live layer holds only observations and truth-in-transit (the wipe test); the session write token (`DASHBOARD_API_TOKEN`, operator-decided); the access posture.
+3. **[`operating-layer-function-derivation-DESIGN.md`](./operating-layer-function-derivation-DESIGN.md)** — all 24 functions graded against the repo: **5 work · 14 partial · 5 missing**, and the five missing are all *steering*.
+4. **[`operating-layer-build-plan-DESIGN.md`](./operating-layer-build-plan-DESIGN.md)** — seven phases, ordered so each one changes how the next session works on its own, plus what gets **retired** alongside.
+
+⚠️ **The "Open architecture question" section above is RESOLVED** by (2), and the paragraph two above this one is a record of this document's own scope rather than the series' current state. Where they disagree with the later passes, the later pass wins.
 
 Approving this document means the *structure* is agreed, not that implementation begins.

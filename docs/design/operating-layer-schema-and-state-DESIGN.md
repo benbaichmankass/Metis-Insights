@@ -136,20 +136,45 @@ on a wipe — which is the F2 close-out failure the operating model exists to pr
 
 ## 3 · How a session writes
 
-**A scoped write token, originated by the operator.** Measured 2026-09-01 from inside a
-session: `DIAG_READ_TOKEN` is present and `/api/diag/version` returns 200 over the Caddy
-host, but **`DASHBOARD_API_TOKEN` is unset**, so token-gated writes are closed to a
-session today.
+**Decided (operator, 2026-09-01): `DASHBOARD_API_TOKEN`.** Measured the same day from
+inside a session: `DIAG_READ_TOKEN` is present and `/api/diag/version` returns 200 over
+the Caddy host, but **`DASHBOARD_API_TOKEN` is unset**, so token-gated writes are closed
+to a session today. Closing that is a propagation step, not an origination — the value
+already exists on the VM (`/etc/ict-trader/web-api.env`), so no new secret is created and
+there is no operator hand-off.
 
-The token is **scoped to the operating-layer endpoints only** — deliberately not
-`DASHBOARD_API_TOKEN`, which also authorises prop-journal writes a session has no reason
-to reach. Rejected alternatives: a GitHub Action relay (a workflow round-trip per
-heartbeat is the wrong shape for the one write that must be cheap), and following the
-unauthenticated `learning/progress` precedent (it would leave the work registry writable
-by anyone on the internet).
+⚠️ **This reverses what an earlier draft of this section argued, and the reasoning it
+gave still stands as the accepted cost — do not read the decision as a refutation of it.**
+That draft said the token should be *"scoped to the operating-layer endpoints only —
+deliberately not `DASHBOARD_API_TOKEN`, which also authorises prop-journal writes a
+session has no reason to reach."* That is still true of what the token reaches. What
+changed is the weighing: a third secret to originate, rotate and keep in sync across
+Actions, the VM and the session environment is real ongoing cost against a **narrower
+compromise radius on a credential that is not otherwise loose** — and the repo has a
+measured record of secret-propagation mechanisms breaking silently
+(`BL-20260713-SET-DIAG-TOKEN-RESTORE-BROKEN`, unfixed). One fewer moving credential was
+judged worth the wider scope.
 
-Originating the value is one of the three genuine operator hand-offs under the autonomy
-contract. Propagation to Actions secrets and the VM is not.
+**So the accepted exposure, stated plainly:** a compromised session write token can also
+write the prop journal — `POST /api/bot/prop/report` — which ingests fills and
+account-status snapshots and fires operator notifications. It is **not** an order path
+and places no trade. The mitigation is that the value stays where it already is: it is
+never echoed to a repo-visible surface, and `_require_write_token` is **fail-closed**
+(503 when unset), so a dropped value closes writes rather than opening them.
+
+**`DIAG_READ_TOKEN` was rejected on the record, not on preference.** Its value has been
+readable in a public issue comment since 2026-05-21 and **still authorises**; granting it
+write would hand write access to every reader of that comment, and would trip the
+explicit reopener on the closed rotation decision (*"if `/api/diag/*` ever gains a WRITE
+route … re-put it to the operator"*). Two other alternatives were rejected earlier and
+stay rejected: a GitHub Action relay (a workflow round-trip per heartbeat is the wrong
+shape for the one write that must be cheap), and following the unauthenticated
+`learning/progress` precedent (it would leave the work registry writable by anyone on the
+internet).
+
+⚠️ **The read gate in § 4 is a separate credential and a separate question.** This one
+authorises a SESSION to write; that one authorises a BROWSER to read. Conflating them
+would put a long-lived write token in a static SPA bundle, which § 4 forbids outright.
 
 ---
 
@@ -231,7 +256,11 @@ worth fixing rather than the symptom.
 
 ## 6 · Not settled here
 
-The function-by-function derivation (what of the 24 already exists, is broken, or is
-missing) · the migration of the carried rows into the model · the dashboard's
-information design · the retirement path for the Android and Streamlit consumers · and
-any build order.
+**Settled since this pass landed:** the function-by-function derivation is
+[`operating-layer-function-derivation-DESIGN.md`](./operating-layer-function-derivation-DESIGN.md);
+the build order is [`operating-layer-build-plan-DESIGN.md`](./operating-layer-build-plan-DESIGN.md),
+which also folds in the migration of the carried rows (Phase 0) and the retirement path
+for the Android and Streamlit consumers (Phase 6's precondition, filed as
+`BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED`).
+
+**Still open:** the dashboard's information design, and the per-phase PR decomposition.
