@@ -3,13 +3,14 @@ type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: "Phase C — migration, the WIP ceiling, and the priority that reaches a session"
 stage: CAPABILITY
-lifecycle: in_flight
+lifecycle: waiting
 owner: claude
 opened_at: 2026-09-01
 closed_at: null
 review_trigger: >-
-  Re-read when the phase it depends on closes, or when the operator changes the cycle
-  priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
+  Re-read when a cold session reports this cycle's priority citing the CLAUDE.md brief,
+  or when the operator changes the cycle priority. A dormant phase is not a queued one —
+  it is re-argued when it becomes reachable.
 
 done_condition: >-
   A session knows this cycle's priority without being told, and the ceiling
@@ -23,7 +24,22 @@ done_condition: >-
   # than a missing one: it is exactly what E1's constraint computation would later
   # read, and it would have said "we are waiting" while two phases were available.
   # An edge must name the CONDITION, never the object that happened to create it.
-blocked_on: []   # the store exists; migration + the ceiling can start.
+blocked_on:
+  - kind: external_event
+    ref: a cold session stating this cycle's priority and citing the CLAUDE.md brief as where it read it
+    since: 2026-09-01
+    note: >-
+      ⚠️ HALF of the done-condition is OBSERVED and half is NOT, and this edge names
+      only the unobserved half. THE CEILING HALF IS DONE — measured 2026-09-01 against
+      a copy of the real 583-object store, flipping dormant objects to in_flight one at
+      a time: 8 in flight is allowed, the NINTH is refused (verdict over_no_exception).
+      THE PRIORITY HALF IS NOT. The priority renders into CLAUDE.md, but rendering is a
+      deploy, not an observation, and the channel it rides is itself unproven
+      (OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION is still open). This
+      session cannot be the test: it built the thing and has been told the priority.
+      Tracked as OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT.
+      `waiting`, not `done` — a `done` here would collapse "we deployed it" into "we
+      verified it", which is the exact collapse the six-state vocabulary exists to prevent.
 
 note: >-
   Migration and the ceiling ship TOGETHER, deliberately: ~572 not-closed
@@ -34,6 +50,122 @@ note: >-
   those populations would re-introduce the eviction rule the operator reversed
   on 2026-08-26.
 
+observed:
+  # Counts, not adjectives. Every number carries its population.
+  migration:
+    carried_population: >-
+      575 rows with status in {open, kept_open}, of 1,291 total rows across the four
+      review backlogs. MEASURED 2026-09-01. Breakdown: health 497/1,062 · performance
+      45/111 · ml 22/106 · research 11/12. The design series said "~572"; the measured
+      number is 575, and the difference is not explained here — it is simply the count.
+    objects_written: 575
+    store_after: >-
+      583 objects total (575 migrated + the build's own 8 phases), of which 2 were
+      in_flight, 1 ready, 1 waiting, and 579 dormant.
+    ⚠️_carrying_is_not_opening: >-
+      583 objects is NOT 583 things in flight, and a view that renders it that way has
+      misread the store. Every migrated row arrived `dormant` with `owner: null` and
+      `parent_intent: null` — it becomes in_flight only when given an owner, a real
+      edge, and a place under an intent.
+    lifecycle_mapping_basis: >-
+      DECIDED. Everything migrated as `dormant`, not "dormant or accepted" as the build
+      plan's wording invites. Reason, and it is mechanical rather than aesthetic:
+      scripts/ops/work_phase_ping.py treats `accepted` as PING-WORTHY and `dormant` as
+      not, so mapping the 238 kept_open rows to `accepted` would have queued 238
+      operator notifications for what is a bulk edit. The notification contract is
+      "events on STATE CHANGES, never on activity", and a migration is activity.
+    ping_control: >-
+      VERIFIED, with a positive control. After committing all 575 objects,
+      `work_phase_ping.py --base origin/main --head HEAD` reported exactly ONE
+      ping-worthy transition — this object's own ready→in_flight — across a 580-file
+      commit. The one detection is what makes the absence of the other 575 meaningful:
+      a silent detector and a correctly-silent one are different things.
+    backlogs_untouched: >-
+      VERIFIED byte-identical after the run (`git status --porcelain` empty on all four).
+      The migration reads the backlogs and never opens one for writing.
+      health-review-backlog.json is 1,062 rows / ~5 MB and does not round-trip through
+      json.dumps, so a naive read-append-write would reformat every non-ASCII line.
+    absences_carried_not_filled: >-
+      Of the 575: 39 have no title, 154 no opened_at, 51 no resolution_criteria. The 51
+      get a loud "⚠️ UNKNOWN" done_condition rather than an empty string, because an
+      object that cannot say what would end it can never be finished, only abandoned.
+    edges: >-
+      ZERO edges were invented. Every migrated row carries `blocked_on: []` WITH
+      `blocked_on_basis: NOT_ASSESSED` stating that the empty list is not the claim
+      "nothing blocks this". This is the rule the parent session's three false
+      `object: WO-PHASE-A` edges were corrected for.
+  ceiling_A5:
+    enforced: >-
+      MEASURED 2026-09-01 against a copy of the real 583-object store, not only in the
+      self-test: dormant objects flipped to in_flight one at a time, 8 allowed, the
+      NINTH refused (verdict over_no_exception). This is the second half of the
+      done-condition and it is satisfied.
+    waiting_is_free: >-
+      DECIDED. Only `in_flight` consumes a ceiling slot. A thing blocked on an operator
+      decision or an external event is not consuming the attention the ceiling rations,
+      and making the ceiling punish honesty about blockage would defeat the six-state
+      vocabulary it depends on.
+    exceeding_it: >-
+      Requires docs/claude/work/wip-ceiling-exception.yaml naming the exact object ids.
+      `decision: pending` STILL FAILS — filed is not granted, and passing on a
+      self-written justification would make the ceiling advisory again. `approved`
+      passes only with approved_by + approved_at and only for the ids it names.
+    two_populations: >-
+      scripts/ci/check_open_items.py still has MAX_ITEMS = None — asserted in
+      check_wip_ceiling.py's self-test, not assumed, so a future change that caps the
+      REGISTER believing it is implementing the ceiling fails loudly and says why.
+      Verified live: open-items-guard passes at 27 uncapped items.
+  priority_A3:
+    built: >-
+      docs/claude/CYCLE-PRIORITY.json now exists and renders at the TOP of the generated
+      SESSION BRIEF in CLAUDE.md, above the due list, because a session reads top-down
+      and what steers the choice of work must arrive before the list of work.
+    verified_only_as_a_build: >-
+      render_session_brief.py --self-test passes 25 cases, including: an ABSENT priority
+      renders an explicit line rather than vanishing (so "no priority set" and "the
+      renderer broke" cannot look alike); a priority past review_by is marked STALE and
+      still SHOWN, because it is the last thing decided; and a priority-only change is
+      graded `introduced_registers_changed` rather than cancelling out in the
+      diff-scoped --check — the trap that would have let a priority change pass
+      unrendered had the register not been read at the base ref too.
+    ⚠️_not_verified: >-
+      NO session has been observed acting on it. That is the open half of this object's
+      done-condition and the reason its lifecycle is `waiting`.
+
+carried_out_of_scope:
+  - what: The board `▶️ START` and `✅ DONE` posts for this session.
+    why: >-
+      CAPABILITY GAP, not a skipped step. add_issue_comment returned
+      `403 Resource not accessible by integration` on issue #6927 under BOTH
+      `benbaichmankass/metis-insights` and `benbaichmankass/Metis-Insights`, while
+      issue_read on the same issue with the same credential SUCCEEDED — so this is a
+      write-permission limit on the integration for this session, not the repo-name
+      scope mismatch CLAUDE.md warns about. create_pull_request 403s identically.
+      git push works, which is the only reason this work is reachable at all.
+    ⚠️: >-
+      A recurrence of BL-20260820-NO-BOARD-POST-RELAY-FOR-READONLY-MCP, which recorded
+      the same failure and noted a relay exists for the PR half and none for the board
+      half. Measured again 2026-09-01: BOTH halves are now unreachable. The START text
+      was written before the first substantive tool call, as the protocol requires, and
+      is preserved in the PR body — but a START nobody can see is not coordination, and
+      the concurrent Phase B session was not warned through the channel the rule names.
+  - what: The 51 carried rows with no resolution_criteria were not triaged.
+    why: >-
+      Out of Phase C's scope. Filed as an update on the existing open row
+      BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED rather
+      than as a new row: backlog_append.py's similarity check surfaced it, it is the
+      same class with no fix attempted since, so it is a duplicate to fold in rather
+      than a recurrence to re-file.
+
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md
-verdict: null
+  - scripts/ops/migrate_backlog_to_work_objects.py
+  - scripts/ci/check_wip_ceiling.py
+  - docs/claude/CYCLE-PRIORITY.json
+verdict: >-
+  SHIPPED, HALF-VERIFIED, and the halves are named rather than averaged. The ceiling
+  half of the done-condition is OBSERVED (8 allowed, 9 refused, measured against the
+  real store). The priority half is NOT — it is built and rendering, and nobody has been
+  seen acting on it. Basis: MEASURED for every count above; DECIDED for the lifecycle
+  and stage mappings. ⚠️ A deploy is not a verification, which is why this object is
+  `waiting` and not `done`.

@@ -55,7 +55,6 @@ someone made on the record.
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -252,7 +251,8 @@ def _self_test() -> int:
         ok &= good
         print(f"  self-test ({label}): {'PASS' if good else f'FAIL got={got!r}'}")
 
-    ids = lambda n: [f"WO-{i}" for i in range(n)]
+    def ids(n):
+        return [f"WO-{i}" for i in range(n)]
 
     check("8 in flight is allowed", evaluate(ids(8), None)[0], "ok")
     check("THE PHASE'S DONE-CONDITION: a NINTH is refused",
