@@ -17,7 +17,7 @@
 > checks it in CI (diff-scoped, in the `guards` job); `--all` is the standing
 > audit and `--list` prints measured coverage.
 >
-> **Coverage, computed rather than counted: 100 of 100 routes documented (100%).**
+> **Coverage, computed rather than counted: 102 of 102 routes documented (100%).**
 > *Population — every `@router.<verb>("...")` under `src/web/api/routers/`
 > joined to its `APIRouter(prefix=...)`. Verified against the live FastAPI
 > route table (`app.routes`): the enumerator finds exactly those 96 with no
@@ -139,6 +139,8 @@ stale and read as current.
 | `GET /api/bot/reports/{report_id}` | `routers/reports.py` | **Added 2026-06-22.** One report's metadata + its rendered self-contained `report.html`. 404 on unknown id; artifact paths validated under `comms/reports/` — **no path traversal**. |
 | `GET /api/bot/roadmap` | `routers/roadmap.py` | The parsed product roadmap (milestone table + sprint-log index). Best-effort: a missing/garbled `ROADMAP.md` degrades to an empty envelope. Short in-process cache keyed on file mtimes. |
 | `GET /api/bot/roadmap/sprint/{sprint_id}` | `routers/roadmap.py` | One sprint log parsed into sections. `sprint_id` validated `[A-Za-z0-9._-]+` and resolved strictly under `docs/sprint-logs/` — **no traversal** (400); `present:false` on unknown id. |
+| `GET /api/bot/work` | `routers/work.py` | The work store (`docs/claude/work/`): intents → objects → steps, lifecycle roll-up, typed `blocked_on` edges. Best-effort: a missing/garbled store degrades to an empty envelope, never a 5xx. Short in-process cache keyed on file mtimes. **Read-only — the control half (answering decisions, the read gate) is Phase H and is NOT here.** A file that fails to parse is reported in `readErrors`, never dropped. |
+| `GET /api/bot/work/object/{object_id}` | `routers/work.py` | One work object in full. `object_id` validated `^[A-Za-z0-9][A-Za-z0-9._-]*$` (leading alphanumeric, so `..` is refused at the door) and resolved strictly under `docs/claude/work/objects/` — **no traversal** (400); `present:false` on unknown id, and `present:false` **with an `error`** when the file exists but cannot be parsed. |
 | `GET /api/bot/shadow/predictions` | `routers/shadow.py` | Tail of `runtime_logs/shadow_predictions.jsonl` (S-AI-WS8-PART-2), newest-first. |
 | `GET /api/bot/shadow/stats` | `routers/shadow.py` | Per-`(model_id, stage)` aggregates over the same log. Mirrored at Tier 2.5 as `/api/diag/shadow_stats` because the diag relay can only reach `/api/diag/*`. |
 | `GET /api/bot/shadow/drift` | `routers/shadow.py` | Window-over-window score-distribution drift (KS + PSI) over the same log (S-AI-WS8-PART-3). |
