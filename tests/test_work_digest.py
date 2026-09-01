@@ -17,12 +17,9 @@ from __future__ import annotations
 
 import json
 import subprocess
-from datetime import datetime, timezone
-
-import pytest
 
 from scripts.ops import work_digest as wd
-from scripts.ops.work_phase_ping import PING_WORTHY
+from scripts.ops.work_phase_ping import OBJECTS_DIR, PING_WORTHY
 
 
 # ── the false negative that matters most ─────────────────────────────────
@@ -74,17 +71,19 @@ def test_dormant_and_ready_are_not_events():
 def test_a_real_lifecycle_transition_is_detected_in_a_temp_repo(tmp_path, monkeypatch):
     """End-to-end over a real git history, not a mocked diff."""
     repo = tmp_path / "r"
-    (repo / wd.OBJECTS_DIR).mkdir(parents=True)
-    run = lambda *a: subprocess.run(a, cwd=repo, check=True, capture_output=True)
+    (repo / OBJECTS_DIR).mkdir(parents=True)
+
+    def run(*a):
+        return subprocess.run(a, cwd=repo, check=True, capture_output=True)
     run("git", "init", "-q")
     run("git", "config", "user.email", "t@t")
     run("git", "config", "user.name", "t")
 
-    obj = repo / wd.OBJECTS_DIR / "WO-T.yaml"
+    obj = repo / OBJECTS_DIR / "WO-T.yaml"
     obj.write_text('id: WO-T\ntitle: "A thing"\nlifecycle: ready\n')
     run("git", "add", "-A")
     run("git", "commit", "-qm", "base")
-    base = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
+    base = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, check=True,
                           capture_output=True, text=True).stdout.strip()
 
     obj.write_text('id: WO-T\ntitle: "A thing"\nlifecycle: in_flight\n')
@@ -106,17 +105,19 @@ def test_a_real_lifecycle_transition_is_detected_in_a_temp_repo(tmp_path, monkey
 def test_a_non_lifecycle_edit_is_not_an_event(tmp_path, monkeypatch):
     """Editing a file is ACTIVITY. It must not produce a ping."""
     repo = tmp_path / "r"
-    (repo / wd.OBJECTS_DIR).mkdir(parents=True)
-    run = lambda *a: subprocess.run(a, cwd=repo, check=True, capture_output=True)
+    (repo / OBJECTS_DIR).mkdir(parents=True)
+
+    def run(*a):
+        return subprocess.run(a, cwd=repo, check=True, capture_output=True)
     run("git", "init", "-q")
     run("git", "config", "user.email", "t@t")
     run("git", "config", "user.name", "t")
 
-    obj = repo / wd.OBJECTS_DIR / "WO-T.yaml"
+    obj = repo / OBJECTS_DIR / "WO-T.yaml"
     obj.write_text('id: WO-T\ntitle: "A thing"\nlifecycle: in_flight\n')
     run("git", "add", "-A")
     run("git", "commit", "-qm", "base")
-    base = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
+    base = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, check=True,
                           capture_output=True, text=True).stdout.strip()
 
     # A real edit that changes no lifecycle.
@@ -202,14 +203,14 @@ def test_write_appends_exactly_one_row_and_latches(tmp_path, monkeypatch):
     monkeypatch.setattr(wd, "STATE", tmp_path / "state.json")
 
     assert wd.main(["--base", "HEAD", "--head", "HEAD", "--write"]) == 0
-    rows = [json.loads(l) for l in pending.read_text().splitlines() if l.strip()]
+    rows = [json.loads(line) for line in pending.read_text().splitlines() if line.strip()]
     assert len(rows) == 1
     assert rows[0]["event"] == "work_digest"
     assert rows[0]["digest_state"] == "no_changes"
 
     # Second invocation the same day must NOT queue a duplicate.
     assert wd.main(["--base", "HEAD", "--head", "HEAD", "--write"]) == 0
-    rows2 = [json.loads(l) for l in pending.read_text().splitlines() if l.strip()]
+    rows2 = [json.loads(line) for line in pending.read_text().splitlines() if line.strip()]
     assert len(rows2) == 1, "the daily latch must stop a second digest"
 
 

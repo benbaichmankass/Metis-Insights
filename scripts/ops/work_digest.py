@@ -60,7 +60,6 @@ sys.path.insert(0, str(REPO_ROOT))
 
 # ONE owner for "what counts as an event" — imported, never re-derived.
 from scripts.ops.work_phase_ping import (  # noqa: E402
-    OBJECTS_DIR,
     PING_WORTHY,
     _field,
     _git_show_dir,

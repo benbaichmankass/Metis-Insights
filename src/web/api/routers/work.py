@@ -454,8 +454,13 @@ def _get_index() -> dict[str, Any]:
         _CACHE["key"] = key
         try:
             _CACHE["data"] = _build_index()
-        except Exception as exc:  # noqa: BLE001 - never 5xx a Tier-1 read surface
-            logger.warning("work: failed to build index: %s", exc)
+        except Exception as exc:  # noqa: BLE001  # allow-silent: not silent — the failure is logged WITH a stack trace and surfaced to the caller as present:false + reason, so it degrades visibly rather than as an empty result. A Tier-1 read surface must not 5xx (roadmap.py's contract).
+            # Loud on BOTH channels, deliberately. `exc_info=True` puts the stack
+            # trace in the journal, and the envelope carries `present: false`
+            # plus the reason — so "the store failed to build" can never be read
+            # as "the store is empty", which is the whole point of the guard
+            # this justification answers.
+            logger.warning("work: failed to build index: %s", exc, exc_info=True)
             _CACHE["data"] = _empty_envelope(f"index build failed: {exc}")
     return _CACHE["data"]
 
