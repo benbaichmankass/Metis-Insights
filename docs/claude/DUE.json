@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-01T10:14:04+00:00",
+  "generated_at": "2026-09-01T10:29:27+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
@@ -23,7 +23,7 @@
     "probes": {
       "state": "read",
       "rows": 5,
-      "note": "freshness=fresh age=0.0h cadence=daily (cron 20 5 * * *)"
+      "note": "freshness=fresh age=0.3h cadence=daily (cron 20 5 * * *)"
     },
     "red_crons": {
       "state": "read",
