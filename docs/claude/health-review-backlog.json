@@ -30371,16 +30371,17 @@
       "opened_by": "claude-session-ping-system-test",
       "severity": "medium",
       "tier": 1,
-      "status": "fixed_pending_merge",
+      "status": "open",
       "area": "notifications",
       "title": "scripts/send_ping.py accepted --why / --unproven with NO --kind, discarded them, and reported the send as successful -- so a caller who asked for a Format-B second line got a bare body and exit 0",
-      "detail": "MEASURED, not reasoned. During the operator-requested ping-system test (2026-09-01T22:23Z) `python3 scripts/send_ping.py --why 'this should not vanish' --target claude 'LOCAL TEST body'` exited 0, logged 'queued ... bot drains within ~5 s', and wrote {\"priority\": \"normal\", \"body\": \"LOCAL TEST body\"} -- the why-line gone with no warning anywhere. Same for --unproven. MECHANISM: main() reads args.why / args.unproven ONLY inside `if args.kind:`, so with no class they are accepted by argparse and never looked at again. WHY IT MATTERS AND WHY THE EXISTING GUARDS DO NOT COVER IT: the MIRROR case has always been refused (`--kind` without `--why` exits 1, 'Format B's second line is the whole point'), and PR #10683 adds this direction at the WORKFLOW and WRAPPER layers -- but neither reaches this file, and #10683's own body states the script keeps its own guards precisely because it 'is also reachable directly on the VM'. The asymmetry is the defect: one direction is a hard error, the opposite one is silent. It is the same shape as the module's own rule that a withheld ping must never read as a sent one -- a caller who asked for a formatted ping had no way to tell they did not get one. BLAST RADIUS TODAY IS SMALL AND THAT IS WHY IT WAS FIXABLE SAFELY: exactly one caller in the tree passes --why (scripts/ops/notify_run.sh:388) and it always pairs it with --kind state_change, so no existing producer changes behaviour. FIX: a guard in send_ping.main() refusing --why/--unproven without --kind, queueing NOTHING (a guard that reports failure and still enqueues the stripped body would deliver the ping it refused) and leaving the passthrough path byte-for-byte unchanged -- passthrough is the PRIMARY path, carrying the operator's own text unaltered, so a guard that made a plain ping harder to send would be worse than the bug. 3 tests added to tests/test_send_ping.py, all pass. Filed WITH the fix rather than as a post-it.",
+      "detail": "STATUS NOTE: the fix is written and tested on branch `claude/ping-system-test-results` (PR #10695) and is NOT MERGED; the row stays `open` until it is, because an unmerged fix is not a fixed defect. MEASURED, not reasoned. During the operator-requested ping-system test (2026-09-01T22:23Z) `python3 scripts/send_ping.py --why 'this should not vanish' --target claude 'LOCAL TEST body'` exited 0, logged 'queued ... bot drains within ~5 s', and wrote {\"priority\": \"normal\", \"body\": \"LOCAL TEST body\"} -- the why-line gone with no warning anywhere. Same for --unproven. MECHANISM: main() reads args.why / args.unproven ONLY inside `if args.kind:`, so with no class they are accepted by argparse and never looked at again. WHY IT MATTERS AND WHY THE EXISTING GUARDS DO NOT COVER IT: the MIRROR case has always been refused (`--kind` without `--why` exits 1, 'Format B's second line is the whole point'), and PR #10683 adds this direction at the WORKFLOW and WRAPPER layers -- but neither reaches this file, and #10683's own body states the script keeps its own guards precisely because it 'is also reachable directly on the VM'. The asymmetry is the defect: one direction is a hard error, the opposite one is silent. It is the same shape as the module's own rule that a withheld ping must never read as a sent one -- a caller who asked for a formatted ping had no way to tell they did not get one. BLAST RADIUS TODAY IS SMALL AND THAT IS WHY IT WAS FIXABLE SAFELY: exactly one caller in the tree passes --why (scripts/ops/notify_run.sh:388) and it always pairs it with --kind state_change, so no existing producer changes behaviour. FIX: a guard in send_ping.main() refusing --why/--unproven without --kind, queueing NOTHING (a guard that reports failure and still enqueues the stripped body would deliver the ping it refused) and leaving the passthrough path byte-for-byte unchanged -- passthrough is the PRIMARY path, carrying the operator's own text unaltered, so a guard that made a plain ping harder to send would be worse than the bug. 3 tests added to tests/test_send_ping.py, all pass. Filed WITH the fix rather than as a post-it.",
       "refs": [
         "scripts/send_ping.py",
         "scripts/ops/send_ping_action.sh",
         "src/runtime/claude_ping.py",
         "PR #10683"
-      ]
+      ],
+      "resolution_criteria": "On the LIVE VM tree (not the sandbox), `python3 scripts/send_ping.py --why x --target claude body` exits 1 AND `pending_claude_pings` gains no new file for it -- both halves checked, because a guard that reports failure and still enqueues the stripped body would deliver the ping it refused. ⚠️ A green CI run on PR #10695 does NOT close this: the wrapper runs the script from the VM's own clone, so the row closes only after the merge has reached that clone (/api/diag/version git_sha_on_disk carrying it). ⚠️ Nor does the workflow-layer refusal already shipped in #10683 -- that guards the ACTION path and this row is about direct invocation on the VM, which is the reason the script carries its own guards at all. Control that the fix is not over-broad: a plain `send_ping.py --target claude body` still exits 0 and queues one file."
     },
     {
       "id": "BL-20260901-SYSTEM-ACTIONS-CANCELS-A-SUPERSEDED-PENDING-RUN-AND-COMMENTS-NOTHING-BACK-SO-A-DISPATCHED-ACTION-IS-SILENTLY-LOST",
@@ -30397,7 +30398,8 @@
         "issue #10691",
         "issue #10693",
         "run 33566180621"
-      ]
+      ],
+      "resolution_criteria": "Three `system-action` issues dispatched inside ~15s and EVERY ONE of the three carries a comment naming its outcome -- ✅ completed, ❌ failed, or an explicit cancellation notice -- with none left open and comment-less. The cancellation case is the one that must be demonstrated, so the check is not satisfied by a burst in which no run happened to be cancelled: reproduce the cancel first (runs 33566171789 / 33566180621 / 33566191528 are the recorded instance) and then show the third comment appearing. ⚠️ Widening the concurrency key instead would ALSO close this, by removing the cancellation rather than reporting it -- record which remedy was taken, because the two leave different residual risk. ⚠️ 'We now dispatch one at a time' does NOT close it: that is an unwritten discipline held by whichever session remembers, which is the state this row exists to end."
     },
     {
       "id": "BL-20260901-TWO-DRAINERS-RACE-ONE-CLAUDE-PING-INBOX-AND-ONLY-ONE-OF-THEM-LOGS-A-DELIVERY",
@@ -30415,7 +30417,8 @@
         "src/bot/cloud_notifier.py::_drain_one_ping_dir",
         "src/runtime/notify.py",
         "src/web/api/routers/diag.py"
-      ]
+      ],
+      "resolution_criteria": "For a batch of N pings queued to `pending_claude_pings` in one window, a readable surface accounts for all N -- N positive send records, or fewer plus a named failure for each shortfall. The recorded baseline to beat is 6 queued / 2 accounted (2026-09-01T22:24Z+, 423 journal lines in window). Either remedy qualifies: give cloud_notifier's drain the success log claude_bridge gets for free from notify.send_telegram_direct, or deregister one of the two drainers so a single owner handles the inbox -- state which. ⚠️ Closing the DOUBLE-DELIVERY bug does not by itself close this: if the surviving drainer is the cloud_notifier one, deliveries become unobservable for ALL pings rather than some, which is worse. ⚠️ An absence of failure lines is not accounting -- the whole point is that a silent path and a healthy path look identical."
     }
   ]
 }
