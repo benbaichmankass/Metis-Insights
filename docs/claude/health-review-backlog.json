@@ -30548,6 +30548,24 @@
         "src/web/api/routers/diag.py"
       ],
       "resolution_criteria": "For a batch of N pings queued to `pending_claude_pings` in one window, a readable surface accounts for all N -- N positive send records, or fewer plus a named failure for each shortfall. The recorded baseline to beat is 6 queued / 2 accounted (2026-09-01T22:24Z+, 423 journal lines in window). Either remedy qualifies: give cloud_notifier's drain the success log claude_bridge gets for free from notify.send_telegram_direct, or deregister one of the two drainers so a single owner handles the inbox -- state which. ⚠️ Closing the DOUBLE-DELIVERY bug does not by itself close this: if the surviving drainer is the cloud_notifier one, deliveries become unobservable for ALL pings rather than some, which is worse. ⚠️ An absence of failure lines is not accounting -- the whole point is that a silent path and a healthy path look identical."
+    },
+    {
+      "id": "BL-20260901-THE-OPERATING-LAYER-BUILD-IS-ABSENT-FROM-ROADMAP-MD-THE-DOC-THAT-OUTRANKS-ITS-OWN-DESIGN-SERIES",
+      "opened_at": "2026-09-01",
+      "opened_by": "claude-session-phase-h-decision-roundtrip",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "area": "docs",
+      "title": "The eight-phase operating-layer build -- the cycle's DECLARED PRIORITY, six of eight phases shipped in one day -- appears NOWHERE in ROADMAP.md, which CLAUDE.md ranks ABOVE the design series as 'the centralized record: every milestone/sprint, status, and dates'",
+      "detail": "MEASURED 2026-09-01: `grep -n 'operating-layer|OPERATING-LAYER|Phase C|Phase D' ROADMAP.md` returns ZERO matches, and `grep -n 'api/bot/work' docs/ARCHITECTURE-CANONICAL.md` returns zero too. Positive control for the probe: the same grep style finds the operating layer throughout `CLAUDE.md`, `docs/claude/OPEN-ITEMS.json` and `docs/claude/work/`, so the silence is ROADMAP's, not the probe's. \n\nWHY THIS IS THE PROGRAM'S OWN DISEASE. `docs/design/operating-layer-build-plan-DESIGN.md` opens with the ordering criterion 'the plan must survive the session that wrote it', on the grounds that the series is 'four documents in docs/design/ that NOTHING POINTS AT'. Phase A's answer was the CLAUDE.md session brief -- a good channel, and a partial one: CLAUDE.md is rank 6 in the instruction hierarchy while ROADMAP.md is rank 3 and is described there as the centralized record of every milestone and its status. A session that opens the higher-ranked document to ask 'what is this system working on' currently gets no answer, on the day six phases shipped. \n\n⚠️ NOT A CLAIM THAT ANY PHASE WAS DONE WRONG. Every phase A-F landed with a work object, a board post and a PR body; nothing is hidden. The gap is that none of those is the SURFACE the hierarchy says holds the milestone record, and no phase updated it -- so this is a PROGRAM-level omission repeated six times, not one session's miss, which is why it is filed once rather than against a phase. \n\n⚠️ AND IT IS DELIBERATELY NOT FIXED BY THE SESSION THAT FOUND IT. ROADMAP.md is a shared, high-rank document and `session_01AT7e9N9FMbrLPRbzzueexL` was building Phase G concurrently; a unilateral milestone row written by a sub-session, in the middle of another session's phase, is how two records start disagreeing about the same program. It also needs a decision this session cannot make: whether the operating layer is a MILESTONE in that table's sense at all, or a governance program the table should point AT rather than absorb.",
+      "resolution_criteria": "EITHER (a) ROADMAP.md carries the operating-layer build with a status per phase and a link to `docs/design/operating-layer-build-plan-DESIGN.md`, and a session that opens ROADMAP.md FIRST can state which phase the build is on -- reported by a session that was NOT told; OR (b) the operator/manager decides the operating layer is deliberately NOT a ROADMAP milestone and records that decision where a reader of ROADMAP.md will meet it, so its absence reads as a choice rather than a gap. ⚠️ ADDING A ROW AND LEAVING ITS STATUS TO ROT DOES NOT SATISFY (a) -- that reproduces the condition the program exists to end, one document further up the hierarchy. ⚠️ AND A SESSION CITING THE CLAUDE.md SESSION BRIEF DOES NOT SATISFY IT EITHER: that channel already works and is separately tracked (OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION). This row is about the rank-3 surface specifically.",
+      "refs": [
+        "ROADMAP.md",
+        "docs/design/operating-layer-build-plan-DESIGN.md",
+        "docs/claude/work/README.md",
+        "CLAUDE.md#instruction-hierarchy"
+      ]
     }
   ]
 }
