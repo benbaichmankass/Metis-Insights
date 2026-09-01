@@ -618,26 +618,59 @@ class AlpacaClient:
         buf = _env_float("ALPACA_EXT_LIMIT_BUFFER_BPS", 25.0) / 10000.0
         limit_px = px * (1 - buf) if close_side == "sell" else px * (1 + buf)
 
-        # Free the shares (cancel the resting bracket) then wait for the cancel to
-        # settle so the limit isn't rejected for insufficient qty.
+        # Free the shares (cancel the resting bracket), then wait for them to
+        # ACTUALLY be released before placing the limit.
+        #
+        # BL-20260901-ALPACA-EXT-HOURS-QTY-AVAILABLE (the alpaca_paper GLD 39-share
+        # perpetual close-failure). This path used to wait for the symbol's
+        # OPEN-ORDERS list to clear and then fire a single POST. That is the exact
+        # wrong signal, and `_await_qty_available`'s own docstring says so: Alpaca
+        # drops a cancelled order from `status=open` a beat BEFORE it restores the
+        # position's `qty_available`. So the POST raced the release and Alpaca
+        # rejected it with "insufficient qty available for order (requested: N,
+        # available: 0)" → retCode 1 → a REAL failure → streak++ → the "won't
+        # flatten" page. Every 30s tick, for the whole extended session.
+        #
+        # The regular-hours flatten below already learned this (PR #5997's blind
+        # re-cancel+sleep did NOT fix it; gating on `qty_available` did). This is
+        # that same fix applied to the sibling path that never got it: await the
+        # real release, and on an insufficient-qty rejection re-cancel (catching a
+        # freshly re-armed protective OCO) and retry within a bounded window.
+        # On give-up, log the residual open orders so the failure is
+        # self-diagnosing from the logs. `ALPACA_EXT_PLACE_RETRY_S` <= 0 restores
+        # the single-shot POST.
         self._cancel_open_orders_for_symbol(sym)
-        settle_s = _env_float("ALPACA_CANCEL_SETTLE_S", 3.0)
-        if settle_s > 0:
-            deadline = time.monotonic() + settle_s
-            while self._open_orders_for_symbol(sym) and time.monotonic() < deadline:
-                time.sleep(0.4)
-
+        place_s = _env_float("ALPACA_EXT_PLACE_RETRY_S", 6.0)
+        place_deadline = time.monotonic() + max(0.0, place_s)
         body = {
             "symbol": sym, "qty": str(qty), "side": close_side,
             "type": "limit", "limit_price": f"{limit_px:.2f}",
             "time_in_force": "day", "extended_hours": True,
         }
-        env = self._request("POST", "/v2/orders", body)
-        if env.get("retCode") != 0:
-            # Rejected outright — a real failure the monitor should retry
-            # (naked-autoprotect re-arms the bracket next tick).
-            return {"retCode": 1, "retMsg": (
-                f"extended-hours limit close rejected: {env.get('retMsg')}")}
+        while True:
+            if place_s > 0:
+                self._await_qty_available(sym, float(qty), place_deadline)
+            env = self._request("POST", "/v2/orders", body)
+            if env.get("retCode") == 0:
+                break
+            msg = str(env.get("retMsg") or "").lower()
+            held = "insufficient qty" in msg or "available: 0" in msg
+            if not held or place_s <= 0 or time.monotonic() >= place_deadline:
+                # Rejected outright — a real failure the monitor should retry
+                # (naked-autoprotect re-arms the bracket next tick).
+                if held:
+                    residual = self._open_orders_for_symbol(sym)
+                    logger.warning(
+                        "alpaca extended-hours close %s still insufficient-qty "
+                        "after ~%.1fs (want_qty=%s); residual open orders=%s",
+                        sym, place_s, qty, residual,
+                    )
+                return {"retCode": 1, "retMsg": (
+                    f"extended-hours limit close rejected: {env.get('retMsg')}")}
+            # A resting order still holds the shares — cancel it (catches a
+            # freshly re-armed protective OCO too); the next pass re-awaits the
+            # `qty_available` release before retrying the POST.
+            self._cancel_open_orders_for_symbol(sym)
         confirm_s = _env_float("ALPACA_CLOSE_CONFIRM_S", 6.0)
         if confirm_s > 0:
             deadline = time.monotonic() + confirm_s

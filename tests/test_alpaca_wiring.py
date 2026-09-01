@@ -949,3 +949,116 @@ def test_client_close_extended_hours_defers_without_price(monkeypatch):
     assert out["retCode"] == 2
     assert "deferred" in out["retMsg"].lower()
     assert placed == []  # no cancel, no order
+
+
+# ------------------------- extended-hours share-release (BL-20260901-ALPACA-
+# EXT-HOURS-QTY-AVAILABLE, the alpaca_paper GLD 39-share perpetual close-failure)
+#
+# The extended-hours close waited for the symbol's OPEN-ORDERS list to clear and
+# then fired a SINGLE POST. That is the wrong signal — Alpaca drops a cancelled
+# order from `status=open` a beat BEFORE it restores the position's
+# `qty_available` — so the POST raced the release, Alpaca rejected it
+# "insufficient qty available for order (requested: N, available: 0)", and the
+# monitor booked a REAL failure every 30s tick for the whole session. The RTH
+# flatten already gates on `qty_available`; these pin that the sibling path does
+# too, and that it still gives up (rather than spinning) when nothing releases.
+
+
+def _ext_hours_client(monkeypatch, qty_available_seq, place_retry_s="6",
+                      confirm_s="0.05"):
+    """AlpacaClient in extended hours whose `qty_available` follows a sequence."""
+    monkeypatch.setattr(
+        "src.runtime.market_hours.us_equity_session", lambda *a, **k: "extended")
+    monkeypatch.setenv("ALPACA_EXT_PLACE_RETRY_S", place_retry_s)
+    monkeypatch.setenv("ALPACA_CLOSE_CONFIRM_S", confirm_s)
+    monkeypatch.setattr(
+        "src.units.accounts.alpaca_client.time.sleep", lambda *_a, **_k: None)
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    seq = list(qty_available_seq)
+
+    def fake_position_raw(*_a):
+        avail = seq.pop(0) if len(seq) > 1 else seq[0]
+        return {"qty": "39", "side": "long", "current_price": "310.00",
+                "qty_available": str(avail)}
+
+    monkeypatch.setattr(cli, "_position_raw", fake_position_raw)
+    return cli
+
+
+def test_ext_hours_close_retries_until_shares_release(monkeypatch):
+    """Shares held by a resting leg on the first POST, released on the second →
+    the close SUCCEEDS instead of booking a 'won't flatten' failure."""
+    cli = _ext_hours_client(monkeypatch, [0, 0, 39])
+    cancels = []
+    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol",
+                        lambda *a: cancels.append(a) or 1)
+    monkeypatch.setattr(cli, "_open_orders_for_symbol", lambda *a: [])
+    monkeypatch.setattr(cli, "position_present", lambda *a: False)
+    posts = []
+
+    def fake_request(method, path, json_body=None):
+        if method == "POST" and path == "/v2/orders":
+            posts.append(json_body)
+            if len(posts) == 1:
+                return {"retCode": 422, "retMsg": (
+                    "insufficient qty available for order "
+                    "(requested: 39, available: 0)")}
+            return {"retCode": 0, "result": {"id": "ext-2"}}
+        return {"retCode": 0, "result": {}}
+
+    monkeypatch.setattr(cli, "_request", fake_request)
+
+    out = cli.close("GLD")
+    assert out["retCode"] == 0, out          # NOT a failure → no streak, no page
+    assert len(posts) == 2                   # retried after the qty released
+    assert len(cancels) >= 2                 # re-cancelled the holding leg
+
+
+def test_ext_hours_close_gives_up_and_logs_residual(monkeypatch, caplog):
+    """Shares NEVER release → still a real failure (retCode 1), bounded (does not
+    spin), and the residual open orders are logged so it is self-diagnosing."""
+    cli = _ext_hours_client(monkeypatch, [0], place_retry_s="0.5")
+    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *a: 1)
+    monkeypatch.setattr(
+        cli, "_open_orders_for_symbol",
+        lambda *a: [{"id": "oco-1", "side": "sell", "qty": "39",
+                     "status": "pending_cancel"}])
+    posts = []
+
+    def fake_request(method, path, json_body=None):
+        if method == "POST" and path == "/v2/orders":
+            posts.append(json_body)
+            return {"retCode": 422, "retMsg": (
+                "insufficient qty available for order "
+                "(requested: 39, available: 0)")}
+        return {"retCode": 0, "result": {}}
+
+    monkeypatch.setattr(cli, "_request", fake_request)
+
+    with caplog.at_level("WARNING"):
+        out = cli.close("GLD")
+    assert out["retCode"] == 1
+    assert "insufficient qty" in str(out.get("retMsg") or "").lower()
+    assert posts, "should have attempted at least one POST"
+    # The give-up log answers "what is holding the shares?"
+    assert "residual open orders" in caplog.text
+    assert "pending_cancel" in caplog.text
+
+
+def test_ext_hours_close_single_shot_when_retry_disabled(monkeypatch):
+    """`ALPACA_EXT_PLACE_RETRY_S=0` restores the legacy single-shot POST."""
+    cli = _ext_hours_client(monkeypatch, [0], place_retry_s="0")
+    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *a: 1)
+    monkeypatch.setattr(cli, "_open_orders_for_symbol", lambda *a: [])
+    posts = []
+
+    def fake_request(method, path, json_body=None):
+        if method == "POST" and path == "/v2/orders":
+            posts.append(json_body)
+            return {"retCode": 422, "retMsg": "insufficient qty available"}
+        return {"retCode": 0, "result": {}}
+
+    monkeypatch.setattr(cli, "_request", fake_request)
+    out = cli.close("GLD")
+    assert out["retCode"] == 1
+    assert len(posts) == 1

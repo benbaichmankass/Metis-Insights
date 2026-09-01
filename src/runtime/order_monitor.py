@@ -953,7 +953,7 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                     "for pkg=%s account=%s → %s — DB left open, no alarm.",
                     pkg_id, matched_trade.get("account_id"), err_str,
                 )
-                _CLOSE_FAIL_STREAK.pop(_close_key, None)  # a defer clears the streak
+                _clear_close_fail_alert_state(_close_key)  # a defer clears the streak
                 summary.no_change_count += 1
                 return
             # Bybit signals "position already gone" with retCode 30031
@@ -1015,8 +1015,7 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 # forever. Cleared on a confirmed close.
                 _streak = _CLOSE_FAIL_STREAK.get(_close_key, 0) + 1
                 _CLOSE_FAIL_STREAK[_close_key] = _streak
-                _after = _close_fail_alert_after()
-                if _streak == _after or (_streak > _after and _streak % _after == 0):
+                if _should_alert_close_failure(_close_key, _streak):
                     try:
                         from src.runtime.execution_diagnostics import (
                             enqueue_close_failure,
@@ -1041,7 +1040,7 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         # marker AND the consecutive-failure streak for this (account, symbol,
         # direction) so a future close isn't needlessly deferred / re-alerted.
         _PENDING_CLOSE_RETRY_COOLDOWN.pop(_close_key, None)
-        _CLOSE_FAIL_STREAK.pop(_close_key, None)
+        _clear_close_fail_alert_state(_close_key)
 
         # Exchange close ok (or dry-run skip). Capture the actual fill
         # price from Bybit before writing the DB so the trade row's
@@ -2007,6 +2006,28 @@ _PENDING_CLOSE_RETRY_COOLDOWN: Dict[tuple, datetime] = {}
 _DEFAULT_CLOSE_FAIL_ALERT_AFTER = 3
 _CLOSE_FAIL_STREAK: Dict[tuple, int] = {}
 
+# Close-failure alert BACKOFF (BL-20260901-CLOSE-FAIL-ALARM-DESENSITISED).
+# The streak threshold above decides WHEN the first page fires; these decide how
+# often it may fire AFTER that. Previously the cadence was a fixed modulo
+# (`_streak % _after == 0`) — tied to the tick rate, never widening, never
+# capped: a position wedged for one extended-hours session pages ~160 times at
+# the 30s EXIT_LOOP_INTERVAL_SECONDS default. That is the desensitised-alarm
+# failure CLAUDE.md's "If you see something, say something" names outright — an
+# alarm nobody can afford to read is worse than one that fires once.
+#
+# So paging is now TIME-based with an exponentially widening interval, floored
+# at `_DEFAULT_CLOSE_FAIL_ALERT_BACKOFF_S` and clamped at
+# `_DEFAULT_CLOSE_FAIL_ALERT_MAX_BACKOFF_S`. It deliberately NEVER goes silent —
+# a wedged position keeps pinging at the max interval forever, because the
+# failure mode this whole subsystem exists to end is the SILENT retry loop.
+# Decoupled from tick rate on purpose: re-tuning EXIT_LOOP_INTERVAL_SECONDS no
+# longer silently re-tunes the pager. In-process; a restart re-pages once
+# immediately (fail-loud — a fresh process re-surfaces a still-wedged position).
+_DEFAULT_CLOSE_FAIL_ALERT_BACKOFF_S = 300.0     # 5 min to the 2nd page
+_DEFAULT_CLOSE_FAIL_ALERT_MAX_BACKOFF_S = 3600.0  # never slower than hourly
+_CLOSE_FAIL_ALERT_AT: Dict[tuple, float] = {}     # key -> time.monotonic()
+_CLOSE_FAIL_ALERT_COUNT: Dict[tuple, int] = {}    # key -> pages sent this streak
+
 # Re-adopt guard window (BL-20260618-RECONCILE-DUP, 2026-06-18). When an IB
 # gateway flaps (logged-out → empty portfolio → back) during the broker reset
 # window, the reverse reconciler could adopt the SAME exchange position, have
@@ -2280,6 +2301,62 @@ def _close_fail_alert_after() -> int:
         return max(1, int(raw))
     except (TypeError, ValueError):
         return _DEFAULT_CLOSE_FAIL_ALERT_AFTER
+
+
+def _env_float_clamped(name: str, default: float, floor: float) -> float:
+    """Read *name* as a float at call time; fall back to *default*, clamp >= *floor*."""
+    raw = os.environ.get(name)  # allow-silent: tuning knob (alert cadence), not a capability gate
+    if raw is None or str(raw).strip() == "":
+        return default
+    try:
+        return max(floor, float(raw))
+    except (TypeError, ValueError):
+        return default
+
+
+def _clear_close_fail_alert_state(key: tuple) -> None:
+    """Drop the streak AND the paging-backoff state for *key*.
+
+    Called wherever a close stops failing (a confirmed close, or a market-session
+    DEFER). Keeping these three in one function is deliberate: the streak and the
+    backoff must be cleared TOGETHER or the next genuine failure inherits a
+    widened interval and pages late.
+    """
+    _CLOSE_FAIL_STREAK.pop(key, None)
+    _CLOSE_FAIL_ALERT_AT.pop(key, None)
+    _CLOSE_FAIL_ALERT_COUNT.pop(key, None)
+
+
+def _should_alert_close_failure(key: tuple, streak: int, now: float | None = None) -> bool:
+    """Whether this consecutive-close-failure should page the operator.
+
+    First page once the streak reaches ``MONITOR_CLOSE_FAIL_ALERT_AFTER``; after
+    that, page only once the interval since the last page has elapsed, doubling
+    that interval each time up to the max. Never returns False forever — a
+    permanently wedged position still pages at the max interval.
+    """
+    if streak < _close_fail_alert_after():
+        return False
+    now = time.monotonic() if now is None else now
+    last = _CLOSE_FAIL_ALERT_AT.get(key)
+    if last is None:
+        _CLOSE_FAIL_ALERT_AT[key] = now
+        _CLOSE_FAIL_ALERT_COUNT[key] = 1
+        return True
+    base = _env_float_clamped(
+        "MONITOR_CLOSE_FAIL_ALERT_BACKOFF_S",
+        _DEFAULT_CLOSE_FAIL_ALERT_BACKOFF_S, 0.0)
+    cap = _env_float_clamped(
+        "MONITOR_CLOSE_FAIL_ALERT_MAX_BACKOFF_S",
+        _DEFAULT_CLOSE_FAIL_ALERT_MAX_BACKOFF_S, 0.0)
+    sent = _CLOSE_FAIL_ALERT_COUNT.get(key, 1)
+    # 2nd page after `base`, 3rd after 2*base, 4th after 4*base ... clamped.
+    interval = min(base * (2 ** max(0, sent - 1)), max(base, cap))
+    if now - last < interval:
+        return False
+    _CLOSE_FAIL_ALERT_AT[key] = now
+    _CLOSE_FAIL_ALERT_COUNT[key] = sent + 1
+    return True
 
 
 def _close_retry_cooldown_seconds() -> float:
