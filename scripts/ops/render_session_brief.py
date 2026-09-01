@@ -61,6 +61,7 @@ _OPEN_ITEMS = Path("docs/claude/OPEN-ITEMS.json")
 _RECURRENCE = Path("docs/claude/RECURRENCE-LEDGER.json")
 _CYCLE_PRIORITY = Path("docs/claude/CYCLE-PRIORITY.json")
 _CONSTRAINT = Path("docs/claude/CONSTRAINT.json")
+_SUNSET_ROOT = Path("comms/sunset")
 _CLAUDE_MD = Path("CLAUDE.md")
 
 
@@ -69,6 +70,22 @@ def _load(p: Path) -> dict:
         return json.loads(p.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}
+
+
+def _latest_sunset() -> dict | None:
+    """The newest committed sunset pass, or ``None``.
+
+    ⚠️ ``None`` is rendered as a line SAYING SO — it must never render as *no
+    candidates*, which is the collapse `sunset_pass.render_brief_lines` exists
+    to refuse one level down.
+    """
+    if not _SUNSET_ROOT.is_dir():
+        return None
+    for day in sorted((p for p in _SUNSET_ROOT.iterdir() if p.is_dir()), reverse=True):
+        doc = _load(day / "INDEX.json")
+        if doc:
+            return doc
+    return None
 
 
 def _day(v) -> date | None:
@@ -175,11 +192,38 @@ def constraint_lines(constraint: dict) -> list:
                 f"about the work store — do not read it as *nothing is blocked*.", ""]
 
 
+def sunset_lines(sunset: dict | None) -> list:
+    """E3 — the retirement candidates (Phase G).
+
+    Rendered under the constraint readout, because it is the other half of the
+    same question: the readout says where the chain is HELD UP, this says what
+    should COME OUT. August ran 45 governance/hardening sprints against 2
+    deployments, and complexity is monotonic by construction until something
+    removes — so a session that reads only what is due keeps adding.
+
+    ⚠️ **AN ABSENT PASS IS RENDERED, NOT SKIPPED**, on the same reasoning
+    ``priority_lines`` and ``constraint_lines`` already apply: *nobody has run
+    one* and *the renderer broke* must not look identical.
+
+    Delegates every word to ``sunset_pass.render_brief_lines`` so the brief and
+    ``comms/sunset/`` cannot drift into two answers about the same candidates.
+    """
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from sunset_pass import render_brief_lines  # type: ignore
+        return render_brief_lines(sunset)
+    except Exception as exc:  # noqa: BLE001
+        return [f"**The sunset pass could not be rendered** (`{type(exc).__name__}`). "
+                f"This is a RENDERER failure, not a finding about the fleet — do not "
+                f"read it as *nothing is a retirement candidate*.", ""]
+
+
 def render(today: date | None = None, *,
            open_items: dict | None = None,
            recurrence: dict | None = None,
            priority: dict | None = None,
-           constraint: dict | None = None) -> str:
+           constraint: dict | None = None,
+           sunset: dict | None = None) -> str:
     """Render the brief. Pass the registers explicitly to render a REF other than HEAD.
 
     `today` is threaded rather than read inside, because the diff-scoped check
@@ -191,6 +235,7 @@ def render(today: date | None = None, *,
     rl = recurrence if recurrence is not None else _load(_RECURRENCE)
     cp = priority if priority is not None else _load(_CYCLE_PRIORITY)
     cn = constraint if constraint is not None else _load(_CONSTRAINT)
+    sn = sunset if sunset is not None else _latest_sunset()
     due = due_items(oi.get("items") or [], today)
     unprevented = [c for c in (rl.get("classes") or [])
                    if not c.get("prevention") and not c.get("unpreventable_because")]
@@ -200,6 +245,7 @@ def render(today: date | None = None, *,
     L.append("")
     L.append("This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + "
              "`docs/claude/CONSTRAINT.json` + "
+             "`comms/sunset/` + "
              "`docs/claude/OPEN-ITEMS.json` + "
              "`docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** "
              "because `CLAUDE.md` is the only surface that reaches a session before it acts — "
@@ -217,6 +263,10 @@ def render(today: date | None = None, *,
     # readout under it. It goes HERE, between the priority and the due list,
     # because it is what a session should weigh the priority against.
     L.extend(constraint_lines(cn))
+
+    # Phase G — the other half of the same question. The readout says where the
+    # chain is held up; this says what should come out.
+    L.extend(sunset_lines(sn))
 
     if due:
         L.append(f"**{len(due)} monitoring item(s) DUE — check and record what you OBSERVED:**")
