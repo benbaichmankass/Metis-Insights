@@ -60,7 +60,7 @@ import time
 from datetime import datetime, time as dt_time, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from src.runtime import ib_trading_hours, stray_oca_groups
+from src.runtime import ib_trading_hours, stray_oca_groups, stray_oca_soak
 from src.units.accounts.ib_instruments import ib_instrument_spec, is_ib_equity_symbol
 
 logger = logging.getLogger(__name__)
@@ -1826,8 +1826,24 @@ class IBClient:
         # symbol-wide fallback, whose hazard is different and already documented;
         # widening it from here would strip a sibling's legs.
         if oca_group:
-            self._sweep_stray_oca_groups(
+            _stray_plan = self._sweep_stray_oca_groups(
                 ib, sym, oca_group, order.get("account_id"))
+            # ⚠️ THE RETURN VALUE USED TO BE DISCARDED HERE, and that was the
+            # whole defect: the sweep computed a full decision plan whose only
+            # output was a logger.warning into journald — rolling, unstructured,
+            # and un-probeable. PROTECTION_STRAY_GROUP_MODE therefore had NO
+            # read surface, while CLAUDE.md told a Tier-2 reviewer to read soak
+            # rows before arming a path that CANCELS a live position's
+            # protective legs. Those rows did not exist. Tracked by two rows
+            # filed independently the same day, deliberately not merged because
+            # their criteria differ (ids kept on one line each — a wrapped id
+            # resolves to nothing and reads as tracked while tracked by nobody):
+            #   BL-20260831-STRAY-OCA-SWEEP-ANNOTATE-COMPUTES-A-VERDICT-AND-DISCARDS-IT
+            #   BL-20260831-STRAY-OCA-APPLY-PATH-HAS-NO-SOAK-SO-ITS-CANCEL-IS-UNPROVABLE
+            # Persisting the plan decides nothing new.
+            stray_oca_soak.record(
+                _stray_plan, symbol=sym, keep_group=oca_group,
+                account_id=order.get("account_id"))
 
         # ── THE INVARIANT ────────────────────────────────────────────────────
         # NEVER let a fresh bracket become a SECOND, non-mutually-cancelling OCA

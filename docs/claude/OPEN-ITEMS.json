@@ -89,7 +89,22 @@
     "BL-20260826-OPEN-TRADES-COLLAPSES-A-READ-FAILURE-INTO-AN-EMPTY-BOOK",
     "BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED"
    ],
-   "probe_absent_reason": "MISSING CAPABILITY: THE SWEEP WRITES NO SOAK LOG — there is no read surface at all, so a probe has nothing to read. ⚠️ THIS FIELD PREVIOUSLY SAID 'PROBE-ABLE ONCE ARMED … attach one in the same change that arms PROTECTION_STRAY_GROUP_ACCOUNTS'. THAT INSTRUCTION COULD NOT BE FOLLOWED and is superseded: arming would NOT make it probeable, because the missing half is the WRITER, and a session following it would have armed a path that CANCELS a live position's protective legs while still having nothing to read. TWO SESSIONS REACHED THIS INDEPENDENTLY ON 2026-08-31 AND THIS FIELD IS THE MERGE OF BOTH READINGS — recorded that way because agreement from two separate derivations is stronger evidence than either alone. Producer side: src/runtime/stray_oca_groups.py contains NO file write of any kind, and ib_client._sweep_stray_oca_groups hands its verdict to _log_cancel_verdict, which calls `logger` only. Call-site side: that sweep BUILDS and RETURNS a full plan dict (mode / global_mode / apply_scope / read_state / stray_groups / preserved_groups / ungrouped_seen) and its ONE call site (src/units/accounts/ib_client.py:1829) DISCARDS the return value — `self._sweep_stray_oca_groups(ib, sym, oca_group, order.get('account_id'))` with no assignment. Surface side: `stray_oca_soak` is absent from diag.py::_LOG_FILES; the only entry in that family is protection_reassert_soak, a DIFFERENT gate's log carrying no stray-group classification. So the verdict is reachable only via /api/diag/journalctl (rolling, unstructured), which probe_soak.py cannot consume. Tracked as BOTH BL-20260831-STRAY-OCA-APPLY-PATH-HAS-NO-SOAK-SO-ITS-CANCEL-IS-UNPROVABLE and BL-20260831-STRAY-OCA-SWEEP-ANNOTATE-COMPUTES-A-VERDICT-AND-DISCARDS-IT — two rows on one finding, left as filed rather than silently merged here. WHEN THAT WRITER LANDS, this row takes a probe_soak probe requiring `decision=stray_unkeyed` AND `acted=true`, and not before.",
+   "probe": {
+    "cmd": [
+     "python3",
+     "scripts/ops/probe_soak.py",
+     "--path",
+     "/api/diag/log_file?name=stray_oca_soak&lines=1000",
+     "--require",
+     "decision=stray_unkeyed",
+     "--require",
+     "acted=true",
+     "--positive-control",
+     "decision~stray_unkeyed,no_strays,could_not_look"
+    ],
+    "checks": "A stray_oca_soak row exists in which the sweep GRADED a non-keyed protective group as a stray (`decision: stray_unkeyed`) AND actually cancelled it (`acted: true`) rather than being held back by PROTECTION_STRAY_GROUP_ACCOUNTS. Those are two different facts and both are required: `acted` is the EFFECT, `decision` is the finding, and a row carrying the finding at `mode: annotate` is the STAGED state, not a cancel. The positive control (`decision` present with any of its three values) is what separates 'the sweep ran and found no strays' from 'the log is absent or unreadable' — without it an empty log emits a confident negative, which is the state this row has been in since 2026-08-26.",
+    "is_not": "A PASS does not clear this row. `clears_when` asks for the position's REMAINING protection to be confirmed correct afterwards — that the sibling keyed group and the keep-target still rest at the journal's levels — and this probe reads the sweep's OWN account of what it did, never the venue. The soak records `cancel_calls_made` and a `verify_state`, but `BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT` is exactly the defect of trusting a self-report, so the confirming read is /api/diag/ib_open_orders on a FRESH client (that route's own view is monotonically stale, BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW). It also cannot see whether the cancelled group was genuinely this trade's abandoned protection rather than something a human placed — `ungrouped` is refused for that reason and `stray_unkeyed` is an inference from the group NAME."
+   },
    "loud": true
   },
   {
