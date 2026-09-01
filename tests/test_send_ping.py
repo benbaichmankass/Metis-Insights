@@ -409,3 +409,97 @@ def test_notify_on_pull_routes_to_claude_target(tmp_path, monkeypatch):
     # Routed to the Claude bot's inbox; the trader inbox is untouched.
     assert sorted(claude_inbox.glob("*.json"))
     assert not trader_inbox.exists() or not list(trader_inbox.iterdir())
+
+
+# ---------------------------------------------------------------------------
+# The formatter must never cost the ping (2026-09-01)
+# ---------------------------------------------------------------------------
+#
+# scripts/notify_on_pull.py states the invariant verbatim: "No imports from
+# src.runtime.* so a broken trader doesn't break the ping channel." send_ping's
+# own docstring calls it "the canonical producer — every other process should
+# drop through here", so a hard failure on an unavailable formatter takes the
+# channel down together with the tree it is trying to report on.
+#
+# The first cut of the --kind path returned 1 on ImportError. These pin the
+# corrected direction, which is the same one the limiter already takes ("an
+# unreadable limiter SENDS").
+
+
+def _hide_claude_ping(monkeypatch):
+    """Make `from src.runtime import claude_ping` raise, nothing else."""
+    import builtins
+    real = builtins.__import__
+
+    def fake(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "src.runtime.claude_ping" or (
+                name == "src.runtime" and fromlist and "claude_ping" in fromlist):
+            raise ImportError("simulated broken tree")
+        return real(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake)
+
+
+def test_unavailable_formatter_still_sends(tmp_path, monkeypatch):
+    """A broken src/runtime degrades the SHAPE, never drops the ping."""
+    monkeypatch.setattr(send_ping, "PENDING_CLAUDE_PINGS_DIR", tmp_path)
+    _hide_claude_ping(monkeypatch)
+
+    rc = send_ping.main([
+        "--target", "claude", "--kind", "state_change",
+        "--why", "the why line", "--unproven", "not observed live",
+        "--icon", "⚙️", "HEADLINE",
+    ])
+    assert rc == 0, "an unavailable formatter must not cost the ping"
+
+    queued = sorted(tmp_path.glob("*.json"))
+    assert len(queued) == 1, "exactly one ping should have been enqueued"
+    body = json.loads(queued[0].read_text())["body"]
+
+    # Nothing is LOST — both Format-B fields survive into the degraded body.
+    assert "HEADLINE" in body
+    assert "the why line" in body
+    assert "not observed live" in body
+
+    # ⚠️ And it is deliberately NOT Format B: a second module-shaped renderer
+    # here would be exactly the drift claude_ping exists to prevent, so the
+    # degraded body must stay visibly plain and un-mistakable for the
+    # canonical shape.
+    assert not body.startswith("⚙️"), "degraded body must not wear the icon"
+    assert "\n   " not in body, "degraded body must not use the Format-B indent"
+    assert "why: the why line" in body
+
+
+def test_unavailable_formatter_does_not_record_a_send(tmp_path, monkeypatch):
+    """Nothing was gated, so nothing may be recorded against the limiter.
+
+    Recording a send here would let a degraded ping suppress a later, properly
+    formatted one of the same class — a limiter entry for a decision nobody
+    made.
+    """
+    monkeypatch.setattr(send_ping, "PENDING_CLAUDE_PINGS_DIR", tmp_path)
+    recorded = []
+
+    import src.runtime.claude_ping as cp
+    monkeypatch.setattr(cp, "record_sent", lambda k: recorded.append(k))
+    _hide_claude_ping(monkeypatch)
+
+    assert send_ping.main([
+        "--target", "claude", "--kind", "lifecycle",
+        "--why", "w", "HEADLINE",
+    ]) == 0
+    assert recorded == [], "the degraded path must record no send"
+
+
+def test_kind_without_why_is_still_refused(tmp_path, monkeypatch):
+    """The refusal is a PRODUCER contract, not an availability concern.
+
+    It must survive the fallback above: an event with nothing to say about
+    what changed is activity, and activity must not ping.
+    """
+    monkeypatch.setattr(send_ping, "PENDING_CLAUDE_PINGS_DIR", tmp_path)
+    rc = send_ping.main([
+        "--target", "claude", "--kind", "state_change", "HEADLINE",
+    ])
+    assert rc == 1
+    assert not list(tmp_path.glob("*.json"))

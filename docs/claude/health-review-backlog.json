@@ -30330,6 +30330,15 @@
       "status": "open",
       "resolution_criteria": "BOTH halves, because either alone leaves the failure silent. (a) The three paths resolve from an anchor that does not depend on CWD (repo root via `__file__`, or the existing canonical resolver if one fits). (b) A register that CANNOT BE READ is distinguishable from one that is EMPTY -- the brief must say which, rather than rendering a confident 'nothing due'. Verified by rendering from a DIFFERENT working directory and seeing the brief either resolve correctly or announce that it could not look; a passing render from the repo root proves nothing, since that is the path that already works.",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260901-FORMATTER-IMPORT-FAILURE-DROPPED-THE-PING-IT-WAS-FORMATTING",
+      "title": "send_ping --kind returned 1 when src.runtime.claude_ping could not be imported, so opting into Format B meant losing the ping outright on a broken tree",
+      "severity": "medium",
+      "tier": 1,
+      "status": "resolved",
+      "detail": "scripts/notify_on_pull.py states the invariant verbatim: 'No imports from src.runtime.* so a broken trader doesn't break the ping channel.' scripts/send_ping.py's own docstring calls itself 'the canonical producer -- every other process should drop through here'. #10669 added a --kind path to send_ping.py whose ImportError guard did logger.error(...) then return 1, so any producer that opted into Format B lost its ping ENTIRELY on a tree where src/runtime is broken -- exactly the tree an operator most needs to hear about. WHAT MAKES THIS WORTH A ROW rather than a quiet fix: the same change got the identical question RIGHT one layer down. claude_ping's limiter deliberately SENDS when its state file is unreadable, with a test named test_an_unreadable_limiter_SENDS and the reasoning written out ('a broken limiter that suppressed is indistinguishable from a quiet day'). The author applied the rule to the STATE FILE and missed the MODULE IMPORT in the same function. The general form: on a notification path every dependency needs the fail-loud direction, not just the one whose failure you happened to be thinking about. FIXED same day: the guard now warns and sends the body UNFORMATTED (why/unproven appended as plain prefixed lines) rather than dropping it, and the degraded shape is deliberately NOT Format B -- no icon, no indent -- so it cannot be mistaken for the canonical shape and does not become a second renderer. record_sent is gated on whether formatting actually happened, so a degraded ping records no send against the limiter. Three tests pin the direction in tests/test_send_ping.py. CAVEAT ON THE FIX: class gating is unavailable on the degraded path too, so a lifecycle BURST on a broken tree would not be collapsed. Sending is the safe direction there and the condition is rare, but it is a real gap, stated rather than hidden.",
+      "resolution_criteria": "RESOLVED on merge of the fix. Re-opens if a future producer path reintroduces a hard failure on an unavailable formatter, or if the degraded fallback ever grows into a second Format-B-shaped renderer."
     }
   ]
 }
