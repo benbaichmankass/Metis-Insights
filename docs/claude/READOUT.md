@@ -1,6 +1,6 @@
 # The readout — where the chain is held up, and what that costs
 
-_Generated 2026-09-01T21:28:25+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260901-OPERATING-LAYER` (basis DECIDED)_
+_Generated 2026-09-01T21:49:49+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260901-OPERATING-LAYER` (basis DECIDED)_
 
 > **This is A1, and it is computed rather than judged.** It reports its denominator before its conclusion, because a constraint named over unassessed edges is a fabricated answer wearing a computed label.
 

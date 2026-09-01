@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-01T21:28:25+00:00",
+  "generated_at": "2026-09-01T21:49:49+00:00",
   "generator": "scripts/ops/constraint_readout.py",
   "cycle_priority": {
     "cycle_id": "CY-20260901-OPERATING-LAYER",

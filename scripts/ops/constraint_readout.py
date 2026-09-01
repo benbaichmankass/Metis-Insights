@@ -621,8 +621,8 @@ def render_md(d: dict) -> str:
     L.append("")
     L.append(c["verdict_note"])
     L.append("")
-    L.append(f"| population | assessed | coverage | floor |")
-    L.append(f"|---|---|---|---|")
+    L.append("| population | assessed | coverage | floor |")
+    L.append("|---|---|---|---|")
     L.append(f"| {c['population']} objects | {c['assessed']} | "
              f"**{_pct(c['assessed_coverage'])}** | {_pct(c['min_assessed_coverage'])} |")
     L.append("")
