@@ -77,17 +77,52 @@ IN_FLIGHT = "in_flight"
 LIFECYCLES = {"dormant", "ready", "in_flight", "waiting", "done", "accepted"}
 
 
+def _scalar(raw: str) -> Optional[str]:
+    """The scalar to the right of ``key:``, minus any inline ``#`` comment.
+
+    ⚠️ AN INLINE COMMENT IS LEGAL YAML AND MUST NOT BE READ AS PART OF THE VALUE.
+    It was, until 2026-09-01: a file carrying ``lifecycle: ready  # dormant ->
+    ready ...`` graded as the literal ``ready   # dormant -> ready ...``, which is
+    in no vocabulary, so the guard refused the whole file. A valid object was
+    rejected, and the cheapest way to make CI green was to DELETE the sentence
+    explaining a state change — a guard that is easier to satisfy by removing
+    information is the shape this repo has a rule against.
+
+    Failing closed on a value we genuinely cannot read stays right. This makes
+    fewer values unreadable; it never makes an unreadable one pass.
+
+    YAML's own rule is followed rather than approximated: ``#`` opens a comment
+    only at the start of the scalar or after whitespace, so ``a#b`` is the value
+    ``a#b`` (and therefore still graded — and refused — as a bad lifecycle), and
+    a quoted scalar keeps its contents, comment character included.
+    """
+    s = raw.strip()
+    if not s or s[0] == "#":
+        return None
+    if s[0] in "\"'":
+        q = s[0]
+        end = s.find(q, 1)
+        return (s[1:end] if end > 0 else s[1:]) or None
+    for i in range(1, len(s)):
+        if s[i] == "#" and s[i - 1] in " \t":
+            s = s[:i]
+            break
+    return s.strip() or None
+
+
 def _lifecycle(text: str) -> Optional[str]:
     """The object's lifecycle, or None if we could not read one.
 
     A line scan rather than a YAML parse, matching work_phase_ping.py: this runs
     over files that may predate a schema change, and a parse error must not turn
-    a ceiling check into a crash. None means *we did not read one*, which the
-    caller reports as unreadable rather than assuming a value.
+    a ceiling check into a crash. The column-0 test is deliberate — a folded
+    scalar or a nested block cannot forge a top-level field. None means *we did
+    not read one*, which the caller reports as unreadable rather than assuming
+    a value.
     """
     for line in text.split("\n"):
         if line.startswith("lifecycle:"):
-            return line.split(":", 1)[1].strip().strip('"').strip("'") or None
+            return _scalar(line.split(":", 1)[1])
     return None
 
 
@@ -290,6 +325,22 @@ def _self_test() -> int:
           _lifecycle("id: X\n"), None)
     check("an empty lifecycle reads as None, never as ''",
           _lifecycle("lifecycle:\n"), None)
+
+    # Inline comments. A valid YAML file must not be refused for carrying the
+    # sentence that explains its own state — see _scalar's docstring for the
+    # 2026-09-01 instance where it was.
+    check("an inline comment is stripped, not read as part of the value",
+          _lifecycle("lifecycle: ready   # dormant -> ready 2026-09-01\n"), "ready")
+    check("a tab-separated inline comment is stripped too",
+          _lifecycle("lifecycle: in_flight\t# picked up\n"), "in_flight")
+    check("a value that is ONLY a comment reads as None, never as a state",
+          _lifecycle("lifecycle:  # decided tomorrow\n"), None)
+    check("a quoted value keeps a '#' inside the quotes",
+          _lifecycle('lifecycle: "rea#dy"\n'), "rea#dy")
+    check("a '#' with no whitespace before it is VALUE, so the file is still refused",
+          _lifecycle("lifecycle: ready#now\n") in LIFECYCLES, False)
+    check("a quoted lifecycle still reads",
+          _lifecycle("lifecycle: 'waiting'  # on the operator\n"), "waiting")
 
     # ⚠️ The conflation guard. This is the whole reason it is here.
     try:

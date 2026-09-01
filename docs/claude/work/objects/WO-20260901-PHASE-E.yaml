@@ -3,9 +3,10 @@ type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: "Phase E — no work is lost, and rules are verified at exit"
 stage: CAPABILITY
-lifecycle: ready   # dormant -> ready 2026-09-01: its one blocker is answered (see
-                   # lease_design). `ready` is not `in_flight`, so this does not
-                   # consume a WIP slot -- it is available to be picked up, nothing more.
+# dormant -> ready 2026-09-01: its one blocker is answered (see lease_design
+# below). `ready` is not `in_flight`, so this consumes no WIP slot -- it is
+# available to be picked up, nothing more.
+lifecycle: ready
 owner: claude
 opened_at: 2026-09-01
 closed_at: null
