@@ -30188,6 +30188,23 @@
         "docs/design/operating-layer-schema-and-state-DESIGN.md"
       ],
       "found_by": "operating-model design session, 2026-09-01 (operator decision)"
+    },
+    {
+      "id": "BL-20260901-DECISION-RECORD-SAYS-SHADOW-WHILE-CONFIG-SAYS-LIVE-SQUEEZE-BREAKOUT-4H",
+      "severity": "medium",
+      "tier": 3,
+      "status": "open",
+      "opened": "2026-09-01",
+      "area": "decision-record",
+      "title": "config/strategy_changelog.json records squeeze_breakout_4h DEMOTED live->shadow (Tier-3, operator-approved, 2026-06-01) while config/strategies.yaml sets execution: live EXPLICITLY today",
+      "detail": "MEASURED 2026-09-01 from CURRENT FILE STATE (see the population caveat below — the history is NOT available in this clone). config/strategy_changelog.json carries, under squeeze_breakout_4h, a 2026-06-01 entry: 'DEMOTED execution: live -> shadow ... Tier-3, operator-approved', citing 60 closed trades at 0% win and net -20R, and saying 'Re-promote only on a fresh net-positive window.' Read through the canonical loader (scripts/ml/strategy_review_packet.load_strategies_yaml, i.e. the `strategies:` wrapper key — reading the raw YAML top level returns nothing and is how this was first misread), config/strategies.yaml today has squeeze_breakout_4h with execution: 'live' PRESENT AND EXPLICIT, and enabled: True. ⚠️ STATE THE POPULATION / BLAST RADIUS: it is routed to exactly ONE account, bybit_1, which is mode: live but account_class: PAPER. So this is NOT real money, and describing it as 'running live' without that qualifier overstates it. ⚠️ WHAT IS NOT ESTABLISHED, and must not be asserted: WHEN or WHY the config value changed, and whether a later operator decision re-promoted it and simply was not logged. This session's clone is SHALLOW (git rev-parse --is-shallow-repository = true; 58 reachable commits, earliest 2026-08-31), so `git log -- config/strategies.yaml` returns 1 commit and any history-based claim from here is an artifact of clone depth rather than a fact. An investigating session must `git fetch --unshallow` first. This is a RECURRENCE of a class already twice fixed on other surfaces — BL-20260814-MATRIX-STATUS-CONTRADICTS-LIVE-CONFIG-ON-SIX-LEVER-CELLS (coverage matrix vs config) and BL-20260823-STALE-COMMENT-CLAIMS-PROP-VARIANTS-ARE-SHADOW (a money-path comment vs config), both resolved. That it has now recurred on the CANONICAL DECISION RECORD is the finding: the two earlier fixes were per-surface, and nothing compares the decision record against the config it is supposed to govern. Related: the changelog's most recent ENTRY is dated 2026-07-28 (53 entries, earliest 2026-05-06), so the record has not been written to in over a month while Tier-3 decisions demonstrably continued — which is C4 of the operating-layer build plan.",
+      "resolution_criteria": "EITHER (a) the config and the record are reconciled — a session establishes on UNSHALLOWED history whether a re-promotion decision was taken, and then either logs that decision to strategy_changelog.json (if it was operator-approved and merely unrecorded) or restores execution: shadow (if the demotion was never reversed). ⚠️ Both directions are Tier-3 and need explicit operator approval — do NOT flip the execution gate on inference. AND (b) an executable check compares the decision record's latest execution verdict per strategy against config/strategies.yaml and FAILS on a divergence, so this class stops needing a human to notice it on a third surface. A one-off reconciliation without (b) closes the instance and leaves the class, which is what the two prior fixes did.",
+      "refs": [
+        "BL-20260814-MATRIX-STATUS-CONTRADICTS-LIVE-CONFIG-ON-SIX-LEVER-CELLS",
+        "BL-20260823-STALE-COMMENT-CLAIMS-PROP-VARIANTS-ARE-SHADOW",
+        "docs/design/operating-layer-build-plan-DESIGN.md"
+      ],
+      "found_by": "operating-layer build, Phase F (C4 premise verification), 2026-09-01"
     }
   ]
 }
