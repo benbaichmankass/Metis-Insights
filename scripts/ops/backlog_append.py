@@ -226,6 +226,67 @@ def _self_test() -> int:
     return 0 if ok == len(checks) else 1
 
 
+#: The three live review backlogs, in the order the session-end routine names
+#: them. Kept here rather than re-derived, because the reader this protects
+#: (``tests/test_backlog_append.py``) builds its paths by interpolating a loop
+#: variable, which no static scan can resolve — the blind spot that let a broken
+#: file reach ``main`` on 2026-09-01.
+LIVE_BACKLOGS = (
+    "docs/claude/health-review-backlog.json",
+    "docs/claude/performance-review-backlog.json",
+    "docs/claude/ml-review-backlog.json",
+)
+
+
+def check_live_backlogs(root: Optional[pathlib.Path] = None) -> int:
+    """Refuse if any live backlog no longer round-trips. Returns a exit code.
+
+    WHY THIS IS A GUARD AND NOT A TEST. ``pytest-run`` short-circuits on a diff
+    that touches no code, and the three backlogs are DELIBERATELY excluded from
+    its relevance filter (``tests/test_pytest_run_filter.py::DELIBERATELY_EXCLUDED``)
+    because they change on nearly every PR and widening there costs CI minutes on
+    all of them. The consequence, measured 2026-09-01: a hand-edited row merged on
+    a backlog-only PR, ``detect_format`` could no longer reproduce the file, and
+    ``append_row`` refused EVERY write repo-wide — while the test that catches
+    exactly this could not run on the PR that introduced it. The signal arrived
+    hours later, on three unrelated PRs that happened to touch code.
+
+    The `guards` job never short-circuits, so this runs on the backlog-only PR
+    itself. That is the whole point: **a check that cannot run on the change it
+    guards is not a guard.**
+
+    ⚠️ A MISSING FILE IS NOT A PASS. It is reported and returns non-zero, because
+    "we could not look" and "we looked and it was fine" are different states.
+    """
+    root = root or pathlib.Path(".")
+    bad: list[str] = []
+    for rel in LIVE_BACKLOGS:
+        path = root / rel
+        if not path.exists():
+            bad.append(f"{rel}: MISSING — cannot be checked (not the same as clean)")
+            continue
+        raw = path.read_text()
+        try:
+            detect_format(raw, json.loads(raw))
+        except FormatNotReproducible:
+            bad.append(
+                f"{rel}: no candidate serialisation reproduces it byte-for-byte, so "
+                "append_row will REFUSE EVERY WRITE to it repo-wide. Almost always a "
+                "row spliced in by hand with ensure_ascii=True; re-serialise that row "
+                "canonically (indent=2, ensure_ascii=False) rather than reformatting "
+                "the file, which would re-attribute every pre-existing row to your diff."
+            )
+        except json.JSONDecodeError as exc:
+            bad.append(f"{rel}: not valid JSON — {exc}")
+    if bad:
+        print("::error::a live review backlog does not round-trip:")
+        for line in bad:
+            print(f"  {line}")
+        return 1
+    print(f"backlog round-trip: OK — {len(LIVE_BACKLOGS)} live backlog(s) reproduce byte-for-byte")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -233,9 +294,13 @@ def main(argv=None) -> int:
     ap.add_argument("--row-json", help="path to a JSON file holding the row")
     ap.add_argument("--updated-at")
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--check-live", action="store_true",
+                    help="round-trip every live backlog; refuse if any cannot be reproduced")
     a = ap.parse_args(argv)
     if a.self_test:
         return _self_test()
+    if a.check_live:
+        return check_live_backlogs()
     if not (a.backlog and a.row_json):
         ap.error("--backlog and --row-json are required (or --self-test)")
     row = json.loads(pathlib.Path(a.row_json).read_text())
