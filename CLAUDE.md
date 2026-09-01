@@ -1594,6 +1594,14 @@ below are the contract.
     not trigger workflows for `GITHUB_TOKEN` pushes, so when that commit lands
     last the PR shows **zero checks** — blocked, not green. Push one ordinary
     commit yourself to arm CI.
+    ⚠️ **THIS APPLIES TO `board-post.yml` TOO, and `pr-opener.yml`'s header does
+    not say so** — it documents the trap only for itself. Both relays commit a
+    result file back the same way, so **every board post you make on an open
+    PR's branch re-buries that PR's checks**, and the more diligently you use
+    the board the more often it happens. Measured on PR #10680 (2026-09-01): it
+    hit twice in one PR, once per relay. Read `mergeable_state` to tell the two
+    zero-check causes apart — `blocked` is this (no checks fired), `dirty` is a
+    merge conflict, and both render as `total_count: 0`.
   - **`.github/workflows/board-post.yml`** — POST to the coordination board
     (#6927) when `add_issue_comment` 403s: drop
     `automation/board-posts/<name>.md`, whose entire contents become the
