@@ -565,6 +565,26 @@
         ]
     },
     {
+      "id": "OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED",
+      "opened": "2026-09-01",
+      "kind": "monitoring",
+      "loud": true,
+      "check_every_days": 3,
+      "verified_at": null,
+      "last_checked": "2026-09-01",
+      "summary": "Phase F/C3 is now COMPLETE AS PLUMBING — cron (#10649), committed path, and a reader (GET /api/bot/strategy-reviews, PR #10681) — and the decision surface STILL PROPOSES NOTHING. Population: the committed 2026-09-01 index, all 52 enabled strategies, window 7 days. graded 52, actionable 0, by_action {'hold': 52}. n_closed was 0 for 34 legs, 1-4 for 14, 5-19 for 4, and NEVER above 8, against the generator's own MIN_CLOSED_FOR_ACTION = 20 floor — so 52/52 were ungradeable and no leg could produce a KILL/DEMOTE whatever its PnL, including 13 LOSING legs carrying -35,446 of provenance-trusted pnl between them. At a 7-day window a leg needs ~3 closes/day while the whole fleet closed 50 that week, so this repeats every run. ⚠️ TWO THINGS ARE DEPLOYED AND UNOBSERVED, and they are DIFFERENT CLAIMS. (a) THE CRON HAS NEVER HAD THE OPPORTUNITY TO FIRE: the workflow landed 2026-09-01T11:58Z and fires 04:40 UTC, so its first scheduled slot is 2026-09-02T04:40Z — a THIRD state, neither 'fired and worked' nor 'fired and failed'. Both runs to date (#10652, #10656) were dispatch-driven, and OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON is the live counter-example forbidding correct cron syntax being read as evidence. (b) THE EVIDENCE BLOCK HAS ONLY EVER READ `unknown`: the generator now publishes min_closed_for_action + per-row below_evidence_floor and the route grades floor_state, but the one committed index PREDATES those fields, so none_gradeable / partly_gradeable / all_gradeable have never been emitted by a real run. ⚠️ AND A ROUTE IS NOT A READER — nothing renders this yet, so the written-and-never-read defect is moved one hop, not eliminated. Do NOT report C3 as having moved the measured DECISION constraint on the strength of the plumbing.",
+      "clears_when": "ALL THREE, and none substitutes for another: (1) a committed INDEX.json produced by a SCHEDULED run — verified by the run's EVENT being `schedule`, never by the file existing, since a dispatch-driven run writes a byte-identical artifact; (2) that index carries min_closed_for_action AND its evidence.floor_state reads a value OTHER than `unknown`, i.e. the publication is exercised rather than merely deployed; and (3) an operator decision on the window/floor pair is recorded. ⚠️ A RUN THAT SIMPLY EMITS AN ACTION DOES NOT CLEAR THIS: a KILL fired off a window widened far enough to make anything gradeable is the same low-n hazard the floor exists to prevent, one level up. ⚠️ THE ROUTE RETURNING 200 CLEARS NOTHING EITHER — that is a deploy, not an observation, and grading `unknown` correctly is the route WORKING while the condition persists.",
+      "probe_absent_reason": "MISSING CAPABILITY, stated rather than left as a silent gap: criterion (1) needs the GitHub Actions run EVENT (`schedule` vs `workflow_dispatch`), and api.github.com returns 403 in this sandbox while no Actions MCP tool was in this session's toolset — so the distinction that matters could not be read from here. ⚠️ A probe asserting only that a committed INDEX EXISTS for today would be the semantic substitution this repo has a guard family for: a dispatch-driven run writes a byte-identical artifact, so such a probe would go GREEN on precisely the state this row exists to keep open. probe_actions_log (OI-20260831-PROBE-READERS-SHIPPED-BUT-THE-ACTIONS-ONE-HAS-NEVER-RUN-FOR-REAL) is the right source once it has run against the real API.",
+      "observation": "2026-09-01: measured directly off the committed index rather than inferred — graded 52 / actionable 0 / by_action {'hold': 52}; n_closed max 8; 0 legs at or above the 20 floor. The new route was exercised against that REAL record (not only fixtures) and returned read_state=index_read, freshness=fresh, evidence.floor_state=unknown — `unknown` being CORRECT there, because that index predates the published field and guessing would assert an observation nobody made.",
+      "refs": [
+        "BL-20260901-REVIEW-PACKET-WINDOW-AND-EVIDENCE-FLOOR-ARE-INCOMPATIBLE-SO-NO-ACTION-CAN-EVER-FIRE",
+        "BL-20260901-COMMITTED-REVIEW-RECORD-HAS-A-ROUTE-BUT-STILL-NO-RENDERED-CONSUMER",
+        "BL-20260901-COMMITTED-REVIEW-DAY-HOLDS-105-FILES-FROM-THE-PRE-FIX-SELECTOR",
+        "OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON",
+        "docs/design/operating-layer-build-plan-DESIGN.md"
+      ]
+    },
+    {
         "id": "OI-20260901-CONSTRAINT-READOUT-SHIPPED-AND-IT-REFUSES-NOBODY-HAS-ACTED-ON-THE-REFUSAL",
         "probe_absent_reason": "A probe could assert `verdict == insufficient_basis` in docs/claude/CONSTRAINT.json, but that is the CURRENT state and asserting it would make the probe PASS for exactly as long as nothing improves — a green that means 'still broken'. What clears this is a session ACTING on the refusal (writing true edges), and nothing records that a session read the line and did something. Deliberately unprobed rather than probed wrong.",
         "opened": "2026-09-01",
