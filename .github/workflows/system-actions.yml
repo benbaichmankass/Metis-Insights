@@ -1044,6 +1044,22 @@ jobs:
           # guard below now also fails any future unmapped key loudly
           # instead of writing it.
           SECRET_TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          # TELEGRAM_CLAUDE_BOT_SECRET is the operator's 2026-09-01 DEDICATED
+          # Claude bot (@ict_cluade_bot) — the token src/bot/telegram_routes.py
+          # resolves for the claude route. Without this mapping a set-env with a
+          # blank env_value resolved EMPTY and the guard below correctly refused
+          # the run, so the token could not be propagated to the VM at all: the
+          # operator had put it in Actions and there was no sanctioned path to
+          # move it. (The guard behaved exactly as designed — this is the
+          # missing mapping it was telling us about, not a fault in the guard.)
+          SECRET_TELEGRAM_CLAUDE_BOT_SECRET: ${{ secrets.TELEGRAM_CLAUDE_BOT_SECRET }}
+          # The claude route's optional per-route CHAT id. Unmapped until now for
+          # the same reason. Normally UNSET: at a DM the chat is the operator's
+          # own and is shared by every bot by construction, which Route.isolated
+          # documents as the correct state — this exists for the day the channel
+          # becomes a group. An unset Actions secret resolves empty and the guard
+          # fails the run loudly, which is the intended behaviour, not a gap.
+          SECRET_TELEGRAM_CLAUDE_CHAT_ID: ${{ secrets.TELEGRAM_CLAUDE_CHAT_ID }}
           # NEWS_API_KEY backs the M9 news layer (set-env env_key=NEWS_API_KEY,
           # env_value blank). Lets Claude propagate the operator-provided NewsAPI
           # key to the VM .env via set-env without it ever reaching the issue
