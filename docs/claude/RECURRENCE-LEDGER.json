@@ -5,7 +5,7 @@
   "the_rule": "Every class here MUST name its `prevention` — an EXECUTABLE check (a guard, a test, a refusal in a tool) that makes the next instance fail loudly — or set `prevention: null` with `unpreventable_because` stating honestly why no check can catch it. A class with neither is a lesson nobody learned, and `recurrence-ledger-guard` fails CI on it.",
   "a_prevention_must_be_executable": "'be more careful', 'remember to check', 'read the docs first' are NOT preventions. The test is: if a future session makes this mistake, does something FAIL without a human noticing first? If no, it is not a prevention.",
   "rendered_into_claude_md": "Classes whose `prevention` is null are rendered into CLAUDE.md by scripts/ops/render_session_brief.py, so every session sees the un-prevented ones in context before its first tool call. The list SHRINKS as preventions land — it is a work queue, not an archive.",
-  "updated_at": "2026-08-26T14:30:00Z",
+  "updated_at": "2026-09-01",
   "classes": [
     {
       "id": "RC-STORED-FIELD-READ-AS-ITS-NAME",
@@ -66,6 +66,20 @@
       "prevention": "scripts/ci/check_recurrence_ledger.py rejects a prevention naming a file that does not exist, which catches the INVENTED-name half. ⚠️ It does NOT catch this class's other half — claiming `prevention: null` when a prevention exists — and cannot, since proving absence is the very thing that failed. See unpreventable_because.",
       "unpreventable_because": "No check can prove a capability does NOT exist; that is the halting-problem shape of 'a search returning nothing is not proof of absence' (RULE ONE, first bullet). What IS mechanical is the cost of looking: `ls scripts/ci/`, `grep -n <name> scripts/ci/run_guards.py`, and `git cat-file -e origin/main:<path>` before `cat >`. The last one would have prevented the destructive half outright, and is now stated in CLAUDE.md § Every session.",
       "why_it_recurs": "Both instances happened while BUILDING anti-recurrence machinery, in a session whose whole subject was 'stop repeating mistakes'. Writing a new file feels like progress; searching for an existing one feels like delay — and the repo is large enough that the search genuinely is slower than the write."
+    },
+    {
+      "id": "RC-DROPPED-QUERY-FILTER-READS-AS-A-CLEAN-RESULT",
+      "title": "A read route silently drops an unusable query filter and answers 200, so the caller cannot tell a real result from a dropped filter",
+      "occurrences": 2,
+      "first_seen": "2026-08-13",
+      "last_seen": "2026-09-01",
+      "evidence": [
+        "2026-08-13 /api/bot/db/table/{name} IGNORED an unknown filter_col, formed no WHERE, and returned total=4639 — the WHOLE trades table — indistinguishable from 'the filter matched every row'. Four different filters on a misspelled column (close_reason, not exit_reason) each returned the same number (BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN). Fixed on THAT route by publishing a never-collapsed filter_state, registered with collapsed-state-guard as db_explorer.filter_state.",
+        "2026-09-01 /api/bot/order-packages?since=<unparseable> returned ZERO rows, HTTP 200, no error field. Mechanism verified in SQLite, not inferred: the SQL is `datetime(op.created_at) >= datetime(?)`, datetime() returns NULL on an unparseable string, and `x >= NULL` is NULL, so EVERY row is excluded. Measured three arms on one leg: no since -> 5 rows; since=...+00:00 (a raw + decodes as a space) -> 0 rows; since=...Z -> 1 row. A ten-leg sweep read 0/0/0 and was one step from being reported as 'nothing since the deploy'; the real count was 8. Caught only by running a positive control (BL-20260901-ORDER-PACKAGES-SINCE-WITH-A-RAW-PLUS-OFFSET-RETURNS-ZERO-ROWS-SILENTLY)."
+      ],
+      "prevention": "scripts/ci/check_collapsed_states.py — the same guard that already enforces db_explorer.filter_state. A read route that accepts a filter registers its own resolution state (applied / not_requested / ignored_<reason>) as a contract, and the guard then requires the producer to emit every state and a real consumer to branch on each. The remedy is not new; it shipped on the first instance's route and was never carried to its siblings.",
+      "gap": "Registration is MANUAL, so the guard's denominator is the set of routes someone thought to register — which is exactly how the 2026-09-01 instance got through on a route whose sibling was already fixed. Nothing enumerates 'every route that takes a filter' and asks whether its resolution state is observable. Until something does, this class is prevented only where a human already looked.",
+      "why_it_recurs": "The two instances fail in OPPOSITE directions — one returned everything, one returned nothing — so they do not look alike to a reader who pattern-matches on the symptom, and the second was not recognised as a recurrence until the mechanism was read. Both are silent, both are HTTP 200, and both land on the side a caller is least likely to question: an empty list reads as a quiet system and a full count reads as a matched filter. The defect is never in the number returned, it is that the parameter's RESOLUTION is absent from the response, so no amount of care at the call site can recover it — only a positive control can, and a caller with a plausible-looking answer has no reason to run one."
     }
   ]
 }
