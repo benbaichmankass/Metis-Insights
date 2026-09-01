@@ -333,6 +333,39 @@ case "${action}" in
         ;;
 esac
 
+# FORMAT B, AND ONLY WHERE THERE IS A SECOND LINE TO WRITE.
+#
+# src/runtime/claude_ping.py owns the Claude-channel shape: line 1 is WHAT,
+# line 2 is WHAT CHANGED FOR THE READER, and `--kind` without `--why` is
+# REFUSED — an event with nothing to say about what changed is activity, and
+# activity must not ping.
+#
+# ⚠️ FOR AN OPS ACTION THERE IS OFTEN GENUINELY NO SECOND LINE. "restart-bot-
+# service: ok" says everything it has to say on line 1; a `why` synthesised
+# from the result would restate it, which is exactly the hollow ping the
+# refusal exists to prevent. So this does NOT format every ops ping.
+#
+# The split is the repo's own, not one invented here: system-actions.yml
+# requires a non-empty `reason` for TIER-2 actions ("Tier-2 action '<x>'
+# requires a non-empty 'reason' input") and does not for Tier-1. So an action
+# that MUTATES arrives with the operator's own stated reason — a real line 2 —
+# and a status/read action does not.
+#
+# ⚠️ THE ASYMMETRY IS THE POINT, NOT A GAP TO CLOSE LATER. Two shapes on the
+# channel is more honest than one uniform shape half of which is padding, and
+# an ops ping arriving with no second line is itself the signal that the action
+# was dispatched without a stated reason.
+if [ -n "${reason}" ]; then
+    headline="OPS ${action} · ${result} · tier ${tier}"
+    why="${reason}"
+    if [ -n "${run_url}" ]; then
+        why+=" — ${run_url}"
+    fi
+else
+    headline=""
+    why=""
+fi
+
 body="[ops] ${action}: ${result}"
 if [ -n "${reason}" ]; then
     body+=$'\n'"reason: ${reason}"
@@ -347,10 +380,17 @@ if [ ! -x "${SEND_PING}" ] && [ ! -f "${SEND_PING}" ]; then
     exit 0
 fi
 
-if /usr/bin/python3 "${SEND_PING}" \
-        --target claude \
-        --priority "${priority}" \
-        "${body}" 2>&1; then
+# A Tier-1 action with no reason keeps the legacy free-text body byte-for-byte
+# (send_ping.py's documented contract: a producer passing no --kind is
+# unchanged), so this commit cannot alter what those pings look like.
+if [ -n "${why}" ]; then
+    set -- --target claude --priority "${priority}" \
+           --kind state_change --why "${why}" --icon "⚙️" "${headline}"
+else
+    set -- --target claude --priority "${priority}" "${body}"
+fi
+
+if /usr/bin/python3 "${SEND_PING}" "$@" 2>&1; then
     echo "notify: queued ${priority} ping for action=${action} result=${result}" >&2
 else
     echo "WARN: send_ping.py failed; notify skipped (action=${action})" >&2

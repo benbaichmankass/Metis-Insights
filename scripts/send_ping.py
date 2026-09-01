@@ -152,41 +152,73 @@ def main(argv: Optional[list] = None) -> int:
     # Format B + class gating, when a --kind is declared. Producers that pass no
     # --kind keep the legacy free-text path byte-for-byte, so nothing existing
     # changes shape on this commit.
+    formatted = False
     if args.kind:
+        # ⚠️ AN UNAVAILABLE FORMATTER MUST NOT COST THE PING.
+        #
+        # scripts/notify_on_pull.py states the invariant this path has to
+        # respect, verbatim: "No imports from src.runtime.* so a broken trader
+        # doesn't break the ping channel." This module's own docstring calls it
+        # "the canonical producer — every other process should drop through
+        # here", so a hard failure here takes the channel down with the tree.
+        #
+        # The first cut of this returned 1, which meant a producer that opted
+        # into Format B lost its ping outright on exactly the broken tree an
+        # operator most needs to hear about. That is the same direction the
+        # limiter already refuses to fail in ("an unreadable limiter SENDS"),
+        # applied to the state file and missed on the import.
+        #
+        # ⚠️ THE FALLBACK IS DELIBERATELY NOT FORMAT B. A second module-shaped
+        # renderer here would be the drift claude_ping exists to prevent, so
+        # the degraded body is visibly plain — no icon, no indent, an explicit
+        # "why:" prefix — and cannot be mistaken for the canonical shape.
+        claude_ping = None
         try:
-            from src.runtime import claude_ping
+            from src.runtime import claude_ping  # noqa: F811
         except ImportError as exc:  # pragma: no cover - import guard
-            logger.error("claude_ping unavailable: %s", exc)
-            return 1
-        if not args.why:
-            logger.error(
-                "--kind requires --why: Format B's second line is the whole "
-                "point, and an event with nothing to say about what changed is "
-                "activity, which must not ping")
-            return 1
-        admit, reason = claude_ping.admits(args.kind)
-        if not admit:
-            # ⚠️ Reported, never silent. "we suppressed it" and "there was
-            # nothing to say" are different facts and exit 0 alone conflates
-            # them; the reason names which.
-            logger.info("ping withheld (%s): %s", args.kind, reason)
-            print(f"withheld: {reason}")
-            return 0
-        try:
-            body = claude_ping.format_ping(
-                body, args.why, unproven=args.unproven, icon=args.icon)
-        except ValueError as exc:
-            logger.error("format failed: %s", exc)
-            return 1
+            logger.warning(
+                "claude_ping unavailable (%s) — sending UNFORMATTED rather "
+                "than dropping the ping; class gating is unavailable too, and "
+                "sending is the safe direction on a notification path", exc)
+            if args.why:
+                body = f"{body}\nwhy: {args.why}"
+            if args.unproven:
+                body = f"{body}\nnot yet established: {args.unproven}"
+            claude_ping = None  # nothing left to gate or format with
+
+        if claude_ping is not None:
+            if not args.why:
+                logger.error(
+                    "--kind requires --why: Format B's second line is the "
+                    "whole point, and an event with nothing to say about what "
+                    "changed is activity, which must not ping")
+                return 1
+            admit, reason = claude_ping.admits(args.kind)
+            if not admit:
+                # ⚠️ Reported, never silent. "we suppressed it" and "there was
+                # nothing to say" are different facts and exit 0 alone
+                # conflates them; the reason names which.
+                logger.info("ping withheld (%s): %s", args.kind, reason)
+                print(f"withheld: {reason}")
+                return 0
+            try:
+                body = claude_ping.format_ping(
+                    body, args.why, unproven=args.unproven, icon=args.icon)
+                formatted = True
+            except ValueError as exc:
+                logger.error("format failed: %s", exc)
+                return 1
 
     try:
         path = enqueue(body, priority=args.priority, target=args.target)
     except (ValueError, OSError) as exc:
         logger.error("enqueue failed: %s", exc)
         return 1
-    if args.kind:
+    if args.kind and formatted:
         # Only on a CONFIRMED enqueue — recording an attempt would let a failed
-        # send suppress its own retry.
+        # send suppress its own retry. `formatted` also keeps the degraded
+        # import-fallback above out of here: nothing was gated, so there is no
+        # send to record against the limiter.
         from src.runtime import claude_ping as _cp
         _cp.record_sent(args.kind)
     logger.info(
