@@ -205,8 +205,26 @@ jobs:
           # `guards` job, which never short-circuits — is the recorded follow-up
           # on the backlog row; it is a bigger change than this one.
           #
+          #
+          # ⚠️ THE THREE REVIEW BACKLOGS, added 2026-09-01 — and they were missed
+          # by BOTH derivations, which is the interesting part. The literal scan
+          # looks for a docs/ path literal; the AST scan resolves constant paths.
+          # tests/test_backlog_append.py builds its path by INTERPOLATING A LOOP
+          # VARIABLE:
+          #     for name in ("health", "performance", "ml"):
+          #         p = pathlib.Path(f"docs/claude/{name}-review-backlog.json")
+          # Neither derivation can resolve that without executing the loop, so the
+          # machinery that exists precisely so this set "cannot go stale" had a
+          # blind spot a human reading the test would not have had.
+          #
+          # WHAT IT COST, measured 2026-09-01: main merged a hand-edited backlog
+          # row that broke detect_format, so backlog_append REFUSED EVERY WRITE
+          # repo-wide. The test that catches exactly this exists and could not run
+          # on the backlog-only PR that introduced it — it surfaced hours later on
+          # THREE unrelated PRs that happened to touch code. A guard that cannot
+          # run on the change it guards is not a guard.
           # Pinned in tests/test_pytest_run_filter.py::COVERED.
-          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^\.github/actions/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$'; then
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^\.github/actions/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^docs/claude/health-review-backlog\.json$|^docs/claude/performance-review-backlog\.json$|^docs/claude/ml-review-backlog\.json$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
