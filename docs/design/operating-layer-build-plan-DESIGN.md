@@ -200,6 +200,8 @@ an answer that does not commit leaves its question *unanswered*, never "answered
 
 **Builds:** C3 decision preparation · C4 decision recording.
 
+⚠️ **C3 and C4 are being delivered separately, and C4 is DEFERRED with a reason.** The obvious first move for C4 — a guard comparing the changelog's execution verdict against `config/strategies.yaml` — cannot be built honestly today: the 53 changelog entries carry only `{date, ref, summary}`, so the verdict exists **only as prose**. Pattern-matching English for it is sub-class **A** of the diagnostic-provenance defect (*the label names a quantity the accessor does not return*), and a guard that is confidently wrong on the entries it misses is worse than none. The honest path is a **structured field on new entries plus a reported denominator of un-structured ones** — a design decision, not a wire. A live instance is filed meanwhile (`BL-20260901-DECISION-RECORD-SAYS-SHADOW-WHILE-CONFIG-SAYS-LIVE-SQUEEZE-BREAKOUT-4H`).
+
 **C3 is 1,518 lines that have never produced a durable artifact.**
 `strategy_review_packet.py` emits a real action badge with reasons and an SLA, and writes to
 a **gitignored path with no cron**. The repair is a cron and a committed path. This is the

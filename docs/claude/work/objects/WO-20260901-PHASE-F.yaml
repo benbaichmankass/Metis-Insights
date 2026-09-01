@@ -27,6 +27,31 @@ note: >-
   and squeeze_breakout_4h runs live today against a written record saying it
   was demoted for a 0% win rate over 60 closes.
 
+scope_split:
+  c3_decision_preparation: >-
+    IN FLIGHT 2026-09-01. The cron (.github/workflows/strategy-review-packets.yml),
+    --all-strategies, write_index(), and the committed path comms/strategy_reviews/.
+    ⚠️ NOT done until a dispatched run has actually COMMITTED an INDEX.json — a
+    green run with no committed index is a failure, not a pass.
+  c4_decision_recording: >-
+    DEFERRED, with a stated reason rather than silently dropped. C4 wants one
+    decision record instead of four forked surfaces, and the obvious first move —
+    a guard comparing the changelog's execution verdict against
+    config/strategies.yaml — CANNOT be built honestly today: the 53 changelog
+    entries carry only {date, ref, summary}, so the verdict exists solely as PROSE
+    ("DEMOTED execution: live -> shadow ..."). Extracting it by pattern-matching
+    English is sub-class A of the diagnostic-provenance defect this repo has a
+    guard family for, and a guard that matches prose would be confidently wrong
+    on the entries it misses. The honest path is a STRUCTURED field on new
+    entries plus a reported denominator of un-structured ones — which is a design
+    decision, not a wire, and belongs to its own change.
+  ⚠️_do_not_read_this_object_as_c4_delivered: >-
+    A concrete live instance is already filed as
+    BL-20260901-DECISION-RECORD-SAYS-SHADOW-WHILE-CONFIG-SAYS-LIVE-SQUEEZE-BREAKOUT-4H,
+    whose resolution_criteria require BOTH a reconciliation AND the executable
+    check — because closing the instance without the check is exactly what left
+    this class alive the two previous times it was fixed.
+
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md
 verdict: null

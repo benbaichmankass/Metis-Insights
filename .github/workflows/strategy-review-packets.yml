@@ -45,10 +45,24 @@ name: strategy-review-packets
 
 on:
   schedule:
-    # 06:40 UTC — after the IB-gateway daily reset (06:05) so the journal is not
-    # being read across a broker bounce, and clear of probes (05:20), due-list
-    # (05:50) and health-snapshot (every 6h on the hour).
-    - cron: "40 6 * * *"
+    # 04:40 UTC — operator-directed 2026-09-01, two hours earlier than the first
+    # draft, so the day's packets are waiting when they wake up. A decision
+    # packet nobody reads before deciding is the C3 failure one level up, so WHEN
+    # it lands is part of the repair rather than a detail.
+    #
+    # ⚠️ The first draft said 06:40 "after the IB-gateway daily reset (06:05) so
+    # the journal is not being read across a broker bounce". That reason was
+    # WEAKER THAN IT SOUNDED and is retracted rather than quietly dropped: this
+    # generator opens the trade journal `mode=ro` and NEVER touches IB, so the
+    # gateway reset window (~03:45–05:45 UTC) is not a constraint on it at all. A
+    # broker bounce does not disturb a sqlite read, and the trader writes to that
+    # journal continuously regardless.
+    #
+    # What IS load-bearing about the time, and still holds at 04:40: it collides
+    # with no other cadence — probes (05:20), due-list (05:50) and health-snapshot
+    # (every 6h on the hour) are all clear — so 52 nice'd packet builds never
+    # stack on top of another job on the 2-OCPU money box.
+    - cron: "40 4 * * *"
   workflow_dispatch:
   # Issue-driven so a Claude Code on the web session can fire it. Mirrors
   # health-snapshot.yml / vm-diag-snapshot.yml / system-actions.yml.
