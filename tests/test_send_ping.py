@@ -503,3 +503,48 @@ def test_kind_without_why_is_still_refused(tmp_path, monkeypatch):
     ])
     assert rc == 1
     assert not list(tmp_path.glob("*.json"))
+
+
+# ── --why / --unproven require --kind (2026-09-01) ─────────────────────────
+#
+# MEASURED, not hypothetical. During the operator-requested ping-system test
+# (2026-09-01, sub-session of the manager session) `--why "this should not
+# vanish"` with no `--kind` queued `{"priority": "normal", "body": "LOCAL TEST
+# body"}` — the second line accepted by argparse, discarded by main(), and
+# reported as a successful send. The Format-B block reads those two flags ONLY
+# under `--kind`, so without a class they are inert.
+#
+# The mirror guard (`--kind` without `--why`) has always been refused, and
+# `scripts/ops/send_ping_action.sh` refuses this direction at the wrapper layer
+# — but the wrapper is not the only caller: send_ping.py is invoked directly on
+# the VM, which is the reason its own guards exist at all.
+
+def test_main_refuses_why_without_kind(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(send_ping, "PENDING_CLAUDE_PINGS_DIR", tmp_path)
+    rc = send_ping.main(["--target", "claude", "--why", "must not vanish", "hi"])
+    assert rc == 1
+    # ⚠️ The refusal must also QUEUE NOTHING. A guard that reports failure and
+    # still enqueues the stripped body would deliver the very ping it refused.
+    assert not list(tmp_path.glob("*.json"))
+
+
+def test_main_refuses_unproven_without_kind(tmp_path, monkeypatch):
+    monkeypatch.setattr(send_ping, "PENDING_CLAUDE_PINGS_DIR", tmp_path)
+    rc = send_ping.main(["--target", "claude", "--unproven", "not seen live", "hi"])
+    assert rc == 1
+    assert not list(tmp_path.glob("*.json"))
+
+
+def test_main_passthrough_unaffected_by_the_guard(tmp_path, monkeypatch):
+    """The guard must be a no-op for the PRIMARY path.
+
+    Passthrough is not a legacy mode — it carries the operator's own text
+    unaltered — so a guard that made a plain ping harder to send would be a
+    worse bug than the one it fixes.
+    """
+    monkeypatch.setattr(send_ping, "PENDING_CLAUDE_PINGS_DIR", tmp_path)
+    rc = send_ping.main(["--target", "claude", "plain body"])
+    assert rc == 0
+    queued = sorted(tmp_path.glob("*.json"))
+    assert len(queued) == 1
+    assert json.loads(queued[0].read_text())["body"] == "plain body"

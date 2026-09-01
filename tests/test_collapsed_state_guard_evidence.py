@@ -180,13 +180,28 @@ def test_the_registry_is_not_a_consumer_of_itself():
     its `states` list, so the registry would satisfy that contract outright if
     it were scanned.
 
-    Population, because the count is the point: measured 2026-08-31 over the
-    live registry, **19 of 20 contracts** self-satisfy. The single exception is
-    `pairs_executor.open_state_read`, whose token names private helper
-    functions that do not appear in the registry text. So the exclusion is
-    load-bearing for all but one contract, and the assertion is written as a
-    floor rather than an all-quantifier so a future contract with a
-    helper-shaped token does not read as a regression.
+    Population, because the count is the point: re-measured 2026-09-01 over the
+    live registry, **19 of 22 contracts** self-satisfy. (It read 19 of 20 on
+    2026-08-31; two contracts have been registered since.) The three exceptions
+    are `pairs_executor.open_state_read`, `strategy_reviews.read_state` and
+    `strategy_reviews.freshness` — and all three fail for the SAME reason and
+    only that reason: every state literal IS present (they are written in the
+    contract's own entry) and only the `consumer_token` misses, because that
+    token names a helper function or route identifier that lives in the
+    consumer rather than here. So the exclusion is load-bearing for 19
+    contracts, which is what this pin exists to establish.
+
+    ⚠️ The tolerance is expressed as the SHAPE of the exception, not as a count
+    of them, and that is a deliberate correction. The earlier form asserted
+    `>= len(CONTRACTS) - 1` — at most ONE exception, ever — while this
+    docstring simultaneously claimed the floor was chosen "so a future contract
+    with a helper-shaped token does not read as a regression". Those disagreed:
+    the single slack slot was already spent, so the SECOND helper-shaped token
+    tripped the pin (it did, on 2026-09-01). A count coupled to a total that
+    grows independently of the exception class is the wrong instrument.
+    Asserting the shape is strictly stronger where it matters — a contract that
+    stops self-satisfying for ANY OTHER reason is now caught however many
+    exceptions exist, where the old form let one through unexamined.
     """
     import re
 
@@ -197,7 +212,18 @@ def test_the_registry_is_not_a_consumer_of_itself():
         if re.search(str(c["consumer_token"]), txt)
         and G._states_in(txt, list(c["states"])) == set(c["states"])
     ]
-    assert len(self_satisfying) >= len(G.CONTRACTS) - 1, (
+    wrong_shape = [
+        str(c["name"])
+        for c in G.CONTRACTS
+        if str(c["name"]) not in set(self_satisfying)
+        and G._states_in(txt, list(c["states"])) != set(c["states"])
+    ]
+    assert wrong_shape == [], (
+        "a contract stopped self-satisfying for a reason OTHER than a "
+        f"consumer-side token — {wrong_shape} — so re-measure before "
+        "concluding anything about the registry exclusion"
+    )
+    assert len(self_satisfying) > len(G.CONTRACTS) // 2, (
         "the registry stopped self-satisfying its own contracts — if that is "
         "real the exclusion may be dead code, so re-measure before deleting it"
     )

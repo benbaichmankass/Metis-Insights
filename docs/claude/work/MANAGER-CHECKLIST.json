@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-01T21:47Z",
+  "updated_at": "2026-09-01T22:53Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -65,7 +65,7 @@
     {
       "id": "MI-02-CLAUDE-CHANNEL",
       "title": "Claude pings reach the DEDICATED bot @ict_cluade_bot, not the trader chat",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01J16qHJHbnvqDyRWWAvdiRD",
       "prs": [
         10674
@@ -84,7 +84,7 @@
           "what": "token is in Actions, not yet on the VM; needs service: ict-claude-bridge.service (the suffix is required)"
         }
       ],
-      "note": "Root cause: #10664 built the router and converted cloud_notifier, leaving claude_bridge's drain hardcoding the trader token. The bot was configured, resolvable and INERT. A 20:58:49Z ping WAS delivered -- to the trader chat."
+      "note": "#10674 merged AND the VM deploy landed: set-env #10688 wrote TELEGRAM_CLAUDE_BOT_SECRET at 22:08:26Z and the bridge restarted active, flipping its route line from token=TELEGRAM_BOT_TOKEN[fallback] isolated=False to token=TELEGRAM_CLAUDE_BOT_SECRET[dedicated] isolated=True. OPERATOR-CONFIRMED delivery in @ict_cluade_bot. ⚠️ landed_unproven not done: the VM can prove which TOKEN it resolved, never which CONVERSATION a message surfaced in (chat_id is the operator's own id for every bot), so separation rests on the operator's eyes."
     },
     {
       "id": "MI-03-MORNING-DIGEST",
@@ -106,22 +106,22 @@
       "title": "Phase F / C3 decision preparation -- the one phase touching the measured constraint",
       "state": "in_flight",
       "owner": "session_01MDjxAnncsh71UiRAWtYHkH",
-      "note": "PR #10681 IS OPEN. The manager has NOT read its diff and must before merging. Tier-1, so the merge is the manager's alone once CI is green.",
+      "note": "#10681 was FULLY GREEN at 22:49Z and the merge was REFUSED at 22:52Z with 405 merge conflicts — main moved underneath it when #10680 landed first. Conflict resolution delegated to session_01GmjT7SLhVQNJtWnY1asEEb. The PR itself is unchanged and still approved-to-merge on green.",
       "pr": "#10681"
     },
     {
       "id": "MI-05-PHASE-D",
       "title": "Phase D / E1 constraint diagnosis -- the constraint computed rather than judged",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01Eb2CgctP8MGHD2Pnh8gpqF",
-      "note": "PR #10680 IS OPEN. Manager has NOT read its diff. ⚠️ THIS ONE GATES A SPAWN: MI-06 unblocks on this PR's MERGE, not on Phase D being observed working — a false-hold shape the board flagged.",
+      "note": "MERGED 22:52Z as 7e472e6c. ⚠️ landed_unproven, NOT done — a merge is a deploy, not an observation, and E1 has not been seen producing a readout on the fleet. ⚠️ READ WHAT IT SHIPPED before building on it: the diagnosis REFUSES where the edges do not support an answer, because ~583 migrated objects carry blocked_on: [] with basis NOT_ASSESSED. A consumer reading that refusal as 'nothing is held up' has the failure inverted.",
       "pr": "#10680"
     },
     {
       "id": "MI-06-PHASE-G",
       "title": "Phase G -- the forcing function: retirement, and the capability pull rule",
-      "state": "blocked",
-      "owner": null,
+      "state": "in_flight",
+      "owner": "session_01AT7e9N9FMbrLPRbzzueexL",
       "blocked_on": [
         {
           "kind": "item",
@@ -130,21 +130,21 @@
           "what": "the pull rule is only enforceable once E1 can name the held-up stage"
         }
       ],
-      "note": "Unblocks on #10680 MERGING, not on Phase D being proven. Spawn immediately on that merge; holding it until Phase D is 'observed working' is the false-hold the board named."
+      "note": "UNBLOCKED and SPAWNED at 22:52Z on #10680's MERGE — not on Phase D being observed, which is the false-hold shape Phase D itself named. Scope is the forcing function: 6 retirements ever against 45 live legs, the M7 kill packet writing to a gitignored path with no cron, and Override 5 converting every kill to `tune`. ⚠️ Told explicitly NOT to build a second retirement mechanism — establish why the existing one cannot fire first."
     },
     {
       "id": "MI-07-PHASE-H-PRECONDITIONS",
       "title": "Phase H preconditions: retire Android+Streamlit from the live feed; narrow the DB explorer",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01LvzsinECH8HPCyauVJZBZw",
-      "note": "PR #10682 OPEN, READ BY THE MANAGER, operator-approved. Default-deny table allowlist + column redaction on the db explorer. ⚠️ SEVERITY, honestly: device_tokens is EMPTY on the live host (rows=0), so this closed a PATH and not a realised leak — do not restate it as a leak. The bigger surface is the OTHER 21 tables (signals 2.3M rows, trades 5,313) still world-readable unauthenticated; filed separately, and it is Phase H's actual job. ⚠️ Its live verification (a) needs the narrowed route DEPLOYED and is NOT satisfied by the merge — this lands as landed_unproven, never done.",
+      "note": "MERGED 22:53Z as 0e90202f. ⚠️ It closed a PATH, not a realised leak — device_tokens measured EMPTY on the live host. ⚠️ AND ITS OWN VERIFICATION IS UNMET: it needs the narrowed route DEPLOYED and read back; a merge is not a deploy. The larger surface — the other ~21 unauthenticated tables, signals at 2,301,022 rows — is still open and is Phase H's job.",
       "pr": "#10682"
     },
     {
       "id": "MI-08-PHASE-H",
       "title": "Phase H -- the control half: decisions answerable from the UI, and the read gate",
-      "state": "queued",
-      "owner": null,
+      "state": "in_flight",
+      "owner": "session_01PnQLKnuezWVB4D47PtnTqR",
       "blocked_on": [
         {
           "kind": "item",
@@ -152,22 +152,23 @@
           "since": "2026-09-01T21:22Z",
           "what": "attaching require_session is only tractable once the other consumers are archived"
         }
-      ]
+      ],
+      "note": "SPAWNED 22:53Z on #10682's merge. The control half: anything waiting on the operator at the top, decisions answerable from the SPA. ⚠️ A decision-WRITE is a new write surface on a public API and must copy prop/report's FAIL-CLOSED token gate, never the permissive devices shape or the deliberately-open learning/progress one."
     },
     {
       "id": "MI-09-GLD-CLOSE",
       "title": "alpaca_paper GLD will not flatten -- 397 consecutive close failures",
       "state": "in_flight",
       "owner": "session_01Hd8opmCBcNQRchwdasWpvL",
-      "note": "PR #10679 OPEN, READ BY THE MANAGER, operator-approved. ⚠️ THE MANAGER'S HYPOTHESIS IS REFUTED, not merely 'different': #10666 already ported the qty_available fix at 16:23Z, it IS deployed, and the REGULAR-hours path fails identically inside RTH — so there was no working sibling to port from and porting would have fixed nothing. Cause is broker-side: Alpaca accepted our cancel, left OCO parent 2e843e04 in pending_cancel since 2026-08-27, 39 shares stay held_for_orders. Recurrence of BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL. ⚠️ MERGING THIS DOES NOT CLEAR THE WEDGE — that needs OPERATOR/venue action (relayed). alpaca_live shares this code and trades GLD, so the exposure is structural; measured FLAT at 21:23Z, so nothing real is stranded now.",
+      "note": "#10679 is `dirty` — merge conflict, which is ALSO why it shows zero check runs (the documented trap: GitHub builds pull_request runs against the merge ref, and a ref that cannot be built silently skips CI). Delegated with #10681 to session_01GmjT7SLhVQNJtWnY1asEEb. ⚠️ Operator-approved; merging it still does NOT clear the live GLD wedge, which needs venue action and is now at 13 consecutive close failures.",
       "pr": "#10679"
     },
     {
       "id": "MI-10-PROP-FILLS",
       "title": "breakout_1 prop journal missing terminal trades since 2026-08-30",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01Xj5Puf96WC1YGKdZT4TikJ",
-      "note": "PR #10678 OPEN, READ BY THE MANAGER, operator-approved. It proved the banner a FALSE POSITIVE and wrote no fill — the no-fabrication prohibition held. reported_at is overwritten by insert_fill's UPDATE branch, so membership now takes `any` of created_at/reported_at/closed_at. Re-graded 18 pairs: exactly one verdict flips and the genuine −$111.86 gap still grades `unreported`, which is the check that it did not silence the detector. BLOCKED ON CI — see MI-14.",
+      "note": "MERGED 22:11Z as 8b53aa4d. It proved the banner a FALSE POSITIVE and wrote no fill — the no-fabrication prohibition held. ⚠️ landed_unproven: the banner clears only after the trader restarts on the merged sha AND one PROP_FILLS_STALENESS_CHECK_SECONDS window elapses. Do NOT hand-clear the latch — the corrected predicate emptying `findings` by itself IS the evidence.",
       "pr": "#10678"
     },
     {
@@ -175,7 +176,7 @@
       "title": "Hold and heartbeat the manager lease",
       "state": "in_flight",
       "owner": "manager",
-      "note": "Heartbeat 2026-09-01T21:45:38Z, expires 23:15:38Z. A heartbeat that is not PUSHED protects nothing — this one ships in the same PR as the write."
+      "note": "Heartbeat 2026-09-01T22:53:21Z, expires 2026-09-02T00:23:21Z. Landed in this PR — an unpushed heartbeat protects nothing."
     },
     {
       "id": "MI-12-STALE-AUTOMATION-PR",
@@ -194,11 +195,11 @@
     {
       "id": "MI-14-CI-GREEN-THE-THREE-DRAFTS",
       "title": "Get the three approved drafts to green CI so the manager can merge them",
-      "state": "in_flight",
+      "state": "done",
       "owner": "session_012633idhLGncZaWVMVSuXJM",
       "pr": null,
       "blocked_on": null,
-      "note": "THE UNFORESEEN BLOCKER THAT HOLDS THE THREE APPROVED MERGES, added as its own item per the operator's rule that an adaptation is a first-class edit. #10678's guards job FAILED on exactly one guard — session-brief-guard (render_session_brief.py --check --base origin/main, exit 1), because the PR touches the registers the CLAUDE.md SESSION BRIEF is rendered from. #10679 and #10682 showed ZERO check runs when read, which is UNKNOWN and not green — and in this repo a zero usually means a merge conflict, so the session is told to read mergeable_state first. Delegated rather than taken: the manager owns the MERGE, not the fix. ⚠️ The session is prohibited from weakening any guard or test to get green; a guard failing correctly is a legitimate outcome it must report rather than route around."
+      "note": "DONE. #10678, #10683, #10680, #10682 all reached green and merged. ⚠️ TWO OF THE THREE SPAWNS UNDER THIS ITEM WERE UNNECESSARY and that is the lesson worth keeping: session_01K6noqH was sent at #10680's ruff failure whose AUTHOR was alive and had already landed the fix, and session_01RQdSgw was sent at #10683 which had been green since 21:43. Both times I spawned off a stale read instead of re-checking. Poll before spawning."
     },
     {
       "id": "MI-15-SESSIONS-REGISTRY-INCOMPLETE",
@@ -208,6 +209,33 @@
       "pr": null,
       "blocked_on": null,
       "note": "FOUND WHILE REFRESHING THE CHECKLIST, and it is the exact failure SESSIONS.json exists to prevent: the Claude-channel, Phase-H-preconditions and prop-fills sessions existed ONLY in this manager's context. Had this session died, three live sub-sessions — two of them holding operator-approved PRs — would have been silently orphaned. All four (those three plus the new CI-green session) are registered in this PR. ⚠️ landed_unproven, NOT done: the registry is only proven when a manager arriving COLD actually resumes from it, and no such takeover has happened. Registering is a deploy, not an observation."
+    },
+    {
+      "id": "MI-16-SEND-PING-CLASSES-REACHABLE",
+      "title": "The three ping classes were unreachable from the only dispatchable path",
+      "state": "landed_unproven",
+      "owner": "session_01J16qHJHbnvqDyRWWAvdiRD",
+      "pr": "#10683",
+      "blocked_on": null,
+      "note": "MERGED 22:26Z as 970fe13c. send_ping_action.sh passed no --kind, so decision/state_change/lifecycle were implemented, documented and unreachable from the only path a session can dispatch — the same configured-resolvable-and-inert shape as #10674. ⚠️ It had been fully green since 21:43 and my zero-check-runs read was STALE; I spawned a CI-fixer that was not needed. landed_unproven until each class has actually fired (MI-17)."
+    },
+    {
+      "id": "MI-17-PING-TEST-MATRIX",
+      "title": "Operator-requested: exercise every ping class and gate end to end",
+      "state": "in_flight",
+      "owner": "session_01P6QyGg3ZJrXcNaEUBTj2ei",
+      "pr": null,
+      "blocked_on": null,
+      "note": "Operator, 2026-09-01T22:14Z: 'I also still want to test the other pings', then 'no send it as soon as it's ready' — so NO daylight gate. Phase 1 (passthrough x priority x target) PASSED and is operator-confirmed: urgent renders a siren, low the quiet dot, normal the info glyph, and target=trader vs target=claude each reached the right bot. Phase 2 running: decision fired twice back-to-back (both MUST land), state_change for the Format-B two-line render, lifecycle twice inside 300 s (the second MUST report `withheld` WITH a reason — send_ping.py exits 0 either way, so the exit code cannot tell you which happened), plus the hard-error cases. ⚠️ P2a landed 22:31Z and rendered Format B correctly — first time that path has ever been exercised. Also surfaced: a system-action run can be CANCELLED as superseded in the concurrency queue with NO comment posted back (P1b, issue #10691) — a dispatched action that vanishes silently."
+    },
+    {
+      "id": "MI-18-DUPLICATE-DELIVERY-WAS-NOT-REAL",
+      "title": "The 'ping delivered twice' bug did not exist; the session fixing it was archived mid-fix",
+      "state": "dropped",
+      "owner": "manager",
+      "pr": null,
+      "blocked_on": null,
+      "note": "DROPPED because the defect was never demonstrated. At 22:12Z the operator said the channel test 'was sent to both the new and old channels'; I read that as one payload delivered twice and spawned a Tier-2 session, handing it two jobs registered under the name drain_pending_claude_pings as the leading candidate. At 22:29Z the operator checked both feeds deliberately: 'nothing showed up in both feeds'. The batch spans both bots BY DESIGN — P1a/P1c were target=claude and P1b target=trader — so each ping went to exactly one place. ⚠️ THE FIX WOULD NOT HAVE BEEN HARMLESS: notify.py:29 records a prior incident where de-duplicating that queue caused a ping to be SILENTLY LOST, which is strictly worse than a duplicate. The session was already 'implementing fix + regression tests' when archived. Two jobs sharing a name was a fact about the code and was never evidence of a duplicate delivery; I presented a grep as a lead in a way that made it easy to treat as the answer. Branch claude/claude-ping-double-delivery-x4mq2p must not be merged. A future observation needs both chats checked at a named timestamp, not this thread resumed."
     }
   ]
 }
