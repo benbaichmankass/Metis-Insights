@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "strategy": "ict_scalp_xrp_15m",
+  "window_start": "2026-08-25T12:03:05.898236+00:00",
+  "window_end": "2026-09-01T12:03:05.898236+00:00",
+  "execution": "live",
+  "enabled": true,
+  "headline": {
+    "n_decisions": 5,
+    "n_filled": 5,
+    "last_fill_at": "2026-09-01T10:40:25.008945+00:00",
+    "n_closed": 4,
+    "n_closed_untrusted_pnl": 0,
+    "n_wins": 2,
+    "win_rate": 0.5,
+    "pnl_total": 182.9863,
+    "expectancy": 45.746567500000005,
+    "max_drawdown": -383.3905,
+    "avg_hold_seconds": 20503,
+    "fill_rate": 1.0,
+    "rejection_cluster": null
+  },
+  "regime_cells": [
+    {
+      "cell": {
+        "trend": "chop",
+        "vol": "unknown"
+      },
+      "n_decisions": 1,
+      "n_closed": 1,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 1,
+      "win_rate": 1.0,
+      "pnl_total": 479.9923,
+      "expectancy": 479.99232,
+      "regime_policy_cell": "unknown"
+    },
+    {
+      "cell": {
+        "trend": "transitional",
+        "vol": "unknown"
+      },
+      "n_decisions": 1,
+      "n_closed": 0,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 0,
+      "win_rate": null,
+      "pnl_total": 0.0,
+      "expectancy": null,
+      "regime_policy_cell": "unknown"
+    },
+    {
+      "cell": {
+        "trend": "trending",
+        "vol": "unknown"
+      },
+      "n_decisions": 3,
+      "n_closed": 3,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 1,
+      "win_rate": 0.3333333333333333,
+      "pnl_total": -297.006,
+      "expectancy": -99.00201666666665,
+      "regime_policy_cell": "unknown"
+    }
+  ],
+  "execution_diagnostics": {
+    "entry_slippage_bps": 0.0,
+    "fill_rate": 1.0,
+    "dispatch_latency_seconds": 1.644,
+    "confidence_distribution": {
+      "min": 0.4626,
+      "max": 0.7525,
+      "p50": 0.6418,
+      "std": 0.09496747653802326,
+      "n": 5
+    }
+  },
+  "backtest_anchor": null,
+  "proposed_action": "hold",
+  "reasons": [
+    "insufficient evidence (n_closed=4 < 20) \u2014 no KILL/DEMOTE fires at very low n; hold until more trades close."
+  ],
+  "alternative": "none",
+  "tier": 1,
+  "sla_due_by": null,
+  "generated_at": "2026-09-01T12:03:31.452835+00:00",
+  "generated_by": "scripts/ml/strategy_review_packet.py v1.0"
+}

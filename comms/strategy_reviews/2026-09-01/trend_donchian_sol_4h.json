@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "strategy": "trend_donchian_sol_4h",
+  "window_start": "2026-08-25T12:03:05.898236+00:00",
+  "window_end": "2026-09-01T12:03:05.898236+00:00",
+  "execution": "live",
+  "enabled": true,
+  "headline": {
+    "n_decisions": 2,
+    "n_filled": 2,
+    "last_fill_at": "2026-08-30T23:46:30.334277+00:00",
+    "n_closed": 2,
+    "n_closed_untrusted_pnl": 0,
+    "n_wins": 1,
+    "win_rate": 0.5,
+    "pnl_total": -491.534,
+    "expectancy": -245.76700000000002,
+    "max_drawdown": -598.734,
+    "avg_hold_seconds": 49763,
+    "fill_rate": 1.0,
+    "rejection_cluster": null
+  },
+  "regime_cells": [
+    {
+      "cell": {
+        "trend": "trending",
+        "vol": "unknown"
+      },
+      "n_decisions": 2,
+      "n_closed": 2,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 1,
+      "win_rate": 0.5,
+      "pnl_total": -491.534,
+      "expectancy": -245.76700000000002,
+      "regime_policy_cell": "unknown"
+    }
+  ],
+  "execution_diagnostics": {
+    "entry_slippage_bps": 2.3891,
+    "fill_rate": 1.0,
+    "dispatch_latency_seconds": 1.514,
+    "confidence_distribution": {
+      "min": 0.6242,
+      "max": 0.8391,
+      "p50": 0.7316499999999999,
+      "std": 0.10744999999999999,
+      "n": 2
+    }
+  },
+  "backtest_anchor": null,
+  "proposed_action": "hold",
+  "reasons": [
+    "insufficient evidence (n_closed=2 < 20) \u2014 no KILL/DEMOTE fires at very low n; hold until more trades close."
+  ],
+  "alternative": "none",
+  "tier": 1,
+  "sla_due_by": null,
+  "generated_at": "2026-09-01T12:03:36.433498+00:00",
+  "generated_by": "scripts/ml/strategy_review_packet.py v1.0"
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "strategy": "ada_pullback_2h",
+  "window_start": "2026-08-25T12:03:05.898236+00:00",
+  "window_end": "2026-09-01T12:03:05.898236+00:00",
+  "execution": "live",
+  "enabled": true,
+  "headline": {
+    "n_decisions": 1,
+    "n_filled": 1,
+    "last_fill_at": "2026-08-27T00:05:25.693849+00:00",
+    "n_closed": 1,
+    "n_closed_untrusted_pnl": 0,
+    "n_wins": 0,
+    "win_rate": 0.0,
+    "pnl_total": -992.9742,
+    "expectancy": -992.9742,
+    "max_drawdown": -992.9742,
+    "avg_hold_seconds": 60083,
+    "fill_rate": 1.0,
+    "rejection_cluster": null
+  },
+  "regime_cells": [
+    {
+      "cell": {
+        "trend": "trending",
+        "vol": "unknown"
+      },
+      "n_decisions": 1,
+      "n_closed": 1,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 0,
+      "win_rate": 0.0,
+      "pnl_total": -992.9742,
+      "expectancy": -992.9742,
+      "regime_policy_cell": "unknown"
+    }
+  ],
+  "execution_diagnostics": {
+    "entry_slippage_bps": 9.4607,
+    "fill_rate": 1.0,
+    "dispatch_latency_seconds": 1.364,
+    "confidence_distribution": {
+      "min": 0.66,
+      "max": 0.66,
+      "p50": 0.66,
+      "std": 0.0,
+      "n": 1
+    }
+  },
+  "backtest_anchor": null,
+  "proposed_action": "hold",
+  "reasons": [
+    "insufficient evidence (n_closed=1 < 20) \u2014 no KILL/DEMOTE fires at very low n; hold until more trades close."
+  ],
+  "alternative": "none",
+  "tier": 1,
+  "sla_due_by": null,
+  "generated_at": "2026-09-01T12:03:11.060240+00:00",
+  "generated_by": "scripts/ml/strategy_review_packet.py v1.0"
+}
