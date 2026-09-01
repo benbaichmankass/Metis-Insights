@@ -29,11 +29,120 @@ import logging
 import os
 import time
 from datetime import date
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 import requests
 
 logger = logging.getLogger(__name__)
+
+# --------------------------------------------------------------- share holds
+#
+# WHY A SYMBOL'S SHARES ARE STILL HELD — four states, never collapsed
+# (BL-20260901-ALPACA-CANCEL-WEDGE-UNNAMED).
+#
+# Both close paths already ask "did `qty_available` reach the position size?"
+# and, when it did not, log the residual open orders. That log answers WHAT is
+# resting. It does NOT answer the only question the operator actually needs:
+# **will retrying help?** A transient cancel race and an Alpaca order wedged in
+# `pending_cancel` forever produce a byte-identical failure — same retMsg
+# ("insufficient qty available for order (requested: N, available: 0)"), same
+# ERROR, same "won't flatten" page, every tick, indefinitely.
+#
+# The distinguishing field was in hand the whole time and nothing read it: the
+# residual order dict carries `status`. Measured on the live alpaca_paper GLD
+# wedge 2026-09-01 — OCO parent 2e843e04 sat at `status: "pending_cancel"` with
+# `canceled_at: null` since 2026-08-27, holding all 39 shares. Our DELETE was
+# ACCEPTED (that is what moved it to `pending_cancel`); Alpaca then never
+# completed its own cancel, so re-issuing an app-level cancel is a no-op and
+# `DELETE /v2/positions/GLD?cancel_orders=true` fails with the same error.
+# That is BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL recurring.
+#
+# `pending_replace` is included for the same reason: an amend Alpaca has taken
+# but not completed holds the shares identically and is equally immune to a
+# re-issued cancel.
+_WEDGED_ORDER_STATUSES = frozenset({"pending_cancel", "pending_replace"})
+
+# The four states. `residual_unreadable` is emphatically NOT `no_residual_orders`
+# — "we could not look" and "we looked and nothing rests" are opposite claims,
+# and collapsing them is the failure this repo keeps paying for.
+SHARE_HOLD_STATES = (
+    "residual_unreadable",     # the open-orders read failed — we did not look
+    "no_residual_orders",      # nothing rests, yet the shares are held (cause unknown)
+    "broker_cancel_wedged",    # >=1 order stuck pending_cancel/replace — NO app-level retry can clear it
+    "orders_still_resting",    # ordinary cancellable orders rest — a retry may well work
+)
+
+
+def classify_share_hold(residual: Optional[list]) -> Tuple[str, str]:
+    """Why are this symbol's shares still held? -> ``(state, human detail)``.
+
+    Pure function over the residual open-order list so the policy is arguable in
+    tests rather than against a live wedged position (the lesson of
+    BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG).
+
+    ``residual`` is exactly what :meth:`AlpacaClient._open_orders_for_symbol`
+    returns: a list of raw Alpaca order dicts, or ``None`` on a read failure.
+    ``None`` maps to ``residual_unreadable`` and never to "nothing rests".
+    """
+    if residual is None:
+        return ("residual_unreadable", "could not read the symbol's open orders")
+    if not residual:
+        return (
+            "no_residual_orders",
+            "no resting order is holding these shares — the hold has some other cause",
+        )
+    wedged = [
+        (str(o.get("id") or "?"), str(o.get("status") or "?"))
+        for o in residual
+        if str(o.get("status") or "").lower() in _WEDGED_ORDER_STATUSES
+    ]
+    if wedged:
+        detail = ", ".join(f"{oid} is {st}" for oid, st in wedged)
+        return (
+            "broker_cancel_wedged",
+            f"{len(wedged)} order(s) wedged broker-side ({detail}) — the cancel was "
+            "ACCEPTED and Alpaca never completed it, so no further app-level cancel "
+            "or cancel_orders=true liquidation can release these shares; this needs "
+            "operator/venue action",
+        )
+    statuses = ", ".join(
+        f"{str(o.get('id') or '?')} is {str(o.get('status') or '?')}" for o in residual
+    )
+    return (
+        "orders_still_resting",
+        f"{len(residual)} cancellable order(s) still resting ({statuses}) — a retry may clear it",
+    )
+
+
+class CancelOutcome(NamedTuple):
+    """What actually happened when we asked Alpaca to cancel a symbol's orders.
+
+    ``_request`` **"never raises on HTTP"** (its own docstring), so the previous
+    ``except Exception`` around the DELETE was dead code for every broker
+    rejection and the return value counted cancels **ISSUED**, never cancels the
+    broker **ACCEPTED** — the same shape as
+    BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT, one
+    venue over.
+    """
+
+    read_state: str                      # "orders_read" | "could_not_look"
+    accepted: int                        # DELETE returned 2xx
+    already_gone: int                    # DELETE returned 404 — nothing left to release
+    refused: List[Tuple[str, Any, str]]  # (order_id, retCode, retMsg)
+
+    def describe(self) -> str:
+        if self.read_state != "orders_read":
+            return "cancel: could not read the symbol's open orders"
+        parts = [f"accepted={self.accepted}", f"already_gone={self.already_gone}"]
+        if self.refused:
+            parts.append(
+                "refused=[" + "; ".join(
+                    f"{oid} rc={rc} {msg}" for oid, rc, msg in self.refused
+                ) + "]"
+            )
+        else:
+            parts.append("refused=0")
+        return "cancel: " + " ".join(parts)
 
 _HOSTS = {
     "paper": "https://paper-api.alpaca.markets",
@@ -658,15 +767,20 @@ class AlpacaClient:
             if not held or place_s <= 0 or time.monotonic() >= place_deadline:
                 # Rejected outright — a real failure the monitor should retry
                 # (naked-autoprotect re-arms the bracket next tick).
+                hold_state = hold_detail = ""
                 if held:
                     residual = self._open_orders_for_symbol(sym)
+                    hold_state, hold_detail = classify_share_hold(residual)
                     logger.warning(
                         "alpaca extended-hours close %s still insufficient-qty "
-                        "after ~%.1fs (want_qty=%s); residual open orders=%s",
-                        sym, place_s, qty, residual,
+                        "after ~%.1fs (want_qty=%s); share_hold=%s (%s); "
+                        "residual open orders=%s",
+                        sym, place_s, qty, hold_state, hold_detail, residual,
                     )
+                suffix = f" [share_hold={hold_state}: {hold_detail}]" if held else ""
                 return {"retCode": 1, "retMsg": (
-                    f"extended-hours limit close rejected: {env.get('retMsg')}")}
+                    f"extended-hours limit close rejected: "
+                    f"{env.get('retMsg')}{suffix}")}
             # A resting order still holds the shares — cancel it (catches a
             # freshly re-armed protective OCO too); the next pass re-awaits the
             # `qty_available` release before retrying the POST.
@@ -850,12 +964,28 @@ class AlpacaClient:
                     # Give-up path: surface WHAT is holding the shares so the
                     # "won't flatten" failure is diagnosable from the logs.
                     residual = self._open_orders_for_symbol(sym)
+                    hold_state, hold_detail = classify_share_hold(residual)
                     logger.warning(
                         "alpaca close %s still insufficient-qty after ~%.1fs "
-                        "(want_qty=%s); residual open orders=%s "
-                        "(cancel_orders=true escalation also failed: %s)",
-                        sym, flatten_s, want_qty, residual, forced.get("retMsg"),
+                        "(want_qty=%s); share_hold=%s (%s); residual open "
+                        "orders=%s (cancel_orders=true escalation also "
+                        "failed: %s)",
+                        sym, flatten_s, want_qty, hold_state, hold_detail,
+                        residual, forced.get("retMsg"),
                     )
+                    # Name the condition in the envelope too, not just the log:
+                    # the retMsg is what reaches the close-failure page, and
+                    # "insufficient qty" alone cannot tell the operator whether
+                    # a retry will EVER work. Appended, never substituted — the
+                    # loop above and the monitor both still see the broker's
+                    # own text.
+                    return {
+                        "retCode": env.get("retCode", 1),
+                        "retMsg": (
+                            f"{env.get('retMsg')} "
+                            f"[share_hold={hold_state}: {hold_detail}]"
+                        ),
+                    }
                 return env
             # A resting order still holds the shares — cancel it (catches a
             # freshly re-armed protective OCO too); the next loop re-awaits the
@@ -1095,10 +1225,15 @@ class AlpacaClient:
     def _cancel_open_orders_for_symbol(self, symbol: str) -> int:
         """Cancel every resting order on *symbol* (best-effort, never raises).
 
-        Returns the number of distinct orders a cancel was ISSUED for (0 when
-        there were none) so ``close()`` can skip its cancel-settle wait when
-        nothing was held. Callers that don't care about the count (e.g.
-        ``place_protective``'s re-arm pre-pass) can ignore it.
+        Returns the number of cancels the broker **ACCEPTED** (2xx) — not the
+        number issued — so ``close()``'s cancel-settle wait keys on orders that
+        might actually be about to release shares. An order that was already
+        gone (404) releases nothing and is deliberately NOT counted here; a
+        refused cancel is not counted either, and is logged with the broker's
+        reason. Callers wanting the full picture (accepted / already-gone /
+        refused / could-not-look) call :meth:`_cancel_open_orders_detailed`;
+        callers that don't care (e.g. ``place_protective``'s re-arm pre-pass)
+        can ignore the value.
 
         Called before placing a fresh protective OCO so repeated re-arms can't
         STACK multiple live OCO groups on the one position — the same
@@ -1106,23 +1241,68 @@ class AlpacaClient:
         re-arm (BL-20260624-MHG-FLIP). A cancel failure must not block arming
         protection on a live naked position.
         """
+        return self._cancel_open_orders_detailed(symbol).accepted
+
+    def _cancel_open_orders_detailed(self, symbol: str) -> CancelOutcome:
+        """Cancel every resting order on *symbol*, REPORTING what the broker said.
+
+        The engine behind :meth:`_cancel_open_orders_for_symbol`. It exists
+        because that method threw the broker's answer away
+        (BL-20260901-ALPACA-CANCEL-WEDGE-UNNAMED):
+
+        * ``_request`` **"never raises on HTTP"** — its own docstring — so the
+          old ``except Exception`` could not catch a single broker rejection. A
+          422/403/404 was indistinguishable from a clean cancel.
+        * It returned the number of cancels **ISSUED**, not **ACCEPTED**, so
+          ``close()``'s ``if n_cancelled`` settle-wait gate keyed on a count that
+          could not fail.
+
+        ⚠️ **A read failure is NOT "no orders"**. ``_open_orders_for_symbol``
+        returns ``None`` on a failed read and ``[]`` when nothing rests; the old
+        ``if not legs: return 0`` collapsed both into "nothing to cancel", so a
+        blind cancel pass and a genuinely clean symbol were the same value.
+        ``read_state`` keeps them apart.
+
+        A **404** on the DELETE is counted as ``already_gone``, not as a refusal
+        — the order is no longer there to hold shares, which is the outcome we
+        wanted. Best-effort and never raises: a cancel failure must not block
+        arming protection on a live naked position.
+        """
         legs = self._open_orders_for_symbol(symbol)
-        if not legs:
-            return 0
+        if legs is None:
+            logger.warning(
+                "alpaca _cancel_open_orders_detailed(%s): open-orders read FAILED "
+                "— cancelled nothing (this is 'we could not look', not 'nothing "
+                "rests')", symbol,
+            )
+            return CancelOutcome("could_not_look", 0, 0, [])
         seen: set = set()
+        accepted = already_gone = 0
+        refused: List[Tuple[str, Any, str]] = []
         for o in legs:
             oid = o.get("id")
             if not oid or oid in seen:
                 continue
             seen.add(oid)
             try:
-                self._request("DELETE", f"/v2/orders/{oid}")
-            except Exception as exc:  # noqa: BLE001
-                logger.warning(
-                    "alpaca _cancel_open_orders_for_symbol(%s): cancel %s "
-                    "failed: %s", symbol, oid, exc,
-                )
-        return len(seen)
+                env = self._request("DELETE", f"/v2/orders/{oid}")
+            except Exception as exc:  # noqa: BLE001 — defensive; _request itself never raises
+                refused.append((str(oid), -1, f"cancel raised: {exc}"))
+                continue
+            rc = env.get("retCode")
+            if rc == 0:
+                accepted += 1
+            elif rc == 404:
+                already_gone += 1
+            else:
+                refused.append((str(oid), rc, str(env.get("retMsg") or "")))
+        if refused:
+            logger.warning(
+                "alpaca _cancel_open_orders_detailed(%s): %d of %d cancel(s) "
+                "REFUSED by the broker: %s", symbol, len(refused), len(seen),
+                "; ".join(f"{oid} rc={rc} {msg}" for oid, rc, msg in refused),
+            )
+        return CancelOutcome("orders_read", accepted, already_gone, refused)
 
     def place_protective(self, order: Dict[str, Any]) -> Dict[str, Any]:
         """Attach a **GTC OCO** SL/TP to an ALREADY-OPEN position (no entry).
