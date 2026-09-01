@@ -712,6 +712,11 @@ def _decision_inbox() -> dict[str, Any]:
 
     return {
         "present": index.get("present", False),
+        # Explicitly None on the healthy envelope, matching `/api/bot/work`.
+        # A key that VANISHES makes a consumer branch on absence, and absence is
+        # not one of the states — the SPA's api-contract checker caught exactly
+        # this when the field existed only on the degraded shape.
+        "reason": None,
         "requests": requests,
         "unanswerableOperatorEdges": unanswerable,
         "summary": {
