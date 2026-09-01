@@ -30205,6 +30205,23 @@
         "docs/design/operating-layer-build-plan-DESIGN.md"
       ],
       "found_by": "operating-layer build, Phase F (C4 premise verification), 2026-09-01"
+    },
+    {
+      "id": "BL-20260901-AUTO-MERGE-DATA-PR-ABANDONED-ON-CONFLICT-AND-NOTHING-ALARMS",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-01",
+      "area": "automation",
+      "title": "econ-calendar-produce's auto-merge PR #10398 has sat mergeable_state=dirty since 2026-08-29 — that day's PIT snapshots never landed and nothing alarmed for 3 days",
+      "detail": "MEASURED 2026-09-01T12:15Z. PR #10398 'chore(m1): economic-calendar PIT snapshots (auto)', head automation/econ-calendar-33232352515-1, created 2026-08-29T03:49:57Z, updated_at IDENTICAL to created_at (never touched since), state open, mergeable_state 'dirty' (= merge conflict, NOT merely behind), 62,524 additions / 143 deletions across 3 files. WHY IT MATTERS BEYOND ONE PR: this is the `.github/actions/commit-to-main` path with verify-merged, which several producers use to land data on main. A conflicted auto-merge PR means (a) that run's data never landed, (b) its verify-merged step failed or timed out, and (c) NOBODY NOTICED FOR THREE DAYS. That is the 'a mechanism that looks armed and is not' class this repo has repeatedly paid for. ⚠️ WHAT IS NOT ESTABLISHED, and must not be asserted: whether the SNAPSHOTS themselves were recovered by a later run. econ-calendar-produce regenerates from ALL COMMITTED captures, and this PR *is* the commit of those captures — so if it never merged they were never committed and a later regen could not include them. That is a reasonable inference, NOT a measurement; a later schedule run did succeed (2026-09-01T01:22Z), which is consistent with either outcome. Someone must actually diff the PIT log against the captures. ⚠️ WHY A CONFLICT AT ALL: econ-calendar regenerates a SHARED append-only .jsonl, so two runs touch the same lines — hence the 62k-line diff. The strategy-review-packets workflow added 2026-09-01 writes to a DATE-STAMPED directory (comms/strategy_reviews/<UTC-date>/) and so is structurally far less prone to this, but it uses the SAME action and inherits the same silent-abandonment failure mode.",
+      "resolution_criteria": "BOTH: (a) #10398 is resolved or closed with its data reconciled — establish by MEASUREMENT, not inference, whether those captures are present in comms/macro/econ_calendar_snapshots.jsonl today; and (b) an abandoned auto-merge PR becomes VISIBLE rather than silent. A verify-merged timeout already fails the run, and claude-run-failure-alert watches econ-calendar-produce — so establish FIRST why that did not surface it (did the run fail and the alert not fire, or did the run pass because verify-merged was not set on that invocation?). Fixing the alarm without answering that would be treating the symptom.",
+      "refs": [
+        ".github/actions/commit-to-main/action.yml",
+        ".github/workflows/econ-calendar-produce.yml",
+        ".github/workflows/strategy-review-packets.yml"
+      ],
+      "found_by": "operating-layer Phase F verification — checking the commit-to-main precedent before trusting it, 2026-09-01"
     }
   ]
 }
