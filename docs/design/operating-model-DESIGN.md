@@ -245,7 +245,17 @@ Architecturally this is well-precedented: `POST /api/bot/prop/report` and `POST 
 
 ## Open architecture question — needs its own design pass
 
-**Where coordination state lives** (work objects, leases, progress, decisions) is unresolved and is the critical path: the coordination layer, the dashboard and the decision round-trip all depend on it. Sessions reach state through git; the browser reaches it over HTTPS; the two want different things from it. The candidate shapes are the bot API + SQLite, versioned repo files projected to the API, or a split by lifetime (durable in the repo, volatile in the API). **This is deliberately not decided here** and gets a dedicated design pass before anything is built on top of it.
+**Where coordination state lives is now DECIDED** — see
+[`operating-layer-schema-and-state-DESIGN.md`](./operating-layer-schema-and-state-DESIGN.md)
+§ 2. ⚠️ **This section previously read "unresolved … deliberately not decided here",
+and that is stale**: the pass ran on 2026-09-01 and settled it. Summary, so this file
+does not disagree with its companion — **the repo is the single source of truth and the
+live layer owns no truth at rest.** The axis is truth versus observation, not
+durable versus volatile, which is what dissolved the apparent trade between the reaper
+and the audit trail. The live layer holds observations (leases, heartbeats, progress)
+and truth-in-transit (a submitted answer before it commits), under a transit contract:
+three states never collapsed, failing BACK to un-transacted, with every open window
+enumerable and closing observably.
 
 The trading system's own architecture is not the problem and does not need re-architecting for this workflow. What is new is the operating layer's architecture — the work-object store, the lease/coordination layer, the decision channel and the dashboard surface — and it should be derived from this structure rather than brainstormed freely.
 

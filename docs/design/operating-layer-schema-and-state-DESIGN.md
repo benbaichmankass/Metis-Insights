@@ -63,35 +63,76 @@ machinery.
 
 ---
 
-## 2 · Where coordination state lives
+## 2 · Where state lives — one source of truth
 
-**Split by lifetime.** This is not a compromise between the two clean options — each
-requirement names its own home, and the requirements are not all the same shape.
+**The repo is the single source of truth. The live layer owns no truth at rest.**
 
-**The lease and reaper force a live store.** *"No work lost if a session stops
-mid-way"* requires something that notices a session's **absence**. Git cannot: a dead
-session cannot commit its own lease expiry, and a heartbeat-per-commit is absurd. The
-decision round-trip likewise needs a write path reachable from a browser.
+The axis is not durable-versus-volatile storage — that framing is what made this look
+like a forced trade between the reaper and the audit trail. The axis is **truth versus
+observation**. A heartbeat is not a fact about the work; it is telemetry about a session,
+and losing every heartbeat ever emitted loses nothing anyone would want back.
 
-**The audit trail forces the repo.** A decision's basis must be diffable and
-reviewable before it lands. In SQLite alone it is neither.
+**The invariant — the wipe test.** *Deleting the entire live layer and rebuilding it from
+the repo must lose nothing anyone would want back.* Anything that fails this test is
+truth, and belongs in the repo.
 
-| | Holds |
-|---|---|
-| **Repo — durable, versioned** | Intents · work objects with their done-condition, evidence links, verdict, decision and basis · the archive |
-| **Live store — volatile, API** | Steps in flight · leases and heartbeats · progress · the decision inbox · the notification queue · computed views (constraint readout, blocker graph) |
+| | Where | Wipe test |
+|---|---|---|
+| A step's **definition** — parent, entry/exit state, successor | Truth → repo | Clean |
+| A step's **"alive, currently doing X"** | Observation → live | Clean |
+| **Lease / heartbeat** | Observation → live | Clean — sessions re-register on the next beat |
+| **Pending decision** — the question | Truth → repo; *pending* is DERIVED from an unanswered `operator_decision` edge | Clean — the inbox rebuilds by scanning |
+| **Constraint readout, blocker graph** | Derived | Clean — recompute |
+| **Dashboard view state** (filters, scroll) | Browser-local, neither store | Clean |
+| **A submitted answer, pre-commit** | **Truth in transit** | ⚠️ Not clean |
+| **A queued notification, pre-send** | **Truth in transit** | ⚠️ Not clean |
 
-**The boundary rule:** *anything that must survive the VM lives in the repo; anything
-that must be observed in real time lives in the store.* A step's **outcome** is promoted
-to the repo at close-out; its **progress** never is.
+So the accurate invariant is not *"the live layer owns nothing"* — it is: **the live layer
+holds observations and truth-in-transit; it never holds truth at rest.**
 
-**On disagreement:** the repo wins for durable facts, the store wins for liveness.
+**This resolves the reaper and the audit trail together, without a second source.** The
+reaper works because heartbeats sit in the non-truth layer where a per-few-minutes signal
+costs nothing; when a lease expires, the *recovery* — what the dead session actually
+accomplished — is written to the repo as a commit, so the truth-bearing act remains
+auditable. Nothing durable ever exists in two places.
 
-The live store is a **sidecar**, not the money DB — following the existing
-`trainer_store_db_path()` precedent beside `trade_journal_db_path()`, so operating state
-never contends with the live trader's writes and cannot widen its blast radius.
+### The transit contract
 
----
+Truth in transit is accepted **on condition that every window is accountable**: a failure
+is identifiable, and each window is verifiably closed before anything moves on.
+
+**Three states, never collapsed:** `not_submitted` · `in_transit` · `committed`.
+
+**Transit fails BACK, never forward.** An answer that does not commit leaves its question
+**unanswered** — never "answered", never ambiguous. The safe direction on a lost write is
+the un-transacted state, because a question wrongly shown as answered is a decision nobody
+made.
+
+**Open windows are enumerable and close observably.** The set of in-transit items is
+listable at any moment; a window older than its bound is a reportable condition, not a
+silent one; and the dashboard renders a submitted-but-uncommitted answer as *not landed*
+rather than as done. This is the same three-state discipline `collapsed-state-guard`
+already enforces elsewhere in the system, applied to writes.
+
+`pending-pings.jsonl` already works this way, so the pattern is established rather than new.
+
+### What repo-as-truth costs, stated up front
+
+**Concurrency → one file per object.** Multiple sessions committing to a shared JSON file
+is a measured pain here: `backlog_append.py` exists because naive read-append-write
+reformats the file and buries a one-row change in a 47,000-line diff. One file per object
+means two sessions touching different work never conflict. `research/queue/*.yaml` — one
+YAML per job — is the existing precedent.
+
+**Freshness → the dashboard reads a projection.** Truth is in the repo, so the dashboard
+sees it through a push-triggered projection and is stale by however long that takes
+(seconds). Acceptable for work state. It would not be acceptable for market data — which
+is not truth this system owns, and is already read live and separately.
+
+**A session produces to the repo, not to the live layer.** Anything a session *makes*
+commits as it is made; only *"I am alive and currently doing X"* stays live. Without this
+rule a session could work for an hour, narrate only to the live layer, and lose the record
+on a wipe — which is the F2 close-out failure the operating model exists to prevent.
 
 ## 3 · How a session writes
 
@@ -133,6 +174,20 @@ ungated. So the work is attaching an existing, enforced, tested gate to the rout
 never got it, keeping `/api/health` and `/api/auth/login` public, and giving the SPA a
 login. Archiving the other two consumers is what makes that tractable — there is nothing
 else left to keep working.
+
+**One scope, everything.** Any authenticated caller reads the whole surface; there is no
+per-actor partition of the data. Simplicity was chosen deliberately over least privilege
+here, and the consequence is explicit: a compromised session token reaches everything the
+gate protects. The least-privilege control that *is* adopted sits at the data layer
+instead — see the explorer allowlist below.
+
+**The DB explorer is narrowed to a table allowlist plus column redaction.** A route gate is
+authentication, not authorization: one token would otherwise open all 22 tables. A generic
+any-table reader is how `device_tokens` became exposed with nobody deciding it should be —
+so tables are reachable only when explicitly listed, and credential-shaped columns are
+never emitted. **This inverts the failure mode: a newly added table is invisible until
+someone deliberately admits it**, rather than exposed until someone notices. Read
+connections are already `mode=ro`, so writes were never the gap; reads were.
 
 ⚠️ **A static site cannot hold a secret.** The SPA is served from GitHub Pages, so
 nothing may be baked into the bundle; the operator logs in and the browser holds a
