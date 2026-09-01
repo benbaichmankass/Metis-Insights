@@ -1,0 +1,634 @@
+{
+ "generated_at": "2026-09-01T12:03:37.429190+00:00",
+ "utc_date": "2026-09-01",
+ "graded": 52,
+ "by_action": {
+  "hold": 52
+ },
+ "rows": [
+  {
+   "strategy": "ada_pullback_2h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/ada_pullback_2h.json"
+  },
+  {
+   "strategy": "avax_pullback_2h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/avax_pullback_2h.json"
+  },
+  {
+   "strategy": "eth_pullback_2h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/eth_pullback_2h.json"
+  },
+  {
+   "strategy": "eth_pullback_prop_2h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/eth_pullback_prop_2h.json"
+  },
+  {
+   "strategy": "fade_breakout_4h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/fade_breakout_4h.json"
+  },
+  {
+   "strategy": "fvg_range_15m",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/fvg_range_15m.json"
+  },
+  {
+   "strategy": "gdx_pullback_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/gdx_pullback_1d.json"
+  },
+  {
+   "strategy": "gld_pullback_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/gld_pullback_1d.json"
+  },
+  {
+   "strategy": "gld_pullback_1h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=2 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/gld_pullback_1h.json"
+  },
+  {
+   "strategy": "htf_pullback_trend_2h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/htf_pullback_trend_2h.json"
+  },
+  {
+   "strategy": "iaum_pullback_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/iaum_pullback_1d.json"
+  },
+  {
+   "strategy": "ict_scalp_5m",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=5 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/ict_scalp_5m.json"
+  },
+  {
+   "strategy": "ict_scalp_avax_5m",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=4 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/ict_scalp_avax_5m.json"
+  },
+  {
+   "strategy": "ict_scalp_eth_15m",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=6 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/ict_scalp_eth_15m.json"
+  },
+  {
+   "strategy": "ict_scalp_mgc_15m",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/ict_scalp_mgc_15m.json"
+  },
+  {
+   "strategy": "ict_scalp_sol_15m",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=5 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/ict_scalp_sol_15m.json"
+  },
+  {
+   "strategy": "ict_scalp_sol_5m",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=8 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/ict_scalp_sol_5m.json"
+  },
+  {
+   "strategy": "ict_scalp_xrp_15m",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=4 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/ict_scalp_xrp_15m.json"
+  },
+  {
+   "strategy": "ict_scalp_xrp_5m",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=4 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/ict_scalp_xrp_5m.json"
+  },
+  {
+   "strategy": "ief_pullback_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/ief_pullback_1d.json"
+  },
+  {
+   "strategy": "iwm_trend_long_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/iwm_trend_long_1d.json"
+  },
+  {
+   "strategy": "mes_trend_long_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/mes_trend_long_1d.json"
+  },
+  {
+   "strategy": "mgc_pullback_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/mgc_pullback_1d.json"
+  },
+  {
+   "strategy": "mgc_trend_1h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/mgc_trend_1h.json"
+  },
+  {
+   "strategy": "mhg_pullback_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/mhg_pullback_1d.json"
+  },
+  {
+   "strategy": "qld_trend_long_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/qld_trend_long_1d.json"
+  },
+  {
+   "strategy": "qqq_pullback_1h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/qqq_pullback_1h.json"
+  },
+  {
+   "strategy": "qqq_trend_long_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/qqq_trend_long_1d.json"
+  },
+  {
+   "strategy": "scha_trend_long_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/scha_trend_long_1d.json"
+  },
+  {
+   "strategy": "slv_pullback_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/slv_pullback_1d.json"
+  },
+  {
+   "strategy": "slv_trend_1h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/slv_trend_1h.json"
+  },
+  {
+   "strategy": "sol_pullback_2h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/sol_pullback_2h.json"
+  },
+  {
+   "strategy": "splg_trend_long_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/splg_trend_long_1d.json"
+  },
+  {
+   "strategy": "spy_pullback_1h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/spy_pullback_1h.json"
+  },
+  {
+   "strategy": "spy_trend_long_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/spy_trend_long_1d.json"
+  },
+  {
+   "strategy": "squeeze_breakout_4h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/squeeze_breakout_4h.json"
+  },
+  {
+   "strategy": "tlt_pullback_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/tlt_pullback_1d.json"
+  },
+  {
+   "strategy": "tlt_pullback_1h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/tlt_pullback_1h.json"
+  },
+  {
+   "strategy": "tqqq_trend_long_1d",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/tqqq_trend_long_1d.json"
+  },
+  {
+   "strategy": "trend_donchian",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/trend_donchian.json"
+  },
+  {
+   "strategy": "trend_donchian_ada_4h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/trend_donchian_ada_4h.json"
+  },
+  {
+   "strategy": "trend_donchian_avax_4h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/trend_donchian_avax_4h.json"
+  },
+  {
+   "strategy": "trend_donchian_eth",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/trend_donchian_eth.json"
+  },
+  {
+   "strategy": "trend_donchian_eth_4h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/trend_donchian_eth_4h.json"
+  },
+  {
+   "strategy": "trend_donchian_eth_prop",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/trend_donchian_eth_prop.json"
+  },
+  {
+   "strategy": "trend_donchian_sol",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/trend_donchian_sol.json"
+  },
+  {
+   "strategy": "trend_donchian_sol_4h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=2 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/trend_donchian_sol_4h.json"
+  },
+  {
+   "strategy": "trend_donchian_sol_prop",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/trend_donchian_sol_prop.json"
+  },
+  {
+   "strategy": "trend_donchian_xrp_4h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/trend_donchian_xrp_4h.json"
+  },
+  {
+   "strategy": "turtle_soup",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/turtle_soup.json"
+  },
+  {
+   "strategy": "uso_trend_1h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "no closed trades in window — insufficient evidence."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/uso_trend_1h.json"
+  },
+  {
+   "strategy": "xrp_pullback_2h",
+   "proposed_action": "hold",
+   "n_closed": null,
+   "win_rate": null,
+   "expectancy": null,
+   "pnl_total": null,
+   "reasons": [
+    "insufficient evidence (n_closed=2 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
+   ],
+   "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/xrp_pullback_2h.json"
+  }
+ ]
+}

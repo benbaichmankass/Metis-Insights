@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "strategy": "sol_pullback_2h",
+  "window_start": "2026-08-25T12:03:05.898236+00:00",
+  "window_end": "2026-09-01T12:03:05.898236+00:00",
+  "execution": "live",
+  "enabled": true,
+  "headline": {
+    "n_decisions": 2,
+    "n_filled": 1,
+    "last_fill_at": "2026-08-30T18:10:56.763190+00:00",
+    "n_closed": 1,
+    "n_closed_untrusted_pnl": 0,
+    "n_wins": 1,
+    "win_rate": 1.0,
+    "pnl_total": 50.55,
+    "expectancy": 50.55,
+    "max_drawdown": 0.0,
+    "avg_hold_seconds": 50441,
+    "fill_rate": 0.5,
+    "rejection_cluster": null
+  },
+  "regime_cells": [
+    {
+      "cell": {
+        "trend": "trending",
+        "vol": "unknown"
+      },
+      "n_decisions": 2,
+      "n_closed": 1,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 1,
+      "win_rate": 1.0,
+      "pnl_total": 50.55,
+      "expectancy": 50.55,
+      "regime_policy_cell": "unknown"
+    }
+  ],
+  "execution_diagnostics": {
+    "entry_slippage_bps": 0.0,
+    "fill_rate": 0.5,
+    "dispatch_latency_seconds": 1.631,
+    "confidence_distribution": {
+      "min": 0.0549,
+      "max": 0.1269,
+      "p50": 0.09090000000000001,
+      "std": 0.036000000000000004,
+      "n": 2
+    }
+  },
+  "backtest_anchor": null,
+  "proposed_action": "hold",
+  "reasons": [
+    "insufficient evidence (n_closed=1 < 20) \u2014 no KILL/DEMOTE fires at very low n; hold until more trades close."
+  ],
+  "alternative": "none",
+  "tier": 1,
+  "sla_due_by": null,
+  "generated_at": "2026-09-01T12:03:33.928221+00:00",
+  "generated_by": "scripts/ml/strategy_review_packet.py v1.0"
+}

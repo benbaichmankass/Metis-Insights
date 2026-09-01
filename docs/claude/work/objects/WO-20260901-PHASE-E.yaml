@@ -24,14 +24,19 @@ done_condition: >-
   # read, and it would have said "we are waiting" while two phases were available.
   # An edge must name the CONDITION, never the object that happened to create it.
 blocked_on:
-  - kind: capability
-    ref: DASHBOARD_API_TOKEN propagation to the session environment
+  - kind: object
+    ref: redesign the lease so it needs no session-held WRITE credential
     since: 2026-09-01
     note: >-
-      The ONLY real blocker left on this phase. Operator-decided 2026-09-01;
-      propagation only, the value already exists on the VM at
-      /etc/ict-trader/web-api.env, so nothing is originated. The store-exists
-      edge that also sat here was the same false blocker corrected above.
+      ⚠️ THIS EDGE WAS `capability: DASHBOARD_API_TOKEN propagation` UNTIL 2026-09-01 AND
+      THAT WAS WRONG. The operator decided the write token must NOT go into the session
+      environment: that config field says in terms "don't add secrets or credentials" and
+      is visible to anyone using the environment, and DASHBOARD_API_TOKEN also authorises
+      prop-journal writes. So the blocker is not a credential waiting to be moved — it is
+      a DESIGN question that has not been answered: where does the lease live if a session
+      cannot hold a write credential? The likely answer is the repo, consistent with the
+      wipe test, at the cost of commit noise. Recording it as a credential-propagation
+      edge would have made this phase look one paste away from unblocked when it is not.
 
 note: >-
   F2 close-out verification and F5 exit verification are ONE hook, not two:

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "strategy": "slv_trend_1h",
+  "window_start": "2026-08-25T12:03:05.898236+00:00",
+  "window_end": "2026-09-01T12:03:05.898236+00:00",
+  "execution": "shadow",
+  "enabled": true,
+  "headline": {
+    "n_decisions": 3,
+    "n_filled": 0,
+    "last_fill_at": null,
+    "n_closed": 0,
+    "n_closed_untrusted_pnl": 0,
+    "n_wins": 0,
+    "win_rate": null,
+    "pnl_total": 0.0,
+    "expectancy": null,
+    "max_drawdown": 0.0,
+    "avg_hold_seconds": null,
+    "fill_rate": 0.0,
+    "rejection_cluster": null
+  },
+  "regime_cells": [
+    {
+      "cell": {
+        "trend": "chop",
+        "vol": "unknown"
+      },
+      "n_decisions": 3,
+      "n_closed": 0,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 0,
+      "win_rate": null,
+      "pnl_total": 0.0,
+      "expectancy": null,
+      "regime_policy_cell": "unknown"
+    }
+  ],
+  "execution_diagnostics": {
+    "entry_slippage_bps": null,
+    "fill_rate": 0.0,
+    "dispatch_latency_seconds": null,
+    "confidence_distribution": {
+      "min": 0.369,
+      "max": 1.0,
+      "p50": 0.5032,
+      "std": 0.27141212615176613,
+      "n": 3
+    }
+  },
+  "backtest_anchor": null,
+  "proposed_action": "hold",
+  "reasons": [
+    "no closed trades in window \u2014 insufficient evidence."
+  ],
+  "alternative": "none",
+  "tier": 1,
+  "sla_due_by": null,
+  "generated_at": "2026-09-01T12:03:33.644121+00:00",
+  "generated_by": "scripts/ml/strategy_review_packet.py v1.0"
+}

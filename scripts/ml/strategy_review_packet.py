@@ -1467,6 +1467,28 @@ def _strategies_all(cfg: Mapping[str, Mapping[str, Any]]) -> List[str]:
     )
 
 
+#: The verdict that means "graded, no decision needed". It is LOWERCASE because
+#: that is what ``Decision.action`` actually emits (``hold``/``kill``/
+#: ``demote_shadow``/``tune``/``promote``); several docs render the vocabulary in
+#: UPPERCASE prose, and a consumer that compared against ``"HOLD"`` matched
+#: nothing and counted all 52 graded strategies as actionable. Field beats
+#: comment — consumers must not hardcode either spelling.
+NO_ACTION_VERDICT = "hold"
+
+
+def is_actionable(action: Optional[str]) -> bool:
+    """True when this verdict asks a human for a decision.
+
+    ⚠️ ``None`` is actionable, deliberately. A row whose action could not be
+    resolved is *we did not grade it*, which is not the same fact as
+    ``hold`` — and treating an ungraded row as "nothing to do" is the direction
+    that loses a real finding.
+    """
+    if action is None:
+        return True
+    return action.strip().lower() != NO_ACTION_VERDICT
+
+
 def write_index(rows: List[Dict[str, Any]], out_dir: Path) -> Path:
     """Write the day's INDEX.json — one row per strategy GRADED, action first.
 
@@ -1484,6 +1506,9 @@ def write_index(rows: List[Dict[str, Any]], out_dir: Path) -> Path:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "utc_date": utc_date,
         "graded": len(rows),
+        # Published so a consumer never re-derives (and mis-spells) the rule.
+        "no_action_verdict": NO_ACTION_VERDICT,
+        "actionable": sum(1 for r in rows if r.get("actionable")),
         "by_action": {
             a: sum(1 for r in rows if r.get("proposed_action") == a)
             for a in sorted({r.get("proposed_action") for r in rows if r.get("proposed_action")})
@@ -1559,13 +1584,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             shadow_soak_days=args.shadow_soak_days,
         )
         json_path, md_path = write_packet(packet, out_dir)
+        # ⚠️ The metrics live under packet["headline"] (Headline.to_dict()),
+        # NOT at the packet's top level. The first version of this builder read
+        # packet.get("n_closed") and friends, which are absent there, so every
+        # row in the first committed INDEX.json carried null for all four —
+        # published, confident, and empty. Read the field, not the shape you
+        # expected it to have.
+        headline = packet.get("headline") or {}
+        action = packet.get("proposed_action")
         index_rows.append({
             "strategy": strategy,
-            "proposed_action": packet.get("proposed_action"),
-            "n_closed": packet.get("n_closed"),
-            "win_rate": packet.get("win_rate"),
-            "expectancy": packet.get("expectancy"),
-            "pnl_total": packet.get("pnl_total"),
+            "proposed_action": action,
+            "actionable": is_actionable(action),
+            "n_closed": headline.get("n_closed"),
+            "win_rate": headline.get("win_rate"),
+            "expectancy": headline.get("expectancy"),
+            "pnl_total": headline.get("pnl_total"),
             "reasons": packet.get("reasons"),
             "packet_json": str(json_path),
         })

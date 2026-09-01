@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "strategy": "gld_pullback_1d",
+  "window_start": "2026-08-25T12:03:05.898236+00:00",
+  "window_end": "2026-09-01T12:03:05.898236+00:00",
+  "execution": "live",
+  "enabled": true,
+  "headline": {
+    "n_decisions": 0,
+    "n_filled": 0,
+    "last_fill_at": null,
+    "n_closed": 0,
+    "n_closed_untrusted_pnl": 0,
+    "n_wins": 0,
+    "win_rate": null,
+    "pnl_total": 0.0,
+    "expectancy": null,
+    "max_drawdown": 0.0,
+    "avg_hold_seconds": null,
+    "fill_rate": null,
+    "rejection_cluster": null
+  },
+  "regime_cells": [],
+  "execution_diagnostics": {
+    "entry_slippage_bps": null,
+    "fill_rate": null,
+    "dispatch_latency_seconds": null,
+    "confidence_distribution": {
+      "min": null,
+      "max": null,
+      "p50": null,
+      "std": null,
+      "n": 0
+    }
+  },
+  "backtest_anchor": null,
+  "proposed_action": "hold",
+  "reasons": [
+    "no closed trades in window \u2014 insufficient evidence."
+  ],
+  "alternative": "none",
+  "tier": 1,
+  "sla_due_by": null,
+  "generated_at": "2026-09-01T12:03:27.508760+00:00",
+  "generated_by": "scripts/ml/strategy_review_packet.py v1.0"
+}

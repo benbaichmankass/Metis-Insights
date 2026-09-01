@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "strategy": "ict_scalp_sol_5m",
+  "window_start": "2026-08-25T12:03:05.898236+00:00",
+  "window_end": "2026-09-01T12:03:05.898236+00:00",
+  "execution": "live",
+  "enabled": true,
+  "headline": {
+    "n_decisions": 21,
+    "n_filled": 8,
+    "last_fill_at": "2026-08-31T08:07:20.580114+00:00",
+    "n_closed": 8,
+    "n_closed_untrusted_pnl": 0,
+    "n_wins": 3,
+    "win_rate": 0.375,
+    "pnl_total": -6241.05,
+    "expectancy": -780.1312505,
+    "max_drawdown": -6629.821,
+    "avg_hold_seconds": 6835,
+    "fill_rate": 0.38095238095238093,
+    "rejection_cluster": null
+  },
+  "regime_cells": [
+    {
+      "cell": {
+        "trend": "chop",
+        "vol": "calm"
+      },
+      "n_decisions": 9,
+      "n_closed": 2,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 2,
+      "win_rate": 1.0,
+      "pnl_total": 768.099,
+      "expectancy": 384.0495,
+      "regime_policy_cell": "unknown"
+    },
+    {
+      "cell": {
+        "trend": "chop",
+        "vol": "volatile"
+      },
+      "n_decisions": 3,
+      "n_closed": 0,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 0,
+      "win_rate": null,
+      "pnl_total": 0.0,
+      "expectancy": null,
+      "regime_policy_cell": "unknown"
+    },
+    {
+      "cell": {
+        "trend": "transitional",
+        "vol": "calm"
+      },
+      "n_decisions": 2,
+      "n_closed": 2,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 0,
+      "win_rate": 0.0,
+      "pnl_total": -1615.119,
+      "expectancy": -807.5595020000001,
+      "regime_policy_cell": "unknown"
+    },
+    {
+      "cell": {
+        "trend": "transitional",
+        "vol": "volatile"
+      },
+      "n_decisions": 2,
+      "n_closed": 2,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 0,
+      "win_rate": 0.0,
+      "pnl_total": -4327.466,
+      "expectancy": -2163.733,
+      "regime_policy_cell": "unknown"
+    },
+    {
+      "cell": {
+        "trend": "trending",
+        "vol": "calm"
+      },
+      "n_decisions": 1,
+      "n_closed": 0,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 0,
+      "win_rate": null,
+      "pnl_total": 0.0,
+      "expectancy": null,
+      "regime_policy_cell": "unknown"
+    },
+    {
+      "cell": {
+        "trend": "trending",
+        "vol": "volatile"
+      },
+      "n_decisions": 4,
+      "n_closed": 2,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 1,
+      "win_rate": 0.5,
+      "pnl_total": -1066.564,
+      "expectancy": -533.282,
+      "regime_policy_cell": "unknown"
+    }
+  ],
+  "execution_diagnostics": {
+    "entry_slippage_bps": 4.2211,
+    "fill_rate": 0.38095238095238093,
+    "dispatch_latency_seconds": 33.065,
+    "confidence_distribution": {
+      "min": 0.4964,
+      "max": 0.8095,
+      "p50": 0.734,
+      "std": 0.07552750756574036,
+      "n": 21
+    }
+  },
+  "backtest_anchor": null,
+  "proposed_action": "hold",
+  "reasons": [
+    "insufficient evidence (n_closed=8 < 20) \u2014 no KILL/DEMOTE fires at very low n; hold until more trades close."
+  ],
+  "alternative": "none",
+  "tier": 1,
+  "sla_due_by": null,
+  "generated_at": "2026-09-01T12:03:31.130214+00:00",
+  "generated_by": "scripts/ml/strategy_review_packet.py v1.0"
+}
