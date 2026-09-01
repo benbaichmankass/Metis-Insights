@@ -60,10 +60,13 @@ observed:
       number is 575, and the difference is not explained here — it is simply the count.
     objects_written: 575
     store_after: >-
-      583 objects total (575 migrated + the build's own 8 phases), of which 2 were
-      in_flight, 1 ready, 1 waiting, and 579 dormant.
+      584 objects total (575 from the bulk pass + the build's own 8 phases + 1 for a row
+      filed later in this same session), of which 1 was in_flight, 1 ready, 2 waiting,
+      and 580 dormant, measured at the end of Phase C. Immediately after the bulk pass
+      it was 583 objects / 2 in_flight; both numbers are real and the difference is this
+      session's own later activity, not a discrepancy.
     ⚠️_carrying_is_not_opening: >-
-      583 objects is NOT 583 things in flight, and a view that renders it that way has
+      584 objects is NOT 584 things in flight, and a view that renders it that way has
       misread the store. Every migrated row arrived `dormant` with `owner: null` and
       `parent_intent: null` — it becomes in_flight only when given an owner, a real
       edge, and a place under an intent.
@@ -83,8 +86,13 @@ observed:
     backlogs_untouched: >-
       VERIFIED byte-identical after the run (`git status --porcelain` empty on all four).
       The migration reads the backlogs and never opens one for writing.
-      health-review-backlog.json is 1,062 rows / ~5 MB and does not round-trip through
-      json.dumps, so a naive read-append-write would reformat every non-ASCII line.
+      health-review-backlog.json is 1,062 rows / ~5 MB, so a naive read-append-write
+      buries a one-row change in a 30,000-line diff that re-attributes every existing
+      row to the author. ⚠️ MEASURED CORRECTION: that file DOES round-trip, at
+      indent=2/ensure_ascii=False — it is OPEN-ITEMS.json that round-trips at no
+      combination, because it mixes escaped and literal non-ASCII. The widely-repeated
+      claim that the backlog cannot be serialised is wrong, and repeating it would stop
+      a future session using backlog_append.py, which works.
     absences_carried_not_filled: >-
       Of the 575: 39 have no title, 154 no opened_at, 51 no resolution_criteria. The 51
       get a loud "⚠️ UNKNOWN" done_condition rather than an empty string, because an

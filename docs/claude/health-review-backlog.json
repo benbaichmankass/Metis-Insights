@@ -27342,8 +27342,7 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "⚠️ DIRECTLY ABOUT THIS REVIEW'S OWN OUTPUT, so I am answering it with action rather than agreement. The row says 42 kept_open rows state no closing condition. In this triage I gave every one of the 483 health rows an explicit disposition — resolved / snoozed (with a named trigger) / kept_open (with a named blocker) — precisely so the permanent-resident class does not grow. The 12 snoozed rows each carry a trigger. This row should be re-measured after this PR merges."
-        }
-      ,
+        },
         {
           "at": "2026-09-01T12:00:00+00:00",
           "by": "claude (operating-layer Phase C migration, 2026-09-01)",

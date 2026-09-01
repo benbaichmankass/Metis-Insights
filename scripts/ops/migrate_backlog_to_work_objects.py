@@ -17,11 +17,21 @@ get here: an OWNER, a real dependency EDGE, and a place under an INTENT.
 WHAT THIS DOES NOT DO
 ---------------------
 **It does not modify the backlogs.** It reads them. ``health-review-backlog.json``
-is 1,062 rows / ~5 MB and does not round-trip through ``json.dumps`` at any
-``indent``/``ensure_ascii`` setting — a naive read-append-write reformats every
-non-ASCII line and buries a real change in a 47,000-line diff. That is the
-hazard ``scripts/ops/backlog_append.py`` exists for, and the reason nothing here
-opens a backlog for writing.
+is 1,062 rows / ~5 MB, and a naive read-append-write buries a one-row change in a
+30,000-line diff that re-attributes every pre-existing row to the author
+(``BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES``). That is the hazard
+``scripts/ops/backlog_append.py`` exists for — it reproduces the file's exact
+serialisation or refuses to write — and the reason nothing here opens a backlog
+for writing.
+
+⚠️ **Measured 2026-09-01, because the stronger version of this claim is wrong and
+is repeated in several places:** ``health-review-backlog.json`` DOES round-trip,
+at ``indent=2, ensure_ascii=False``. It is ``docs/claude/OPEN-ITEMS.json`` that
+round-trips at NO ``indent``/``ensure_ascii`` combination — it mixes backslash-u
+escapes with literal non-ASCII in the same file. Both must be edited carefully;
+only the second is unreproducible. Saying "the backlog cannot be serialised" when
+it can is the kind of inherited almost-true claim that stops a future session
+using the safe tool that already works.
 
 **It does not cap the register.** ``scripts/ci/check_open_items.py`` keeps
 ``MAX_ITEMS = None`` and that stays. The REGISTER is uncapped; the IN-FLIGHT SET
@@ -77,7 +87,7 @@ fabrication at 575x.
 
 ABSENCES ARE RECORDED, NOT FILLED
 ---------------------------------
-Measured on the carried population: 36 of 575 rows have no ``title``, 155 have no
+Measured on the carried population (575 rows): 39 have no ``title``, 154 have no
 ``opened_at``, and 51 have no ``resolution_criteria``. A missing done-condition
 is written as an explicit ⚠️ rather than an empty string, because an object that
 cannot say what would end it must not be allowed to leave ``dormant`` quietly.

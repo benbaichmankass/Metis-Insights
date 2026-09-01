@@ -60,11 +60,14 @@ review backlogs; run `python3 scripts/ops/migrate_backlog_to_work_objects.py` to
 | `performance-review-backlog.json` | 45 | 111 |
 | `ml-review-backlog.json` | 22 | 106 |
 | `research-review-backlog.json` | 11 | 12 |
-| **Total migrated** | **575** | 1,291 |
+| **Total migrated (bulk pass)** | **575** | 1,291 |
 
-Store afterwards: **583 objects, 2 `in_flight`.**
+Store afterwards: **584 objects, 1 `in_flight`.** (575 from the bulk pass + the build's own
+8 phases + 1 for a row filed later in the same session — the migration is idempotent and
+picks up newly-carried rows on a re-run, skipping every object that already exists so a
+hand-added edge or owner survives.)
 
-⚠️ **READ THE `lifecycle`, NOT THE COUNT.** 583 objects is not 583 things in flight, and a
+⚠️ **READ THE `lifecycle`, NOT THE COUNT.** 584 objects is not 584 things in flight, and a
 view that renders it that way has misread the store. Every migrated row arrived `dormant` —
 **carried, not started, and not queued**. A row becomes `in_flight` only when given the three
 things migration deliberately does not give it: an **owner**, a real dependency **edge**, and
