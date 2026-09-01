@@ -59,6 +59,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 # ONE owner for "what counts as an event" — imported, never re-derived.
+# ONE owner for the ceiling + migration facts — imported, never re-derived.
+# This file restating them is precisely how the SPA and the digest came to
+# disagree after Phase C; see src/utils/work_facts.py.
+from src.utils.work_facts import WIP_CEILING as _WIP_CEILING  # noqa: E402
+from src.utils.work_facts import (  # noqa: E402
+    CARRIED_ROWS_MIGRATED_IN,
+    CEILING_ENFORCED,
+    CEILING_STATE,
+)
 from scripts.ops.work_phase_ping import (  # noqa: E402
     PING_WORTHY,
     _field,
@@ -75,7 +84,9 @@ LIFECYCLE_STATES: tuple[str, ...] = (
 )
 UNKNOWN = "unknown"
 COUNTS_AGAINST_CEILING = frozenset({"in_flight"})
-WIP_CEILING = 8
+# Re-exported from the shared owner so existing references keep working;
+# the VALUE lives in src/utils/work_facts.py and only there.
+WIP_CEILING = _WIP_CEILING
 
 
 def _resolve(ref: str) -> str | None:
@@ -136,8 +147,8 @@ def standing_state(ref: str = "HEAD") -> dict[str, Any]:
             # ⚠️ DECLARED, not enforced — Phase C enforces it alongside the
             # migration. `ceilingHit` is a real event worth pinging; "under the
             # ceiling" is NOT a clean bill of health while nothing checks it.
-            "enforced": False,
-            "state": "declared_not_enforced",
+            "enforced": CEILING_ENFORCED,
+            "state": CEILING_STATE,
             "ceilingHit": in_flight >= WIP_CEILING,
         },
     }
@@ -224,12 +235,13 @@ def render(d: dict[str, Any]) -> str:
     if wip["ceilingHit"]:
         lines.append(
             f"⚠️ WIP CEILING HIT: {wip['inFlight']} in flight vs ceiling "
-            f"{wip['ceiling']} — DECLARED, not enforced (Phase C enforces)."
+            f"{wip['ceiling']} — ENFORCED in CI: a ninth in_flight object is "
+            f"REFUSED without an approved wip-ceiling-exception.yaml."
         )
     else:
         lines.append(
             f"WIP {wip['inFlight']}/{wip['ceiling']} in flight "
-            f"({wip['state']} — this is a reading, not a gate)."
+            f"({wip['state']} — this IS a gate: the ninth is refused)."
         )
 
     if st["waiting"]:
@@ -237,7 +249,7 @@ def render(d: dict[str, Any]) -> str:
 
     lines.append(
         "⚠️ Store covers the operating-layer build's own phases only — the "
-        "carried backlog rows migrate in Phase C. Not the whole of system work."
+        f"carried backlog rows: {CARRIED_ROWS_MIGRATED_IN}. Not the whole of system work."
     )
     return "\n".join(lines)
 

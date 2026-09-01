@@ -55,6 +55,15 @@ import yaml
 from fastapi import APIRouter, HTTPException
 
 from src.utils.paths import repo_root
+# ONE owner for the ceiling + migration facts — imported, never re-derived.
+# They had two homes and Phase C updated neither; see the module docstring.
+from src.utils.work_facts import (
+    CARRIED_ROWS_MIGRATED,
+    CARRIED_ROWS_MIGRATED_IN,
+    CEILING_ENFORCED,
+    CEILING_STATE,
+    WIP_CEILING,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -106,13 +115,13 @@ _COUNTS_AGAINST_CEILING = frozenset({"in_flight"})
 # enforcement and the migration and never updated the route's description of
 # itself — the code carrying the stale comment, which is the same class as
 # `field beats comment` one layer up.
-_WIP_CEILING = 8
-_CEILING_ENFORCED = True
+_WIP_CEILING = WIP_CEILING
+_CEILING_ENFORCED = CEILING_ENFORCED
 
 # Carried backlog rows MIGRATED IN on 2026-09-01 (Phase C). Kept as a named
 # constant because the coverage note still has to say what was carried and when;
 # it is history now, not a pending gap.
-_CARRIED_ROWS_MIGRATED = 572
+_CARRIED_ROWS_MIGRATED = CARRIED_ROWS_MIGRATED
 
 
 def _work_dir() -> Path:
@@ -380,7 +389,7 @@ def _wip_block(in_flight: int) -> dict[str, Any]:
         "ceiling": _WIP_CEILING,
         "inFlight": in_flight,
         "enforced": _CEILING_ENFORCED,
-        "state": "enforced_in_ci",
+        "state": CEILING_STATE,
         "note": (
             "The ceiling of 8 is ENFORCED: scripts/ci/check_wip_ceiling.py fails "
             "CI on a ninth `in_flight` object, and exceeding it needs an approved "
@@ -415,7 +424,7 @@ def _coverage_block() -> dict[str, Any]:
         # and doing it in a bot-only PR would break the consumer this route
         # exists for. The VALUES carry the correction instead.
         "carriedRowsApprox": _CARRIED_ROWS_MIGRATED,
-        "carriedRowsMigrateIn": "Phase C — COMPLETE 2026-09-01",
+        "carriedRowsMigrateIn": CARRIED_ROWS_MIGRATED_IN,
         "carriedRowsMigratedOn": "2026-09-01",
         "note": (
             "The ~572 carried backlog rows MIGRATED IN on 2026-09-01 (Phase C), "

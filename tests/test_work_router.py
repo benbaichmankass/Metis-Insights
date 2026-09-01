@@ -206,7 +206,9 @@ def test_coverage_states_incompleteness_on_every_response(tmp_path, monkeypatch)
 
     cov = wk.get_work()["coverage"]
     assert cov["complete"] is False
-    assert cov["carriedRowsMigrateIn"] == "Phase C"
+    # Past tense since Phase C landed: it read "Phase C" (i.e. pending)
+    # for ~20 minutes after the migration had already happened.
+    assert cov["carriedRowsMigrateIn"] == "Phase C — COMPLETE 2026-09-01"
     assert cov["carriedRowsApprox"] > 0
 
 
@@ -276,7 +278,9 @@ def test_real_store_serves_and_partition_holds():
     assert d["summary"]["objectCount"] >= 1
     assert sum(d["lifecycle"].values()) == d["summary"]["objectCount"]
     assert d["coverage"]["complete"] is False
-    assert d["wip"]["enforced"] is False
+    assert d["wip"]["enforced"] is True, (
+        "Phase C shipped check_wip_ceiling.py; reporting the ceiling as "
+        "unenforced tells a reader they may open a ninth object")
 
 
 def test_real_store_object_route_round_trips():
