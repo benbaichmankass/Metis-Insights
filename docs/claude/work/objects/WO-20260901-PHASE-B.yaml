@@ -3,7 +3,7 @@ type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: "Phase B — visibility — the read-only work view and the daily digest"
 stage: CAPABILITY
-lifecycle: ready
+lifecycle: waiting
 owner: claude
 opened_at: 2026-09-01
 closed_at: null
@@ -23,7 +23,42 @@ done_condition: >-
   # than a missing one: it is exactly what E1's constraint computation would later
   # read, and it would have said "we are waiting" while two phases were available.
   # An edge must name the CONDITION, never the object that happened to create it.
-blocked_on: []   # the store exists; nothing else gates the read view.
+blocked_on:
+  - kind: external_event
+    ref: the work view rendered from the deployed SPA, by someone who is not this session
+    since: 2026-09-01
+    note: >-
+      The route and the SPA section are BUILT and pushed. The done_condition is
+      "the operator can SEE what is in flight without opening the repo" — an
+      OBSERVATION, and nobody has made it. Neither route has been read from the
+      live VM, and the SPA cannot be rendered from a sandbox (the dashboard's own
+      CLAUDE.md names the live app as the verification step). Marking this `done`
+      would convert "we built it" into "we verified it", which is precisely the
+      collapse WO-20260901-PHASE-A refused to make on the same reasoning.
+  - kind: external_event
+    ref: the daily digest firing once on a real cadence
+    since: 2026-09-01
+    note: >-
+      scripts/ops/work_digest.py ships UNSCHEDULED. No cron accompanies it,
+      deliberately: the trigger is a .github/workflows/ change and
+      claude/workflows-audit-restructure-fz0sw9 has declared paths there, so it
+      was asked on the board rather than assumed. Until a run is OBSERVED this is
+      deployed, not working — and that is not a hypothetical caution here:
+      OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON records
+      two workflows that are merged, enabled, and have never once fired.
+  - kind: capability
+    ref: opening a PR on benbaichmankass/ict-trader-dashboard from a read-only-MCP session
+    since: 2026-09-01
+    note: >-
+      The SPA branch claude/phase-b-work-view is pushed but has NO PR. This
+      session's MCP returns 403 "Resource not accessible by integration" on PR
+      create and on issue comments (measured twice, with get_me and issue_read
+      succeeding as positive controls). The bot repo covers that gap with
+      pr-opener.yml and board-post.yml; the dashboard repo has NEITHER, and its
+      ci.yml triggers only on pull_request-to-main and push-to-main, so a branch
+      push runs no checks at all. Porting the relay was started and deliberately
+      abandoned: creating CI automation in a second repo is a sanctioning
+      decision, not a Tier-1 one. An operator opening the PR clears this.
 
 note: >-
   Only the READ half. The route follows src/web/api/routers/roadmap.py (475
@@ -33,6 +68,47 @@ note: >-
   CRITICAL/ERROR rows in one measured window were a single un-latched alarm,
   which trained the operator past the one channel reserved for an unprotected
   position.
+
+observed: >-
+  MEASURED 2026-09-01 by this session, against the committed store at the branch
+  point (populations stated, counts not adjectives).
+
+  STORE SHAPE — `find docs/claude/work -type f`: 1 intent, 8 objects, 0 steps.
+  Lifecycle over all 8 objects at the branch point: dormant 4 / ready 1 /
+  in_flight 2 / waiting 1 / done 0 / accepted 0 / unknown 0. The seven buckets
+  sum to 8, which is asserted by test rather than trusted.
+
+  WIP — 2 of a declared ceiling of 8 in flight. The ceiling is NOT enforced (that
+  is Phase C, with the migration), and both the route and the digest render it as
+  `declared_not_enforced` so a count under an unchecked ceiling can never read as
+  "within limits".
+
+  DANGLING EDGES — 5 `kind: object` blocked_on edges exist across the 8 objects;
+  2 of the 5 resolve to nothing in the store. Both belong to WO-20260901-PHASE-H
+  and name BL-* backlog rows, which do not migrate until Phase C. Reported as
+  `refResolvedInStore: false` rather than hidden. This is expected today, NOT a
+  defect — but it is the shape a computed constraint would trip over once E1
+  reads this graph, so it is recorded rather than left to be rediscovered.
+
+  DIFF — 12 files, 1498 insertions, 1 deletion against the merge base. The single
+  deletion is this object's own `lifecycle: ready` line. CLAUDE.md, main.py and
+  api-tier-policy.md are each +2/-0, as declared on the board before the first
+  write. ⚠️ A tip-to-tip `git diff origin/main HEAD` shows ~100 additional
+  comms/strategy_reviews/ files as DELETIONS; that is an artifact of main having
+  moved past the branch point, not a change this branch makes. Diff against the
+  MERGE BASE.
+
+  TWO DEFECTS FOUND IN THIS SESSION'S OWN WORK, both fixed. (a) The object-id
+  guard admitted `..`, and the route was safe only by the accident that
+  `".." + ".yaml"` concatenates to an ordinary in-directory filename — found by
+  its own test. (b) The "never a 5xx" contract was NOMINAL: YAML yields native
+  date objects and `extra` preserves arbitrary keys, so a non-encodable value
+  would have raised at response-render time, AFTER the module's own try/except —
+  found by capturing a fixture, not by reading the code.
+
+  NOT OBSERVED, and the reason this object is `waiting` rather than `done`:
+  no page has been rendered, no route has been served from the live VM, and the
+  digest has never fired.
 
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md

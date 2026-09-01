@@ -3,7 +3,9 @@ type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: "Phase E — no work is lost, and rules are verified at exit"
 stage: CAPABILITY
-lifecycle: dormant
+lifecycle: ready   # dormant -> ready 2026-09-01: its one blocker is answered (see
+                   # lease_design). `ready` is not `in_flight`, so this does not
+                   # consume a WIP slot -- it is available to be picked up, nothing more.
 owner: claude
 opened_at: 2026-09-01
 closed_at: null
@@ -23,20 +25,97 @@ done_condition: >-
   # than a missing one: it is exactly what E1's constraint computation would later
   # read, and it would have said "we are waiting" while two phases were available.
   # An edge must name the CONDITION, never the object that happened to create it.
-blocked_on:
-  - kind: object
-    ref: redesign the lease so it needs no session-held WRITE credential
-    since: 2026-09-01
-    note: >-
-      ⚠️ THIS EDGE WAS `capability: DASHBOARD_API_TOKEN propagation` UNTIL 2026-09-01 AND
-      THAT WAS WRONG. The operator decided the write token must NOT go into the session
-      environment: that config field says in terms "don't add secrets or credentials" and
-      is visible to anyone using the environment, and DASHBOARD_API_TOKEN also authorises
-      prop-journal writes. So the blocker is not a credential waiting to be moved — it is
-      a DESIGN question that has not been answered: where does the lease live if a session
-      cannot hold a write credential? The likely answer is the repo, consistent with the
-      wipe test, at the cost of commit noise. Recording it as a credential-propagation
-      edge would have made this phase look one paste away from unblocked when it is not.
+blocked_on: []   # RESOLVED 2026-09-01 — see lease_design below. A CLAIM, not an absence.
+
+# ============================================================================
+# THE BLOCKER IS ANSWERED. Operator-directed, 2026-09-01.
+#
+# The edge above read: "where does the lease live if a session cannot hold a
+# write credential?" It is struck rather than deleted, because the reasoning
+# that produced it is what makes the answer defensible.
+#
+# THE OPERATOR'S REQUIREMENT, which decides it:
+#   - work runs continuously, across days
+#   - EXACTLY ONE management session at a time, never two concurrent
+#   - a NEW manager must be able to take over the previous manager's
+#     sub-sessions
+#   - sub-sessions must NOT be dependent on any particular manager
+#
+# THE ANSWER: THE REPO. Not by elimination — by the requirement. A lease that
+# must survive its holder's DEATH and be readable by a session arriving COLD
+# cannot live in any session's memory, and cannot live behind a credential no
+# session is allowed to hold. The wipe test already pointed here; the operator's
+# requirement removes the remaining choice. Commit noise is the accepted cost.
+# ============================================================================
+
+lease_design:
+  # ⚠️ MEASURED CONSTRAINT, tested rather than assumed (2026-09-01): a manager
+  # session CANNOT message a sub-session. SendMessage to a live sub-session id
+  # returned `{"success": false, "No agent named ... is reachable"}`, and
+  # ListAgents shows no reachable cloud peers. There is no send_message or
+  # list_events tool in the manager's surface.
+  #
+  # THIS IS WHY THE HANDOFF IS CHEAP. There is no live connection to transfer —
+  # "taking over" is purely a KNOWLEDGE problem, and knowledge goes in files.
+  # A design that assumed a channel would have built a reconnect mechanism for
+  # a channel that does not exist.
+
+  manager_lease:
+    where: docs/claude/work/MANAGER-LEASE.json
+    holds: one session id, claimed_at, heartbeat_at, expires_at
+    rule: >-
+      A session reads this BEFORE managing anything. Held and FRESH -> it does
+      not manage. Stale or released -> it may claim. This is what enforces
+      "only ever one", and it enforces it without either session knowing the
+      other exists.
+    expiry_is_the_mechanism: >-
+      ⚠️ Time-based expiry, NOT an explicit hand-off, and that is deliberate.
+      A session that dies cannot run its own close-out — the same reason this
+      phase needs a reaper at all. A design where handover depends on the
+      OUTGOING manager doing something fails in exactly the case it exists for.
+      An outgoing manager that is still alive discovers on its next heartbeat
+      that it no longer holds the lease, and stands down.
+
+  session_registry:
+    where: docs/claude/work/SESSIONS.json
+    holds: >-
+      per live sub-session — id, the work object it owns, spawned_at,
+      last_observed status and needs_action, and the branch it pushes to
+    why: >-
+      ⚠️ THIS IS THE ACTUAL HOLE TODAY, and it is not hypothetical. On
+      2026-09-01 two sub-sessions (Phase B, Phase C) existed ONLY in the
+      manager's context. Had that session ended, nothing in the repo named
+      them, so no successor could have polled them and both would have been
+      silently orphaned mid-work. The registry is what makes a cold manager
+      able to resume rather than re-derive.
+
+  sub_session_independence:
+    rule: >-
+      A sub-session keeps running with NO manager holding the lease. It is an
+      independent session working its own branch. What stops while the lease is
+      unheld is SUPERVISION — nobody polls it, nobody opens its PR — which is
+      survivable for hours and is exactly what the registry lets the next
+      manager pick up.
+
+  needs_action_is_a_stale_snapshot:
+    # Measured 2026-09-01: Phase C's needs_action still read "open PR ... 403"
+    # at 13:15Z, its updated_at frozen at 12:40:48Z, LONG after the manager had
+    # opened the PR and posted the board comment.
+    rule: >-
+      A sub-session's needs_action is written at ITS last turn and cannot be
+      cleared by the manager handling the request — there is no inbox. So the
+      operator must not read it as a live request. The manager POLLS it,
+      absorbs capability gaps silently, and escalates only genuine decisions.
+      A handled sub-session is cleared by ARCHIVING it once its work lands,
+      which is the only mechanism that actually removes the flag.
+
+  spawn_prompt_is_the_only_channel:
+    rule: >-
+      Since the manager cannot message a running sub-session, every rule a
+      sub-session must follow has to be in its SPAWN PROMPT. It cannot be added
+      later. In particular the prompt must forbid asking the operator directly:
+      write the question into the PR or the coordination board, and let the
+      manager escalate.
 
 note: >-
   F2 close-out verification and F5 exit verification are ONE hook, not two:
