@@ -1,0 +1,64 @@
+{
+  "_comment": [
+    "THE SUB-SESSION REGISTRY. One row per sub-session a manager has spawned.",
+    "",
+    "WHY IT EXISTS, measured 2026-09-01: the two sub-sessions below existed ONLY",
+    "in the manager session's context. Had that session ended, nothing in the",
+    "repo named them -- no successor could have polled them, and both would have",
+    "been silently orphaned mid-work. This file is what makes a manager arriving",
+    "COLD able to resume rather than re-derive.",
+    "",
+    "IT IS A REGISTRY, NOT A CHANNEL. A manager CANNOT message a sub-session:",
+    "SendMessage to a live sub-session id returns 'No agent named ... is",
+    "reachable', and there is no send_message or list_events tool. Verified by",
+    "test, not assumed. So a successor's only moves are: read this file, poll",
+    "each id with get_session, act on its branch/PR, and archive it when its",
+    "work has landed.",
+    "",
+    "READ last_observed AS A SNAPSHOT, NEVER AS LIVE STATE. A sub-session's",
+    "needs_action is written at ITS last turn and cannot be cleared by the",
+    "manager handling the request. Phase C's still read 'open PR ... 403' long",
+    "after the PR was open. Poll get_session for current state; this file says",
+    "what EXISTS, not what is true right now.",
+    "",
+    "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
+  ],
+  "schema_version": 1,
+  "updated_at": "2026-09-01",
+  "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+  "sessions": [
+    {
+      "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
+      "owns_object": "WO-20260901-PHASE-B",
+      "title": "Phase B — visibility: the work view + daily digest",
+      "spawned_at": "2026-09-01T12:07:42Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "Metis-Insights:claude/phase-b-work-view-digest",
+        "ict-trader-dashboard:claude/phase-b-work-view"
+      ],
+      "prs": ["Metis-Insights#10654", "ict-trader-dashboard#210"],
+      "last_observed": {
+        "at": "2026-09-01T13:35Z",
+        "status_category": "review_ready",
+        "needs_action": "SPA PR could not be opened (no MCP-independent relay in that repo); ABSORBED by the manager -- ict-trader-dashboard#210 opened, all 4 checks green",
+        "note": "Its digest ships unscheduled by design, waiting on claude/workflows-audit-restructure-fz0sw9 to say where the cron belongs. Deployed, NOT observed working -- stated plainly in its own PR rather than softened."
+      }
+    },
+    {
+      "session_id": "session_01H5R1PycFHgaVB1AMQzpPJY",
+      "owns_object": "WO-20260901-PHASE-C",
+      "title": "Phase C — migration, the WIP ceiling, and priority propagation",
+      "spawned_at": "2026-09-01T12:08:17Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": ["Metis-Insights:claude/operating-layer-phase-c"],
+      "prs": ["Metis-Insights#10657"],
+      "last_observed": {
+        "at": "2026-09-01T13:35Z",
+        "status_category": "need_input",
+        "needs_action": "STALE. Reads 'open PR + post board comment, 403' with updated_at frozen at 12:40:48Z. BOTH were absorbed by the manager: PR #10657 opened, board comment posted on issue #6927. The flag cannot be cleared without the session running another turn; archive it once #10657 merges.",
+        "note": "Its self-reported guard result (PASS 62 / FAIL 3, 'all three reproduce on origin/main') did NOT hold. CI returned PASS 64 / FAIL 1, and the one failure was diff-scoped -- caused by its own change, not pre-existing. Fixed by the manager in 7d4b94f; guards now green. This is the case for re-running a sub-session's report rather than relaying it."
+      }
+    }
+  ]
+}
