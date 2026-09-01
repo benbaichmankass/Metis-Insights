@@ -40,9 +40,20 @@ name: work-digest
 
 on:
   schedule:
-    # 06:20 UTC — after probes (05:20) and due-list (05:50), so a day's digest
-    # is rendered against registers those two have already refreshed.
-    - cron: "20 6 * * *"
+    # Every 4h at :20 — operator-directed 2026-09-01 ("events live + a digest
+    # every few hours"), raised from the daily 06:20 this shipped with.
+    #
+    # WHY :20 AND WHY 06 IS IN THE SET. The 06:20 slot is load-bearing and was
+    # not chosen for looks: it lands after probes (05:20) and due-list (05:50),
+    # so the day's first digest reads registers those two have already
+    # refreshed. Keeping the offset at :20 and including 06 preserves that
+    # ordering while adding the other five slots around it.
+    #
+    # ⚠️ MOST OF THESE WILL SAY ALMOST NOTHING, and that is correct. A digest
+    # that only fires when something interesting happened is indistinguishable
+    # from one that has broken — the empty run IS the evidence the cadence is
+    # alive. It will feel like noise before it feels like reassurance.
+    - cron: "20 2,6,10,14,18,22 * * *"
   workflow_dispatch:
 
 permissions:

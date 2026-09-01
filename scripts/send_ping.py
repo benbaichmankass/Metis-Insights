@@ -128,6 +128,15 @@ def main(argv: Optional[list] = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("body", nargs="+", help="Message body (will be joined with spaces).")
     p.add_argument("--priority", choices=VALID_PRIORITIES, default="normal")
+    # Format-B fields. --why is what makes a ping readable COLD: "MERGED #10666"
+    # a day later says nothing without opening a link nobody opens on a phone.
+    # Owned by src/runtime/claude_ping.py so the four producers reaching this
+    # channel cannot drift into four shapes.
+    p.add_argument("--kind", choices=("decision", "state_change", "lifecycle"),
+                   help="ping class; gates rate-limiting and the lifecycle switch")
+    p.add_argument("--why", help="Format-B line 2: what CHANGED for the reader")
+    p.add_argument("--unproven", help="what this does NOT yet establish")
+    p.add_argument("--icon", default="•")
     p.add_argument(
         "--target", choices=VALID_TARGETS, default="trader",
         help="Which bot delivers the ping. 'trader' = @bict_trading_bot "
@@ -139,11 +148,47 @@ def main(argv: Optional[list] = None) -> int:
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     body = " ".join(args.body)
+
+    # Format B + class gating, when a --kind is declared. Producers that pass no
+    # --kind keep the legacy free-text path byte-for-byte, so nothing existing
+    # changes shape on this commit.
+    if args.kind:
+        try:
+            from src.runtime import claude_ping
+        except ImportError as exc:  # pragma: no cover - import guard
+            logger.error("claude_ping unavailable: %s", exc)
+            return 1
+        if not args.why:
+            logger.error(
+                "--kind requires --why: Format B's second line is the whole "
+                "point, and an event with nothing to say about what changed is "
+                "activity, which must not ping")
+            return 1
+        admit, reason = claude_ping.admits(args.kind)
+        if not admit:
+            # ⚠️ Reported, never silent. "we suppressed it" and "there was
+            # nothing to say" are different facts and exit 0 alone conflates
+            # them; the reason names which.
+            logger.info("ping withheld (%s): %s", args.kind, reason)
+            print(f"withheld: {reason}")
+            return 0
+        try:
+            body = claude_ping.format_ping(
+                body, args.why, unproven=args.unproven, icon=args.icon)
+        except ValueError as exc:
+            logger.error("format failed: %s", exc)
+            return 1
+
     try:
         path = enqueue(body, priority=args.priority, target=args.target)
     except (ValueError, OSError) as exc:
         logger.error("enqueue failed: %s", exc)
         return 1
+    if args.kind:
+        # Only on a CONFIRMED enqueue — recording an attempt would let a failed
+        # send suppress its own retry.
+        from src.runtime import claude_ping as _cp
+        _cp.record_sent(args.kind)
     logger.info(
         "queued %s (%s, target=%s) — bot drains within ~5 s",
         path.name, args.priority, args.target,
