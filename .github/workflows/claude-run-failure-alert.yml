@@ -46,6 +46,7 @@ on:
       # operator.
       - work-digest
       - strategy-review-packets
+      - sunset-pass
       - trainer-vm-diag
       - vm-diag-snapshot
       - system-actions

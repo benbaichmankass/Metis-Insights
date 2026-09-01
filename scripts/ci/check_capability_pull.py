@@ -62,7 +62,6 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -244,7 +243,8 @@ def _self_test() -> int:
         (root / OBJECTS / "good.yaml").write_text("id: X\nunblocks_stage: DECISION\n")
         (root / OBJECTS / "wrong.yaml").write_text("id: Y\nunblocks_stage: EVIDENCE\n")
         (root / OBJECTS / "bogus.yaml").write_text("id: Z\nunblocks_stage: BANANAS\n")
-        obj = lambda n: f"{OBJECTS}{n}"
+        def obj(n: str) -> str:
+            return f"{OBJECTS}{n}"
 
         # THE TEETH. This is the branch that does not fire in production today,
         # which is exactly why it must fire here on every invocation.
