@@ -77,10 +77,20 @@ def _legacy_repo_ping_dir(pings_dir: str) -> str | None:
 
 
 async def _drain_one_ping_dir(context, chat_id: str, pings_dir: str,
-                              discard_older_than_s: float | None = None) -> None:
+                              discard_older_than_s: float | None = None,
+                              bot=None) -> None:
     """Drain one inbox: send each ping, delete on success. Failures (Telegram
     4xx, malformed JSON) move the file aside with a ``.broken`` suffix so the
     drainer never loops on the same bad file.
+
+    ``bot`` overrides which Telegram bot SENDS. It defaults to ``context.bot``
+    (the trader bot) so every existing caller is byte-for-byte unchanged; the
+    Claude inbox passes its own bot so operational pings land in a separate
+    conversation instead of among trade alerts. The CHAT ID is deliberately
+    NOT overridden here — in a DM ``chat.id`` IS the operator's user id and is
+    identical for every bot, so the separation comes from the TOKEN
+    (src/bot/telegram_routes.py records the operator correction that
+    established this).
 
     ``discard_older_than_s`` is set only for the legacy repo-relative twin
     (BL-20260726): a file older than this is a stranded straggler — unlink it
@@ -160,7 +170,7 @@ async def _drain_one_ping_dir(context, chat_id: str, pings_dir: str,
             text = f"{prefix} {body}"
 
         try:
-            await context.bot.send_message(
+            await (bot or context.bot).send_message(
                 chat_id=chat_id, text=text,
                 parse_mode=parse_mode,
                 disable_web_page_preview=True,
@@ -176,19 +186,21 @@ async def _drain_one_ping_dir(context, chat_id: str, pings_dir: str,
 
 
 async def _drain_pending_pings(context, chat_id: str | None = None,
-                                pings_dir: str | None = None) -> None:
+                                pings_dir: str | None = None,
+                                bot=None) -> None:
     """JobQueue task — drain the canonical inbox, then (defense in depth) sweep
     the legacy repo-relative twin so a ping written by a process missing DATA_DIR
     is delivered rather than stranded, and the pre-migration backlog is discarded
     (BL-20260726-CLAUDE-PING-INBOX-SPLIT-BRAIN)."""
     pings_dir = pings_dir or PENDING_PINGS_DIR
     chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID") or ""
-    await _drain_one_ping_dir(context, chat_id, pings_dir)
+    await _drain_one_ping_dir(context, chat_id, pings_dir, bot=bot)
     legacy = _legacy_repo_ping_dir(pings_dir)
     if legacy is not None:
         await _drain_one_ping_dir(
             context, chat_id, legacy,
             discard_older_than_s=LEGACY_PING_STALE_AFTER_S,
+            bot=bot,
         )
 
 
