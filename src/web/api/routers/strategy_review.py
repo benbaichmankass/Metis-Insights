@@ -11,9 +11,13 @@ legitimately disagree: the VM holds today's run before it is committed, and the
 repo keeps days the VM has dropped. Every response from the second stamps
 ``source`` so a reader never has to infer which record answered.
 
-Serves the latest packet emitted by
-``scripts/ml/strategy_review_packet.py`` for a given strategy. Tier 1 —
-no auth, read-only.
+Both are Tier 1 — no auth, read-only. A Tier-3 action is *read* here, never
+enacted.
+
+----
+
+``GET /api/bot/strategies/{name}/review`` serves the latest packet emitted by
+``scripts/ml/strategy_review_packet.py`` for a given strategy.
 
 Response shape (when a packet is present):
 
@@ -26,8 +30,10 @@ Response shape (when a packet is present):
 
 When no packet exists yet (the strategy has never been reviewed by the
 gate), the route returns HTTP 200 with ``present: false`` so the
-dashboard can render an empty card without a crash. Tier-3 actions are
-*read* here, not enacted.
+dashboard can render an empty card without a crash.
+
+``GET /api/bot/strategy-reviews`` is documented at its own definition below,
+with the reasoning for each field it refuses to collapse.
 """
 from __future__ import annotations
 
