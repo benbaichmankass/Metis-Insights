@@ -601,6 +601,31 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "work_decisions.answer_state",
+        "producer": "src/runtime/work_decisions.py",
+        "consumer_token": (r"\banswer_state\b|\banswerState\b|\bANSWER_STATES\b|"
+                           r"\bgrade_answer_state\b"),
+        "states": ["not_submitted", "in_transit", "committed", "unreadable"],
+        "why": (
+            "Phase H's decision round-trip, and the states carry the transit "
+            "contract the schema design states outright: THREE NEVER "
+            "COLLAPSED, and transit FAILS BACK, NEVER FORWARD. `committed` is "
+            "the ONLY one that means decided, and it is graded from the "
+            "`answer` block on the work object IN THE REPO — never from the "
+            "transit log — so an answer that does not commit leaves its "
+            "question unanswered rather than ambiguous. A question wrongly "
+            "shown as answered is a decision nobody made. `in_transit` is an "
+            "OPEN WINDOW: submitted, not landed, and enumerable with its age "
+            "so it closes observably. And `unreadable` is WE COULD NOT LOOK — "
+            "collapsing it into `not_submitted` would report a broken transit "
+            "channel as 'the operator has not answered', putting a question "
+            "back on the operator that they may already have answered and "
+            "making a broken channel indistinguishable from a quiet one. That "
+            "is exit_anchor.py's deferred/no_anchor distinction applied to a "
+            "write path."
+        ),
+    },
+    {
         "name": "netting_attribution.anchor_status",
         "producer": "src/runtime/order_monitor.py",
         "consumer_token": r"\banchor_status\b|\bnetting_anchor_basis\b",

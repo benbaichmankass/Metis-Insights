@@ -3,7 +3,7 @@ type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: "Phase H — the control half — decisions from the UI, and the read gate"
 stage: CAPABILITY
-lifecycle: dormant
+lifecycle: in_flight
 owner: claude
 opened_at: 2026-09-01
 closed_at: null
@@ -34,6 +34,79 @@ blocked_on:
     note: >-
       A route gate is authentication, not authorization: one token would otherwise
       open all 22 tables.
+  - kind: operator_decision
+    ref: DEC-20260901-READ-GATE-SEQUENCING
+    since: 2026-09-01
+    note: >-
+      ⚠️ THE READ-GATE HALF ONLY. The decision round-trip half of Phase H is
+      NOT blocked by this and shipped without it. Written as a TRUE edge rather
+      than left implicit: E1's constraint computation reads these, and the
+      store's README is explicit that an invented edge is worse than a missing
+      one — this one is real, it names an answerable request, and the operator
+      can answer it from the UI.
+
+# ── PHASE H's OWN DECISION REQUESTS ──────────────────────────────────────────
+# ⚠️ THE FIRST CONTENT THE DECISION CHANNEL EVER CARRIED, and deliberately real
+# rather than a fixture — the Phase A precedent (`the store's first content is
+# the plan to build the store`): a mechanism is exercised by real content from
+# its first commit, or it is deployed and unproven.
+#
+# MEASURED 2026-09-01 before this row existed: of 584 objects in the store,
+# **0 carried a `decision_requests` block and 0 carried a `blocked_on` edge of
+# `kind: operator_decision`**. So the inbox this phase ships was EMPTY by
+# construction — the same shape as Phase D, where the machinery landed and the
+# input had not been written. A decision channel with no questions in it is
+# deployed, not working.
+decision_requests:
+  - id: DEC-20260901-READ-GATE-SEQUENCING
+    question: >-
+      Phase H's read gate cannot be flipped today: attaching `require_session`
+      to the read surface would break the Streamlit dashboard, which is still a
+      live consumer. How should it be sequenced?
+    urgency: blocking
+    asked_on: 2026-09-01
+    context: >-
+      The design says archiving the other two consumers is "what makes that
+      tractable — there is nothing else left to keep working". MEASURED against
+      that: Streamlit's retirement sits on an UNOPENED `ict-trader-dashboard`
+      branch (`claude/phase-h-preconditions-retire-streamlit`, no PR — that repo
+      has no `pr-opener.yml` relay), and the Android app was deliberately not
+      touched because it is ON ICE. So the precondition
+      `BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED` is NOT met,
+      whatever a summary may say. ⚠️ Separately: the DB-explorer precondition
+      (#10682) is MERGED but its own done_condition needs the narrowed route
+      DEPLOYED and re-probed — a merge is not a deploy. ⚠️ And state the
+      exposure plainly: `GET /api/bot/db/tables` answers 200 unauthenticated on
+      a public host, and the tables behind it are not empty — `signals`
+      2,301,022 rows, `trades` 5,313, `order_packages` 4,272 (measured by
+      `session_01LvzsinECH8HPCyauVJZBZw`, 2026-09-01).
+    options:
+      - key: retire_then_flip
+        label: Retire both consumers first, then flip the gate
+        implication: >-
+          Open the dashboard PR, delete the Streamlit Community Cloud app, and
+          establish Android makes no reads; then flip
+          API_READ_GATE_MODE=enforce. Slowest, and the only order in which
+          nothing the operator uses breaks.
+      - key: flip_now
+        label: Flip the gate now and accept that Streamlit breaks
+        implication: >-
+          Closes the unauthenticated read surface immediately. The Streamlit
+          dashboard starts 401-ing; the SPA needs its login built first or BOTH
+          frontends go dark.
+      - key: partial_gate
+        label: Gate only the routes no remaining consumer calls
+        implication: >-
+          Narrower blast radius, but it leaves a mixed surface where "gated" is
+          per-route and a new route defaults OPEN — the same inversion failure
+          the DB-explorer allowlist was just built to end.
+      - key: accept_ungated
+        label: Leave the read surface ungated, as a declared decision
+        implication: >-
+          The full trading history stays world-readable. Legitimate only if it
+          is DECIDED and recorded, rather than drifted into — which is the
+          state it is in today.
+    allows_free_text: true
 
 note: >-
   require_session is genuinely default-deny and already tested; exactly two

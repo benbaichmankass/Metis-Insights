@@ -303,6 +303,7 @@ _PACKAGE_LEG_COVERAGE_STATE = (
 )
 _EXIT_INTERVAL_SOAK_LOG = runtime_logs_dir() / "exit_interval_soak.jsonl"
 _CASH_SETTLEMENT_SOAK_LOG = runtime_logs_dir() / "cash_settlement_soak.jsonl"
+_WORK_DECISION_TRANSIT_LOG = runtime_logs_dir() / "work_decision_transit.jsonl"
 _PROP_TICKET_RISK_SOAK_LOG = (
     runtime_logs_dir() / "prop_ticket_risk_soak.jsonl"
 )
@@ -452,6 +453,24 @@ _LOG_FILES: dict[str, Path] = {
     # different fact from an interval of zero and is what makes the process
     # boundary visible instead of being mistaken for a real interval.
     "exit_interval_soak": _EXIT_INTERVAL_SOAK_LOG,
+    # PHASE H — the operator DECISION transit log. Truth IN TRANSIT and nothing
+    # else: one row per answer submitted from the SPA that has not yet been
+    # committed into the work object in the repo.
+    #
+    # ⚠️ READ IT BESIDE THE STORE, NEVER ALONE. A row here is NOT a decision --
+    # `committed` is graded from the `answer` block on the work object in the
+    # repo, deliberately, so an answer that never commits leaves its question
+    # UNANSWERED (transit fails BACK, never forward). A row still here whose
+    # object carries no answer is an OPEN WINDOW, which is a reportable
+    # condition, not a decision.
+    #
+    # Allowlisted in the SAME commit that ships the writer. A committer has to
+    # pull this log off the VM to close the round-trip
+    # (`scripts/ops/commit_work_decisions.py --transit <file>`), so a transit
+    # log with no read surface would mean an answer the operator gave could
+    # never become truth -- the exit_loop_health #8778 shape, which this file
+    # already records three recurrences of.
+    "work_decision_transit": _WORK_DECISION_TRANSIT_LOG,
     # The alert LATCH for the above, distinct from the state it grades. A
     # breach alerts once per PROCESS (max_interval_ms resets on restart, so a
     # global latch would go silent after the first breach ever) -- which is

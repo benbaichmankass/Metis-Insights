@@ -38,6 +38,66 @@ an absence of information; if it is unknown, say so in the row rather than leavi
 **A verdict states its population.** Any quantitative claim in a `verdict` or `basis`
 carries its population and its basis (MEASURED / INFERRED / DECIDED).
 
+## Decisions the operator can answer from the UI (Phase H)
+
+A work object may declare **`decision_requests[]`** — a question with named,
+selectable options — and pair it with a `blocked_on` edge of
+`kind: operator_decision` naming the request's `id`. The SPA renders these at
+the top of the Work section and the operator answers them there, which is what
+the operating model means by *"the operator is not the bottleneck on their own
+decisions"*.
+
+```yaml
+decision_requests:
+  - id: DEC-20260901-EXAMPLE          # required; a request without one is DROPPED and counted
+    question: >-
+      What should we do about X?
+    urgency: blocking                  # routine | blocking
+    asked_on: 2026-09-01
+    context: >-
+      What a reader needs in order to answer it without opening the repo.
+    options:
+      - key: a                         # required; this is what a submission names
+        label: Do the first thing
+        implication: >-
+          What choosing this actually commits us to.
+      - key: b
+        label: Do the second thing
+        implication: ...
+    allows_free_text: true             # an explicit `false` closes free text
+    # `answer:` is written by the COMMITTER, never by hand-editing the transit
+    # log. Its PRESENCE is what makes the decision true.
+```
+
+**The round-trip, and the one rule that shapes it:**
+
+| | |
+|---|---|
+| 1 | The question lives **here, in the repo** |
+| 2 | The operator answers in the SPA → `POST /api/bot/work/decision` appends ONE row to `runtime_logs/work_decision_transit.jsonl` on the live VM. **Nothing is decided.** |
+| 3 | `GET /api/bot/work/decisions` grades it `in_transit` — an **open window**, listable with its age |
+| 4 | `scripts/ops/commit_work_decisions.py --transit <file> --apply` writes the `answer` block into the object file here, and it lands as a normal PR |
+| 5 | Only now does the request grade **`committed`** |
+
+⚠️ **`committed` is read from THIS DIRECTORY, never from the transit log** — and
+that is the transit contract, not an implementation detail. **Transit fails
+BACK, never forward:** an answer that does not reach the repo leaves its
+question **unanswered**, never "answered" and never ambiguous. *A question
+wrongly shown as answered is a decision nobody made.*
+
+⚠️ **A `blocked_on` edge of `kind: operator_decision` with NO matching request
+is surfaced separately, as an `unanswerableOperatorEdge`** — a question the
+operator is blocking on that they *cannot answer from the UI, because nobody
+wrote it down*. Folding it in with the answerable ones would hide exactly that
+gap.
+
+⚠️ **Measured 2026-09-01, before this shipped: of 584 objects, ZERO declared a
+`decision_requests` block and ZERO carried an `operator_decision` edge.** The
+inbox was empty by construction. `WO-20260901-PHASE-H` therefore carries the
+first real question as its own content — the Phase A precedent, *the store's
+first content is the plan to build the store*: a mechanism is exercised by real
+content from its first commit, or it is deployed and unproven.
+
 ## What is NOT here
 
 **Bugs to fix** still go to the three review backlogs (`docs/claude/*-review-backlog.json`),
