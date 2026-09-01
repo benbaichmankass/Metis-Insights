@@ -1,16 +1,13 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-08-31T13:47:30+00:00",
-  "verdict": "partial",
-  "unreadable_sources": [
-    "red_crons",
-    "unlanded_automation"
-  ],
+  "generated_at": "2026-09-01T05:39:31+00:00",
+  "verdict": "all_sources_read",
+  "unreadable_sources": [],
   "sources": {
     "open_items": {
       "state": "read",
-      "rows": 14,
+      "rows": 20,
       "note": ""
     },
     "operator_owed": {
@@ -25,40 +22,40 @@
     },
     "probes": {
       "state": "read",
-      "rows": 2,
-      "note": ""
+      "rows": 4,
+      "note": "freshness=fresh age=0.0h cadence=daily (cron 20 5 * * *)"
     },
     "red_crons": {
-      "state": "could_not_read",
-      "rows": 0,
-      "note": "HTTPError: HTTP Error 403: Forbidden"
+      "state": "read",
+      "rows": 1,
+      "note": ""
     },
     "unlanded_automation": {
-      "state": "could_not_read",
-      "rows": 0,
-      "note": "HTTPError: HTTP Error 403: Forbidden"
+      "state": "read",
+      "rows": 1,
+      "note": ""
     }
   },
   "counts": {
-    "due": 19,
-    "loud": 15
+    "due": 29,
+    "loud": 22
   },
   "rows": [
     {
-      "source": "open_items",
-      "id": "OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL",
-      "title": "alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 2,
+      "source": "unlanded_automation",
+      "id": "#10398",
+      "title": "chore(m1): economic-calendar PIT snapshots (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
       "loud": true,
-      "link": ""
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/10398"
     },
     {
       "source": "open_items",
       "id": "OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED",
       "title": "The operator DECIDED (2026-08-29) to keep the trainer VM for the L2 order-flow capture. That converts the box from 'a candidate for retirement' into a STATED DEPENDENCY for a forward-only stream nothi",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 2,
+      "why_due": "monitoring row 3d since last observation (cadence 3d)",
+      "age_days": 3,
       "loud": true,
       "link": ""
     },
@@ -66,6 +63,24 @@
       "source": "open_items",
       "id": "OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED",
       "title": "Tier-3, operator-approved 2026-08-30: e35 bracket geometry shipped to 9 legs (10 fields). THREE route to bybit_2 = REAL MONEY (trend_donchian, trend_donchian_eth_4h, trend_donchian_xrp_4h). It is DEPL",
+      "why_due": "monitoring row 2d since last observation (cadence 2d)",
+      "age_days": 2,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED",
+      "title": "⚠️ ARMED ON ib_paper 2026-08-31 — THIS ROW'S ID AND ITS OLD SUMMARY BOTH SAY 'UNARMED' AND ARE STALE. The id is deliberately NOT renamed (ROADMAP.md and several backlog rows link it by name); read thi",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL",
+      "title": "alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann",
       "why_due": "loud row — must be reported on every session",
       "age_days": 1,
       "loud": true,
@@ -74,9 +89,9 @@
     {
       "source": "open_items",
       "id": "OI-20260829-E35-REVERSED-LEGS-ARE-A-TIER-3-PROPOSAL-SET-NOT-APPLIED",
-      "title": "The e35 matrix re-check found 15 SHIPPABLE gate-passing cells across 10 live legs the matrix had recorded as honest_negative/blocked. The matrix records them as `passed_unshipped`. NONE is applied — d",
+      "title": "⚠️ THIS ROW SAID '15 SHIPPABLE gate-passing cells across 10 live legs' AND THAT IS STALE — do not re-quote it. Re-measured 2026-08-31 against docs/research/exit-refinement-coverage.json (updated_at 20",
       "why_due": "loud row — must be reported on every session",
-      "age_days": null,
+      "age_days": 1,
       "loud": true,
       "link": ""
     },
@@ -84,26 +99,17 @@
       "source": "open_items",
       "id": "OI-20260830-BYBIT-HEDGE-MODE-ARMED-BUT-UNEXERCISED",
       "title": "Bybit HEDGE position mode is now live on ALL EIGHT (account, symbol) pairs — bybit_1 SOL/ETH/BNB/BTC and bybit_2 BTC/ETH/XRP/ADA (bybit_2 is MAINNET). The mechanism is proven WIRED (a real pair opened",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "probes",
-      "id": "OI-20260830-BYBIT-HEDGE-MODE-ARMED-BUT-UNEXERCISED",
-      "title": "A pairs_soak `open` row exists in which at least one leg was placed carrying a hedge `position_idx` (1 or 2), and at least one leg reports a concurrent non-pairs `directional_open: present` — the nett",
-      "why_due": "probe FAILED — its declared observation did not hold",
-      "age_days": null,
+      "why_due": "monitoring row 1d since last observation (cadence 1d)",
+      "age_days": 1,
       "loud": true,
       "link": ""
     },
     {
       "source": "open_items",
-      "id": "OI-20260831-42-RESEARCH-UNITS-ARE-UNREAD-AND-NOBODY-IS-SCHEDULED-TO-READ-THEM",
-      "title": "The research chain now PRODUCES, LANDS and is READABLE end to end (the 2026-08-31 live probe: dispatch 33388490432 -> sweep 33388518030 -> #10576/#10577, both merged; 995 rows carry `RQ-20260831-002`/",
+      "id": "OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED",
+      "title": "alpaca_live now ROUTES REAL MONEY for the first time since 2026-07-15 — tlt_pullback_1h, Tier-3 operator-approved 2026-08-31. It is ROUTED and has never PLACED AN ORDER. Those are different facts and ",
       "why_due": "loud row — must be reported on every session",
-      "age_days": null,
+      "age_days": 1,
       "loud": true,
       "link": ""
     },
@@ -112,7 +118,16 @@
       "id": "OI-20260831-LIVE-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW",
       "title": "The live Bybit wallet-truth path works and is MEASURED, but it does not and cannot currently reproduce the -$262.52 figure it was built to replace -- the two are over almost disjoint windows. Switchin",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM",
+      "title": "Whether the half-built local LLM carries any weight is UNDECIDED. The 1.5B arm was measured on the trainer VM: throughput adequate, answer not. The operator chose to try a different SIZE before decidi",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
       "loud": true,
       "link": ""
     },
@@ -121,7 +136,16 @@
       "id": "OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED",
       "title": "⚠️ ARMED ON bybit_1 AS OF 2026-08-31T07:47Z — this row's own ID still reads 'NOT-YET-ARMED' and that half is now STALE. The id is deliberately NOT renamed (CLAUDE.md and several backlog rows link it b",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260831-PROBE-READERS-SHIPPED-BUT-THE-ACTIONS-ONE-HAS-NEVER-RUN-FOR-REAL",
+      "title": "Three new probe SOURCES shipped (probe_file / probe_api / probe_actions_log) taking coverage 3 -> 7 probed. probe_actions_log has NEVER run against the real GitHub Actions API — its controls run again",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
       "loud": true,
       "link": ""
     },
@@ -130,7 +154,52 @@
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
       "title": "PROP_TICKET_RISK_GATE_MODE=enforce is LIVE on breakout_1 (Tier-3, operator-approved 2026-08-31). It is ARMED and has never CAPPED a ticket. Those are different facts and only the second is proof the c",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED",
+      "title": "The research queue's GPU route and its spend-gate preflight have NEVER been exercised. Do not describe the GPU spend gates as verified.",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE",
+      "title": "The stamp chain IS proven live as of 2026-08-31 (995 rows carry `accruing`, read from the corpus). What remains unproven is this row's own subject: the `infeasible` grade has never been produced by a ",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260831-RESEARCH-READ-DEBT-11-UNREAD-AND-256-SUPERSEDED-UNREAD",
+      "title": "The research pipeline's MACHINERY is healthy and its READING is in debt. Measured 2026-08-31T21:0xZ via research_disposition.survey(): 370 units across 3 corpora — 103 dispositioned, 11 UNREAD (live),",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260831-SCOPE-OVERLAP-ATTRIBUTOR-MISREADS-A-SESSIONS-OWN-START",
+      "title": "scope-overlap-audit works — its FIRST GENUINE catch landed 2026-08-31T17:26Z. But the same comment ALSO reported this session's own board START back at it, because the attributor compares the START's ",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED",
+      "title": "session-brief-guard is diff-scoped now, so a brief that goes stale on the CLOCK can no longer fail a PR that did not touch the registers. The `inherited` verdict has NEVER been emitted by a real CI ru",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
       "loud": true,
       "link": ""
     },
@@ -144,29 +213,11 @@
       "link": ""
     },
     {
-      "source": "open_items",
-      "id": "OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED",
-      "title": "The research queue's GPU route and its spend-gate preflight have NEVER been exercised. Do not describe the GPU spend gates as verified.",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
+      "source": "probes",
       "id": "OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE",
-      "title": "The stamp chain IS proven live as of 2026-08-31 (995 rows carry `accruing`, read from the corpus). What remains unproven is this row's own subject: the `infeasible` grade has never been produced by a ",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED",
-      "title": "session-brief-guard is diff-scoped now, so a brief that goes stale on the CLOCK can no longer fail a PR that did not touch the registers. The `inherited` verdict has NEVER been emitted by a real CI ru",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
+      "title": "Reads all three committed research corpora and looks for any row stamped research_power_state=infeasible — the R4 grade this row's id says nothing has ever produced. The POSITIVE CONTROL is research_p",
+      "why_due": "probe FAILED — its declared observation did not hold",
+      "age_days": null,
       "loud": true,
       "link": ""
     },
@@ -180,11 +231,47 @@
       "link": ""
     },
     {
+      "source": "red_crons",
+      "id": "replay-pregate-nightly",
+      "title": "replay-pregate-nightly",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33383287725"
+    },
+    {
       "source": "open_items",
       "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
       "title": "The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.",
-      "why_due": "monitoring row 2d since last observation (cadence 2d)",
-      "age_days": 2,
+      "why_due": "monitoring row 3d since last observation (cadence 2d)",
+      "age_days": 3,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION",
+      "title": "The generated SESSION-BRIEF block in CLAUDE.md is the mechanism this session shipped in place of a cap and an adjective, and NO fresh session has ever read it. Shipped and working are different states",
+      "why_due": "monitoring row 3d since last observation (cadence 3d)",
+      "age_days": 3,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "probes",
+      "id": "OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED",
+      "title": "probe could not run (exit_2)",
+      "why_due": "we did not look — this row is currently unwatched",
+      "age_days": null,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "probes",
+      "id": "OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED",
+      "title": "probe could not run (exit_2)",
+      "why_due": "we did not look — this row is currently unwatched",
+      "age_days": null,
       "loud": false,
       "link": ""
     },
