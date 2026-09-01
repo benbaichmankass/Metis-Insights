@@ -72,7 +72,12 @@ jobs:
         github.event.issue.user.login == 'github-actions[bot]') &&
        contains(github.event.issue.labels.*.name, 'strategy-review-packets'))
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # 45, not 25: `commit-to-main` with verify-merged waits up to its own
+    # 30-minute default for the PR to MERGE, so a 25-minute job timeout would
+    # kill the job mid-wait and report a false failure (which now pages, since
+    # this workflow is on claude-run-failure-alert's watch list). Matches
+    # econ-calendar-produce.yml, the sibling using the same action.
+    timeout-minutes: 45
     env:
       VM_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_USER: ubuntu
@@ -107,7 +112,7 @@ jobs:
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
               "$VM_USER@$VM_HOST" \
               "ACTION_ALL_STRATEGIES=1 ACTION_WINDOW_DAYS=$WINDOW_DAYS \
-               bash $VM_REPO/scripts/ops/generate_strategy_review_packets_action.sh" \
+               nice -n 10 bash $VM_REPO/scripts/ops/generate_strategy_review_packets_action.sh" \
               | tee /tmp/generate.log
           # The wrapper prints its resolved root as `===== <root>/strategy_reviews/<date>/ =====`.
           # Parse it rather than reconstructing it — reconstructing is what got
