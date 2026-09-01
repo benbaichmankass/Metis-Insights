@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-01T10:14:04+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-01T10:29:27+00:00 · verdict **all_sources_read**_
 
 - 🔔 **#10398** (unlanded_automation · 3d) — producer output opened a PR that has not landed
   - chore(m1): economic-calendar PIT snapshots (auto)
