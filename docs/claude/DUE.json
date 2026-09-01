@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-01T05:39:31+00:00",
+  "generated_at": "2026-09-01T10:14:04+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
     "open_items": {
       "state": "read",
-      "rows": 20,
+      "rows": 21,
       "note": ""
     },
     "operator_owed": {
@@ -22,7 +22,7 @@
     },
     "probes": {
       "state": "read",
-      "rows": 4,
+      "rows": 5,
       "note": "freshness=fresh age=0.0h cadence=daily (cron 20 5 * * *)"
     },
     "red_crons": {
@@ -37,8 +37,8 @@
     }
   },
   "counts": {
-    "due": 29,
-    "loud": 22
+    "due": 31,
+    "loud": 23
   },
   "rows": [
     {
@@ -56,24 +56,6 @@
       "title": "The operator DECIDED (2026-08-29) to keep the trainer VM for the L2 order-flow capture. That converts the box from 'a candidate for retirement' into a STATED DEPENDENCY for a forward-only stream nothi",
       "why_due": "monitoring row 3d since last observation (cadence 3d)",
       "age_days": 3,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED",
-      "title": "Tier-3, operator-approved 2026-08-30: e35 bracket geometry shipped to 9 legs (10 fields). THREE route to bybit_2 = REAL MONEY (trend_donchian, trend_donchian_eth_4h, trend_donchian_xrp_4h). It is DEPL",
-      "why_due": "monitoring row 2d since last observation (cadence 2d)",
-      "age_days": 2,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED",
-      "title": "⚠️ ARMED ON ib_paper 2026-08-31 — THIS ROW'S ID AND ITS OLD SUMMARY BOTH SAY 'UNARMED' AND ARE STALE. The id is deliberately NOT renamed (ROADMAP.md and several backlog rows link it by name); read thi",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 1,
       "loud": true,
       "link": ""
     },
@@ -124,26 +106,8 @@
     },
     {
       "source": "open_items",
-      "id": "OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM",
-      "title": "Whether the half-built local LLM carries any weight is UNDECIDED. The 1.5B arm was measured on the trainer VM: throughput adequate, answer not. The operator chose to try a different SIZE before decidi",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 1,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
       "id": "OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED",
       "title": "⚠️ ARMED ON bybit_1 AS OF 2026-08-31T07:47Z — this row's own ID still reads 'NOT-YET-ARMED' and that half is now STALE. The id is deliberately NOT renamed (CLAUDE.md and several backlog rows link it b",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 1,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260831-PROBE-READERS-SHIPPED-BUT-THE-ACTIONS-ONE-HAS-NEVER-RUN-FOR-REAL",
-      "title": "Three new probe SOURCES shipped (probe_file / probe_api / probe_actions_log) taking coverage 3 -> 7 probed. probe_actions_log has NEVER run against the real GitHub Actions API — its controls run again",
       "why_due": "loud row — must be reported on every session",
       "age_days": 1,
       "loud": true,
@@ -204,6 +168,42 @@
       "link": ""
     },
     {
+      "source": "open_items",
+      "id": "OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED",
+      "title": "⚠️ ARMED ON ib_paper 2026-08-31 — THIS ROW'S ID AND ITS OLD SUMMARY BOTH SAY 'UNARMED' AND ARE STALE. The id is deliberately NOT renamed (ROADMAP.md and several backlog rows link it by name); read thi",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED",
+      "title": "Tier-3, operator-approved 2026-08-30: e35 bracket geometry shipped to 9 legs (10 fields). THREE route to bybit_2 = REAL MONEY (trend_donchian, trend_donchian_eth_4h, trend_donchian_xrp_4h). It is DEPL",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM",
+      "title": "Whether the half-built local LLM carries any weight is UNDECIDED — and it is undecided BY THE OPERATOR, not for want of evidence. ⚠️ THIS SUMMARY PREVIOUSLY ENDED '#10605 makes that arm dispatchable v",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260831-PROBE-READERS-SHIPPED-BUT-THE-ACTIONS-ONE-HAS-NEVER-RUN-FOR-REAL",
+      "title": "Three new probe SOURCES shipped (probe_file / probe_api / probe_actions_log) taking coverage 3 -> 7 probed. probe_actions_log has NEVER run against the real GitHub Actions API — its controls run again",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
       "source": "probes",
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
       "title": "A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.",
@@ -231,13 +231,22 @@
       "link": ""
     },
     {
+      "source": "open_items",
+      "id": "OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON",
+      "title": "probes.yml AND due-list.yml have ZERO `schedule` runs since they landed 2026-08-31T14:20Z. Scheduling in this repo WORKS (health-snapshot: 438 schedule runs, latest 2026-09-01T04:24Z), so this is neit",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
       "source": "red_crons",
       "id": "replay-pregate-nightly",
       "title": "replay-pregate-nightly",
       "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33383287725"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33491178494"
     },
     {
       "source": "open_items",
@@ -254,6 +263,15 @@
       "title": "The generated SESSION-BRIEF block in CLAUDE.md is the mechanism this session shipped in place of a cap and an adjective, and NO fresh session has ever read it. Shipped and working are different states",
       "why_due": "monitoring row 3d since last observation (cadence 3d)",
       "age_days": 3,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "probes",
+      "id": "OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED",
+      "title": "probe could not run (exit_2)",
+      "why_due": "we did not look — this row is currently unwatched",
+      "age_days": null,
       "loud": false,
       "link": ""
     },
