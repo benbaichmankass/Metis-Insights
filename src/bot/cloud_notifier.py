@@ -177,8 +177,8 @@ async def _drain_one_ping_dir(context, chat_id: str, pings_dir: str,
     bridge to take. The two are never both set on the same directory: the
     canonical Claude inbox is contended and never discards, the legacy twin
     discards and is uncontended (the bridge does not sweep it, so gating it
-    would add delay and buy nothing). See BL-20260901-CLAUDE-PING-TWO-DRAINERS
-    -ONE-QUEUE and ``claude_ping_failover_grace_s`` above.
+    would add delay and buy nothing). See ``claude_ping_failover_grace_s``
+    above, and BL-20260901-CLAUDE-PING-TWO-DRAINERS-ONE-QUEUE.
     """
     try:
         os.makedirs(pings_dir, exist_ok=True)
