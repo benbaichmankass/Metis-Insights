@@ -527,7 +527,10 @@ _LOG_FILES: dict[str, Path] = {
     # THE OPERATOR-ALERT RING (BL-20260901-OPERATOR-ALERTS-HAS-NO-READ-SURFACE).
     # `execution_diagnostics._append_operator_alert` writes every alert that
     # reaches the `/api/bot/notifications` banner feed here -- close_failure,
-    # orphan, stuck-package-sweep, and siblings -- bounded to the last 300 rows.
+    # orphan, stuck-package-sweep, and siblings. It is bounded but NOT to a fixed
+    # 300: `_OPERATOR_ALERTS_KEEP` is 300, yet the trim only fires past 2x that,
+    # so the file holds 300-600 rows and the age of its oldest row is not a
+    # constant. State the `ts` span you actually got before quoting any rate.
     # It had NO read surface, which is the recurring shape
     # BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE
     # names: the file that decides whether an operator gets pinged is the one
