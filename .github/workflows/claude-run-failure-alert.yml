@@ -40,6 +40,11 @@ on:
       # A cron whose run DIES notifies nobody otherwise, and this repo has a live
       # instance of that class open (probes.yml / due-list.yml, zero schedule runs
       # since landing). Watching it is the cheap half.
+      # Phase B's daily digest. A dead run here is invisible twice over: the
+      # digest sends nothing itself (it queues to pending-pings.jsonl for the
+      # VM to drain), so a failed run and a quiet day look identical to the
+      # operator.
+      - work-digest
       - strategy-review-packets
       - trainer-vm-diag
       - vm-diag-snapshot

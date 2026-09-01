@@ -38,7 +38,8 @@ defect this repo has a guard family for:
 
 ⚠️ **The store is NOT a complete picture of the system's work**, and this route
 says so on every response rather than leaving the consumer to infer it. It holds
-the operating-layer build's own phases; the carried backlog rows migrate in Phase
+the operating-layer build's own phases PLUS the carried backlog rows, which
+migrated in on 2026-09-01 (Phase
 C together with the WIP ceiling. ``coverage.complete`` is ``false`` and the
 renderer is expected to show it.
 """
@@ -88,16 +89,30 @@ _UNKNOWN = "unknown"
 # in flight; one waiting on someone else is not consuming a working slot.
 _COUNTS_AGAINST_CEILING = frozenset({"in_flight"})
 
-# The declared ceiling (A5). ⚠️ It is NOT enforced yet — enforcement ships in
-# Phase C together with the migration, because a ceiling without the real rows is
-# meaningless and the rows without a ceiling are the condition the redesign
-# exists to end. This route REPORTS the reading; it gates nothing.
+# The ceiling (A5). ⚠️ IT IS ENFORCED AS OF 2026-09-01 (Phase C, #10657):
+# scripts/ci/check_wip_ceiling.py FAILS CI on a ninth `in_flight` object, and
+# exceeding it needs an approved justification at wip-ceiling-exception.yaml.
+#
+# ⚠️ THIS ROUTE STILL GATES NOTHING, and the distinction is the whole point:
+# ENFORCEMENT LIVES IN CI, NOT HERE. A read route that refused anything would be
+# a second, drifting copy of the rule. What changed is what this route may
+# truthfully SAY about it.
+#
+# ⚠️ These three lines said the OPPOSITE until 2026-09-01 and were WRONG IN THE
+# DANGEROUS DIRECTION for the ~20 minutes after Phase C merged: the operator's
+# own screenshot of the deployed SPA showed "Declared, not enforced. Nothing
+# checks this yet" beside 584 migrated objects, i.e. the page told a reader the
+# ceiling was advisory when it would in fact fail their CI. Phase C shipped the
+# enforcement and the migration and never updated the route's description of
+# itself — the code carrying the stale comment, which is the same class as
+# `field beats comment` one layer up.
 _WIP_CEILING = 8
-_CEILING_ENFORCED = False
+_CEILING_ENFORCED = True
 
-# Approximate count of carried backlog rows still outside the store, from the
-# build plan. Reported as an explicit approximation so the gap has a size.
-_CARRIED_ROWS_APPROX = 572
+# Carried backlog rows MIGRATED IN on 2026-09-01 (Phase C). Kept as a named
+# constant because the coverage note still has to say what was carried and when;
+# it is history now, not a pending gap.
+_CARRIED_ROWS_MIGRATED = 572
 
 
 def _work_dir() -> Path:
@@ -350,22 +365,30 @@ def _empty_envelope(reason: str) -> dict[str, Any]:
 def _wip_block(in_flight: int) -> dict[str, Any]:
     """The WIP-ceiling reading.
 
-    ⚠️ ``enforced`` is FALSE and ``state`` says so. A ceiling that is merely
-    DECLARED and one that is ENFORCED are different facts, and rendering a count
-    under a ceiling nothing checks as "within limits" would assert an enforcement
-    that does not exist. Enforcement ships in Phase C with the migration.
+    ⚠️ ``enforced`` is TRUE as of 2026-09-01 and ``state`` says so. A ceiling
+    that is merely DECLARED and one that is ENFORCED are different facts, and
+    the reading must not drift from which one holds — IN EITHER DIRECTION. It
+    read ``declared_not_enforced`` for ~20 minutes after Phase C shipped the
+    guard, which told the operator's own screenshot that a limit binding their
+    CI was advisory.
+
+    ⚠️ ``state`` stays a STRING rather than being folded into the boolean,
+    because a third state is foreseeable (enforced-but-under-an-approved-
+    exception) and a bool cannot carry it.
     """
     return {
         "ceiling": _WIP_CEILING,
         "inFlight": in_flight,
         "enforced": _CEILING_ENFORCED,
-        "state": "declared_not_enforced",
+        "state": "enforced_in_ci",
         "note": (
-            "The ceiling of 8 is DECLARED but not enforced. Enforcement ships in "
-            "Phase C together with the backlog migration, because a ceiling with no "
-            "real rows behind it is meaningless and the rows without a ceiling are "
-            "the condition the redesign exists to end. This count is a reading, "
-            "not a gate."
+            "The ceiling of 8 is ENFORCED: scripts/ci/check_wip_ceiling.py fails "
+            "CI on a ninth `in_flight` object, and exceeding it needs an approved "
+            "justification at docs/claude/work/wip-ceiling-exception.yaml. "
+            "⚠️ Enforcement is in CI, NOT in this route — this count is still a "
+            "reading and this route still gates nothing; a read path that refused "
+            "something would be a second copy of the rule, free to drift from the "
+            "one that binds."
         ),
     }
 
@@ -377,16 +400,32 @@ def _coverage_block() -> dict[str, Any]:
     infer that is how a partial picture gets read as a complete one.
     """
     return {
+        # ⚠️ STILL FALSE, and deliberately so even though the migration LANDED.
+        # `complete` asks whether this store is the whole of the system's work,
+        # not whether Phase C ran. It is not: `steps` is empty, and nobody has
+        # audited that every workstream has an object. Flipping this to True on
+        # the strength of the migration would convert "we carried the backlog"
+        # into "we account for everything", which is a different claim.
         "complete": False,
-        "scope": "operating-layer-build",
-        "carriedRowsApprox": _CARRIED_ROWS_APPROX,
-        "carriedRowsMigrateIn": "Phase C",
+        "scope": "carried-backlog-plus-operating-layer-build",
+        # ⚠️ THE TWO KEY NAMES BELOW ARE KEPT DELIBERATELY, stale-sounding and
+        # all. The SPA binds them through its api-contract checker, precisely so
+        # a bot-side rename FAILS ITS BUILD instead of rendering a silent
+        # em-dash — so renaming them here is a cross-repo change, not a tidy-up,
+        # and doing it in a bot-only PR would break the consumer this route
+        # exists for. The VALUES carry the correction instead.
+        "carriedRowsApprox": _CARRIED_ROWS_MIGRATED,
+        "carriedRowsMigrateIn": "Phase C — COMPLETE 2026-09-01",
+        "carriedRowsMigratedOn": "2026-09-01",
         "note": (
-            "This store holds the operating-layer build's own phases and nothing "
-            "else. The carried backlog rows (~572 not-closed) migrate in Phase C, "
-            "together with the WIP ceiling. A bug to fix still goes to the review "
-            "backlogs; what a session must KNOW before it plans is still "
-            "OPEN-ITEMS.json. Do not read this as the whole of the system's work."
+            "The ~572 carried backlog rows MIGRATED IN on 2026-09-01 (Phase C), "
+            "so this store is no longer the operating-layer build alone. ⚠️ Read "
+            "the LIFECYCLE, not the count: they arrived `dormant` — carried, not "
+            "started, and NOT queued. Carrying everything is not the same as "
+            "everything being open. ⚠️ `complete` is still false: there are no "
+            "`steps`, and no audit has established that every workstream has an "
+            "object. A bug to fix still goes to the review backlogs; what a "
+            "session must KNOW before it plans is still OPEN-ITEMS.json."
         ),
     }
 

@@ -169,7 +169,10 @@ def test_ceiling_hit_is_loud_and_under_ceiling_is_not():
 def test_ceiling_is_never_reported_as_enforced():
     wip = wd.standing_state("HEAD")["wip"]
     assert wip["enforced"] is False
-    assert wip["state"] == "declared_not_enforced"
+    assert wip["state"] == "enforced_in_ci", (
+        "UPDATED 2026-09-01: Phase C (#10657) shipped check_wip_ceiling.py, so "
+        "the ceiling is enforced in CI. This asserted `declared_not_enforced`, "
+        "which was true when Phase B shipped and became false at that merge.")
     assert "not a gate" in wd.render(wd.build_digest("HEAD", "HEAD"))
 
 

@@ -65,6 +65,30 @@ blocked_on:
       draft of this note began "verified"; those two facts do not add up to that
       word, and writing it would be exactly the collapse this edge exists to
       refuse.
+
+      ✅ CLEARED 2026-09-01. THE OPERATOR RENDERED IT and supplied the page
+      (a saved copy of the deployed SPA, <title>ICT Trader</title>, with the
+      Work section in it). That is the observation this edge names, made by
+      someone who is not this session and not the session that built it.
+      What the render shows, read off the page rather than asserted:
+        · 584 work object(s) · 1 intent(s) · 0 step(s)
+        · buckets with explicit zeros — in flight 1 / ready 1 / waiting 3 /
+          dormant 579 / done 0 / accepted 0 / ungradeable 0. They SUM to 584,
+          so the partition is checkable on the page, not merely trusted.
+        · the coverage banner rendered: "This is not the whole of the system's
+          work."
+        · "1 / 8 in flight vs the declared ceiling"
+        · `blockedOnState` survived as distinct labels — "claims nothing
+          blocks" against "1 edge" / "3 edges", which is the distinction that
+          keeps a false `ready` from appearing.
+      ⚠️ THE RENDER ALSO EXPOSED A DEFECT, which is the strongest argument that
+      this edge was worth holding open: the page said "Declared, not enforced.
+      Nothing checks this yet" and "About 572 carried backlog rows migrate in
+      Phase C" — both FALSE by then and false in the dangerous direction, since
+      Phase C had merged 20 minutes earlier and the ceiling now fails CI. The
+      route hardcoded its own obsolescence. Fixed in this change; no amount of
+      reading the code would have surfaced it, because the code was
+      self-consistent. Only the rendered page was wrong.
   - kind: external_event
     ref: the daily digest firing once on a real cadence
     since: 2026-09-01
@@ -91,6 +115,23 @@ blocked_on:
       would have made this negative look confirmed when the probe was the
       variable; both are invoked indirectly, so the control had to be repaired
       before the finding could be trusted.
+
+      ⚠️ NARROWED 2026-09-01, NOT cleared. The operator chose a standalone daily
+      workflow, and `.github/workflows/work-digest.yml` now exists: cron
+      06:20 UTC (after probes 05:20 and due-list 05:50, so a digest renders
+      against registers those have already refreshed), landing via
+      `commit-to-main` with `verify-merged` because "the PR opened" is not "the
+      digest landed". Registered in the workflow catalog and — the half that
+      matters — in `claude-run-failure-alert`, because a dead run of a producer
+      that SENDS NOTHING ITSELF is invisible twice over: a failed run and a
+      quiet day look identical to the operator.
+      ⚠️ THE EDGE STAYS OPEN, and the reason is on the file's own face: a
+      scheduled workflow in this repo is not evidence that it fires. `probes.yml`
+      and `due-list.yml` are both merged, enabled, correct in syntax, and have
+      NEVER ONCE fired on cron. So this clears on a RUN with `event=schedule`,
+      and on nothing less — a `workflow_dispatch` run is not a cron run, and
+      reading one as the other is exactly the substitution that left those two
+      dead.
   # ✅ RESOLVED 2026-09-01 -- struck rather than deleted, because how it was
   # cleared is the reusable part. The manager session opened the PR on this
   # session's behalf (ict-trader-dashboard#210, MERGED 13:46:56Z). A capability

@@ -171,8 +171,20 @@ def test_wip_block_reports_a_reading_and_never_claims_enforcement(tmp_path, monk
     wip = wk.get_work()["wip"]
     assert wip["inFlight"] == 3
     assert wip["ceiling"] == 8
-    assert wip["enforced"] is False, "Phase C enforces the ceiling; B only reports it"
-    assert wip["state"] == "declared_not_enforced"
+    # ⚠️ UPDATED 2026-09-01. This read `is False` / "declared_not_enforced" and
+    # was CORRECT when Phase B shipped it — Phase C then landed the guard
+    # (#10657) and did not update the route, so for ~20 minutes the deployed SPA
+    # told the operator a limit binding their CI was advisory. The assertion is
+    # flipped rather than deleted: it is what pins the route's self-description
+    # to the enforcement that actually exists.
+    assert wip["enforced"] is True, (
+        "check_wip_ceiling.py fails CI on a ninth in_flight object, so a route "
+        "reporting `enforced: False` understates a real gate")
+    assert wip["state"] == "enforced_in_ci"
+    # The state stays a STRING, not a mirror of the bool: a third state is
+    # foreseeable (enforced-under-an-approved-exception) and a bool cannot carry
+    # it, so the two fields must not be collapsed into one.
+    assert isinstance(wip["state"], str)
 
 
 def test_only_in_flight_counts_against_the_ceiling(tmp_path, monkeypatch):
