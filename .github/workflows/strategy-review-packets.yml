@@ -182,6 +182,26 @@ jobs:
                   p = src / f"{r['strategy']}.{ext}"
                   if p.exists():
                       shutil.copy2(p, dest / p.name); copied += 1
+          # ⚠️ REFUSE TO COMMIT A VACUOUS INDEX, and fail FAST rather than late.
+          # Verified end-to-end against scripts/ops/check_artifact_validity.py:
+          # `rows` is one of its HEURISTIC_INPUT_KEYS and _numeric() reads a list
+          # as its LENGTH, so an index with rows: [] is flagged
+          # "VACUOUS (heuristic): rows=0". The guard is RIGHT -- 0 graded while 52
+          # strategies are enabled means something broke. But without this check
+          # the failure surfaces ~30 minutes later, inside the auto-merge wait,
+          # as a confusing timeout that PAGES (this workflow is on
+          # claude-run-failure-alert's watch list). Here it fails in ~2 minutes
+          # naming the actual cause.
+          # NOTE this does not contradict write_index() still writing the zero
+          # index on the VM: that file is the honest record that the run happened
+          # and graded nothing. What is refused is COMMITTING it as an artifact.
+          if not rows:
+              raise SystemExit(
+                  "::error::index graded 0 strategies while the fleet is non-empty. "
+                  "Refusing to commit a vacuous artifact. Check the generator's log: "
+                  "the wrapper exits 1 when no selector is passed, and returns an "
+                  "empty day dir if the journal was unreadable."
+              )
           print(f"graded={len(rows)} actionable={len(actionable)} files_copied={copied}")
           print(f"by_action={idx.get('by_action')}")
           with open(__import__("os").environ["GITHUB_OUTPUT"], "a") as fh:
