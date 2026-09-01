@@ -1,0 +1,154 @@
+{
+  "_comment": [
+    "THE MANAGER'S CHECKLIST. Every work item in the CURRENT manager session's",
+    "scope, and the state of each.",
+    "",
+    "OPERATOR DIRECTIVE, 2026-09-01, verbatim in intent: 'every manager session",
+    "keeps a detailed checklist of work items in its scope (this may be updated",
+    "as work progresses and the workplan is adapted, eg an unforeseen blocker",
+    "that needs to be resolved to release the rest of the items) - and every",
+    "status update should start with the checklist, then summary of what has",
+    "been done (recently) and what's next.'",
+    "",
+    "SO THE REPORTING CONTRACT IS FIXED: checklist -> recently done -> next.",
+    "In that order, every time. A status update that opens with a narrative is",
+    "not following this.",
+    "",
+    "WHY IT LIVES IN THE REPO AND NOT IN A SESSION'S CONTEXT. Same reason as",
+    "MANAGER-LEASE.json and SESSIONS.json: it must survive its holder's DEATH",
+    "and be readable by a manager arriving COLD. A checklist held only in",
+    "context is lost exactly when a successor most needs it, and re-deriving it",
+    "costs the successor the hours that produced it.",
+    "",
+    "IT IS ADAPTIVE, NOT A FROZEN PLAN. The directive is explicit that it",
+    "changes as work progresses -- an unforeseen blocker that must be resolved",
+    "to release the rest is a first-class edit, not a failure of planning. Add",
+    "the blocker as its own item, point the blocked items at it, and say so.",
+    "",
+    "STATES ARE NEVER COLLAPSED. 'delegated' is not 'in progress' and neither is",
+    "'done'; 'blocked' names WHAT it waits on. Most importantly 'done' means",
+    "MERGED AND OBSERVED, while 'landed_unproven' means the code is in and its",
+    "effect has NOT been seen on the fleet -- the distinction this whole system",
+    "keeps paying for when it is skipped.",
+    "",
+    "THE MANAGER DOES NOT EXECUTE THESE ITEMS. Operator-directed the same day:",
+    "'the manager session only manages and does not take even small items,",
+    "because that means they're not focused on what they're actually supposed",
+    "to be doing.' An item with owner 'manager' is a MANAGEMENT act (a merge, a",
+    "deploy, a lease heartbeat, a spawn), never a build."
+  ],
+  "schema_version": 1,
+  "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+  "updated_at": "2026-09-01T21:32Z",
+  "cycle": "CY-20260901-OPERATING-LAYER",
+  "states": {
+    "done": "merged AND its effect observed",
+    "landed_unproven": "merged; effect NOT yet observed on the fleet",
+    "in_flight": "a session is actively working it",
+    "blocked": "waiting on a named thing; see blocked_on",
+    "queued": "scoped and agreed, nobody started it",
+    "triage": "noticed, not yet scoped",
+    "dropped": "deliberately not doing; reason required"
+  },
+  "items": [
+    {
+      "id": "MI-01-PING-FORMAT",
+      "title": "Format-B ping system: one owner, three classes, gating",
+      "state": "landed_unproven",
+      "owner": "manager (SHOULD HAVE BEEN DELEGATED)",
+      "prs": [10669, 10671],
+      "note": "Merged and CI-green. NOT observed: no ping in this format has been seen arriving anywhere. The operator's own read is the evidence that matters and it has not happened."
+    },
+    {
+      "id": "MI-02-CLAUDE-CHANNEL",
+      "title": "Claude pings reach the DEDICATED bot @ict_cluade_bot, not the trader chat",
+      "state": "in_flight",
+      "owner": "session_01J16qHJHbnvqDyRWWAvdiRD",
+      "prs": [10674],
+      "blocked_on": [
+        {"kind": "pr", "ref": "10674", "since": "2026-09-01T21:16Z", "what": "manager merges when pytest-run goes green"},
+        {"kind": "deploy", "ref": "set-env TELEGRAM_CLAUDE_BOT_SECRET", "since": "2026-09-01T21:16Z", "what": "token is in Actions, not yet on the VM; needs service: ict-claude-bridge.service (the suffix is required)"}
+      ],
+      "note": "Root cause: #10664 built the router and converted cloud_notifier, leaving claude_bridge's drain hardcoding the trader token. The bot was configured, resolvable and INERT. A 20:58:49Z ping WAS delivered -- to the trader chat."
+    },
+    {
+      "id": "MI-03-MORNING-DIGEST",
+      "title": "The 06:20 work digest is the operator's morning report, on the Claude bot",
+      "state": "blocked",
+      "owner": "session_01J16qHJHbnvqDyRWWAvdiRD",
+      "blocked_on": [{"kind": "item", "ref": "MI-02-CLAUDE-CHANNEL", "since": "2026-09-01T21:22Z", "what": "there is no separated channel to deliver into yet"}],
+      "note": "Cadence raised daily -> every 4h in #10669, keeping the 06:20 slot because it lands after probes (05:20) and due-list (05:50). WARNING: scheduled workflows in this repo have NEVER fired on cron (OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON), so correct cron syntax is not evidence it will run."
+    },
+    {
+      "id": "MI-04-PHASE-F",
+      "title": "Phase F / C3 decision preparation -- the one phase touching the measured constraint",
+      "state": "in_flight",
+      "owner": "session_01MDjxAnncsh71UiRAWtYHkH",
+      "note": "strategy_review_packet.py is 1,518 lines writing to a gitignored path with no cron: C3 has never produced a durable artifact. C4 is DEFERRED in the build plan with a stated reason and must not be routed around."
+    },
+    {
+      "id": "MI-05-PHASE-D",
+      "title": "Phase D / E1 constraint diagnosis -- the constraint computed rather than judged",
+      "state": "in_flight",
+      "owner": "session_01Eb2CgctP8MGHD2Pnh8gpqF",
+      "note": "Releases Phase G. Warned that ~583 migrated objects carry blocked_on: [] with basis NOT_ASSESSED, so a naive computation would confidently report 'nothing is blocked' -- a fabricated answer wearing a computed label."
+    },
+    {
+      "id": "MI-06-PHASE-G",
+      "title": "Phase G -- the forcing function: retirement, and the capability pull rule",
+      "state": "blocked",
+      "owner": null,
+      "blocked_on": [{"kind": "item", "ref": "MI-05-PHASE-D", "since": "2026-09-01T21:17Z", "what": "the pull rule is only enforceable once E1 can name the held-up stage"}],
+      "note": "THIS IS THE UNFORESEEN-BLOCKER SHAPE THE DIRECTIVE NAMES: G cannot start until D lands. Do not spawn it early."
+    },
+    {
+      "id": "MI-07-PHASE-H-PRECONDITIONS",
+      "title": "Phase H preconditions: retire Android+Streamlit from the live feed; narrow the DB explorer",
+      "state": "in_flight",
+      "owner": "session_01LvzsinECH8HPCyauVJZBZw",
+      "note": "The DB-explorer half is a live unauthenticated read surface reaching device_tokens (raw FCM tokens) on a PUBLIC repo -- treated as the higher priority. Tier-2: comes back as a DRAFT for operator approval, never merged by the manager."
+    },
+    {
+      "id": "MI-08-PHASE-H",
+      "title": "Phase H -- the control half: decisions answerable from the UI, and the read gate",
+      "state": "queued",
+      "owner": null,
+      "blocked_on": [{"kind": "item", "ref": "MI-07-PHASE-H-PRECONDITIONS", "since": "2026-09-01T21:22Z", "what": "attaching require_session is only tractable once the other consumers are archived"}]
+    },
+    {
+      "id": "MI-09-GLD-CLOSE",
+      "title": "alpaca_paper GLD will not flatten -- 397 consecutive close failures",
+      "state": "in_flight",
+      "owner": "session_01Hd8opmCBcNQRchwdasWpvL",
+      "note": "MANAGER'S HYPOTHESIS WAS THAT _close_extended_hours missed BL-20260708's qty-release fix. The session reports a DIFFERENT root cause -- an order stuck in pending_cancel since Aug 27. That is THEIR finding, unverified by the manager; do not restate the manager's hypothesis as the cause. Order path: DRAFT only, operator approval required."
+    },
+    {
+      "id": "MI-10-PROP-FILLS",
+      "title": "breakout_1 prop journal missing terminal trades since 2026-08-30",
+      "state": "in_flight",
+      "owner": "session_01Xj5Puf96WC1YGKdZT4TikJ",
+      "note": "Balance moved $33.34 between two operator reports with zero fills reported in between. Manual bridge: recovery may need an operator screenshot. NEVER fabricate a fill to close the gap."
+    },
+    {
+      "id": "MI-11-MANAGER-LEASE",
+      "title": "Hold and heartbeat the manager lease",
+      "state": "in_flight",
+      "owner": "manager",
+      "note": "Expires 2026-09-01T22:12:19Z. Heartbeat folded into the 22:04Z sweep. It lapsed once today for 215 min because the heartbeat is REMEMBERED, not scheduled -- that is the real defect, not the cost (a lease-only PR runs pytest-run in 11-15 s, corrected in #10672)."
+    },
+    {
+      "id": "MI-12-STALE-AUTOMATION-PR",
+      "title": "#10398 econ-calendar PIT snapshots (auto) -- open since 2026-08-29",
+      "state": "triage",
+      "owner": null,
+      "note": "An automation PR three days old. Nobody has disposed of it. Merge, close, or find why it stalled -- an auto-PR nobody lands is the shape of a mechanism that has quietly stopped working."
+    },
+    {
+      "id": "MI-13-BACKLOG-DRAIN",
+      "title": "Drain the review backlogs (1,072 rows in health-review alone)",
+      "state": "queued",
+      "owner": null,
+      "note": "A dedicated /backlog-drain skill exists for this. Reviews FILE and one skill CLOSES; the measured filed-vs-closed ratio is the disease the operating layer exists to treat."
+    }
+  ]
+}
