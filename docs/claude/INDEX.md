@@ -55,6 +55,7 @@ reasonably conclude none existed. The authoritative list is the directory itself
 **Review cadence**
 
 - `duty` — The DUTY PASS — the short, bounded session that gives every detected signal an OWNER: reads the one generated due-list (`docs/claude/DUE.md`) and drives each row to a written disposition (acted / filed / escalated / not-due). Start here; it is not a review and never replaces one.
+  - ⚠️ **`docs/claude/READOUT.md` sits BESIDE `DUE.md`, and neither supersedes the other.** The due-list says what is DUE; the readout (E1/A1, `scripts/ops/constraint_readout.py --write`) says where the chain is HELD UP, with the book and the money, the in-flight set against the ceiling, and the decisions waiting on a person. Phase D's plan called for deleting the due-list; it was NOT deleted, because four of its source classes — probes, monitoring cadences, the recurrence ledger, red crons and unlanded automation PRs — have no counterpart in the readout. ⚠️ The readout is a **dated snapshot**, not a live read: check its `generated_at` before quoting it, and re-run rather than trusting its age.
 - `system-review` — Master SYSTEM REVIEW session — the WORK is the review; the report is just its deliverable.
 - `system-report` — Back-compat alias for /system-review — the master SYSTEM REVIEW session (the work is the review; the report is its deliverable).
 - `health-review` — Autonomous layer-2 review of the LIVE ICT TRADING BOT's TECHNICAL runtime health — pipeline plumbing, DB integrity, data validity, service state, alert delivery, sprint-doc drift.

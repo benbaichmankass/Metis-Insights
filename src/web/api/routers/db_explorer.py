@@ -5,8 +5,16 @@ Tier-1 read surface for the dashboard's Data Explorer tab. Browses the
 the trainer-store sidecar ``trainer_store.db`` (trainer/ML lifecycle data
 ingested from the trainer mirror — see ``src/units/db/trainer_store.py``).
 Together they make every producer — live trader and trainer — queryable
-from one place. No secrets live in either DB (credentials are
-env/config and redacted elsewhere).
+from one place.
+
+⚠️ **The premise this docstring used to state — "no secrets live in either
+DB" — was FALSE, and is why this route needed narrowing**
+(``BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN``).
+``trade_journal.db::device_tokens.token`` holds **raw FCM push tokens**, and a
+``SELECT *`` on an unauthenticated route returned them in full, while the
+dedicated ``/api/bot/devices`` route is token-gated AND deliberately returns
+only ``token_suffix``. Do not restore that sentence. If you add a table, assume
+it may hold a secret until you have checked column by column.
 
 Each table in the listing carries a ``db`` field (``"trade_journal"`` or
 ``"trainer_store"``) so the UI can group them; the table-read endpoint
@@ -20,6 +28,20 @@ Safety contract (read-only, injection-free):
   * Filter values are bound parameters.
   * Results are capped (``MAX_LIMIT``) and paginated; list views return
     ``total`` so the UI can page.
+
+Exposure contract (default-deny — added 2026-09-01, operator decision):
+  * **Table allowlist.** Only tables named in ``_TABLE_ALLOWLIST`` are listed
+    or readable. ⚠️ **The inversion is the point:** a table added to the
+    schema and NOT added to the allowlist is **invisible** (404) rather than
+    exposed until someone notices. Adding a table to this file is a
+    deliberate admission that it holds nothing secret.
+  * **Column redaction.** Columns named in ``_REDACTED_COLUMNS`` are dropped
+    from the schema listing AND never enter the SELECT projection, so a
+    redacted value cannot leave SQLite. Because the filter/order validator
+    resolves against the *visible* column set, a redacted column is also not
+    filterable — which matters more than it looks: ``filter_state`` +
+    ``total`` would otherwise be a working oracle for brute-forcing a secret
+    one ``LIKE`` prefix at a time, without ever returning the row.
 """
 from __future__ import annotations
 
@@ -55,6 +77,69 @@ _FILTER_OPS: Dict[str, str] = {
     "gte": ">=", "lte": "<=", "like": "LIKE",
 }
 
+# ---------------------------------------------------------------------------
+# Exposure contract — DEFAULT-DENY. See the module docstring.
+# ---------------------------------------------------------------------------
+# Every table the Data Explorer may list or read. A table NOT named here is
+# invisible: absent from /db/tables and 404 from /db/table/{name}.
+#
+# ⚠️ ADDING A NAME HERE IS A SECURITY DECISION, not a formality. It asserts you
+# have read that table's columns and none of them holds a credential, a token,
+# or third-party PII. The default is deny precisely so that forgetting this
+# file is the SAFE failure — the old behaviour exposed every new table the
+# instant it was created, which is how `device_tokens` became world-readable
+# on a public host without any decision ever being taken.
+#
+# Contents as of 2026-09-01: the 21 tables live on the host at that date, minus
+# `device_tokens`. Verified against the live schema, not assumed from the repo.
+_TABLE_ALLOWLIST: frozenset = frozenset({
+    # --- trade_journal.db -------------------------------------------------
+    "account_context_snapshots",
+    "backtest_results",
+    "balance_snapshots",
+    "daily_risk_state",
+    "insights_history",
+    "insights_usage",
+    "learning_progress",
+    "order_packages",
+    "position_telemetry",
+    "prop_account_status",
+    "prop_fills",
+    "prop_tickets",
+    "signals",
+    "strategy_versions",
+    "trades",
+    # ⚠️ `device_tokens` is DELIBERATELY ABSENT — it holds raw FCM push tokens
+    # in `token`. The dedicated /api/bot/devices route is the supported way to
+    # see registered devices; it is token-gated and returns only a suffix.
+    # Do not add it back. BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN.
+    # --- trainer_store.db (sidecar) ---------------------------------------
+    "backtest_sweeps",
+    "dataset_builds",
+    "db_pulls",
+    "experiment_runs",
+    "model_registry",
+    "training_cycle",
+})
+
+# Per-table columns that are never listed and never selected, for tables that
+# ARE allowlisted. Defence in depth behind the allowlist: if a future session
+# allowlists `device_tokens` without reading the comment above, `token` still
+# does not leave the process.
+#
+# ⚠️ Match on EXACT column names, never a substring/regex on "token"/"key".
+# `insights_usage` has `input_tokens` / `output_tokens` / `cache_read_tokens`,
+# which are LLM token COUNTS and entirely safe; a pattern-matcher would redact
+# them and quietly break the cost dashboard.
+_REDACTED_COLUMNS: Dict[str, frozenset] = {
+    "device_tokens": frozenset({"token"}),
+}
+
+
+def _redacted_for(table: str) -> frozenset:
+    """Columns to hide for *table* (empty when nothing is redacted)."""
+    return _REDACTED_COLUMNS.get(table, frozenset())
+
 
 def _federated_dbs() -> List[Tuple[str, Path]]:
     """Ordered (label, path) for every DB in the federated store that
@@ -84,13 +169,30 @@ def _list_tables(conn: sqlite3.Connection) -> List[str]:
         "AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '\\_%' ESCAPE '\\' "
         "ORDER BY name"
     ).fetchall()
-    return [r["name"] for r in rows]
+    # DEFAULT-DENY: the allowlist is applied HERE, the single chokepoint every
+    # caller goes through (`db_tables` for listing, `_resolve_table_db` for the
+    # read). A table missing from `_TABLE_ALLOWLIST` is therefore not merely
+    # hidden from the listing — it does not resolve, so the read 404s too.
+    return [r["name"] for r in rows if r["name"] in _TABLE_ALLOWLIST]
 
 
 def _columns(conn: sqlite3.Connection, table: str) -> List[Dict[str, Any]]:
-    # ``table`` MUST already be validated against _list_tables before here.
+    """Visible columns for *table* — redacted ones are omitted entirely.
+
+    ``table`` MUST already be validated against _list_tables before here.
+
+    Every caller derives from this: the schema listing, the row projection,
+    and the filter/order validator. That is deliberate — a redacted column is
+    consequently not selectable AND not filterable, so it cannot be inferred
+    through ``total`` either.
+    """
+    hidden = _redacted_for(table)
     rows = conn.execute(f'PRAGMA table_info("{table}")').fetchall()
-    return [{"name": r["name"], "type": r["type"]} for r in rows]
+    return [
+        {"name": r["name"], "type": r["type"]}
+        for r in rows
+        if r["name"] not in hidden
+    ]
 
 
 def _json_safe(value: Any) -> Any:
@@ -205,7 +307,15 @@ def db_table(
     try:
         conn = _connect(path)
         try:
-            colnames = {c["name"] for c in _columns(conn, table)}
+            columns = _columns(conn, table)
+            colnames = {c["name"] for c in columns}
+            if not columns:
+                # Allowlisted but every column redacted. There is no valid
+                # projection for that, and returning an empty-row page would
+                # imply the table is empty. Treat it as not exposed.
+                raise HTTPException(
+                    status_code=404, detail=f"unknown table: {table}"
+                )
 
             params: List[Any] = []
             where = ""
@@ -244,10 +354,17 @@ def db_table(
                 direction = "ASC" if str(order_dir).lower() == "asc" else "DESC"
                 order = f' ORDER BY "{order_by}" {direction}'
 
-            sql = f'SELECT * FROM "{table}"{where}{order} LIMIT ? OFFSET ?'
+            # ⚠️ EXPLICIT PROJECTION, not `SELECT *`. A redacted column must
+            # never enter the result set in the first place — filtering it out
+            # of `data` after the fetch would still have pulled the secret into
+            # this process's memory, and one refactor of the row-building loop
+            # would put it back on the wire. `colnames` is already
+            # post-redaction (see `_columns`), so this projection is the
+            # visible set by construction.
+            projection = ", ".join(f'"{c["name"]}"' for c in columns)
+            sql = f'SELECT {projection} FROM "{table}"{where}{order} LIMIT ? OFFSET ?'
             rows = conn.execute(sql, [*params, limit, offset]).fetchall()
             data = [{k: _json_safe(r[k]) for k in r.keys()} for r in rows]
-            columns = _columns(conn, table)
         finally:
             conn.close()
     except sqlite3.Error:  # allow-silent: tier-1 read; logged + surfaced as 503
