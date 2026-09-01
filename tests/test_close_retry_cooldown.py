@@ -11,6 +11,8 @@ These tests patch `_send_close_to_exchange` so no IB/Bybit I/O happens.
 """
 from __future__ import annotations
 
+import itertools
+
 import pytest
 
 from src.runtime import order_monitor as om
@@ -194,6 +196,8 @@ def test_close_fail_streak_alerts_at_threshold(monkeypatch):
     from src.runtime import execution_diagnostics as ed
     monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_AFTER", "3")
     om._CLOSE_FAIL_STREAK.clear()
+    om._CLOSE_FAIL_ALERT_AT.clear()
+    om._CLOSE_FAIL_ALERT_COUNT.clear()
     alerts = []
     monkeypatch.setattr(ed, "enqueue_close_failure", lambda **kw: alerts.append(kw))
     _patch_close(monkeypatch, [_GENERIC_FAIL])
@@ -213,6 +217,8 @@ def test_close_fail_streak_reset_on_success(monkeypatch):
     from src.runtime import execution_diagnostics as ed
     monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_AFTER", "2")
     om._CLOSE_FAIL_STREAK.clear()
+    om._CLOSE_FAIL_ALERT_AT.clear()
+    om._CLOSE_FAIL_ALERT_COUNT.clear()
     alerts = []
     monkeypatch.setattr(ed, "enqueue_close_failure", lambda **kw: alerts.append(kw))
     # fail (streak 1) → success (clears) → fail on a LATER position (streak 1
@@ -239,3 +245,126 @@ def test_close_fail_streak_reset_on_success(monkeypatch):
     om._apply_update(db2, _OPEN_PKG, _VERDICT, om._StrategyTickSummary())
     assert alerts == []
     assert om._CLOSE_FAIL_STREAK[key] == 1
+
+
+# --------------------- close-failure alert BACKOFF (BL-20260901-CLOSE-FAIL-
+# ALARM-DESENSITISED, the alpaca_paper GLD pages)
+#
+# The repeat cadence used to be a fixed modulo of the streak
+# (`_streak % _after == 0`) — tied to the tick rate, never widening, never
+# capped. At the 30s EXIT_LOOP_INTERVAL_SECONDS default that is a page every
+# 90s for as long as the position stays wedged (~160 over one extended-hours
+# session). The operator walks past an alarm that behaves like that, which is
+# the desensitised-alarm failure CLAUDE.md calls a bug in its own right.
+#
+# NOTE the property these pin that the pre-existing tests did NOT: those only
+# ever drove the FIRST alert, so the repeat cadence was entirely uncovered.
+
+
+def _reset_alert_state():
+    om._CLOSE_FAIL_STREAK.clear()
+    om._CLOSE_FAIL_ALERT_AT.clear()
+    om._CLOSE_FAIL_ALERT_COUNT.clear()
+
+
+def test_alert_backoff_first_page_at_threshold_then_quiet(monkeypatch):
+    """Pages at the threshold, then stays QUIET on the immediately-following
+    failures — where the old fixed modulo paged again at 2x the threshold."""
+    monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_AFTER", "3")
+    monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_BACKOFF_S", "300")
+    _reset_alert_state()
+    key = ("alpaca_paper", "GLD", "long")
+
+    assert om._should_alert_close_failure(key, 1, now=0.0) is False
+    assert om._should_alert_close_failure(key, 2, now=30.0) is False
+    assert om._should_alert_close_failure(key, 3, now=60.0) is True   # first page
+    # Ticks 4..10 land inside the 300s backoff → silent. The OLD behaviour
+    # would have paged at streak 6 and 9.
+    for streak, t in [(4, 90.0), (5, 120.0), (6, 150.0), (9, 240.0), (10, 270.0)]:
+        assert om._should_alert_close_failure(key, streak, now=t) is False, streak
+
+
+def test_alert_backoff_widens_and_caps_but_never_silences(monkeypatch):
+    """Interval doubles per page, clamps at the max, and keeps pinging forever —
+    a wedged position must never become SILENT."""
+    monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_AFTER", "1")
+    monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_BACKOFF_S", "100")
+    monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_MAX_BACKOFF_S", "400")
+    _reset_alert_state()
+    key = ("alpaca_paper", "GLD", "long")
+
+    now = 0.0
+    fired = []
+    # Drive 4h of 30s ticks; record when a page fires.
+    for i in range(480):
+        if om._should_alert_close_failure(key, i + 1, now=now):
+            fired.append(now)
+        now += 30.0
+
+    gaps = [round(b - a) for a, b in itertools.pairwise(fired)]
+    assert fired[0] == 0.0                       # first failure pages at once
+    assert gaps[:3] == [120, 210, 420], gaps     # ~100 → 200 → 400, tick-quantised
+    assert all(g <= 420 for g in gaps), gaps     # clamped at the max
+    assert all(g >= 120 for g in gaps), gaps     # never faster than the floor
+    # Never silent: it kept paging to the end of the window...
+    assert fired[-1] > now - 500
+    # ...but bounded by the cap: ~window/max_interval pages, not one per tick.
+    # 4h / 400s ≈ 36, vs 480 pages from the old every-tick cadence at AFTER=1.
+    assert 30 <= len(fired) <= 42, len(fired)
+
+
+def test_alert_backoff_default_knobs_page_count_over_a_wedged_session(monkeypatch):
+    """The operator-facing number, at the SHIPPED defaults: a position wedged for
+    a whole 4h extended-hours session at the 30s exit-loop tick.
+
+    Old cadence (fixed modulo, AFTER=3): a page every 3rd tick = every 90s = 160
+    pages. That is the alarm the operator learned to walk past.
+    """
+    monkeypatch.delenv("MONITOR_CLOSE_FAIL_ALERT_AFTER", raising=False)
+    monkeypatch.delenv("MONITOR_CLOSE_FAIL_ALERT_BACKOFF_S", raising=False)
+    monkeypatch.delenv("MONITOR_CLOSE_FAIL_ALERT_MAX_BACKOFF_S", raising=False)
+    _reset_alert_state()
+    key = ("alpaca_paper", "GLD", "long")
+
+    now, fired = 0.0, []
+    for i in range(480):                      # 480 ticks x 30s = 4 hours
+        if om._should_alert_close_failure(key, i + 1, now=now):
+            fired.append(now)
+        now += 30.0
+
+    old_cadence_pages = 480 // om._DEFAULT_CLOSE_FAIL_ALERT_AFTER   # 160
+    assert old_cadence_pages == 160
+    assert len(fired) <= 10, fired            # ~7 at the shipped defaults
+    assert len(fired) >= 4, fired             # still clearly audible
+    assert fired[0] == 60.0                   # 3rd consecutive failure, unchanged
+    # Final gap has widened to the hourly clamp, and it never went silent.
+    assert round(fired[-1] - fired[-2]) == round(
+        om._DEFAULT_CLOSE_FAIL_ALERT_MAX_BACKOFF_S / 30.0) * 30
+
+
+def test_alert_backoff_cleared_state_pages_immediately(monkeypatch):
+    """A confirmed close / market DEFER clears the backoff, so the NEXT genuine
+    failure pages at the threshold again rather than inheriting a wide interval."""
+    monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_AFTER", "1")
+    monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_BACKOFF_S", "300")
+    _reset_alert_state()
+    key = ("alpaca_paper", "GLD", "long")
+
+    assert om._should_alert_close_failure(key, 1, now=0.0) is True
+    assert om._should_alert_close_failure(key, 2, now=60.0) is False
+    om._clear_close_fail_alert_state(key)        # what a defer / success does
+    assert key not in om._CLOSE_FAIL_STREAK
+    assert om._should_alert_close_failure(key, 1, now=90.0) is True
+
+
+def test_alert_backoff_env_fallbacks_are_safe(monkeypatch):
+    """Unparseable knobs fall back to the defaults rather than disabling paging."""
+    monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_AFTER", "1")
+    monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_BACKOFF_S", "not-a-number")
+    _reset_alert_state()
+    key = ("alpaca_paper", "GLD", "long")
+    assert om._should_alert_close_failure(key, 1, now=0.0) is True
+    # default 300s floor applies, so a 60s-later failure is still quiet
+    assert om._should_alert_close_failure(key, 2, now=60.0) is False
+    assert om._should_alert_close_failure(
+        key, 3, now=0.0 + om._DEFAULT_CLOSE_FAIL_ALERT_BACKOFF_S + 1) is True
