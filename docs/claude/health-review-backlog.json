@@ -30304,6 +30304,32 @@
       "status": "open",
       "resolution_criteria": "#10666 merges and deploys, AND a real wedged-close episode on the live fleet is OBSERVED producing a widening page sequence rather than a fixed-cadence one -- counted from /api/bot/logs?level=error over the episode's own window, with the episode's duration stated so the count has a denominator. A passing unit test is NOT this observation. ⚠️ Do NOT close this on 'the pages stopped': pages stopping is equally consistent with the close path being fixed and the position never wedging again, which would tell you nothing about the pager. The clearing evidence needs a wedge that actually happened.",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260901-RUN-FAILURE-ALERT-MISSES-STARTUP-FAILURE-AND-ACTION-REQUIRED",
+      "opened_at": "2026-09-01T16:00:00+00:00",
+      "opened_by": "claude (manager session, merge-queue work)",
+      "source": "Read while working the merge queue; grounded in .github/workflows/claude-run-failure-alert.yml:180 rather than recalled.",
+      "title": "claude-run-failure-alert fires on only 3 of GitHub's ~7 run conclusions, so a workflow that never STARTS (startup_failure) is silent",
+      "description": "The alert's `if:` is `conclusion == 'failure' || 'cancelled' || 'timed_out'`. GitHub's conclusion set also includes `startup_failure`, `action_required`, `stale` and `neutral`. None of those alerts. THE SERIOUS ONE IS `startup_failure`: the workflow never ran at all -- invalid YAML, a bad `uses:` ref, a secret unresolvable at parse time. That is a MORE total failure than `failure` (which at least means steps executed), and it is exactly the state in which a scheduled job silently stops doing its job. `action_required` (waiting on manual approval) and `stale` (abandoned) are the same shape: the run did not do its work and nothing says so. ⚠️ THE COMMENT ABOVE THE FILTER STATES A POPULATION IT DOES NOT HAVE: it reads 'success and skipped never alert', enumerating two exceptions, when the un-covered set is at least six. A reader checking the reasoning would conclude the coverage is complete. That is the unstated-denominator error this repo already has a name for, sitting in the comment rather than the code. WHY IT MATTERS HERE SPECIFICALLY: this workflow is the thing that notices when OTHER scheduled workflows die, and OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON already records two workflows that are merged, enabled, and have never once fired. A watcher blind to `startup_failure` is blind to precisely that condition.",
+      "tier": "tier-1",
+      "severity": "medium",
+      "status": "open",
+      "resolution_criteria": "The filter covers every conclusion that means THE RUN DID NOT DO ITS WORK (at minimum `startup_failure` and `action_required`), the comment states the ACTUAL un-covered set rather than an example of it, AND the added coverage is SHOWN to fire -- a run forced to `startup_failure` (e.g. a deliberately invalid workflow on a scratch branch) produces the alert. ⚠️ Do NOT close on the `if:` expression being widened: a filter that has only ever been evaluated against `success` is indistinguishable from one that cannot fire, which is the same standard BL-20260901-NO-PRE-MERGE-GUARD-ON-BACKLOG-ROUND-TRIP was held to.",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260901-SESSION-BRIEF-LOADS-ITS-REGISTERS-CWD-RELATIVE-AND-EMPTY-READS-AS-CLEAR",
+      "opened_at": "2026-09-01T16:00:00+00:00",
+      "opened_by": "claude (manager session, merge-queue work)",
+      "source": "scripts/ops/render_session_brief.py:59-68, read directly.",
+      "title": "render_session_brief resolves its three registers CWD-relative and swallows the miss, so a brief rendered from the wrong directory says 'nothing is due'",
+      "description": "`_OPEN_ITEMS`/`_RECURRENCE`/`_CYCLE_PRIORITY` are bare `Path(\"docs/claude/...\")` -- CWD-relative, not anchored to `__file__` or a repo root. `_load()` then catches `OSError` (which includes FileNotFoundError) and returns `{}`. SO THE TWO STATES COLLAPSE: 'we could not find the register' and 'the register is empty' render identically, and the rendered SESSION BRIEF reads as *nothing is due*. That is the dangerous direction, and it lands on the one surface that reaches a session BEFORE it acts -- CLAUDE.md's brief is inlined precisely because hooks do not run on Claude Code on the web and CI guards fire after the wrong work is built. A silently-empty brief does not degrade the mechanism, it inverts it. THE REPO ALREADY FORBIDS THIS CLASS ELSEWHERE: `canonical-db-resolver` exists because a CWD-relative `trade_journal.db` seeded stray duplicate journals under each process's working directory, and `silent-empty-guard` exists for the broad-except-returning-empty half. This site has both defects at once and is covered by neither guard. ⚠️ NOT OBSERVED FAILING -- the renderer is invoked from the repo root today, so this is a latent defect, not a live incident. It is filed at that strength deliberately: what makes it worth fixing is that when it does fire it is SILENT, not that it is firing now.",
+      "tier": "tier-1",
+      "severity": "medium",
+      "status": "open",
+      "resolution_criteria": "BOTH halves, because either alone leaves the failure silent. (a) The three paths resolve from an anchor that does not depend on CWD (repo root via `__file__`, or the existing canonical resolver if one fits). (b) A register that CANNOT BE READ is distinguishable from one that is EMPTY -- the brief must say which, rather than rendering a confident 'nothing due'. Verified by rendering from a DIFFERENT working directory and seeing the brief either resolve correctly or announce that it could not look; a passing render from the repo root proves nothing, since that is the path that already works.",
+      "snoozed_until": null
     }
   ]
 }

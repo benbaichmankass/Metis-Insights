@@ -37,7 +37,10 @@
         "Metis-Insights:claude/phase-b-work-view-digest",
         "ict-trader-dashboard:claude/phase-b-work-view"
       ],
-      "prs": ["Metis-Insights#10654", "ict-trader-dashboard#210"],
+      "prs": [
+        "Metis-Insights#10654",
+        "ict-trader-dashboard#210"
+      ],
       "last_observed": {
         "at": "2026-09-01T13:35Z",
         "status_category": "review_ready",
@@ -51,13 +54,58 @@
       "title": "Phase C — migration, the WIP ceiling, and priority propagation",
       "spawned_at": "2026-09-01T12:08:17Z",
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "branches": ["Metis-Insights:claude/operating-layer-phase-c"],
-      "prs": ["Metis-Insights#10657"],
+      "branches": [
+        "Metis-Insights:claude/operating-layer-phase-c"
+      ],
+      "prs": [
+        "Metis-Insights#10657"
+      ],
       "last_observed": {
         "at": "2026-09-01T13:35Z",
         "status_category": "need_input",
         "needs_action": "STALE. Reads 'open PR + post board comment, 403' with updated_at frozen at 12:40:48Z. BOTH were absorbed by the manager: PR #10657 opened, board comment posted on issue #6927. The flag cannot be cleared without the session running another turn; archive it once #10657 merges.",
         "note": "Its self-reported guard result (PASS 62 / FAIL 3, 'all three reproduce on origin/main') did NOT hold. CI returned PASS 64 / FAIL 1, and the one failure was diff-scoped -- caused by its own change, not pre-existing. Fixed by the manager in 7d4b94f; guards now green. This is the case for re-running a sub-session's report rather than relaying it."
+      }
+    },
+    {
+      "session_id": "session_019SqqtiDAZr8w7z5wpJw5cP",
+      "owns_object": null,
+      "owns_object_note": "NO work object, deliberately. This is an INCIDENT spawned from a live Telegram page, not a phase of the build. Inventing an object to satisfy the schema would put a fabricated row in the store; the honest value is null with this note. If it turns into standing work it gets an object then.",
+      "title": "GLD close-failure loop on alpaca_paper (30+ CRITICALs)",
+      "spawned_at": "2026-09-01T14:41:34Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "spawn_reason": "OPERATOR-DIRECTED TEST OF THE DELEGATION FLOW: the operator threw a Telegram warning at the manager to see it spawn, investigate, rectify and report back. The condition is real and live.",
+      "branches": [
+        "Metis-Insights:claude/gld-close-failure-loop"
+      ],
+      "prs": [
+        "Metis-Insights#10666"
+      ],
+      "last_observed": {
+        "at": "2026-09-01T15:20Z",
+        "status_category": "review_ready",
+        "needs_action": "PR could not be opened from the sub-session (the known read-only-MCP 403); ABSORBED by the manager -- Metis-Insights#10666 opened as DRAFT.",
+        "note": "Tier 2: it changes a live close path (_close_extended_hours) and the close-fail pager. Draft until one operator OK. Its own status line read 'branch pushed, refspec fixed, HEAD == upstream; GLD not deployed' -- deployed is exactly what it is NOT, and the draft state keeps that true."
+      }
+    },
+    {
+      "session_id": "session_01BASMLEeyyj3jwRdgRFhV2A",
+      "owns_object": null,
+      "owns_object_note": "No work object. This is operator-directed infrastructure wiring, not a phase of the operating-layer build; inventing an object to satisfy the schema would put a fabricated row in the store.",
+      "title": "Telegram: mirror Claude pings to the dedicated bot + verify on the VM",
+      "spawned_at": "2026-09-01T15:15:29Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "spawn_reason": "OPERATOR-DIRECTED, and the reason is worth recording: the manager had absorbed the first half of this task itself with no good reason -- context was already loaded and delegating felt slower, which is exactly the pull the operating-model design names (ops work wins because it is urgent, legible and available). The operator asked why, the manager had no defensible answer, and handed off the remaining half. Second test of the delegation flow.",
+      "depends_on": "PR #10664 (claude/telegram-route-owner) carries src/bot/telegram_routes.py, the module this session builds on. ⚠️ NOT merged at spawn time. The spawn prompt handles it MECHANICALLY rather than by waiting: branch off main if the module is there, else off #10664's branch and say so in the PR. The MANAGER owns merging #10664.",
+      "branches": [
+        "Metis-Insights:claude/telegram-ping-mirror (expected; not yet pushed)"
+      ],
+      "prs": [],
+      "last_observed": {
+        "at": "2026-09-01T15:15Z",
+        "status_category": "working",
+        "needs_action": null,
+        "note": "Just spawned; nothing observed. Carries the operator's two decisions in its prompt: (a) separation comes from the TOKEN, not a new chat id -- the manager's opposite claim was WRONG and operator-corrected, and the prompt says so, so the sub-session cannot re-derive the error; (b) mirror ALONGSIDE the existing trader-bot path, never a cutover."
       }
     }
   ]

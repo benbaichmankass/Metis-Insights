@@ -3,10 +3,11 @@ type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: "Phase E — no work is lost, and rules are verified at exit"
 stage: CAPABILITY
-# dormant -> ready 2026-09-01: its one blocker is answered (see lease_design
-# below). `ready` is not `in_flight`, so this consumes no WIP slot -- it is
-# available to be picked up, nothing more.
-lifecycle: ready
+# dormant -> ready -> in_flight, all on 2026-09-01. `ready` came when the one
+# blocker was answered (see lease_design); `in_flight` came when the manager
+# session STARTED the first slice, so it now consumes a WIP slot -- correctly,
+# because it is being worked rather than merely available.
+lifecycle: in_flight
 owner: claude
 opened_at: 2026-09-01
 closed_at: null
@@ -18,14 +19,23 @@ done_condition: >-
   Killing a session mid-work loses nothing, DEMONSTRATED by killing one. Not
   asserted from a test.
 
-  # ⚠️ CORRECTED 2026-09-01, and the correction is the point. This edge read
-  # `object: WO-20260901-PHASE-A`, which was WRONG in the direction that matters:
-  # Phase A is `waiting` on a COLD SESSION'S OBSERVATION that may be days away,
-  # so the graph reported this phase blocked when its real dependency — THE STORE
-  # EXISTS — has been satisfied since A's first commit. A false blocker is worse
-  # than a missing one: it is exactly what E1's constraint computation would later
-  # read, and it would have said "we are waiting" while two phases were available.
-  # An edge must name the CONDITION, never the object that happened to create it.
+# ⚠️ CORRECTED 2026-09-01, and the correction is the point. This edge read
+# `object: WO-20260901-PHASE-A`, which was WRONG in the direction that matters:
+# Phase A is `waiting` on a COLD SESSION'S OBSERVATION that may be days away,
+# so the graph reported this phase blocked when its real dependency — THE STORE
+# EXISTS — has been satisfied since A's first commit. A false blocker is worse
+# than a missing one: it is exactly what E1's constraint computation would later
+# read, and it would have said "we are waiting" while two phases were available.
+# An edge must name the CONDITION, never the object that happened to create it.
+#
+# ⚠️ AND THE COMMENT ITSELF WAS A SECOND BUG, fixed 2026-09-01. It sat INDENTED
+# two spaces — i.e. INSIDE the `done_condition: >-` folded scalar — so YAML read
+# it as TEXT: done_condition's value was 730 chars and ended in a `#`-prefixed
+# wall of commentary that /api/bot/work and the SPA render to the operator
+# verbatim, while annotating nothing, having detached from the `blocked_on` it
+# describes. Measured across the 8 operating-layer objects: 3 carried this (B, C,
+# E). B and C are fixed in PR #10662; E is fixed here because this PR already
+# edits this file and a second PR touching it would conflict.
 blocked_on: []   # RESOLVED 2026-09-01 — see lease_design below. A CLAIM, not an absence.
 
 # ============================================================================
