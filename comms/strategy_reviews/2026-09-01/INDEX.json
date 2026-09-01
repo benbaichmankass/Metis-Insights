@@ -1,7 +1,9 @@
 {
- "generated_at": "2026-09-01T12:03:37.429190+00:00",
+ "generated_at": "2026-09-01T12:51:37.676125+00:00",
  "utc_date": "2026-09-01",
  "graded": 52,
+ "no_action_verdict": "hold",
+ "actionable": 0,
  "by_action": {
   "hold": 52
  },
@@ -9,10 +11,11 @@
   {
    "strategy": "ada_pullback_2h",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "expectancy": -992.9742,
+   "pnl_total": -992.9742,
    "reasons": [
     "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -21,10 +24,11 @@
   {
    "strategy": "avax_pullback_2h",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -33,10 +37,11 @@
   {
    "strategy": "eth_pullback_2h",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -45,10 +50,11 @@
   {
    "strategy": "eth_pullback_prop_2h",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -57,10 +63,11 @@
   {
    "strategy": "fade_breakout_4h",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -69,10 +76,11 @@
   {
    "strategy": "fvg_range_15m",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -81,10 +89,11 @@
   {
    "strategy": "gdx_pullback_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -93,10 +102,11 @@
   {
    "strategy": "gld_pullback_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -105,10 +115,11 @@
   {
    "strategy": "gld_pullback_1h",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 2,
+   "win_rate": 0.0,
+   "expectancy": -67.6,
+   "pnl_total": -135.2,
    "reasons": [
     "insufficient evidence (n_closed=2 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -117,10 +128,11 @@
   {
    "strategy": "htf_pullback_trend_2h",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -129,10 +141,11 @@
   {
    "strategy": "iaum_pullback_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -141,10 +154,11 @@
   {
    "strategy": "ict_scalp_5m",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 5,
+   "win_rate": 0.6,
+   "expectancy": 0.34235010999999993,
+   "pnl_total": 1.7118,
    "reasons": [
     "insufficient evidence (n_closed=5 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -153,10 +167,11 @@
   {
    "strategy": "ict_scalp_avax_5m",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 4,
+   "win_rate": 0.0,
+   "expectancy": -759.9299,
+   "pnl_total": -3039.7196,
    "reasons": [
     "insufficient evidence (n_closed=4 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -165,10 +180,11 @@
   {
    "strategy": "ict_scalp_eth_15m",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 6,
+   "win_rate": 0.3333333333333333,
+   "expectancy": 299.3627000000001,
+   "pnl_total": 1796.1762,
    "reasons": [
     "insufficient evidence (n_closed=6 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -177,10 +193,11 @@
   {
    "strategy": "ict_scalp_mgc_15m",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "expectancy": -21070.0,
+   "pnl_total": -21070.0,
    "reasons": [
     "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -189,10 +206,11 @@
   {
    "strategy": "ict_scalp_sol_15m",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 5,
+   "win_rate": 0.2,
+   "expectancy": -185.06440000000003,
+   "pnl_total": -925.322,
    "reasons": [
     "insufficient evidence (n_closed=5 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -201,10 +219,11 @@
   {
    "strategy": "ict_scalp_sol_5m",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 8,
+   "win_rate": 0.375,
+   "expectancy": -780.1312505,
+   "pnl_total": -6241.05,
    "reasons": [
     "insufficient evidence (n_closed=8 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -213,10 +232,11 @@
   {
    "strategy": "ict_scalp_xrp_15m",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 4,
+   "win_rate": 0.5,
+   "expectancy": 45.746567500000005,
+   "pnl_total": 182.9863,
    "reasons": [
     "insufficient evidence (n_closed=4 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -225,10 +245,11 @@
   {
    "strategy": "ict_scalp_xrp_5m",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 4,
+   "win_rate": 0.5,
+   "expectancy": 618.3700349999999,
+   "pnl_total": 2473.4801,
    "reasons": [
     "insufficient evidence (n_closed=4 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -237,10 +258,11 @@
   {
    "strategy": "ief_pullback_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -249,10 +271,11 @@
   {
    "strategy": "iwm_trend_long_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -261,10 +284,11 @@
   {
    "strategy": "mes_trend_long_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -273,10 +297,11 @@
   {
    "strategy": "mgc_pullback_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -285,10 +310,11 @@
   {
    "strategy": "mgc_trend_1h",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -297,10 +323,11 @@
   {
    "strategy": "mhg_pullback_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -309,10 +336,11 @@
   {
    "strategy": "qld_trend_long_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -321,22 +349,24 @@
   {
    "strategy": "qqq_pullback_1h",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "expectancy": -212.52,
+   "pnl_total": -212.52,
    "reasons": [
-    "no closed trades in window — insufficient evidence."
+    "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
    "packet_json": "/data/bot-data/runtime_logs/strategy_reviews/2026-09-01/qqq_pullback_1h.json"
   },
   {
    "strategy": "qqq_trend_long_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -345,10 +375,11 @@
   {
    "strategy": "scha_trend_long_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -357,10 +388,11 @@
   {
    "strategy": "slv_pullback_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -369,10 +401,11 @@
   {
    "strategy": "slv_trend_1h",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -381,10 +414,11 @@
   {
    "strategy": "sol_pullback_2h",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 1,
+   "win_rate": 1.0,
+   "expectancy": 50.55,
+   "pnl_total": 50.55,
    "reasons": [
     "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -393,10 +427,11 @@
   {
    "strategy": "splg_trend_long_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -405,10 +440,11 @@
   {
    "strategy": "spy_pullback_1h",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "expectancy": -1105.205792,
+   "pnl_total": -1105.2058,
    "reasons": [
     "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -417,10 +453,11 @@
   {
    "strategy": "spy_trend_long_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -429,10 +466,11 @@
   {
    "strategy": "squeeze_breakout_4h",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -441,10 +479,11 @@
   {
    "strategy": "tlt_pullback_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -453,10 +492,11 @@
   {
    "strategy": "tlt_pullback_1h",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "expectancy": -12.0,
+   "pnl_total": -12.0,
    "reasons": [
     "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -465,10 +505,11 @@
   {
    "strategy": "tqqq_trend_long_1d",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -477,10 +518,11 @@
   {
    "strategy": "trend_donchian",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -489,10 +531,11 @@
   {
    "strategy": "trend_donchian_ada_4h",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -501,10 +544,11 @@
   {
    "strategy": "trend_donchian_avax_4h",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "expectancy": -1150.4255,
+   "pnl_total": -1150.4255,
    "reasons": [
     "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -513,10 +557,11 @@
   {
    "strategy": "trend_donchian_eth",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -525,10 +570,11 @@
   {
    "strategy": "trend_donchian_eth_4h",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -537,10 +583,11 @@
   {
    "strategy": "trend_donchian_eth_prop",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -549,10 +596,11 @@
   {
    "strategy": "trend_donchian_sol",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -561,10 +609,11 @@
   {
    "strategy": "trend_donchian_sol_4h",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 2,
+   "win_rate": 0.5,
+   "expectancy": -245.76700000000002,
+   "pnl_total": -491.534,
    "reasons": [
     "insufficient evidence (n_closed=2 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -573,10 +622,11 @@
   {
    "strategy": "trend_donchian_sol_prop",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -585,10 +635,11 @@
   {
    "strategy": "trend_donchian_xrp_4h",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "expectancy": -4.8189,
+   "pnl_total": -4.8189,
    "reasons": [
     "insufficient evidence (n_closed=1 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
@@ -597,10 +648,11 @@
   {
    "strategy": "turtle_soup",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -609,10 +661,11 @@
   {
    "strategy": "uso_trend_1h",
    "proposed_action": "hold",
-   "n_closed": null,
+   "actionable": false,
+   "n_closed": 0,
    "win_rate": null,
    "expectancy": null,
-   "pnl_total": null,
+   "pnl_total": 0.0,
    "reasons": [
     "no closed trades in window — insufficient evidence."
    ],
@@ -621,10 +674,11 @@
   {
    "strategy": "xrp_pullback_2h",
    "proposed_action": "hold",
-   "n_closed": null,
-   "win_rate": null,
-   "expectancy": null,
-   "pnl_total": null,
+   "actionable": false,
+   "n_closed": 2,
+   "win_rate": 0.0,
+   "expectancy": -32.708865,
+   "pnl_total": -65.4177,
    "reasons": [
     "insufficient evidence (n_closed=2 < 20) — no KILL/DEMOTE fires at very low n; hold until more trades close."
    ],
