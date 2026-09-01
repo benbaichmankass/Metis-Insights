@@ -107,6 +107,57 @@
         "needs_action": null,
         "note": "Just spawned; nothing observed. Carries the operator's two decisions in its prompt: (a) separation comes from the TOKEN, not a new chat id -- the manager's opposite claim was WRONG and operator-corrected, and the prompt says so, so the sub-session cannot re-derive the error; (b) mirror ALONGSIDE the existing trader-bot path, never a cutover."
       }
+    },
+    {
+      "session_id": "session_01MDjxAnncsh71UiRAWtYHkH",
+      "owns_object": "WO-20260901-PHASE-F",
+      "title": "Phase F — C3 decision preparation (the measured constraint)",
+      "spawned_at": "2026-09-01T21:17Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "Metis-Insights:claude/phase-f-c3-decision-prep"
+      ],
+      "prs": [],
+      "why": "strategy_review_packet.py is 1,518 lines writing to a gitignored path with no cron — C3 has never produced a durable artifact. Scoped to C3 only; C4 is deferred in the build plan for a stated reason (the changelog's execution verdict exists only as PROSE, so a guard matching English for it is diagnostic-provenance sub-class A).",
+      "last_observed": {
+        "at": "2026-09-01T21:17Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Registered at creation, before the session has taken a turn — so this row proves it EXISTS, never that it is working. Poll get_session for current state."
+      }
+    },
+    {
+      "session_id": "session_01Eb2CgctP8MGHD2Pnh8gpqF",
+      "owns_object": "WO-20260901-PHASE-D",
+      "title": "Phase D — E1 constraint diagnosis, computed not judged",
+      "spawned_at": "2026-09-01T21:17Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "Metis-Insights:claude/phase-d-constraint-readout"
+      ],
+      "prs": [],
+      "why": "E1 walks the typed blocked_on edges and names the held-up stage; A1 rebuilt on it. WARNED in the prompt that ~583 migrated objects carry blocked_on: [] with basis NOT_ASSESSED, so a naive computation would confidently report 'nothing blocked' — the readout must separate declared_none from unstated and report the denominator.",
+      "last_observed": {
+        "at": "2026-09-01T21:17Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Registered at creation, before the session has taken a turn — so this row proves it EXISTS, never that it is working. Poll get_session for current state."
+      }
+    },
+    {
+      "session_id": "session_01Hd8opmCBcNQRchwdasWpvL",
+      "owns_object": null,
+      "title": "GLD extended-hours close — recurrence of BL-20260708 on a sibling call site",
+      "spawned_at": "2026-09-01T21:17Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "Metis-Insights:claude/alpaca-ext-hours-close-qty"
+      ],
+      "prs": [],
+      "why": "397 consecutive close failures on alpaca_paper/GLD since 2026-09-01T20:12Z: 'extended-hours limit close rejected: insufficient qty available (requested 39, available 0)'. BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE was fixed for AlpacaClient.close and NOT for _close_extended_hours. Order path -> DRAFT PR only, no merge, operator approval required.",
+      "last_observed": {
+        "at": "2026-09-01T21:17Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Registered at creation, before the session has taken a turn — so this row proves it EXISTS, never that it is working. Poll get_session for current state."
+      }
     }
   ]
 }
