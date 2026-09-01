@@ -202,11 +202,47 @@ an answer that does not commit leaves its question *unanswered*, never "answered
 
 ⚠️ **C3 and C4 are being delivered separately, and C4 is DEFERRED with a reason.** The obvious first move for C4 — a guard comparing the changelog's execution verdict against `config/strategies.yaml` — cannot be built honestly today: the 53 changelog entries carry only `{date, ref, summary}`, so the verdict exists **only as prose**. Pattern-matching English for it is sub-class **A** of the diagnostic-provenance defect (*the label names a quantity the accessor does not return*), and a guard that is confidently wrong on the entries it misses is worse than none. The honest path is a **structured field on new entries plus a reported denominator of un-structured ones** — a design decision, not a wire. A live instance is filed meanwhile (`BL-20260901-DECISION-RECORD-SAYS-SHADOW-WHILE-CONFIG-SAYS-LIVE-SQUEEZE-BREAKOUT-4H`).
 
-**C3 is 1,518 lines that have never produced a durable artifact.**
-`strategy_review_packet.py` emits a real action badge with reasons and an SLA, and writes to
-a **gitignored path with no cron**. The repair is a cron and a committed path. This is the
-phase that acts on the measured constraint: the generator that turns evidence into a
-decision packet exists and is simply not running.
+**C3 was 1,518 lines that had never produced a durable artifact.**
+`strategy_review_packet.py` emits a real action badge with reasons and an SLA, and wrote to
+a **gitignored path with no cron**. This is the phase that acts on the measured constraint:
+the generator that turns evidence into a decision packet exists and was simply not running.
+
+⚠️ **THIS PARAGRAPH SAID THE REPAIR IS "a cron and a committed path" AND THAT IS NOW STALE
+IN THE DIRECTION THAT INVITES DUPLICATE WORK — do not re-quote it as outstanding.** Both
+shipped on 2026-09-01 (PR #10649, repaired by #10653) and were verified independently
+rather than taken from this document: `.github/workflows/strategy-review-packets.yml`
+(`cron: "40 4 * * *"` + `workflow_dispatch` + issue-driven) and
+`comms/strategy_reviews/2026-09-01/` on main. A later session reading the old wording would
+rebuild a shipped mechanism — `RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED`, whose cheap
+preventer is exactly the existence check that produced this correction.
+
+**What was left, and is the third part the original repair did not name: a READER.**
+Measured 2026-09-01 by grepping `*.py`/`*.ts`/`*.svelte`/`*.yml` for
+`comms/strategy_reviews`, the committed record had **zero consumers** — the writer and the
+docs and nothing else. A record written and never read is the shape
+`provenance-consumer-guard` exists to catch, and here it is the C3 failure one level up: the
+packet becomes durable and still reaches no decision. Closed by
+`GET /api/bot/strategy-reviews`.
+
+⚠️ **THE CRON IS DEPLOYED, NOT OBSERVED, AND THE TWO MUST NOT BE CONFLATED.** The workflow
+landed at 11:58Z on 2026-09-01 and its cron is 04:40 UTC, so **its first scheduled
+opportunity had not yet arrived** — a third state, distinct from *fired and worked* and from
+*fired and failed*. Both runs to date (#10652, #10656) were dispatch-driven.
+`OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON` is a live
+counter-example in this repo, so correct cron syntax is not evidence of firing.
+
+⚠️ **AND THE PACKET STILL PROPOSES NOTHING — the repair is necessary and is not yet
+sufficient.** Population: the committed 2026-09-01 index, all **52** enabled strategies,
+window **7 days**. `graded: 52 · actionable: 0 · by_action {"hold": 52}`. The cause is
+structural, not a fleet in good health: `n_closed` was **0 for 34 legs, 1–4 for 14, 5–19 for
+4, and never exceeded 8**, against the generator's own `MIN_CLOSED_FOR_ACTION = 20` floor
+(PB-20260630-004) — so **52/52 were under the floor and no leg could produce a KILL/DEMOTE
+whatever its PnL**, including **13 losing legs** carrying **−$35,446** of
+provenance-trusted PnL between them. At a 7-day window a leg needs ~3 closes a day to be
+gradeable while the whole fleet closed **50** trades that week, so this repeats every run
+until the window and the floor are made compatible. **That is a decision, not a wire** —
+widening the window changes what evidence a KILL badge rests on — so it is written up in the
+PR body and filed, not flipped.
 
 **C4 is one decision record instead of four forked surfaces.** `strategy_changelog.json` has
 been dead since **2026-07-28**. The cost is not tidiness: `squeeze_breakout_4h` runs live

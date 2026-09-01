@@ -148,6 +148,7 @@ stale and read as current.
 | `GET /api/bot/stats` | `routers/dashboard.py` | Aggregated bot stats — pnl24h, totalPnL, openTrades, winRate, status, datasource, vmHealth. Real-money only; paper rides an additive sub-block. |
 | `GET /api/bot/strategies` | `routers/strategies.py` | Per-strategy config, live-runtime status, per-account routing, lifetime stats, descriptions, changelog. Config values only — **secrets are not in this surface** (`accounts.yaml` credentials are env-var *names*). |
 | `GET /api/bot/strategies/{name}/review` | `routers/strategy_review.py` | Newest M7 strategy-review packet incl. its action badge (`KILL`/`DEMOTE_SHADOW`/`TUNE`/`HOLD`/`PROMOTE`). **Read-only: a Tier-3 action is *read* here, never enacted.** Name validated `[a-z0-9_]+`. |
+| `GET /api/bot/strategy-reviews` | `routers/strategy_review.py` | The **committed** M7 fleet decision record from `comms/strategy_reviews/` — the day's `INDEX.json` (every strategy graded, the DENOMINATOR) plus `packet_committed` per row. ⚠️ **A DIFFERENT RECORD from `/strategies/{name}/review`**, which reads the gitignored VM path; the two can legitimately disagree, so every response stamps `source`. `read_state` ∈ `index_read`/`absent`/`unreadable` and `freshness` ∈ `fresh`/`stale`/`undateable`/`absent` are never collapsed — counts are `null`, never `0`, when we could not look. **Read-only: a Tier-3 action is *read* here, never enacted.** `date` validated `\d{4}-\d{2}-\d{2}` (no traversal). |
 | `GET /api/bot/strategies/{name}/tune` | `routers/strategy_tune.py` | Newest M8 parameter-sweep results. Each carries an **advisory** Tier-3 value proposal; **the harness never writes config and neither does this route.** |
 | `GET /api/bot/strategy/attribution` | `routers/attribution.py` | Per-strategy lifetime closed-trade stats + live open count (S11/M11). Real-money only (excludes paper AND prop, per the "real and paper never blended" contract). |
 | `GET /api/bot/trades/closed` | `routers/trades_closed.py` | **Added S-557 (2026-05-09).** Closed non-backtest trades, newest-first; `limit` clamped 1..200 (default 50). Each row carries `pnlProvenance` so a consumer can caveat a fabricated/unverified figure. Paper excluded by default. |
@@ -255,7 +256,7 @@ operator action goes through the `system-actions.yml` GitHub workflow, whose
 allowlist is the real Tier-3 surface.
 
 Note that several Tier-1 routes *read* Tier-3 material — `/strategies/{name}/review`
-serves a `KILL`/`PROMOTE` badge, `/strategies/{name}/tune` serves an advisory
+and `/strategy-reviews` serve a `KILL`/`PROMOTE` badge, `/strategies/{name}/tune` serves an advisory
 parameter proposal, `/ml/registry` serves the promotion ladder. **Reading a
 Tier-3 decision is Tier 1; enacting one is not on this API at all.**
 
