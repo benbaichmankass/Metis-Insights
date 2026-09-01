@@ -15,14 +15,23 @@ done_condition: >-
   The operator can see what is in flight without opening the repo, and
   receives one rolled-up daily summary of autonomous activity.
 
-  # ⚠️ CORRECTED 2026-09-01, and the correction is the point. This edge read
-  # `object: WO-20260901-PHASE-A`, which was WRONG in the direction that matters:
-  # Phase A is `waiting` on a COLD SESSION'S OBSERVATION that may be days away,
-  # so the graph reported this phase blocked when its real dependency — THE STORE
-  # EXISTS — has been satisfied since A's first commit. A false blocker is worse
-  # than a missing one: it is exactly what E1's constraint computation would later
-  # read, and it would have said "we are waiting" while two phases were available.
-  # An edge must name the CONDITION, never the object that happened to create it.
+# ⚠️ CORRECTED 2026-09-01, and the correction is the point. This edge read
+# `object: WO-20260901-PHASE-A`, which was WRONG in the direction that matters:
+# Phase A is `waiting` on a COLD SESSION'S OBSERVATION that may be days away,
+# so the graph reported this phase blocked when its real dependency — THE STORE
+# EXISTS — has been satisfied since A's first commit. A false blocker is worse
+# than a missing one: it is exactly what E1's constraint computation would later
+# read, and it would have said "we are waiting" while two phases were available.
+# An edge must name the CONDITION, never the object that happened to create it.
+#
+# ⚠️ AND THE COMMENT ITSELF WAS THE SECOND BUG, fixed 2026-09-01. It sat INDENTED
+# two spaces, i.e. INSIDE the `done_condition: >-` folded scalar, so YAML read it
+# as TEXT: done_condition's value was 763 chars and ended in a `#`-prefixed wall
+# of commentary that /api/bot/work and the SPA rendered to the operator verbatim.
+# It also annotated nothing, having detached from the `blocked_on` it describes.
+# Measured across the store on this branch: 3 of 8 objects carried a swallowed
+# comment in `done_condition` (B, C, E); C and E are fixed separately because
+# PR #10657 already touches those two files and a second edit would conflict.
 blocked_on:
   - kind: external_event
     ref: the work view rendered from the deployed SPA, by someone who is not this session
@@ -35,6 +44,27 @@ blocked_on:
       CLAUDE.md names the live app as the verification step). Marking this `done`
       would convert "we built it" into "we verified it", which is precisely the
       collapse WO-20260901-PHASE-A refused to make on the same reasoning.
+
+
+      ⚠️ NARROWED 2026-09-01 by the manager session, NOT cleared. Two halves of
+      this edge were measured live and one was not, and they must not be pooled.
+      MEASURED — the ROUTE serves from the live VM: GET
+      https://ict-bot.duckdns.org/api/bot/work returned HTTP 200 with a real
+      payload — 8 objects, all 8 graded, 0 readErrors, lifecycle summing to the
+      object count by construction (dormant 3 / ready 2 / in_flight 1 / waiting
+      2), wip.enforced false with state declared_not_enforced, and
+      coverage.complete false. So the envelope's own caveats are intact on the
+      wire, which is the half a renderer is most likely to discard.
+      MEASURED — the DEPLOYED Pages bundle carries this section: the live asset
+      index-BZ9NdNnd.js (317,749 bytes) contains `api/bot/work`, `blockedOnState`
+      and the "could not be read" banner string, against a validated positive
+      control (`Roadmap`, 3 hits).
+      NOT MEASURED — NOBODY HAS RENDERED THE PAGE. The done_condition is that the
+      operator can SEE what is in flight, and confirming that the code shipped
+      and the API answers is strictly weaker than an eye on the view. ⚠️ A first
+      draft of this note began "verified"; those two facts do not add up to that
+      word, and writing it would be exactly the collapse this edge exists to
+      refuse.
   - kind: external_event
     ref: the daily digest firing once on a real cadence
     since: 2026-09-01
@@ -46,19 +76,42 @@ blocked_on:
       deployed, not working — and that is not a hypothetical caution here:
       OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON records
       two workflows that are merged, enabled, and have never once fired.
-  - kind: capability
-    ref: opening a PR on benbaichmankass/ict-trader-dashboard from a read-only-MCP session
-    since: 2026-09-01
-    note: >-
-      The SPA branch claude/phase-b-work-view is pushed but has NO PR. This
-      session's MCP returns 403 "Resource not accessible by integration" on PR
-      create and on issue comments (measured twice, with get_me and issue_read
-      succeeding as positive controls). The bot repo covers that gap with
-      pr-opener.yml and board-post.yml; the dashboard repo has NEITHER, and its
-      ci.yml triggers only on pull_request-to-main and push-to-main, so a branch
-      push runs no checks at all. Porting the relay was started and deliberately
-      abandoned: creating CI automation in a second repo is a sanctioning
-      decision, not a Tier-1 one. An operator opening the PR clears this.
+
+      ⚠️ RE-CHECKED 2026-09-01, and the deferral now has NOTHING BEHIND IT.
+      `claude/workflows-audit-restructure-fz0sw9` — the branch this edge defers
+      to for where the cron belongs — DOES NOT EXIST ON ORIGIN (`git ls-remote
+      --heads origin` matches 0 branches on `workflows.audit`). So this is not
+      waiting on another session's declared paths; it is waiting on NOBODY, and
+      that is the condition the design says must be SEEN rather than accumulate.
+      Confirmed with a validated probe rather than a bare negative: `work_digest`
+      appears in 0 of 125 workflow files, where the same grep finds `scripts/ops/`
+      in 51 and `trainer_mirror` in 2. The digest is DEPLOYED AND INERT — no
+      trigger, so it cannot have fired. ⚠️ The first positive control tried here
+      (`render_session_brief`, `publish_trainer_mirror`) ALSO returned 0 and
+      would have made this negative look confirmed when the probe was the
+      variable; both are invoked indirectly, so the control had to be repaired
+      before the finding could be trusted.
+  # ✅ RESOLVED 2026-09-01 -- struck rather than deleted, because how it was
+  # cleared is the reusable part. The manager session opened the PR on this
+  # session's behalf (ict-trader-dashboard#210, MERGED 13:46:56Z). A capability
+  # gap is ABSORBED by the manager, never escalated to the operator as a
+  # decision -- there was no decision in it.
+  # - kind: capability
+  #   ref: opening a PR on benbaichmankass/ict-trader-dashboard from a read-only-MCP session
+  #   since: 2026-09-01
+  #   resolved: 2026-09-01
+  #   resolution: manager opened ict-trader-dashboard#210; merged.
+  # ORIGINAL NOTE, kept verbatim:
+  # >-
+  #   The SPA branch claude/phase-b-work-view is pushed but has NO PR. This
+  #   session's MCP returns 403 "Resource not accessible by integration" on PR
+  #   create and on issue comments (measured twice, with get_me and issue_read
+  #   succeeding as positive controls). The bot repo covers that gap with
+  #   pr-opener.yml and board-post.yml; the dashboard repo has NEITHER, and its
+  #   ci.yml triggers only on pull_request-to-main and push-to-main, so a branch
+  #   push runs no checks at all. Porting the relay was started and deliberately
+  #   abandoned: creating CI automation in a second repo is a sanctioning
+  #   decision, not a Tier-1 one. An operator opening the PR clears this.
 
 note: >-
   Only the READ half. The route follows src/web/api/routers/roadmap.py (475
