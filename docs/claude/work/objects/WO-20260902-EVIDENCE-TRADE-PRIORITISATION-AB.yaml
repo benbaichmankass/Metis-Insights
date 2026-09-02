@@ -1,0 +1,85 @@
+# ⚠️ NOT a migrated row. Hand-authored by MI-63 on 2026-09-02 from an EXISTING
+# `kind: pending_decision` row in docs/claude/OPEN-ITEMS.json
+# (OI-20260831-TRADE-PRIORITISATION-IS-LIVE-BUT-UNPROVEN-AND-ITS-AB-HARNESS-DOES-NOT-EXIST).
+#
+# ⚠️ THE SOURCE ROW IS FILED AS `pending_decision` AND THIS OBJECT IS **NOT** STAGED
+# `DECISION`, DELIBERATELY. Reading the row, the operator cannot decide anything today:
+# its own text says the A/B "CANNOT BE RUN TODAY" because scripts/backtest_system.py
+# models ONE shared book, and that "building that harness is the blocking dependency for
+# BOTH open questions". So what is held up is EVIDENCE, and what holds it is a missing
+# CAPABILITY. Staging it DECISION and writing an `operator_decision` edge would have
+# been the easy way to raise DECISION's count — and it would have been a FALSE BLOCKER,
+# putting a question on the operator that they cannot answer. A false blocker is worse
+# than a missing one.
+id: WO-20260902-EVIDENCE-TRADE-PRIORITISATION-AB
+type: commitment
+parent_intent: null
+title: >-
+  Confidence-first is the LIVE ranking key for competing trades and has never been shown
+  to pick the better trade — and the A/B that would settle it cannot be run
+stage: EVIDENCE
+lifecycle: waiting
+owner: null
+opened_at: '2026-09-02'
+closed_at: null
+
+review_trigger: >-
+  Re-read when scripts/backtest_system.py grows an N-book mode, or when anyone proposes
+  changing the ranking key on the strength of live data — which the source row explains
+  is confounded and cannot settle it.
+
+done_condition: >-
+  The four declared arms (confidence_first / priority_first / recent_pnl_first /
+  random_tiebreak) have run and reported per-arm net PnL, expectancy in R, maxDD and the
+  ACHIEVED contested-tick count, STRATIFIED BY `decided_by` and evaluated on the
+  CONTESTED subset only. ⚠️ A NULL RESULT CLOSES THIS. If confidence_first does not beat
+  a random tiebreak, the honest finding is that arbitration ORDER does not drive outcome
+  — a publishable negative and the signal to look at the confidence SCORE instead. M18's
+  allocator asked the adjacent question and the answer was NO (edge -$7, ranker OOS AUC
+  ~0.51), which is why random_tiebreak is a declared arm rather than an afterthought.
+
+blocked_on:
+  - kind: capability
+    ref: >-
+      an N-book mode in scripts/backtest_system.py plus a ranking-key arm (the shape of
+      its existing --flip-policy), and a workflow that fires it
+    since: '2026-08-31'
+    note: >-
+      ⚠️ THE EDGE IS QUOTED FROM THE SOURCE ROW, NOT DERIVED BY MI-63. Its `clears_when`
+      step (1) is exactly this harness, and its summary states the A/B "CANNOT BE RUN
+      TODAY" because the harness models ONE shared book, so neither global-vs-per-account
+      arbitration nor a swapped ranking key is expressible.
+      ⚠️ THIS IS ALSO A WORKED EXAMPLE OF THE E2 PULL RULE, which is why it is worth
+      writing rather than leaving unassessed: the operating model says capability must be
+      PULLED by a held-up stage and never self-started, and here a named stage (EVIDENCE)
+      is demonstrably held up by a named missing capability. `check_capability_pull.py`
+      cannot enforce that today because the constraint readout refuses — but this is the
+      shape of edge that eventually makes it enforceable.
+blocked_on_basis: >-
+  ASSESSED 2026-09-02 by MI-63 from the source row's `summary` and `clears_when`.
+  ⚠️ WHAT IS NOT CLAIMED, AND IT MATTERS: MI-63 did NOT read scripts/backtest_system.py
+  to confirm it models a single book. That claim is the source row's, made by the session
+  that wrote it, and is carried here as their measurement rather than re-verified as
+  mine. A reader acting on this edge should confirm it before building.
+
+note: >-
+  ⚠️ URGENT DESPITE BEING RESEARCH, and the source row is emphatic about why: confidence
+  became the LIVE primary ranking key on 2026-08-31 (PR #10544) on a CORRECTNESS
+  argument — it is evidence about the trade, unlike the strategy NAME it replaced — not
+  on an outcome result. It is already routing real-money accounts, not sitting behind a
+  mode. The old key was WORSE (alphabetical, provably broken for prefix names), so this
+  is an improvement in kind; "better than an arbitrary rule" is not "correct".
+  ⚠️ AND IT IS A COUNTERFACTUAL PROBLEM: we observe the winner's outcome and never the
+  loser's, so a LIVE correlation between `decided_by` and realised R is confounded. Only
+  a REPLAY makes the counterfactual observable — which is why the blocker is a harness
+  and not more live data. Compounding it, confidence SATURATES: 1.0 is 20.5% of
+  observations and contenders tie EXACTLY on 50.1% of contests (n=371
+  conviction_arbitration soak, 2026-06-17..2026-08-30), so half of all contests never
+  reach confidence at all.
+
+evidence:
+  - docs/claude/OPEN-ITEMS.json#OI-20260831-TRADE-PRIORITISATION-IS-LIVE-BUT-UNPROVEN-AND-ITS-AB-HARNESS-DOES-NOT-EXIST
+  - docs/research/trade-prioritisation-research-DESIGN.yaml
+  - docs/research/M18-allocator-backtest-findings-2026-06-29.md
+  - src/runtime/intents.py
+verdict: null

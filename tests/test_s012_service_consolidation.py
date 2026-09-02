@@ -41,6 +41,16 @@ EXPECTED_SERVICES = {
     "ict-ib-executions-pull.service",
     # Claude bridge bot (ict-claude-bridge.service manages it separately).
     "ict-claude-bridge.service",
+    # Added 2026-09-02: the DEDICATED Claude bot's POLLING half, which is what
+    # makes a work-decision BUTTON answerable rather than merely delivered — a
+    # tap on an unpolled bot yields a callback_query nobody collects, with no
+    # error on any surface. Its OWN unit rather than a second Application
+    # inside ict-telegram-bot: run_polling() owns an event loop and two do not
+    # compose, and one process is one event loop, so a stall in the decision
+    # channel would become a stall in the operator's kill switch.
+    # ⚠️ NOT the same bot as ict-claude-bridge above, whose name is historical
+    # — that one polls the PROP token.
+    "ict-claude-decision-bot.service",
     # Shadow log rotation for the shadow-predictions audit log.
     "ict-shadow-log-rotate.service",
     # One-shot smoke check run on deploy.

@@ -185,6 +185,39 @@ Shipped: <PR # / what merged> — area now clear.
   Fall back to the live open-PR list (`list_pull_requests state=open`) as the
   real-time truth.
 
+### ⚠️ THERE IS NO DIRECT SESSION-TO-SESSION CHANNEL, IN EITHER DIRECTION
+
+**This is why the board is mandatory rather than merely encouraged**, and it is the
+one thing a session most often assumes it can route around.
+
+`SendMessage` between a manager and a sub-session **fails both ways**:
+
+| direction | result | measured |
+|---|---|---|
+| manager → sub-session | `{"success": false, "No agent named ... is reachable"}` | 2026-09-01, `WO-20260901-PHASE-E` |
+| **sub-session → its own manager** | **the same error**, on its own `parent_session_id` | **2026-09-02, MI-70** |
+
+⚠️ **The downward half was recorded first and was read as the whole constraint.**
+That phrasing — *"a manager cannot message a sub-session"* — invites the reading
+that a sub-session can at least **report upward**. It cannot. `ListAgents` shows no
+reachable cloud peers in either direction, and there is no `send_message` or
+`list_events` tool in either surface.
+
+What follows, and it is not a detail:
+
+- **A sub-session with a finding, a blocker, or a question has exactly two channels
+  to its manager: THIS BOARD, and its PR.** Nothing else reaches. A sub-session that
+  "tells the manager" in its final message is talking to a transcript nobody polls.
+- **A spawn prompt must therefore carry every rule the sub-session will need**, and
+  must direct upward-bound information to the board or the PR rather than to the
+  manager. A rule remembered after the spawn cannot be delivered.
+- **A manager must not wait for a sub-session to report.** It polls `get_session`
+  and reads the board and the branch; there is no inbox on either side.
+
+**The handoff is cheap precisely because of this.** There is no live connection to
+transfer, so taking over is purely a KNOWLEDGE problem — and knowledge goes in
+files: `SESSIONS.json`, `MANAGER-CHECKLIST.json`, `OPEN-PRS.json`, and this board.
+
 ### If `add_issue_comment` returns 403 — USE THE RELAY, don't skip the board
 
 A PM-side session's MCP can be **read-only for issues and PRs**:

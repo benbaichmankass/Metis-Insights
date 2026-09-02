@@ -1,0 +1,51 @@
+#10746 — bybit: grade re-arm coverage against the book being protected, STAGED on an account allowlist
+
+TIER-2, ORDER PATH. Merged under the operator's EXISTING recorded approval, not
+a new one, and the scope of that approval is why merging is in bounds.
+
+THE RECORDED DECISION (docs/claude/work/OPEN-PRS.json, verdict
+approved_with_conditions):
+  condition: "Must ship scoped behind an account allowlist with
+              PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE).
+              Merging without the allowlist, or widening beyond bybit_1,
+              EXCEEDS the approval given."
+  scope:     "bybit_1 (demo) ONLY. NOT a fleet-wide flip. The operator
+              explicitly accepted that bybit_2 (REAL MONEY) stays exposed to
+              the side-blind masking during the soak."
+
+The PR was RESCOPED to exactly that. Merging with the allowlist is therefore
+INSIDE the approval; ARMING is a separate Tier-2 set-env of BOTH
+BYBIT_GRADED_COVERAGE_MODE=apply and BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1
+plus a restart, and I am NOT doing that.
+
+VERIFIED BY THE MANAGER, not taken from the PR body:
+  * the shipped default arms nothing, pinned by a test I read:
+    test_at_the_SHIPPED_default_the_masked_naked_position_is_NOT_rearmed
+    -- same masked-naked book as the control, no allowlist -> rearmed == 0.
+  * the empty-means-NONE polarity is pinned by
+    test_an_EMPTY_allowlist_means_NONE_not_ALL, whose docstring says it is the
+    test that fails if anyone "harmonises" this toward CONVICTION_SIZING_ACCOUNTS
+    or NETTING_ATTRIBUTION_ACCOUNTS, which read empty as ALL.
+  * resolve_mode falls back to `annotate`, never `off` and never `apply`.
+  * the allowlist scopes the BINDING, never the MEASUREMENT -- so the rows a
+    reviewer needs before widening to bybit_2 exist FOR bybit_2. That is the
+    exact correction NETTING_ATTRIBUTION_ACCOUNTS needed on 2026-08-09.
+  * the soak is registered on the diag log_file allowlist in the SAME commit as
+    its writer, and both env keys are in get_env.ALLOWED_KEYS. A Tier-2 reviewer
+    told to read a soak they cannot reach is the recurring defect here.
+
+MANAGER-RESOLVED MERGE CONFLICT -- docs/claude/health-review-backlog.json, two
+new rows at the same position with disjoint ids. Base 1111, ours +1, theirs +6,
+NO row touched by both. Resolved by taking main's file VERBATIM and splicing our
+one row in as raw text: four json round-trip settings were tested and none
+reproduces the file byte-for-byte, so re-serialising would have re-attributed
+thousands of lines. Diff against main is 22 insertions / 1 deletion. Asserted by
+arithmetic AND per-id membership.
+
+WHAT THIS DOES NOT ESTABLISH, carried forward deliberately: the defect is n = 1
+and CONSTRUCTED from a real 2026-09-02T03:30:33Z venue read. NO live instance of
+the masking has ever been observed. Deployed, armed and observed are three
+different states and this merge reaches only the first.
+
+Routed through this relay because the manager's GitHub write bucket is
+exhausted. Auto-merge still obeys branch protection and required checks.

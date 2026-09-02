@@ -561,3 +561,249 @@ def test_api_base_defaults_to_loopback_and_strips_a_trailing_slash(monkeypatch):
     assert td.api_base() == "http://127.0.0.1:8001"
     monkeypatch.setenv("WORK_DECISION_API_BASE", "https://ict-bot.duckdns.org/")
     assert td.api_base() == "https://ict-bot.duckdns.org"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# THE ROUTING CHANGE — decisions belong on the dedicated Claude bot, but ONLY
+# once something actually polls it. Operator, 2026-09-02: "that's supposed to
+# be showing up in Cloudbot. Right? Not on the trader one, the decisions."
+#
+# The claim these pin is the one a green harness otherwise cannot reach: that
+# preferring the Claude bot requires POSITIVE evidence of a poller, so the
+# change cannot ship buttons that look healthy and go nowhere.
+# ═════════════════════════════════════════════════════════════════════════════
+
+from src.runtime import telegram_poll_registry as reg  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _isolated_poll_registry(tmp_path, monkeypatch):
+    """No poller exists unless a test says so, and claims never leak between tests."""
+    monkeypatch.setattr(reg, "runtime_logs_dir", lambda: tmp_path / "rl")
+    (tmp_path / "rl").mkdir(parents=True, exist_ok=True)
+    reg._LOCAL.clear()
+    yield
+    reg._LOCAL.clear()
+
+
+def _claude_is_polled():
+    reg.record_poll("TELEGRAM_CLAUDE_BOT_SECRET", [td.CB_PREFIX], service="cdb")
+
+
+def _trader_is_polled():
+    reg.record_poll("TELEGRAM_BOT_TOKEN", [td.CB_PREFIX], service="tb")
+
+
+# ── preference: the Claude bot, on evidence ─────────────────────────────────
+
+def test_the_claude_bot_wins_once_something_actually_polls_it(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_CLAUDE_BOT_SECRET", "dedicated")
+    _claude_is_polled()
+    route = td.answerable_route()
+    assert route.destination == "claude"
+    assert route.token_from == "TELEGRAM_CLAUDE_BOT_SECRET"
+    assert route.answerable is True
+
+
+def test_the_dedicated_bot_is_STILL_refused_while_nothing_polls_it(monkeypatch):
+    """The pre-existing behaviour, and the reason this PR is two halves.
+
+    A token that resolves is DELIVERY. Answerability needs a poller, and
+    sending here without one would ship buttons that go nowhere.
+    """
+    monkeypatch.setenv("TELEGRAM_CLAUDE_BOT_SECRET", "dedicated-but-unpolled")
+    _trader_is_polled()
+    route = td.answerable_route()
+    assert route.token == "trader-token"
+    assert route.destination == "trader_fallback"
+    assert "not confirmed polled" in route.note
+
+
+def test_the_fallback_says_WHY_rather_than_reading_as_success(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_CLAUDE_BOT_SECRET", "dedicated-but-unpolled")
+    _trader_is_polled()
+    note = td.answerable_route().note
+    assert "FALLBACK" in note
+    assert reg.TOKEN_ONLY_NOT_POLLED in note
+
+
+def test_a_claude_route_that_is_merely_the_shared_trader_token_is_not_claude():
+    """`isolated`, not `deliverable`: a fallback there is the trader token
+    wearing the Claude route's name, and treating it as the dedicated bot would
+    report the separation as done while both channels sat on one token."""
+    _trader_is_polled()
+    route = td.answerable_route()
+    assert route.destination == "trader_fallback"
+    assert "TELEGRAM_CLAUDE_BOT_SECRET is unset" in route.note
+
+
+def test_unknown_poll_evidence_does_NOT_promote_the_claude_bot(monkeypatch, tmp_path):
+    """`unknown` must fail closed — we could not look is not a poller."""
+    monkeypatch.setenv("TELEGRAM_CLAUDE_BOT_SECRET", "dedicated")
+    path = reg.entry_path("TELEGRAM_CLAUDE_BOT_SECRET")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{ not json", encoding="utf-8")
+    _trader_is_polled()
+    route = td.answerable_route()
+    assert route.destination == "trader_fallback"
+    # `route.poll` describes the SELECTED destination (the trader, which IS
+    # polled); the Claude bot's unreadable verdict is carried in the note, so
+    # "we could not look" is reported rather than silently promoted.
+    assert route.poll.state == reg.POLLED_WITH_HANDLER
+    assert reg.UNKNOWN in route.note
+
+
+def test_deliverable_and_answerable_stay_DIFFERENT_questions(monkeypatch):
+    """The distinction the whole module is built on, asserted rather than assumed."""
+    route = td.answerable_route()          # trader token set, nothing polls it
+    assert route.deliverable is True       # we can SEND
+    assert route.answerable is False       # a TAP would not be received
+
+
+def test_describe_still_never_contains_a_token_value(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_CLAUDE_BOT_SECRET", "dedicated-secret-value")
+    _claude_is_polled()
+    described = td.answerable_route().describe()
+    assert "dedicated-secret-value" not in described
+    assert "trader-token" not in described
+    assert "TELEGRAM_CLAUDE_BOT_SECRET" in described
+
+
+# ── the sweep holds rather than sending dead buttons ────────────────────────
+
+def _default_sender_spy(monkeypatch, sent, *, ok=True):
+    """Patch the DEFAULT sender, so the sweep's real poll gate is exercised.
+
+    Passing `sender=` would bypass that gate by design: an injected sender
+    delivers somewhere the sweep cannot see, so gating it on this route's
+    evidence would be a claim about an unknown destination.
+    """
+    def _send(text, keyboard):
+        sent.append((text, keyboard))
+        return ok
+    monkeypatch.setattr(td, "_default_sender", _send)
+
+
+def test_sweep_HOLDS_when_no_bot_is_confirmed_polled(tmp_path, monkeypatch):
+    """The dead-button state, made reportable instead of silent."""
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([_request()]), None))
+    sent = []
+    _default_sender_spy(monkeypatch, sent)
+    stats = td.run_decision_prompt_sweep(state_path=tmp_path / "p.json")
+    assert stats["held_not_polled"] == 1
+    assert sent == []
+    # NOT marked prompted: once a poller exists the question is asked, not lost.
+    assert json.loads((tmp_path / "p.json").read_text())["prompted"] == {}
+
+
+def test_the_hold_is_LOUD_and_names_the_state(tmp_path, monkeypatch, caplog):
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([_request()]), None))
+    _default_sender_spy(monkeypatch, [])
+    with caplog.at_level("WARNING"):
+        td.run_decision_prompt_sweep(state_path=tmp_path / "p.json")
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert any("NOT confirmed polled" in m for m in warnings)
+    assert any(reg.TOKEN_ONLY_NOT_POLLED in m for m in warnings)
+
+
+def test_held_not_polled_is_NOT_pooled_with_held_route(tmp_path, monkeypatch):
+    """Different faults, different fixes: start a poller vs set a token."""
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([_request()]), None))
+    _default_sender_spy(monkeypatch, [])
+    stats = td.run_decision_prompt_sweep(state_path=tmp_path / "p.json")
+    assert stats["held_route"] == 1 and stats["held_not_polled"] == 0
+
+
+def test_sweep_SENDS_once_the_claude_bot_is_polled(tmp_path, monkeypatch):
+    monkeypatch.setenv("TELEGRAM_CLAUDE_BOT_SECRET", "dedicated")
+    _claude_is_polled()
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([_request()]), None))
+    sent = []
+    _default_sender_spy(monkeypatch, sent)
+    stats = td.run_decision_prompt_sweep(state_path=tmp_path / "p.json")
+    assert stats["prompted_choice"] == 1 and stats["held_not_polled"] == 0
+    assert stats["destination"] == "claude"
+    assert len(sent) == 1 and sent[0][1] is not None   # a real keyboard went out
+
+
+def test_sweep_falls_back_to_the_trader_bot_rather_than_going_silent(
+        tmp_path, monkeypatch):
+    """A wrong-chat prompt is a noise complaint; no prompt at all is an outage."""
+    monkeypatch.setenv("TELEGRAM_CLAUDE_BOT_SECRET", "dedicated-but-unpolled")
+    _trader_is_polled()
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([_request()]), None))
+    sent = []
+    _default_sender_spy(monkeypatch, sent)
+    stats = td.run_decision_prompt_sweep(state_path=tmp_path / "p.json")
+    assert stats["prompted_choice"] == 1
+    assert stats["destination"] == "trader_fallback"   # reported, not silent
+    assert len(sent) == 1
+
+
+def test_the_sweep_stats_carry_the_poll_state_for_a_reader(tmp_path, monkeypatch):
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([_request()]), None))
+    _default_sender_spy(monkeypatch, [])
+    stats = td.run_decision_prompt_sweep(state_path=tmp_path / "p.json")
+    assert stats["poll_state"] == reg.TOKEN_ONLY_NOT_POLLED
+    assert stats["destination"] == "trader_fallback"
+
+
+def test_the_write_gate_hold_still_wins_over_the_poll_hold(tmp_path, monkeypatch):
+    """Both are correct holds; the write gate is checked first and stays counted
+    on its own, so a closed gate is never reported as a polling problem."""
+    _trader_is_polled()
+    monkeypatch.setattr(
+        td, "fetch_inbox", lambda: (_inbox([_request()], write_open=False), None))
+    _default_sender_spy(monkeypatch, [])
+    stats = td.run_decision_prompt_sweep(state_path=tmp_path / "p.json")
+    assert stats["held_write_gate"] == 1 and stats["held_not_polled"] == 0
+
+
+# ── the fallback must be LOUD, not merely counted ───────────────────────────
+
+def test_falling_back_with_the_secret_SET_warns_because_the_operator_asked(
+        tmp_path, monkeypatch, caplog):
+    """The manager's own criterion for keeping the fallback is that it is loud.
+
+    Measured 2026-09-02 before this existed: with TELEGRAM_CLAUDE_BOT_SECRET set
+    but nothing polling it, the sweep sent to the trader bot and emitted ZERO
+    warnings, while `poll_state` read `polled_with_handler` — that field
+    describes the SELECTED route, and the trader bot genuinely is polled. A
+    surface reading healthy while the operator's decisions sit in the wrong chat
+    is the shape this module exists to end.
+    """
+    monkeypatch.setenv("TELEGRAM_CLAUDE_BOT_SECRET", "dedicated-and-SET")
+    _trader_is_polled()                     # ...but the Claude bot is NOT
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([_request()]), None))
+    sent = []
+    _default_sender_spy(monkeypatch, sent)
+    with caplog.at_level("WARNING"):
+        stats = td.run_decision_prompt_sweep(state_path=tmp_path / "p.json")
+
+    assert stats["destination"] == "trader_fallback"
+    assert len(sent) == 1                   # still DELIVERED, never held
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert any("NOT confirmed polled" in m for m in warnings)
+    assert any("ict-claude-decision-bot.service" in m for m in warnings)
+    # names the VARIABLE, never the value
+    assert not any("dedicated-and-SET" in m for m in warnings)
+
+
+def test_falling_back_with_NO_secret_stays_quiet(tmp_path, monkeypatch, caplog):
+    """Before the operator sets the secret, trader delivery IS the declared state.
+
+    A WARNING every cadence for a condition nobody intends to change is the
+    desensitised-alarm failure this repo files as a P1 in its own right — so the
+    line is gated on the dedicated token actually resolving, and disappears by
+    itself once the service is polling.
+    """
+    monkeypatch.delenv("TELEGRAM_CLAUDE_BOT_SECRET", raising=False)
+    _trader_is_polled()
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([_request()]), None))
+    _default_sender_spy(monkeypatch, [])
+    with caplog.at_level("WARNING"):
+        stats = td.run_decision_prompt_sweep(state_path=tmp_path / "p.json")
+
+    assert stats["destination"] == "trader_fallback"
+    assert not [r for r in caplog.records if r.levelname == "WARNING"]

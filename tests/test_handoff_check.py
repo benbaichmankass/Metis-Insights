@@ -118,7 +118,12 @@ def test_run_over_the_live_repo_never_returns_ready_without_an_observation():
     assert res["readiness"] in {"not_ready", "unknown"}
     assert {c["check"] for c in res["checks"]} == {
         "live_registry", "checklist_owners", "lease",
-        "manager_state_pushed", "pending_spawns", "open_prs", "pr_decisions"}
+        "manager_state_pushed", "pending_spawns", "open_prs", "pr_decisions",
+        # MI-57: `settled_prs` grades the DURABLE half of the record — a PR that
+        # never reached `main` with no reason recorded. Pinning the inventory is
+        # the point of this assertion, so a new check belongs here explicitly
+        # rather than being waved through by a loosened comparison.
+        "settled_prs"}
 
 
 # --------------------------------------------------------------------------- #

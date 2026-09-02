@@ -1,0 +1,12 @@
+feat(telegram): make the Claude bot polled, then move decision prompts to it (#10789)
+
+Operator directive 2026-09-02: "JUST WIRE THE PR TO RIGHT BOT". This is the PR
+that makes ClaudeBot polled, so it is the one that wires it.
+
+Relay used because mcp enable_pr_auto_merge failed with "API rate limit already
+exceeded for user ID 119055177" -- the THIRD hit today, and the same GraphQL
+limit that stranded the decision committer PR this morning.
+
+Green at the time of arming: guards, repo-inventory, pytest-collect. pytest-run
+still running -- auto-merge waits for it, which is the point of arming rather
+than merging by hand.

@@ -16,8 +16,44 @@ review_trigger: >-
   priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
 
 done_condition: >-
-  Killing a session mid-work loses nothing, DEMONSTRATED by killing one. Not
-  asserted from a test.
+  Killing a session mid-work loses at most the work not yet pushed, and NOTHING
+  that was pushed — DEMONSTRATED by killing one, with the survivor recovered by
+  a mechanism that does not depend on `SESSIONS.json`. Not asserted from a test.
+
+done_condition_was_amended_under_measurement_2026_09_02:
+  # ⚠️ RECORDED, NOT QUIETLY EDITED. A reader must be able to see that this
+  # condition CHANGED because it was measured against, rather than believe it
+  # was always this — which is the whole difference between a bar that was
+  # cleared and a bar that was moved.
+  original: >-
+    "Killing a session mid-work loses nothing, DEMONSTRATED by killing one. Not
+    asserted from a test."
+  who: manager ruling on MI-70's report, 2026-09-02
+  why: >-
+    THE KILL WAS RUN (see `the_kill_was_run_and_it_was_a_PARTIAL_loss` below)
+    and the original condition is UNACHIEVABLE, not merely unmet: there is
+    always a window between the last push and the death, and the loss lives in
+    a container nothing outside it can reach. A condition that can never be met
+    keeps a phase open forever, which is its own dishonesty.
+  why_not_the_obvious_amendment: >-
+    ⚠️ The tempting amendment — "loses everything it had not pushed" — was
+    REJECTED, and the reason matters more than the wording. It fits the
+    condition to the result, converting a measured gap into a definition that
+    can no longer FAIL; and mechanically it is a DESCRIPTION rather than a
+    CONDITION, since a done-condition has to be something that passes or fails
+    and a restatement of the failure is neither.
+  what_the_amendment_adds: >-
+    A BOUND rather than a deletion, plus a second clause the original did not
+    have: the survivor must be recovered WITHOUT `SESSIONS.json`. That clause is
+    not decoration — the registry has been measured incomplete twice, so a
+    demonstration that leaned on it would have proved recovery only in the case
+    that was never the problem.
+  the_residual_is_not_absorbed_by_this: >-
+    ⚠️ The unpushed loss is REAL and does not disappear because the condition
+    now bounds it. It has its own successor object —
+    `WO-20260902-PUSH-CADENCE-IS-THE-ONLY-LEVER-ON-THE-UNPUSHED-WINDOW` — and
+    THIS PHASE MUST NOT BE CLOSED UNTIL THAT OBJECT EXISTS, precisely so the
+    residual is not dropped at the moment the phase goes green.
 
 # ⚠️ CORRECTED 2026-09-01, and the correction is the point. This edge read
 # `object: WO-20260901-PHASE-A`, which was WRONG in the direction that matters:
@@ -65,6 +101,18 @@ lease_design:
   # returned `{"success": false, "No agent named ... is reachable"}`, and
   # ListAgents shows no reachable cloud peers. There is no send_message or
   # list_events tool in the manager's surface.
+  #
+  # ⚠️ AND IT IS SYMMETRIC — measured 2026-09-02 (MI-70), which this row did NOT
+  # say and which changes what follows from it. A SUB-SESSION CANNOT MESSAGE ITS
+  # MANAGER EITHER: SendMessage from a sub-session to its own `parent_session_id`
+  # returns the SAME "No agent named ... is reachable". The one-directional
+  # phrasing above invited the reading that a sub-session could at least REPORT
+  # UPWARD — it cannot, so a sub-session with a finding, a blocker or a question
+  # has NO channel to its manager except the coordination board and its PR. That
+  # is why MI-70's ruling-relevant findings went to #6927 rather than to the
+  # manager directly, and it is why the spawn prompt must tell a sub-session to
+  # write upward-bound information into the board or the PR rather than "tell the
+  # manager".
   #
   # THIS IS WHY THE HANDOFF IS CHEAP. There is no live connection to transfer —
   # "taking over" is purely a KNOWLEDGE problem, and knowledge goes in files.
@@ -226,6 +274,212 @@ note: >-
   never collapsed (not_submitted · in_transit · committed), and transit fails
   BACK never forward.
 
+the_kill_was_run_and_it_was_a_PARTIAL_loss:
+  # ⚠️ THE DONE-CONDITION AS WRITTEN IS NOT MET, AND THE MEASUREMENT SAYS SO
+  # RATHER THAN BEING SHAPED TO PASS. "Killing a session mid-work loses
+  # NOTHING" is FALSE. What is true, and is now demonstrated rather than
+  # asserted, is: **killing a session loses everything it had not pushed, and
+  # nothing it had.**
+  run_by: MI-70 (session_01NkekPZw73VYuynYhSdWLWm)
+  subject: session_01NN97cVYW5dmiNNXHfsu7Nn
+  subject_was: >-
+    A PURPOSE-MADE, EXPENDABLE session doing throwaway doc work. No real work
+    was killed. It was instructed to hold THREE tiers of state at the moment of
+    death — pushed, committed-not-pushed, uncommitted — because a subject that
+    pushes everything measures nothing.
+  subject_was_deliberately_NOT_registered: >-
+    It has no row in SESSIONS.json. That was a choice, and it makes the test
+    HARDER in the direction that matters: the registry has been measured
+    incomplete twice (3 of 6 on 2026-09-01; 26 of 55 on 2026-09-02), so a
+    demonstration run on a registered session would have proved recovery only
+    in the case that was never the problem.
+  killed_at: 2026-09-02T13:49:13Z   # archive_session -> ARCHIVED, container released
+  killed_while: >-
+    SESSION_STATUS_RUNNING, mid-step. Not idle, not finished. Its own final
+    status_detail — "pushed claude/mi70-kill-subject; local phase 2 commit
+    held" — is the independent confirmation that unpushed state existed at the
+    moment of death.
+
+  what_survived:
+    tier_1_pushed: >-
+      ALL of it. Branch claude/mi70-kill-subject @ 4d9c0c48 on origin, one
+      commit, docs/claude/work/kill-subject-notes.md intact, and the
+      `Claude-Session:` trailer naming the dead session.
+  what_was_lost:
+    tier_2_committed_not_pushed: >-
+      LOST. The phase-2 commit existed (the session said so) and is gone with
+      the container. `git rev-list origin/main..origin/claude/mi70-kill-subject`
+      = 1, and the pushed file contains no "phase 2" section.
+    tier_3_uncommitted: >-
+      LOST. docs/claude/work/kill-subject-scratch.md does not exist on origin.
+    # ⚠️ NEITHER LOSS IS RECOVERABLE BY ANY REAPER, EVER. It lived in a
+    # container nothing outside it can reach. This is not a gap a better
+    # mechanism closes — it is why session_registry.py's spawn prompt makes a
+    # PUSHED BRANCH a precondition of reporting done.
+
+  by_which_mechanism_each_was_recovered:
+    the_branch: >-
+      NOT by SESSIONS.json — the subject has no row there, so the registry
+      contributed nothing. Recovered by scripts/ops/session_reaper.py reading
+      the `Claude-Session:` commit trailer, 62 s after the kill, with no
+      cooperation from the dead session: it returned
+      session_01NN97cVYW5dmiNNXHfsu7Nn -> ['claude/mi70-kill-subject'].
+    what_it_was_FOR: >-
+      NOT RECOVERED, and this is the honest boundary. `owns_object` exists only
+      in the registry. The reaper can say WHOSE work a branch is; it cannot say
+      what it was for. Recovery locates work and leaves it unattached.
+
+  the_incremental_progress_mechanism_already_existed_and_nothing_read_it: >-
+    ⚠️ The design asks for "state written as work happens". It is already
+    written: every commit carries a `Claude-Session:` trailer. Nothing read it
+    — the provenance-consumer-guard shape one level up, a signal WRITTEN and
+    never READ. Measured 2026-09-02: 35 of 67 registry rows name NO branch at
+    all (the registry is a spawn-time record nothing updates), and scanning the
+    194 claude/** heads for that trailer located the work of 16 of them anyway.
+    Live reap: `unreadable` 37 -> 21.
+
+  what_the_reaper_cannot_see_stated_rather_than_hidden:
+    - "LIVENESS. It cannot tell alive from dead — list_sessions is an MCP tool
+       CI does not hold. It grades branch quiescence, a PROXY. That is safe
+       ONLY because it records and never acts; a reaper that killed on the same
+       proxy would have to be right about death, and it cannot be."
+    - "UNPUSHED WORK. Zero visibility, by construction. See the two losses above."
+    - "WHAT UNREGISTERED WORK WAS FOR. 187 claude/** heads carry no registry
+       row; 98 session ids are attributable from trailers; none of them can be
+       tied to a work object."
+    - "`no_landing_evidence` IS NOT `lost`. The registry records PRs by hand, so
+       a row whose work landed under an unrecorded PR grades there too — one of
+       the 7 live rows in that state landed as #10789."
+
+the_daily_brief_MI_75:
+  # The handoff artifact. Phase E is "no work is lost, and rules are verified
+  # at exit"; the reaper covers the SESSION half. This covers the KNOWLEDGE
+  # half: what a successor -- human or manager -- is handed at the boundary.
+  what_shipped: scripts/ops/render_daily_brief.py (+ --self-test, --check)
+  acceptance_is_the_operators_own_words: >-
+    "by the [brief] in the morning, I want that to include what was done
+    overnight and what was wrapped up after I went to bed, SO THAT I KNOW WHERE
+    I'M STARTING OFF FROM." A brief that renders and does not answer that
+    sentence FAILS, however well-formed it is.
+
+  the_one_artifact_or_two_question_ARGUED_not_assumed: >-
+    ONE artifact, two clearly-headed sections, regenerable -- NOT two
+    renderers. The argument that settles it is the operator's own workflow:
+    they read the brief, add notes, and PASTE IT AS THE PROMPT THAT STARTS THE
+    NEXT MANAGER. That manager IS the second consumer, so an artifact carrying
+    only the overnight delta would start a manager as under-informed as one
+    arriving cold -- the artifact is literally the successor's input. The
+    mid-day successor case is served by RE-RUNNING it (it reads live files),
+    not by a second renderer and not by re-reading a stale morning copy.
+  what_that_choice_COSTS_stated_rather_than_hidden: >-
+    The state section is the one that grows, and render_session_brief.py
+    records that failure ("a section that only grows is one more wall of text
+    to skim past"). The line is drawn by STATE, not by count: in_flight,
+    blocked and landed_unproven are enumerated IN FULL and never truncated
+    (silently dropping live work is the failure the brief exists to prevent);
+    everything else is a count.
+
+  WHO_GENERATES_IT_the_constraint_it_does_not_fake_around: >-
+    A CLOSE-OUT DELIVERABLE THE NIGHT MANAGER RUNS BEFORE IT ENDS -- NOT A
+    CRON, and the reason is a real tool boundary rather than a preference.
+    Three of the four inputs are reachable from anywhere: what MERGED (git),
+    the registers (repo files), what is DUE (render_due_list). The fourth is
+    not -- WHAT A NIGHT SESSION CONCLUDED lives in get_session's
+    post_turn_summary, and mcp__* tools are unavailable to CI and to
+    Routine-fired turns. A cron would therefore ship, every morning, a brief
+    structurally incapable of answering the operator's question.
+  and_it_STILL_runs_without_that_observation: >-
+    Because the case the whole phase exists for is THE MANAGER DIED. Omitting
+    --session-notes renders `not_observed` -- a DECLARED HOLE -- never silence
+    and never "nothing was concluded". A dead manager still produces a brief
+    that says what it could not see, which is strictly better than no brief.
+
+  two_defects_found_by_CHECKING_the_flag_rather_than_trusting_it:
+    # Both are the class this module exists to prevent -- a confident answer
+    # produced by a step that never ran -- and both were found by running the
+    # flag rather than reading its docstring.
+    silent_since_became_HEAD: >-
+      `git rev-list -1 --before=<garbage> HEAD` does NOT fail. It IGNORES the
+      unparseable date and returns HEAD, rc 0 (measured). So a typo in the one
+      flag that means "when I went to bed" made the overnight window HEAD..HEAD
+      -- EMPTY -- and the brief answered the operator's question with "nothing
+      happened", confidently, with no hint the argument had been discarded.
+      That is the `curl ... || echo '{}'` shape one level up. `parse_since` now
+      REFUSES it (exit 2, nothing rendered). The test asserts GIT's behaviour
+      first, so if git ever starts rejecting a bad --before this validation is
+      flagged as dead weight rather than quietly kept.
+    shallow_claim_named_an_untested_cause: >-
+      The no-commit-that-old message asserted "the clone is shallow"
+      UNCONDITIONALLY -- UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A. True in a
+      session checkout, and WRONG for a full clone of a young repo, where it
+      sends a reader to deepen a clone that is already complete. It now
+      branches on a measured `work_digest._is_shallow()` -- imported, never
+      re-implemented, because two copies of "is this clone shallow" is how they
+      come to disagree -- and names SHALLOW or COMPLETE with the remedy that
+      actually applies.
+
+  what_was_REUSED_and_what_was_genuinely_new: >-
+    RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED was checked by MEASUREMENT before
+    a line was written, not by assertion. REUSED, imported rather than
+    re-derived: work_digest.build_digest/render (the overnight delta -- run
+    over a real 24h window on the live tree it reported 44 state changes across
+    6/6 registers); render_due_list.collect/build (the three-state source
+    discipline and the partial-must-name-the-source rule);
+    render_session_brief.priority_lines (the cycle priority AND its null case,
+    so the priority the operator reads and the one a session inherits cannot
+    disagree); session_registry._load_observation (the tolerant list_sessions
+    parser). GENUINELY NEW: the STATE half -- the checklist split by state, the
+    lease, the open-PR conditions, the loud open-items -- and the two-axis read
+    verdict. Nothing existed that answered "where am I starting from"; the
+    digest is a DELTA and can say "PHASE-E: ready -> in_flight" while being
+    unable to say what is on the checklist now.
+  MI_03_is_the_OTHER_half_and_is_not_touched: >-
+    MI-03-MORNING-DIGEST (blocked on MI-02-CLAUDE-CHANNEL) is the DELIVERY
+    half -- getting a morning message onto the dedicated Claude bot. This is
+    the CONTENT half. They are not the same gap and this changes no delivery
+    path.
+
+  two_verdict_axes_and_why_not_one: >-
+    registersVerdict grades the repo files; observationsVerdict grades the
+    MCP-only inputs, and they are deliberately NOT pooled. A single verdict
+    would read `partial` on every non-manager run forever, because the live
+    observation is structurally absent there -- and a permanently-degraded
+    verdict is one that gets skimmed past, which is the exact hazard CLAUDE.md
+    names for the constraint readout. Splitting them keeps "I could not read
+    OPEN-ITEMS.json TODAY" from being buried under "no manager supplied a live
+    observation".
+
+  what_is_TESTED_and_what_is_NOT:
+    tested: >-
+      18 self-test assertions + 23 pytest tests, both run and passing on the
+      live tree, with planted controls in BOTH directions -- a removed
+      invariant sentence makes `--check` exit 1 (demonstrated), a clean tree
+      exits 0. Measured on the live registers: `--check` renders over all 6 and
+      prints done and landed_unproven as SEPARATE numbers (11 and 17 when this
+      was written; 72 checklist items after the merge of main, so read the
+      command's output rather than re-quoting these).
+      [!] AND IT IS GREEN IN CI, WHICH IS THE READING THAT SETTLES THE TWO
+      FAILURES THE SANDBOX SHOWED: PR #10825 head e65bbdc ran `guards` SUCCESS
+      and `pytest-run` SUCCESS (16:50:20 -> 17:06:12Z), plus pytest-collect and
+      repo-inventory, mergeable_state `clean`. The local `layer-guard: exit
+      127` was a missing `lint-imports` BINARY and the local
+      test_work_digest failure was a missing `fastapi` -- both environmental,
+      neither a finding, and CI is where that was established rather than
+      asserted.
+    NOT_tested_and_therefore_NOT_claimed: >-
+      NO MANAGER HAS EVER RUN IT AT CLOSE-OUT WITH A REAL --session-notes FILE.
+      The observation path is exercised only by a fixture, so the half of the
+      artifact that answers the operator's actual question -- what a night
+      session CONCLUDED -- is DEPLOYED AND UNOBSERVED. That is the landed_unproven
+      state, and it must not be recorded as done. The brief also has never been
+      read by the operator, so "it renders" is not "it answered".
+
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md
+  - scripts/ops/session_reaper.py
+  - .github/workflows/session-reaper.yml
+  - docs/claude/work/REAPER-OBSERVATIONS.json
+  - scripts/ops/render_daily_brief.py
+  - tests/test_render_daily_brief.py
+  - comms/briefs/README.md
 verdict: null

@@ -40,44 +40,10 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-02T09:56:00Z",
+  "as_of": "2026-09-02T15:10:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
-    {
-      "pr": 10746,
-      "title": "bybit: the naked sweep must grade coverage of the book it is protecting",
-      "owner_session": "session_01Wu7y3KL6MMgAV1ghetQWFx",
-      "checklist_item": "MI-37",
-      "draft": true,
-      "tier": "2 (order path)",
-      "state": "in_progress_by_owner",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "Must ship scoped behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE). Merging without the allowlist, or widening beyond bybit_1, EXCEEDS the approval given.",
-        "scope": "bybit_1 (demo) ONLY. NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug for the duration of the soak.",
-        "decided_on": "2026-09-02",
-        "text": "APPROVED WITH STAGING 2026-09-02 -- bybit_1 (demo) ONLY. ⚠️ NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug during the soak. Merging this without the account allowlist, or widening beyond bybit_1, EXCEEDS the approval given."
-      },
-      "blocker": "Owner is reworking it to scope the changed grading behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE)."
-    },
-    {
-      "pr": 10748,
-      "title": "R-metric contamination: detector + Tier-3 proposal",
-      "owner_session": "session_01EihsgewHt7BZv43YcC7caV",
-      "checklist_item": "MI-30",
-      "draft": true,
-      "tier": "1 shipped; the FIX it proposes is Tier-3 and is NOT in the diff",
-      "state": "awaiting_manager_review",
-      "operator_decision": {
-        "verdict": "pending",
-        "condition": "§5 carries a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it.",
-        "scope": null,
-        "decided_on": null,
-        "text": "None yet. §5 contains a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it."
-      },
-      "blocker": "Manager review not complete. ⚠️ Carry its CORRECTION to the brief: neither automated gate (M7 packet, R4 results gate) reads R -- the contamination reaches decisions through human/Claude review, which is a different severity than originally stated."
-    },
     {
       "pr": 10398,
       "title": "chore(m1): economic-calendar PIT snapshots (auto)",
@@ -113,6 +79,23 @@
       "blocker": "OPERATOR ACTION, not a code blocker."
     },
     {
+      "pr": 10748,
+      "title": "R-metric contamination: detector + Tier-3 proposal",
+      "owner_session": "session_01EihsgewHt7BZv43YcC7caV",
+      "checklist_item": "MI-30",
+      "draft": true,
+      "tier": "1 shipped; the FIX it proposes is Tier-3 and is NOT in the diff",
+      "state": "awaiting_manager_review",
+      "operator_decision": {
+        "verdict": "pending",
+        "condition": "§5 carries a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it.",
+        "scope": null,
+        "decided_on": null,
+        "text": "None yet. §5 contains a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it."
+      },
+      "blocker": "Manager review not complete. ⚠️ Carry its CORRECTION to the brief: neither automated gate (M7 packet, R4 results gate) reads R -- the contamination reaches decisions through human/Claude review, which is a different severity than originally stated."
+    },
+    {
       "pr": 10764,
       "title": "docs: split the API payload reference out of CLAUDE.md (-34.4%, verbatim)",
       "owner_session": null,
@@ -145,21 +128,6 @@
       "blocker": "NOT YET REVIEWED BY THE MANAGER. ⚠️ Its done-condition is NOT a green CI run: it needs a workflow_dispatch run with a quoted conclusion, producing a digest in which the AVAX dead leg is visible. Do not merge on green alone — that exact mistake cost two failed fixes this morning."
     },
     {
-      "pr": 10779,
-      "title": "manager: register MI-57 — the open-PR record's staleness regress, and the structural fix",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-57",
-      "draft": false,
-      "tier": "1 (coordination records)",
-      "state": "in_ci",
-      "operator_decision": {
-        "verdict": "not_required",
-        "decided_on": "2026-09-02",
-        "text": "No operator statement was sought or given. Tier-1 coordination records only (MANAGER-CHECKLIST.json + SESSIONS.json); no code, no order path, no config. Recording the ABSENCE of a decision rather than inventing one."
-      },
-      "blocker": "CI. Merges on green."
-    },
-    {
       "pr": 10780,
       "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
       "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
@@ -173,6 +141,57 @@
         "text": "No operator statement exists. ⚠️ THE ROW MATTERS MORE THAN THE PR: this branch preserves ~320 lines of UNREVIEWED order-path work (execute.py, qty_legalize.py, precision.py) recovered from a DEAD session's uncommitted working tree. It must NOT be merged on green CI — its existing venue-max tests monkeypatch _resolve_venue_lot_rule to return vmax=22_000, so they exercise the CLAMP and never the RESOLUTION, i.e. they pass for the wrong reason, which is how the AVAX leg reached a third recurrence. A successor reading 'draft, CI green' without this row could land unreviewed order-path code on a real-money client."
       },
       "blocker": "Needs a live session to take ownership and verify the resolution path against a real venue read, then re-open as a normal Tier-gated PR. Until then this branch is a BACKUP, not a proposal."
+    },
+    {
+      "pr": 10793,
+      "title": "telegram: /status and /decisions operator pull commands — HELD",
+      "owner_session": "session_01272CQFvWA5F9tS9nNRpJtK",
+      "checklist_item": "MI-59",
+      "draft": true,
+      "tier": "2 (Telegram bridge)",
+      "state": "held_by_manager",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "The commands were asked for on CLAUDEBOT ONLY. Operator, verbatim: 'don't add those commands to the trader bot, thats definitely not what i asked for - i asked for them in cluade bot.'",
+        "scope": "ClaudeBot (@ict_cluade_bot) only — explicitly NOT the trader bot.",
+        "decided_on": "2026-09-02",
+        "text": "Operator asked for /status and /decisions, then corrected the destination. The HOLD is the manager's, not the operator's: it must not merge until ClaudeBot is CONFIRMED POLLED on the live VM, or the commands land on a bot nothing polls."
+      },
+      "blocker": "⚠️ HELD BY THE MANAGER. Un-hold ONLY on a confirmed live-VM observation that ClaudeBot is polled — read /api/diag/log_file?name=telegram_poll_claude and the sweep stats `destination`. 'A ping arrived' is NOT that observation: the fallback route produces one and is PERMANENT (MI-58's correction — answerable_route() needs a live heartbeat)."
+    },
+    {
+      "pr": 10794,
+      "title": "MI-61: a soak must alarm — a threshold, a timer, and a state for a DEAD soak",
+      "owner_session": "session_01NfzmaV7FxP4bAZtKbXYVb9",
+      "checklist_item": "MI-61",
+      "draft": true,
+      "tier": "1 (observability)",
+      "state": "awaiting_manager_review",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "Standing operator directive, 2026-09-02: 'anything soaking needs to be logged with an alarm that has either a timer or a soak threshold, so that we know to get back to it when the soak is ready.'",
+        "scope": "All soaks.",
+        "decided_on": "2026-09-02",
+        "text": "Directed by the operator as a standing rule rather than a one-off approval. The first row filed under it is OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK."
+      },
+      "blocker": "Manager review not complete."
+    },
+    {
+      "pr": 10810,
+      "title": "automerge: gate the relay on the branch's OWN request, and stop it un-drafting",
+      "owner_session": "session_01XrwTGRY819PCzBnppCTLbi",
+      "checklist_item": "MI-69",
+      "draft": true,
+      "tier": "1 (CI/workflow)",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "pending",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None yet."
+      },
+      "blocker": "⚠️ FIXES A LIVE MISFIRE, OBSERVED TODAY. claude-pr-automerge.yml still carries the LEGACY shared marker .github/pr-automerge-request in its paths: filter, so any claude/** branch that merges main is un-drafted and armed unasked — seen on three PRs at 13:19Z, and again on #10809 which self-merged at ~14:40Z while the manager was mid-review. Also carries the backlog row this record's own checklist entry points at."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -219,5 +238,253 @@
     }
   ],
   "⚠️_the_last_row_is_always_stale_and_that_is_STRUCTURAL": "A handoff can never reach open_prs=PASS at the exact moment of the final merge, and this is a PROPERTY of the design rather than a bug to chase. Every open PR must have a row; the PR that prunes the last stale row is itself an open PR and needs a row; merging it makes THAT row stale. The regress terminates only if the manager stops opening PRs. ⚠️ DO NOT 'fix' this by exempting the currently-merging PR from the completeness check — the exemption would be indistinguishable from the real failure it exists to catch (a PR nobody recorded), and a check that cannot tell those apart is worse than the transient row. The correct reading: at handoff, `open_prs` naming ONLY the PR being merged right now is materially ready; naming any OTHER pr is not. State which case you are in rather than quoting the verdict alone.",
-  "⚠️_a_row_can_UNDER_claim_and_no_check_catches_it": "Found 2026-09-02 on this very row. `open_pr_record.py --strict` grades a verdict that DECLARES conditions and records none — the over-claiming direction, which is the dangerous one. It cannot catch the OPPOSITE: I typed #10758 `none_recorded` while a full operator decision, with its condition, sat in MANAGER-CHECKLIST.json under MI-34 the whole time. `none_recorded` is a valid verdict needing no condition, so the row passed every check while being simply wrong. ⚠️ The cost is real but is NOT symmetric with the over-claiming case: a successor reading `none_recorded` re-asks the operator — wasteful and SAFE — where one reading a bare 'approved' could merge a demo-only Tier-2 approval onto a real-money account. So this is worth KNOWING, not worth a new failing check: cross-checking every row against the checklist would fire on the many PRs that legitimately have no decision anywhere. The mitigation is the reviewer's, not the guard's — read MANAGER-CHECKLIST for the PR's item before typing `none_recorded`."
+  "⚠️_a_row_can_UNDER_claim_and_no_check_catches_it": "Found 2026-09-02 on this very row. `open_pr_record.py --strict` grades a verdict that DECLARES conditions and records none — the over-claiming direction, which is the dangerous one. It cannot catch the OPPOSITE: I typed #10758 `none_recorded` while a full operator decision, with its condition, sat in MANAGER-CHECKLIST.json under MI-34 the whole time. `none_recorded` is a valid verdict needing no condition, so the row passed every check while being simply wrong. ⚠️ The cost is real but is NOT symmetric with the over-claiming case: a successor reading `none_recorded` re-asks the operator — wasteful and SAFE — where one reading a bare 'approved' could merge a demo-only Tier-2 approval onto a real-money account. So this is worth KNOWING, not worth a new failing check: cross-checking every row against the checklist would fire on the many PRs that legitimately have no decision anywhere. The mitigation is the reviewer's, not the guard's — read MANAGER-CHECKLIST for the PR's item before typing `none_recorded`.",
+  "settled_prs": [
+    {
+      "pr": 10746,
+      "title": "bybit: the naked sweep must grade coverage of the book it is protecting",
+      "owner_session": "session_01Wu7y3KL6MMgAV1ghetQWFx",
+      "checklist_item": "MI-37",
+      "draft": true,
+      "tier": "2 (order path)",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "Must ship scoped behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE). Merging without the allowlist, or widening beyond bybit_1, EXCEEDS the approval given. PLUS (2026-09-02, second decision): arming is HELD pending soak evidence; merge is permitted because it arms nothing.",
+        "scope": "bybit_1 (demo) ONLY. NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug for the duration of the soak.",
+        "decided_on": "2026-09-02",
+        "text": "APPROVED WITH STAGING 2026-09-02 -- bybit_1 (demo) ONLY. ⚠️ NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug during the soak. Merging this without the account allowlist, or widening beyond bybit_1, EXCEEDS the approval given. ⚠️ SECOND OPERATOR DECISION 2026-09-02 (manager asked, operator answered 'hold it until the soak'): ARMING IS HELD. Merging is still within the approval -- the shipped default resolves MODE to `annotate` and an empty BYBIT_GRADED_COVERAGE_ACCOUNTS means NONE for every account, so the merge binds no order path. What is HELD is the separate two-key set-env (BYBIT_GRADED_COVERAGE_MODE=apply + BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1) plus the trader restart. ⚠️ MERGING IS WHAT STARTS THE SOAK, so holding the merge would make the operator's condition unsatisfiable -- the allowlist scopes the BINDING, never the MEASUREMENT (verified in the diff: every Bybit account is graded and annotated regardless), which is the exact correction NETTING_ATTRIBUTION_ACCOUNTS needed on 2026-08-09 when intersecting the account set at the top of the pass made the account being staged TOWARD invisible. Do NOT arm on a quiet soak: the criterion is a bybit_coverage_soak row carrying `verdicts_differ: true`, and the evidence behind this whole PR is n=1 and CONSTRUCTED, never a sighting -- so a demo soak may never produce one, and not seeing it is not evidence the fix is wrong."
+      },
+      "blocker": "MERGE CONFLICT — mergeable_state `dirty`, base 2e6b51d2 against a main that has moved far ahead. 21 files / 1949 lines on the ORDER PATH, so the AUTHOR session resolves it, not the manager. Arming is separately HELD by operator decision pending soak evidence.",
+      "terminal": "merged",
+      "merge_sha": "af9af5e332703032c96b077aff2e8d788daab6ed",
+      "observed_at": "2026-09-02T14:36:19Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10779,
+      "title": "manager: register MI-57 — the open-PR record's staleness regress, and the structural fix",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-57",
+      "draft": false,
+      "tier": "1 (coordination records)",
+      "state": "in_ci",
+      "operator_decision": {
+        "verdict": "not_required",
+        "decided_on": "2026-09-02",
+        "text": "No operator statement was sought or given. Tier-1 coordination records only (MANAGER-CHECKLIST.json + SESSIONS.json); no code, no order path, no config. Recording the ABSENCE of a decision rather than inventing one."
+      },
+      "blocker": "CI. Merges on green.",
+      "terminal": "merged",
+      "merge_sha": "fdad6cc1cb9afe404509b3c7607bcd7997d0064b",
+      "observed_at": "2026-09-02T14:36:19Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10783,
+      "title": "open-prs: split the settled record out of the graded one, and reconcile after the merge (MI-57)",
+      "owner_session": "session_01T8iWSepqAuBU7sgbs8GPHu",
+      "checklist_item": "MI-57",
+      "draft": true,
+      "tier": "1 (tooling + CI)",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "not_required",
+        "decided_on": "2026-09-02",
+        "text": "No operator statement exists and none is needed: Tier-1 tooling and CI, no order path, no config, no runtime. This field records the ABSENCE of an operator decision and is deliberately not a quotation."
+      },
+      "blocker": "⚠️ THIS PR IS THE FIX FOR THE VERY CHECK THAT FLAGGED IT. handoff_check's open_prs check cannot read clean by construction: every open PR needs a row, the PR maintaining the rows is itself open, and merging it makes that row stale. MANAGER DECISION RELAYED 2026-09-02: drop the bot-author condition entirely and key ONLY on the anchored `automation/` branch prefix -- the manager's original spec required bot-author AND prefix, and MEASUREMENT INVERTED IT ON BOTH SIDES (#10785 and #10781 sit on automation/ branches with the HUMAN author because they are PAT-authored; #10783 itself is on a claude/ branch with author github-actions[bot] because pr-opener.yml relayed it). Also approved: the .github/actions/commit-to-main landing route with verify-merged, since GH006 forbids a direct push to main.",
+      "terminal": "merged",
+      "merge_sha": "7fd659000f2f8d7c4ef035153a83cd82770eddf3",
+      "observed_at": "2026-09-02T14:36:19Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10789,
+      "title": "feat(telegram): make the Claude bot polled, then move decision prompts to it",
+      "owner_session": "session_01XH17FTCCjiwHcMLAVeDLQZ",
+      "checklist_item": "MI-58",
+      "draft": true,
+      "tier": "2 (a live service gains a polling loop; no order path)",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "pending",
+        "decided_on": "2026-09-02",
+        "text": "The operator DIRECTED THE CHANNEL, not the merge: 'that's supposed to be showing up in Cloudbot. Right? Not on the trader one, the decisions.' No Tier-2 merge or restart decision has been recorded; treating the direction as merge approval would be the half-informed state this record exists to prevent."
+      },
+      "blocker": "⚠️ BOTH HALVES OR NEITHER. It must NOT change answerable_route() without first making TELEGRAM_CLAUDE_BOT_SECRET genuinely POLLED with a CallbackQueryHandler -- a button in an unpolled bot renders perfectly and does nothing when tapped, which is strictly WORSE than the current wrong-channel state. #10778 chose the trader bot for exactly this reason and was right to. Must not fork handle_decision_callback (the route stays the one owner of every refusal) and must not reuse TELEGRAM_CLAUDE_BOT_TOKEN, which drives the PROP bot. Concurrent with MI-59 in src/bot/telegram_query_bot.py -- whichever lands second resolves.",
+      "terminal": "merged",
+      "merge_sha": "9df1502b02c0202c411981965c94ce90954fd78b",
+      "observed_at": "2026-09-02T14:36:19Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10800,
+      "title": "manager: complete the open-PR record so a successor can see what is in flight",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-67",
+      "draft": false,
+      "tier": "1 (register)",
+      "state": "manager_own_work",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": "2026-09-02",
+        "text": "None required (Tier-1 register maintenance, which this file's own `maintained_by` assigns to the manager holding the lease)."
+      },
+      "blocker": "⚠️ THIS PR IS THE ONE NAMED HANDOFF BLOCKER. handoff_check.py graded `open_prs` FAIL at 14:47Z — 13 open PRs with no row, of 20 open against 11 recorded — and every other check PASSED. Its earlier content (4 rows) was superseded when the MI-57 reconciler restructured this file into open_prs/settled_prs; the branch was reset onto that and re-authored against the LIVE open set.",
+      "terminal": "merged",
+      "merge_sha": "a1d55a88f84bcda1be53fb87a41f46f4119d2aa5",
+      "observed_at": "2026-09-02T14:58:58Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10807,
+      "title": "work: operator answers DEC-20260902-REVIEW-PACKET-POPULATION — both options refused",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-67",
+      "draft": false,
+      "tier": "1 (work store)",
+      "state": "ready_to_merge",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": "2026-09-02",
+        "text": "None required — the PR RECORDS an operator decision rather than asking for one."
+      },
+      "blocker": "None. Ready to merge.",
+      "terminal": "merged",
+      "merge_sha": "1efb5defb05920497325d528291e38224f4e1af7",
+      "observed_at": "2026-09-02T14:58:58Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10808,
+      "title": "manager: three halves as executable refusals — preflight, queue watch, spawn priority gate",
+      "owner_session": "session_013ANr63vsQ9TjU4sh51vxny",
+      "checklist_item": "MI-68",
+      "draft": true,
+      "tier": "1 (tooling/CI)",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "DEC-20260902-WHAT-IS-AN-ARTIFACT answered 2026-09-02: an artifact is an OPEN, NON-DRAFT PR excluding DO-NOT-MERGE and bot automation (option C). ⚠️ The operator ACCEPTED that this gate will bite the next manager — that is the acceptance criterion, not a caveat.",
+        "scope": "The caps are 4 concurrent SESSIONS and 4 concurrent ARTIFACTS, independently.",
+        "decided_on": "2026-09-02",
+        "text": "Operator, verbatim: 'let's go with your recommendation for c, and I understand this will bite the next manager, but that is, like you said, exactly the point, so that's fine.'"
+      },
+      "blocker": "⚠️ THE COUNT WAS 10 AGAINST A CAP OF 4 WHEN THE DEFINITION WAS CHOSEN. That is a manager merge backlog, NOT evidence the definition is wrong — do not widen the definition to make the number pass. Manager wants three things before merge: whether queue_latency.py can obtain a LIVE session read or grades `unknown`; BOTH negative controls for spawn_gate.py; and whether `register` is genuinely the chokepoint.",
+      "terminal": "merged",
+      "merge_sha": "67cfb8be338ff536e46b8ac425f4dcf96582b839",
+      "observed_at": "2026-09-02T15:02:02Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10812,
+      "title": "MI-70: the session reaper, and the kill test — a PARTIAL loss, honestly reported",
+      "owner_session": "session_01NkekPZw73VYuynYhSdWLWm",
+      "checklist_item": "MI-70",
+      "draft": true,
+      "tier": "1 (tooling/CI)",
+      "state": "awaiting_owner_revision",
+      "operator_decision": {
+        "verdict": "pending",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None yet — the DONE-CONDITION amendment below is a MANAGER ruling, not an operator decision."
+      },
+      "blocker": "⚠️ CARRY THE RULING, NOT JUST THE PR. The kill was actually run and demonstrated 'killing a session loses everything it had not pushed, and nothing it had' — which CONTRADICTS Phase E's done-condition ('loses nothing'). Manager ruled 2026-09-02: do NOT amend the condition to match the result (that fits the bar to the outcome), and do NOT leave 'loses nothing' (unachievable — the loss is in a dead container). BOUND it instead, and Phase E does not close until a successor object exists for push cadence. ⚠️ claude/mi70-kill-subject MUST NOT BE MERGED — it is the evidence.",
+      "terminal": "merged",
+      "merge_sha": "8569b20809d057b92836c5e72c6019e5e95f1d3a",
+      "observed_at": "2026-09-02T15:02:02Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10811,
+      "title": "MI-66: enact the operating-layer inventory — the CREATE, three REPAIRs, P-C3 and P-C4",
+      "owner_session": "session_019vcX5ZTD8C7wNAEtfPUdFQ",
+      "checklist_item": "MI-66",
+      "draft": true,
+      "tier": "1 (docs/tooling)",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "pending",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None yet."
+      },
+      "blocker": "Owner still running. Enacts the inventory whose headline finding is that ZERO of 32 role packs reference the operating layer, so role packs and work objects are wired to different systems.",
+      "terminal": "merged",
+      "merge_sha": "f6740744a667f4232177fe9dffed520b044da281",
+      "observed_at": "2026-09-02T16:06:33Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10819,
+      "title": "manager: keep the open-PR register matching the live set; register MI-73",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-67",
+      "draft": false,
+      "tier": "1 (register)",
+      "state": "manager_own_work",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": "2026-09-02",
+        "text": "None required (Tier-1 register maintenance, which this file's own `maintained_by` assigns to the manager holding the lease)."
+      },
+      "blocker": "⚠️ A LESSON THIS PR LEARNED THE HARD WAY, recorded so the next maintainer does not repeat it: an earlier revision settled #10808 and #10812 BY HAND, and the MI-57 reconciler then did exactly the same thing automatically in #10818 -- the two collided as a merge conflict. THE RECONCILER OWNS THE SETTLED SIDE; do not hand-settle. What it deliberately does NOT do is add a row for an open PR nobody recorded, so the OPEN side is the only half a manager must maintain.",
+      "terminal": "merged",
+      "merge_sha": "449031539896ee077fc6431ec5c6870d59f9f29b",
+      "observed_at": "2026-09-02T16:06:33Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10788,
+      "title": "feat(work): push a committed decision answer back to the session that asked it",
+      "owner_session": "session_01PEYVqTaCY92C3HmtHwxYff",
+      "checklist_item": "MI-60",
+      "draft": true,
+      "tier": "1 for the investigation; the build depends on what it touches",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "pending",
+        "decided_on": "2026-09-02",
+        "text": "The operator DIRECTED THE WORK and has made NO decision on merging this PR -- do not read the first as the second. Their words: 'Can we maybe add, like, a push something on the end of that so that, when the answer gets to the repo, it knows to push it to the session instead of waiting for the session to pull, or is that not something we're capable of doing?'"
+      },
+      "blocker": "Feasibility FIRST, deliberately: whether a GitHub Actions runner can fire a session-bound Routine is UNKNOWN and must be established rather than assumed -- the manager made exactly that error today, declaring a capability absent off ONE failed probe and writing it into a merged PR body. A session-bound Routine IS verified to wake a running session from a session holding MCP; the runner half is not. The watch_url alternative dies with its session AND would publish an endpoint in a PUBLIC repo. Nothing today records WHICH session asked a decision, so there is no address to push to; that recording gates everything else.",
+      "terminal": "merged",
+      "merge_sha": "c35fd1f7643f7b7c18afa21f6cf1a6e94a265b0b",
+      "observed_at": "2026-09-02T16:23:16Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10815,
+      "title": "work-digest: hourly, with the window moved to match; backlog the notifications menu (MI-72)",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-72",
+      "draft": false,
+      "tier": "1 (workflow cadence + register)",
+      "state": "manager_own_work",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "Operator asked for the work digest HOURLY and flagged it immediate: 'I realize that's a lot of noise, but that's how I want it for now until we get a little more settled in.' THE NOISE IS ACCEPTED DELIBERATELY -- do not quietly reduce the cadence later on noise grounds, which would reverse a decision without asking.",
+        "scope": "The work digest only. The notifications-menu half is MI-72, backlogged and NOT built.",
+        "decided_on": "2026-09-02",
+        "text": "Operator, verbatim, on the menu half: 'a further idea, though, that I do want us to backlog as well ... so that we eventually get to it.'"
+      },
+      "blocker": "⚠️ THE WINDOW MOVED WITH THE CRON AND HAD TO. It was described as one number and the cron is one number, but the window was pinned at 24h -- firing hourly alone would have re-reported the same day 24 times, which is the same report louder rather than more frequent reporting. Cadence and window are ONE decision; a future change to either must move both.",
+      "terminal": "merged",
+      "merge_sha": "e7592674009ca4eb88f60654a82e69c6328ce1b5",
+      "observed_at": "2026-09-02T16:23:16Z",
+      "settled_by": "reconciler"
+    }
+  ],
+  "last_reconciled_at": "2026-09-02T16:23:16Z",
+  "last_reconciled_sha": "e7592674009ca4eb88f60654a82e69c6328ce1b5"
 }

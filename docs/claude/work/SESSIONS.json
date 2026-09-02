@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T10:36:20Z",
+  "updated_at": "2026-09-02T17:19:43Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -1015,6 +1015,141 @@
         "claude/decision-push-back"
       ],
       "why": "Operator ask 2026-09-02: when the answer reaches the repo, push it to the asking session instead of the session polling for it. Feasibility FIRST -- a session-bound Routine is verified to wake a running session from a session that holds MCP, but whether a GitHub Actions runner can fire one is UNKNOWN and must be established, not assumed. Nothing today records WHICH session asked a decision, so there is currently no address to push to; that recording is the smallest change and gates everything else.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01NfzmaV7FxP4bAZtKbXYVb9",
+      "title": "MI-61: a soak must alarm — threshold + timer + a dead-soak state",
+      "checklist_item": "MI-61",
+      "spawned_at": "2026-09-02T11:07:55Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/soak-alarm-threshold"
+      ],
+      "why": "STANDING operator directive 2026-09-02: 'anything soaking needs to be logged with an alarm that has either a timer or a soak threshold, so that we know to get back to it when the soak is ready.' MEASURED gap: OPEN-ITEMS rows carry check_every_days (a TIMER) and render_due_list reads them, but across all 36 rows there is NO threshold field -- nothing can express 'come back when the soak has N rows'. A timer alone is the weaker half and produces the desensitized-alarm P1. And #10746's soak has NO register row at all, so it would accrue and surface to nobody.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01Jc8yFVG4XP7nJ841byyt1L",
+      "title": "MI-62: automation commits, pushes, then fails to land — 17 orphaned branches, nothing notices",
+      "checklist_item": "MI-62",
+      "spawned_at": "2026-09-02T11:21:24Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/automation-landing-orphans"
+      ],
+      "why": "MEASURED by the manager 2026-09-02: all 17 automation/* branches on origin, each tested with git merge-base --is-ancestor against origin/main. ZERO landed; 17 unreachable, spanning 2026-06-23 to today. Two causes CONFIRMED for today's (work-digest run 33602234950 and work-decision-commit run 33618689721 both committed and pushed, then died on 'GraphQL: API rate limit already exceeded' at gh pr create); the rest are UNKNOWN and must be established per branch. This is Phase E's declared 'no work is lost' property failing silently for ten weeks.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01RQiedALVJzWCGdBqY6aNV7",
+      "registry_key": "pending-20260902T115140Z",
+      "state": "working",
+      "title": "MI-63 — write TRUE blocked_on edges, and create the DECISION/QUESTION objects the store has none of",
+      "checklist_item": "MI-05-PHASE-D",
+      "spawned_at": "2026-09-02T11:51:40Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/mi63-true-blocked-on-edges"
+      ],
+      "why": "Phase D's readout refuses (assessed coverage 2/584 = 0.34% against a 50% floor) and Phase G's E2 pull rule is stuck in advisory because named_stage is null. Two phases held by one thing. The store also holds ZERO DECISION, QUESTION, DEPLOYMENT and OBSERVATION objects, so it cannot locate the constraint the design named.",
+      "confirmed_at": "2026-09-02T11:52:57Z"
+    },
+    {
+      "session_id": "session_013ANr63vsQ9TjU4sh51vxny",
+      "registry_key": "pending-20260902T132159Z",
+      "state": "working",
+      "title": "MI-68 — the manager preflight: enforce the agreed workflow structure as executable refusals",
+      "checklist_item": "MI-68",
+      "spawned_at": "2026-09-02T13:21:59Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/mi68-manager-preflight"
+      ],
+      "why": "Documentation-as-control failed measurably on 2026-09-02: the CI trap is in CLAUDE.md verbatim and was hit 3x, F6 was filed as MI-54 in the morning and reproduced for 8 hours, and SESSIONS.json needs_action is step 3 of every sweep prompt and was skipped every pass. Every control that DID hold was an executable refusal, not a document.",
+      "confirmed_at": "2026-09-02T13:23:03Z"
+    },
+    {
+      "session_id": "session_019vcX5ZTD8C7wNAEtfPUdFQ",
+      "registry_key": "pending-20260902T133456Z",
+      "state": "working",
+      "title": "MI-66 — Enact the operating-layer inventory: wire the role packs, repair the 4 named workflows",
+      "checklist_item": "MI-66",
+      "spawned_at": "2026-09-02T13:34:56Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/mi66-enact-inventory"
+      ],
+      "why": "The 730-line inventory delivered the map and enacted NOTHING. Zero of 32 role packs reference the operating layer, and 4 workflows are evidenced-red including replay-pregate-nightly at 5 of 5 nights."
+    },
+    {
+      "session_id": "session_01NkekPZw73VYuynYhSdWLWm",
+      "registry_key": "pending-20260902T133456Z",
+      "state": "working",
+      "title": "MI-70 — Phase E: prove no work is lost by KILLING a session mid-work",
+      "checklist_item": "MI-70",
+      "spawned_at": "2026-09-02T13:34:56Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/mi70-kill-test"
+      ],
+      "why": "Phase E exit condition is 'killing a session mid-work loses nothing, DEMONSTRATED by killing one'. Nobody has killed one. This is handoff-bar observation 5 and it is unowned."
+    },
+    {
+      "session_id": "session_01XrwTGRY819PCzBnppCTLbi",
+      "registry_key": "pending-20260902T133456Z",
+      "state": "working",
+      "title": "MI-69 — A rebase arms auto-merge without anyone asking",
+      "checklist_item": "MI-69",
+      "spawned_at": "2026-09-02T13:34:56Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/mi69-automerge-misfire"
+      ],
+      "why": "Observed LIVE at 13:19Z: merging main into three sub-session branches armed auto-merge on all three PRs, because the legacy shared marker is still in the workflow paths filter."
+    },
+    {
+      "session_id": "session_01ThkrPrGUvmomoY8uGEa148",
+      "title": "MI-73 — the manager watcher is BLIND by construction; give it a sensor that can actually see",
+      "owns_object": "WO-20260902-MANAGER-PREFLIGHT",
+      "checklist_item": "MI-73",
+      "spawned_at": "2026-09-02T15:06:31Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "why": "queue_latency.py (merged in #10808) reports `unknown` PERMANENTLY: its verdict needs a live `list_sessions` read and CI holds no mcp__* tools. Honest, and not yet the guard the operator asked for. MI-73 tests whether an MCP-free proxy visible to Actions (green-unmerged PR ageing, START with no DONE, needs_action unanswered) can see the same failure — four sub-sessions IDLE and BLOCKED on the manager for up to 142 min.",
+      "note": "Spawn gate consulted BEFORE spawning and PERMITTED (exit 0). Both gate controls verified independently by the manager: refuse=exit 3, permit=exit 0.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_017CSW7fZsqsbgGSDN6Atijj",
+      "title": "MI-75 — the HANDOFF BRIEF: what a successor manager and the operator are handed, generated not written",
+      "owns_object": "WO-20260901-PHASE-E",
+      "checklist_item": "MI-75",
+      "spawned_at": "2026-09-02T15:45:46Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "why": "The operator set the daily cadence and decided BOTH hops are manual (manager spawns the night session; operator starts the morning one). That closed the wake question and left exactly one gap: they say they will GET the daily brief -- they are the TRIGGER, not the author, and NOTHING produces one. Their stated reason is the acceptance criterion: it must carry what was done overnight 'so that I know where I'm starting off from'.",
+      "note": "Spawn gate consulted BEFORE spawning and PERMITTED (exit 0). Prompt names the existing renderers to read first, because RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED recurred TODAY (MI-70 hand-rolled a push to protected main that .github/actions/commit-to-main already absorbed).",
+      "state": "working"
+    },
+    {
+      "session_id": "session_015r4U4QhowTzXAmr5KQ6f8L",
+      "title": "MI-76 — the monolithic registers re-conflict every sibling PR; the work store already solved this",
+      "owns_object": "WO-20260901-PHASE-C",
+      "checklist_item": "MI-76",
+      "spawned_at": "2026-09-02T16:00:13Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "why": "MEASURED 2026-09-02 on origin/main, 12h window: 52 commits touched a register file. Six PRs sat armed with auto-merge for 15 minutes doing nothing because four were mergeable_state dirty -- auto-merge does not resolve conflicts. The manager re-resolved the same registers across seven PRs, several twice, because merging any one re-dirtied the rest. docs/claude/work/objects/ holds 584 rows as one-file-per-object and has produced ZERO of these conflicts.",
+      "note": "Spawn gate PERMITTED (exit 0). Deliberately NOT told to shard: a .gitattributes merge driver may win and saying so is a fine outcome. Prompt carries the manager's own resolver defect -- it reported 'no id lost' while silently dropping an edit both sides had added -- so any merge driver must REFUSE divergent same-id edits rather than pick a winner. ⚠️ Registered on the SECOND attempt: the first was written onto a branch that predated MI-75's row, which would have dropped it -- the exact hazard this item exists to end.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01PbQAQXRY2oB1ep2BFEUZeA",
+      "title": "MI-77 — the manager watcher that can actually see (MI-73 respawn)",
+      "owns_object": "WO-20260902-MANAGER-PREFLIGHT",
+      "checklist_item": "MI-77",
+      "spawned_at": "2026-09-02T17:19:43Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "why": "MI-73 was given this task, worked ~$10, and LOST ALL OF IT: 'blocked on permission classifier; auto-mode denied add_repo x2 and git push x3'. It never pushed a branch, so nothing survives. Respawned WITH an explicit source_url (which MI-73 lacked) and with a standing instruction to push within its first minutes, before it has anything good.",
+      "note": "Spawn gate PERMITTED (exit 0). Created with explicit source_url and sources confirmed present at creation, unlike MI-73.",
       "state": "working"
     }
   ],

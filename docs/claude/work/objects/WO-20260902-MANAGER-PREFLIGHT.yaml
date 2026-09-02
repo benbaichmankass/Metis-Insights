@@ -1,0 +1,249 @@
+id: WO-20260902-MANAGER-PREFLIGHT
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: The manager's workflow structure, as executable refusals rather than a document
+stage: CAPABILITY
+lifecycle: in_flight
+owner: claude
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read when a manager session reports having been REFUSED by it and changed course, or when a
+  manager reports routing around it. Either settles whether it binds; nothing else does.
+done_condition: >-
+  A manager session runs `scripts/ops/manager_preflight.py`, is refused by it, and acts on the
+  refusal — observed, not asserted. ⚠️ MERGING THIS IS NOT THE DONE-CONDITION and must not be
+  read as one: the whole premise of the work is that a rule which is merely PRESENT does not
+  bind, and a check that is merely MERGED is in exactly that state.
+
+basis: >-
+  MEASURED 2026-09-02 against origin/main at 9df1502b. Three rules the manager had already READ
+  were violated the same afternoon: the bot-commit-at-HEAD trap (in CLAUDE.md verbatim, hit 3x),
+  F6 notification (filed as MI-54 that morning, zero pings for 8 hours), and polling SESSIONS.json
+  for a blocked sub-session (step 3 of every sweep prompt, skipped every pass). Everything that
+  DID hold that day was an executable refusal — handoff_check.py, run_probes.py --check,
+  check_backlog_criteria.py, open-items-guard, backlog_append.detect_format. Not one is a document.
+
+what_shipped: >-
+  scripts/ops/manager_preflight.py — nine checks in handoff_check.py's shape (three states,
+  `unknown` unobtainable without a live observation, each violation naming what it COSTS), plus
+  docs/claude/work/CONCURRENCY-CAPS.json as the single declared home for both concurrency caps.
+  The self-test runs on EVERY invocation rather than behind a flag: machinery that has just failed
+  to verify itself does not get to grade a manager.
+
+measured_on_first_live_run:
+  population: >-
+    origin/main at 9df1502b; SESSIONS.json 67 rows (18 in state `working`); MANAGER-CHECKLIST.json
+    61 items (5 blocked); 584 objects on disk; a list_sessions observation of 60 sessions; a
+    list_pull_requests observation of 17 open PRs.
+  work_has_parent: >-
+    FAIL — 18 of 18 working sessions name NO parent work object, and 62 of 67 rows overall name
+    none. The field (`owns_object`) exists and is populated on 5 rows, none of them working. So
+    the manager's dispatch unit has drifted off the work store entirely, which is also why the
+    constraint readout — which walks objects and never sees a session — can see none of the live
+    work.
+  f6_digest_owed: >-
+    FAIL — 122 autonomous actions (82 commits landed on origin/main, 40 sub-sessions spawned)
+    since the newest queued ping at 2026-09-02T00:19:53Z, against a threshold of 3.
+  subsession_queue: >-
+    FAIL — but NOT in the way a pooled count first reported. 0 sub-sessions are explicitly waiting
+    on the manager; 18 of 18 rows the registry calls `working` are idle or archived on the
+    platform, 2 of them terminal. A pooled version of this check read "16 waiting on you", which
+    would have sent a manager hunting for asks that do not exist.
+  blocked_claims: >-
+    FAIL — 1 checklist item is blocked on a bare-string claim about live state with no dated
+    observation behind it.
+
+the_tool_caught_a_defect_in_itself_on_its_first_self_test: >-
+  `git log --since=2999-01-01T00:00:00+00:00` silently returns ALL 2263 commits rather than zero
+  (git 2.43.0; --since=2099 correctly returns 0), because the date overflows git's parser and the
+  filter is DROPPED with no error. That is an unasserted denominator — diagnostic-provenance
+  sub-class C — sitting underneath the one check whose entire job is counting. Date filtering now
+  happens in Python, where no date string reaches git, and a regression pin asserts both the
+  far-future zero and a non-vacuous 2020 control. ⚠️ This is the argument for running the suite on
+  every invocation rather than behind a flag, and it is worth more than the check it fixed.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-02 by MI-68 against the working tree, not inferred. NOTHING BLOCKS THIS — the
+  tool is written, its self-test passes (62 planted-failure assertions), and it runs against live
+  data. This is a real `declared_none`, not the migrated `NOT_ASSESSED` empty list: the store's
+  README is explicit that those are different facts and that a false blocker is worse than a
+  missing one.
+
+decision_requests:
+- id: DEC-20260902-WHAT-IS-AN-ARTIFACT
+  question: >-
+    The artifact cap is 4. What is an ARTIFACT — i.e. what population does the 4 count?
+  urgency: blocking
+  asked_on: 2026-09-02
+  context: >-
+    The LIMIT is agreed and the POPULATION is not, and a limit without a population is not
+    enforceable — it is a number waiting to be applied to whatever someone assumes it meant.
+    `manager_preflight.py` therefore grades this cap `unknown` and will keep doing so until this
+    is answered; it deliberately does not pick. MEASURED 2026-09-02T13:30Z over all 17 open PRs,
+    the candidates disagree with each other by nearly a factor of two and EVERY one exceeds 4, so
+    the choice is not academic — it decides how far over the cap the system currently is, not
+    whether it is over. "Open PR" overcounts: #10780 is labelled DO NOT MERGE and #10398 is a
+    bot-filed automation PR open since 2026-08-29. "In-flight work object" undercounts: a doc, a
+    workflow or a running soak can be an artifact with no object of its own. Answering this makes
+    the check start enforcing with no code change — the population is read from
+    CONCURRENCY-CAPS.json.
+  options:
+  - key: all_open_prs
+    label: Every open PR (count today = 17)
+    implication: >-
+      Simplest and hardest to game, but counts a DO-NOT-MERGE recovery PR and a machine-filed
+      automation PR as work in flight, so the manager is charged for two things no one is working.
+  - key: excluding_do_not_merge_and_automation
+    label: Open PRs excluding DO-NOT-MERGE and bot-filed automation (count today = 15)
+    implication: >-
+      Counts everything a human or session is actually carrying, drafts included. Drafts are real
+      in-flight work here — most sub-session PRs open as drafts by policy — so this is the reading
+      closest to "what is the manager carrying".
+  - key: open_non_draft_excluding_both
+    label: Open, non-draft, excluding both (count today = 10)
+    implication: >-
+      The narrowest reading — counts only what is actually asking to merge. Risks the cap not
+      biting at all while a queue of drafts accumulates, which is the drift the cap exists to stop.
+  - key: not_prs_at_all
+    label: Something other than PRs — define it
+    implication: >-
+      If an artifact is meant to be a deliverable rather than a pull request, the check needs a
+      different population entirely and this session's five candidates are all wrong. Say what it
+      is and the file takes it.
+  allows_free_text: true
+  answer:
+    chosen: open_non_draft_excluding_both
+    free_text: >-
+      OPERATOR, VERBATIM: "let's go with your recommendation for c, and I understand this will
+      bite the next manager, but that is, like you said, exactly the point, so that's fine."
+
+      An ARTIFACT is therefore an OPEN, NON-DRAFT pull request, EXCLUDING DO-NOT-MERGE and
+      bot-filed automation PRs. Reasoning accepted: a DRAFT PR is work in progress, not a thing
+      competing for the operator's attention; #10780 is explicitly marked DO-NOT-MERGE and
+      #10398 is a bot artifact open since 2026-08-29. Option C counts the things that actually
+      need a decision.
+
+      ⚠️ THE CAP IS 4 AND THE COUNT AT THE MOMENT OF DECIDING WAS 10, SO THE SYSTEM IS OVER THE
+      CAP ON DAY ONE. That is NOT a sign the definition is wrong, and it must never be used to
+      argue for widening it: the honest reading is that the manager has a MERGE BACKLOG. A
+      population chosen to make the number pass would be the fabricated-comfort failure this
+      whole effort exists to end — the cap would then measure nothing, exactly as
+      `capture_idea.py` would have made the priority gate vacuous by defaulting `--intent` to
+      the cycle's own value.
+
+      ⚠️ THE OPERATOR EXPLICITLY ACCEPTED THAT THIS WILL BITE THE NEXT MANAGER. That is the
+      ACCEPTANCE CRITERION, not a caveat to soften. A cap nobody ever hits is a cap that is not
+      doing anything.
+
+      Populations measured 2026-09-02T13:30Z over all 17 open PRs, recorded so the alternatives
+      are on the record rather than re-derived: all_open_prs=17 · excluding_do_not_merge=16 ·
+      excluding_do_not_merge_and_automation=15 · open_non_draft=11 ·
+      open_non_draft_excluding_both=10. EVERY candidate exceeded 4, so the choice decided HOW
+      FAR over the cap the system is, never WHETHER it is over.
+    answered_at: '2026-09-02'
+    answered_by: operator
+    committed_by: MI-68 (session_013ANr63vsQ9TjU4sh51vxny)
+    submission_id: relayed-by-manager-not-via-transit-log
+
+residual_stated_rather_than_hidden:
+- >-
+  THE SESSION CAP IS CONTESTED AND THIS SESSION DID NOT RESOLVE IT. MI-64 carries the operator's
+  VERBATIM wording for 3; PR #10799 (open, unmerged) asserts 4, and no verbatim wording for 4 is
+  recorded anywhere this session could read. The check grades the count against BOTH bounds and
+  refuses only in the band where the answer depends on which is right — so at today's count of 16
+  it is a definite FAIL either way, and the contest costs nothing until the count is near 4.
+  Merging #10799 or editing CONCURRENCY-CAPS.json settles it.
+- >-
+  NOT WIRED INTO CI, DELIBERATELY. Every check here fails on origin/main today, so registering it
+  in run_guards.py would fail every PR on day one — the "52 findings for 26 days" condition, where
+  a permanently-red check becomes something everyone walks past. It is a preflight a manager runs.
+  Wiring it into CI becomes reasonable once the findings are drained, not before.
+- >-
+  THREE THINGS ARE LEFT AS PROSE ON PURPOSE, because a check that looks like enforcement and is
+  not is worse than an honest boundary. (1) "The manager does not execute items" — whether an
+  action was management or a build is a judgement about intent, and any proxy would be matching
+  English for a semantic property. (2) Which sibling PRs a register edit will re-conflict with —
+  that needs every open PR's file list, which this container cannot fetch, so the check names the
+  conflict SURFACE it can see and grades `unknown` rather than implying it looked. (3) Whether a
+  queued ping was DELIVERED — the delivery ledger is VM-local and gitignored, so the F6 check can
+  prove a digest was WRITTEN and nothing more, and says so in its own message.
+- >-
+  THIS OBJECT IS NOT LINKED FROM SESSIONS.json AND MI-68 DID NOT LINK IT. The manager is the sole
+  writer of SESSIONS.json / MANAGER-CHECKLIST.json / MANAGER-LEASE.json, and that sole-writer
+  premise is exactly what gives manager-only PRs an empty conflict surface (MANAGER-CHECKLIST
+  records it as verified twice). A sub-session writing there would break it. So `owns_object:
+  WO-20260902-MANAGER-PREFLIGHT` on row `pending-20260902T132159Z` is the manager's to add — and
+  until they do, this session's own row is one of the 18 that `work_has_parent` FAILS on. That is
+  the correct outcome, not an oversight.
+
+# ── MI-77 (session_01PbQAQXRY2oB1ep2BFEUZeA) ────────────────────────────────
+# The SECOND half of the same commitment. `manager_preflight.py` above is a
+# PREFLIGHT and its own note concedes it "is a preflight a manager runs" — which
+# is the failure it was built to fix, one level up: a manager that skipped step 3
+# of its sweep will skip the preflight too. This is the half that does not
+# depend on the manager choosing to run it.
+mi77_pr_queue_watcher:
+  what_shipped: >-
+    scripts/ops/pr_queue_latency.py (the watcher), scripts/ci/check_pr_queue_watch.py (the
+    liveness guard), .github/workflows/pr-queue-watch.yml (the clock), plus one appended
+    GUARDS entry in run_guards.py, one appended watch entry in claude-run-failure-alert.yml,
+    and one catalogue row. It times how long an OPEN, UNMERGED PR has sat with no push to its
+    head branch, and escalates to the OPERATOR.
+  why_it_is_not_the_mcp_watcher: >-
+    scripts/ops/queue_latency.py asks the same question about SESSIONS and answers it from
+    `list_sessions`, an mcp__* tool CI does not hold; it therefore reports `unknown`
+    permanently and refuses, correctly, to substitute SESSIONS.json's stored snapshot. That
+    refusal is right and it is not yet a guard. This is the NARROWER question GITHUB_TOKEN
+    alone can answer. The two are complements; neither replaces the other, and the `unknown`
+    path in queue_latency.py is untouched.
+  why_the_manager_cannot_invoke_it: >-
+    Measured across this cycle — every mechanism the manager had to CHOOSE to run went unused;
+    every mechanism that STOOD IN THE WAY worked. So the watcher is fired only by its workflow
+    and is unreachable from a prompt, a skill or a checklist step, and the ENFORCEMENT is that
+    its own deadness fails everybody's CI through check_pr_queue_watch.py in run_guards.py.
+    There is nothing to remember and nothing to opt into.
+  measured_basis:
+    population: >-
+      2026-09-02T17:21Z — ALL 10 open, unmerged PRs on this repo. Quiescence = hours since the
+      last commit on the head branch, read from origin.
+    distribution: >-
+      0.2 / 1.0 / 1.0 h, then a GAP, then 5.3 / 5.7 / 7.4 / 7.7 / 11.0 / 18.9 / 109.5 h. The
+      nearest observations either side are 1.0h and 5.3h, so every threshold in (1.0, 5.3]
+      separates 'being worked' from 'handed back' identically on this data. 6h sits just past
+      it and independently equals four manager-lease TTLs. ⚠️ n=10 is a small denominator and
+      one repo on one day is not a distribution — the value is CHOSEN, not calibrated.
+    validated_against_the_known_failure: >-
+      The live run flags #10694, whose MANAGER-CHECKLIST row (MI-18) records its owner as
+      'session_01LqVvgvusnN87neBn5ayzhg (archived; its PR #10694 stands)' while the item state
+      reads `in_flight`. The watcher caught exactly the case the manager's own record mislabels.
+  three_of_the_four_hypothesised_proxies_do_not_work: >-
+    Reported rather than quietly dropped, because a stated boundary is the deliverable when the
+    proxy is weaker than it looks. (B) 'a PR whose owner posted needs_action' — needs_action
+    lives ONLY in SESSIONS.json's last_observed, a SNAPSHOT the sweep prompt warns must not be
+    read as current, carried by 4 of 74 rows, and written to NO GitHub surface; a staleness
+    detector on stale data reports a healthy queue with total confidence. (C) 'a board START
+    with no DONE' — every comment on #6927 is authored by the repo OWNER whichever session
+    wrote it, so pairing is free-text parsing, and the sessions most needing to be caught are
+    the ones that died before posting anything: it would fire permanently, the desensitised-
+    alarm P1. ⚠️ (C) was rejected on the ATTRIBUTION ground, which is measured over the 30
+    comments read; the START/DONE ratio across the whole board was NOT exhaustively counted,
+    and that is stated rather than implied. (D) 'a checklist item in_flight whose owner's
+    branch is quiet' — UNCOMPUTABLE: 0 of 23 `in_flight` items carry a branch and 0 carry a PR
+    number (all 72 items: 0 branches, 2 PR entries). The join does not exist.
+  what_it_deliberately_does_not_do: >-
+    It never merges, closes, un-drafts or comments on a PR — which is what makes grading on
+    branch quiescence defensible, since that is a PROXY for hand-back it cannot verify (the
+    reaper's own argument for the same proxy). And the CI guard grades the watcher's LIVENESS
+    and never the backlog's SIZE: run_guards.py already records why a live open-PR read does
+    not belong in per-PR CI, and a contributor going red for the manager's backlog would train
+    everyone past the guard.
+  lifecycle: landed_unproven
+  not_done_because: >-
+    ⚠️ THE CRON HAS NEVER FIRED, so the watcher is DEPLOYED and NOT OBSERVED. A cron in this
+    repo is not evidence of a run — probes.yml's first scheduled run was ~4h50m late and fired
+    once instead of daily. check_pr_queue_watch.py grades `never_ran` today, which is the
+    CORRECT reading and deliberately PASSES (failing would red every PR on merge day, which is
+    how a guard gets disabled instead of fixed); it arms itself on the first real run. Tracked
+    as OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED (loud).
