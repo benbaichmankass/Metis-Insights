@@ -6,6 +6,8 @@ unchanged at 7 days. This document is the evidence behind an operator decision, 
 because the row `OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED`
 cannot clear until that decision is recorded.
 
+Shipped as **PR [#10755](https://github.com/benbaichmankass/Metis-Insights/pull/10755)** (DRAFT).
+
 **The operator's instruction this answers** (2026-09-02): *fix the evidence floor first* —
 make the floor reachable and the mismatch visible, **not** by lowering the bar until
 something passes.
