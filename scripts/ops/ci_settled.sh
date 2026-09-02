@@ -1,7 +1,20 @@
 #!/usr/bin/env bash
 # Wait for a PR's CI to settle WITHOUT burning a session's context on polling.
 #
-#   scripts/ops/ci_settled.sh <PR_NUMBER> [TIMEOUT_MINUTES]
+#   scripts/ops/ci_settled.sh <PR_NUMBER> [TIMEOUT_MINUTES|once]
+#
+# ⚠️ PREFER `once`, AND PREFER A WAKE OVER WAITING AT ALL.
+# `mcp__github__subscribe_pr_activity` already wakes a session on
+# `check_suite.completed` at zero polling cost. For a subscribed PR that beats
+# any poll loop, so do not use the waiting mode where a wake will do.
+#
+# What the wake does NOT give you is a trustworthy verdict:
+# BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR is OPEN at severity
+# HIGH -- this repo's four required checks live in FOUR SEPARATE suites, so a
+# success event means one suite finished, never that the PR is green. Run it as
+# `ci_settled.sh <PR> once` WHEN THE WAKE ARRIVES: one observation, no waiting,
+# and a verdict over the whole head. Reach for a timeout only when there is no
+# subscription.
 #
 # ONE invocation, ONE compact JSON on stdout. The wall clock is spent on a
 # GitHub runner (see .github/workflows/ci-settled.yml), not in a poll loop of
@@ -40,13 +53,16 @@ PR="${1:-}"
 TIMEOUT_MIN="${2:-20}"
 if [ -z "$PR" ]; then echo "usage: $0 <PR_NUMBER> [TIMEOUT_MINUTES]" >&2; exit 2; fi
 case "$PR" in ''|*[!0-9]*) echo "PR must be a number, got: $PR" >&2; exit 2;; esac
-case "$TIMEOUT_MIN" in ''|*[!0-9]*) echo "timeout must be a number" >&2; exit 2;; esac
+[ "$TIMEOUT_MIN" = "once" ] && TIMEOUT_MIN=0
+case "$TIMEOUT_MIN" in ''|*[!0-9]*) echo "timeout must be a number or 'once'" >&2; exit 2;; esac
 
 NAME="pr${PR}-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 BRANCH="automation/ciwatch-${NAME}"
 # Give up locally a little after the runner does, so a runner that dies is
 # reported as `unreadable` here rather than hanging this command forever.
 LOCAL_DEADLINE=$(( $(date +%s) + (TIMEOUT_MIN * 60) + 300 ))
+if [ "$TIMEOUT_MIN" = "0" ]; then MODE_LABEL="once (single observation, no waiting)";
+else MODE_LABEL="wait up to ${TIMEOUT_MIN}m"; fi
 
 cleanup() { [ -n "${TMPIDX:-}" ] && rm -f "$TMPIDX"; }
 trap cleanup EXIT
@@ -72,7 +88,7 @@ COMMIT="$(git commit-tree "$TREE" -p "$(git rev-parse "$BASE_REF")" \
 
 git push -q origin "${COMMIT}:refs/heads/${BRANCH}" || {
   echo '{"state":"unreadable","reason":"could not push the ci-watch request"}'; exit 2; }
-echo "ci-settled: watching PR #${PR} on ${BRANCH} (up to ${TIMEOUT_MIN}m)" >&2
+echo "ci-settled: PR #${PR} on ${BRANCH} — ${MODE_LABEL}" >&2
 
 RESULT_PATH="automation/ci-results/${NAME}.json"
 while :; do

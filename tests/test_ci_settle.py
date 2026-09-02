@@ -186,5 +186,54 @@ def test_watch_timeout_reports_pending_not_green():
     assert result["settled"] is False
 
 
+# --- observe-once: the mode meant to pair with a check_suite.completed wake
+
+
+def test_observe_once_polls_exactly_once_and_claims_no_timeout():
+    """`timeout_minutes: 0` waits for nothing, so it must not report
+    `timed_out_waiting` -- that would claim an attempt nobody made."""
+    stub = _StubGitHub([[RUNNING], [RUNNING], [OK]])
+    result = ci_settle.watch(
+        stub, 1, timeout_s=0, poll_s=0, with_threads=False, sleeper=lambda _: None
+    )
+    assert result["polls"] == 1
+    assert result["mode"] == "once"
+    assert result["observed_once"] is True
+    assert "timed_out_waiting" not in result
+    assert result["state"] == "pending"
+
+
+def test_observe_once_still_reports_a_settled_state_when_there_is_one():
+    stub = _StubGitHub([[OK]])
+    result = ci_settle.watch(
+        stub, 1, timeout_s=0, poll_s=0, with_threads=False, sleeper=lambda _: None
+    )
+    assert result["state"] == "green"
+    assert result["settled"] is True
+    # It settled rather than gave up, so the give-up marker must be absent.
+    assert "observed_once" not in result
+
+
+def test_the_per_suite_trap_grades_as_pending_not_green():
+    """The condition BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR
+    describes, and the reason this grader exists alongside the wake.
+
+    Three of this repo's four required checks come back passing from their own
+    suites while the fourth is still running. A `check_suite.completed` success
+    fires for each finished suite; acting on one merges on a partial required
+    set. Reproduced live as run 3 on PR #10757.
+    """
+    guards = {"name": "guards", "status": "completed", "conclusion": "success"}
+    collect = {"name": "pytest-collect", "status": "completed", "conclusion": "success"}
+    inventory = {"name": "repo-inventory", "status": "completed", "conclusion": "success"}
+    run = {"name": "pytest-run", "status": "in_progress", "conclusion": None}
+    result = grade([guards, collect, inventory, run])
+    assert result["state"] == "pending"
+    assert result["settled"] is False
+    assert result["counts"] == {
+        "passing": 3, "failing": 0, "cancelled": 0, "running": 1
+    }
+
+
 def test_self_test_entrypoint_passes():
     assert ci_settle.self_test() == 0

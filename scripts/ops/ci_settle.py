@@ -13,8 +13,31 @@ calls spends context to learn *still running*.
 
 A GitHub-hosted runner has no such restriction. This script runs THERE: it does
 the polling, the waiting and the aggregating, and writes ONE small JSON the
-session reads back over git in a single command. The wall clock is spent on the
-runner; the session spends two tool calls total.
+session reads back over git in a single command.
+
+⚠️ **BUT THE WAITING IS USUALLY NOT THE PART THAT IS MISSING — READ THIS BEFORE
+REACHING FOR THE WAIT MODE.** ``mcp__github__subscribe_pr_activity`` already
+wakes a session on ``check_suite.completed``, at zero polling cost, and for a
+subscribed PR that is strictly better than any poll loop. Do not use ``wait``
+mode where a wake will do.
+
+**What the wake does NOT give you is a trustworthy VERDICT, and that is this
+module's actual job.** ``BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR``
+is OPEN at severity HIGH: this repo's four required checks (``guards``,
+``pytest-run``, ``pytest-collect``, ``repo-inventory``) come from FOUR SEPARATE
+check suites, so a ``check_suite.completed`` success says one suite finished --
+never that the PR is green. It was observed twice on two PRs within one hour,
+and this relay's own run 3 on PR #10757 is a third instance: ``guards``,
+``pytest-collect`` and ``repo-inventory`` all passing while ``pytest-run`` was
+still in flight. A session acting on a success event in that window merges on a
+partial required set. The event's own footer says to verify overall state first
+-- this is the thing that verifies it.
+
+So the intended pairing is: **the wake is the TRIGGER, this is the READER.**
+Set ``timeout_minutes: 0`` (``mode: "once"``) to grade the PR's whole head in a
+single observation with no waiting at all. Reach for ``wait`` mode only when
+there is no subscription -- a PR nobody subscribed to, or a session that cannot
+end its turn and be woken.
 
 It is the same trade the ``vm-diag-snapshot`` relay makes for the VM, and the
 same dispatch shape as ``pr-opener.yml`` / ``board-post.yml`` (push a request
@@ -489,11 +512,19 @@ def watch(
         summary = observe(gh, number, with_threads=with_threads)
         if summary.get("settled"):
             break
+        # timeout_s == 0 is OBSERVE-ONCE, and it is the mode meant to pair with
+        # a check_suite.completed wake -- see the module docstring. It is NOT a
+        # zero-length wait that timed out: nothing was waited for, so saying
+        # `timed_out_waiting` would claim an attempt nobody made.
+        if timeout_s <= 0:
+            summary["observed_once"] = True
+            break
         if clock() >= deadline:
             summary["timed_out_waiting"] = True
             break
         sleeper(poll_s)
     summary["polls"] = polls
+    summary["mode"] = "once" if timeout_s <= 0 else "wait"
     summary["pr"] = number
     return summary
 
@@ -583,6 +614,21 @@ def self_test() -> int:
     _check("watch-settles", res["state"] == "green", f)
     _check("watch-polls-3", res["polls"] == 3, f)
 
+    # observe-once must NOT claim a timeout it never attempted
+    stub_once = _Stub([[run]] * 3)
+    once = watch(stub_once, 1, timeout_s=0, poll_s=0, with_threads=False,
+                 sleeper=lambda _: None)
+    _check("once-polls-exactly-1", once["polls"] == 1, f)
+    _check("once-mode-label", once["mode"] == "once", f)
+    _check("once-sets-observed-once", once.get("observed_once") is True, f)
+    _check("once-never-claims-timeout", "timed_out_waiting" not in once, f)
+    _check("once-still-pending", once["state"] == "pending", f)
+    stub_once_green = _Stub([[ok]])
+    og = watch(stub_once_green, 1, timeout_s=0, poll_s=0, with_threads=False,
+               sleeper=lambda _: None)
+    _check("once-can-settle-green", og["state"] == "green", f)
+    _check("once-green-has-no-observed-once", "observed_once" not in og, f)
+
     ticks = iter([0, 1, 2, 3, 4, 5, 6])
     stub2 = _Stub([[run]] * 10)
     res2 = watch(
@@ -590,6 +636,7 @@ def self_test() -> int:
         sleeper=lambda _: None, clock=lambda: next(ticks),
     )
     _check("watch-times-out", res2.get("timed_out_waiting") is True, f)
+    _check("wait-mode-label", res2["mode"] == "wait", f)
     _check("timeout-is-pending-not-green", res2["state"] == "pending", f)
 
     if f:
@@ -633,7 +680,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         with open(args.request, "r", encoding="utf-8") as fh:
             req = json.load(fh)
         number = int(req["pr"])
-        timeout_s = int(min(max(int(req.get("timeout_minutes", 20)), 1), 45) * 60)
+        # 0 is a MEANINGFUL value (observe once), so the clamp floors at 0 not 1.
+        timeout_s = int(min(max(int(req.get("timeout_minutes", 20)), 0), 45) * 60)
         poll_s = int(min(max(int(req.get("poll_seconds", 20)), 5), 120))
         with_threads = bool(req.get("review_threads", True))
     except (OSError, ValueError, TypeError, KeyError) as exc:
