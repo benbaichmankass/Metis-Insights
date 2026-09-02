@@ -1,6 +1,6 @@
 """S-014 — Dashboard data feed endpoints.
 
-Exposes four read-only endpoints consumed by the Streamlit dashboard.
+Exposes four read-only endpoints consumed by the Svelte SPA.
 No authentication is required for GET requests — all data is operational
 telemetry with no secrets. Restrict network-level access via firewall.
 
@@ -64,7 +64,7 @@ _HEARTBEAT = runtime_logs_dir() / "heartbeat.txt"
 _LOG_TAIL = 100
 _SIGNAL_TAIL = 50
 
-# Canonical log-level set the dashboard / Android Logs screen render as
+# Canonical log-level set the SPA's Logs screen renders as
 # colour-coded tag chips. Anything outside this set is normalised below.
 _LOG_LEVELS = ("info", "warn", "error", "trade")
 
@@ -121,7 +121,7 @@ _account_class_wire = account_class_wire
 # last candle close when the API returns null.
 
 # Broker open-position cache for the /positions uPnL enrichment. The TTL was
-# 10s, but every consumer (dashboard + Android app + /ws/market) polls
+# 10s, but every consumer (the SPA + /ws/market) polls
 # /positions on a ~30s cadence — LONGER than a 10s TTL — so the cache was COLD
 # on every poll and each poll re-opened a broker read per account (an IB read
 # client for ib_paper, a Bybit REST call for the others). That put needless,
@@ -692,7 +692,7 @@ def get_logs(
     since: str | None = Query(None, description="ISO-8601 UTC cutoff (oldest kept)"),
     level: str | None = Query(None, description="CSV of levels to keep (info,warn,error,trade)"),
 ) -> list[dict[str, Any]]:
-    """Merged, newest-first log feed for the dashboard / Android Logs screen.
+    """Merged, newest-first log feed for the SPA's Logs screen.
 
     Sources, merged then sorted by timestamp:
       - ``signal_audit.jsonl`` — pipeline events (signals surface as
@@ -875,7 +875,7 @@ async def get_positions(
         )
         # Options-expression rows carry a structure block in notes.options
         # (legs / strikes / defined risk). Surface it as a nested ``options``
-        # object so the dashboard + Android can render the spread; null for a
+        # object so the SPA can render the spread; null for a
         # plain equity/futures/crypto row. Connection-free — decision-time
         # geometry only (per-leg live greeks/PnL are a documented follow-up).
         options_block = None

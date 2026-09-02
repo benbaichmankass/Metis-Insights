@@ -1,7 +1,8 @@
 """Tier-1 read endpoints surfacing the consolidated /system-report artifacts.
 
-Backs the "Reports" surface in the Streamlit dashboard (desktop) and the
-Android app (mobile) — a log of links to every generated executive report.
+Backs the "Reports" surface in the Svelte SPA — a log of links to every
+generated executive report. (The Streamlit and Android Reports tabs were
+retired from the live feed 2026-09-01.)
 
 - ``GET /api/bot/reports?limit=N&window=X`` — the report index manifest,
   newest-first, optionally filtered by window class.

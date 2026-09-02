@@ -3,7 +3,7 @@
 Streams live **candle** + **open-position/uPnL** snapshots to a connected
 client on a short server loop, reusing the *same* fetchers the REST routes use
 (``candles._fetch_candles`` + ``dashboard.get_positions``). It exists so the
-Android app can get live futures candles + live positions/uPnL (and crypto)
+a client can get live futures candles + live positions/uPnL (and crypto)
 over **one persistent connection** instead of hammering the REST endpoints on a
 timer — the poll moves off the phone and onto the server.
 
