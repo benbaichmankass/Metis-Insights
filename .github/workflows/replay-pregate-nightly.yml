@@ -149,55 +149,93 @@ jobs:
           PG_MODELS: ${{ steps.params.outputs.models }}
         run: |
           set -euo pipefail
+          # KEEP THE EXIT CODE. This step used to end in `|| true`, discarding
+          # the one piece of evidence that separates a broken transport from a
+          # crashed driver from malformed output -- so the next step could only
+          # ever report "no JSON object in driver output", a PARSING label for
+          # whatever had actually happened. Run #4365 (2026-09-01) was a
+          # `client_loop: send disconnect: Broken pipe` reported as a parse
+          # failure. `rc` is now carried to the classifier as evidence.
+          rc=0
           ssh -i ~/.ssh/trainer_key \
               -o BatchMode=yes \
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=20 \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=10 \
               -o SendEnv=PG_REF -o SendEnv=PG_MODELS \
               "${TRAINER_USER}@${TRAINER_IP}" \
               "PG_REF='${PG_REF}' PG_MODELS='${PG_MODELS}' bash -s" \
               < /tmp/pregate_cmd.sh \
-              > /tmp/pregate_out.txt 2>/tmp/pregate_err.txt || true
+              > /tmp/pregate_out.txt 2>/tmp/pregate_err.txt || rc=$?
+          echo "ssh_exit_code=${rc}"
           echo "=== stderr tail ==="; tail -c 4000 /tmp/pregate_err.txt || true
-          # The driver prints a single JSON object to stdout; isolate it (drop
-          # any stray non-JSON lines that leak from the remote shell).
-          python3 - <<'PY'
-          import json, sys
-          raw = open('/tmp/pregate_out.txt').read()
-          start = raw.find('{')
-          end = raw.rfind('}')
-          if start < 0 or end < 0:
-              print("::error::no JSON object in driver output");
-              print(raw[-2000:]); sys.exit(1)
-          obj = json.loads(raw[start:end+1])
-          open('/tmp/pregate.json','w').write(json.dumps(obj, indent=1))
-          print("parsed report with", len(obj.get('results', [])), "model(s)")
-          PY
+          echo "${rc}" > /tmp/pregate_rc.txt
+
+      - name: Classify run outcome by failure STAGE
+        id: outcome
+        run: |
+          set -euo pipefail
+          # Always exits 0: the JOB's verdict is decided by the explicit fail
+          # step below, so the commit step can still preserve salvaged rows.
+          python3 scripts/ml/pregate_stream.py \
+            --exit-code "$(cat /tmp/pregate_rc.txt)" \
+            --stdout /tmp/pregate_out.txt \
+            --stderr /tmp/pregate_err.txt \
+            --report-out /tmp/pregate.json \
+            --partial-out /tmp/pregate_partial.json \
+            --outcome-out /tmp/pregate_outcome.json \
+            --github-output "$GITHUB_OUTPUT"
 
       - name: Write report + markdown summary, commit back
         id: commit
+        if: steps.outcome.outputs.wrote_report == 'true' || steps.outcome.outputs.wrote_partial == 'true'
+        env:
+          STATE: ${{ steps.outcome.outputs.state }}
+          WROTE_REPORT: ${{ steps.outcome.outputs.wrote_report }}
         run: |
           set -euo pipefail
           TS="$(date -u +%Y%m%dT%H%M%SZ)"
           DIR="runtime_logs/replay_pregate"
           mkdir -p "$DIR"
-          cp /tmp/pregate.json "$DIR/${TS}.json"
-          cp /tmp/pregate.json "$DIR/latest.json"
-          python3 scripts/ml/replay_pregate_summary.py "$DIR/latest.json" > "$DIR/latest.md" || \
-            echo "(summary renderer unavailable)" > "$DIR/latest.md"
-          cp "$DIR/latest.md" /tmp/pregate_summary.md
+          if [ "${WROTE_REPORT}" = "true" ]; then
+            # COMPLETE run: it alone may advance the fleet baseline.
+            cp /tmp/pregate.json "$DIR/${TS}.json"
+            cp /tmp/pregate.json "$DIR/latest.json"
+            SRC="$DIR/latest.json"
+            MSG="chore(ml): replay pre-gate fleet report ${TS} [skip ci]"
+          else
+            # PARTIAL run: preserved as evidence, but deliberately NEVER written
+            # to latest.json. A partial baseline that could pass for a complete
+            # one is worse than no baseline -- readers of latest.json would
+            # silently lose the heads the run never reached.
+            cp /tmp/pregate_partial.json "$DIR/${TS}.partial.json"
+            SRC="$DIR/${TS}.partial.json"
+            MSG="chore(ml): PARTIAL replay pre-gate report ${TS} (${STATE}) [skip ci]"
+          fi
+          python3 scripts/ml/replay_pregate_summary.py "$SRC" > /tmp/pregate_summary.md || \
+            echo "(summary renderer unavailable)" > /tmp/pregate_summary.md
+          if [ "${WROTE_REPORT}" = "true" ]; then
+            cp /tmp/pregate_summary.md "$DIR/latest.md"
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "$DIR"
           if git diff --cached --quiet; then
             echo "no changes to commit"
           else
-            git commit -m "chore(ml): replay pre-gate fleet report ${TS} [skip ci]"
+            git commit -m "${MSG}"
             git push origin "HEAD:${{ steps.params.outputs.ref }}"
           fi
-          echo "summary<<EOF" >> "$GITHUB_OUTPUT"
-          cat /tmp/pregate_summary.md >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Fail the job when the run did not complete
+        if: steps.outcome.outputs.state != 'ok'
+        env:
+          LINE: ${{ steps.outcome.outputs.summary_line }}
+        run: |
+          echo "::error::pre-gate run did not complete -- ${LINE}"
+          echo "Stage vocabulary + evidence: scripts/ml/pregate_stream.py"
+          exit 1
 
       - name: Post summary to issue
         if: github.event_name == 'issues'
@@ -221,13 +259,16 @@ jobs:
       - name: Post failure note to issue
         if: github.event_name == 'issues' && failure()
         uses: actions/github-script@v7
+        env:
+          PG_STATE: ${{ steps.outcome.outputs.state }}
+          PG_LINE: ${{ steps.outcome.outputs.summary_line }}
         with:
           script: |
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             await github.rest.issues.createComment({
               owner: context.repo.owner, repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `❌ **replay-pregate-nightly failed.**\nRun: ${runUrl}\n\nCheck run logs (SSH/VM_SSH_KEY, driver error, or no JSON output).`,
+              body: `❌ **replay-pregate-nightly failed.**\nRun: ${runUrl}\n\nFailure stage: \`${process.env.PG_STATE || 'unknown'}\`\n${process.env.PG_LINE || ''}`,
             });
             await github.rest.issues.update({
               owner: context.repo.owner, repo: context.repo.repo,
