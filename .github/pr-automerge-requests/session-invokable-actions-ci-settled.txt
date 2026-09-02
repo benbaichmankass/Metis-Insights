@@ -1,0 +1,2 @@
+automerge requested by the manager session session_011JWFxuYAaEQKCFCmG6gnHJ at 2026-09-02T07:36:09Z
+PR #10757 — reviewed; workflow verified to have actually run 4x with a correct pending verdict on timeout.
