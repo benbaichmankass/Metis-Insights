@@ -62,22 +62,6 @@
       "blocker": "Open since 2026-08-29, automation-generated, no owning session. Held under MI-12; do not merge without establishing what it does."
     },
     {
-      "pr": 10776,
-      "title": "ops: feed the trader's error feed to the duty pass, grouped for triage",
-      "owner_session": "session_01TpKSAVKKUXLHyFUFep32B1",
-      "checklist_item": "MI-53",
-      "draft": true,
-      "tier": "1 (no bot-side change, no order path)",
-      "state": "delivered_awaiting_manager_review",
-      "operator_decision": {
-        "verdict": "approved",
-        "condition": null,
-        "scope": null,
-        "text": "Operator, 2026-09-02: 'You can, uh, build the wiring.' Answering their own question — 'can the error feed that's in the trader bot be fed directly to the manager session, so you can decide what should be resolved immediately vs. backlogged?'"
-      },
-      "blocker": "NOT YET REVIEWED BY THE MANAGER. ⚠️ Its done-condition is NOT a green CI run: it needs a workflow_dispatch run with a quoted conclusion, producing a digest in which the AVAX dead leg is visible. Do not merge on green alone — that exact mistake cost two failed fixes this morning."
-    },
-    {
       "pr": 10780,
       "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
       "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
@@ -507,8 +491,28 @@
       "merge_sha": "90b541a9b5604623045789018635168c904eecbf",
       "observed_at": "2026-09-02T20:15:11Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10776,
+      "title": "ops: feed the trader's error feed to the duty pass, grouped for triage",
+      "owner_session": "session_01TpKSAVKKUXLHyFUFep32B1",
+      "checklist_item": "MI-53",
+      "draft": true,
+      "tier": "1 (no bot-side change, no order path)",
+      "state": "delivered_awaiting_manager_review",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": null,
+        "text": "Operator, 2026-09-02: 'You can, uh, build the wiring.' Answering their own question — 'can the error feed that's in the trader bot be fed directly to the manager session, so you can decide what should be resolved immediately vs. backlogged?'"
+      },
+      "blocker": "NOT YET REVIEWED BY THE MANAGER. ⚠️ Its done-condition is NOT a green CI run: it needs a workflow_dispatch run with a quoted conclusion, producing a digest in which the AVAX dead leg is visible. Do not merge on green alone — that exact mistake cost two failed fixes this morning.",
+      "terminal": "merged",
+      "merge_sha": "d8ece725292b5a6ae1a4fba392ffb9e83f5d168b",
+      "observed_at": "2026-09-02T20:17:34Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-02T20:15:11Z",
-  "last_reconciled_sha": "90b541a9b5604623045789018635168c904eecbf"
+  "last_reconciled_at": "2026-09-02T20:17:34Z",
+  "last_reconciled_sha": "3d8f466bacf10d76e61cfb9dbff1cc2982f4259a"
 }
