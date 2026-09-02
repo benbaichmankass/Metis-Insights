@@ -284,8 +284,14 @@ def main(argv: List[str]) -> int:
     else:
         diff_text = sys.stdin.read()
     findings = scan_diff(diff_text)
+    # The DENOMINATOR must ride in the claim itself. Without it a diff that
+    # added nothing scannable printed byte-identically to one that was fully
+    # scanned and clean — "green while measuring nothing", which this repo
+    # names as the same sin as red while measuring nothing.
+    scanned = sum(1 for _ in _iter_added_lines(diff_text))
     if not findings:
-        print("writer_conformance: clean (no new non-canonical writers)")
+        print(f"writer_conformance: clean over {scanned} added line(s) "
+              f"(no new non-canonical writers)")
         return 0
     msg_lines = [
         "🚨 WRITER-CONFORMANCE GUARD: a PR adds a non-canonical write to the "
