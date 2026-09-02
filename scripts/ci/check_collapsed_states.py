@@ -106,6 +106,53 @@ _REGISTRY_PATH = Path(__file__).resolve()
 
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "decision_push.delivery_state",
+        "producer": "src/runtime/decision_push.py",
+        "consumer_token": (r"\bdeliveryState\b|\bDELIVERY_STATES\b|"
+                           r"\bclassify_delivery\b|\bpushBack\b"),
+        "states": ["pushed", "session_gone", "unknown"],
+        "why": (
+            "The last hop of the decision round-trip: a committed answer is "
+            "PUSHED back to the session that asked, instead of that session "
+            "polling for it. The pair that must never collapse is "
+            "`session_gone` vs `unknown`. A `session_gone` verdict WRITES A "
+            "MARKER, and the marker is what stops any further attempt — so "
+            "grading an unrecognised failure (a timeout, a 529, an unset "
+            "credential) as `session_gone` would permanently strand an answer "
+            "for a session that was alive the whole time, on the strength of a "
+            "blip. `unknown` therefore writes NOTHING and is retried, and it is "
+            "the DEFAULT for anything not positively identified. `pushed` is "
+            "reserved for the delivery command's own `ok: true` — silence, a "
+            "zero exit with no parsable result, and an `ok:false` we cannot "
+            "attribute are all `unknown`, because reading silence as success is "
+            "the forward failure this whole subsystem refuses. And "
+            "`session_gone` is a REAL STATE, not an error: the answer stays "
+            "discoverable on the pull path, which this ADDS to and never "
+            "replaced."
+        ),
+    },
+    {
+        "name": "work_decisions.asked_by_state",
+        "producer": "src/runtime/work_decisions.py",
+        "consumer_token": (r"\baskedByState\b|\bASKED_BY_STATES\b|"
+                           r"\bnormalise_asked_by\b|\bbyAskedByState\b"),
+        "states": ["recorded", "unrecorded", "malformed"],
+        "why": (
+            "Whether a decision request records WHICH SESSION ASKED IT — the "
+            "address a committed answer can be pushed back to. Measured "
+            "2026-09-02 over the whole store: ZERO requests carried any such "
+            "field, so every answer had nowhere to go. `unrecorded` is the "
+            "ordinary and blameless state of every request written before the "
+            "field existed, and of any question a human asked. `malformed` "
+            "means somebody DID record an asker and it cannot be used — a "
+            "question whose answer will silently never be delivered while its "
+            "owner believes it will, which is a FINDING and fails the run. "
+            "Collapsing the two buries the finding among the ordinary ones, "
+            "and a push-back RATE computed without splitting them is a "
+            "recording-coverage problem wearing a delivery figure's label."
+        ),
+    },
+    {
         "name": "research_queue.power_state",
         # The producer is the GATE itself: `grade_power` returns a PowerVerdict
         # whose `state` is one of these seven, and the vocabulary is defined as
@@ -866,6 +913,39 @@ CONTRACTS: List[Dict[str, object]] = [
             "otherwise inherit the first one's suppression budget. "
             "`newly_wedged` is loud on purpose: downgrading the ARRIVAL of a "
             "wedge would hide the condition rather than de-noise it."
+        ),
+    },
+    {
+        "name": "telegram_poll.poll_state",
+        # The producer is the resolver itself: `poll_state()` returns a
+        # PollEvidence whose `state` is one of these three, and the vocabulary
+        # is defined as module constants here and nowhere else.
+        "producer": "src/runtime/telegram_poll_registry.py",
+        # ⚠️ Scoped to the READING vocabulary, deliberately NOT to the module
+        # name. `src/bot/telegram_query_bot.py` imports this module to RECORD a
+        # claim (`record_poll`) and never reads a state back — a module-name
+        # token matched it anyway and then found the word "unknown" in an
+        # unrelated heartbeat label ("label": "unknown") and two VM-resource
+        # strings, reporting a registrant as a consumer that collapses two
+        # states. That is the coincidental-English false positive this guard's
+        # own header warns about, and the fix is a token that names the read
+        # surface rather than an override annotation asserting a file
+        # "legitimately sees only one state" when it sees none.
+        "consumer_token": r"\bpoll_state\b|\bPollEvidence\b|\bPOLL_STATES\b",
+        "states": ["polled_with_handler", "token_only_not_polled", "unknown"],
+        "why": (
+            "polled_with_handler = a live process claims it polls this token AND "
+            "handles this callback prefix, so a tap is received; "
+            "token_only_not_polled = we LOOKED and a tap would NOT be received; "
+            "unknown = we could NOT look. Collapsing unknown into "
+            "polled_with_handler ships an inline keyboard whose taps nobody "
+            "collects — a prompt that arrives, renders, highlights on tap and "
+            "does nothing, with no error on any surface. Collapsing it into "
+            "token_only_not_polled instead condemns a working channel on the "
+            "strength of an unreadable file and silently reroutes every operator "
+            "decision to the wrong chat. The two errors are opposite, which is "
+            "why the third value has to exist rather than be inferred from a "
+            "boolean."
         ),
     },
     {

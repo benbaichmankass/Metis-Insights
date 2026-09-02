@@ -66,6 +66,8 @@ OUT_MD = Path("docs/claude/DUE.md")
 _OPEN_ITEMS = Path("docs/claude/OPEN-ITEMS.json")
 _OPERATOR_OWED = Path("docs/claude/operator-owed-register.json")
 _RESEARCH_QUEUE = Path("research/queue")
+_SUNSET_DIR = Path("comms/sunset")
+_SUNSET_DISPOSITIONS = Path("docs/claude/SUNSET-DISPOSITIONS.json")
 _PROBES = Path("docs/claude/PROBES.json")
 _ERROR_FEED = Path("docs/claude/ERROR-FEED-DIGEST.json")
 # How many error-level cause groups the due-list renders inline. A RENDERING
@@ -623,10 +625,85 @@ def src_error_feed(
                         note=f"digest {gen}, age "
                              + (f"{age_h:.1f}h" if age_h is not None else "unknown"))
 
+def src_sunset_dispositions(root: Path, today: date) -> SourceResult:
+    """E3's retirement candidates that NOBODY HAS DISPOSITIONED.
+
+    WHY THIS IS A SOURCE AND NOT A SENTENCE IN A SKILL
+    (`docs/audits/operating-layer-skills-workflows-inventory-2026-09-02.md`
+    § 2.3 + P-C4). E3's machinery all shipped and is live — `sunset-pass.yml`,
+    `scripts/ops/sunset_pass.py`, `check_sunset_dispositions.py`,
+    `SUNSET-DISPOSITIONS.json`, `comms/sunset/`. What was missing is the half
+    this file exists to supply: **zero of the 32 role packs referenced any of
+    it**, and the audit's retirement-duty table has a literal `nobody` in the
+    row for retiring a skill, workflow, register or guard. So the pass produced
+    candidates on a cadence and no session was ever made to look at them.
+
+    Adding a paragraph to a skill would have been the *reminder* version of this
+    fix. A due-list source is the mechanism version: an undispositioned
+    candidate now appears on the one surface the duty pass is required to work
+    to a disposition, and drops off by itself the moment somebody records one.
+
+    ⚠️ **DELIBERATELY NOT `loud`.** There were 10 candidates on the 2026-09-01
+    pass; ten permanently-loud rows would be reported in every closing summary
+    forever and become the thing sessions learn to scroll past — the
+    desensitized-alarm P1 this repo calls its own worst failure mode. They are
+    DUE, which is enough to be worked; they are not an emergency.
+
+    ⚠️ **A DISPOSITION IS NOT A RETIREMENT.** Retiring a strategy leg is Tier-3
+    and `retire_proposed` is the furthest a session may take one on its own.
+    This source clears on the candidate being *dispositioned*, never on it being
+    *retired* — recording "we looked and decided to keep it" closes the row
+    exactly as legitimately as proposing removal.
+    """
+    d = root / _SUNSET_DIR
+    if not d.exists():
+        return SourceResult("sunset", "not_applicable", note=f"{_SUNSET_DIR} absent")
+    indices = sorted(d.glob("*/INDEX.json"))
+    if not indices:
+        return SourceResult("sunset", "not_applicable",
+                            note=f"no {_SUNSET_DIR}/*/INDEX.json yet")
+    latest = indices[-1]
+    try:
+        index = _load_json(latest)
+    except Exception as exc:  # noqa: BLE001 — an unreadable register is a state
+        return SourceResult("sunset", "could_not_read",
+                            note=f"{latest}: {type(exc).__name__}: {exc}")
+
+    # ⚠️ AN UNREADABLE DISPOSITION FILE IS `could_not_read`, NEVER AN EMPTY SET.
+    # Treating it as empty would flood the list with candidates that may already
+    # be dispositioned — a confident wrong answer, and the direction that
+    # destroys trust in the list fastest.
+    dp = root / _SUNSET_DISPOSITIONS
+    if not dp.exists():
+        return SourceResult("sunset", "could_not_read",
+                            note=f"{_SUNSET_DISPOSITIONS} absent — cannot tell "
+                                 f"dispositioned candidates from undispositioned ones")
+    try:
+        decided = {row.get("id") for row in _load_json(dp).get("dispositions", [])}
+    except Exception as exc:  # noqa: BLE001
+        return SourceResult("sunset", "could_not_read",
+                            note=f"{_SUNSET_DISPOSITIONS}: {type(exc).__name__}: {exc}")
+
+    rows = []
+    for r in index.get("rows", []):
+        if r.get("verdict") != "retire_candidate" or r.get("id") in decided:
+            continue
+        seen = _day((r.get("evidence") or {}).get("first_seen")) or _day(index.get("utc_date"))
+        rows.append(_row(
+            "sunset", r.get("id", "(no id)"),
+            f"{r.get('class', '?')} · {r.get('name', '?')}",
+            f"sunset pass proposed RETIRE ({r.get('basis', 'no basis')}) and no "
+            f"disposition is recorded — Tier-{r.get('tier', '?')}, so propose, "
+            f"never enact",
+            age_days=(today - seen).days if seen else None,
+            link=str(_SUNSET_DISPOSITIONS)))
+    return SourceResult("sunset", "read", rows)
+
 
 SOURCES: tuple[Callable, ...] = (
     src_open_items, src_operator_owed, src_research_queue, src_probes,
     src_red_crons, src_unlanded_automation, src_error_feed,
+    src_sunset_dispositions,
 )
 
 

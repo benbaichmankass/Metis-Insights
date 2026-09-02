@@ -1,9 +1,9 @@
 # What is due right now
 
-_Generated 2026-09-02T09:39:15+00:00 · verdict **partial**_
+_Generated 2026-09-02T09:55:58+00:00 · verdict **all_sources_read**_
 
-> ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
-
+- 🔔 **#10398** (unlanded_automation · 4d) — producer output opened a PR that has not landed
+  - chore(m1): economic-calendar PIT snapshots (auto)
 - 🔔 **OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED** (open_items · 4d) — monitoring row 4d since last observation (cadence 3d)
   - The operator DECIDED (2026-08-29) to keep the trainer VM for the L2 order-flow capture. That converts the box from 'a candidate for retirement' into a STATED DEPENDENCY for a forward-only stream nothi
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 2d) — loud row — must be reported on every session
@@ -60,32 +60,18 @@ _Generated 2026-09-02T09:39:15+00:00 · verdict **partial**_
   - Phase F/C3 is now COMPLETE AS PLUMBING — cron (#10649), committed path, and a reader (GET /api/bot/strategy-reviews, PR #10681) — and the decision surface STILL PROPOSES NOTHING. Population: the commi
 - 🔔 **OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL** (open_items) — loud row — must be reported on every session
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
-- **ERRFEED-3dedafaf** (error_feed · 11d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 19 rows 2026-08-22T12:05:01 → 2026-08-23T13:54:32 · accounts=ib_paper — decide: fix now, or file to a backlog
-  - [error] x19 ib_target_naked detected: ib_paper/MES: position N has N of take-profit coverage against a declared TP of N — the position can only stop out
-- **ERRFEED-9fd2fc82** (error_feed · 11d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 171 rows 2026-08-22T12:02:05 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
-  - [error] x171 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
-- **ERRFEED-cf5a4edf** (error_feed · 11d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 17 rows 2026-08-22T11:05:27 → 2026-08-23T12:27:10 · accounts=ib_paper — decide: fix now, or file to a backlog
-  - [error] x17 ib_target_naked detected: ib_paper/MGC: position N has N of take-profit coverage against a declared TP of N — the position can only stop out
-- **ERRFEED-1ef305c7** (error_feed · 10d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 17 rows 2026-08-23T21:42:55 → 2026-09-02T09:06:11 · symbols=AVAXUSDT — decide: fix now, or file to a backlog
-  - [error] x17 api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty
-- **ERRFEED-2338a024** (error_feed · 7d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 13 rows 2026-08-26T02:19:58 → 2026-08-29T04:06:19 · accounts=bybit_1 — decide: fix now, or file to a backlog
-  - [error] x13 bybit_over_cover detected: bybit_N/ETHUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL c
+- 🔔 **probes** (red_crons) — latest scheduled run concluded 'failure'
+  - probes
+- 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'cancelled'
+  - replay-pregate-nightly
+- 🔔 **strategy-review-packets** (red_crons) — latest scheduled run concluded 'failure'
+  - strategy-review-packets
+- 🔔 **work-digest** (red_crons) — latest scheduled run concluded 'failure'
+  - work-digest
 - **OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED** (open_items · 4d) — monitoring row 4d since last observation (cadence 2d)
   - The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.
 - **OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION** (open_items · 4d) — monitoring row 4d since last observation (cadence 3d)
   - The generated SESSION-BRIEF block in CLAUDE.md is the mechanism this session shipped in place of a cap and an adjective, and NO fresh session has ever read it. Shipped and working are different states
-- **ERRFEED-6eb9d669** (error_feed · 1d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 189 rows 2026-09-01T09:25:23 → 2026-09-02T08:17:06 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
-  - [error] x189 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: e
-- **ERRFEED-a46d2970** (error_feed · 1d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 6 rows 2026-09-01T10:22:49 → 2026-09-02T04:28:04 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog
-  - [error] x6 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u
-- **ERRFEED-fa77ad80** (error_feed · 1d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 5 rows 2026-09-01T16:16:52 → 2026-09-02T04:28:03 · symbols=MES — decide: fix now, or file to a backlog
-  - [error] x5 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
-- **ERRFEED-ff2634b2** (error_feed · 1d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 124 rows 2026-09-01T13:31:22 → 2026-09-01T19:12:14 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
-  - [error] x124 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: i
-- **ERRFEED-86505576** (error_feed · 0d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 7 rows 2026-09-02T08:33:53 → 2026-09-02T09:37:38 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
-  - [error] x7 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o
-- **ERROR-FEED-SUMMARY** (error_feed) — 43 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-02T09:37:38.807155+00:00`.
-  - 70 cause groups over 1367 rows (53 error-level, 17 warn-level, 0 new since the last digest)
 - **OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED** (probes) — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
 - **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched

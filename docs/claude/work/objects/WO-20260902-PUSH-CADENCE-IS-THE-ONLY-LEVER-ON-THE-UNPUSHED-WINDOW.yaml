@@ -1,0 +1,126 @@
+id: WO-20260902-PUSH-CADENCE-IS-THE-ONLY-LEVER-ON-THE-UNPUSHED-WINDOW
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: "Narrow the window between a session's last push and its death — the only
+  lever that moves the one loss a reaper cannot touch"
+stage: CAPABILITY
+lifecycle: ready
+owner: claude
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read when WO-20260901-PHASE-E closes, or when a session is observed losing work
+  it had committed but not pushed.
+
+done_condition: >-
+  The unpushed window is MEASURED and PUBLISHED per branch, and at least one of the
+  two levers below is either shipped as a mechanism that REFUSES, or ruled out in
+  writing with its measurement. ⚠️ An exhortation in a spawn prompt does NOT satisfy
+  this — operator directive 2026-09-02: "I want actual guards and mechanisms in the
+  repo/vm themselves", and the standing rule that an encouragement is not a mechanism.
+
+blocked_on: []
+blocked_on_basis: ASSESSED
+blocked_on_note: >-
+  Nothing blocks it. Both levers were assessed against live measurements on
+  2026-09-02 (below) rather than reasoned about, and neither depends on unfinished
+  work. This is an ASSESSED empty edge — a claim, not an absence.
+
+why_this_exists: >-
+  MI-70 killed a session (WO-20260901-PHASE-E) and reported a PARTIAL loss: the
+  pushed tier survived entirely, the committed-but-unpushed commit and the
+  uncommitted file were LOST. Neither loss is recoverable by any reaper, ever — it
+  lived in a container nothing outside it can reach. The manager's ruling bounded
+  Phase E's done-condition to that measured truth AND required this successor, "so
+  the residual is not dropped at the moment the phase goes green".
+
+  ⚠️ THE REAPER CANNOT HELP HERE AND THAT IS PROVEN, NOT ASSUMED. It reads `origin`;
+  work that never reached `origin` is outside its input entirely. The only quantity
+  that moves this loss is HOW NARROW THE WINDOW IS between the last push and the
+  death.
+
+the_window_is_measured_not_estimated:
+  # Population stated: consecutive-commit gaps on the 120 most recent
+  # `origin/claude/**` heads, commits reachable from the head but not from
+  # origin/main, capped at 12 per branch. n = 734 gaps. Measured 2026-09-02.
+  median_minutes: 13.8
+  p90_minutes: 108.7
+  max_minutes: 17239.3      # ~12 days
+  share_over_30_min: 0.328
+  what_this_is_and_is_NOT: >-
+    ⚠️ THIS IS A COMMIT-TO-COMMIT GAP, NOT A COMMIT-TO-PUSH GAP, and the two are
+    different quantities. Git records when a commit was AUTHORED; `origin` does not
+    record when it ARRIVED. So this is a PROXY for the exposure window and reads as
+    an UPPER BOUND on cadence (a session may push several commits at once, which
+    makes the true exposure shorter) — but ALSO as a LOWER BOUND on the tail, since
+    a commit never pushed at all contributes no gap and is invisible here. Do not
+    quote it as the exposure window itself.
+  what_it_does_establish: >-
+    The window is real and LONG-TAILED rather than uniformly short. A median of
+    ~14 min would be unremarkable on its own; a third of gaps over 30 min and a p90
+    near two hours is the shape in which a kill loses meaningful work.
+
+lever_1_push_per_step_not_commit_per_step:
+  claim: >-
+    MI-70's subject held a local phase-2 commit; had it pushed, the reaper would
+    have recovered it. So "push after every commit" would have converted that
+    specific loss into a survival.
+  assessed: >-
+    ⚠️ NOT ENFORCEABLE FROM THIS REPO TODAY, and this is a measurement rather than a
+    guess. A `post-commit` hook that pushes is the obvious mechanism, and git only
+    runs hooks from `.git/hooks` or from a `core.hooksPath` that must be SET PER
+    CLONE. Measured 2026-09-02 with a positive control (the control token matched 3
+    files, so the probe can find a positive): there is NO `.githooks` directory and
+    NO reference to `core.hooksPath` anywhere in the repo. Nothing configures it,
+    and — the same structural fact `session_registry.py` records about the spawn —
+    THE REPO DOES NOT OWN THE CLONE, so no code here is on the path that would set it.
+  therefore: >-
+    Shipping a hook file without a mechanism that ACTIVATES it would be the shape
+    this repo files under "a guard cheaper to lie to than to satisfy": present,
+    inert, and read by a reviewer as coverage. Either find the activation point
+    (a container setup step, a documented `git config` in a workflow that runs
+    per-clone) or rule the lever out IN WRITING with this measurement attached.
+  do_not: >-
+    Do NOT satisfy this by adding "push after every commit" to the spawn prompt and
+    calling it done. That is an encouragement, the prompt already carries a
+    push-before-reporting rule, and MI-70's subject pushed once and then held a
+    commit anyway.
+
+lever_2_put_the_object_id_in_the_commit_trailer:
+  claim: >-
+    The sharpest finding in MI-70's report: the reaper says WHOSE a branch is and
+    cannot say WHAT IT WAS FOR, because `owns_object` lives only in the registry.
+    `Claude-Session:` is already in every commit and already recovered 16 of the 35
+    registry rows that named no branch. A `Work-Object:` trailer is the same trick
+    for the other half, and costs one line per commit.
+  assessed: >-
+    FEASIBLE AND MEASURABLE, BUT IT CANNOT BE TURNED ON AS A REFUSAL ON DAY ONE.
+    Measured 2026-09-02: the store holds 587 objects and `origin` holds 200
+    `claude/**` heads; **114 of those 200 (57%) already mention an object-shaped id
+    somewhere in their commit bodies**, and **ZERO carry a `Work-Object:` trailer**.
+    So a CI check REQUIRING the trailer would fail 43% of branches immediately, and
+    many of those are board-post and relay branches that legitimately own no object.
+  therefore: >-
+    Stage it the way this repo stages everything else that binds — measure first,
+    refuse later. (a) The reaper CONSUMES a `Work-Object:` trailer where present and
+    reports `object_source` on its own axis, exactly as `branch_source` already
+    separates a recorded branch from a recovered one. (b) The trailer is emitted by
+    sessions that own an object. (c) Only once coverage is measured does a scoped
+    refusal become arguable — and its scope must EXCLUDE relay branches by
+    construction, not by an exemption list somebody maintains.
+  why_this_one_is_the_stronger_lever: >-
+    It has an enforcement point lever 1 lacks. A trailer is IN THE COMMIT, so it is
+    checkable offline, in CI, on every PR — no clone configuration, no live session
+    state, no MCP tool. Lever 1's mechanism has to run INSIDE the container that is
+    about to die; lever 2's runs anywhere the commit is readable.
+
+what_neither_lever_touches: >-
+  ⚠️ THE UNCOMMITTED TIER. MI-70's subject also lost an untracked scratch file, and
+  no push cadence recovers work that was never committed at all. Both levers narrow
+  the window; neither closes it. Say so rather than letting a shipped lever read as
+  a solved problem.
+
+evidence:
+  - docs/claude/work/objects/WO-20260901-PHASE-E.yaml
+  - scripts/ops/session_reaper.py
+verdict: null

@@ -15,7 +15,15 @@ position that was protected exactly right.
 
 That is UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A — a message naming a cause
 no code path tested (``CLAUDE.md`` § "Diagnostic provenance"). These tests pin
-the branch, in BOTH directions, and pin that the ORDER PATH did not move.
+the branch, in BOTH directions.
+
+⚠️ THE LAST CLAUSE OF THAT SENTENCE READ "and pin that the ORDER PATH did not
+move" UNTIL 2026-09-02 AND MUST NOT BE RE-QUOTED. It was true of #10739 and
+became false when the Tier-2 sibling that PR named was fixed: the re-arm
+decision now grades the split via ``bybit_leg_sides.graded_book_coverage``.
+What these tests still pin is that ``covered_qty`` — and therefore the
+over-cover TRIP — stays side-blind; see the renamed test at the foot of the
+``_bybit_position_protection`` block for why that is the opposite guard.
 """
 
 import pytest
@@ -195,11 +203,28 @@ class _FakeClient:
         ]}}
 
 
-def test_covered_qty_is_still_side_blind_so_the_rearm_decision_is_unchanged():
-    """⚠️ PIN, not an endorsement. `covered_qty` mixing both books is a REAL
-    defect — it can mask a genuinely under-covered position — but fixing it
-    changes which positions get re-armed, which is Tier-2. This asserts the
-    diagnostic repair did NOT smuggle that change in."""
+def test_covered_qty_is_still_side_blind_because_the_TRIP_needs_the_union():
+    """⚠️ RENAMED AND RE-ARGUED 2026-09-02 — the ASSERTIONS ARE UNCHANGED and
+    are deliberately NOT deleted; only the reason they are here has moved.
+
+    It was written as `..._so_the_rearm_decision_is_unchanged`, pinning that
+    #10739's diagnostic repair had not smuggled in the Tier-2 order-path change
+    it named. That change has now been made: the re-arm decision reads
+    `bybit_leg_sides.graded_book_coverage(leg_side_split)`, so the old NAME now
+    asserts something false about this system and would mislead the next reader.
+
+    ⚠️ WHAT IT PINS IS STILL LOAD-BEARING, WHICH IS WHY IT SURVIVES. `covered_qty`
+    must stay SIDE-BLIND: it feeds the over-cover TRIP, and that check is the
+    UNION of two conditions — genuine same-book pile-up AND other-book legs
+    resting on the symbol. Narrowing it to the graded book would make the second
+    case stop tripping and go SILENT, which is strictly worse than the
+    mislabelling #10739 fixed. So this now guards the OPPOSITE mistake from the
+    one it was written for: not "the order path moved when it shouldn't have",
+    but "the trip threshold followed the order path when it shouldn't have".
+
+    The re-arm side has its own both-direction controls in
+    `tests/test_bybit_naked_rearm.py` (§ 2026-09-02).
+    """
     st = om._bybit_position_protection(_FakeClient(), "linear", "BTCUSDT")
     assert st["size"] == pytest.approx(0.018)
     assert st["covered_qty"] == pytest.approx(0.478)   # 0.018 + 0.46, side-blind

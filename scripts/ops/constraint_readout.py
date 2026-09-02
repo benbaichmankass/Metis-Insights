@@ -32,14 +32,29 @@ the exact class this repo keeps paying for. Three defences, all load-bearing:
    because *"we looked at 6 objects and here is what they say"* is useful and
    *"the constraint is INTEGRITY"* over a 1% sample is not.
 
-⚠️ **A STAGE HISTOGRAM OVER THIS STORE IS NOT A CONSTRAINT.** ``stage``
-describes what each object IS, not where the chain is stuck. Measured
-2026-09-01 the store holds INTEGRITY 498 · EVIDENCE 78 · CAPABILITY 8 and
-**zero** objects on QUESTION, DECISION, DEPLOYMENT or OBSERVATION — because the
-migration's source was three review backlogs, which are registers of defects.
-Reading "the constraint is INTEGRITY" off that would be reporting the shape of
-the *migration*. ``chain_coverage`` publishes the empty stages explicitly so a
-consumer cannot miss them.
+⚠️ **A STAGE HISTOGRAM OVER THIS STORE IS NOT A CONSTRAINT — IT IS A CENSUS OF
+SOURCE FILENAMES.** This paragraph read *"``stage`` describes what each object
+IS … because the migration's source was three review backlogs"* until
+2026-09-02. The conclusion was right and the mechanism was understated, and it
+also named ``chain_coverage``, **a key this module has never emitted** (it is
+``chain_stages_with_no_objects``). Measured over all 584 objects: **576 carry
+``source.backlog`` and their stage is a deterministic function of that ONE
+field** — ``migrate_backlog_to_work_objects.py::SOURCES`` maps
+``health-review-backlog.json`` → INTEGRITY (498) and
+``{ml,performance,research}-review-backlog.json`` → EVIDENCE (78), with **no
+per-row judgement and zero exceptions**; the other 8 are the build's own phases,
+all CAPABILITY. So ``INTEGRITY 498`` counts one filename, and **not one object
+in the store had its chain stage chosen by someone reading the work.** QUESTION
+/ DECISION / DEPLOYMENT / OBSERVATION are therefore empty **by construction**,
+not by measurement — a reader must not conclude the system makes no decisions.
+
+⚠️ **AND THAT IS INDEPENDENT OF EDGE COVERAGE, WHICH IS THE TRAP.** Assessing
+every one of the 584 objects with perfectly true edges would clear
+``MIN_ASSESSED_COVERAGE`` and this module would then name a stage
+**confidently**, off a histogram describing four backlog filenames. The refusal
+is currently the only thing stopping that. ``chain_stages_with_no_objects``
+publishes the empty stages; ``stage_basis`` publishes WHY they are empty, graded
+off each row's own ``source`` block rather than asserted here.
 
 **Money is MEASURED or it says it could not look — never zero.** Item 2 reads
 ``/api/bot/performance`` live and carries ``pnlCoverage`` and ``journalTrust``
@@ -253,6 +268,45 @@ def grade_edge(edge: dict, by_id: dict[str, dict]) -> dict:
     return out
 
 
+def grade_stage_basis(obj: dict) -> str:
+    """Grade HOW an object's ``stage`` was arrived at. Three states, never collapsed.
+
+    - ``bulk_by_source_file`` — the row was migrated, and the migration assigned
+      ``stage`` from a **fixed per-SOURCE-FILE table**, not by reading the row.
+      The stage therefore says which backlog the row came from and **nothing
+      about the work**.
+    - ``per_object``          — a stage is stated on a row with no bulk-migration
+      provenance, i.e. somebody chose it. ⚠️ This is NOT a claim the stage is
+      RIGHT, only that it was assigned rather than derived from a filename.
+    - ``unstated``            — no stage at all. We could not look.
+
+    ⚠️ **WHY THIS EXISTS.** ``stage_counts`` reads like a description of where the
+    system's work sits. Measured 2026-09-02 over all 584 objects it is not: 576 of
+    them carry ``source.backlog``, and their stage is a **deterministic function of
+    that one field** — ``health-review-backlog.json`` → INTEGRITY (498),
+    ``{ml,performance,research}-review-backlog.json`` → EVIDENCE (78), with **zero
+    exceptions**. So ``INTEGRITY 498`` is a census of one filename. Publishing it
+    unqualified is UNPROVENANCED DIAGNOSTIC OUTPUT sub-class **B** (an implicit
+    input selection wearing the label of a measurement), and the remedy this repo
+    declares for sub-class B is to branch on the actual condition rather than
+    reword the label — which is what this function does, off the row's own
+    ``source`` block rather than off prose about it.
+
+    ⚠️ **AND IT IS WHY THE FOUR EMPTY CHAIN STAGES ARE NOT A READING EITHER.**
+    QUESTION / DECISION / DEPLOYMENT / OBSERVATION hold zero objects because **no
+    producer has ever emitted one** — the migration's table names two stages and
+    the build's own phases name a third. That is a statement about the migration,
+    not about the system, and a reader must not conclude the system makes no
+    decisions and takes no observations.
+    """
+    if not isinstance(obj.get("stage"), str) or not obj["stage"].strip():
+        return "unstated"
+    src = obj.get("source")
+    if isinstance(src, dict) and src.get("backlog") and src.get("migrated_on"):
+        return "bulk_by_source_file"
+    return "per_object"
+
+
 def diagnose(objects: list[dict], read_errors: list[dict]) -> dict:
     """E1 — the constraint diagnosis.
 
@@ -264,6 +318,12 @@ def diagnose(objects: list[dict], read_errors: list[dict]) -> dict:
     basis_counts = {"blocked": 0, "declared_none": 0, "unstated": 0, "malformed": 0}
     stage_counts = {s: 0 for s in DECLARED_STAGES}
     stage_counts["(unstated)"] = 0
+    # Every declared state ships with an explicit zero, so the buckets sum to the
+    # population checkably rather than by trust.
+    stage_basis_counts: dict[str, int] = {
+        "per_object": 0, "bulk_by_source_file": 0, "unstated": 0,
+    }
+    stage_counts_by_basis: dict[str, dict[str, int]] = {}
     lifecycle_counts: dict[str, int] = {}
     blocked_objects: list[dict] = []
     edge_kinds: dict[str, int] = {}
@@ -273,7 +333,14 @@ def diagnose(objects: list[dict], read_errors: list[dict]) -> dict:
         state, edges = grade_blocked_on(obj)
         basis_counts[state] += 1
         stage = obj.get("stage")
-        stage_counts[stage if stage in stage_counts else "(unstated)"] += 1
+        stage_key = stage if stage in stage_counts else "(unstated)"
+        stage_counts[stage_key] += 1
+        sbasis = grade_stage_basis(obj)
+        stage_basis_counts[sbasis] = stage_basis_counts.get(sbasis, 0) + 1
+        stage_counts_by_basis.setdefault(sbasis, {})
+        stage_counts_by_basis[sbasis][stage_key] = (
+            stage_counts_by_basis[sbasis].get(stage_key, 0) + 1
+        )
         life = str(obj.get("lifecycle") or "(unstated)")
         lifecycle_counts[life] = lifecycle_counts.get(life, 0) + 1
         if state != "blocked":
@@ -363,6 +430,8 @@ def diagnose(objects: list[dict], read_errors: list[dict]) -> dict:
         "min_assessed_coverage": MIN_ASSESSED_COVERAGE,
         "basis_counts": basis_counts,
         "stage_counts": stage_counts,
+        "stage_basis_counts": stage_basis_counts,
+        "stage_counts_by_basis": stage_counts_by_basis,
         "lifecycle_counts": lifecycle_counts,
         "chain_stages_with_no_objects": chain_empty,
         "held_up_candidates": held,
@@ -647,6 +716,23 @@ def render_md(d: dict) -> str:
     L.append("Objects by stage: "
              + " · ".join(f"`{k}` {v}" for k, v in c["stage_counts"].items() if v))
     L.append("")
+    sb = c.get("stage_basis_counts") or {}
+    bulk, per_obj = sb.get("bulk_by_source_file", 0), sb.get("per_object", 0)
+    if bulk:
+        L.append(f"⚠️ **{bulk} of {c['population']} of those stages were assigned in BULK "
+                 f"FROM THE SOURCE FILENAME, not by reading the row.** The Phase C "
+                 f"migration maps `health-review-backlog.json` → `INTEGRITY` and "
+                 f"`{{ml,performance,research}}-review-backlog.json` → `EVIDENCE`, with no "
+                 f"per-row judgement, so `INTEGRITY {c['stage_counts'].get('INTEGRITY', 0)}` "
+                 f"is a census of ONE filename. Only **{per_obj}** stage(s) in the whole "
+                 f"store were chosen per object — and choosing one is not a claim it is "
+                 f"RIGHT, only that a filename did not decide it.")
+        L.append("")
+        L.append("Stage by how the stage was arrived at: "
+                 + " · ".join(
+                     f"`{basis}` → " + ", ".join(f"{st} {n}" for st, n in sorted(counts.items()))
+                     for basis, counts in sorted((c.get("stage_counts_by_basis") or {}).items())))
+        L.append("")
     if c["blocked_objects"]:
         L.append(f"**The assessed subgraph — every object that declares an edge "
                  f"({len(c['blocked_objects'])} of {c['population']}):**")
@@ -827,6 +913,12 @@ def render_brief_lines(d: dict) -> list[str]:
                  + ", ".join(f"`{s}`" for s in c["chain_stages_with_no_objects"])
                  + " hold **zero** objects, so the store cannot locate a hold-up there. "
                    "A stage histogram over it describes what got migrated, not the chain.")
+    sb = c.get("stage_basis_counts") or {}
+    if sb.get("bulk_by_source_file"):
+        L.append(f"- ⚠️ **And the stages that ARE populated were assigned from the source "
+                 f"FILENAME in bulk** ({sb['bulk_by_source_file']} of {c['population']}; only "
+                 f"{sb.get('per_object', 0)} were chosen per object), so the histogram is a "
+                 f"census of which backlog a row came from — **not a reading of the work.**")
     L.append(f"- **{f['in_flight']} in flight** against a ceiling of "
              f"{f['ceiling'] if f['ceiling'] is not None else '(unreadable)'} · "
              f"{f['waiting']} waiting · {len(f['stalled'])} stopped moving "
@@ -908,6 +1000,32 @@ def _self_test() -> int:
     check("an external_event ref is NOT graded dangling",
           grade_edge({"kind": "external_event", "ref": "a cold session"}, by_id)["ref_state"],
           "not_in_store_by_design")
+
+    # ---- stage_basis: the histogram must declare how its stages were arrived at.
+    check("a migrated row's stage grades `bulk_by_source_file`",
+          grade_stage_basis({"stage": "INTEGRITY", "source": {
+              "backlog": "docs/claude/health-review-backlog.json",
+              "migrated_on": "2026-09-01"}}),
+          "bulk_by_source_file")
+    check("a hand-authored row's stage grades `per_object`",
+          grade_stage_basis({"stage": "DECISION"}), "per_object")
+    check("...and a row with a source block but NO migrated_on is NOT bulk",
+          grade_stage_basis({"stage": "DECISION", "source": {"backlog": "x"}}),
+          "per_object")
+    check("no stage at all grades `unstated`, never a stage",
+          grade_stage_basis({"source": {"backlog": "x", "migrated_on": "y"}}),
+          "unstated")
+    _sb = diagnose([
+        {"id": "M1", "stage": "INTEGRITY", "lifecycle": "dormant", "blocked_on": [],
+         "blocked_on_basis": "NOT_ASSESSED",
+         "source": {"backlog": "b", "migrated_on": "2026-09-01"}},
+        {"id": "H1", "stage": "DECISION", "lifecycle": "waiting", "blocked_on": [],
+         "blocked_on_basis": "NOT_ASSESSED"},
+    ], [])["stage_basis_counts"]
+    check("the basis buckets sum to the population, checkably",
+          sum(_sb.values()), 2)
+    check("...with every declared state present as an explicit zero",
+          sorted(_sb), ["bulk_by_source_file", "per_object", "unstated"])
 
     # The refusal. A store of unassessed rows must NOT yield a stage.
     unassessed = [{"id": f"O{i}", "stage": "INTEGRITY", "lifecycle": "dormant",

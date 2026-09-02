@@ -65,9 +65,55 @@ decision_requests:
         label: Do the second thing
         implication: ...
     allows_free_text: true             # an explicit `false` closes free text
+    asked_by:                          # WHO ASKED — see below. Omit if a human asked.
+      session_id: session_01PEYVqTaCY92C3HmtHwxYff
+      recorded_at: 2026-09-02T10:35:26Z
+      note: MI-60 — what the answer unblocks
     # `answer:` is written by the COMMITTER, never by hand-editing the transit
     # log. Its PRESENCE is what makes the decision true.
 ```
+
+### `asked_by` — the address the answer gets PUSHED back to (2026-09-02)
+
+**Record it whenever a SESSION asks the question.** Without it the answer has
+nowhere to go, and the session that raised the question can only learn the
+answer by polling — which is the gap the operator named on 2026-09-02:
+*"can we add … a push something on the end of that so that, when the answer
+gets to the repo, it knows to push it to the session instead of waiting for the
+session to pull?"*
+
+**How to fill it in:** call `get_session` with `session_id` **omitted** — it
+returns your own record, id included (TESTED 2026-09-02). You do not need to be
+told what your session is, and nobody could have told you: the id does not exist
+until your session is created. Then use the helper so the shape cannot drift:
+
+```python
+from src.runtime.work_decisions import render_asked_by_block
+render_asked_by_block(session_id="session_…", note="what this unblocks")
+```
+
+**Three states, never collapsed** (`askedByState` on
+`GET /api/bot/work/decisions`, and registered with `collapsed-state-guard`):
+
+| state | meaning |
+|---|---|
+| `recorded` | an asker is named and reachable — a committed answer can be pushed to it |
+| `unrecorded` | **nobody wrote one down.** Ordinary and blameless: every request written before 2026-09-02 reads this way, as does any question a human asked |
+| `malformed` | someone recorded an asker that is **not usable** — a question whose answer will silently never be delivered while its owner believes it will. A FINDING; it fails `push_decisions_back.py` |
+
+⚠️ **Do NOT back-fill `asked_by` onto an existing request.** Every request in
+the store today grades `unrecorded`, and that is the honest reading — nobody
+recorded an asker at the time, and inventing one now would assert a fact nobody
+established. `unrecorded` exists precisely so that gap does not have to be
+papered over.
+
+⚠️ **The push ADDS to the pull path; it does not replace it.** `committed` is
+still graded from this directory exactly as before. If every push fails forever,
+the system behaves exactly as it did before the push existed — which is the
+property that makes `session_gone` a survivable state rather than a lost answer.
+
+Feasibility, with every claim marked TESTED / READ / RECORDED:
+[`docs/design/decision-push-back-FEASIBILITY.md`](../../design/decision-push-back-FEASIBILITY.md).
 
 **The round-trip, and the one rule that shapes it:**
 
@@ -249,6 +295,83 @@ exist: an interactive session's `list_pull_requests`, or a workflow. Pass it
 with `--open-prs`; without it, completeness grades **`not_observed`**, which is
 `unknown` and therefore never `ready`.
 
+## Merging these files — the driver, and what it does NOT do
+
+`MANAGER-CHECKLIST.json`, `SESSIONS.json` and `OPEN-PRS.json` are monolithic and
+re-conflict on sibling PRs. ⚠️ **The mechanism is NOT the rows.** Measured on
+`main` @`1b82ab7` over adjacent register-touching commit pairs since 2026-08-26,
+the share where BOTH sides bump the same `updated_at`/`as_of` header line:
+**MANAGER-CHECKLIST 29/39 (74%)** · OPEN-PRS 8/12 (67%) · SESSIONS 14/23 (61%).
+PR #10815's entire conflict here was that one line. Row contention is the
+minority (31% / 50% / 9%).
+
+So the remedy is `.gitattributes` + `scripts/ops/merge_json_register.py`, a
+row-aware 3-way merge — **not** one-file-per-row. ⚠️ **Sharding would not have
+fixed the majority case**: `as_of` lives in the container and would keep
+conflicting. Install it once per clone:
+
+```bash
+scripts/ops/install_merge_driver.sh   # git refuses an executable path from a tracked file
+```
+
+⚠️ **IT IS CLIENT-SIDE. GITHUB DOES NOT RUN IT.** A `mergeable_state: dirty` PR
+is still dirty on GitHub; what this removes is resolving it by hand. A clone that
+never ran the installer merges these files the old way — it degrades, it does not
+break.
+
+⚠️ **IT REFUSES RATHER THAN PICKING A WINNER.** Divergent same-id ADD, divergent
+same-id EDIT and delete-vs-edit all exit 1 with markers left. This is not
+caution for its own sake: a union-by-id resolver once reported *"no id lost, none
+resurrected"* while silently dropping an edit, because both sides had ADDED the
+same id and the divergence check only covered rows present in the merge base. A
+row deleted on one side and untouched on the other **stays deleted** — deletion
+is intent.
+
+It never reformats: rows are spliced as original byte spans, so
+`backlog_append.py::append_row`'s exact-serialisation contract holds and
+`OPEN-ITEMS.json` — which is NOT byte-reproducible — is safe. Round-trip is
+byte-identical on all five registers; `--check-round-trip` is the proof.
+
+## The morning handoff: THE DAILY BRIEF
+
+`SESSIONS.json` says which sub-sessions a successor inherits and `OPEN-PRS.json`
+says which PRs. **Neither of them, nor anything else, produced the thing a
+PERSON is handed at the day boundary** — which is what the operator's daily
+cadence assumes. Their own words are the acceptance criterion:
+
+> *"by the [brief] in the morning, I want that to include what was done
+> overnight and what was wrapped up after I went to bed, **so that I know where
+> I'm starting off from**."*
+
+[`scripts/ops/render_daily_brief.py`](../../../scripts/ops/render_daily_brief.py)
+renders it to [`comms/briefs/<UTC-date>.md`](../../../comms/briefs/). It has a
+**DELTA** half (§1, what moved overnight — `work_digest`, imported not
+re-derived) and a **STATE** half (§2, the checklist split by state, the lease,
+the open-PR conditions, the `loud` open-items). *The delta alone is a changelog,
+and a changelog does not tell anyone where they are.*
+
+⚠️ **IT IS A CLOSE-OUT DELIVERABLE THE NIGHT MANAGER RUNS, NOT A CRON — and the
+reason is a tool boundary, not a preference.** What merged is readable from git
+and the registers are readable, but **what a night session CONCLUDED lives in
+`get_session`'s `post_turn_summary`, and `mcp__*` tools are unavailable to CI
+and to Routine-fired turns.** A cron would ship, every morning, a brief
+structurally unable to answer the question it exists for. The manager passes
+what it observed with `--session-notes`.
+
+⚠️ **It still runs with none of that**, because the case this phase exists for
+is *the manager died*. An omitted observation renders **`not_observed`** — a
+declared hole — never silence and never *"nothing was concluded"*.
+
+⚠️ **`landed_unproven` is NOT `done` and the brief must never flatten them.** A
+merge is a deploy, not an observation; an item reported as finished whose effect
+was never seen actively misinforms the person starting the day. The two are
+counted and listed separately, and `daily-brief-guard` asserts it on every PR
+with planted controls in both directions.
+
+⚠️ **Every file under `comms/briefs/` is a DATED SNAPSHOT, not current state.**
+Taking over mid-day? **Re-run it** — it reads live files. Full contract:
+[`comms/briefs/README.md`](../../../comms/briefs/README.md).
+
 ## What is NOT here
 
 **Bugs to fix** still go to the three review backlogs (`docs/claude/*-review-backlog.json`),
@@ -324,10 +447,36 @@ Three distinctions the readout keeps and a reader must too:
 - **`declared_none` vs `unstated`.** An empty list with a basis that ASSERTS an assessment
   is a claim; an empty list with `NOT_ASSESSED`, or with no basis key at all, is nobody
   having looked. Collapsing them turns 578 unexamined rows into 578 all-clears.
-- **The `stage` histogram is not a constraint.** `INTEGRITY` 498 · `EVIDENCE` 78 ·
-  `CAPABILITY` 8, and **zero** on QUESTION / DECISION / DEPLOYMENT / OBSERVATION — the
-  shape of what got migrated (review-backlog defect rows), not of where the chain is
-  stuck. `chain_stages_with_no_objects` publishes the gap explicitly.
+- **The `stage` histogram is not a constraint, and it is worse than that — it is a
+  census of FILENAMES.** ⚠️ **This bullet read `INTEGRITY 498 · EVIDENCE 78 ·
+  CAPABILITY 8, and zero on QUESTION / DECISION / DEPLOYMENT / OBSERVATION … the shape
+  of what got migrated` until 2026-09-02.** The conclusion was right and the mechanism
+  was understated. Measured over all 584 objects: **576 carry `source.backlog`, and
+  their stage is a deterministic function of that ONE field** —
+  `migrate_backlog_to_work_objects.py::SOURCES` maps `health-review-backlog.json` →
+  INTEGRITY and `{ml,performance,research}-review-backlog.json` → EVIDENCE with **no
+  per-row judgement and zero exceptions**; the other 8 are the build's own phases, all
+  CAPABILITY. So `INTEGRITY 498` counts one filename, and **not one object in the store
+  had its chain stage chosen by someone reading the work.**
+  `constraint_readout.py` now grades this as **`stage_basis`** — `per_object` ·
+  `bulk_by_source_file` · `unstated`, never collapsed, summing to the population
+  checkably — and both `READOUT.md` and the `CLAUDE.md` brief say so beside the
+  histogram. ⚠️ **AND THIS IS INDEPENDENT OF EDGE COVERAGE.** Assessing every one of the
+  584 objects with perfectly true edges would leave DECISION at whatever anyone happened
+  to hand-author, so the readout would then name a stage **confidently**, off a histogram
+  describing four backlog filenames. The refusal is currently the only thing stopping
+  that. `chain_stages_with_no_objects` publishes the empty stages; `stage_basis`
+  publishes why they are empty.
+  ⚠️ **The chain work EXISTS — it is outside the store, under a different vocabulary.**
+  `docs/claude/OPEN-ITEMS.json` holds `pending_decision` (= DECISION) and
+  `monitoring` / `awaiting_verification` (= OBSERVATION, *"deployed, awaiting an
+  observation"* being that stage's definition). Phase C carried the review **backlogs**
+  and never the **register**, which is exactly why the support half is full and the
+  chain half is empty. Filed as
+  `BL-20260902-WORK-STORE-STAGE-IS-A-CENSUS-OF-FILENAMES-SO-FOUR-CHAIN-STAGES-ARE-EMPTY-BY-CONSTRUCTION`.
+  ⚠️ **Do NOT "fix" this with a bulk re-stage** — a stage assigned by a second uniform
+  rule is the same defect wearing different numbers, and `stage_basis` will still read
+  `bulk_by_source_file` for every row.
 - **A hold on a `waiting` target is the weakest hold the graph can express.** `waiting`
   covers both *not delivered* and *delivered, awaiting an observation*, and a dependent
   needs the capability rather than the observation. Reported as

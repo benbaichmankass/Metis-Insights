@@ -159,3 +159,25 @@ jobs:
           # "the PR opened" is not "the decision landed", and only the second
           # makes the answer true.
           verify-merged: "true"
+
+      # ── PUSH-BACK: DELIBERATELY NOT DONE HERE ────────────────────────────
+      # This workflow used to install the Claude CLI and deliver committed
+      # answers with `claude -p --cloud <session-id>`. The operator ruled that
+      # out on 2026-09-02: it needs a claude.ai OAuth credential with no
+      # long-lived CI form (30-day cap), and "we definitely can't have a flow
+      # that relies on my minting new tokens every month". Those steps are
+      # REMOVED rather than left behind a secret nobody will set — a step wired
+      # to a credential that will never exist is the "looks armed, is not"
+      # failure this repo keeps paying for.
+      #
+      # Delivery is now done by a Claude SESSION on a cron Routine, because
+      # `create_trigger(persistent_session_id=…)` + `fire_trigger` are `mcp__*`
+      # tools a runner does not have. See
+      # docs/design/decision-push-back-DESIGN.md.
+      #
+      # ⚠️ AND THIS WORKFLOW MUST NEVER WRITE THE DRAIN RECEIPT.
+      # `docs/claude/work/DECISION-DRAIN.json` is the evidence
+      # `scripts/ops/check_drain_liveness.py` grades, and it must record that
+      # THE DRAIN ran. If this committer wrote it, the watcher would be
+      # measuring this workflow's cadence instead — a liveness check that stays
+      # green while the thing it watches is dead, which is worse than none.
