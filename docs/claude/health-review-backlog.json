@@ -31191,6 +31191,43 @@
         "BL-20260827-TEST-MODULES-STUB-SKLEARN-INTO-SYS-MODULES-AT-IMPORT-TIME",
         "BL-20260822-TEST-SUITE-CROSS-FILE-SYS-MODULES-POLLUTION"
       ]
+    },
+    {
+      "id": "BL-20260902-BOARD-POST-RELAY-SILENTLY-KILLS-CI-ON-THE-PR-OF-ANY-SESSION-THAT-FOLLOWS-THE-PROTOCOL",
+      "opened": "2026-09-02",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "area": "ci",
+      "title": "Following the coordination-board protocol leaves a bot-authored commit at HEAD, so the session's own PR runs no CI and reads as 'waiting'",
+      "detail": "MEASURED: this trap fired THREE TIMES on 2026-09-02 alone -- #10793, #10795 and #10789 -- each time on a PR whose head commit was `github-actions[bot] | board-post: results`. Each read `total_count: 0` check runs and `mergeable_state: blocked`, which is indistinguishable from 'CI has not started yet'. #10793 sat that way for ~35 minutes and #10789 for ~20 before a manager noticed. MECHANISM: `board-post.yml` and `pr-opener.yml` commit a results file back to the PR branch using the workflow's GITHUB_TOKEN. GitHub does not trigger workflows for GITHUB_TOKEN pushes. So if that results commit lands LAST, no workflow fires on the head and the PR is silently un-tested. [!] THE INCENTIVE IS INVERTED, which is what makes this worse than a bug: a session that follows the board protocol is PUNISHED with an invisible PR, and one that skips it is not. That is the MI-28 shape ('following the board protocol makes the audit louder, which inverts the incentive') recurring in a new place. [!] IT IS DOCUMENTED AND THAT HAS NOT WORKED. CLAUDE.md states it verbatim -- 'if such a commit lands last your PR shows ZERO checks and is blocked, not green -- push an ordinary commit after, to arm CI' -- and the manager session that had READ that line hit it three times in one afternoon. A rule that is known and still broken is evidence for machinery, not for restating the rule.",
+      "evidence": "#10789 head 9faec369 authored by github-actions[bot], message 'board-post: results', get_check_runs total_count 0, mergeable_state blocked. #10793 head 069ff90d, same author and message, same symptoms. Both armed by a manager merging origin/main in. No check in scripts/ci/ references check_runs, total_count or a bot-authored head (grep returned nothing; control: 60+ files exist in scripts/ci/).",
+      "resolution_criteria": "EITHER (a) THE CAUSE IS REMOVED -- the relays stop pushing a results commit to the PR branch (write the result to the issue comment, a run artifact, or a side branch), so a bot commit can never be at HEAD; OR (b) the relays push with a credential that DOES trigger workflows (a PAT), which is the documented GitHub behaviour difference; OR (c) the relay itself dispatches the required workflows after its push. [!] AND A DETECTOR EITHER WAY, because the trap is not unique to these two relays -- ANY bot-authored head reproduces it: something that flags an OPEN PR whose head has zero check runs, reaching a surface a manager actually reads. [!] DO NOT CLOSE THIS ON DOCUMENTATION. It is already documented in CLAUDE.md and was hit three times by a session that had read it.",
+      "refs": [
+        "#10789",
+        "#10793",
+        "#10795",
+        ".github/workflows/board-post.yml",
+        ".github/workflows/pr-opener.yml",
+        "MI-28"
+      ]
+    },
+    {
+      "id": "BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE",
+      "opened": "2026-09-02",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "area": "tooling",
+      "title": "The append-mostly registers are single JSON files, so each merge invalidates every sibling PR's resolve — and the repo already solved this once",
+      "detail": "MEASURED 2026-09-02: five registers are monolithic JSON and every session appends to them -- health-review-backlog.json 6,236,300 bytes, OPEN-ITEMS.json 220,809, MANAGER-CHECKLIST.json 146,755, SESSIONS.json 83,124, OPEN-PRS.json 21,219. There is NO .gitattributes and NO merge driver, so every append is a textual conflict against every other append. [!] THE REPO HAS ALREADY SOLVED THIS AND DID NOT GENERALISE THE SOLUTION. docs/claude/work/objects/ holds 584 objects as ONE FILE PER OBJECT, and the work store's README states the reason outright: 'One file per object, so two sessions touching different work never conflict.' The registers that keep conflicting are exactly the ones that did not get that treatment. [!] IT IS A MANAGER-AMPLIFIED DEFECT. MI-20 already recorded 'nine merges in three hours left four PRs conflicted on the same append-mostly register', and on 2026-09-02 a manager landed five register-touching PRs in one afternoon (#10790, #10791, #10792, #10795, #10798), re-conflicting every sub-session PR beneath them -- while instructing another session on how to resolve those same conflicts. The manager is the highest-frequency writer and therefore the largest source of the churn.",
+      "evidence": "wc -c on the five files as above. `ls docs/claude/work/objects/*.yaml | wc -l` = 584. `cat .gitattributes` -> file does not exist. MI-20 in MANAGER-CHECKLIST.json records the prior occurrence.",
+      "resolution_criteria": "EITHER (a) the registers move to one-file-per-row under a directory, as the work store already did, with the aggregate JSON generated for consumers that need it; OR (b) a git merge driver registered in .gitattributes merges these files BY ROW ID -- union on id, refusing on a genuine same-id divergence -- so two appends never conflict textually. [!] (b) MUST ASSERT BOTH WAYS, not just count: every id present on either side present in the output, AND the counts reconcile. A count can reconcile by luck while a row is lost, which is why the manual resolutions this week asserted per-id membership. [!] DO NOT CLOSE THIS BY ASKING SESSIONS TO MERGE MORE CAREFULLY. Careful manual resolution is what is happening now and it costs a round trip per PR per merge.",
+      "refs": [
+        "MI-20",
+        "docs/claude/work/README.md",
+        "#10783"
+      ]
     }
   ]
 }
