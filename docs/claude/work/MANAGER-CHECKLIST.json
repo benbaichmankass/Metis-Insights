@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T09:25:00Z",
+  "updated_at": "2026-09-02T09:30:00Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -665,6 +665,44 @@
       "why_it_is_worth_it": "Measured today: `ict_scalp_avax_5m` has been a DEAD LEG on bybit_1 — 8 signals, 0 orders placed, every one exchange-rejected — across THREE backlog rows and two fixes marked `resolved`. It was caught only because the operator pasted the feed by hand. The feed is produced and not read; that is the same PRODUCE-without-DISPOSE defect the operating-model design names as the measured constraint.",
       "⚠️_the_cadence_must_not_be_claimed": "This repo has scheduled workflows that are merged, enabled, correct and fire ~4h50m LATE or once instead of daily. The digest must carry generated_at + covers_since so a stale one is self-evidently stale rather than reading as 'nothing happened'.",
       "done_condition": "A workflow_dispatch run whose conclusion is quoted, producing a digest in which the AVAX dead leg is visible and triage-able. CI green does NOT establish this — that lesson cost two failed fixes this morning."
+    },
+    {
+      "id": "MI-54-DECISIONS-WERE-PUT-TO-THE-OPERATOR-WITH-NO-PING",
+      "title": "I asked seven decisions today as in-session popups and sent zero pings",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "operator_observation": "2026-09-02: 'I'm supposed to get a ping when there's a decision waiting for me, and I didn't get any pings about decisions waiting for me.' Correct.",
+      "measured": "SEVEN decisions were put to the operator via in-session popups across this session (bybit arming · widening order · Phase-H route · handoff timing · #10694 restart · drain unblock · build the wiring). ZERO pings were sent announcing any of them.",
+      "why_it_matters_more_than_politeness": "F6 — 'the operator is told, by Telegram, whenever something is done without them' — is the CONDITION ON WHICH THE AUTONOMY GRANT WAS MADE. A decision waiting is a checkpoint, and a checkpoint that only exists inside a session the operator is not looking at is not a checkpoint. ⚠️ It also compounds: the operator cannot answer what they cannot see, so an unpinged decision silently becomes a BLOCKED work item that looks like it is merely pending.",
+      "⚠️_the_channel_was_also_broken_but_that_is_NOT_the_excuse": "Both ping paths were down for part of today (renderer dropping bodies until #10747; workflow_dispatch dead until #10772, still unmerged). But the ISSUE-driven path worked THROUGHOUT and I used it for status pings — so I could have pinged the decisions and did not. Do not let the channel outage absorb this.",
+      "remedy": [
+        "IMMEDIATE, behavioural: every AskUserQuestion is followed by a ping naming the decisions and carrying the session link. Done for today's seven (issue #10774).",
+        "DURABLE: the mechanism belongs with MI-55 — a decision in the work store should ping on its own, not depend on the manager remembering."
+      ]
+    },
+    {
+      "id": "MI-55-TWO-WAY-TELEGRAM-DECISIONS-ANSWERABLE-FROM-THE-CHAT",
+      "title": "Operator ask: deliver decisions as Telegram popups and accept the answer from there",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": null,
+      "tier": "2 (telegram bridge + service restart)",
+      "operator_ask": "2026-09-02, verbatim: 'is it possible for the telegram channel to become 2A [two-way] channel like through the replay or something so that if there's decisions that are pop-ups they can be given to me as pop-ups in the telegram chat? I can answer them there and send them back from there instead of having to see the ping and then open the session ... if not, then maybe like a link or something so that I can easily get to where I need to answer the questions and not get lost in the middle'",
+      "VERIFIED_FEASIBLE_every_piece_already_exists": [
+        "GET /api/bot/work/decisions + POST /api/bot/work/decision are ON MAIN (src/web/api/routers/work.py, 3 matches for work/decision). The inbox already models options.",
+        "src/bot/claude_bridge.py ALREADY imports InlineKeyboardButton + InlineKeyboardMarkup and handles callback_query in on_callback.",
+        "src/prop/prop_expiry_prompt.py is a LIVE WORKING PRECEDENT: a Yes/No inline keyboard with callback_data 'propexp:<y|n>:<ticket_id>', parsed by handle_expiry_callback.",
+        "DASHBOARD_API_TOKEN IS SET — measured this session, writeGate reads state=open / acceptsWrites=true. The write route is fail-closed without it, so this was the gating unknown and it is resolved."
+      ],
+      "design": "Generalise 'propexp:<y|n>:<id>' to 'decide:<request_id>:<option_idx>'. A decision_request's options become inline buttons; the callback POSTs to /api/bot/work/decision.",
+      "⚠️_two_real_constraints": [
+        "Telegram callback_data is capped at 64 BYTES, so a button must carry an INDEX, not the option text. prop_expiry_prompt.py's docstring already notes this — follow it rather than rediscovering it.",
+        "Free-text answers cannot be buttons. They need the reply-flow the prop bridge already uses for pasting a fill. Multiple-choice works today; free-text is a second step."
+      ],
+      "⚠️_it_would_be_the_FIRST_real_exercise_of_the_round_trip": "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP is open: not one decision has gone submit -> in_transit -> committed end to end. That is an ARGUMENT FOR building this, not against — the channel has no user, and this gives it one. But it means the done-condition is the ROUND TRIP observed, never a green test: an answer submitted from Telegram must appear on /api/bot/work/decisions as in_transit and then read `committed` with the answer block visible in the work object on main.",
+      "the_fallback_the_operator_offered": "'or maybe like a link so I can easily get to where I need to answer'. That half is FREE and is already done as of today: every decision ping now carries the session link. Ship that regardless of whether the two-way build is approved — it is the cheap 80%.",
+      "next": "Tier-2, needs its own operator OK and its own ict-telegram-bot.service restart. PROPOSE, do not build unasked."
     }
   ]
 }
