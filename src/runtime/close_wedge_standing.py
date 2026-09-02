@@ -98,7 +98,9 @@ when it is green — CLAUDE.md is emphatic that neither is an observation.
 
 WHAT THIS MODULE DOES NOT DO
 ----------------------------
-It does not clear a wedge, cancel anything, or touch an order. It decides how
+It does not clear a wedge, cancel anything, or touch an order. It has no
+network calls and no DB access: its whole world is one small JSON file and
+the classified observation it is handed. It decides how
 loudly a condition is reported and keeps a durable record of it. The decision is
 a **pure function** (:func:`classify_transition`) so the policy is arguable in
 tests rather than against a live wedged position — the lesson of
