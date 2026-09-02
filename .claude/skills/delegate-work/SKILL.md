@@ -91,6 +91,18 @@ this prevents.)
 
 ## The sub-session spawn-prompt template (Mode C)
 
+⚠️ **DO NOT HAND-WRITE THIS PROMPT — generate it, so the registry row cannot be
+skipped.** `python3 scripts/ops/session_registry.py register --title … --why …
+--spawned-by "$CLAUDE_SESSION_ID"` appends the row to
+`docs/claude/work/SESSIONS.json` **and prints the prompt**, then
+`… confirm --registry-key <key> --session-id <the new id>` closes it out. That
+file is the only thing a manager arriving COLD can read to pick up your
+sub-sessions, and it has been measured incomplete **twice** — 3 of 6 on
+2026-09-01 (`MI-15`), then 6 of 9 with five LIVE on 2026-09-02. A session it
+does not name is, to your successor, a session that does not exist. The template
+below is what that command emits; it is here as the reference, not as something
+to copy by hand.
+
 Give a spawned session everything it needs to run correctly *alone*:
 
 > You own **\<unit id> — \<one-line scope>**. Files/area: \<exact paths>.

@@ -21,10 +21,26 @@
     "It is NOT the source of truth for PR state -- GitHub is. Read it for OWNERSHIP,",
     "INTENT and DECISIONS, which GitHub does not carry; re-read CI and mergeability from",
     "the API before acting on any row. `as_of` is when a human last touched it.",
-    "MI-43 is building the check that refuses a handoff when this is stale."
+    "MI-43 is building the check that refuses a handoff when this is stale.",
+    "",
+    "⚠️ `operator_decision` IS A TYPED OBJECT AS OF MI-43, NOT A STRING.",
+    "{verdict, condition, scope, decided_on, text}. `verdict` is a closed vocabulary --",
+    "approved | approved_with_conditions | not_required | pending | none_recorded --",
+    "and `text` MUST carry the operator's original wording VERBATIM so the typed verdict",
+    "stays checkable against what was actually said. scripts/ops/open_pr_record.py",
+    "--strict FAILS a row whose verdict is `approved_with_conditions` while recording",
+    "neither `condition` nor `scope`: that row reads as approved, which is the",
+    "half-informed state that could merge a demo-only approval onto a real-money account.",
+    "",
+    "⚠️ WHAT THAT DOES **NOT** CATCH, SAID PLAINLY: an author who writes",
+    "`verdict: approved` where the operator actually attached conditions. Nothing inside",
+    "the repo can detect that -- knowing a condition was given requires knowing what the",
+    "operator said, and THIS FILE IS THAT RECORD. The typed form narrows the failure from",
+    "'a condition silently absent from prose nobody parses' to 'a verdict field a reader",
+    "can compare against `text`'. A narrowing, not a closure."
   ],
-  "schema_version": 1,
-  "as_of": "2026-09-02T06:18:12Z",
+  "schema_version": 2,
+  "as_of": "2026-09-02T06:50:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -36,7 +52,13 @@
       "draft": true,
       "tier": "2 (order path)",
       "state": "in_progress_by_owner",
-      "operator_decision": "APPROVED WITH STAGING 2026-09-02 -- bybit_1 (demo) ONLY. ⚠️ NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug during the soak. Merging this without the account allowlist, or widening beyond bybit_1, EXCEEDS the approval given.",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "Must ship scoped behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE). Merging without the allowlist, or widening beyond bybit_1, EXCEEDS the approval given.",
+        "scope": "bybit_1 (demo) ONLY. NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug for the duration of the soak.",
+        "decided_on": "2026-09-02",
+        "text": "APPROVED WITH STAGING 2026-09-02 -- bybit_1 (demo) ONLY. ⚠️ NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug during the soak. Merging this without the account allowlist, or widening beyond bybit_1, EXCEEDS the approval given."
+      },
       "blocker": "Owner is reworking it to scope the changed grading behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE)."
     },
     {
@@ -47,7 +69,13 @@
       "draft": true,
       "tier": "1",
       "state": "ci_red_with_owner",
-      "operator_decision": "None required (Tier-1).",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None required (Tier-1)."
+      },
       "blocker": "guards RED: the PR's own new guard `scripts/ci/check_pending_pings_render.py --self-test` exits 1 in CI while passing locally on the same commit AND on a merge ref. Handed back with that evidence and an explicit bar on silencing it. ⚠️ Do NOT merge red, and do NOT 'fix' it by loosening the self-test.",
       "why_it_matters": "Until this lands, every operator review ping still renders as a bare event label -- 21 of 50 committed queue rows measured."
     },
@@ -59,7 +87,13 @@
       "draft": true,
       "tier": "1 shipped; the FIX it proposes is Tier-3 and is NOT in the diff",
       "state": "awaiting_manager_review",
-      "operator_decision": "None yet. §5 contains a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it.",
+      "operator_decision": {
+        "verdict": "pending",
+        "condition": "§5 carries a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it.",
+        "scope": null,
+        "decided_on": null,
+        "text": "None yet. §5 contains a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it."
+      },
       "blocker": "Manager review not complete. ⚠️ Carry its CORRECTION to the brief: neither automated gate (M7 packet, R4 results gate) reads R -- the contamination reaches decisions through human/Claude review, which is a different severity than originally stated."
     },
     {
@@ -70,7 +104,13 @@
       "draft": false,
       "tier": "1",
       "state": "manager_own_awaiting_ci",
-      "operator_decision": "None required.",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None required."
+      },
       "blocker": "None. Merge when green."
     },
     {
@@ -81,7 +121,13 @@
       "draft": false,
       "tier": "1",
       "state": "not_this_managers_pr",
-      "operator_decision": "None recorded.",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
       "blocker": "Open since 2026-08-29, automation-generated, no owning session. Held under MI-12; do not merge without establishing what it does."
     },
     {
@@ -92,8 +138,32 @@
       "draft": true,
       "tier": "2 (service)",
       "state": "needs_operator_action",
-      "operator_decision": "Pending -- requires the operator to restart `ict-telegram-bot.service` after merge.",
+      "operator_decision": {
+        "verdict": "pending",
+        "condition": "Requires the operator to restart `ict-telegram-bot.service` AFTER merge. Merging alone does not complete it.",
+        "scope": null,
+        "decided_on": null,
+        "text": "Pending -- requires the operator to restart `ict-telegram-bot.service` after merge."
+      },
       "blocker": "OPERATOR ACTION, not a code blocker."
+    },
+    {
+      "pr": 10766,
+      "title": "sub-session registry: couple the spawn to the record, and a handoff-readiness check",
+      "owner_session": "session_019udKqceYPBqp4kzBYNZ6Sp",
+      "checklist_item": "MI-43",
+      "draft": true,
+      "tier": "1",
+      "state": "awaiting_manager_review",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None required (Tier-1). Manager-coordination machinery only -- no order path, no config/, no live-trading file."
+      },
+      "blocker": "None. Draft; the manager merges. ⚠️ It adds `session-registry-guard`, which FAILS CI when a session id named as owner of an `in_flight` MANAGER-CHECKLIST item is absent from SESSIONS.json -- so a future manager assigning an item to an unregistered session will see this guard red rather than discovering the loss at handoff.",
+      "why_it_matters": "MI-15's remedy ('remember to register') has failed twice: 3 of 6 absent on 2026-09-01, then 6 of 9 with five LIVE on 2026-09-02. Re-measured over all 60 sessions from list_sessions(mine=true, limit=60) against the 30 registry rows at main 550c9f6d (1 excluded as the manager itself, 4 as ARCHIVED, 55 graded): 26 absent, 17 of them carrying the manager's own id as parent_session_id, 5 RUNNING."
     }
   ]
 }
