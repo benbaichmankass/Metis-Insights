@@ -80,7 +80,8 @@ table.
 | `CLAUDE.md` after (at `5aa9f9de`) | 284,917 (−33.8%) |
 
 ⚠️ **QUOTE THE MOVED-BYTES FIGURE, NOT THE PERCENTAGE — the percentage DRIFTS
-and the moved figure does not.** Across three merges of `main` during this PR's
+and the moved figure does not.** <!-- population-ok: n is the byte table immediately above — CLAUDE.md 430,453 B at d8aac5c6 → 284,917 B at 5aa9f9de, 160,944 B moved out, 4,062 B added back. These three percentages are quoted to show they DRIFT against that fixed denominator; the sentence's point is to quote the moved-bytes figure INSTEAD of them. -->
+Across three merges of `main` during this PR's
 life the percentage read −34.9%, then −34.2%, then −33.8%, while the PR's own
 content did not change once. Two causes, both outside this change:
 
