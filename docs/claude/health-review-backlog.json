@@ -31189,6 +31189,37 @@
       ]
     },
     {
+      "id": "BL-20260902-FU-IDS-CAN-NEVER-RESOLVE-IN-CHECK-BACKLOG-REFS",
+      "severity": "low",
+      "tier": "1",
+      "status": "open",
+      "filed": "2026-09-02",
+      "title": "check_backlog_refs screens for FU- ids but resolves only against docs/claude/*backlog*.json, so every FU- reference dangles by construction",
+      "detail": "MEASURED 2026-09-02 while splitting the API reference out of CLAUDE.md (scripts/ops/check_backlog_refs.py, read at commit d8aac5c6). Population: every tracking id matched by the guard's own REF regex across SEARCH_DIRS = docs/ scripts/ .github/ config/ src/.\n\nREF matches three prefixes -- (?:BL|MB|FU) -- but filed_ids() reads ONLY docs/claude/*backlog*.json items[].id. FU- rows do not live there; they live in comms/follow_ups.json. So an FU- id can never resolve, however correctly it is filed. Measured: 13 distinct FU- ids are cited repo-wide; FU-20260511-001 and FU-20260516-001 are both genuinely filed in comms/follow_ups.json and both are reported dangling.\n\nLatent rather than live: the guard is diff-scoped, so it only fires when a diff introduces an FU- citation. It did fire on this session's PR, which is how it was found. When it fires the finding is FALSE and pushes a session toward 'file the row' for a row that already exists -- i.e. toward a duplicate in the wrong register.\n\nUPDATE 2026-09-02, same session: option (a) IS NOW DONE. filed_ids() reads comms/follow_ups.json via a new EXTRA_REGISTERS table, because the false findings were blocking a PR and the fix is unambiguous -- an id that IS filed should resolve. MEASURED before and after: 12 of the 13 cited FU- ids are genuinely filed there and now resolve; the thirteenth is cited and never filed and STILL dangles, which is the live positive control pinned by tests/test_check_backlog_refs.py::TestFollowUpsRegisterResolves (the id is named THERE and not here -- see the second finding below). So this made the guard MORE accurate, not quieter.\n\nSECOND FINDING, found by tripping it: CITING AN ID *AS AN EXAMPLE OF NON-RESOLUTION* IS A FALSE POSITIVE FOR THIS GUARD. Naming the unfiled control id in this row and in the guard's own docstring made the guard report both files. The guard's premise -- 'a doc saying tracked by BL-X where BL-X was never filed reads as tracked' -- does not hold for a citation whose whole point is that it does NOT resolve. Worked around here by keeping the literal only under tests/, which is outside SEARCH_DIRS; that is a workaround, not a fix. The guard has no override mechanism (unlike collapsed-state-guard's '# collapsed-state:' or diagnostic-provenance-guard's '# inert:'), and if it gains one it must be VERIFIED rather than presence-only, per the new-table-wiring-guard lesson this repo already paid for -- a guard cheaper to lie to than to satisfy is worse than no guard. Low severity: the workaround is cheap and the class is rare.\n\nWHAT REMAINS OPEN, and it is a real question rather than tidy-up: whether the follow-ups register is RETIRED. The newest FU- id anywhere is FU-20260516-001, ~3.5 months old, and nothing canonical says the register is live or dead. If it is retired, FU should come out of REF and the 29 rows in comms/follow_ups.json need a disposition; if it is live, it belongs in the session-end filing instructions alongside the three backlogs, where it currently is not mentioned. Either way somebody has to decide, and 'nobody has filed one lately' is not that decision.",
+      "resolution_criteria": "The RESOLUTION half is done (2026-09-02) and is not what closes this. This closes when the follow-ups register's STATUS is settled and written down: either it is declared live and named in the session-end filing instructions beside the three backlogs, or it is declared retired, FU is removed from REF, and its 29 rows get a disposition. Reporting 'no FU- ids were introduced lately' does NOT close it -- that is the symptom the diff-scoping hides, not the question.",
+      "refs": [
+        "scripts/ops/check_backlog_refs.py",
+        "comms/follow_ups.json",
+        "tests/test_check_backlog_refs.py",
+        "BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS"
+      ]
+    },
+    {
+      "id": "BL-20260902-BOOT-READ-IS-427K-TOKENS-AND-ROADMAP-IS-42-PERCENT-OF-IT",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "filed": "2026-09-02",
+      "title": "The mandatory session boot read is ~1.54 MB / ~427k est. tokens; ROADMAP.md alone is 42% and no CLAUDE.md slice can fix it",
+      "detail": "MEASURED 2026-09-02, wc -c at origin/main d8aac5c6. Population: the five files a session is instructed to read before acting (CLAUDE.md 'Every session' + CLAUDE-RULES-CANONICAL 'Session-start documentation read'). ROADMAP.md 648,407 (42.1%) | CLAUDE.md 430,453 (28.0%) | OPEN-ITEMS.json 191,955 (12.5%) | ARCHITECTURE-CANONICAL 168,495 (10.9%) | CLAUDE-RULES-CANONICAL 99,222 (6.4%) = 1,538,532 B, ~427k tokens ESTIMATED at ~3.6 B/token (an estimate, not a measurement). The operating-model design measured ~403k on 2026-09-01, so it grew ~24k tokens in one day.\n\nThe API-reference split (2026-09-02) took CLAUDE.md 430,453 -> 283,388 B, which is -34.2% of that file but only -8.7% of the boot read. RE-MEASURED after merging main: the boot-read figure FELL from -9.7% while the PR sat UNCHANGED, because OPEN-ITEMS.json grew 191,955 -> 205,121 B in the same few hours. The register outgrew the split, which is this row's whole point. Anyone reporting the boot-read problem as solved on the strength of a CLAUDE.md slice is quoting the wrong denominator.\n\nInside ROADMAP.md (measured same day): '## Milestone Roadmap' 347,909 B (53.7%), '## Historical Sprint Ledger' 179,606 B (27.7%). The ledger is the cleaner cut -- CLAUDE-RULES-CANONICAL 'Historical Notes Policy' already says historical material is context-only -- BUT src/web/api/routers/roadmap.py PARSES the ledger's M-mapping column (roadmap.py:196-198, 341) as one of three sprint->milestone resolution paths and serves it at GET /api/bot/roadmap, so a blind move breaks the SPA Roadmap tab.\n\nUNMEASURED, and it is the next thing worth measuring: what fraction of the 347,909 B Milestone Roadmap is CLOSED milestones. Nobody has counted, so 'split the closed ones out' is a guess, not a plan.",
+      "resolution_criteria": "The boot read is measured below 1,000,000 B by the same five-file population and method, AND the reduction is attributed per file. A CLAUDE.md-only reduction does NOT close this -- slice 1 already showed that path tops out around -10%. If the operator decides the current size is acceptable, record THAT as the disposition with the reasoning, closing it as closed_answered rather than leaving it open.",
+      "refs": [
+        "docs/design/boot-read-size-PROPOSAL.md",
+        "docs/design/operating-model-DESIGN.md",
+        "src/web/api/routers/roadmap.py"
+      ]
+    },
+    {
       "id": "BL-20260902-OPEN-ITEMS-IS-THE-ONE-REGISTER-NO-APPEND-HELPER-PROTECTS",
       "opened": "2026-09-02",
       "severity": "medium",
@@ -31448,6 +31479,25 @@
       ]
     },
     {
+      "id": "BL-20260902-PR-QUEUE-WATCH-CONCURRENCY-SERIALISES-RUNS-NOT-RECEIPT-LANDINGS",
+      "title": "pr-queue-watch.yml's concurrency group serialises RUNS but not RECEIPT LANDINGS — a second run can read a main its predecessor's auto-merge receipt has not reached, write a conflicting receipt, strand the branch, and put a FALSE PAGE on the cron-failure channel",
+      "severity": "low",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-02",
+      "source": "MI-77 (session_01PbQAQXRY2oB1ep2BFEUZeA), found by dispatching the watcher to verify what it had just shipped. The failing run was my own redundant dispatch, not the manager's.",
+      "resolution_criteria": "OBSERVABLE: a run of pr-queue-watch.yml that starts while main does NOT yet carry a receipt at least as fresh as the one it is about to write COMPLETES WITHOUT opening a conflicting commit-to-main PR — verified by dispatching two runs back to back and reading both conclusions plus the open-PR list for `automation/data-commit-*` branches, not by reading the workflow YAML. ⚠️ A single quiet run does NOT close this: the ordinary 6-hourly cadence never reproduces the condition, so a green scheduled run is not evidence. The reproduction is the back-to-back dispatch. ⚠️ DECIDING NOT TO FIX IT ALSO CLOSES THIS and must be RECORDED as a decision — the hazard is unreachable on cadence, so 'accept it; do not double-dispatch' is a legitimate disposition, but it must be written down rather than left looking like an open bug.",
+      "detail": "MEASURED 2026-09-02. Two workflow_dispatch runs 35s apart: the manager's (33666587546, 18:20:23Z, conclusion success) and mine (33666645309, 18:20:58Z, conclusion FAILURE). The `concurrency: group: pr-queue-watch, cancel-in-progress: false` worked as intended — my run started only after the first FINISHED at 18:23:56Z. But the receipt does not land when the run ends: it lands through .github/actions/commit-to-main as a PAT-authenticated AUTO-MERGE PR, which takes minutes more. So my run checked out a main carrying no receipt, correctly graded `refresh_due: true` (there was nothing to refresh from), wrote one, and opened PR #10835. That PR conflicted the moment the first run's receipt merged, logged `state=OPEN; refresh=failed_conflict` every 30s for the full 30-minute verify-merged budget, and failed the job. ⚠️ THE DEFECT IS NOT IN refresh_due, WHICH BEHAVED CORRECTLY given what it could see. It is that the serialisation boundary is the RUN and the shared resource is the RECEIPT ON MAIN, and those are not the same interval. ⚠️ IT IS UNREACHABLE ON THE DECLARED CADENCE. cron is `41 */6 * * *` and a run takes ~3.5 minutes, so two scheduled runs are six hours apart and cannot overlap. It required two hand dispatches 35 seconds apart, and the second was redundant — the first was already running. TWO COSTS, and the second is the one that matters. (1) A stranded automation branch, the exact shape BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH records; #10835 was closed with its cause written on it, and it was SUPERSEDED rather than merely late — main carries the same generated_at WITHOUT the false last_paged_at latch that #10841 cleared, so merging it would have re-introduced that latch. (2) A `failure` conclusion on a workflow watched by claude-run-failure-alert.yml, which reaches the operator as a page that is NOT a queue escalation. Spending the escalation channel on a self-inflicted collision is the desensitised-alarm class this repo has measured at 202 of 376 CRITICALs being one un-latched alarm.",
+      "proposed_fix": "Before landing, re-read the receipt from origin/main and skip the commit-to-main step entirely when main already carries a receipt whose generated_at is at least as new as the one just computed — a no-op landing is correct there, because a fresher receipt is exactly what the liveness guard wants and this run's assessment adds nothing. ⚠️ Do NOT 'fix' this by widening the concurrency group or by dropping verify-merged: the first does not help (the runs were already serialised) and the second re-opens BL-20260830-TWELVE-OF-THIRTEEN-COMMIT-TO-MAIN-CALLERS-NEVER-CHECK-THEIR-ROWS-LANDED, where a green run means only that a PR exists. ⚠️ And weigh whether to fix it at all: the condition is unreachable on the 6-hourly cadence, and this workflow has already taken two corrections in one day. Accepting it with 'do not double-dispatch' written down is a legitimate outcome.",
+      "refs": [
+        ".github/workflows/pr-queue-watch.yml",
+        ".github/actions/commit-to-main/action.yml",
+        "scripts/ops/pr_queue_latency.py",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/10835",
+        "OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED"
+      ]
+    },
+    {
       "id": "BL-20260902-THE-MANAGER-LEASE-HEARTBEAT-COSTS-A-FULL-CI-CYCLE-SO-IT-WILL-BE-SKIPPED",
       "title": "Heartbeating the manager lease requires a PR through three required checks, so a ~20s liveness signal costs a ~10-18 minute CI cycle against a 90-minute TTL — the recurrence of a class twice marked resolved on lesser mechanisms",
       "severity": "medium",
@@ -31473,37 +31523,6 @@
         "scripts/ops/render_session_brief.py",
         "scripts/ci/check_open_items.py",
         "BL-20260902-A-LOUD-OPEN-ITEM-IS-ABSENT-FROM-THE-SESSION-BRIEF-THAT-ORDERS-IT-REPORTED"
-      ]
-    },
-    {
-      "id": "BL-20260902-FU-IDS-CAN-NEVER-RESOLVE-IN-CHECK-BACKLOG-REFS",
-      "severity": "low",
-      "tier": "1",
-      "status": "open",
-      "filed": "2026-09-02",
-      "title": "check_backlog_refs screens for FU- ids but resolves only against docs/claude/*backlog*.json, so every FU- reference dangles by construction",
-      "detail": "MEASURED 2026-09-02 while splitting the API reference out of CLAUDE.md (scripts/ops/check_backlog_refs.py, read at commit d8aac5c6). Population: every tracking id matched by the guard's own REF regex across SEARCH_DIRS = docs/ scripts/ .github/ config/ src/.\n\nREF matches three prefixes -- (?:BL|MB|FU) -- but filed_ids() reads ONLY docs/claude/*backlog*.json items[].id. FU- rows do not live there; they live in comms/follow_ups.json. So an FU- id can never resolve, however correctly it is filed. Measured: 13 distinct FU- ids are cited repo-wide; FU-20260511-001 and FU-20260516-001 are both genuinely filed in comms/follow_ups.json and both are reported dangling.\n\nLatent rather than live: the guard is diff-scoped, so it only fires when a diff introduces an FU- citation. It did fire on this session's PR, which is how it was found. When it fires the finding is FALSE and pushes a session toward 'file the row' for a row that already exists -- i.e. toward a duplicate in the wrong register.\n\nUPDATE 2026-09-02, same session: option (a) IS NOW DONE. filed_ids() reads comms/follow_ups.json via a new EXTRA_REGISTERS table, because the false findings were blocking a PR and the fix is unambiguous -- an id that IS filed should resolve. MEASURED before and after: 12 of the 13 cited FU- ids are genuinely filed there and now resolve; the thirteenth is cited and never filed and STILL dangles, which is the live positive control pinned by tests/test_check_backlog_refs.py::TestFollowUpsRegisterResolves (the id is named THERE and not here -- see the second finding below). So this made the guard MORE accurate, not quieter.\n\nSECOND FINDING, found by tripping it: CITING AN ID *AS AN EXAMPLE OF NON-RESOLUTION* IS A FALSE POSITIVE FOR THIS GUARD. Naming the unfiled control id in this row and in the guard's own docstring made the guard report both files. The guard's premise -- 'a doc saying tracked by BL-X where BL-X was never filed reads as tracked' -- does not hold for a citation whose whole point is that it does NOT resolve. Worked around here by keeping the literal only under tests/, which is outside SEARCH_DIRS; that is a workaround, not a fix. The guard has no override mechanism (unlike collapsed-state-guard's '# collapsed-state:' or diagnostic-provenance-guard's '# inert:'), and if it gains one it must be VERIFIED rather than presence-only, per the new-table-wiring-guard lesson this repo already paid for -- a guard cheaper to lie to than to satisfy is worse than no guard. Low severity: the workaround is cheap and the class is rare.\n\nWHAT REMAINS OPEN, and it is a real question rather than tidy-up: whether the follow-ups register is RETIRED. The newest FU- id anywhere is FU-20260516-001, ~3.5 months old, and nothing canonical says the register is live or dead. If it is retired, FU should come out of REF and the 29 rows in comms/follow_ups.json need a disposition; if it is live, it belongs in the session-end filing instructions alongside the three backlogs, where it currently is not mentioned. Either way somebody has to decide, and 'nobody has filed one lately' is not that decision.",
-      "resolution_criteria": "The RESOLUTION half is done (2026-09-02) and is not what closes this. This closes when the follow-ups register's STATUS is settled and written down: either it is declared live and named in the session-end filing instructions beside the three backlogs, or it is declared retired, FU is removed from REF, and its 29 rows get a disposition. Reporting 'no FU- ids were introduced lately' does NOT close it -- that is the symptom the diff-scoping hides, not the question.",
-      "refs": [
-        "scripts/ops/check_backlog_refs.py",
-        "comms/follow_ups.json",
-        "tests/test_check_backlog_refs.py",
-        "BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS"
-      ]
-    },
-    {
-      "id": "BL-20260902-BOOT-READ-IS-427K-TOKENS-AND-ROADMAP-IS-42-PERCENT-OF-IT",
-      "severity": "medium",
-      "tier": "1",
-      "status": "open",
-      "filed": "2026-09-02",
-      "title": "The mandatory session boot read is ~1.54 MB / ~427k est. tokens; ROADMAP.md alone is 42% and no CLAUDE.md slice can fix it",
-      "detail": "MEASURED 2026-09-02, wc -c at origin/main d8aac5c6. Population: the five files a session is instructed to read before acting (CLAUDE.md 'Every session' + CLAUDE-RULES-CANONICAL 'Session-start documentation read'). ROADMAP.md 648,407 (42.1%) | CLAUDE.md 430,453 (28.0%) | OPEN-ITEMS.json 191,955 (12.5%) | ARCHITECTURE-CANONICAL 168,495 (10.9%) | CLAUDE-RULES-CANONICAL 99,222 (6.4%) = 1,538,532 B, ~427k tokens ESTIMATED at ~3.6 B/token (an estimate, not a measurement). The operating-model design measured ~403k on 2026-09-01, so it grew ~24k tokens in one day.\n\nThe API-reference split (2026-09-02) took CLAUDE.md 430,453 -> 283,388 B, which is -34.2% of that file but only -8.7% of the boot read. RE-MEASURED after merging main: the boot-read figure FELL from -9.7% while the PR sat UNCHANGED, because OPEN-ITEMS.json grew 191,955 -> 205,121 B in the same few hours. The register outgrew the split, which is this row's whole point. Anyone reporting the boot-read problem as solved on the strength of a CLAUDE.md slice is quoting the wrong denominator.\n\nInside ROADMAP.md (measured same day): '## Milestone Roadmap' 347,909 B (53.7%), '## Historical Sprint Ledger' 179,606 B (27.7%). The ledger is the cleaner cut -- CLAUDE-RULES-CANONICAL 'Historical Notes Policy' already says historical material is context-only -- BUT src/web/api/routers/roadmap.py PARSES the ledger's M-mapping column (roadmap.py:196-198, 341) as one of three sprint->milestone resolution paths and serves it at GET /api/bot/roadmap, so a blind move breaks the SPA Roadmap tab.\n\nUNMEASURED, and it is the next thing worth measuring: what fraction of the 347,909 B Milestone Roadmap is CLOSED milestones. Nobody has counted, so 'split the closed ones out' is a guess, not a plan.",
-      "resolution_criteria": "The boot read is measured below 1,000,000 B by the same five-file population and method, AND the reduction is attributed per file. A CLAUDE.md-only reduction does NOT close this -- slice 1 already showed that path tops out around -10%. If the operator decides the current size is acceptable, record THAT as the disposition with the reasoning, closing it as closed_answered rather than leaving it open.",
-      "refs": [
-        "docs/design/boot-read-size-PROPOSAL.md",
-        "docs/design/operating-model-DESIGN.md",
-        "src/web/api/routers/roadmap.py"
       ]
     },
     {
