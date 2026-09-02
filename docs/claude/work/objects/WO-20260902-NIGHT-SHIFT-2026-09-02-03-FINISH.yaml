@@ -1,0 +1,30 @@
+id: WO-20260902-NIGHT-SHIFT-2026-09-02-03-FINISH
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Night shift 2026-09-02→03: finish what is in flight, then registry currency and the 113h red PR
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  At 05:00Z a daily brief is rendered and delivered. Before that: #10857 is merged or its blocker is stated; MI-85 (#10398, red 113h) is diagnosed against a FRESH main rather than its 4.7-day-old CI; MI-84 is carried forward so the morning manager does not trust SESSIONS.json's state field. NOT done-when: a count of merges.
+
+why: >-
+  Operator said goodnight 2026-09-02T21:40Z. The day manager holds the lease and is standing down. Scope is deliberately NARROW because tonight's own finding is that a manager cannot see the sessions it spawns: no new spawns, no Tier-2/3, no trader, no Claude Routine.
+
+source: >-
+  operator-goodnight-2026-09-02
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
