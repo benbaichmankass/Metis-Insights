@@ -716,6 +716,28 @@
    "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP",
    "OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN"
   ]
+ },
+ {
+  "id": "OI-20260902-DECISION-PROMPTS-MOVED-TO-CLAUDEBOT-AND-NO-TAP-HAS-LANDED-THERE",
+  "opened": "2026-09-02",
+  "kind": "awaiting_verification",
+  "loud": true,
+  "verified_at": null,
+  "last_checked": "2026-09-02",
+  "summary": "Work-decision prompts are re-pointed from the TRADER bot to the dedicated Claude bot (@ict_cluade_bot), and the thing that makes that safe ships in the SAME PR: src/bot/claude_decision_bot.py + deploy/ict-claude-decision-bot.service POLL TELEGRAM_CLAUDE_BOT_SECRET and register the same `wdec` handler, so the bot is ANSWERABLE before anything is routed to it. Operator, 2026-09-02: \"that's supposed to be showing up in Cloudbot. Right? Not on the trader one, the decisions.\" !! NO TAP HAS EVER BEEN MADE ON CLAUDEBOT. The PR is a DRAFT, the new unit has never run, and whether TELEGRAM_CLAUDE_BOT_SECRET is present in the VM .env is NOT something this session could read -- that is an operator/manager action, not a bug to work around, and it must not be substituted with TELEGRAM_CLAUDE_BOT_TOKEN (which drives the PROP bot despite its name).",
+  "detail": "WHAT A HARNESS HAS ESTABLISHED (111 passing: the 73 pre-existing tests/test_telegram_decisions.py plus 38 new): answerable_route() prefers the Claude bot ONLY on positive poll evidence; `unknown` (we could not look) fails closed and is never collapsed into `token_only_not_polled` (we looked and a tap would not be received); the sweep HOLDS with a WARNING naming a state-specific REMEDY when no bot is confirmed polled, counted as `held_not_polled` and never pooled with `held_route` (no destination at all); a heartbeat expires a dead process's claim; no token VALUE reaches a note, banner or persisted entry; and the /api/diag/log_file paths match what the writer actually produces. !! WHAT A HARNESS CANNOT REACH IS THE ENTIRE POINT OF THIS ROW. Every one of those facts is equally true of a process that is never started. The failure this change exists to prevent -- a prompt that ARRIVES, RENDERS and HIGHLIGHTS ON TAP while nothing collects the callback_query -- has no external symptom, so green CI is precisely the evidence that cannot settle it. !! AND THE FALLBACK MAKES THE FAILURE QUIET-BUT-WORKING, WHICH IS ITS OWN READING HAZARD: with the Claude bot unconfirmed the sweep routes to the TRADER bot, so 'decisions still arrive' is NOT evidence the move happened. Read `destination` in the sweep stats, or /api/diag/log_file?name=telegram_poll_claude -- never the mere arrival of a prompt. NOT VERIFIED BY ME, and inherited rather than measured: I am told the round trip is already proven on the TRADER bot as of 2026-09-02T10:16:36Z (chosen: accept_ungated, submitted_by: telegram). runtime_logs/ is gitignored, so the transit log is unreachable from a session clone and I did not confirm it. This change moves WHERE the round trip happens, not whether it works.",
+  "clears_when": "A REAL TAP ON CLAUDEBOT PRODUCES A work_decision_transit.jsonl ROW, and it is recorded which request and who tapped. Concretely, all four: (1) ict-claude-decision-bot.service is enabled and ACTIVE on the VM (/api/diag/services), with its startup banner in `journalctl -u ict-claude-decision-bot` naming token_var=TELEGRAM_CLAUDE_BOT_SECRET and the wdec prefix; (2) /api/diag/log_file?name=telegram_poll_claude returns a FRESH heartbeat; (3) a decision prompt is observed arriving in @ict_cluade_bot and NOT in the trader chat -- the last hop is visible only on the operator's phone, the same limit that keeps OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN open; (4) the operator taps a button and a row lands in /api/diag/log_file?name=work_decision_transit. !! MERGING DOES NOT CLEAR THIS -- a merge is not a deploy and a deploy is not a tap; the unit must be installed and enabled, which install_systemd_units.sh does only on the next deploy run. !! A GREEN TEST RUN DOES NOT CLEAR THIS, for the reason in `detail`. !! CLAUSE (1) OR (2) ALONE DOES NOT CLEAR IT EITHER: those prove the bot is POLLED, which is necessary and is NOT the same as a tap being RECEIVED and SUBMITTED -- that exact distinction is the subject of this change, and clearing on the cheaper half would reproduce it. !! IF THE OPERATOR DECIDES NOT TO PUT TELEGRAM_CLAUDE_BOT_SECRET ON THE VM, this row does not clear -- it CHANGES: the trader-bot fallback is then the DECLARED destination, which is a legitimate decision and must be RECORDED as one rather than left looking like a move that is about to happen.",
+  "observation": null,
+  "refs": [
+   "src/bot/claude_decision_bot.py",
+   "deploy/ict-claude-decision-bot.service",
+   "src/runtime/telegram_poll_registry.py",
+   "src/runtime/telegram_decisions.py",
+   "tests/test_telegram_poll_registry.py",
+   "OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE",
+   "OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN",
+   "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP"
+  ]
  }
  ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
