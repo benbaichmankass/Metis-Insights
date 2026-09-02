@@ -242,7 +242,8 @@ def test_a_schema_without_direction_degrades_to_unverified_never_confirmed(tmp_p
         " '{}','pkg-1')")
     conn.execute("INSERT INTO order_packages VALUES ('pkg-1',1,"
                  "'2026-07-11T12:00:00Z','{\"risk_per_unit\": 2.0}')")
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
     agg = _aggregate(_query(db, since=None), "all", None)
     assert agg["totalTrades"] == 1
     rp = agg["rProvenance"]

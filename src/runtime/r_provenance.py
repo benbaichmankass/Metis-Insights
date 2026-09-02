@@ -17,7 +17,8 @@ confirmed trailing amend onto the row::
 That write is CORRECT for what it was built for — ``/api/bot/positions`` reads
 ``trades.stop_loss`` to show the operator where the stop is *now*, and before
 the mirror landed every operator surface showed a stale entry-time level
-(BL-20260722-XRP-SLSPAM part 2). The same write is destructive for R, because R
+(the fix `order_monitor._apply_update`'s own comment block
+records as 'part 2' of the XRP SL-spam work, 2026-07-22). The same write is destructive for R, because R
 is defined against the risk the trade was **entered** with. A stop trailed to
 breakeven-plus leaves ``|entry - stop|`` near zero, and ``pnl / risk`` explodes.
 
