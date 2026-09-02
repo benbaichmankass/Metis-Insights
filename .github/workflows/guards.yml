@@ -96,6 +96,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
           pip install "pyyaml>=6.0" pytest
+          # `requests` is a RUNTIME dep (requirements.txt), not a dev one, and
+          # this job deliberately does not install requirements.txt. It is
+          # needed because pending-pings-render imports scripts/notify_on_pull.py
+          # to ask it whether a queued ping renders a body — the emptiness
+          # predicate has ONE owner and the guard imports it rather than
+          # re-deriving it. notify_on_pull imports requests at module scope for
+          # its Telegram transport, which the guard never reaches.
+          #
+          # Installed here rather than making that import lazy: notify_on_pull
+          # runs on the live VM and carries CRITICAL safety pages, so a one-line
+          # CI dependency is the cheaper side of that trade.
+          pip install requests
 
       - name: Fetch the base ref
         # `git fetch --depth=1` would SHALLOW origin/main back to its tip,

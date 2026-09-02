@@ -45,7 +45,24 @@ QUEUE = REPO_ROOT / "docs" / "claude" / "pending-pings.jsonl"
 
 
 def _renderer():
-    import notify_on_pull  # noqa: PLC0415 — kept local so --help never needs it
+    """Import the ping renderer, and REFUSE distinctly if we cannot.
+
+    ⚠️ `notify_on_pull` imports `requests` at module scope (its Telegram
+    transport, which this guard never reaches), and the guards CI job installs
+    only `requirements-dev.txt`. The first CI run of this guard died on exactly
+    that — an ImportError traceback and exit 1, which reads as "the queue is
+    bad" when it means "we could not look". `requests` is now installed in
+    .github/workflows/guards.yml; this branch makes the remaining failure mode
+    SAY which one it is instead of blaming the data.
+    """
+    try:
+        import notify_on_pull  # noqa: PLC0415 — kept local so --help never needs it
+    except ImportError as exc:  # pragma: no cover — exercised by the CI failure above
+        raise SystemExit(
+            f"pending-pings-render: CANNOT IMPORT the renderer ({exc}). This is "
+            f"'we could not look', NOT 'the queue is clean' and NOT 'the queue "
+            f"is bad'. Install the ping path's deps in this job."
+        ) from exc
     return notify_on_pull
 
 
