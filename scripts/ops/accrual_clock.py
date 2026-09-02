@@ -183,6 +183,20 @@ def clock_state(leg: str, strategies: dict, accounts: dict) -> str:
     return NOT_ROUTED
 
 
+#: The four review backlogs. The class was MEASURED on the performance file, but
+#: the mechanism is not specific to it — an accrual threshold on a shadow-gated
+#: leg is unfalsifiable wherever it is filed, and the health backlog alone
+#: carries 187 kept_open rows. The census therefore sweeps all four so the stock
+#: stays visible; the GUARD stays diff-scoped, so widening the census cannot
+#: fail anybody's PR.
+ALL_BACKLOGS = (
+    "docs/claude/health-review-backlog.json",
+    "docs/claude/performance-review-backlog.json",
+    "docs/claude/ml-review-backlog.json",
+    "docs/claude/research-review-backlog.json",
+)
+
+
 def _load_rows(path: pathlib.Path) -> list[dict[str, Any]]:
     try:
         d = json.loads(path.read_text())
@@ -302,22 +316,35 @@ def _self_test() -> int:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--backlog", default="docs/claude/performance-review-backlog.json")
+    ap.add_argument("--backlog", default=None,
+                    help="one backlog to census; default is all four")
     ap.add_argument("--all", action="store_true", help="print the census")
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args(argv)
     if args.self_test:
         return _self_test()
-    rows = census(pathlib.Path(args.backlog))
-    if not rows:
-        print(f"accrual-clock census: no accrual-shaped carried rows in {args.backlog}")
+    targets = [args.backlog] if args.backlog else list(ALL_BACKLOGS)
+    total = dead_n = 0
+    for rel in targets:
+        path = pathlib.Path(rel)
+        if not path.exists():
+            # ANNOUNCED, never silent: a census that quietly skips a file
+            # under-reports the stock it exists to keep visible.
+            print(f"accrual-clock census: SKIPPING {rel} — not present.")
+            continue
+        rows = census(path)
+        dead = [r for r in rows if r[2] in DEAD_CLOCK_STATES or r[2] == "unstated"]
+        total += len(rows)
+        dead_n += len(dead)
+        print(f"\n{rel}: {len(rows)} (row, leg) pair(s), {len(dead)} on a clock "
+              f"that cannot tick.")
+        for rid, leg, state in rows:
+            mark = "  " if state == CAN_RUN else "!!"
+            print(f"  {mark} {rid:56s} {leg:26s} {state}")
+    if not total:
+        print("accrual-clock census: no accrual-shaped carried rows found.")
         return 0
-    dead = [r for r in rows if r[2] in DEAD_CLOCK_STATES or r[2] == "unstated"]
-    print(f"accrual-clock census over {args.backlog}: {len(rows)} (row, leg) pair(s), "
-          f"{len(dead)} on a clock that cannot tick.")
-    for rid, leg, state in rows:
-        mark = "  " if state == CAN_RUN else "!!"
-        print(f"  {mark} {rid:56s} {leg:26s} {state}")
+    print(f"\nTOTAL {total} (row, leg) pair(s), {dead_n} on a clock that cannot tick.")
     print("\nA leg outside `can_run` will never deliver the trades its row is "
           "waiting for. `can_run` is the NECESSARY condition only — it says the "
           "gate is open, never that the leg has traded.")
