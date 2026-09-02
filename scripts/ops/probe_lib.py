@@ -47,6 +47,65 @@ from __future__ import annotations
 
 EXIT_PASS, EXIT_FAIL, EXIT_COULD_NOT_LOOK = 0, 1, 2
 
+#: A FOURTH code, added 2026-09-02 (MI-61) under the standing operator
+#: directive: *"anything soaking needs to be logged with an alarm that has
+#: either a timer or a soak threshold, so that we know to get back to it when
+#: the soak is ready."*
+#:
+#: ⚠️ THIS FILE ALREADY KNEW THE DISTINCTION AND THREW IT AWAY. The module
+#: docstring says "Nothing-over-0-rows and nothing-over-8,520-rows are different
+#: findings", and ``report`` printed "A ZERO DENOMINATOR IS NOT A NEGATIVE" —
+#: and then returned ``EXIT_FAIL`` for both, so every consumer downstream
+#: (``run_probes.py`` maps exit 1 → ``state: "fail"``) saw one state. The
+#: sentence was true and the code contradicted it; FIELD BEATS COMMENT, and
+#: here the field was the one that was wrong.
+#:
+#: What that costs on a soak specifically: a soak that has SILENTLY STOPPED
+#: WRITING is indistinguishable from one patiently accruing, so the operator
+#: waits indefinitely on evidence that was never coming. That is the state the
+#: directive exists to name.
+#:
+#: ⚠️ IT IS EMPHATICALLY NOT ``EXIT_COULD_NOT_LOOK``. "The log is unreadable"
+#: and "the log is empty" are OPPOSITE findings: the first says nothing about
+#: the world, the second is a real and alarming measurement of it. Folding
+#: them is the ``curl … || echo '{}'`` defect wearing a new hat.
+EXIT_SOURCE_EMPTY = 3
+
+#: Machine-readable counts, printed beside every graded verdict. Parsed by
+#: ``scripts/ops/run_probes.py``; the prefix is a shared constant rather than a
+#: literal at each end so the emitter and the parser cannot drift. Before this,
+#: the denominator existed ONLY inside an English sentence, so a consumer that
+#: wanted to act on it had to regex prose.
+COUNTS_PREFIX = "probe-counts:"
+
+
+def format_counts(matched: int, scanned: int) -> str:
+    return f"{COUNTS_PREFIX} matched={matched} scanned={scanned}"
+
+
+def parse_counts(text: str) -> tuple[int, int] | None:
+    """Recover ``(matched, scanned)`` from probe output, or ``None``.
+
+    ``None`` means the line was absent or malformed — which a caller must treat
+    as *unknown counts*, never as zero. A missing denominator read as ``0``
+    would manufacture the exact "the soak is dead" alarm this pair exists to
+    make trustworthy.
+    """
+    for line in reversed((text or "").splitlines()):
+        line = line.strip()
+        if not line.startswith(COUNTS_PREFIX):
+            continue
+        try:
+            fields = dict(
+                part.split("=", 1)
+                for part in line[len(COUNTS_PREFIX):].split()
+                if "=" in part
+            )
+            return int(fields["matched"]), int(fields["scanned"])
+        except (KeyError, ValueError):
+            return None
+    return None
+
 
 def die_unlooked(msg: str) -> int:
     """Print an unread as an UNREAD and return code 2.
@@ -203,6 +262,28 @@ def report(rows: list[dict], conds, require_labels, note: str,
     **could_not_look**, never `fail`. That converts a silently-broken reader
     from a confident negative into a declared unread — the whole polarity of
     this family.
+
+    ⚠️ THE CONTROL IS CHECKED BEFORE THE DENOMINATOR, AND THAT ORDERING IS A
+    DECISION, NOT AN ACCIDENT (stated 2026-09-02, MI-61)
+    -------------------------------------------------------------------------
+    An empty source with a positive control declared therefore grades
+    ``could_not_look``, NOT ``EXIT_SOURCE_EMPTY``. That is deliberate and
+    conservative: over 0 rows we have not established that we are reading the
+    right path at all, so "the log is empty" and "the path moved" are
+    indistinguishable and the honest verdict is that we did not look.
+    ``EXIT_SOURCE_EMPTY`` — the confident *"this really is empty"* — is
+    reachable only for a declaration carrying NO positive control.
+
+    That is the correct lifecycle for a soak, not a limitation of it. A soak
+    that is expected to be empty has no row to serve as a control, so it
+    declares none and an empty read is a believable ``not_writing``. Once it
+    has rows, a control becomes both possible and mandatory, and from then on
+    an empty read means something changed underneath us. The declaration
+    should gain its control at the same moment the soak gains its first row.
+
+    Counts are NOT printed on the control-failure path, for the same reason:
+    a denominator from a reader we have just shown to be unproven is not a
+    number any consumer should be able to act on.
     """
     if control is not None:
         seen = [r for r in rows if control(r)]
@@ -215,14 +296,24 @@ def report(rows: list[dict], conds, require_labels, note: str,
         note = f"{note}; positive control {control_label!r} matched {len(seen)}"
 
     hits = [r for r in rows if all(c(r) for c in conds)]
+    print(format_counts(len(hits), len(rows)))
     if hits:
         print(f"probe: PASS — {len(hits)} of {len(rows)} row(s) match "
               f"{require_labels} ({note})")
         return EXIT_PASS
-    # A zero denominator is the finding when it happens, so it is said out loud
-    # rather than left for the reader to notice in the count.
-    print(f"probe: FAIL — 0 of {len(rows)} row(s) match {require_labels} ({note}). "
-          f"{'A ZERO DENOMINATOR IS NOT A NEGATIVE — the source read empty.' if not rows else ''}")
+    # ⚠️ THE ZERO DENOMINATOR GETS ITS OWN EXIT CODE, not just its own
+    # sentence. Until 2026-09-02 this branch printed "A ZERO DENOMINATOR IS NOT
+    # A NEGATIVE" and then returned EXIT_FAIL anyway, so `run_probes.py` graded
+    # it `state: "fail"` — identical to a real negative over thousands of rows.
+    # The prose was right and unreachable by any consumer.
+    if not rows:
+        print(f"probe: SOURCE EMPTY — the source was READ and contained 0 rows, so "
+              f"{require_labels} was never tested against anything. This is NOT a "
+              f"negative result and NOT an unread: the read succeeded and the log "
+              f"is empty. On a soak that is the alarming case — a writer that has "
+              f"stopped writing looks exactly like one patiently accruing. ({note})")
+        return EXIT_SOURCE_EMPTY
+    print(f"probe: FAIL — 0 of {len(rows)} row(s) match {require_labels} ({note})")
     return EXIT_FAIL
 
 
@@ -297,16 +388,51 @@ def self_test() -> int:
     ok(EXIT_COULD_NOT_LOOK != EXIT_FAIL,
        "could_not_look and fail are different exit codes — the whole point")
 
+    # ── the empty source is its OWN verdict, not a flavour of `fail` ───────
+    # Until 2026-09-02 both of the next two cases returned EXIT_FAIL and these
+    # controls only asserted the difference in the PRINTED TEXT — which no
+    # consumer could act on. Asserting the exit codes differ is what makes the
+    # distinction real rather than documentary.
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        rc = report([], [parse_condition("a=1")], ["a=1"], "read 0 row(s)")
-    ok(rc == EXIT_FAIL and "ZERO DENOMINATOR" in buf.getvalue(),
-       "a fail over an EMPTY source says so — the denominator is the finding")
+        rc_empty = report([], [parse_condition("a=1")], ["a=1"], "read 0 row(s)")
+    said_empty = buf.getvalue()
+    ok(rc_empty == EXIT_SOURCE_EMPTY,
+       "a read that found NO ROWS AT ALL returns its own code — on a soak this "
+       "is `not_writing`, the dead-soak state, and it must not look like a negative")
+    ok("SOURCE EMPTY" in said_empty and "not a negative" in said_empty.lower(),
+       "and it words itself as a measurement of an empty log, not as a failed match")
+
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        rc = report([{"a": 2}], [parse_condition("a=1")], ["a=1"], "read 1 row(s)")
-    ok(rc == EXIT_FAIL and "ZERO DENOMINATOR" not in buf.getvalue(),
-       "a fail over a NON-empty source is a real negative and is not mislabelled")
+        rc_neg = report([{"a": 2}], [parse_condition("a=1")], ["a=1"], "read 1 row(s)")
+    ok(rc_neg == EXIT_FAIL,
+       "a genuine negative over a NON-empty source stays a negative")
+    ok(rc_neg != rc_empty,
+       "0-of-0 and 0-of-N are DIFFERENT EXIT CODES. This is the control that "
+       "would have failed before MI-61: the two findings were both EXIT_FAIL, so "
+       "a soak that had silently stopped writing was indistinguishable from one "
+       "patiently accruing, and the operator would wait forever on evidence that "
+       "was never coming")
+    ok(rc_empty != EXIT_COULD_NOT_LOOK,
+       "and an EMPTY source is not an UNREAD one either — 'the log is unreadable' "
+       "and 'the log is empty' are opposite findings and neither may absorb the other")
+
+    # ── the machine-readable counts, at both ends ──────────────────────────
+    ok(parse_counts(said_empty) == (0, 0),
+       "the empty read publishes its denominator in a parseable form")
+    ok(parse_counts(buf.getvalue()) == (0, 1),
+       "and so does a real negative, so a consumer can tell 0-of-0 from 0-of-1 "
+       "WITHOUT regexing an English sentence")
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        report([{"a": 1}, {"a": 1}, {"a": 2}], [parse_condition("a=1")], ["a=1"], "read 3")
+    ok(parse_counts(buf.getvalue()) == (2, 3), "a pass publishes matched AND scanned")
+    ok(parse_counts("probe: FAIL — nothing here") is None,
+       "output with no counts line parses to None — UNKNOWN counts, never (0, 0). "
+       "A missing denominator read as zero would manufacture a false dead-soak alarm")
+    ok(parse_counts(f"{COUNTS_PREFIX} matched=x scanned=1") is None,
+       "a malformed counts line is also None rather than a half-read number")
 
     # The positive control, as controls rather than as prose.
     rows3 = [{"kind": "x", "grade": "accruing"}, {"kind": "x", "grade": "ok"}]
@@ -333,6 +459,20 @@ def self_test() -> int:
         rc = report(rows3, [parse_condition("grade=accruing")], ["grade=accruing"],
                     "read 2 row(s)", parse_condition("grade=accruing"), "grade=accruing")
     ok(rc == EXIT_PASS, "a control never blocks a genuine PASS")
+
+    # The documented ordering: control BEFORE denominator, so an empty source
+    # under a declared control is an unread rather than a confident "empty".
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = report([], [parse_condition("a=1")], ["a=1"], "read 0 row(s)",
+                    parse_condition("a=1"), "a=1")
+    ok(rc == EXIT_COULD_NOT_LOOK,
+       "an EMPTY source under a declared positive control is COULD NOT LOOK, not "
+       "SOURCE EMPTY — over 0 rows we have not established we are reading the "
+       "right path, so 'the log is empty' and 'the path moved' are indistinguishable")
+    ok(parse_counts(buf.getvalue()) is None,
+       "and it publishes NO counts: a denominator from a reader just shown to be "
+       "unproven is not a number any consumer should act on")
 
     print(f"probe-lib: self-test OK — {fired} planted controls all fire")
     return 0

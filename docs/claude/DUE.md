@@ -1,9 +1,9 @@
 # What is due right now
 
-_Generated 2026-09-02T09:55:58+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-02T11:25:40+00:00 · verdict **partial**_
 
-- 🔔 **#10398** (unlanded_automation · 4d) — producer output opened a PR that has not landed
-  - chore(m1): economic-calendar PIT snapshots (auto)
+> ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
+
 - 🔔 **OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED** (open_items · 4d) — monitoring row 4d since last observation (cadence 3d)
   - The operator DECIDED (2026-08-29) to keep the trainer VM for the L2 order-flow capture. That converts the box from 'a candidate for retirement' into a STATED DEPENDENCY for a forward-only stream nothi
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 2d) — loud row — must be reported on every session
@@ -58,16 +58,12 @@ _Generated 2026-09-02T09:55:58+00:00 · verdict **all_sources_read**_
   - E1/A1 shipped (operating-layer Phase D, PR #10680): scripts/ops/constraint_readout.py computes the constraint over the work store's typed blocked_on edges and renders the four-item readout to docs/cla
 - 🔔 **OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED** (open_items · 0d) — loud row — must be reported on every session
   - Phase F/C3 is now COMPLETE AS PLUMBING — cron (#10649), committed path, and a reader (GET /api/bot/strategy-reviews, PR #10681) — and the decision surface STILL PROPOSES NOTHING. Population: the commi
+- 🔔 **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (open_items · 0d) — loud row — must be reported on every session
+  - #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then 
 - 🔔 **OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL** (open_items) — loud row — must be reported on every session
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
-- 🔔 **probes** (red_crons) — latest scheduled run concluded 'failure'
-  - probes
-- 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'cancelled'
-  - replay-pregate-nightly
-- 🔔 **strategy-review-packets** (red_crons) — latest scheduled run concluded 'failure'
-  - strategy-review-packets
-- 🔔 **work-digest** (red_crons) — latest scheduled run concluded 'failure'
-  - work-digest
+- 🔔 **OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE** (open_items · 0d) — loud row — must be reported on every session
+  - The TELEGRAM half of the decision round-trip is built (src/runtime/telegram_decisions.py + a `wdec:*` branch in telegram_query_bot.callback_handler + a job-queue sweep): an unanswered `decision_reques
 - **OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED** (open_items · 4d) — monitoring row 4d since last observation (cadence 2d)
   - The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.
 - **OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION** (open_items · 4d) — monitoring row 4d since last observation (cadence 3d)
@@ -78,6 +74,8 @@ _Generated 2026-09-02T09:55:58+00:00 · verdict **all_sources_read**_
   - probe could not run (exit_2)
 - **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
+- **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (soaks · 0d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
+  - #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then 
 - **RQ-20260827-001** (research_queue) — research job still queued
   - Re-grade every account against the Lane P compat-matrix standard arm
 - **RQ-20260830-002** (research_queue) — research job still queued
