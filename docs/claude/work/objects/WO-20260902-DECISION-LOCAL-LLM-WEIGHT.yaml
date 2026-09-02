@@ -9,7 +9,7 @@ parent_intent: null
 title: >-
   Does the local LLM carry any weight, and at which size — 3B, 1.5B, or none?
 stage: DECISION
-lifecycle: waiting
+lifecycle: ready
 owner: null
 opened_at: '2026-09-02'
 closed_at: null
@@ -85,7 +85,48 @@ decision_requests:
           neither answered the question that was asked. Stops further trainer-VM time
           going into it. This is an ANSWER, not a failure to keep benchmarking.
     allows_free_text: true
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-02'
+      channel: telegram (ClaudeBot inline prompt), answered in free text to the manager
+      chosen: null
+      verdict: ALL_THREE_DECLARED_OPTIONS_REFUSED
+      operator_words: >-
+        "for this, i want us to keep researching better models or better ways to build
+        models"
+      what_it_rejects: >-
+        [!] `carries_no_weight` IS REFUSED -- the path is NOT shelved, so do not read
+        this as a soft version of option three and do not stop trainer time on the
+        strength of it. AND NEITHER SIZE IS ADOPTED: the operator declined to treat
+        1.5B-vs-3B as the question at all, which the evidence in `context` above
+        supports rather than contradicts -- the 3B was recorded as "an improvement in
+        truthfulness rather than in usefulness" and STILL never names the mechanism, so
+        the honest reading is that both arms fail the same bar and picking the better
+        failure is not an answer.
+      the_direction_to_TAKE: >-
+        Keep this as an ACTIVE RESEARCH LINE on two axes, and note the second is the
+        wider one: (1) BETTER MODELS -- a different checkpoint, not merely a larger one
+        from the same family; (2) BETTER WAYS TO BUILD MODELS -- the operator said
+        "ways to BUILD", which is not checkpoint shopping. That admits fine-tuning or
+        distilling on this repo's own material, retrieval so the model is not asked to
+        recall a mechanism it was never shown, or a narrower task than open-ended
+        repo-question answering. The measured failure supports that reading: both arms
+        could not NAME THE MECHANISM, which is a knowledge-and-grounding failure rather
+        than a capacity one, and scaling the checkpoint is the one lever that was
+        already tried and did not fix it.
+      what_runs_MEANWHILE: >-
+        NOTHING IS ADOPTED. No arm is wired into anything load-bearing while this is
+        researched, and that is the deliberate state rather than an omission -- adopting
+        the 3B "for now" would put a model measured as not-useful behind a real answer
+        on a system whose first rule is always-verify.
+      ⚠️_do_not_re_run_the_benchmark: >-
+        The review_trigger above already says this and the answer does not change it:
+        both size arms are measured, and a throughput comparison was never what was
+        owed. A session picking this up should design a DIFFERENT experiment, not
+        re-run the old one on a 1-core box under the heavy lock.
 
 evidence:
   - docs/claude/OPEN-ITEMS.json#OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM
-verdict: null
+verdict: >-
+  ANSWERED 2026-09-02 -- all three declared options refused; the path stays OPEN as a
+  research line and no arm is adopted. See decision_requests[0].answer.
