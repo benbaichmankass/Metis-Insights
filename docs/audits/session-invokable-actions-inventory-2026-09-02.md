@@ -161,9 +161,26 @@ change is the shape, not a ratio: the session's cost is now **two tool calls,
 constant, however long CI takes**, where before it scaled with the duration of
 the run. 51 is what the *runner* absorbed on one watch.
 
-⚠️ **What is NOT proven at the time of writing.** Live evidence exists for
-`conflict`, `red` and `pending` — three of seven states. `green`, `cancelled`
-and `no_checks` have unit evidence only. `unreadable` has live evidence at the
-*log* level (the 401 above) but not at the PR-read level. That is a real gap in
-the ledger and is recorded rather than glossed: a state that has only ever been
-exercised in a test is a state whose live behaviour nobody has seen.
+**Run 5 — `state: green`, `settled: true`, `mergeable_state: clean`, 10 polls,
+exit 0.** All four required checks passing on `4f95cfca`. The happy path closes
+the loop: the same one command that reported a conflict, then a red with a
+failing-check breakdown, then two honest timeouts, returns a clean green when
+there is one — and exits 0 so a caller can branch on it.
+
+### State ledger — what is proven LIVE, and what is not
+
+| state | evidence |
+|---|---|
+| `conflict` | **live** — run 1 |
+| `red` | **live** — run 2 |
+| `pending` | **live** — runs 3 and 4 |
+| `green` | **live** — run 5 |
+| `unreadable` | **live at the log level only** (the job-log 401); not observed at the PR-read level |
+| `cancelled` | unit tests only |
+| `no_checks` | unit tests only |
+
+⚠️ Recorded rather than glossed: **a state exercised only in a test is a state
+whose live behaviour nobody has seen.** `cancelled` and `no_checks` are both
+reachable in normal operation — a superseded push produces the first, a
+bot-pushed head the second — so they will be observed in ordinary use; they just
+have not been yet. Do not read the four live states as covering the vocabulary.
