@@ -65,9 +65,55 @@ decision_requests:
         label: Do the second thing
         implication: ...
     allows_free_text: true             # an explicit `false` closes free text
+    asked_by:                          # WHO ASKED — see below. Omit if a human asked.
+      session_id: session_01PEYVqTaCY92C3HmtHwxYff
+      recorded_at: 2026-09-02T10:35:26Z
+      note: MI-60 — what the answer unblocks
     # `answer:` is written by the COMMITTER, never by hand-editing the transit
     # log. Its PRESENCE is what makes the decision true.
 ```
+
+### `asked_by` — the address the answer gets PUSHED back to (2026-09-02)
+
+**Record it whenever a SESSION asks the question.** Without it the answer has
+nowhere to go, and the session that raised the question can only learn the
+answer by polling — which is the gap the operator named on 2026-09-02:
+*"can we add … a push something on the end of that so that, when the answer
+gets to the repo, it knows to push it to the session instead of waiting for the
+session to pull?"*
+
+**How to fill it in:** call `get_session` with `session_id` **omitted** — it
+returns your own record, id included (TESTED 2026-09-02). You do not need to be
+told what your session is, and nobody could have told you: the id does not exist
+until your session is created. Then use the helper so the shape cannot drift:
+
+```python
+from src.runtime.work_decisions import render_asked_by_block
+render_asked_by_block(session_id="session_…", note="what this unblocks")
+```
+
+**Three states, never collapsed** (`askedByState` on
+`GET /api/bot/work/decisions`, and registered with `collapsed-state-guard`):
+
+| state | meaning |
+|---|---|
+| `recorded` | an asker is named and reachable — a committed answer can be pushed to it |
+| `unrecorded` | **nobody wrote one down.** Ordinary and blameless: every request written before 2026-09-02 reads this way, as does any question a human asked |
+| `malformed` | someone recorded an asker that is **not usable** — a question whose answer will silently never be delivered while its owner believes it will. A FINDING; it fails `push_decisions_back.py` |
+
+⚠️ **Do NOT back-fill `asked_by` onto an existing request.** Every request in
+the store today grades `unrecorded`, and that is the honest reading — nobody
+recorded an asker at the time, and inventing one now would assert a fact nobody
+established. `unrecorded` exists precisely so that gap does not have to be
+papered over.
+
+⚠️ **The push ADDS to the pull path; it does not replace it.** `committed` is
+still graded from this directory exactly as before. If every push fails forever,
+the system behaves exactly as it did before the push existed — which is the
+property that makes `session_gone` a survivable state rather than a lost answer.
+
+Feasibility, with every claim marked TESTED / READ / RECORDED:
+[`docs/design/decision-push-back-FEASIBILITY.md`](../../design/decision-push-back-FEASIBILITY.md).
 
 **The round-trip, and the one rule that shapes it:**
 
