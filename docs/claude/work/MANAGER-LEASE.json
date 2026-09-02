@@ -19,12 +19,16 @@
     "reads to pick them up. Design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml"
   ],
   "schema_version": 1,
-  "state": "released",
-  "holder": null,
-  "released_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "released_at": "2026-09-02T21:38:05Z",
-  "previous_holder": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+  "state": "held",
+  "holder": "session_01AYPxs3aDHwv3XBLRF4oK15",
+  "claimed_at": "2026-09-02T21:55:05Z",
+  "heartbeat_at": "2026-09-02T21:55:05Z",
+  "expires_at": "2026-09-02T23:25:05Z",
+  "ttl_minutes": 90,
+  "heartbeat_target_minutes": 30,
+  "claimed_over_state": "released",
   "forced": false,
   "force_reason": null,
-  "note": "Day shift standing down 2026-09-02T21:38Z; night manager session_01AYPxs3aDHwv3XBLRF4oK15 spawned and registered. Released deliberately rather than left to the 90-min TTL so takeover is immediate."
+  "previous_holder": null,
+  "note": "Night shift. Claimed 21:56Z after the day manager's deliberate release at 21:38:05Z reached origin in #10869 at 21:41:54Z."
 }
