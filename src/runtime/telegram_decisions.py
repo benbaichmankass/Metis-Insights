@@ -1056,7 +1056,8 @@ def render_decisions_summary(
     )
     if summary.get("staleOpenWindows"):
         lines.append(
-            f"   · ⚠️ {summary['staleOpenWindows']} of those have been in "
+            f"   · ⚠️ {summary['staleOpenWindows']} of those "
+            f"{'has' if summary['staleOpenWindows'] == 1 else 'have'} been in "
             f"transit longer than {summary.get('staleAfterSeconds')}s — an "
             f"OPEN WINDOW, not a decision."
         )
