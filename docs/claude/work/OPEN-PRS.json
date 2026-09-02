@@ -104,7 +104,7 @@
         "decided_on": "2026-09-02",
         "text": "Tier-1. Undrafted and armed by the manager 2026-09-02T20:54Z after merging 15 commits of main into a branch that had sat 15 behind with ZERO check runs fired — established as NOT a conflict (merge-tree clean both with and without the client-side register driver), so the cause of the missing checks is unexplained and the merge is what re-armed CI."
       },
-      "blocker": "None to merge. ⚠️ IT DOES NOT FIX THE OPERATOR'S MISSING PINGS and a successor must not read it as doing so: work-digest.yml run #5 fired on event:schedule at 19:47:22Z with conclusion success and the operator still received nothing. The delivery-marking defect is BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE — enqueue() writes a local JSON file and returns, so a 'delivered' hash attests a FILE WRITE, not a Telegram send."
+      "blocker": "None to merge. ⚠️ IT DOES NOT FIX THE OPERATOR'S MISSING PINGS and a successor must not read it as doing so: work-digest.yml run #5 fired on event:schedule at 19:47:22Z with conclusion success and the operator still received nothing. The delivery-marking defect is BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE-SO-DELIVERED-IS-NOT-EVIDENCE — enqueue() writes a local JSON file and returns, so a 'delivered' hash attests a FILE WRITE, not a Telegram send."
     },
     {
       "pr": 10857,

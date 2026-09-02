@@ -1195,7 +1195,7 @@
       "done_when": "The digest arrives on a cadence OBSERVED over at least 6 consecutive expected slots with the misses COUNTED rather than assumed, and a missed or FAILED run is itself surfaced. Moving the carrier is not sufficient on its own -- a new carrier must be measured against its declared slots the same way GitHub's was. A workflow_dispatch run is NOT evidence the cron works.",
       "owns_object": "WO-20260902-THE-OPERATOR-S-PING-CADENCE-RIDES-GITHUB",
       "spawned_at": "2026-09-02T18:35:26Z",
-      "note": "#10845 armed for auto-merge 20:54Z after the manager merged 15 commits of main into it (the branch had sat 15 behind with ZERO check runs fired -- not a conflict; merge-tree was clean with AND without the register driver). ⚠️ IT DOES NOT FIX THE OPERATOR'S MISSING PINGS and must not be read as doing so: work-digest.yml run #5 fired on event:schedule at 19:47Z, success, and the operator still received nothing. What it fixes is that a digest never QUEUED cannot be delivered. The delivery-marking defect is BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE."
+      "note": "#10845 armed for auto-merge 20:54Z after the manager merged 15 commits of main into it (the branch had sat 15 behind with ZERO check runs fired -- not a conflict; merge-tree was clean with AND without the register driver). ⚠️ IT DOES NOT FIX THE OPERATOR'S MISSING PINGS and must not be read as doing so: work-digest.yml run #5 fired on event:schedule at 19:47Z, success, and the operator still received nothing. What it fixes is that a digest never QUEUED cannot be delivered. The delivery-marking defect is BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE-SO-DELIVERED-IS-NOT-EVIDENCE."
     },
     {
       "id": "MI-81",
