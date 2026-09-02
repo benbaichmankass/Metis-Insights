@@ -77,11 +77,17 @@ That floor is deliberate and it is NOT redundancy for its own sake. The digest
 (``scripts/ops/work_digest.py``, ``.github/workflows/work-digest.yml``) runs on
 a GitHub runner from a fresh checkout, and ``runtime_logs/`` is ``.gitignore``d
 and lives on the trader VM — so the digest can only see this ledger by fetching
-it from the live diag surface, over a cadence with **no track record**:
-``probes.yml`` and ``due-list.yml`` are both merged, enabled, syntactically
-correct and **have never once fired on cron**
-(``OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON``), and
-the digest's own renderer was dropping queued bodies until #10747. Suppressing
+it from the live diag surface, over a scheduled cadence this repo has measured
+as **late and erratic**. ``probes.yml``'s FIRST EVER scheduled run (#34,
+conclusion success, 2026-09-01T10:12:17Z) came **~4h50m late** against its
+``20 5 * * *`` cron, and fired **once rather than daily**.
+(``OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON`` was
+CLEARED on that observation 2026-09-02. This paragraph read *"have never once
+fired on cron"* until then and **must not be re-quoted** — but the caution
+SURVIVES the correction and is better evidenced by it, because a cadence that
+slips five hours is a worse carrier for a standing alarm than one that has
+simply never been tried.) The digest's own renderer was also dropping queued
+bodies until #10747, which landed this morning. Suppressing
 the pager *entirely* in favour of that channel would make the operator's stated
 risk — the item falling quietly out of BOTH channels — reachable in one step.
 The floor is what makes it unreachable regardless of whether the digest works.

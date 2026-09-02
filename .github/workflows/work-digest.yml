@@ -10,10 +10,14 @@ name: work-digest
 #   DOES NOT EXIST on origin, so it was not waiting on another session's paths;
 #   it was waiting on nobody.
 #
-# ⚠️ A SCHEDULED WORKFLOW IN THIS REPO IS NOT EVIDENCE THAT IT FIRES.
-#   probes.yml and due-list.yml are both merged, enabled, carry correct cron
-#   syntax — and have never once fired
-#   (OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON).
+# ⚠️ A SCHEDULED WORKFLOW IN THIS REPO IS NOT EVIDENCE THAT IT FIRES ON TIME.
+#   CORRECTED 2026-09-02: this header read "have never once fired" and that is
+#   now FALSE — do not re-quote it. probes.yml HAS fired on cron (run #34,
+#   event=schedule, success, 2026-09-01T10:12:17Z) and
+#   OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON is
+#   CLEARED. The caution stands and is better evidenced, not weaker: that run
+#   came ~4h50m LATE against a `20 5 * * *` cron, and once rather than daily.
+#   Correct cron syntax is still not evidence of a run — read the run history.
 #   So this file being green on the day it lands says nothing. The digest is
 #   DEPLOYED, and stays that way until a RUN with event=schedule is observed.
 #   The `workflow_dispatch` below exists so that observation can be forced
@@ -135,9 +139,14 @@ jobs:
       #
       # ⚠️ AND IT IS NOT THE ONLY THING HOLDING THAT LINE. The trader keeps its
       # own re-page floor (CLOSE_WEDGE_REPAGE_HOURS, default 24h) precisely
-      # because this workflow has NO track record: probes.yml and due-list.yml
-      # are both merged, enabled, correct — and have never once fired on cron
-      # (OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON).
+      # because this workflow has no track record of firing ON TIME: probes.yml's
+      # first-ever scheduled run (#34, success, 2026-09-01T10:12:17Z) came ~4h50m
+      # LATE against its `20 5 * * *` cron, and once rather than daily. (The row
+      # OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON was
+      # CLEARED on that observation 2026-09-02; this comment cited it as "never
+      # once fired" until then — do not re-quote that. The caution is unchanged
+      # and better evidenced: a cadence that slips five hours is a worse carrier
+      # for a standing alarm than one that was never tried.)
       # Do not remove that floor on the strength of this step existing.
       - name: Fetch the standing close-wedge ledger from the live VM
         continue-on-error: true
