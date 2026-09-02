@@ -123,11 +123,21 @@ CORPORA = {
 #: achieved count takes 11 distinct values including 4, 5 and 8. The choice of
 #: `base_oos_trades` is therefore on STRONGER evidence than when it was made.
 #:
-#: ⚠️ THAT 97.6% FIGURE IS RECORDED HERE, NOT PINNED BY A TEST — do not read it
-#: as guarded. `tests/test_e35_achieved_oos_count.py` pins two DIFFERENT things
-#: (a coverage ceiling and the observed value set {50, 60}); neither would fail
-#: if `split_target_oos` started tracking the achieved count. Re-measure before
-#: relying on it.
+#: THAT 97.6% FIGURE IS NOW PINNED, as of 2026-09-02. It was recorded-but-
+#: unguarded until then: `tests/test_e35_achieved_oos_count.py` pinned a
+#: coverage ceiling and the observed value set {50, 60}, and NEITHER would fail
+#: if `split_target_oos` started tracking the achieved count — the one
+#: development that would reopen this choice. It now carries
+#: `assert_target_diverges_from_achieved`, which fails below 50% divergence over
+#: rows holding both fields, with a denominator floor so a corpus that stopped
+#: carrying the evidence reads as "could not look" rather than as a pass.
+#:
+#: PROVEN TO FIRE, not assumed to: with the live corpus rewritten so the target
+#: tracks the achieved count *within the already-recorded value set* {50, 60} —
+#: the case built specifically to slip past the two older pins — the new
+#: assertion was the ONLY one of the eight tests in that file to fail
+#: (280/287 = 97.6% -> 0/287 = 0.0%). Re-measured the same day at 943a7192:
+#: 8,520 rows, 287 carrying both fields, 280 differing.
 #:
 #: ⚠️ ROWS EXTRACTED BEFORE 2026-08-31 CARRY NO ACHIEVED COUNT AND CANNOT BE
 #: BACK-FILLED FROM A SESSION. The source `report.json` files are not committed
@@ -220,6 +230,7 @@ def load_units(corpus: str) -> tuple[str, dict]:
                 if not stamp or not leg:
                     continue
                 u = units.setdefault((stamp, leg), {"rows": 0, "n_oos": None,
+                                                    "rows_with_n": 0,
                                                     "power_state": None,
                                                     "research_unit": None})
                 u["rows"] += 1
@@ -249,6 +260,34 @@ def load_units(corpus: str) -> tuple[str, dict]:
                 if n_field:
                     v = row.get(n_field)
                     if isinstance(v, (int, float)):
+                        # ⚠️ `max()` IS CORRECT HERE, AND THAT IS NOW MEASURED
+                        # RATHER THAN ASSUMED. `n_oos` is a LEG-LEVEL CONSTANT:
+                        # every row of a unit describes one cell of the same
+                        # base backtest, so they all report the same achieved
+                        # OOS book. MEASURED 2026-09-02 over all 315 units of
+                        # the two power-graded corpora at 943a7192 — e35 97 +
+                        # m20 218 — the 258 units carrying at least one value
+                        # (41 e35, 217 m20) have EXACTLY ONE distinct value
+                        # each; units where it varies: 0. So max(), min() and
+                        # "worst-state wins" return the same number on 258/258,
+                        # and the neighbouring `power_state` reducer's
+                        # worst-state discipline has nothing to disagree with.
+                        # Changing this to min() would be a no-op dressed as a
+                        # correctness fix.
+                        #
+                        # ⚠️ WHAT IS *NOT* SAFE IS REPORTING IT WITHOUT
+                        # `rows_with_n`. On e35 the value is carried by 7 of a
+                        # unit's 199 rows — 3.52%, on 41/41 of the units that
+                        # have one — while the report prints `rows=199` on the
+                        # same line. 199 is the unit's row count, NOT the
+                        # denominator of n_oos, and the two sitting side by side
+                        # invite exactly the gated-subset misread. The invariant
+                        # that makes max() safe is the constancy, not the
+                        # coverage; `rows_with_n` is what lets a reader check
+                        # the constancy is still being relied on honestly.
+                        # `tests/test_research_disposition_denominator.py` fails
+                        # if a unit's values ever diverge.
+                        u["rows_with_n"] += 1
                         u["n_oos"] = max(u["n_oos"] or 0, int(v))
     except (OSError, json.JSONDecodeError):
         return CORPUS_UNREADABLE, {}
@@ -311,12 +350,38 @@ def survey(corpora=None, ledger: Path = LEDGER) -> dict:
             k = (corpus, leg)
             if k not in latest or stamp > latest[k]:
                 latest[k] = stamp
+        # Every stamp a leg carries, oldest first — the supersession chain.
+        # Needed because `superseded_unread` names a state but not WHAT
+        # superseded the unit, and "was the thing that superseded me ever
+        # actually READ" is the only question that separates the benign residue
+        # of a re-measurement from a leg no measurement of which was ever read.
+        chain: dict = {}
+        for (stamp, leg) in units:
+            chain.setdefault((corpus, leg), []).append(stamp)
+        for stamps_for_leg in chain.values():
+            stamps_for_leg.sort()
         for (stamp, leg), meta in sorted(units.items()):
             st = state_for_unit((corpus, stamp, leg), present, seen, latest)
             counts[st] += 1
+            # The superseding unit is the LATEST stamp for the leg, which is what
+            # `state_for_unit` compares against. Its own state is resolved below,
+            # after every unit has been graded.
+            sup_by = latest.get((corpus, leg)) if st == SUPERSEDED_UNREAD else None
             out["units"].append({
                 "corpus": corpus, "run_stamp": stamp, "leg": leg,
                 "rows": meta["rows"], "n_oos": meta["n_oos"], "state": st,
+                # ⚠️ THE DENOMINATOR OF `n_oos`, AND IT IS NOT `rows`. On e35 a
+                # unit holds 199 rows and 7 of them carry the achieved count, so
+                # printing `rows=199 n_oos=49` alone invites a reader to take 49
+                # as a statistic over 199 rows. It is a statistic over 7. A
+                # number without its population is not yet a claim.
+                "rows_with_n": meta["rows_with_n"],
+                # `None` on anything that is not superseded. NOT folded into the
+                # state: "superseded by a unit somebody read" and "superseded by
+                # a unit nobody read" are the benign and the load-bearing halves
+                # of the same count, and collapsing them is what left 256 sitting
+                # undifferentiated for two days.
+                "superseded_by": sup_by,
                 # ⚠️ THESE TWO ARE THE READER. `load_units` recorded them from
                 # 2026-08-31 and NOTHING read them back — written-and-never-read,
                 # the `exit_price_source` shape this repo has already paid for
@@ -326,7 +391,69 @@ def survey(corpora=None, ledger: Path = LEDGER) -> dict:
                 "power_state": meta["power_state"],
                 "research_unit": meta["research_unit"],
             })
+    # Resolve each superseded unit's successor STATE, once every unit is graded.
+    state_by_key = {(u["corpus"], u["leg"], u["run_stamp"]): u["state"]
+                    for u in out["units"]}
+    for u in out["units"]:
+        u["superseded_by_state"] = (
+            state_by_key.get((u["corpus"], u["leg"], u["superseded_by"]))
+            if u["superseded_by"] else None
+        )
     out["summary"] = counts
+    return out
+
+
+#: How a `superseded_unread` unit partitions once you ask what superseded it.
+#:
+#: ⚠️ THE TEST IS THE SUCCESSOR'S STATE, NOT THE CHAIN LENGTH. A unit three
+#: re-sweeps back whose leg was eventually READ is benign: a measurement of that
+#: leg WAS read, which is the criterion's own stated rationale. Counting each
+#: intermediate link of such a chain as a gap inflates the answer badly — over
+#: the live stores it is the difference between 33 and 161 (see
+#: `partition_superseded`).
+SUPERSEDED_BENIGN = "benign_read_successor"
+SUPERSEDED_GAP = "gap_no_measurement_ever_read"
+
+
+def partition_superseded(s: dict) -> dict:
+    """Split the `superseded_unread` pile into the benign half and the real gap.
+
+    THE COUNT ALONE WAS NEVER THE FINDING. `superseded_unread: 256` is a state,
+    not a problem: most of it is the ordinary residue of re-measuring a leg, and
+    a detector that reports it as 256 failures is the desensitized-alarm bug
+    class this module already refuses to be. The question worth asking is
+    narrower — **is there a leg for which NO measurement was ever read?**
+
+    A unit is BENIGN when the newest run for its leg is `dispositioned`: someone
+    read that leg, on the newest evidence, and the older rows are superseded by a
+    reading rather than by silence. It is a GAP when the newest run is itself
+    `unread` — nobody has read any measurement of that leg, and the superseded
+    rows underneath it are not moot, they are hidden behind an unread one.
+
+    ⚠️ THE GAP IS NOT WORK IN ITSELF — ITS LEG'S NEWEST UNIT IS. Dispositioning
+    the newest run converts every superseded unit under it in one step, which is
+    why this reports the distinct legs alongside the raw count: the count is the
+    exposure, the leg list is the task list, and they differ by an order of
+    magnitude.
+    """
+    rows = [u for u in s["units"] if u["state"] == SUPERSEDED_UNREAD]
+    out = {"total": len(rows), SUPERSEDED_BENIGN: 0, SUPERSEDED_GAP: 0,
+           "gap_legs": [], "by_corpus": {}}
+    gap_legs = set()
+    for u in rows:
+        half = (SUPERSEDED_BENIGN if u["superseded_by_state"] == DISPOSITIONED
+                else SUPERSEDED_GAP)
+        out[half] += 1
+        c = out["by_corpus"].setdefault(
+            u["corpus"], {SUPERSEDED_BENIGN: 0, SUPERSEDED_GAP: 0})
+        c[half] += 1
+        if half == SUPERSEDED_GAP:
+            gap_legs.add((u["corpus"], u["leg"], u["superseded_by"]))
+    out["gap_legs"] = sorted(gap_legs)
+    # An arithmetic cross-check, inside the transform, because a re-read would
+    # not catch a unit counted into both halves — the shape that made a row
+    # count disagree by 2 on 2026-08-09.
+    assert out[SUPERSEDED_BENIGN] + out[SUPERSEDED_GAP] == out["total"], out
     return out
 
 
@@ -613,6 +740,9 @@ def main() -> int:
     ap.add_argument("--report", action="store_true", help="grade every unit")
     ap.add_argument("--unread-only", action="store_true",
                     help="list only the finding state")
+    ap.add_argument("--superseded-partition", action="store_true",
+                    help="split superseded_unread into the benign re-measurement "
+                         "residue and the legs no measurement of which was read")
     ap.add_argument("--selftest", action="store_true")
     rec = ap.add_argument_group(
         "record one disposition",
@@ -649,6 +779,21 @@ def main() -> int:
         return _record(a)
 
     s = survey()
+    if a.superseded_partition:
+        if CORPUS_UNREADABLE in (s["ledger_state"], *s["corpora"].values()):
+            print("::error::a store could not be READ - refusing to partition a "
+                  "pile we could not fully see", file=sys.stderr)
+            return 2
+        pt = partition_superseded(s)
+        print(json.dumps({k: v for k, v in pt.items() if k != "gap_legs"},
+                         indent=2, sort_keys=True))
+        # The task list, not the exposure. One disposition per line here clears
+        # every superseded unit counted under it.
+        print(f"\nlegs whose NEWEST run is unread ({len(pt['gap_legs'])} — "
+              "dispositioning these clears the gap half):")
+        for corpus, leg, stamp in pt["gap_legs"]:
+            print(f"  {corpus:<11} {leg:<26} newest={stamp}")
+        return 0
     if CORPUS_UNREADABLE in (s["ledger_state"], *s["corpora"].values()):
         print("::error::a store could not be READ - this is not 'nothing unread'",
               file=sys.stderr)
@@ -672,8 +817,13 @@ def main() -> int:
         # and must not render as one.
         ps = u["power_state"] or "not_queue_dispatched"
         ru = u["research_unit"] or "-"
+        # `n_oos` is printed AS A FRACTION of the rows that carried it, never
+        # bare beside `rows`. On e35 those are 7 and 199 — a reader who sees
+        # `rows=199 n_oos=49` has been handed a statistic and the wrong
+        # denominator on the same line.
+        nd = "n/a" if u["n_oos"] is None else f"{n}/{u['rows_with_n']}r"
         print(f"  {u['state']:<18} {u['corpus']:<4} {u['leg']:<26} "
-              f"rows={u['rows']:<5} n_oos={n:<6} power={ps:<20} "
+              f"rows={u['rows']:<5} n_oos={nd:<10} power={ps:<20} "
               f"unit={ru:<18} {u['run_stamp']}")
     return 0
 
