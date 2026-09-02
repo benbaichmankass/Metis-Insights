@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-09-02T00:00:00+00:00",
+  "updated_at": "2026-09-02",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -31302,6 +31302,28 @@
         "https://github.com/benbaichmankass/Metis-Insights/pull/10789",
         "tests/test_zz_automerge_hold.py"
       ]
+    },
+    {
+      "id": "BL-20260902-SESSIONS-REGISTRY-IS-A-SPAWN-TIME-RECORD-35-OF-67-ROWS-NAME-NO-BRANCH",
+      "title": "SESSIONS.json is written at spawn and NEVER updated: 35 of 67 rows name no branch at all, so a cold successor reading them knows a session existed and has no route to its work",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-02",
+      "source": "session_01NkekPZw73VYuynYhSdWLWm (MI-70) — measured at main 90437919 while building the Phase E reaper, not reasoned about.",
+      "detail": "MEASURED, population stated: all 67 rows of docs/claude/work/SESSIONS.json at main 90437919, and all 34 branch entries across them. 35 rows carry `branches: []` and `prs: []` — written at spawn, with nothing ever writing back where the work went. Of the 34 branch entries that DO exist: 11 live on origin, 14 landed (a PR they name is in origin/main's history), 7 have no landing evidence, and 2 are PROSE typed into a `branches` array ('(rotating — one PR head at a time)' and 'claude/telegram-ping-mirror (expected; not yet pushed)' — the second being the documented lost-work case from WO-20260901-PHASE-E itself). One row's `prs` entry is a bare int rather than a string.\n\n⚠️ THIS IS A DIFFERENT DEFECT FROM MI-15 / the 26-of-55 census, AND THE EXISTING DETECTORS DO NOT LOOK FOR IT. Those measure sessions ABSENT from the registry. This is sessions PRESENT whose row points at nothing — which reads as coverage while providing none, and is therefore the more dangerous of the two. `session_registry.py::cross_check` compares owner ids and never asks whether a row names a branch, so it passes on all 35.\n\nWHY IT IS NOT 'REMEMBER TO UPDATE THE ROW': the manager CANNOT message a running sub-session, and the constraint is SYMMETRIC — verified again this session, SendMessage from a sub-session to its manager also returns 'No agent named ... is reachable'. The sub-session that would update its own row is exactly the one that may die first. 'Remember to register' has already failed twice; 'remember to update' is the same remedy one step later.\n\nPARTIAL MITIGATION SHIPPED, NOT A FIX: scripts/ops/session_reaper.py recovers the branch from the `Claude-Session:` commit trailer and located 16 of the 35 anyway (live reap: `unreadable` 37 -> 21). It reports recovery on a SEPARATE axis (`branch_source`) precisely so this defect stays visible rather than being masked by a healthy-looking state count. The other 19 rows remain `none_found`.",
+      "resolution_criteria": "`python3 scripts/ops/session_reaper.py --json` reports `by_branch_source.none_found` at 0 over a registry of >=20 rows — i.e. every row either names its own branch or has one recoverable from a commit trailer. ⚠️ A FALLING `none_found` IS NOT ENOUGH ALONE: it also falls when old rows age out, so state the row count beside it. ⚠️ AND THE REAL FIX IS `recovered_from_commit_trailer` FALLING WHILE `registry_declared` RISES (rows record their own branch). The reverse — recovery carrying an ever-larger share — is this defect being MASKED, not resolved, and must be reported as such rather than counted as progress."
+    },
+    {
+      "id": "BL-20260902-THE-CLAUDE-SESSION-COMMIT-TRAILER-IS-WRITTEN-BY-EVERY-SESSION-AND-WAS-READ-BY-NOTHING",
+      "title": "Every commit carries a `Claude-Session:` trailer written as work happens — the durable session→work link the operating model asks for — and until MI-70 nothing in the repo read it",
+      "severity": "medium",
+      "tier": 1,
+      "status": "resolved",
+      "opened": "2026-09-02",
+      "source": "session_01NkekPZw73VYuynYhSdWLWm (MI-70) — found while looking for the MISSING incremental-progress mechanism and discovering it already existed.",
+      "detail": "operating-model-DESIGN.md § 'The coordination layer' names three mechanisms, the first being 'state written to the work object AS WORK HAPPENS, not at the end'. That was read as absent. It is not: the attribution footer every session appends puts `Claude-Session: https://claude.ai/code/session_XXXX` in every commit body — a per-commit, durable, session-authored link from a session to its work, written incrementally and surviving the session's death in git.\n\nMEASURED at main 90437919: 63 distinct session ids in the last 400 origin/main commit bodies; 118 attributable across the 194 claude/** heads. ZERO consumers — grep over scripts/ and src/ found only the templates that WRITE it.\n\nThis is the `provenance-consumer-guard` shape one level up: a signal written and never read, worse than a missing one because a reader sees the field and assumes something acts on it. Here it cost real work — the registry's 35 empty rows were treated as unrecoverable when 16 were recoverable from a signal already on disk.",
+      "resolution_criteria": "ALREADY MET for the CONSUMER gap this row names, verified 2026-09-02: `grep -rn 'Claude-Session' scripts/` returns a reader (scripts/ops/session_reaper.py::attribute_branches_by_trailer), and a live reap attributed 16 registry rows and 98 unregistered branches by it. ⚠️ CLOSED FOR THE CONSUMER GAP ONLY, and the residual is stated rather than claimed fixed: the trailer is a system-prompt CONVENTION, not an enforced format, so a session that omits or rewords it is unattributable and nothing detects that. Closing that residual needs its OWN row."
     }
   ]
 }
