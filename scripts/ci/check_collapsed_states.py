@@ -686,6 +686,50 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "bybit_leg_sides.leg_side_class",
+        "producer": "src/runtime/bybit_leg_sides.py",
+        "consumer_token": (r"\bbybit_leg_sides\b|\bleg_side_split\b|"
+                           r"\bLEG_SIDE_STATES\b"),
+        "states": ["reduces_graded_book", "reduces_other_book",
+                   "leg_side_unreadable", "position_side_unreadable"],
+        "why": (
+            "A resting Bybit protective leg is reduce-only, so it acts on the "
+            "book it can SHRINK -- and `_bybit_position_protection` summed "
+            "every leg on the symbol into ONE side-blind `covered_qty` that "
+            "the over-cover page then described as coverage OF THE GRADED "
+            "POSITION. MEASURED on bybit_1/BTCUSDT (/api/diag/"
+            "bybit_open_orders, read 2026-09-02T03:30:33Z, trader git_sha "
+            "68e73de8): position Buy 0.018 positionIdx=1 covered EXACTLY 1.00x "
+            "by its own Sell 0.018 leg, paged as '2656%' because a Buy 0.46 "
+            "leg acting on a short book landed in the same sum. Collapsing "
+            "`reduces_other_book` into `reduces_graded_book` is that page. "
+            "`leg_side_unreadable` and `position_side_unreadable` are both WE "
+            "DID NOT LOOK and are deliberately separate from each other: the "
+            "first leaves the sums a LOWER BOUND, the second means NOTHING on "
+            "the symbol is gradeable, and reporting the second as the first "
+            "would point a reader at the wrong half of the read."
+        ),
+    },
+    {
+        "name": "bybit_leg_sides.other_book_state",
+        "producer": "src/runtime/bybit_leg_sides.py",
+        "consumer_token": r"\bother_book_state\b|\bOTHER_BOOK_STATES\b",
+        "states": ["impossible_one_way", "possible_hedge", "unknown"],
+        "why": (
+            "Whether a leg acting on the OPPOSITE book is stranded depends on "
+            "whether such a book can exist. Under one-way netting "
+            "(positionIdx 0) it cannot, so the leg is stranded by "
+            "construction; under HEDGE mode -- armed on bybit_1 and bybit_2 "
+            "since 2026-08-30 -- it may be a LIVE sibling's protection, and a "
+            "page that called it orphaned would invite cancelling a live "
+            "position's stop. `unknown` is WE COULD NOT LOOK and must never "
+            "default to `impossible_one_way`: CLAUDE.md names that exact "
+            "hazard for this same venue field -- 'defaulting an unread mode "
+            "to the netting value is precisely the reading that would make a "
+            "hedge account look safe to treat as netted'."
+        ),
+    },
+    {
         "name": "netting_attribution.anchor_status",
         "producer": "src/runtime/order_monitor.py",
         "consumer_token": r"\banchor_status\b|\bnetting_anchor_basis\b",

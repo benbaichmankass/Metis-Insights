@@ -308,11 +308,21 @@ def test_sweep_flags_leg_OVER_accumulation(tmp_path, monkeypatch, caplog):
     _insert(db, id=1, account_id="bybit_2", symbol="XRPUSDT", direction="short",
             position_size=32557.2, stop_loss=1.094, take_profit_1=1.054,
             created_at="2026-07-01T00:00:00+00:00", status="open")
+    # ⚠️ `side` / `positionIdx` are on this fixture DELIBERATELY (added
+    # 2026-09-02). A real Bybit position row always carries both, and the
+    # over-cover page now BRANCHES on them to say which book the legs act on.
+    # Without them the fixture would exercise the `position_side_unreadable`
+    # path — a schema production does not have, the failure shape CLAUDE.md
+    # records for the pairs `order_packages` tests. A SHORT is protected by
+    # BUY reduce-only legs, so that is what the legs carry here.
     client = _FakeBybit(
-        positions={"XRPUSDT": {"size": "32557.2", "stopLoss": ""}},
+        positions={"XRPUSDT": {"size": "32557.2", "stopLoss": "",
+                               "side": "Sell", "positionIdx": 0}},
         stop_legs={"XRPUSDT": [
-            {"stopOrderType": "PartialStopLoss", "qty": "58686.8", "orderId": "a"},
-            {"stopOrderType": "PartialStopLoss", "qty": "86102.5", "orderId": "b"},
+            {"stopOrderType": "PartialStopLoss", "side": "Buy",
+             "qty": "58686.8", "orderId": "a"},
+            {"stopOrderType": "PartialStopLoss", "side": "Buy",
+             "qty": "86102.5", "orderId": "b"},
         ]},
     )
     _patch_accounts(monkeypatch, client)
@@ -325,6 +335,13 @@ def test_sweep_flags_leg_OVER_accumulation(tmp_path, monkeypatch, caplog):
     assert summary["rearmed"] == 0 and summary["topped_up"] == 0
     assert client.stops_set == []
     assert "LEG OVER-ACCUMULATION" in caplog.text
+    # ...and it is named as the SAME-BOOK condition, not the other-book one
+    # the 2026-09-02 BTCUSDT page was really describing. This is the CONTROL
+    # for that fix: a genuine same-side pile-up must still read as one.
+    assert "SAME-BOOK LEG OVER-ACCUMULATION" in caplog.text
+    assert "OPPOSITE book" not in caplog.text
+    assert summary["over_cover_other_book"] == 0
+    assert summary["over_cover_split_ungraded"] == 0
 
 
 def test_sweep_flags_journal_vs_broker_qty_divergence(tmp_path, monkeypatch, caplog):
