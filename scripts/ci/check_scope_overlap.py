@@ -318,7 +318,20 @@ def parse_identity(body: str) -> dict:
 
 
 def pr_session_ids(pr_body: str) -> list[str]:
-    """This PR's OWN session identity, from the attribution footer URL only."""
+    """This PR's OWN session identity, from the attribution footer URL only.
+
+    ⚠️ DECLARED RESIDUAL, not a solved problem. This trusts that a
+    `claude.ai/code/session_...` URL in a PR body is the PR's own footer. A body
+    that QUOTES another session's footer — a pasted handoff prompt is the
+    realistic case — would let that session's START read as ours and be
+    suppressed. The tighter alternatives are worse: taking only the LAST URL
+    breaks on any note appended after the footer, and taking none at all
+    reinstates the branch-only identity this fix exists to remove. Harvesting
+    bare `session_...` tokens instead is far worse still — PR #10729's body
+    names two sub-sessions it spawned. Left as-is and stated, with the exposure
+    bounded: a suppressed row still requires that session to have declared an
+    overlapping path in the same 24h window.
+    """
     out: list[str] = []
     for s in _PR_SESSION_URL_RE.findall(pr_body or ""):
         if s not in out:

@@ -55,6 +55,14 @@ name: scope-overlap-audit
 # verdict is ALWAYS written to the job summary, so "it ran and found nothing"
 # stays distinguishable from "it did not run".
 #
+# ONE NOTE ON THE PR BODY, WHICH IS NOW AN INPUT (2026-09-02). `pr.body` is
+# author-controlled, and a body quoting another session's `claude.ai/code/…`
+# footer would make that session's START read as the author's own and be
+# suppressed. It is stated rather than hidden (see `pr_session_ids`) and is not
+# a privilege boundary: this workflow GATES NOTHING, so the only thing such a
+# body can buy is a quieter advisory comment on the author's own PR. No secret,
+# no checkout of PR code, and no order path is reachable from it either way.
+#
 # Tier-1: read-only, no VM, no order path, no secret beyond GITHUB_TOKEN.
 
 on:
