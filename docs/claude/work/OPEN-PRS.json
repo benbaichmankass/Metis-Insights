@@ -158,40 +158,6 @@
         "text": "Operator asked for /status and /decisions, then corrected the destination. The HOLD is the manager's, not the operator's: it must not merge until ClaudeBot is CONFIRMED POLLED on the live VM, or the commands land on a bot nothing polls."
       },
       "blocker": "⚠️ HELD BY THE MANAGER. Un-hold ONLY on a confirmed live-VM observation that ClaudeBot is polled — read /api/diag/log_file?name=telegram_poll_claude and the sweep stats `destination`. 'A ping arrived' is NOT that observation: the fallback route produces one and is PERMANENT (MI-58's correction — answerable_route() needs a live heartbeat)."
-    },
-    {
-      "pr": 10794,
-      "title": "MI-61: a soak must alarm — a threshold, a timer, and a state for a DEAD soak",
-      "owner_session": "session_01NfzmaV7FxP4bAZtKbXYVb9",
-      "checklist_item": "MI-61",
-      "draft": true,
-      "tier": "1 (observability)",
-      "state": "awaiting_manager_review",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "Standing operator directive, 2026-09-02: 'anything soaking needs to be logged with an alarm that has either a timer or a soak threshold, so that we know to get back to it when the soak is ready.'",
-        "scope": "All soaks.",
-        "decided_on": "2026-09-02",
-        "text": "Directed by the operator as a standing rule rather than a one-off approval. The first row filed under it is OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK."
-      },
-      "blocker": "Manager review not complete."
-    },
-    {
-      "pr": 10810,
-      "title": "automerge: gate the relay on the branch's OWN request, and stop it un-drafting",
-      "owner_session": "session_01XrwTGRY819PCzBnppCTLbi",
-      "checklist_item": "MI-69",
-      "draft": true,
-      "tier": "1 (CI/workflow)",
-      "state": "in_progress_by_owner",
-      "operator_decision": {
-        "verdict": "pending",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None yet."
-      },
-      "blocker": "⚠️ FIXES A LIVE MISFIRE, OBSERVED TODAY. claude-pr-automerge.yml still carries the LEGACY shared marker .github/pr-automerge-request in its paths: filter, so any claude/** branch that merges main is un-drafted and armed unasked — seen on three PRs at 13:19Z, and again on #10809 which self-merged at ~14:40Z while the manager was mid-review. Also carries the backlog row this record's own checklist entry points at."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -483,8 +449,50 @@
       "merge_sha": "e7592674009ca4eb88f60654a82e69c6328ce1b5",
       "observed_at": "2026-09-02T16:23:16Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10794,
+      "title": "MI-61: a soak must alarm — a threshold, a timer, and a state for a DEAD soak",
+      "owner_session": "session_01NfzmaV7FxP4bAZtKbXYVb9",
+      "checklist_item": "MI-61",
+      "draft": true,
+      "tier": "1 (observability)",
+      "state": "awaiting_manager_review",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "Standing operator directive, 2026-09-02: 'anything soaking needs to be logged with an alarm that has either a timer or a soak threshold, so that we know to get back to it when the soak is ready.'",
+        "scope": "All soaks.",
+        "decided_on": "2026-09-02",
+        "text": "Directed by the operator as a standing rule rather than a one-off approval. The first row filed under it is OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK."
+      },
+      "blocker": "Manager review not complete.",
+      "terminal": "merged",
+      "merge_sha": "eaef9821de418ba832c13eacbb42eada7bdc8a71",
+      "observed_at": "2026-09-02T18:49:55Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10810,
+      "title": "automerge: gate the relay on the branch's OWN request, and stop it un-drafting",
+      "owner_session": "session_01XrwTGRY819PCzBnppCTLbi",
+      "checklist_item": "MI-69",
+      "draft": true,
+      "tier": "1 (CI/workflow)",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "pending",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None yet."
+      },
+      "blocker": "⚠️ FIXES A LIVE MISFIRE, OBSERVED TODAY. claude-pr-automerge.yml still carries the LEGACY shared marker .github/pr-automerge-request in its paths: filter, so any claude/** branch that merges main is un-drafted and armed unasked — seen on three PRs at 13:19Z, and again on #10809 which self-merged at ~14:40Z while the manager was mid-review. Also carries the backlog row this record's own checklist entry points at.",
+      "terminal": "merged",
+      "merge_sha": "2816698ac4c6d39742b2aada495d78dfbeaf0b62",
+      "observed_at": "2026-09-02T18:49:55Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-02T16:23:16Z",
-  "last_reconciled_sha": "e7592674009ca4eb88f60654a82e69c6328ce1b5"
+  "last_reconciled_at": "2026-09-02T18:49:55Z",
+  "last_reconciled_sha": "2816698ac4c6d39742b2aada495d78dfbeaf0b62"
 }

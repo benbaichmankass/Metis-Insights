@@ -51,6 +51,7 @@ import os
 import pathlib
 import re
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -177,6 +178,130 @@ def src_open_items(root: Path, today: date) -> SourceResult:
                              "loud row — must be reported on every session",
                              age_days=(today - last).days if last else None, loud=True))
     return SourceResult("open_items", "read", rows)
+
+
+def _soak_grader():
+    """The soak vocabulary + grader, IMPORTED from the module that owns it.
+
+    Never restated here, for the reason `_owed_vocabulary` gives one function
+    below: a second definition of "is this soak ready?" is free to drift from
+    the one the rule and the guard use.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import soak_alarm  # noqa: PLC0415
+    return soak_alarm
+
+
+def src_soaks(root: Path, today: date) -> SourceResult:
+    """Soaks whose declared threshold is MET, or which have stopped writing.
+
+    THE STANDING RULE THIS ENFORCES (operator directive, 2026-09-02)
+    ---------------------------------------------------------------
+        "Anything soaking needs to be logged with an alarm that has either a
+         timer or a soak threshold, so that we know to get back to it when the
+         soak is ready."
+
+    `src_open_items` above already answers *"is it time to LOOK?"* from
+    `check_every_days`. It cannot answer *"is it READY?"*, because until
+    2026-09-02 no field in the register could express a criterion in DATA
+    rather than in elapsed days. This source reads that criterion.
+
+    WHAT LANDS IN THE LIST, AND WHAT DELIBERATELY DOES NOT
+    -----------------------------------------------------
+    `ready` and `not_writing` become rows and are LOUD. `unknown` becomes a row
+    and is not. **`accruing` becomes NO ROW AT ALL** — it goes in the source
+    `note`, which the markdown renders as context beneath the list.
+
+    ⚠️ That last one is the load-bearing refusal. A daily *"soak not ready"*
+    row is the desensitised-alarm P1, and `src_probes` below already produces
+    exactly that: it emits a LOUD row for every probe whose state is `fail`,
+    and before the probe-layer split a patiently-accruing soak returned `fail`.
+    So this source **also removes** an existing daily page rather than only
+    adding new ones — see `_soak_ids` at the `src_probes` call site.
+
+    THE EVIDENCE IS THE COMMITTED PROBE REPORT, NOT A LIVE READ
+    ----------------------------------------------------------
+    Like `src_probes`, this reads `docs/claude/PROBES.json` rather than running
+    anything: the renderer must stay cheap and network-light, and — decisively —
+    the soak logs live under `runtime_logs/` on the live VM, which is
+    `.gitignore`d and unreachable from a CI runner. The probes job holds the
+    diag bearer; this reports what its last run SAW. A soak whose probe has not
+    run therefore grades `unknown`, which is the honest answer and not a bug.
+    """
+    p = root / _OPEN_ITEMS
+    if not p.exists():
+        return SourceResult("soaks", "not_applicable", note=f"{_OPEN_ITEMS} absent")
+    try:
+        items = _load_json(p)["items"]
+    except Exception as exc:  # noqa: BLE001
+        return SourceResult("soaks", "could_not_read", note=f"{type(exc).__name__}: {exc}")
+
+    declared = [it for it in items if isinstance(it.get("soak"), dict)]
+    if not declared:
+        # Distinguishable from a read failure, and from every soak being quiet.
+        return SourceResult("soaks", "read", [],
+                            note="no register row declares a `soak` block")
+
+    # Probe results are OPTIONAL evidence. Their absence downgrades each soak to
+    # `unknown` — it must never look like every soak read empty.
+    probe_by_id: dict[str, dict] = {}
+    probes_note = ""
+    pp = root / _PROBES
+    if not pp.exists():
+        probes_note = f"{_PROBES} absent — no probe run yet, so every soak is UNGRADED"
+    else:
+        try:
+            probe_by_id = {r.get("id"): r for r in _load_json(pp)["results"]}
+        except Exception as exc:  # noqa: BLE001
+            probes_note = f"{_PROBES} unreadable ({type(exc).__name__}) — soaks UNGRADED"
+
+    sa = _soak_grader()
+    rows: list[dict] = []
+    tally: dict[str, int] = {s: 0 for s in sa.STATES}
+    context: list[str] = []
+
+    for it in declared:
+        ident = it.get("id", "(no id)")
+        soak = it["soak"]
+
+        bad = sa.declaration_problems(ident, soak)
+        if bad:
+            # A malformed declaration is SURFACED, never skipped: a soak block
+            # nobody can read is not a soak that has been checked, and silently
+            # dropping it would make a typo look like a row with no soak.
+            tally["unknown"] += 1
+            rows.append(_row("soaks", ident, (it.get("summary") or "")[:200],
+                             "soak declaration is UNGRADEABLE — " + "; ".join(bad)))
+            continue
+
+        result = probe_by_id.get(ident) or {}
+        state = result.get("state")
+        # `no_probe_declared` is the runner's way of saying the ROW carries a
+        # `probe_absent_reason`. That is a declared gap, not a broken probe, and
+        # the grader words the two differently.
+        if state == "could_not_run" and result.get("reason") == "no_probe_declared":
+            state = None
+
+        v = sa.grade(soak, probe_state=state,
+                     matched=result.get("matched"), scanned=result.get("scanned"),
+                     today=today)
+        tally[v.state] += 1
+
+        if not v.surfaces:
+            context.append(f"{ident}: {v.state}")
+            continue
+        rows.append(_row("soaks", ident, (it.get("summary") or "")[:200],
+                         f"soak {v.state.upper()} — {v.why}",
+                         age_days=v.days_since_declared, loud=v.escalates))
+
+    note = (f"{len(declared)} declared soak(s): "
+            + " · ".join(f"{k}={tally[k]}" for k in sa.STATES))
+    if context:
+        # `accruing` rides here rather than as a row — context, never a page.
+        note += f" | accruing (not surfaced, healthy): {', '.join(context)}"
+    if probes_note:
+        note += f" | {probes_note}"
+    return SourceResult("soaks", "read", rows, note=note)
 
 
 def _owed_vocabulary() -> tuple[set[str], set[str]]:
@@ -380,8 +505,35 @@ def src_probes(
     # observed. A stale `pass` read as today's is the dangerous direction.
     stamp = "" if fresh == "fresh" else f" [observed {observed}, {age_str} ago]"
 
+    # ⚠️ A ROW THAT DECLARES A `soak` IS GRADED BY `src_soaks`, NOT HERE, AND
+    # THIS HAND-OFF REMOVES A DAILY PAGE RATHER THAN ADDING ONE.
+    #
+    # The loop below emits a LOUD row for every probe whose state is `fail`.
+    # For an ordinary monitoring row that is right: the declared observation did
+    # not hold and somebody should know. For a SOAK it is exactly wrong — a
+    # soak that is patiently accruing IS in the `fail` state for its entire
+    # life, so this fired a loud row every single day of a healthy soak. That is
+    # the desensitised-alarm P1 sitting inside the machinery meant to prevent
+    # it — see `BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART`,
+    # where one un-latched condition took 53.7% of the operator's ERROR+ feed.
+    # (The id is kept on ONE line deliberately: wrapping it across the hyphen
+    # truncates it, and `check_backlog_refs.py` correctly reads a truncated id
+    # as a reference that resolves to nothing — a doc saying "tracked by BL-X"
+    # where BL-X was never filed reads as tracked while being tracked by nobody.)
+    #
+    # `src_soaks` distinguishes accruing (quiet) from not_writing (loud), which
+    # this function cannot: both were `fail` until the probe layer split them.
+    # Deferring is therefore strictly more informative, never a suppression —
+    # every deferred id is still graded, and the count is stated in the note so
+    # a silent hand-off is impossible.
+    deferred = _soak_declaring_ids(root)
+    handed_off = 0
+
     for r in results:
         state = r.get("state")
+        if r.get("id") in deferred:
+            handed_off += 1
+            continue
         if state == "fail":
             rows.append(_row("probes", r.get("id", "(no id)"),
                              (r.get("checks") or "")[:200],
@@ -395,8 +547,26 @@ def src_probes(
                              f"probe could not run ({r.get('reason')})",
                              "we did not look — this row is currently unwatched" + stamp))
 
-    return SourceResult("probes", "read", rows,
-                        note=f"freshness={fresh} age={age_str} cadence={basis}")
+    note = f"freshness={fresh} age={age_str} cadence={basis}"
+    if handed_off:
+        note += (f" | {handed_off} probe result(s) deferred to the `soaks` source, "
+                 f"which grades a soak's accruing/not_writing distinction this "
+                 f"function cannot make")
+    return SourceResult("probes", "read", rows, note=note)
+
+
+def _soak_declaring_ids(root: Path) -> set[str]:
+    """Ids of register rows carrying a `soak` block.
+
+    Returns an EMPTY SET on any read failure, deliberately: the fail-safe
+    direction here is to keep reporting a probe `fail` as a due row. Losing a
+    signal because a register read hiccuped is worse than an extra row.
+    """
+    try:
+        items = _load_json(root / _OPEN_ITEMS)["items"]
+    except Exception:  # noqa: BLE001
+        return set()
+    return {it.get("id") for it in items if isinstance(it.get("soak"), dict)}
 
 
 def src_research_queue(
@@ -701,7 +871,7 @@ def src_sunset_dispositions(root: Path, today: date) -> SourceResult:
 
 
 SOURCES: tuple[Callable, ...] = (
-    src_open_items, src_operator_owed, src_research_queue, src_probes,
+    src_open_items, src_soaks, src_operator_owed, src_research_queue, src_probes,
     src_red_crons, src_unlanded_automation, src_error_feed,
     src_sunset_dispositions,
 )
@@ -810,7 +980,6 @@ def _self_test() -> int:
         {"id": "OI-D", "kind": "background_awareness", "loud": True, "summary": "loud but not monitoring"},
         {"id": "OI-E", "kind": "background_awareness", "summary": "quiet"},
     ]}
-    import tempfile
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
         (root / "docs/claude").mkdir(parents=True)
@@ -832,8 +1001,9 @@ def _self_test() -> int:
     # Until 2026-08-31 `src_probes` read the committed file and never read its
     # timestamp, so an overrun or failed probes run rendered yesterday's
     # verdicts as today's with no caveat. These controls plant that.
-    import tempfile
-
+    # (`tempfile` is imported at module scope — a second, local `import
+    # tempfile` here made the name function-local and so UnboundLocalError'd
+    # every earlier use in this same function.)
     _T0 = datetime(2026, 8, 31, 12, 0, tzinfo=timezone.utc)
 
     def _probe_root(generated_at, cron='"20 5 * * *"'):
@@ -887,7 +1057,101 @@ def _self_test() -> int:
         "an underivable cadence leaves freshness UNGRADED, not confirmed fresh"
     assert set(PROBE_FRESHNESS) == {"fresh", "stale", "undateable", "cadence_unknown"}
 
-    print("due-list: self-test OK — 26 planted controls all fire")
+    # ── src_soaks: the four states, end to end through THIS renderer ──────
+    # These assert the RENDERED OUTPUT, not the grader — `soak_alarm.py` has its
+    # own 28 controls for the verdict logic. What is checked here is the half
+    # that logic cannot: which verdicts become ROWS, which become LOUD ones, and
+    # which are deliberately kept out of the list entirely.
+    def _soak_root(probe_results):
+        td = tempfile.mkdtemp()
+        root = Path(td)
+        (root / "docs/claude").mkdir(parents=True)
+        rows = [
+            {"id": "S-READY", "opened": "2026-08-20", "kind": "monitoring",
+             "summary": "ready", "clears_when": "x",
+             "soak": {"log": "a", "declared_at": "2026-08-20",
+                      "ready_when": "verdicts_differ=true", "min_matching": 1}},
+            {"id": "S-DEAD", "opened": "2026-08-20", "kind": "monitoring",
+             "summary": "dead", "clears_when": "x",
+             "soak": {"log": "b", "declared_at": "2026-08-20",
+                      "ready_when": "rows>0", "min_matching": 1}},
+            {"id": "S-ACCRUING", "opened": "2026-08-20", "kind": "monitoring",
+             "summary": "accruing", "clears_when": "x",
+             "soak": {"log": "c", "declared_at": "2026-08-20",
+                      "ready_when": "verdicts_differ=true", "min_matching": 1}},
+            {"id": "S-BLIND", "opened": "2026-08-20", "kind": "monitoring",
+             "summary": "blind", "clears_when": "x",
+             "soak": {"log": "d", "declared_at": "2026-08-20",
+                      "ready_when": "verdicts_differ=true", "min_matching": 1}},
+        ]
+        (root / _OPEN_ITEMS).write_text(json.dumps({"items": rows}), encoding="utf-8")
+        if probe_results is not None:
+            (root / _PROBES).write_text(json.dumps(
+                {"generated_at": "2026-09-02T09:00:00+00:00", "results": probe_results}),
+                encoding="utf-8")
+        return root
+
+    _live = [
+        {"id": "S-READY", "state": "pass", "matched": 2, "scanned": 631},
+        {"id": "S-DEAD", "state": "source_empty", "matched": 0, "scanned": 0},
+        {"id": "S-ACCRUING", "state": "fail", "matched": 0, "scanned": 4192},
+        {"id": "S-BLIND", "state": "could_not_run", "reason": "exit_2",
+         "matched": None, "scanned": None},
+    ]
+    sk = src_soaks(_soak_root(_live), date(2026, 9, 2))
+    by_id = {r["id"]: r for r in sk.rows}
+
+    assert sk.state == "read"
+    assert "S-READY" in by_id and by_id["S-READY"]["loud"], \
+        "a READY soak is a LOUD due row — something is waiting on a person"
+    assert "S-DEAD" in by_id and by_id["S-DEAD"]["loud"], \
+        "a NOT_WRITING soak is a LOUD due row — the soak is dead and the wait is futile"
+    assert "S-BLIND" in by_id and not by_id["S-BLIND"]["loud"], \
+        "an UNKNOWN soak surfaces (the row is unwatched) but is NOT loud"
+    assert "S-ACCRUING" not in by_id, \
+        ("⚠️ an ACCRUING soak produces NO ROW. This is the control that stops the "
+         "desensitised-alarm P1: accruing is the expected state of a healthy soak "
+         "for its entire life, and a daily 'not ready' page would train the "
+         "operator to walk past the two states that matter")
+    assert "S-ACCRUING" in sk.note and "accruing" in sk.note, \
+        "but it IS reported as context in the source note, never silently dropped"
+    assert by_id["S-DEAD"]["why_due"] != by_id["S-BLIND"]["why_due"], \
+        ("not_writing and unknown render DIFFERENTLY — 'the log is empty' and 'the "
+         "log is unreadable' are opposite findings and a reader must be able to "
+         "tell which one they are looking at")
+
+    # a soak with NO probe report at all is UNGRADED, never 'nothing is due'
+    nop = src_soaks(_soak_root(None), date(2026, 9, 2))
+    assert len(nop.rows) == 4 and not any(r["loud"] for r in nop.rows), \
+        ("with no probe run, every soak grades unknown and surfaces quietly — a "
+         "missing report must never render as four healthy soaks")
+
+    # a malformed declaration is surfaced, not skipped
+    bad_root = _soak_root(_live)
+    _items = _load_json(bad_root / _OPEN_ITEMS)
+    _items["items"][0]["soak"]["ready_when"] = ""
+    (bad_root / _OPEN_ITEMS).write_text(json.dumps(_items), encoding="utf-8")
+    bad = src_soaks(bad_root, date(2026, 9, 2))
+    assert any("UNGRADEABLE" in r["why_due"] for r in bad.rows), \
+        ("a soak block that cannot be read is SURFACED — silently dropping it "
+         "would make a typo look like a row that declares no soak at all")
+
+    # the hand-off from src_probes removes a page rather than adding one
+    pr = src_probes(_soak_root(_live), date(2026, 9, 2),
+                    now=datetime(2026, 9, 2, 12, tzinfo=timezone.utc))
+    assert not any(r["id"].startswith("S-") for r in pr.rows), \
+        ("src_probes DEFERS every soak-declaring row to src_soaks. Before this, "
+         "its `fail` branch emitted a LOUD row for an accruing soak every single "
+         "day — the desensitised alarm living inside the machinery meant to "
+         "prevent it")
+    assert "deferred to the `soaks` source" in pr.note, \
+        "and the hand-off is STATED in the note, so it can never be silent"
+    assert len(_soak_declaring_ids(_soak_root(_live))) == 4
+    assert _soak_declaring_ids(Path("/nonexistent-xyz")) == set(), \
+        ("an unreadable register defers NOTHING — the fail-safe direction is to "
+         "keep reporting a probe fail as a due row, never to lose a signal")
+
+    print("due-list: self-test OK — 40 planted controls all fire")
     return 0
 
 

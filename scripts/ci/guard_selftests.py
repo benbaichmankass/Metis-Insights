@@ -578,6 +578,24 @@ def selftest_workflow_catalog() -> None:
           "non-workflow file is not mistaken for a phantom")
 
 
+def selftest_automerge_trigger() -> None:
+    """Alias for `check_automerge_trigger.py --self-test` (see COVERED_BY_CHECKER).
+
+    That checker owns its own planted-defect suite — six of them, one per check —
+    because the plants have to mutate a WORKFLOW file and are far more legible
+    next to the checks they exercise. This entry exists so the name resolves in
+    `SELFTESTS`, and `check_selftest_wiring.py` verifies the covering path rather
+    than trusting this docstring.
+    """
+    rc = _rc([sys.executable, "scripts/ci/check_automerge_trigger.py", "--self-test"])
+    if rc != 0:
+        raise SystemExit(
+            "::error::self-test FAILED — check_automerge_trigger's planted-defect "
+            f"suite exited {rc}. The automerge-trigger guard's failure path is "
+            "broken, so a green from it means nothing.")
+    print("self-test OK — all six planted trigger defects fail the guard")
+
+
 def selftest_manifest_scope_constants() -> None:
     """Plant each of the three defects `manifest-scope-constants` claims to catch.
 
@@ -703,6 +721,7 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     "harness-lever-coupling": selftest_harness_lever_coupling,
     "timestamp-comparison": selftest_timestamp_comparison,
     "manifest-scope-constants": selftest_manifest_scope_constants,
+    "automerge-trigger": selftest_automerge_trigger,
 }
 
 # The SECOND covering path. A name here is one whose controls reach CI via the
@@ -719,6 +738,7 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
 COVERED_BY_CHECKER: Dict[str, str] = {
     "matrix-corpus-agreement": "scripts/ci/check_matrix_corpus_agreement.py",
     "workflow-catalog": "scripts/ci/check_workflow_catalog.py",
+    "automerge-trigger": "scripts/ci/check_automerge_trigger.py",
 }
 
 
