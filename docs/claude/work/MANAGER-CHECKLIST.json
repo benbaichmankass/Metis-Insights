@@ -542,7 +542,7 @@
     {
       "id": "MI-44-MANAGER-SPAWNS-ITS-OWN-SUCCESSOR-AT-ITS-DISCRETION",
       "title": "A manager spawns its own handoff manager, which pings the operator that it has taken over, with a link to itself",
-      "state": "in_flight",
+      "state": "queued",
       "added": "2026-09-02T06:22:20Z",
       "operator_ask": "Operator, 2026-09-02: 'the possibility of the manager spawning its own handoff manager session at its own discretion - this requires that we be certain about continuity robustness, and the new session needs to send a ping that it has taken over with a link to itself.'",
       "verified_today": [
@@ -579,7 +579,8 @@
         "4. Only after 1-3 are OBSERVED does the outgoing manager stand down. If any fails, it RE-CLAIMS and reports the failed handoff rather than leaving the system unmanaged."
       ],
       "criterion_2_PROVEN": "VERIFIED 2026-09-02T06:24Z, ahead of the test rather than during it. Ran the REAL renderer (scripts/notify_on_pull.py::_render_event_body, on main) over two candidate takeover payloads:\n  • title+summary+chat_url -> 3 lines, link PRESENT:\n      'manager_takeover — Manager handover complete\\n<summary>\\nhttps://claude.ai/code/session_XXXX'\n  • the same information under `message` -> 1 line, link ABSENT: 'manager_takeover'\nCONCLUSION: the takeover ping WORKS TODAY on unfixed main and is NOT blocked on #10747 -- PROVIDED it is built with the recognised keys. Built with `message` it announces nothing, which would look like a successful silent handoff. This is a HARD REQUIREMENT for the successor's spawn prompt.\n⚠️ METHOD NOTE, because the first attempt nearly produced a false finding: I initially guarded the call on a function name that does not exist, so BOTH arms returned None and read as 'the ping path is broken'. That is the `curl || echo '{}'` shape this repo files against its own diagnostics -- a probe that cannot find a positive reporting a confident negative. Caught only because both arms failing identically is implausible. A negative needs a positive control.",
-      "priority": "P1_HANDOFF"
+      "priority": "P1_HANDOFF",
+      "⚠️_state_corrected": "Read `in_flight` with owner: null, which is a FALSE state -- nothing was working it. Corrected to `queued` on 2026-09-02. ⚠️ AND ITS SCOPE IS NOW PARTLY SUPERSEDED: the operator decided the same day that BOTH hops are MANUAL -- the manager sets off the night session itself (create_session, proven), and the operator sets off the morning one because they want to be there at the beginning. What survives of this item is NOT the spawn machinery but the BRIEF the successor is handed. See MI-74."
     },
     {
       "id": "MI-48-STREAMLIT-AND-ANDROID-ARE-ON-ICE-AND-MUST-STOP-CONSUMING",
@@ -930,9 +931,9 @@
     {
       "id": "MI-66-ENACT-THE-OPERATING-LAYER-INVENTORY-QUEUED-FOR-THE-NEXT-FREE-SLOT",
       "title": "Enact the skills/workflow inventory: wire the role packs to the operating layer, and repair the 4 named workflows",
-      "state": "queued",
+      "state": "landed_unproven",
       "added": "2026-09-02",
-      "owner": null,
+      "owner": "session_019vcX5ZTD8C7wNAEtfPUdFQ",
       "tier": "1 for the skills + workflow repairs; a RETIRE is Tier-3 and is proposed, never enacted",
       "spawn_when": "THE NEXT FREE SESSION SLOT. Operator-directed 2026-09-02: \"queue that up for the next free slot\". The caps are 4 sessions AND 4 artifacts, independently (MI-64), and both were at or over cap when this was queued. The expected first opening is MI-58 (#10789) completing.",
       "observed": "docs/audits/operating-layer-skills-workflows-inventory-2026-09-02.md (730 lines) DELIVERED the mapping MI-41 asked for -- the skill/session-type map, the 129-workflow census, and verdicts. Its own closing section says: 'It enacted nothing. No skill, workflow, register or Routine was created, edited or deleted. The only file added is this one.' So MI-41's diagnosis is DONE and its enactment has not started, and MI-41 carries owner: None.",
@@ -943,8 +944,10 @@
       "refs": [
         "MI-41",
         "docs/audits/operating-layer-skills-workflows-inventory-2026-09-02.md",
-        "#10764"
-      ]
+        "#10764",
+        "#10811"
+      ],
+      "landed_unproven_because": "#10811 MERGED 2026-09-02 (f6740744): the constraint-readout cron, three workflow REPAIRs, and two new guards (role-pack operating-layer coverage, workflow-trigger reachability). NOT `done`: no guard has been OBSERVED firing on a real violation, and the owner's own closing note is `pre-gate still red (OOM ruled out)` -- the replay-pregate job it repaired the failure-STAGE detection for is still failing for a cause nobody has named."
     },
     {
       "id": "MI-67-HANDOFF-BAR-IS-VERIFIED-NOT-MERGED",
@@ -968,9 +971,9 @@
     {
       "id": "MI-68-THE-MANAGER-ROLE-HAS-NO-ROLE-PACK-AND-NO-EXECUTABLE-PREFLIGHT",
       "title": "The most privileged role in the system has no skill, so every manager re-derives the job from prose and repeats the same mistakes",
-      "state": "queued",
+      "state": "landed_unproven",
       "added": "2026-09-02",
-      "owner": null,
+      "owner": "session_013ANr63vsQ9TjU4sh51vxny",
       "tier": "1 (a skill + checks; no order path)",
       "spawn_when": "After MI-66, or in the same session if scope allows. Both are enactment of the operating-layer inventory.",
       "observed": "Operator, 2026-09-02: 'how do we ensure that you future manager session don't make the same mistake?' MEASURED in answering it: 32 skills exist and NOT ONE is a manager role pack. The role that merges, deploys, spawns sessions, holds the lease and answers to the operator is the only significant role with no pack. Everything a manager knows arrives as prose -- CLAUDE.md, a sweep-trigger prompt, and whatever the previous manager wrote in a checklist note.",
@@ -985,15 +988,17 @@
         "MI-28",
         "BL-20260902-BOARD-POST-RELAY-SILENTLY-KILLS-CI-ON-THE-PR-OF-ANY-SESSION-THAT-FOLLOWS-THE-PROTOCOL",
         "BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE",
-        "BL-20260902-OPEN-ITEMS-IS-THE-ONE-REGISTER-NO-APPEND-HELPER-PROTECTS"
-      ]
+        "BL-20260902-OPEN-ITEMS-IS-THE-ONE-REGISTER-NO-APPEND-HELPER-PROTECTS",
+        "#10808"
+      ],
+      "landed_unproven_because": "#10808 MERGED 2026-09-02 (67cfb8be). ⚠️ TWO OF THE THREE MECHANISMS WORK AND THE THIRD CANNOT. The manager VERIFIED spawn_gate.py on both controls itself -- out-of-priority exits 3, in-priority exits 0. But queue_latency.py grades `unknown` PERMANENTLY: its verdict needs a live list_sessions read and CI holds no mcp__* tools. Honest, and not yet a guard. MI-73 owns closing that."
     },
     {
       "id": "MI-69-A-REBASE-CAN-ARM-AUTOMERGE-WITHOUT-ANYONE-ASKING",
       "title": "A rebase or merge of main arms auto-merge on a claude/** branch, because the push diff includes everything main changed",
-      "state": "queued",
+      "state": "in_flight",
       "added": "2026-09-02",
-      "owner": null,
+      "owner": "session_01XrwTGRY819PCzBnppCTLbi",
       "tier": "1 (CI/workflow)",
       "observed": "Found and filed by MI-58. claude-pr-automerge.yml still carries the LEGACY shared marker `.github/pr-automerge-request` in its paths: filter and that file is still in the tree, so any claude/** branch that merges or rebases main touches the path and is UN-DRAFTED AND ARMED having asked for nothing. [!] THIS EXPLAINS AN OBSERVATION THE MANAGER MADE AND COULD NOT ACCOUNT FOR: on #10795 the manager noted that github-actions[bot] un-drafted the PR and enabled auto-merge 'without a marker file in my diff' and flagged it as odd. This is the cause. The manager had the symptom; MI-58 had the mechanism.",
       "what_actually_prevents_it": "Remove the legacy shared path from the workflow's paths: filter so ONLY the per-request .github/pr-automerge-requests/<slug>.txt opt-in arms it. That per-request path is already the documented convention and its README records why the shared marker was wrong.",
@@ -1002,7 +1007,8 @@
         "#10789",
         "#10795",
         "#10810"
-      ]
+      ],
+      "note": "#10810 reviewed by the manager and ARMED 2026-09-02, not yet merged. Its central finding is that removing the legacy shared marker FIXES NOTHING ON ITS OWN -- measured across the three misfires, that path appears in ZERO of them; what matched is the GLOB, because any branch merging main drags other branches' request files into its push diff. The real fix is a REQUEST GATE proving THIS branch asked, plus never un-drafting a PR the workflow did not create."
     },
     {
       "id": "MI-71",
@@ -1054,7 +1060,42 @@
       "what_ACTUALLY_needs_a_mechanism": "⚠️ DECIDED 2026-09-02 — THE MORNING WAKE IS MANUAL, AND THIS IS AN ANSWER, NOT A GAP. Operator, verbatim: 'There's [no] new need for a timer or a trigger for the morning manager. I will do that manually. I will get the daily brief. I will read it, and then I will use it as the beginning of a prompt, which I'll also add my notes to, to set off the manager session for that day. So that doesn't need to be set off automatically. I wanna be there at the beginning.' So: NO cron routine, NO create_new_session_on_fire, NO lease-gated auto-spawn. Do not build one, and do not re-open this as an oversight -- the operator being present at the start of the day is a DELIBERATE choice, and automating it would remove the point.",
       "⚠️_the_self_bound_sweep_limit_is_still_real": "Unchanged by the correction above: the manager sweep re-armed 2026-09-02T15:20Z is SELF-BOUND and dies with its session. That is a genuine gap for a manager that DIES mid-day -- it is simply not the gap the night handoff has, because the night handoff is deliberate and the manager is alive to perform it.",
       "⚠️_what_the_manual_wake_does_NOT_remove": "THE BRIEF ITSELF IS STILL A DELIVERABLE AND IS STILL UNBUILT. The operator says 'I will GET the daily brief' -- they are the trigger, not the author. Something must PRODUCE a brief that carries what happened overnight, and that is precisely the half their stated reason depends on: 'so that I know where I'm starting off from.' Separating these two matters, because the wake being settled makes it easy to read the whole morning end as settled. The wake is decided; the brief is open. Most likely the NIGHT session's closing output is the brief, which would make it a night-session deliverable rather than a new mechanism -- but that is a proposal, not a decision, and nobody has built it."
+    },
+    {
+      "id": "MI-70",
+      "title": "Phase E: prove no work is lost by actually killing a session mid-work",
+      "state": "landed_unproven",
+      "priority": "P1_HANDOFF_CAPABILITY",
+      "owner": "session_01NkekPZw73VYuynYhSdWLWm",
+      "tier": "1 (tooling/CI)",
+      "landed_unproven_because": "#10812 and #10820 both MERGED 2026-09-02. ⚠️ THE REAPER HAS STILL NEVER BEEN OBSERVED RUNNING TO COMPLETION, and #10820 is why that matters: the version merged in #10812 pushed straight to PROTECTED main (GH006), so every scheduled run would have reaped correctly and RECORDED NOTHING -- a frozen ledger reading exactly like a quiet week. The owner found that itself, after merge, and fixed it via .github/actions/commit-to-main with verify-merged: true.",
+      "the_ruling_it_carries": "⚠️ PHASE E DOES NOT CLOSE ON THIS. The kill was RUN and demonstrated a PARTIAL loss -- 'killing a session loses everything it had not pushed, and nothing it had' -- which CONTRADICTS the object's done-condition ('loses nothing'). Manager ruled 2026-09-02: do NOT amend the condition to match the result (that fits the bar to the outcome) and do NOT leave 'loses nothing' standing (unachievable -- the loss is in a dead container no reaper can reach). BOUND it instead, and keep Phase E open until a successor object exists for PUSH CADENCE, which is the only lever that moves the number.",
+      "⚠️_do_not_merge": "`claude/mi70-kill-subject` must NEVER be merged. It is the EVIDENCE for the kill demonstration and holds a throwaway notes file.",
+      "refs": [
+        "#10812",
+        "#10820",
+        "WO-20260901-PHASE-E",
+        "OI-20260902-REAPER-SHIPPED-AND-THE-KILL-PROVED-A-PARTIAL-LOSS-NOT-A-CLEAN-ONE"
+      ]
+    },
+    {
+      "id": "MI-75",
+      "title": "The HANDOFF BRIEF — what a successor manager and the operator are handed, generated not written",
+      "state": "in_flight",
+      "priority": "P1_HANDOFF_CAPABILITY",
+      "owner": "session_017CSW7fZsqsbgGSDN6Atijj",
+      "tier": "1 (docs/tooling)",
+      "why_this_is_the_last_P1_gap": "The operator set the daily cadence and then decided BOTH hops are MANUAL -- the manager spawns the night session (create_session, proven), and the operator starts the morning one because 'I wanna be there at the beginning.' That CLOSED the wake question and left exactly one thing open: they say they will GET the daily brief. They are the TRIGGER, not the author, and NOTHING PRODUCES ONE.",
+      "acceptance_is_the_operators_own_words": "'by the [brief] in the morning, I want that to include what was done overnight and what was wrapped up after I went to bed, SO THAT I KNOW WHERE I'M STARTING OFF FROM.' A brief that renders but does not answer that fails, however well-formed it is.",
+      "two_consumers_and_it_is_an_open_question_whether_that_is_one_artifact": "(1) THE OPERATOR IN THE MORNING -- readable prose they paste as the opening of the next manager's prompt, carrying what happened overnight. (2) A SUCCESSOR MANAGER MID-DAY -- live state: checklist, in-flight sessions, open PRs with their operator decisions AND conditions, loud open-items, the lease, what is blocked and on what. The owner was told to ARGUE the choice rather than assume it.",
+      "⚠️_the_real_constraint_it_must_not_fake_around": "What MERGED is readable from git and the registers are readable, but WHAT A NIGHT SESSION CONCLUDED lives in get_session's post_turn_summary -- and mcp__* tools are unavailable to CI and to routine-fired turns. So the brief is probably a CLOSE-OUT DELIVERABLE the night manager runs before it ends, not a cron. The owner must decide that honestly and say which.",
+      "what_must_not_regress": "GENERATED never hand-written (a hand-written brief dies with its session, which is the failure Phase E exists for); it must DECLARE what it could not read rather than silently omitting a register; and it must not flatten `landed_unproven` into `done` -- saying an item is finished when its effect was never observed actively misinforms the person starting the day.",
+      "refs": [
+        "WO-20260901-PHASE-E",
+        "MI-44",
+        "MI-74"
+      ]
     }
   ],
-  "as_of": "2026-09-02T15:55:00Z"
+  "as_of": "2026-09-02T15:26:00Z"
 }
