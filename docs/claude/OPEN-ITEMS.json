@@ -651,6 +651,28 @@
    ]
   },
   {
+   "id": "OI-20260901-SUNSET-PASS-SHIPPED-AND-NOTHING-HAS-BEEN-RETIRED",
+   "opened": "2026-09-01",
+   "kind": "monitoring",
+   "loud": true,
+   "check_every_days": 7,
+   "verified_at": "2026-09-01",
+   "last_checked": "2026-09-01",
+   "summary": "E3 shipped (Phase G): scripts/ops/sunset_pass.py grades retirement candidates weekly, docs/claude/SUNSET-DISPOSITIONS.json records answers, and check_sunset_dispositions.py escalates an unanswered one. Its first run named 10 candidates over 52 legs. ⚠️ NOTHING HAS BEEN RETIRED. The phase's own done-condition — 'something has actually been REMOVED' — is NOT met and was deliberately not claimed: every candidate is either Tier-3 (the operator's call) or a Tier-1 tool where the correct disposition is `wire`/`keep` rather than delete. Shipped and working are different states, and this is the row that keeps them apart.",
+   "detail": "The mechanism is unproven in THREE separate ways and they must not be collapsed. (1) THE CADENCE: the weekly cron has never fired — probes.yml and due-list.yml both landed with valid crons and have zero schedule runs (OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON, open), so a sunset artifact appearing is a real observation, not an expectation. (2) THE ESCALATION: check_sunset_dispositions.py's carry rule needs CARRY_ESCALATION_PASSES=3 accrued passes before it can fire at all, so it is green today by construction and its teeth are asserted only by its self-test. (3) THE DECISION: 10 Tier-3 proposals sit with operator_decision=pending and nobody but their author has read them. ⚠️ The single strongest candidate is `turtle_soup` — enabled: true in config/strategies.yaml, in the strategies list of ZERO accounts, 0 lifetime closed trades. It cannot reach the order path at all. That is either a routing bug or a dead leg, and this row does not presume which.",
+   "clears_when": "A retirement is DONE — the thing is GONE and check_sunset_dispositions.py verified its absence on a `retired` row it did not write itself. ⚠️ A MERGE DOES NOT CLEAR THIS: shipping the pass is a deploy, not an observation, the same distinction that keeps OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION open. ⚠️ NOR DOES A PASSING SELF-TEST, and this is the specific trap here: both unreachable branches (E2's `enforcing`, E3's carry escalation) are asserted green by their own self-tests today, so a green suite proves the CODE works and says nothing about whether the MECHANISM ever fired. ⚠️ NOR DOES ANOTHER SUNSET PASS RUNNING: more candidates is more detection, and detection was never the missing half — check_unwired_artifacts has reported 115 findings and exited 0 for weeks. The observation wanted is a REMOVAL. ⚠️ AND A DISPOSITION OF `keep` ON EVERYTHING DOES NOT CLEAR IT EITHER: that is a legitimate answer per row and an illegitimate answer for the population, and it would mean the forcing function was answered into inertness — which is a more useful finding than a pass, and belongs in `observation` rather than being treated as a clear.",
+   "why_it_cannot_be_closed_by_time": "Complexity is monotonic by construction until something removes: 6 strategy retirements ever, none in five weeks against 45 live legs, and nothing has ever retired a skill, register, workflow or guard. A retirement mechanism that is never exercised is indistinguishable from the four registers that already report and pass — which is the exact state Phase G was built to end, reproduced one level up inside the fix.",
+   "observation": "2026-09-01 (Phase G, the session that shipped it — so this is the AUTHOR's observation and is worth exactly that much). WHAT I ACTUALLY SAW, running `scripts/ops/sunset_pass.py --lifetime-json <perf capture>` against the live repo: population 52 strategy legs from comms/strategy_reviews/2026-09-01/ (1 packet date — the ONLY one in existence), lifetime_state `read` (45 strategies in the capture), routing_state `read`, machinery probe `measured` with its two-sided control PASSED over 464 targets and 115 findings consumed. Verdicts: 10 retire_candidate, 39 watch, 3 not_assessed. The 3 not_assessed are exactly the breakout_1 prop legs, which is the branch working — a naive pass would have proposed them, since prop fills are isolated in prop_fills and they read 0 lifetime closes while trading normally. Machinery: 3 unwired on the first run, 2 after the cadence workflow landed (the third was sunset_pass.py itself, which is the guard working on its own author). ⚠️ WHAT I DID **NOT** SEE, and it is the whole point of this row: no cron firing (the workflow has never run on schedule), no carry escalation (it needs 3 passes and 1 exists), no operator decision, and NOTHING REMOVED. 3 dispositions are written and all 3 are mine.",
+   "refs": [
+    "docs/design/operating-layer-build-plan-DESIGN.md",
+    "docs/claude/work/objects/WO-20260901-PHASE-G.yaml",
+    "docs/claude/SUNSET-DISPOSITIONS.json",
+    "comms/sunset/2026-09-01/INDEX.json",
+    "BL-20260901-M7-GATE-WINDOW-IS-SHORTER-THAN-ITS-OWN-EVIDENCE-FLOOR"
+   ],
+   "probe_absent_reason": "The only probe that would settle this is a human-or-operator DECISION to remove something; no automated check can produce one, and a check that graded 'candidates exist' as progress would be counting detection again."
+  },
+  {
      "id": "OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN",
      "opened": "2026-09-01",
      "kind": "monitoring",

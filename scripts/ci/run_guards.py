@@ -130,6 +130,42 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # E3 — Phase G. The forcing function that makes the system REMOVE.
+        # UNGATED: the escalation is about candidates ACCRUING over time, which
+        # no diff can be relevant to — a candidate carried past its threshold
+        # becomes a failure on a PR that touched nothing near it, and that is
+        # the point. Costs ~0.05s: two small JSON reads.
+        "name": "sunset-disposition-guard",
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation — this guard's escalation
+            # branch is unreachable in production until three passes have
+            # accrued, so without it the teeth would be untested for a fortnight.
+            ["python3", "scripts/ci/check_sunset_dispositions.py", "--self-test"],
+            ["python3", "scripts/ci/check_sunset_dispositions.py"],
+        ],
+    },
+    {
+        # E2 — Phase G. Capability build is PULLED by a held-up stage.
+        # ⚠️ ADVISORY IN PRODUCTION TODAY, BY MEASUREMENT, NOT BY SOFTENING: the
+        # constraint readout REFUSES (1.0% assessed coverage against a 50%
+        # floor), so no stage can be named and no pull claim can be verified.
+        # The `enforcing` branch is real and is exercised by the self-test on
+        # every run, so the teeth are known to work on the day true `blocked_on`
+        # edges make them reachable. The way to switch it on is to write those
+        # edges — not to edit the guard.
+        "name": "capability-pull-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_capability_pull.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_capability_pull.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
+        ],
+    },
+    {
         "name": "workflow-catalog",
         # UNGATED (`when: None`), for the same reason api-tier-policy's
         # completeness backstop is: a diff-scoped check cannot see a row being

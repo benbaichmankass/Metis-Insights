@@ -1,0 +1,134 @@
+name: sunset-pass
+
+# E3 — the SUNSET PASS, on a cadence. Phase G of the operating-layer build.
+#
+# WHY A CRON AND NOT A SESSION. E3's trigger is *Cadenced* in the operating
+# model, and the reason is the measurement it exists to fix: 6 strategy
+# retirements ever, none in five weeks against 45 live legs, and nothing has
+# ever retired a skill, register, workflow or guard. A pass that only runs when
+# a session remembers to run it is how that record was set.
+#
+# WHY THIS RUNS ON A HOSTED RUNNER AND NOT THE VM — and it is a real difference
+# from `strategy-review-packets.yml`, not an oversight. That workflow generates
+# ON THE VM because it opens the live trade journal (`sqlite mode=ro`) and
+# copying a money DB to a hosted runner would be a far worse trade than one SSH.
+# This pass opens NO database. It reads committed artifacts plus ONE public
+# Tier-1 HTTP route over the Caddy hostname the SPA already uses. No SSH, no
+# journal, no credential.
+#
+# ⚠️ THE LIFETIME CAPTURE IS THREE-STATE AND THE FAILURE DIRECTION MATTERS.
+# `/api/bot/performance?window=all` is what separates "this leg has never closed
+# a trade in its life" from "the gate has not had 20 closes to look at yet".
+# If the curl fails we pass NOTHING rather than an empty file: `lifetime_state`
+# then reads `not_read` and the pass proposes NOTHING on lifetime evidence.
+# An empty JSON would read as `unreadable`; a `{"perStrategy": []}` would read
+# as `read` and manufacture ~50 retirement candidates out of a network blip.
+# That is the whole reason the fetch and the run are separate steps.
+
+on:
+  schedule:
+    # 05:10 UTC Mondays — WEEKLY, not daily, and the cadence is the argument.
+    # A retirement candidate is a claim about accumulated silence; re-asking
+    # daily would not make the answer arrive sooner and would put 52 rows of
+    # churn a day into a committed record. It runs after
+    # `strategy-review-packets` (04:40 daily) so the newest M7 index is already
+    # committed and the pass reads a same-day denominator.
+    - cron: "10 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "why this is being run off-cadence"
+        required: false
+
+# ⚠️ DO NOT ASSUME THE CRON FIRES. `probes.yml` and `due-list.yml` both landed
+# 2026-08-31 with valid crons and have ZERO schedule runs since
+# (`OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON`, open).
+# Scheduling demonstrably works elsewhere here — `health-snapshot` has 438
+# schedule runs — so this is unexplained rather than impossible. The
+# `workflow_dispatch` path exists so the mechanism can be PROVEN now instead of
+# inferred from a cron nobody has watched fire.
+
+concurrency:
+  group: sunset-pass
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sunset:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyyaml
+
+      - name: Capture lifetime closes (best-effort, and its failure is a STATE)
+        id: life
+        run: |
+          set -uo pipefail
+          if curl -fsS --max-time 45 \
+               "https://ict-bot.duckdns.org/api/bot/performance?window=all" \
+               -o /tmp/perf.json \
+             && python3 -c "import json,sys; d=json.load(open('/tmp/perf.json')); sys.exit(0 if isinstance(d.get('perStrategy'),list) else 1)"; then
+            echo "have=1" >> "$GITHUB_OUTPUT"
+            echo "lifetime capture OK"
+          else
+            # DELIBERATELY leave the file unused rather than writing a stub.
+            # See the header: a stub would read as `read` and manufacture
+            # candidates out of a network failure.
+            echo "have=0" >> "$GITHUB_OUTPUT"
+            echo "::warning::lifetime capture unavailable — the pass will run with"
+            echo "::warning::lifetime_state=not_read and propose NOTHING on lifetime evidence."
+          fi
+
+      - name: Run the sunset pass
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.life.outputs.have }}" = "1" ]; then
+            python3 scripts/ops/sunset_pass.py --lifetime-json /tmp/perf.json --write
+          else
+            python3 scripts/ops/sunset_pass.py --write
+          fi
+
+      - name: Commit the artifact
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add comms/sunset/
+          if git diff --cached --quiet; then
+            echo "no change to commit"
+            exit 0
+          fi
+          git commit -m "sunset-pass: E3 candidates for $(date -u +%F)"
+          for i in 1 2 3 4; do
+            git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            sleep $((2 ** i))
+          done
+          echo "::error::could not push the sunset artifact"; exit 1
+
+      - name: Report
+        run: |
+          python3 - <<'PY'
+          import json, glob, os
+          f = sorted(glob.glob("comms/sunset/*/INDEX.json"))[-1]
+          d = json.load(open(f))
+          p = d["population"]
+          n = d["retire_candidates"]
+          # STATE THE POPULATION. A candidate count with no denominator is the
+          # unstated-population error this repo has a top-level rule about.
+          line = (f"E3 sunset pass {d['utc_date']}: **{n} retirement candidate(s)** over "
+                  f"{p['strategy_legs_graded']} strategy legs "
+                  f"(lifetime read `{p['lifetime_state']}`, "
+                  f"{len(p['packet_dates_read'])} packet date(s)); machinery probe "
+                  f"`{p['machinery_probe']['probe_state']}`, "
+                  f"{p['machinery_probe']['scanned']} findings carried.")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as fh:
+              fh.write(line + "\n\nE3 **proposes**; retiring a live leg is Tier-3. "
+                       "Disposition candidates in `docs/claude/SUNSET-DISPOSITIONS.json` "
+                       "— `check_sunset_dispositions.py` escalates an unanswered one.\n")
+          print(line)
+          PY

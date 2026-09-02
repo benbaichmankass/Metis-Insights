@@ -3,33 +3,77 @@ type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: "Phase G — the forcing function — retirement, and the E2 pull rule"
 stage: CAPABILITY
-lifecycle: dormant
+lifecycle: in_flight
 owner: claude
 opened_at: 2026-09-01
 closed_at: null
+
+# E2 — this object IS the capability PR's declaration of the stage it unblocks.
+# `scripts/ci/check_capability_pull.py` reads this field.
+#
+# ⚠️ DECLARED AND UNVERIFIED, AND THE GUARD SAYS SO ON EVERY RUN. The constraint
+# readout REFUSES (`insufficient_basis`, 6 of 584 objects assessed = 1.0%
+# against a 50% floor), so nothing can check whether CAPABILITY is in fact the
+# held-up stage. What supports the claim is (a) the operator directive that set
+# this cycle, and (b) the only assessed evidence in the store, whose
+# `held_up_candidates` reads `{CAPABILITY: 6}` — 6 rows, which is a basis worth
+# stating and nowhere near a diagnosis. Recording it as a computed finding would
+# be the unprovenanced conclusion this repo keeps paying for.
+unblocks_stage: CAPABILITY
+
 review_trigger: >-
-  Re-read when the phase it depends on closes, or when the operator changes the cycle
-  priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
+  Re-read when assessed `blocked_on` coverage crosses the readout's floor and the
+  capability-pull guard can move from `advisory` to `enforcing`, or when three sunset
+  passes have accrued and the disposition guard's carry escalation becomes reachable.
 
 done_condition: >-
-  Something has actually been REMOVED, and a capability PR carries the stage
-  it unblocks.
+  Something has actually been REMOVED, and a capability PR carries the stage it
+  unblocks.
 
+# ⚠️ THE PRIOR EDGE (`object: WO-20260901-PHASE-D`) IS CLEARED, AND CLEARING IT IS
+# ITSELF THE FINDING. It was the exact false-hold shape the store's README names:
+# a hold on a `waiting` target, where `waiting` covers both *not delivered* and
+# *delivered, awaiting observation* — and a dependent needs the CAPABILITY, not the
+# OBSERVATION. Phase D's capability merged at 22:52Z (`7e472e6c`), so the hold was
+# false from that moment. The edge below is what actually remains, and it is
+# narrower than the one it replaces: E3 is NOT blocked at all and shipped in this
+# change; only E2's ENFORCEMENT waits.
 blocked_on:
-  - kind: object
-    ref: WO-20260901-PHASE-D
+  - kind: external_event
+    ref: >-
+      assessed `blocked_on` coverage crossing the readout's declared 50% floor, so E1
+      can NAME a held-up stage instead of refusing
     since: 2026-09-01
     note: >-
-      The pull rule requires E1 to be able to NAME the held-up stage a capability
-      claims to unblock; without it the rule is unenforceable.
+      Scoped to E2's ENFORCEMENT half only. The pull rule's mechanism, vocabulary and
+      declaration field all ship in this change, and `check_capability_pull.py`'s
+      `enforcing` branch is exercised by its self-test on every CI run — so the teeth
+      are known to work rather than assumed. What it cannot do is CHECK a pull claim,
+      because `constraint.named_stage` is null and will stay null until real edges are
+      written. ⚠️ THE REFUSAL IS NOT AN ALL-CLEAR: *we do not know where the chain is
+      stuck* is strictly weaker than *nothing is stuck*, and a guard that blessed
+      self-started capability on the strength of a refusal would invert the one rule
+      the operating model calls its highest-leverage. The way to switch enforcement on
+      is to write true edges, not to edit the guard.
+blocked_on_basis: ASSESSED
 
 note: >-
-  6 strategy retirements have ever occurred, none in five weeks against 45
-  live legs, and nothing has ever retired a skill, register, workflow or
-  guard. Complexity is monotonic by construction until something removes. ⚠️ A
-  retirement is done when the old thing is GONE, not when the replacement
-  ships.
+  ⚠️ THE BUILD PLAN NAMES THE WRONG CAUSE FOR THIS PHASE, AND THE MEASUREMENT REFUTES
+  IT. The plan says the M7 kill packet cannot fire because "Override 5 converts every
+  kill to `tune` pending artifacts that do not exist". Measured against the first
+  committed packet run — population: ALL 52 enabled strategies,
+  comms/strategy_reviews/2026-09-01/, window 2026-08-25 -> 2026-09-01 — Override 5
+  fired on 0 of 52 and is never reached. 52 of 52 graded `hold`, 0 actionable: 35 with
+  ZERO closed trades in the window, 17 below the floor, and the highest n_closed across
+  all 52 was 8 against a KILL/DEMOTE floor of 20. The gate is 2.5x short of its own
+  floor at its single best leg, because its 7-day window cannot produce the sample its
+  floor demands. Underneath that sits the collapsed state this phase exists for: a leg
+  that is YOUNG and a leg that has NEVER CLOSED A TRADE IN ITS LIFE are filed under one
+  verdict, every day, forever — 12 of the 52 are the latter.
 
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md
+  - comms/strategy_reviews/2026-09-01/INDEX.json
+  - comms/sunset/2026-09-01/INDEX.json
+  - docs/claude/SUNSET-DISPOSITIONS.json
 verdict: null

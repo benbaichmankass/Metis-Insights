@@ -1,0 +1,45 @@
+{
+  "_doc": "E3 SUNSET DISPOSITIONS — the register that turns a retirement CANDIDATE into a written answer. Phase G of the operating-layer build. Candidates are produced by `scripts/ops/sunset_pass.py` into `comms/sunset/<date>/INDEX.json`; this file is where each one gets DISPOSITIONED, and `scripts/ci/check_sunset_dispositions.py` is what makes ignoring one cost something. ⚠️ WHY IT IS SEPARATE FROM THE PASS: the pass regenerates on a cadence and is a MEASUREMENT; this file is a DECISION RECORD and must not be overwritten by a generator. ⚠️ AND WHY IT IS NOT ANOTHER BACKLOG: every register in this repo grows. `check_unwired_artifacts` reports 115 findings and exits 0 — a detector that reports and passes is a list. The three rules the guard enforces are what make this one different: a `retired` row must name a thing that is actually GONE, a `keep` expires, and an undispositioned candidate escalates by carry count.",
+  "_vocabulary": {
+    "retired": "The thing is GONE. ⚠️ VERIFIED, NOT TRUSTED — the guard fails if `target` still exists on disk. The build plan's own rule: 'a retirement is done when the old thing is GONE, not when the replacement ships.'",
+    "retire_proposed": "Proposed for retirement and awaiting a decision. Tier-3 rows (a live strategy leg) can only ever be this until the operator answers; `operator_decision` carries pending | approved | refused and is NEVER collapsed into the disposition itself.",
+    "keep": "Examined and deliberately kept. Requires a `reason` and a `review_by` — a keep is a decision with an expiry, not a permanent exemption, and the guard fails an expired one.",
+    "wire": "Not a corpse: a capability that should be WIRED to something that runs it rather than removed. The disposition `check_unwired_artifacts` already asks for, recorded here so the answer is durable."
+  },
+  "_carry_escalation": "A `retire_candidate` that appears in CARRY_ESCALATION_PASSES consecutive sunset passes with NO row here fails CI. It starts green by construction (there is one pass in existence as this ships) and gains teeth as passes accrue — the `check_operator_owed.py` shape, where carrying an item forward unmoved is itself the measurement.",
+  "dispositions": [
+    {
+      "id": "strategy:turtle_soup",
+      "target": null,
+      "disposition": "retire_proposed",
+      "tier": 3,
+      "operator_decision": "pending",
+      "decided_by": "claude (Phase G, 2026-09-01)",
+      "decided_at": "2026-09-01",
+      "reason": "MEASURED, and it is a config inconsistency as much as a retirement: `turtle_soup` is `enabled: true` in config/strategies.yaml and appears in the `strategies:` list of ZERO accounts in config/accounts.yaml, so it cannot reach the order path at all. Lifetime closed trades: 0 (population: /api/bot/performance?window=all, real+paper perStrategy, read 2026-09-01T22:56Z). The M7 gate grades it `hold — no closed trades in window — insufficient evidence` every day, which is indistinguishable from a healthy young leg. ⚠️ EITHER the routing is the bug and it should be routed, OR the leg is dead and should come out — this row does not presume which, and that is the operator's call because it edits config/strategies.yaml (Tier-3).",
+      "review_by": "2026-09-15"
+    },
+    {
+      "id": "tool:scripts/ml/fetch_fred_macro.py",
+      "target": "scripts/ml/fetch_fred_macro.py",
+      "disposition": "wire",
+      "tier": 1,
+      "operator_decision": "not_required",
+      "decided_by": "claude (Phase G, 2026-09-01)",
+      "decided_at": "2026-09-01",
+      "reason": "NOT a corpse — examined rather than counted. It is the keyless FRED macro side-stream (M19 corpus C0) whose whole motivation is that Yahoo's ^TNX/^IRX rate tickers break and FRED does not; it is invoked by module path (`python -m scripts.ml.fetch_fred_macro`) on the trainer, which is why a file-path reference scan reads it as unwired. Deleting a working capability because the probe cannot see how it is called would be the opposite of E3. It needs a runner or a `# wiring:` declaration, not removal.",
+      "review_by": "2026-10-01"
+    },
+    {
+      "id": "tool:scripts/validate_registry_vm.py",
+      "target": "scripts/validate_registry_vm.py",
+      "disposition": "keep",
+      "tier": 1,
+      "operator_decision": "not_required",
+      "decided_by": "claude (Phase G, 2026-09-01)",
+      "decided_at": "2026-09-01",
+      "reason": "EXAMINED AND KEPT, and the reason is that the evidence does not support a removal rather than that removing it is hard. It is the S-007 pre-flight that validates config/strategies.yaml (model paths, signal prefixes, service prefixes) before the live trader starts. Measured: no workflow, systemd unit, deploy script or caller references it; its only live-surface reference is its own test (tests/test_s007_validate_script.py, 226 lines). ⚠️ THAT MAKES IT UNWIRED, WHICH IS NOT THE SAME AS VALUELESS — the checks it performs are about the live order path, and no session should delete a strategy-config pre-flight at Tier-1 on a reference count alone. Re-decide with the operator, or wire it into the deploy path.",
+      "review_by": "2026-09-30"
+    }
+  ]
+}
