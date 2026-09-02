@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T09:12:00Z",
+  "updated_at": "2026-09-02T09:20:00Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -436,7 +436,7 @@
     {
       "id": "MI-40-STALE-PING-ROWS-WILL-REFIRE-WITH-BODIES-ONCE-THE-RENDERER-IS-FIXED",
       "title": "21 stale queue rows will re-fire WITH bodies once #10747 lands and the VM is re-provisioned",
-      "state": "queued",
+      "state": "ready",
       "detail": "docs/claude/pending-pings.jsonl holds 21 rows that render today as bare event labels. #10747 makes the renderer emit real bodies. The dedupe ledger that suppresses re-sends (runtime_logs/pending_pings_delivered) is VM-LOCAL and gitignored, so a re-provision would replay all 21 -- this time with content -- as one burst on the channel we just made trustworthy.",
       "operator_decision": "2026-09-02: MARK THEM DELIVERED, KEEP THE ROWS. The operator chose the record-preserving option over pruning, on the grounds that these 21 rows ARE the evidence base for the 42%-bare-label finding and pruning them would destroy the proof of the bug just as it is fixed. The stamp must say WHICH state it is asserting: they were delivered EMPTY, and stamping a bare 'delivered' would be a false claim.",
       "blocked_on": {
@@ -444,7 +444,11 @@
         "ref": "PR #10747",
         "since": "2026-09-02T05:24:18Z"
       },
-      "note": "Dispatch AFTER #10747 merges -- it touches scripts/notify_on_pull.py and would conflict."
+      "note": "Dispatch AFTER #10747 merges -- it touches scripts/notify_on_pull.py and would conflict.",
+      "owner": null,
+      "⚠️_I_MARKED_THIS_OWNED_BEFORE_IT_WAS": "CORRECTED 2026-09-02T09:20Z. I set state=in_flight and owner='subagent:stale-ping-delivered-stamp' in the same edit that unblocked it, and then DID NOT SPAWN. For ~5 minutes the checklist asserted an owner that did not exist. ⚠️ That is the same class as MI-15 (the registry claiming sessions it did not have) and it is worse in this direction: a row reading in_flight WITH AN OWNER is one a successor skips, so a false owner does not just lose information, it actively diverts attention away from real work. State is `ready` — unblocked, decided, nobody on it.",
+      "why_not_spawned_yet": "Two sub-sessions cannot share one git working tree: they would fight over checkouts and `git add -A` from either can sweep the other's uncommitted files into the wrong branch — a hazard that already nearly bit this session, whose `git status` surfaced the AVAX agent's in-progress test file on an unrelated workflow branch. Agent worktree isolation was ATTEMPTED and REFUSED here: 'Cannot create agent worktree: not in a git repository' — the session's cwd is /home/user while the repo is /home/user/Metis-Insights. So this waits for the AVAX sub-session to finish, or goes to a cloud session with its own container (create_session), which must be REGISTERED IN SESSIONS.json in the same action.",
+      "risk_is_real_but_not_imminent": "Firing requires the VM-local gitignored ledger to be LOST (re-provision / re-clone / fresh data dir). It is not on a timer. So deferring is defensible; leaving a false owner on it was not."
     },
     {
       "id": "MI-41-IMPLEMENT-THE-OPERATING-MODEL-PLAN-WAS-NEVER-SCHEDULED-AND-SLIPPED",
