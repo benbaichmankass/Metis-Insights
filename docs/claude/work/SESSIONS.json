@@ -487,6 +487,23 @@
         "state": "spawned_not_yet_observed",
         "note": "SPAWNED, NOT OBSERVED. TIER-2 ORDER PATH — told DRAFT ONLY, no auto-merge; the operator owns the approval and it is on the morning report. Given the trap explicitly: fix the COVERAGE COMPARISON and NOT the trip threshold, because the side-blind sum is the UNION of two conditions and narrowing it would make the other-book case go SILENT — strictly worse than the mislabelling #10739 just fixed. Told to import reduces_graded_book_qty rather than re-derive a second notion of which book a leg reduces. Four controls demanded including the mirror (a genuinely-covered position is still skipped) and an argued answer for which way `unknown` should fail on a SAFETY mechanism. Also told to re-run guards on the FINAL committed head, citing #10739's PASS-50-FAIL-0 that predated its last commits. ⚠️ The n=1 CONSTRUCTED status of the evidence was stressed — no live instance of the masking has been observed, and that must not get upgraded to a sighting in the PR body."
       }
+    },
+    {
+      "session_id": "session_01EihsgewHt7BZv43YcC7caV",
+      "owns_object": null,
+      "title": "MI-30 — R-metrics contaminated and feeding promotion gates",
+      "spawned_at": "2026-09-02T04:31Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/r-metric-contamination"
+      ],
+      "prs": [],
+      "why": "Unblocked once the performance drain reported. It contaminates every totalR/expectancyR consumer INCLUDING R-BASED PROMOTION GATES — a gate can read a number two orders of magnitude above its true value. Worst observed expectancyR +206.920 driven by a SINGLE trade at R = +3,672.32, and on real money ict_scalp_5m reads +26.02R against -$6.59 while the fleet aggregate's signs agree only because trend_donchian_eth_4h outweighs it.",
+      "last_observed": {
+        "at": "2026-09-02T04:31Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Framed as ANALYSE + a Tier-1 DETECTOR + a Tier-3 PROPOSAL NOT ENACTED, since the fix changes what a promotion gate reads. Told to EXTEND the existing measurement rather than re-derive it (82 of 477 closed rows carry a stop on the WRONG SIDE OF ENTRY — impossible for an initial stop, so the mechanism is proven rather than inferred). Two traps named: do NOT silently exclude contaminated rows from the aggregate, which converts a visible-wrong number into an invisible-wrong one over an unstated population; and do NOT collapse 'stop provably wrong-side' with 'stop plausible but unverifiable as initial' — the latter is most rows and is emphatically NOT clean. Also handed the filter_state trap (the DB explorer silently ignores an unknown filter column and returns the WHOLE table; the column is strategy_name, not strategy) because a drain hit exactly that tonight, and the fleet pnlCoverage 0.126 context so it cannot present an R conclusion as firmer than the PnL underneath it."
+      }
     }
   ]
 }
