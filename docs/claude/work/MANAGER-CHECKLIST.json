@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T05:45:26Z",
+  "updated_at": "2026-09-02T06:13:08Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -213,11 +213,16 @@
     {
       "id": "MI-15-SESSIONS-REGISTRY-INCOMPLETE",
       "title": "The sub-session registry was missing 3 of the 6 sessions this manager spawned",
-      "state": "landed_unproven",
+      "state": "blocked",
       "owner": "manager",
       "pr": null,
-      "blocked_on": null,
-      "note": "FOUND WHILE REFRESHING THE CHECKLIST, and it is the exact failure SESSIONS.json exists to prevent: the Claude-channel, Phase-H-preconditions and prop-fills sessions existed ONLY in this manager's context. Had this session died, three live sub-sessions — two of them holding operator-approved PRs — would have been silently orphaned. All four (those three plus the new CI-green session) are registered in this PR. ⚠️ landed_unproven, NOT done: the registry is only proven when a manager arriving COLD actually resumes from it, and no such takeover has happened. Registering is a deploy, not an observation."
+      "blocked_on": {
+        "kind": "object",
+        "ref": "MI-41-IMPLEMENT-THE-OPERATING-MODEL-PLAN-WAS-NEVER-SCHEDULED-AND-SLIPPED",
+        "since": "2026-09-02T06:13:08Z"
+      },
+      "note": "FOUND WHILE REFRESHING THE CHECKLIST, and it is the exact failure SESSIONS.json exists to prevent: the Claude-channel, Phase-H-preconditions and prop-fills sessions existed ONLY in this manager's context. Had this session died, three live sub-sessions — two of them holding operator-approved PRs — would have been silently orphaned. All four (those three plus the new CI-green session) are registered in this PR. ⚠️ landed_unproven, NOT done: the registry is only proven when a manager arriving COLD actually resumes from it, and no such takeover has happened. Registering is a deploy, not an observation.",
+      "recurrence": "RECURRED 2026-09-02, WORSE THAN THE ORIGINAL, and this row was sitting at landed_unproven while it happened. Measured during a handoff-readiness check: 6 of the 9 sub-sessions this manager spawned were ABSENT from SESSIONS.json, 5 of them LIVE -- including all three MI-41 sessions carrying the cycle's highest-priority work. The original was 3 of 6. Registry brought current by hand the same minute, and the six carry registered_late:true so their spawned_at is not misread as a spawn time. ⚠️ THE FIX THAT WAS APPLIED LAST TIME WAS 'REMEMBER TO REGISTER', AND IT HAS NOW FAILED TWICE. A manager spawning a session is exactly when it is least likely to stop and write a record. This must become MECHANICAL -- registration as a side effect of spawning, or a check that refuses/flags an unregistered live session -- and it is a first-class MI-41-A candidate: an action the manager INVOKES that both spawns and registers, so the two cannot diverge. ⚠️ WHY IT MATTERS MORE THAN IT LOOKS: SESSIONS.json is the ONLY thing that lets a cold manager pick up running sub-sessions. The lease does not carry it, a dead session cannot report it, and the operator asked about switching managers WHILE the registry was 67% incomplete -- the handoff would have silently dropped five live sessions."
     },
     {
       "id": "MI-16-SEND-PING-CLASSES-REACHABLE",
