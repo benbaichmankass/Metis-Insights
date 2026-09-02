@@ -465,3 +465,35 @@ grep -rl 'actions/commit-to-main' .github/workflows/ | wc -l            # 18 cal
 The per-call-site `verify-merged` audit and the caller-vs-watched comparison are short
 Python over the workflow YAML; both are restated inline in §3.3 and §4.1 so the numbers
 carry their method with them.
+
+---
+
+## 8. How this investigation was landed (and what that itself demonstrates)
+
+Recorded because it is a live instance of the same class this audit is about.
+
+`add_issue_comment` and `create_pull_request` both returned **403 Resource not
+accessible by integration** from this session, while `issue_read` and
+`pull_request_read` on the *same objects* succeeded in the same minutes. That is
+a **write-scope boundary, not the transient hosted-MCP drop** documented in
+`CLAUDE.md` — retrying with backoff would not have cleared it. Both relays were
+used instead:
+
+| step | relay | result |
+|---|---|---|
+| board `▶️ START` on #6927 | `board-post.yml` | [comment 5508834901](https://github.com/benbaichmankass/Metis-Insights/issues/6927#issuecomment-5508834901) |
+| draft PR | `pr-opener.yml` | **#10796** |
+
+⚠️ **The relay-writes-to-`automation/` irony is apparent, not real, and the
+distinction is worth keeping straight**: `board-post` and `pr-opener` write the
+*paths* `automation/board-posts/` and `automation/pr-requests/` on a `claude/**`
+branch. The population under investigation is the *branch namespace*
+`refs/heads/automation/*`. Nothing in this investigation added to the population
+it measured.
+
+⚠️ **Both relays commit a result file back**, and when that lands last it becomes
+the PR head, which shows **zero check runs** — indistinguishable from "CI has not
+started" and from "all green". `pr-opener.yml`'s own header records this. One
+ordinary commit was pushed after the PR existed, to arm CI. A reader debugging a
+zero-check PR here should read `mergeable_state` first: `blocked` is this,
+`dirty` is a merge conflict.
