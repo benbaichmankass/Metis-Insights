@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T09:26:00Z",
+  "updated_at": "2026-09-02T09:28:31Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -684,9 +684,9 @@
     {
       "id": "MI-55-TWO-WAY-TELEGRAM-DECISIONS-ANSWERABLE-FROM-THE-CHAT",
       "title": "Operator ask: deliver decisions as Telegram popups and accept the answer from there",
-      "state": "queued",
+      "state": "in_flight",
       "added": "2026-09-02",
-      "owner": null,
+      "owner": "session_01LNHkQQuxku3khrjoDinw91",
       "tier": "2 (telegram bridge + service restart)",
       "operator_ask": "2026-09-02, verbatim: 'is it possible for the telegram channel to become 2A [two-way] channel like through the replay or something so that if there's decisions that are pop-ups they can be given to me as pop-ups in the telegram chat? I can answer them there and send them back from there instead of having to see the ping and then open the session ... if not, then maybe like a link or something so that I can easily get to where I need to answer the questions and not get lost in the middle'",
       "VERIFIED_FEASIBLE_every_piece_already_exists": [
@@ -702,7 +702,11 @@
       ],
       "⚠️_it_would_be_the_FIRST_real_exercise_of_the_round_trip": "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP is open: not one decision has gone submit -> in_transit -> committed end to end. That is an ARGUMENT FOR building this, not against — the channel has no user, and this gives it one. But it means the done-condition is the ROUND TRIP observed, never a green test: an answer submitted from Telegram must appear on /api/bot/work/decisions as in_transit and then read `committed` with the answer block visible in the work object on main.",
       "the_fallback_the_operator_offered": "'or maybe like a link so I can easily get to where I need to answer'. That half is FREE and is already done as of today: every decision ping now carries the session link. Ship that regardless of whether the two-way build is approved — it is the cheap 80%.",
-      "next": "Tier-2, needs its own operator OK and its own ict-telegram-bot.service restart. PROPOSE, do not build unasked."
+      "next": "Tier-2, needs its own operator OK and its own ict-telegram-bot.service restart. PROPOSE, do not build unasked.",
+      "operator_APPROVED_build_and_test": "2026-09-02, verbatim: 'once we have the mechanism ready for the two way channel, then let's test it also. Right? Just, like, somebody being asking me if I see the question, and then I'll answer, and then you'll tell me if you see the answer that I sent you.' That approves BUILDING and LIVE-TESTING it. The ict-telegram-bot.service restart is still a Tier-2 dispatch and is the MANAGER'S to run, not the sub-session's.",
+      "DONE_CONDITION_is_the_operators_own_test": "⚠️ NOT a test suite. The operator defined it: a real question reaches them in Telegram, they answer THERE, and the manager confirms it received the answer. Three parties, one loop. A green harness clears NONE of it — tests/test_work_decisions.py already exercises submit→commit→committed in a harness and the round-trip has still never happened on the fleet.",
+      "⚠️_this_would_CLEAR_a_row_that_has_never_cleared": "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP is open and has never once completed submit → in_transit → committed. This build would be its FIRST real exercise. Its clears_when is explicit that a merge is not a deploy, a green harness is not the fleet, and a workflow_dispatch of the committer clears only ONE stage — so say which stages were cleared rather than clearing it on the easiest.",
+      "manager_owns_the_live_test": "The sub-session is told NOT to message the operator. The manager runs the live test, because the operator's own formulation requires the manager to be the one confirming receipt."
     },
     {
       "id": "MI-56-THE-STOP-HOOK-CANNOT-TELL-MY-WORK-FROM-A-CONCURRENT-AGENTS",
