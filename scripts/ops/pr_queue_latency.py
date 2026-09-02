@@ -266,8 +266,10 @@ def grade_pr(pr: Dict[str, Any], pushed_at: Optional[datetime], now: datetime,
              threshold_hours: float) -> Dict[str, Any]:
     """PURE. One PR in, one graded row out."""
     ref = head_ref_of(pr)
+    # ⚠️ THE TITLE ONLY, NEVER THE BODY. A body mentioning "do not merge" in
+    # passing prose would silently hold a PR nobody meant to hold, and a marker
+    # that is easier to trip by accident than on purpose is worse than none.
     title = str(pr.get("title") or "")
-    body = str(pr.get("body") or "")
     row: Dict[str, Any] = {
         "pr": _pr_number(pr),
         "title": title[:120],

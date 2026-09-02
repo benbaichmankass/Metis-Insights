@@ -447,6 +447,41 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # THE MANAGER-SIDE GUARD. `pr-queue-watch.yml` times how long an open,
+        # unmerged PR has sat with no push -- the MCP-free half of the question
+        # `queue_latency.py` can only answer with `list_sessions`. This entry is
+        # what makes that watcher a GUARD rather than a script somebody could
+        # have run: the watcher is not invokable from a prompt, a skill or a
+        # checklist step, and its DEADNESS fails here, on every PR. Measured
+        # across this cycle -- every mechanism the manager had to CHOOSE to run
+        # went unused; every mechanism that STOOD IN THE WAY worked.
+        #
+        # ⚠️ IT GRADES THE WATCHER'S LIVENESS, NEVER THE BACKLOG'S SIZE. A
+        # contributor's PR must not go red because the manager has four others
+        # unmerged -- the same objection this file already records against
+        # fetching the live open-PR list in `open_pr_record.py --strict`
+        # ("reddening PRs for a row nobody could have written yet"). The backlog
+        # is PRINTED here and escalated by the watcher's own run.
+        #
+        # ⚠️ `never_ran` PASSES and that is correct rather than lenient: it is
+        # the accurate reading until the workflow first fires, and failing on it
+        # would red every PR on the day this merges -- which is how a guard gets
+        # disabled instead of fixed. It arms itself on the first real run.
+        #
+        # `when: None`: a watcher can die without any PR touching its files,
+        # which is precisely the case that must be caught.
+        "name": "pr-queue-watch-guard",
+        "when": None,
+        "steps": [
+            # Both directions, on both halves -- a planted defect fires and a
+            # clean input stays quiet. One direction proves a check runs, never
+            # that it discriminates.
+            ["python3", "scripts/ops/pr_queue_latency.py", "--self-test"],
+            ["python3", "scripts/ci/check_pr_queue_watch.py", "--self-test"],
+            ["python3", "scripts/ci/check_pr_queue_watch.py"],
+        ],
+    },
+    {
         # The hand-maintained cron watch list in claude-run-failure-alert.yml
         # has been asserted-complete and been false TWICE (2026-08-21 count
         # said 12 and "ALL 12 are now listed"; measured 2026-08-31 there were
