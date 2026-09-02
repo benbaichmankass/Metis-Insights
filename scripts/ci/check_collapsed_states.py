@@ -106,6 +106,37 @@ _REGISTRY_PATH = Path(__file__).resolve()
 
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "r_provenance.r_state",
+        # The producer is `classify_r`, which returns the state; the vocabulary
+        # is module constants (`R_CONTAMINATED = "contaminated"`), so no
+        # `producer_field` is declared — narrowing to a field name would fail
+        # for a spelling reason rather than a correctness one (the
+        # `research_queue.power_state` precedent, same file).
+        "producer": "src/runtime/r_provenance.py",
+        "consumer_token": (r"\bR_CONTAMINATED\b|\bR_CONFIRMED_INITIAL\b|"
+                           r"\bR_UNVERIFIED\b|\bR_NO_BASIS\b|\bR_STATES\b|"
+                           r"\brProvenance\b|\bclassify_r\b"),
+        "states": ["contaminated", "confirmed_initial", "unverified", "no_basis"],
+        "why": (
+            "The R DENOMINATOR's provenance — the sibling of `provenance.py`'s "
+            "grade on the R numerator. `trades.stop_loss` holds the CURRENT "
+            "trailed stop, not the initial one, so R can be computed from a "
+            "risk the trade never took. `unverified` is THE state this contract "
+            "exists to protect: it means WE COULD NOT LOOK (side-plausible, no "
+            "independent signal-time `risk_per_unit` to check it against) and "
+            "it is the LARGEST bucket by construction — 1051 of 1346 closed "
+            "non-backtest rows on the live journal, 2026-09-02. Collapsing it "
+            "into `confirmed_initial` would report an unchecked stop as a "
+            "verified one and hand a promotion gate a number two orders of "
+            "magnitude above its true value; collapsing it into `contaminated` "
+            "would report a plausible stop as a proven-bad one and destroy the "
+            "signal the count exists to carry. `no_basis` is deliberately "
+            "distinct from all three: there is no R to grade at all, and it is "
+            "emitted so the four buckets SUM to the population and the "
+            "partition is checkable with arithmetic rather than trusted."
+        ),
+    },
+    {
         "name": "research_queue.power_state",
         # The producer is the GATE itself: `grade_power` returns a PowerVerdict
         # whose `state` is one of these seven, and the vocabulary is defined as

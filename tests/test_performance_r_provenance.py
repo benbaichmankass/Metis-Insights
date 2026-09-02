@@ -103,11 +103,21 @@ def test_the_four_states_partition_the_population(tmp_path):
         ("a", "long",  100.0,  98.0, 110.0,  5.0, 2.0),    # confirmed
         ("a", "long",  100.0,  99.0, 110.0,  5.0, None),   # unverified
         ("a", "short", 100.0, 101.0,  90.0, -5.0, None),   # unverified (clean side)
+        ("a", "long",  100.0,  None, 110.0,  5.0, None),   # no_basis (no stop)
     ]
     agg = _agg(tmp_path, rows)
     rp = agg["rProvenance"]
+    # Each bucket is asserted NON-ZERO, so a bucket that stops being published
+    # (or is hard-coded to 0) breaks THIS test. That matters: the
+    # `collapsed-state-guard` registration's consumer evidence is satisfied by
+    # any repo file naming the constants — this suite included — so the guard
+    # does NOT by itself prove the ROUTE branches on all four. This does.
+    assert rp["contaminated"] == 1
+    assert rp["confirmedInitial"] == 1
+    assert rp["unverified"] == 2
+    assert rp["noBasis"] == 1
     total = rp["contaminated"] + rp["confirmedInitial"] + rp["unverified"] + rp["noBasis"]
-    assert total == agg["totalTrades"] == 4, "the partition must be checkable by arithmetic"
+    assert total == agg["totalTrades"] == 5, "the partition must be checkable by arithmetic"
 
 
 # ─────────────────── both-direction discrimination controls ────────────────
