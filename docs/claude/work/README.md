@@ -249,6 +249,43 @@ exist: an interactive session's `list_pull_requests`, or a workflow. Pass it
 with `--open-prs`; without it, completeness grades **`not_observed`**, which is
 `unknown` and therefore never `ready`.
 
+## Merging these files — the driver, and what it does NOT do
+
+`MANAGER-CHECKLIST.json`, `SESSIONS.json` and `OPEN-PRS.json` are monolithic and
+re-conflict on sibling PRs. ⚠️ **The mechanism is NOT the rows.** Measured on
+`main` @`1b82ab7` over adjacent register-touching commit pairs since 2026-08-26,
+the share where BOTH sides bump the same `updated_at`/`as_of` header line:
+**MANAGER-CHECKLIST 29/39 (74%)** · OPEN-PRS 8/12 (67%) · SESSIONS 14/23 (61%).
+PR #10815's entire conflict here was that one line. Row contention is the
+minority (31% / 50% / 9%).
+
+So the remedy is `.gitattributes` + `scripts/ops/merge_json_register.py`, a
+row-aware 3-way merge — **not** one-file-per-row. ⚠️ **Sharding would not have
+fixed the majority case**: `as_of` lives in the container and would keep
+conflicting. Install it once per clone:
+
+```bash
+scripts/ops/install_merge_driver.sh   # git refuses an executable path from a tracked file
+```
+
+⚠️ **IT IS CLIENT-SIDE. GITHUB DOES NOT RUN IT.** A `mergeable_state: dirty` PR
+is still dirty on GitHub; what this removes is resolving it by hand. A clone that
+never ran the installer merges these files the old way — it degrades, it does not
+break.
+
+⚠️ **IT REFUSES RATHER THAN PICKING A WINNER.** Divergent same-id ADD, divergent
+same-id EDIT and delete-vs-edit all exit 1 with markers left. This is not
+caution for its own sake: a union-by-id resolver once reported *"no id lost, none
+resurrected"* while silently dropping an edit, because both sides had ADDED the
+same id and the divergence check only covered rows present in the merge base. A
+row deleted on one side and untouched on the other **stays deleted** — deletion
+is intent.
+
+It never reformats: rows are spliced as original byte spans, so
+`backlog_append.py::append_row`'s exact-serialisation contract holds and
+`OPEN-ITEMS.json` — which is NOT byte-reproducible — is safe. Round-trip is
+byte-identical on all five registers; `--check-round-trip` is the proof.
+
 ## What is NOT here
 
 **Bugs to fix** still go to the three review backlogs (`docs/claude/*-review-backlog.json`),
