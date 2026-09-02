@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T01:20Z",
+  "updated_at": "2026-09-02T01:32Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -178,14 +178,15 @@
       "title": "Hold and heartbeat the manager lease",
       "state": "in_flight",
       "owner": "manager",
-      "note": "Heartbeated 01:12:20Z, on main at de61ead9, expires 02:42:20Z. ⚠️ PROTOCOL CHANGE, recorded here because it is not obvious from the diff: the heartbeat now ships in a LEASE-ONLY PR (#10712 was the first). Carrying it inside an ordinary work PR couples the manager's own liveness to the merge queue — and tonight that queue is exactly what stalls (see MI-20). MANAGER-LEASE.json is written by the manager and nobody else, so a lease-only PR has an EMPTY CONFLICT SURFACE with every sub-session branch and can land at any point in a train without disturbing it. It is also nearly free to verify: #10712 went 5/5 green in 76 seconds, because a one-file JSON change falls out of every relevance filter. An unpushed heartbeat protects nothing — another session reads origin, not a working tree."
+      "note": "Heartbeated 01:12:20Z, on main at de61ead9, expires 02:42:20Z. ⚠️ PROTOCOL CHANGE, recorded here because it is not obvious from the diff: the heartbeat now ships in a LEASE-ONLY PR (#10712 was the first). Carrying it inside an ordinary work PR couples the manager's own liveness to the merge queue — and tonight that queue is exactly what stalls (see MI-20). MANAGER-LEASE.json is written by the manager and nobody else, so a lease-only PR has an EMPTY CONFLICT SURFACE with every sub-session branch and can land at any point in a train without disturbing it. It is also nearly free to verify: #10712 went 5/5 green in 76 seconds, because a one-file JSON change falls out of every relevance filter. An unpushed heartbeat protects nothing — another session reads origin, not a working tree. Second lease-only PR #10713 extended the pattern from the lease alone to ALL THREE manager-written files (MANAGER-LEASE, MANAGER-CHECKLIST, SESSIONS). ⚠️ THE CLAIM WAS VERIFIED, NOT ASSUMED: all five open train branches were diffed against main and none touches any of the three. #10713 then merged while #10707 was open and #10707 stayed clean — the pattern held under a live test."
     },
     {
       "id": "MI-12-STALE-AUTOMATION-PR",
       "title": "#10398 econ-calendar PIT snapshots (auto) -- open since 2026-08-29",
-      "state": "triage",
+      "state": "queued",
       "owner": null,
-      "note": "An automation PR three days old. Nobody has disposed of it. Merge, close, or find why it stalled -- an auto-PR nobody lands is the shape of a mechanism that has quietly stopped working."
+      "note": "DISPOSITION SETTLED 2026-09-02T01:32Z — MERGE IT, DO NOT CLOSE IT, and the manager's first hypothesis was WRONG. It looked redundant because a sibling econ-calendar auto-PR (#10711) merged tonight, so 'superseded, close it' was the obvious read. Measured instead: #10398 changes 3 files, and exactly one of them is a POINT-IN-TIME capture — comms/macro/econ_calendar_captures/US-20260829T034952Z.fxstreet.json — which is ABSENT from main. The capture series on main runs 08-27, 08-28, [GAP], 08-30, 08-31, 09-01, 09-02 (36 captures total), and this PR is the only copy of the missing day. ⚠️ A PIT CAPTURE CANNOT BE REGENERATED: it records what the calendar SAID at that instant, which is the whole reason it exists (avoiding look-ahead bias in backtests). Closing this PR makes the 08-29 hole permanent. === RESOLUTION RULE, because the three files want THREE different treatments and 'take both sides' is wrong for one of them: (1) the capture file is NEW — take it, no conflict; (2) econ_calendar_snapshots.jsonl is APPEND-ONLY — union both sides, the standard register rule; (3) econ_calendar_upcoming.json is REGENERATED and forward-looking — take MAIN's, because an 'upcoming events' file from four days ago is strictly worse than today's, and preserving the stale side here would be the register rule misapplied. === Open since 2026-08-29, mergeable_state dirty, 62,524 additions / 143 deletions across those 3 files. Data-only; it does NOT touch config/economic_calendar.yaml (operator-gated) — the PR body says so and the file list confirms it.",
+      "pr": "#10398"
     },
     {
       "id": "MI-13-BACKLOG-DRAIN",
