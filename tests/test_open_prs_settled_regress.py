@@ -157,3 +157,78 @@ def test_settled_rows_are_never_graded_against_the_live_open_list():
     # ...and the guard against a future refactor quietly folding them together:
     assert {r["pr"] for r in opr.rows(doc)} == {1}
     assert {r["pr"] for r in opr.settled_rows(doc)} == {99}
+
+
+# --------------------------------------------------------------------------- #
+# The TYPED automation exclusion — the residual the reconciler's own landing
+# PR creates, closed on the record's own terms.
+#
+# ⚠️ This is NOT the exemption that stays rejected. "The PR currently merging"
+# is byte-indistinguishable from a PR nobody recorded. A bot-authored PR on an
+# `automation/` branch is distinguishable: it carries no owner session, no
+# intent and no operator decision — none of the three things the record exists
+# to hold — so its absence cannot hide a forgotten human decision.
+#
+# Modelled on the live instance: #10398, head
+# `automation/econ-calendar-33232352515-1`, open since 2026-08-29.
+# --------------------------------------------------------------------------- #
+BOT_AUTOMATION = {"number": 10398,
+                  "user": {"login": "github-actions[bot]"},
+                  "head": {"ref": "automation/econ-calendar-33232352515-1"}}
+HUMAN_AUTOMATION = {"number": 10398,
+                    "user": {"login": "the-lizardking"},
+                    "head": {"ref": "automation/econ-calendar-33232352515-1"}}
+BOT_CLAUDE = {"number": 10783,
+              "user": {"login": "github-actions[bot]"},
+              "head": {"ref": "claude/openprs-settled-reconciler"}}
+
+
+def test_bot_authored_automation_pr_is_excused():
+    assert opr.is_automation_landing_pr(BOT_AUTOMATION) is True
+
+
+def test_a_human_on_an_automation_branch_is_not_excused():
+    """The branch name is a CLAIM, not evidence. Requiring both conditions is
+    what stops a human parking real work on an `automation/` prefix."""
+    assert opr.is_automation_landing_pr(HUMAN_AUTOMATION) is False
+
+
+def test_a_claude_pr_on_a_claude_branch_still_needs_a_row():
+    """⚠️ THE ONE THAT MAKES `skip bots` WRONG.
+
+    `pr-opener.yml` opens a session's PR as `github-actions[bot]` — measured on
+    #10783, this very change. A bare author test would excuse exactly the PRs
+    whose operator decisions matter most.
+    """
+    assert opr.is_automation_landing_pr(BOT_CLAUDE) is False
+    doc = {"open_prs": [_row(1)]}
+    v = opr.grade_completeness(doc, True, [1, 10783], automation_excluded=[])
+    assert v["state"] == "unrecorded"
+    assert v["unrecorded"] == [10783]
+
+
+def test_the_exclusion_removes_a_false_failure_but_not_a_real_one():
+    doc = {"open_prs": [_row(1)]}
+    assert opr.grade_completeness(
+        doc, True, [1, 10398], automation_excluded=[10398])["state"] == "recorded"
+    # ...and the same observation without the predicate stays loud, so the
+    # exclusion is doing work rather than the record being trivially complete.
+    assert opr.grade_completeness(doc, True, [1, 10398])["state"] == "unrecorded"
+
+
+def test_an_excused_pr_that_has_a_row_is_not_turned_into_a_stale_row():
+    """#10398 carries a hand-written row today. Subtracting the excused set
+    from the OBSERVATION (rather than from the `unrecorded` direction only)
+    would make that row read as stale — swapping one false failure for another.
+    """
+    doc = {"open_prs": [_row(1), _row(10398)]}
+    v = opr.grade_completeness(doc, True, [1, 10398], automation_excluded=[10398])
+    assert v["state"] == "recorded"
+    assert v["stale_rows"] == []
+
+
+def test_a_bare_number_observation_excludes_nothing():
+    """The predicate needs author + head-ref fields. When it cannot be
+    evaluated the caller must exclude NOTHING — fail-closed, so the failure
+    direction of an unevaluable predicate is the loud one."""
+    assert opr.automation_landing_prs([10398, 10783]) is None

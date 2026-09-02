@@ -209,8 +209,10 @@ def check_manager_state_pushed(base: str = "origin/main") -> Dict[str, Any]:
 
 
 def check_open_prs_recorded(rec_doc, rec_readable, observed_open,
-                            head_sha: Optional[str] = None) -> Dict[str, Any]:
-    v = opr.grade_completeness(rec_doc, rec_readable, observed_open, head_sha)
+                            head_sha: Optional[str] = None,
+                            automation_excluded=None) -> Dict[str, Any]:
+    v = opr.grade_completeness(rec_doc, rec_readable, observed_open, head_sha,
+                               automation_excluded=automation_excluded)
     # `reconciler_not_run` FAILS like `stale_row` — both mean a successor reads
     # a row for a PR that is gone — but it is reported as its own verdict so the
     # remedy is not misdirected at a session that did nothing wrong.
@@ -280,7 +282,8 @@ def grade(checks: List[Dict[str, Any]]) -> str:
 def run(observation: Optional[Any] = None, manager_session_id: Optional[str] = None,
         base: str = "origin/main", enforced_states=sr.DEFAULT_ENFORCED_STATES,
         open_prs: Optional[Any] = None,
-        head_sha: Optional[str] = None) -> Dict[str, Any]:
+        head_sha: Optional[str] = None,
+        automation_excluded: Optional[Any] = None) -> Dict[str, Any]:
     reg, reg_ok = sr.read_json(sr.REGISTRY_PATH)
     ck, ck_ok = sr.read_json(sr.CHECKLIST_PATH)
     lease, lease_ok = manager_lease.read_lease()
@@ -291,7 +294,8 @@ def run(observation: Optional[Any] = None, manager_session_id: Optional[str] = N
         check_lease(lease, lease_ok, manager_session_id),
         check_manager_state_pushed(base),
         check_pending_spawns(reg, reg_ok),
-        check_open_prs_recorded(rec, rec_ok, open_prs, head_sha),
+        check_open_prs_recorded(rec, rec_ok, open_prs, head_sha,
+                                automation_excluded),
         check_pr_decisions(rec, rec_ok),
         check_settled_prs(rec, rec_ok),
     ]
@@ -427,6 +431,17 @@ def _self_test() -> int:
           check_open_prs_recorded(stale, True, [], head_sha="old")["verdict"],
           "stale_row")
 
+    auto = {"open_prs": [{"pr": 1, "operator_decision": {
+        "verdict": "approved", "text": "t"}}]}
+    check("an excused bot-authored `automation/` landing PR does not FAIL the "
+          "handoff (the typed exclusion, threaded through)",
+          check_open_prs_recorded(auto, True, [1, 10398],
+                                  automation_excluded=[10398])["state"], PASS)
+    check("...and a Claude-opened `claude/**` PR with no row still FAILS, so "
+          "the exclusion cannot be mistaken for `skip bots`",
+          check_open_prs_recorded(auto, True, [1, 10783],
+                                  automation_excluded=[])["state"], FAIL)
+
     print("handoff-check self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
@@ -462,9 +477,14 @@ def main(argv=None) -> int:
         return _self_test()
 
     states = tuple(a.enforce_states.split(",")) if a.enforce_states else sr.DEFAULT_ENFORCED_STATES
+    # Read the observation ONCE: the completeness comparison needs the PR
+    # numbers, and the typed automation exclusion needs the author and head-ref
+    # fields off the SAME payload. Parsing it twice would let the two disagree.
+    _obs_raw = opr._load(a.open_prs) if a.open_prs else None
     res = run(sr._load_observation(a.live_sessions), a.session_id, a.base, states,
-              open_prs=opr.normalise_open_prs(opr._load(a.open_prs)) if a.open_prs
-              else None,
+              open_prs=opr.normalise_open_prs(_obs_raw) if a.open_prs else None,
+              automation_excluded=opr.automation_landing_prs(_obs_raw)
+              if a.open_prs else None,
               head_sha=a.head_sha or (_git(["rev-parse", a.base]) or "").strip()
               or None)
     for c in res["checks"]:

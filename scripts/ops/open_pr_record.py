@@ -256,9 +256,101 @@ def normalise_open_prs(raw: Any) -> Optional[List[int]]:
     return sorted(set(out)) or None
 
 
+#: The ONE exclusion from the completeness comparison, and it is TYPED.
+#:
+#: ⚠️ IT IS NOT "THE PR CURRENTLY MERGING", WHICH STAYS REJECTED. That exemption
+#: is byte-indistinguishable from the real failure this check exists to catch (a
+#: PR nobody recorded), and a check that cannot tell those apart is worse than
+#: the transient row. This one is distinguishable ON THE RECORD'S OWN TERMS: a
+#: bot-authored PR on an `automation/`-prefixed branch carries no owner session,
+#: no intent and no operator decision — none of the three things OPEN-PRS.json
+#: exists to hold — so its absence cannot hide a forgotten human decision.
+#:
+#: ⚠️ BOTH CONDITIONS, NEVER EITHER ALONE. "Skip bots" is WRONG here and the
+#: counter-example is this repo's own workflow: `pr-opener.yml` opens a session's
+#: PR as `github-actions[bot]`, so every Claude-authored PR is bot-authored in
+#: the API sense (measured: PR #10783, user `github-actions[bot]`, head
+#: `claude/openprs-settled-reconciler`). A bare author test would excuse exactly
+#: the PRs whose operator decisions matter most. "Skip `automation/` branches"
+#: alone is equally wrong — a human can name a branch anything.
+#:
+#: ⚠️ WHAT THIS CANNOT CATCH, SAID PLAINLY:
+#:   * A session that pushes real work to an `automation/`-prefixed branch and
+#:     lands it through a relay is excluded, silently. Nothing here can tell that
+#:     from a genuine landing PR — the predicate reads the branch NAME, and a
+#:     name is a claim, not evidence. The mitigation is a convention (`claude/**`
+#:     for session work) that this module cannot enforce.
+#:   * It says nothing about whether an excluded PR is HEALTHY. An automation
+#:     landing PR that strands unmerged is excluded from this check and so goes
+#:     unnoticed here; origin carried five stranded `automation/*` branches on
+#:     2026-08-30, the oldest ten weeks. That is `verify-merged`'s job on the
+#:     producing workflow, not this one's — named so the gap is not mistaken for
+#:     coverage.
+#:   * It is only applied when the OBSERVATION carries author and head-ref
+#:     fields. A caller passing bare PR numbers gets NO exclusion, so an
+#:     automation PR then reads `unrecorded` — fail-closed, deliberately: the
+#:     failure direction of a predicate we could not evaluate must be the loud
+#:     one.
+AUTOMATION_HEAD_PREFIX = "automation/"
+
+
+def _is_bot_author(entry: Dict[str, Any]) -> bool:
+    user = entry.get("user")
+    if not isinstance(user, dict):
+        return False
+    login = str(user.get("login") or "")
+    return login.endswith("[bot]") or str(user.get("type") or "") == "Bot"
+
+
+def _head_ref(entry: Dict[str, Any]) -> str:
+    head = entry.get("head")
+    return str(head.get("ref") or "") if isinstance(head, dict) else ""
+
+
+def is_automation_landing_pr(entry: Any) -> bool:
+    """BOTH a bot author AND an `automation/` head branch. Never either alone."""
+    if not isinstance(entry, dict):
+        return False
+    return _is_bot_author(entry) and _head_ref(entry).startswith(
+        AUTOMATION_HEAD_PREFIX)
+
+
+def automation_landing_prs(raw: Any) -> Optional[List[int]]:
+    """PR numbers excused by the typed predicate above.
+
+    Returns ``None`` when the observation carries no gradeable entry — *we could
+    not evaluate the predicate*, which the caller must treat as "exclude
+    nothing" rather than "exclude everything".
+    """
+    for _ in range(4):
+        if not isinstance(raw, dict):
+            break
+        for key in ("open_prs", "pull_requests", "data", "results", "items",
+                    "ccr"):
+            inner = raw.get(key)
+            if isinstance(inner, (list, dict)):
+                raw = inner
+                break
+        else:
+            break
+        if isinstance(raw, list):
+            break
+    if not isinstance(raw, list):
+        return None
+    gradeable = [e for e in raw
+                 if isinstance(e, dict) and ("user" in e or "head" in e)]
+    if not gradeable:
+        return None
+    out = [e.get("number") for e in gradeable
+           if is_automation_landing_pr(e) and isinstance(e.get("number"), int)]
+    return sorted(set(out))
+
+
 def grade_completeness(doc: Optional[Any], readable: bool,
                        observed_open: Optional[List[int]],
-                       head_sha: Optional[str] = None) -> Dict[str, Any]:
+                       head_sha: Optional[str] = None,
+                       automation_excluded: Optional[List[int]] = None
+                       ) -> Dict[str, Any]:
     """Grade `open_prs[]` — and ONLY `open_prs[]` — against a live observation.
 
     ⚠️ `settled_prs[]` is deliberately absent from every set below. Those rows
@@ -282,10 +374,17 @@ def grade_completeness(doc: Optional[Any], readable: bool,
                   "turn — pass it with --open-prs. This is NOT `recorded`.")
     recorded = {r.get("pr") for r in rows(doc) if isinstance(r.get("pr"), int)}
     obs = set(observed_open)
-    unrecorded = sorted(obs - recorded)
+    excused = set(automation_excluded or ())
+    # ⚠️ SUBTRACTED FROM THE `unrecorded` DIRECTION ONLY, NEVER FROM `obs`.
+    # Dropping an excused PR out of the observation entirely would make an
+    # automation PR that DOES carry a row (e.g. #10398, hand-recorded) read as
+    # a STALE row — turning an exclusion meant to remove a false failure into a
+    # different false failure.
+    unrecorded = sorted(obs - recorded - excused)
     stale = sorted(recorded - obs)
     pop = {"observed_open": len(obs), "rows": len(recorded),
-           "unrecorded": len(unrecorded), "stale_rows": len(stale)}
+           "unrecorded": len(unrecorded), "stale_rows": len(stale),
+           "automation_excluded": sorted(excused & obs)}
     if unrecorded:
         return _v("unrecorded",
                   f"{len(unrecorded)} open PR(s) have no row: "
@@ -322,9 +421,14 @@ def grade_completeness(doc: Optional[Any], readable: bool,
                   f"with its operator decision intact — never deleted. {why}.",
                   unrecorded=[], stale_rows=stale, population=pop,
                   last_reconciled_sha=last, head_sha=head_sha)
+    excused_note = (
+        f" {len(excused & obs)} bot-authored `{AUTOMATION_HEAD_PREFIX}` landing "
+        f"PR(s) were excused by the typed predicate — they carry no owner, "
+        f"intent or operator decision, so their absence hides nothing."
+        if (excused & obs) else "")
     return _v("recorded",
-              f"all {len(obs)} open PR(s) have a row, and no row names a closed "
-              f"one ({len(recorded)} rows).",
+              f"all {len(obs - excused)} open PR(s) requiring a row have one, and "
+              f"no row names a closed one ({len(recorded)} rows).{excused_note}",
               unrecorded=[], stale_rows=[], population=pop)
 
 
@@ -600,6 +704,56 @@ def _self_test() -> int:
     check("an unreadable record is `unreadable`, not `settled_graded`",
           grade_settled(None, False)["state"], "unreadable")
 
+    # --- the TYPED automation exclusion ------------------------------------
+    # Modelled on the live instance: #10398, head
+    # `automation/econ-calendar-33232352515-1`, "chore(m1): economic-calendar
+    # PIT snapshots (auto)", open since 2026-08-29.
+    bot_auto = {"number": 10398, "user": {"login": "github-actions[bot]"},
+                "head": {"ref": "automation/econ-calendar-33232352515-1"}}
+    human_auto = {"number": 10398, "user": {"login": "the-lizardking"},
+                  "head": {"ref": "automation/econ-calendar-33232352515-1"}}
+    bot_claude = {"number": 10783, "user": {"login": "github-actions[bot]"},
+                  "head": {"ref": "claude/openprs-settled-reconciler"}}
+
+    check("a BOT-authored `automation/` PR is excused (both conditions)",
+          is_automation_landing_pr(bot_auto), True)
+    check("a HUMAN-authored PR on an `automation/` branch is NOT excused — the "
+          "branch name is a claim, not evidence",
+          is_automation_landing_pr(human_auto), False)
+    check("⚠️ A CLAUDE-OPENED PR ON `claude/**` IS STILL REQUIRED TO HAVE A ROW. "
+          "`pr-opener.yml` opens it as github-actions[bot], so a bare 'skip "
+          "bots' would excuse exactly the PRs whose decisions matter most",
+          is_automation_landing_pr(bot_claude), False)
+    check("a bot with no head ref is not excused", 
+          is_automation_landing_pr({"number": 1, "user": {"login": "x[bot]"}}),
+          False)
+    check("`type: Bot` is honoured as well as the [bot] suffix",
+          is_automation_landing_pr({"number": 1, "user": {"type": "Bot"},
+                                    "head": {"ref": "automation/x"}}), True)
+    check("the extractor finds the excused numbers",
+          automation_landing_prs([bot_auto, bot_claude]), [10398])
+    check("⚠️ an observation of BARE NUMBERS yields None — the predicate could "
+          "not be evaluated, and the caller must exclude NOTHING",
+          automation_landing_prs([10398, 10783]), None)
+
+    excl = {"open_prs": [row(1, verdict="approved", text="t")]}
+    check("an excused automation PR does NOT make the record `unrecorded`",
+          grade_completeness(excl, True, [1, 10398],
+                             automation_excluded=[10398])["state"], "recorded")
+    check("...but WITHOUT the exclusion it still FAILS, so this is not a "
+          "constant and a bare-number observation stays loud",
+          grade_completeness(excl, True, [1, 10398])["state"], "unrecorded")
+    check("a CLAUDE-opened PR with no row still FAILS even while an automation "
+          "PR is excused",
+          grade_completeness(excl, True, [1, 10398, 10783],
+                             automation_excluded=[10398])["state"], "unrecorded")
+    recorded_auto = {"open_prs": [row(1, verdict="approved", text="t"),
+                                  row(10398, verdict="none_recorded", text="t")]}
+    check("⚠️ an excused PR that DOES carry a row is not turned into a STALE "
+          "row — the exclusion applies to the `unrecorded` direction only",
+          grade_completeness(recorded_auto, True, [1, 10398],
+                             automation_excluded=[10398])["state"], "recorded")
+
     # --- the observation parser --------------------------------------------
     check("a duplicate pr number is a structural finding",
           grade_structural({"open_prs": [{"pr": 1}, {"pr": 1}]}, True)["state"],
@@ -659,7 +813,10 @@ def main(argv=None) -> int:
 
     doc, ok = read_record()
     st = grade_structural(doc, ok)
-    comp = grade_completeness(doc, ok, normalise_open_prs(_load(a.open_prs))
+    _raw = _load(a.open_prs) if a.open_prs else None
+    comp = grade_completeness(doc, ok, normalise_open_prs(_raw) if a.open_prs
+                              else None,
+                              automation_excluded=automation_landing_prs(_raw)
                               if a.open_prs else None)
     dec = grade_decisions(doc, ok)
     settled = grade_settled(doc, ok)

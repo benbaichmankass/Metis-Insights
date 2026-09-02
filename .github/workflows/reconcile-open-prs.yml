@@ -70,6 +70,27 @@ jobs:
     # This is the value tests/test_commit_to_main_callers.py pins.
     timeout-minutes: 40
     steps:
+      # ⚠️ A MISSING PAT IS `could_not_look` FOR THE LANDING STEP, AND IT MUST
+      #   FAIL LOUDLY HERE. Without this the run would proceed, reconcile
+      #   correctly, and then fail (or worse, silently no-op) at the landing
+      #   step — leaving a record that was moved in the runner's working tree
+      #   and never on `main`, which reads downstream exactly like "nothing had
+      #   merged". That is the same collapse the reconciler refuses internally,
+      #   so the workflow must not reintroduce it at the edge.
+      - name: Refuse without the PAT
+        env:
+          BRANCH_PROTECTION_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BRANCH_PROTECTION_TOKEN}" ]; then
+            echo "::error::reconcile-open-prs: BRANCH_PROTECTION_TOKEN is unset."
+            echo "::error::main is branch-protected and REJECTS a direct workflow"
+            echo "::error::push (GH006), so without the PAT there is no route to land"
+            echo "::error::a moved row. REFUSING: a reconciler that cannot commit is"
+            echo "::error::NOT a reconciler that found nothing to move."
+            exit 1
+          fi
+
       - name: Checkout main
         uses: actions/checkout@v4
         with:
