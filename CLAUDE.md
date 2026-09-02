@@ -94,12 +94,13 @@ don't route around it.
 
 This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CONSTRAINT.json` + `comms/sunset/` + `docs/claude/OPEN-ITEMS.json` + `docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** because `CLAUDE.md` is the only surface that reaches a session before it acts — project **hooks do not run on Claude Code on the web** (verified 2026-08-26: the SessionStart contract's output was absent from the session context), and CI guards fire at merge, which is after the wrong work is already built. It lists only what is DUE or UNPREVENTED, so it shrinks as work lands.
 
-**🎯 THIS CYCLE'S PRIORITY — CY-20260901-OPERATING-LAYER**
+**🎯 THIS CYCLE'S PRIORITY — CY-20260903-MANAGER-CONTROL**
 
-> Stand up the operating layer's STEERING half. The system built EXECUTION and INTEGRITY to a high standard and never built the steering: of 24 declared functions, 5 work, 14 are partial and 5 are missing outright, and all five missing ones are steering.
+> Keep implementing the operating-model plan — and SPECIFICALLY build the infrastructure that lets a MANAGER session actually manage the sessions it spawns. Operator-directed 2026-09-02T21:50Z, after a day in which the manager lost track of its own sub-sessions twice.
 
-- **What that means for you:** Prefer work that makes the system steer over work that makes it execute better. If you are about to start something that is neither the current phase nor pulled by a held-up stage, that is the thing to re-argue before starting it.
-- Set by **operator** on `2026-09-01` · basis **DECIDED** · intent `IN-20260901-OPERATING-LAYER`
+- **What that means for you:** If you are the manager: the highest-value thing you can build is the ability to SEE and REACH your own sub-sessions -- a close-time writer plus a reaper (a session that dies cannot close itself), or state DERIVED at read time from a live observation so it cannot go stale. ⚠️ CLOUD ROUTINES ARE AN ALLOWED TOOL FOR THIS AND ARE PROBABLY PART OF THE ANSWER -- see routine_scope_correction below before reasoning about them. The general operating-model build continues underneath this; manager-control is the named priority within it, not a replacement for it.
+- Set by **operator** on `unknown` · basis **DECIDED** · intent `IN-20260901-OPERATING-LAYER`
+- ⚠️ **No `review_by` date** — so nothing will ever mark this stale. A priority that cannot expire is one nobody has to re-argue.
 
 **📉 THE COMPUTED READOUT BEHIND THAT PRIORITY** (`docs/claude/READOUT.md`, from `scripts/ops/constraint_readout.py`, generated `2026-09-02` — **it is a dated snapshot, not a live read**; re-run the script rather than trusting its age)
 

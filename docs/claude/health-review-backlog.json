@@ -31583,6 +31583,19 @@
         "BL-20260829-TRAINER-DISK-92-PCT-THREATENS-THE-UNBACKFILLABLE-CAPTURE",
         "OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED"
       ]
+    },
+    {
+      "id": "BL-20260902-A-SCOPED-OPERATOR-STATEMENT-WAS-HARDENED-INTO-A-STANDING-RULE-THREE-TIMES-IN-ONE-DAY",
+      "date": "2026-09-02",
+      "severity": "high",
+      "tier": 1,
+      "area": "claude/instruction-hygiene",
+      "status": "open",
+      "title": "Over-generalising a scoped statement into a standing rule — three instances in one day, one of them an operator's words",
+      "detail": "THE CLASS: a statement true of a SPECIFIC CASE is written into a durable surface as a GENERAL RULE, and then propagates into spawn prompts, checklist rows, work objects and merged PR bodies where the narrowing context is gone. Measured three times on 2026-09-02, by the same session: (1) THE OPERATOR'S OWN WORDS. They refused a session-bound Claude Routine as a Band-Aid for the hourly digest, which needs durable infra (the VM systemd timer, #10859). That was written as 'NO CLAUDE ROUTINE, in any form' into a spawn prompt, MI-86, a work object and #10869's merged body. Operator corrected it at 21:50Z: \"that was for that specific thing, not a general rule. I don't want it written into the rules as a general rule.\" Routines are ALLOWED and are explicitly in scope for manager control over sub-sessions. THE COST IS REAL AND DIRECTIONAL: the prohibition was written into the night manager's prompt, so it was actively barred from the tool most likely to solve its own top item. (2) THE SUB-SESSION 403. A spawn prompt asserted a flat 403 on create_pull_request/add_issue_comment; MEASURED BOTH WAYS THE SAME DAY (MI-75 hit it, MI-77 did not and said so unprompted). An earlier version of the same prompt had asserted the opposite, flatly. Both reached spawn prompts. (3) 'NO SUPERVISE VERB'. True that a RUNNING sub-session cannot be messaged; generalised to 'no inbound channel, control is write-once at spawn' and stated to the operator as measured. An IDLE session CAN be woken via a session-bound Routine (verified: idle/disconnected before the fire, running/connected after, context intact). The real gap is the missing READ, not a missing channel. WHY IT MATTERS MORE THAN AN ORDINARY WRONG CLAIM: a general rule is CHEAPER TO OBEY than to re-derive, so it is obeyed without re-checking, and each of the three was written in the SAFE-SOUNDING direction — which is exactly why none of them looked like a risk when written.",
+      "evidence": "(1) grep for 'no Claude Routine' found it in MANAGER-CHECKLIST.json MI-86 and WO-20260902-NIGHT-SHIFT-2026-09-02-03-FINISH.yaml, plus #10869's merged body and the night manager's spawn prompt. Operator correction in-conversation 2026-09-02T21:50Z. (2) MI-75 and MI-77 session records, same day, opposite outcomes on create_pull_request. (3) #10860 body vs the correction in #10866.",
+      "resolution_criteria": "A DURABLE, MECHANICAL CHECK — not a reminder. Candidate shape: any spawn-prompt or register text that states a capability as universally absent ('cannot', 'never works', 'in any form', 'always 403s') must either cite a measurement with a stated population, or be phrased as try-then-fall-back. ⚠️ CORRECTING THE THREE INSTANCES DOES NOT CLOSE THIS — this row's own PR already did that, and the class recurs by construction because the safe-sounding direction always looks free. ⚠️ AND A RULE TELLING CLAUDE 'DON'T OVER-GENERALISE' DOES NOT CLOSE IT EITHER: the operator has ruled that out explicitly — 'no more instructions for Claude, I want actual guards and mechanisms in the repo/vm themselves'. A fourth instance with no detector is the signal that the reminder approach failed again.",
+      "filed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ"
     }
   ]
 }

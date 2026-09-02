@@ -28,3 +28,21 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+
+# ── CORRECTION, operator 2026-09-02T21:50Z ───────────────────────────────
+routine_scope_correction: >-
+  ⚠️ THE `why` FIELD ABOVE SAYS "no Claude Routine" AND THAT IS AN
+  OVER-GENERALISATION THE OPERATOR HAS CORRECTED. Verbatim: "when I said no
+  cloud routines that wasn't 'don't use that tool', it was don't use that as a
+  Band-Aid for something that needs to be an actual routine. You CAN spawn off
+  cloud routines, especially if that's gonna give you better control over the
+  session. That was for that specific thing, not a general rule. I don't want
+  it written into the rules as a general rule."
+  WHAT WAS REFUSED: a session-bound Routine standing in for durable
+  infrastructure — the hourly work digest, whose right answer is the VM systemd
+  timer in #10859, because a session-bound Routine dies with its session.
+  WHAT IS ALLOWED: Routines as a real mechanism, and EXPLICITLY for manager
+  control over sub-sessions.
+  ⚠️ The night session's OTHER constraints are unchanged and still hold: no new
+  spawns, no Tier-2/3, no trader, do not merge #10859, do not act on the
+  unauthorised merges. Only the Routine clause is lifted.
