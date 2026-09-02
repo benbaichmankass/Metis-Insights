@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T20:58:30Z",
+  "updated_at": "2026-09-02T21:20:00Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -1247,6 +1247,17 @@
       "prs": [],
       "priority": "P1 — read this BEFORE trusting the sub-session registry",
       "note": "MEASURED 2026-09-02T20:52Z: all 15 sub-sessions the day manager spawned read state='working' while list_sessions reported 14 IDLE / 1 RUNNING. The DATA was corrected by hand in the wrap PR; the WRITER was not built, so the rows go stale again the moment a session goes idle. ⚠️ DO NOT TRUST state IN THIS FILE. Grade a session against a live list_sessions read, and say which. ⚠️ AND DO NOT READ A GREEN session-registry-guard AS COVER: it checks COMPLETENESS (is the row there?) and passed throughout the entire window in which all 15 rows were wrong. Completeness and currency are different properties and only the first has a guard. Full row: BL-20260902-SESSIONS-REGISTRY-HAS-A-SPAWN-WRITER-AND-NO-CLOSE-WRITER-SO-EVERY-ROW-READS-WORKING. The load-bearing half of any fix is a REAPER, not a close verb: a session that dies cannot close itself."
+    },
+    {
+      "id": "MI-85",
+      "title": "#10398 has been RED and stalled for 113 hours — the queue watcher's first real catch",
+      "state": "ready",
+      "owner": "night-manager",
+      "prs": [
+        10398
+      ],
+      "priority": "P2 — data-only, but it is 4.7 days of an unattended red PR nobody noticed",
+      "note": "FOUND BY THE MECHANISM, NOT BY A PERSON. pr-queue-watch.yml's cron fired for the FIRST TIME EVER at 2026-09-02T21:16:26Z (run #3, event=schedule) and exited 1 — which is the ESCALATION path working, not a broken workflow. It graded all 6 open PRs and named #10398 at 113.4h. MEASURED: #10398 (chore(m1) econ-calendar PIT snapshots, data-only, auto-merge) has `guards` FAILURE and `pytest-run` FAILURE from 2026-08-29T03:50Z. It has sat red for 4.7 days with nothing driving it. ⚠️ ITS CI RESULT IS MEANINGLESS AS A VERDICT ON THE CHANGE — it ran against a main that is 4.7 days and several hundred commits old, so the red may be entirely inherited. Merge main in and let CI re-run BEFORE concluding anything about the diff. ⚠️ AND DO NOT AUTO-MERGE IT ON GREEN WITHOUT READING IT: it commits economic-calendar point-in-time snapshots captured 2026-08-29, so landing it now writes 4-day-old PIT data. The PR states config/economic_calendar.yaml (live path) is NOT touched — verify that against the diff rather than the description. NOT ACTED ON DELIBERATELY at 21:20Z: the operator's instruction was 'review on their merits, don't race work', and this is an unfamiliar automation PR surfacing during a wind-down. Another 8 hours after 113 costs nothing."
     }
   ],
   "as_of": "2026-09-02T17:20:00Z"
