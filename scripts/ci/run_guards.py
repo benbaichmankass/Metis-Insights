@@ -482,6 +482,39 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # THE ALARM ON THE TRAINER'S FORWARD-ONLY ORDER-FLOW CAPTURE.
+        # `trainer-capture-watch.yml` grades the mtime of the capture's own
+        # output file. This entry is what makes that watcher a GUARD rather than
+        # a cron somebody hopes is firing: a watcher that quietly stopped would
+        # leave the capture in exactly the unmonitored state
+        # OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED was
+        # filed for, while everything looked fine.
+        #
+        # ⚠️ IT GRADES THE WATCHER'S LIVENESS, NEVER THE CAPTURE'S HEALTH. A
+        # contributor's PR must not go red because the trainer's capture stalled
+        # -- same objection as the pr-queue-watch entry above. The capture's own
+        # verdict is escalated by the watcher's own run (which fails, and pages).
+        #
+        # ⚠️ `never_ran` PASSES and that is correct rather than lenient: it is
+        # the accurate reading until the workflow first fires, and failing on it
+        # would red every PR on the day this merges. It arms itself on the first
+        # real run.
+        #
+        # `when: None`: a watcher can die without any PR touching its files,
+        # which is precisely the case that must be caught.
+        "name": "trainer-capture-watch-guard",
+        "when": None,
+        "steps": [
+            # Both directions, on both halves -- a planted defect fires and a
+            # clean input stays quiet. One direction proves a check runs, never
+            # that it discriminates.
+            ["python3", "-m", "pytest",
+             "tests/test_orderflow_capture_freshness.py", "-q"],
+            ["python3", "scripts/ci/check_trainer_capture_watch.py", "--self-test"],
+            ["python3", "scripts/ci/check_trainer_capture_watch.py"],
+        ],
+    },
+    {
         # IS THE OPERATOR'S DIGEST STILL ARRIVING? On 2026-09-02 the operator
         # asked "no pings for 3 hours?" -- it was four -- and nothing in the
         # repo knew. F6 makes operator notification the CONDITION the autonomy
