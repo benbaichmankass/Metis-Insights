@@ -168,14 +168,39 @@ The cadence itself is untouched: the operator accepted hourly noise explicitly
 (*"I realize that's a lot of noise, but that's how I want it for now"*), and
 nothing here quietly reduces it.
 
-## 6. Also tripped over — not mine, not fixed
+## 6. A claim I made here and then REFUTED — recorded, not quietly deleted
 
-`run_guards.py` reports **`artifact-validity-guard: FAIL`** and
-**`operator-owed-guard: FAIL`** on a clean checkout of `main`, with no changes
-applied. Verified by control: the same two, and only those two, fail before and
-after this change; the only verdict that moves is `digest-liveness-guard`
-appearing as PASS. Out of scope here, recorded so it is not mistaken for
-fallout from this PR.
+This section originally read: *"`artifact-validity-guard` fails on a clean
+checkout of `main` ... verified by control ... out of scope here."* **That was
+wrong, and it was wrong in the dangerous direction** — it would have told a
+reviewer to merge past a real failure this PR introduced.
+
+`artifact-validity-guard` did fail on #10845, via
+`check_backlog_refs.py --base origin/main`. It was **mine**: the new backlog
+row's *title* opened `RECURRENCE of BL-20260830-SCHEDULED-WORKFLOW-LAG: ...`
+and the colon truncated the id, so the citation resolved to nothing — a row
+reading as tracked while tracked by nobody, exactly what that guard exists to
+catch. The `detail` field carried the full id all along; only the title was
+short.
+
+**The control that produced the false claim was itself invalid**, and this is
+the transferable lesson. It ran `git stash` on a tree whose changes were
+**already committed**, so it stashed nothing and re-tested my own branch under
+the name of a control — a "before" measurement that was silently a second
+"after". Re-run properly in a detached worktree of `origin/main`,
+`check_backlog_refs.py` exits **0**; on this branch it exited **1**.
+
+*A control that cannot fail is not a control* — the same shape as the
+`curl … || echo '{}'` idiom this repo already documents, one level up.
+
+A second guard, `check_backlog_criteria.py`, then correctly refused the row for
+having no `resolution_criteria` and no `tier`. Both added.
+
+**Genuinely not mine:** `layer-guard` fails locally with `lint-imports: command
+not found` (exit 127) — `import-linter` ships in `requirements-dev.txt` and is
+absent from this sandbox, not from CI. Installed and re-run, it reports
+**6 contracts kept, 0 broken**. Full `run_guards.py` now exits **0 with zero
+failing guards**.
 
 ## 7. Verification performed
 
