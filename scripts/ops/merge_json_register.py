@@ -360,17 +360,21 @@ def merge_header(base, ours, theirs):
     lines, out, i, unresolved = merged.split("\n"), [], 0, []
     while i < len(lines):
         if not lines[i].startswith("<<<<<<<"):
-            out.append(lines[i]); i += 1; continue
+            out.append(lines[i])
+            i += 1
+            continue
         i += 1
         a = []
         while i < len(lines) and not lines[i].startswith("|||||||"):
-            a.append(lines[i]); i += 1
+            a.append(lines[i])
+            i += 1
         while i < len(lines) and not lines[i].startswith("======="):
             i += 1
         i += 1
         bl = []
         while i < len(lines) and not lines[i].startswith(">>>>>>>"):
-            bl.append(lines[i]); i += 1
+            bl.append(lines[i])
+            i += 1
         i += 1
         res = _resolve_ts([x for x in a if x.strip()], [x for x in bl if x.strip()])
         if res is None:
@@ -420,7 +424,8 @@ def merge(base_t, ours_t, theirs_t):
     out, hi = [], 0
     for kind, val in os_:
         if kind == "text":
-            out.append(headers[hi]); hi += 1
+            out.append(headers[hi])
+            hi += 1
         else:
             out.append(val.render(merged_arrays[val.key]))
     return "".join(out)

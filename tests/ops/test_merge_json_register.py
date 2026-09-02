@@ -137,8 +137,8 @@ def test_untouched_rows_keep_their_exact_bytes():
     """Protects backlog_append.py::append_row's exact-serialisation contract:
     a merge must not re-attribute ~21k unrelated lines to whoever merged."""
     weird = '{"id": "A", "t": "an em-dash — literal", "u": "escaped \\u2014"}'
-    mk = lambda extra: ('{\n  "items": [\n    %s%s\n  ]\n}\n'
-                        % (weird, extra))
+    def mk(extra):
+        return '{\n  "items": [\n    %s%s\n  ]\n}\n' % (weird, extra)
     base, ours = mk(""), mk("")
     theirs = mk(',\n    {"id": "B", "t": "new"}')
     out = M.merge(base, ours, theirs)
