@@ -7132,8 +7132,16 @@ def _emit_bybit_over_cover_alert(
     ⚠️ **THE TRIGGER STAYS SIDE-BLIND, DELIBERATELY.** The caller still trips on
     the side-blind sum, because that sum is the UNION of both conditions:
     narrowing the trigger to same-book coverage would make the orphan case go
-    SILENT, which is strictly worse than mislabelling it. What changed is only
-    what the page SAYS once it has fired.
+    SILENT, which is strictly worse than mislabelling it. What changed in
+    #10739 is only what the page SAYS once it has fired.
+
+    ⚠️ **AND "ONLY WHAT THE PAGE SAYS" NO LONGER DESCRIBES THE WHOLE SYSTEM,
+    THOUGH IT STILL DESCRIBES THIS FUNCTION.** Since 2026-09-02 the naked
+    sweep's RE-ARM decision grades the same split through
+    ``bybit_leg_sides.graded_book_coverage`` — a genuinely under-covered book
+    could otherwise be masked by an other-book leg and skipped as "fully
+    covered". That is a different call site. This one still only names a
+    condition and places nothing.
 
     ⚠️ **AND THE PAGE STILL DOES NOT ASSERT "ORPHANED".** Under one-way netting
     an other-book leg is stranded by construction; under HEDGE mode — armed on
