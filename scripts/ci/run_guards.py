@@ -366,6 +366,20 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ops/handoff_check.py", "--self-test"],
             # The live tree: structural integrity + the offline cross-check.
             ["python3", "scripts/ops/session_registry.py", "status", "--strict"],
+            # The OPEN-PR half of the same handoff (MI-43 scope extension).
+            ["python3", "scripts/ops/open_pr_record.py", "--self-test"],
+            # ⚠️ `--strict` here grades DECISIONS ONLY, deliberately. Whether
+            # every open PR has a row needs a live list from GitHub, and CI's
+            # `GITHUB_TOKEN` could fetch it — but the check would then be
+            # measuring a moving target that changes between the run and the
+            # merge, reddening PRs for a row nobody could have written yet. The
+            # decision half is a property of the FILE, so it is stable, and it
+            # is the half that carries the danger: a row recording a verdict
+            # without its condition reads as complete, which is the state that
+            # could merge a demo-only Tier-2 approval onto a real-money account.
+            # Completeness is enforced where it belongs — at the handoff, by
+            # `handoff_check.py`, which refuses `ready` without the observation.
+            ["python3", "scripts/ops/open_pr_record.py", "--strict"],
         ],
     },
     {

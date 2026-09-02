@@ -13,6 +13,7 @@ OPS = Path(__file__).resolve().parents[1] / "scripts" / "ops"
 sys.path.insert(0, str(OPS))
 import handoff_check as hc  # noqa: E402
 import manager_lease  # noqa: E402
+import open_pr_record as opr  # noqa: E402
 import session_registry as sr  # noqa: E402
 
 REG = {"sessions": [{"session_id": "session_01AAAAAAAAAAAAAAAAAAAA"}]}
@@ -117,4 +118,64 @@ def test_run_over_the_live_repo_never_returns_ready_without_an_observation():
     assert res["readiness"] in {"not_ready", "unknown"}
     assert {c["check"] for c in res["checks"]} == {
         "live_registry", "checklist_owners", "lease",
-        "manager_state_pushed", "pending_spawns"}
+        "manager_state_pushed", "pending_spawns", "open_prs", "pr_decisions"}
+
+
+# --------------------------------------------------------------------------- #
+# the open-PR half (MI-43 scope extension)
+# --------------------------------------------------------------------------- #
+REC = {"open_prs": [{"pr": 1, "operator_decision": {
+    "verdict": "approved_with_conditions", "condition": "bybit_1 demo only",
+    "text": "APPROVED -- bybit_1 ONLY"}}]}
+
+
+def test_an_open_pr_with_no_row_fails_and_a_complete_record_passes():
+    assert hc.check_open_prs_recorded(REC, True, [1, 2])["state"] == hc.FAIL
+    assert hc.check_open_prs_recorded(REC, True, [1])["state"] == hc.PASS
+
+
+def test_a_row_for_a_closed_pr_is_the_staleness_signal():
+    """No wall-clock threshold: the record's own _doc says it goes stale the
+    moment a PR merges, so a row for a PR no longer open IS that, observed."""
+    assert hc.check_open_prs_recorded(REC, True, [])["state"] == hc.FAIL
+
+
+def test_open_pr_completeness_without_a_live_list_is_unknown():
+    assert hc.check_open_prs_recorded(REC, True, None)["state"] == hc.UNKNOWN
+
+
+def test_a_declared_condition_that_is_not_recorded_fails():
+    """THE dangerous case. A successor knowing 'approved' but not the condition
+    could merge a demo-only Tier-2 approval onto a real-money account."""
+    bad = {"open_prs": [{"pr": 1, "operator_decision": {
+        "verdict": "approved_with_conditions", "text": "approved"}}]}
+    assert hc.check_pr_decisions(bad, True)["state"] == hc.FAIL
+    assert hc.check_pr_decisions(REC, True)["state"] == hc.PASS
+
+
+def test_an_unconditional_approval_is_not_forced_to_invent_a_condition():
+    """Failing plain `approved` would push authors to invent a condition to
+    satisfy the guard, which is worse than the gap it closes."""
+    ok = {"open_prs": [{"pr": 1, "operator_decision": {
+        "verdict": "approved", "text": "approved, no conditions"}}]}
+    assert hc.check_pr_decisions(ok, True)["state"] == hc.PASS
+
+
+def test_free_text_decisions_are_unknown_never_a_pass():
+    """A condition dropped from prose is not mechanically detectable; matching
+    English for it would be diagnostic-provenance sub-class A."""
+    prose = {"open_prs": [{"pr": 1, "operator_decision": "approved, bybit_1 only"}]}
+    assert hc.check_pr_decisions(prose, True)["state"] == hc.UNKNOWN
+
+
+def test_the_live_pr_record_is_fully_typed_and_consistent():
+    """Runs against the REAL file."""
+    doc, ok = opr.read_record()
+    assert ok, "OPEN-PRS.json does not parse"
+    assert opr.grade_decisions(doc, ok)["state"] == "graded"
+
+
+def test_the_pr_record_is_covered_by_the_unpushed_state_check():
+    """An operator CONDITION that exists only in a worktree is exactly as lost
+    to a successor as an unpushed registry row."""
+    assert "docs/claude/work/OPEN-PRS.json" in hc.MANAGER_STATE_PATHS

@@ -42,6 +42,29 @@ decoration that makes the verdict look better-evidenced than it is).
                          confirmed. It names the work but cannot be polled, so
                          it is a weaker record than a real row and must not be
                          handed over silently.
+  6. ``open_prs``        an OPEN pull request with no row in OPEN-PRS.json, or a
+                         row naming a PR that is no longer open. The second is
+                         the STALENESS signal, and it needs no wall-clock
+                         threshold: the record's own `_doc` says it goes stale
+                         the moment a PR merges, so a row for a closed PR IS
+                         that, observed rather than guessed.
+  7. ``pr_decisions``    a row whose verdict DECLARES that conditions were
+                         attached and records none. ⚠️ **This is the more
+                         dangerous half of the whole handoff.** A successor
+                         knowing nothing about an approval stalls and re-asks —
+                         wasteful, safe. One knowing "approved" but not the
+                         condition could merge a demo-only Tier-2 approval onto
+                         a real-money account. Only the half-informed case is
+                         dangerous, and a row recording a verdict without its
+                         condition is WORSE than a missing row, because it reads
+                         as complete. See `open_pr_record.py` for what this
+                         CANNOT detect — the residual is named, not hidden.
+
+⚠️ NEITHER PR CHECK RE-DERIVES CI OR MERGEABILITY. GitHub stays the source of
+truth for PR state; the record is authoritative only for ownership, intent and
+decisions. Completeness is graded by COMPARING the record against a live
+observation, which is never stored — building a second copy of GitHub in a JSON
+file would be free to drift, which is the defect one level up.
 
 THREE STATES, NEVER COLLAPSED
 -----------------------------
@@ -74,6 +97,7 @@ from typing import Any, Dict, List, Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import manager_lease  # noqa: E402
+import open_pr_record as opr  # noqa: E402
 import session_registry as sr  # noqa: E402
 
 REPO_ROOT = sr.REPO_ROOT
@@ -81,6 +105,10 @@ MANAGER_STATE_PATHS = [
     "docs/claude/work/SESSIONS.json",
     "docs/claude/work/MANAGER-CHECKLIST.json",
     "docs/claude/work/MANAGER-LEASE.json",
+    # ⚠️ Added with the PR half: an operator CONDITION that exists only in this
+    # worktree is exactly as lost to a successor as an unpushed registry row,
+    # and it is the more dangerous one to lose.
+    "docs/claude/work/OPEN-PRS.json",
 ]
 
 PASS, FAIL, UNKNOWN = "pass", "fail", "unknown"
@@ -161,6 +189,25 @@ def check_manager_state_pushed(base: str = "origin/main") -> Dict[str, Any]:
               f"registry, checklist and lease all match `{base}`.")
 
 
+def check_open_prs_recorded(rec_doc, rec_readable,
+                            observed_open) -> Dict[str, Any]:
+    v = opr.grade_completeness(rec_doc, rec_readable, observed_open)
+    state = {"recorded": PASS, "unrecorded": FAIL, "stale_row": FAIL}.get(
+        v["state"], UNKNOWN)
+    return _c("open_prs", state, v["message"], verdict=v["state"],
+              unrecorded=v.get("unrecorded"), stale_rows=v.get("stale_rows"),
+              population=v.get("population"))
+
+
+def check_pr_decisions(rec_doc, rec_readable) -> Dict[str, Any]:
+    v = opr.grade_decisions(rec_doc, rec_readable)
+    state = {"graded": PASS, "verdict_without_condition": FAIL}.get(
+        v["state"], UNKNOWN)
+    return _c("pr_decisions", state, v["message"], verdict=v["state"],
+              findings=[f["pr"] for f in v.get("findings", [])],
+              prose_rows=v.get("prose_rows"), population=v.get("population"))
+
+
 def check_pending_spawns(reg_doc, reg_readable) -> Dict[str, Any]:
     if not reg_readable:
         return _c("pending_spawns", UNKNOWN,
@@ -189,17 +236,20 @@ def grade(checks: List[Dict[str, Any]]) -> str:
 
 
 def run(observation: Optional[Any] = None, manager_session_id: Optional[str] = None,
-        base: str = "origin/main", enforced_states=sr.DEFAULT_ENFORCED_STATES
-        ) -> Dict[str, Any]:
+        base: str = "origin/main", enforced_states=sr.DEFAULT_ENFORCED_STATES,
+        open_prs: Optional[Any] = None) -> Dict[str, Any]:
     reg, reg_ok = sr.read_json(sr.REGISTRY_PATH)
     ck, ck_ok = sr.read_json(sr.CHECKLIST_PATH)
     lease, lease_ok = manager_lease.read_lease()
+    rec, rec_ok = opr.read_record()
     checks = [
         check_live_registry(reg, reg_ok, observation, manager_session_id),
         check_checklist_owners(reg, reg_ok, ck, ck_ok, enforced_states),
         check_lease(lease, lease_ok, manager_session_id),
         check_manager_state_pushed(base),
         check_pending_spawns(reg, reg_ok),
+        check_open_prs_recorded(rec, rec_ok, open_prs),
+        check_pr_decisions(rec, rec_ok),
     ]
     return {"readiness": grade(checks), "checks": checks}
 
@@ -282,6 +332,28 @@ def _self_test() -> int:
     check("a nonexistent base ref is UNKNOWN, not a pass",
           check_manager_state_pushed("refs/nope/definitely-not-a-ref")["state"], UNKNOWN)
 
+    rec = {"open_prs": [{"pr": 1, "operator_decision": {
+        "verdict": "approved_with_conditions", "condition": "demo only", "text": "t"}}]}
+    check("an OPEN pr with no row FAILS the handoff",
+          check_open_prs_recorded(rec, True, [1, 2])["state"], FAIL)
+    check("a row for a CLOSED pr FAILS too — that is the staleness signal",
+          check_open_prs_recorded(rec, True, [])["state"], FAIL)
+    check("a complete, current record PASSES",
+          check_open_prs_recorded(rec, True, [1])["state"], PASS)
+    check("NO open-pr observation is UNKNOWN, never a pass",
+          check_open_prs_recorded(rec, True, None)["state"], UNKNOWN)
+    check("A DECLARED CONDITION THAT IS NOT RECORDED FAILS — the dangerous case",
+          check_pr_decisions({"open_prs": [{"pr": 1, "operator_decision": {
+              "verdict": "approved_with_conditions", "text": "approved"}}]},
+              True)["state"], FAIL)
+    check("a fully typed record PASSES", check_pr_decisions(rec, True)["state"], PASS)
+    check("a FREE-TEXT decision is UNKNOWN — ungradeable is not approved",
+          check_pr_decisions({"open_prs": [{"pr": 1,
+                                            "operator_decision": "approved"}]},
+                             True)["state"], UNKNOWN)
+    check("an unreadable PR record is UNKNOWN, never a pass",
+          check_pr_decisions(None, False)["state"], UNKNOWN)
+
     print("handoff-check self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
@@ -295,6 +367,14 @@ def main(argv=None) -> int:
     ap.add_argument("--live-sessions", default=None,
                     help="path to `list_sessions` output, or '-' for stdin. WITHOUT "
                          "IT the verdict can never be `ready`.")
+    ap.add_argument("--open-prs", default=None,
+                    help="live OPEN pull-request list (JSON from list_pull_requests / "
+                         "`gh pr list --json number`, or pasted text with #NNNN). "
+                         "WITHOUT IT the open-PR completeness check grades `unknown`. "
+                         "⚠️ It cannot be fetched from this container on a "
+                         "Routine-woken turn (no `mcp__github__*`, and api.github.com "
+                         "is 403 at the sandbox proxy) — it must come from an "
+                         "interactive session or a workflow.")
     ap.add_argument("--base", default="origin/main")
     ap.add_argument("--enforce-states", default=None,
                     help="CSV of checklist states to enforce (default: in_flight)")
@@ -304,7 +384,9 @@ def main(argv=None) -> int:
         return _self_test()
 
     states = tuple(a.enforce_states.split(",")) if a.enforce_states else sr.DEFAULT_ENFORCED_STATES
-    res = run(sr._load_observation(a.live_sessions), a.session_id, a.base, states)
+    res = run(sr._load_observation(a.live_sessions), a.session_id, a.base, states,
+              open_prs=opr.normalise_open_prs(opr._load(a.open_prs)) if a.open_prs
+              else None)
     for c in res["checks"]:
         icon = {PASS: "PASS", FAIL: "FAIL", UNKNOWN: "????"}[c["state"]]
         print(f"handoff-check: [{icon}] {c['check']}: {c['message']}")

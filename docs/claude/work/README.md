@@ -178,6 +178,77 @@ flag that asserts the registry is fine: *asserting it is what failed twice.*
 Exit codes 0 / 3 / 4 keep the three apart, so a caller cannot treat "we could
 not look" as a pass.
 
+## The other half of a handoff: OPEN PRS
+
+`SESSIONS.json` says which sub-sessions a successor inherits. **`OPEN-PRS.json`
+says which PRs it inherits, and what the operator already said about them** —
+ownership, intent and decisions, which GitHub does not carry.
+
+⚠️ **THE DANGEROUS CASE IS A FORGOTTEN CONDITION, NOT A FORGOTTEN PR.** `#10746`
+carries a Tier-2 approval that is *conditional*: stage on `bybit_1` (demo) only,
+explicitly not a fleet-wide flip, with the operator having accepted that
+real-money `bybit_2` stays exposed during the soak.
+
+- A successor knowing **nothing** about that approval stalls and re-asks —
+  wasteful, and **safe**.
+- A successor knowing **"approved"** but not the **condition** could merge it
+  fleet-wide onto a **real-money account**.
+
+**Only the half-informed case is dangerous.** So a row recording a verdict
+*without* its condition is **worse than a missing row** — it reads as complete.
+
+### `operator_decision` is a typed object, not a string
+
+```json
+"operator_decision": {
+  "verdict": "approved_with_conditions",   // closed vocabulary
+  "condition": "must ship behind an account allowlist …",
+  "scope": "bybit_1 (demo) ONLY. NOT a fleet-wide flip …",
+  "decided_on": "2026-09-02",
+  "text": "<the operator's original wording, VERBATIM>"
+}
+```
+
+`verdict` ∈ `approved` · `approved_with_conditions` · `not_required` ·
+`pending` · `none_recorded`. `python3 scripts/ops/open_pr_record.py --strict`
+**fails** a row whose verdict is `approved_with_conditions` while recording
+neither `condition` nor `scope`, and it runs in CI on every PR.
+
+⚠️ **A plain `approved` is deliberately NOT forced to carry a condition** —
+failing it would push authors to invent one to satisfy the guard, which is worse
+than the gap it closes.
+
+⚠️ **WHAT THIS CANNOT DETECT, SAID PLAINLY.** An author who writes
+`verdict: approved` where the operator actually attached conditions defeats it,
+and **nothing inside the repo can catch that** — knowing a condition was given
+means knowing what the operator said, and *this file is that record*. Reading it
+out of the old free-text form would mean matching English for a semantic
+property, which is diagnostic-provenance sub-class **A** (the repo's own stated
+reason for deferring C4). The typed form **narrows** the failure from *"a
+condition silently absent from prose nobody parses"* to *"a verdict field a
+reader can compare against `text`"*. That is why `text` is mandatory — and it is
+a narrowing, **not** a closure. A row still on the free-text form grades
+`prose_ungradeable`, which is **`unknown`, never a pass**.
+
+### Staleness, with no wall-clock threshold
+
+The record's own `_doc` says it goes stale the moment a PR merges. So staleness
+is detected by **comparing it against a live list of what is open**, not by
+ageing `as_of`: a row naming a PR that is no longer open **is** that staleness,
+observed rather than guessed. The complementary direction — an open PR with no
+row — is the completeness half.
+
+⚠️ **This is NOT a second copy of GitHub.** Nothing here re-derives CI or
+mergeability; a JSON mirror of PR state would be free to drift. The live list is
+compared and never stored.
+
+⚠️ **The live list cannot be fetched from a sub-session's container on a
+Routine-woken turn** — `mcp__github__*` is absent there and `api.github.com`
+returns 403 at the sandbox proxy. It has to come from somewhere credentials
+exist: an interactive session's `list_pull_requests`, or a workflow. Pass it
+with `--open-prs`; without it, completeness grades **`not_observed`**, which is
+`unknown` and therefore never `ready`.
+
 ## What is NOT here
 
 **Bugs to fix** still go to the three review backlogs (`docs/claude/*-review-backlog.json`),
