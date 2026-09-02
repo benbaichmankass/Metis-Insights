@@ -33,6 +33,18 @@ numpy>=1.24.0
 rich>=13.0.0
 python-dotenv>=1.0.0
 python-telegram-bot>=20.0
+# Telegram ping transport for scripts/notify_on_pull.py, which RUNS ON THE LIVE
+# VM (deploy_pull_restart.sh <- deploy/ict-git-sync.service) and carries the
+# CRITICAL safety pages. Was an UNDECLARED dependency, present in NO
+# requirements file and satisfied only TRANSITIVELY via anthropic / ccxt /
+# huggingface_hub — so a fresh venv bootstrap that resolved those differently
+# would have broken the ping path, and the guards job (requirements-dev.txt
+# only) did break on exactly that. Same class as the pybit note above, which
+# the 2026-06-14 Ampere migration caught the hard way. Declaring it installs
+# nothing new today; it stops the ping channel resting on an accident, and it
+# makes .github/workflows/guards.yml's "requests is a RUNTIME dep
+# (requirements.txt)" true rather than aspirational.
+requests>=2.31.0
 
 # BUG-005 fix — pin the scheduler stack (S-014.5 hand-fix on the VM).
 apscheduler>=3.10.4
