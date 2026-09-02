@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-02T08:05:29Z",
+  "as_of": "2026-09-02T08:09:29Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -163,18 +163,18 @@
     {
       "pr": 10758,
       "title": "alarm: a close wedge PROVEN unclearable goes to the digest, not the pager (MI-34)",
-      "owner_session": null,
+      "owner_session": "session_01XbigCVRcy2bnVpm1tKNPno",
       "checklist_item": "MI-34",
       "draft": true,
       "tier": "1 (alerting routing)",
-      "state": "unreviewed_by_manager",
+      "state": "reviewed_by_manager_ready_awaiting_ci",
       "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "text": "NO OPERATOR STATEMENT EXISTS. This row is `none_recorded` precisely because no decision was sought or given — the text records that ABSENCE and is deliberately not a quotation. Inventing operator wording to satisfy the field would be the half-informed state this check exists to prevent, one level up."
+        "verdict": "approved_with_conditions",
+        "condition": "The downgrade must key on CONFIRMED-UNCLEARABLE, never on a failure merely repeating, and must page again on any state change.",
+        "scope": "Alarm ROUTING only. This does NOT approve #10679, which is a separate draft awaiting its own Tier-2 call.",
+        "text": "Operator, 2026-09-02, recorded in MANAGER-CHECKLIST MI-34: 'DOWNGRADE TO THE DAILY DIGEST.' The alpaca_paper GLD wedge (OCO parent 2e843e04 at pending_cancel since 2026-08-27, unclearable by any bot-side lever) leaves the paging channel and is carried in the rolled-up daily summary until it clears. The operator named the tradeoff: it stays visible every day without competing with a live emergency, but it bets on a channel with NO TRACK RECORD."
       },
-      "blocker": "NOT YET REVIEWED. Touches which conditions PAGE vs digest, so it wants a careful read against the desensitised-alarm rule before merging."
+      "blocker": "⚠️ I RESOLVED A MERGE CONFLICT ON THIS BRANCH — scripts/ops/work_digest.py, union of two independent additions, self-test 17/17. CI is re-running on the new head 1690eced and the previous green was on 96dcfc5d, so that green does NOT cover the merge. Do not merge on the old result."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -200,5 +200,6 @@
       "note": "Pruned 2026-09-02. Its row went stale the instant it merged — which is the record working, not a defect."
     }
   ],
-  "⚠️_the_last_row_is_always_stale_and_that_is_STRUCTURAL": "A handoff can never reach open_prs=PASS at the exact moment of the final merge, and this is a PROPERTY of the design rather than a bug to chase. Every open PR must have a row; the PR that prunes the last stale row is itself an open PR and needs a row; merging it makes THAT row stale. The regress terminates only if the manager stops opening PRs. ⚠️ DO NOT 'fix' this by exempting the currently-merging PR from the completeness check — the exemption would be indistinguishable from the real failure it exists to catch (a PR nobody recorded), and a check that cannot tell those apart is worse than the transient row. The correct reading: at handoff, `open_prs` naming ONLY the PR being merged right now is materially ready; naming any OTHER pr is not. State which case you are in rather than quoting the verdict alone."
+  "⚠️_the_last_row_is_always_stale_and_that_is_STRUCTURAL": "A handoff can never reach open_prs=PASS at the exact moment of the final merge, and this is a PROPERTY of the design rather than a bug to chase. Every open PR must have a row; the PR that prunes the last stale row is itself an open PR and needs a row; merging it makes THAT row stale. The regress terminates only if the manager stops opening PRs. ⚠️ DO NOT 'fix' this by exempting the currently-merging PR from the completeness check — the exemption would be indistinguishable from the real failure it exists to catch (a PR nobody recorded), and a check that cannot tell those apart is worse than the transient row. The correct reading: at handoff, `open_prs` naming ONLY the PR being merged right now is materially ready; naming any OTHER pr is not. State which case you are in rather than quoting the verdict alone.",
+  "⚠️_a_row_can_UNDER_claim_and_no_check_catches_it": "Found 2026-09-02 on this very row. `open_pr_record.py --strict` grades a verdict that DECLARES conditions and records none — the over-claiming direction, which is the dangerous one. It cannot catch the OPPOSITE: I typed #10758 `none_recorded` while a full operator decision, with its condition, sat in MANAGER-CHECKLIST.json under MI-34 the whole time. `none_recorded` is a valid verdict needing no condition, so the row passed every check while being simply wrong. ⚠️ The cost is real but is NOT symmetric with the over-claiming case: a successor reading `none_recorded` re-asks the operator — wasteful and SAFE — where one reading a bare 'approved' could merge a demo-only Tier-2 approval onto a real-money account. So this is worth KNOWING, not worth a new failing check: cross-checking every row against the checklist would fire on the many PRs that legitimately have no decision anywhere. The mitigation is the reviewer's, not the guard's — read MANAGER-CHECKLIST for the PR's item before typing `none_recorded`."
 }
