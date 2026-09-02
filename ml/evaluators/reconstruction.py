@@ -63,7 +63,7 @@ class ReconstructionEvaluator(Evaluator):
         self,
         model_state: Mapping[str, Any],
         rows: Iterable[Mapping[str, Any]],
-        config: Mapping[str, Any],
+        config: Mapping[str, Any],  # inert: config — Evaluator protocol signature; this evaluator reports stored model_state diagnostics and has nothing to configure
     ) -> Mapping[str, float]:
         n_eval = sum(1 for _ in rows)
         out: dict[str, float] = {"n_eval": float(n_eval)}

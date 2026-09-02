@@ -190,9 +190,18 @@ _CONTEXT_LINES = 3
 # 2-class collapse), so every caller passing it, and every doc describing it,
 # was asserting an effect that does not exist. A parameter the body never reads
 # is either dead or a bug; either way no doc may claim it does something.
-# Override: `# inert: <reason>` on the parameter's own line — deliberate
-# back-compat is fine, silently pretending is not.
-_INERT_OK_RE = re.compile(r'#\s*inert:', re.IGNORECASE)
+# Override: `# inert: <param> — <reason>` on the parameter's own line —
+# deliberate back-compat is fine, silently pretending is not.
+#
+# VERIFIED, NOT PRESENCE-ONLY (2026-09-02). This was a bare `# inert:` marker,
+# which made the cheapest way to silence a real finding a four-word comment
+# naming nothing — the exact failure mode `new-table-wiring-guard`'s
+# presence-only `# data-wiring:` marker had, and the one `annotation_for`
+# already refuses for `# provenance:`. A guard cheaper to lie to than to
+# satisfy is worse than no guard. The marker must now NAME THE PARAMETER it
+# excuses, so it cannot be copy-pasted between parameters and cannot survive a
+# rename of the thing it claims to describe.
+_INERT_OK_RE = re.compile(r'#\s*inert:\s*(.+)$', re.IGNORECASE)
 # Names that are conventionally accepted-and-ignored.
 _INERT_EXEMPT = {"self", "cls", "args", "kwargs", "_"}
 
@@ -369,15 +378,21 @@ def _ast_findings(path: str, lines: Sequence[str]) -> List[Finding]:
                 continue
             ln = getattr(p, "lineno", node.lineno)
             line = lines[ln - 1] if 0 < ln <= len(lines) else ""
-            if _INERT_OK_RE.search(line):
+            inert = _INERT_OK_RE.search(line)
+            if inert and name in _IDENT_RE.findall(inert.group(1)):
                 continue
+            bad_inert = (
+                f" (`# inert:` on this line does not name `{name}` — an "
+                f"override must name the parameter it excuses)"
+                if inert else ""
+            )
             out.append(Finding(
                 path, ln, "D/inert-parameter",
                 f"`{node.name}` accepts `{name}` and never reads it. A parameter "
                 f"the body ignores is either dead or a bug — and any doc saying "
                 f"it affects behaviour is then a false claim. This is the exact "
                 f"root of the trend_threshold mislabel. Remove it, use it, or "
-                f"mark it `# inert: <reason>`",
+                f"mark it `# inert: {name} — <reason>`" + bad_inert,
                 (line.strip() or f"def {node.name}(...)")[:120]))
 
         # --- E: an interpretation emitted unconditionally ------------------

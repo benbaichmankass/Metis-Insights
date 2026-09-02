@@ -128,7 +128,7 @@ def _decode_notes(raw: Any) -> Dict[str, Any]:
 
 
 def _compute_pnl_percent(
-    row: sqlite3.Row, closed_pnl: float, avg_exit_price: float,
+    row: sqlite3.Row, closed_pnl: float, avg_exit_price: float,  # inert: avg_exit_price — the percent is closed_pnl over ENTRY notional (entry_price * position_size), so the exit price is not an input
 ) -> Optional[float]:
     """Match the gross-PnL-percent convention used by the live
     writer + ``backfill_pnl_nulls.py`` so the backfilled row reads

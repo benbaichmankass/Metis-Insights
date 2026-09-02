@@ -111,7 +111,7 @@ except Exception:  # noqa: BLE001 — keep the tool importable on a minimal tree
         except (TypeError, ValueError):
             return None
 
-    def contract_value_usd_for(symbol):  # type: ignore[misc]
+    def contract_value_usd_for(symbol):  # type: ignore[misc]  # inert: symbol — import-fallback stub; must match the real signature, and a flat 1.0 is the declared degraded value
         return 1.0
 
 

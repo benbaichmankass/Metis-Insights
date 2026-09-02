@@ -73,7 +73,7 @@ def cv_evaluate(
     return _aggregate_fold_metrics(fold_metrics)
 
 
-def _suggest_params(trial, base_lgbm: Mapping[str, Any]) -> dict[str, Any]:
+def _suggest_params(trial, base_lgbm: Mapping[str, Any]) -> dict[str, Any]:  # inert: base_lgbm — the search space is ABSOLUTE by design (see docstring), not centred on the base; the base config enters the study via _baseline_trial_params, which does read it
     """LightGBM search space (TPE). Centred wide enough to move off the
     hard-coded defaults without going degenerate on small shards."""
     return {

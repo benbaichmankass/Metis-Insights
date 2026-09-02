@@ -122,6 +122,14 @@ def _score_arm(outcomes_ordered):
 
 def run_c4(thesis_records, *, fee_frac, carry_frac_per_day, move_pcts, horizon_days, n_bins=4):
     """Score the baseline arm + every grid cell. Returns the full scorecard dict."""
+    # `--n-bins` is advertised on the CLI and this scorer does not bin anything:
+    # every arm is scored whole. Refuse a non-default rather than accept a knob
+    # that silently does nothing.
+    if n_bins != 4:
+        raise NotImplementedError(
+            f"run_c4 does not bin; --n-bins is inert (got {n_bins}). "
+            f"Remove the flag or implement binning before passing it."
+        )
     def _mk_outcomes(exit_of, hold_of):
         """Build ordered scored outcomes; ``exit_of``/``hold_of`` map a record to
         its (exit_price, hold_days) for this arm. Ordered by exit date for maxDD."""
