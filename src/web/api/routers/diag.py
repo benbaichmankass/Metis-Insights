@@ -36,7 +36,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from src.runtime.exit_loop_health import (
     STATE_FILE_NAME as EXIT_LOOP_HEALTH_STATE_FILE,
 )
-from src.utils.paths import runtime_logs_dir, trade_journal_db_path
+from src.utils.paths import repo_root, runtime_logs_dir, trade_journal_db_path
 from src.web.api._account_read_executor import run_account_read
 from src.web.runtime_status import _resolve_git_sha
 
@@ -321,6 +321,29 @@ _EXIT_LOOP_HEALTH_ALERT_STATE = (
 _PROP_MONITOR_PULSE_STATE = runtime_logs_dir() / "prop_monitor_pulse.json"
 _PROP_SL_TP_ALERT_STATE = runtime_logs_dir() / "prop_sl_tp_alert.json"
 _PROP_STATUS_REQUEST_STATE = runtime_logs_dir() / "prop_status_request.json"
+
+# The Claude/operator ping DELIVERY ledger (2026-09-02). One sha256 per
+# docs/claude/pending-pings.jsonl line that scripts/notify_on_pull.py has
+# successfully enqueued; the drain skips any line whose hash is already here,
+# which is what stops old rows re-firing on every subsequent pull.
+#
+# ⚠️ ANCHORED TO repo_root(), NOT runtime_logs_dir() — deliberately, and the
+# difference is the whole point of the entry.
+#
+# `notify_on_pull.py` hardcodes its own `REPO_ROOT / "runtime_logs"` and never
+# calls the path helpers, so it writes to
+# /home/ubuntu/ict-trading-bot/runtime_logs/. It runs from
+# ict-git-sync.service, which carries no data-dir drop-in. This reader lives in
+# ict-web-api.service, which DOES carry deploy/dropins/data-dir.conf, so
+# runtime_logs_dir() here resolves to /data/bot-data/runtime_logs (verified
+# live: log_file?name=exit_loop_health reports that prefix). Resolving this
+# entry through the helper would therefore point the read surface at a path
+# NOTHING WRITES, and it would report an eternally-absent file — the
+# writer/reader path split that hid the ict-hourly-snapshot balance stall for
+# ~3 weeks (BL-20260611-M15-2). The reader must name the writer's real path.
+_PENDING_PINGS_DELIVERED = (
+    Path(repo_root()) / "runtime_logs" / "pending_pings_delivered.txt"
+)
 
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
@@ -610,6 +633,24 @@ _LOG_FILES: dict[str, Path] = {
     # health-review backlog so every orphan is tracked for reconciliation. Absent
     # until the first orphan row is created.
     "orphan_events": _ORPHAN_EVENTS_LOG,
+    # Ping DELIVERY ledger — the sha256 of every pending-pings.jsonl line
+    # scripts/notify_on_pull.py has enqueued to the Telegram bridge. Not a
+    # .jsonl: one bare hex digest per line, appended after a successful
+    # enqueue. This is the ONLY surface on which a session can tell a
+    # DELIVERED operator ping from one the drain never ran for — from outside,
+    # a silent channel and a working-but-quiet one look identical, which is
+    # the BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE
+    # shape. To check one line, sha256 the RAW STRIPPED jsonl line (that is
+    # what notify_on_pull._line_hash hashes — not the parsed payload) and look
+    # for the digest here.
+    #
+    # ABSENT when the drain has never successfully enqueued anything ON THIS
+    # VM. Absence is NOT evidence that a given ping went undelivered: the file
+    # is .gitignore'd and VM-local, so a re-provision, a repo re-clone, or a
+    # move of the checkout resets it to nothing while the pings it recorded
+    # were still sent. A reader may conclude a hash PRESENT here was enqueued;
+    # a reader may NOT conclude that a hash missing here was not.
+    "pending_pings_delivered": _PENDING_PINGS_DELIVERED,
 }
 
 _DEFAULT_LIMIT = 100
