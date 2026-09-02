@@ -1,0 +1,30 @@
+id: WO-20260902-THE-PR-QUEUE-CANNOT-DRAIN-EVERY-MERGE
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The PR queue cannot drain: every merge to main re-conflicts every sibling branch
+stage: DEPLOYMENT
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Each of #10794, #10793, #10776, #10748, #10694 is either (a) conflict-free against main with all three required checks green and DRAFT, awaiting a manager merge, or (b) closed with a written reason. A merge ORDER is handed back rather than the PRs being un-drafted, because the artifact cap is 4 concurrent non-draft PRs and the manager serializes.
+
+why: >-
+  Measured 2026-09-02T18:30Z against a FRESHLY FETCHED origin/main (002e0ab8): 5 of 5 open draft branches from finished sessions conflict. Contention is concentrated, not diffuse -- scripts/ops/render_due_list.py conflicts in 2 branches and scripts/ci/check_collapsed_states.py in 2. Main merged 3 times in the 40 minutes this was measured over, and each merge re-conflicts the rest, so a branch left overnight is strictly harder to land than one resolved now. The oldest has been quiescent 20h and one automation PR 109.6h. MI-77's watcher flagged exactly this queue on its first run.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

@@ -1167,6 +1167,20 @@
       "owns_object": "WO-20260902-TWO-OPEN-NON-DRAFT-PRS-ARE-RED",
       "spawned_at": "2026-09-02T18:16:25Z",
       "note": "MANAGER ORDERING SLIP, recorded rather than tidied away: I spawned this session BEFORE registering it, and spawn_gate.py duly REFUSED the registration for naming no parent object. That is the gate working -- and it caught me, the manager, which is what it is for. The object was created after the fact via capture_idea.py and the row is correct now, but the spawn was un-gated at the moment it happened. The gate cannot refuse a create_session call it never sees; MI-77 is the watcher for exactly this class."
+    },
+    {
+      "id": "MI-79",
+      "title": "Drain the stalled draft queue — 5 of 5 branches conflict against a freshly fetched main",
+      "state": "in_flight",
+      "priority": "P2_OVERHAUL_IMPLEMENTATION",
+      "owner": "session_017BMpMRDpnR8U7aodUBSPCg",
+      "tier": "1 (conflict resolution on existing PRs; no order path)",
+      "why": "Five open drafts from finished sessions -- #10794, #10793, #10776, #10748, #10694 -- all conflicting, oldest quiescent 20h and one automation PR 109.6h. MI-77's watcher flagged exactly this queue on its first run, which is the watcher confirming its own premise. Main merged THREE times in the 40 minutes I measured over (4f664aab -> 82edebd6 -> 002e0ab8), so each branch is strictly harder to land tomorrow than today.",
+      "the_hypothesis_to_TEST": "Contention is CONCENTRATED, not diffuse: scripts/ops/render_due_list.py conflicts in 2 of the 5 branches and scripts/ci/check_collapsed_states.py in 2. If that holds, the queue is blocked by two shared files rather than by five independent problems, and the merge ORDER matters more than the individual resolutions. NOT the register-header churn MI-76 diagnosed -- only one branch touches a register (DUE.json), so the merge driver from #10826 is not what unblocks this.",
+      "done_when": "Each of the five is conflict-free with all three required checks green and STILL A DRAFT, or closed with a written reason handed to the manager rather than closed by the session. A merge ORDER is delivered naming which pairs re-conflict each other. Drafts are kept because the artifact cap is 4 concurrent non-draft PRs and the manager serializes.",
+      "owns_object": "WO-20260902-THE-PR-QUEUE-CANNOT-DRAIN-EVERY-MERGE",
+      "spawned_at": "2026-09-02T18:26:32Z",
+      "note": "MANAGER MEASUREMENT ERROR, recorded because it changed the conclusion in the OPTIMISTIC direction. My first scan ran `git fetch origin <branch>` per branch, which does NOT advance origin/main, so it graded against a stale base and read 4 of 6 conflicted WITH #10694 CLEAN. Against a freshly fetched main it is 5 of 5. I acted on the clean reading first -- started merging main into #10694 to arm its CI -- and the merge conflicted, which is how I caught it. A mergeability read is only as current as the base you fetched, and this one was reported before it was re-checked."
     }
   ],
   "as_of": "2026-09-02T17:20:00Z"
