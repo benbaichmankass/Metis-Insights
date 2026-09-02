@@ -386,7 +386,7 @@ def escalation_due(verdict: Dict[str, Any], state: Optional[Dict[str, Any]],
                    f"the channel.")
 
 
-def render_digest(verdict: Dict[str, Any], now: datetime, top: int = 5) -> str:
+def render_digest(verdict: Dict[str, Any], top: int = 5) -> str:
     if verdict["state"] != MEASURED:
         return (f"[manager queue] {verdict['state'].upper()} — {verdict['population']}")
     lines = [
@@ -563,7 +563,7 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
 
     # the digest must roll up
     dig = render_digest(assess(normalise_sessions(
-        [row(f"s{i}", "BLOCKED", 100 + i) for i in range(20)]), "M", now, 60), now)
+        [row(f"s{i}", "BLOCKED", 100 + i) for i in range(20)]), "M", now, 60))
     check("A 20-ITEM QUEUE RENDERS AS ONE BOUNDED DIGEST, NOT 20 LINES",
           len(dig.splitlines()) <= 10, True)
     check("...and it says how many it rolled up", "and 15 more" in dig, True)
@@ -642,7 +642,7 @@ def main(argv=None) -> int:
 
     report_due, report_why = unknown_report_due(verdict, state, state_ok, now,
                                                 a.repage_hours)
-    print(render_digest(verdict, now))
+    print(render_digest(verdict))
     print(f"queue-latency: audience={a.audience} escalate={due} — {why}")
     if verdict["state"] != MEASURED:
         # ⚠️ A blind sensor is a MAINTENANCE problem, not an escalation: it goes to
