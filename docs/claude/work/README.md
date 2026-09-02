@@ -338,9 +338,9 @@ Three distinctions the readout keeps and a reader must too:
   `constraint_readout.py` now grades this as **`stage_basis`** — `per_object` ·
   `bulk_by_source_file` · `unstated`, never collapsed, summing to the population
   checkably — and both `READOUT.md` and the `CLAUDE.md` brief say so beside the
-  histogram. ⚠️ **AND THIS IS INDEPENDENT OF EDGE COVERAGE.** Taking assessed coverage
-  to 100% with perfectly true edges would leave DECISION at whatever anyone happened to
-  hand-author, so the readout would then name a stage **confidently**, off a histogram
+  histogram. ⚠️ **AND THIS IS INDEPENDENT OF EDGE COVERAGE.** Assessing every one of the
+  584 objects with perfectly true edges would leave DECISION at whatever anyone happened
+  to hand-author, so the readout would then name a stage **confidently**, off a histogram
   describing four backlog filenames. The refusal is currently the only thing stopping
   that. `chain_stages_with_no_objects` publishes the empty stages; `stage_basis`
   publishes why they are empty.
