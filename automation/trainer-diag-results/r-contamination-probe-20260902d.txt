@@ -1,0 +1,112 @@
+=== trainer-diag-relay result ===
+request: r-contamination-probe-20260902d
+state: ran
+remote_exit: 0
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/33591702985
+=================================
+DB_PATH: /home/ubuntu/ict-trading-bot/data/trade_journal.db
+DB_MTIME_UTC: 2026-09-02T04:28:35.692023Z
+max_created_at: 2026-09-02T04:11:21.348745+00:00
+
+=== A. `trades.direction` vs `order_packages.direction` disagreement count ===
+  rows where the two direction columns DISAGREE: 108 of 1325
+  (a non-zero count would mean the SIDE test's input is itself unreliable)
+
+=== B. THE 34-ROW ANOMALY — distance MATCHES declared, side is WRONG (n=34) ===
+id | strategy | acct | t_dir | op_dir | entry | stop | op_entry | op_sl | tp | declared_rpu | dist | exit_reason | setup_type
+2741 | avax_pullback_2h | paper | long | short | 6.178 | 6.54157143 | 6.178 | 6.54157143 | 5.566378 | 0.36357142857142843 | 0.36357143 | reconciler_filled | intent_reduce
+3135 | xrp_pullback_2h | paper | short | long | 1.0818 | 1.04703214 | 1.0818 | 1.11466429 | 1.1888982 | 0.03476785714285735 | 0.03476786 | intent_reduce_executed | intent_reduce
+3142 | trend_donchian_ada_4h | paper | short | long | 0.1657 | 0.15484286 | 0.1657 | 0.15484286 | 0.1821043 | 0.01085714285714287 | 0.01085714 | intent_reduce_executed | intent_reduce
+3148 | trend_donchian_ada_4h | paper | short | long | 0.1767 | 0.16500357 | 0.1767 | 0.16500357 | 0.1941933 | 0.01169642857142858 | 0.01169643 | intent_reduce_executed | intent_reduce
+3150 | avax_pullback_2h | paper | short | long | 6.888 | 6.69942857 | 6.888 | 6.69942857 | 7.569912 | 0.18857142857142772 | 0.18857143 | intent_reduce_executed | intent_reduce
+3152 | avax_pullback_2h | paper | short | long | 6.874 | 6.6865 | 6.874 | 6.6865 | 7.554526 | 0.1874999999999991 | 0.18750000 | intent_reduce_executed | intent_reduce
+3153 | sol_pullback_2h | paper | short | long | 81.77 | 79.39321429 | 81.77 | 79.39321429 | 89.86523 | 2.3767857142857025 | 2.37678571 | intent_reduce_executed | intent_reduce
+3157 | sol_pullback_2h | paper | short | long | 81.85 | 79.55 | 81.85 | 79.55 | 89.95315 | 2.299999999999997 | 2.30000000 | intent_reduce_executed | intent_reduce
+3161 | trend_donchian_ada_4h | paper | short | long | 0.1871 | 0.17345714 | 0.1871 | 0.17345714 | 0.2056229 | 0.013642857142857123 | 0.01364286 | intent_reduce_executed | intent_reduce
+3165 | sol_pullback_2h | paper | short | long | 82.6 | 80.33035714 | 82.6 | 80.33035714 | 90.7774 | 2.2696428571428555 | 2.26964286 | intent_reduce_executed | intent_reduce
+3170 | htf_pullback_trend_2h | paper | short | long | 62781.7 | 61965.39642857 | 62781.7 | 62367.39285714 | 68997.0883 | 816.3035714285725 | 816.30357143 | intent_reduce_executed | intent_reduce
+3263 | squeeze_breakout_4h | paper | short | long | 63840.4 | 61635.82857143 | 63840.4 | 61635.82857143 | 70160.5996 | 2204.5714285714275 | 2204.57142857 | intent_reduce_executed | intent_reduce
+3319 | sol_pullback_2h | paper | long | short | 78.27 | 80.5325 | 78.27 | 80.5325 | 70.52127 | 2.262500000000003 | 2.26250000 | intent_reduce_executed | intent_reduce
+3322 | avax_pullback_2h | paper | long | short | 6.603 | 6.82264286 | 6.603 | 6.82264286 | 5.949303 | 0.21964285714285747 | 0.21964286 | intent_reduce_executed | intent_reduce
+3365 | htf_pullback_trend_2h | paper | short | long | 64041.7 | 62990.16428571 | 64041.7 | 62990.16428571 | 70381.8283 | 1051.5357142857174 | 1051.53571429 | intent_reduce_executed | intent_reduce
+3370 | htf_pullback_trend_2h | paper | short | long | 64035.7 | 62990.2 | 64035.7 | 62990.2 | 70375.2343 | 1045.5 | 1045.50000000 | intent_reduce_executed | intent_reduce
+3376 | trend_donchian_sol_4h | paper | long | short | 75.71 | 78.18142857 | 75.71 | 78.18142857 | 68.21471 | 2.471428571428575 | 2.47142857 | intent_reduce_executed | intent_reduce
+3385 | trend_donchian_ada_4h | paper | long | short | 0.1587 | 0.16653929 | 0.1587 | 0.16653929 | 0.1429887 | 0.007839285714285715 | 0.00783929 | intent_reduce_executed | intent_reduce
+3431 | sol_pullback_2h | paper | long | short | 75.36 | 77.23678571 | 75.36 | 77.23678571 | 67.89936 | 1.8767857142857167 | 1.87678571 | intent_reduce_executed | intent_reduce
+3436 | trend_donchian_eth_4h | real_money | short | long | 1874.61 | 1802.55821429 | 1874.61 | 1802.55821429 | 2060.19639 | 72.05178571428564 | 72.05178571 | intent_reduce_executed | intent_reduce
+3471 | htf_pullback_trend_2h | paper | short | long | 64737.5 | 63375.67857143 | 64737.5 | 63375.67857143 | 71146.5125 | 1361.8214285714275 | 1361.82142857 | intent_reduce_executed | intent_reduce
+3472 | htf_pullback_trend_2h | real_money | short | long | 64737.5 | 63375.67857143 | 64737.5 | 63375.67857143 | 71146.5125 | 1361.8214285714275 | 1361.82142857 | intent_reduce_executed | intent_reduce
+3474 | trend_donchian_eth_4h | paper | short | long | 1928.52 | 1852.8075 | 1928.52 | 1852.8075 | 2119.44348 | 75.71249999999986 | 75.71250000 | intent_reduce_executed | intent_reduce
+3511 | htf_pullback_trend_2h | paper | short | long | 64844.9 | 63672.04285714 | 64844.9 | 63672.04285714 | 71264.5451 | 1172.8571428571377 | 1172.85714286 | intent_reduce_executed | intent_reduce
+3514 | htf_pullback_trend_2h | paper | short | long | 64814.5 | 63672.91071429 | 64814.5 | 63672.91071429 | 71231.1355 | 1141.5892857142826 | 1141.58928571 | intent_reduce_executed | intent_reduce
+3522 | eth_pullback_2h | paper | short | long | 1911.39 | 1860.34535714 | 1911.39 | 1860.34535714 | 2100.61761 | 51.04464285714289 | 51.04464286 | intent_reduce_executed | intent_reduce
+3527 | avax_pullback_2h | paper | short | long | 6.585 | 6.41875 | 6.585 | 6.41875 | 7.236915 | 0.1662499999999998 | 0.16625000 | intent_reduce_executed | intent_reduce
+3539 | eth_pullback_2h | paper | short | long | 1883.13 | 1828.68714286 | 1883.13 | 1828.68714286 | 2069.55987 | 54.442857142857065 | 54.44285714 | intent_reduce_executed | intent_reduce
+3598 | trend_donchian_sol_4h | paper | long | short | 73.49 | 76.2025 | 73.49 | 76.2025 | 66.21449 | 2.7125000000000057 | 2.71250000 | intent_reduce_executed | intent_reduce
+3630 | sol_pullback_2h | paper | long | short | 75.2 | 77.13392857 | 75.2 | 77.13392857 | 67.7552 | 1.9339285714285666 | 1.93392857 | intent_reduce_executed | intent_reduce
+3631 | eth_pullback_2h | paper | long | short | 1842.97 | 1891.73607143 | 1842.97 | 1891.73607143 | 1660.51597 | 48.76607142857142 | 48.76607143 | intent_reduce_executed | intent_reduce
+3640 | eth_pullback_2h | paper | long | short | 1839.78 | 1887.5925 | 1839.78 | 1887.5925 | 1657.64178 | 47.8125 | 47.81250000 | intent_reduce_executed | intent_reduce
+3644 | avax_pullback_2h | paper | long | short | 6.564 | 6.78132143 | 6.564 | 6.78132143 | 5.914164 | 0.21732142857142822 | 0.21732143 | intent_reduce_executed | intent_reduce
+3654 | eth_pullback_2h | paper | long | short | 1841.19 | 1887.88107143 | 1841.19 | 1887.88107143 | 1658.91219 | 46.69107142857138 | 46.69107143 | intent_reduce_executed | intent_reduce
+
+=== B2. do those rows' TP sit on the same side as their SL? (a mirrored bracket) ===
+  of 34 anomaly rows, 34 have an INCOHERENT entry/sl/tp bracket ordering
+
+=== C. RATIO declared_initial_risk / stored_stop_distance ===
+    (>1 == the stored stop is TIGHTER than the declared initial risk == the trail signature)
+  CORRECT-SIDE rows: n=456 min 0.5714 p10 0.9385 p25 0.9920 median 1.0000 p75 1.0262 p90 1.1411 p95 1.3370 max 211.7
+    ratio >=  1.01:   147  (32.2%)
+    ratio >=  1.05:    85  (18.6%)
+    ratio >=   1.1:    62  (13.6%)
+    ratio >=  1.25:    29  (6.4%)
+    ratio >=   1.5:    15  (3.3%)
+    ratio >=   2.0:    12  (2.6%)
+    ratio >=   5.0:     8  (1.8%)
+    ratio >=  10.0:     2  (0.4%)
+    ratio <  0.99 (stored WIDER than declared — NOT a trail signature): 111
+
+  WRONG-SIDE rows : n=226 min 0.2145 p10 0.9846 p25 1.0000 median 1.0353 p75 5.3117 p90 17.9519 p95 62.5968 max 3014.2
+    ratio >=  1.01:   138  (61.1%)
+    ratio >=  1.05:   107  (47.3%)
+    ratio >=   1.1:   107  (47.3%)
+    ratio >=  1.25:   105  (46.5%)
+    ratio >=   1.5:   100  (44.2%)
+    ratio >=   2.0:    91  (40.3%)
+    ratio >=   5.0:    58  (25.7%)
+    ratio >=  10.0:    33  (14.6%)
+    ratio <  0.99 (stored WIDER than declared — NOT a trail signature): 37
+
+=== D. is the ~1.02 cluster a TRAIL or a systematic offset? cut by strategy family ===
+strategy                          n   median      p90  >=1.01  >=1.25  <0.99
+ict_scalp_5m                     53   1.0000   1.2194      22       3     19
+trend_donchian                   30   1.0198   1.1088      16       1      4
+htf_pullback_trend_2h            29   1.0000   1.0383      11       0      9
+eth_pullback_2h                  27   1.0105   8.2889      14       4      5
+slv_trend_1h                     21   1.0000   1.0162       3       1      0
+ada_pullback_2h                  19   1.0000   1.0350       5       1      9
+ict_scalp_avax_5m                19   1.0000   1.3593       7       2      5
+xrp_pullback_2h                  17   1.0000   1.0262       3       0      5
+fade_breakout_4h                 16   1.0000   1.0692       7       0      8
+trend_donchian_eth_4h            16   1.0000   7.7223       6       3      2
+ict_scalp_sol_5m                 16   1.0000   1.1551       6       1      3
+trend_donchian_ada_4h            15   1.0092   2.7434       6       4      2
+ict_scalp_sol_15m                14   1.0147   1.1189       7       1      4
+gld_pullback_1h                  13   1.0000   1.4167       6       3      0
+ict_scalp_xrp_5m                 13   1.1185   1.1656       8       0      4
+ict_scalp_eth_15m                13   1.0000   1.0000       0       0      2
+trend_donchian_avax_4h           12   1.0000   1.0402       3       1      6
+trend_donchian_xrp_4h            12   1.0000   1.0325       2       1      3
+qqq_pullback_1h                  12   1.0000   1.0683       2       0      2
+ict_scalp_xrp_15m                11   1.0000   1.1605       4       1      3
+trend_donchian_sol_4h             8   1.0000   1.0044       0       0      2
+avax_pullback_2h                  8   0.9945   1.0332       2       0      4
+tlt_pullback_1h                   8   1.0000   1.0000       0       0      0
+spy_pullback_1h                   8   1.0000   1.0000       0       0      2
+uso_trend_1h                      7   1.0000   1.0000       0       0      0
+squeeze_breakout_4h               5   1.0127   1.0361       3       0      1
+sol_pullback_2h                   5   0.9822   1.0214       2       0      3
+
+=== E. does /api/bot/trades/closed's population have order_package_id populated? ===
+{'n': 1346, 'with_opid': 965}
+=== END ===
+

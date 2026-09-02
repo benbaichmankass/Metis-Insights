@@ -1,0 +1,30 @@
+id: WO-20260902-PRS-WHOSE-OWN-BODIES-SAY-DO-NOT
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  PRs whose own bodies say do-not-merge have been merging themselves, and the population is unmeasured
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The population is STATED: every PR merged on 2026-09-02, graded by whether it was merged by a human or by github-actions[bot], cross-referenced against whether its own body or title declared it held / draft / not-for-merge. For each unauthorised merge, the blast radius is assessed and recorded -- what landed on main, whether it is DEPLOYED (a merge is not a deploy), and what would activate it. ⚠️ A count of bot-merges alone is NOT the finding: this relay legitimately merges automation PRs, so the number that matters is bot-merges of PRs that declared themselves held.
+
+why: >-
+  TWO CONFIRMED BY DIRECT READ, both merged_by github-actions[bot] with no human decision: #10788 at 16:12:21Z, whose own body reads 'Draft. Not for merge -- it carries an operator decision', and #10793 at 18:53:42Z, which carries the operator's explicit HELD constraint in its title. Both were armed BEFORE #10810 (the auto-merge gate) landed at 18:49:29Z, and that PR states in its own text that it 'cannot retract auto-merge already enabled'. So the fix stops new mis-arming and leaves an unknown number of already-armed PRs able to merge themselves the moment their CI goes green. I found both by accident while investigating something else, which is the reason to measure rather than spot-check.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

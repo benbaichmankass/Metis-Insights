@@ -1,0 +1,30 @@
+id: WO-20260902-INTEGRITY-IS-A-STANDING-BASIS-OF-PRIORITIZATION
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  INTEGRITY is a standing basis of prioritization, not a category that competes with the cycle priority
+stage: DECISION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The instruction hierarchy states how INTEGRITY relates to the cycle priority -- whether it PREEMPTS, sets a FLOOR, or is one of the stages the operator may name -- in a form a session can act on without asking. ⚠️ It must not resolve to 'integrity always wins': the design's own warning is that integrity can absorb unlimited effort while the chain moves nowhere, and that warning was written from measured evidence (45 governance/hardening sprints against 2 deployments in August). A rule that reproduces that ratio has failed even if it satisfies the words.
+
+why: >-
+  Operator, 2026-09-02: '[system] integrity, super important, and that should be, like, a basis of prioritization and work in general.' The operating-model design currently ranks NOTHING against anything -- A2 says the operator picks the held-up STAGE each cycle, and INTEGRITY is one of two SUPPORT functions that feed the chain rather than sitting on it, explicitly 'bounded, since it can absorb unlimited effort while the chain moves nowhere'. This directive is in tension with that bounding and the tension must be resolved deliberately rather than by drift. It is not hypothetical: today I spawned MI-81 on a four-days-overdue integrity row while the cycle priority was the STEERING half, and I recorded the priority call as arguable precisely because the model gave me no rule to appeal to.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

@@ -45,6 +45,7 @@ path is exercised constantly rather than hypothetically — and it must say
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import pathlib
@@ -69,6 +70,19 @@ _RESEARCH_QUEUE = Path("research/queue")
 _SUNSET_DIR = Path("comms/sunset")
 _SUNSET_DISPOSITIONS = Path("docs/claude/SUNSET-DISPOSITIONS.json")
 _PROBES = Path("docs/claude/PROBES.json")
+_ERROR_FEED = Path("docs/claude/ERROR-FEED-DIGEST.json")
+# How many error-level cause groups the due-list renders inline. A RENDERING
+# bound, never a triage decision: the count of everything is stated in the
+# summary row, so a capped list can never read as the whole feed. Uncapped it
+# would reproduce inside the due-list exactly the flood the digest exists to
+# collapse (measured 2026-09-02: 70 groups over 1365 rows).
+_ERROR_FEED_MAX_ROWS = 10
+# Slack over the workflow's declared hourly cadence before the digest is
+# called stale. This repo has scheduled workflows that fire ~4h50m late and
+# once instead of daily (probes.yml, run #34), so a tight threshold would fire
+# on correct-but-late behaviour — the desensitized-alarm P1. 6h absorbs a
+# missed run plus a retry without absorbing a whole day.
+_ERROR_FEED_STALE_AFTER_H = 6.0
 _PROBES_WORKFLOW = Path(".github/workflows/probes.yml")
 # Slack on top of the declared cadence before a report is called stale. The
 # probes job carries `timeout-minutes: 60`, so a run that starts on time can
@@ -657,6 +671,130 @@ def src_unlanded_automation(
     return SourceResult("unlanded_automation", "read", rows)
 
 
+
+def src_error_feed(
+    root: Path,
+    today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this one grades against `now`, which carries the time of day `today` throws away
+    *,
+    now: datetime | None = None,
+) -> SourceResult:
+    """The trader's ERROR FEED, grouped — from the COMMITTED digest.
+
+    Operator ask, 2026-09-02: *"can the error feed that's in the trader bot be
+    fed directly to the manager session, so you can decide what should be
+    resolved immediately vs. backlogged?"* That decision is exactly the `duty`
+    pass's disposition, and `duty` reads this list — so the feed is rendered
+    here rather than into a parallel surface of its own.
+
+    Reads what `scripts/ops/error_feed_digest.py --write` last landed, never the
+    live feeds: this renderer must stay cheap and network-light, and the digest
+    has its own schedule. So an `unreachable` feed stays `unreachable` all the
+    way through to the due-list rather than collapsing into "quiet".
+    """
+    now = now or datetime.now(timezone.utc)
+
+    p = root / _ERROR_FEED
+    if not p.exists():
+        return SourceResult("error_feed", "not_applicable",
+                            note=f"{_ERROR_FEED} absent — no digest run yet")
+    try:
+        env = _load_json(p)
+        groups = env["groups"]
+    except Exception as exc:  # noqa: BLE001
+        return SourceResult("error_feed", "could_not_read",
+                            note=f"{type(exc).__name__}: {exc}")
+
+    rows = []
+
+    # HOW OLD IS THIS EVIDENCE? A digest that stopped being produced renders as
+    # a quiet feed, which is the same wrong answer the digest itself refuses to
+    # give about its own sources.
+    gen = env.get("generated_at")
+    stamp = None
+    if isinstance(gen, str):
+        try:
+            stamp = datetime.fromisoformat(gen.replace("Z", "+00:00"))
+        except ValueError:
+            stamp = None
+    if stamp is None:
+        rows.append(_row(
+            "error_feed", "ERROR-FEED-UNDATEABLE",
+            "error-feed digest carries no readable `generated_at`",
+            "a digest that cannot be dated cannot be shown to be current — its "
+            "groups are being read without knowing when they were observed",
+            loud=True))
+        age_h = None
+    else:
+        if stamp.tzinfo is None:
+            stamp = stamp.replace(tzinfo=timezone.utc)
+        age_h = (now - stamp).total_seconds() / 3600.0
+        if age_h > _ERROR_FEED_STALE_AFTER_H:
+            rows.append(_row(
+                "error_feed", "ERROR-FEED-DIGEST-STALE",
+                f"error-feed digest is {age_h:.1f}h old — expected hourly",
+                "EVERY group below was observed at "
+                f"{gen}, NOT now. The digest workflow did not land a fresh run, "
+                "so an absent condition may simply be one nobody looked for.",
+                age_days=int(age_h // 24), loud=True))
+
+    # A feed we could not read is its own due row. Rendering its silence as
+    # "nothing fired" is the defect the whole digest exists to refuse.
+    for name in env.get("unreachable_feeds") or []:
+        note = (env.get("feeds", {}).get(name, {}) or {}).get("note", "")
+        rows.append(_row(
+            "error_feed", f"ERROR-FEED-UNREACHABLE-{name.upper()}",
+            f"error feed `{name}` could not be read",
+            f"WE COULD NOT LOOK, which is not the same as quiet — {note or 'no note'}. "
+            "Every group below is a LOWER BOUND.",
+            loud=True))
+
+    errs = [g for g in groups if g.get("level") in ("error", "unknown")]
+    warns = [g for g in groups if g.get("level") not in ("error", "unknown")]
+
+    for g in errs[:_ERROR_FEED_MAX_ROWS]:
+        facets = " ".join(
+            f"{k}={','.join(g[k])}" for k in ("accounts", "symbols", "strategies")
+            if g.get(k))
+        first, last = g.get("first_seen", ""), g.get("last_seen", "")
+        first_day = _day(first)
+        rows.append(_row(
+            # STABLE across runs. `hash()` is per-process randomised
+            # (PYTHONHASHSEED), so an id built from it changes every run and a
+            # session cannot tell yesterday's row from a new one — which is the
+            # whole reason a due row carries an id.
+            "error_feed",
+            "ERRFEED-" + hashlib.sha1(
+                g.get("cause", "").encode("utf-8")).hexdigest()[:8],
+            f"[{g.get('level')}] {'NEW ' if g.get('is_new') else ''}"
+            f"x{g.get('count')} {g.get('cause', '')[:140]}",
+            f"error-level condition on `{g.get('feed')}`, "
+            + ("FIRST SEEN since the last digest — " if g.get("is_new")
+               else "STANDING (predates the last digest) — ")
+            + f"{g.get('count')} rows {first[:19]} → {last[:19]}"
+            + (f" · {facets}" if facets else "")
+            + " — decide: fix now, or file to a backlog",
+            age_days=(today - first_day).days if first_day else None))
+
+    # THE SUMMARY ROW IS WHAT MAKES THE CAP HONEST. Without it a 10-row render
+    # of 47 error groups reads as the whole feed.
+    if groups:
+        capped = max(0, len(errs) - _ERROR_FEED_MAX_ROWS)
+        rows.append(_row(
+            "error_feed", "ERROR-FEED-SUMMARY",
+            f"{len(groups)} cause groups over {env.get('counts', {}).get('rows_grouped')} rows "
+            f"({len(errs)} error-level, {len(warns)} warn-level, "
+            f"{env.get('counts', {}).get('new_groups')} new since the last digest)",
+            f"{capped} further error group(s) and every warn group are NOT listed "
+            f"above — read `{_ERROR_FEED}` for the full set. Digest verdict "
+            f"`{env.get('verdict')}`"
+            + (f", page cap hit on `{'`, `'.join(env['truncated_feeds'])}`"
+               if env.get("truncated_feeds") else "")
+            + f", covers rows after `{env.get('covers_since') or '(full page)'}`."))
+
+    return SourceResult("error_feed", "read", rows,
+                        note=f"digest {gen}, age "
+                             + (f"{age_h:.1f}h" if age_h is not None else "unknown"))
+
 def src_sunset_dispositions(root: Path, today: date) -> SourceResult:
     """E3's retirement candidates that NOBODY HAS DISPOSITIONED.
 
@@ -734,7 +872,8 @@ def src_sunset_dispositions(root: Path, today: date) -> SourceResult:
 
 SOURCES: tuple[Callable, ...] = (
     src_open_items, src_soaks, src_operator_owed, src_research_queue, src_probes,
-    src_red_crons, src_unlanded_automation, src_sunset_dispositions,
+    src_red_crons, src_unlanded_automation, src_error_feed,
+    src_sunset_dispositions,
 )
 
 
