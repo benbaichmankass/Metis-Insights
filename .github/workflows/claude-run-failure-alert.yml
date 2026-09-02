@@ -186,6 +186,13 @@ on:
       # failure of it means every row it covers is quietly unwatched WHILE the
       # last-known results file still reads as current — the worst shape.
       - probes
+      # ── added 2026-09-02 in the same PR that created it. `error-feed-digest`
+      #    is the only thing reading the trader's error feed on a cadence, and
+      #    its failure mode is the one this repo keeps paying for: a digest
+      #    that stopped being produced renders as a feed that went quiet. The
+      #    due-list raises a stale digest as a loud row, but only if a stale
+      #    digest is what lands — a run that DIES lands nothing at all.
+      - error-feed-digest
     types: [completed]
 
 permissions:
