@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T02:00Z",
+  "updated_at": "2026-09-02T02:12Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -154,7 +154,7 @@
           "what": "attaching require_session is only tractable once the other consumers are archived"
         }
       ],
-      "note": "PR #10705 OPEN (claude/phase-h-decision-roundtrip). Manager has NOT read the diff. ⚠️ Read the write-gate polarity before merging: a decision-WRITE on a public API must copy prop/report's FAIL-CLOSED token gate (503 when DASHBOARD_API_TOKEN is unset), never the permissive devices shape or the deliberately-open learning/progress one.",
+      "note": "PR #10705 OPEN (claude/phase-h-decision-roundtrip). Manager has NOT read the diff. ⚠️ Read the write-gate polarity before merging: a decision-WRITE on a public API must copy prop/report's FAIL-CLOSED token gate (503 when DASHBOARD_API_TOKEN is unset), never the permissive devices shape or the deliberately-open learning/progress one. === STILL THE LAST OPEN WORKPLAN ITEM at 02:12Z: #10705 is a DRAFT and adds a WRITE route, so it is the one remaining PR needing a real manager review rather than a green tick.",
       "pr": "#10705"
     },
     {
@@ -192,8 +192,8 @@
       "id": "MI-13-BACKLOG-DRAIN",
       "title": "Drain the review backlogs (1,072 rows in health-review alone)",
       "state": "in_flight",
-      "owner": "session_01FYEGu7 (drain #1, idle) + session_01BNXj6o (drain #2) + session_01JXBmVC (drain #3)",
-      "note": "Operator standing instruction 2026-09-01: 'finish the workplan, then start the backlog' — backlog starts once workplan items are SPAWNED, not once they are finished. Drain #1 (health-review) is complete and its PR #10707 is in the merge train: population 508 unresolved of 1,077 rows, 14 examined, 7 CLOSED on live fleet evidence or by making a guard actually fail, 5 REFUSED with the measurement recorded, 2 FILED — net −5. ⚠️ THE REFUSALS ARE AS VALUABLE AS THE CLOSURES and the session was right to record them rather than stretch the evidence. Drains #2 (ml-review) and #3 (performance-review) spawned 01:18Z. ⚠️ EACH DRAIN IS SCOPED TO EXACTLY ONE BACKLOG FILE and forbidden from touching OPEN-ITEMS.json — file isolation is what stops the drain fleet from reproducing MI-20 among themselves, and drain #1 proved the OI-reporting convention works. === DRAIN #1 MERGED 2026-09-02T01:38Z as e021f98d. ⚠️ THE MERGE WAS VERIFIED, NOT TRUSTED: it auto-merged cleanly against #10708, which had landed rows in the SAME file minutes earlier, and a clean git auto-merge of a JSON array is exactly the shape BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION warns about. Measured on origin/main after the merge: 1091 rows / 1091 UNIQUE ids / 0 duplicates; drain #1's sampled closures all read `resolved`, both its filed rows are present and `open`, AND Phase G's own filing — the OTHER side of the merge — survived. Clean in substance, not merely in git's eyes.",
+      "owner": "drains #1-#3 merged; #4 (session_012zFXi2) + #5 (session_01HMfmAi) running",
+      "note": "Operator standing instruction 2026-09-01: 'finish the workplan, then start the backlog' — backlog starts once workplan items are SPAWNED, not once they are finished. Drain #1 (health-review) is complete and its PR #10707 is in the merge train: population 508 unresolved of 1,077 rows, 14 examined, 7 CLOSED on live fleet evidence or by making a guard actually fail, 5 REFUSED with the measurement recorded, 2 FILED — net −5. ⚠️ THE REFUSALS ARE AS VALUABLE AS THE CLOSURES and the session was right to record them rather than stretch the evidence. Drains #2 (ml-review) and #3 (performance-review) spawned 01:18Z. ⚠️ EACH DRAIN IS SCOPED TO EXACTLY ONE BACKLOG FILE and forbidden from touching OPEN-ITEMS.json — file isolation is what stops the drain fleet from reproducing MI-20 among themselves, and drain #1 proved the OI-reporting convention works. === DRAIN #1 MERGED 2026-09-02T01:38Z as e021f98d. ⚠️ THE MERGE WAS VERIFIED, NOT TRUSTED: it auto-merged cleanly against #10708, which had landed rows in the SAME file minutes earlier, and a clean git auto-merge of a JSON array is exactly the shape BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION warns about. Measured on origin/main after the merge: 1091 rows / 1091 UNIQUE ids / 0 duplicates; drain #1's sampled closures all read `resolved`, both its filed rows are present and `open`, AND Phase G's own filing — the OTHER side of the merge — survived. Clean in substance, not merely in git's eyes. === SECOND WAVE 2026-09-02T02:11Z. Drains #2 (#10718) and #3 (#10717) MERGED, leaving ZERO running — the operator's instruction is a marathon, so #4 (research-review, the only never-drained file) and #5 (health-review second pass) were spawned. ⚠️ #5 was given drain #1's five REFUSALS up front so it does not redo blocked work, and was explicitly RELEASED to take the one real class drain #1 declined as out of scope. === SCOREBOARD SO FAR, and it is not just closures: drain #1 closed 7 / refused 5 / filed 2; drain #3 retired a real CLASS and filed the mgc_trend_1h starvation finding (MI-29); drain #2 closed NOTHING and that was the right outcome — it refuted its highest-severity row's prescribed fix with a 76-manifest measurement, which would otherwise have shipped a permanently-green guard over a live defect.",
       "pr": "#10707"
     },
     {
