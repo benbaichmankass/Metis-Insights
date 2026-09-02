@@ -1160,6 +1160,31 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_tp_venue_cap_single_owner.py"]],
     },
     {
+        "name": "automerge-trigger-guard",
+        # UNGATED: no `when`, so it runs on every PR regardless of the diff.
+        #
+        # ⚠️ THAT IS DELIBERATE AND IS THE POINT OF THE GUARD. A diff-scoped
+        # version would only fire when someone edits the relay — and nobody was
+        # editing the relay on 2026-09-02 when it un-drafted and armed three PRs
+        # that had asked for nothing. The regression vector is a path landing on
+        # `main`, not an edit to the workflow, so a guard that waits to be
+        # triggered by an edit is a guard that would have stayed silent through
+        # the whole incident. Same reasoning as `diagnostic-provenance-guard`'s
+        # ungated `--all` step.
+        #
+        # It is cheap (two file reads, no network) and the tree passes today, so
+        # an ungated step is survivable — which is exactly the precondition that
+        # made the diagnostic-provenance one survivable too.
+        #
+        # Self-test FIRST: the guard reports a CLEAN tree, so without an
+        # exercised failure path a green here is indistinguishable from a guard
+        # that stopped matching. Declared in `guard_selftests.py`'s
+        # COVERED_BY_CHECKER, which `check_selftest_wiring.py` VERIFIES rather
+        # than takes on trust.
+        "steps": [["python3", "scripts/ci/check_automerge_trigger.py", "--self-test"],
+                  ["python3", "scripts/ci/check_automerge_trigger.py"]],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read

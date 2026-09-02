@@ -719,6 +719,7 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
 COVERED_BY_CHECKER: Dict[str, str] = {
     "matrix-corpus-agreement": "scripts/ci/check_matrix_corpus_agreement.py",
     "workflow-catalog": "scripts/ci/check_workflow_catalog.py",
+    "automerge-trigger": "scripts/ci/check_automerge_trigger.py",
 }
 
 

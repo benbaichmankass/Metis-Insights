@@ -31247,6 +31247,42 @@
         "https://github.com/benbaichmankass/Metis-Insights/pull/10789",
         "tests/test_zz_automerge_hold.py"
       ]
+    },
+    {
+      "id": "BL-20260902-THE-PER-REQUEST-GLOB-IS-ITSELF-DRAGGED-IN-BY-A-MERGE-OF-MAIN",
+      "title": "claude-pr-automerge's mis-fires were the PER-REQUEST glob, not the legacy shared path — both existing rows mis-attribute the mechanism, and the fix they prescribe would have fixed none of the three observed cases",
+      "severity": "high",
+      "tier": 1,
+      "status": "resolved",
+      "opened": "2026-09-02",
+      "source": "session_01XrwTGRY819PCzBnppCTLbi (MI-69), dispatched to remove the legacy path; measured the push diffs before changing anything and found the dispatched diagnosis wrong.",
+      "detail": "A CORRECTION to BL-20260902-A-REBASE-ARMS-AUTOMERGE-BECAUSE-A-PUSH-DIFF-INCLUDES-EVERYTHING-MAIN-CHANGED and BL-20260902-CLAUDE-PR-AUTOMERGE-FIRED-ON-A-PUSH-TOUCHING-NEITHER-OF-ITS-TRIGGER-PATHS. Both rows, and the dispatch built on them, name the legacy shared path `.github/pr-automerge-request` as what matched. MEASURED on all three 2026-09-02T13:19Z mis-fires (`9cf89802` mi63-true-blocked-on-edges, `5449ef6c` decision-push-back, `31cff960` openprs-settled-reconciler), taking the push diff as GitHub computes it — parent1..merge, i.e. before-head to after-head: THE LEGACY PATH IS IN ZERO OF THE THREE. It had not been modified on `main` since 2026-08-21 (`fd6c2cab`), so it could not match a 2026-09-02 rebase. What matched in all three is the PER-REQUEST GLOB `.github/pr-automerge-requests/*.txt` — nine such files landed on `main` on 2026-09-02 alone, so any branch merging `main` drags other branches' request files into its own push diff. ⚠️ THE PRESCRIBED FIX WOULD HAVE FIXED NOTHING. Removing the legacy path — which is what both rows' resolution criteria lead with and what MI-69 was dispatched to do — leaves the defect fully intact, because the surviving glob is the one that was matching. Worse, it would have looked like a fix and closed the rows. ⚠️ THE TRANSFERABLE LESSON IS THE ONE THIS REPO KEEPS PAYING FOR: a mechanism was inferred from a plausible reading of the workflow file and never checked against the diff. `git diff --name-only <sha>^1 <sha> -- <paths>` is a one-line check that was available the whole time. Field beats comment; the diff beats the theory about it. THE REAL INVARIANT: a `paths:` filter CANNOT be the gate, because it cannot distinguish 'I asked for auto-merge' from 'I merged somebody else's ask' — the two produce an identical changed-file set. This is the third narrowing of that filter (`**` -> `*.txt` 2026-08-22, then this), and the first two both recurred, because narrowing a filter that cannot express the question is not a fix. FIXED: the load-bearing gate now lives in the job body — the request file must be named for THIS branch and be added-or-modified relative to `main`, so a file inherited by a merge is not an ask. Held by `scripts/ci/check_automerge_trigger.py` (ungated in CI, 6 planted-defect self-tests) and `tests/test_automerge_request_gate.py`, which runs the SHIPPED script under node rather than re-implementing it. Negative control: against the pre-fix workflow the three negative tests FAIL (it calls pulls.create + markReady + enableAutoMerge on a branch that asked nothing); positive control: the two 'a genuine request still arms' tests pass against BOTH workflows, so the trigger is not merely broken.",
+      "resolution_criteria": "RESOLVED by PR from claude/mi69-automerge-misfire. Re-opens if any of: the `paths:` filter gains an entry; the job body stops comparing the request file against `main`; or `markPullRequestReadyForReview` returns to the executable script. `automerge-trigger-guard` fails CI on all three.",
+      "refs": [
+        ".github/workflows/claude-pr-automerge.yml",
+        "scripts/ci/check_automerge_trigger.py",
+        "tests/test_automerge_request_gate.py",
+        "BL-20260902-A-REBASE-ARMS-AUTOMERGE-BECAUSE-A-PUSH-DIFF-INCLUDES-EVERYTHING-MAIN-CHANGED",
+        "BL-20260902-CLAUDE-PR-AUTOMERGE-FIRED-ON-A-PUSH-TOUCHING-NEITHER-OF-ITS-TRIGGER-PATHS",
+        "BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE"
+      ]
+    },
+    {
+      "id": "BL-20260902-TWO-OPEN-PRS-ARE-ARMED-TO-MERGE-WHILE-THEIR-OWN-BODIES-SAY-DO-NOT-MERGE",
+      "title": "#10788 and #10764 were un-drafted and armed for auto-merge by the relay; both bodies say they must not merge, and neither branch ever requested it",
+      "severity": "critical",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-02",
+      "source": "session_01XrwTGRY819PCzBnppCTLbi (MI-69) — measured against the live open-PR set while fixing the relay, not reported by anyone.",
+      "detail": "A LIVE, UNRESOLVED STATE at time of filing, and the fix in the same PR does NOT clear it — the relay change stops NEW mis-arming; it cannot retract auto-merge already enabled. #10788 (`claude/decision-push-back`) reads `draft: false`; its own body says 'Draft. Not for merge — it carries an operator decision.' It carries an UNANSWERED operator decision about minting an account-wide `CLAUDE_CODE_OAUTH_REFRESH_TOKEN`. Armed at 2026-09-02T13:19:04Z, confirmed from the run's own log rather than inferred: run 33634977260 -> `##[notice]auto-merge enabled on #10788 — merges when CI is green`. #10764 (`claude/claude-md-reference-split`) reads `draft: false`; its own body ends 'Left as a DRAFT. The manager owns the merge.' Un-drafted by runs 33609894152 / 33610115896 at 08:39Z / 08:42Z. NEITHER BRANCH ASKED. `git log origin/main..<branch> --name-only` returns no request file for either — checked across all 14 open `claude/**` branches, and the other six non-draft ones each carry their own correctly-named request file, so this is not a measurement artefact. ⚠️ BRANCH PROTECTION IS NOT A BACKSTOP HERE: it gates on CHECKS, and the checks are green or will be. Both will merge with no human in the loop. ⚠️ THE FILING SESSION COULD NOT FIX IT: `update_pull_request` and `disable_pr_auto_merge` are 403 from a read-only session, the same limit that forced #10796 to be CLOSED rather than re-drafted on the same day.",
+      "resolution_criteria": "Someone with PR write access confirms, for EACH of #10788 and #10764, that auto-merge is disabled AND the PR is back to draft (or that the operator has deliberately decided to merge it). Read the state back from the API after acting — the arming was invisible to both PRs' authors, so a claim that it is undone is not the same as observing that it is. ⚠️ If either has already merged by the time this is picked up, record THAT as the outcome rather than closing the row quietly: an unrequested merge of a PR carrying an unanswered operator decision is the harm this class exists to prevent, and it should be recorded as having happened.",
+      "refs": [
+        "https://github.com/benbaichmankass/Metis-Insights/pull/10788",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/10764",
+        ".github/workflows/claude-pr-automerge.yml",
+        "BL-20260902-THE-PER-REQUEST-GLOB-IS-ITSELF-DRAGGED-IN-BY-A-MERGE-OF-MAIN"
+      ]
     }
   ]
 }

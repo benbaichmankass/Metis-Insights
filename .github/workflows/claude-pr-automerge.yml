@@ -6,16 +6,29 @@ name: claude-pr-automerge
 # HAS write perms — so this workflow does the PR-open + auto-merge the session can't call
 # directly. Generalized from the one-off m28-value-grade/merge-push workflows (2026-07-27).
 #
-# Trigger: a git push to any `claude/**` branch that touches
-# `.github/pr-automerge-requests/<branch>.txt` — one file PER REQUEST, so two PRs never
-# collide (the old single shared `.github/pr-automerge-request` is still accepted during a
-# transition window). The file's contents are ignored — touching it is the
-# opt-in signal; the PR title/body derive from the head commit. On fire, this workflow:
+# TWO GATES, and the `paths:` filter is the WEAK one. A push to a `claude/**` branch
+# reaches this job only if it touches `.github/pr-automerge-requests/*.txt` — but that
+# filter matches a branch that merely MERGED `main` while somebody else's request file
+# was on it, which is how three PRs were armed on 2026-09-02 having asked for nothing.
+# So the job's FIRST action is the REQUEST GATE: it establishes that THIS branch asked,
+# by proving `.github/pr-automerge-requests/<branch-slug>.txt` is present at the pushed
+# head and is ADDED-OR-MODIFIED relative to `main`. Nothing else in this job runs until
+# that holds. The file's CONTENTS are still never read — its PATH is the signal, and the
+# path now names the branch, so no other branch's ask can stand in for yours.
+#
+# On a passing gate:
 #   1. finds or CREATES the branch's PR to `main` (title = head-commit subject),
-#   2. marks it ready + enables native auto-merge (squash) — GitHub then merges ONLY when
-#      the required checks pass and the branch is up to date (branch-protection is the
-#      safety net; this never bypasses CI),
+#   2. enables native auto-merge (squash) — GitHub merges ONLY when the required checks
+#      pass and the branch is up to date (branch-protection is the safety net; this never
+#      bypasses CI),
 #   3. falls back to a bounded poll-then-squash-merge if auto-merge isn't allowed.
+#
+# ⚠️ IT NEVER UN-DRAFTS A PR IT DID NOT ITSELF CREATE. A draft is what every Tier-2 and
+# Tier-3 convention in this repo uses to mean "prepared, not approved", and this workflow
+# used to call `markPullRequestReadyForReview` unconditionally — silently deleting that
+# marker, after which the PR merged on green with no human in the loop. A PR it creates is
+# born ready (that IS the request being fulfilled); a draft somebody else opened is
+# REFUSED, loudly, and left exactly as it was.
 #
 # Observe/CI-only — opens + merges a PR, touches no runtime, no order path. The merge still
 # obeys every required status check + branch-protection rule.
@@ -44,9 +57,25 @@ on:
     # `automation/board-posts/<name>.md`, pr-close
     # `automation/pr-close-requests/<name>.json`. Only this one kept a shared file.
     #
-    # The OLD path stays in the list for a transition window so an in-flight
-    # branch that already wrote it still fires. Remove it once no open PR carries
-    # that file.
+    # The legacy shared path is GONE from this list (and the file is deleted from
+    # the tree), per its own instruction to remove it once no open PR carried it.
+    # ⚠️ BUT THAT WAS NEVER THE BUG, AND REMOVING IT FIXES NOTHING ON ITS OWN.
+    # Measured on the three mis-fires of 2026-09-02T13:19Z (`9cf89802`,
+    # `5449ef6c`, `31cff960`): the legacy path is in ZERO of the three push
+    # diffs — it had not been modified on `main` since 2026-08-21, so it could
+    # not match. What matched is THIS GLOB. Nine `*.txt` request files landed on
+    # `main` on 2026-09-02 alone, and GitHub computes a push's changed-file set
+    # as the before-head→after-head diff, so ANY branch that merges or rebases
+    # `main` drags other branches' request files into its own push diff.
+    #
+    # ⚠️ SO A `paths:` FILTER CANNOT BE THE GATE, AND MUST NEVER AGAIN BE THE
+    # ONLY ONE. It cannot distinguish "I asked for auto-merge" from "I merged
+    # somebody else's ask" — the two produce an identical changed-file set. The
+    # repo's own merge protocol tells branches to sync to `main`, so the
+    # condition fires most readily on the branches doing the right thing. This
+    # filter is now only a cheap pre-filter that saves runner minutes; the
+    # REQUEST GATE in the job body is what decides, and it is scoped to THIS
+    # branch's own request file.
     # ⚠️ `*.txt`, NOT `**`. The first version of this fix used `**` and armed
     # auto-merge on THIS VERY PR by matching the directory's own README.md —
     # observed live 2026-08-22T10:46:15Z, `auto_merge_enabled` by
@@ -56,7 +85,6 @@ on:
     # in this directory must never be a signal.
     paths:
       - ".github/pr-automerge-requests/*.txt"
-      - ".github/pr-automerge-request"
 
 permissions:
   contents: write
@@ -71,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
-      - name: "Open-or-find the PR, mark ready, enable auto-merge (fallback poll-then-merge)"
+      - name: "Request gate, then open-or-find the PR and enable auto-merge"
         uses: actions/github-script@v7
         with:
           script: |
@@ -79,10 +107,61 @@ jobs:
             const owner = context.repo.owner, repo = context.repo.repo;
             const subject = (context.payload.head_commit?.message || 'chore: automated PR').split('\n')[0];
 
+            // ---------------------------------------------------------------
+            // 0. THE REQUEST GATE — did THIS branch ask?
+            //
+            // The `paths:` filter cannot answer that. GitHub computes a push's
+            // changed-file set as before-head→after-head, so merging or rebasing
+            // `main` drags in every request file that landed on `main` in the
+            // meantime and the filter matches on somebody else's ask. Measured on
+            // the three mis-fires of 2026-09-02T13:19Z: all three matched OTHER
+            // branches' request files, and the repo's own merge protocol is what
+            // told those branches to sync to `main` in the first place.
+            //
+            // So the ask is proven here instead, against the branch's own name:
+            //   present at the pushed head  AND  (absent on `main` OR differing
+            //   from `main`)  ==  a commit on THIS branch put it there.
+            // A file merely inherited from `main` is identical to `main`'s copy and
+            // fails the second clause, which is exactly the mis-fire case.
+            //
+            // Two `getContent` calls, deliberately, rather than reading the push
+            // event's file list: the event's list is the thing that is wrong.
+            const slug = head.replace(/^claude\//, '').replace(/\//g, '-');
+            const reqPath = `.github/pr-automerge-requests/${slug}.txt`;
+
+            const blobSha = async (ref) => {
+              try {
+                const r = await github.rest.repos.getContent({ owner, repo, path: reqPath, ref });
+                return Array.isArray(r.data) ? null : (r.data.sha || null);
+              } catch (e) {
+                if (e.status === 404) return null;
+                throw e;   // a read we could not make is NOT proof of absence.
+              }
+            };
+
+            const atHead = await blobSha(context.sha);
+            if (!atHead) {
+              core.notice(`NO REQUEST — ${reqPath} is absent at ${context.sha.slice(0,8)}. ` +
+                          `This push matched the paths filter through another branch's ` +
+                          `request file (a merge or rebase of main). Doing nothing: no PR ` +
+                          `opened, no draft changed, no auto-merge, no merge.`);
+              return;
+            }
+            const atMain = await blobSha('main');
+            if (atMain === atHead) {
+              core.notice(`NO REQUEST — ${reqPath} exists but is byte-identical to main's ` +
+                          `copy, so this branch inherited it rather than asking. Doing ` +
+                          `nothing: no PR opened, no draft changed, no auto-merge, no merge.`);
+              return;
+            }
+            core.notice(`request gate PASSED — ${reqPath} is ${atMain ? 'modified' : 'added'} by this branch`);
+
+            // ---------------------------------------------------------------
             // 1. find or create the PR.
             let pr = (await github.rest.pulls.list({
               owner, repo, head: `${owner}:${head}`, state: 'open',
             })).data[0];
+            let created = false;
             if (!pr) {
               pr = (await github.rest.pulls.create({
                 owner, repo, head, base: 'main', draft: false,
@@ -95,15 +174,38 @@ jobs:
                   '🤖 Generated with [Claude Code](https://claude.com/claude-code)',
                 ].join('\n'),
               })).data;
+              created = true;
               core.notice(`opened PR #${pr.number}`);
             } else {
-              core.notice(`found open PR #${pr.number}`);
+              core.notice(`found open PR #${pr.number} (draft: ${pr.draft})`);
             }
 
-            // 2. mark ready (un-draft) + enable native auto-merge.
-            try {
-              await github.graphql(`mutation($id:ID!){ markPullRequestReadyForReview(input:{pullRequestId:$id}){ pullRequest{ number } } }`, { id: pr.node_id });
-            } catch (e) { core.notice(`markReady: ${e.message}`); }
+            // ---------------------------------------------------------------
+            // 2. THE DRAFT REFUSAL — never un-draft a PR this workflow did not open.
+            //
+            // A draft is this repo's marker for "prepared, not approved"; Tier-2 and
+            // Tier-3 both depend on it, and branch protection does not help because
+            // it gates on CHECKS and the checks were green. This job used to run
+            // `markPullRequestReadyForReview` unconditionally, so a request file
+            // (or, before the gate above, no request at all) silently removed the
+            // one signal holding a PR back. #10788 and #10764 were both armed this
+            // way on 2026-09-02 while their own bodies read "Not for merge" and
+            // "Left as a DRAFT. The manager owns the merge."
+            //
+            // A PR this run CREATED is born ready — that is the request being
+            // fulfilled, and there is no human intent to override. Anything else
+            // that is a draft is refused and left untouched.
+            if (!created && pr.draft) {
+              core.notice(`REFUSING — #${pr.number} is a DRAFT this workflow did not open. ` +
+                          `A draft means "prepared, not approved" in this repo, so the ` +
+                          `request file does not override it. Left as-is: not un-drafted, ` +
+                          `no auto-merge, no merge. Open the PR ready (pr-opener's ` +
+                          `"draft": false) or ask the manager to merge it.`);
+              return;
+            }
+
+            // ---------------------------------------------------------------
+            // 3. enable native auto-merge.
             try {
               await github.graphql(`mutation($id:ID!){ enablePullRequestAutoMerge(input:{pullRequestId:$id, mergeMethod:SQUASH}){ pullRequest{ number } } }`, { id: pr.node_id });
               core.notice(`auto-merge enabled on #${pr.number} — merges when CI is green`);
@@ -112,7 +214,7 @@ jobs:
               core.notice(`enableAutoMerge failed (${e.message}); falling back to poll-then-merge`);
             }
 
-            // 3. fallback: poll ~8 min for checks, then squash-merge directly.
+            // 4. fallback: poll ~8 min for checks, then squash-merge directly.
             const sha = pr.head.sha;
             for (let i = 0; i < 16; i++) {
               await new Promise(r => setTimeout(r, 30000));
