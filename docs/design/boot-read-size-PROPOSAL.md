@@ -33,7 +33,7 @@ root cause. One day later it is ~427k: `CLAUDE.md` grew ~13% and
 the largest file in the set — 648,407 B against `CLAUDE.md`'s 430,453 B, over
 the five-file population in the table above — and no slice of `CLAUDE.md` alone
 can fix the boot read. Slice 1 — the largest clean cut available inside `CLAUDE.md` —
-removes **34.2% of that file and 8.7% of the boot read**. Anyone reporting this
+removes **160,944 B of reference material** from that file — 33.8% of it and 8.7% of the boot read as measured at `5aa9f9de`, though see §3 on why the percentage drifts and the byte count does not. Anyone reporting this
 work as "the boot-read problem is solved" would be quoting the wrong
 denominator.
 
@@ -75,10 +75,28 @@ table.
 | | bytes |
 |---|--:|
 | `CLAUDE.md` before (`d8aac5c6`) | 430,453 |
-| moved verbatim | 156,448 |
+| **moved out verbatim** — the stable figure | **160,944** |
 | pointer + index added back | 4,062 |
-| **`CLAUDE.md` after** | **283,388** (**−34.2%**) |
-| boot-read total after | 1,404,955 (**−8.7%**) |
+| `CLAUDE.md` after (at `5aa9f9de`) | 284,917 (−33.8%) |
+
+⚠️ **QUOTE THE MOVED-BYTES FIGURE, NOT THE PERCENTAGE — the percentage DRIFTS
+and the moved figure does not.** Across three merges of `main` during this PR's
+life the percentage read −34.9%, then −34.2%, then −33.8%, while the PR's own
+content did not change once. Two causes, both outside this change:
+
+1. **`main` kept editing rows this PR had moved** — `GET /api/bot/strategy-reviews`
+   gained an `evidence.horizon` block (+2,374 B) and `GET /api/diag/log_file`
+   gained the `close_wedge_standing` name (+2,086 B). Both were **carried into
+   the reference verbatim**, so "moved out" grew 154,074 → 160,944.
+2. **The generated `SESSION-BRIEF` block inside `CLAUDE.md` keeps growing** —
+   24,642 B at `5aa9f9de`, and it is re-rendered from the registers on every
+   merge. It is not this PR's content and it is not removable by any slice
+   here.
+
+**A percentage whose denominator is edited by other sessions several times a
+day is not a stable claim**, which is why the table above leads with the byte
+count. Any figure below that reads as a percentage is `MEASURED` against a
+NAMED commit and is stale the moment `main` moves.
 
 ⚠️ **RE-MEASURED 2026-09-02 after merging `main`, and BOTH figures moved — do
 not quote the earlier −34.9% / −9.7% pair.** Two independent causes, and the
@@ -268,7 +286,7 @@ removal.
 
 | after | `CLAUDE.md` | boot-read total | vs. today |
 |---|--:|--:|--:|
-| slice 1 (done) | 283,388 | 1,404,955 | −8.7% |
+| slice 1 (done) | 284,917 | ~1,406,000 | ~−8.6% |
 | + slice 2 | ~149,000 | ~1,257,000 | −18.3% |
 | + slice 3 | ~149,000 | ~1,078,000 | −29.9% |
 | + slice 5 | ~131,000 | ~1,060,000 | −31.1% |
