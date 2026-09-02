@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T17:19:43Z",
+  "updated_at": "2026-09-02T18:17:03Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -1150,6 +1150,16 @@
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "MI-73 was given this task, worked ~$10, and LOST ALL OF IT: 'blocked on permission classifier; auto-mode denied add_repo x2 and git push x3'. It never pushed a branch, so nothing survives. Respawned WITH an explicit source_url (which MI-73 lacked) and with a standing instruction to push within its first minutes, before it has anything good.",
       "note": "Spawn gate PERMITTED (exit 0). Created with explicit source_url and sources confirmed present at creation, unlike MI-73.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01Ue52itfxGxsbZrJJtswtCg",
+      "title": "MI-78 — two open PRs are RED on pytest-run; both failures are their OWN, not the base branch",
+      "owns_object": "WO-20260902-TWO-OPEN-NON-DRAFT-PRS-ARE-RED",
+      "checklist_item": "MI-78",
+      "spawned_at": "2026-09-02T18:17:03Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "why": "#10764 and #10810 are both non-draft and both red on pytest-run since 16:43Z. Their sub-sessions are gone. Manager verified main is CLEAN on the failing coherence check, so neither is a base-branch failure.",
       "state": "working"
     }
   ],

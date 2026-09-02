@@ -1153,6 +1153,20 @@
         "#10808",
         "WO-20260902-MANAGER-PREFLIGHT"
       ]
+    },
+    {
+      "id": "MI-78",
+      "title": "Two open non-draft PRs are RED on pytest-run and nothing is driving them",
+      "state": "in_flight",
+      "priority": "P2_OVERHAUL_IMPLEMENTATION",
+      "owner": "session_01Ue52itfxGxsbZrJJtswtCg",
+      "tier": "1 (tests/CI)",
+      "why": "#10764 (the CLAUDE.md instruction-surface split, MI-41-B) and #10810 (the automerge request gate, MI-69) are both non-draft, both mergeable, and both RED on pytest-run since 16:43Z, with their sub-sessions ended. Two finished operating-layer deliverables sitting undeliverable with no owner.",
+      "the_hypothesis_to_TEST": "Both failures are the PRs' OWN, not the base branch's. Evidence: the failing coherence check's code-minus-doc and doc-minus-code sets both reproduce EMPTY against origin/main. #10764: the split moved the log_file row out of CLAUDE.md, main later added four names to CLAUDE.md's copy, the merge kept the branch's deletion and the additions never reached the new home (bybit_coverage_soak, telegram_poll_claude, telegram_poll_trader, work_decision_prompted). #10810: the new automerge-trigger-guard registry entry OMITS the \"when\" key where the convention is an explicit \"when\": None, and the test reads g[\"when\"] directly -- 7 KeyErrors.",
+      "done_when": "Both PRs show pytest-run success on their pushed head and are merged, OR a comment on each names exactly what is failing and why it is not being fixed. Neither test is weakened, skipped or deleted to reach that state, and #10764's verbatim-split claim survives -- the four names' descriptive prose comes across, not just the enum tokens.",
+      "owns_object": "WO-20260902-TWO-OPEN-NON-DRAFT-PRS-ARE-RED",
+      "spawned_at": "2026-09-02T18:16:25Z",
+      "note": "MANAGER ORDERING SLIP, recorded rather than tidied away: I spawned this session BEFORE registering it, and spawn_gate.py duly REFUSED the registration for naming no parent object. That is the gate working -- and it caught me, the manager, which is what it is for. The object was created after the fact via capture_idea.py and the row is correct now, but the spawn was un-gated at the moment it happened. The gate cannot refuse a create_session call it never sees; MI-77 is the watcher for exactly this class."
     }
   ],
   "as_of": "2026-09-02T17:20:00Z"
