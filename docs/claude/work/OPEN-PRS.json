@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-02T11:17:00Z",
+  "as_of": "2026-09-02T09:56:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -143,6 +143,21 @@
         "text": "Operator, 2026-09-02: 'You can, uh, build the wiring.' Answering their own question — 'can the error feed that's in the trader bot be fed directly to the manager session, so you can decide what should be resolved immediately vs. backlogged?'"
       },
       "blocker": "NOT YET REVIEWED BY THE MANAGER. ⚠️ Its done-condition is NOT a green CI run: it needs a workflow_dispatch run with a quoted conclusion, producing a digest in which the AVAX dead leg is visible. Do not merge on green alone — that exact mistake cost two failed fixes this morning."
+    },
+    {
+      "pr": 10779,
+      "title": "manager: register MI-57 — the open-PR record's staleness regress, and the structural fix",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-57",
+      "draft": false,
+      "tier": "1 (coordination records)",
+      "state": "in_ci",
+      "operator_decision": {
+        "verdict": "not_required",
+        "decided_on": "2026-09-02",
+        "text": "No operator statement was sought or given. Tier-1 coordination records only (MANAGER-CHECKLIST.json + SESSIONS.json); no code, no order path, no config. Recording the ABSENCE of a decision rather than inventing one."
+      },
+      "blocker": "CI. Merges on green."
     },
     {
       "pr": 10780,
@@ -251,13 +266,5 @@
     }
   ],
   "⚠️_the_last_row_is_always_stale_and_that_is_STRUCTURAL": "A handoff can never reach open_prs=PASS at the exact moment of the final merge, and this is a PROPERTY of the design rather than a bug to chase. Every open PR must have a row; the PR that prunes the last stale row is itself an open PR and needs a row; merging it makes THAT row stale. The regress terminates only if the manager stops opening PRs. ⚠️ DO NOT 'fix' this by exempting the currently-merging PR from the completeness check — the exemption would be indistinguishable from the real failure it exists to catch (a PR nobody recorded), and a check that cannot tell those apart is worse than the transient row. The correct reading: at handoff, `open_prs` naming ONLY the PR being merged right now is materially ready; naming any OTHER pr is not. State which case you are in rather than quoting the verdict alone.",
-  "⚠️_a_row_can_UNDER_claim_and_no_check_catches_it": "Found 2026-09-02 on this very row. `open_pr_record.py --strict` grades a verdict that DECLARES conditions and records none — the over-claiming direction, which is the dangerous one. It cannot catch the OPPOSITE: I typed #10758 `none_recorded` while a full operator decision, with its condition, sat in MANAGER-CHECKLIST.json under MI-34 the whole time. `none_recorded` is a valid verdict needing no condition, so the row passed every check while being simply wrong. ⚠️ The cost is real but is NOT symmetric with the over-claiming case: a successor reading `none_recorded` re-asks the operator — wasteful and SAFE — where one reading a bare 'approved' could merge a demo-only Tier-2 approval onto a real-money account. So this is worth KNOWING, not worth a new failing check: cross-checking every row against the checklist would fire on the many PRs that legitimately have no decision anywhere. The mitigation is the reviewer's, not the guard's — read MANAGER-CHECKLIST for the PR's item before typing `none_recorded`.",
-  "pruned_trace": [
-    {
-      "pr": 10779,
-      "pruned_on": "2026-09-02",
-      "why": "MERGED (fdad6cc1). Pruned rather than left stale. ⚠️ THIS IS THE KNOWLEDGE-DESTROYING HALF OF THE REGRESS and it is why MI-57 exists: a merged PR's row still carries its owner, intent and any operator decision, which is MORE load-bearing after the merge than before. Deleting it to satisfy a freshness check is the same shape as the OPEN-ITEMS cap that once told a session to evict a valid row. Once #10783 lands, this becomes a MOVE into settled_prs[] and nothing is lost.",
-      "verdict_at_prune": "not_required — Tier-1 manager coordination records; no operator statement existed and none was needed."
-    }
-  ]
+  "⚠️_a_row_can_UNDER_claim_and_no_check_catches_it": "Found 2026-09-02 on this very row. `open_pr_record.py --strict` grades a verdict that DECLARES conditions and records none — the over-claiming direction, which is the dangerous one. It cannot catch the OPPOSITE: I typed #10758 `none_recorded` while a full operator decision, with its condition, sat in MANAGER-CHECKLIST.json under MI-34 the whole time. `none_recorded` is a valid verdict needing no condition, so the row passed every check while being simply wrong. ⚠️ The cost is real but is NOT symmetric with the over-claiming case: a successor reading `none_recorded` re-asks the operator — wasteful and SAFE — where one reading a bare 'approved' could merge a demo-only Tier-2 approval onto a real-money account. So this is worth KNOWING, not worth a new failing check: cross-checking every row against the checklist would fire on the many PRs that legitimately have no decision anywhere. The mitigation is the reviewer's, not the guard's — read MANAGER-CHECKLIST for the PR's item before typing `none_recorded`."
 }

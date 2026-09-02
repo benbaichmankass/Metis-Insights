@@ -101,11 +101,12 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CON
 - **What that means for you:** Prefer work that makes the system steer over work that makes it execute better. If you are about to start something that is neither the current phase nor pulled by a held-up stage, that is the thing to re-argue before starting it.
 - Set by **operator** on `2026-09-01` · basis **DECIDED** · intent `IN-20260901-OPERATING-LAYER`
 
-**📉 THE COMPUTED READOUT BEHIND THAT PRIORITY** (`docs/claude/READOUT.md`, from `scripts/ops/constraint_readout.py`, generated `2026-09-01` — **it is a dated snapshot, not a live read**; re-run the script rather than trusting its age)
+**📉 THE COMPUTED READOUT BEHIND THAT PRIORITY** (`docs/claude/READOUT.md`, from `scripts/ops/constraint_readout.py`, generated `2026-09-02` — **it is a dated snapshot, not a live read**; re-run the script rather than trusting its age)
 
-- **No stage is named — verdict `insufficient_basis`.** Only 6 of 584 objects (1.0%) have an ASSESSED `blocked_on` basis, below the 50.0% floor. **578 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them** — it is nobody having looked. Do not read this as *nothing is blocked*.
-- ⚠️ **Chain coverage is partial:** `QUESTION`, `DECISION`, `DEPLOYMENT`, `OBSERVATION` hold **zero** objects, so the store cannot locate a hold-up there. A stage histogram over it describes what got migrated, not the chain.
-- **3 in flight** against a ceiling of 8 · 4 waiting · 0 stopped moving (≥14d, declared dates only).
+- **No stage is named — verdict `insufficient_basis`.** Only 9 of 587 objects (1.5%) have an ASSESSED `blocked_on` basis, below the 50.0% floor. **578 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them** — it is nobody having looked. Do not read this as *nothing is blocked*.
+- ⚠️ **Chain coverage is partial:** `QUESTION`, `DEPLOYMENT`, `OBSERVATION` hold **zero** objects, so the store cannot locate a hold-up there. A stage histogram over it describes what got migrated, not the chain.
+- ⚠️ **And the stages that ARE populated were assigned from the source FILENAME in bulk** (576 of 587; only 11 were chosen per object), so the histogram is a census of which backlog a row came from — **not a reading of the work.**
+- **4 in flight** against a ceiling of 8 · 7 waiting · 0 stopped moving (≥14d, declared dates only).
 - **If you are about to write a real `blocked_on` edge, that is the single highest-value thing you can do to this store** — the diagnosis is refusing for want of assessed edges, not for want of machinery.
 
 **🗑️ SUNSET (E3, 2026-09-01): 10 retirement candidate(s)** over 52 strategy legs (lifetime read `read`, 1 packet date(s)) · machinery probe `measured`, 115 findings carried.
