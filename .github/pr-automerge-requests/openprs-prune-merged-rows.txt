@@ -1,0 +1,37 @@
+#10770 — open-prs: prune the merged #10769 row, and name the regress it exposes
+
+Manager-authored. Tier-1: one manager coordination record, no code, no order
+path, no config, no schema.
+
+Two things:
+
+1. Prunes #10769's row, stale the instant it merged, and #10758's decision row
+   is corrected from `none_recorded` to the operator decision that was in
+   MANAGER-CHECKLIST MI-34 the whole time. My row was wrong; the PR was right.
+
+2. Names two findings rather than silently fixing them:
+
+   * THE LAST ROW IS ALWAYS STALE, STRUCTURALLY. Every open PR needs a row; the
+     PR that prunes the last stale row is itself an open PR and needs a row;
+     merging it makes THAT row stale. The regress terminates only when the
+     manager stops opening PRs, so a handoff can never observe open_prs=PASS at
+     the exact moment of its final merge. The record now says so, and says why
+     the obvious fix is wrong: exempting the currently-merging PR is
+     indistinguishable from the real failure the check exists to catch, and this
+     repo has already paid for a check cheaper to lie to than to satisfy.
+     Replaced with a reading rule, not a code change.
+
+   * A ROW CAN UNDER-CLAIM AND NO CHECK CATCHES IT. open_pr_record.py --strict
+     grades a verdict that DECLARES conditions and records none — the
+     over-claiming direction. `none_recorded` is valid and needs no condition, so
+     an under-claiming row passes everything while being simply wrong. Recorded
+     as worth KNOWING rather than worth a new guard, because the two directions
+     are not symmetric: under-claiming makes a successor re-ask the operator
+     (wasteful, safe), over-claiming could merge a demo-only Tier-2 approval onto
+     a real-money account.
+
+Verified: open_pr_record.py --strict -> structural=well_formed,
+decisions=graded, exit 0.
+
+Routed through this relay because the manager's GitHub write bucket is
+exhausted. Nothing is bypassed.
