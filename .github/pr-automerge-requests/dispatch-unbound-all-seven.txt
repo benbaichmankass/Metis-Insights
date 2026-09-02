@@ -1,0 +1,43 @@
+#10772 — system-actions: the OTHER seven unbound refs
+
+Manager-authored, Tier-1: seven logging lines in one workflow step. No order
+path, no config, no runtime code, no live-trading file. Behaviour on the
+issue-driven dispatch path is unchanged.
+
+WHY THIS EXISTS: #10768 fixed ONE bare ${trade_id} (line 642), reproduced the
+failure and the fix in both directions, and went green on all four required
+checks. The proof run dispatched immediately after that merge -- run
+33608979031 -- failed with the SAME error, because a SECOND bare ${trade_id}
+sits at line 574, earlier in the same step. Under set -u it aborts before
+execution ever reaches 642.
+
+MY ERROR, named rather than buried: I read the failing step's TAIL in the run
+log and fixed the site the log pointed at, without enumerating the step.
+Sampling the visible evidence and treating it as the population is the defect
+this repo files against its own diagnostics -- and the fix being genuinely
+verified in both directions is what made it convincing.
+
+ENUMERATED PROPERLY THIS TIME. The step spans lines 297-643. The
+workflow_dispatch branch assigns 14 names. SEVEN bare references to names it
+does NOT assign remained, in one contiguous block at 574-580: trade_id, symbol,
+days, windows, window_days, bt_mode, recent_only_frac. Each would have aborted
+the step IN TURN, so fixing them one failure at a time would have cost seven
+dispatch cycles.
+
+They exist only on the issue-parsing branch, where `grep ... || true` leaves
+them set-to-empty rather than unset -- which is why issue-driven dispatch has
+worked throughout and still does.
+
+VERIFIED BY RE-ENUMERATION, not spot-check: the same script that found seven now
+reports NONE. YAML parses; no `:-:-` introduced.
+
+⚠️ STILL NOT PROVEN, and I am not claiming it. A green CI run does not reach
+this code path -- that is the entire lesson here. The proof is another
+workflow_dispatch send-ping concluding `success`, which I run after merge. If it
+fails a third time, the enumeration missed something OUTSIDE this step and the
+next fix is to enumerate the whole job rather than patch again.
+
+Routed through this relay because the manager's GitHub write bucket is exhausted
+(rate-limited on enable_pr_auto_merge). The relay's own GITHUB_TOKEN is a
+separate bucket. Auto-merge still obeys branch protection and required checks;
+nothing is bypassed.
