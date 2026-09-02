@@ -165,7 +165,7 @@ jobs:
           # which does not short-circuit. That is a stated trade-off against
           # MB-20260706-CI-MINUTES, not an oversight — tests/test_pytest_run_filter.py
           # pins both the inclusions and these exclusions.
-          # THE docs/ EXCEPTIONS — SEVEN FILES, ENUMERATED MECHANICALLY, not a
+          # THE docs/ EXCEPTIONS — EIGHT FILES, ENUMERATED MECHANICALLY, not a
           # tree (2026-08-14,
           # BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT).
           #
@@ -208,6 +208,14 @@ jobs:
           #     table with the `guards owns it` reason (guards runs the reader
           #     unconditionally) — not widening the tree and not deleting the check.
           #
+          #   docs/claude/diag-relay.md                   test_trainer_diag_relay —
+          #     the relay contract doc. The test asserts it NAMES the trainer relay and
+          #     its request path, because a relay a 403-bound session cannot find in
+          #     the doc it reads is, for that session, identical to no relay — which is
+          #     the exact failure the relay was built to fix. Removing those references
+          #     is a DOCS-ONLY diff, so without this it would merge on a green tick
+          #     from a run that executed nothing, re-opening the gap silently.
+          #
           # THE COST IS REAL AND IS BEING PAID DELIBERATELY. ARCHITECTURE-
           # CANONICAL.md is edited by many docs-only PRs, and each now pays a
           # full ~8-min suite. It is included anyway because
@@ -220,7 +228,7 @@ jobs:
           # on the backlog row; it is a bigger change than this one.
           #
           # Pinned in tests/test_pytest_run_filter.py::COVERED.
-          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^\.github/actions/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^docs/claude/SUNSET-DISPOSITIONS\.json$|^docs/claude/CONSTRAINT\.json$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$'; then
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^\.github/actions/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^docs/claude/SUNSET-DISPOSITIONS\.json$|^docs/claude/CONSTRAINT\.json$|^docs/claude/diag-relay\.md$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"

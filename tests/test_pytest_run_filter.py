@@ -130,6 +130,13 @@ COVERED = {
         "FIFTH committed docs/ reader — found by this file's derived check on the "
         "same day the file was created, which is the mechanism working: instances "
         "1-4 were each found by an incident instead",
+    "docs/claude/diag-relay.md":
+        "test_trainer_diag_relay::test_docs_point_a_relay_bound_session_here reads "
+        "the REAL doc and asserts it names the trainer relay and its request path. A "
+        "relay a 403-bound session cannot find in the doc it reads is, for that "
+        "session, identical to no relay — the exact gap the relay was built to close. "
+        "Removing those references is a DOCS-ONLY diff, so without this it merges on a "
+        "green tick from a run that executed nothing and silently re-opens the gap",
     "src/runtime/order_monitor.py": "python",
     "requirements.txt": "dependency pin",
 }
