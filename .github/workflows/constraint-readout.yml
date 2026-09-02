@@ -1,0 +1,160 @@
+name: constraint-readout
+
+# A1's readout, on a real cadence. The operating model classifies A1 as trigger
+# `Cadenced`, autonomy `Full`; until this file landed it had NEITHER.
+#
+# WHY IT EXISTS
+#   scripts/ops/constraint_readout.py shipped in Phase D and nothing ever ran it
+#   on a schedule: `grep -rn constraint_readout .github/workflows/` returned 0
+#   hits, and its CI registration is `--self-test` only, whose own note reads
+#   "the readout itself is generated on demand, not in CI". So
+#   docs/claude/READOUT.md was only ever as fresh as the last session that
+#   remembered to type the command — measured 2026-09-02, its CONSTRAINT.json
+#   carried generated_at 2026-09-01T23:15:16Z.
+#
+#   That is the work_digest.py defect recurring inside one day, in the function
+#   with the largest blast radius: A1 feeds A2 (the operator's cycle priority),
+#   and the CLAUDE.md session brief inlines the readout's headline WITH ITS
+#   DATE. A readout that ages silently is worse than an absent one, because the
+#   brief presents a dated snapshot most readers will not diff against today.
+#   Evidence: docs/audits/operating-layer-skills-workflows-inventory-2026-09-02.md
+#   § 3.1, which names this the highest-leverage item in the document.
+#
+# ⚠️ WHY A CRON AND DELIBERATELY NOT A STALENESS GUARD.
+#   A `--check`-style freshness guard would red every open PR whenever the world
+#   moved, which is the transient-red-strands-an-automerge-branch failure
+#   (BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH)
+#   that forced session-brief-guard to be diff-scoped against origin/main. Do
+#   not "strengthen" this by adding one.
+#
+# ⚠️ IT REGENERATES THE SESSION BRIEF TOO, AND THAT IS NOT HOUSEKEEPING.
+#   render_session_brief.py READS docs/claude/CONSTRAINT.json. A cron that
+#   advanced the readout without re-rendering CLAUDE.md would leave the brief
+#   quoting the previous headline under a new file's date — i.e. it would
+#   RELOCATE the staleness this file exists to end, into the one surface that
+#   reaches a session before it acts. The two are regenerated and committed
+#   together, always.
+#
+# ⚠️ A SCHEDULED WORKFLOW IN THIS REPO IS NOT EVIDENCE THAT IT FIRES ON TIME.
+#   probes.yml's first-ever scheduled run (#34, event=schedule, success,
+#   2026-09-01T10:12:17Z) came ~4h50m LATE against its `20 5 * * *` cron, and
+#   once rather than daily; replay-pregate-nightly's recent schedule runs fired
+#   between 08:29 and 15:56 UTC against a `0 4 * * *` cron. So the slot ordering
+#   below is DECLARED INTENT, not a guarantee, and this file being green on the
+#   day it lands says nothing. The readout is DEPLOYED, and stays that way until
+#   a run with event=schedule is OBSERVED. The `workflow_dispatch` exists so
+#   that observation can be forced rather than waited for — but a dispatch run
+#   is NOT a cron run, and reading one as the other is exactly the substitution
+#   that left two Routines dead in plain sight for four months.
+#
+# Tier-1: a read-only diagnosis producer. No order path, no live-VM mutation,
+# no strategy config, no risk cap. The one secret is the PAT that opens the
+# auto-merge PR, plus a read-only diag bearer for the money item.
+
+on:
+  schedule:
+    # 06:05 UTC daily. The slot is chosen, not decorative: it lands after
+    # probes (05:20) and due-list (05:50) have refreshed the registers the
+    # brief renders from, and before work-digest's 06:20 slot reads them. See
+    # the lateness warning above — this ordering is intent, not a promise.
+    - cron: "5 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: constraint-readout
+  cancel-in-progress: false
+
+jobs:
+  readout:
+    runs-on: ubuntu-latest
+    # BUDGET = work + wait + slack. commit-to-main's verify-merged waits up to
+    # 30m for the auto-merge PR to land, so a budget at or under 30 kills the
+    # job mid-wait and reports a failure for a merge that was about to succeed.
+    # 40 = ~5m of work + the 30m wait + 5m slack. tests/test_commit_to_main_callers.py
+    # pins this floor across every caller.
+    timeout-minutes: 40
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Self-test both generators before trusting their output
+        run: |
+          set -euo pipefail
+          # E1's whole job is to REFUSE rather than name a stage over unassessed
+          # edges. Committing a readout whose refusal logic is broken would put a
+          # fabricated constraint in front of the operator on a daily cadence,
+          # which is strictly worse than the stale one this file replaces.
+          python3 scripts/ops/constraint_readout.py --self-test
+          python3 scripts/ops/render_session_brief.py --self-test
+
+      - name: Regenerate the readout
+        env:
+          # The money item reads /api/bot/performance over the public Caddy
+          # host. It is NOT required: money_block() reports read_state
+          # `unreachable` with every figure None rather than zeroing them, so a
+          # diag outage degrades the item honestly instead of asserting a flat
+          # book. That is why there is no `|| echo '{}'` anywhere here.
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/constraint_readout.py --write
+
+      - name: Re-render the session brief from the new readout
+        run: |
+          set -euo pipefail
+          # MUST run after --write above: the brief inlines CONSTRAINT.json's
+          # headline, so rendering it from the OLD file would ship a fresh
+          # timestamp over a stale diagnosis.
+          python3 scripts/ops/render_session_brief.py --write
+
+      - name: Report what changed
+        run: |
+          set -euo pipefail
+          # Printed rather than asserted. An UNCHANGED readout is a legitimate
+          # outcome (the work store did not move today) and must not be graded
+          # as a failure — but a run that silently changes nothing for weeks is
+          # the shape a reader needs to be able to see in the run log.
+          git --no-pager diff --stat -- \
+            docs/claude/CONSTRAINT.json docs/claude/READOUT.md CLAUDE.md \
+            || true
+          python3 -c "
+          import json
+          d = json.load(open('docs/claude/CONSTRAINT.json'))
+          c = d['constraint']
+          print('verdict         :', c.get('verdict'))
+          print('assessed_coverage:', c.get('assessed_coverage'))
+          print('money read_state:', d['money'].get('read_state'))
+          print('generated_at    :', d.get('generated_at'))
+          "
+
+      - name: Land the readout on main (auto-merge PR)
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          # CLAUDE.md rides with them deliberately — see the header. Committing
+          # the readout without the brief is what would make this file a
+          # relocation of the bug rather than a fix for it.
+          paths: docs/claude/CONSTRAINT.json docs/claude/READOUT.md CLAUDE.md
+          message: "chore(ops): refresh the A1 constraint readout"
+          pr-title: "chore(ops): refresh the A1 constraint readout (auto)"
+          pr-body: >-
+            Automated daily regeneration of the A1 constraint readout
+            (docs/claude/READOUT.md + docs/claude/CONSTRAINT.json) and the
+            CLAUDE.md session brief that inlines its headline. Generated
+            artifacts only; auto-merge.
+          branch-prefix: automation/constraint-readout
+          # "the PR opened" is not "the readout landed", and only the second is
+          # what a session reads before it acts.
+          verify-merged: "true"
