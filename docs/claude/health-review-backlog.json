@@ -31375,6 +31375,24 @@
         "scripts/ops/pr_queue_latency.py",
         "WO-20260902-MANAGER-PREFLIGHT"
       ]
+    },
+    {
+      "id": "BL-20260902-ORDERFLOW-CAPTURE-CORPUS-ALREADY-HAS-52-GAPS-NOBODY-HAS-DISPOSITIONED",
+      "title": "The trainer's order-flow capture has ALREADY lost bars, 52 times, and nothing has ever graded the corpus for holes",
+      "detail": "MEASURED 2026-09-02 (trainer relay #10838, read-only) over the COMPLETE file. POPULATION: all 25,590 consecutive row pairs in datasets-out/market_microstructure/BTCUSDT/5m/v001/data.jsonl -- 25,591 rows parsed, 0 malformed, first_ts 2026-06-04T09:50:00Z, last_ts 2026-09-02T18:35:00Z. 52 transitions are NOT the expected 300s. The 25 largest all fall between 2026-07-02 and 2026-07-15; the worst is 2026-07-05T03:30:00Z -> 06:10:00Z = 9600s, i.e. 31 CONSECUTIVE 5m BARS LOST, with 2026-07-06 carrying two 28-bar gaps. WHY THIS IS A SEPARATE FINDING FROM THE TWO ROWS FILED 2026-08-29 (read as adjacent, not duplicate): BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED is about there being no monitor GOING FORWARD, and BL-20260829-TRAINER-DISK-92-PCT-THREATENS-THE-UNBACKFILLABLE-CAPTURE is about the disk. NEITHER says the corpus ALREADY HAS HOLES. It does -- and the holes are the evidence that the failure mode those rows describe is real rather than theoretical: it has happened at least 52 times, silently, and was found only because someone scanned the file by hand. WHY IT MATTERS DOWNSTREAM: these rows are joined as-of by market_features, so a missing bar is not a visible error -- it is a stale or absent microstructure feature on a bar that still trains. Nothing anywhere grades this file for contiguity, so no dataset manifest or model card records which windows are thin. [!] STATE THE LIMIT: only the TOP 25 of the 52 were read, so the dates of the other 27 are UNKNOWN. Do NOT read this as 'no gaps since 2026-07-15' -- that is the unstated-denominator error this repo keeps paying for. What IS separately confirmed is narrower: the 2026-08-29 -> 2026-09-02 window scanned clean, and the 2026-08-31T15:54:39Z VM reboot (kernel 6.8.0-1057-oracl -> -1060, NRestarts=0) cost ZERO bars -- rows run 15:50 -> 15:55 -> 16:00 unbroken. [!] THE FORWARD-LOOKING ALARM SHIPPED IN PR #10843 DOES NOT COVER THIS and must not be read as covering it: it watches FRESHNESS, and says so in its own docstring -- 'a restart that lost an hour leaves a fresh mtime behind it.' Freshness is not contiguity.",
+      "proposed_fix": "A contiguity grader over the capture file (the gap scan in relay #10838 is already the whole algorithm: parse ts, diff consecutive pairs, report every transition != bar_seconds). Run it once to enumerate all 52 with dates, then decide per affected window whether the datasets consuming market_microstructure should exclude or flag it, and record that decision. Whether it then becomes a standing check belongs with the dataset-manifest audit, not with the freshness alarm -- they answer different questions and folding them together would let a fresh-but-holed file read as clean.",
+      "resolution_criteria": "All 52 non-300s transitions are ENUMERATED WITH DATES in a committed artifact (not just the top 25), AND each affected window carries a written disposition -- excluded, flagged, or accepted-as-is with the reason -- in whatever dataset/manifest surface the consumers of market_microstructure actually read. [!] A COUNT IS NOT THE CRITERION: '52 gaps exist' is already established by this row and re-measuring it closes nothing. [!] AND THE FRESHNESS ALARM GOING GREEN CLEARS NOTHING HERE -- it establishes the file is being written, which is a different fact from the file being whole. [!] Deciding the gaps are immaterial to every consumer CLOSES this row too, and must be RECORDED as a decision rather than left looking like an audit still pending.",
+      "severity": "medium",
+      "tier": "1 — read-only analysis of a committed/captured artifact; no order path, no live VM mutation, no strategy config.",
+      "status": "open",
+      "opened": "2026-09-02",
+      "source": "MI-81 (OI-20260829 monitoring pass, trainer relay #10838)",
+      "refs": [
+        "https://github.com/benbaichmankass/Metis-Insights/issues/10838",
+        "BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED",
+        "BL-20260829-TRAINER-DISK-92-PCT-THREATENS-THE-UNBACKFILLABLE-CAPTURE",
+        "OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED"
+      ]
     }
   ]
 }
