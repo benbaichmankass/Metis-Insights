@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T09:46:47Z",
+  "updated_at": "2026-09-02T11:52:57Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -980,6 +980,80 @@
       ],
       "why": "The open-PR handoff record has a non-terminating regress: every open PR needs a row, the PR that maintains the rows is itself an open PR, and merging it makes that row stale. Observed live: #10775 merged ~90s after a branch recorded a row for it. Two root causes: (1) in-flight claims and the durable operator-decision record are conflated under one key, so pruning a stale row DELETES decision knowledge to satisfy a freshness rule; (2) a commit cannot record its own merge, so the terminal state must be written by something running OUTSIDE the merging commit.",
       "state": "working"
+    },
+    {
+      "session_id": "session_01XH17FTCCjiwHcMLAVeDLQZ",
+      "title": "MI-58: make ClaudeBot answerable — poll it so decision buttons work there",
+      "checklist_item": "MI-58",
+      "spawned_at": "2026-09-02T10:18:21Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/claudebot-answerable"
+      ],
+      "why": "Operator direction 2026-09-02: work-decision prompts must arrive on the dedicated Claude bot, not the trader bot. #10778 correctly routed them to the trader bot because NOTHING polls TELEGRAM_CLAUDE_BOT_SECRET and an inline-keyboard button is inert without a polling process holding a CallbackQueryHandler -- so sending them to ClaudeBot today would ship dead buttons that look healthy. The fix is BOTH halves: make the Claude bot polled with a callback handler, THEN move the route.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01272CQFvWA5F9tS9nNRpJtK",
+      "title": "MI-59: /status and /decisions commands on the Claude channel",
+      "checklist_item": "MI-59",
+      "spawned_at": "2026-09-02T10:33:14Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/telegram-status-decisions-commands"
+      ],
+      "why": "Operator ask 2026-09-02: a /status command returning the manager status update in the operator's own required order (checklist -> recently done -> next), and a /decisions command that pops every still-unanswered decision at once 'in case I don't get them as they come in'. Both are an on-demand surface over machinery already proven end to end today; neither rebuilds it.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01PEYVqTaCY92C3HmtHwxYff",
+      "title": "MI-60: push a committed decision back to the session that asked it",
+      "checklist_item": "MI-60",
+      "spawned_at": "2026-09-02T10:36:20Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/decision-push-back"
+      ],
+      "why": "Operator ask 2026-09-02: when the answer reaches the repo, push it to the asking session instead of the session polling for it. Feasibility FIRST -- a session-bound Routine is verified to wake a running session from a session that holds MCP, but whether a GitHub Actions runner can fire one is UNKNOWN and must be established, not assumed. Nothing today records WHICH session asked a decision, so there is currently no address to push to; that recording is the smallest change and gates everything else.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01NfzmaV7FxP4bAZtKbXYVb9",
+      "title": "MI-61: a soak must alarm — threshold + timer + a dead-soak state",
+      "checklist_item": "MI-61",
+      "spawned_at": "2026-09-02T11:07:55Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/soak-alarm-threshold"
+      ],
+      "why": "STANDING operator directive 2026-09-02: 'anything soaking needs to be logged with an alarm that has either a timer or a soak threshold, so that we know to get back to it when the soak is ready.' MEASURED gap: OPEN-ITEMS rows carry check_every_days (a TIMER) and render_due_list reads them, but across all 36 rows there is NO threshold field -- nothing can express 'come back when the soak has N rows'. A timer alone is the weaker half and produces the desensitized-alarm P1. And #10746's soak has NO register row at all, so it would accrue and surface to nobody.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01Jc8yFVG4XP7nJ841byyt1L",
+      "title": "MI-62: automation commits, pushes, then fails to land — 17 orphaned branches, nothing notices",
+      "checklist_item": "MI-62",
+      "spawned_at": "2026-09-02T11:21:24Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/automation-landing-orphans"
+      ],
+      "why": "MEASURED by the manager 2026-09-02: all 17 automation/* branches on origin, each tested with git merge-base --is-ancestor against origin/main. ZERO landed; 17 unreachable, spanning 2026-06-23 to today. Two causes CONFIRMED for today's (work-digest run 33602234950 and work-decision-commit run 33618689721 both committed and pushed, then died on 'GraphQL: API rate limit already exceeded' at gh pr create); the rest are UNKNOWN and must be established per branch. This is Phase E's declared 'no work is lost' property failing silently for ten weeks.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01RQiedALVJzWCGdBqY6aNV7",
+      "registry_key": "pending-20260902T115140Z",
+      "state": "working",
+      "title": "MI-63 — write TRUE blocked_on edges, and create the DECISION/QUESTION objects the store has none of",
+      "checklist_item": "MI-05-PHASE-D",
+      "spawned_at": "2026-09-02T11:51:40Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/mi63-true-blocked-on-edges"
+      ],
+      "why": "Phase D's readout refuses (assessed coverage 2/584 = 0.34% against a 50% floor) and Phase G's E2 pull rule is stuck in advisory because named_stage is null. Two phases held by one thing. The store also holds ZERO DECISION, QUESTION, DEPLOYMENT and OBSERVATION objects, so it cannot locate the constraint the design named.",
+      "confirmed_at": "2026-09-02T11:52:57Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."
