@@ -154,6 +154,19 @@ blocked_on:
   #   abandoned: creating CI automation in a second repo is a sanctioning
   #   decision, not a Tier-1 one. An operator opening the PR clears this.
 
+blocked_on_basis: >-
+  ASSESSED. The edge(s) above were written deliberately by the session that built this
+  phase, naming a specific, dated dependency — that IS an assessment, and this key
+  records it so the FIELD and the readout stop disagreeing about the same row.
+  ⚠️ RECORDED BY MI-63 ON 2026-09-02, WHICH IS A NARROWER CLAIM THAN IT LOOKS: MI-63
+  established that an assessment was MADE, by reading the edge; it did NOT re-verify
+  that the edge still HOLDS today. Those are different facts and only the first is
+  claimed here. ⚠️ WHY IT WAS MISSING AT ALL: `scripts/ops/constraint_readout.py`
+  counts a row with any edge as assessed (writing an edge is a positive statement),
+  while the basis FIELD was absent — so the store read 6 assessed by the code and 2 by
+  the field. Neither number was wrong; they answer different questions. The four rows
+  that carried an edge and no basis were WO-20260901-PHASE-{A,B,C,H}, and this is one
+  of them.
 note: >-
   Only the READ half. The route follows src/web/api/routers/roadmap.py (475
   ln), which already parses repo files into a view — file-backed, Tier 1,

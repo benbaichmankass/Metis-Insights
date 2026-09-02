@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-01T23:15:16+00:00",
+  "generated_at": "2026-09-02T12:01:38+00:00",
   "generator": "scripts/ops/constraint_readout.py",
   "cycle_priority": {
     "cycle_id": "CY-20260901-OPERATING-LAYER",
@@ -10,41 +10,58 @@
   },
   "constraint": {
     "verdict": "insufficient_basis",
-    "verdict_note": "6 of 584 objects (1.0%) have an ASSESSED `blocked_on` basis, below the declared floor of 50%. **No stage is named.** 578 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them — it is nobody having looked. A stage computed over this graph would describe the 6 rows somebody assessed, not the system.",
+    "verdict_note": "9 of 587 objects (1.5%) have an ASSESSED `blocked_on` basis, below the declared floor of 50%. **No stage is named.** 578 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them — it is nobody having looked. A stage computed over this graph would describe the 9 rows somebody assessed, not the system.",
     "named_stage": null,
-    "population": 584,
-    "assessed": 6,
-    "assessed_coverage": 0.010273972602739725,
+    "population": 587,
+    "assessed": 9,
+    "assessed_coverage": 0.015332197614991482,
     "min_assessed_coverage": 0.5,
     "basis_counts": {
-      "blocked": 6,
+      "blocked": 9,
       "declared_none": 0,
       "unstated": 578,
       "malformed": 0
     },
     "stage_counts": {
       "QUESTION": 0,
-      "EVIDENCE": 78,
-      "DECISION": 0,
+      "EVIDENCE": 79,
+      "DECISION": 2,
       "DEPLOYMENT": 0,
       "OBSERVATION": 0,
       "CAPABILITY": 8,
       "INTEGRITY": 498,
       "(unstated)": 0
     },
+    "stage_basis_counts": {
+      "per_object": 11,
+      "bulk_by_source_file": 576,
+      "unstated": 0
+    },
+    "stage_counts_by_basis": {
+      "bulk_by_source_file": {
+        "INTEGRITY": 498,
+        "EVIDENCE": 78
+      },
+      "per_object": {
+        "CAPABILITY": 8,
+        "DECISION": 2,
+        "EVIDENCE": 1
+      }
+    },
     "lifecycle_counts": {
-      "dormant": 577,
-      "waiting": 4,
-      "in_flight": 3
+      "dormant": 576,
+      "waiting": 7,
+      "in_flight": 4
     },
     "chain_stages_with_no_objects": [
       "QUESTION",
-      "DECISION",
       "DEPLOYMENT",
       "OBSERVATION"
     ],
     "held_up_candidates": {
-      "CAPABILITY": 6
+      "CAPABILITY": 6,
+      "DECISION": 2,
+      "EVIDENCE": 1
     },
     "holds_on_waiting_targets": [
       {
@@ -54,10 +71,12 @@
     ],
     "edge_kinds": {
       "external_event": 7,
-      "object": 3
+      "object": 3,
+      "operator_decision": 3,
+      "capability": 1
     },
     "hold_states": {
-      "unverifiable_outside_store": 7,
+      "unverifiable_outside_store": 11,
       "holding": 3
     },
     "blocked_objects": [
@@ -160,7 +179,7 @@
       {
         "id": "WO-20260901-PHASE-H",
         "stage": "CAPABILITY",
-        "lifecycle": "dormant",
+        "lifecycle": "in_flight",
         "title": "Phase H — the control half — decisions from the UI, and the read gate",
         "edges": [
           {
@@ -186,6 +205,62 @@
             "ref_state": "resolved",
             "target_lifecycle": "dormant",
             "hold_state": "holding"
+          },
+          {
+            "kind": "operator_decision",
+            "ref": "DEC-20260901-READ-GATE-SEQUENCING",
+            "since": "2026-09-01",
+            "ref_state": "not_in_store_by_design",
+            "target_lifecycle": null,
+            "hold_state": "unverifiable_outside_store"
+          }
+        ]
+      },
+      {
+        "id": "WO-20260902-DECISION-LOCAL-LLM-WEIGHT",
+        "stage": "DECISION",
+        "lifecycle": "waiting",
+        "title": "Does the local LLM carry any weight, and at which size — 3B, 1.5B, or none?",
+        "edges": [
+          {
+            "kind": "operator_decision",
+            "ref": "DEC-20260902-LOCAL-LLM-WEIGHT",
+            "since": "2026-08-31",
+            "ref_state": "not_in_store_by_design",
+            "target_lifecycle": null,
+            "hold_state": "unverifiable_outside_store"
+          }
+        ]
+      },
+      {
+        "id": "WO-20260902-DECISION-REVIEW-PACKET-POPULATION",
+        "stage": "DECISION",
+        "lifecycle": "waiting",
+        "title": "Which POPULATION does the M7 strategy-review gate decide on — real money, or real blended with paper?",
+        "edges": [
+          {
+            "kind": "operator_decision",
+            "ref": "DEC-20260902-REVIEW-PACKET-POPULATION",
+            "since": "2026-09-02",
+            "ref_state": "not_in_store_by_design",
+            "target_lifecycle": null,
+            "hold_state": "unverifiable_outside_store"
+          }
+        ]
+      },
+      {
+        "id": "WO-20260902-EVIDENCE-TRADE-PRIORITISATION-AB",
+        "stage": "EVIDENCE",
+        "lifecycle": "waiting",
+        "title": "Confidence-first is the LIVE ranking key for competing trades and has never been shown to pick the better trade — and the A/B that would settle it cannot be run",
+        "edges": [
+          {
+            "kind": "capability",
+            "ref": "an N-book mode in scripts/backtest_system.py plus a ranking-key arm (the shape of its existing --flip-policy), and a workflow that fires it",
+            "since": "2026-08-31",
+            "ref_state": "not_in_store_by_design",
+            "target_lifecycle": null,
+            "hold_state": "unverifiable_outside_store"
           }
         ]
       }
@@ -196,12 +271,12 @@
     "read_state": "read",
     "source": "https://ict-bot.duckdns.org/api/bot/performance?window=30d",
     "window": "30d",
-    "totalTrades": 29,
-    "winRate": 51.7,
-    "totalPnl": 30.9315,
-    "totalPnlMeasured": 30.9315,
-    "pnlCoverage": 0.6207,
-    "pnlMeasuredCount": 18,
+    "totalTrades": 31,
+    "winRate": 48.4,
+    "totalPnl": 19.9201,
+    "totalPnlMeasured": 19.9201,
+    "pnlCoverage": 0.6452,
+    "pnlMeasuredCount": 20,
     "pnlEstimatedCount": 11,
     "pnlFabricatedCount": 0,
     "pnlUnverifiedCount": 0,
@@ -219,20 +294,24 @@
   "flight": {
     "ceiling": 8,
     "ceiling_source": "scripts/ci/check_wip_ceiling.py::CEILING (imported, not restated)",
-    "in_flight": 3,
+    "in_flight": 4,
     "in_flight_ids": [
       "WO-20260901-PHASE-E",
       "WO-20260901-PHASE-F",
-      "WO-20260901-PHASE-G"
+      "WO-20260901-PHASE-G",
+      "WO-20260901-PHASE-H"
     ],
-    "waiting": 4,
+    "waiting": 7,
     "waiting_ids": [
       "WO-20260901-PHASE-A",
       "WO-20260901-PHASE-B",
       "WO-20260901-PHASE-C",
-      "WO-20260901-PHASE-D"
+      "WO-20260901-PHASE-D",
+      "WO-20260902-DECISION-LOCAL-LLM-WEIGHT",
+      "WO-20260902-DECISION-REVIEW-PACKET-POPULATION",
+      "WO-20260902-EVIDENCE-TRADE-PRIORITISATION-AB"
     ],
-    "headroom": 5,
+    "headroom": 4,
     "stalled_days_threshold": 14,
     "stalled_basis": "declared_dates_only",
     "stalled_basis_note": "Computed from `opened_at` and each edge's `since`. NOT a filesystem or git observation of when the object last changed.",
@@ -240,8 +319,27 @@
     "movement_date_unstated": 0
   },
   "operator": {
-    "from_work_store_edges": [],
-    "from_work_store_note": "Zero here does NOT mean no decision is pending — it means no object DECLARES one, and 578 of 584 objects have never been assessed for edges at all.",
+    "from_work_store_edges": [
+      {
+        "object_id": "WO-20260901-PHASE-H",
+        "stage": "CAPABILITY",
+        "ref": "DEC-20260901-READ-GATE-SEQUENCING",
+        "since": "2026-09-01"
+      },
+      {
+        "object_id": "WO-20260902-DECISION-LOCAL-LLM-WEIGHT",
+        "stage": "DECISION",
+        "ref": "DEC-20260902-LOCAL-LLM-WEIGHT",
+        "since": "2026-08-31"
+      },
+      {
+        "object_id": "WO-20260902-DECISION-REVIEW-PACKET-POPULATION",
+        "stage": "DECISION",
+        "ref": "DEC-20260902-REVIEW-PACKET-POPULATION",
+        "since": "2026-09-02"
+      }
+    ],
+    "from_work_store_note": "Zero here does NOT mean no decision is pending — it means no object DECLARES one, and 578 of 587 objects have never been assessed for edges at all.",
     "operator_owed_register": {
       "read_state": "read",
       "count": 0,
