@@ -113,13 +113,27 @@ jobs:
         # Exit 3 (escalate) and 4 (unknown) are NOT step failures here -- the
         # receipt must land before the job reports, or a backed-up queue would
         # also lose the record of itself. The job fails at the end instead.
+        #
+        # ⚠️ DO NOT PIPE THIS INTO `tee`. `$?` after a PIPELINE is the exit status
+        # of the LAST command in it, so `python3 ... | tee f` makes `$?` read
+        # `tee`'s status -- which is ALWAYS 0. That is not a style nit: it shipped
+        # on 2026-09-02 and made the escalation channel DEAD ON ARRIVAL. The very
+        # first live run (33666587546) measured 6 waiting PRs, worst 110.5h,
+        # stamped `last_paged_at` in its own receipt -- and concluded `success`,
+        # so `claude-run-failure-alert.yml` never paged the operator. The watcher
+        # counted the CALL and not its EFFECT, which is the exact class
+        # `BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT`
+        # names, reproduced in a shell one-liner. A self-test case in
+        # `scripts/ci/check_pr_queue_watch.py` now asserts this file never
+        # reintroduces the pipe.
         run: |
           set +e
           python3 scripts/ops/pr_queue_latency.py \
             --open-prs /tmp/open-prs.json \
             --threshold-hours "${{ github.event.inputs.threshold_hours || '6' }}" \
-            --write-state | tee /tmp/digest.txt
+            --write-state > /tmp/digest.txt 2>&1
           echo "code=$?" >> "$GITHUB_OUTPUT"
+          cat /tmp/digest.txt
 
       - name: Land the receipt on main (auto-merge PR)
         # `main` is protected and rejects a direct workflow push (GH006). The
