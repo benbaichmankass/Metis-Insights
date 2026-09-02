@@ -64,7 +64,21 @@ jobs:
     # verify-merged waits up to 30m for the auto-merge PR. A budget under 35
     # kills the job mid-wait and reports failure for a merge about to succeed.
     # This is the value tests/test_commit_to_main_callers.py pins.
-    timeout-minutes: 40
+    #
+    # ⚠️ RAISED 40 → 75 when the push-back half landed, because this job now
+    # makes TWO SEQUENTIAL commit-to-main calls (the answers, then the push
+    # markers) and each can wait the full 30m. The pinned test only checks
+    # `>= wait + 5`, so 40 would still PASS it while being wrong in practice —
+    # the test bounds one wait, and the reason for the change is that there are
+    # now two.
+    timeout-minutes: 75
+    # ⚠️ Mapped to job-level env deliberately: the `secrets` context is NOT
+    # available in a step-level `if`, so testing the secret directly there would
+    # evaluate to an empty string and silently skip the steps FOREVER — a
+    # channel that looks wired and never fires. `env` is available in `if`.
+    # Only the NAME appears in this public repo; the value never reaches a log.
+    env:
+      PUSH_CREDENTIAL: ${{ secrets.CLAUDE_CODE_OAUTH_REFRESH_TOKEN }}
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -158,4 +172,84 @@ jobs:
           branch-prefix: automation/work-decision-commit
           # "the PR opened" is not "the decision landed", and only the second
           # makes the answer true.
+          verify-merged: "true"
+
+      # ── PUSH-BACK ────────────────────────────────────────────────────────
+      # Everything above is the PULL round-trip: the answer reaches the repo and
+      # the asking session finds out by looking. These steps close the last hop.
+      #
+      # ⚠️ THEY RUN AFTER THE ANSWER IS ON `main`, and the order is the whole
+      # contract. Pushing before the answer lands would tell a session an answer
+      # that might still fail to commit — the forward failure the transit
+      # contract refuses. `verify-merged: true` above is what makes the working
+      # tree read here equal to landed truth.
+      #
+      # ⚠️ THEY RUN ON EVERY PASS, not only when something was committed this
+      # run. A prior run may have graded a delivery `unknown` and left no
+      # marker precisely so it would be retried, and a session may have
+      # committed an answer by hand.
+      #
+      # ⚠️ THE CHANNEL IS OFF UNTIL AN OPERATOR MINTS THE CREDENTIAL, and it is
+      # built to be honest about that rather than to look green. With
+      # CLAUDE_CODE_OAUTH_REFRESH_TOKEN unset, `push_decisions_back.py` grades
+      # every candidate `unknown`, writes NO marker, and prints
+      # `channel: off_no_credential`. It never grades `session_gone` — nobody
+      # was contacted — and never reports a delivery that did not happen.
+      #
+      # WHY A SECRET AND NOT SOMETHING NARROWER: `claude -p … --cloud` needs a
+      # claude.ai OAuth token; API keys are refused, and there is no long-lived
+      # CI token — the `user:sessions:claude_code` scope is capped server-side
+      # at 30 days, so this must be re-minted interactively by the operator on
+      # that cadence. That is a real operating cost and it is the operator's
+      # call, which is why nothing here fails when the secret is absent.
+      # Evidence, TESTED vs READ per claim:
+      # docs/design/decision-push-back-FEASIBILITY.md
+      #
+      # ⚠️ THE REPO IS PUBLIC. Only the secret's NAME appears here.
+
+      - name: Install the Claude Code CLI (only when the channel is armed)
+        if: ${{ env.PUSH_CREDENTIAL != '' }}
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Authenticate the CLI for session delivery
+        if: ${{ env.PUSH_CREDENTIAL != '' }}
+        env:
+          CLAUDE_CODE_OAUTH_REFRESH_TOKEN: ${{ env.PUSH_CREDENTIAL }}
+          CLAUDE_CODE_OAUTH_SCOPES: ${{ vars.CLAUDE_CODE_OAUTH_SCOPES || 'user:inference user:profile user:sessions:claude_code' }}
+        run: |
+          set -euo pipefail
+          # Exchanges the stored refresh token without a browser. The token
+          # never reaches the log: it rides the environment, and `claude auth
+          # login` prints no credential material.
+          claude auth login
+
+      - name: Dry run — show what would be pushed back
+        env:
+          CLAUDE_CODE_OAUTH_REFRESH_TOKEN: ${{ env.PUSH_CREDENTIAL }}
+        run: python3 scripts/ops/push_decisions_back.py
+
+      - name: Push committed answers back to the sessions that asked
+        env:
+          CLAUDE_CODE_OAUTH_REFRESH_TOKEN: ${{ env.PUSH_CREDENTIAL }}
+        run: python3 scripts/ops/push_decisions_back.py --apply
+
+      - name: Land the push markers on main
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/work/objects
+          message: "chore(ops): record decision push-back outcomes"
+          pr-title: "chore(ops): record decision push-back outcomes (auto)"
+          pr-body: >-
+            Automated record of which committed decision answers were pushed
+            back to the sessions that asked them. `pushed` / `session_gone` are
+            settled outcomes and are recorded so they are never delivered twice;
+            an `unknown` writes NO marker and is deliberately retried, so its
+            absence here is the mechanism working, not a gap.
+          branch-prefix: automation/decision-push-back
+          # ⚠️ The marker is what makes a second push a no-op. If it fails to
+          # land, the next run pushes again — a duplicate wake, which is the
+          # direction chosen deliberately over a marker written before delivery
+          # (that would make a FAILED delivery read as pushed). Verified rather
+          # than assumed, so the condition is loud instead of silent.
           verify-merged: "true"
