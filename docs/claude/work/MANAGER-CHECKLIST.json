@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T05:45:26Z",
+  "updated_at": "2026-09-02T06:24:47Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -213,11 +213,16 @@
     {
       "id": "MI-15-SESSIONS-REGISTRY-INCOMPLETE",
       "title": "The sub-session registry was missing 3 of the 6 sessions this manager spawned",
-      "state": "landed_unproven",
+      "state": "blocked",
       "owner": "manager",
       "pr": null,
-      "blocked_on": null,
-      "note": "FOUND WHILE REFRESHING THE CHECKLIST, and it is the exact failure SESSIONS.json exists to prevent: the Claude-channel, Phase-H-preconditions and prop-fills sessions existed ONLY in this manager's context. Had this session died, three live sub-sessions — two of them holding operator-approved PRs — would have been silently orphaned. All four (those three plus the new CI-green session) are registered in this PR. ⚠️ landed_unproven, NOT done: the registry is only proven when a manager arriving COLD actually resumes from it, and no such takeover has happened. Registering is a deploy, not an observation."
+      "blocked_on": {
+        "kind": "object",
+        "ref": "MI-41-IMPLEMENT-THE-OPERATING-MODEL-PLAN-WAS-NEVER-SCHEDULED-AND-SLIPPED",
+        "since": "2026-09-02T06:13:08Z"
+      },
+      "note": "FOUND WHILE REFRESHING THE CHECKLIST, and it is the exact failure SESSIONS.json exists to prevent: the Claude-channel, Phase-H-preconditions and prop-fills sessions existed ONLY in this manager's context. Had this session died, three live sub-sessions — two of them holding operator-approved PRs — would have been silently orphaned. All four (those three plus the new CI-green session) are registered in this PR. ⚠️ landed_unproven, NOT done: the registry is only proven when a manager arriving COLD actually resumes from it, and no such takeover has happened. Registering is a deploy, not an observation.",
+      "recurrence": "RECURRED 2026-09-02, WORSE THAN THE ORIGINAL, and this row was sitting at landed_unproven while it happened. Measured during a handoff-readiness check: 6 of the 9 sub-sessions this manager spawned were ABSENT from SESSIONS.json, 5 of them LIVE -- including all three MI-41 sessions carrying the cycle's highest-priority work. The original was 3 of 6. Registry brought current by hand the same minute, and the six carry registered_late:true so their spawned_at is not misread as a spawn time. ⚠️ THE FIX THAT WAS APPLIED LAST TIME WAS 'REMEMBER TO REGISTER', AND IT HAS NOW FAILED TWICE. A manager spawning a session is exactly when it is least likely to stop and write a record. This must become MECHANICAL -- registration as a side effect of spawning, or a check that refuses/flags an unregistered live session -- and it is a first-class MI-41-A candidate: an action the manager INVOKES that both spawns and registers, so the two cannot diverge. ⚠️ WHY IT MATTERS MORE THAN IT LOOKS: SESSIONS.json is the ONLY thing that lets a cold manager pick up running sub-sessions. The lease does not carry it, a dead session cannot report it, and the operator asked about switching managers WHILE the registry was 67% incomplete -- the handoff would have silently dropped five live sessions."
     },
     {
       "id": "MI-16-SEND-PING-CLASSES-REACHABLE",
@@ -463,6 +468,47 @@
       "state": "done",
       "detail": "Recorded as a lesson rather than dropped. Asked how much recurring work could be automated so as not to waste tokens, I measured whether any workflow INVOKES Claude (zero -- true, and irrelevant to the question). The operator corrected it: the ask is for actions CLAUDE CAN INVOKE, e.g. pulling data. The two are near-opposites in what they imply for the build. The transferable error: I answered the question my measurement could reach rather than the one that was asked, and the measurement being CORRECT is what made it convincing.",
       "added": "2026-09-02T05:45:26Z"
+    },
+    {
+      "id": "MI-44-MANAGER-SPAWNS-ITS-OWN-SUCCESSOR-AT-ITS-DISCRETION",
+      "title": "A manager spawns its own handoff manager, which pings the operator that it has taken over, with a link to itself",
+      "state": "in_flight",
+      "added": "2026-09-02T06:22:20Z",
+      "operator_ask": "Operator, 2026-09-02: 'the possibility of the manager spawning its own handoff manager session at its own discretion - this requires that we be certain about continuity robustness, and the new session needs to send a ping that it has taken over with a link to itself.'",
+      "verified_today": [
+        "SELF-IDENTIFICATION WORKS. get_session with session_id OMITTED returns the CALLING session's own record, id included (verified 2026-09-02T06:21Z from this manager: returned session_011JWFxuYAaEQKCFCmG6gnHJ). So a successor can build https://claude.ai/code/<its own id> without being told what it is -- which the spawning manager CANNOT pass in the prompt anyway, since the id does not exist until create_session returns.",
+        "THE PING CAN CARRY THE LINK TODAY. Read on main 2026-09-02: notify_on_pull._render_ping_message emits `title`, `summary` and `chat_url` from its recognised-key list. A takeover ping using those keys renders with its link. ⚠️ BUT `message` IS NOT IN THAT LIST -- a ping built with it renders as a BARE EVENT LABEL, which is exactly the empty 03:24 digest the operator screenshotted. The takeover ping MUST use recognised keys, or it announces nothing.",
+        "SPAWNING WORKS: 11 sub-sessions created this session via create_session with explicit source_url + source_revision.",
+        "THE LEASE ALREADY HAS THE HANDOVER PRIMITIVES: manager_lease.py has release + claim, and CLAIMABLE = {expired, released, absent}. A HELD lease REFUSES a claim, so the successor cannot simply take it -- the outgoing manager must release first, or the successor must --force with a reason."
+      ],
+      "proposed_protocol": [
+        "1. Outgoing SPAWNS the successor (create_session, explicit source_url+revision) and REGISTERS it in SESSIONS.json in the same action.",
+        "2. Outgoing RELEASES the lease and PUSHES it. An unpushed release protects nothing -- the successor reads origin.",
+        "3. Successor CLAIMS the lease, pushes, and PINGS with `title`+`summary`+`chat_url` naming itself.",
+        "4. ⚠️ OUTGOING DOES NOT EXIT YET. It polls the LEASE FROM ORIGIN -- the lease is the only shared state both sides can see, and there is NO back-channel (a woken session cannot reply; cross-session inbound does not reach back). When holder == successor, the handover is CONFIRMED and the outgoing stands down.",
+        "5. If nobody has claimed within a bounded window, the outgoing RE-CLAIMS (released is claimable by anyone, including the original) and reports a FAILED handoff. This step is the robustness the operator asked for: the outgoing must not disappear on the ASSUMPTION its successor is alive."
+      ],
+      "risks_named": [
+        "⚠️ THE GAP WINDOW IS THE REAL HAZARD. Between release and claim, NOBODY holds the lease while sub-sessions keep running -- the lease's own doc is explicit that sub-sessions do not depend on it and what pauses is SUPERVISION. If the successor dies at spawn (which happened TWICE tonight on MI-37, both times on repo provisioning), the system is left with running sub-sessions, no manager, and nobody aware. Step 5 exists for exactly this and is the part that must be proven, not assumed.",
+        "⚠️ A SUCCESSOR THAT CLAIMS AND THEN DIES IS WORSE THAN ONE THAT NEVER CLAIMED: the lease reads `held` for its full 90-minute TTL, so the time-based takeover that protects against death is precisely what delays discovery.",
+        "⚠️ CONTINUITY IS NOT PROVEN UNTIL MI-43 LANDS. 'Certain about continuity robustness' is the operator's own precondition, and today both handoff records (SESSIONS.json, OPEN-PRS.json) are maintained by REMEMBERING -- the mechanism that failed twice tonight at 3-of-6 and 6-of-9.",
+        "COST, as an independent argument FOR bounded manager sessions: this manager session has cost $885.84 with 1.31 BILLION cache-read tokens (read from its own get_session record, 2026-09-02T06:21Z). A manager that never hands over accumulates this indefinitely."
+      ],
+      "blocked_on": {
+        "kind": "object",
+        "ref": "MI-43",
+        "since": "2026-09-02T06:23:01Z",
+        "note": "Still ordered behind MI-43 -- the readiness check should gate the handoff it is being tested with. If MI-43 is not landed when the handoff is due, run the handoff anyway and record WHICH criteria went unverified rather than claiming a clean pass."
+      },
+      "note": "QUEUED, NOT STARTED, and deliberately blocked behind MI-43. Building self-handoff before the readiness check exists would let a manager hand over a state nothing has verified -- which is the failure mode the operator's own precondition names.",
+      "operator_decision": "2026-09-02: THIS HANDOFF IS THE ACCEPTANCE TEST. Operator: 'we'll obviously test it on this handoff, so we can verify before closing here.' So MI-44 is no longer a deferred design -- it is exercised at THIS session's close, and the outgoing manager stays alive to observe it. That is the only way the protocol gets proven rather than asserted, and it matches the repo's own standard that a deploy is not an observation.",
+      "acceptance_criteria": [
+        "1. The successor CLAIMS the lease: docs/claude/work/MANAGER-LEASE.json on ORIGIN reads state=held with holder=<successor id>. Read from origin, never from a local tree.",
+        "2. The operator RECEIVES a takeover ping that RENDERS -- carrying a link to the successor. ⚠️ A ping that arrives as a bare event label is a FAILURE of this criterion, not a partial pass: that is the exact defect #10747 exists to fix, and `message` is not a recognised renderer key.",
+        "3. The successor demonstrates it can READ the handoff state it inherited -- naming the live sub-sessions from SESSIONS.json and the open PRs with their CONDITIONS from OPEN-PRS.json. ⚠️ Inheriting the files is not the test; USING them is. A successor that claims the lease and cannot say what #10746's staging condition is has failed, because that is the case where a half-informed manager is more dangerous than an ignorant one.",
+        "4. Only after 1-3 are OBSERVED does the outgoing manager stand down. If any fails, it RE-CLAIMS and reports the failed handoff rather than leaving the system unmanaged."
+      ],
+      "criterion_2_PROVEN": "VERIFIED 2026-09-02T06:24Z, ahead of the test rather than during it. Ran the REAL renderer (scripts/notify_on_pull.py::_render_event_body, on main) over two candidate takeover payloads:\n  • title+summary+chat_url -> 3 lines, link PRESENT:\n      'manager_takeover — Manager handover complete\\n<summary>\\nhttps://claude.ai/code/session_XXXX'\n  • the same information under `message` -> 1 line, link ABSENT: 'manager_takeover'\nCONCLUSION: the takeover ping WORKS TODAY on unfixed main and is NOT blocked on #10747 -- PROVIDED it is built with the recognised keys. Built with `message` it announces nothing, which would look like a successful silent handoff. This is a HARD REQUIREMENT for the successor's spawn prompt.\n⚠️ METHOD NOTE, because the first attempt nearly produced a false finding: I initially guarded the call on a function name that does not exist, so BOTH arms returned None and read as 'the ping path is broken'. That is the `curl || echo '{}'` shape this repo files against its own diagnostics -- a probe that cannot find a positive reporting a confident negative. Caught only because both arms failing identically is implausible. A negative needs a positive control."
     }
   ]
 }
