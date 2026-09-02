@@ -36,6 +36,17 @@ This is why the build is on the CI side and not the diag side, even though
 "batched diag pulls" was on the candidate list. The candidate was reasonable and
 the measurement disagreed with it.
 
+### A capability limit found by building, not by reading
+
+`git push origin --delete <branch>` is **HTTP 403** at the sandbox's git proxy —
+measured 2026-09-02, in the same shell where *creating* a ref succeeded moments
+earlier. So a session can make a throwaway branch and cannot remove it. This is
+not documented in `CLAUDE.md` § "PM-side session capabilities", which describes
+git push as working without qualification.
+
+The relay therefore sweeps its own spent `automation/ciwatch-*` branches (age
+> 6h, well beyond the 45-minute watch cap) rather than asking the caller to.
+
 ## 1. PR-CI polling — the anchor case (BUILT)
 
 **Population: the manager session's own report of tonight's work, plus the

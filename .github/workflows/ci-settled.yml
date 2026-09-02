@@ -155,6 +155,38 @@ jobs:
           # cannot distinguish from a slow one.
           exit "$failed"
 
+      - name: Sweep spent watch branches
+        # WHY THE RELAY CLEANS UP AND NOT THE CALLER. Deleting a remote branch
+        # is HTTP 403 at the sandbox's git proxy -- measured 2026-09-02:
+        # `git push origin --delete automation/ciwatch-...` -> "RPC failed;
+        # HTTP 403", while creating a ref from the same shell succeeds. So a
+        # session can make these branches and cannot remove them, and without
+        # this step they would accumulate one per watch forever.
+        #
+        # Age-gated well beyond any watch's life: ci_settle.py clamps a watch to
+        # 45 minutes and the caller gives up 5 minutes after that, so a branch
+        # untouched for 6 hours is certainly spent. A branch still being polled
+        # is never in range, so this cannot delete an answer out from under a
+        # caller. Best-effort throughout -- a failed prune must never fail a run
+        # that produced a real verdict.
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          cutoff=$(( $(date -u +%s) - 6*3600 ))
+          git ls-remote --heads origin 'refs/heads/automation/ciwatch-*' \
+            | awk '{print $2}' | sed 's|refs/heads/||' | while read -r br; do
+            [ -n "$br" ] || continue
+            git fetch -q --depth=1 origin "$br" 2>/dev/null || continue
+            ts=$(git log -1 --format=%ct FETCH_HEAD 2>/dev/null || echo 0)
+            if [ "$ts" -gt 0 ] && [ "$ts" -lt "$cutoff" ]; then
+              echo "pruning spent watch branch: $br"
+              git push -q origin --delete "$br" || echo "::warning::could not prune $br"
+            fi
+          done
+
       - name: Commit results back
         # ALWAYS. If the watcher crashed partway, the results it did write are
         # exactly what a caller needs to see; withholding them would leave the

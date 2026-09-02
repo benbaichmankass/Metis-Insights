@@ -8,6 +8,10 @@
 # `mcp__github__pull_request_read` calls -- which is the only alternative a
 # sandbox session has, because `api.github.com` answers HTTP 403 in here.
 #
+# The watch branch is left behind on purpose: this sandbox can CREATE a remote
+# ref but deleting one is HTTP 403 at the git proxy, so the relay sweeps spent
+# `automation/ciwatch-*` branches itself on its next run.
+#
 # ⚠️ IT NEVER TOUCHES THE PR BEING WATCHED. The request is built as a commit on
 # top of `origin/main` with git plumbing (no checkout, no index change, the
 # working tree is not read or written) and pushed to a THROWAWAY branch
@@ -66,7 +70,10 @@ while :; do
     git cat-file -p "FETCH_HEAD:${RESULT_PATH}"
     STATE="$(git cat-file -p "FETCH_HEAD:${RESULT_PATH}" \
       | python3 -c 'import json,sys; print(json.load(sys.stdin).get("state",""))')"
-    git push -q origin --delete "$BRANCH" 2>/dev/null || true
+    # NO CLEANUP HERE, DELIBERATELY. Deleting a remote branch is HTTP 403 at
+    # this sandbox's git proxy (measured 2026-09-02) even though CREATING one
+    # succeeds, so a caller cannot remove its own watch branch. The relay
+    # sweeps `automation/ciwatch-*` branches older than 6h on its next run.
     case "$STATE" in
       green)      exit 0 ;;
       unreadable) exit 2 ;;
