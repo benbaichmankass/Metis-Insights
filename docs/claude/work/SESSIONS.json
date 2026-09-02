@@ -470,6 +470,23 @@
         "state": "spawned_not_yet_observed",
         "note": "SPAWNED, NOT OBSERVED. Given a SECOND axis the existing backlog note does not carry, and told to verify it rather than take it on trust: #10731's eight matches were genuinely other sessions but ALL of their PRs had already MERGED, so the audit cannot tell a live declaration from a stale one either. A fix handling only self-attribution leaves that half firing. Told explicitly NOT to make the audit quieter in general — suppressing a real overlap is the strictly worse error — and to keep the four states apart rather than collapsing them into 'another session declared'."
       }
+    },
+    {
+      "session_id": "session_01JtCLjnWPvNRN7K3td116BY",
+      "owns_object": null,
+      "title": "MI-37 — side-blind covered_qty can mask a genuinely naked Bybit position (Tier-2, DRAFT ONLY)",
+      "spawned_at": "2026-09-02T04:28Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/bybit-coverage-graded-book"
+      ],
+      "prs": [],
+      "why": "The money-at-risk item, unblocked the moment #10739 merged and shipped reduces_graded_book_qty. The Bybit naked-sweep's re-arm decision reads a SIDE-BLIND covered_qty; since hedge mode was armed 2026-08-30 one symbol can carry legs for two books in one sum, so an other-book leg can push covered past `size` on a position whose OWN stop is gone and `if covered + eps >= size: continue` skips a naked book as fully covered.",
+      "last_observed": {
+        "at": "2026-09-02T04:28Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. TIER-2 ORDER PATH — told DRAFT ONLY, no auto-merge; the operator owns the approval and it is on the morning report. Given the trap explicitly: fix the COVERAGE COMPARISON and NOT the trip threshold, because the side-blind sum is the UNION of two conditions and narrowing it would make the other-book case go SILENT — strictly worse than the mislabelling #10739 just fixed. Told to import reduces_graded_book_qty rather than re-derive a second notion of which book a leg reduces. Four controls demanded including the mirror (a genuinely-covered position is still skipped) and an argued answer for which way `unknown` should fail on a SAFETY mechanism. Also told to re-run guards on the FINAL committed head, citing #10739's PASS-50-FAIL-0 that predated its last commits. ⚠️ The n=1 CONSTRUCTED status of the evidence was stressed — no live instance of the masking has been observed, and that must not get upgraded to a sighting in the PR body."
+      }
     }
   ]
 }
