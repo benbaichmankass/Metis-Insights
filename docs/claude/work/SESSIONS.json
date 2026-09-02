@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T16:00:13Z",
+  "updated_at": "2026-09-02T17:19:43Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -1139,6 +1139,17 @@
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "MEASURED 2026-09-02 on origin/main, 12h window: 52 commits touched a register file. Six PRs sat armed with auto-merge for 15 minutes doing nothing because four were mergeable_state dirty -- auto-merge does not resolve conflicts. The manager re-resolved the same registers across seven PRs, several twice, because merging any one re-dirtied the rest. docs/claude/work/objects/ holds 584 rows as one-file-per-object and has produced ZERO of these conflicts.",
       "note": "Spawn gate PERMITTED (exit 0). Deliberately NOT told to shard: a .gitattributes merge driver may win and saying so is a fine outcome. Prompt carries the manager's own resolver defect -- it reported 'no id lost' while silently dropping an edit both sides had added -- so any merge driver must REFUSE divergent same-id edits rather than pick a winner. ⚠️ Registered on the SECOND attempt: the first was written onto a branch that predated MI-75's row, which would have dropped it -- the exact hazard this item exists to end.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01PbQAQXRY2oB1ep2BFEUZeA",
+      "title": "MI-77 — the manager watcher that can actually see (MI-73 respawn)",
+      "owns_object": "WO-20260902-MANAGER-PREFLIGHT",
+      "checklist_item": "MI-77",
+      "spawned_at": "2026-09-02T17:19:43Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "why": "MI-73 was given this task, worked ~$10, and LOST ALL OF IT: 'blocked on permission classifier; auto-mode denied add_repo x2 and git push x3'. It never pushed a branch, so nothing survives. Respawned WITH an explicit source_url (which MI-73 lacked) and with a standing instruction to push within its first minutes, before it has anything good.",
+      "note": "Spawn gate PERMITTED (exit 0). Created with explicit source_url and sources confirmed present at creation, unlike MI-73.",
       "state": "working"
     }
   ],

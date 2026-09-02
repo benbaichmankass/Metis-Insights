@@ -177,3 +177,73 @@ residual_stated_rather_than_hidden:
   WO-20260902-MANAGER-PREFLIGHT` on row `pending-20260902T132159Z` is the manager's to add — and
   until they do, this session's own row is one of the 18 that `work_has_parent` FAILS on. That is
   the correct outcome, not an oversight.
+
+# ── MI-77 (session_01PbQAQXRY2oB1ep2BFEUZeA) ────────────────────────────────
+# The SECOND half of the same commitment. `manager_preflight.py` above is a
+# PREFLIGHT and its own note concedes it "is a preflight a manager runs" — which
+# is the failure it was built to fix, one level up: a manager that skipped step 3
+# of its sweep will skip the preflight too. This is the half that does not
+# depend on the manager choosing to run it.
+mi77_pr_queue_watcher:
+  what_shipped: >-
+    scripts/ops/pr_queue_latency.py (the watcher), scripts/ci/check_pr_queue_watch.py (the
+    liveness guard), .github/workflows/pr-queue-watch.yml (the clock), plus one appended
+    GUARDS entry in run_guards.py, one appended watch entry in claude-run-failure-alert.yml,
+    and one catalogue row. It times how long an OPEN, UNMERGED PR has sat with no push to its
+    head branch, and escalates to the OPERATOR.
+  why_it_is_not_the_mcp_watcher: >-
+    scripts/ops/queue_latency.py asks the same question about SESSIONS and answers it from
+    `list_sessions`, an mcp__* tool CI does not hold; it therefore reports `unknown`
+    permanently and refuses, correctly, to substitute SESSIONS.json's stored snapshot. That
+    refusal is right and it is not yet a guard. This is the NARROWER question GITHUB_TOKEN
+    alone can answer. The two are complements; neither replaces the other, and the `unknown`
+    path in queue_latency.py is untouched.
+  why_the_manager_cannot_invoke_it: >-
+    Measured across this cycle — every mechanism the manager had to CHOOSE to run went unused;
+    every mechanism that STOOD IN THE WAY worked. So the watcher is fired only by its workflow
+    and is unreachable from a prompt, a skill or a checklist step, and the ENFORCEMENT is that
+    its own deadness fails everybody's CI through check_pr_queue_watch.py in run_guards.py.
+    There is nothing to remember and nothing to opt into.
+  measured_basis:
+    population: >-
+      2026-09-02T17:21Z — ALL 10 open, unmerged PRs on this repo. Quiescence = hours since the
+      last commit on the head branch, read from origin.
+    distribution: >-
+      0.2 / 1.0 / 1.0 h, then a GAP, then 5.3 / 5.7 / 7.4 / 7.7 / 11.0 / 18.9 / 109.5 h. The
+      nearest observations either side are 1.0h and 5.3h, so every threshold in (1.0, 5.3]
+      separates 'being worked' from 'handed back' identically on this data. 6h sits just past
+      it and independently equals four manager-lease TTLs. ⚠️ n=10 is a small denominator and
+      one repo on one day is not a distribution — the value is CHOSEN, not calibrated.
+    validated_against_the_known_failure: >-
+      The live run flags #10694, whose MANAGER-CHECKLIST row (MI-18) records its owner as
+      'session_01LqVvgvusnN87neBn5ayzhg (archived; its PR #10694 stands)' while the item state
+      reads `in_flight`. The watcher caught exactly the case the manager's own record mislabels.
+  three_of_the_four_hypothesised_proxies_do_not_work: >-
+    Reported rather than quietly dropped, because a stated boundary is the deliverable when the
+    proxy is weaker than it looks. (B) 'a PR whose owner posted needs_action' — needs_action
+    lives ONLY in SESSIONS.json's last_observed, a SNAPSHOT the sweep prompt warns must not be
+    read as current, carried by 4 of 74 rows, and written to NO GitHub surface; a staleness
+    detector on stale data reports a healthy queue with total confidence. (C) 'a board START
+    with no DONE' — every comment on #6927 is authored by the repo OWNER whichever session
+    wrote it, so pairing is free-text parsing, and the sessions most needing to be caught are
+    the ones that died before posting anything: it would fire permanently, the desensitised-
+    alarm P1. ⚠️ (C) was rejected on the ATTRIBUTION ground, which is measured over the 30
+    comments read; the START/DONE ratio across the whole board was NOT exhaustively counted,
+    and that is stated rather than implied. (D) 'a checklist item in_flight whose owner's
+    branch is quiet' — UNCOMPUTABLE: 0 of 23 `in_flight` items carry a branch and 0 carry a PR
+    number (all 72 items: 0 branches, 2 PR entries). The join does not exist.
+  what_it_deliberately_does_not_do: >-
+    It never merges, closes, un-drafts or comments on a PR — which is what makes grading on
+    branch quiescence defensible, since that is a PROXY for hand-back it cannot verify (the
+    reaper's own argument for the same proxy). And the CI guard grades the watcher's LIVENESS
+    and never the backlog's SIZE: run_guards.py already records why a live open-PR read does
+    not belong in per-PR CI, and a contributor going red for the manager's backlog would train
+    everyone past the guard.
+  lifecycle: landed_unproven
+  not_done_because: >-
+    ⚠️ THE CRON HAS NEVER FIRED, so the watcher is DEPLOYED and NOT OBSERVED. A cron in this
+    repo is not evidence of a run — probes.yml's first scheduled run was ~4h50m late and fired
+    once instead of daily. check_pr_queue_watch.py grades `never_ran` today, which is the
+    CORRECT reading and deliberately PASSES (failing would red every PR on merge day, which is
+    how a guard gets disabled instead of fixed); it arms itself on the first real run. Tracked
+    as OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED (loud).

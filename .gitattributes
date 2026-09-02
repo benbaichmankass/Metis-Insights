@@ -1,0 +1,24 @@
+# Row-aware 3-way merge for the shared JSON registers.
+#
+# MEASURED, main @1b82ab7: these five files re-conflict every sibling PR, and the
+# dominant mechanism is a shared header scalar rather than the rows —
+# 74% of MANAGER-CHECKLIST.json conflict pairs and 67% of OPEN-PRS.json ones have
+# BOTH sides bumping the same `updated_at`/`as_of` line. PR #10815's entire
+# conflict was that one line.
+#
+# ⚠️ A MERGE DRIVER IS CLIENT-SIDE. Git runs it on `git merge` / `git rebase`
+# LOCALLY, and ONLY after `scripts/ops/install_merge_driver.sh` has registered it
+# in this clone's git config. GitHub's servers do NOT run custom merge drivers, so
+# this does NOT make a `mergeable_state: dirty` PR auto-mergeable on GitHub — it
+# removes the cost of resolving the conflict by hand, which is the measured
+# consumer of manager time. Saying otherwise would be claiming a fix that is not
+# there.
+#
+# The driver REFUSES (exit 1, markers left) on divergent same-id adds or edits and
+# on delete-vs-edit. It never picks a winner. See scripts/ops/merge_json_register.py.
+
+docs/claude/health-review-backlog.json      merge=jsonregister
+docs/claude/OPEN-ITEMS.json                 merge=jsonregister
+docs/claude/work/MANAGER-CHECKLIST.json     merge=jsonregister
+docs/claude/work/SESSIONS.json              merge=jsonregister
+docs/claude/work/OPEN-PRS.json              merge=jsonregister
