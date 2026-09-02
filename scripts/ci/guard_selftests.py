@@ -589,11 +589,13 @@ def selftest_manifest_scope_constants() -> None:
     caught the incident it was written for.
 
     THE NEGATIVE CONTROL IS THE ONE THAT MATTERS. The obvious over-broad
-    implementation of C1 flags `hour_of_day` wherever it appears — and 54 of the
-    55 manifests that declare it are on 5m/15m/1h/all bars where the hour genuinely
-    varies. Such a guard passes every positive test above and then fails the whole
-    fleet. So a 15m manifest declaring the same column must PASS, and that is
-    asserted here, not assumed.
+    implementation of C1 flags `hour_of_day` wherever it appears. MEASURED over the
+    76 manifests under `ml/configs/*.yaml` on 2026-09-02: 54 declare `hour_of_day`
+    and ALL 54 are on bars where it genuinely varies (24x 15m, 11x `all`, 10x 1h,
+    9x 5m) — none on a daily bar, the mes-1d manifest having been fixed in #10414.
+    So an over-broad C1 would fail 54 manifests and zero real defects: it passes
+    every positive test above and then fails the whole fleet. A 15m manifest
+    declaring the same column must PASS, and that is asserted here, not assumed.
     """
     script = "scripts/ci/check_manifest_scope_constants.py"
     cfg = REPO / "ml" / "configs"
@@ -670,8 +672,8 @@ def selftest_manifest_scope_constants() -> None:
         raise SystemExit(
             "manifest-scope-constants self-test FAILED (NEGATIVE CONTROL): a 15m "
             "manifest declaring hour_of_day/dayofweek is CORRECT and must pass. An "
-            "over-broad C1 would fail 54 of the 55 manifests that declare "
-            "hour_of_day.\n" + out
+            "over-broad C1 would fail all 54 manifests that declare hour_of_day "
+            "(measured 2026-09-02 over 76) and zero real defects.\n" + out
         )
 
 
