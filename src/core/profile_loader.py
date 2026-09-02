@@ -84,6 +84,14 @@ def load_instrument_profiles(
                 contract_value_usd=float(data.get("contract_value_usd", 1.0)),
                 max_leverage=int(data.get("max_leverage", 0)),
                 display_name=data.get("display_name", symbol),
+                # Absent key -> None ("this profile does not state a ceiling"),
+                # deliberately NOT 0.0 -- a zero ceiling would refuse every
+                # order for the symbol, which is worse than the bug it fixes.
+                max_qty=(
+                    float(data["max_qty"])
+                    if data.get("max_qty") not in (None, "")
+                    else None
+                ),
             )
         return profiles
     except FileNotFoundError:

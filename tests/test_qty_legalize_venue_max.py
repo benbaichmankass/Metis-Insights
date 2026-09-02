@@ -36,9 +36,26 @@ BYBIT = {"exchange": "bybit"}
 AVAX_STEP, AVAX_MIN, AVAX_MAX = 0.1, 0.1, 22_000.0
 
 
-def _rule(step=AVAX_STEP, vmin=AVAX_MIN, vmax=AVAX_MAX, source="live_lot_rule"):
-    """Inject a resolved lot rule, bypassing the venue round-trip."""
-    return lambda *a, **k: (step, vmin, vmax, source)
+def _rule(step=AVAX_STEP, vmin=AVAX_MIN, vmax=AVAX_MAX, source="live_lot_rule",
+          max_state=None):
+    """Inject a resolved lot rule, bypassing the venue round-trip.
+
+    ⚠️ THESE TESTS BYPASS RESOLUTION, WHICH IS WHY THEY PASSED THROUGHOUT THE
+    THIRD OCCURRENCE (2026-09-02). Every case here enters the clamp with a
+    ceiling ALREADY resolved, so it exercises the CLAMP — which was correct all
+    along — and never the resolution, where `venue_max` actually goes None.
+    `tests/test_qty_legalize_venue_max_resolution.py` is the half that covers
+    that, and it is where a regression of the live defect will show up.
+
+    `max_state` (2026-09-02) defaults to the state the injected `vmax` implies:
+    a value means the venue PUBLISHED a ceiling; None here means the caller is
+    deliberately testing a venue with no ceiling (`absent`), NOT a failed read
+    (`could_not_look`) — those are different states now and a test must say
+    which one it means.
+    """
+    if max_state is None:
+        max_state = "published" if vmax is not None else "absent"
+    return lambda *a, **k: (step, vmin, vmax, max_state, source)
 
 
 def _legalize(monkeypatch, qty, **rule_kw):
@@ -79,8 +96,13 @@ def test_absent_max_never_clamps(monkeypatch):
     """`None` = "the venue published no ceiling", NOT a ceiling of zero.
 
     Conflating them would refuse every order for that symbol — strictly worse
-    than the bug being fixed. Every non-Bybit venue and every static-map entry
-    resolves this way, so this is the common path, not an edge case.
+    than the bug being fixed.
+
+    ⚠️ This test injects `absent` explicitly. Its previous docstring added
+    "every non-Bybit venue and every static-map entry resolves this way", and
+    that is FALSE as of 2026-09-02: those sources cannot SEE a ceiling, so they
+    resolve `could_not_look`. Reading the second as the first is precisely the
+    collapse that made the clamp a silent no-op three times.
     """
     r = _legalize(monkeypatch, 999_999.0, vmax=None)
     assert r.ok is True

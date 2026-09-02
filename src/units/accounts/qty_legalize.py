@@ -43,6 +43,40 @@ from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# The venue per-order CEILING is a THREE-state answer, never a nullable float
+# (2026-09-02, BL-20260902-AVAX-VENUE-MAX-CLAMP-INERT-WHEN-THE-LIVE-LOOKUP-MISSES;
+# mechanism filed as BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK).
+#
+# ⚠️ THIS IS THE THIRD OCCURRENCE OF THE SAME LIVE DEFECT. BL-20260810 shipped
+# the clamp (and was marked `resolved`); BL-20260821 recorded it rejecting
+# again at ~34,000; on 2026-09-02 `ict_scalp_avax_5m` sent qty 22995.1 against
+# a 22,000 cap eight times. The CLAMP was correct every time. What was wrong is
+# that `venue_max=None` meant three different things and the clamp treated all
+# three as "no ceiling exists — place it":
+#
+#   published       the venue named a ceiling                  -> CLAMP
+#   absent          we read the venue's own lotSizeFilter and
+#                   it carries no ceiling                      -> place unmodified
+#   could_not_look  nothing that can SPEAK to a ceiling
+#                   answered (live lookup failed/empty; the
+#                   static map, which holds step/min only; an
+#                   InstrumentProfile with no max_qty)         -> place, but SAY SO
+#
+# Only `absent` is evidence that placing unclamped is safe. `could_not_look` is
+# the absence of evidence, and reading it as `absent` is what made the clamp a
+# silent no-op on the one path already known to reject.
+#
+# ⚠️ `could_not_look` deliberately does NOT refuse. The clamp's whole safety
+# argument is that it cannot alter an order the venue would have accepted;
+# refusing on an unresolved ceiling would start blocking orders that are legal
+# today (every non-Bybit venue and every static-map symbol resolve here), which
+# is a far larger blast radius than the bug. It places — and is now legible
+# instead of silent, which is what lets a fourth occurrence be seen.
+MAX_STATE_PUBLISHED = "published"
+MAX_STATE_ABSENT = "absent"
+MAX_STATE_COULD_NOT_LOOK = "could_not_look"
+
 
 @dataclass(frozen=True)
 class LegalizedQty:
@@ -75,6 +109,12 @@ class LegalizedQty:
     # NOT a clamp and must not be logged or journalled as one.
     venue_max: Optional[float] = None
     clamped: bool = False
+    # WHY `venue_max` is None, which the float alone cannot say. One of
+    # MAX_STATE_PUBLISHED / MAX_STATE_ABSENT / MAX_STATE_COULD_NOT_LOOK.
+    # Defaults to `could_not_look` because a construction that says nothing
+    # about a ceiling has not established that there is none — the honest
+    # default is "nobody looked", never "there is no limit".
+    venue_max_state: str = MAX_STATE_COULD_NOT_LOOK
     # The exact string to put on the wire — the step-precise Decimal
     # representation (preserves trailing zeros, e.g. "0.100" for step 0.001),
     # so a caller that submits a string (the Bybit pre-flight) sends byte-for-
@@ -121,8 +161,12 @@ def _resolve_venue_lot_rule(
     profiles: Optional[Dict[str, Any]] = None,
     instruments_path: Optional[str] = None,
     prefer_live: bool = False,
-) -> Optional[Tuple[float, float, Optional[float], str]]:
-    """Resolve ``(qty_step, min_qty, max_qty|None, source)`` for *symbol*, or ``None``.
+) -> Optional[Tuple[float, float, Optional[float], str, str]]:
+    """Resolve ``(qty_step, min_qty, max_qty|None, max_state, source)``, or ``None``.
+
+    The FIFTH element (2026-09-02) says WHY ``max_qty`` is ``None``, which the
+    float alone cannot. See the module header: only ``MAX_STATE_ABSENT``
+    licenses placing an order unclamped.
 
     ``None`` means "rule unknown" — the caller must NOT refuse on a venue-min
     basis (passthrough). ``source`` is ``"instrument_profile"`` or
@@ -142,7 +186,7 @@ def _resolve_venue_lot_rule(
     """
     acct_exchange = str(account_cfg.get("exchange") or "").strip().lower()
 
-    def _from_profile() -> Optional[Tuple[float, float, Optional[float], str]]:
+    def _from_profile() -> Optional[Tuple[float, float, Optional[float], str, str]]:
         prof_map = profiles if profiles is not None else _load_profiles(instruments_path)
         prof = prof_map.get(symbol) if prof_map else None
         if prof is None:
@@ -161,13 +205,28 @@ def _resolve_venue_lot_rule(
         step = float(getattr(prof, "qty_step", 0.0) or 0.0)
         vmin = float(getattr(prof, "min_qty", 0.0) or 0.0)
         if venue_matches and step > 0 and vmin > 0:
-            # InstrumentProfile carries no max_qty field, so the offline path
-            # asserts NO ceiling (None). It does not assert the absence of one
-            # at the venue — only that this source cannot speak to it.
-            return (step, vmin, None, "instrument_profile")
+            # The profile MAY now state a ceiling (`max_qty`, added 2026-09-02).
+            # When it does not, the state is COULD_NOT_LOOK, never ABSENT — this
+            # source cannot speak to the venue's ceiling, and the old code's own
+            # comment said exactly that while returning a value that read as
+            # "no ceiling". That gap is the third-occurrence defect.
+            raw_max = getattr(prof, "max_qty", None)
+            vmax: Optional[float] = None
+            if raw_max is not None:
+                try:
+                    cand = float(raw_max)
+                    if cand > 0:
+                        vmax = cand
+                except (TypeError, ValueError):
+                    vmax = None
+            max_state = (
+                MAX_STATE_PUBLISHED if vmax is not None
+                else MAX_STATE_COULD_NOT_LOOK
+            )
+            return (step, vmin, vmax, max_state, "instrument_profile")
         return None
 
-    def _from_live() -> Optional[Tuple[float, float, Optional[float], str]]:
+    def _from_live() -> Optional[Tuple[float, float, Optional[float], str, str]]:
         # Live venue lot rule (Bybit-only). Non-Bybit venues carry their own
         # whole-unit handling in risk.py, so they resolve None here.
         exchange = acct_exchange or "bybit"
@@ -175,9 +234,12 @@ def _resolve_venue_lot_rule(
             return None
         try:
             from src.units.accounts.execute import _bybit_category
-            from src.units.accounts.precision import get_lot_bounds
+            from src.units.accounts.precision import get_lot_bounds_stated
             category = _bybit_category(account_cfg)
-            lot = get_lot_bounds(client, symbol, category)
+            # STATED, not `get_lot_bounds`: the plain form collapses "the venue
+            # published no ceiling" with "the static map answered and cannot
+            # speak to one", and the clamp needs them apart.
+            lot = get_lot_bounds_stated(client, symbol, category)
         except Exception as exc:  # noqa: BLE001 — never block on a lookup
             logger.debug(
                 "qty_legalize: live lot-rule lookup failed for %s: %s", symbol, exc,
@@ -185,20 +247,37 @@ def _resolve_venue_lot_rule(
             return None
         if lot is None:
             return None
-        step_d, min_d, max_d = lot
+        step_d, min_d, max_d, max_state = lot
         try:
             return (float(step_d), float(min_d),
                     float(max_d) if max_d is not None else None,
-                    "live_lot_rule")
+                    max_state, "live_lot_rule")
         except (TypeError, ValueError):
             return None
 
     order = (_from_live, _from_profile) if prefer_live else (_from_profile, _from_live)
-    for resolver in order:
+    chosen = None
+    for idx, resolver in enumerate(order):
         result = resolver()
         if result is not None:
-            return result
-    return None  # rule unknown
+            chosen = (idx, result)
+            break
+    if chosen is None:
+        return None  # rule unknown
+
+    idx, (step, vmin, vmax, max_state, source) = chosen
+    # CEILING-ONLY cross-consult. The winning source decides step/min/source
+    # exactly as before — this can change NOTHING but the ceiling — but when it
+    # cannot speak to a ceiling we ask the other source rather than reporting
+    # "we could not look" while a published answer sits one resolver away.
+    # Concretely: a symbol in `precision._STATIC_LOT_RULE` resolves from the
+    # static map (which carries step/min only) whenever the live lookup misses,
+    # and would otherwise never consult the profile's `max_qty`.
+    if max_state == MAX_STATE_COULD_NOT_LOOK:
+        other = order[1 - idx]()
+        if other is not None and other[3] == MAX_STATE_PUBLISHED:
+            vmax, max_state = other[2], other[3]
+    return (step, vmin, vmax, max_state, source)
 
 
 def legalize_qty(
@@ -233,13 +312,17 @@ def legalize_qty(
         rule = None
 
     if rule is None:
+        # No lot rule at all: WE COULD NOT LOOK. Passthrough is unchanged (the
+        # pre-seam contract — this must never ADD a refusal), but it no longer
+        # claims the venue has no ceiling.
         return LegalizedQty(
             qty=float(qty), ok=True, reason="",
             venue_min=None, step=None, source="unknown",
             qty_str=str(float(qty)),
+            venue_max_state=MAX_STATE_COULD_NOT_LOOK,
         )
 
-    step, venue_min, venue_max, source = rule
+    step, venue_min, venue_max, venue_max_state, source = rule
     step_d = Decimal(str(step))
     # Floor DOWN to the step (never round up — realised risk must not exceed
     # the sized cap). Mirrors precision.quantize_qty exactly.
@@ -252,6 +335,7 @@ def legalize_qty(
             qty=float(qty), ok=True, reason="",
             venue_min=venue_min, step=step, source=source,
             qty_str=str(float(qty)),
+            venue_max=venue_max, venue_max_state=venue_max_state,
         )
 
     min_d = Decimal(str(venue_min))
@@ -261,7 +345,7 @@ def legalize_qty(
         return LegalizedQty(
             qty=aligned, ok=False, reason="below_venue_min_qty",
             venue_min=venue_min, step=step, source=source, qty_str=aligned_str,
-            venue_max=venue_max,
+            venue_max=venue_max, venue_max_state=venue_max_state,
         )
 
     # --- venue per-order CEILING (2026-08-13) -----------------------------
@@ -288,7 +372,12 @@ def legalize_qty(
     # legs merge into one position anyway, so it buys nothing and adds a
     # multi-order failure mode to the last gate before the exchange.
     clamped = False
-    if venue_max is not None:
+    # Keyed on the STATE, never on `venue_max is not None` (2026-09-02). The
+    # null test read `could_not_look` as "no ceiling exists" and skipped the
+    # clamp — that is the whole third-occurrence defect, at one line. Only a
+    # PUBLISHED ceiling is a ceiling; the other two states carry no cap to
+    # apply, and `venue_max` is None under both by construction.
+    if venue_max_state == MAX_STATE_PUBLISHED and venue_max is not None:
         max_d = Decimal(str(venue_max))
         if max_d > 0 and aligned_d > max_d:
             # Floor the CAP to the step — the cap itself need not be a
@@ -312,6 +401,7 @@ def legalize_qty(
                         reason="venue_max_below_min_qty",
                         venue_min=venue_min, step=step, source=source,
                         qty_str=str(capped_d), venue_max=venue_max,
+                        venue_max_state=venue_max_state,
                     )
                 logger.warning(
                     "qty_legalize: %s qty %s exceeds venue maxOrderQty %s — "
@@ -326,7 +416,7 @@ def legalize_qty(
     return LegalizedQty(
         qty=aligned, ok=True, reason="",
         venue_min=venue_min, step=step, source=source, qty_str=aligned_str,
-        venue_max=venue_max, clamped=clamped,
+        venue_max=venue_max, clamped=clamped, venue_max_state=venue_max_state,
     )
 
 
@@ -359,5 +449,5 @@ def instrument_lot(
         return None
     if rule is None:
         return None
-    step, vmin, _vmax, _source = rule
+    step, vmin, _vmax, _max_state, _source = rule
     return (step, vmin)

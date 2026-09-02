@@ -174,6 +174,17 @@ instruments:
     tick_size: 0.001         # fallback — live lookup authoritative
     min_qty: 0.1
     qty_step: 0.1
+    # Venue per-order CEILING. MEASURED, not chosen: Bybit's own rejection text
+    # names it exactly — order_qty:2299510000000 > max_qty:2200000000000
+    # (ErrCode 10001, bybit_1 AVAXUSDT 2026-09-02T09:06:11Z); /1e8 => 22000.
+    # Fallback only: the live lot-rule lookup is authoritative (prefer_live).
+    # It exists because when that lookup misses, the offline profile answers —
+    # and a profile that cannot state a ceiling made the clamp a silent no-op
+    # (BL-20260902-AVAX-VENUE-MAX-CLAMP-INERT-WHEN-THE-LIVE-LOOKUP-MISSES).
+    # ⚠️ Populate this ONLY from a venue-published value. A guessed ceiling is
+    # a fabricated constraint on the live order path; leaving it absent grades
+    # `could_not_look`, which is the honest state.
+    max_qty: 22000
     contract_value_usd: 1.0
     max_leverage: 100
     display_name: "AVAX/USDT Perp (Bybit)"

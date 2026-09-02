@@ -11,7 +11,7 @@ No live runtime dependency — pure data type, safe to import anywhere.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Optional
 
 InstrumentCategory = Literal["linear", "inverse", "spot", "futures", "unknown"]
 SettlementCurrency = Literal["USDT", "USD", "BTC", "ETH", "unknown"]
@@ -36,6 +36,21 @@ class InstrumentProfile:
     max_leverage: int = 0
     # Friendly label for UI / logs
     display_name: str = ""
+    # The venue's per-order CEILING, or None for "this profile does not state
+    # one" (2026-09-02, BL-20260902-AVAX-VENUE-MAX-CLAMP-INERT-WHEN-THE-LIVE-LOOKUP-MISSES).
+    #
+    # ⚠️ None here is "THIS SOURCE CANNOT SPEAK TO A CEILING", never "the venue
+    # has no ceiling". Reading the first as the second is precisely what made
+    # the venue-max clamp a silent no-op three times; `qty_legalize` grades it
+    # as `could_not_look`, not as `absent`.
+    #
+    # Only populate a value that a VENUE actually published (Bybit's own
+    # rejection text, or instruments-info). A guessed ceiling is a fabricated
+    # constraint on the live order path. It is a FALLBACK for when the live
+    # lot-rule lookup misses -- `prefer_live=True` keeps the venue
+    # authoritative -- and a stale value can only ever under-size (clamping
+    # lower than the current cap), never place an illegal order.
+    max_qty: Optional[float] = None
 
     # ------------------------------------------------------------------
     # Pre-built factory methods
