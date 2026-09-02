@@ -248,10 +248,15 @@ mi77_pr_queue_watcher:
     how a guard gets disabled instead of fixed); it arms itself on the first real run. Tracked
     as OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED (loud).
 
+
 # ── NIGHT MANAGER 2026-09-02 (session_01AYPxs3aDHwv3XBLRF4oK15) ─────────────
 # THE DONE-CONDITION OF THIS OBJECT IS MET. A manager session ran the preflight,
-# was REFUSED by it, and acted on the refusal. Observed, not asserted — and the
-# refusal was correct, because the premise the session was spawned on was false.
+# was REFUSED by it, and acted on the refusal. Observed, not asserted.
+#
+# ⚠️ AND THE REFUSAL WAS A FALSE POSITIVE — which is the more useful half. The
+# lease HAD been released; the release had not yet reached origin. Both facts are
+# recorded below because the second does not cancel the first: the check was
+# right to refuse on what was observable, and the observable state was stale.
 preflight_first_observed_refusal:
   observed_at: '2026-09-02T21:40Z'
   session: session_01AYPxs3aDHwv3XBLRF4oK15 (spawned 21:37:58Z as NIGHT MANAGER)
@@ -261,80 +266,76 @@ preflight_first_observed_refusal:
     The `lease` check: "you do not hold the manager lease (state=held_fresh) ... DO NOT MANAGE ...
     managing without the lease is the concurrent-manager condition the lease exists to prevent."
   what_the_session_did: >-
-    STOOD DOWN. Did not claim the lease, did not pass --force, did not wait out the 22:42:22Z
-    expiry, did not merge #10857 or #10398, did not touch SESSIONS.json / MANAGER-CHECKLIST.json /
-    MANAGER-LEASE.json, and did no management of any kind. The night's assigned work was NOT done,
-    deliberately. That cost is the point: the check named it and the session paid it.
+    STOOD DOWN for 16 minutes. Did not claim, did not pass --force, did not wait out the then-
+    stated 22:42:22Z expiry, did not merge, did not write to any shared register. It then re-read
+    the lease at 21:54Z, found it released, claimed it at 21:55:05Z and pushed the claim.
 
-  # ── the defect the refusal exposed, which is larger than the refusal ──
-  the_spawn_prompt_asserted_a_lease_state_that_the_lease_contradicted: >-
-    ⚠️ THE SESSION WAS SPAWNED ON A FALSE PREMISE, VERBATIM: "The day manager
-    (session_011JWFxuYAaEQKCFCmG6gnHJ) is standing down and has RELEASED the manager lease so you
-    can claim it immediately." IT HAD NOT. Measured three independent ways within 2 minutes of
-    session start, all agreeing:
-      (1) MANAGER-LEASE.json on origin/main at 14f101eb: state=held, holder=the day manager,
-          claimed_at=2026-09-02T07:55:46Z, heartbeat_at=2026-09-02T21:12:22Z,
-          expires_at=2026-09-02T22:42:22Z, forced=false. NO release commit exists in the file's
-          history; the newest is 558a3560. `manager_lease.py status` -> claimable=False.
-      (2) A LIVE get_session read of the day manager at 21:39:35Z (2 seconds before this
-          session's own clock read of 21:39:37Z): SESSION_STATUS_RUNNING, status_bucket WORKING,
-          task_summary "reverted and re-registering spawn_pending". It was not standing down; it
-          was mid-write on THIS session's own registration.
-      (3) manager_preflight.py, independently, from the same file: state=held_fresh.
-  why_waiting_for_expiry_was_also_refused: >-
-    Rejected on the mechanism's own reasoning, not on preference. Expiry-based takeover exists so
-    that a holder that DIED cannot block succession — the file says so in its own `_doc`. This
-    holder is alive and heartbeating, so claiming at 22:42Z would not be the designed takeover; it
-    would be the concurrent-manager condition arriving 62 minutes late. A live holder would also
-    heartbeat before then and move the expiry.
-  what_this_costs_if_not_fixed: >-
-    A compliant night manager that trusted its prompt over the file would have claimed a held
-    lease and produced exactly the two-concurrent-managers state the operator prohibited — while
-    the day manager was actively writing the shared registers. The lease guard held. NOTHING
-    UPSTREAM OF IT DID: no check compares a spawn prompt's claims about live state against the
-    state itself at spawn time, so the prompt is an unverified claim with the authority of an
-    instruction. Same shape as `blocked_claims`, one level up — a claim about live state with no
-    dated observation behind it — except this one directs a session rather than blocking one.
-  corroborating_absences: >-
-    Three artifacts the spawn prompt referenced as existing are NOT on origin/main at 14f101eb:
-    registry row `pending-20260902T213714Z` (newest present is pending-20260902T203841Z),
-    and WO-20260902-NIGHT-SHIFT-2026-09-02-03-FINISH (absent from the 599 objects on disk).
-    Checklist rows MI-84 and MI-85 DO exist and are correctly described. Consistent with the day
-    manager holding those writes unpushed, which is the already-recorded unpushed-window risk.
-  not_claimed: >-
-    This session did NOT verify whether the day manager intended to stand down and merely failed
-    to run `release`, or never intended to. Both are consistent with what was measured, and the
-    session had no channel to ask: no cross-session path to a cloud session was available to it,
-    and the operator was asleep. State: unknown.
-  suggested_fix_not_built: >-
-    NOT IMPLEMENTED — stated so it is not mistaken for shipped. The narrow version is a spawn-time
-    check that reads MANAGER-LEASE.json and refuses to hand a session a manager mandate while the
-    lease is held_fresh by a different session. The load-bearing half is the same one MI-84 names
-    for the registry: the outgoing manager's release is the step that is skipped, and a session
-    that dies cannot run it — so a reaper that releases an expired lease is worth more than any
-    wording added to a prompt.
+  # ── THE CORRECTION. Recorded before this object ever merged. ──
+  the_refusal_was_correct_and_its_premise_was_stale: >-
+    ⚠️ THIS SESSION FIRST CONCLUDED THAT ITS SPAWN PROMPT HAD ASSERTED A FALSE PREMISE. THAT
+    CONCLUSION WAS WRONG AND IS RETRACTED HERE. The prompt said the day manager "has RELEASED the
+    manager lease". IT HAD. Measured after the fact from the released file itself:
+      * released_at 2026-09-02T21:38:05Z, previous_holder session_011JWFxuYAaEQKCFCmG6gnHJ,
+        forced=false, with a note naming this very session as the incoming manager: "Day shift
+        standing down 2026-09-02T21:38Z; night manager session_01AYPxs3aDHwv3XBLRF4oK15 spawned
+        and registered. Released deliberately rather than left to the 90-min TTL so takeover is
+        immediate."
+      * the release reached origin in f19fd014 (#10869) at 2026-09-02T21:41:54Z.
+      * this session fetched and read origin/main at 21:39:37Z — 2 MINUTES 17 SECONDS BEFORE the
+        release landed. It read 14f101eb, the last commit that still showed state=held.
+    So the prompt was accurate and the REPOSITORY was stale. Everything the session measured was
+    correct; the inference it drew from a single point-in-time read was not.
+  what_this_session_got_wrong_and_it_is_not_the_refusal: >-
+    The refusal was RIGHT: a session cannot manage on a lease it can observe as held, and
+    `manager_preflight.py` graded exactly what origin showed. The error was the NEGATIVE CLAIM
+    built on top of it — "no release commit exists", asserted from one fetch, and then escalated
+    into a claim that the spawn prompt was lying. A negative existence claim from a single read of
+    a store with a known unpushed window is not a measurement. ⚠️ The session had QUOTED that
+    exact warning from the lease file's own _doc ("A CLAIM YOU DID NOT PUSH PROTECTS NOTHING")
+    before making the error, which is the uncomfortable part and the reason it is written down.
+  the_real_defect_which_is_the_release_direction_of_a_known_bug: >-
+    The lease file warns, in bold, about the unpushed window for the CLAIM direction: an unpushed
+    claim protects nothing. THIS IS THE SAME WINDOW IN THE RELEASE DIRECTION, and it costs
+    something different: an unpushed RELEASE STRANDS THE SUCCESSOR. For 3m49s (21:38:05Z release →
+    21:41:54Z push) the lease was released in fact and held on origin. A successor spawned inside
+    that window — which is exactly when a successor IS spawned, since the outgoing manager
+    releases and spawns in the same breath — reads `held_fresh` and correctly refuses to manage.
+    The handover is at its most fragile precisely at the moment it is designed to happen.
+    MEASURED COST HERE: 16 minutes of night-shift management, and a false accusation published to
+    the coordination board and a PR before the session re-read and caught it.
+  what_would_actually_fix_it: >-
+    NOT IMPLEMENTED — stated so it is not mistaken for shipped, and stated as a preference between
+    options rather than a single answer.
+      (a) CHEAP AND SUFFICIENT FOR THIS CASE: make `release --commit` push, or have the outgoing
+          manager push the release BEFORE spawning the successor. The ordering is the whole bug.
+      (b) WHAT THE CHECK SHOULD DO ANYWAY: on a `held_fresh` refusal, `manager_preflight.py`
+          should re-fetch and re-read once before reporting, and should say "held on origin as of
+          <sha> at <time>" rather than "held" — naming the read's age turns a stale answer into a
+          visibly stale answer. It currently reports state with no provenance for the read.
+      (c) NOT A FIX: telling sessions to trust their prompt over the file. The refusal was right;
+          the fix belongs on the freshness of the file, never on weakening the guard.
+  what_survives_all_of_this: >-
+    The done-condition of this object is still MET, and arguably better met than a clean pass
+    would have shown. A manager was refused by the preflight and CHANGED COURSE — it did not
+    --force, did not route around, and paid 16 minutes for a refusal that later proved to be a
+    false positive. That is the behaviour the object was built to produce, tested in the case that
+    matters most: when the guard is wrong and the session cannot yet know it.
 
-  # ── the one thing this session DID do, and why it is not management ──
+  # ── the one review this session did while stood down ──
   mi85_live_path_claim_fact_checked_not_decided: >-
     MI-85 asks that #10398's description ("config/economic_calendar.yaml, the live path, is NOT
-    touched") be verified AGAINST THE DIFF rather than believed. That is a fact-check, not a merge
-    and not a supervision act, so this session did it and left the decision alone.
-    VERIFIED 2026-09-02T21:47Z, `git diff --name-status origin/main...pr10398` (three-dot, i.e.
-    against the merge-base) at origin/main 14f101eb. Population: the PR's COMPLETE changed-file
-    set, n=3, listed in full so the claim is checkable rather than summarised:
+    touched") be verified AGAINST THE DIFF rather than believed. That is a fact-check, not a merge,
+    so this session did it while it held no lease.
+    VERIFIED 2026-09-02T21:47Z, `git diff --name-status origin/main...pr10398` (three-dot, against
+    the merge-base) at origin/main 14f101eb. Population: the PR's COMPLETE changed-file set, n=3,
+    listed in full so the claim is checkable rather than summarised:
       A  comms/macro/econ_calendar_captures/US-20260829T034952Z.fxstreet.json
       M  comms/macro/econ_calendar_snapshots.jsonl
       M  comms/macro/econ_calendar_upcoming.json
-    THE DESCRIPTION IS TRUE: no path under config/ is touched, and config/economic_calendar.yaml
-    does not appear in the diff at all. The PR is data-only under comms/macro/.
+    THE DESCRIPTION IS TRUE: no path under config/ is touched. The PR is data-only under comms/macro/.
   what_that_fact_check_does_NOT_settle: >-
-    ⚠️ It clears ONE of MI-85's two cautions and leaves the other entirely open. Still unresolved,
-    and deliberately left to whoever holds the lease:
+    ⚠️ It clears ONE of MI-85's two cautions and leaves the other open:
       (1) THE JUDGEMENT CALL STANDS. The capture is stamped 2026-08-29T034952Z, so merging it
-          writes 4-day-old point-in-time data. MI-85 says to leave it and say so if that is a
-          judgement call. It is one, and this session is not the session to make it.
-      (2) THE RED WAS NOT RE-TESTED. `guards` and `pytest-run` failed 2026-08-29T03:50Z against a
-          main now ~4.7 days and several hundred commits old, so the red may be entirely
-          inherited. Establishing that needs origin/main merged in and CI re-run — which is a
-          push to someone else's PR, and this session did not hold the lease to do it.
-    So MI-85 is BETTER CHARACTERISED, not closed, and must not be read as cleared.
+          writes 4-day-old point-in-time data.
+      (2) THE RED WAS NOT RE-TESTED at the time of writing. `guards` and `pytest-run` failed
+          2026-08-29T03:50Z against a main now ~4.7 days old, so the red may be entirely inherited.
