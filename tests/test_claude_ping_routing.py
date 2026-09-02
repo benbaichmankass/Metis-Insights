@@ -116,3 +116,112 @@ def test_describe_never_leaks_a_token(monkeypatch):
     text = claude_route().describe()
     assert "SUPERSECRET" not in text
     assert "TELEGRAM_CLAUDE_BOT_SECRET" in text, "it must name the VARIABLE that answered"
+
+
+# ---------------------------------------------------------------------------
+# The BRIDGE DRAIN — the path #10664 left behind (2026-09-01)
+# ---------------------------------------------------------------------------
+#
+# ⚠️ WHY THESE EXIST. #10664 shipped the router and converted cloud_notifier,
+# which every test above exercises. It did NOT convert
+# claude_bridge._drain_pending_claude_pings — the path every `send_ping` ping
+# actually travels — so that function kept its hardcoded
+# `os.environ["TELEGRAM_BOT_TOKEN"]` from the 2026-06-17 fold.
+#
+# The result was a capability that was configured, resolvable and inert: the
+# operator created the dedicated bot, the router resolved it, and pings kept
+# going to the trader chat. Every surface looked healthy, because delivery was
+# working — into the wrong conversation. Measured: a ping enqueued 20:58:49Z on
+# 2026-09-01 was confirmed delivered to the trader chat while the operator
+# watched the new bot and correctly reported that nothing arrived.
+#
+# The transferable lesson, and the reason these are tests and not a comment:
+# a change that introduces a router must be tested at EVERY consumer, because
+# the un-converted one fails in the direction that still looks like success.
+
+
+def _drive(coro):
+    return asyncio.new_event_loop().run_until_complete(coro)
+
+
+def _queue_one(tmp_path, body="hello"):
+    (tmp_path / "000000000001-normal.json").write_text(
+        json.dumps({"priority": "normal", "body": body}), encoding="utf-8")
+
+
+def _patched_bridge(tmp_path, monkeypatch):
+    """Import the bridge with its inbox pointed at tmp_path, capturing sends."""
+    from src.bot import claude_bridge
+    monkeypatch.setattr(claude_bridge, "PENDING_CLAUDE_PINGS_DIR", tmp_path)
+
+    calls = []
+
+    def _fake_send(text, *, parse_mode=None, mirror_to_fcm=True,
+                   bot_token=None, chat_id=None, reply_markup=None):
+        calls.append({"text": text, "bot_token": bot_token, "chat_id": chat_id})
+        return True
+
+    import src.runtime.notify as notify
+    monkeypatch.setattr(notify, "send_telegram_direct", _fake_send)
+    return claude_bridge, calls
+
+
+def test_the_bridge_drain_uses_the_DEDICATED_bot_when_one_is_set(tmp_path, monkeypatch):
+    """The regression that shipped: the drain ignored the dedicated token."""
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "trader-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "111")
+    monkeypatch.setenv("TELEGRAM_CLAUDE_BOT_SECRET", "claude-token")
+    monkeypatch.delenv("TELEGRAM_CLAUDE_CHAT_ID", raising=False)
+
+    bridge, calls = _patched_bridge(tmp_path, monkeypatch)
+    _queue_one(tmp_path)
+    _drive(bridge._drain_pending_claude_pings(None))
+
+    assert len(calls) == 1, "the ping must be sent exactly once"
+    assert calls[0]["bot_token"] == "claude-token", (
+        "the drain must send via the DEDICATED Claude bot, not the trader bot")
+    # A DM shares the operator's chat id by construction — that is the normal,
+    # correct state and must not read as a gap (see Route.isolated).
+    assert calls[0]["chat_id"] == "111"
+    assert not list(tmp_path.glob("*.json")), "a delivered ping is removed"
+
+
+def test_the_bridge_drain_falls_back_to_the_trader_bot_never_to_silence(
+        tmp_path, monkeypatch):
+    """⚠️ The safety argument for changing a delivery path at all.
+
+    On a VM with no dedicated token this must be byte-for-byte the previous
+    behaviour. The change may cost SEPARATION; it must never cost the ping.
+    """
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "trader-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "111")
+    monkeypatch.delenv("TELEGRAM_CLAUDE_BOT_SECRET", raising=False)
+    monkeypatch.delenv("TELEGRAM_CLAUDE_CHAT_ID", raising=False)
+
+    bridge, calls = _patched_bridge(tmp_path, monkeypatch)
+    _queue_one(tmp_path)
+    _drive(bridge._drain_pending_claude_pings(None))
+
+    assert len(calls) == 1, "an unseparated route still DELIVERS"
+    assert calls[0]["bot_token"] == "trader-token"
+    assert not claude_route().isolated, "and it correctly reports as not isolated"
+
+
+def test_the_bridge_drain_honours_a_dedicated_chat(tmp_path, monkeypatch):
+    """Without a chat override the route's chat half is decorative.
+
+    send_telegram_direct read TELEGRAM_CHAT_ID from the environment, so a route
+    could name its own conversation and never reach it: the token picked the
+    BOT and the environment silently picked the CHAT.
+    """
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "trader-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "111")
+    monkeypatch.setenv("TELEGRAM_CLAUDE_BOT_SECRET", "claude-token")
+    monkeypatch.setenv("TELEGRAM_CLAUDE_CHAT_ID", "999")
+
+    bridge, calls = _patched_bridge(tmp_path, monkeypatch)
+    _queue_one(tmp_path)
+    _drive(bridge._drain_pending_claude_pings(None))
+
+    assert calls[0]["chat_id"] == "999", "the route's own chat must be honoured"
+    assert claude_route().targets_own_chat is True

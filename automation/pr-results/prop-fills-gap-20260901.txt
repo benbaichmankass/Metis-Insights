@@ -1,0 +1,2 @@
+FAILED:
+pull request create failed: GraphQL: Head sha can't be blank, Base sha can't be blank, No commits between main and claude/prop-fills-gap-20260901, Head ref must be a branch (createPullRequest)

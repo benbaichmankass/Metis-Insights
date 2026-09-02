@@ -50,6 +50,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -59,6 +60,7 @@ END = "<!-- SESSION-BRIEF:END -->"
 _OPEN_ITEMS = Path("docs/claude/OPEN-ITEMS.json")
 _RECURRENCE = Path("docs/claude/RECURRENCE-LEDGER.json")
 _CYCLE_PRIORITY = Path("docs/claude/CYCLE-PRIORITY.json")
+_CONSTRAINT = Path("docs/claude/CONSTRAINT.json")
 _CLAUDE_MD = Path("CLAUDE.md")
 
 
@@ -142,10 +144,42 @@ def priority_lines(priority: dict, today: date) -> list:
     return L
 
 
+def constraint_lines(constraint: dict) -> list:
+    """A1 — the computed readout that sits BEHIND the priority (Phase D).
+
+    Rendered immediately under A3's priority block, because the whole point of
+    Phase D is that *"the cycle's priority has a computed readout behind it"* —
+    a priority a session inherits with no diagnosis under it is still an
+    assertion, however well-argued.
+
+    ⚠️ **AN ABSENT READOUT IS RENDERED, NOT SKIPPED**, on the same reasoning
+    ``priority_lines`` already applies: *nobody has generated one* and *the
+    renderer broke* must not look identical.
+
+    Delegates every word to ``constraint_readout.render_brief_lines`` so the
+    brief and ``docs/claude/READOUT.md`` cannot drift into two answers about
+    the same graph.
+    """
+    if not isinstance(constraint, dict) or not constraint.get("constraint"):
+        return ["**No computed constraint readout is present.** (Generated from "
+                "`docs/claude/CONSTRAINT.json` — this line means the file is absent or "
+                "unreadable, NOT that nothing is blocked. Regenerate it with "
+                "`python3 scripts/ops/constraint_readout.py --write`.)", ""]
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from constraint_readout import render_brief_lines  # type: ignore
+        return render_brief_lines(constraint)
+    except Exception as exc:  # noqa: BLE001
+        return [f"**The constraint readout could not be rendered** "
+                f"(`{type(exc).__name__}`). This is a RENDERER failure, not a finding "
+                f"about the work store — do not read it as *nothing is blocked*.", ""]
+
+
 def render(today: date | None = None, *,
            open_items: dict | None = None,
            recurrence: dict | None = None,
-           priority: dict | None = None) -> str:
+           priority: dict | None = None,
+           constraint: dict | None = None) -> str:
     """Render the brief. Pass the registers explicitly to render a REF other than HEAD.
 
     `today` is threaded rather than read inside, because the diff-scoped check
@@ -156,6 +190,7 @@ def render(today: date | None = None, *,
     oi = open_items if open_items is not None else _load(_OPEN_ITEMS)
     rl = recurrence if recurrence is not None else _load(_RECURRENCE)
     cp = priority if priority is not None else _load(_CYCLE_PRIORITY)
+    cn = constraint if constraint is not None else _load(_CONSTRAINT)
     due = due_items(oi.get("items") or [], today)
     unprevented = [c for c in (rl.get("classes") or [])
                    if not c.get("prevention") and not c.get("unpreventable_because")]
@@ -164,6 +199,7 @@ def render(today: date | None = None, *,
     L.append("### ⚠️ SESSION BRIEF — what is DUE right now (generated; read before your first tool call)")
     L.append("")
     L.append("This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + "
+             "`docs/claude/CONSTRAINT.json` + "
              "`docs/claude/OPEN-ITEMS.json` + "
              "`docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** "
              "because `CLAUDE.md` is the only surface that reaches a session before it acts — "
@@ -176,6 +212,11 @@ def render(today: date | None = None, *,
     # A3 — the priority comes FIRST. A session reads top-down and stops early;
     # what steers the choice of work has to arrive before the list of work.
     L.extend(priority_lines(cp, today))
+
+    # Phase D — the priority is an assertion until something computes the
+    # readout under it. It goes HERE, between the priority and the due list,
+    # because it is what a session should weigh the priority against.
+    L.extend(constraint_lines(cn))
 
     if due:
         L.append(f"**{len(due)} monitoring item(s) DUE — check and record what you OBSERVED:**")

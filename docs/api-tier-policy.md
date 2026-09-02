@@ -17,7 +17,7 @@
 > checks it in CI (diff-scoped, in the `guards` job); `--all` is the standing
 > audit and `--list` prints measured coverage.
 >
-> **Coverage, computed rather than counted: 102 of 102 routes documented (100%).**
+> **Coverage, computed rather than counted: 103 of 103 routes documented (100%).**
 > *Population — every `@router.<verb>("...")` under `src/web/api/routers/`
 > joined to its `APIRouter(prefix=...)`. Verified against the live FastAPI
 > route table (`app.routes`): the enumerator finds exactly those 96 with no
@@ -90,8 +90,8 @@ the same staleness this paragraph was already written to complain about.
 | `GET /api/bot/backtests/sweeps` | `routers/backtests.py` | Strategy-improvement / validation sweeps mirrored from the trainer VM (`runtime_logs/trainer_mirror/backtests/`). File-backed; newest-first by date. |
 | `GET /api/bot/candles` | `routers/candles.py` | OHLCV from the same exchange the strategies trade the symbol on (Bybit / IBKR), via the signal builders' own fetcher. **The one Tier-1 route that reaches an external venue** — bounded by a short in-process cache and a shared single-worker executor that serialises IB access. Best-effort: empty `candles` + `error` on any failure. |
 | `GET /api/bot/config` | `routers/bot_config.py` | **Added S-064 (2026-05-09).** Effective config view (accounts, strategies, risk caps, halt flag, live/dry per account). Allowlist for accounts; recursive secret-key denylist for strategy params. **Never echoes `api_key_env` / `api_secret_env` values** — the redaction is what keeps this Tier 1. |
-| `GET /api/bot/db/tables` | `routers/db_explorer.py` | Federated read-only schema overview across `trade_journal.db` + the `trainer_store.db` sidecar; each table tagged with its owning `db`. Neither DB holds a secret. |
-| `GET /api/bot/db/table/{table}` | `routers/db_explorer.py` | One paginated page of a table. **SELECT-only** on a read-only (`mode=ro`) connection; table/column identifiers validated against the live schema (no identifier injection), filter values bound; `limit` 1..500; 404 on unknown table. |
+| `GET /api/bot/db/tables` | `routers/db_explorer.py` | Federated read-only schema overview across `trade_journal.db` + the `trainer_store.db` sidecar; each table tagged with its owning `db`. **Default-deny table allowlist** (`_TABLE_ALLOWLIST`): a table not named there is absent from this listing and 404s on the read. ⚠️ The previous note here — *"Neither DB holds a secret"* — was **FALSE**: `device_tokens.token` holds raw FCM push tokens and was world-readable, unauthenticated, until 2026-09-01. `device_tokens` is now excluded. `BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN`. |
+| `GET /api/bot/db/table/{table}` | `routers/db_explorer.py` | One paginated page of a table. **SELECT-only** on a read-only (`mode=ro`) connection; table/column identifiers validated against the live schema (no identifier injection), filter values bound; `limit` 1..500; 404 on unknown table **or on any table absent from `_TABLE_ALLOWLIST`**. Columns in `_REDACTED_COLUMNS` are dropped from the schema AND from the SELECT projection, so they are neither returned nor filterable/orderable — the latter matters because `filter_state` + `total` would otherwise be a brute-force oracle for a hidden value. |
 | `GET /api/bot/devices/event-kinds` | `routers/devices.py` | The canonical push event-kind taxonomy (`src.runtime.mobile_push.event_kinds`), so the (retired 2026-09-01) Android Notifications screen needn't mirror the list. Static data, no device rows, **ungated** — unlike its siblings in the Tier-2 token table below. |
 | `POST /api/bot/devices/register` | `routers/devices.py` | ⚠️ **WRITE — Tier-1 carve-out (1) above.** Upsert a device by its FCM token; idempotent on token. **No gate** (`_check_admin_token` is not called here): a device must be able to enrol itself before it holds any credential. The raw token is never echoed back — only `token_suffix` (last 8 chars). Unknown subscription kinds → 400. |
 | `GET /api/bot/exit-ladder/soak` | `routers/exit_ladder.py` | ExitPlan laddered-vs-single-target shadow soak (dynamic-take-profit P3). Observe-only — nothing reads it back to drive an exit. |
@@ -150,6 +150,7 @@ the same staleness this paragraph was already written to complain about.
 | `GET /api/bot/stats` | `routers/dashboard.py` | Aggregated bot stats — pnl24h, totalPnL, openTrades, winRate, status, datasource, vmHealth. Real-money only; paper rides an additive sub-block. |
 | `GET /api/bot/strategies` | `routers/strategies.py` | Per-strategy config, live-runtime status, per-account routing, lifetime stats, descriptions, changelog. Config values only — **secrets are not in this surface** (`accounts.yaml` credentials are env-var *names*). |
 | `GET /api/bot/strategies/{name}/review` | `routers/strategy_review.py` | Newest M7 strategy-review packet incl. its action badge (`KILL`/`DEMOTE_SHADOW`/`TUNE`/`HOLD`/`PROMOTE`). **Read-only: a Tier-3 action is *read* here, never enacted.** Name validated `[a-z0-9_]+`. |
+| `GET /api/bot/strategy-reviews` | `routers/strategy_review.py` | The **committed** M7 fleet decision record from `comms/strategy_reviews/` — the day's `INDEX.json` (every strategy graded, the DENOMINATOR) plus `packet_committed` per row. ⚠️ **A DIFFERENT RECORD from `/strategies/{name}/review`**, which reads the gitignored VM path; the two can legitimately disagree, so every response stamps `source`. `read_state` ∈ `index_read`/`absent`/`unreadable` and `freshness` ∈ `fresh`/`stale`/`undateable`/`absent` are never collapsed — counts are `null`, never `0`, when we could not look. **Read-only: a Tier-3 action is *read* here, never enacted.** `date` validated `\d{4}-\d{2}-\d{2}` (no traversal). |
 | `GET /api/bot/strategies/{name}/tune` | `routers/strategy_tune.py` | Newest M8 parameter-sweep results. Each carries an **advisory** Tier-3 value proposal; **the harness never writes config and neither does this route.** |
 | `GET /api/bot/strategy/attribution` | `routers/attribution.py` | Per-strategy lifetime closed-trade stats + live open count (S11/M11). Real-money only (excludes paper AND prop, per the "real and paper never blended" contract). |
 | `GET /api/bot/trades/closed` | `routers/trades_closed.py` | **Added S-557 (2026-05-09).** Closed non-backtest trades, newest-first; `limit` clamped 1..200 (default 50). Each row carries `pnlProvenance` so a consumer can caveat a fabricated/unverified figure. Paper excluded by default. |
@@ -260,7 +261,7 @@ operator action goes through the `system-actions.yml` GitHub workflow, whose
 allowlist is the real Tier-3 surface.
 
 Note that several Tier-1 routes *read* Tier-3 material — `/strategies/{name}/review`
-serves a `KILL`/`PROMOTE` badge, `/strategies/{name}/tune` serves an advisory
+and `/strategy-reviews` serve a `KILL`/`PROMOTE` badge, `/strategies/{name}/tune` serves an advisory
 parameter proposal, `/ml/registry` serves the promotion ladder. **Reading a
 Tier-3 decision is Tier 1; enacting one is not on this API at all.**
 

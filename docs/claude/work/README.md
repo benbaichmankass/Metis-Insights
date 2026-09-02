@@ -92,6 +92,38 @@ they were byte-identical after the run. New findings are still filed there throu
 stays the state of record for the FINDING, while the object is the state of record for the
 WORK of dealing with it.
 
+## The constraint readout (E1 + A1) — and why it currently REFUSES
+
+`scripts/ops/constraint_readout.py` walks these edges and renders
+[`../READOUT.md`](../READOUT.md) + `../CONSTRAINT.json`; its headline reaches a session
+through the `CLAUDE.md` brief, under the cycle priority. Re-run it with
+`python3 scripts/ops/constraint_readout.py --write` — it is a **dated snapshot, not a
+live read**, and the brief prints the date so its age is visible.
+
+⚠️ **It names NO stage today, and that is the honest output.** Measured 2026-09-01 over
+all 584 objects: **6 carry an ASSESSED `blocked_on` basis (1.0%)**; 578 carry an empty
+list stating `NOT_ASSESSED`. Below the declared 50% coverage floor the verdict is
+`insufficient_basis`. **So the single highest-value edit anyone can make to this store is
+a TRUE `blocked_on` edge on a row they actually understand** — the diagnosis is short of
+assessed edges, not of machinery. Still never invent one: a false blocker is worse than a
+missing one, and the readout would report it with total confidence.
+
+Three distinctions the readout keeps and a reader must too:
+
+- **`declared_none` vs `unstated`.** An empty list with a basis that ASSERTS an assessment
+  is a claim; an empty list with `NOT_ASSESSED`, or with no basis key at all, is nobody
+  having looked. Collapsing them turns 578 unexamined rows into 578 all-clears.
+- **The `stage` histogram is not a constraint.** `INTEGRITY` 498 · `EVIDENCE` 78 ·
+  `CAPABILITY` 8, and **zero** on QUESTION / DECISION / DEPLOYMENT / OBSERVATION — the
+  shape of what got migrated (review-backlog defect rows), not of where the chain is
+  stuck. `chain_stages_with_no_objects` publishes the gap explicitly.
+- **A hold on a `waiting` target is the weakest hold the graph can express.** `waiting`
+  covers both *not delivered* and *delivered, awaiting an observation*, and a dependent
+  needs the capability rather than the observation. Reported as
+  `holds_on_waiting_targets` with the caveat rather than resolved into a state nobody
+  measured. This is not theoretical: `WO-20260901-PHASE-D` carried exactly such a false
+  blocker until 2026-09-01.
+
 ## The ceiling (A5) — enforced, not advisory
 
 `scripts/ci/check_wip_ceiling.py` **refuses a ninth `in_flight` object.** `waiting` is

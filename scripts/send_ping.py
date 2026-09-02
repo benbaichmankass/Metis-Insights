@@ -149,6 +149,28 @@ def main(argv: Optional[list] = None) -> int:
 
     body = " ".join(args.body)
 
+    # ⚠️ --why / --unproven WITHOUT --kind ARE REFUSED, NEVER SILENTLY DROPPED.
+    #
+    # The Format-B block below runs only under `--kind`, so before this guard a
+    # caller who passed `--why` alone got their second line accepted by argparse,
+    # discarded here, and the bare body queued — with exit 0 and a "queued"
+    # log line. Measured 2026-09-01 during the operator-requested ping test:
+    # `--why "this should not vanish"` queued `{"body": "LOCAL TEST body"}`.
+    #
+    # That is the same failure the neighbouring guards already refuse in the
+    # other direction (`--kind` without `--why` exits 1) and that
+    # scripts/ops/send_ping_action.sh refuses at the wrapper layer: a caller who
+    # asked for a formatted ping has no way to tell they did not get one. The
+    # wrapper's guard does not cover this file, which #10683's own body calls
+    # "also reachable directly on the VM" — so the check belongs here too.
+    if not args.kind and (args.why or args.unproven):
+        logger.error(
+            "--why/--unproven require --kind: they are read ONLY on the "
+            "Format-B path, so without a class they would be accepted and "
+            "silently discarded. Pass --kind, or drop them to send the body "
+            "as-is (the passthrough shape carries your text unaltered).")
+        return 1
+
     # Format B + class gating, when a --kind is declared. Producers that pass no
     # --kind keep the legacy free-text path byte-for-byte, so nothing existing
     # changes shape on this commit.
