@@ -285,33 +285,179 @@ EVENT_DEFAULT_PRIORITY: dict[str, str] = {
 }
 
 
+# ── What the RENDERER may drop, and what it may not ──────────────────────────
+#
+# ⚠️ THE HAND-MAINTAINED LIST IS THE **ENVELOPE**, NEVER THE CONTENT. That
+# inversion is the whole fix, and it is not a style choice.
+#
+# Until 2026-09-02 the body was built from a fixed list of CONTENT keys, and any
+# key not on it was silently discarded. That list is open-ended by construction:
+# it grows with every producer, so the next producer that picks a key nobody
+# thought of fails identically and just as silently. It had already failed for
+# **21 of the 50 rows** in ``docs/claude/pending-pings.jsonl`` (measured
+# 2026-09-02 over the committed file, n=50) — every row keyed on ``message``,
+# which is what BOTH ``scripts/ops/work_phase_ping.py`` (Phase A) and
+# ``scripts/ops/work_digest.py`` (Phase B) write. The operator's 03:24 message
+# on 2026-09-02 read, in its entirety, ``work_digest``.
+#
+# The envelope, by contrast, is CLOSED: it is exactly the fields this transport
+# itself sets or consumes — the row's timestamp, plus the three arguments of
+# ``send_ping.enqueue(body, priority, target)`` and the event discriminator. It
+# cannot grow without a change to the transport, and the failure directions are
+# opposite:
+#
+#   * a new CONTENT key not listed here  → it RENDERS. Content preserved.
+#   * a new ENVELOPE key not listed here → one metadata line leaks into the
+#     operator's channel. Visible, cosmetic, self-announcing.
+#
+# So the residual risk of getting this list wrong is a leaked key, not a lost
+# message. That is the trade this design accepts, deliberately.
+#
+# Pinned by ``tests/test_notify_render_no_silent_drop.py`` against the live
+# queue file, the way ``LIVE_BACKLOGS`` is pinned against the backlogs on disk
+# (``tests/test_backlog_append.py``) — a coverage list that can fall behind
+# unnoticed is the defect, not the list.
+ENVELOPE_KEYS: frozenset[str] = frozenset({
+    "at",           # producer timestamp
+    "reviewed_at",  # ditto, the older spelling — /system-review's producers
+    "target",       # -> send_ping.enqueue(target=)
+    "priority",     # -> send_ping.enqueue(priority=)
+    "event",        # the discriminator; becomes the label
+})
+
+# Curated CONTENT keys — order and labels are the operator-facing presentation,
+# and are deliberately unchanged from the pre-fix renderer so that every ping
+# already rendering correctly keeps rendering byte-identically.
+HEAD_KEYS: tuple[str, ...] = ("sprint", "title")
+BODY_KEYS: tuple[tuple[str, str], ...] = (
+    ("cp_id", "CP"), ("next_cp", "Next"), ("phase", "Phase"),
+    ("strategy", "Strategy"), ("model", "Model"),
+    ("result", "Result"), ("grade", "Grade"),
+    ("question", "Q"), ("summary", ""),
+)
+URL_KEYS: tuple[str, ...] = ("pr_url", "commit_url", "chat_url", "summary_url")
+CURATED_KEYS: frozenset[str] = frozenset(
+    HEAD_KEYS + tuple(k for k, _ in BODY_KEYS) + URL_KEYS
+)
+
+_UNKNOWN_VALUE_MAX = 600
+
+
+def _render_unknown_value(key: str, value: object) -> Optional[str]:
+    """Render one key this module has never heard of. ``None`` == nothing to say.
+
+    The rule keys on the SHAPE OF THE VALUE, not on a list of names — a list of
+    names is the thing that failed:
+
+      * a multi-line string is PROSE, and renders bare. A ``message:`` label in
+        front of a five-line digest is noise, and the producer already wrote the
+        text for a human.
+      * any other scalar renders ``key: value``, so an unrecognised field is
+        legible even though nobody chose a label for it.
+      * a dict/list renders as compact JSON, truncated — it is almost certainly
+        not meant for the operator, but showing it is still better than
+        dropping it, and its ugliness is the signal to give it a real label.
+    """
+    if value is None or value is False:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        return text if "\n" in text else f"{key}: {text}"
+    if isinstance(value, (int, float, bool)):
+        return f"{key}: {value}"
+    try:
+        blob = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    except (TypeError, ValueError):
+        blob = repr(value)
+    if len(blob) > _UNKNOWN_VALUE_MAX:
+        blob = blob[:_UNKNOWN_VALUE_MAX] + "…"
+    return f"{key}: {blob}"
+
+
 def _render_event_body(event: str, entry: dict) -> str:
     """Render one pending-pings.jsonl entry into a clean operator message.
 
-    A title line (label — sprint — title) followed by any present detail
-    fields, then any URLs. Unknown events fall back to the raw event
-    name as the label so nothing is silently dropped.
+    A title line (label — sprint — title), then the curated detail fields, then
+    **every content key this module does not recognise**, then any URLs.
+
+    ⚠️ **NOTHING IS SILENTLY DROPPED — neither the label nor the body.** The old
+    docstring asserted exactly that guarantee (*"Unknown events fall back to the
+    raw event name as the label so nothing is silently dropped"*) while
+    providing only half of it: the LABEL was preserved and the BODY was
+    discarded. A comment that promises a property the code does not have is how
+    the next reader stops looking, so it is corrected rather than softened.
+
+    A row that renders to nothing but its label is a **producer defect**, and it
+    says so out loud in the operator's channel rather than arriving as a
+    plausible empty ping — see ``_EMPTY_BODY_NOTE``.
     """
     head = [EVENT_LABELS.get(event, event)]
-    for key in ("sprint", "title"):
+    content = 0
+    for key in HEAD_KEYS:
         v = entry.get(key)
         if v:
             head.append(str(v))
+            # ⚠️ A HEAD FIELD IS CONTENT. `sprint`/`title` are rendered into the
+            # title line rather than onto their own line, and an earlier draft
+            # of this counter forgot that — which made every well-formed
+            # `sprint-start` row (label + sprint + title, and nothing else)
+            # trip the empty-ping notice. Caught by the byte-identical
+            # regression proof over the live queue, not by review.
+            content += 1
     lines = [" — ".join(head)]
-    for key, prefix in (
-        ("cp_id", "CP"), ("next_cp", "Next"), ("phase", "Phase"),
-        ("strategy", "Strategy"), ("model", "Model"),
-        ("result", "Result"), ("grade", "Grade"),
-        ("question", "Q"), ("summary", ""),
-    ):
+    for key, prefix in BODY_KEYS:
         v = entry.get(key)
         if v:
             lines.append(f"{prefix}: {v}" if prefix else str(v))
-    for key in ("pr_url", "commit_url", "chat_url", "summary_url"):
+            content += 1
+    # Everything the curated list has never heard of. Insertion order is the
+    # producer's own order (json.loads preserves it), so a row reads the way it
+    # was written.
+    for key, value in entry.items():
+        if key in ENVELOPE_KEYS or key in CURATED_KEYS:
+            continue
+        rendered = _render_unknown_value(key, value)
+        if rendered is not None:
+            lines.append(rendered)
+            content += 1
+    for key in URL_KEYS:
         v = entry.get(key)
         if v:
             lines.append(str(v))
+            content += 1
+    if content == 0:
+        logger.error(
+            "pending-pings: row for event=%r rendered NO body; keys=%s. "
+            "Queuing it with an explicit empty-ping notice rather than sending "
+            "a bare label.", event, sorted(entry),
+        )
+        lines.append(_EMPTY_BODY_NOTE.format(keys=", ".join(sorted(entry)) or "(none)"))
     return "\n".join(lines)
+
+
+# ⚠️ WHICH WAY AN EMPTY ROW FAILS, AND WHY THAT DIRECTION IS THE SAFE ONE.
+#
+# The alternative was to REFUSE to enqueue a body-less row. That is loud at
+# enqueue time — and enqueue time is inside ``notify_on_pull.py`` on the live
+# VM, where "loud" means a ``logger.error`` into journald. This repo has
+# measured, repeatedly, that journald is where an alarm goes to be unread: the
+# IB over-cover and Bybit over-cover pages both detected correctly for weeks and
+# reached NOBODY because ``logger.error`` never touches ``outcomes.jsonl``, and
+# so never touches Telegram, the notifications banner, or /api/bot/logs.
+# Refusing here would move a silent drop from the renderer into journald — the
+# third silent drop, wearing a different hat.
+#
+# So the row is sent, and it announces its own emptiness. The operator learns
+# that a ping fired with nothing to say, which is a defect report they can act
+# on; they do not learn nothing, and they never receive a confident bare label
+# that looks like oversight happened.
+_EMPTY_BODY_NOTE = (
+    "⚠️ EMPTY PING — this row carried no renderable content (keys: {keys}). "
+    "That is a PRODUCER defect, not a quiet day: something queued a "
+    "notification with nothing in it."
+)
 
 
 def _drain_pending_pings(
