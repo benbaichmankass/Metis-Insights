@@ -263,7 +263,7 @@ def _self_test() -> int:
     now = datetime(2026, 8, 24, tzinfo=timezone.utc)
 
     def fake(inst, start,
-             end,        # inert: present to MATCH fetch()'s real signature — the
+             end,        # inert: end — present to MATCH fetch()'s real signature — the
                          # window's END never decides whether the venue has data
                          # at its START, which is the only thing span asks.
              interval):  # inert: same reason; the probe pins one interval per run.
@@ -309,9 +309,9 @@ def _self_test() -> int:
 
     # An unknown instrument name is a MAPPING bug, kept apart from depth.
     def missing(inst,
-                start,      # inert: this stand-in fails at NAME RESOLUTION, which
-                end,        # inert: happens before any window is looked at — so
-                interval):  # inert: none of the window args can reach a decision.
+                start,      # inert: start — this stand-in fails at NAME RESOLUTION, which
+                end,        # inert: end — happens before any window is looked at — so
+                interval):  # inert: interval — none of the window args can reach a decision.
         raise SystemExit(f"unknown instrument {inst!r}")
 
     out3 = run((365,), "1h", 3, now=now, fetcher=missing)

@@ -138,7 +138,7 @@ def enumerate_tuples(pool: Dict[str, Any]) -> List[Tuple_]:
     return out
 
 
-def _build_label(entry_key: str, family: str, symbol: str, tf: str,
+def _build_label(entry_key: str, family: str, symbol: str, tf: str,  # inert: entry_key — the label leads with `family`, so two entry variants sharing a family collide; the Tuple_ carries `entry` separately, and changing the label would rewrite every existing sweep artifact
                  regime: Dict[str, Any], exit_: Dict[str, Any],
                  sel: Dict[str, Any]) -> str:
     """Stable label like ``trend_ETHUSDT_4h_adxmin20_trail5.0_conf0.0``.
@@ -159,7 +159,7 @@ def _build_label(entry_key: str, family: str, symbol: str, tf: str,
     return f"{family}_{symbol}_{tf}_{regime_tok}_{trail_tok}_{conf_tok}"
 
 
-def _data_path(data_dir: Path, symbol: str, family: str) -> Optional[Path]:
+def _data_path(data_dir: Path, symbol: str, family: str) -> Optional[Path]:  # inert: family — resolution is per-SYMBOL; the family cadence is applied downstream by the harness --resample flag, not by this path lookup
     """Resolve the per-symbol candle CSV for a tuple.
 
     The WS-C alt panel uses ``data/<SYM>_15m.csv`` resampled to the family

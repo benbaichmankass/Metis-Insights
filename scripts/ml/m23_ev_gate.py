@@ -107,6 +107,10 @@ def main() -> int:
                 continue
             if row.get("won") is None:
                 continue
+            # A multiclass head would return max(proba) here and is not a
+            # valid input to this gate.
+            # provenance: predict — P(positive) for the binary M23 head, or a
+            # raw R prediction when `raw_score` is set (branched just below).
             prob = float(predictor.predict(row))
             if not args.raw_score:
                 # Probability head: clamp into [0,1]. A regression (raw-score)

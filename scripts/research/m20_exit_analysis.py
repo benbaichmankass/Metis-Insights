@@ -39,6 +39,7 @@ import json
 import math
 import re
 import sqlite3
+import sys
 from bisect import bisect_right
 from datetime import datetime, timezone
 from pathlib import Path
@@ -104,7 +105,13 @@ def _load_multipliers(path: Path) -> Dict[str, float]:
 
 def _newest_data_jsonl(d: Path) -> Optional[Path]:
     cands = sorted(d.glob("*/data.jsonl"))
-    return cands[-1] if cands else None
+    if not cands:
+        return None
+    # DISCOVERED, not declared: print the resolved version and the candidate
+    # count. stderr, because stdout carries this tool's JSON result.
+    print(f"[input] {d}: {cands[-1]}  (alphabetically last of {len(cands)} "
+          f"candidate(s))", file=sys.stderr)
+    return cands[-1]
 
 
 def _infer_bar_seconds(candles: List[dict]) -> float:

@@ -898,8 +898,21 @@ rewording the label.
 ([`scripts/check_diagnostic_provenance.py`](scripts/check_diagnostic_provenance.py))
 over `scripts/{ml,research,ops,macro,reports}/` and the guard scripts — the same
 family as `canonical-db-resolver` / `env-gate-guard` / `silent-empty-guard` /
-`provenance-consumer-guard`. Diff-scoped in CI (pre-existing sites are
-grandfathered); `--all` is the standing audit.
+`provenance-consumer-guard`. ⚠️ **This row read "Diff-scoped in CI
+(pre-existing sites are grandfathered); `--all` is the standing audit" until
+2026-09-02, and BOTH halves are now false.** The guard runs a diff-scoped step
+AND an **ungated whole-tree `--all` step** (the `api-tier-policy-guard`
+pattern), so nothing is grandfathered and there is no separate standing audit
+for anyone to forget to run — which is exactly what happened: the residue sat
+at **exactly 52 findings for 26 days** across five review passes, because a
+diff-scoped guard cannot see a site regress when an unrelated PR adds the
+probability-shaped LABEL or deletes the `print` that made an input selection
+visible three lines away. Drained to **0** on 2026-09-02 (measured, not
+asserted: the command prints `diagnostic-provenance: OK`), which is what made
+the ungated step survivable — before that it would have failed every PR on day
+one. ⚠️ **Its `# inert:` override is now VERIFIED, not presence-only**: the
+marker must NAME the parameter it excuses. Tightening it immediately exposed 11
+markers across 4 files that named nothing while the tree reported OK.
 
 ### Collapsed states — can this field say "we did not look"? (2026-08-09)
 

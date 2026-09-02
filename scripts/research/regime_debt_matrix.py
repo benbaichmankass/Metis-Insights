@@ -340,7 +340,7 @@ def roundtrip_fee_bps(symbol: str) -> float:
     return float(DEFAULT_FEE_BPS_ROUNDTRIP if resolved is None else resolved)
 
 
-def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: str,
+def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: str,  # inert: name — the argv is built from cfg/harness/csv; the cell name is used by the CALLER for reporting, never by the command
                       emit: str, jout: str,
                       fee_override: Optional[float] = None
                       ) -> tuple[list[str], bool, list[str]]:

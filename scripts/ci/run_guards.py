@@ -844,6 +844,25 @@ GUARDS: List[Dict[str, Any]] = [
                 "argv": ["python3", "scripts/check_diagnostic_provenance.py", "{pr_diff}"],
                 "when": {"regex": r"^scripts/.*\.py$"},
             },
+            # The whole-tree backstop, deliberately UNGATED — the
+            # api-tier-policy-guard pattern, for the same reason.
+            #
+            # This could not exist until 2026-09-02: `--all` reported 52
+            # grandfathered findings, so an ungated step would have failed
+            # every PR on day one and been switched off. The standing audit is
+            # now at ZERO (all 52 triaged and fixed; the `# inert:` override
+            # was tightened from presence-only to verified in the same change),
+            # so the residue can be held there instead of being re-measured by
+            # hand every few weeks and found unchanged.
+            #
+            # Why UNGATED rather than diff-scoped: the diff-scoped step above
+            # cannot see a regression it does not touch — a site becomes
+            # unprovenanced when an unrelated PR adds the probability-shaped
+            # LABEL, or removes the `print` that made an input selection
+            # visible, three lines from code it never edited. That invisibility
+            # is exactly what let the residue sit at 52 for 26 days across five
+            # review passes (BL-20260807-DIAGPROV-STANDING-AUDIT-NEVER-DRAINED).
+            ["python3", "scripts/check_diagnostic_provenance.py", "--all"],
         ],
     },
     {
@@ -1665,8 +1684,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         # Never let this read as coverage. On push the diff is empty, so these
         # steps CANNOT scan anything; running them would print a green that
         # checked nothing, and their whole-tree equivalents are not
-        # drop-in (diagnostic-provenance --all exits 1 on 52 grandfathered
-        # sites). Stated plainly so the next reader does not re-derive it.
+        # drop-in. (This used to read "diagnostic-provenance --all exits 1 on
+        # 52 grandfathered sites" — no longer true as of 2026-09-02: that
+        # residue was drained to zero and the guard now CARRIES an ungated
+        # whole-tree step, so it is no longer an example of this problem. The
+        # general point stands for the guards still listed below.)
         print(f"\nNOT SCANNED on this event ({len(unscoped)}) — no PR diff to "
               f"scope by; these steps consume {{pr_diff}}, which is empty here:")
         for item in unscoped:

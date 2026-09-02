@@ -88,7 +88,8 @@ def main() -> int:
 
     by_strategy = _load_rows(args.emit_dir, args.corpus)
     if not by_strategy:
-        print("no corpus rows found", flush=True)
+        print(f"no corpus rows found — {len(by_strategy)} strategies, searched "
+              f"emit_dir={args.emit_dir!r} corpus={args.corpus!r}", flush=True)
         return 1
 
     calibrators: dict[str, dict] = {}
