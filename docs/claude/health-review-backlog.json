@@ -31524,6 +31524,19 @@
         "scripts/ci/check_open_items.py",
         "BL-20260902-A-LOUD-OPEN-ITEM-IS-ABSENT-FROM-THE-SESSION-BRIEF-THAT-ORDERS-IT-REPORTED"
       ]
+    },
+    {
+      "id": "BL-20260902-SESSIONS-REGISTRY-HAS-A-SPAWN-WRITER-AND-NO-CLOSE-WRITER-SO-EVERY-ROW-READS-WORKING",
+      "date": "2026-09-02",
+      "severity": "high",
+      "tier": 1,
+      "area": "manager/coordination",
+      "status": "open",
+      "title": "SESSIONS.json has a spawn-time writer and NO close-time writer, so every sub-session reads 'working' forever",
+      "detail": "MEASURED 2026-09-02T20:52Z: all 15 sub-sessions this manager spawned today read state='working' in docs/claude/work/SESSIONS.json, while list_sessions reports 14 IDLE and 1 RUNNING. Sessions idle since 12:30Z (MI-05-PHASE-D, 8h) still read 'working'. A cold manager reading this file would believe 15 sessions are live -- and would either not spawn, or wait on work nobody is doing. ROOT CAUSE IS STRUCTURAL, NOT FORGETFULNESS: session_registry.py has 'register' and 'confirm', both SPAWN-time, and NOTHING writes a terminal state. MI-15 and the 2026-09-02T05:56Z re-measurement both fixed COMPLETENESS (is the row there?) and neither touched CURRENCY (does the row say what is true now?). The registry therefore went from 'missing rows' to 'present rows that all lie in the same direction', which is WORSE: an absent row is visibly absent, whereas 15 rows reading 'working' looks like a healthy register. Same class as this repo's own landed_unproven-vs-done rule, applied to sessions. 5 of 15 rows also carried checklist_item: null (MI-79..MI-83) so they could not be joined to the checklist at all -- and the offline session-registry-guard cross-checks MANAGER-CHECKLIST owner against the registry, so a null item is invisible to the very guard meant to catch this.",
+      "evidence": "list_sessions(mine=true, limit=60) at 2026-09-02T20:52Z: 60 rows, 15 tagged manager:session_011JWFxuYAaEQKCFCmG6gnHJ; 14 SESSION_STATUS_IDLE, 1 SESSION_STATUS_RUNNING (session_018ruZdgEkPZ1XceWzLwuYUU / MI-83). SESSIONS.json at origin/main 24842ead: 15/15 state='working'. Data corrected by hand in this PR; the WRITER is not built.",
+      "resolution_criteria": "A close-time writer exists and is EXERCISED: either (a) session_registry.py gains a 'close' verb a sub-session calls in its own close-out AND a reaper that grades a row against a live list_sessions observation -- a session that dies cannot close itself, so (a) alone is insufficient and the reaper is the load-bearing half; or (b) state is DERIVED at read time from a live observation rather than stored, at which point it cannot go stale. !! CORRECTING THE DATA DOES NOT CLOSE THIS. This PR already did that, and the rows go stale again the next time a session goes idle. The defect is the missing writer. !! A GREEN session-registry-guard DOES NOT CLOSE IT EITHER: that guard checks COMPLETENESS and passed throughout the entire window in which all 15 rows were wrong.",
+      "filed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ"
     }
   ]
 }

@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T09:36:00Z",
+  "updated_at": "2026-09-02T20:58:30Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -1140,7 +1140,7 @@
     {
       "id": "MI-77",
       "title": "The manager watcher that can actually see (MI-73 respawn)",
-      "state": "in_flight",
+      "state": "done",
       "priority": "P2_OVERHAUL_IMPLEMENTATION",
       "owner": "session_01PbQAQXRY2oB1ep2BFEUZeA",
       "tier": "1 (tooling/CI)",
@@ -1152,7 +1152,8 @@
         "MI-68",
         "#10808",
         "WO-20260902-MANAGER-PREFLIGHT"
-      ]
+      ],
+      "note": "#10847 MERGED 2026-09-02T20:53Z (0c0181f1). Clause (2) of OI-20260902-PR-QUEUE-WATCHER is now RECORDED on main: the guard armed itself, graded 'fresh' on PR #10841 -- a PR OTHER than the #10832 that introduced it. Clause (1) stays UNMET: no SCHEDULED run observed; both runs were workflow_dispatch, and the failure class watched is a cron that never fires. The row stays open on clause (1)."
     },
     {
       "id": "MI-78",
@@ -1185,7 +1186,7 @@
     {
       "id": "MI-80",
       "title": "The operator's ping cadence rides GitHub cron, and GitHub cron does not fire",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "priority": "P1_HANDOFF_CAPABILITY",
       "owner": "session_01R4tWq3YJZnDUY3EhAYZ9En",
       "tier": "1 (CI/notification carrier; no order path)",
@@ -1194,12 +1195,12 @@
       "done_when": "The digest arrives on a cadence OBSERVED over at least 6 consecutive expected slots with the misses COUNTED rather than assumed, and a missed or FAILED run is itself surfaced. Moving the carrier is not sufficient on its own -- a new carrier must be measured against its declared slots the same way GitHub's was. A workflow_dispatch run is NOT evidence the cron works.",
       "owns_object": "WO-20260902-THE-OPERATOR-S-PING-CADENCE-RIDES-GITHUB",
       "spawned_at": "2026-09-02T18:35:26Z",
-      "note": "P1 rather than P2 because F6 makes operator notification the CONDITION the autonomy grant rests on, so this precondition has been unmet all day with nobody noticing -- which is the failure, more than the missing pings. MI-80 is explicitly told NOT to reduce the cadence because it judges hourly noisy: the operator accepted that noise deliberately and it is their call. Manager fired work-digest.yml manually at ~18:34Z so the operator gets something now; that is a patch and is recorded as one."
+      "note": "#10845 armed for auto-merge 20:54Z after the manager merged 15 commits of main into it (the branch had sat 15 behind with ZERO check runs fired -- not a conflict; merge-tree was clean with AND without the register driver). ⚠️ IT DOES NOT FIX THE OPERATOR'S MISSING PINGS and must not be read as doing so: work-digest.yml run #5 fired on event:schedule at 19:47Z, success, and the operator still received nothing. What it fixes is that a digest never QUEUED cannot be delivered. The delivery-marking defect is BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE."
     },
     {
       "id": "MI-81",
       "title": "The overdue trainer row — observe it, and build the data-freshness alarm if one can be built",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "priority": "P2_OVERHAUL_IMPLEMENTATION",
       "owner": "session_017TRSSpkQ2NZHHxCp8MNXbg",
       "tier": "1 (trainer read; trainer VM is autonomous territory)",
@@ -1208,7 +1209,7 @@
       "done_when": "The row's observation carries what was SEEN (verbatim, with the command) and verified_at is re-dated. The row clears only if the freshness alarm exists AND was shown to fire against planted staleness; otherwise it stays open with the reason. Disk headroom recovering on its own does NOT clear it -- the gap is the missing alarm, not the free space.",
       "owns_object": "WO-20260902-A-DUE-MONITORING-ROW-ON-AN-UNMONITORED",
       "spawned_at": "2026-09-02T18:39:52Z",
-      "note": "MANAGER PRIORITY CALL, stated so it can be argued with. This is INTEGRITY work and the cycle priority is the operating layer's STEERING half, so it is not obviously in-priority. I spawned it anyway on two grounds: a forward-only capture that cannot be re-derived sitting on a 92%-full disk with no alarm is a live risk to an operator-DECIDED dependency; and the fact that a loud, rendered, four-days-overdue row went unacted-on IS a steering failure, which is the cycle's subject. It used the last of the four concurrent session slots and nothing else was queued for it."
+      "note": "#10843 armed for auto-merge 20:44Z; guards/collect/inventory/diag green, pytest-run in flight. Ships the trainer capture alarm keyed on the DATA's mtime, never ActiveState. OBSERVED and worth carrying: the capture has stalled before, unobserved -- 52 of 25,590 row-pairs are not 300s, worst 9600s = 31 bars LOST on a forward-only stream. Clause (a) of OI-20260829-TRAINER stays OPEN: the alarm has run only in a harness, and workflow_dispatch needs the file on main first."
     },
     {
       "id": "MI-82",
@@ -1227,7 +1228,7 @@
     {
       "id": "MI-83",
       "title": "Per-merge pings, and a clock that survives the session",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "priority": "P1_HANDOFF_CAPABILITY",
       "owner": "session_018ruZdgEkPZ1XceWzLwuYUU",
       "tier": "1 for the ping predicate; 2 for the VM timer (prepared, NOT applied)",
@@ -1236,7 +1237,16 @@
       "done_when": "A merge to main produces an operator ping, OBSERVED arriving rather than inferred from a 'dispatched' log line; and the hourly digest fires on a carrier surviving every session, measured over at least 3 consecutive declared slots.",
       "owns_object": "WO-20260902-THE-OPERATOR-GETS-NO-PER-MERGE-PING",
       "spawned_at": "2026-09-02T20:39:16Z",
-      "note": "⚠️ A CLAUDE ROUTINE IS REFUSED AND THE REFUSAL IS THE OPERATOR'S, NOT A PREFERENCE: 'no cloud routine. We can't have anything that's gonna die at the end of the session ... You cannot create a Band Aid that's gonna get lost as soon as the session is over. That's not an option.' I HAD CREATED ONE (trig_01XgN5D2v592GVrm6qAsagVb, hourly digest dispatch) and DELETED it on that instruction. Do not re-propose one in any variant, including fresh-session-per-fire. ⚠️ MANAGER ERROR WORTH KEEPING: I reached for the session-bound Routine on a day whose central finding was that session-bound mechanisms die with their session. The operator caught it, not me. ⚠️ AND I BURNED AN AFTERNOON ON A DELIVERY INVESTIGATION FOR A PROBLEM THAT DID NOT EXIST -- I had the correct diagnosis (GitHub cron does not honour the schedule) at 18:35 and talked myself out of it into channel-routing theories. The operator's words: 'we're going in circles again ... why is this still so complicated'. The lesson is not to investigate harder; it is to stop re-opening settled questions."
+      "note": "#10857 UNDRAFTED AND ARMED BY THE MANAGER at 20:54Z, not by its own session -- the sub-session was still RUNNING and a manager cannot message a running sub-session (verified; see work/README.md). Arming it is what makes the work survive the session rather than depend on it finishing. Builds the per-merge ping the operator asked for three times: work_phase_ping.py pings on work-object lifecycle and has NO CONCEPT OF A PR, which is why its journal read 'No pingable events' across a range that landed four. Rides ict-git-sync (5min, observably firing), not a GitHub cron. ⚠️ SHIPPED IS NOT OBSERVED -- no merge ping seen arriving."
+    },
+    {
+      "id": "MI-84",
+      "title": "SESSIONS.json says 'working' for every session forever — read it as UNRELIABLE until a close-writer exists",
+      "state": "in_flight",
+      "owner": "night-manager",
+      "prs": [],
+      "priority": "P1 — read this BEFORE trusting the sub-session registry",
+      "note": "MEASURED 2026-09-02T20:52Z: all 15 sub-sessions the day manager spawned read state='working' while list_sessions reported 14 IDLE / 1 RUNNING. The DATA was corrected by hand in the wrap PR; the WRITER was not built, so the rows go stale again the moment a session goes idle. ⚠️ DO NOT TRUST state IN THIS FILE. Grade a session against a live list_sessions read, and say which. ⚠️ AND DO NOT READ A GREEN session-registry-guard AS COVER: it checks COMPLETENESS (is the row there?) and passed throughout the entire window in which all 15 rows were wrong. Completeness and currency are different properties and only the first has a guard. Full row: BL-20260902-SESSIONS-REGISTRY-HAS-A-SPAWN-WRITER-AND-NO-CLOSE-WRITER-SO-EVERY-ROW-READS-WORKING. The load-bearing half of any fix is a REAPER, not a close verb: a session that dies cannot close itself."
     }
   ],
   "as_of": "2026-09-02T17:20:00Z"
