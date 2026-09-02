@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T02:46Z",
+  "updated_at": "2026-09-02T03:06Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -384,6 +384,15 @@
       "pr": "#10679",
       "blocked_on": "operator — an alerting-policy call, not a code fix",
       "note": "MORNING REPORT, and it is a small decision with a real desensitisation cost either way. #10679 now NAMES the GLD wedge as `broker_cancel_wedged` — a state no app-level retry can EVER clear, distinct from `orders_still_resting` where a retry may work. Today a confirmed wedge keeps riding the ORDINARY close-failure page at full severity, forever, on a condition nobody can fix from this system. The session asks whether it should instead escalate to a distinct 'needs venue action' alert. ⚠️ THE STATUS QUO IS THE DESENSITISATION RISK the repo has already paid for once (202 of 376 CRITICALs in one window were a single un-latched alarm). But the opposite error is real too: an unclearable wedge that goes QUIET is a stranded position nobody is looking at. This is an alerting-POLICY call and therefore the operator's, not a code fix to be chosen unilaterally at 02:45. === CONTEXT FOR THE DECISION, measured: alpaca_live is STRUCTURALLY exposed to the same wedge (same client code, mode: live, account_class real_money, trades GLD, roster overlaps alpaca_paper on 11 symbols) but NOT REALISED — measured 2026-09-01T21:23Z it is FLAT, zero positions and zero resting orders. So no real money is stranded right now; the exposure is the next real-money equity close that meets a wedged order."
+    },
+    {
+      "id": "MI-35-BATCH-RESOLVE-THEN-BATCH-MERGE-CANNOT-CONVERGE",
+      "title": "The merge-ordering protocol, learned by getting it wrong three times in one night",
+      "state": "queued",
+      "owner": null,
+      "pr": null,
+      "blocked_on": null,
+      "note": "THE OPERATIONAL REMEDY MI-20 AND MI-24 DIAGNOSE BUT DO NOT STATE, written down because the manager got it wrong three times in ~90 minutes tonight and each repetition was self-inflicted. === THE RULE: when N open PRs touch the same append-mostly registers, **resolve ONE -> merge it IMMEDIATELY -> then resolve the next against the new main.** Resolving several in a batch and then merging them in sequence CANNOT CONVERGE: every merge invalidates every sibling resolve that has not yet landed. === HOW IT WAS PROVEN, on the manager's own actions: a resolver session fixed #10705 and #10679 together; the manager merged #10705 at 02:38Z; #10679 — green minutes earlier — was `dirty` again by 02:41Z. That was its THIRD resolve, and the second and third were both caused by the manager's own next merge rather than by any sub-session. A fresh resolver had to be spawned each time, re-supplied with context the previous one still held (see MI-32: an idle sub-session is unreachable). === THE ONE EXCEPTION, and it is verified rather than assumed: a MANAGER-ONLY PR (MANAGER-LEASE / MANAGER-CHECKLIST / SESSIONS) may land at any point in the queue. All five open train branches were diffed against main and none touches those three files, and the pattern then held under live test — #10713 merged while #10707 was open and #10707 stayed clean. That is why the lease heartbeat never has to wait for the queue. === ⚠️ THIS IS A WORKAROUND, NOT THE FIX. The structural question — an append-only merge driver, a JSONL shape, or a different store for the registers — is still unmade and is still the operator's (MI-20). What this rule buys is a queue that terminates in the meantime."
     }
   ]
 }
