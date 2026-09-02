@@ -1,0 +1,30 @@
+id: WO-20260902-THE-OPERATOR-S-PING-CADENCE-RIDES-GITHUB
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The operator's ping cadence rides GitHub cron, which does not fire — 3 runs in a day against 6x then hourly
+stage: OBSERVATION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The operator's hourly digest arrives on a cadence that is OBSERVED over at least 6 consecutive expected slots, with the misses counted rather than assumed, and a missed or FAILED digest run is itself surfaced -- today a failed run (07:10Z) is a ping the operator never learns did not happen. Moving the carrier is not sufficient on its own: the new carrier must be measured against its declared slots the same way GitHub's was.
+
+why: >-
+  The operator asked 'no pings for 3 hours?' at 18:33Z. MEASURED over the COMPLETE run history of work-digest.yml (total_count 3, not a page): three runs ever, all event=schedule, at 00:19Z / 07:10Z / 14:33Z -- roughly 7h apart against a declared 6x/day, and ONE OF THE THREE FAILED. The hourly cron went live at 16:22Z and the 17:20Z and 18:20Z slots BOTH did not fire. Meanwhile Claude Routines on the same account fire on time -- the :26 manager sweep fired at 18:26:54Z, 54 seconds late. F6 of the operating model makes operator notification the CONDITION on which the autonomy grant rests, so a carrier that silently drops two thirds of its slots is not a cadence problem, it is the grant's precondition going unmet without anyone noticing.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

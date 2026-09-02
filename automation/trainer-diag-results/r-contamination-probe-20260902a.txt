@@ -1,0 +1,42 @@
+=== trainer-diag-relay result ===
+request: r-contamination-probe-20260902a
+state: ran
+remote_exit: 0
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/33591347977
+=================================
+DB_PATH: /home/ubuntu/ict-trading-bot/trade_journal.db
+DB_MTIME_UTC: 2026-08-02T04:50:22Z
+
+=== 0. FRESHNESS (this is a SYNCED COPY; state its lag) ===
+main: line 22: sqlite3: command not found
+
+=== 1. POPULATION + WRONG-SIDE COUNT (all closed, pnl NOT NULL, non-backtest) ===
+main: line 22: sqlite3: command not found
+
+=== 1b. NEGATIVE CONTROL — same probe on OPEN rows (trailing has had less time) ===
+main: line 22: sqlite3: command not found
+
+=== 2. CUT BY STRATEGY (closed, pnl NOT NULL, non-backtest, gradeable) ===
+main: line 22: sqlite3: command not found
+
+=== 3. CUT BY EXIT PATH ===
+main: line 22: sqlite3: command not found
+
+=== 4. RECOVERABILITY — does order_packages preserve an independent initial risk? ===
+-- 4a: does order_packages.sl differ from trades.stop_loss? (both are overwritten by _apply_update,
+--     but the package write is skipped when not every leg amends, so a DIFFERENCE is informative)
+main: line 22: sqlite3: command not found
+
+-- 4b: is position_telemetry a recovery source for CLOSED rows?
+main: line 22: sqlite3: command not found
+
+-- 4c: sample 5 wrong-side rows WITH their pkg meta risk_per_unit, to see if recovery reconciles
+main: line 22: sqlite3: command not found
+
+=== 5. R MAGNITUDE — how extreme does R get on near-breakeven stops? ===
+main: line 22: sqlite3: command not found
+
+=== 6. TOP |R| ROWS (contract multiplier NOT applied — ranking only, not a quotable R) ===
+main: line 22: sqlite3: command not found
+=== END ===
+

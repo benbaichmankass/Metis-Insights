@@ -79,6 +79,16 @@ from src.web.api._clean_trades import (
 )
 from src.web.api._closed_at import close_time_sql
 from src.runtime.broker_truth import journal_trust_for, journal_trust_map
+from src.runtime.r_provenance import (  # R-DENOMINATOR provenance
+    DISAGREEMENT_RATIO_BAR,
+    R_CONFIRMED_INITIAL,
+    R_CONTAMINATED,
+    R_NO_BASIS,
+    R_UNVERIFIED,
+    classify_r,
+    disagreement_ratio,
+    empty_counts as r_empty_counts,
+)
 from src.runtime.provenance import (
     # The "no value present" sentinel `classify_row` returns as its raw half.
     # Imported rather than re-spelled: a second copy of "(none)" here would be
@@ -160,6 +170,14 @@ def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, 
         "expectancyR": None,
         "rTradeCount": 0,
         "rCoverage": 0.0,
+        # R-denominator provenance — present on the empty/errored envelope too,
+        # with explicit zeros. A key that disappears makes a consumer branch on
+        # absence, and absence is not one of the states.
+        "rProvenance": {
+            "contaminated": 0, "confirmedInitial": 0, "unverified": 0,
+            "noBasis": 0, "tightenedVsDeclared": 0, "declaredRiskRecords": 0,
+            "ratioBar": DISAGREEMENT_RATIO_BAR,
+        },
         # PnL provenance — null (not 0.0) here so an empty/errored window stays
         # distinguishable from a window in which nothing was measured. That
         # exact distinction is what `coverage()` exists to preserve.
@@ -242,9 +260,36 @@ def _query(
                 ("entry_price", "entry_price"),
                 ("stop_loss", "stop_loss"),
                 ("position_size", "qty"),
+                # R-DENOMINATOR provenance inputs (src.runtime.r_provenance).
+                # `direction` drives the wrong-side proof; `take_profit_1` is
+                # the mirrored-bracket discriminator that keeps an
+                # intent_reduce row from reading as a trailed stop. Both ride
+                # the SAME optional-column guard as the R inputs above: a
+                # legacy schema degrades the grade to `unverified`
+                # ("we could not look"), never to a confirmation.
+                ("direction", "direction"),
+                ("take_profit_1", "take_profit_1"),
             )
             if col in avail
         )
+        # The INDEPENDENT initial-risk record: `order_packages.meta` carries the
+        # strategy's signal-time `risk_per_unit`, and `order_monitor
+        # ._apply_update` writes only `sl`/`tp`, so a trailing amend cannot
+        # reach it. Joined on the order_packages PRIMARY KEY via
+        # `trades.order_package_id` — a 1:1 join by construction, so it cannot
+        # reintroduce the fan-out the `linked_trade_id` join below is
+        # pre-aggregated to avoid. Optional for the same reason as above.
+        # MEASURED 2026-09-02: 965 of 1346 closed non-backtest rows carry an
+        # order_package_id, so ~28% of the population is unreachable this way
+        # and lands `unverified` — which is the honest grade, not a gap to
+        # paper over.
+        meta_select = (
+            "\n                   opk.meta AS package_meta,"
+            if "order_package_id" in avail else "")
+        meta_join = (
+            "\n            LEFT JOIN order_packages opk"
+            "\n              ON opk.order_package_id = t.order_package_id"
+            if "order_package_id" in avail else "")
         # `notes` carries the provenance keys behind pnlCoverage, and is OPTIONAL
         # for exactly the same reason the R inputs above are: selecting it
         # unconditionally makes a schema without the column raise
@@ -267,7 +312,7 @@ def _query(
             SELECT t.strategy_name,
                    t.symbol AS symbol,
                    t.account_id AS account_id,
-                   t.pnl AS pnl,{r_select}{notes_select}{exit_select}
+                   t.pnl AS pnl,{r_select}{notes_select}{exit_select}{meta_select}
                    {_CLOSE_TIME_SQL} AS closed_at
             FROM trades t
             LEFT JOIN (
@@ -275,7 +320,7 @@ def _query(
                 FROM order_packages
                 WHERE linked_trade_id IS NOT NULL
                 GROUP BY linked_trade_id
-            ) op ON op.linked_trade_id = t.id
+            ) op ON op.linked_trade_id = t.id{meta_join}
             WHERE t.status = 'closed'
               AND COALESCE(t.is_backtest, 0) = 0
               AND t.pnl IS NOT NULL
@@ -332,6 +377,18 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     per_class: Dict[str, Dict[str, float]] = {}
     per_symbol: Dict[str, Dict[str, Any]] = {}
     per_exit: Dict[str, Dict[str, float]] = {}
+    # R-DENOMINATOR provenance. `rCoverage` above says how MUCH of the window is
+    # R-measurable; this says whether the risk each R was measured AGAINST was
+    # the trade's INITIAL stop at all. `trades.stop_loss` holds the CURRENT
+    # trailed stop (order_monitor._apply_update mirrors every confirmed amend
+    # onto the row), so a stop trailed to breakeven leaves |entry-stop| near
+    # zero and pnl/risk explodes. Nothing is EXCLUDED here — publishing the
+    # count and dropping the rows are opposite moves, and dropping them would
+    # convert a visible-wrong number into an invisible-wrong one over an
+    # unstated population.
+    r_prov: Dict[str, int] = r_empty_counts()
+    r_declared_records = 0     # denominator for the line below
+    r_tightened = 0            # stored stop >= BAR x tighter than declared risk
     equity: List[Dict[str, Any]] = []
     cum = 0.0
     peak = 0.0           # running equity peak for max-drawdown
@@ -364,6 +421,26 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         # (206 of 829 closed rows of `local_markprice` money). See src/runtime/provenance.
         pnl_bucket = classify_pnl(r)[0]
         pnl_prov[pnl_bucket] = pnl_prov.get(pnl_bucket, 0) + 1
+        # R-DENOMINATOR provenance — the sibling of the line above, one
+        # derivative up: that grades the R NUMERATOR (`pnl`), this grades the
+        # DENOMINATOR (the risk basis). Four states, never collapsed, and
+        # `unverified` is emphatically NOT "clean" — it is *we could not look*,
+        # and it is the largest bucket by construction.
+        r_state = classify_r({
+            "direction": _rget(r, "direction"),
+            "entry_price": _rget(r, "entry_price"),
+            "stop_loss": _rget(r, "stop_loss"),
+            "take_profit_1": _rget(r, "take_profit_1"),
+            "qty": _rget(r, "qty"),
+            "package_meta": _rget(r, "package_meta"),
+        })[0]
+        r_prov[r_state] = r_prov.get(r_state, 0) + 1
+        r_ratio = disagreement_ratio(
+            _rget(r, "entry_price"), _rget(r, "stop_loss"), _rget(r, "package_meta"))
+        if r_ratio is not None:
+            r_declared_records += 1
+            if r_ratio >= DISAGREEMENT_RATIO_BAR:
+                r_tightened += 1
         # Measured-PnL SUM (the value the R4 promotion gate reads instead of the
         # raw totalPnl — a leg is only judged on money that was actually
         # measured, never manufactured). MEASURED (broker fill / recorded exit)
@@ -378,9 +455,11 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         bucket = per.setdefault(
             name,
             {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0,
-             "r": 0.0, "rc": 0.0, "pnl_measured": 0.0, "pnl_estimated": 0.0},
+             "r": 0.0, "rc": 0.0, "pnl_measured": 0.0, "pnl_estimated": 0.0,
+             "r_prov": r_empty_counts()},
         )
         bucket["trades"] += 1
+        bucket["r_prov"][r_state] += 1
         if pnl > 0:
             bucket["wins"] += 1
         bucket["pnl"] += pnl
@@ -512,6 +591,24 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             "totalR": round(b["r"], 4) if b["rc"] else None,
             "expectancyR": round(b["r"] / b["rc"], 4) if b["rc"] else None,
             "rTradeCount": int(b["rc"]),
+            # ⚠️ READ THIS BEFORE READING `totalR` / `expectancyR` ABOVE.
+            # `rTradeCount` says how many rows had a measurable risk;
+            # `rProvenance` says whether that risk was the trade's INITIAL one.
+            # A leg whose `contaminated` count is a large share of
+            # `rTradeCount` has an R that is computed from a stop the trade
+            # never risked, and its expectancyR can sit orders of magnitude
+            # above the truth. The four counts sum to `trades` BY
+            # CONSTRUCTION, so the partition is checkable rather than trusted.
+            # ⚠️ `unverified` IS NOT "CLEAN" — it is *we could not look*, and
+            # it is the largest bucket (1051 of 1346 on the live journal,
+            # 2026-09-02). A consumer rendering it as verified has
+            # reintroduced the bug.
+            "rProvenance": {
+                "contaminated": int(b["r_prov"][R_CONTAMINATED]),
+                "confirmedInitial": int(b["r_prov"][R_CONFIRMED_INITIAL]),
+                "unverified": int(b["r_prov"][R_UNVERIFIED]),
+                "noBasis": int(b["r_prov"][R_NO_BASIS]),
+            },
             # Per-strategy PnL provenance. This is the field that must be read
             # BEFORE tuning a strategy: a bucket at pnlCoverage 0.0 is being
             # judged entirely on manufactured money.
@@ -691,6 +788,52 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         "expectancyR": round(total_r / r_count, 4) if r_count else None,
         "rTradeCount": r_count,
         "rCoverage": round(r_count / total, 4) if total else 0.0,
+        # --- R-DENOMINATOR provenance (2026-09-02) ------------------------
+        # `rCoverage` above answers "how much of this window is R-MEASURABLE".
+        # It has never answered "and was that risk the trade's INITIAL risk",
+        # which is a different question with a worse answer.
+        #
+        # `trades.stop_loss` holds the CURRENT stop, not the initial one:
+        # `order_monitor._apply_update` mirrors every confirmed trailing amend
+        # onto the row (correctly — /api/bot/positions must show where the stop
+        # IS). R is defined against entry-time risk, so a trailed stop shrinks
+        # the denominator and inflates R without bound.
+        #
+        # MEASURED, live journal copy `/home/ubuntu/ict-trading-bot/data/
+        # trade_journal.db` on the trainer VM, mtime 2026-09-02T04:28:35Z,
+        # max(created_at) 2026-09-02T04:11:21Z, trader serving sha 2c7ae605.
+        # Population: closed, pnl NOT NULL, non-backtest, n=1346 (WIDER than
+        # this route's, which also drops reconciler/superseded/reset-flat) —
+        # contaminated 118 · confirmedInitial 156 · unverified 1051 · noBasis
+        # 21. Worst legs: mgc_trend_1h paper 18 of 19; ict_scalp_sol_5m paper
+        # 13 of 29. Structurally clean: vwap (318 real-money rows) and the
+        # whole pairs sleeve (283 rows) carry ZERO — neither trails a stop.
+        #
+        # ⚠️ NOTHING IS EXCLUDED FROM ANY AGGREGATE ABOVE. `totalR` and
+        # `expectancyR` are unchanged. Publishing the count and silently
+        # dropping the rows are opposite moves, and dropping them would convert
+        # a visible-wrong number into an invisible-wrong one over an unstated
+        # population. Publish the count; let the consumer decide.
+        #
+        # ⚠️ `unverified` IS NOT "CLEAN" — it is *we could not look*, and it is
+        # the LARGEST bucket (78.1% live). A stop trailed to just SHORT of
+        # entry is side-plausible and just as wrong; it is simply not provable
+        # from the stored row.
+        "rProvenance": {
+            "contaminated": int(r_prov[R_CONTAMINATED]),
+            "confirmedInitial": int(r_prov[R_CONFIRMED_INITIAL]),
+            "unverified": int(r_prov[R_UNVERIFIED]),
+            "noBasis": int(r_prov[R_NO_BASIS]),
+            # The second axis, REPORTED beside the states and deliberately NOT
+            # folded into them: rows whose stored stop is at least
+            # `ratioBar` times TIGHTER than the initial risk their own signal
+            # declared. These are the ones the wrong-side proof CANNOT see.
+            # `declaredRiskRecords` is its denominator — a bar-crossing count
+            # over an unstated denominator is not a claim.
+            "tightenedVsDeclared": int(r_tightened),
+            "declaredRiskRecords": int(r_declared_records),
+            "ratioBar": DISAGREEMENT_RATIO_BAR,
+        },
         # --- PnL provenance (the base metric's honest denominator) ---------
         # `totalPnl` above sums whatever the journal recorded. These say how
         # much of that sum is a MEASUREMENT. A window at pnlCoverage 0.0 with a

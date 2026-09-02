@@ -62,55 +62,6 @@
       "blocker": "Open since 2026-08-29, automation-generated, no owning session. Held under MI-12; do not merge without establishing what it does."
     },
     {
-      "pr": 10748,
-      "title": "R-metric contamination: detector + Tier-3 proposal",
-      "owner_session": "session_01EihsgewHt7BZv43YcC7caV",
-      "checklist_item": "MI-30",
-      "draft": true,
-      "tier": "1 shipped; the FIX it proposes is Tier-3 and is NOT in the diff",
-      "state": "awaiting_manager_review",
-      "operator_decision": {
-        "verdict": "pending",
-        "condition": "§5 carries a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it.",
-        "scope": null,
-        "decided_on": null,
-        "text": "None yet. §5 contains a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it."
-      },
-      "blocker": "Manager review not complete. ⚠️ Carry its CORRECTION to the brief: neither automated gate (M7 packet, R4 results gate) reads R -- the contamination reaches decisions through human/Claude review, which is a different severity than originally stated."
-    },
-    {
-      "pr": 10764,
-      "title": "docs: split the API payload reference out of CLAUDE.md (-34.4%, verbatim)",
-      "owner_session": null,
-      "checklist_item": null,
-      "draft": true,
-      "tier": "1 (docs)",
-      "state": "blocked_ambiguous_ci",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "text": "NO OPERATOR STATEMENT EXISTS. This row is `none_recorded` precisely because no decision was sought or given — the text records that ABSENCE and is deliberately not a quotation. Inventing operator wording to satisfy the field would be the half-informed state this check exists to prevent, one level up."
-      },
-      "blocker": "pytest-run ran exactly TWICE on this branch: run 9814 (author's merge) CANCELLED, run 9819 (manager's merge commit 0890fc02) FAILURE. ⚠️ THERE IS NO GREEN BASELINE, so neither 'already broken' nor 'I broke it' is supported by the evidence. Handed back to its author. Do not assert a cause."
-    },
-    {
-      "pr": 10776,
-      "title": "ops: feed the trader's error feed to the duty pass, grouped for triage",
-      "owner_session": "session_01TpKSAVKKUXLHyFUFep32B1",
-      "checklist_item": "MI-53",
-      "draft": true,
-      "tier": "1 (no bot-side change, no order path)",
-      "state": "delivered_awaiting_manager_review",
-      "operator_decision": {
-        "verdict": "approved",
-        "condition": null,
-        "scope": null,
-        "text": "Operator, 2026-09-02: 'You can, uh, build the wiring.' Answering their own question — 'can the error feed that's in the trader bot be fed directly to the manager session, so you can decide what should be resolved immediately vs. backlogged?'"
-      },
-      "blocker": "NOT YET REVIEWED BY THE MANAGER. ⚠️ Its done-condition is NOT a green CI run: it needs a workflow_dispatch run with a quoted conclusion, producing a digest in which the AVAX dead leg is visible. Do not merge on green alone — that exact mistake cost two failed fixes this morning."
-    },
-    {
       "pr": 10780,
       "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
       "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
@@ -124,23 +75,6 @@
         "text": "No operator statement exists. ⚠️ THE ROW MATTERS MORE THAN THE PR: this branch preserves ~320 lines of UNREVIEWED order-path work (execute.py, qty_legalize.py, precision.py) recovered from a DEAD session's uncommitted working tree. It must NOT be merged on green CI — its existing venue-max tests monkeypatch _resolve_venue_lot_rule to return vmax=22_000, so they exercise the CLAMP and never the RESOLUTION, i.e. they pass for the wrong reason, which is how the AVAX leg reached a third recurrence. A successor reading 'draft, CI green' without this row could land unreviewed order-path code on a real-money client."
       },
       "blocker": "Needs a live session to take ownership and verify the resolution path against a real venue read, then re-open as a normal Tier-gated PR. Until then this branch is a BACKUP, not a proposal."
-    },
-    {
-      "pr": 10793,
-      "title": "telegram: /status and /decisions operator pull commands — HELD",
-      "owner_session": "session_01272CQFvWA5F9tS9nNRpJtK",
-      "checklist_item": "MI-59",
-      "draft": true,
-      "tier": "2 (Telegram bridge)",
-      "state": "held_by_manager",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "The commands were asked for on CLAUDEBOT ONLY. Operator, verbatim: 'don't add those commands to the trader bot, thats definitely not what i asked for - i asked for them in cluade bot.'",
-        "scope": "ClaudeBot (@ict_cluade_bot) only — explicitly NOT the trader bot.",
-        "decided_on": "2026-09-02",
-        "text": "Operator asked for /status and /decisions, then corrected the destination. The HOLD is the manager's, not the operator's: it must not merge until ClaudeBot is CONFIRMED POLLED on the live VM, or the commands land on a bot nothing polls."
-      },
-      "blocker": "⚠️ HELD BY THE MANAGER. Un-hold ONLY on a confirmed live-VM observation that ClaudeBot is polled — read /api/diag/log_file?name=telegram_poll_claude and the sweep stats `destination`. 'A ping arrived' is NOT that observation: the fallback route produces one and is PERMANENT (MI-58's correction — answerable_route() needs a live heartbeat)."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -495,8 +429,90 @@
       "merge_sha": "0cbcba5fd2fb483dfe21aafb69be73ff8a07526f",
       "observed_at": "2026-09-02T18:53:03Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10764,
+      "title": "docs: split the API payload reference out of CLAUDE.md (-34.4%, verbatim)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": true,
+      "tier": "1 (docs)",
+      "state": "blocked_ambiguous_ci",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "text": "NO OPERATOR STATEMENT EXISTS. This row is `none_recorded` precisely because no decision was sought or given — the text records that ABSENCE and is deliberately not a quotation. Inventing operator wording to satisfy the field would be the half-informed state this check exists to prevent, one level up."
+      },
+      "blocker": "pytest-run ran exactly TWICE on this branch: run 9814 (author's merge) CANCELLED, run 9819 (manager's merge commit 0890fc02) FAILURE. ⚠️ THERE IS NO GREEN BASELINE, so neither 'already broken' nor 'I broke it' is supported by the evidence. Handed back to its author. Do not assert a cause.",
+      "terminal": "merged",
+      "merge_sha": "b9fbd1f5d0329406d75e4c1a6091ea54fcf90147",
+      "observed_at": "2026-09-02T19:39:54Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10793,
+      "title": "telegram: /status and /decisions operator pull commands — HELD",
+      "owner_session": "session_01272CQFvWA5F9tS9nNRpJtK",
+      "checklist_item": "MI-59",
+      "draft": true,
+      "tier": "2 (Telegram bridge)",
+      "state": "held_by_manager",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "The commands were asked for on CLAUDEBOT ONLY. Operator, verbatim: 'don't add those commands to the trader bot, thats definitely not what i asked for - i asked for them in cluade bot.'",
+        "scope": "ClaudeBot (@ict_cluade_bot) only — explicitly NOT the trader bot.",
+        "decided_on": "2026-09-02",
+        "text": "Operator asked for /status and /decisions, then corrected the destination. The HOLD is the manager's, not the operator's: it must not merge until ClaudeBot is CONFIRMED POLLED on the live VM, or the commands land on a bot nothing polls."
+      },
+      "blocker": "⚠️ HELD BY THE MANAGER. Un-hold ONLY on a confirmed live-VM observation that ClaudeBot is polled — read /api/diag/log_file?name=telegram_poll_claude and the sweep stats `destination`. 'A ping arrived' is NOT that observation: the fallback route produces one and is PERMANENT (MI-58's correction — answerable_route() needs a live heartbeat).",
+      "terminal": "merged",
+      "merge_sha": "f10f29142ea3c0421d1f00527b645589b034fb3b",
+      "observed_at": "2026-09-02T19:39:54Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10748,
+      "title": "R-metric contamination: detector + Tier-3 proposal",
+      "owner_session": "session_01EihsgewHt7BZv43YcC7caV",
+      "checklist_item": "MI-30",
+      "draft": true,
+      "tier": "1 shipped; the FIX it proposes is Tier-3 and is NOT in the diff",
+      "state": "awaiting_manager_review",
+      "operator_decision": {
+        "verdict": "pending",
+        "condition": "§5 carries a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it.",
+        "scope": null,
+        "decided_on": null,
+        "text": "None yet. §5 contains a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it."
+      },
+      "blocker": "Manager review not complete. ⚠️ Carry its CORRECTION to the brief: neither automated gate (M7 packet, R4 results gate) reads R -- the contamination reaches decisions through human/Claude review, which is a different severity than originally stated.",
+      "terminal": "merged",
+      "merge_sha": "90b541a9b5604623045789018635168c904eecbf",
+      "observed_at": "2026-09-02T20:15:11Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10776,
+      "title": "ops: feed the trader's error feed to the duty pass, grouped for triage",
+      "owner_session": "session_01TpKSAVKKUXLHyFUFep32B1",
+      "checklist_item": "MI-53",
+      "draft": true,
+      "tier": "1 (no bot-side change, no order path)",
+      "state": "delivered_awaiting_manager_review",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": null,
+        "text": "Operator, 2026-09-02: 'You can, uh, build the wiring.' Answering their own question — 'can the error feed that's in the trader bot be fed directly to the manager session, so you can decide what should be resolved immediately vs. backlogged?'"
+      },
+      "blocker": "NOT YET REVIEWED BY THE MANAGER. ⚠️ Its done-condition is NOT a green CI run: it needs a workflow_dispatch run with a quoted conclusion, producing a digest in which the AVAX dead leg is visible. Do not merge on green alone — that exact mistake cost two failed fixes this morning.",
+      "terminal": "merged",
+      "merge_sha": "d8ece725292b5a6ae1a4fba392ffb9e83f5d168b",
+      "observed_at": "2026-09-02T20:17:34Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-02T18:53:03Z",
-  "last_reconciled_sha": "d10385a9336b3c00fd45e92ab4bb22b2ebac9b21"
+  "last_reconciled_at": "2026-09-02T20:17:34Z",
+  "last_reconciled_sha": "3d8f466bacf10d76e61cfb9dbff1cc2982f4259a"
 }

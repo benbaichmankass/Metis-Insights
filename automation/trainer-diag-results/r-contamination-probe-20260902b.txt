@@ -1,0 +1,162 @@
+=== trainer-diag-relay result ===
+request: r-contamination-probe-20260902b
+state: ran
+remote_exit: 0
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/33591432596
+=================================
+=== ALL trade_journal candidates on this box, newest first ===
+2026-09-02T04:28:35Z  /home/ubuntu/ict-trading-bot/data/trade_journal.db
+2026-08-02T04:50:22Z  /home/ubuntu/ict-trading-bot/trade_journal.db
+
+DB_PATH: /home/ubuntu/ict-trading-bot/data/trade_journal.db
+DB_MTIME_UTC: 2026-09-02T04:28:35.692023Z
+!! THIS IS A SYNCED COPY. Read its max(created_at) below before quoting it as current.
+
+--- 0. FRESHNESS ---
+max_created_at | max_closed_at | all_rows
+2026-09-02T04:11:21.348745+00:00 | 2026-09-02T04:18:50.503278+00:00 | 5330
+
+--- 1. POPULATION + WRONG-SIDE ---
+n_total | n_stop_null | n_gradeable | n_wrong_side | n_stop_eq_entry | n_direction_unrecognised
+1346 | 21 | 1325 | 226 | 0 | 0
+
+--- 1b. NEGATIVE CONTROL — the same probe on OPEN rows ---
+open_n | open_wrong_side
+20 | 0
+
+--- 1c. POSITIVE CONTROL — the probe MUST be able to find a clean row ---
+n_provably_clean_side
+1099
+
+--- 2. CUT BY STRATEGY x ACCOUNT_CLASS ---
+strategy | acct | n | wrong | pct
+htf_pullback_trend_2h | paper | 48 | 25 | 52.1
+mgc_trend_1h | paper | 19 | 18 | 94.7
+eth_pullback_2h | paper | 32 | 17 | 53.1
+sol_pullback_2h | paper | 22 | 17 | 77.3
+ict_scalp_sol_5m | paper | 29 | 13 | 44.8
+ict_scalp_avax_5m | paper | 30 | 11 | 36.7
+avax_pullback_2h | paper | 18 | 10 | 55.6
+ict_scalp_5m | paper | 47 | 9 | 19.1
+ict_scalp_5m | real_money | 33 | 9 | 27.3
+trend_donchian_ada_4h | paper | 24 | 9 | 37.5
+ada_pullback_2h | paper | 22 | 9 | 40.9
+ict_scalp_sol_15m | paper | 22 | 8 | 36.4
+ict_scalp_xrp_5m | paper | 21 | 8 | 38.1
+xrp_pullback_2h | paper | 17 | 7 | 41.2
+ict_scalp_xrp_15m | paper | 17 | 6 | 35.3
+trend_donchian_sol_4h | paper | 14 | 6 | 42.9
+ict_scalp_eth_15m | paper | 18 | 5 | 27.8
+trend_donchian_eth_4h | paper | 16 | 5 | 31.3
+spy_pullback_1h | paper | 12 | 4 | 33.3
+uso_trend_1h | paper | 11 | 4 | 36.4
+ict_scalp_mgc_15m | paper | 6 | 4 | 66.7
+trend_donchian | paper | 23 | 3 | 13.0
+trend_donchian_avax_4h | paper | 15 | 3 | 20.0
+trend_donchian_xrp_4h | paper | 10 | 3 | 30.0
+trend_donchian_eth_4h | real_money | 8 | 3 | 37.5
+slv_trend_1h | paper | 23 | 2 | 8.7
+htf_pullback_trend_2h | real_money | 8 | 2 | 25.0
+trend_donchian | real_money | 13 | 1 | 7.7
+qqq_pullback_1h | paper | 13 | 1 | 7.7
+eth_pullback_2h | real_money | 13 | 1 | 7.7
+tlt_pullback_1h | paper | 9 | 1 | 11.1
+xrp_pullback_2h | real_money | 8 | 1 | 12.5
+squeeze_breakout_4h | paper | 5 | 1 | 20.0
+vwap | real_money | 318 | 0 | 0.0
+pairs_sol_eth_a | paper | 86 | 0 | 0.0
+pairs_sol_eth_b | paper | 85 | 0 | 0.0
+pairs_bnb_btc_b | paper | 57 | 0 | 0.0
+pairs_bnb_btc_a | paper | 55 | 0 | 0.0
+vwap | paper | 30 | 0 | 0.0
+gld_pullback_1h | paper | 13 | 0 | 0.0
+fade_breakout_4h | real_money | 9 | 0 | 0.0
+fade_breakout_4h | paper | 7 | 0 | 0.0
+ada_pullback_2h | real_money | 6 | 0 | 0.0
+trend_donchian_xrp_4h | real_money | 5 | 0 | 0.0
+trend_donchian_eth | paper | 4 | 0 | 0.0
+mhg_pullback_1d | paper | 4 | 0 | 0.0
+iwm_trend_long_1d | paper | 4 | 0 | 0.0
+tlt_pullback_1d | paper | 3 | 0 | 0.0
+slv_pullback_1d | paper | 2 | 0 | 0.0
+qqq_trend_long_1d | paper | 2 | 0 | 0.0
+ief_pullback_1d | paper | 2 | 0 | 0.0
+squeeze_breakout_4h | real_money | 1 | 0 | 0.0
+qld_trend_long_1d | paper | 1 | 0 | 0.0
+orphan_adopt | paper | 1 | 0 | 0.0
+mgc_pullback_1d | paper | 1 | 0 | 0.0
+ief_pullback_1d | real_money | 1 | 0 | 0.0
+fvg_range_15m | paper | 1 | 0 | 0.0
+eth_pullback_prop_2h | paper | 1 | 0 | 0.0
+
+--- 3. CUT BY EXIT PATH ---
+exit_path | n | wrong | pct
+reconciler_filled | 441 | 107 | 24.3
+intent_reduce_executed | 33 | 33 | 100.0
+sl_cross | 107 | 27 | 25.2
+tp | 60 | 19 | 31.7
+sl | 173 | 13 | 7.5
+netting_attributed | 38 | 12 | 31.6
+exchange_flat_reconciled | 68 | 4 | 5.9
+tp_cross | 19 | 3 | 15.8
+giveback_stop | 3 | 3 | 100.0
+stuck_strategy_watchdog | 13 | 2 | 15.4
+netting_phantom_reconciled | 4 | 2 | 50.0
+reconciler_incomplete | 2 | 1 | 50.0
+vwap_cross | 102 | 0 | 0.0
+pairs_revert | 64 | 0 | 0.0
+pairs_stop | 54 | 0 | 0.0
+pairs_half_open_cleanup | 52 | 0 | 0.0
+intent_reduce | 38 | 0 | 0.0
+backfill_closed_pnl_recovery | 21 | 0 | 0.0
+stale_stop | 13 | 0 | 0.0
+operator_flatten_reconciled | 7 | 0 | 0.0
+exit_head | 6 | 0 | 0.0
+time_decay | 4 | 0 | 0.0
+pairs_timeout | 2 | 0 | 0.0
+adopted_orphan_disappeared | 1 | 0 | 0.0
+
+--- 4a. RECOVERABILITY — order_packages.sl vs trades.stop_loss ---
+ERROR
+no such column: t.t.status
+
+--- 4b. position_telemetry as a recovery source? ---
+telemetry_rows | with_rpu | terminal_stamped
+114 | 114 | 54
+
+--- 4c. SAMPLE wrong-side rows, biggest |pnl| first (with pkg meta risk_per_unit) ---
+id | strategy_name | symbol | direction | entry_price | stop_loss | pkg_sl | position_size | pnl | exit_reason | meta_rpu
+4773 | ict_scalp_mgc_15m | MGC | long | 4364.6 | 4371.146900000001 | 4371.146900000001 | 95.0 | 249185.0 | tp_cross | risk_per_unit": 18.947142857143263, "entry_ti
+4255 | ict_scalp_eth_15m | ETHUSDT | short | 1918.86 | 1915.9817099999998 | 1915.9817099999998 | 106.76 | 5356.15 | netting_phantom_reconciled | risk_per_unit":19.30385714285717,"entry_time"
+2681 | mgc_trend_1h | MGC | long | 4318.872 | 4319.97857143 | 4319.97857143 | 8.0 | -4437.76 | sl_cross | risk_per_unit": 69.26785714285688, "entry_tim
+4698 | ict_scalp_xrp_15m | XRPUSDT | long | 0.9983 | 1.00079895 | 1.00079895 | 163626.7 | 3697.96 | tp | risk_per_unit": 0.011891428571428553, "entry_
+5074 | ict_scalp_eth_15m | ETHUSDT | long | 2463.54 | 2467.23531 | 2467.23531 | 74.02 | 3504.11 | netting_attributed | risk_per_unit":33.79099999999971,"entry_time"
+4509 | ict_scalp_xrp_15m | XRPUSDT | short | 1.0311 | 1.0295533499999998 | 1.0295533499999998 | 183436.9 | 3485.3 | reconciler_filled | risk_per_unit": 0.01272571428571423, "entry_t
+4795 | trend_donchian_avax_4h | AVAXUSDT | long | 6.583 | 6.75935714 | 6.75935714 | 5508.1 | 3481.12 | reconciler_filled | risk_per_unit": 0.2298214285714284, "entry_ti
+5007 | ict_scalp_mgc_15m | MGC | short | 4660.9 | 4653.908649999999 | 4653.908649999999 | 51.0 | 3417.0 | sl_cross | risk_per_unit": 38.97285714285772, "entry_tim
+
+--- 5. R MAGNITUDE, wrong-side vs clean (contract multiplier NOT applied) ---
+wrong | n | risk_nonpositive | max_abs_R | sum_R
+0 | 1099 | 0 | 2516.3 | -9799.87
+1 | 226 | 0 | 3672.32 | 2243.86
+
+--- 6. TOP |R| rows (multiplier NOT applied — ranking only) ---
+id | strategy_name | acct | direction | entry_price | stop_loss | stop_dist | position_size | pnl | R_nomult | exit_reason | side
+5027 | ict_scalp_sol_15m | paper | short | 100.44 | 100.439115 | 0.000885 | 992.2 | 3224.65 | 3672.32 | reconciler_filled | WRONG
+2578 | mhg_pullback_1d | paper | long | 6.395887999999999 | 6.04528571 | 0.35060229 | 3.0 | -2646.66 | -2516.3 | sl_cross | clean
+3897 | mhg_pullback_1d | paper | short | 6.369 | 6.66142857 | 0.29242857 | 25.0 | -18343.75 | -2509.16 | sl_cross | clean
+3380 | mhg_pullback_1d | paper | short | 6.25 | 6.55978571 | 0.30978571 | 24.0 | -18300.0 | -2461.38 | exchange_flat_reconciled | clean
+2832 | mhg_pullback_1d | paper | long | 6.395887999999999 | 6.04528571 | 0.35060229 | 3.0 | -2530.41 | -2405.77 | exchange_flat_reconciled | clean
+2681 | mgc_trend_1h | paper | long | 4318.872 | 4319.97857143 | 1.10657143 | 8.0 | -4437.76 | -501.3 | sl_cross | WRONG
+4811 | trend_donchian_ada_4h | paper | long | 0.1885 | 0.18845714 | 4.286e-05 | 6414.0 | 119.94 | 436.3 | reconciler_filled | clean
+4773 | ict_scalp_mgc_15m | paper | long | 4364.6 | 4371.146900000001 | 6.5469 | 95.0 | 249185.0 | 400.65 | tp_cross | WRONG
+2680 | mgc_trend_1h | paper | long | 4318.872 | 4319.97857143 | 1.10657143 | 8.0 | -2741.76 | -309.71 | sl_cross | WRONG
+2679 | mgc_trend_1h | paper | long | 4318.872 | 4319.97857143 | 1.10657143 | 8.0 | -2517.76 | -284.41 | sl_cross | WRONG
+2674 | mgc_trend_1h | paper | long | 4318.872 | 4319.97857143 | 1.10657143 | 8.0 | -2293.76 | -259.11 | sl_cross | WRONG
+2665 | mgc_trend_1h | paper | long | 4318.872 | 4319.97857143 | 1.10657143 | 8.0 | -1197.76 | -135.3 | sl_cross | WRONG
+2666 | mgc_trend_1h | paper | long | 4318.872 | 4319.97857143 | 1.10657143 | 8.0 | -1197.76 | -135.3 | sl_cross | WRONG
+2670 | mgc_trend_1h | paper | long | 4318.872 | 4319.97857143 | 1.10657143 | 8.0 | -925.76 | -104.58 | sl_cross | WRONG
+2675 | mgc_trend_1h | paper | long | 4318.872 | 4319.97857143 | 1.10657143 | 8.0 | -885.76 | -100.06 | sl_cross | WRONG
+
+=== END ===
+
