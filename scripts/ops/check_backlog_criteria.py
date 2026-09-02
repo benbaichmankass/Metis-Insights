@@ -71,6 +71,15 @@ from typing import Any, Iterable
 # fail on an ImportError that depends on how it was invoked.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from _backlog import UnsupportedCriteriaShape, criteria_text  # noqa: E402
+from accrual_clock import (  # noqa: E402
+    ACCRUAL_LEGS_FIELD,
+    CAN_RUN,
+    accrual_legs,
+    clock_state,
+    exit_text,
+    is_accrual_shaped,
+    load_config,
+)
 
 BACKLOGS = (
     "docs/claude/health-review-backlog.json",
@@ -448,6 +457,117 @@ def _check_kept_open_transitions(base_ref: str) -> int:
     return 1
 
 
+
+def _check_accrual_rows(base_ref: str) -> int:
+    """Refuse a NEW accrual-gated row whose clock cannot tick.
+
+    THE CLASS, measured 2026-09-02 over the eleven accrual-gated rows in
+    ``performance-review-backlog.json`` at trader sha ``68e73de8``:
+    **not one was in the state its own text implied.** Five had passed their
+    threshold months earlier (375 closed trades sat unread behind rows that say
+    "waiting"); four named a leg that CANNOT produce a trade —
+    ``tqqq_trend_long_1d`` and ``splg_trend_long_1d`` have zero journal rows
+    ever, ``eth_pullback_prop_2h`` and ``htf_pullback_trend_2h`` are
+    ``execution: shadow``, the declared no-order gate.
+
+    ``_check_kept_open_transitions`` above cannot see any of this: an accrual
+    threshold IS an exit condition under its predicate, so it passes. This is
+    the same permanent-resident class one level down — the field is present and
+    VACUOUS rather than absent, which is strictly harder to spot by reading.
+
+    WHAT IS ENFORCED, and it is deliberately the offline half only. Whether a
+    leg HAS accrued needs the live journal and cannot run in CI. Whether it
+    CAN accrue is a pure read of ``config/strategies.yaml`` +
+    ``config/accounts.yaml``. So an accrual-shaped row must (a) name its legs in
+    ``accrual_legs`` and (b) have every named leg resolve to ``can_run``.
+
+    WHY A STRUCTURED FIELD RATHER THAN PARSING THE PROSE. A guard that scraped
+    strategy names out of criteria text would be cheaper to fool than to satisfy
+    — rename the leg in the sentence and the guard goes quiet while the row
+    stays dead. That is the ``new-table-wiring-guard`` lesson this module's own
+    header cites. A list of keys is resolvable, and a wrong key fails LOUDLY as
+    ``absent_from_config`` rather than silently.
+
+    DIFF-SCOPED and grandfathered, for the reason in the module header: the
+    standing stock is annotated by hand, and a guard that fails on day one over
+    a pre-existing population gets switched off.
+    """
+    strategies, accounts = load_config()
+    if not strategies or not accounts:
+        # ANNOUNCED, never silent — a guard that quietly declines to run is the
+        # "green that checked nothing" failure `run_guards.py` has a rule about.
+        print(
+            "accrual-clock guard: SKIPPING — config/strategies.yaml or "
+            "config/accounts.yaml could not be read, so no leg can be resolved. "
+            "No row is checked by this run."
+        )
+        return 0
+
+    bad: list[tuple[str, str, str]] = []
+    checked = 0
+    for rel in ALL_BACKLOGS:
+        path = pathlib.Path(rel)
+        if not path.exists():
+            continue
+        before = _kept_open_status_by_id(base_ref, rel)
+        if not before:
+            print(
+                f"accrual-clock guard: SKIPPING {rel} — absent or empty at "
+                f"{base_ref}. Its rows are NOT checked by this run."
+            )
+            continue
+        for row in _load(path):
+            rid = str(row.get("id") or "")
+            status = str(row.get("status") or "")
+            if not rid or status not in {"open", "kept_open"}:
+                continue
+            # Grandfathered: already carried at the base under the same status.
+            if before.get(rid) == status:
+                continue
+            if not is_accrual_shaped(exit_text(row)):
+                continue
+            checked += 1
+            legs = accrual_legs(row)
+            if not legs:
+                bad.append((
+                    rel, rid,
+                    f"waits for trades to accrue but names no `{ACCRUAL_LEGS_FIELD}`, "
+                    f"so nothing can check whether its clock runs",
+                ))
+                continue
+            for leg in legs:
+                state = clock_state(leg, strategies, accounts)
+                if state != CAN_RUN:
+                    bad.append((rel, rid, f"waits on leg {leg!r} whose clock reads {state} — no trade will arrive"))
+
+    if not bad:
+        print(
+            f"accrual-clock guard: OK — {checked} accrual-gated row(s) entered "
+            f"or were filed in this diff, every one names legs that can trade."
+        )
+        return 0
+
+    print(
+        "::error::accrual-gated backlog row(s) whose clock CANNOT TICK. A row "
+        "waiting for trades on a leg that is shadow-gated, disabled, unrouted or "
+        "absent from config is a permanent resident wearing a field: its exit "
+        "condition is present and vacuous. Measured 2026-09-02 over the eleven "
+        "accrual rows in performance-review-backlog.json — NOT ONE was in the "
+        "state its own text implied."
+    )
+    for rel, rid, why in bad:
+        print(f"  {rel}: {rid} — {why}")
+    print(
+        f"\nFix: add `{ACCRUAL_LEGS_FIELD}: [<strategy keys from "
+        f"config/strategies.yaml>]`, and make sure each one is enabled, "
+        f"`execution: live`, and routed to a `mode: live` account. If the leg "
+        f"is deliberately shadow/unrouted, the row is NOT waiting for accrual — "
+        f"re-state its exit condition as the DECISION or MEASUREMENT it is "
+        f"really waiting on, or close it."
+    )
+    return 1
+
+
 def _census() -> int:
     bad: list[tuple[str, str, str]] = []
     total = 0
@@ -703,7 +823,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         # run_guards.py exists at all).
         rc_new = _check_new_rows(args.base)
         rc_kept = _check_kept_open_transitions(args.base)
-        return rc_new or rc_kept
+        rc_accrual = _check_accrual_rows(args.base)
+        return rc_new or rc_kept or rc_accrual
     ap.error("one of --base, --all or --self-test is required")
     return 2
 

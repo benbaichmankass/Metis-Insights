@@ -532,6 +532,21 @@ GUARDS: List[Dict[str, Any]] = [
                 "allow_fail": True,
             },
             ["python3", "scripts/ops/check_backlog_criteria.py", "--self-test"],
+            # The accrual-clock module the guard above imports. Its five clock
+            # states (can_run / gated_shadow / gated_disabled / not_routed /
+            # absent_from_config) are what let a row waiting for trades be told
+            # apart from one waiting for trades THAT CANNOT ARRIVE — measured
+            # 2026-09-02, four of eleven accrual rows in the performance
+            # backlog named a leg that is shadow-gated or has zero journal rows
+            # ever. A state nothing can produce is a state nobody can rely on,
+            # so the self-test asserts every one of the five is reachable.
+            ["python3", "scripts/ops/accrual_clock.py", "--self-test"],
+            # The standing census, advisory like its sibling above so it cannot
+            # become the reason the blocking half gets switched off.
+            {
+                "argv": ["python3", "scripts/ops/accrual_clock.py", "--all"],
+                "allow_fail": True,
+            },
             {
                 "argv": ["python3", "scripts/ops/check_backlog_refs.py", "--all"],
                 "allow_fail": True,
