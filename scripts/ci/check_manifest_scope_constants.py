@@ -37,9 +37,10 @@ manifest and the builder class alone:
       crashing one. C3 exists so that the fix for C1 cannot make things worse.
 
 ⚠️ WHAT THIS GUARD DOES **NOT** CATCH, STATED PLAINLY BECAUSE THE BACKLOG ROW
-ASSUMED OTHERWISE. MB-20260829-MANIFESTS-... prescribes a commit-time check that a
-manifest's declared columns "are producible by its declared dataset family", and
-names 10 columns across 3 manifests as the population it would catch. MEASURED
+ASSUMED OTHERWISE. The row named at the top of this docstring prescribes a
+commit-time check that a manifest's declared columns "are producible by its declared
+dataset family", and names 10 columns across 3 manifests as the population it would
+catch. MEASURED
 2026-09-02 over all 76 manifests under `ml/configs/*.yaml`, with a positive control
 (an injected `__NOT_A_REAL_COLUMN__` IS flagged): **C2 finds ZERO offenders, and
 all 10 of those columns ARE in their family builder's schema.** The manifest is not
