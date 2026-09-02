@@ -8,9 +8,15 @@ Designed to be lean and bulletproof:
   itself is broken.
 * Idempotent: invoked with ``--pre <sha> --post <sha>``; if HEAD did
   not advance, sends nothing.
-* Three sources of pings, processed in priority order:
+* Four sources of pings, processed in priority order:
     1. Blocker commits — any commit in (pre, post] whose subject
        starts with ``[BLOCKED-PM]``. Emitted as ``urgent``.
+    1b. PR merges — every commit in (pre, post] that landed a PR on
+       ``main``, rolled up into ONE message that names each merge
+       individually. This is the operator's standing "tell me when a
+       PR merges" ask; nothing implemented it before 2026-09-02.
+       See § "Source 4" for why it lives here and not in a workflow,
+       and for the rate-limit decision.
     2. Drain ``docs/claude/pending-pings.jsonl`` — sandbox-side
        Claude sessions append to this file when they can't reach
        Telegram directly. After drain, the file is truncated by a
@@ -77,7 +83,12 @@ PRIORITY_PREFIX = {
 }
 
 BLOCKER_TAG = "[BLOCKED-PM]"
-GITHUB_COMMIT_URL = "https://github.com/benbaichmankass/ict-trading-bot/commit/{sha}"
+# One owner of the repo slug. The old name is kept deliberately: CLAUDE.md
+# records that GitHub's 301 resolves it everywhere and that a rename sweep is
+# NOT to be chased. `GITHUB_COMMIT_URL` is byte-identical to what it was.
+GITHUB_REPO_URL = "https://github.com/benbaichmankass/ict-trading-bot"
+GITHUB_COMMIT_URL = GITHUB_REPO_URL + "/commit/{sha}"
+GITHUB_COMPARE_URL = GITHUB_REPO_URL + "/compare/{pre}...{post}"
 
 # S-027 PR2 — comms response commits use this prefix. The notify pipeline
 # is opt-in (only matches BLOCKER_TAG, TRAINING_TAGS, and
@@ -145,9 +156,31 @@ def _send_priority(token: str, chat_id: str, priority: str, body: str) -> bool:
 
 
 def _commit_subjects(pre_sha: str, post_sha: str) -> List[tuple[str, str]]:
-    """Return [(sha, subject), ...] for commits in (pre_sha, post_sha]."""
+    """Return [(sha, subject), ...] for commits in (pre_sha, post_sha].
+
+    ⚠️ COLLAPSES "we could not look" INTO "nothing is there" — an unknown
+    ``pre_sha`` and a failed ``git log`` both come back ``[]``, exactly like a
+    genuinely empty range. That is tolerable for the blocker/training scanners
+    (a missed tag re-fires on the next pull, because the state file only
+    advances on success) and is NOT tolerable for a caller that wants to say
+    "no PRs merged" out loud. Such a caller uses
+    ``_commit_subjects_or_none`` below and gets ``None`` for the read failure.
+    """
+    return _commit_subjects_or_none(pre_sha, post_sha) or []
+
+
+def _commit_subjects_or_none(
+    pre_sha: str, post_sha: str,
+) -> Optional[List[tuple[str, str]]]:
+    """``[(sha, subject), ...]``, or ``None`` when the range could not be read.
+
+    Three states, never collapsed: a list of commits · ``[]`` (we looked, the
+    range is empty) · ``None`` (*we did not look* — no usable ``pre_sha``, or
+    git refused). ``_commit_subjects`` folds the last two together for its
+    historical callers; nothing else should.
+    """
     if not pre_sha or pre_sha == "unknown":
-        return []
+        return None
     try:
         out = subprocess.run(
             ["git", "log", "--format=%H%x09%s", f"{pre_sha}..{post_sha}"],
@@ -156,7 +189,7 @@ def _commit_subjects(pre_sha: str, post_sha: str) -> List[tuple[str, str]]:
         )
         if out.returncode != 0:
             logger.warning("git log failed: %s", out.stderr.strip())
-            return []
+            return None
         pairs = []
         for line in out.stdout.splitlines():
             if "\t" not in line:
@@ -166,7 +199,7 @@ def _commit_subjects(pre_sha: str, post_sha: str) -> List[tuple[str, str]]:
         return pairs
     except (subprocess.SubprocessError, OSError) as exc:
         logger.warning("git log error: %s", exc)
-        return []
+        return None
 
 
 def _blocker_pings(pre_sha: str, post_sha: str) -> List[tuple[str, str]]:
@@ -215,6 +248,132 @@ def _training_workflow_pings(pre_sha: str, post_sha: str) -> List[tuple[str, str
                 out.append((priority, body))
                 break  # one ping per commit; longest-match unnecessary
     return out
+
+
+# ---------------------------------------------------------------------------
+# Source 4 — PR merges that landed on main in the pulled range
+# ---------------------------------------------------------------------------
+#
+# WHY THIS LIVES HERE AND NOT IN A SANDBOX-SIDE EMITTER. The operator's standing
+# ask — "every time a PR merges, I'm supposed to get updated about that" — had
+# NO implementation. `scripts/ops/work_phase_ping.py` was the nearest thing and
+# it pings on a work object's `lifecycle` moving; it has no concept of a PR at
+# all, which is why its journal line read `No pingable events in
+# 90b541a9..2156e8a6` across a range that contained five merges. The code was
+# doing exactly what it said; nobody had built the thing being asked for.
+#
+# This script already receives the EXACT commit range that was pulled
+# (`--pre <last-notified-head> --post <post-sync-head>`, advanced only on a
+# successful send) and already walks it for blocker and training tags. A merge
+# is in that range by construction. So the merge ping needs no new queue file,
+# no new committer, and no new clock:
+#
+#   * NO CLOCK PROBLEM. It rides `ict-git-sync.timer` (OnUnitActiveSec=5min),
+#     which is observably firing, rather than a GitHub Actions cron — measured
+#     on `work-digest.yml`, which declares `20 * * * *` and fired 5 times in a
+#     day at :19, :10, :33 and :47, never on its declared minute.
+#   * NO FEEDBACK LOOP. A workflow that committed a ping row to `main` would
+#     itself be a merge to `main`, so it would ping about its own ping. Nothing
+#     here writes to the repo, so that shape cannot arise.
+#   * NO EXTRA CI. Landing a row through `.github/actions/commit-to-main` costs
+#     a PR plus a full required-check run (pytest alone is 12.9-14.6 min) per
+#     merge. On a 20-merge day that is 20 extra PRs to announce 20 merges.
+#
+# RATE LIMIT — THE DECISION, STATED. This repo has measured what an un-latched
+# alarm does: 202 of 376 CRITICALs in one window were a single alert, which
+# trained the operator past the one channel reserved for an unprotected
+# position. So the choice between "one ping per merge" and "one rolled-up
+# message per pull" is made deliberately, and it is the second — with the
+# constraint that NOTHING IS DROPPED. Every merge in the range is named
+# individually, with its PR number and subject; the roll-up bounds the number
+# of MESSAGES (at most one per ~5-minute pull), never the number of MERGES
+# reported. A window containing one merge therefore produces a message about
+# that one merge, which is the per-merge ping that was asked for.
+#
+# AUTOMATION MERGES ARE INCLUDED, deliberately and visibly. `chore(ops): …
+# (auto)` bookkeeping merges are real merges to `main`, and silently filtering
+# them would be this module deciding what the operator is allowed to see. They
+# are counted separately in the header so the decision to suppress them later
+# is the operator's, made against a number.
+
+# Every landing on `main` is a squash merge whose subject ends `(#NNNN)`.
+# MEASURED over the last 500 commits on `origin/main` (2026-09-02): 500 of 500
+# match this shape, 0 true merge commits, 0 unmatched. A direct push to `main`
+# is refused (GH006, 3 required checks), so there is no third shape today — the
+# merge-commit form below is defensive, for a repo setting that changes.
+_SQUASH_MERGE_RE = re.compile(r"^(?P<title>.+?)\s+\(#(?P<pr>\d+)\)$")
+_MERGE_COMMIT_RE = re.compile(r"^Merge pull request #(?P<pr>\d+) from \S+")
+
+# How many merges are named before the message says it is truncating. A pull
+# window normally holds 0-3; a VM that was down for a day can hold dozens, and a
+# 200-line Telegram message is not a notification. The overflow is STATED in the
+# body rather than silently cut — a message that quietly drops rows is the
+# failure this whole module was repaired for on 2026-09-02.
+MERGE_PING_MAX_LISTED = 15
+_MERGE_TITLE_MAX = 110
+
+
+def _parse_merge_subject(subject: str) -> Optional[tuple[str, str]]:
+    """``(pr_number, title)`` for a subject that landed a PR, else ``None``."""
+    m = _SQUASH_MERGE_RE.match(subject)
+    if m:
+        return m.group("pr"), m.group("title").strip()
+    m = _MERGE_COMMIT_RE.match(subject)
+    if m:
+        return m.group("pr"), ""
+    return None
+
+
+def _merge_pings(pre_sha: str, post_sha: str) -> List[tuple[str, str]]:
+    """One rolled-up ping naming every PR that merged in (pre_sha, post_sha].
+
+    Returns ``[]`` for BOTH "nothing merged" and "we could not read the range",
+    because a caller that appends to a ping list has nowhere to put a third
+    state — but the two are logged differently and must never be reported to the
+    operator as the same thing. Silence here is not evidence that nothing
+    merged.
+    """
+    subjects = _commit_subjects_or_none(pre_sha, post_sha)
+    if subjects is None:
+        logger.warning(
+            "merge-ping: could not read the commit range %s..%s — NOT the same "
+            "as 'no PRs merged'; nothing is reported for this pull.",
+            (pre_sha or "<empty>")[:8], (post_sha or "<empty>")[:8],
+        )
+        return []
+
+    # git log is newest-first; the operator reads "what happened since I last
+    # looked", so present it in the order it happened.
+    merges = []
+    for sha, subject in reversed(subjects):
+        parsed = _parse_merge_subject(subject)
+        if parsed is None:
+            continue
+        pr, title = parsed
+        merges.append((sha, pr, title))
+
+    if not merges:
+        logger.info("merge-ping: looked at %d commit(s) in %s..%s; none landed "
+                    "a PR.", len(subjects), pre_sha[:8], post_sha[:8])
+        return []
+
+    auto = sum(1 for _s, _p, t in merges if "(auto)" in t)
+    header = f"🔀 {len(merges)} PR{'s' if len(merges) != 1 else ''} merged to main"
+    if auto:
+        header += f" ({auto} automated)"
+    lines = [header]
+    for _sha, pr, title in merges[:MERGE_PING_MAX_LISTED]:
+        if len(title) > _MERGE_TITLE_MAX:
+            title = title[: _MERGE_TITLE_MAX - 1].rstrip() + "…"
+        lines.append(f"#{pr} {title}".rstrip())
+    hidden = len(merges) - MERGE_PING_MAX_LISTED
+    if hidden > 0:
+        lines.append(
+            f"…and {hidden} more not listed here (cap {MERGE_PING_MAX_LISTED}) "
+            f"— the compare link below has all {len(merges)}."
+        )
+    lines.append(GITHUB_COMPARE_URL.format(pre=pre_sha, post=post_sha))
+    return [("normal", "\n".join(lines))]
 
 
 # ---------------------------------------------------------------------------
@@ -660,7 +819,7 @@ def collect_pings(
     post_sha: str,
     force_checkpoint: bool = False,
 ) -> List[Tuple[str, str, Optional[str]]]:
-    """Order: blockers first (urgent), then queue drain, then checkpoint.
+    """Order: blockers first (urgent), then merges, then queue drain, then checkpoint.
 
     Returns ``[(priority, body, line_hash_or_None)]``. Only drained
     ``pending-pings.jsonl`` entries carry a ``line_hash``; blocker /
@@ -677,6 +836,8 @@ def collect_pings(
     for pri, body in _blocker_pings(pre_sha, post_sha):
         pings.append((pri, body, None))
     for pri, body in _training_workflow_pings(pre_sha, post_sha):
+        pings.append((pri, body, None))
+    for pri, body in _merge_pings(pre_sha, post_sha):
         pings.append((pri, body, None))
     delivered = _load_delivered_hashes(DELIVERED_HASHES)
     for pri, body, h in _drain_pending_pings(PENDING_PINGS, delivered):
