@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-01T23:20Z",
+  "updated_at": "2026-09-02T00:15Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -84,7 +84,7 @@
           "what": "token is in Actions, not yet on the VM; needs service: ict-claude-bridge.service (the suffix is required)"
         }
       ],
-      "note": "#10674 merged AND the VM deploy landed: set-env #10688 wrote TELEGRAM_CLAUDE_BOT_SECRET at 22:08:26Z and the bridge restarted active, flipping its route line from token=TELEGRAM_BOT_TOKEN[fallback] isolated=False to token=TELEGRAM_CLAUDE_BOT_SECRET[dedicated] isolated=True. OPERATOR-CONFIRMED delivery in @ict_cluade_bot. ⚠️ landed_unproven not done: the VM can prove which TOKEN it resolved, never which CONVERSATION a message surfaced in (chat_id is the operator's own id for every bot), so separation rests on the operator's eyes."
+      "note": "#10674 merged and the VM deploy landed (set-env #10688, 22:08:26Z, bridge restarted, route flipped to token=TELEGRAM_CLAUDE_BOT_SECRET[dedicated] isolated=True). OPERATOR-CONFIRMED delivery in @ict_cluade_bot. ⚠️ BUT SEPARATION IS NOT ACHIEVED — see MI-18. isolated=True is true at the BRIDGE and insufficient, because a second drainer delivers the same payload via the trader bot. #10685 records exactly this and is correct."
     },
     {
       "id": "MI-03-MORNING-DIGEST",
@@ -130,7 +130,8 @@
           "what": "the pull rule is only enforceable once E1 can name the held-up stage"
         }
       ],
-      "note": "UNBLOCKED and SPAWNED at 22:52Z on #10680's MERGE — not on Phase D being observed, which is the false-hold shape Phase D itself named. Scope is the forcing function: 6 retirements ever against 45 live legs, the M7 kill packet writing to a gitignored path with no cron, and Override 5 converting every kill to `tune`. ⚠️ Told explicitly NOT to build a second retirement mechanism — establish why the existing one cannot fire first."
+      "note": "PR #10708 OPEN (claude/phase-g-forcing-function). Manager has NOT read the diff. Spawned 22:52Z on #10680's merge. ⚠️ Its brief told it NOT to build a second retirement mechanism — the M7 kill packet already exists and is inert (gitignored path, no cron, Override 5 converting every kill to `tune`), so establishing WHY the existing one cannot fire was the first task, not writing a new one.",
+      "pr": "#10708"
     },
     {
       "id": "MI-07-PHASE-H-PRECONDITIONS",
@@ -153,7 +154,8 @@
           "what": "attaching require_session is only tractable once the other consumers are archived"
         }
       ],
-      "note": "SPAWNED 22:53Z on #10682's merge. The control half: anything waiting on the operator at the top, decisions answerable from the SPA. ⚠️ A decision-WRITE is a new write surface on a public API and must copy prop/report's FAIL-CLOSED token gate, never the permissive devices shape or the deliberately-open learning/progress one."
+      "note": "PR #10705 OPEN (claude/phase-h-decision-roundtrip). Manager has NOT read the diff. ⚠️ Read the write-gate polarity before merging: a decision-WRITE on a public API must copy prop/report's FAIL-CLOSED token gate (503 when DASHBOARD_API_TOKEN is unset), never the permissive devices shape or the deliberately-open learning/progress one.",
+      "pr": "#10705"
     },
     {
       "id": "MI-09-GLD-CLOSE",
@@ -176,7 +178,7 @@
       "title": "Hold and heartbeat the manager lease",
       "state": "in_flight",
       "owner": "manager",
-      "note": "Heartbeat 2026-09-01T23:20Z. Landed in this PR — an unpushed heartbeat protects nothing."
+      "note": "Heartbeat 2026-09-02T00:15Z. Landed in this PR — an unpushed heartbeat protects nothing."
     },
     {
       "id": "MI-12-STALE-AUTOMATION-PR",
@@ -190,7 +192,8 @@
       "title": "Drain the review backlogs (1,072 rows in health-review alone)",
       "state": "in_flight",
       "owner": "session_01FYEGu7tBoA6u4N1xyCdHDS",
-      "note": "STARTED 23:00Z against health-review-backlog.json (1,072 rows), class-first per the backlog-drain skill. The operator's trigger was that the workplan items are SPAWNED, not finished. Deliverable includes the rows it REFUSED to close with reasons — those are what stop the next drain re-examining the same rows."
+      "note": "PR #10707 OPEN (claude/backlog-drain-1-hx4m9p) after ~75 min on health-review-backlog.json. Manager has NOT read the diff. ⚠️ READ THE REFUSALS, not just the closure count: the deliverable was specified to list rows examined and REFUSED with reasons, because a falsely-closed row deletes knowledge AND reports progress. A burn-down without a denominator is not accounting.",
+      "pr": "#10707"
     },
     {
       "id": "MI-14-CI-GREEN-THE-THREE-DRAFTS",
@@ -245,6 +248,15 @@
       "pr": null,
       "blocked_on": null,
       "note": "Found by the ping test (#10695) when P1b vanished. Three send-ping actions dispatched inside 15s and the MIDDLE run was cancelled: issue left open, zero comments, nothing anywhere saying the action never ran. `cancel-in-progress: false` protects a RUNNING job, but GitHub keeps only one PENDING run per concurrency group, so a third queued run cancels the second. ⚠️ THE ISSUE COMMENT IS THE ONLY RESULT SURFACE A PM-SIDE SESSION HAS, so 'silently dropped' is indistinguishable from 'still queued' — a session can wait forever on a run that is already dead. The test session's workaround was to dispatch strictly one at a time, which is exactly the sort of unwritten discipline that decays. Filed as BL-20260901-SYSTEM-ACTIONS-CANCELS-A-SUPERSEDED-PENDING-RUN-AND-COMMENTS-NOTHING-BACK-SO-A-DISPATCHED-ACTION-IS-SILENTLY-LOST."
+    },
+    {
+      "id": "MI-20-REGISTER-PRS-SERIALIZE-BADLY-UNDER-A-FAST-MERGE-QUEUE",
+      "title": "Nine merges in three hours left four PRs conflicted on the same append-mostly register files",
+      "state": "in_flight",
+      "owner": "session_014RAYKspW1gtBsjuHA1XzKJ",
+      "pr": null,
+      "blocked_on": null,
+      "note": "#10685 was FULLY GREEN at 23:06Z and its merge was REFUSED at 00:15Z with 405 conflicts; #10686, #10687 and #10679 all show ZERO check runs, which here almost always means a conflict rather than 'CI has not started' — the merge ref cannot be built, so the workflows are silently skipped. Cause is simply that main took nine merges tonight and these PRs edit the same append-mostly registers (OPEN-ITEMS.json, the *-backlog.json files, docs/claude/work/*). ⚠️ THE RESOLUTION RULE MATTERS MORE THAN THE RESOLUTION: on an append-mostly register BOTH sides are usually additive and BOTH must survive — dropping the other side's row to clear the conflict deletes the record that something was filed, which is the failure the registers exist to prevent. ⚠️ WORTH A STRUCTURAL FIX RATHER THAN REPEATED CLEANUP: a fast merge queue against hand-edited JSON registers will keep producing this. The manager is absorbing it session-by-session tonight; someone should decide whether these files want an append-only merge driver or a different shape."
     }
   ]
 }
