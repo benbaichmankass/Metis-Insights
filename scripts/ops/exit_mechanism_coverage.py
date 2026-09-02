@@ -62,12 +62,78 @@ _REGISTRY = REPO / "config" / "lever_reachability.json"
 # The four M20 exit mechanisms, each by the cfg key(s) its unit module must read
 # for the mechanism to exist there at all. A module that reads NONE of a
 # mechanism's keys cannot run it, whatever the YAML says.
+#
+# ⚠️ THIS TABLE ANSWERS "DOES THE MODULE IMPLEMENT IT", NOT "DID THE LEG DECLARE
+# IT". Those are different questions over different key sets and conflating them
+# is what made the orphan check partial — see `DECLARE_KEYS` below.
 MECHANISMS: Dict[str, Tuple[str, ...]] = {
     "stale_stop": ("stale_exit_bars",),
     "giveback_stop": ("giveback_r", "giveback_min_mfe_r"),
     "exit_head": ("exit_head", "exit_head_threshold"),
     "trail_decay": ("trail_decay_tight_mult", "trail_decay_arm_r"),
 }
+
+#: The COMPLETE config surface of each mechanism — every key an implementation
+#: actually reads out of `meta`/`cfg`. This is what "the leg DECLARED this
+#: mechanism" must be tested against.
+#:
+#: WHY IT IS A SEPARATE TABLE FROM `MECHANISMS`, and why that is not tidiness.
+#: One table was serving two questions at once and was too NARROW for one of
+#: them, so the orphan check — the whole point of this file — was a partial
+#: predicate whose negative said nothing. MEASURED 2026-09-02 by planting a
+#: declare on `ict_scalp_sol_5m`, a leg whose unit has **zero** `exit_head`
+#: code (`grep -c exit_head src/units/strategies/ict_scalp.py` -> 0):
+#:
+#:   plant `exit_head_threshold` + `exit_head_action`  -> orphan reported, exit 1
+#:   plant `exit_head_model`     + `exit_head_action`  -> SILENT,          exit 0
+#:
+#: The second plant is the one that ships. `trend_donchian._exit_head_verdict`
+#: returns `None` unless `exit_head_action == "close"`, and it falls back to the
+#: artifact's own tau when no `exit_head_threshold` is given — so
+#: **`exit_head_action` is the key that arms the lever and `exit_head_threshold`
+#: is an optional modifier**, and the detector was keyed on the modifier while
+#: blind to the arming key. `"exit_head"` is not a key any leg declares at all.
+#:
+#: Not confined to `exit_head`: the same scan found `stale_exit_below_r` (read by
+#: `exit_levers.py` and `ict_scalp.py`) and `trail_decay_stall_bars` (read by
+#: `runtime/trail_decay.py`) missing too — 3 of 4 mechanisms, which is why the
+#: remedy is the derivation check in `declared_surface_gaps()` rather than four
+#: hand-added strings that can go stale again the next time a lever gains a knob.
+#:
+#: Widening THIS table can only widen orphan detection; it cannot make a module
+#: read as implementing a lever it does not have, because `module_implements`
+#: deliberately still reads the narrow `MECHANISMS` table above.
+DECLARE_KEYS: Dict[str, Tuple[str, ...]] = {
+    "stale_stop": ("stale_exit_bars", "stale_exit_below_r"),
+    "giveback_stop": ("giveback_r", "giveback_min_mfe_r"),
+    "exit_head": ("exit_head", "exit_head_action", "exit_head_model",
+                  "exit_head_threshold"),
+    "trail_decay": ("trail_decay_tight_mult", "trail_decay_arm_r",
+                    "trail_decay_stall_bars"),
+}
+
+#: The config-key prefix each mechanism's keys share, used to DERIVE the surface
+#: above from the implementations rather than trusting the hand-written tuple.
+KEY_PREFIX: Dict[str, str] = {
+    "stale_stop": "stale_",
+    "giveback_stop": "giveback_",
+    "exit_head": "exit_head",
+    "trail_decay": "trail_decay",
+}
+
+#: How every lever in this repo reads its declare. Deliberately narrow: it is
+#: the idiom, not a general string scan, so a key NAME appearing in a comment or
+#: a log line does not enter the surface.
+_CFG_READ = re.compile(r"\b(?:meta|cfg|cfg_dict|c)\.get\(\s*\"([a-z0-9_]+)\"")
+
+#: Where an implementation may live. Units, plus the shared runtime modules a
+#: unit delegates to (`exit_levers.py`, `trail_decay.py`, `exit_head_shadow.py`
+#: today). Scanned WHOLESALE rather than by an explicit module list, because a
+#: lever extracted to a NEW shared module is exactly the move that broke the
+#: source-only greps in
+#: `BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS`, and an
+#: explicit list would reproduce it.
+_IMPL_DIRS = (REPO / "src" / "units" / "strategies", REPO / "src" / "runtime")
 
 # Per (leg, mechanism) state. FIVE values, never collapsed — in particular
 # `not_implemented` and `undeclared` are opposite statements about whose choice
@@ -168,8 +234,12 @@ def audit() -> Dict[str, Any]:
         unit, basis = unit_of(src, name)
         row: Dict[str, Any] = {"strategy": name, "unit": unit,
                                "unit_basis": basis, "mechanisms": {}}
-        for mech, keys in MECHANISMS.items():
-            declared = any(c.get(k) is not None for k in keys)
+        for mech in MECHANISMS:
+            # THE FULL surface, not the implementation probe's narrow tuple:
+            # `declared` is a claim about the YAML, and testing it against a
+            # subset makes "no orphans" a statement about the subset only.
+            declared = any(c.get(k) is not None
+                           for k in DECLARE_KEYS[mech])
             if unit is None or unit not in unit_src:
                 state = UNRESOLVED
             elif not module_implements(unit_src[unit], mech):
@@ -192,6 +262,51 @@ def audit() -> Dict[str, Any]:
                                 for c in r["mechanisms"].values())})
     return {"legs": legs, "orphans": orphans, "unresolved": unresolved,
             "live_leg_count": len(legs)}
+
+
+def read_config_keys() -> Dict[str, Dict[str, List[str]]]:
+    """Every `<prefix>*` cfg key an implementation READS, per mechanism.
+
+    `{mechanism: {key: [files that read it]}}`. This is the DERIVATION that
+    keeps `DECLARE_KEYS` honest: the surface is a property of the code, and a
+    hand-written copy of a property of the code drifts the moment a lever gains
+    a knob — which is what `declared_surface_gaps()` exists to catch.
+    """
+    out: Dict[str, Dict[str, List[str]]] = {m: {} for m in DECLARE_KEYS}
+    for d in _IMPL_DIRS:
+        for path in sorted(d.glob("*.py")):
+            try:
+                src = path.read_text()
+            except OSError:
+                continue
+            for key in set(_CFG_READ.findall(src)):
+                for mech, prefix in KEY_PREFIX.items():
+                    if key.startswith(prefix):
+                        out[mech].setdefault(key, []).append(path.name)
+    return out
+
+
+def declared_surface_gaps(
+    declare_keys: Optional[Dict[str, Tuple[str, ...]]] = None,
+) -> List[Tuple[str, str, List[str]]]:
+    """`(mechanism, key, readers)` for a key an implementation reads that
+    `DECLARE_KEYS` does not list — i.e. a declare this file would not see.
+
+    ONE-SIDED ON PURPOSE. A key in the table that nothing reads is harmless
+    (it only widens orphan detection and costs nothing), so it is not a
+    failure; a key that is READ and not in the table makes the orphan check
+    silently partial, which is the defect. Reporting both as errors would have
+    forced an exception for `"exit_head"` — a key no leg declares and no module
+    reads — and an exception mechanism is how a guard becomes cheaper to lie to
+    than to satisfy.
+    """
+    table = DECLARE_KEYS if declare_keys is None else declare_keys
+    gaps: List[Tuple[str, str, List[str]]] = []
+    for mech, keys in read_config_keys().items():
+        for key, readers in sorted(keys.items()):
+            if key not in table.get(mech, ()):
+                gaps.append((mech, key, sorted(set(readers))))
+    return gaps
 
 
 def _self_test() -> int:
@@ -221,6 +336,38 @@ def _self_test() -> int:
          module_implements(
              (_UNITS / "htf_pullback_trend_2h.py").read_text(), "trail_decay")),
     ]
+    # ---- the DECLARED SURFACE is complete, and the check can find a gap.
+    # Both halves are required: an empty gap list from a probe that cannot
+    # find a planted positive is the "no orphans" answer this file exists to
+    # stop anyone acting on.
+    gaps = declared_surface_gaps()
+    checks.append((
+        f"declared surface complete (no read-but-undeclared lever key); "
+        f"gaps={[(m, k) for m, k, _ in gaps]}",
+        not gaps))
+    _holed = {m: tuple(k for k in ks if k != "exit_head_action")
+              for m, ks in DECLARE_KEYS.items()}
+    _planted = declared_surface_gaps(_holed)
+    checks.append((
+        "positive control: removing exit_head_action from the table IS "
+        "detected as a gap",
+        any(k == "exit_head_action" for _m, k, _r in _planted)))
+
+    # ---- the ARMING key alone counts as a declare.
+    # The regression this file shipped with: `exit_head_action: close` is
+    # necessary AND sufficient to arm the head (trend_donchian._exit_head_verdict
+    # returns None without it and falls back to the artifact tau when no
+    # threshold is given), yet it was absent from the implementation tuple — so
+    # a leg carrying only model+action on a unit with no exit-head code was
+    # graded `not_implemented`, not `orphaned`, and `--orphans-only` exited 0.
+    _leg = {"exit_head_action": "close", "exit_head_model": "exit-head-x-v1"}
+    checks.append((
+        "exit_head_action alone reads as DECLARED",
+        any(_leg.get(k) is not None for k in DECLARE_KEYS["exit_head"])))
+    checks.append((
+        "…and is still NOT taken as evidence a module implements exit_head",
+        not any(_leg.get(k) is not None for k in MECHANISMS["exit_head"])))
+
     src = _BUILDERS.read_text()
     checks.append(("xrp_pullback_2h resolves to htf_pullback_trend_2h",
                    unit_of(src, "xrp_pullback_2h")[0] == "htf_pullback_trend_2h"))
