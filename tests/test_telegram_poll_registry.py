@@ -211,3 +211,46 @@ def test_forget_poll_clears_both_halves():
     reg.record_poll("T", ["wdec"], service="svc")
     reg.forget_poll("T")
     assert reg.poll_state("T", prefix="wdec").state == reg.TOKEN_ONLY_NOT_POLLED
+
+
+# ── the read surface must match the writer ──────────────────────────────────
+
+def test_the_diag_read_surface_names_the_paths_the_writer_ACTUALLY_produces():
+    """A read surface that points at the wrong path is worse than none.
+
+    It answers "absent" forever, which the resolver's own vocabulary would then
+    render as `token_only_not_polled` — a WORKING poller reported as a dead
+    button, on the one surface a session consults when a tap did nothing. So
+    the agreement is asserted rather than eyeballed, and it is asserted against
+    `entry_path()` (which sanitises the filename) rather than against a copy of
+    the string.
+    """
+    import re
+    from pathlib import Path
+
+    from src.utils.paths import runtime_logs_dir
+
+    src = Path("src/web/api/routers/diag.py").read_text(encoding="utf-8")
+    declared = dict(re.findall(
+        r'"(telegram_poll_\w+)":\s*\n?\s*'
+        r'runtime_logs_dir\(\) / "telegram_pollers" / "([^"]+)"',
+        src))
+    assert declared, "the poll claims lost their /api/diag/log_file entries"
+
+    for token_var in ("TELEGRAM_CLAUDE_BOT_SECRET", "TELEGRAM_BOT_TOKEN"):
+        # NB: entry_path is monkeypatched onto tmp_path by the autouse fixture,
+        # so compare the NAME and the directory shape, not the absolute root.
+        produced = reg.entry_path(token_var)
+        assert produced.parent.name == "telegram_pollers"
+        assert produced.name in declared.values(), (
+            f"{token_var} is written to {produced.name}, which no "
+            f"/api/diag/log_file entry names: {sorted(declared.values())}")
+
+
+def test_the_read_surface_never_exposes_a_token_value(tmp_path):
+    """The entry is keyed by the VARIABLE name; the value must never be in it."""
+    secret = "8123456789:AAH-not-in-any-file"
+    reg.record_poll("TELEGRAM_CLAUDE_BOT_SECRET", ["wdec"], service="svc")
+    body = reg.entry_path("TELEGRAM_CLAUDE_BOT_SECRET").read_text(encoding="utf-8")
+    assert secret not in body
+    assert "TELEGRAM_CLAUDE_BOT_SECRET" in body

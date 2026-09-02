@@ -183,11 +183,35 @@ def scan(root: Path, targets):
     # non-greedily up to the end of the logical line so `as` aliases and
     # comma-separated lists both count, while `_strip_noncode` has already
     # removed comments and docstrings so prose still cannot qualify.
+    #   d) module RUN     `ExecStart=/usr/bin/python3 -u -B -m src.bot.foo`
+    #                      `python3 -m scripts.ops.bar`
+    #
+    # (d) is a FOURTH shape and the guard was blind to it until 2026-09-02, when
+    # it blocked a correct change for the third time in the same way. A systemd
+    # unit is the single most load-bearing kind of runner this repo has — it is
+    # what makes a long-lived service RUN — and `deploy/**/*.service` has been in
+    # RUNNER_GLOBS from the start, so the corpus was right and only the pattern
+    # was blind. `python -m` takes a DOTTED MODULE PATH and, exactly like the
+    # import forms in (b), it can never carry `.py`; it is also not an `import`
+    # statement, so none of (a)-(c) could match it.
+    #
+    # Measured: `src/bot/claude_decision_bot.py` graded "no runner references it
+    # at all" while `deploy/ict-claude-decision-bot.service` ran it via
+    # `ExecStart=... -m src.bot.claude_decision_bot`. The pre-existing sibling
+    # `src/bot/claude_bridge.py` is wired identically and escaped only because
+    # this guard is diff-scoped, so the blind spot was invisible until a NEW
+    # unit was added. Anchored to `-m` so a bare mention of the stem in a
+    # command's arguments still does not count.
+    #
+    # Negative control, run 2026-09-02 rather than assumed: with a genuinely
+    # unwired file planted and committed, the guard still reported it
+    # ("1 with no runner"), so this shape does not blind the check it extends.
     pat = re.compile(
         r"\b(?:" + alt + r")\.py\b"
         r"|^[ \t]*import[ \t]+(?:[\w.]+\.)?(?:" + alt + r")\b"
         r"|^[ \t]*from[ \t]+(?:[\w.]+\.)?(?:" + alt + r")[ \t]+import\b"
-        r"|^[ \t]*from[ \t]+[\w.]+[ \t]+import[ \t]+\(?[^\n]*?\b(?:" + alt + r")\b",
+        r"|^[ \t]*from[ \t]+[\w.]+[ \t]+import[ \t]+\(?[^\n]*?\b(?:" + alt + r")\b"
+        r"|-m[ \t]+(?:[\w.]+\.)?(?:" + alt + r")\b",
         re.MULTILINE,
     )
     # `findall` on a pattern with no capturing group returns whole matches, so
