@@ -512,6 +512,19 @@ GUARDS: List[Dict[str, Any]] = [
             # and the signal surfaced hours later on three unrelated PRs. This job
             # never short-circuits, which is the entire reason the check lives here.
             ["python3", "scripts/ops/backlog_append.py", "--check-live"],
+            # Same shape, same reason, different file: every row in
+            # docs/claude/pending-pings.jsonl must render an operator-visible
+            # BODY, and pytest-run CANNOT check that — it short-circuits on a
+            # docs/-only diff, which is precisely what a queued ping is. The
+            # pytest version was refused by
+            # tests/test_pytest_run_filter.py::test_docs_committed_readers_are_all_covered,
+            # correctly. Widening pytest-run's filter instead was rejected: the
+            # work-digest workflow appends here every 4h via an auto-merge PR,
+            # so it would put a ~15-minute suite on a routine generated commit.
+            # Self-test first — a probe that cannot find a planted positive
+            # would make every queue look clean.
+            ["python3", "scripts/ci/check_pending_pings_render.py", "--self-test"],
+            ["python3", "scripts/ci/check_pending_pings_render.py"],
             ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
             ["python3", "scripts/ops/check_allow_degraded.py"],
             ["python3", "scripts/ops/check_research_index.py", "--list"],
