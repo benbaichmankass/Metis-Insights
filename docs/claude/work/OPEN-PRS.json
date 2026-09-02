@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-02T06:50:00Z",
+  "as_of": "2026-09-02T07:57:33Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -164,6 +164,67 @@
       },
       "blocker": "None. Draft; the manager merges. ⚠️ It adds `session-registry-guard`, which FAILS CI when a session id named as owner of an `in_flight` MANAGER-CHECKLIST item is absent from SESSIONS.json -- so a future manager assigning an item to an unregistered session will see this guard red rather than discovering the loss at handoff.",
       "why_it_matters": "MI-15's remedy ('remember to register') has failed twice: 3 of 6 absent on 2026-09-01, then 6 of 9 with five LIVE on 2026-09-02. Re-measured over all 60 sessions from list_sessions(mine=true, limit=60) against the 30 registry rows at main 550c9f6d (1 excluded as the manager itself, 4 as ARCHIVED, 55 graded): 26 absent, 17 of them carrying the manager's own id as parent_session_id, 5 RUNNING."
+    },
+    {
+      "pr": 10768,
+      "title": "system-actions: workflow_dispatch has been dead on every action — one unbound variable",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-46",
+      "draft": false,
+      "tier": "1 (workflow logging line; no order path)",
+      "state": "ready_awaiting_ci",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": "Tier-1. One `echo` line gains the `:-` defaults the ten lines above it already use."
+      },
+      "blocker": "pytest-run in progress at 07:52Z. ⚠️ CI GREEN DOES NOT PROVE THIS FIX — the defect is not reachable from CI. The proof is a workflow_dispatch send-ping concluding success AFTER merge."
+    },
+    {
+      "pr": 10765,
+      "title": "ops(open-items): record the schedule-event measurement the review-packet row declared missing",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": true,
+      "tier": "1 (register row)",
+      "state": "unreviewed_by_manager",
+      "operator_decision": {
+        "verdict": "not_sought",
+        "condition": null,
+        "scope": null
+      },
+      "blocker": "NOT YET REVIEWED. Recorded so a successor can see it; absence of a review is not a verdict."
+    },
+    {
+      "pr": 10764,
+      "title": "docs: split the API payload reference out of CLAUDE.md (-34.4%, verbatim)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": true,
+      "tier": "1 (docs)",
+      "state": "blocked_ambiguous_ci",
+      "operator_decision": {
+        "verdict": "not_sought",
+        "condition": null,
+        "scope": null
+      },
+      "blocker": "pytest-run ran exactly TWICE on this branch: run 9814 (author's merge) CANCELLED, run 9819 (manager's merge commit 0890fc02) FAILURE. ⚠️ THERE IS NO GREEN BASELINE, so neither 'already broken' nor 'I broke it' is supported by the evidence. Handed back to its author. Do not assert a cause."
+    },
+    {
+      "pr": 10758,
+      "title": "alarm: a close wedge PROVEN unclearable goes to the digest, not the pager (MI-34)",
+      "owner_session": null,
+      "checklist_item": "MI-34",
+      "draft": true,
+      "tier": "1 (alerting routing)",
+      "state": "unreviewed_by_manager",
+      "operator_decision": {
+        "verdict": "not_sought",
+        "condition": null,
+        "scope": null
+      },
+      "blocker": "NOT YET REVIEWED. Touches which conditions PAGE vs digest, so it wants a careful read against the desensitised-alarm rule before merging."
     }
-  ]
+  ],
+  "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling."
 }
