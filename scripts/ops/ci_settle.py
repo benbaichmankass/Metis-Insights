@@ -302,20 +302,52 @@ def extract_log_tail(log_text: str, max_lines: int = MAX_LOG_LINES) -> List[str]
 # --------------------------------------------------------------------------
 
 
+class _DropAuthOnCrossHostRedirect(urllib.request.HTTPRedirectHandler):
+    """Strip ``Authorization`` when a redirect leaves the api.github.com host.
+
+    MEASURED 2026-09-02 on the relay's own first live red verdict: the job-log
+    endpoint answers ``302`` to a blob-storage host, urllib's default handler
+    re-sent the GitHub bearer to it, and the blob host replied ``401 Server
+    failed to authenticate the request``. The excerpt came back empty.
+
+    That it came back as ``log_state: "unreadable"`` WITH the 401 attached --
+    rather than as an empty ``log_tail`` -- is the state vocabulary doing its
+    job: an empty excerpt would have read as *the job failed quietly*, which is
+    a different and wrong claim. The state was honest; the read still needs to
+    work, which is what this handler fixes.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D102
+        new_req = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new_req is None:
+            return None
+        from urllib.parse import urlparse
+
+        if urlparse(newurl).netloc != urlparse(req.full_url).netloc:
+            # `Request` normalises header names to title case on add_header.
+            new_req.headers.pop("Authorization", None)
+            new_req.unredirected_hdrs.pop("Authorization", None)
+        return new_req
+
+
+_LOG_OPENER = urllib.request.build_opener(_DropAuthOnCrossHostRedirect)
+
+
 class GitHub:
     def __init__(self, token: str, repo: str) -> None:
         self.token = token
         self.repo = repo
 
-    def _request(self, path: str, accept: str) -> Tuple[bool, Any]:
+    def _request(self, path: str, accept: str, *, opener=None) -> Tuple[bool, Any]:
         url = path if path.startswith("http") else f"{API}{path}"
         req = urllib.request.Request(url)
         req.add_header("Authorization", f"Bearer {self.token}")
         req.add_header("Accept", accept)
         req.add_header("X-GitHub-Api-Version", "2022-11-28")
         req.add_header("User-Agent", "metis-ci-settle")
+        open_fn = opener.open if opener is not None else urllib.request.urlopen
         try:
-            with urllib.request.urlopen(req, timeout=45) as resp:
+            with open_fn(req, timeout=45) as resp:
                 raw = resp.read()
         except (urllib.error.URLError, OSError, TimeoutError) as exc:
             return False, str(exc)
@@ -330,7 +362,11 @@ class GitHub:
         return self._request(path, "application/vnd.github+json")
 
     def text(self, path: str) -> Tuple[bool, Any]:
-        return self._request(path, "application/vnd.github.raw+json")
+        # The log endpoint redirects to blob storage, which rejects the GitHub
+        # bearer -- see _DropAuthOnCrossHostRedirect.
+        return self._request(
+            path, "application/vnd.github.raw+json", opener=_LOG_OPENER
+        )
 
     def pull(self, number: int) -> Tuple[bool, Any]:
         return self.json(f"/repos/{self.repo}/pulls/{number}")

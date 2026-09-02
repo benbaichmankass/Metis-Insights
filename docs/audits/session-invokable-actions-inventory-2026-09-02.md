@@ -28,7 +28,7 @@ Two consequences, and they point in opposite directions:
 2. **The diag relay is largely superseded and the docs have not caught up.**
    A credentialed `/api/diag/*` read is a Bash call from inside the sandbox. It
    does not need an issue, a workflow, or an MCP read-back. Filed as
-   `BL-20260902-DIAG-BASE-URL-STILL-NAMES-THE-TERMINATED-MICRO-…`.
+   `BL-20260902-DIAG-BASE-URL-STILL-NAMES-THE-TERMINATED-MICRO-AND-CLAUDE-MD-STILL-ROUTES-TO-THE-RELAY`.
    ⚠️ Scoped to the **live VM** only — the trainer has no HTTP diag surface and
    is genuinely relay-only.
 
