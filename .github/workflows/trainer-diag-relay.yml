@@ -1,0 +1,292 @@
+name: trainer-diag-relay
+
+# Git-push-triggered TRAINER-VM diag relay — the MCP-independent read path.
+#
+# ─── WHY THIS EXISTS ───────────────────────────────────────────────────────
+# The trainer VM (158.178.209.121) has NO HTTP diag API. `CLAUDE.md` and
+# `docs/claude/diag-relay.md` both say it is reachable only through the
+# `trainer-vm-diag` ISSUE relay (open an issue labelled `trainer-vm-diag-request`
+# carrying a `cmd:` block). That is true, and it is the only documented path.
+#
+# But a PM-side session's GitHub MCP is intermittently READ-ONLY: `issue_write`
+# returns 403 "Resource not accessible by integration". That is a write-scope
+# boundary, NOT the transient hosted-MCP drop `CLAUDE.md` documents — retrying
+# with backoff never clears it, and `curl` to api.github.com returns 403 at the
+# sandbox proxy. A session in that state cannot open the issue, so the ONLY
+# documented trainer path is closed to it and the docs name a relay it cannot use.
+#
+# Two relays already exist for exactly that 403 — `pr-opener.yml` (open a PR) and
+# `board-post.yml` (comment on the coordination board). Neither covers a VM read.
+# This is the third, on the same push-triggered shape.
+#
+# Measured cost of the gap (2026-09-01): a backlog-drain session could not read
+# `runtime_logs/trainer/dataset_audit.jsonl` and had to refuse rows rather than
+# infer — which was the RIGHT call, and is what the gap costs. `dataset_audit.jsonl`
+# is genuinely unreachable any other way: `scripts/ops/publish_trainer_mirror.sh`
+# pushes `trainer/dataset_builds.jsonl` and `trainer/db_pulls.jsonl` BY NAME and
+# does not include it, so no `/api/bot/ml/*` route can serve it.
+#
+# ─── CONTRACT ──────────────────────────────────────────────────────────────
+#   * Drop a shell script at `automation/trainer-diag-requests/<fresh-name>.sh` and push it
+#     to any branch. Its ENTIRE contents are the bash script run on the trainer.
+#   * The runner SSHes to the trainer, runs it via stdin, and writes a result to
+#     `automation/trainer-diag-results/<name>.txt`, then commits that back.
+#   * Read it back with:
+#       git fetch origin <branch>
+#       git show origin/<branch>:automation/trainer-diag-results/<name>.txt
+#
+# ─── THE FILE IS THE SCRIPT — NO `cmd:` PARSER, DELIBERATELY ────────────────
+# `trainer-vm-diag.yml` must extract the script from an issue body, and that awk
+# extractor has produced FIVE separate documented truncation bugs (BL-20260607-002
+# sibling-key leak · BL-20260720-TRAINERDIAG-FENCE · BL-20260731-…-TRAILING-PROSE
+# · #9400 unfenced-prose recurrence · BL-20260807-…-COLUMN0-PYTHON-KEYWORD, where
+# an embedded `try:` cut a script at line 15 AND THE PREFIX STILL RAN, returning
+# plausible output at exit 0). Every one of those is a truncation that looks like
+# a complete answer. A file has no ambient YAML around it, so none of that class
+# can occur here and no base64 hop is needed for a multi-line script.
+#
+# ─── STATES ARE NOT COLLAPSED ──────────────────────────────────────────────
+# The result header carries `state`, and *we could not look* is never *we looked
+# and found nothing*:
+#   ran            — the script reached the trainer and ran. `remote_exit` is its
+#                    real exit code; a NON-ZERO `remote_exit` is still `ran`.
+#   unreachable    — SSH never got the script onto the box (key, network, VM down).
+#                    The output is the SSH error, NOT a trainer answer.
+#   refused_empty  — the request file is empty/whitespace. Nothing ran.
+#   refused_scope  — the script named a NON-trainer host (see the tripwire below).
+#
+# `remote_exit` comes from a sentinel emitted by an EXIT trap prepended to the
+# script, so it survives an explicit `exit` in the caller's own script. If the
+# sentinel is absent the field reads `unknown` — WE DID NOT LEARN THE EXIT CODE —
+# and is never defaulted to 0. `trainer-vm-diag.yml` runs its ssh under `|| true`
+# and reports no exit code at all, so there a failed command and a successful one
+# render identically; that is the one behaviour here that is deliberately better
+# rather than merely copied.
+#
+# ─── OUTPUT CAP ANNOUNCES ITSELF ───────────────────────────────────────────
+# Capped at 200_000 bytes with an explicit marker naming the full size. An
+# unlabelled cap is what made a 500-char command echo read as a truncated
+# EXECUTION and sent a session hunting a length boundary that did not exist
+# (BL-20260807-TRAINER-DIAG-RELAY-SILENT-CMD-TRUNCATION). Prefer aggregating ON
+# the trainer and returning summary rows.
+#
+# ─── SCOPE TRIPWIRE (an accident guard, NOT a security boundary) ────────────
+# A script naming a live-trader / gateway host is REFUSED. Be precise about what
+# this is: anyone who can trigger this workflow can push, and push access already
+# permits editing this file, so the tripwire stops NOTHING deliberate. What it
+# stops is an honest mistake — and that mistake is reachable, because the trainer
+# holds credentials for its read-only DB pull FROM the live VM, so a script that
+# means to read the trainer could hop without anyone intending it. The live VM is
+# a different trust contract (`docs/claude/vm-operator-mode.md`) and is out of
+# scope for this relay by construction.
+# KNOWN FALSE POSITIVE, stated so it is never mistaken for an outage: a legitimate
+# command that merely GREPS for one of these strings (e.g. `grep -rn ict-trader-live
+# docs/`) is refused too. The refusal is loud and names the token; rephrase.
+#
+# ─── WHY PUSH-TRIGGERED IS NOT A WIDENING ──────────────────────────────────
+# `push` events do not fire from forks, so the trigger is gated to accounts with
+# write access to THIS repo — and such an account can already edit any workflow
+# and use any secret. This grants no privilege that did not already exist. The
+# trainer VM is declared AUTONOMOUS Claude territory (`docs/claude/trainer-vm-mode.md`
+# § 3 + § 9: any read, any diagnostic, no operator approval), and this deliberately
+# matches `trainer-vm-diag.yml`'s capability rather than narrowing it — a read-only
+# subset would leave a session that must kick a cycle stuck on the same 403.
+#
+# ─── ⚠️ INHERITED TRAP: THE RESULTS COMMIT DISARMS PR CI ────────────────────
+# The results commit is pushed by `github-actions[bot]` with GITHUB_TOKEN, and
+# GitHub does not trigger workflows for GITHUB_TOKEN pushes (recursion prevention).
+# When it lands last on a PR's head branch the PR shows ZERO check runs — which is
+# `blocked`, NOT green. This is the same trap `pr-opener.yml`'s header documents
+# for itself; every push-triggered relay in this repo inherits it.
+#   * Push your diag requests on a SCRATCH branch, not your PR's head branch.
+#   * If a results commit does land on a PR head, push one ordinary commit of your
+#     own to arm CI.
+#   * `total_count: 0` has TWO causes and `mergeable_state` separates them:
+#     `blocked` = no checks fired (this); `dirty` = merge conflict.
+#
+# Blast radius: SSH to the TRAINER VM only, plus result files under
+# `automation/trainer-diag-results/**`. It cannot reach the live trader VM, the
+# money DB, `src/`, `config/`, or any unit file the live VM consumes.
+
+on:
+  push:
+    paths: ['automation/trainer-diag-requests/**']
+
+permissions:
+  contents: write
+
+concurrency:
+  # KEYED ON THE COMMIT SHA so no request is EVER dropped. GitHub keeps at most
+  # ONE pending run per group, so a coarser key silently discards a burst — the
+  # exact failure BL-20260611-002 recorded for the shared-group diag relays. A
+  # sha key makes every push its own group: nothing pends, nothing is dropped.
+  #
+  # This does NOT serialize heavy work on the 1-OCPU trainer, and cannot: a true
+  # FIFO of depth > 1 is impossible at this layer. That is why cross-session
+  # serialization is an APPLICATION-level VM-lane FIFO on the coordination board
+  # (issue #6927) — the same reasoning `trainer-vm-diag.yml` states verbatim.
+  # See docs/claude/vm-resource-management.md.
+  group: trainer-diag-relay-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    # Matches trainer-vm-diag.yml. A 10-min cap silently killed legitimate heavy
+    # trainer reads there (issues #7815/#7816/#7829). Anything expected to run
+    # longer than ~an hour must be dispatched DETACHED (nohup + a sentinel file)
+    # and polled by a follow-up request, not held in one SSH session.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key
+          chmod 600 ~/.ssh/trainer_key
+          ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run pending trainer-diag requests
+        env:
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          mkdir -p automation/trainer-diag-results
+          shopt -s nullglob
+          MAX_BYTES=200000
+          found=0
+
+          for req in automation/trainer-diag-requests/*.sh; do
+            base="$(basename "$req" .sh)"
+            out="automation/trainer-diag-results/${base}.txt"
+
+            # IDEMPOTENCY IS THE RESULT FILE, NOT DELETION OF THE REQUEST -- the
+            # same discipline as pr-opener.yml/board-post.yml. Deleting the
+            # request would stage a change under this workflow's OWN trigger
+            # path, forcing a `[skip ci]` that strands PR checks. Consequence:
+            # REUSING a name that already has a result is a silent NO-OP. Use a
+            # fresh name per request.
+            if [ -f "$out" ]; then
+              echo ">>> ${base}: already has a result, skipping"
+              continue
+            fi
+            found=$((found + 1))
+
+            write_header() {
+              printf '=== trainer-diag-relay result ===\nrequest: %s\nstate: %s\nremote_exit: %s\nrun: %s\n=================================\n' \
+                "$base" "$1" "$2" "$RUN_URL" > "$out"
+            }
+
+            # Assert the input before trusting the outcome. An empty script
+            # "succeeds" on the trainer and returns nothing, which is
+            # indistinguishable from a real empty answer.
+            if [ ! -s "$req" ] || ! grep -q '[^[:space:]]' "$req"; then
+              write_header refused_empty n/a
+              echo "The request file was empty or whitespace-only. Nothing ran on the trainer." >> "$out"
+              echo ">>> ${base}: REFUSED (empty)"
+              continue
+            fi
+
+            # Scope tripwire -- see the header. Accident guard, not a boundary.
+            hit=""
+            for tok in 141.145.193.91 158.178.210.252 10.0.0.251 ict-bot.duckdns.org ict-bot-arm ict-trader-live ict-web-api; do
+              if grep -qF -- "$tok" "$req"; then hit="$tok"; break; fi
+            done
+            if [ -n "$hit" ]; then
+              write_header refused_scope n/a
+              {
+                echo "The script names '${hit}', which belongs to the LIVE TRADER / IB-GATEWAY hosts."
+                echo "This relay reaches the TRAINER VM only; the live VM is a different trust contract"
+                echo "(docs/claude/vm-operator-mode.md) and its reads go through vm-diag-snapshot."
+                echo
+                echo "If you only meant to GREP for that string, this is the documented false positive:"
+                echo "rephrase the pattern (e.g. split it) and re-push under a NEW request name."
+              } >> "$out"
+              echo ">>> ${base}: REFUSED (scope: ${hit})"
+              continue
+            fi
+
+            # Prepend an EXIT trap so the remote exit code survives an explicit
+            # `exit` in the caller's script. If the caller installs its own EXIT
+            # trap this is overridden and the sentinel is absent -- which reads
+            # as `unknown`, never as 0.
+            {
+              printf 'trap %s__td_rc=$?; printf "\\n__TRAINER_DIAG_EXIT__:%%s\\n" "$__td_rc"%s EXIT\n' "'" "'"
+              cat "$req"
+            } > /tmp/td_script.sh
+
+            # Command file goes over stdin -- never interpolated into the ssh
+            # invocation, so the request cannot inject shell metacharacters into
+            # the runner. Keepalives: a long trainer read can be silent for
+            # minutes; 30s x 10 tolerates ~5 min of silence before declaring the
+            # link dead (BL-20260721-TRAINERDIAG-SILENT-SSH-DROP).
+            ssh -i ~/.ssh/trainer_key \
+                -o BatchMode=yes \
+                -o StrictHostKeyChecking=accept-new \
+                -o ConnectTimeout=20 \
+                -o ServerAliveInterval=30 \
+                -o ServerAliveCountMax=10 \
+                "${TRAINER_USER}@${TRAINER_IP}" \
+                'bash -s' < /tmp/td_script.sh > /tmp/td_out.txt 2>&1 || true
+
+            # The sentinel is the ONLY proof the script reached the trainer and
+            # ran to completion. ssh's own exit code cannot say this: 255 is
+            # ssh-level failure but a remote command may also exit 255.
+            if grep -q '^__TRAINER_DIAG_EXIT__:' /tmp/td_out.txt; then
+              state=ran
+              rc="$(grep '^__TRAINER_DIAG_EXIT__:' /tmp/td_out.txt | tail -1 | cut -d: -f2)"
+              grep -v '^__TRAINER_DIAG_EXIT__:' /tmp/td_out.txt > /tmp/td_body.txt
+            else
+              state=unreachable
+              rc=unknown
+              cp /tmp/td_out.txt /tmp/td_body.txt
+            fi
+
+            full="$(wc -c < /tmp/td_body.txt | tr -d ' ')"
+            write_header "$state" "$rc"
+            if [ "$state" = "unreachable" ]; then
+              {
+                echo "SSH never confirmed the script ran on the trainer, so the text below is a"
+                echo "TRANSPORT error, NOT a trainer answer. It says nothing about what is on the box."
+                echo
+              } >> "$out"
+            fi
+            if [ "$full" -le "$MAX_BYTES" ]; then
+              cat /tmp/td_body.txt >> "$out"
+            else
+              head -c "$MAX_BYTES" /tmp/td_body.txt >> "$out"
+              printf '\n... (TRUNCATED by the relay -- showing the first %s of %s bytes. Aggregate ON the trainer and return summary rows instead.)\n' \
+                "$MAX_BYTES" "$full" >> "$out"
+            fi
+            echo ">>> ${base}: state=${state} remote_exit=${rc} bytes=${full}"
+          done
+
+          echo "trainer-diag-relay: ${found} request(s) processed"
+
+      - name: Commit results back to branch
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # ONLY the results dir. Staging anything under the trigger path
+          # `automation/trainer-diag-requests/**` would retrigger this workflow and force
+          # a `[skip ci]`, which is what stranded PR CI on #10076/#10077/#10078.
+          git add -A automation/trainer-diag-results
+          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
+          git commit -m "trainer-diag-relay: results"
+          git push origin HEAD:${{ github.ref_name }}
