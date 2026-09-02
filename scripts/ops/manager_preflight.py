@@ -116,6 +116,15 @@ WHAT THIS DELIBERATELY DOES NOT TRY TO CHECK — the honest boundary
 EXIT CODES: 0 ready · 3 not_ready · 4 unknown. Both non-ready states are
 non-zero so a caller cannot treat "we could not look" as a pass.
 """
+#
+# wiring: manual-only - a MANAGER runs this before spawning, merging, or handing
+# over; it is deliberately NOT registered in run_guards.py. Every check here FAILS
+# on origin/main today (18 parentless sessions, 122 unnotified actions, 1 unprobed
+# blockage), so wiring it into CI would fail every PR from day one -- the "52
+# findings for 26 days" condition, where a permanently-red check becomes something
+# everyone learns to walk past. That is the same desensitised-alarm failure this
+# file's own F6 check exists to prevent, and shipping it would be self-defeating.
+# Wiring it into CI becomes correct once the findings are drained, not before.
 from __future__ import annotations
 
 import argparse
@@ -449,7 +458,8 @@ def artifact_candidates(open_prs: Optional[List[Dict[str, Any]]]) -> Optional[Di
     def _is(pr: Dict[str, Any], *needles: str) -> bool:
         text = f"{pr.get('title', '')} {json.dumps(pr.get('labels') or [])}".lower()
         return any(n in text for n in needles)
-    head = lambda pr: (((pr.get("head") or {}).get("ref")) or "")
+    def head(pr: Dict[str, Any]) -> str:
+        return ((pr.get("head") or {}).get("ref")) or ""
     total = len(open_prs)
     no_dnm = [p for p in open_prs if not _is(p, "do not merge", "do-not-merge")]
     no_auto = [p for p in no_dnm if not head(p).startswith("automation/")]
@@ -734,7 +744,7 @@ def check_bot_authored_head(base: str = "origin/main") -> Dict[str, Any]:
                   f"`git log {base}..HEAD` could not be run (no remote-tracking ref, or "
                   f"a shallow/detached clone), so the tip's author is unestablished. WE "
                   f"DID NOT LOOK.")
-    rows = [l.split("\x00") for l in out.splitlines() if l.strip()]
+    rows = [ln.split("\x00") for ln in out.splitlines() if ln.strip()]
     if not rows:
         return _c("bot_authored_head", PASS,
                   f"no commits of your own on top of {base} — nothing to push, so no "
