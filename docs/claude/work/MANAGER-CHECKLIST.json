@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T02:40Z",
+  "updated_at": "2026-09-02T02:46Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -162,7 +162,7 @@
       "title": "alpaca_paper GLD will not flatten -- 397 consecutive close failures",
       "state": "in_flight",
       "owner": "session_01Hd8opmCBcNQRchwdasWpvL",
-      "note": "#10679 is `dirty` — merge conflict, which is ALSO why it shows zero check runs (the documented trap: GitHub builds pull_request runs against the merge ref, and a ref that cannot be built silently skips CI). Delegated with #10681 to session_01GmjT7SLhVQNJtWnY1asEEb. ⚠️ Operator-approved; merging it still does NOT clear the live GLD wedge, which needs venue action and is now at 13 consecutive close failures.",
+      "note": "#10679 is `dirty` — merge conflict, which is ALSO why it shows zero check runs (the documented trap: GitHub builds pull_request runs against the merge ref, and a ref that cannot be built silently skips CI). Delegated with #10681 to session_01GmjT7SLhVQNJtWnY1asEEb. ⚠️ Operator-approved; merging it still does NOT clear the live GLD wedge, which needs venue action and is now at 13 consecutive close failures. === 2026-09-02T02:45Z: #10679 REFUTED ITS OWN BRIEFED DIAGNOSIS, which is the second refutation-with-measurement tonight. It was told this was an uncovered sibling call site — port the qty_available fix from the regular-hours close to the extended-hours one. Measured instead: PR #10666 ALREADY ported it (merged 16:23Z, ~4h before the brief's own 20:12Z measurement), it IS deployed and its new log line was firing on the trader at 21:19Z, and the REGULAR-hours path fails identically INSIDE RTH with both levers already present. **There was no working sibling to port from — porting would have fixed nothing.** The brief's second branch ('or establish that it cannot and say why') is the true one.",
       "pr": "#10679"
     },
     {
@@ -366,6 +366,24 @@
       "pr": null,
       "blocked_on": null,
       "note": "MEASURED TWICE TONIGHT, and the second time it cost a real hand-off. The merge-train sub-session (session_01CKcZFm) ended its turn IDLE at 01:46:45Z with post_turn_summary 'staying available to re-resolve as manager merges' — an explicit offer to be re-invoked. When two of its PRs needed exactly that re-resolve, the manager tried `SendMessage` to it and got: **'No agent named session_01CKcZFm... is reachable. Use ListAgents to see everyone you can message.'** `ListAgents` lists only in-process agents and local sessions; a CCR cloud sub-session appears in NEITHER direction. === SO 'STAYING AVAILABLE' IS A DEAD END THAT READS AS A HAND-OFF. That session was holding full context on two conflicted PRs — which files, which resolution rule, what it had already tried — and NONE of it was reachable. The manager had to spawn a fresh session (session_015oCrkh) and re-supply everything it already knew. It worked, but the duplicated context is the cost, and the operator has said that cost is acceptable — which is not the same as it being invisible. === ⚠️ THIS IS THE COORDINATION LIMIT THE OPERATING-MODEL DESIGN ALREADY NAMES, observed live: 'a session that dies cannot run its own close-out', so state must be written to the WORK OBJECT as work happens rather than held in a session that expects to be woken. An IDLE session is the same case as a dead one for this purpose — the design's three mechanisms (incremental progress, a lease per session, a reaper) are the answer, and none of them is 'message it again'. === TWO THINGS A FUTURE MANAGER SHOULD DO DIFFERENTLY: (1) never write a spawn prompt that invites a session to idle and await follow-up — tell it to finish, write its state down, and stop; (2) do not read `post_turn_summary: staying available` as an owner. It is not one. The row is `queued` rather than filed to a backlog because the fix is a change to how sessions are SPAWNED and how hand-off state is RECORDED, which is operating-model work, not a bug in a file."
+    },
+    {
+      "id": "MI-33-THE-CLOSE-FAILURE-ALARM-IS-INVISIBLE-ON-THE-FEED-REVIEWS-READ",
+      "title": "A live alarm reads as 'never fired in 11 days' on the surface a reviewer would grade it from",
+      "state": "queued",
+      "owner": null,
+      "pr": "#10679 (filed it; adds the read surface)",
+      "blocked_on": null,
+      "note": "⚠️ MORNING REPORT — A MEASUREMENT TRAP THAT WOULD MISLEAD ANY FUTURE REVIEW, and the session nearly fell in it before catching itself. Alpaca close-failure pages do NOT ride outcomes.jsonl, so /api/bot/logs?level=error,warn shows ZERO close-failure rows. Measured over the FULL 1000-row ERROR/WARN feed spanning 2026-08-21T23:36Z -> 2026-09-01T20:47Z — **zero — WHILE /api/bot/notifications was rendering an ACTIVE close_failure banner for GLD at that same moment.** So a reviewer grading this alarm's health from the documented ERROR feed would conclude it has never fired in eleven days, while it was firing as they looked. === ROOT CAUSE IS THE FAMILIAR ONE: the page ring runtime_logs/operator_alerts.jsonl was on NO read surface (HTTP 400 from a relay-bound session), and /api/bot/notifications renders only the CURRENT banner — no history, no rate. The session self-describes this as the 4th instance of the no-read-surface shape; by my count tonight it is at least the 6th (exit_loop_health #8778, the five cadence/latch files, pending_pings_delivered, operator_alerts). #10679 adds the allowlist entry, so the rate becomes measurable — but ⚠️ THE BACKOFF IS STILL UNGRADED: #10666's exponential backoff is deployed and the session could not show it works, and reported that as UNMEASURED rather than as fine. Grading it needs a live read after the deploy. === SEPARATELY MEASURED IN THE SAME READ AND IT IS THE BIGGER NUMBER: 839 of those 1000 ERROR/WARN rows — 83.9% — are strategy_builder no-candle exceptions across six legs. That is the alarm-fatigue condition BL-20260825-TRANSIENT-CLASSIFIER-MISSES-THE-VARIANT-FAMILIES already owns, still live and WORSE than when filed."
+    },
+    {
+      "id": "MI-34-SHOULD-A-CONFIRMED-VENUE-WEDGE-KEEP-PAGING-FOREVER",
+      "title": "Operator decision requested on #10679: page severity for an unclearable broker wedge",
+      "state": "blocked",
+      "owner": null,
+      "pr": "#10679",
+      "blocked_on": "operator — an alerting-policy call, not a code fix",
+      "note": "MORNING REPORT, and it is a small decision with a real desensitisation cost either way. #10679 now NAMES the GLD wedge as `broker_cancel_wedged` — a state no app-level retry can EVER clear, distinct from `orders_still_resting` where a retry may work. Today a confirmed wedge keeps riding the ORDINARY close-failure page at full severity, forever, on a condition nobody can fix from this system. The session asks whether it should instead escalate to a distinct 'needs venue action' alert. ⚠️ THE STATUS QUO IS THE DESENSITISATION RISK the repo has already paid for once (202 of 376 CRITICALs in one window were a single un-latched alarm). But the opposite error is real too: an unclearable wedge that goes QUIET is a stranded position nobody is looking at. This is an alerting-POLICY call and therefore the operator's, not a code fix to be chosen unilaterally at 02:45. === CONTEXT FOR THE DECISION, measured: alpaca_live is STRUCTURALLY exposed to the same wedge (same client code, mode: live, account_class real_money, trades GLD, roster overlaps alpaca_paper on 11 symbols) but NOT REALISED — measured 2026-09-01T21:23Z it is FLAT, zero positions and zero resting orders. So no real money is stranded right now; the exposure is the next real-money equity close that meets a wedged order."
     }
   ]
 }
