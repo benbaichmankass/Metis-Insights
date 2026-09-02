@@ -561,11 +561,40 @@ GUARDS: List[Dict[str, Any]] = [
         # it never had. A `partial` verdict MUST name the source it could not
         # read, or an empty section reads as "nothing is due" when it means
         # "nobody looked" — the `curl … || echo '{}'` failure in CLAUDE.md.
+        # The executable half of the 2026-09-02 standing operator directive:
+        # "anything soaking needs to be logged with an alarm that has either a
+        # timer or a soak threshold, so that we know to get back to it when the
+        # soak is ready."
+        #
+        # `when: None` — it runs on EVERY diff, deliberately. A diff-scoped
+        # version would pass vacuously on every PR that touches no soak writer,
+        # which is nearly all of them: a green that checked nothing. The
+        # pre-2026-09-02 debt is carried in an explicit dated BASELINE inside
+        # the script instead, so adding to it is a visible line in a PR diff
+        # rather than a silent skip — the `new-table-wiring-guard` lesson, where
+        # a presence-only marker made lying cheaper than complying.
+        #
+        # Its self-test runs first and carries a PLANTED POSITIVE (a new soak
+        # writer with no register row must FAIL): a guard that has only ever
+        # reported clean is indistinguishable from one that scans nothing.
+        "name": "soak-registered-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_soak_registered.py", "--self-test"],
+            ["python3", "scripts/ci/check_soak_registered.py"],
+        ],
+    },
+    {
         "name": "due-list-guard",
         "when": None,
         "steps": [
             ["python3", "scripts/ops/render_due_list.py", "--self-test"],
             ["python3", "scripts/ops/render_due_list.py", "--check"],
+            # The soak grader the due-list's `soaks` source imports. Its own
+            # controls prove the four states are reachable and DISTINCT —
+            # `not_writing` (the soak is dead) must never render as `accruing`
+            # (it is alive and waiting) or as `unknown` (we could not look).
+            ["python3", "scripts/ops/soak_alarm.py"],
         ],
     },
     {
