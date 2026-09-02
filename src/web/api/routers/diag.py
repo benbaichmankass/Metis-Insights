@@ -187,6 +187,13 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # rationale as the watchdog / bridge / insights pairs above.
     "ict-hourly-snapshot.service",
     "ict-hourly-snapshot.timer",
+    # MI-83 (2026-09-02). The hourly work digest, moved off GitHub Actions
+    # cron onto the VM's own clock: work-digest.yml declares `20 * * * *` and
+    # fired 5 times in a day at :19/:10/:33/:47 over its complete run history.
+    # Both halves are listed so /api/diag/services can answer "is the cadence
+    # alive?" for the timer as well as the run.
+    "ict-work-digest.service",
+    "ict-work-digest.timer",
     "ict-health-snapshot.service",
     "ict-health-snapshot.timer",
     # 2026-06-28 (full-system audit Workstream B) — two recurring trader-VM
@@ -373,8 +380,28 @@ _PENDING_PINGS_DELIVERED = (
     Path(repo_root()) / "runtime_logs" / "pending_pings_delivered.txt"
 )
 
+# MI-83. The hourly work-digest receipt — what the VM-side carrier last did,
+# stamped on EVERY outcome (`sent` / `skipped_hour_latch` / `window_unresolved`
+# / `enqueue_failed` / `dry_run`), because a receipt written only on success
+# cannot tell a DEAD timer from a FAILING run.
+#
+# ⚠️ ANCHORED TO repo_root() FOR THE SAME REASON AS THE ENTRY ABOVE.
+# ict-work-digest.service deliberately carries no data-dir drop-in, so its
+# writer resolves runtime_logs/ under the repo. Resolving this reader through
+# runtime_logs_dir() would point it at /data/bot-data/runtime_logs, which
+# NOTHING writes — an eternally-absent file, which is the writer/reader split
+# that hid the ict-hourly-snapshot balance stall for ~3 weeks
+# (BL-20260611-M15-2).
+_WORK_DIGEST_RECEIPT = (
+    Path(repo_root()) / "runtime_logs" / "work_digest_receipt.json"
+)
+
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
+    # MI-83. "Has the hourly digest actually fired?" — answerable by READING,
+    # not by trusting an `OnCalendar=` line. This repo has measured that a
+    # declared cadence is not a run.
+    "work_digest_receipt": _WORK_DIGEST_RECEIPT,
     "status": _STATUS_JSON,
     "heartbeat": _HEARTBEAT,
     "bot_log": _BOT_LOG,
