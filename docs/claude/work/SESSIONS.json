@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T11:21:24Z",
+  "updated_at": "2026-09-02T11:52:57Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -1040,6 +1040,20 @@
       ],
       "why": "MEASURED by the manager 2026-09-02: all 17 automation/* branches on origin, each tested with git merge-base --is-ancestor against origin/main. ZERO landed; 17 unreachable, spanning 2026-06-23 to today. Two causes CONFIRMED for today's (work-digest run 33602234950 and work-decision-commit run 33618689721 both committed and pushed, then died on 'GraphQL: API rate limit already exceeded' at gh pr create); the rest are UNKNOWN and must be established per branch. This is Phase E's declared 'no work is lost' property failing silently for ten weeks.",
       "state": "working"
+    },
+    {
+      "session_id": "session_01RQiedALVJzWCGdBqY6aNV7",
+      "registry_key": "pending-20260902T115140Z",
+      "state": "working",
+      "title": "MI-63 — write TRUE blocked_on edges, and create the DECISION/QUESTION objects the store has none of",
+      "checklist_item": "MI-05-PHASE-D",
+      "spawned_at": "2026-09-02T11:51:40Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/mi63-true-blocked-on-edges"
+      ],
+      "why": "Phase D's readout refuses (assessed coverage 2/584 = 0.34% against a 50% floor) and Phase G's E2 pull rule is stuck in advisory because named_stage is null. Two phases held by one thing. The store also holds ZERO DECISION, QUESTION, DEPLOYMENT and OBSERVATION objects, so it cannot locate the constraint the design named.",
+      "confirmed_at": "2026-09-02T11:52:57Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."
