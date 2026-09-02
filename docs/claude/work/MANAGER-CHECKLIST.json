@@ -1181,6 +1181,20 @@
       "owns_object": "WO-20260902-THE-PR-QUEUE-CANNOT-DRAIN-EVERY-MERGE",
       "spawned_at": "2026-09-02T18:26:32Z",
       "note": "MANAGER MEASUREMENT ERROR, recorded because it changed the conclusion in the OPTIMISTIC direction. My first scan ran `git fetch origin <branch>` per branch, which does NOT advance origin/main, so it graded against a stale base and read 4 of 6 conflicted WITH #10694 CLEAN. Against a freshly fetched main it is 5 of 5. I acted on the clean reading first -- started merging main into #10694 to arm its CI -- and the merge conflicted, which is how I caught it. A mergeability read is only as current as the base you fetched, and this one was reported before it was re-checked."
+    },
+    {
+      "id": "MI-80",
+      "title": "The operator's ping cadence rides GitHub cron, and GitHub cron does not fire",
+      "state": "in_flight",
+      "priority": "P1_HANDOFF_CAPABILITY",
+      "owner": "session_01R4tWq3YJZnDUY3EhAYZ9En",
+      "tier": "1 (CI/notification carrier; no order path)",
+      "why": "The operator asked directly at 18:33Z: 'no pings for 3 hours?' -- and it was FOUR. Measured over the COMPLETE run history of work-digest.yml (total_count 3, a census not a page): three runs all day, at 00:19Z / 07:10Z / 14:33Z, ~7h apart against a declared 6x/day, and ONE OF THE THREE FAILED. The hourly cron went live at 16:22Z (#10815) and BOTH the 17:20Z and 18:20Z slots did not fire. The minutes match no declared offset, so GitHub is not late -- it is not honouring the schedule.",
+      "the_hypothesis_to_TEST": "NOT 'move it to a Routine' -- that is the manager's hypothesis and MI-80 is deliberately told not to inherit it. Three candidates to rule in or out with evidence: (a) GitHub deprioritises scheduled workflows on a busy repo; (b) the job's own shape -- budget 40 minutes because commit-to-main waits up to 30m for its auto-merge PR, with concurrency cancel-in-progress:false, so an hourly cadence and a 40-minute job OVERLAP BY DESIGN and that may be the whole story; (c) the right fix is not a new carrier at all but that a MISSED SLOT BECOMES VISIBLE -- today a missed digest and a quiet hour are indistinguishable. Contrast worth testing against: Claude Routines on the same account fire on time (the :26 sweep fired 54s late) while GitHub cron is hours off or absent.",
+      "done_when": "The digest arrives on a cadence OBSERVED over at least 6 consecutive expected slots with the misses COUNTED rather than assumed, and a missed or FAILED run is itself surfaced. Moving the carrier is not sufficient on its own -- a new carrier must be measured against its declared slots the same way GitHub's was. A workflow_dispatch run is NOT evidence the cron works.",
+      "owns_object": "WO-20260902-THE-OPERATOR-S-PING-CADENCE-RIDES-GITHUB",
+      "spawned_at": "2026-09-02T18:35:26Z",
+      "note": "P1 rather than P2 because F6 makes operator notification the CONDITION the autonomy grant rests on, so this precondition has been unmet all day with nobody noticing -- which is the failure, more than the missing pings. MI-80 is explicitly told NOT to reduce the cadence because it judges hourly noisy: the operator accepted that noise deliberately and it is their call. Manager fired work-digest.yml manually at ~18:34Z so the operator gets something now; that is a patch and is recorded as one."
     }
   ],
   "as_of": "2026-09-02T17:20:00Z"
