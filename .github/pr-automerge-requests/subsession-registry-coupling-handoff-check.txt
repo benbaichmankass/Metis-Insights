@@ -1,0 +1,3 @@
+automerge requested by the manager session session_011JWFxuYAaEQKCFCmG6gnHJ at 2026-09-02T07:35:55Z
+PR #10766 — reviewed, all 4 checks green.
+Manager MCP is GitHub WRITE rate-limited; this relay is the documented path for exactly that.
