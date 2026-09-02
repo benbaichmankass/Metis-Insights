@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T10:18:21Z",
+  "updated_at": "2026-09-02T10:33:14Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -991,6 +991,18 @@
         "claude/claudebot-answerable"
       ],
       "why": "Operator direction 2026-09-02: work-decision prompts must arrive on the dedicated Claude bot, not the trader bot. #10778 correctly routed them to the trader bot because NOTHING polls TELEGRAM_CLAUDE_BOT_SECRET and an inline-keyboard button is inert without a polling process holding a CallbackQueryHandler -- so sending them to ClaudeBot today would ship dead buttons that look healthy. The fix is BOTH halves: make the Claude bot polled with a callback handler, THEN move the route.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01272CQFvWA5F9tS9nNRpJtK",
+      "title": "MI-59: /status and /decisions commands on the Claude channel",
+      "checklist_item": "MI-59",
+      "spawned_at": "2026-09-02T10:33:14Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/telegram-status-decisions-commands"
+      ],
+      "why": "Operator ask 2026-09-02: a /status command returning the manager status update in the operator's own required order (checklist -> recently done -> next), and a /decisions command that pops every still-unanswered decision at once 'in case I don't get them as they come in'. Both are an on-demand surface over machinery already proven end to end today; neither rebuilds it.",
       "state": "working"
     }
   ],
