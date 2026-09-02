@@ -83,7 +83,19 @@ finishing the current small thing before closing out.
    or parallel session at it, the bar rises to green-and-landing per the
    first "No loose ends" bullet below; a stray local branch with uncommitted
    changes is never a checkpoint).
-2. **No loose ends** — verify, don't assume:
+2. **Update the work object BEFORE writing the prompt.** If this unit
+   corresponds to an object under `docs/claude/work/objects/`, its `lifecycle`
+   and its `blocked_on` edges are what a successor reads when your prompt is
+   gone — and unlike the prompt they survive your session dying rather than
+   ending. ⚠️ **`in_flight` left behind on a finished unit consumes a slot in
+   the WIP ceiling of 8**, so a handoff that forgets it makes the next session
+   fail `check_wip_ceiling.py` for work nobody is doing. ⚠️ **And if you
+   learned what is actually blocking this work, WRITE THE EDGE** — a true
+   `blocked_on` is the single highest-value thing a session can leave behind
+   (the constraint readout currently refuses to name a stage for want of
+   assessed edges). Do not invent one to be helpful: a false blocker is read by
+   the computation as real and is worse than a missing one.
+3. **No loose ends** — verify, don't assume:
    - **CI is green and the PR is landed or landing — BEFORE you write the
      handoff prompt, not after.** If any downstream session (the next serial
      session, or a concurrent one you're about to hand a kickoff prompt) will
