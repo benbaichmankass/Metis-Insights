@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-02T07:57:33Z",
+  "as_of": "2026-09-02T08:00:20Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -62,24 +62,6 @@
       "blocker": "Owner is reworking it to scope the changed grading behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE)."
     },
     {
-      "pr": 10747,
-      "title": "notify: the ping body was silently dropped, and the digest measured the wrong thing",
-      "owner_session": "session_01PcirVtpMXJGiKm2548nkrR",
-      "checklist_item": "MI-39",
-      "draft": true,
-      "tier": "1",
-      "state": "ci_red_with_owner",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None required (Tier-1)."
-      },
-      "blocker": "guards RED: the PR's own new guard `scripts/ci/check_pending_pings_render.py --self-test` exits 1 in CI while passing locally on the same commit AND on a merge ref. Handed back with that evidence and an explicit bar on silencing it. ⚠️ Do NOT merge red, and do NOT 'fix' it by loosening the self-test.",
-      "why_it_matters": "Until this lands, every operator review ping still renders as a bare event label -- 21 of 50 committed queue rows measured."
-    },
-    {
       "pr": 10748,
       "title": "R-metric contamination: detector + Tier-3 proposal",
       "owner_session": "session_01EihsgewHt7BZv43YcC7caV",
@@ -95,23 +77,6 @@
         "text": "None yet. §5 contains a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it."
       },
       "blocker": "Manager review not complete. ⚠️ Carry its CORRECTION to the brief: neither automated gate (M7 packet, R4 results gate) reads R -- the contamination reaches decisions through human/Claude review, which is a different severity than originally stated."
-    },
-    {
-      "pr": 10761,
-      "title": "manager-lease: heartbeat 06:15Z",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-11",
-      "draft": false,
-      "tier": "1",
-      "state": "manager_own_awaiting_ci",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None required."
-      },
-      "blocker": "None. Merge when green."
     },
     {
       "pr": 10398,
@@ -148,24 +113,6 @@
       "blocker": "OPERATOR ACTION, not a code blocker."
     },
     {
-      "pr": 10766,
-      "title": "sub-session registry: couple the spawn to the record, and a handoff-readiness check",
-      "owner_session": "session_019udKqceYPBqp4kzBYNZ6Sp",
-      "checklist_item": "MI-43",
-      "draft": true,
-      "tier": "1",
-      "state": "awaiting_manager_review",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None required (Tier-1). Manager-coordination machinery only -- no order path, no config/, no live-trading file."
-      },
-      "blocker": "None. Draft; the manager merges. ⚠️ It adds `session-registry-guard`, which FAILS CI when a session id named as owner of an `in_flight` MANAGER-CHECKLIST item is absent from SESSIONS.json -- so a future manager assigning an item to an unregistered session will see this guard red rather than discovering the loss at handoff.",
-      "why_it_matters": "MI-15's remedy ('remember to register') has failed twice: 3 of 6 absent on 2026-09-01, then 6 of 9 with five LIVE on 2026-09-02. Re-measured over all 60 sessions from list_sessions(mine=true, limit=60) against the 30 registry rows at main 550c9f6d (1 excluded as the manager itself, 4 as ARCHIVED, 55 graded): 26 absent, 17 of them carrying the manager's own id as parent_session_id, 5 RUNNING."
-    },
-    {
       "pr": 10768,
       "title": "system-actions: workflow_dispatch has been dead on every action — one unbound variable",
       "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
@@ -176,7 +123,8 @@
       "operator_decision": {
         "verdict": "not_required",
         "condition": null,
-        "scope": "Tier-1. One `echo` line gains the `:-` defaults the ten lines above it already use."
+        "scope": null,
+        "text": "NO OPERATOR STATEMENT EXISTS, and none is needed: Tier-1. One `echo` line in a workflow gains the `:-` defaults the ten lines directly above it already use. No order path, no config, no runtime code. The text records the absence, not a quotation."
       },
       "blocker": "pytest-run in progress at 07:52Z. ⚠️ CI GREEN DOES NOT PROVE THIS FIX — the defect is not reachable from CI. The proof is a workflow_dispatch send-ping concluding success AFTER merge."
     },
@@ -189,9 +137,10 @@
       "tier": "1 (register row)",
       "state": "unreviewed_by_manager",
       "operator_decision": {
-        "verdict": "not_sought",
+        "verdict": "none_recorded",
         "condition": null,
-        "scope": null
+        "scope": null,
+        "text": "NO OPERATOR STATEMENT EXISTS. This row is `none_recorded` precisely because no decision was sought or given — the text records that ABSENCE and is deliberately not a quotation. Inventing operator wording to satisfy the field would be the half-informed state this check exists to prevent, one level up."
       },
       "blocker": "NOT YET REVIEWED. Recorded so a successor can see it; absence of a review is not a verdict."
     },
@@ -204,9 +153,10 @@
       "tier": "1 (docs)",
       "state": "blocked_ambiguous_ci",
       "operator_decision": {
-        "verdict": "not_sought",
+        "verdict": "none_recorded",
         "condition": null,
-        "scope": null
+        "scope": null,
+        "text": "NO OPERATOR STATEMENT EXISTS. This row is `none_recorded` precisely because no decision was sought or given — the text records that ABSENCE and is deliberately not a quotation. Inventing operator wording to satisfy the field would be the half-informed state this check exists to prevent, one level up."
       },
       "blocker": "pytest-run ran exactly TWICE on this branch: run 9814 (author's merge) CANCELLED, run 9819 (manager's merge commit 0890fc02) FAILURE. ⚠️ THERE IS NO GREEN BASELINE, so neither 'already broken' nor 'I broke it' is supported by the evidence. Handed back to its author. Do not assert a cause."
     },
@@ -219,12 +169,46 @@
       "tier": "1 (alerting routing)",
       "state": "unreviewed_by_manager",
       "operator_decision": {
-        "verdict": "not_sought",
+        "verdict": "none_recorded",
         "condition": null,
-        "scope": null
+        "scope": null,
+        "text": "NO OPERATOR STATEMENT EXISTS. This row is `none_recorded` precisely because no decision was sought or given — the text records that ABSENCE and is deliberately not a quotation. Inventing operator wording to satisfy the field would be the half-informed state this check exists to prevent, one level up."
       },
       "blocker": "NOT YET REVIEWED. Touches which conditions PAGE vs digest, so it wants a careful read against the desensitised-alarm rule before merging."
+    },
+    {
+      "pr": 10769,
+      "title": "manager state: reclaim the lease, back-register 19 live sessions, record 4 open PRs and the on-ice decision",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-48",
+      "draft": false,
+      "tier": "1 (manager coordination state; no runtime code)",
+      "state": "ready_awaiting_ci",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": null,
+        "text": "Operator, 2026-09-02, verbatim: 'both the Streamlit app and the Android app should not be consuming right now. They should be turned off. We don't need to delete them, but they're just on ice in the meantime, and they shouldn't be consuming anything because that's just unnecessary risk. The only UI that we're using is the Git pages website.' ⚠️ That statement approves the DECISION recorded in MI-48; it is not an approval of this PR's other contents (lease, registry, PR rows), which are Tier-1 and needed none."
+      },
+      "blocker": "None known. ⚠️ Note this PR is what makes `manager_state_pushed` pass — that check reads origin/main, so it stays FAIL until this merges. That is the check working, not a defect."
     }
   ],
-  "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling."
+  "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
+  "recently_merged_pruned_from_this_record": [
+    {
+      "pr": 10747,
+      "merge_sha": "b9fbf95a",
+      "note": "Pruned 2026-09-02 because handoff_check graded it a STALE row: the record's own _doc says this file goes stale the moment a PR merges. Kept here as a one-line trace so the prune is visible rather than silent — a row vanishing with no record is how a successor concludes the PR never existed."
+    },
+    {
+      "pr": 10761,
+      "merge_sha": null,
+      "note": "Pruned 2026-09-02 because handoff_check graded it a STALE row: the record's own _doc says this file goes stale the moment a PR merges. Kept here as a one-line trace so the prune is visible rather than silent — a row vanishing with no record is how a successor concludes the PR never existed."
+    },
+    {
+      "pr": 10766,
+      "merge_sha": "3b9c80d0",
+      "note": "Pruned 2026-09-02 because handoff_check graded it a STALE row: the record's own _doc says this file goes stale the moment a PR merges. Kept here as a one-line trace so the prune is visible rather than silent — a row vanishing with no record is how a successor concludes the PR never existed."
+    }
+  ]
 }
