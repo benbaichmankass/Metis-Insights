@@ -31386,6 +31386,23 @@
         "scripts/ops/pr_queue_latency.py",
         "WO-20260902-MANAGER-PREFLIGHT"
       ]
+    },
+    {
+      "id": "BL-20260902-THE-LOUD-FLAG-MARKS-34-OF-45-OPEN-ITEMS-SO-IT-NO-LONGER-DISCRIMINATES",
+      "title": "`loud: true` is set on 34 of 45 OPEN-ITEMS rows (75.6%), while the register's own rule is that every loud row must be REPORTED in a session's closing summary — a report nobody can actually make, so in practice none are",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-02",
+      "source": "Manager session_011JWFxuYAaEQKCFCmG6gnHJ, 18:33Z, counted while doing the sweep step that says 'a loud: true row must be REPORTED'. I could not comply, which is the finding.",
+      "detail": "MEASURED over the WHOLE file at origin/main, not a sample: docs/claude/OPEN-ITEMS.json holds 45 items and 34 carry loud: true = 75.6%. Of those 34, exactly TWO are past their cadence today (OI-20260901-OPERATING-LAYER-BUILD... at 1d/1d, OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY... at 4d/3d) and TWELVE have verified_at null, i.e. never observed at all.\n\nWHY THIS IS THE DESENSITISED-ALARM P1 ONE LEVEL UP. CLAUDE.md's own rule is that a loud row 'must be REPORTED ON in your closing summary -- checked and stated, never silently carried'. At 34 rows that instruction cannot be followed by any session, so what actually happens is that it is followed for none -- the same shape as the 202-of-376 CRITICALs that trained the operator past the one channel reserved for an unprotected position, and as the 62/86 alarming dataset manifests the 'if you see something' rule was written for. A flag that marks three quarters of a register is not a priority signal; it is the register.\n\nTHE COMPLEMENT IS ALREADY FILED AND THE PAIR IS THE POINT. BL-20260902-A-LOUD-OPEN-ITEM-IS-ABSENT-FROM-THE-SESSION-BRIEF-THAT-ORDERS-IT-REPORTED records that render_session_brief.py::due_items selects on CADENCE ALONE and never reads `loud`, so a loud row inside its cadence is NOT rendered. Put the two together: the brief UNDER-SHOWS loud rows and the register OVER-MARKS them, so the flag currently changes nothing in either direction. Neither row is worth fixing alone -- making the brief render every loud row would render 34 of them, which is the same failure with more scrolling.\n\nNOT PROPOSING THE OBVIOUS FIX. 'Un-loud some rows' is a judgement about 34 specific items that belongs to whoever understands each, not to a sweep that counted them; and a cap on loud rows would be the bandaid check_open_items.py already reversed for the register itself (MAX_ITEMS = None, with the reasoning that a cap 'bounded the LIST rather than making anything get read or fixed'). The candidates worth costing: (a) loud means SOMETHING IS DUE OR OVERDUE -- derived, not authored, so it cannot saturate by drift; (b) loud stays authored but the brief renders loud-AND-due, making the reportable set the intersection rather than either alone; (c) a severity split, so 'loud' stops being one bucket holding a live money-at-risk row next to a shipped-not-yet-observed one.\n\nPOPULATION NOTE: one register, one reading, 2026-09-02T18:33Z. I have not measured how the proportion moved over time, and whether it CREPT to 76% or was always there decides whether this is drift or a design that never discriminated.",
+      "resolution_criteria": "The set of rows a session is actually required to report on is SMALLER than the register and is derivable rather than authored, AND a session is observed reporting on that set in full. ⚠️ Closing this by editing 34 rows' flags without changing what PRODUCES the flag closes nothing -- the proportion will drift back, because every new row is filed by someone who thinks their row is important. ⚠️ And it does NOT close by capping the register: the cap was already tried and reversed for exactly this file.",
+      "refs": [
+        "docs/claude/OPEN-ITEMS.json",
+        "scripts/ops/render_session_brief.py",
+        "scripts/ci/check_open_items.py",
+        "BL-20260902-A-LOUD-OPEN-ITEM-IS-ABSENT-FROM-THE-SESSION-BRIEF-THAT-ORDERS-IT-REPORTED"
+      ]
     }
   ]
 }
