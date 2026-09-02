@@ -35,12 +35,24 @@ stale half was the dangerous one — it told a reader this producer was inert
 while it was writing to the operator's channel six times a day.
 
 What remains true is the caution, and it is the more important half: **a digest
-that has never been observed firing has not been observed to work.**
-``probes.yml`` and ``due-list.yml`` are both merged, enabled, carry correct cron
-syntax, and have never once fired
-(``OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON``), so a
-correct schedule here is not evidence either. A ``workflow_dispatch`` run is not
-a cron run and must not be read as one.
+that has never been observed firing has not been observed to work.** A
+``workflow_dispatch`` run is not a cron run and must not be read as one.
+
+⚠️ **THIS PARAGRAPH SAID ``probes.yml`` AND ``due-list.yml`` "HAVE NEVER ONCE
+FIRED" UNTIL 2026-09-02, AND THAT IS NOW FALSE — DO NOT RE-QUOTE IT.** The row
+it cited, ``OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON``,
+was **CLEARED on 2026-09-02**: ``probes.yml`` fired on cron (event=schedule,
+run #34, success, 2026-09-01T10:12:17Z), and so has ``due-list.yml`` — twice.
+
+⚠️ **BUT THE CAUTION SURVIVES THE CORRECTION AND IS BETTER EVIDENCED BY IT, NOT
+WEAKER.** "It fires" is not "it fires on time". Measured on ``due-list.yml``,
+whose declared cron is ``50 5 * * *`` (05:50 UTC): it lands its own output as a
+commit, so its firings leave an in-repo trace independent of the Actions API —
+``50722d1e`` at 2026-09-01T10:31:01Z and ``f292f7a9`` at 2026-09-02T09:57:37Z,
+i.e. **4h41m and 4h07m LATE, and 23h27m apart across 21 run numbers**. Roughly
+daily and ERRATIC. ``probes.yml`` was ~4h50m late on the same basis. So a
+correct cron here still is not evidence of a timely run — **read the run
+history, and do not design a standing alarm that assumes same-hour delivery.**
 
 Usage::
 

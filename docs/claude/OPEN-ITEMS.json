@@ -63,7 +63,7 @@
    ],
    "probe_absent_reason": "MISSING CAPABILITY: the observable is a FRESH session's behaviour — whether a cold session reports on this row citing the brief. No probe can watch that; only a later session's closing summary can attest it. A probe asserting the row RENDERS would be the semantic substitution this repo has a guard family for: rendering is not reading."
   },
- {
+  {
    "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
    "opened": "2026-08-26",
    "kind": "monitoring",
@@ -535,7 +535,7 @@
    "observation": "2026-08-31: routed and armed, ZERO orders placed. The newest alpaca_live journal row of any kind is 2026-08-28T19:00:38Z and every one of the 335 rows on that account is status='rejected' (200 most recent inspected, all rejected; reasons account_mode_dry_run and dry_run_sizing_skip from the pre-2026-08-29 dry_run era). The cash_settlement_soak holds no alpaca_live row at all, which is expected \u2014 with strategies: [] the order path never evaluated it. DEPLOY CONFIRMED 2026-08-31T22:43Z, and confirmed as two SEPARATE facts rather than one: (a) the ROSTER is live \u2014 /api/bot/config returned alpaca_live strategies ['tlt_pullback_1h'] at 22:41:33Z; (b) the CODE is live \u2014 /api/diag/version went running 2c514640 / disk a8a045a6 / restart_pending TRUE at 22:42:32Z to running a8a045a6 / restart_pending FALSE at 22:43:12Z. \u26a0\ufe0f The roster went live BEFORE the restart and did not need it: Coordinator.multi_account_execute calls load_accounts(path) FRESH on every invocation (coordinator.py:909) and the accounts layer is stateless per call by its own docstring (coordinator.py:2662), so ict-git-sync updating accounts.yaml on disk is sufficient. `restart_pending` tracks CODE, not config \u2014 reading it as the roster gate would be the wrong inference in both directions. THE GATE SURVIVED THAT RESTART AND WAS RE-READ ON THE NEW PROCESS, not assumed to carry over \u2014 get-env #10635/#10636 at 22:43-22:44Z: ALPACA_CASH_SETTLEMENT_MODE process='apply', ALPACA_CASH_SETTLEMENT_ACCOUNTS process='alpaca_live' (`set`, NOT `set_empty`, which for this knob means NONE), and NOT widened to the paper mirrors. PR #10633 merged as a8a045a6 after three CI rounds (a merge conflict that presented as ZERO check runs, probe-guard, and one real test failure); main moved twice mid-session and the register was conflict-resolved by union both times. STILL NOT CLEARED: routed and deployed is not traded. US equities were shut at deploy time (Monday 22:43Z; next RTH Tue 2026-09-01 13:30-20:00Z), and every alpaca_live journal row remains status='rejected'. \u26a0\ufe0f RE-CHECKED 2026-09-01T14:20Z, ~50 min into the first RTH: STILL NO TRADE, and that is the EXPECTED outcome, not a fault. alpaca_live total rows unchanged at 335, newest still 2026-08-28T19:00:38Z, 0 non-rejected (filter_state 'applied' asserted). The discriminating check: tlt_pullback_1h has produced ZERO order_packages since the go-live (total still 74, newest 2026-08-28T17:18:14) \u2014 so nothing is being silently dropped, the leg simply has not signalled, and only ~1.8 trading days have elapsed against a ~2.4-day long-signal cadence. Pipeline confirmed alive by control (newest package overall 2026-09-01T14:01:40 ict_scalp_mgc_15m; uso_trend_1h \u2014 an Alpaca equity leg \u2014 also fired today, so the equity session gate is working). \u2705 THE T+1 ALLOWLIST IS PROVEN WORKING ON THE ORDER PATH, not just in the env: cash_settlement_soak rows dated 2026-09-01T13:30Z read mode=apply with scope=not_allowlisted / applied=False for BOTH paper mirrors \u2014 the gate is globally armed and the mirrors are explicitly held back, which is the protection this scoping was chosen for. (alpaca_portfolio's basis read 69177.83 today vs 0.00 twice yesterday, confirming the negative-cash condition is INTERMITTENT as predicted \u2014 it would have halted that account unpredictably.) \u26a0\ufe0f ONE REAL FINDING, recorded on its own row rather than here: SILENT_REFUSAL_SKIP is still 'alpaca_live', so the account that just started trading real money has its refusal detector OFF \u2014 see BL-20260823-ALPACA-LIVE-IS-EXEMPT-FROM-BOTH-DETECTORS-THAT-WATCH-IT, escalated the same day.",
    "last_checked": "2026-08-31"
   },
-    {
+  {
         "id": "OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT",
   "probe_absent_reason": "MISSING CAPABILITY: the observable is a FRESH session's BEHAVIOUR — whether a cold session states this cycle's priority, cites the CLAUDE.md brief as where it read it, and says what it did differently. No probe can watch that; only a later session's closing summary can attest it. ⚠️ A probe asserting the priority BLOCK RENDERS would be exactly the semantic substitution this repo has a guard family for: rendering is not reading, and a green probe on the wrong observable is worse than no probe because it would close this row on a deploy.",
         "opened": "2026-09-01",
@@ -554,7 +554,7 @@
             "docs/design/operating-layer-build-plan-DESIGN.md"
         ]
     },
-    {
+  {
       "id": "OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED",
       "opened": "2026-09-01",
       "kind": "monitoring",
@@ -574,7 +574,7 @@
         "docs/design/operating-layer-build-plan-DESIGN.md"
       ]
     },
-    {
+  {
         "id": "OI-20260901-CONSTRAINT-READOUT-SHIPPED-AND-IT-REFUSES-NOBODY-HAS-ACTED-ON-THE-REFUSAL",
         "probe_absent_reason": "A probe could assert `verdict == insufficient_basis` in docs/claude/CONSTRAINT.json, but that is the CURRENT state and asserting it would make the probe PASS for exactly as long as nothing improves — a green that means 'still broken'. What clears this is a session ACTING on the refusal (writing true edges), and nothing records that a session read the line and did something. Deliberately unprobed rather than probed wrong.",
         "opened": "2026-09-01",
@@ -682,7 +682,7 @@
         "https://github.com/benbaichmankass/Metis-Insights/pull/10674"
      ]
   },
- {
+  {
   "id": "OI-20260902-E0-LIVE-ARM-LEG-SCOPING-SHIPPED-AND-NEVER-RUN-ON-THE-TRAINER",
   "opened": "2026-09-02",
   "kind": "awaiting_verification",
@@ -698,7 +698,7 @@
    "https://github.com/benbaichmankass/Metis-Insights/pull/10756"
   ]
  },
- {
+  {
   "id": "OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE",
   "opened": "2026-09-02",
   "kind": "awaiting_verification",
@@ -749,7 +749,7 @@
     "src/runtime/bybit_coverage_soak.py"
    ]
   },
- {
+  {
   "id": "OI-20260902-DECISION-PROMPTS-MOVED-TO-CLAUDEBOT-AND-NO-TAP-HAS-LANDED-THERE",
   "opened": "2026-09-02",
   "kind": "awaiting_verification",
@@ -862,7 +862,7 @@
     ".claude/skills/duty/SKILL.md"
    ]
   },
- {
+  {
   "id": "OI-20260902-REAPER-SHIPPED-AND-THE-KILL-PROVED-A-PARTIAL-LOSS-NOT-A-CLEAN-ONE",
   "opened": "2026-09-02",
   "kind": "awaiting_verification",
@@ -932,7 +932,34 @@
     "docs/claude/work/PR-QUEUE-WATCH.json",
     "WO-20260902-MANAGER-PREFLIGHT"
    ]
-  }
+  },
+  {
+  "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
+  "opened": "2026-09-02",
+  "soak": {
+   "log": "bybit_coverage_soak",
+   "declared_at": "2026-09-02",
+   "ready_when": "verdicts_differ=true",
+   "min_matching": 1,
+   "why_a_timer_cannot_express_this": "MI-49's bar for the operator's conditional widening is explicit that time and quiet DO NOT COUNT: 'at least one bybit_coverage_soak row on bybit_1 carries verdicts_differ: true -- i.e. the graded and side-blind bases actually reached OPPOSITE verdicts, so arming demonstrably changed an outcome'. check_every_days says how often a session must LOOK; this says what it is looking FOR. ⚠️ AND THE THIRD STATE IS THE ONE THIS BLOCK EXISTS FOR: once the gate is armed, an empty log stops meaning 'not yet' and starts meaning the writer is DEAD -- which a timer can never distinguish from patience, and which would otherwise leave the operator waiting indefinitely on evidence that was never coming.",
+   "not_writing_is_EXPECTED_until_the_arm_is_read_back": "⚠️ DO NOT ACT ON A not_writing VERDICT BEFORE THE ARM IS CONFIRMED. Arming is HELD by operator sequencing (MI-49), and at BYBIT_GRADED_COVERAGE_MODE=off the writer returns before writing by design, so zero rows is the CORRECT state today and says nothing about the writer's health. The verdict only becomes a finding after BYBIT_GRADED_COVERAGE_MODE=apply and BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1 are read back off /proc/<MainPID>/environ -- never off the .env, which says only what the NEXT restart will pick up. Until then this row grades `unknown` (no probe is declared), which is the honest answer."
+  },
+  "kind": "monitoring",
+  "loud": true,
+  "check_every_days": 3,
+  "summary": "#10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then bybit_2 (REAL MONEY) -- and until this row, that soak was registered NOWHERE. The PR proposes a health-review-backlog row instead, and the backlog is NOT a due-list source (scripts/ops/render_due_list.py::SOURCES reads open_items, operator_owed, research_queue, probes, red_crons, unlanded_automation -- no backlog). So the soak would have accrued, or failed to accrue, and surfaced to nobody.",
+  "detail": "FILED BY MI-61 UNDER THE STANDING OPERATOR DIRECTIVE OF 2026-09-02: 'anything soaking needs to be logged with an alarm that has either a timer or a soak threshold, so that we know to get back to it when the soak is ready.'\n\nTHE CRITERION IS A FIELD VALUE, NOT ELAPSED TIME. MI-49 records the operator's decision -- 'yes, and if it proves itself on bybit 1, then apply to bybits 2 and 3 as well' -- and the manager's bar for 'proves itself' is explicit that time and quiet DO NOT COUNT: '(b) at least one bybit_coverage_soak row on bybit_1 carries verdicts_differ: true -- i.e. the graded and side-blind bases actually reached OPPOSITE verdicts, so arming demonstrably changed an outcome'.\n\n⚠️ THIS SOAK MAY NEVER GO READY, AND THAT IS A LEGITIMATE OUTCOME RATHER THAN A FAULT. The defect the gate exists for has n=1 and was CONSTRUCTED from the 2026-09-02T03:30:33Z read; no live instance has ever been observed. If verdicts_differ never appears on demo, the honest report is 'unproven, not proven-good', and widening to real money on an unexercised gate is NOT what the operator approved. That must go BACK to the operator rather than a quiet soak being read as a pass.\n\n⚠️ ARMING IS HELD, so an empty log is EXPECTED right now and is NOT evidence the writer is broken. Sequence per MI-49: merge #10746, then set BYBIT_GRADED_COVERAGE_MODE=apply and BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1 via set-env, restart, and read the arm back off /proc/<MainPID>/environ -- never off the .env. Only after that read-back does an empty log start to mean anything, and only then can a probe on this row emit a believable negative.",
+  "clears_when": "A bybit_coverage_soak row is OBSERVED on bybit_1 carrying verdicts_differ: true -- read off the live diag surface (/api/diag/log_file?name=bybit_coverage_soak), not from a test fixture. !! A GREEN TEST SUITE CLEARS NOTHING HERE: #10746 carries 623 lines of re-armed unit tests and none of them is a live row. !! NOR DOES ELAPSED TIME: this row's check_every_days governs how often a session must LOOK, never when the soak may be declared finished. !! AND AN EMPTY LOG IS NOT A NEGATIVE until the arm has been read back off /proc/<MainPID>/environ -- before that, zero rows means the gate is off, which is the state it is deliberately in. If the arm IS confirmed and the log is still empty after a full sweep cycle, that is the OPPOSITE finding -- the writer is not writing -- and it clears this row into a defect, not into a pass.",
+  "probe_absent_reason": "NO PROBE IS POSSIBLE YET, and the reason is dated rather than permanent. Three things must land first, in order: (1) #10746 must merge -- it is the commit that registers bybit_coverage_soak in the diag log_file allowlist, so /api/diag/log_file?name=bybit_coverage_soak 404s until then; (2) the gate must be ARMED on bybit_1 and the arm read back off /proc/<MainPID>/environ; (3) at least one row must exist to serve as scripts/ops/probe_soak.py --positive-control, without which a quiet result is an unread rather than a negative (probe_lib.report's own contract). ⚠️ ONCE THOSE HOLD THE PROBE IS A ONE-LINER AND THIS REASON MUST BE REPLACED RATHER THAN RE-AFFIRMED: scripts/ops/probe_soak.py --path '/api/diag/log_file?name=bybit_coverage_soak&lines=1000' --require verdicts_differ=true --positive-control account_id=bybit_1. A buildable gap left wearing the label of a permanent one is the exact error probe_api.py was written to correct.",
+  "verified_at": "2026-09-02",
+  "observation": "2026-09-02, MI-61 -- FILED, NOT OBSERVED. This session did not read the live soak and states that plainly: api.github.com and the diag surface were not consulted for this row. What was VERIFIED is the gap itself, in this checkout: grep for bybit_coverage_soak across docs/claude/OPEN-ITEMS.json returned zero hits before this row, and render_due_list.py::SOURCES contains no backlog reader, so the PR's proposed backlog row could not have surfaced it. ⚠️ THE POPULATION IS WORSE THAN THIS ONE ROW, measured the same way: of 12 declared *_soak.jsonl logs in src/, only 4 (pairs_soak, stray_oca_soak, arbitration_fanout_soak, prop_ticket_risk_soak) are named anywhere in this register. EIGHT accrue to nobody -- allocator_soak, conflict_taxonomy_soak, exit_interval_soak, exit_ladder_soak, exit_lever_soak, exposure_soak, fc_geometry_soak, macro_thesis_soak, target_extension_soak. That baseline is why MI-61's guard is diff-scoped to NEW writers: a guard failing on nine pre-existing violations would be reverted, not honoured.",
+  "refs": [
+   "#10746",
+   "MI-49-BYBIT-GRADED-COVERAGE-ARM-AND-CONDITIONAL-WIDENING (docs/claude/work/MANAGER-CHECKLIST.json)",
+   "src/runtime/bybit_coverage_soak.py (on claude/bybit-coverage-graded-book)",
+   "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED (same shape: armed, unexercised, soak-backed)"
+  ]
+ }
  ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
  "monitoring_rows_are_enforced_by_observation": "kind:'monitoring' rows carry `check_every_days`, `verified_at` and `observation`. A row past its cadence is DUE and is rendered into CLAUDE.md, so the next session sees it in context before acting. Clearing it for another cycle costs one honest look: record WHAT YOU OBSERVED and today's date. It cannot be cleared by asserting progress — `observation` must state a thing that was seen. This replaces `loud`, which was just another alarm to walk past.",

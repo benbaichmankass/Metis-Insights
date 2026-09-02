@@ -38,6 +38,28 @@ THE DENOMINATOR IS ALWAYS PRINTED
 A `fail` prints how many rows were scanned. A predicate that matched nothing
 over 0 rows and one that matched nothing over 4,000 are different findings, and
 the first is usually a fetch that quietly returned an empty page.
+
+⚠️ AND SINCE 2026-09-02 THEY ARE DIFFERENT EXIT CODES, NOT ONLY DIFFERENT
+PROSE. This paragraph was true and unreachable: both cases returned
+``EXIT_FAIL``, so `run_probes.py` recorded one state and no consumer could act
+on the denominator it describes. For a SOAK that distinction is the whole
+question the 2026-09-02 operator directive asks -- a soak that has silently
+STOPPED WRITING (exit 3, ``source_empty``) looks exactly like one patiently
+accruing (exit 1, ``fail``), so the operator waits indefinitely on evidence
+that was never coming.
+
+    0  the predicate matched                        pass
+    1  read, N > 0 rows, nothing matched            fail -- a real negative
+    2  we could not look                            could_not_run
+    3  read, and the source held ZERO rows          source_empty -- the soak
+                                                    may be DEAD
+
+⚠️ 3 IS NOT 2. "The log is unreadable" and "the log is empty" are opposite
+findings: the first says nothing about the world, the second is a real and
+alarming measurement of it. See ``probe_lib.report`` for why a declaration
+carrying a ``--positive-control`` grades an empty source ``could_not_look``
+instead -- that ordering is deliberate, and it is the right lifecycle for a
+soak rather than a limitation of it.
 """
 
 from __future__ import annotations
@@ -66,6 +88,7 @@ _FETCH = Path("scripts/ops/diag_fetch.sh")
 EXIT_PASS = probe_lib.EXIT_PASS
 EXIT_FAIL = probe_lib.EXIT_FAIL
 EXIT_COULD_NOT_LOOK = probe_lib.EXIT_COULD_NOT_LOOK
+EXIT_SOURCE_EMPTY = probe_lib.EXIT_SOURCE_EMPTY
 _walk = probe_lib.walk
 _coerce = probe_lib.coerce
 parse_condition = probe_lib.parse_condition
@@ -168,6 +191,11 @@ def _self_test() -> int:
 
     ok(EXIT_COULD_NOT_LOOK != EXIT_FAIL,
        "could_not_look and fail are different exit codes — the whole point")
+    ok(len({EXIT_PASS, EXIT_FAIL, EXIT_SOURCE_EMPTY, EXIT_COULD_NOT_LOOK}) == 4,
+       "all FOUR verdicts are distinct codes. `source_empty` is the one this "
+       "family lacked: a soak that had stopped writing read exactly like one "
+       "patiently accruing, which is what the 2026-09-02 soak-alarm directive "
+       "exists to fix")
     ok(parse_condition is probe_lib.parse_condition,
        "the engine is the SHARED one, not a local copy that could drift")
 
