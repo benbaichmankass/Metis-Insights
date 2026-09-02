@@ -36,15 +36,33 @@ So each probe declares TWO things and the second is not optional:
 probe that is over-read. That is `CLAUDE.md` § "Diagnostic provenance",
 sub-class **A**: a real value under a label that does not describe it.
 
-THREE STATES, NEVER COLLAPSED
------------------------------
+FOUR STATES, NEVER COLLAPSED
+----------------------------
     pass          — the probe ran and its condition held
-    fail          — the probe ran and its condition did NOT hold
+    fail          — the probe ran, the source had rows, and the condition did
+                    NOT hold in any of them
+    source_empty  — the probe READ the source and it contained ZERO ROWS, so
+                    the condition was never tested against anything
     could_not_run — we did not look (missing tool, no network, timeout,
                     non-zero exit that is not a graded verdict)
 
 `could_not_run` is emphatically not `pass`. Collapsing them is the
 `curl … || echo '{}'` failure the repo has already paid for twice.
+
+⚠️ `source_empty` WAS ADDED 2026-09-02 (MI-61) AND IT IS THE ONE THIS FILE
+GOT WRONG. It used to be folded into `fail`, so 0-of-0 rows and 0-of-8,520 rows
+reported identically. On a soak that is the difference between a writer that
+has SILENTLY STOPPED and one patiently accruing — and the operator, watching a
+register row that says "fail" either way, waits indefinitely on evidence that
+was never coming. Standing operator directive, 2026-09-02: *"anything soaking
+needs to be logged with an alarm that has either a timer or a soak threshold,
+so that we know to get back to it when the soak is ready."* A timer alone
+cannot express that, which is why the state had to exist before the threshold
+could mean anything.
+
+⚠️ IT IS NOT `could_not_run` EITHER. "The log is unreadable" and "the log is
+empty" are opposite findings: the first says nothing about the world, the
+second is a real and alarming measurement of it.
 
 A row with NO probe carries `probe_absent_reason` instead — so "nothing probes
 this" stays distinguishable from "a probe ran and was quiet", and the coverage
@@ -63,11 +81,25 @@ from typing import Any
 OPEN_ITEMS = Path("docs/claude/OPEN-ITEMS.json")
 OUT = Path("docs/claude/PROBES.json")
 
-STATES = ("pass", "fail", "could_not_run")
+STATES = ("pass", "fail", "source_empty", "could_not_run")
 
 # A probe runs unattended on a schedule. An unbounded one wedges the runner,
 # which is the shape of both June 2026 trader wedges one level up.
 DEFAULT_TIMEOUT_S = 120
+
+
+def _probe_lib():
+    """The exit-code vocabulary, IMPORTED from the module that defines it.
+
+    Never restated here. A local `EXIT_SOURCE_EMPTY = 3` would be a second
+    definition of the probe contract, free to drift from the one the probe
+    binaries actually return — the argument this repo makes for `provenance.py`
+    and made again for `_owed_vocabulary` in `render_due_list.py`.
+    """
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import probe_lib  # noqa: PLC0415
+    return probe_lib
 
 
 def _load(p: Path) -> Any:
@@ -169,13 +201,31 @@ def run_one(row: dict, root: Path, timeout_s: int) -> dict:
     tail = (proc.stdout or proc.stderr or "").strip().splitlines()
     detail = "\n".join(tail[-8:])[:1200]
 
-    # Exit codes are the contract: 0 = pass, 1 = fail, anything else = we could
-    # not look. A probe that cannot distinguish "the condition is false" from
-    # "I broke" must return the third, and 2+ is how it says so.
+    # THE COUNTS, when the probe published them. `probe_lib.parse_counts`
+    # returns None for absent or malformed output, and that None is carried
+    # through as None rather than coerced to 0 — an unknown denominator read as
+    # zero would manufacture the exact "this soak is dead" alarm the
+    # `source_empty` state exists to make trustworthy.
+    counts = _probe_lib().parse_counts(proc.stdout or "")
+    base = {**base,
+            "matched": None if counts is None else counts[0],
+            "scanned": None if counts is None else counts[1]}
+
+    # Exit codes are the contract: 0 = pass, 1 = fail over a NON-EMPTY source,
+    # 3 = the source was read and was EMPTY, anything else = we could not look.
+    # A probe that cannot distinguish "the condition is false" from "I broke"
+    # must return the last, and 2 is how it says so.
     if proc.returncode == 0:
         return {**base, "state": "pass", "reason": "exit_0", "detail": detail}
     if proc.returncode == 1:
         return {**base, "state": "fail", "reason": "exit_1", "detail": detail}
+    # ⚠️ EXIT 3 MUST NOT FALL THROUGH TO `could_not_run`. Before MI-61 the
+    # `anything else` branch below swallowed it, which would have relabelled
+    # the one finding this state was added to surface — an empty soak — as "we
+    # did not look". That is the same collapse in the opposite direction and it
+    # is just as blinding.
+    if proc.returncode == _probe_lib().EXIT_SOURCE_EMPTY:
+        return {**base, "state": "source_empty", "reason": "exit_3", "detail": detail}
     return {**base, "state": "could_not_run", "reason": f"exit_{proc.returncode}", "detail": detail}
 
 
@@ -202,12 +252,18 @@ def render_markdown(env: dict) -> str:
            f"_Generated {env['generated_at']}_", "",
            f"**{env['rows_with_a_probe']} of {env['monitoring_rows']} monitoring rows "
            f"carry a probe.** pass={env['counts']['pass']} · "
-           f"fail={env['counts']['fail']} · could_not_run={env['counts']['could_not_run']}", "",
+           f"fail={env['counts']['fail']} · "
+           f"source_empty={env['counts']['source_empty']} · "
+           f"could_not_run={env['counts']['could_not_run']}", "",
            "> A probe REPORTS. It never clears a row — read `is_not` on every "
            "pass before treating it as evidence.", ""]
-    order = {"fail": 0, "could_not_run": 1, "pass": 2}
+    # `source_empty` sorts BESIDE `fail`, not with `could_not_run`: an empty
+    # source is a real measurement and often the more urgent one (a writer that
+    # has stopped). Ranking it as an absence would bury the dead-soak case.
+    order = {"fail": 0, "source_empty": 1, "could_not_run": 2, "pass": 3}
     for r in sorted(env["results"], key=lambda r: (order[r["state"]], r["id"])):
-        icon = {"fail": "🔴", "could_not_run": "⚪", "pass": "🟢"}[r["state"]]
+        icon = {"fail": "🔴", "source_empty": "🟠", "could_not_run": "⚪",
+                "pass": "🟢"}[r["state"]]
         out.append(f"- {icon} **{r['id']}** — `{r['state']}` ({r['reason']})")
         if r.get("checks"):
             out.append(f"  - checks: {r['checks']}")
@@ -257,10 +313,39 @@ def _self_test() -> int:
                root, 30)["state"] == "pass", "exit 0 is pass")
     ok(run_one({"id": "I", "probe": {"cmd": ["false"], "checks": "c", "is_not": "n"}},
                root, 30)["state"] == "fail", "exit 1 is fail")
-    r = run_one({"id": "J", "probe": {"cmd": ["sh", "-c", "exit 3"], "checks": "c", "is_not": "n"}},
+    r = run_one({"id": "J", "probe": {"cmd": ["sh", "-c", "exit 2"], "checks": "c", "is_not": "n"}},
                 root, 30)
-    ok(r["state"] == "could_not_run" and r["reason"] == "exit_3",
-       "exit 2+ is could_not_run, NOT fail — 'I broke' is not 'the condition is false'")
+    ok(r["state"] == "could_not_run" and r["reason"] == "exit_2",
+       "exit 2 is could_not_run, NOT fail — 'I broke' is not 'the condition is false'")
+    r = run_one({"id": "J9", "probe": {"cmd": ["sh", "-c", "exit 9"], "checks": "c", "is_not": "n"}},
+                root, 30)
+    ok(r["state"] == "could_not_run" and r["reason"] == "exit_9",
+       "an UNKNOWN exit code is still could_not_run — a code we do not have a "
+       "verdict for is not a verdict")
+
+    # ── the empty-source state, end to end through the runner ──────────────
+    r = run_one({"id": "J3", "probe": {"cmd": ["sh", "-c", "exit 3"], "checks": "c", "is_not": "n"}},
+                root, 30)
+    ok(r["state"] == "source_empty" and r["reason"] == "exit_3",
+       "exit 3 is source_empty. ⚠️ THIS CONTROL REPLACES ONE THAT ASSERTED THE "
+       "OPPOSITE: exit 3 used to fall through to could_not_run, which would have "
+       "relabelled 'the soak is empty' as 'we did not look' — the same collapse "
+       "in the other direction, and just as blinding")
+    ok(r["state"] != "fail",
+       "and it is not `fail` either: 0-of-0 rows and 0-of-N rows are different "
+       "findings, and only the first says a writer may have died")
+
+    # ── counts survive the runner, and an ABSENT counts line stays None ────
+    r = run_one({"id": "J4", "probe": {"cmd": [
+        "sh", "-c", "echo 'probe-counts: matched=2 scanned=7'; exit 0"],
+        "checks": "c", "is_not": "n"}}, root, 30)
+    ok(r["matched"] == 2 and r["scanned"] == 7,
+       "the runner carries the probe's own counts into the results file, so a "
+       "consumer never has to regex an English sentence for the denominator")
+    r = run_one({"id": "J5", "probe": {"cmd": ["true"], "checks": "c", "is_not": "n"}}, root, 30)
+    ok(r["matched"] is None and r["scanned"] is None,
+       "a probe that publishes NO counts yields None, never 0 — an unknown "
+       "denominator coerced to zero would manufacture a false dead-soak alarm")
     ok(run_one({"id": "K", "probe": {"cmd": ["definitely-not-a-real-binary-xyz"],
                                      "checks": "c", "is_not": "n"}},
                root, 30)["state"] == "could_not_run", "a missing tool is could_not_run, not pass")

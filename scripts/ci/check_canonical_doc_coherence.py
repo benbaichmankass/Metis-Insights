@@ -25,6 +25,12 @@ ACTIVE_DOCS = [
     "CLAUDE.md",
     "docs/CLAUDE-RULES-CANONICAL.md",
     "docs/ARCHITECTURE-CANONICAL.md",
+    # Split out of CLAUDE.md on 2026-09-02 (the API payload contract). It carries
+    # the `POST /api/bot/prop/report` fail-CLOSED value contract below, so dropping
+    # it here would have silently retired a check by MOVING the text it reads —
+    # exactly the "the guard still passes because it stopped looking" failure this
+    # file's own header warns about.
+    "docs/reference/bot-api-reference.md",
     "docs/github-actions-workflows.md",
     "docs/claude/system-actions.md",
     "docs/claude/vm-operator-mode.md",

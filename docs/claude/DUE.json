@@ -1,14 +1,22 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-02T09:55:58+00:00",
-  "verdict": "all_sources_read",
-  "unreadable_sources": [],
+  "generated_at": "2026-09-02T11:25:40+00:00",
+  "verdict": "partial",
+  "unreadable_sources": [
+    "red_crons",
+    "unlanded_automation"
+  ],
   "sources": {
     "open_items": {
       "state": "read",
-      "rows": 28,
+      "rows": 30,
       "note": ""
+    },
+    "soaks": {
+      "state": "read",
+      "rows": 1,
+      "note": "1 declared soak(s): ready=0 · accruing=0 · not_writing=0 · unknown=1"
     },
     "operator_owed": {
       "state": "read",
@@ -23,33 +31,24 @@
     "probes": {
       "state": "read",
       "rows": 5,
-      "note": "freshness=fresh age=23.7h cadence=daily (cron 20 5 * * *)"
+      "note": "freshness=fresh age=25.2h cadence=daily (cron 20 5 * * *)"
     },
     "red_crons": {
-      "state": "read",
-      "rows": 4,
-      "note": ""
+      "state": "could_not_read",
+      "rows": 0,
+      "note": "HTTPError: HTTP Error 403: Forbidden"
     },
     "unlanded_automation": {
-      "state": "read",
-      "rows": 1,
-      "note": ""
+      "state": "could_not_read",
+      "rows": 0,
+      "note": "HTTPError: HTTP Error 403: Forbidden"
     }
   },
   "counts": {
-    "due": 41,
-    "loud": 33
+    "due": 39,
+    "loud": 30
   },
   "rows": [
-    {
-      "source": "unlanded_automation",
-      "id": "#10398",
-      "title": "chore(m1): economic-calendar PIT snapshots (auto)",
-      "why_due": "producer output opened a PR that has not landed",
-      "age_days": 4,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/10398"
-    },
     {
       "source": "open_items",
       "id": "OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED",
@@ -295,6 +294,15 @@
     },
     {
       "source": "open_items",
+      "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
+      "title": "#10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then ",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
       "id": "OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL",
       "title": "scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P",
       "why_due": "loud row — must be reported on every session",
@@ -303,40 +311,13 @@
       "link": ""
     },
     {
-      "source": "red_crons",
-      "id": "probes",
-      "title": "probes",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
+      "source": "open_items",
+      "id": "OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE",
+      "title": "The TELEGRAM half of the decision round-trip is built (src/runtime/telegram_decisions.py + a `wdec:*` branch in telegram_query_bot.callback_handler + a job-queue sweep): an unanswered `decision_reques",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33615584967"
-    },
-    {
-      "source": "red_crons",
-      "id": "replay-pregate-nightly",
-      "title": "replay-pregate-nightly",
-      "why_due": "latest scheduled run concluded 'cancelled'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33609024722"
-    },
-    {
-      "source": "red_crons",
-      "id": "strategy-review-packets",
-      "title": "strategy-review-packets",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33611778505"
-    },
-    {
-      "source": "red_crons",
-      "id": "work-digest",
-      "title": "work-digest",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33602234950"
+      "link": ""
     },
     {
       "source": "open_items",
@@ -380,6 +361,15 @@
       "title": "probe could not run (exit_2)",
       "why_due": "we did not look — this row is currently unwatched",
       "age_days": null,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "soaks",
+      "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
+      "title": "#10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then ",
+      "why_due": "soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.",
+      "age_days": 0,
       "loud": false,
       "link": ""
     },

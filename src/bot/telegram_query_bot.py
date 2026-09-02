@@ -6,7 +6,9 @@ The 2026-05 overhaul (see ``docs/TELEGRAM-SPEC.md``) replaced the old
     🛑 Kill switch · 🩺 System update · 💼 Accounts · 📈 Strategies ·
     🚨 Close all positions
 
-``/start`` and ``/menu`` are the only slash commands. Every view reads
+``/start`` and ``/menu`` are the menu openers; ``/status`` and
+``/decisions`` (added 2026-09-02, see ``src.bot.operator_commands``)
+are the two operator pulls. Every view reads
 live state (accounts.yaml, strategies.yaml, the journal, runtime_status,
 systemd) so adding an account or strategy needs no bot code change.
 
@@ -42,9 +44,11 @@ from src.bot.cloud_notifier import (
     _read_loadavg,
     _read_meminfo_mb,
     _read_uptime_human,
+    claude_ping_failover_grace_s,
     get_service_status,
 )
 from src.bot.comms_handler import install_comms_handlers
+from src.bot.operator_commands import OPERATOR_COMMANDS, install_operator_commands
 from src.bot.strategy_execution_writer import (
     StrategyExecutionWriteError,
     set_strategy_execution,
@@ -134,11 +138,13 @@ def is_halted() -> bool:
     return _is_halted()
 
 
-# ── Operator command surface (just the menu openers) ────────────────────────
+# ── Operator command surface (the menu openers + the two operator pulls) ────
 #
 # BOT_COMMANDS is the flat list handed to ``set_my_commands`` — it IS the
-# hamburger menu Telegram shows in the composer. Per the overhaul it
-# carries only the two menu openers; there is no stale command wall.
+# hamburger menu Telegram shows in the composer. Per the overhaul it carries
+# the two menu openers and nothing stale; the two operator PULLS added
+# 2026-09-02 (``/status``, ``/decisions``) join it because a command absent
+# from this list is one the operator has to know exists in order to use.
 
 # (name, description) — the only operator-facing slash commands. Kept as
 # plain tuples (not telegram.BotCommand) so the surface is assertable even
@@ -147,8 +153,14 @@ _MENU_OPENERS: list[tuple[str, str]] = [
     ("start", "Open the menu"),
     ("menu", "Open the menu"),
 ]
+#: The full operator-facing slash surface: the menu openers PLUS the two
+#: operator pulls added 2026-09-02. Kept as its own constant so
+#: ``_MENU_OPENERS`` keeps meaning exactly what its name says — the openers —
+#: and the existing "no stale command wall" assertion still tests that claim
+#: rather than being widened to accommodate the new entries.
+_COMMAND_SURFACE: list[tuple[str, str]] = [*_MENU_OPENERS, *OPERATOR_COMMANDS]
 BOT_COMMAND_SPECS: list[BotCommand] = [
-    BotCommand(name, desc) for name, desc in _MENU_OPENERS
+    BotCommand(name, desc) for name, desc in _COMMAND_SURFACE
 ]
 BOT_COMMANDS = BOT_COMMAND_SPECS
 
@@ -682,9 +694,31 @@ def main():
             return candidate
 
         async def _drain_claude_pings(context) -> None:
+            # ⚠️ THIS BOT IS THE FAILOVER, NOT AN OWNER (2026-09-01,
+            # BL-20260901-CLAUDE-PING-TWO-DRAINERS-ONE-QUEUE).
+            #
+            # `ict-claude-bridge.service` drains this SAME directory on its own
+            # 5s tick, and each drainer does read → send → unlink — so the file
+            # is still on disk for the whole Telegram POST and a tick landing
+            # inside that window delivers it a SECOND time. Measured live on
+            # 2026-09-01: one enqueue at 22:10:17Z arrived in both the dedicated
+            # channel and the trader chat, because the bridge's POST took 3.28s
+            # (22:10:19.93 → 22:10:23.21) and this bot's 22:10:21 tick read the
+            # file mid-flight.
+            #
+            # ⚠️ DELETING THIS DRAIN IS THE WRONG FIX and would re-open a known
+            # outage — it exists because the bridge sat dead on the Ampere VM
+            # and these pings were silently never delivered for weeks
+            # (2026-06-22, see the block above). So it stays, and it defers:
+            # the grace makes it take only what the bridge demonstrably has
+            # not. Healthy bridge → this delivers nothing. Dead bridge →
+            # everything, ≤ grace seconds late. Separation is a nice-to-have;
+            # delivery is not.
             bot = await _resolve_claude_bot()
             await _drain_pending_pings(
-                context, pings_dir=PENDING_CLAUDE_PINGS_DIR, bot=bot)
+                context, pings_dir=PENDING_CLAUDE_PINGS_DIR, bot=bot,
+                deliver_only_older_than_s=claude_ping_failover_grace_s(),
+            )
 
         application.job_queue.run_repeating(
             _drain_claude_pings,
@@ -745,6 +779,18 @@ def main():
 
     application.add_handler(CommandHandler("start", cmd_start))
     application.add_handler(CommandHandler("menu", cmd_menu))
+
+    # The two operator PULLS (2026-09-02). Registered BEFORE the generic
+    # CallbackQueryHandler for the same reason install_comms_handlers is:
+    # handler order decides who wins. They resolve their destination through
+    # telegram_decisions.answerable_route() rather than a hardcoded token, so
+    # they follow whichever bot is genuinely polled.
+    install_operator_commands(
+        application,
+        is_authorised=is_authorised,
+        polled_token=TELEGRAM_BOT_TOKEN,
+    )
+
     application.add_handler(CallbackQueryHandler(callback_handler))
 
     # ── declare what THIS process polls, now that the handlers are attached ───
