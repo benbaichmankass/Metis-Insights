@@ -241,23 +241,6 @@
         "text": "Operator, verbatim, on the menu half: 'a further idea, though, that I do want us to backlog as well ... so that we eventually get to it.'"
       },
       "blocker": "⚠️ THE WINDOW MOVED WITH THE CRON AND HAD TO. It was described as one number and the cron is one number, but the window was pinned at 24h -- firing hourly alone would have re-reported the same day 24 times, which is the same report louder rather than more frequent reporting. Cadence and window are ONE decision; a future change to either must move both."
-    },
-    {
-      "pr": 10819,
-      "title": "manager: keep the open-PR register matching the live set; register MI-73",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-67",
-      "draft": false,
-      "tier": "1 (register)",
-      "state": "manager_own_work",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": "2026-09-02",
-        "text": "None required (Tier-1 register maintenance, which this file's own `maintained_by` assigns to the manager holding the lease)."
-      },
-      "blocker": "⚠️ A LESSON THIS PR LEARNED THE HARD WAY, recorded so the next maintainer does not repeat it: an earlier revision settled #10808 and #10812 BY HAND, and the MI-57 reconciler then did exactly the same thing automatically in #10818 -- the two collided as a merge conflict. THE RECONCILER OWNS THE SETTLED SIDE; do not hand-settle. What it deliberately does NOT do is add a row for an open PR nobody recorded, so the OPEN side is the only half a manager must maintain."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -467,8 +450,29 @@
       "merge_sha": "8569b20809d057b92836c5e72c6019e5e95f1d3a",
       "observed_at": "2026-09-02T15:02:02Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10819,
+      "title": "manager: keep the open-PR register matching the live set; register MI-73",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-67",
+      "draft": false,
+      "tier": "1 (register)",
+      "state": "manager_own_work",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": "2026-09-02",
+        "text": "None required (Tier-1 register maintenance, which this file's own `maintained_by` assigns to the manager holding the lease)."
+      },
+      "blocker": "⚠️ A LESSON THIS PR LEARNED THE HARD WAY, recorded so the next maintainer does not repeat it: an earlier revision settled #10808 and #10812 BY HAND, and the MI-57 reconciler then did exactly the same thing automatically in #10818 -- the two collided as a merge conflict. THE RECONCILER OWNS THE SETTLED SIDE; do not hand-settle. What it deliberately does NOT do is add a row for an open PR nobody recorded, so the OPEN side is the only half a manager must maintain.",
+      "terminal": "merged",
+      "merge_sha": "449031539896ee077fc6431ec5c6870d59f9f29b",
+      "observed_at": "2026-09-02T15:32:47Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-02T15:02:02Z",
-  "last_reconciled_sha": "79525adb7794cde5d3a850146e2dd8cd4e84b2dd"
+  "last_reconciled_at": "2026-09-02T15:32:47Z",
+  "last_reconciled_sha": "9acb5b96d9c4793a6affb3e4421554f55f468803"
 }
