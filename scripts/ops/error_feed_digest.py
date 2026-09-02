@@ -66,10 +66,18 @@ and the AVAX venue rejection was 18 rows that a row-dump would bury. So rows are
 grouped by DIGIT-NORMALISED cause and emitted as ``cause -> count, first_seen,
 last_seen, facets``.
 
-Groups are split by the level the producer already stamped (errors before
-warnings) and ordered by count within each split. That is a FACT the producer
-recorded, not a judgement this script made — and it is what lifts the AVAX
-rejection to the third row of the digest instead of the twelfth.
+Groups are ordered by three facts already on the row: the level the PRODUCER
+stamped (errors before warnings), whether the group is NEW since the last
+digest, then count. None is a severity this script assigns — and the level key
+alone is what lifts the 17-row AVAX rejection above a 171-row no-candle flood.
+
+⚠️ THE WATERMARK MARKS WHAT IS NEW; IT DOES NOT FILTER WHAT IS SHOWN. Every
+group on the page is emitted, carrying `is_new`. Filtering to the delta was the
+first design and it was wrong: measured on the second consecutive live run, it
+covered 2 rows and dropped the AVAX rejection while it was still unresolved. A
+digest that forgets a STANDING condition between two `duty` passes loses exactly
+the signal it exists to carry — and *is this new or still happening* is much
+closer to the operator's immediate-vs-backlog question than any row count.
 """
 
 from __future__ import annotations
@@ -394,7 +402,20 @@ def _row_level(row: dict, feed: str) -> str:
 
 def group_rows(feed: FeedRead, since: datetime | None,
                roster: set | None = None, roster_state: str = "read") -> tuple[list, dict]:
-    """Group one feed's rows by normalised cause, keeping only what is new.
+    """Group one feed's rows by normalised cause over the WHOLE page.
+
+    ⚠️ THE WATERMARK MARKS WHAT IS NEW; IT DOES NOT FILTER WHAT IS SHOWN, and
+    the first version of this got that wrong. Filtering to the delta meant a
+    condition that fired between two `duty` passes vanished from the due-list
+    while still being unresolved — measured on the second live run, which
+    covered 2 rows and dropped the AVAX venue rejection the whole change exists
+    to surface. A digest that forgets a STANDING condition loses exactly the
+    signal it is there to carry.
+
+    So every group on the page is emitted, and each carries `is_new` (nothing in
+    it predates the watermark). That is also the axis the operator actually
+    asked about — *resolve immediately vs. backlog* is much closer to "did this
+    start since we last looked" than to "how many rows".
 
     Returns `(groups, coverage)`. `coverage` records how the watermark was
     applied — including `undateable_dropped`, because a row we could not date
@@ -409,9 +430,8 @@ def group_rows(feed: FeedRead, since: datetime | None,
         if stamp is None:
             undateable += 1
             continue
-        if since is not None and stamp <= since:
-            continue
-        kept += 1
+        if since is None or stamp > since:
+            kept += 1
         text = _row_text(row)
         key = (_row_level(row, feed.name), normalise_cause(text))
         b = buckets.setdefault(key, {
@@ -428,9 +448,14 @@ def group_rows(feed: FeedRead, since: datetime | None,
     groups = []
     for b in buckets.values():
         facets = extract_facets(" \n".join(b["_texts"]), roster or set(), roster_state)
+        # `is_new` is a property of the GROUP's own earliest row, so a
+        # long-standing condition that fired again this hour reads as
+        # continuing rather than as new — which is the distinction a triage
+        # session needs and a per-row test would destroy.
+        is_new = since is None or b["first_seen"] > since
         groups.append({
             "feed": b["feed"], "level": b["level"], "cause": b["cause"],
-            "count": b["count"],
+            "count": b["count"], "is_new": is_new,
             "first_seen": b["first_seen"].isoformat(),
             "last_seen": b["last_seen"].isoformat(),
             "sample": b["_texts"][0][:600],
@@ -438,6 +463,8 @@ def group_rows(feed: FeedRead, since: datetime | None,
         })
     coverage = {
         "rows_considered": considered,
+        # Rows NEWER than the watermark. This is a MARKING count, not a
+        # filtering one — every row on the page is grouped regardless.
         "rows_after_watermark": kept,
         "undateable_dropped": undateable,
         "watermark_applied": since.isoformat() if since else None,
@@ -452,7 +479,15 @@ _LEVEL_RANK = {"error": 0, "unknown": 0, "warn": 1, "info": 2}
 
 
 def order_groups(groups: list) -> list:
+    """Level, then NEW before continuing, then count.
+
+    All three keys are facts already on the row — the level the producer
+    stamped, whether the group predates the watermark, and how many rows it
+    holds. None of them is a severity this module assigns; the disposition
+    stays the `duty` pass's.
+    """
     return sorted(groups, key=lambda g: (_LEVEL_RANK.get(g["level"], 3),
+                                         not g.get("is_new"),
                                          -g["count"], g["cause"]))
 
 
@@ -556,6 +591,7 @@ def build(feeds: list, *, now: datetime, since: datetime | None,
         "account_roster": {"state": roster_state, "ids": sorted(roster or set())},
         "counts": {
             "groups": len(groups),
+            "new_groups": sum(1 for g in groups if g.get("is_new")),
             "error_groups": sum(1 for g in groups if g["level"] in ("error", "unknown")),
             "rows_grouped": sum(g["count"] for g in groups),
         },
@@ -666,8 +702,24 @@ def _self_test() -> int:
     mark, note = next_watermark([feed2], None)
     assert mark == datetime(2026, 9, 2, 9, 0, tzinfo=timezone.utc), note
     g3, cov3 = group_rows(feed2, mark)
-    assert cov3["rows_after_watermark"] == 0, "a second pass replayed rows it had covered"
-    assert not g3
+    assert cov3["rows_after_watermark"] == 0, "a second pass counted rows it had covered as new"
+
+    # 4a. ... BUT THE GROUPS ARE STILL EMITTED, marked `is_new: False`. The
+    #     watermark MARKS what is new; it must not FILTER what is shown.
+    #     Measured on the second live run, filtering dropped the AVAX venue
+    #     rejection from the due-list while it was still unresolved — a digest
+    #     that forgets a STANDING condition loses the signal it carries.
+    assert len(g3) == 2, "a standing condition vanished from the digest"
+    assert all(not g["is_new"] for g in g3), g3
+    assert cov3["rows_considered"] == 9
+
+    # 4b. A NEW error group outranks a CONTINUING one of the same level, which
+    #     is the immediate-vs-backlog axis the operator asked about.
+    mixed = order_groups([
+        {"level": "error", "count": 99, "is_new": False, "cause": "old"},
+        {"level": "error", "count": 1, "is_new": True, "cause": "new"},
+    ])
+    assert mixed[0]["cause"] == "new", mixed
 
     # 5. ... and is HELD when nothing was read, so an unread window is
     #    re-covered rather than marked done.

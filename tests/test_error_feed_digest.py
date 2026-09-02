@@ -178,12 +178,39 @@ def test_the_roster_is_projected_over_the_canonical_source():
 
 # ── watermark ──────────────────────────────────────────────────────────────
 
-def test_the_watermark_advances_and_does_not_replay():
+def test_the_watermark_advances_and_does_not_recount():
     feed = _feed("bot_logs", _rows(5))
     mark, _ = efd.next_watermark([feed], None)
     assert mark == _T0 + timedelta(hours=5)
     _, coverage = efd.group_rows(feed, mark)
     assert coverage["rows_after_watermark"] == 0
+
+
+def test_a_standing_condition_is_not_dropped_by_the_watermark():
+    """The watermark MARKS what is new; it must not FILTER what is shown.
+
+    Measured on the second consecutive live run, filtering to the delta dropped
+    the AVAX venue rejection from the due-list while it was still unresolved. A
+    digest that forgets a STANDING condition between two `duty` passes loses
+    exactly the signal it exists to carry.
+    """
+    feed = _feed("bot_logs", _rows(5))
+    mark, _ = efd.next_watermark([feed], None)
+    groups, coverage = efd.group_rows(feed, mark)
+    assert len(groups) == 1, "a standing condition vanished from the digest"
+    assert groups[0]["is_new"] is False
+    assert groups[0]["count"] == 5
+    assert coverage["rows_considered"] == 5
+
+
+def test_a_new_group_outranks_a_continuing_one_of_the_same_level():
+    """`is_new` is the immediate-vs-backlog axis the operator asked about, and
+    it is a fact about the group's earliest row, not a severity we assign."""
+    ordered = efd.order_groups([
+        {"level": "error", "count": 99, "is_new": False, "cause": "standing"},
+        {"level": "error", "count": 1, "is_new": True, "cause": "new"},
+    ])
+    assert [g["cause"] for g in ordered] == ["new", "standing"]
 
 
 def test_the_watermark_is_held_when_nothing_was_read():

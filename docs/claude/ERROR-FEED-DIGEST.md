@@ -1,15 +1,15 @@
 # Trader error feed — grouped for triage
 
-_Generated 2026-09-02T09:26:03+00:00 · covers rows after `(everything on the page)` · verdict **all_feeds_read**_
+_Generated 2026-09-02T09:39:12+00:00 · covers rows after `2026-09-02T09:37:38.807155+00:00` · verdict **all_feeds_read**_
 
 > ⚠️ **Page cap hit** on `bot_logs` — older rows exist that this digest did not see.
 
 ## Population
 
-- **operator_alerts** — state `read` · 365 of 1000 requested · span 2026-09-01T09:25:23.703099+00:00 → 2026-09-02T09:22:35.381938+00:00
+- **operator_alerts** — state `read` · 367 of 1000 requested · span 2026-09-01T09:25:23.703099+00:00 → 2026-09-02T09:37:38.807155+00:00
 - **bot_logs** — state `read` · 1000 of 1000 requested · span 2026-08-22T11:05:27.122345+00:00 → 2026-09-02T09:06:11.922435+00:00
 
-## Groups (70, covering 1365 rows)
+## Groups (70, covering 1367 rows)
 
 - **[error] x189** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: extended-hours limit 
   - 2026-09-01T09:25:23.703099+00:00 → 2026-09-02T08:17:06.617344+00:00 · accounts: alpaca_paper · symbols: GLD
@@ -25,12 +25,12 @@ _Generated 2026-09-02T09:26:03+00:00 · covers rows after `(everything on the pa
   - 2026-08-22T11:05:27.122345+00:00 → 2026-08-23T12:27:10.590896+00:00 · accounts: ib_paper
 - **[error] x13** `bot_logs` — bybit_over_cover detected: bybit_N/ETHUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL cap are used (N left;
   - 2026-08-26T02:19:58.119319+00:00 → 2026-08-29T04:06:19.407431+00:00 · accounts: bybit_1
+- **[error] x7** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: orders_still_resting 
+  - 2026-09-02T08:33:53.957025+00:00 → 2026-09-02T09:37:38.807155+00:00 · accounts: alpaca_paper · symbols: GLD
 - **[error] x6** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_unavailable (for N co
   - 2026-09-01T10:22:49.932680+00:00 → 2026-09-02T04:28:04.308123+00:00 · symbols: MHG · strategies: mhg_pullback_1d
 - **[error] x5** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles_unavailable (for N 
   - 2026-09-01T16:16:52.687771+00:00 → 2026-09-02T04:28:03.769217+00:00 · symbols: MES
-- **[error] x5** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: orders_still_resting 
-  - 2026-09-02T08:33:53.957025+00:00 → 2026-09-02T09:22:35.381938+00:00 · accounts: alpaca_paper · symbols: GLD
 - **[error] x4** `bot_logs` — alpaca_target_naked detected: alpaca_portfolio/GLD: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
   - 2026-08-24T13:35:51.930631+00:00 → 2026-08-28T16:00:48.519553+00:00 · accounts: alpaca_portfolio
 - **[error] x4** `bot_logs` — bybit_over_cover detected: bybit_N/XRPUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL cap are used (N left;
@@ -154,4 +154,4 @@ _Generated 2026-09-02T09:26:03+00:00 · covers rows after `(everything on the pa
 
 ---
 
-_Watermark: `2026-09-02T09:22:35.381938+00:00` — advanced to the newest row read (2026-09-02T09:22:35.381938+00:00)_
+_Watermark: `2026-09-02T09:37:38.807155+00:00` — no row newer than the prior watermark — mark unchanged_

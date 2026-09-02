@@ -593,9 +593,12 @@ def src_error_feed(
             "error_feed",
             "ERRFEED-" + hashlib.sha1(
                 g.get("cause", "").encode("utf-8")).hexdigest()[:8],
-            f"[{g.get('level')}] x{g.get('count')} {g.get('cause', '')[:140]}",
+            f"[{g.get('level')}] {'NEW ' if g.get('is_new') else ''}"
+            f"x{g.get('count')} {g.get('cause', '')[:140]}",
             f"error-level condition on `{g.get('feed')}`, "
-            f"{g.get('count')} rows {first[:19]} → {last[:19]}"
+            + ("FIRST SEEN since the last digest — " if g.get("is_new")
+               else "STANDING (predates the last digest) — ")
+            + f"{g.get('count')} rows {first[:19]} → {last[:19]}"
             + (f" · {facets}" if facets else "")
             + " — decide: fix now, or file to a backlog",
             age_days=(today - first_day).days if first_day else None))
@@ -607,7 +610,8 @@ def src_error_feed(
         rows.append(_row(
             "error_feed", "ERROR-FEED-SUMMARY",
             f"{len(groups)} cause groups over {env.get('counts', {}).get('rows_grouped')} rows "
-            f"({len(errs)} error-level, {len(warns)} warn-level)",
+            f"({len(errs)} error-level, {len(warns)} warn-level, "
+            f"{env.get('counts', {}).get('new_groups')} new since the last digest)",
             f"{capped} further error group(s) and every warn group are NOT listed "
             f"above — read `{_ERROR_FEED}` for the full set. Digest verdict "
             f"`{env.get('verdict')}`"
