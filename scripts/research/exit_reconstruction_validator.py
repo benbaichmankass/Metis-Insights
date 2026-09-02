@@ -183,7 +183,8 @@ def main():
     n = len(errs)
     print(f"\n=== RECONSTRUCTION ERROR vs BROKER TRUTH  (n={n}) ===")
     if n == 0:
-        print("  *** NO ROWS CLEARED EVERY STAGE — result is VACUOUS, not clean. ***")
+        print(f"  *** NO ROWS CLEARED EVERY STAGE (n={n}) — result is "
+              f"VACUOUS, not clean. ***")
     else:
         errs_s = sorted(errs)
         print(f"  median |err|   {statistics.median(errs_s):8.2f} bps")

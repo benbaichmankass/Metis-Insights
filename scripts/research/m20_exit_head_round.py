@@ -471,7 +471,16 @@ def main(argv: list[str]) -> int:
     for sym, path in candles.items():
         build_cmd += ["--candles", f"{sym}={path}"]
     if a.db:
-        build_cmd += ["--db", a.db]
+        # SCOPE THE LIVE ARM TO THIS ROUND'S OWN LEGS. Unscoped, the builder
+        # loads every strategy-attributed closed trade in the journal and
+        # `family_of()` buckets same-symbol siblings into families this round
+        # never named — measured 2026-08-13 (relays #8854/#8855): a scalp round
+        # produced `donchian {live: 3}` and `pullback {live: 6}` while the leg
+        # it was grading read live=0, and the 0-harness families it invented
+        # then crashed training. `--legs` is a no-op without `--db`, so this is
+        # the only place it needs to be passed
+        # (BL-20260813-EXIT-HEAD-LIVE-ARM-DROPPED-ON-NO-CANDLES defect 1).
+        build_cmd += ["--db", a.db, "--legs", a.legs]
     p = sh(build_cmd, timeout=21600)
     print(p.stdout[-2000:], p.stderr[-500:], flush=True)
     if p.returncode != 0:

@@ -283,6 +283,25 @@ today against a written record saying it was demoted for a 0% win rate over 60 c
 **E3** is a sunset pass with a forcing function, for machinery as much as strategies — 6
 strategy retirements ever, none in five weeks against 45 live legs, and nothing has ever
 retired a skill, register, workflow or guard. **Complexity is monotonic by construction**
+
+⚠️ **THE SENTENCE ABOVE IS REFUTED FOR WORKFLOWS, and correcting it matters because Phase G's
+done-condition depends on it.** Measured 2026-09-02 — population: files deleted on `origin/main`
+between 2026-06-13 (the oldest commit in a shallow clone's fetched history) and 2026-09-02, so
+these are **lower bounds, not lifetime totals**; positive control, 137 files were deleted across
+the tree, so the search finds deletions:
+
+| machinery | deleted | the claim |
+|---|---:|---|
+| **workflows** | **35** (30 of them one commit — the 2026-08-07 per-guard consolidation; plus `grade-order-packages.yml`, retired by operator directive 2026-06-24, and two verify-before-build probes deleted the day they answered their question) | **REFUTED** |
+| `scripts/ops/` scripts | 7 | refuted |
+| **skills** (`SKILL.md`) | **0** | **holds** |
+| **CI guards** (`scripts/ci/`) | **0** | **holds** |
+| **registers** (`docs/claude/*.json`) | **0** | **holds** |
+
+So Phase G's *"something has actually been removed"* was **already met before Phase G opened**,
+repeatedly. The forcing function is absent for **skills, guards and registers** — where the count
+is a clean zero — and present for workflows. A plan aimed at *"nothing is ever removed"* aims at
+the wrong target. Full working: [`docs/audits/operating-layer-skills-workflows-inventory-2026-09-02.md`](../audits/operating-layer-skills-workflows-inventory-2026-09-02.md) § 4.2.
 until something removes.
 
 **E2's missing half is a rule, not a mechanism.** Capability build happens constantly. What
@@ -320,7 +339,7 @@ re-learned.
 
 | Retired | Replaced by | Phase |
 |---|---|---|
-| The two dead Routines (`enabled`, no schedule, naming the pre-rename repo and dead branches) | Deleted outright — ⚠️ **OPERATOR-ONLY, attempted and refused 2026-09-01** | A |
+| The two dead Routines (`enabled`, no schedule, naming the pre-rename repo and dead branches) | ✅ **GONE as of 2026-09-02** — see the correction below. (Was: *deleted outright — OPERATOR-ONLY, attempted and refused 2026-09-01*) | A |
 | `DUE.json` / `DUE.md` as an owner-assignment list | A1 as a constraint readout | D |
 | `continue-work.yml` (validates a handoff; cannot start a session) | F2's close-out + the reaper | E |
 | The register sprawl — 13 surfaces a session is expected to read | One state of record | A, then G |
@@ -337,6 +356,17 @@ keeps two routines that read `enabled: true` and can never fire — the state th
 mechanism that looks armed and is not. ⚠️ `Health Check Routine` additionally carries a stored
 OAuth token (`sk-ant-oat01-…`, created 2026-05-10) that has never been used; deleting the
 routine retires that credential with it.
+
+⚠️ **CORRECTION 2026-09-02 — THE TWO DEAD ROUTINES ARE GONE, so stop asking the operator for
+them.** `list_triggers(enabled=true)` returns exactly **2** routines and neither is
+`Health Check Routine` nor `Sprint Continue Work`; positive control — the call did return two live
+routines, so the probe finds positives. ⚠️ **What is established is their ABSENCE from the register
+as a session can read it, NOT who removed them or when** — do not record this as "the operator
+actioned the hand-off". ⚠️ **And the shape is back:** a poke-only routine created 2026-09-02T05:35Z
+reads `enabled: true`, no `cron_expression`, `next_run_at: 0001-01-01` — byte-identical in register
+shape to the two dead ones, and deliberate. The register has no field separating *fires only when
+poked, on purpose* from *claims a cadence it can never have*, which is why those two survived four
+months in plain sight (`BL-20260902-ROUTINE-REGISTER-CANNOT-DISTINGUISH-A-DELIBERATE-POKE-ONLY-ROUTINE-FROM-A-DEAD-ONE`).
 
 ⚠️ **A retirement is done when the old thing is GONE, not when the replacement ships.** The
 failure mode is well evidenced: the new surface lands, the old one is left "for now", and a

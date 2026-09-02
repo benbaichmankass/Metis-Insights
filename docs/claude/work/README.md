@@ -65,9 +65,55 @@ decision_requests:
         label: Do the second thing
         implication: ...
     allows_free_text: true             # an explicit `false` closes free text
+    asked_by:                          # WHO ASKED — see below. Omit if a human asked.
+      session_id: session_01PEYVqTaCY92C3HmtHwxYff
+      recorded_at: 2026-09-02T10:35:26Z
+      note: MI-60 — what the answer unblocks
     # `answer:` is written by the COMMITTER, never by hand-editing the transit
     # log. Its PRESENCE is what makes the decision true.
 ```
+
+### `asked_by` — the address the answer gets PUSHED back to (2026-09-02)
+
+**Record it whenever a SESSION asks the question.** Without it the answer has
+nowhere to go, and the session that raised the question can only learn the
+answer by polling — which is the gap the operator named on 2026-09-02:
+*"can we add … a push something on the end of that so that, when the answer
+gets to the repo, it knows to push it to the session instead of waiting for the
+session to pull?"*
+
+**How to fill it in:** call `get_session` with `session_id` **omitted** — it
+returns your own record, id included (TESTED 2026-09-02). You do not need to be
+told what your session is, and nobody could have told you: the id does not exist
+until your session is created. Then use the helper so the shape cannot drift:
+
+```python
+from src.runtime.work_decisions import render_asked_by_block
+render_asked_by_block(session_id="session_…", note="what this unblocks")
+```
+
+**Three states, never collapsed** (`askedByState` on
+`GET /api/bot/work/decisions`, and registered with `collapsed-state-guard`):
+
+| state | meaning |
+|---|---|
+| `recorded` | an asker is named and reachable — a committed answer can be pushed to it |
+| `unrecorded` | **nobody wrote one down.** Ordinary and blameless: every request written before 2026-09-02 reads this way, as does any question a human asked |
+| `malformed` | someone recorded an asker that is **not usable** — a question whose answer will silently never be delivered while its owner believes it will. A FINDING; it fails `push_decisions_back.py` |
+
+⚠️ **Do NOT back-fill `asked_by` onto an existing request.** Every request in
+the store today grades `unrecorded`, and that is the honest reading — nobody
+recorded an asker at the time, and inventing one now would assert a fact nobody
+established. `unrecorded` exists precisely so that gap does not have to be
+papered over.
+
+⚠️ **The push ADDS to the pull path; it does not replace it.** `committed` is
+still graded from this directory exactly as before. If every push fails forever,
+the system behaves exactly as it did before the push existed — which is the
+property that makes `session_gone` a survivable state rather than a lost answer.
+
+Feasibility, with every claim marked TESTED / READ / RECORDED:
+[`docs/design/decision-push-back-FEASIBILITY.md`](../../design/decision-push-back-FEASIBILITY.md).
 
 **The round-trip, and the one rule that shapes it:**
 
@@ -97,6 +143,234 @@ inbox was empty by construction. `WO-20260901-PHASE-H` therefore carries the
 first real question as its own content — the Phase A precedent, *the store's
 first content is the plan to build the store*: a mechanism is exercised by real
 content from its first commit, or it is deployed and unproven.
+
+## Spawning a sub-session, and proving none was lost
+
+`SESSIONS.json` is the **only** thing a manager arriving COLD can read to pick up
+the sub-sessions its predecessor spawned. A session it does not name is, to that
+successor, a session that does not exist.
+
+⚠️ **THIS HAS FAILED TWICE, AND THE SECOND TIME WAS WORSE.**
+`MI-15-SESSIONS-REGISTRY-INCOMPLETE` recorded **3 of 6** spawned sessions absent
+on 2026-09-01 and applied the remedy *"remember to register"*. On
+**2026-09-02T05:56Z it was 6 of 9, five of them LIVE** — including all three
+sessions carrying the cycle's highest-priority work — while the MI-15 row was
+still sitting at `landed_unproven`. **The moment a manager spawns a session is
+exactly the moment it is least likely to stop and write a record**, so the
+remedy cannot be another reminder.
+
+### Spawn through the registry, not around it
+
+```bash
+python3 scripts/ops/session_registry.py register \
+    --title "..." --why "..." --spawned-by "$CLAUDE_SESSION_ID" \
+    --branch "Metis-Insights:claude/..." --checklist-item MI-nn
+# -> appends the row AND prints the spawn prompt to paste into create_session
+# -> then: ... confirm --registry-key <key> --session-id <the new id>
+```
+
+⚠️ **THIS IS A SOFT COUPLING AND SAYING SO IS THE POINT.** The repo does **not
+own the spawn** — a sub-session is created by the `create_session` MCP tool, and
+nothing here sits on that call path, so no code can make the registry write
+happen *as part of* the spawn. What `register` does instead is put the row on
+the path to **the spawn prompt**, which a manager needs anyway: the cheapest
+correct route now goes *through* the registry rather than around it. It is still
+bypassable by writing a prompt by hand, which is why the two detectors below
+exist and why the coupling alone was never going to be enough.
+
+⚠️ `--session-id` is optional because of an ordering fact that cannot be wished
+away: the platform mints the id when `create_session` **returns**, after the
+prompt was needed. A row written first carries `state: spawn_pending` and a
+`registry_key`. **A pending row is a WEAKER record** — it names the work but
+cannot be polled — so `handoff_check` refuses to grade a handoff `ready` while
+one is unconfirmed.
+
+### Two detectors, with deliberately different reach
+
+| | Reach | Where it runs |
+|---|---|---|
+| **Offline** — `session_registry.py status --strict` | the manager also writes a session id into `MANAGER-CHECKLIST.json::items[].owner`; an owner absent from the registry is a lost session, found from **two file reads** | **CI, every PR** (`session-registry-guard`) |
+| **Live** — `session_registry.py reconcile --live-sessions <list_sessions output>` | what is **actually running** | only a session holding the `list_sessions` MCP tool can produce the observation. **CI holds no MCP tools.** |
+
+⚠️ **The offline detector is PARTIAL BY CONSTRUCTION** — a session written into
+neither file is invisible to it too. It catches the *overlap* of two incomplete
+records, which is strictly more than the zero either caught alone.
+
+⚠️ **Enforcement is scoped to `in_flight` checklist items**, where losing a
+session costs LIVE work. Owners absent on other states are **censused and
+printed on every run**, so the narrow enforcement can never hide the wider
+number.
+
+### Before handing over: `handoff_check.py`
+
+```bash
+python3 scripts/ops/handoff_check.py --session-id "$CLAUDE_SESSION_ID" \
+    --live-sessions <(the list_sessions output)
+```
+
+The **lease is deliberately not a handoff** — its own docstring says takeover is
+TIME-BASED *because a session that dies cannot hand over*. That is right for a
+manager that DIED; a manager that is alive and stepping down is the other case,
+and everything the successor needs to inherit was, until now, "remember to."
+This is the check that turns it into a verdict. It refuses on: an observed live
+session absent from the registry · a checklist owner absent from it · a lease
+you do not hold · manager state that never reached `origin` · an unconfirmed
+`spawn_pending` row.
+
+**Three states, never collapsed** — `ready` · `not_ready` · **`unknown` (we
+could not look)**. ⚠️ **`ready` is UNOBTAINABLE without a live observation, and
+that is the enforcement rather than an inconvenience.** There is deliberately no
+flag that asserts the registry is fine: *asserting it is what failed twice.*
+Exit codes 0 / 3 / 4 keep the three apart, so a caller cannot treat "we could
+not look" as a pass.
+
+## The other half of a handoff: OPEN PRS
+
+`SESSIONS.json` says which sub-sessions a successor inherits. **`OPEN-PRS.json`
+says which PRs it inherits, and what the operator already said about them** —
+ownership, intent and decisions, which GitHub does not carry.
+
+⚠️ **THE DANGEROUS CASE IS A FORGOTTEN CONDITION, NOT A FORGOTTEN PR.** `#10746`
+carries a Tier-2 approval that is *conditional*: stage on `bybit_1` (demo) only,
+explicitly not a fleet-wide flip, with the operator having accepted that
+real-money `bybit_2` stays exposed during the soak.
+
+- A successor knowing **nothing** about that approval stalls and re-asks —
+  wasteful, and **safe**.
+- A successor knowing **"approved"** but not the **condition** could merge it
+  fleet-wide onto a **real-money account**.
+
+**Only the half-informed case is dangerous.** So a row recording a verdict
+*without* its condition is **worse than a missing row** — it reads as complete.
+
+### `operator_decision` is a typed object, not a string
+
+```json
+"operator_decision": {
+  "verdict": "approved_with_conditions",   // closed vocabulary
+  "condition": "must ship behind an account allowlist …",
+  "scope": "bybit_1 (demo) ONLY. NOT a fleet-wide flip …",
+  "decided_on": "2026-09-02",
+  "text": "<the operator's original wording, VERBATIM>"
+}
+```
+
+`verdict` ∈ `approved` · `approved_with_conditions` · `not_required` ·
+`pending` · `none_recorded`. `python3 scripts/ops/open_pr_record.py --strict`
+**fails** a row whose verdict is `approved_with_conditions` while recording
+neither `condition` nor `scope`, and it runs in CI on every PR.
+
+⚠️ **A plain `approved` is deliberately NOT forced to carry a condition** —
+failing it would push authors to invent one to satisfy the guard, which is worse
+than the gap it closes.
+
+⚠️ **WHAT THIS CANNOT DETECT, SAID PLAINLY.** An author who writes
+`verdict: approved` where the operator actually attached conditions defeats it,
+and **nothing inside the repo can catch that** — knowing a condition was given
+means knowing what the operator said, and *this file is that record*. Reading it
+out of the old free-text form would mean matching English for a semantic
+property, which is diagnostic-provenance sub-class **A** (the repo's own stated
+reason for deferring C4). The typed form **narrows** the failure from *"a
+condition silently absent from prose nobody parses"* to *"a verdict field a
+reader can compare against `text`"*. That is why `text` is mandatory — and it is
+a narrowing, **not** a closure. A row still on the free-text form grades
+`prose_ungradeable`, which is **`unknown`, never a pass**.
+
+### Staleness, with no wall-clock threshold
+
+The record's own `_doc` says it goes stale the moment a PR merges. So staleness
+is detected by **comparing it against a live list of what is open**, not by
+ageing `as_of`: a row naming a PR that is no longer open **is** that staleness,
+observed rather than guessed. The complementary direction — an open PR with no
+row — is the completeness half.
+
+⚠️ **This is NOT a second copy of GitHub.** Nothing here re-derives CI or
+mergeability; a JSON mirror of PR state would be free to drift. The live list is
+compared and never stored.
+
+⚠️ **The live list cannot be fetched from a sub-session's container on a
+Routine-woken turn** — `mcp__github__*` is absent there and `api.github.com`
+returns 403 at the sandbox proxy. It has to come from somewhere credentials
+exist: an interactive session's `list_pull_requests`, or a workflow. Pass it
+with `--open-prs`; without it, completeness grades **`not_observed`**, which is
+`unknown` and therefore never `ready`.
+
+## Merging these files — the driver, and what it does NOT do
+
+`MANAGER-CHECKLIST.json`, `SESSIONS.json` and `OPEN-PRS.json` are monolithic and
+re-conflict on sibling PRs. ⚠️ **The mechanism is NOT the rows.** Measured on
+`main` @`1b82ab7` over adjacent register-touching commit pairs since 2026-08-26,
+the share where BOTH sides bump the same `updated_at`/`as_of` header line:
+**MANAGER-CHECKLIST 29/39 (74%)** · OPEN-PRS 8/12 (67%) · SESSIONS 14/23 (61%).
+PR #10815's entire conflict here was that one line. Row contention is the
+minority (31% / 50% / 9%).
+
+So the remedy is `.gitattributes` + `scripts/ops/merge_json_register.py`, a
+row-aware 3-way merge — **not** one-file-per-row. ⚠️ **Sharding would not have
+fixed the majority case**: `as_of` lives in the container and would keep
+conflicting. Install it once per clone:
+
+```bash
+scripts/ops/install_merge_driver.sh   # git refuses an executable path from a tracked file
+```
+
+⚠️ **IT IS CLIENT-SIDE. GITHUB DOES NOT RUN IT.** A `mergeable_state: dirty` PR
+is still dirty on GitHub; what this removes is resolving it by hand. A clone that
+never ran the installer merges these files the old way — it degrades, it does not
+break.
+
+⚠️ **IT REFUSES RATHER THAN PICKING A WINNER.** Divergent same-id ADD, divergent
+same-id EDIT and delete-vs-edit all exit 1 with markers left. This is not
+caution for its own sake: a union-by-id resolver once reported *"no id lost, none
+resurrected"* while silently dropping an edit, because both sides had ADDED the
+same id and the divergence check only covered rows present in the merge base. A
+row deleted on one side and untouched on the other **stays deleted** — deletion
+is intent.
+
+It never reformats: rows are spliced as original byte spans, so
+`backlog_append.py::append_row`'s exact-serialisation contract holds and
+`OPEN-ITEMS.json` — which is NOT byte-reproducible — is safe. Round-trip is
+byte-identical on all five registers; `--check-round-trip` is the proof.
+
+## The morning handoff: THE DAILY BRIEF
+
+`SESSIONS.json` says which sub-sessions a successor inherits and `OPEN-PRS.json`
+says which PRs. **Neither of them, nor anything else, produced the thing a
+PERSON is handed at the day boundary** — which is what the operator's daily
+cadence assumes. Their own words are the acceptance criterion:
+
+> *"by the [brief] in the morning, I want that to include what was done
+> overnight and what was wrapped up after I went to bed, **so that I know where
+> I'm starting off from**."*
+
+[`scripts/ops/render_daily_brief.py`](../../../scripts/ops/render_daily_brief.py)
+renders it to [`comms/briefs/<UTC-date>.md`](../../../comms/briefs/). It has a
+**DELTA** half (§1, what moved overnight — `work_digest`, imported not
+re-derived) and a **STATE** half (§2, the checklist split by state, the lease,
+the open-PR conditions, the `loud` open-items). *The delta alone is a changelog,
+and a changelog does not tell anyone where they are.*
+
+⚠️ **IT IS A CLOSE-OUT DELIVERABLE THE NIGHT MANAGER RUNS, NOT A CRON — and the
+reason is a tool boundary, not a preference.** What merged is readable from git
+and the registers are readable, but **what a night session CONCLUDED lives in
+`get_session`'s `post_turn_summary`, and `mcp__*` tools are unavailable to CI
+and to Routine-fired turns.** A cron would ship, every morning, a brief
+structurally unable to answer the question it exists for. The manager passes
+what it observed with `--session-notes`.
+
+⚠️ **It still runs with none of that**, because the case this phase exists for
+is *the manager died*. An omitted observation renders **`not_observed`** — a
+declared hole — never silence and never *"nothing was concluded"*.
+
+⚠️ **`landed_unproven` is NOT `done` and the brief must never flatten them.** A
+merge is a deploy, not an observation; an item reported as finished whose effect
+was never seen actively misinforms the person starting the day. The two are
+counted and listed separately, and `daily-brief-guard` asserts it on every PR
+with planted controls in both directions.
+
+⚠️ **Every file under `comms/briefs/` is a DATED SNAPSHOT, not current state.**
+Taking over mid-day? **Re-run it** — it reads live files. Full contract:
+[`comms/briefs/README.md`](../../../comms/briefs/README.md).
 
 ## What is NOT here
 
@@ -173,10 +447,36 @@ Three distinctions the readout keeps and a reader must too:
 - **`declared_none` vs `unstated`.** An empty list with a basis that ASSERTS an assessment
   is a claim; an empty list with `NOT_ASSESSED`, or with no basis key at all, is nobody
   having looked. Collapsing them turns 578 unexamined rows into 578 all-clears.
-- **The `stage` histogram is not a constraint.** `INTEGRITY` 498 · `EVIDENCE` 78 ·
-  `CAPABILITY` 8, and **zero** on QUESTION / DECISION / DEPLOYMENT / OBSERVATION — the
-  shape of what got migrated (review-backlog defect rows), not of where the chain is
-  stuck. `chain_stages_with_no_objects` publishes the gap explicitly.
+- **The `stage` histogram is not a constraint, and it is worse than that — it is a
+  census of FILENAMES.** ⚠️ **This bullet read `INTEGRITY 498 · EVIDENCE 78 ·
+  CAPABILITY 8, and zero on QUESTION / DECISION / DEPLOYMENT / OBSERVATION … the shape
+  of what got migrated` until 2026-09-02.** The conclusion was right and the mechanism
+  was understated. Measured over all 584 objects: **576 carry `source.backlog`, and
+  their stage is a deterministic function of that ONE field** —
+  `migrate_backlog_to_work_objects.py::SOURCES` maps `health-review-backlog.json` →
+  INTEGRITY and `{ml,performance,research}-review-backlog.json` → EVIDENCE with **no
+  per-row judgement and zero exceptions**; the other 8 are the build's own phases, all
+  CAPABILITY. So `INTEGRITY 498` counts one filename, and **not one object in the store
+  had its chain stage chosen by someone reading the work.**
+  `constraint_readout.py` now grades this as **`stage_basis`** — `per_object` ·
+  `bulk_by_source_file` · `unstated`, never collapsed, summing to the population
+  checkably — and both `READOUT.md` and the `CLAUDE.md` brief say so beside the
+  histogram. ⚠️ **AND THIS IS INDEPENDENT OF EDGE COVERAGE.** Assessing every one of the
+  584 objects with perfectly true edges would leave DECISION at whatever anyone happened
+  to hand-author, so the readout would then name a stage **confidently**, off a histogram
+  describing four backlog filenames. The refusal is currently the only thing stopping
+  that. `chain_stages_with_no_objects` publishes the empty stages; `stage_basis`
+  publishes why they are empty.
+  ⚠️ **The chain work EXISTS — it is outside the store, under a different vocabulary.**
+  `docs/claude/OPEN-ITEMS.json` holds `pending_decision` (= DECISION) and
+  `monitoring` / `awaiting_verification` (= OBSERVATION, *"deployed, awaiting an
+  observation"* being that stage's definition). Phase C carried the review **backlogs**
+  and never the **register**, which is exactly why the support half is full and the
+  chain half is empty. Filed as
+  `BL-20260902-WORK-STORE-STAGE-IS-A-CENSUS-OF-FILENAMES-SO-FOUR-CHAIN-STAGES-ARE-EMPTY-BY-CONSTRUCTION`.
+  ⚠️ **Do NOT "fix" this with a bulk re-stage** — a stage assigned by a second uniform
+  rule is the same defect wearing different numbers, and `stage_basis` will still read
+  `bulk_by_source_file` for every row.
 - **A hold on a `waiting` target is the weakest hold the graph can express.** `waiting`
   covers both *not delivered* and *delivered, awaiting an observation*, and a dependent
   needs the capability rather than the observation. Reported as

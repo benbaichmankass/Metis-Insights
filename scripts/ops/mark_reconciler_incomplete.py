@@ -104,7 +104,7 @@ def main() -> int:
         print(f"db: {db_path}")
         print(f"candidates: {pre}")
         if pre == 0:
-            print("nothing to mark — exiting clean.")
+            print(f"nothing to mark — exiting clean (candidates={pre}).")
             return 0
 
         print()

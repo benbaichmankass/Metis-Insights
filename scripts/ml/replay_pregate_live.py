@@ -171,6 +171,15 @@ def _forward_label_map(candle_rows: List[Dict[str, Any]], *, forward_m: int,
     """Map each bar's close-time → realized regime label (1 = volatile),
     using the same market_features rule: forward_vol = pstdev(log_returns[
     i+1..i+m]) > vol_threshold."""
+    # The label rule below is `fvol > vol_threshold -> 1`, i.e. hardcoded to
+    # the VOLATILE class, while the caller scores proba[positive_class]. Any
+    # other positive_class would compare labels of one class against
+    # probabilities of another and report a meaningless parity number.
+    if positive_class != "volatile":
+        raise ValueError(
+            f"_forward_label_map derives labels for the 'volatile' class only; "
+            f"got positive_class={positive_class!r}"
+        )
     rows = sorted(candle_rows, key=lambda r: str(r.get("ts", "")))
     closes = [float(r.get("close", 0.0) or 0.0) for r in rows]
     ts = [_parse_ts(r.get("ts")) for r in rows]

@@ -168,3 +168,109 @@ def test_every_declared_state_has_a_bucket():
     assert split[f"{bls.LEG_SIDE_UNREADABLE}_legs"] == 1
     # position side readable here, so that bucket is a real zero
     assert split[f"{bls.POSITION_SIDE_UNREADABLE}_legs"] == 0
+
+
+def _qty(leg):
+    """The same parse `order_monitor._bybit_sl_leg_qty` injects — a second copy
+    of "what qty does this leg close" is how the sum and the split would drift.
+    """
+    try:
+        q = float(leg.get("qty"))
+    except (TypeError, ValueError):
+        return None
+    return q if q > 0 else None
+
+
+def _split(position_side, legs, position_idx):
+    return bls.split_legs_by_side(
+        position_side, legs, qty_of=_qty, position_idx=position_idx)
+
+
+# ==========================================================================
+# graded_book_coverage — the accessor the RE-ARM decision reads (2026-09-02)
+# ==========================================================================
+# ⚠️ This is no longer a diagnostic. `_check_broker_naked_bybit_positions`
+# grades coverage through it, so a wrong answer here changes which live
+# positions get a protective stop re-armed. Both directions, and the two
+# "we did not look" states separately from the real zero.
+def test_graded_coverage_counts_only_the_legs_that_reduce_this_book():
+    """The live BTCUSDT shape: own Sell 0.018 + other-book Buy 0.46."""
+    split = _split("Buy", [
+        {"side": "Sell", "qty": "0.018"},
+        {"side": "Buy", "qty": "0.46"},
+    ], 1)
+    qty, reason = bls.graded_book_coverage(split)
+    assert reason == bls.COVERAGE_GRADED
+    assert qty == pytest.approx(0.018)      # NOT 0.478 — that is the side-blind sum
+
+
+def test_graded_coverage_of_a_short_is_its_BUY_legs():
+    """The MIRROR — otherwise the accessor could be inverted and still pass."""
+    split = _split("Sell", [
+        {"side": "Buy", "qty": "10"},
+        {"side": "Sell", "qty": "99"},
+    ], 2)
+    qty, reason = bls.graded_book_coverage(split)
+    assert reason == bls.COVERAGE_GRADED and qty == pytest.approx(10.0)
+
+
+def test_only_other_book_legs_is_a_measured_ZERO_not_a_refusal():
+    """THE DEFECT'S CORE. A real reading of zero — nothing protects this book —
+    must be a number the caller can act on, not an unknown. Returning `None`
+    here would make the sweep refuse exactly where it must re-arm."""
+    qty, reason = bls.graded_book_coverage(_split("Buy", [
+        {"side": "Buy", "qty": "0.46"}], 1))
+    assert reason == bls.COVERAGE_GRADED
+    assert qty == 0.0
+
+
+def test_no_legs_at_all_is_also_a_measured_zero():
+    qty, reason = bls.graded_book_coverage(_split("Buy", [], 0))
+    assert reason == bls.COVERAGE_GRADED and qty == 0.0
+
+
+def test_unreadable_position_side_refuses_rather_than_returning_zero():
+    """⚠️ `None`, never `0.0`. A zero would be read as "nothing covers this
+    book" and drive a live re-arm on a position we could not grade."""
+    qty, reason = bls.graded_book_coverage(_split("", [
+        {"side": "Sell", "qty": "0.018"}], 1))
+    assert qty is None
+    assert reason == bls.COVERAGE_UNGRADED_POSITION_SIDE
+
+
+def test_one_unreadable_leg_side_refuses_the_whole_grade():
+    """A partial grade is a LOWER BOUND, and a lower bound compared against
+    `size` under-reports coverage — which drives a re-arm."""
+    qty, reason = bls.graded_book_coverage(_split("Buy", [
+        {"side": "Sell", "qty": "0.018"},
+        {"side": None, "qty": "0.005"},
+    ], 1))
+    assert qty is None and reason == bls.COVERAGE_UNGRADED_LEG_SIDE
+
+
+def test_unreadable_leg_qty_refuses_too():
+    """Defence in depth: `_bybit_position_protection`'s own
+    `unknown_qty_sl_legs` guard already refuses upstream, but the accessor must
+    be safe on its own terms — a leg whose side graded and whose qty did not
+    contributes 0.0 and would silently understate the total."""
+    qty, reason = bls.graded_book_coverage(_split("Buy", [
+        {"side": "Sell", "qty": "nope"}], 1))
+    assert qty is None and reason == bls.COVERAGE_UNGRADED_LEG_QTY
+
+
+def test_absent_split_refuses_and_is_not_a_zero():
+    """The Full-mode branch returns `leg_side_split: None` because it never
+    read the legs. `None` is *we did not look*; a 0.0 would assert a
+    measurement nobody took."""
+    for absent in (None, "", [], 0):
+        qty, reason = bls.graded_book_coverage(absent)
+        assert qty is None and reason == bls.COVERAGE_UNGRADED_NO_SPLIT
+
+
+def test_position_side_refusal_is_reported_ahead_of_the_leg_side_one():
+    """Both are "we did not look", but they point at different halves of the
+    read: with no position side NOTHING on the symbol is gradeable, so that is
+    the more informative thing to tell an operator."""
+    split = _split("", [{"side": None, "qty": "1"}], 1)
+    _, reason = bls.graded_book_coverage(split)
+    assert reason == bls.COVERAGE_UNGRADED_POSITION_SIDE

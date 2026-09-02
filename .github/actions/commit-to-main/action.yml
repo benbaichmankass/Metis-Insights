@@ -159,7 +159,38 @@ runs:
         # `origin` is PAT-authenticated → the PR opened below triggers the required
         # checks (a GITHUB_TOKEN-opened PR would not).
         git push origin "HEAD:refs/heads/${BR}"
-        PR_URL="$(gh pr create --base main --head "${BR}" --title "${PR_TITLE}" --body "${PR_BODY}")"
+        # BOUNDED RETRY ON A SECONDARY RATE LIMIT.
+        # `probes` run #55 (2026-09-02, event=schedule) died exactly here with
+        # `GraphQL: API rate limit already exceeded for user ID 119055177` — the
+        # SAME exhausted quota that made strategy-review-packets run #22 report a
+        # false "not on main" a few minutes earlier. `set -e` aborted on the first
+        # try, leaving the rows pushed to the throwaway branch with NO PR opened
+        # and nothing tracking them.
+        #
+        # ⚠️ STATE WHAT THIS CAN AND CANNOT ABSORB, because a retry that quietly
+        # cannot help is worse than none. GitHub's SECONDARY limits clear in
+        # seconds-to-a-minute and this absorbs them. A PRIMARY hourly limit does
+        # NOT clear inside this window, and no bounded retry could reach it — such
+        # a run still fails, and it SHOULD, because the real remedy is upstream
+        # (fewer API calls from concurrent sessions), not a longer sleep here.
+        PR_URL=""
+        for attempt in 1 2 3; do
+          if PR_URL="$(gh pr create --base main --head "${BR}" \
+                        --title "${PR_TITLE}" --body "${PR_BODY}" 2>/tmp/ctm_create_err)"; then
+            break
+          fi
+          PR_URL=""
+          echo "::warning::commit-to-main: gh pr create attempt ${attempt}/3 failed: $(tail -c 400 /tmp/ctm_create_err)"
+          [ "${attempt}" -eq 3 ] && break
+          sleep $(( attempt * 20 ))
+        done
+        if [ -z "${PR_URL}" ]; then
+          # NAME the consequence. The rows are not lost — they are on ${BR} — and
+          # a reader who knows that can recover them; a bare exit 1 sends them
+          # looking for a generation failure that did not happen.
+          echo "::error::commit-to-main: could not open a PR for ${BR} after 3 attempts. THE ROWS ARE NOT LOST — they are pushed to ${BR} and can be opened manually. Last error: $(tail -c 400 /tmp/ctm_create_err)"
+          exit 1
+        fi
         echo "opened ${PR_URL}"
         # Squash-auto-merge once required checks pass; delete the throwaway branch.
         if ! gh pr merge --auto --squash --delete-branch "${PR_URL}"; then
@@ -209,8 +240,14 @@ runs:
         if [ "${REFRESH_AT}" -lt "${MIN_WAIT}" ]; then REFRESH_AT="${MIN_WAIT}"; fi
         [ "${REFRESH_STALE_BRANCH:-true}" = "true" ] || REFRESH_STATE="disabled"
 
+        # Did we EVER manage to read the PR? `UNKNOWN` is `gh pr view` failing,
+        # and a loop that never once succeeded knows NOTHING about the merge —
+        # a different fact from "it did not merge", and the one the timeout
+        # message used to assert. See the `never_read` branch after the loop.
+        STATE_EVER_READ=0
         while [ "$(date +%s)" -lt "${DEADLINE}" ]; do
           STATE="$(gh pr view "${PR_URL}" --json state --jq .state 2>/dev/null || echo UNKNOWN)"
+          [ "${STATE}" = "UNKNOWN" ] || STATE_EVER_READ=1
           case "${STATE}" in
             MERGED)
               echo "merged: ${PR_URL}"
@@ -256,5 +293,63 @@ runs:
         # dispatcher run 33340458710) that was WRONG: the base was green and
         # `pytest-run` failed on the branch's own content. Naming one cause
         # confidently sends the reader to re-run checks that will fail again.
-        echo "::error::commit-to-main: ${PR_URL} did not merge within ${MINS}m (stale-branch refresh: ${REFRESH_STATE}). The rows are written on ${BR} and are NOT on main. CHECK THE PR'S OWN CHECK RUNS BEFORE ASSUMING A CAUSE — the two look identical from here: (a) the branch's checks FAILED on its own content, which a re-run will not fix; or (b) they were never re-run after a transient red base (BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH), which a re-run or rebase does fix."
+        # ── ASK GIT BEFORE ASSERTING ANYTHING ────────────────────────────────
+        # ⚠️ THIS BLOCK EXISTS BECAUSE THE MESSAGE BELOW WAS MEASURED FALSE.
+        # strategy-review-packets run #22 (2026-09-02, its FIRST-EVER scheduled
+        # run) failed here at 09:31:27Z reporting "the rows ... are NOT on main".
+        # PR #10771 had MERGED at 09:20:18Z — eleven minutes earlier — and all
+        # six of its check runs were `success`. The whole 30m of polling logged
+        # `state=UNKNOWN`, i.e. `gh pr view` failed on EVERY attempt (the account
+        # was rate-limited that morning), so the job never once read the PR and
+        # then reported a merge outcome anyway.
+        #
+        # That is UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A, which CLAUDE.md
+        # defines as "a failure message that names a cause no code path tested":
+        # both causes the message offers are about CHECK RUNS, and neither is
+        # "we could not read the PR at all". The remedy this repo prescribes for
+        # sub-class A is to branch on the actual failure STAGE, not to reword.
+        #
+        # So: `git` is an INDEPENDENT evidence source that needs no `gh`, no API
+        # quota and no token beyond the checkout's own. Asking it converts an
+        # assumption into a measurement — and on the motivating run it would have
+        # returned "merged" and exited 0.
+        # ⚠️ THE TEST IS PATH CONTENT, NOT ANCESTRY, AND THAT IS LOAD-BEARING.
+        # A first draft used `git merge-base --is-ancestor HEAD FETCH_HEAD` and
+        # it is WRONG here: this repo SQUASH-merges, so the throwaway branch's
+        # commit is never an ancestor of main even when the PR merged perfectly.
+        # Verified against the motivating run — #10771's head sha d3e8415c is
+        # NOT an ancestor of origin/main, while
+        # `comms/strategy_reviews/2026-09-02/INDEX.json` IS on main. An ancestry
+        # test would have reproduced the very false negative this block exists to
+        # end.
+        #
+        # So ask the question the message actually makes: are the PATHS WE
+        # COMMITTED on main, byte-identical to what we wrote? That is
+        # squash-safe, needs no `gh`, and is the claim itself rather than a
+        # proxy for it.
+        LANDED="unknown"
+        if git fetch -q origin main 2>/dev/null; then
+          # shellcheck disable=SC2086 — PATHS is a space-separated pathspec list.
+          if git diff --quiet HEAD FETCH_HEAD -- ${PATHS} 2>/dev/null; then
+            LANDED="yes"
+          else
+            LANDED="no"
+          fi
+        fi
+
+        if [ "${LANDED}" = "yes" ]; then
+          # The rows ARE on main. The wait was watching the wrong thing (or was
+          # blind); the WORK succeeded, so the job must not fail.
+          echo "::warning::commit-to-main: the ${MINS}m wait on ${PR_URL} expired, but git confirms the committed paths are byte-identical on origin/main — the rows LANDED. Reporting success on the git evidence rather than on the unreadable PR state. (state ever read: ${STATE_EVER_READ}; refresh: ${REFRESH_STATE}.) ⚠️ If this warning becomes routine, the WAIT is broken even though the WORK is fine — read `gh` auth/rate limits, do not learn to ignore it."
+          exit 0
+        fi
+
+        # THREE OUTCOMES, NEVER COLLAPSED — and only the first two are claims
+        # about the merge. `never_read` is a claim about US.
+        if [ "${STATE_EVER_READ}" -eq 0 ]; then
+          echo "::error::commit-to-main: ${PR_URL} — WE NEVER ONCE READ THE PR STATE in ${MINS}m (every poll returned UNKNOWN: \`gh pr view\` failed, typically auth or rate limit), and git says this commit is NOT on main (fetch: ${LANDED}). This is 'we could not look' PLUS an independent negative — NOT a verdict about the PR's checks. Fix the \`gh\` read first; do not re-run checks on a hunch."
+          exit 1
+        fi
+
+        echo "::error::commit-to-main: ${PR_URL} did not merge within ${MINS}m (stale-branch refresh: ${REFRESH_STATE}; git confirms the commit is not on main). The rows are written on ${BR} and are NOT on main. CHECK THE PR'S OWN CHECK RUNS BEFORE ASSUMING A CAUSE — the two look identical from here: (a) the branch's checks FAILED on its own content, which a re-run will not fix; or (b) they were never re-run after a transient red base (BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH), which a re-run or rebase does fix."
         exit 1

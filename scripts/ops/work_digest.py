@@ -26,12 +26,21 @@ digest is truth in transit between the commit and the send, and it fails BACK:
 an un-committed row is a digest that never happened, never one wrongly shown as
 delivered.
 
-⚠️ **UNSCHEDULED AS SHIPPED.** There is no cron behind this. It is a plain script
-so an existing daily job can call it; wiring the trigger is a
-``.github/workflows/`` change owned by another session. **A digest that has never
-fired has not been observed to work** — and that is not hypothetical here:
-``probes.yml`` and ``due-list.yml`` were both merged, enabled, and have never
-fired on cron (``OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON``).
+⚠️ **SCHEDULED, AND NOT YET OBSERVED FIRING — two different facts.** This block
+read *"UNSCHEDULED AS SHIPPED. There is no cron behind this"* until 2026-09-02,
+and that was false: ``.github/workflows/work-digest.yml`` ships
+``cron: "20 2,6,10,14,18,22 * * *"`` (every 4h) and opens an auto-merge PR
+against ``docs/claude/pending-pings.jsonl``. **Field beats comment**, and the
+stale half was the dangerous one — it told a reader this producer was inert
+while it was writing to the operator's channel six times a day.
+
+What remains true is the caution, and it is the more important half: **a digest
+that has never been observed firing has not been observed to work.**
+``probes.yml`` and ``due-list.yml`` are both merged, enabled, carry correct cron
+syntax, and have never once fired
+(``OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON``), so a
+correct schedule here is not evidence either. A ``workflow_dispatch`` run is not
+a cron run and must not be read as one.
 
 Usage::
 
@@ -39,21 +48,23 @@ Usage::
     python3 scripts/ops/work_digest.py --base <ref> --head HEAD --write
     python3 scripts/ops/work_digest.py --self-test
 """
-# wiring: manual-only - no cron ships with this. The trigger is a
-# `.github/workflows/` concern declared by another session, so this ships as a
-# callable script with a pure `build_digest()` rather than guessing at a
-# scheduler. Claiming a cadence the repo does not have would be the same
-# "a green run is not an observation" error the module docstring warns about.
+# wiring: .github/workflows/work-digest.yml (cron "20 2,6,10,14,18,22 * * *" +
+# workflow_dispatch) -> `--base <24h ago> --head main --write`, then
+# commit-to-main with verify-merged. CORRECTED 2026-09-02: this marker read
+# "manual-only - no cron ships with this", which stopped being true when
+# work-digest.yml landed and left the one line a reader greps for pointing at
+# the wrong answer.
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
@@ -77,6 +88,19 @@ from scripts.ops.work_phase_ping import (  # noqa: E402
 
 PENDING = REPO_ROOT / "docs" / "claude" / "pending-pings.jsonl"
 STATE = REPO_ROOT / "runtime_logs" / "work_digest_state.json"
+
+# The standing close-wedge ledger (MI-34). Written by the TRADER
+# (src/runtime/close_wedge_standing.py) into runtime_logs/, which is
+# .gitignore'd and VM-local — so on a GitHub runner this path is ABSENT unless
+# the workflow fetched it from the live diag surface first
+# (/api/diag/log_file?name=close_wedge_standing), which is exactly what
+# .github/workflows/work-digest.yml does before calling this.
+#
+# ⚠️ ABSENT HERE IS "WE DID NOT LOOK", NOT "NOTHING IS WEDGED". The digest is
+# the channel an operator-approved downgrade was routed INTO, so a missing
+# ledger rendering as a clean bill of health is the precise failure this whole
+# section exists to prevent: the item falling quietly out of BOTH channels.
+STANDING_WEDGES = REPO_ROOT / "runtime_logs" / "close_wedge_standing.json"
 
 # Mirrors src/web/api/routers/work.py. Kept in the same order as the design.
 LIFECYCLE_STATES: tuple[str, ...] = (
@@ -154,22 +178,360 @@ def standing_state(ref: str = "HEAD") -> dict[str, Any]:
     }
 
 
+def standing_wedges(path: Path | None = None) -> dict[str, Any]:
+    """The close failures DOWNGRADED into this digest, and whether we could see them.
+
+    ``wedgeState`` is three states and they are never collapsed — the same
+    discipline ``digestState`` already applies to the git window, applied to a
+    file that arrives over a network from another machine:
+
+      * ``not_fetched``  — no ledger on disk. **We did not look.** On a GitHub
+        runner this is the DEFAULT state, because ``runtime_logs/`` is VM-local;
+        it means the diag fetch did not happen or did not succeed, NOT that the
+        fleet is clean.
+      * ``unreadable``   — a ledger is here and could not be parsed. We looked
+        and could not see. Distinct from both of the others.
+      * ``read``         — parsed. ``wedges`` is the real set, and an EMPTY set
+        is a real, reportable observation: nothing is standing.
+
+    ⚠️ **``read`` + zero wedges is the ONLY state that may be reported as "no
+    standing wedges".** The other two must say what they are, out loud, in the
+    operator-visible text.
+    """
+    p = path or STANDING_WEDGES
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {"wedgeState": "not_fetched", "wedges": [], "count": 0,
+                "schema": None, "source": str(p)}
+    except (OSError, ValueError) as exc:
+        return {"wedgeState": "unreadable", "wedges": [], "count": 0,
+                "schema": None, "source": str(p), "reason": str(exc)[:200]}
+    if not isinstance(raw, dict):
+        return {"wedgeState": "unreadable", "wedges": [], "count": 0,
+                "schema": None, "source": str(p),
+                "reason": "ledger is not a JSON object"}
+    wedges = raw.get("wedges")
+    rows = [
+        dict(v, key=k) for k, v in sorted((wedges or {}).items())
+        if isinstance(v, dict)
+    ]
+    return {
+        "wedgeState": "read",
+        "wedges": rows,
+        "count": len(rows),
+        "schema": raw.get("schema"),
+        "updatedAt": raw.get("updated_at"),
+        "source": str(p),
+    }
+
+
+def _age_days(first_seen: object, now: datetime) -> str:
+    """How long this wedge has stood, or an explicit refusal to guess."""
+    try:
+        dt = datetime.fromisoformat(str(first_seen))
+    except (TypeError, ValueError):
+        return "age unknown"
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return f"{(now - dt).total_seconds() / 86400.0:.1f}d"
+
+
+def render_standing_wedges(sw: dict[str, Any], now: datetime) -> list[str]:
+    """The standing-wedge block. **It is never empty** — every state prints a line.
+
+    A section that renders nothing when it has nothing to say is
+    indistinguishable from a section that has broken, and this one carries items
+    the pager was deliberately told to stop carrying. So all three states speak.
+    """
+    state = sw.get("wedgeState")
+    if state == "not_fetched":
+        return [
+            "⚠️ STANDING CLOSE WEDGES: NOT EXAMINED — no ledger at "
+            f"{sw.get('source')}. This is 'we did not look', NOT 'nothing is "
+            "wedged'. Close failures confirmed unclearable broker-side are "
+            "DOWNGRADED out of the pager into this digest, so an un-fetched "
+            "ledger means such an item is currently in NEITHER channel. Fetch "
+            "/api/diag/log_file?name=close_wedge_standing from the live VM."
+        ]
+    if state == "unreadable":
+        return [
+            "⚠️ STANDING CLOSE WEDGES: ledger present but UNREADABLE "
+            f"({sw.get('reason') or 'no reason recorded'}). We looked and could "
+            "not see — this is NOT 'nothing is wedged'."
+        ]
+    rows = sw.get("wedges") or []
+    if not rows:
+        return [
+            "Standing close wedges: none (ledger read, 0 entries) — a real "
+            "observation, not an absence of one."
+        ]
+    out = [
+        f"🧱 STANDING CLOSE WEDGES: {len(rows)} — confirmed unclearable by any "
+        f"bot-side lever, downgraded out of the pager and carried HERE until the "
+        f"state changes:"
+    ]
+    for w in rows:
+        out.append(
+            f"  • {w.get('account')}/{w.get('symbol')} {w.get('side')} · "
+            f"standing {_age_days(w.get('first_seen'), now)} · "
+            f"{w.get('share_hold')} · {int(w.get('pages_suppressed') or 0)} page(s) "
+            f"suppressed · {str(w.get('detail') or w.get('evidence') or '')[:160]}"
+        )
+    out.append(
+        "  These need OPERATOR or VENUE action; the bot has no lever. They page "
+        "again the moment the state changes (cleared, or wedged on new evidence)."
+    )
+    return out
+
+# ── The registers the digest reads, beyond the work store ────────────────────
+#
+# ⚠️ **IT USED TO MEASURE THE WORK STORE AND CALL THAT "THE WORK".** On
+# 2026-09-02 the digest reported `No lifecycle change` over a window that had
+# merged 52 PRs, retired two backlog classes, cleared two monitoring rows and
+# closed a capability gap — every one of which is a decision or a state change,
+# and not one of which moves a `lifecycle:` field in
+# `docs/claude/work/objects/*.yaml`. A confident report of a quiet night is
+# strictly worse than no report, because it looks like oversight happened.
+#
+# So the digest reads the registers where those decisions actually land. Each is
+# a keyed-item JSON file (`{"items": [{"id": ..., <state field>: ...}]}`) and is
+# diffed BETWEEN TWO GIT REFS by the same mechanism the work store already uses
+# — no new state file, nothing to fall out of sync, and the window is whatever
+# the caller passed.
+#
+# ⚠️ **STATE CHANGES AND DECISIONS, NEVER ACTIVITY** — the rule that governs
+# what may be in here. A checklist item reaching `done`, a register row cleared,
+# a backlog row given a terminal disposition: those are verdicts. A row edited,
+# a note added, a session opened: those are not, and are invisible to this by
+# construction, because only a change to the declared STATE FIELD is an event.
+# Merged PRs are ATTRIBUTION and a denominator; they are never the headline. A
+# digest that lists everything is a digest nobody reads, and this repo has
+# already measured what that costs (202 of 376 CRITICAL/ERROR rows in one
+# window were a single un-latched alarm).
+
+
+class Source(NamedTuple):
+    """One keyed-item register the digest diffs across the window."""
+
+    name: str
+    path: str
+    #: The item field whose CHANGE is an event. ``None`` == the item's
+    #: PRESENCE is the event (a row filed, a row cleared).
+    field: str | None
+    #: Transitions INTO one of these are reportable. Empty == every change is.
+    events: frozenset[str]
+    #: Enumerate rows that APPEARED? False == count them only. A backlog gains
+    #: rows constantly and the verdict is the event, not the filing.
+    enumerate_added: bool
+    added_verb: str
+    removed_verb: str
+
+
+#: A terminal disposition on a review backlog. `docs/CLAUDE-RULES-CANONICAL.md`
+#: § "Backlog governance" declares five ways a row ends; the on-disk files also
+#: carry the historical spellings, and all of them are verdicts.
+BACKLOG_TERMINAL = frozenset({
+    "resolved", "fixed", "wont_fix", "superseded", "invalid",
+    "closed_answered", "closed_unfixable", "promoted_to_roadmap",
+})
+
+#: A checklist item reaching one of these is a decision the operator wants.
+#: `queued` and `triage` are deliberately absent: scoping an item is work in
+#: progress, and pinging on it would make the digest narrate the manager's
+#: notebook. `blocked` IS here — a blocker is the single most actionable thing
+#: a night can produce.
+CHECKLIST_EVENTS = frozenset({
+    "in_flight", "landed_unproven", "done", "blocked", "dropped",
+})
+
+SOURCES: tuple[Source, ...] = (
+    Source("manager checklist", "docs/claude/work/MANAGER-CHECKLIST.json",
+           "state", CHECKLIST_EVENTS, True, "added", "removed"),
+    Source("open-items register", "docs/claude/OPEN-ITEMS.json",
+           None, frozenset(), True, "filed", "CLEARED"),
+    Source("health backlog", "docs/claude/health-review-backlog.json",
+           "status", BACKLOG_TERMINAL, False, "filed", "removed"),
+    Source("performance backlog", "docs/claude/performance-review-backlog.json",
+           "status", BACKLOG_TERMINAL, False, "filed", "removed"),
+    Source("ml backlog", "docs/claude/ml-review-backlog.json",
+           "status", BACKLOG_TERMINAL, False, "filed", "removed"),
+    Source("research backlog", "docs/claude/research-review-backlog.json",
+           "status", BACKLOG_TERMINAL, False, "filed", "removed"),
+)
+
+#: Per-source read grades. NEVER collapsed — `no_changes` on a source we could
+#: not open is the exact lie this whole module exists to stop telling.
+READ_STATES = ("read", "absent", "unreadable")
+
+
+def _items_at(ref: str, path: str) -> tuple[str, dict[str, dict]]:
+    """``(read_state, {id: item})`` for one register at one ref.
+
+    * ``read``       — parsed; the dict is what it holds (possibly empty).
+    * ``absent``     — the path does not exist at that ref. A real observation:
+      the register had not been created yet.
+    * ``unreadable`` — it exists and we could not parse it. **We could not
+      look.** Emphatically not ``absent`` and emphatically not empty.
+    """
+    try:
+        raw = subprocess.run(
+            ["git", "show", f"{ref}:{path}"],
+            cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+        ).stdout
+    except subprocess.CalledProcessError:
+        return "absent", {}
+    try:
+        doc = json.loads(raw)
+        items = doc["items"]
+    except (ValueError, KeyError, TypeError):
+        return "unreadable", {}
+    if not isinstance(items, list):
+        return "unreadable", {}
+    out: dict[str, dict] = {}
+    for it in items:
+        if isinstance(it, dict) and it.get("id"):
+            out[str(it["id"])] = it
+    return "read", out
+
+
+def _title_of(item: dict) -> str:
+    for key in ("title", "summary", "note"):
+        v = item.get(key)
+        if isinstance(v, str) and v.strip():
+            return v.strip().split("\n")[0][:110]
+    return ""
+
+
+def register_events(base: str, head: str) -> tuple[list[dict], dict[str, str], dict[str, dict]]:
+    """Diff every register in ``SOURCES``. Returns (events, reads, counts).
+
+    An event is a change to the declared STATE FIELD, or (for a presence-keyed
+    register) a row appearing or disappearing. An edit that leaves the state
+    field alone is activity and produces nothing — that is the filter, and it
+    is structural rather than a heuristic over the diff text.
+    """
+    events: list[dict] = []
+    reads: dict[str, str] = {}
+    counts: dict[str, dict] = {}
+    for src in SOURCES:
+        base_state, before = _items_at(base, src.path)
+        head_state, after = _items_at(head, src.path)
+        # The read grade is the WORSE of the two ends: a window we cannot see
+        # one side of is a window we did not examine.
+        grade = "unreadable" if "unreadable" in (base_state, head_state) else (
+            "absent" if head_state == "absent" else "read")
+        reads[src.name] = grade
+        c = {"added": 0, "removed": 0, "transitioned": 0, "reported": 0,
+             "firstSeen": False}
+        counts[src.name] = c
+        if grade != "read":
+            continue
+        if base_state == "absent" and after:
+            # The register was created inside the window. Diffing it would
+            # report every row it has ever held as "new tonight" — a loud lie.
+            c["firstSeen"] = True
+            c["added"] = len(after)
+            continue
+        for key, item in after.items():
+            prev = before.get(key)
+            if prev is None:
+                c["added"] += 1
+                landed = item.get(src.field) if src.field else src.added_verb
+                # A row that APPEARS already in an event state is an event; one
+                # that appears in `queued`/`triage` is somebody scoping work,
+                # which is activity. The same predicate gates both the arrival
+                # and the transition, so an item cannot smuggle a non-event past
+                # the filter by being born in it.
+                if src.enumerate_added and not (
+                    src.events and landed not in src.events
+                ):
+                    events.append({"source": src.name, "id": key,
+                                   "title": _title_of(item), "from": None,
+                                   "to": landed})
+                    c["reported"] += 1
+                continue
+            if src.field is None:
+                continue
+            old, new = prev.get(src.field), item.get(src.field)
+            if new == old or new is None:
+                continue
+            c["transitioned"] += 1
+            if src.events and new not in src.events:
+                continue
+            events.append({"source": src.name, "id": key,
+                           "title": _title_of(item), "from": old, "to": new})
+            c["reported"] += 1
+        for key, item in before.items():
+            if key in after:
+                continue
+            c["removed"] += 1
+            if src.field is None:
+                events.append({"source": src.name, "id": key,
+                               "title": _title_of(item), "from": "open",
+                               "to": src.removed_verb})
+                c["reported"] += 1
+    return events, reads, counts
+
+
+def _window_attribution(base: str, head: str) -> dict[str, Any]:
+    """Commits and merged-PR numbers in the window.
+
+    ⚠️ **ATTRIBUTION AND A DENOMINATOR, NEVER THE HEADLINE.** "52 PRs merged" is
+    activity: it says a lot happened and nothing about what changed. It is
+    reported on the population line, next to the window, so a reader can size
+    how much work produced how few state changes — which is itself the useful
+    signal when the two diverge.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "log", "--format=%s", f"{base}..{head}"],
+            cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+        ).stdout.splitlines()
+    except subprocess.CalledProcessError:
+        return {"commits": None, "mergedPrs": None}
+    prs = {m.group(1) for line in out
+           if (m := _PR_RE.search(line)) is not None}
+    return {"commits": len(out), "mergedPrs": len(prs)}
+
+
+_PR_RE = re.compile(r"\(#(\d+)\)\s*$")
+
+
 def build_digest(base: str, head: str = "HEAD", now: datetime | None = None) -> dict[str, Any]:
     """Assemble the digest. Pure apart from git reads — no writes, no network.
 
-    ``digestState`` is three states and they are never collapsed:
+    ``digestState`` is FOUR states and they are never collapsed:
 
-      * ``window_unresolved`` — ``base`` is not in this clone. **We could not
-        look.** Emphatically NOT "nothing changed"; on a shallow clone this is
+      * ``window_unresolved``  — a ref is not in this clone. **We could not look
+        at all.** Emphatically NOT "nothing changed"; on a shallow clone this is
         the common case and reporting it as a quiet day would be a false
         negative delivered with confidence.
-      * ``no_changes``        — the window resolved and held no ping-worthy
-        transition. A real, reportable observation.
-      * ``changes_observed``  — one or more state changes.
+      * ``sources_unreadable`` — the window resolved and **not one register
+        could be read**. Also "we could not look", one layer down, and it used
+        not to exist: before 2026-09-02 an unreadable register was
+        indistinguishable from a quiet one.
+      * ``no_changes``         — every readable source read, and none moved. A
+        real, reportable observation — but read it beside ``sourceReads``,
+        because "nothing changed across 6 of 6" and "across 4 of 6" are
+        different claims and only the first is a clean night.
+      * ``changes_observed``   — one or more state changes.
+
+    ⚠️ **``sourceReads`` ships on EVERY digest, including the unresolved one.** A
+    key that vanishes makes a consumer branch on absence, and absence is not one
+    of the states.
     """
     now = now or datetime.now(timezone.utc)
     base_sha, head_sha = _resolve(base), _resolve(head)
     standing = standing_state(head if head_sha else "HEAD")
+
+    # ⚠️ READ UNCONDITIONALLY, AND BEFORE THE WINDOW BRANCH. A standing wedge is
+    # a condition of the FLEET, not of the git window — an unresolvable base
+    # says nothing about whether a position is stuck, and letting the early
+    # return skip this block would drop the downgraded item on exactly the runs
+    # most likely to be degraded (a shallow clone, a bad ref). Silence must not
+    # be reachable while the wedge stands.
+    wedges = standing_wedges()
 
     if base_sha is None or head_sha is None:
         return {
@@ -178,23 +540,83 @@ def build_digest(base: str, head: str = "HEAD", now: datetime | None = None) -> 
             "shallowClone": _is_shallow(),
             "base": base, "head": head,
             "changes": [],
+            "events": [],
+            "sourceReads": {src.name: "not_attempted" for src in SOURCES},
+            "sourceCounts": {},
+            "window": {"commits": None, "mergedPrs": None},
             "standing": standing,
+            "standingWedges": wedges,
             "generatedAt": now.isoformat(),
             "coverageComplete": False,
         }
 
     changes = [t for t in transitions(base, head) if t["to"] in PING_WORTHY]
+    events, reads, counts = register_events(base, head)
+    read_n = sum(1 for g in reads.values() if g == "read")
+    unreadable_n = sum(1 for g in reads.values() if g == "unreadable")
+
+    # ⚠️ `absent` IS AN OBSERVATION AND `unreadable` IS NOT. A register that does
+    # not exist at head was looked for and found missing; one that exists and
+    # will not parse was not looked at. Only the second may downgrade the whole
+    # digest — treating `absent` as "could not look" would make every fresh
+    # checkout report a broken window, and treating `unreadable` as "nothing
+    # there" is the false negative this module exists to prevent.
+    if changes or events:
+        state = "changes_observed"
+    elif read_n == 0 and unreadable_n:
+        state = "sources_unreadable"
+    else:
+        state = "no_changes"
+
     return {
-        "digestState": "changes_observed" if changes else "no_changes",
+        "digestState": state,
         "unresolvedRef": None,
         "shallowClone": _is_shallow(),
         "base": base, "head": head,
         "baseSha": base_sha[:8], "headSha": head_sha[:8],
         "changes": changes,
+        "events": events,
+        "sourceReads": reads,
+        "sourceCounts": counts,
+        "window": _window_attribution(base, head),
         "standing": standing,
+        "standingWedges": wedges,
         "generatedAt": now.isoformat(),
         "coverageComplete": False,
     }
+
+
+#: States that need the operator's EYES, not just their awareness. These are
+#: enumerated by id; everything else is summarised as a count. The line between
+#: them is the anti-changelog rule: a digest that lists everything is a digest
+#: nobody reads.
+ATTENTION_STATES = frozenset({"blocked", "CLEARED", "dropped"})
+_MAX_ENUMERATED = 8
+
+
+def _summarise(counts: dict[str, dict], events: list[dict], name: str) -> str | None:
+    """One line per source: what moved, by destination state, with counts."""
+    c = counts.get(name)
+    if c is None:
+        return None
+    if c["firstSeen"]:
+        return (f"{name}: first appeared in this window ({c['added']} rows) — "
+                f"NOT diffed, because every row would read as new tonight.")
+    mine = [e for e in events if e["source"] == name]
+    by_state: dict[str, int] = {}
+    for e in mine:
+        by_state[str(e["to"])] = by_state.get(str(e["to"]), 0) + 1
+    if not by_state and not c["added"] and not c["removed"]:
+        return None
+    bits = [f"{n} {state}" for state, n in
+            sorted(by_state.items(), key=lambda kv: (-kv[1], kv[0]))]
+    # `added` on a count-only source (the backlogs) is the FILING rate — real,
+    # and deliberately not an enumerated event: the verdict is the event.
+    unreported_added = c["added"] - sum(
+        1 for e in mine if e["from"] is None)
+    if unreported_added > 0:
+        bits.append(f"{unreported_added} filed")
+    return f"{name}: " + " · ".join(bits) if bits else None
 
 
 def render(d: dict[str, Any]) -> str:
@@ -202,6 +624,8 @@ def render(d: dict[str, Any]) -> str:
     st = d["standing"]
     lc = st["lifecycle"]
     n = st["objectCount"]
+    reads = d.get("sourceReads") or {}
+    read_ok = sum(1 for g in reads.values() if g == "read")
     lines = [f"[work digest] {d['generatedAt'][:10]}"]
 
     if d["digestState"] == "window_unresolved":
@@ -210,20 +634,92 @@ def render(d: dict[str, Any]) -> str:
             + (" (shallow)" if d["shallowClone"] else "")
             + ". This is 'we could not look', NOT 'nothing changed'."
         )
-    elif d["digestState"] == "no_changes":
         lines.append(
-            f"No lifecycle change in {d['baseSha']}..{d['headSha']} "
-            f"(population: {n} work objects)."
+            f"No register was read ({len(reads)} declared). Nothing below "
+            f"describes the window you asked about."
         )
     else:
-        lines.append(
-            f"{len(d['changes'])} state change(s) in {d['baseSha']}..{d['headSha']} "
-            f"(population: {n} work objects):"
-        )
-        for t in d["changes"]:
-            origin = t["from"] or "new"
-            title = f" · {t['title']}" if t["title"] else ""
-            lines.append(f"  • {t['object']}: {origin} → {t['to']}{title}")
+        win = d.get("window") or {}
+        commits, prs = win.get("commits"), win.get("mergedPrs")
+        # ⚠️ ATTRIBUTION, NOT THE HEADLINE. The PR count sits on the population
+        # line so a reader can size how much work produced how few state
+        # changes — the divergence is the signal, the raw count never is.
+        pop = (f"Window {d['baseSha']}..{d['headSha']}"
+               + (f" — {commits} commits / {prs} merged PRs" if commits is not None else "")
+               + f"; {n} work objects; {read_ok}/{len(reads)} registers read.")
+
+        if d["digestState"] == "sources_unreadable":
+            lines.append(
+                "⚠️ NOT ONE REGISTER COULD BE READ in "
+                f"{d['baseSha']}..{d['headSha']}. This is 'we could not look', "
+                "NOT 'nothing changed'."
+            )
+        elif d["digestState"] == "no_changes":
+            lines.append(
+                f"No state change in {d['baseSha']}..{d['headSha']} across the "
+                f"{read_ok} register(s) read."
+                + ("" if read_ok == len(reads) else
+                   f" ⚠️ {len(reads) - read_ok} of {len(reads)} NOT READ — see below; "
+                   f"this is not a clean night, it is a partial one.")
+            )
+        else:
+            total = len(d["events"]) + len(d["changes"])
+            lines.append(
+                f"{total} state change(s) across {read_ok}/{len(reads)} "
+                f"registers read + the work store."
+            )
+        lines.append(pop)
+
+        # Per-source summary — counts, never a changelog.
+        for src in SOURCES:
+            grade = reads.get(src.name)
+            if grade == "unreadable":
+                lines.append(
+                    f"⚠️ {src.name}: UNREADABLE — we could not look. "
+                    f"Nothing about it below is an observation."
+                )
+                continue
+            if grade == "absent":
+                lines.append(f"{src.name}: absent at head (register does not exist).")
+                continue
+            summary = _summarise(d["sourceCounts"], d["events"], src.name)
+            if summary:
+                lines.append(summary)
+
+        # Work-store lifecycle keeps its own line — it is a different register
+        # with a different vocabulary, and folding it in would hide a quiet
+        # store behind a busy backlog.
+        if d["changes"]:
+            lines.append(f"work store: {len(d['changes'])} lifecycle change(s):")
+            for t in d["changes"][:_MAX_ENUMERATED]:
+                origin = t["from"] or "new"
+                title = f" · {t['title']}" if t["title"] else ""
+                lines.append(f"  • {t['object']}: {origin} → {t['to']}{title}")
+            if len(d["changes"]) > _MAX_ENUMERATED:
+                lines.append(f"  … +{len(d['changes']) - _MAX_ENUMERATED} more")
+        else:
+            lines.append(f"work store: no lifecycle change (population: {n} objects).")
+
+        # The only things enumerated by id: what is waiting on a human, and what
+        # a register stopped watching.
+        attention = [e for e in d["events"] if str(e["to"]) in ATTENTION_STATES]
+        if attention:
+            lines.append("NEEDS YOU / CHANGED WATCH:")
+            for e in attention[:_MAX_ENUMERATED]:
+                mark = "✔" if e["to"] == "CLEARED" else "⛔"
+                title = f" — {e['title']}" if e["title"] else ""
+                lines.append(f"  {mark} {e['id']}: {e['to']}{title}")
+            if len(attention) > _MAX_ENUMERATED:
+                lines.append(f"  … +{len(attention) - _MAX_ENUMERATED} more")
+
+    # ⚠️ RENDERED ON EVERY DIGEST, IN EVERY STATE, HIGH IN THE MESSAGE.
+    # `.get` with a default rather than `d["standingWedges"]`: a caller holding a
+    # digest dict built before this key existed must still render, and the
+    # default is the ALARMING state ("we did not look"), never the reassuring one.
+    lines.extend(render_standing_wedges(
+        d.get("standingWedges") or {"wedgeState": "not_fetched", "wedges": []},
+        datetime.fromisoformat(d["generatedAt"]),
+    ))
 
     lines.append(
         "Standing: "
@@ -248,8 +744,9 @@ def render(d: dict[str, Any]) -> str:
         lines.append("Waiting: " + ", ".join(w["object"] for w in st["waiting"]))
 
     lines.append(
-        "⚠️ Store covers the operating-layer build's own phases only — the "
-        f"carried backlog rows: {CARRIED_ROWS_MIGRATED_IN}. Not the whole of system work."
+        "⚠️ Work store covers the operating-layer build's own phases — the "
+        f"carried backlog rows: {CARRIED_ROWS_MIGRATED_IN}. Registers above are "
+        "read too, but this is still NOT the whole of system work."
     )
     return "\n".join(lines)
 
@@ -370,6 +867,89 @@ def _self_test() -> int:
     # 9: an unreadable latch must SEND, not suppress.
     check(9, "unreadable latch fails loud (sends)",
           _already_sent_today("not-a-day-that-was-recorded") is False)
+
+    # 10: the source list must not have drifted off disk. A source path that
+    # no longer exists reads as `absent` forever — correct-looking, and
+    # permanently blind to the register it was meant to watch.
+    missing = [src.path for src in SOURCES if not (REPO_ROOT / src.path).exists()]
+    check(10, "every declared source exists on disk", not missing, str(missing))
+
+    # 11: and it must cover every review backlog, not the ones that existed the
+    # day it was written. This is the LIVE_BACKLOGS lesson: a hand-maintained
+    # coverage list that can fall behind unnoticed IS the defect.
+    declared = {src.path for src in SOURCES}
+    on_disk = {
+        f"docs/claude/{p.name}"
+        for p in (REPO_ROOT / "docs" / "claude").glob("*-review-backlog.json")
+    }
+    check(11, "every review backlog on disk is read", on_disk <= declared,
+          f"unread: {sorted(on_disk - declared)}")
+
+    # 12: the per-source read grades ship even when nothing was attempted — a
+    # key that vanishes makes a consumer branch on absence, and absence is not
+    # one of the states.
+    check(12, "sourceReads ships on the unresolved envelope",
+          set(d.get("sourceReads") or {}) == {src.name for src in SOURCES},
+          str(sorted(d.get("sourceReads") or {})))
+
+    # 13-16: the standing-wedge block. Each has a positive control — a check
+    # that cannot fail is not a check.
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        missing = standing_wedges(tmp / "nope.json")
+        check(13, "absent ledger -> not_fetched, never 'no wedges'",
+              missing["wedgeState"] == "not_fetched", str(missing["wedgeState"]))
+
+        txt10 = "\n".join(render_standing_wedges(missing, datetime.now(timezone.utc)))
+        check(14, "and it SAYS we did not look, in operator-visible text",
+              "NOT EXAMINED" in txt10 and "did not look" in txt10, txt10[:90])
+
+        bad = tmp / "bad.json"
+        bad.write_text("{not json", encoding="utf-8")
+        b = standing_wedges(bad)
+        check(15, "garbled ledger -> unreadable, distinct from not_fetched",
+              b["wedgeState"] == "unreadable", str(b["wedgeState"]))
+
+        good = tmp / "good.json"
+        # collapsed-state: broker_cancel_wedged — the digest carries the
+        # DOWNGRADED class and nothing else, so this is the only share_hold
+        # value that can appear in a ledger entry. The other three states never
+        # produce a ledger row: they page instead, and never reach this file.
+        # The digest does NOT re-derive the routing decision, deliberately —
+        # re-implementing "which failures are quiet" in a second module is how
+        # the two would come to disagree about what the operator is being told.
+        good.write_text(json.dumps({"schema": 1, "wedges": {"a|GLD|sell": {
+            "account": "a", "symbol": "GLD", "side": "sell",
+            "share_hold": "broker_cancel_wedged", "detail": "x is pending_cancel",
+            "first_seen": "2026-08-27T14:02:00+00:00", "pages_suppressed": 9,
+        }}}), encoding="utf-8")
+        g = standing_wedges(good)
+        txt13 = "\n".join(render_standing_wedges(g, datetime.now(timezone.utc)))
+        # A wedge must RENDER, and an empty ledger must render DIFFERENTLY —
+        # the positive control on the negative, the shape check 7 uses.
+        empty = tmp / "empty.json"
+        empty.write_text('{"schema":1,"wedges":{}}', encoding="utf-8")
+        txt_empty = "\n".join(
+            render_standing_wedges(standing_wedges(empty), datetime.now(timezone.utc))
+        )
+        check(16, "a standing wedge renders, and an empty ledger renders otherwise",
+              g["count"] == 1 and "GLD" in txt13 and "GLD" not in txt_empty
+              and txt_empty.strip() != "",
+              f"{g['count']} / {txt13[:60]!r} / {txt_empty[:60]!r}")
+
+    # 14: THE ONE THAT MATTERS. No reachable state of the wedge block is silent
+    # — an item downgraded out of the pager falling out of the digest too is the
+    # whole risk of the operator's decision, and it must be structurally
+    # impossible, not merely unobserved.
+    silent = [
+        st for st in ("not_fetched", "unreadable", "read")
+        if not "".join(render_standing_wedges(
+            {"wedgeState": st, "wedges": [], "count": 0}, datetime.now(timezone.utc)
+        )).strip()
+    ]
+    check(17, "NO wedge state renders silence", not silent, str(silent))
 
     print("work-digest self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1

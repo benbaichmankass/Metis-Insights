@@ -220,13 +220,18 @@ REGIME_LABELS: tuple[str, ...] = ("range", "volatile")
 
 
 def _label_regime(
-    forward_log_return: float,
+    forward_log_return: float,  # inert: forward_log_return — unread since the 3-class -> 2-class collapse; kept for back-compat with existing callers
     forward_vol: float,
     *,
-    trend_threshold: float,
+    trend_threshold: float,  # inert: trend_threshold — unread since the same collapse; see the docstring
     vol_threshold: float,
 ) -> str:
-    """Map (forward_log_return, forward_vol) → regime class.
+    """Map ``forward_vol`` → regime class.
+
+    ⚠️ This line read "Map (forward_log_return, forward_vol) → regime class"
+    until 2026-09-02, which was FALSE: under the 2-class scheme below the
+    label is a function of ``forward_vol`` ALONE. ``forward_log_return`` and
+    ``trend_threshold`` are both accepted and never read.
 
     2-class scheme (S-ML-REGIME-CLASSIFIER-FIX, 2026-05-20):
       1. forward_vol > vol_threshold → "volatile"
@@ -247,7 +252,7 @@ def _label_regime(
     return "range"
 
 
-def _bucket_label(idx: int, n_buckets: int) -> str:
+def _bucket_label(idx: int, n_buckets: int) -> str:  # inert: n_buckets — the label is positional (`vol_b<idx>`); callers pass the count for symmetry with the range() that produces idx
     return f"vol_b{idx}"
 
 

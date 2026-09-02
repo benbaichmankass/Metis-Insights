@@ -33,7 +33,14 @@ PASSERS = [
 def find_csv(ticker: str) -> Path | None:
     safe = ticker.replace("=", "_")
     hits = sorted(glob.glob(str(Path.home() / "ws_a_sweep_out" / "*" / "data" / f"{safe}.csv")))
-    return Path(hits[-1]) if hits else None
+    if not hits:
+        return None
+    # DISCOVERED, not declared. Announce the resolved input and how many it was
+    # chosen from, so a silent fallback to an older sweep can never pass for a
+    # pinned one. On stderr: stdout is this script's result channel.
+    print(f"[input] {ticker}: {hits[-1]}  (alphabetically last of {len(hits)} "
+          f"candidate(s))", file=sys.stderr)
+    return Path(hits[-1])
 
 
 def run_fee(script: str, csv: Path, params: dict, fee: float) -> dict:

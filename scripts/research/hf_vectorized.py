@@ -327,6 +327,17 @@ def build_htf(df5: pd.DataFrame, base5m: pd.DataFrame, ema_period: int, htf_tf="
 # Fast R-replay on the 5m clock (single position, intrabar SL-first then TP)
 # ---------------------------------------------------------------------------
 def replay(sigs: pd.DataFrame, df5: pd.DataFrame, *, be_after_1r=False, signal_ttl_bars=1):
+    # This replay acts on a signal ONLY on the bar it arrives (`i == pend_idx`
+    # below), i.e. an effective TTL of exactly 1 bar. The sibling harness
+    # scripts/research/hf_solo_sim.py::simulate DOES implement a real
+    # `i - latest_idx >= signal_ttl_bars` expiry, so passing a wider TTL here
+    # would silently produce a ttl=1 run wearing a ttl=N label. Refuse it
+    # rather than ignore it. (All call sites in this file use the default.)
+    if signal_ttl_bars != 1:
+        raise NotImplementedError(
+            f"hf_vectorized.replay implements signal_ttl_bars=1 only "
+            f"(got {signal_ttl_bars}); use hf_solo_sim.simulate for a wider TTL"
+        )
     c = df5["close"].to_numpy(float)
     h = df5["high"].to_numpy(float)
     lo = df5["low"].to_numpy(float)
@@ -456,7 +467,7 @@ def _validate_A(base, df5, hc, he, start, end):
           f"only_vec={len(vts - mts)} only_mod={len(mts - vts)}")
 
 
-def _grid_B(base, df5):
+def _grid_B(base, df5):  # inert: base — the grid seeds every cell from the module-level DEFAULTS_B, not from a caller-supplied base
     print(f"B grid IS bars {len(df5)}")
     res = []
     for band_k, adx_max, buf, tp_frac, min_tp_r, vwlb in itertools.product(

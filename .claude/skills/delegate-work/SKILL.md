@@ -24,6 +24,24 @@ work-list* (list the files, find the endpoint families, scope the diff), then
 delegate the pipeline over that list. You don't need to know the shape before
 the *task* — only before the *delegation step*.
 
+**Two caps bind BEFORE you spawn anything, and neither is in the registry
+prompt** (`docs/claude/work/`):
+
+- **The WIP ceiling is 8 `in_flight` work objects, and it is ENFORCED** —
+  `scripts/ci/check_wip_ceiling.py` fails CI on a ninth, and an exception needs
+  an *approved* `docs/claude/work/wip-ceiling-exception.yaml` (merely filing one
+  still fails). Fanning out five sub-sessions that each open an object is how a
+  fan-out reds every subsequent PR in the repo. Fan out over units of ONE
+  object where you can, and check the current count first — the count is a
+  reading, not a permission slip.
+- **Exactly one MANAGEMENT session at a time** (operator requirement). If you
+  are supervising rather than doing, claim the lease FIRST:
+  `python3 scripts/ops/manager_lease.py status`. ⚠️ **`unreadable` REFUSES the
+  claim** — *we did not look* is not *nobody holds it* — and a claim you did not
+  PUSH protects nothing, because another session reads `origin`, not your
+  working tree. Ordinary work needs no lease, and sub-sessions keep running with
+  none held; what pauses is SUPERVISION.
+
 ## Step 2 — Decompose into independent units
 
 Carve the scope into units that can run **without sharing live state**:
@@ -90,6 +108,18 @@ deliberately. (Racing concurrent merges off the same base is the exact churn
 this prevents.)
 
 ## The sub-session spawn-prompt template (Mode C)
+
+⚠️ **DO NOT HAND-WRITE THIS PROMPT — generate it, so the registry row cannot be
+skipped.** `python3 scripts/ops/session_registry.py register --title … --why …
+--spawned-by "$CLAUDE_SESSION_ID"` appends the row to
+`docs/claude/work/SESSIONS.json` **and prints the prompt**, then
+`… confirm --registry-key <key> --session-id <the new id>` closes it out. That
+file is the only thing a manager arriving COLD can read to pick up your
+sub-sessions, and it has been measured incomplete **twice** — 3 of 6 on
+2026-09-01 (`MI-15`), then 6 of 9 with five LIVE on 2026-09-02. A session it
+does not name is, to your successor, a session that does not exist. The template
+below is what that command emits; it is here as the reference, not as something
+to copy by hand.
 
 Give a spawned session everything it needs to run correctly *alone*:
 
