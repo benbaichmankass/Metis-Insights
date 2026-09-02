@@ -2181,7 +2181,8 @@
           "disposition": "kept_open",
           "note": "NEW BLOCKER MEASURED THIS REVIEW: extending market_raw candle coverage needs trainer disk, and the trainer is at 91.7% used / 4.03 GB free with a live low-disk warning banner. This row is now blocked BEHIND the disk decision (see BL-20260820-TRAINER-DISK-THRESHOLDS-UNCALIBRATED), not merely unscheduled. This review also declined to dispatch m20_exit_analysis for exactly that reason."
         }
-      ]
+      ],
+      "trigger_condition": "TRIGGER: the shard inventory comes back complete, or the missing shards are built via the same Bybit fetch pipeline as BTC/ETH/SOL. Also gates MB-20260717-M23-META-LABEL P2 (label-volume expansion names this item as its dependency).  [PROMOTED VERBATIM by backlog-drain #3 (session_01Au13tQ9BaLKsEU7youUomr), 2026-09-02, from this row's OWN 2026-08-16 update, where it sat as prose inside `updates` — a location no field-reading consumer (check_backlog_criteria.py, the kept_open census, migrate_backlog_to_work_objects.py) can see. The condition is its original author's; this session did not author it and did not judge it.]"
     },
     {
       "id": "MB-20260712-ML-EXIT-HEAD",
@@ -2232,10 +2233,17 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "snoozed",
           "note": "Re-validated: a data-horizon limit, not a defect. Trigger: enough shadow history to make the trade-vs-score join viable."
+        },
+        {
+          "at": "2026-09-02T03:30:00+00:00",
+          "by": "claude (backlog-drain #3, session_01Au13tQ9BaLKsEU7youUomr)",
+          "disposition": "kept_open — REFUSED, and the row's own current framing is REFUTED",
+          "note": "MEASURED THIS SESSION, and it changes what this row is about. THE 2026-08-29 TRIAGE CALLED THIS 'a data-horizon limit, not a defect'. It is a defect, and a precisely located one: the remedy SHIPPED and the row never learned. === (1) THE SYNC FIX SHIPPED. The 2026-08-16 update says the archives are 'NOT synced: scripts/ops/sync_trainer_data.sh:289-293 pulls exactly four literal paths ... with no glob for the rotated archives.' FIELD BEATS COMMENT: that is no longer true at 68e73de8. Lines 320-358 carry a dedicated `shadow_predictions_archives` block globbing all four rotated forms (shadow_predictions.????-??-??[.N].jsonl[.gz]), with an archive_count assertion and a three-state emit. `git log -S shadow_predictions_archives` dates it to a620f2a8, 2026-08-16 13:22:40 +0300 (PR #9612) — THE SAME SESSION, ~4h AFTER it wrote the 'blocked on a Tier-1 tooling change' note at 09:05Z. The clone is shallow (586 commits, oldest 2026-08-14) but that date is INSIDE the visible window, so it is a real read, not a truncation artifact. === (2) IT IS EXERCISED, NOT MERELY DEPLOYED. Population: runtime_logs/trainer_mirror/trainer/db_pulls.jsonl via GET /api/bot/ml/db_pulls?limit=500, read 2026-09-02T03:26Z, mirror 110s stale; window 2026-08-23T04:18:18Z→2026-09-02T00:23:20Z; n=500 rows, which IS the requested limit, so this is a TAIL and not the lifetime. `shadow_predictions_archives` appears 60 times = 30 `pulling` + 30 outcome. ALL 30 outcomes are `ok`; `archives` reads 2 on 29 pulls and 3 on the most recent (2026-09-02T00:23:19Z), i.e. the set is GROWING. NEGATIVE CONTROL: the block has a `none` state ('no rotated archives on the live VM yet') and a `skipped` state ('rsync failed (23 = glob matched nothing)'); NEITHER appears once, so `ok` discriminates rather than defaulting. === (3) AND NOTHING READS THEM, WHICH IS WHY THE ROW STAYS OPEN. Denominator: 35 files under ml/, scripts/, src/ mention `shadow_predictions`. The ONLY two that touch a rotated/date-stamped/.gz archive are its ROTATOR (scripts/ops/rotate_shadow_log.py) and its PULLER (sync_trainer_data.sh). Every reader resolves one literal file — ml/shadow/factory.py:85 DEFAULT_LOG_PATH = Path('runtime_logs/shadow_predictions.jsonl'); ml/shadow/drift_retrain.py:128 takes a single path. POSITIVE CONTROLS, because a silent grep proves nothing: the same archive pattern DOES find the puller (5 hits), and `.glob(`-using readers DO exist under ml/ + scripts/ml/ + scripts/research/ (6 files) — so the zero is a real zero, not a broken probe. === CONSEQUENCE: the archives are pulled and INERT, so the research-join horizon is still bounded by the live log alone — exactly the condition this row reports. This is the write-without-a-consumer shape provenance-consumer-guard exists for. Filed separately as MB-20260902-SHADOW-ARCHIVES-SYNCED-SINCE-0816-AND-NO-READER-RESOLVES-THEM; this row keeps the horizon symptom, that row carries the located defect."
         }
       ],
       "snoozed_at": "2026-08-29T17:00:00+00:00",
-      "disposition": "snoozed"
+      "disposition": "snoozed",
+      "resolution_criteria": "A shadow-log READER resolves the rotated archives, not only the single live file — i.e. some consumer globs `shadow_predictions.????-??-??*` the way scripts/ops/sync_trainer_data.sh:339-342 already does on the WRITE side — AND a trade-vs-score join is observed reaching past the live log's rotation boundary (rotate_shadow_log.py:38-39, 100 MiB or 7 days). ⚠️ EXPLICITLY NOT SUFFICIENT: archives landing on the trainer. That half SHIPPED on 2026-08-16 (a620f2a8, PR #9612) and is EXERCISED, and the horizon did NOT move, because nothing reads them — see this row's 2026-09-02 update for the measurement. Closing on the sync alone would be the 'artifact reports success true relative to its own scope while the scope is wrong' failure that docs/CLAUDE-RULES-CANONICAL.md § 'Green is not evidence' names. [Authored 2026-09-02 by backlog-drain #3 FROM ITS OWN MEASUREMENT, not from the row — the row's own latest prose ('Trigger: enough shadow history to make the trade-vs-score join viable') names no threshold and is not checkable, and is also superseded: see the update.]"
     },
     {
       "id": "MB-20260712-EXIT-HEAD-REMAINING-ROUNDS",
@@ -2353,7 +2361,8 @@
         }
       ],
       "snoozed_at": "2026-08-29T17:00:00+00:00",
-      "disposition": "snoozed"
+      "disposition": "snoozed",
+      "trigger_condition": "TRIGGER: broker-truth cost coverage crosses from minority to majority, then re-run the sizing-normalized allocator A/B. Note the one sign-flip found (spy_pullback_1h/SPY gross +1.456R -> net -0.457R) is estimate-driven and must NOT drive a Tier-3 demote until confirmed against broker truth.  [PROMOTED VERBATIM by backlog-drain #3 (session_01Au13tQ9BaLKsEU7youUomr), 2026-09-02, from this row's OWN 2026-08-16 update, where it sat as prose inside `updates` — a location no field-reading consumer (check_backlog_criteria.py, the kept_open census, migrate_backlog_to_work_objects.py) can see. The condition is its original author's; this session did not author it and did not judge it.]"
     },
     {
       "id": "MB-20260717-M23-META-LABEL",
@@ -2399,7 +2408,8 @@
         }
       ],
       "snoozed_at": "2026-08-29T17:00:00+00:00",
-      "disposition": "snoozed"
+      "disposition": "snoozed",
+      "trigger_condition": "TRIGGER: MB-20260712-EXIT-ANALYSIS-COVERAGE closes (fleet market_raw shards) AND a backtest/live label-parity gate passes before pooling — only then is a per-cell/per-family head (P3) worth building. Do not re-run the pooled head at current n; that result is already an honest negative.  [PROMOTED VERBATIM by backlog-drain #3 (session_01Au13tQ9BaLKsEU7youUomr), 2026-09-02, from this row's OWN 2026-08-16 update, where it sat as prose inside `updates` — a location no field-reading consumer (check_backlog_criteria.py, the kept_open census, migrate_backlog_to_work_objects.py) can see. The condition is its original author's; this session did not author it and did not judge it.]"
     },
     {
       "id": "MB-20260717-M25-PROMO-CONSOLIDATE",
@@ -2437,7 +2447,8 @@
           "disposition": "kept_open",
           "note": "Re-validated against the live registry 2026-08-29: 96 models — 3 advisory (LIVE bucket), 29 shadow, 63 candidate. NO promotion was proposed in this review's window, and the last training cycle trained ZERO models with 9 refusals. The shadow tier is not draining, which is what this row is about."
         }
-      ]
+      ],
+      "trigger_condition": "TRIGGER: oos_edge's dataset load is made memory-bounded so a full-registry sweep completes inside MemoryMax=4500M, OR the design is formally changed so oos_edge is per-head-at-gate-check-time only and P2 is re-scoped to that path with the docs updated. P4 (demote/retire sweep for RG4-fails and drift) is unstarted and would pick up MB-20260626-002's proposed mes-yz demote.  [PROMOTED VERBATIM by backlog-drain #3 (session_01Au13tQ9BaLKsEU7youUomr), 2026-09-02, from this row's OWN 2026-08-16 update, where it sat as prose inside `updates` — a location no field-reading consumer (check_backlog_criteria.py, the kept_open census, migrate_backlog_to_work_objects.py) can see. The condition is its original author's; this session did not author it and did not judge it.]"
     },
     {
       "id": "MB-20260717-M24-FUNDING-VISIBILITY",
@@ -2475,8 +2486,15 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated: still the gating coverage gap for M24 P3/P4. bybit_2 real-money fills in the last 7d are 36 (35 BTC + 1 ETH) with $6.07 of fees — a thin population to widen fee coverage against."
+        },
+        {
+          "at": "2026-09-02T03:30:00+00:00",
+          "by": "claude (backlog-drain #3, session_01Au13tQ9BaLKsEU7youUomr)",
+          "disposition": "kept_open — REFUSED on measurement; the row's own conditional now RESOLVES",
+          "note": "THE ROW ASKED FOR TWO NUMBERS ('needs live data') AND HAD CARRIED THE QUESTION SINCE 2026-08-16. Both are now measured, and both halves of its TRIGGER are REFUTED. POPULATION for all figures: trade_journal.db::trades via GET /api/bot/db/table/trades, read 2026-09-02T03:23-03:24Z; whole table n=5324; bybit_2 subset n=1644 (fetched COMPLETE across all pages, `filter_state == \"applied\"` asserted on every page). === (1) bybit_2 FUNDING VISIBILITY: `funding_paid_usd` is NULL on 1644 of 1644 bybit_2 rows — 100%. Not zero-valued; never populated. Reading (1) is UNCHANGED at 0. === (2) BROKER COST COVERAGE: cost_source='broker' returns 3 over the whole table, and all 3 are bybit_2 rows. cost_source='estimate' = 1473; local_compute/exchange/none = 0; the remaining 3848 are null. So coverage is 3/1476 graded rows (0.20%), or 3/1644 on bybit_2 (0.18%) — nowhere near the 'majority' the trigger names. ⚠️ THE NUMERATOR HAS NOT MOVED AT ALL: the row recorded 3/814 on 2026-08-16, and it is still exactly 3 while the bybit_2 denominator roughly DOUBLED (814 → 1644). The broker-truth cost path has recorded no new row in ~7 weeks; as a ratio it is going backwards. === CONTROLS, because a filtered count on this route is a documented trap: a value that cannot exist returns total=0 with filter_state='applied' (so a 0 is a real 0), `estimate`=1473 proves the probe finds positives, and a BOGUS COLUMN returns total=5324 with filter_state='ignored_unknown_column' — the whole table, reproducing live the exact CLAUDE.md hazard that an ignored filter reads as 'the filter matched every row'. Every count above was read only after asserting `applied`. === THE ROW'S OWN CONDITIONAL NOW RESOLVES, which is the disposition advance here: it says 'If (1) still reads 0, the fix is the DATA-VISIBILITY path (an operator Bybit UM funding export -> a broker_truth-style funding ledger), NOT a puller code change.' (1) DOES still read 0. So this row is OPERATOR-BLOCKED on a Bybit UM funding export, established by measurement rather than assumed, and no puller code change should be proposed for it. That also keeps MB-20260717-M24-NET-R blocked, whose trigger is this same coverage crossing into the majority."
         }
-      ]
+      ],
+      "trigger_condition": "TRIGGER: both readings improve to non-zero funding for bybit_2 AND cost_source=broker on a majority of trades — that unblocks M24 P3/P4 (MB-20260717-M24-NET-R) and MB-20260629-ALLOC-CORR. If (1) still reads 0, the fix is the DATA-VISIBILITY path (an operator Bybit UM funding export -> a broker_truth-style funding ledger), not a puller code change.  [PROMOTED VERBATIM by backlog-drain #3 (session_01Au13tQ9BaLKsEU7youUomr), 2026-09-02, from this row's OWN 2026-08-16 update, where it sat as prose inside `updates` — a location no field-reading consumer (check_backlog_criteria.py, the kept_open census, migrate_backlog_to_work_objects.py) can see. The condition is its original author's; this session did not author it and did not judge it.]"
     },
     {
       "id": "MB-20260718-BTCREGIME-V2-DRIFT-DEMOTE",
@@ -2742,7 +2760,7 @@
       "description": "Fix shape (mirror the training-cycle memfix): (a) run each compute_oos_edge in a bounded subprocess (fresh interpreter per model, or per-model batches) so peak RSS is one model's working set, not the fleet's accumulation; (b) put MemoryMax + MemorySwapMax=0 on ict-promotion-readiness.service (it has NO cgroup cap today -- only ict-trainer.service does) so a regression fails fast instead of D-state thrashing the whole box for hours; (c) consider making the unit's ExecStart pass --datasets-root only to a scoped oos-edge phase. Interim workaround (documented): run the sweep without --datasets-root for the daily report; oos_edge evidence comes from the single-model gate-check CLI on the head under review (which is where promotion packets are assembled anyway, per the M25 reframe).",
       "resolution_criteria": "BOTH must hold, measured not inferred: (1) MEMORY — a single head's compute_oos_edge peaks measurably under MemoryMax (4500 MiB) on the trainer, verified by /usr/bin/time -v on the largest shadow dataset on disk, not by reading the code; and (2) WALL CLOCK — a full-registry sweep WITH --datasets-root completes inside its timer window. Baseline to beat, from #10044: 5.19 GB and 5:35 for one head. ALTERNATIVELY the design is formally changed so oos_edge is per-head-at-gate-check-time only, the sweep drops --datasets-root by design, and every doc claiming a fleet-wide oos_edge sweep is corrected to match.",
       "status": "kept_open",
-      "tier": "T1",
+      "tier": "1 (T1 — offline trainer tooling; no order path)",
       "trigger_condition": "MEASURED 2026-08-20 (#10044): the #7722 column projection is deployed and one head still peaks at 5.19 GB vs a 4.5 GiB MemoryMax (+12.7%), so re-enabling the flag today reproduces the OOM. Re-check ONLY after a chunked/columnar CV load lands — and measure the WALL CLOCK too (5:35/head x 28 shadow heads = ~2.6 h on 1 OCPU is a second, independent blocker on daily scheduling).",
       "updated_at": "2026-08-20T11:45:00+00:00",
       "evidence_log": [
@@ -2819,6 +2837,12 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated and now WORSE-CONDITIONED: the fix this row asks for is per-model subprocess isolation on a 6 GB trainer, and that trainer is at 91.7% disk / 4.03 GB free. Memory was the original constraint; disk is now a second one. Both must be sound before the sweep can be re-run."
+        },
+        {
+          "at": "2026-09-02T03:30:00+00:00",
+          "by": "claude (backlog-drain #3, session_01Au13tQ9BaLKsEU7youUomr)",
+          "disposition": "kept_open — metadata correction only; the finding is untouched",
+          "note": "TIER FORMAT ONLY, NO SEMANTIC CHANGE. check_backlog_criteria.py flags this row: \"tier 'T1' does not begin with 1, 2 or 3 — a trailing annotation is fine, an unreadable tier is not\". Rewritten 'T1' -> '1 (T1 — offline trainer tooling; no order path)', which preserves the original token verbatim inside the annotation so nothing is lost. It was the only tier-unreadable row in this file. The finding itself — compute_oos_edge peaking at 5.19 GB against MemoryMax 4500 MiB, and PROMOREADY_OOS_EDGE still defaulting off — is NOT re-validated here: its criterion needs `/usr/bin/time -v` on the trainer, which this session cannot reach."
         }
       ],
       "severity": "medium"
@@ -2980,9 +3004,16 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated: this is an operator DECISION (is a 2nd same-symbol advisory head wanted), not work. It cannot be drained by a review. Carried with its blocker named."
+        },
+        {
+          "at": "2026-09-02T03:30:00+00:00",
+          "by": "claude (backlog-drain #3, session_01Au13tQ9BaLKsEU7youUomr)",
+          "disposition": "kept_open — REFUSED; state re-verified live, decision still the operator's",
+          "note": "RE-VERIFIED ON LIVE DATA rather than carried. Population: GET /api/bot/ml/registry, 96 rows, mirror 86s stale, read 2026-09-02T03:19Z. mes-regime-5m-lgbm-v2 is deployment_bucket LIVE (the operator-approved incumbent); mes-regime-15m-lgbm-v2 is SHADOW — still parked, not promoted. The whole LIVE bucket is 3 models (btc-regime-15m-lgbm-fc-pcv-v2, mes-regime-5m-lgbm-v2, sol-regime-15m-lgbm-fc-pcv-v2), which agrees exactly with /api/bot/ml/status registry.stages.advisory = 3 — two surfaces, same answer. So neither limb of this row's exit condition has been met: no head-to-head exists, and no decision that the 5m head is sufficient has been recorded. Unchanged, and correctly so — the 2026-08-16 operator decision was 'do NOT promote yet, compare them first', and that comparison is trainer work this session cannot run. Its exit condition was promoted verbatim into `resolution_criteria` this session."
         }
       ],
-      "operator_action_required": true
+      "operator_action_required": true,
+      "resolution_criteria": "WHAT WOULD CLOSE THIS: either (a) a head-to-head on MES vol-label quality that picks a winner, after which promote AND demote the loser in one change so the registry shows ONE advisory head rather than two with a tie-break, or (b) a recorded decision that the 5m head is sufficient, which closes this row. Note the row's original framing -- 'define the per-symbol multi-timeframe advisory-head resolution' -- is partly satisfied: the resolution is DEFINED in code and is not ambiguous. What is missing is not a rule, it is evidence about which head should win under it. checked: src/runtime/regime/ml_vol_verdict.py, ml/registry-store/registry.jsonl via trainer relay #9645.  [PROMOTED VERBATIM by backlog-drain #3 (session_01Au13tQ9BaLKsEU7youUomr), 2026-09-02, from this row's OWN 2026-08-16 update, where it sat as prose inside `updates` — a location no field-reading consumer (check_backlog_criteria.py, the kept_open census, migrate_backlog_to_work_objects.py) can see. The condition is its original author's; this session did not author it and did not judge it.]"
     },
     {
       "id": "BL-20260723-M28-P4-GATE-FOLLOWUP",
@@ -3128,8 +3159,15 @@
           "by": "claude (backlog-drain #2, session_01BNXj6ogjXeixSkQ4ug6gxp)",
           "disposition": "kept_open — correctly parked; upgraded from an instance to a CLASS member.",
           "note": "[drain-2 2026-09-02] NOT CLOSED, and it should not be: the fix is a trainer-side rebuild with --overwrite that this session cannot perform or verify. Two things measured that change how the row should be read. (1) STILL STALE, live: /api/bot/ml/registry (trainer mirror, 21s stale at read) shows setup-candidates-metalabel-xsym-yz-v1 at deployment_bucket OFFLINE, runs=42, latest_run 2026-07-26T06:01:47Z — 37.8 days old at read, against a 7-day threshold. Its dataset_ref is setup_candidates/all/all/**v001** while the in-repo SetupCandidatesBuilder.builder_version is **v2**, which is precisely the stale-shard condition this row diagnosed in 2026-07. Unchanged since the 2026-08-29 corroboration. (2) THIS IS NOT AN ISOLATED SIDE-STREAM — it is one of FOUR, and they share one mechanism and one freeze date. The 4 in-repo manifests whose live latest_run is past the 7-day threshold are setup-candidates-metalabel-xsym-yz-v1, setup-quality-lgbm-v2 (setup_labels/all/all/v002), btc-regime-15m-lgbm-base-vt003-pcv-v1 (market_features/BTCUSDT/15m/v001) and prop-mission-policy-baseline-v0 (account_context/all/all/v001). ALL FOUR last trained on 2026-07-26 — the same morning this row was opened (08:45Z; the four runs are 05:20-06:01Z) — and all four pin a low dataset version while their builder has advanced. The generalisation is recorded on MB-20260829-MANIFESTS-DECLARE-COLUMNS-THE-DATASET-NEVER-PROVIDES-AND-NOTHING-CHECKS-AT-COMMIT: `version` is a hand-chosen label, builder_version is metadata-only and does not gate path resolution (ml/datasets/families/market_features.py:412-414), and builder.py:134 refuses to rebuild into an existing version dir. So this row's 'rebuild when the track is next activated' trigger is correct for THIS manifest but under-scoped as a remedy: the same rebuild is owed on three others, and nothing detects the next one."
+        },
+        {
+          "at": "2026-09-02T03:30:00+00:00",
+          "by": "claude (backlog-drain #3, session_01Au13tQ9BaLKsEU7youUomr)",
+          "disposition": "kept_open — REFUSED; still refusing on the live trainer, and now LINKED to the class it predates",
+          "note": "STILL REFUSING, ON A THIRD INDEPENDENT SURFACE. GET /api/bot/ml/status, mirror 87s stale, read 2026-09-02T03:19Z: refusing_manifests_24h names exactly four, and ml/configs/setup-candidates-metalabel-xsym-yz-v1.yaml is one of them (the others are btc-regime-15m-lgbm-base-vt003-pcv-v1, setup-quality-lgbm-v2, baseline-prop-mission-policy). The trigger ('the xsym-yz track is next ACTIVATED') is unmet, so the row stands. === WHAT IS NEW IS THE LINKAGE, and it matters beyond this row. THIS ROW, FILED 2026-07-26, ALREADY NAMED THE MECHANISM that MB-20260829-MANIFESTS-DECLARE-COLUMNS-THE-DATASET-NEVER-PROVIDES-AND-NOTHING-CHECKS-AT-COMMIT called 'the one genuinely puzzling instance' five weeks later, and that backlog-drain #2 re-derived from scratch on 2026-09-02: the dataset was never rebuilt on the newer builder, so a manifest pinning an old `dataset.version` reads a stale shard with the narrower schema. Neither of the two 2026-08-29 rows points at this one. VERIFIED IN-TREE at 68e73de8, independently of drain #2: this manifest pins setup_candidates version v001 while ml/datasets/families/setup_candidates.py:642 declares builder_version 'v2'; btc-regime-15m-lgbm-base-vt003-pcv-v1 pins market_features v001 against market_features.py:414 builder_version 'v12'; baseline-prop-mission-policy pins account_context v001 against account_context.py:230 'v2'. ⚠️ ONE REFINEMENT TO DRAIN #2'S FRAMING, because it said 'every one pins a low version string while its builder has advanced': that is 3 of the 4. setup-quality-lgbm-v2 pins setup_labels v002 against builder_version 'v2', which is not obviously behind. And the comparison is only suggestive in any case — market_features.py:412-414 says in the builder's own words that builder_version 'is metadata-only (it does not gate dataset path resolution)', so the pinned shard label and the builder version are different namespaces and 'behind' is not a defined relation between them. The correct statement is the measured one: 3 of the 4 refusing manifests pin v001; the fourth pins v002."
         }
-      ]
+      ],
+      "trigger_condition": "TRIGGER: the xsym-yz track is next ACTIVATED — then rebuild the dataset on builder v2 with --overwrite and re-audit; if the four columns are STILL dead after a v2 rebuild, the estimator computation is broken and it becomes a code fix. Corroborating signal that the dead-estimator class is real and being caught pre-train: the 2026-07-27 cycle audit-quarantined mes-regime-1d-lgbm-v2 for the same manifest-audit reason.  [PROMOTED VERBATIM by backlog-drain #3 (session_01Au13tQ9BaLKsEU7youUomr), 2026-09-02, from this row's OWN 2026-08-16 update, where it sat as prose inside `updates` — a location no field-reading consumer (check_backlog_criteria.py, the kept_open census, migrate_backlog_to_work_objects.py) can see. The condition is its original author's; this session did not author it and did not judge it.]"
     },
     {
       "id": "MB-20260726-FC-CLOBBER",
@@ -3182,10 +3220,17 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "snoozed",
           "note": "Re-validated: an upstream venue data-horizon limit (Bybit OI history), not something this repo can fix. Trigger: a longer OI source, or the training window shortening to where OI is populated."
+        },
+        {
+          "at": "2026-09-02T03:30:00+00:00",
+          "by": "claude (backlog-drain #3, session_01Au13tQ9BaLKsEU7youUomr)",
+          "disposition": "kept_open — REFUSED; trigger not met, precondition state recorded",
+          "note": "TRIGGER CHECKED, NOT MET. Population: GET /api/bot/ml/registry, 96 rows, read 2026-09-02T03:19Z. Exactly 2 models carry 'funding' in model_id: btc-regime-1h-lgbm-funding-svble-v1 (deployment_bucket SHADOW) and btc-regime-1h-lgbm-funding-v1 (OFFLINE). The trigger is 'a funding head becomes a promotion candidate'; one head being AT shadow is the precondition for that, not the event — establishing candidacy needs a powered gate-check on the trainer, which this session cannot run (no trainer-VM access: no HTTP diag API there, and issue creation for the trainer-vm-diag relay 403s). Recording the precondition state so the next pass starts from a reading rather than re-deriving one. The row's own instruction — 'until then this is a low-priority parked note and should not be re-litigated each review' — is correct and is now in `trigger_condition` where a review can see it without reading five updates."
         }
       ],
       "snoozed_at": "2026-08-29T17:00:00+00:00",
-      "disposition": "snoozed"
+      "disposition": "snoozed",
+      "trigger_condition": "TRIGGER: a funding head becomes a promotion candidate — at that point pick one of the three recorded options (re-scope the manifest window to the OI-available months at the cost of a much shorter training set; source deeper OI history from another provider; or drop the OI columns and keep funding_rate only). Until then this is a low-priority parked note and should not be re-litigated each review.  [PROMOTED VERBATIM by backlog-drain #3 (session_01Au13tQ9BaLKsEU7youUomr), 2026-09-02, from this row's OWN 2026-08-16 update, where it sat as prose inside `updates` — a location no field-reading consumer (check_backlog_criteria.py, the kept_open census, migrate_backlog_to_work_objects.py) can see. The condition is its original author's; this session did not author it and did not judge it.]"
     },
     {
       "id": "MB-20260727-CONVICTION-AB-AUC",
@@ -3225,7 +3270,8 @@
       ],
       "updated_at": "2026-08-10T05:05:00+00:00",
       "snoozed_at": "2026-08-29T17:00:00+00:00",
-      "disposition": "snoozed"
+      "disposition": "snoozed",
+      "trigger_condition": "TRIGGER: the live label pool grows materially past ~400 rows (the real bottleneck), at which point run the matched-holdout AUC + log-loss + calibration-by-source read.  [PROMOTED VERBATIM by backlog-drain #3 (session_01Au13tQ9BaLKsEU7youUomr), 2026-09-02, from this row's OWN 2026-08-16 update, where it sat as prose inside `updates` — a location no field-reading consumer (check_backlog_criteria.py, the kept_open census, migrate_backlog_to_work_objects.py) can see. The condition is its original author's; this session did not author it and did not judge it.]"
     },
     {
       "id": "MB-20260728-ICTSCALP-EXIT-LEVERS",
@@ -3531,7 +3577,28 @@
           "note": "[drain-2 2026-09-02] THE PRESCRIBED GUARD WOULD HAVE CAUGHT NOTHING, and this is measured, not argued. POPULATION: all 76 manifests under ml/configs/*.yaml (79 dir entries = 76 .yaml + 2 .yaml.disabled + 1 `retired/` dir). I resolved each manifest's dataset.family to its builder class in ml/datasets/registry.py::FAMILY_REGISTRY and diffed the declared feature_columns + target_column against that builder's `schema` ClassVar. RESULT: 0 of 76 manifests declare a column its family builder cannot emit. POSITIVE CONTROL (this is why the zero is trustworthy): injecting '__NOT_A_REAL_COLUMN__' into the same probe IS flagged, so the probe can find a positive. ALL TEN of the cause-A columns this row names are present in their builder's schema: log_return_lag_1/log_return_lag_2/hour_of_day/dayofweek (market_features), parkinson_vol/garman_klass_vol/rogers_satchell_vol/yang_zhang_vol (setup_candidates), killzone/bias (setup_labels). The manifest is NOT the wrong side of the contract in a single one of these cases. === THE REAL MECHANISM, read off the field, which is what this row's own next_action asked to resolve first. The puzzling instance resolves cleanly: btc-regime-15m-lgbm-base-vt003-pcv-v1's feature list is BYTE-IDENTICAL to its sibling btc-regime-15m-lgbm-base-pcv-v003; the ONLY difference is dataset.version v001 vs v003. ml/datasets/builder.py:45 resolves a shard to <root>/<family>/<symbol_scope>/<timeframe>/<version>/ where `version` is a hand-chosen label; ml/datasets/families/market_features.py:412-414 states in the builder's own words that `builder_version` \"is metadata-only (it does not gate dataset path resolution)\"; and builder.py:134 RAISES rather than rebuilding into an existing version dir. So a shard materialised under an older builder keeps its narrower schema permanently, and a manifest pinning that version silently reads the stale shard. The four columns the audit calls absent were added by market_features builder v2 (per its own changelog comment at line 375); the builder is now at v12. === LIVE CORROBORATION (/api/bot/ml/registry, a trainer mirror 21s stale at read, 96 rows, HTTP 200; sibling paths /api/bot/ml/models and /api/bot/models both 404, so the 200 is a real route). Of the 76 in-repo manifests, 73 have a registry row and 3 have none (exit-policy-v1, mes-execution-quality-baseline-v0, setup-candidates-metalabel-paper-v1). Exactly 4 of the 73 have a latest_run older than the trainer's 7-day threshold, and ALL FOUR last ran on the SAME DAY, 2026-07-26: setup-quality-lgbm-v2 (setup_labels/all/all/v002), setup-candidates-metalabel-xsym-yz-v1 (setup_candidates/all/all/v001), btc-regime-15m-lgbm-base-vt003-pcv-v1 (market_features/BTCUSDT/15m/v001), prop-mission-policy-baseline-v0 (account_context/all/all/v001) — all 37.8d stale at read. One freeze event with one mechanism, not 4 independent manifest typos; every one pins a low version string while its builder has advanced. === WHAT SHIPPED INSTEAD: scripts/ci/check_manifest_scope_constants.py (+ a planted-failure self-test wired through guard_selftests.py and run_guards.py, verified by check_selftest_wiring.py). It checks the three things that ARE decidable without the dataset: C1 a feature the manifest's own scope makes structurally constant (the mes-1d class); C2 a column no builder emits (kept as a regression guard and HONESTLY LABELLED as never having fired on this repo's history); C3 a categorical_columns entry absent from feature_columns, which ml/trainers/lightgbm_multiclass.py:119-123 RAISES on at train time — C3 exists because it is the exact trap a naive C1 fix falls into. === WHY THIS ROW STAYS OPEN. Two reasons, both honest. (1) The shard-side half CANNOT be checked at commit time — CI has no shards — so it belongs where the shards are, comparing each shard's own metadata.json `schema`/`builder_version` (ml/datasets/metadata.py already records both) against the manifest. That is unbuilt. (2) This row also requires each of the 7 failing manifests to train again or be explicitly retired, which needs trainer-side evidence I could not reach. === PROPOSED AMENDMENT to resolution_criteria, for whoever takes this next: the commit-time clause should be narrowed to what it can actually decide (C1/C2/C3, now shipped), and a NEW clause added for the shard-side check, because as written the criterion would be satisfied by a guard that provably catches none of the 8 instances that motivated it."
         }
       ]
+    },
+    {
+      "id": "MB-20260902-SHADOW-ARCHIVES-SYNCED-SINCE-0816-AND-NO-READER-RESOLVES-THEM",
+      "opened_at": "2026-09-02T03:35:00+00:00",
+      "opened_by": "claude (backlog-drain #3, session_01Au13tQ9BaLKsEU7youUomr)",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 (offline research tooling; no order path, no advisory influence)",
+      "area": "ml/research-tooling",
+      "title": "Rotated shadow-prediction archives have been synced to the trainer since 2026-08-16 and NOTHING reads them — every reader resolves the single literal shadow_predictions.jsonl, so the research-join horizon the sync was built to extend has not moved",
+      "detail": "THE WRITE SIDE SHIPPED, IS EXERCISED, AND HAS NO CONSUMER. Split out of MB-20260712-SHADOW-LOG-HISTORY, which keeps the SYMPTOM (research joins cannot reach far back); this row carries the LOCATED DEFECT.\n\nWRITE SIDE — WORKING. scripts/ops/sync_trainer_data.sh:335-358 pulls the rotated archives with four globs (shadow_predictions.????-??-??[.N].jsonl[.gz]), asserts an archive_count, and emits a three-state status. Landed a620f2a8, 2026-08-16 13:22:40 +0300 (PR #9612). MEASURED EXERCISED: runtime_logs/trainer_mirror/trainer/db_pulls.jsonl via GET /api/bot/ml/db_pulls?limit=500, read 2026-09-02T03:26Z (mirror 110s stale), window 2026-08-23T04:18:18Z -> 2026-09-02T00:23:20Z, n=500 rows = the requested limit, so a TAIL not the lifetime. `shadow_predictions_archives` appears 60 times = 30 `pulling` + 30 outcome; ALL 30 outcomes `ok`; archives=2 on 29 and 3 on the newest. NEGATIVE CONTROL: the block's own `none` and `skipped` states never fire, so `ok` discriminates.\n\nREAD SIDE — ABSENT. DENOMINATOR: 35 files under ml/, scripts/, src/ mention `shadow_predictions`. The only two referencing a rotated/date-stamped/.gz form are the ROTATOR (scripts/ops/rotate_shadow_log.py) and the PULLER above. Every reader resolves one literal file — ml/shadow/factory.py:85 `DEFAULT_LOG_PATH = Path(\"runtime_logs/shadow_predictions.jsonl\")`; ml/shadow/drift_retrain.py:128 takes a single `shadow_log` path. POSITIVE CONTROLS: the archive pattern DOES find the puller (5 hits), and `.glob(`-using readers DO exist under ml/ + scripts/ml/ + scripts/research/ (6 files) — so the zero is a real zero, not a broken probe.\n\nCONSEQUENCE: rotation is 100 MiB or 7 days (rotate_shadow_log.py:38-39), so every trade-vs-score join is still bounded by the live log while 3 archives sit unread beside it. This is the written-and-never-read shape provenance-consumer-guard exists for, and the build-and-abandon shape MB-20260719-PROMOREADY-OOSEDGE-OOM records in its purest form (#7721 reverted a flag, #7722 shipped the fix 13 minutes later, nothing turned it back on).\n\nNOT ESTABLISHED, deliberately: WHICH consumer should glob. `gate-check --shadow-log`, ml/shadow/inspector.py, ml/promotion/live_parity.py and scripts/research/m20_ml_exit_probe.py all read the log for different purposes and may not all want the archives. Widening the wrong one is how a 300-day join gets built on a 7-day-shaped assumption.",
+      "resolution_criteria": "A named consumer resolves the rotated archives (globs `shadow_predictions.????-??-??*`, handling .gz) AND a research join is OBSERVED returning rows dated before the live log's oldest row — the join's own min(ts) crossing the rotation boundary is the observation, not the glob being present in the diff. ⚠️ NOT SUFFICIENT: db_pulls reporting `ok` with a non-zero archive count. That is the WRITE side and it has been true since 2026-08-16 while the horizon did not move; treating it as the answer is what let this sit for 17 days. ⚠️ ALSO NOT SUFFICIENT: adding a glob to a reader nobody runs — say which consumer, and show its output changed.",
+      "refs": [
+        "scripts/ops/sync_trainer_data.sh:335-358",
+        "scripts/ops/rotate_shadow_log.py:38-39",
+        "ml/shadow/factory.py:85",
+        "ml/shadow/drift_retrain.py:128",
+        "GET /api/bot/ml/db_pulls?limit=500 (read 2026-09-02T03:26Z)",
+        "MB-20260712-SHADOW-LOG-HISTORY (the symptom row this was split out of)",
+        "a620f2a8 / PR #9612"
+      ]
     }
   ],
-  "updated_at": "2026-08-22T10:20:00+00:00"
+  "updated_at": "2026-09-02T03:40:00+00:00"
 }
