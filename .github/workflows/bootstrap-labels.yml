@@ -337,6 +337,11 @@ jobs:
                 description: 'Triggers trainer-vm-diag workflow — full-visibility SSH command runner on the trainer VM (autonomous Claude). QUICK read-only pulls (parallel-safe).',
               },
               {
+                name: 'trainer-capture-watch-now',
+                color: '5319e7',
+                description: 'Triggers trainer-capture-watch — grades the trainer order-flow capture on its DATA freshness (never ActiveState) and re-proves the alarm fires against planted staleness.',
+              },
+              {
                 name: 'exit-head-replay-request',
                 color: '5319e7',
                 description: 'Triggers research-exit-head-replay-trainer — replays the PUBLISHED exit head over backtest trades on the trainer (the only place besides the live VM that holds the artifact). Read-only, light; no heavy VM lane needed.',
