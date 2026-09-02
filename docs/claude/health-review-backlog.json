@@ -31155,7 +31155,7 @@
     {
       "id": "BL-20260902-OPEN-ITEMS-IS-THE-ONE-REGISTER-NO-APPEND-HELPER-PROTECTS",
       "opened": "2026-09-02",
-      "severity": "P2",
+      "severity": "medium",
       "tier": 1,
       "status": "open",
       "area": "tooling",

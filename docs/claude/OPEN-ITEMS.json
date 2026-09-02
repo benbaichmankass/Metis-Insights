@@ -718,7 +718,21 @@
   ]
  },
   {
-   "id": "OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK",
+    "probe": {
+    "cmd": [
+     "python3",
+     "scripts/ops/probe_soak.py",
+     "--path",
+     "/api/diag/log_file?name=bybit_coverage_soak&lines=1000",
+     "--require",
+     "verdicts_differ=true",
+     "--positive-control",
+     "verdicts_differ~true,false"
+    ],
+    "checks": "A bybit_coverage_soak row exists in which the SIDE-AWARE grade actually DISAGREED with the side-blind sum (verdicts_differ: true). That is the load-bearing half of this row's threshold: a soak of any length in which the two never diverge shows the gate would change nothing on this book, so a bare row COUNT is not the criterion and the probe deliberately does not test one. The positive control (verdicts_differ present as either true or false) is what separates 'the gate ran and always agreed' from 'the log is absent or unreadable' -- and here that distinction is load-bearing rather than decorative, because 'nothing matched' is the state this row is ALREADY expected to be in, so an unreadable log would emit exactly the answer a reader anticipates. Measured 2026-09-02 the whole file held 28 rows, all with verdicts_differ false, so the control passes today while the requirement does not.",
+    "is_not": "A PASS DOES NOT CLEAR THIS ROW, and specifically does not satisfy either clause of clears_when. It cannot see the ROW COUNT or the DAY SPAN (>=20 rows over >=3 distinct UTC days), because probe_soak tests for the existence of a matching row and not for a distribution -- so a single disagreement on one day passes this probe and clears nothing. It also cannot make clause (b), which is an OPERATOR DECISION to arm or not to arm; no probe can stand in for that. [!] A FAIL IS NOT EVIDENCE THE GATE IS INERT EITHER: the honest reading of a fail is 'no disagreement has been observed YET', and distinguishing that from 'this gate would never disagree' needs the day span the probe cannot measure. [!] AND IT SAYS NOTHING ABOUT WHETHER THE GATE IS ARMED -- it reads the annotate-mode soak, which is written whether or not BYBIT_GRADED_COVERAGE_ACCOUNTS names an account. Arming is confirmed on /proc/<MainPID>/environ via get-env, never from this log and never from the .env file."
+   },
+  "id": "OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK",
    "opened": "2026-09-02",
    "kind": "monitoring",
    "loud": true,
