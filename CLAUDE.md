@@ -1622,7 +1622,7 @@ below are the contract.
   PM-side session whose GitHub MCP integration 403s on PR create/merge
   ("Resource not accessible by integration"). `git push` works and the
   workflow's own `GITHUB_TOKEN` has write perms, so on a push to any
-  `claude/**` branch that touches `.github/pr-automerge-request` it
+  `claude/**` branch that touches `.github/pr-automerge-requests/<branch-slug>.txt` it
   finds-or-opens the branch's PR to `main` (title = head-commit subject)
   and enables native auto-merge (squash) — GitHub still merges only on
   green required checks (branch-protection is the safety net; CI is never

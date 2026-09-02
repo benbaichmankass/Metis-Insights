@@ -605,15 +605,21 @@ jobs:
             RETARGETED=1
             echo "::notice::dispatched on ${DEFAULT_BRANCH:-main} (protected) — "
             echo "routing the corpus to '$TARGET' to preserve the rows."
-            mkdir -p .github
+            # ⚠️ The file is named for the TARGET BRANCH, and must stay that way.
+            # `claude-pr-automerge` now proves the ask against the branch's own
+            # name (`claude/m20-sweep-corpus` -> `m20-sweep-corpus.txt`) because a
+            # `paths:` filter cannot tell "I asked" from "I merged someone else's
+            # ask" — three PRs were armed through that gap on 2026-09-02. A file
+            # under any other name here would be silently ignored.
+            mkdir -p .github/pr-automerge-requests
             {
               echo "m20 exit-lever sweep corpus — run ${GITHUB_RUN_ID:-unknown}"
               echo "Opt-in marker for claude-pr-automerge.yml. NOTE: a push made"
               echo "with GITHUB_TOKEN does not start workflows, so this file is"
               echo "NOT read on this path — it is written so the branch is ready"
               echo "the moment a credential that CAN trigger it exists."
-            } > .github/pr-automerge-request
-            git add .github/pr-automerge-request
+            } > .github/pr-automerge-requests/m20-sweep-corpus.txt
+            git add .github/pr-automerge-requests/m20-sweep-corpus.txt
           fi
           echo "corpus target branch: $TARGET (retargeted=$RETARGETED)"
           # Message via a FILE, not an inline -m: the extractor's summary is
@@ -722,13 +728,15 @@ jobs:
             # `if`, not `A && B`: under `set -e` a false test or a clean
             # `--quiet` diff returns 1 and would abort the whole step.
             if [ "$RETARGETED" = "1" ]; then
-              mkdir -p .github
+              # Named for the target branch — see the note at the first writer.
+              mkdir -p .github/pr-automerge-requests
               {
                 echo "m20 exit-lever sweep corpus — run ${GITHUB_RUN_ID:-unknown}"
                 echo "Touching this file is the opt-in signal for claude-pr-automerge.yml;"
-                echo "its contents are ignored."
-              } > .github/pr-automerge-request
-              git add .github/pr-automerge-request
+                echo "its contents are ignored. The NAME is the signal, and it must"
+                echo "match the target branch slug or the relay ignores it."
+              } > .github/pr-automerge-requests/m20-sweep-corpus.txt
+              git add .github/pr-automerge-requests/m20-sweep-corpus.txt
             fi
             if git diff --cached --quiet; then
               echo "their copy already contains this run's rows"
