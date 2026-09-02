@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T09:46:47Z",
+  "updated_at": "2026-09-02T10:18:21Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -979,6 +979,18 @@
         "claude/openprs-settled-reconciler"
       ],
       "why": "The open-PR handoff record has a non-terminating regress: every open PR needs a row, the PR that maintains the rows is itself an open PR, and merging it makes that row stale. Observed live: #10775 merged ~90s after a branch recorded a row for it. Two root causes: (1) in-flight claims and the durable operator-decision record are conflated under one key, so pruning a stale row DELETES decision knowledge to satisfy a freshness rule; (2) a commit cannot record its own merge, so the terminal state must be written by something running OUTSIDE the merging commit.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01XH17FTCCjiwHcMLAVeDLQZ",
+      "title": "MI-58: make ClaudeBot answerable — poll it so decision buttons work there",
+      "checklist_item": "MI-58",
+      "spawned_at": "2026-09-02T10:18:21Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/claudebot-answerable"
+      ],
+      "why": "Operator direction 2026-09-02: work-decision prompts must arrive on the dedicated Claude bot, not the trader bot. #10778 correctly routed them to the trader bot because NOTHING polls TELEGRAM_CLAUDE_BOT_SECRET and an inline-keyboard button is inert without a polling process holding a CallbackQueryHandler -- so sending them to ClaudeBot today would ship dead buttons that look healthy. The fix is BOTH halves: make the Claude bot polled with a callback handler, THEN move the route.",
       "state": "working"
     }
   ],
