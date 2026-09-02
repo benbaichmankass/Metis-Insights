@@ -40,6 +40,35 @@ the hand-off" — record it as "the routines are gone; attribution unknown".
 
 ---
 
+## 0b · Corrections from the ENACTMENT pass (MI-66, 2026-09-02)
+
+This document's § 5 records *"It enacted nothing."* A later session on the same
+day enacted its CREATE, three of its four REPAIRs, P-C3 and P-C4. Four of its
+measurements did not survive that contact and are corrected here rather than in
+place, so a reader who saw the originals can tell what changed.
+
+| # | As written | Re-measured 2026-09-02 | Why it matters |
+|---|---|---|---|
+| 6 | § 2.2: `docs/claude/work` referenced by **0** of 32 skills | **2** — `delegate-work` and `workplan-vs-architecture`, both via `SESSIONS.json` | **Sharpens the finding, does not weaken it.** Every OTHER term is genuinely 0: `work object`, `WIP`, `blocked_on`, `CYCLE-PRIORITY`, `READOUT`, `SUNSET-DISPOSITIONS`, `MANAGER-LEASE`. Only the sub-session REGISTRY was ever wired; the whole STEERING half was invisible |
+| 7 | § 4.5: `ict-scalp-exit-sweep` is a **REPAIR** — "5 runs, last 2026-08-10, `failure`, left red 23 days" | Its push trigger names **two branches, both deleted from origin**. The red run is a historical artifact on a branch that no longer exists; the trigger has been structurally dead since | A CI failure to fix and a trigger that cannot fire are different findings with different remedies. And it is not alone: `m20-capture-census` and `m20-exit-lever-sweep` are pinned to the same dead branch and the audit flagged neither — **3, not 1** |
+| 8 | § 4.5 / P-D3: `strategy-review-packets` — "0 on cron; the 04:40Z window passed… **re-read before grading**" | It fired: run #22, `event=schedule`, 09:00:43Z — **~4h20m late** — and concluded `failure` | The caution was right and the answer is worse than "hasn't fired". ⚠️ **The failure is a FALSE NEGATIVE**: PR #10771 merged at 09:20:18Z with all six checks `success`, and the job reported "the rows are… NOT on main" at 09:31:27Z. `comms/strategy_reviews/2026-09-02/INDEX.json` IS on main |
+| 9 | § 4.3: `probes` / `due-list` — "1 of 2 windows each" | **`probes` 2 of 2** (09-01 success, 09-02 **failure**); **`due-list` 2 of 2, both success**. All ~4–5h late | The cadence question is CLOSED — they fire, consistently late. `probes` #55 died on `GraphQL: API rate limit already exceeded`, the SAME exhausted quota behind the false negative above: **one root cause, two symptoms, two of the three REPAIR items** |
+
+⚠️ **What the enactment did NOT settle**, stated so it is not assumed:
+`replay-pregate-nightly`'s deterministic death at head 10/22 is repaired at the
+transport layer (the run is detached and polled), and **why the remote end went
+away there is still not established** — an OOM kill on the 1-OCPU trainer would
+look identical, and no kernel evidence has been read. A failure-path-only
+evidence step now captures it so the next failure names its own cause.
+
+⚠️ **And no workflow was retired.** § 4.5's eight RETIRE candidates remain
+candidates, and the § 4.5 warning stands: 87 of 129 workflows still cannot be
+graded on dormancy. The new `workflow-trigger-reachability` guard answers a
+strictly narrower question — *can this push trigger fire at all?* — which needs
+no run history. It is not P-D5.
+
+---
+
 ## 1 · Half D — the 129 workflows
 
 ### 1.1 The headline: the fleet is itself the proof that C1 outruns C2
@@ -182,7 +211,10 @@ systems.
 ⚠️ **This is not an argument for editing 32 files.** Most role packs are domain procedure
 (how to wire a broker, how to run a sweep) and are correctly indifferent to where work is
 tracked. The gap is concentrated in the handful that govern *how a session situates itself* —
-§ 4.2 names them.
+§ 2.5 **P-C3** names them. (This read "§ 4.2 names them" until 2026-09-02; § 4.2 is
+about workflow *retirement history* and names no skill. Corrected because a
+session sent to the wrong section finds a list of deleted workflows and concludes
+the skill list does not exist.)
 
 ### 2.3 E3's machinery shipped and no skill knows it exists
 
@@ -587,7 +619,9 @@ is *unmeasured*, which is a different problem with a different fix.
 - **Its retirement history is bounded at 2026-06-13**, the oldest commit in this shallow
   clone. The 35/0/0/0 counts in § 4.2 are lower bounds, not lifetime totals.
 - **It enacted nothing.** No skill, workflow, register or Routine was created, edited or
-  deleted. The only file added is this one.
+  deleted. The only file added is this one. ⚠️ **This remains true OF THIS AUDIT and is no
+  longer true of its findings** — MI-66 enacted the CREATE, three REPAIRs, P-C3 and P-C4 on
+  2026-09-02; see § 0b for the four measurements that did not survive that contact.
 
 ---
 
