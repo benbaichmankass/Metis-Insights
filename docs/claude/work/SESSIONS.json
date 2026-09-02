@@ -326,13 +326,17 @@
       "title": "Backlog drain #4 — research-review backlog",
       "spawned_at": "2026-09-02T02:11Z",
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "branches": [],
-      "prs": [],
+      "branches": [
+        "claude/drain-research-review-backlog"
+      ],
+      "prs": [
+        10725
+      ],
       "why": "Drains #2 and #3 both finished and merged, leaving ZERO running against the operator's 'then start the backlog'. research-review-backlog.json is the one backlog never yet drained, and drain #1 filed that it is also the one NOT covered by the round-trip guard.",
       "last_observed": {
-        "at": "2026-09-02T02:11Z",
-        "state": "spawned_not_yet_observed",
-        "note": "SPAWNED, NOT OBSERVED. Scoped to one file; forbidden from OPEN-ITEMS.json; told it has no diag path to the trainer and must refuse rather than infer if a row needs trainer logs."
+        "at": "2026-09-02T03:14Z",
+        "state": "delivered_and_merged",
+        "note": "PR #10725 MERGED (68e73de8). 11 of 11 open examined (100%) / 5 CLOSED / 6 refused. VERIFIED at merged main rather than trusted: research-review-backlog.json now reads 6 open / 6 resolved, matching its claimed burn-down exactly. Two closures refuted the row's own prescribed remedy on measurement (max()->min() would have changed no output on 258/258 units; a fifth 'ungradeable' verdict would have had no unit a reader could apply it to). Also closed the unguarded-fourth-backlog gap BOTH halves - added research to LIVE_BACKLOGS and pinned it set-equal to the glob, the pin being the half its criterion said the path-add alone does not satisfy."
       }
     },
     {
@@ -341,13 +345,51 @@
       "title": "Backlog drain #5 — health-review backlog, second pass",
       "spawned_at": "2026-09-02T02:11Z",
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "branches": [],
-      "prs": [],
+      "branches": [
+        "claude/backlog-drain-2-health-20260902"
+      ],
+      "prs": [
+        10724
+      ],
       "why": "Second pass on the largest file (~1091 rows). Given drain #1's five refusals up front so it does not redo blocked work, and explicitly RELEASED to take the one real class drain #1 judged out of scope — the diff-scoped guard on the transition INTO kept_open.",
       "last_observed": {
-        "at": "2026-09-02T02:11Z",
+        "at": "2026-09-02T03:13Z",
+        "state": "delivered_and_merged",
+        "note": "PR #10724 MERGED (db2a1670). 5 examined / 0 CLOSED / 5 refused — closing nothing was the honest outcome and it said so. What it actually delivered is structural: criterion 3 of the no-exit-condition class, a diff-scoped guard on the transition INTO kept_open, shown to FAIL on a planted violation (B) AND shown to PASS the same transition WITH an exit condition (C) — C is what proves it refuses the absence rather than the transition. Reports 0 failures against a tree carrying 24 grandfathered rows, so it is not a wall. Criterion 4 mechanised: --all now prints the census through the SAME predicate the guard enforces, reproducing the 2026-09-01 hand-count exactly (24/10/5/0=39)."
+      }
+    },
+    {
+      "session_id": "session_01Au13tQ9BaLKsEU7youUomr",
+      "owns_object": null,
+      "title": "Backlog drain wave 2 — ml-review-backlog (pass 2)",
+      "spawned_at": "2026-09-02T03:15Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/drain-ml-backlog-pass2"
+      ],
+      "prs": [],
+      "why": "Second pass on ml-review-backlog.json: 22 unresolved of 106 (open 3, kept_open 19) at main 68e73de8. Only one prior pass. kept_open is 6x open here, which is the shape worth attacking. Handed the census tool that landed this hour (check_backlog_criteria.py --all) so metric and guard are one derivation, and handed drain #2's specific lead: 8 ml rows are milestone-PROGRAM items tracked in the wrong home. ROADMAP.md is OUT of its scope deliberately - it is asked to NAME the 8, not move them.",
+      "last_observed": {
+        "at": "2026-09-02T03:15Z",
         "state": "spawned_not_yet_observed",
-        "note": "SPAWNED, NOT OBSERVED. ⚠️ Told the guard must be SHOWN TO FAIL on a planted violation AND must not fail the ~55 existing rows — a wall gets disabled, which would be worse than no guard."
+        "note": "SPAWNED, NOT OBSERVED. Told plainly that closing zero is an acceptable honest outcome (two prior drains closed zero and were right), and that a closure on a code citation or a proxy measurement is not. Every guard-backed closure must be SHOWN TO FAIL on a planted defect."
+      }
+    },
+    {
+      "session_id": "session_011Gqsv3NxLmm5yp9gfNh6ar",
+      "owns_object": null,
+      "title": "Backlog drain wave 2 — performance-review-backlog (pass 2)",
+      "spawned_at": "2026-09-02T03:15Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/drain-performance-backlog-pass2"
+      ],
+      "prs": [],
+      "why": "Second pass on performance-review-backlog.json: 44 unresolved of 112 (open 13, kept_open 31) at main 68e73de8. Only one prior pass. Handed the two live findings already in its territory so it does not re-derive them - the R-metric contamination (17.2% of closed rows store a stop on the wrong side of entry) and the deliberate pnlCoverage/totalPnlMeasured population asymmetry.",
+      "last_observed": {
+        "at": "2026-09-02T03:15Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Explicitly told to REFUTE any row asking it to harmonise pnlCoverage with totalPnlMeasured - the R4 gate depends on that asymmetry, so 'fixing' it would be a regression wearing the shape of a closure. Also told research-review-backlog was split out of this file on 2026-08-30, so a research-pipeline row here should be named rather than worked."
       }
     }
   ]
