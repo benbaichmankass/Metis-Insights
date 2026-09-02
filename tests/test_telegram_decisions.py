@@ -561,3 +561,360 @@ def test_api_base_defaults_to_loopback_and_strips_a_trailing_slash(monkeypatch):
     assert td.api_base() == "http://127.0.0.1:8001"
     monkeypatch.setenv("WORK_DECISION_API_BASE", "https://ict-bot.duckdns.org/")
     assert td.api_base() == "https://ict-bot.duckdns.org"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# On-demand `/decisions` — the operator PULLS the inbox
+#
+# The operator's ask, 2026-09-02: "if there's any decisions that are still
+# waiting for me that aren't answered so they can all pop up at once. In case I
+# don't get them as they come in."
+# ═════════════════════════════════════════════════════════════════════════════
+
+def _tree(state="synced", **over):
+    from src.runtime.manager_status import TreeProvenance
+
+    base = {"state": state, "head_sha": "0b52157", "main_sha": "0b52157",
+            "behind_commits": 0, "note": "level"}
+    base.update(over)
+    return TreeProvenance(**base)
+
+
+def _pull_inbox(requests=None, *, accepts=True, edges=None, **summary_over):
+    requests = requests if requests is not None else []
+    by_state = {"not_submitted": 0, "in_transit": 0, "committed": 0,
+                "unreadable": 0}
+    for r in requests:
+        by_state[r["answerState"]] = by_state.get(r["answerState"], 0) + 1
+    summary = {
+        "awaitingOperator": by_state["not_submitted"] + by_state["unreadable"],
+        "awaitingCommit": by_state["in_transit"],
+        "decided": by_state["committed"],
+        "byAnswerState": by_state,
+        "requestCount": len(requests),
+        "malformedRequestsDropped": 0,
+        "unanswerableOperatorEdgeCount": len(edges or []),
+        "staleOpenWindows": 0,
+        "staleAfterSeconds": 3600,
+    }
+    summary.update(summary_over)
+    gate = {"state": "open" if accepts else "closed_no_token",
+            "acceptsWrites": accepts, "note": ""}
+    return {
+        "present": True, "reason": None, "requests": requests,
+        "unanswerableOperatorEdges": edges or [],
+        "summary": summary,
+        "transit": {"state": "read", "error": None, "path": "/x", "rowsRead": 0},
+        "writeGate": gate,
+    }
+
+
+def _stub_inbox(monkeypatch, inbox, error=None):
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (inbox, error))
+
+
+def _pending(n, **over):
+    out = []
+    for i in range(n):
+        out.append(_request(
+            id=f"DEC-{i:03d}", objectId=f"WO-{i:03d}", answerState="not_submitted",
+            **over))
+    return out
+
+
+# ── zero / one / several ────────────────────────────────────────────────────
+
+def test_zero_waiting_says_so_explicitly(monkeypatch):
+    """Silence is indistinguishable from a broken command."""
+    _stub_inbox(monkeypatch, _pull_inbox([]))
+    out = td.build_on_demand_decisions(tree=_tree())
+    assert len(out) == 1, "no prompts, just the summary"
+    text, keyboard = out[0]
+    assert keyboard is None
+    assert "Nothing is waiting for you" in text
+    assert "No decision request is unanswered on your side" in text
+
+
+def test_one_waiting_sends_the_summary_and_exactly_one_prompt(monkeypatch):
+    _stub_inbox(monkeypatch, _pull_inbox(_pending(1)))
+    out = td.build_on_demand_decisions(tree=_tree())
+    assert len(out) == 2
+    assert "WAITING ON YOU: 1" in out[0][0]
+    assert out[1][1] is not None, "the one prompt carries its keyboard"
+
+
+def test_several_waiting_all_pop_up_at_once(monkeypatch):
+    """The operator's words: 'so they can all pop up at once'."""
+    _stub_inbox(monkeypatch, _pull_inbox(_pending(5)))
+    out = td.build_on_demand_decisions(tree=_tree())
+    assert len(out) == 6
+    assert "WAITING ON YOU: 5" in out[0][0]
+    assert all(kb is not None for _, kb in out[1:])
+    sent_objects = {o["objectId"] for o in
+                    [{"objectId": f"WO-{i:03d}"} for i in range(5)]}
+    body = "\n".join(t for t, _ in out)
+    for obj in sent_objects:
+        assert obj in body
+
+
+def test_only_not_submitted_requests_are_sent(monkeypatch):
+    """`in_transit` has an open window; `committed` is decided; `unreadable` is
+    *we could not look* — none of the three is a question to re-ask."""
+    reqs = (_pending(2)
+            + [_request(id="D-T", objectId="W-T", answerState="in_transit"),
+               _request(id="D-C", objectId="W-C", answerState="committed"),
+               _request(id="D-U", objectId="W-U", answerState="unreadable")])
+    _stub_inbox(monkeypatch, _pull_inbox(reqs))
+    out = td.build_on_demand_decisions(tree=_tree())
+    assert len(out) == 3, "2 prompts + 1 summary"
+    body = "\n".join(t for t, _ in out[1:])
+    for absent in ("W-T", "W-C", "W-U"):
+        assert absent not in body
+
+
+def test_the_cap_is_stated_rather_than_silently_truncating(monkeypatch):
+    _stub_inbox(monkeypatch, _pull_inbox(_pending(td.MAX_ON_DEMAND_PROMPTS + 3)))
+    out = td.build_on_demand_decisions(tree=_tree())
+    assert len(out) == td.MAX_ON_DEMAND_PROMPTS + 1
+    summary = out[0][0]
+    assert "OMITTED" in summary
+    assert f"3 of {td.MAX_ON_DEMAND_PROMPTS + 3}" in summary
+
+
+# ── the two populations are never pooled ────────────────────────────────────
+
+def test_awaiting_operator_and_awaiting_commit_are_reported_separately(monkeypatch):
+    """An `in_transit` question is unanswered but waits on a COMMITTER.
+
+    Pooling them would put work on the operator's plate that is not theirs.
+    """
+    reqs = _pending(2) + [
+        _request(id=f"D-T{i}", objectId=f"W-T{i}", answerState="in_transit")
+        for i in range(3)
+    ]
+    _stub_inbox(monkeypatch, _pull_inbox(reqs))
+    summary = td.build_on_demand_decisions(tree=_tree())[0][0]
+
+    assert "WAITING ON YOU: 2" in summary
+    assert "WAITING ON A COMMITTER: 3" in summary
+    assert "nothing for you to do" in summary
+    # The pooled figure must appear nowhere.
+    assert "WAITING ON YOU: 5" not in summary
+
+
+def test_awaiting_commit_is_reported_even_when_zero(monkeypatch):
+    """A line that VANISHES makes a reader branch on absence."""
+    _stub_inbox(monkeypatch, _pull_inbox(_pending(1)))
+    assert "WAITING ON A COMMITTER: 0" in td.build_on_demand_decisions(
+        tree=_tree())[0][0]
+
+
+def test_ungradeable_requests_are_broken_out_of_awaiting_operator(monkeypatch):
+    """`awaitingOperator` is not_submitted + unreadable, and only the first is sent."""
+    reqs = _pending(1) + [
+        _request(id="D-U", objectId="W-U", answerState="unreadable")]
+    _stub_inbox(monkeypatch, _pull_inbox(reqs))
+    out = td.build_on_demand_decisions(tree=_tree())
+    summary = out[0][0]
+    assert "WAITING ON YOU: 2" in summary
+    assert "1 unanswered (sent below)" in summary
+    assert "could NOT be graded" in summary
+    assert len(out) == 2, "only the not_submitted one is sent"
+
+
+# ── the write gate ──────────────────────────────────────────────────────────
+
+def test_a_closed_write_gate_sends_no_buttons_and_says_why(monkeypatch):
+    """Buttons whose taps 503 read as 'dealt with' while nothing landed."""
+    _stub_inbox(monkeypatch, _pull_inbox(_pending(2), accepts=False))
+    out = td.build_on_demand_decisions(tree=_tree())
+    summary, prompts = out[0][0], out[1:]
+    assert "ANSWERING IS CLOSED" in summary
+    assert "503" in summary and "fail-closed by design" in summary
+    assert all(kb is None for _, kb in prompts), "no tappable buttons"
+    # The questions are still SHOWN, so a blocked decision is not invisible.
+    assert len(prompts) == 2
+
+
+def test_an_unknown_write_gate_is_not_reported_as_open(monkeypatch):
+    inbox = _pull_inbox(_pending(1))
+    inbox["writeGate"] = {"state": "unknown", "acceptsWrites": None, "note": ""}
+    _stub_inbox(monkeypatch, inbox)
+    out = td.build_on_demand_decisions(tree=_tree())
+    assert "Write gate UNKNOWN" in out[0][0]
+
+
+def test_no_answerable_route_omits_buttons_and_says_so(monkeypatch):
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    _stub_inbox(monkeypatch, _pull_inbox(_pending(1)))
+    out = td.build_on_demand_decisions(tree=_tree())
+    assert "No answerable bot resolved" in out[0][0]
+    assert out[1][1] is None
+
+
+# ── the gaps worth surfacing ────────────────────────────────────────────────
+
+def test_unanswerable_operator_edges_are_surfaced(monkeypatch):
+    """A question the operator blocks on that nobody wrote down as answerable."""
+    edges = [{"objectId": "WO-20260901-PHASE-H", "ref": "DEC-READ-GATE",
+              "since": "2026-09-01T21:22Z", "objectTitle": "Phase H"}]
+    _stub_inbox(monkeypatch, _pull_inbox([], edges=edges))
+    summary = td.build_on_demand_decisions(tree=_tree())[0][0]
+    assert "NOT ANSWERABLE FROM HERE" in summary
+    assert "WO-20260901-PHASE-H" in summary
+    assert "DEC-READ-GATE" in summary
+
+
+def test_no_edges_means_no_edge_block(monkeypatch):
+    _stub_inbox(monkeypatch, _pull_inbox([]))
+    assert "NOT ANSWERABLE FROM HERE" not in td.build_on_demand_decisions(
+        tree=_tree())[0][0]
+
+
+def test_stale_transit_windows_are_flagged(monkeypatch):
+    reqs = [_request(id="D-T", objectId="W-T", answerState="in_transit")]
+    _stub_inbox(monkeypatch, _pull_inbox(reqs, staleOpenWindows=1))
+    assert "OPEN WINDOW, not a decision" in td.build_on_demand_decisions(
+        tree=_tree())[0][0]
+
+
+# ── failure is never reported as emptiness ──────────────────────────────────
+
+def test_an_unreadable_inbox_is_never_reported_as_nothing_waiting(monkeypatch):
+    _stub_inbox(monkeypatch, None, error="HTTP 503")
+    out = td.build_on_demand_decisions(tree=_tree())
+    assert len(out) == 1
+    text = out[0][0]
+    assert "could not read the decision inbox" in text
+    assert "do not read it as a clear inbox" in text
+    assert "Nothing is waiting" not in text
+
+
+def test_an_absent_inbox_is_not_a_claim_that_nothing_is_waiting(monkeypatch):
+    _stub_inbox(monkeypatch, {"present": False, "reason": "work store absent"})
+    text = td.build_on_demand_decisions(tree=_tree())[0][0]
+    assert "not a claim that no decision is waiting" in text
+
+
+def test_a_raising_inbox_still_produces_a_reply(monkeypatch):
+    def boom():
+        raise RuntimeError("kaboom")
+
+    monkeypatch.setattr(td, "fetch_inbox", boom)
+    out = td.build_on_demand_decisions(tree=_tree())
+    assert len(out) == 1 and "we could not look" in out[0][0]
+
+
+# ── the stale-tree caveat (manager_status.tree_state) ───────────────────────
+
+def test_a_behind_main_tree_warns_that_answered_questions_may_read_unanswered(
+        monkeypatch):
+    """The measured 2026-09-02 failure: `in_transit` for minutes after commit."""
+    _stub_inbox(monkeypatch, _pull_inbox(_pending(1)))
+    summary = td.build_on_demand_decisions(
+        tree=_tree("behind_main", behind_commits=4, main_sha="a1b2c3d"))[0][0]
+    assert "GRADED AGAINST A STALE TREE" in summary
+    assert "4 commit(s) behind main" in summary
+    assert "may already have been answered and committed" in summary
+
+
+def test_an_unknown_tree_is_not_reported_as_current(monkeypatch):
+    _stub_inbox(monkeypatch, _pull_inbox(_pending(1)))
+    summary = td.build_on_demand_decisions(
+        tree=_tree("unknown", behind_commits=None, note="git unreadable"))[0][0]
+    assert "COULD NOT BE ESTABLISHED" in summary
+    assert "we could not\nlook" in summary or "we could not " in summary
+    assert "GRADED AGAINST A STALE TREE" not in summary
+
+
+def test_a_synced_tree_says_synced(monkeypatch):
+    _stub_inbox(monkeypatch, _pull_inbox(_pending(1)))
+    summary = td.build_on_demand_decisions(tree=_tree("synced"))[0][0]
+    assert "tree: synced" in summary
+    assert "STALE TREE" not in summary
+
+
+# ── the marker interaction: the decision this change had to make ────────────
+
+def test_on_demand_neither_reads_nor_writes_the_prompted_marker(
+        monkeypatch, tmp_path):
+    """The marker file must be byte-identical across a `/decisions` call.
+
+    Writing markers here would SUPPRESS the periodic sweep for a question the
+    operator pulled; removing them would make it re-ask everything. Neither is
+    acceptable, so on-demand touches the file not at all.
+    """
+    marker = tmp_path / "work_decision_prompted.json"
+    td.write_prompt_state({"WO-000::DEC-000": {"prompted_at": "2026-09-02T09:00:00Z"}},
+                          marker)
+    before = marker.read_bytes()
+
+    monkeypatch.setattr(td, "prompt_state_path", lambda: marker)
+    _stub_inbox(monkeypatch, _pull_inbox(_pending(2)))
+    td.build_on_demand_decisions(tree=_tree())
+
+    assert marker.read_bytes() == before, (
+        "the on-demand pull must not disturb the sweep's idempotency marker")
+
+
+def test_an_already_prompted_question_is_still_sent_on_demand(monkeypatch, tmp_path):
+    """That is the entire point of the ask: 'in case I don't get them as they
+    come in'. The sweep asks ONCE; `/decisions` re-sends regardless."""
+    marker = tmp_path / "work_decision_prompted.json"
+    reqs = _pending(1)
+    key = td.marker_key(reqs[0]["objectId"], reqs[0]["id"])
+    td.write_prompt_state({key: {"prompted_at": "2026-09-02T09:00:00Z"}}, marker)
+    monkeypatch.setattr(td, "prompt_state_path", lambda: marker)
+    _stub_inbox(monkeypatch, _pull_inbox(reqs))
+
+    out = td.build_on_demand_decisions(tree=_tree())
+    assert len(out) == 2, "already prompted, and sent again anyway"
+    assert reqs[0]["objectId"] in out[1][0]
+
+
+def test_the_sweep_still_asks_once_after_an_on_demand_pull(monkeypatch, tmp_path):
+    """The accepted consequence, pinned: on-demand does not suppress the sweep.
+
+    A duplicate PROMPT is recoverable; a SUPPRESSED one is not. And it cannot
+    produce a duplicate DECISION -- the route answers a second submission with
+    409, rendered as `already answered`.
+    """
+    marker = tmp_path / "work_decision_prompted.json"
+    reqs = _pending(1)
+    monkeypatch.setattr(td, "prompt_state_path", lambda: marker)
+    _stub_inbox(monkeypatch, _pull_inbox(reqs))
+
+    td.build_on_demand_decisions(tree=_tree())
+
+    sent = []
+    stats = td.run_decision_prompt_sweep(
+        sender=lambda text, kb: sent.append(text) or True, state_path=marker)
+    assert stats["prompted_choice"] == 1, (
+        "the sweep must still deliver its own one-time prompt")
+    # ...and only once thereafter.
+    stats2 = td.run_decision_prompt_sweep(
+        sender=lambda text, kb: sent.append(text) or True, state_path=marker)
+    assert stats2["candidates"] == 0
+
+
+# ── one builder, not two ────────────────────────────────────────────────────
+
+def test_on_demand_reuses_the_sweeps_own_keyboard_builder(monkeypatch):
+    """Two copies of the callback_data construction is how the 64-byte budget
+    and the key-digest scheme drift apart."""
+    reqs = _pending(1)
+    _stub_inbox(monkeypatch, _pull_inbox(reqs))
+    out = td.build_on_demand_decisions(tree=_tree())
+
+    assert out[1][1] == td.build_decision_keyboard(reqs[0])
+    assert out[1][0] == td.render_decision_prompt(reqs[0])
+    for row in out[1][1]["inline_keyboard"]:
+        for button in row:
+            assert len(button["callback_data"].encode("utf-8")) <= (
+                td.TELEGRAM_CALLBACK_DATA_MAX_BYTES)
+
+
+def test_the_summary_says_it_does_not_change_what_the_sweep_will_ask(monkeypatch):
+    _stub_inbox(monkeypatch, _pull_inbox(_pending(1)))
+    assert "does not change what the periodic sweep will ask" in " ".join(
+        td.build_on_demand_decisions(tree=_tree())[0][0].split())

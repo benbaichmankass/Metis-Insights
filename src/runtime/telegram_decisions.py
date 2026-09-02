@@ -951,6 +951,255 @@ def _default_sender(text: str, reply_markup: Optional[dict[str, Any]]) -> bool:
     ))
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+# ON-DEMAND `/decisions` — the operator PULLS the inbox.
+#
+# The operator's ask, 2026-09-02: "if there's any decisions that are still
+# waiting for me that aren't answered so they can all pop up at once. In case I
+# don't get them as they come in."
+#
+# ⚠️ THIS DELIBERATELY NEITHER READS NOR WRITES `work_decision_prompted.json`,
+# and the marker interaction is the design decision worth stating:
+#
+#   * NOT READING it is the entire point of the ask -- on-demand must re-send a
+#     question the sweep already asked, or it cannot serve "in case I don't get
+#     them as they come in".
+#   * NOT WRITING it keeps the periodic sweep exactly as it was. Writing a
+#     marker here would SUPPRESS the sweep for a question the operator pulled,
+#     so if this on-demand send then failed to arrive the question would be
+#     asked by NOBODY. Removing markers here would make the sweep re-ask
+#     everything -- the spam half.
+#
+# The accepted consequence, stated rather than hidden: a question pulled here
+# may ALSO arrive once from the sweep shortly afterwards. That trade is
+# deliberate -- a duplicate PROMPT is recoverable and a suppressed one is not --
+# and it cannot produce a duplicate DECISION, because the route refuses a
+# second answer to an answered request with 409 (rendered as `already
+# answered`). `tests/test_telegram_decisions.py` pins both halves: the marker
+# file is byte-identical across a `/decisions` call, and an already-prompted
+# request IS still sent.
+# ═════════════════════════════════════════════════════════════════════════════
+
+#: How many question prompts one `/decisions` will send. A pull that fires 30
+#: messages is the desensitised-alarm failure; what does not fit is COUNTED and
+#: named in the summary rather than dropped silently.
+MAX_ON_DEMAND_PROMPTS = 10
+
+
+def _plural(n: int, one: str, many: Optional[str] = None) -> str:
+    return f"{n} {one}" if n == 1 else f"{n} {many or one + 's'}"
+
+
+def render_decisions_summary(
+    inbox: dict[str, Any],
+    *,
+    sendable: int,
+    withheld_cap: int = 0,
+    route: Optional[AnswerableRoute] = None,
+    tree: Optional[Any] = None,
+) -> str:
+    """The header message for `/decisions`.
+
+    ⚠️ ``awaitingOperator`` and ``awaitingCommit`` are reported SEPARATELY and
+    are never pooled. An ``in_transit`` question is also unanswered, but it is
+    waiting on a COMMITTER -- counting it as the operator's would put work on
+    their plate that is not theirs.
+
+    ⚠️ ``awaitingOperator`` is ``not_submitted + unreadable`` on the route's own
+    definition, so the ``unreadable`` share is broken out too: we cannot send a
+    button for a question we could not grade, and a bare "N waiting" beside
+    fewer than N prompts would read as a broken command.
+
+    ⚠️ ``tree`` is the provenance of the WORKING TREE the route graded against,
+    and it is not decoration. ``committed`` is graded from the ``answer`` block
+    on the work object **in the repo**, so a tree behind ``main`` reports a
+    question as unanswered that has already been answered AND committed. That
+    is not hypothetical: measured 2026-09-02, this route read ``in_transit``
+    for minutes after the answer was on ``main``, because the VM was still on
+    the older sha. Each of the three tree states changes what this reply can
+    honestly claim, so each gets its own sentence.
+    """
+    summary = inbox.get("summary") or {}
+    by_state = summary.get("byAnswerState") or {}
+    awaiting_operator = summary.get("awaitingOperator") or 0
+    awaiting_commit = summary.get("awaitingCommit") or 0
+    not_submitted = by_state.get("not_submitted") or 0
+    unreadable = by_state.get("unreadable") or 0
+    decided = summary.get("decided") or 0
+
+    gate = inbox.get("writeGate") or {}
+    accepts = gate.get("acceptsWrites")
+    transit = inbox.get("transit") or {}
+    edges = inbox.get("unanswerableOperatorEdges") or []
+
+    lines = ["🗳️ DECISIONS WAITING"]
+
+    if awaiting_operator == 0:
+        # Silence is indistinguishable from a broken command, so zero gets an
+        # explicit sentence rather than an empty list.
+        lines += ["", "✅ Nothing is waiting for you. No decision request is "
+                      "unanswered on your side."]
+    else:
+        lines += ["", f"⏳ WAITING ON YOU: {awaiting_operator}"]
+        lines.append(f"   · {not_submitted} unanswered (sent below)")
+        if unreadable:
+            lines.append(
+                f"   · ⚠️ {unreadable} could NOT be graded (the transit log was "
+                f"unreadable) — these are NOT sent, because we do not know "
+                f"whether you already answered them."
+            )
+
+    # Always reported, and always as its OWN line, including when it is zero.
+    lines.append(
+        f"📮 WAITING ON A COMMITTER: {awaiting_commit}"
+        + ("  (answered by you; not yet written into the repo — nothing for "
+           "you to do)" if awaiting_commit else "")
+    )
+    if summary.get("staleOpenWindows"):
+        lines.append(
+            f"   · ⚠️ {summary['staleOpenWindows']} of those have been in "
+            f"transit longer than {summary.get('staleAfterSeconds')}s — an "
+            f"OPEN WINDOW, not a decision."
+        )
+    lines.append(f"✅ Decided (committed in the repo): {decided}")
+
+    if accepts is False:
+        lines += ["", "⚠️ ANSWERING IS CLOSED — the API holds no write token "
+                      f"(writeGate: {gate.get('state')}), so every submission "
+                      "would be refused with 503. The questions are shown "
+                      "below WITHOUT buttons so they are not invisible; answer "
+                      "on the dashboard or in the repo. This is fail-closed by "
+                      "design, not an outage."]
+    elif accepts is None:
+        lines += ["", f"⚠️ Write gate UNKNOWN ({gate.get('state')}) — we could "
+                      "not establish whether answering is open. Buttons are "
+                      "shown; a tap may be refused."]
+
+    if transit.get("state") == "unreadable":
+        lines += ["", "⚠️ The transit log could not be read, so 'already "
+                      "answered' cannot be trusted below."]
+
+    if edges:
+        lines += ["", f"🕳️ {_plural(len(edges), 'BLOCKING QUESTION IS', 'BLOCKING QUESTIONS ARE')} "
+                      f"NOT ANSWERABLE FROM HERE — an object blocks on an "
+                      f"operator_decision that nobody wrote down as an "
+                      f"answerable request:"]
+        for edge in edges[:5]:
+            lines.append(
+                f"   · {edge.get('objectId')} → {edge.get('ref') or '(unnamed)'}"
+                + (f" (since {edge.get('since')})" if edge.get("since") else "")
+            )
+        if len(edges) > 5:
+            lines.append(f"   · …and {len(edges) - 5} more.")
+
+    if withheld_cap:
+        lines += ["", f"⚠️ OMITTED: {withheld_cap} of {not_submitted} unanswered "
+                      f"questions were not sent — `/decisions` sends at most "
+                      f"{MAX_ON_DEMAND_PROMPTS} at a time. Run it again after "
+                      f"answering these, or use the dashboard."]
+
+    if route is not None and not route.deliverable:
+        lines += ["", f"⚠️ No answerable bot resolved ({route.note}) — buttons "
+                      f"are omitted."]
+
+    # The tree this inbox was graded against. Three states, never collapsed --
+    # `manager_status.tree_state`, registered with `collapsed-state-guard`.
+    if tree is not None:
+        from src.runtime.manager_status import (
+            TREE_BEHIND, TREE_SYNCED, TREE_UNKNOWN,
+        )
+
+        if tree.state == TREE_BEHIND:
+            lines += ["", f"⚠️ GRADED AGAINST A STALE TREE — this VM is "
+                          f"{tree.behind_commits} commit(s) behind main "
+                          f"({tree.head_sha}). `committed` is read from the "
+                          f"work object IN THE REPO, so a question shown as "
+                          f"unanswered here may already have been answered and "
+                          f"committed. Re-run after the next git-sync before "
+                          f"re-answering."]
+        elif tree.state == TREE_UNKNOWN:
+            lines += ["", f"⚠️ THE TREE THIS WAS GRADED AGAINST COULD NOT BE "
+                          f"ESTABLISHED ({tree.note}). That is *we could not "
+                          f"look*, not *the tree is current* — treat "
+                          f"'unanswered' below as unverified."]
+        elif tree.state == TREE_SYNCED:
+            lines += ["", f"tree: synced ({tree.head_sha}) — graded against a "
+                          f"tree level with main as last fetched."]
+
+    lines += ["", "This is an on-demand pull; it does not change what the "
+                  "periodic sweep will ask, so a question here may still "
+                  "arrive once on its own."]
+    return "\n".join(lines)
+
+
+def build_on_demand_decisions(
+    *, route: Optional[AnswerableRoute] = None, tree: Optional[Any] = None,
+) -> list[tuple[str, Optional[dict[str, Any]]]]:
+    """Every message `/decisions` should send, as ``(text, reply_markup)``.
+
+    The first is always a summary; the rest are ONE prompt per ``not_submitted``
+    request, built by the SAME `render_decision_prompt` / `build_decision_keyboard`
+    the sweep uses. They are deliberately not re-implemented here: two copies of
+    the `callback_data` construction is how the 64-byte budget and the key-digest
+    scheme drift apart.
+
+    Never raises -- a command must always produce a reply.
+    """
+    try:
+        inbox, error = fetch_inbox()
+        if inbox is None:
+            # NOT "nothing is waiting". We could not look.
+            return [(
+                "⚠️ I could not read the decision inbox, so I do NOT know what "
+                f"is waiting for you ({error}).\n\nThis is *we could not look*, "
+                "not *nothing is waiting* — do not read it as a clear inbox.",
+                None,
+            )]
+        if inbox.get("present") is False:
+            return [(
+                "⚠️ The decision inbox reports it is not present "
+                f"({inbox.get('reason')}). That is not a claim that no decision "
+                "is waiting — it is that the work store could not be read.",
+                None,
+            )]
+
+        resolved = route if route is not None else answerable_route()
+        gate = inbox.get("writeGate") or {}
+        # A tap that will 503 is the "reads as dealt with while nothing landed"
+        # failure, so buttons are withheld whenever answering is not OPEN, and
+        # the summary says why. The questions are still SENT as text.
+        buttons_ok = bool(gate.get("acceptsWrites")) and resolved.deliverable
+
+        pending = [
+            r for r in (inbox.get("requests") or [])
+            if isinstance(r, dict) and r.get("answerState") == "not_submitted"
+        ]
+        send, withheld = pending[:MAX_ON_DEMAND_PROMPTS], pending[MAX_ON_DEMAND_PROMPTS:]
+
+        if tree is None:
+            from src.runtime.manager_status import read_tree_provenance
+            tree = read_tree_provenance()
+
+        out: list[tuple[str, Optional[dict[str, Any]]]] = [(
+            render_decisions_summary(
+                inbox, sendable=len(send), withheld_cap=len(withheld),
+                route=resolved, tree=tree,
+            ),
+            None,
+        )]
+        for req in send:
+            keyboard = build_decision_keyboard(req) if buttons_ok else None
+            out.append((render_decision_prompt(req), keyboard))
+        return out
+    except Exception as exc:  # noqa: BLE001 -- a command must always reply
+        logger.warning("telegram_decisions: /decisions failed: %s", exc, exc_info=True)
+        return [(
+            "⚠️ Reading the decision inbox raised an error, so I do NOT know "
+            f"what is waiting for you ({exc}). This is *we could not look*.",
+            None,
+        )]
+
+
 __all__ = [
     "CB_PREFIX",
     "TELEGRAM_CALLBACK_DATA_MAX_BYTES",
@@ -959,7 +1208,9 @@ __all__ = [
     "Resolution",
     "answerable_route",
     "api_base",
+    "MAX_ON_DEMAND_PROMPTS",
     "build_decision_keyboard",
+    "build_on_demand_decisions",
     "decode_callback",
     "encode_callback",
     "fetch_inbox",
@@ -971,6 +1222,7 @@ __all__ = [
     "read_prompt_state",
     "render_callback_reply",
     "render_decision_prompt",
+    "render_decisions_summary",
     "request_digest",
     "resolve_callback",
     "run_decision_prompt_sweep",
