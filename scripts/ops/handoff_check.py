@@ -433,8 +433,8 @@ def _self_test() -> int:
 
     auto = {"open_prs": [{"pr": 1, "operator_decision": {
         "verdict": "approved", "text": "t"}}]}
-    check("an excused bot-authored `automation/` landing PR does not FAIL the "
-          "handoff (the typed exclusion, threaded through)",
+    check("an excused `automation/` landing PR does not FAIL the handoff (the "
+          "typed exclusion, threaded through; the author is not read)",
           check_open_prs_recorded(auto, True, [1, 10398],
                                   automation_excluded=[10398])["state"], PASS)
     check("...and a Claude-opened `claude/**` PR with no row still FAILS, so "

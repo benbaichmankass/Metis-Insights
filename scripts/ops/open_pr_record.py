@@ -262,65 +262,53 @@ def normalise_open_prs(raw: Any) -> Optional[List[int]]:
 #: is byte-indistinguishable from the real failure this check exists to catch (a
 #: PR nobody recorded), and a check that cannot tell those apart is worse than
 #: the transient row. This one is distinguishable ON THE RECORD'S OWN TERMS: a
-#: bot-authored PR on an `automation/`-prefixed branch carries no owner session,
-#: no intent and no operator decision — none of the three things OPEN-PRS.json
-#: exists to hold — so its absence cannot hide a forgotten human decision.
+#: PR opened from an `automation/`-prefixed branch by `commit-to-main` carries no
+#: owner session, no intent and no operator decision — none of the three things
+#: OPEN-PRS.json exists to hold — so its absence cannot hide a forgotten human
+#: decision.
 #:
-#: ⚠️ BOTH CONDITIONS, NEVER EITHER ALONE. "Skip bots" is WRONG here and the
-#: counter-example is this repo's own workflow: `pr-opener.yml` opens a session's
-#: PR as `github-actions[bot]`, so every Claude-authored PR is bot-authored in
-#: the API sense (measured: PR #10783, user `github-actions[bot]`, head
-#: `claude/openprs-settled-reconciler`). A bare author test would excuse exactly
-#: the PRs whose operator decisions matter most. "Skip `automation/` branches"
-#: alone is equally wrong — a human can name a branch anything.
+#: ⚠️ THE BRANCH PREFIX IS THE WHOLE SIGNAL. THE AUTHOR IS NOT USED, AND AN
+#: EARLIER SPEC THAT REQUIRED A BOT AUTHOR WAS WRONG IN BOTH DIRECTIONS AT ONCE.
+#: Measured 2026-09-02 across the whole visible population:
 #:
-#: ⚠️ WHAT THIS CANNOT CATCH, SAID PLAINLY:
-#:   * A session that pushes real work to an `automation/`-prefixed branch and
-#:     lands it through a relay is excluded, silently. Nothing here can tell that
-#:     from a genuine landing PR — the predicate reads the branch NAME, and a
-#:     name is a claim, not evidence. The mitigation is a convention (`claude/**`
-#:     for session work) that this module cannot enforce.
-#:   * It says nothing about whether an excluded PR is HEALTHY. An automation
-#:     landing PR that strands unmerged is excluded from this check and so goes
-#:     unnoticed here; origin carried five stranded `automation/*` branches on
-#:     2026-08-30, the oldest ten weeks. That is `verify-merged`'s job on the
-#:     producing workflow, not this one's — named so the gap is not mistaken for
-#:     coverage.
-#:   * ⚠️ **AS SPECIFIED IT IS CURRENTLY INERT ON THIS REPO, MEASURED.** Every
-#:     automation landing PR here is opened by `.github/actions/commit-to-main`
-#:     using `BRANCH_PROTECTION_TOKEN`, a PAT owned by the operator, so its
-#:     `user.login` is the HUMAN account `benbaichmankass` and the bot half of
-#:     the predicate never matches. Measured 2026-09-02 on BOTH live instances
-#:     (n=2, the whole visible population): #10398
-#:     `automation/econ-calendar-33232352515-1` and #10781
-#:     `automation/due-list-33616772895-1`, both `benbaichmankass`. The PAT is
-#:     load-bearing and cannot be swapped for a bot identity — the action's own
-#:     header records that a GITHUB_TOKEN-opened PR does not trigger the
-#:     required checks and would stall auto-merge forever. So the residual this
-#:     exclusion was built to close is NOT closed; the predicate is kept as
-#:     specified because it is FAIL-CLOSED (it excuses nothing, so nothing is
-#:     wrongly hidden), and the gap is pinned by
-#:     `test_the_exclusion_is_inert_on_this_repos_real_automation_prs` so it
-#:     cannot read as coverage. Widening it is a decision, not a bug-fix: the
-#:     candidate is to replace the author condition with the machine-generated
-#:     `-<run_id>-<attempt>` suffix that only `commit-to-main` produces, which
-#:     keeps two independent conditions but WOULD excuse a human on such a
-#:     branch — i.e. it trades one of the three required assertions away, which
-#:     is why it is not taken unilaterally.
-#:   * It is only applied when the OBSERVATION carries author and head-ref
-#:     fields. A caller passing bare PR numbers gets NO exclusion, so an
-#:     automation PR then reads `unrecorded` — fail-closed, deliberately: the
-#:     failure direction of a predicate we could not evaluate must be the loud
-#:     one.
+#:   #10785  automation/work-decision-commit-33618689721-1  benbaichmankass  HUMAN
+#:   #10781  automation/due-list-33616772895-1              benbaichmankass  HUMAN
+#:   #10398  automation/econ-calendar-33232352515-1         benbaichmankass  HUMAN
+#:   #10783  claude/openprs-settled-reconciler              github-actions[bot]
+#:
+#: The automation landing PRs are PAT-authored through `BRANCH_PROTECTION_TOKEN`
+#: (the action's own header records why a GITHUB_TOKEN-opened PR cannot be used:
+#: it does not trigger the required checks and would stall auto-merge forever),
+#: so they carry a HUMAN identity — requiring a bot author would have excluded
+#: NOTHING, i.e. the predicate would have failed on exactly the PRs it exists
+#: for. Meanwhile a genuine sub-session PR on a `claude/**` branch IS
+#: bot-authored, because `pr-opener.yml` relays it — so a bare "skip bots" would
+#: drop a PR that must have a row. Both halves inverted; the author field
+#: carries no signal here in either direction.
+#:
+#: ⚠️ SO `automation/` IS A RESERVED NAMESPACE, AND THAT IS THE NAMED RESIDUAL.
+#: The prefix now carries the whole weight, and it is a CONVENTION rather than
+#: evidence: a human or a session that opens a PR from an `automation/`-prefixed
+#: branch is SILENTLY EXCLUDED from the completeness check and its operator
+#: decision would go unrecorded with nothing complaining. That is a real hole,
+#: stated rather than hidden. Session work belongs on `claude/**`; nothing here
+#: can enforce that, and this module cannot tell a reserved-namespace branch
+#: from a misused one.
+#:
+#: ⚠️ MATCHED AS AN ANCHORED PREFIX, NEVER A SUBSTRING, so `claude/automation-
+#: notes` is not excluded.
+#:
+#: ⚠️ WHAT IT STILL CANNOT CATCH: it says nothing about whether an excused PR is
+#: HEALTHY. An automation landing PR that STRANDS unmerged is excused here and
+#: so goes unnoticed — origin carried five stranded `automation/*` branches on
+#: 2026-08-30, the oldest ten weeks. That is `verify-merged`'s job on the
+#: producing workflow, named here so the gap is not mistaken for coverage.
+#:
+#: ⚠️ AND IT IS ONLY APPLIED WHEN THE OBSERVATION CARRIES head-ref FIELDS. A
+#: caller passing bare PR numbers gets NO exclusion, so an automation PR then
+#: reads `unrecorded` — fail-closed, because the failure direction of a
+#: predicate we could not evaluate must be the loud one.
 AUTOMATION_HEAD_PREFIX = "automation/"
-
-
-def _is_bot_author(entry: Dict[str, Any]) -> bool:
-    user = entry.get("user")
-    if not isinstance(user, dict):
-        return False
-    login = str(user.get("login") or "")
-    return login.endswith("[bot]") or str(user.get("type") or "") == "Bot"
 
 
 def _head_ref(entry: Dict[str, Any]) -> str:
@@ -329,15 +317,20 @@ def _head_ref(entry: Dict[str, Any]) -> str:
 
 
 def is_automation_landing_pr(entry: Any) -> bool:
-    """BOTH a bot author AND an `automation/` head branch. Never either alone."""
+    """True for a PR opened from an `automation/`-prefixed head branch.
+
+    ⚠️ Deliberately does NOT read the author. See the block above: the automation
+    landing PRs here are PAT-authored under a human login while a relayed
+    sub-session PR is bot-authored, so an author test excludes the wrong set in
+    both directions.
+    """
     if not isinstance(entry, dict):
         return False
-    return _is_bot_author(entry) and _head_ref(entry).startswith(
-        AUTOMATION_HEAD_PREFIX)
+    return _head_ref(entry).startswith(AUTOMATION_HEAD_PREFIX)
 
 
 def automation_landing_prs(raw: Any) -> Optional[List[int]]:
-    """PR numbers excused by the typed predicate above.
+    """PR numbers excused by the predicate above.
 
     Returns ``None`` when the observation carries no gradeable entry — *we could
     not evaluate the predicate*, which the caller must treat as "exclude
@@ -358,8 +351,7 @@ def automation_landing_prs(raw: Any) -> Optional[List[int]]:
             break
     if not isinstance(raw, list):
         return None
-    gradeable = [e for e in raw
-                 if isinstance(e, dict) and ("user" in e or "head" in e)]
+    gradeable = [e for e in raw if isinstance(e, dict) and "head" in e]
     if not gradeable:
         return None
     out = [e.get("number") for e in gradeable
@@ -443,8 +435,8 @@ def grade_completeness(doc: Optional[Any], readable: bool,
                   unrecorded=[], stale_rows=stale, population=pop,
                   last_reconciled_sha=last, head_sha=head_sha)
     excused_note = (
-        f" {len(excused & obs)} bot-authored `{AUTOMATION_HEAD_PREFIX}` landing "
-        f"PR(s) were excused by the typed predicate — they carry no owner, "
+        f" {len(excused & obs)} `{AUTOMATION_HEAD_PREFIX}` landing PR(s) were "
+        f"excused by the typed predicate — they carry no owner, "
         f"intent or operator decision, so their absence hides nothing."
         if (excused & obs) else "")
     return _v("recorded",
@@ -726,33 +718,39 @@ def _self_test() -> int:
           grade_settled(None, False)["state"], "unreadable")
 
     # --- the TYPED automation exclusion ------------------------------------
-    # Modelled on the live instance: #10398, head
-    # `automation/econ-calendar-33232352515-1`, "chore(m1): economic-calendar
-    # PIT snapshots (auto)", open since 2026-08-29.
-    bot_auto = {"number": 10398, "user": {"login": "github-actions[bot]"},
-                "head": {"ref": "automation/econ-calendar-33232352515-1"}}
-    human_auto = {"number": 10398, "user": {"login": "the-lizardking"},
+    # ⚠️ THE PREDICATE DOES NOT READ THE AUTHOR, and these fixtures are the
+    # measured reason why (2026-09-02, whole visible population):
+    #   #10785/#10781/#10398  automation/*      benbaichmankass      HUMAN
+    #   #10783                claude/**         github-actions[bot]
+    # An author test would have excluded NOTHING (the landing PRs are
+    # PAT-authored) while dropping a genuine sub-session PR (relayed by
+    # pr-opener as a bot). Wrong in both directions at once.
+    auto_human = {"number": 10398, "user": {"login": "benbaichmankass"},
                   "head": {"ref": "automation/econ-calendar-33232352515-1"}}
-    bot_claude = {"number": 10783, "user": {"login": "github-actions[bot]"},
+    auto_bot = {"number": 10785, "user": {"login": "github-actions[bot]"},
+                "head": {"ref": "automation/work-decision-commit-33618689721-1"}}
+    claude_bot = {"number": 10783, "user": {"login": "github-actions[bot]"},
                   "head": {"ref": "claude/openprs-settled-reconciler"}}
+    claude_lookalike = {"number": 5, "user": {"login": "someone"},
+                        "head": {"ref": "claude/automation-notes"}}
 
-    check("a BOT-authored `automation/` PR is excused (both conditions)",
-          is_automation_landing_pr(bot_auto), True)
-    check("a HUMAN-authored PR on an `automation/` branch is NOT excused — the "
-          "branch name is a claim, not evidence",
-          is_automation_landing_pr(human_auto), False)
-    check("⚠️ A CLAUDE-OPENED PR ON `claude/**` IS STILL REQUIRED TO HAVE A ROW. "
-          "`pr-opener.yml` opens it as github-actions[bot], so a bare 'skip "
-          "bots' would excuse exactly the PRs whose decisions matter most",
-          is_automation_landing_pr(bot_claude), False)
-    check("a bot with no head ref is not excused", 
+    check("an `automation/` PR with a HUMAN author is excused",
+          is_automation_landing_pr(auto_human), True)
+    check("...and with a BOT author too — the verdict does not depend on it",
+          is_automation_landing_pr(auto_bot), True)
+    check("⚠️ A CLAUDE-OPENED PR ON `claude/**` IS STILL REQUIRED TO HAVE A ROW, "
+          "and #10783 is bot-authored — which is what proves the predicate does "
+          "not key on the author",
+          is_automation_landing_pr(claude_bot), False)
+    check("`automation/` is matched as an ANCHORED PREFIX, never a substring — "
+          "`claude/automation-notes` is not excused",
+          is_automation_landing_pr(claude_lookalike), False)
+    check("an entry with no head ref is not excused",
           is_automation_landing_pr({"number": 1, "user": {"login": "x[bot]"}}),
           False)
-    check("`type: Bot` is honoured as well as the [bot] suffix",
-          is_automation_landing_pr({"number": 1, "user": {"type": "Bot"},
-                                    "head": {"ref": "automation/x"}}), True)
-    check("the extractor finds the excused numbers",
-          automation_landing_prs([bot_auto, bot_claude]), [10398])
+    check("the extractor finds the excused numbers regardless of author",
+          automation_landing_prs([auto_human, auto_bot, claude_bot]),
+          [10398, 10785])
     check("⚠️ an observation of BARE NUMBERS yields None — the predicate could "
           "not be evaluated, and the caller must exclude NOTHING",
           automation_landing_prs([10398, 10783]), None)

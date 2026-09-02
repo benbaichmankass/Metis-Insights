@@ -26,6 +26,8 @@ would not isolate it.
 import sys
 from pathlib import Path
 
+import pytest
+
 OPS = Path(__file__).resolve().parents[1] / "scripts" / "ops"
 sys.path.insert(0, str(OPS))
 import open_pr_record as opr  # noqa: E402
@@ -164,63 +166,95 @@ def test_settled_rows_are_never_graded_against_the_live_open_list():
 # PR creates, closed on the record's own terms.
 #
 # ⚠️ This is NOT the exemption that stays rejected. "The PR currently merging"
-# is byte-indistinguishable from a PR nobody recorded. A bot-authored PR on an
-# `automation/` branch is distinguishable: it carries no owner session, no
-# intent and no operator decision — none of the three things the record exists
-# to hold — so its absence cannot hide a forgotten human decision.
+# is byte-indistinguishable from a PR nobody recorded. An `automation/` landing
+# PR is distinguishable: it carries no owner session, no intent and no operator
+# decision — none of the three things the record exists to hold.
 #
-# Modelled on the live instance: #10398, head
-# `automation/econ-calendar-33232352515-1`, open since 2026-08-29.
+# ⚠️ THE PREDICATE DOES NOT READ THE AUTHOR. Measured 2026-09-02 over the whole
+# visible population, the author field is inverted on BOTH sides:
+#
+#   #10785  automation/work-decision-commit-33618689721-1  benbaichmankass HUMAN
+#   #10781  automation/due-list-33616772895-1              benbaichmankass HUMAN
+#   #10398  automation/econ-calendar-33232352515-1         benbaichmankass HUMAN
+#   #10783  claude/openprs-settled-reconciler              github-actions[bot]
+#
+# The landing PRs are PAT-authored (`BRANCH_PROTECTION_TOKEN`), so a bot-author
+# requirement would have excused NOTHING — failing on exactly the PRs it exists
+# for — while a relayed sub-session PR IS bot-authored and would have been
+# wrongly excused. `automation/` is therefore a RESERVED NAMESPACE, and the hole
+# that creates is asserted below rather than left implicit.
 # --------------------------------------------------------------------------- #
-BOT_AUTOMATION = {"number": 10398,
-                  "user": {"login": "github-actions[bot]"},
-                  "head": {"ref": "automation/econ-calendar-33232352515-1"}}
-HUMAN_AUTOMATION = {"number": 10398,
-                    "user": {"login": "the-lizardking"},
-                    "head": {"ref": "automation/econ-calendar-33232352515-1"}}
-BOT_CLAUDE = {"number": 10783,
+AUTO_HUMAN = {"number": 10398,
+              "user": {"login": "benbaichmankass"},
+              "head": {"ref": "automation/econ-calendar-33232352515-1"}}
+AUTO_BOT = {"number": 10785,
+            "user": {"login": "github-actions[bot]"},
+            "head": {"ref": "automation/work-decision-commit-33618689721-1"}}
+CLAUDE_BOT = {"number": 10783,
               "user": {"login": "github-actions[bot]"},
               "head": {"ref": "claude/openprs-settled-reconciler"}}
 
 
-def test_bot_authored_automation_pr_is_excused():
-    assert opr.is_automation_landing_pr(BOT_AUTOMATION) is True
-
-
-def test_a_human_on_an_automation_branch_is_not_excused():
-    """The branch name is a CLAIM, not evidence. Requiring both conditions is
-    what stops a human parking real work on an `automation/` prefix."""
-    assert opr.is_automation_landing_pr(HUMAN_AUTOMATION) is False
+@pytest.mark.parametrize("entry,who", [(AUTO_HUMAN, "human"), (AUTO_BOT, "bot")])
+def test_an_automation_branch_is_excused_regardless_of_author(entry, who):
+    """Both authors, so a later reader cannot mistake the current behaviour for
+    an accident of which account happened to open the PR."""
+    assert opr.is_automation_landing_pr(entry) is True
 
 
 def test_a_claude_pr_on_a_claude_branch_still_needs_a_row():
-    """⚠️ THE ONE THAT MAKES `skip bots` WRONG.
+    """⚠️ THE FIXTURE THAT PROVES THE PREDICATE DOES NOT KEY ON AUTHOR.
 
-    `pr-opener.yml` opens a session's PR as `github-actions[bot]` — measured on
-    #10783, this very change. A bare author test would excuse exactly the PRs
-    whose operator decisions matter most.
+    #10783 — this very change — is bot-authored, because `pr-opener.yml` relayed
+    it. It is still required to have a row. If the predicate ever starts reading
+    the author, this test is what fails.
     """
-    assert opr.is_automation_landing_pr(BOT_CLAUDE) is False
+    assert opr.is_automation_landing_pr(CLAUDE_BOT) is False
     doc = {"open_prs": [_row(1)]}
     v = opr.grade_completeness(doc, True, [1, 10783], automation_excluded=[])
     assert v["state"] == "unrecorded"
     assert v["unrecorded"] == [10783]
 
 
+def test_the_prefix_is_anchored_not_a_substring():
+    """`claude/automation-notes` is session work, not a landing PR."""
+    assert opr.is_automation_landing_pr(
+        {"number": 5, "head": {"ref": "claude/automation-notes"}}) is False
+    assert opr.is_automation_landing_pr(
+        {"number": 6, "head": {"ref": "feature/automation/x"}}) is False
+
+
+def test_automation_is_a_reserved_namespace_and_that_is_the_residual():
+    """⚠️ THE NAMED HOLE, asserted so it cannot be forgotten.
+
+    The prefix now carries the whole weight and it is a CONVENTION, not
+    evidence. A session that opens a PR from an `automation/`-prefixed branch is
+    SILENTLY excused and its operator decision goes unrecorded with nothing
+    complaining. Session work belongs on `claude/**`; nothing here enforces it.
+    """
+    session_work_on_reserved_prefix = {
+        "number": 999, "user": {"login": "benbaichmankass"},
+        "head": {"ref": "automation/my-real-work"}}
+    assert opr.is_automation_landing_pr(session_work_on_reserved_prefix) is True
+    doc = {"open_prs": [_row(1)]}
+    v = opr.grade_completeness(
+        doc, True, [1, 999],
+        automation_excluded=opr.automation_landing_prs(
+            [session_work_on_reserved_prefix]))
+    assert v["state"] == "recorded"   # ...and nothing complains. That is the hole.
+
+
 def test_the_exclusion_removes_a_false_failure_but_not_a_real_one():
     doc = {"open_prs": [_row(1)]}
     assert opr.grade_completeness(
         doc, True, [1, 10398], automation_excluded=[10398])["state"] == "recorded"
-    # ...and the same observation without the predicate stays loud, so the
-    # exclusion is doing work rather than the record being trivially complete.
     assert opr.grade_completeness(doc, True, [1, 10398])["state"] == "unrecorded"
 
 
 def test_an_excused_pr_that_has_a_row_is_not_turned_into_a_stale_row():
-    """#10398 carries a hand-written row today. Subtracting the excused set
-    from the OBSERVATION (rather than from the `unrecorded` direction only)
-    would make that row read as stale — swapping one false failure for another.
-    """
+    """#10398 carries a hand-written row today. Subtracting the excused set from
+    the OBSERVATION would make that row read stale — swapping one false failure
+    for another."""
     doc = {"open_prs": [_row(1), _row(10398)]}
     v = opr.grade_completeness(doc, True, [1, 10398], automation_excluded=[10398])
     assert v["state"] == "recorded"
@@ -228,51 +262,6 @@ def test_an_excused_pr_that_has_a_row_is_not_turned_into_a_stale_row():
 
 
 def test_a_bare_number_observation_excludes_nothing():
-    """The predicate needs author + head-ref fields. When it cannot be
-    evaluated the caller must exclude NOTHING — fail-closed, so the failure
-    direction of an unevaluable predicate is the loud one."""
+    """The predicate needs head-ref fields. When it cannot be evaluated the
+    caller must exclude NOTHING — fail-closed."""
     assert opr.automation_landing_prs([10398, 10783]) is None
-
-
-# --------------------------------------------------------------------------- #
-# ⚠️ THE EXCLUSION IS INERT ON THIS REPO'S REAL AUTOMATION PRs. MEASURED.
-#
-# The predicate requires a BOT author. Every automation landing PR here is
-# opened by `.github/actions/commit-to-main` using `BRANCH_PROTECTION_TOKEN`, a
-# PAT owned by the operator — so its `user.login` is the HUMAN account
-# `benbaichmankass`, not a bot. That is not incidental: the action's own header
-# says a PR opened with the default GITHUB_TOKEN "does NOT trigger the
-# on:pull_request required checks (so it would stall auto-merge forever)", so
-# the PAT is load-bearing and cannot simply be swapped for a bot identity.
-#
-# Measured 2026-09-02 on BOTH live instances (n=2, the whole population of
-# automation landing PRs visible at the time):
-#   #10398 head `automation/econ-calendar-33232352515-1` user `benbaichmankass`
-#   #10781 head `automation/due-list-33616772895-1`      user `benbaichmankass`
-#
-# So the residual this exclusion was built to close is NOT closed. This test
-# pins the gap so it is ASSERTED rather than assumed — a decorative predicate
-# that looks like coverage is worse than a named gap, and a later session
-# reading only the docstring would otherwise conclude it works.
-#
-# The code is deliberately left as specified (fail-closed: it excuses nothing,
-# so nothing is wrongly hidden). Changing the predicate is the manager's call —
-# see the PR body for the options and the recommendation.
-# --------------------------------------------------------------------------- #
-PAT_AUTHORED_AUTOMATION = {"number": 10398,
-                           "user": {"login": "benbaichmankass"},
-                           "head": {"ref": "automation/econ-calendar-33232352515-1"}}
-
-
-def test_the_exclusion_is_inert_on_this_repos_real_automation_prs():
-    """MEASURED GAP, pinned. Not the intended end state."""
-    assert opr.is_automation_landing_pr(PAT_AUTHORED_AUTOMATION) is False
-    doc = {"open_prs": [_row(1)]}
-    obs = [PAT_AUTHORED_AUTOMATION, {"number": 1, "user": {"login": "x"},
-                                     "head": {"ref": "claude/a"}}]
-    assert opr.automation_landing_prs(obs) == []
-    # ...so a real automation landing PR still reads `unrecorded`.
-    v = opr.grade_completeness(doc, True, [1, 10398],
-                               automation_excluded=opr.automation_landing_prs(obs))
-    assert v["state"] == "unrecorded"
-    assert v["unrecorded"] == [10398]
