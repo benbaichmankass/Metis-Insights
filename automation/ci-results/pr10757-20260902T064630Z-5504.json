@@ -1,0 +1,65 @@
+{
+  "checks": [
+    {
+      "bucket": "passing",
+      "conclusion": "success",
+      "id": 100149377689,
+      "name": "guards",
+      "status": "completed",
+      "url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33599349348/job/100149377689"
+    },
+    {
+      "bucket": "passing",
+      "conclusion": "success",
+      "id": 100149377937,
+      "name": "pytest-collect",
+      "status": "completed",
+      "url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33599349355/job/100149377937"
+    },
+    {
+      "bucket": "passing",
+      "conclusion": "success",
+      "id": 100149441049,
+      "name": "pytest-run",
+      "status": "completed",
+      "url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33599349389/job/100149441049"
+    },
+    {
+      "bucket": "passing",
+      "conclusion": "success",
+      "id": 100149378042,
+      "name": "repo-inventory",
+      "status": "completed",
+      "url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33599349367/job/100149378042"
+    }
+  ],
+  "counts": {
+    "cancelled": 0,
+    "failing": 0,
+    "passing": 4,
+    "running": 0
+  },
+  "draft": true,
+  "generated_at": "2026-09-02T06:50:09Z",
+  "head_sha": "a8b5776d51f6b0f31fe503b0943966cd8a7fbd8d",
+  "merge_state_note": "mergeable",
+  "mergeable_state": "clean",
+  "polls": 10,
+  "pr": 10757,
+  "pr_state": "open",
+  "reason": "all checks concluded, none failing",
+  "request": {
+    "poll_seconds": 20,
+    "pr": 10757,
+    "timeout_minutes": 40
+  },
+  "review_threads": {
+    "read_state": "read",
+    "review_decision": null,
+    "total": 0,
+    "unresolved": 0
+  },
+  "settled": true,
+  "state": "green",
+  "watched_by": "ci-settled relay"
+}
