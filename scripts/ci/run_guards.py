@@ -320,6 +320,69 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # THE SUB-SESSION REGISTRY. A manager arriving COLD can only pick up the
+        # sub-sessions `docs/claude/work/SESSIONS.json` names; one it does not
+        # name is, to that successor, one that does not exist.
+        #
+        # ⚠️ THIS IS A RECURRENCE, WHICH IS WHY IT IS A GUARD AND NOT ANOTHER
+        # REMINDER. `MI-15-SESSIONS-REGISTRY-INCOMPLETE` recorded 3 of 6 spawned
+        # sessions absent on 2026-09-01 and applied the remedy "remember to
+        # register". On 2026-09-02T05:56Z it was 6 of 9, five of them LIVE, with
+        # the MI-15 row still sitting at `landed_unproven`. The moment a manager
+        # spawns a session is exactly the moment it is least likely to stop and
+        # write a record, so the remedy cannot be another reminder.
+        #
+        # ⚠️ WHAT THIS GUARD CAN AND CANNOT SEE — stated because the gap is the
+        # point. Enumerating what is actually RUNNING needs the `list_sessions`
+        # MCP tool, and CI holds no MCP tools. So the live detector is NOT here;
+        # it runs when the manager passes an observation to
+        # `scripts/ops/handoff_check.py`, which REFUSES to grade a handoff
+        # `ready` without one. What IS here is the offline half: the manager
+        # already writes a session id into `MANAGER-CHECKLIST.json::items[].owner`
+        # when it assigns work, so an owner id absent from the registry is a lost
+        # session detectable from two file reads. Partial by construction — a
+        # session in neither file is invisible to it — and strictly more than the
+        # zero either file caught alone.
+        #
+        # `when: None` for the same reason the register and ceiling guards use
+        # it: the registry is written by whichever session spawns next, so a
+        # check that only runs when someone happens to touch the work store is
+        # not a check. Two small file reads, no network.
+        #
+        # NOT A WALL — measured before wiring. At the head this shipped on,
+        # `--strict` exits 0: 32 rows all well-formed, and every owner on an
+        # `in_flight` item is registered. Enforcement is scoped to `in_flight`
+        # deliberately (that is where losing a session costs LIVE work); the 3
+        # owners still absent on `landed_unproven` items are CENSUSED and
+        # printed on every run, so the narrow enforcement can never hide the
+        # wider number.
+        "name": "session-registry-guard",
+        "when": None,
+        "steps": [
+            # Both detectors, asserted in BOTH directions — a planted defect
+            # fires, a clean input stays quiet. One direction proves a check
+            # runs, never that it discriminates.
+            ["python3", "scripts/ops/session_registry.py", "--self-test"],
+            ["python3", "scripts/ops/handoff_check.py", "--self-test"],
+            # The live tree: structural integrity + the offline cross-check.
+            ["python3", "scripts/ops/session_registry.py", "status", "--strict"],
+            # The OPEN-PR half of the same handoff (MI-43 scope extension).
+            ["python3", "scripts/ops/open_pr_record.py", "--self-test"],
+            # ⚠️ `--strict` here grades DECISIONS ONLY, deliberately. Whether
+            # every open PR has a row needs a live list from GitHub, and CI's
+            # `GITHUB_TOKEN` could fetch it — but the check would then be
+            # measuring a moving target that changes between the run and the
+            # merge, reddening PRs for a row nobody could have written yet. The
+            # decision half is a property of the FILE, so it is stable, and it
+            # is the half that carries the danger: a row recording a verdict
+            # without its condition reads as complete, which is the state that
+            # could merge a demo-only Tier-2 approval onto a real-money account.
+            # Completeness is enforced where it belongs — at the handoff, by
+            # `handoff_check.py`, which refuses `ready` without the observation.
+            ["python3", "scripts/ops/open_pr_record.py", "--strict"],
+        ],
+    },
+    {
         # A repeated mistake must produce a PREVENTION, not another row.
         # GATE 0 item G4. Operator-approved 2026-08-26 on the test "if it's
         # affecting things that are being read or filed before they're actually
@@ -449,6 +512,19 @@ GUARDS: List[Dict[str, Any]] = [
             # and the signal surfaced hours later on three unrelated PRs. This job
             # never short-circuits, which is the entire reason the check lives here.
             ["python3", "scripts/ops/backlog_append.py", "--check-live"],
+            # Same shape, same reason, different file: every row in
+            # docs/claude/pending-pings.jsonl must render an operator-visible
+            # BODY, and pytest-run CANNOT check that — it short-circuits on a
+            # docs/-only diff, which is precisely what a queued ping is. The
+            # pytest version was refused by
+            # tests/test_pytest_run_filter.py::test_docs_committed_readers_are_all_covered,
+            # correctly. Widening pytest-run's filter instead was rejected: the
+            # work-digest workflow appends here every 4h via an auto-merge PR,
+            # so it would put a ~15-minute suite on a routine generated commit.
+            # Self-test first — a probe that cannot find a planted positive
+            # would make every queue look clean.
+            ["python3", "scripts/ci/check_pending_pings_render.py", "--self-test"],
+            ["python3", "scripts/ci/check_pending_pings_render.py"],
             ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
             ["python3", "scripts/ops/check_allow_degraded.py"],
             ["python3", "scripts/ops/check_research_index.py", "--list"],

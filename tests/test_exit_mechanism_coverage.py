@@ -152,3 +152,65 @@ class TestExitCodes:
         if emc.audit()["orphans"]:
             pytest.skip("orphans exist; the clean-exit contract is untestable here")
         assert emc.main(["--orphans-only"]) == 0
+
+
+class TestTheDeclaredSurfaceIsComplete:
+    """`declared` must be tested against EVERY key an implementation reads.
+
+    The regression, MEASURED 2026-09-02 by planting a declare on
+    `ict_scalp_sol_5m` (a leg whose unit has zero `exit_head` code):
+
+        exit_head_threshold + exit_head_action -> orphan reported, exit 1
+        exit_head_model     + exit_head_action -> SILENT,          exit 0
+
+    The second plant is the one that ships. `exit_head_action: close` is
+    necessary and sufficient to arm the head — `trend_donchian._exit_head_verdict`
+    returns None without it and falls back to the artifact's own tau when no
+    threshold is given — so the detector was keyed on an OPTIONAL modifier while
+    blind to the ARMING key, and its `no orphaned declares` answer was a
+    statement about a subset of the surface, not about the surface.
+    """
+
+    def test_no_read_key_is_missing_from_the_declared_surface(self):
+        gaps = emc.declared_surface_gaps()
+        assert not gaps, (
+            "lever cfg keys read by an implementation but absent from "
+            "DECLARE_KEYS, so a leg declaring one would not be seen: "
+            + "; ".join(f"{m}.{k} <- {','.join(r)}" for m, k, r in gaps))
+
+    def test_the_gap_check_can_find_a_planted_gap(self):
+        """A completeness check that cannot fail is not a check.
+
+        Same reasoning as the module-implements positive controls above: an
+        empty gap list is only evidence once the probe is shown to produce a
+        non-empty one.
+        """
+        holed = {m: tuple(k for k in ks if k != "exit_head_action")
+                 for m, ks in emc.DECLARE_KEYS.items()}
+        planted = emc.declared_surface_gaps(holed)
+        assert any(k == "exit_head_action" for _m, k, _r in planted)
+
+    def test_arming_key_alone_is_a_declare(self):
+        leg = {"exit_head_action": "close", "exit_head_model": "exit-head-x-v1"}
+        assert any(leg.get(k) is not None for k in emc.DECLARE_KEYS["exit_head"])
+
+    def test_but_the_arming_key_is_not_evidence_of_an_implementation(self):
+        """The two tables must stay separate.
+
+        Widening `DECLARE_KEYS` may only widen ORPHAN detection. If the same
+        widening reached `module_implements`, a unit that merely mentions a key
+        would read as able to RUN the lever — the false-positive direction,
+        which is worse than the gap being fixed.
+        """
+        leg = {"exit_head_action": "close", "exit_head_model": "exit-head-x-v1"}
+        assert not any(leg.get(k) is not None for k in emc.MECHANISMS["exit_head"])
+
+    def test_both_coverage_audits_read_ONE_table(self):
+        """`exit_path_coverage` carried its own stale copy of this table."""
+        spec2 = importlib.util.spec_from_file_location(
+            "exit_path_coverage", REPO / "scripts" / "ops" / "exit_path_coverage.py")
+        epc = importlib.util.module_from_spec(spec2)
+        sys.modules["exit_path_coverage"] = epc
+        spec2.loader.exec_module(epc)
+        assert epc._DECLARE_KEYS == dict(emc.DECLARE_KEYS)
+        assert epc._IMPLEMENT_KEYS == dict(emc.MECHANISMS)
