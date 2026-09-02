@@ -1026,7 +1026,34 @@
         "WO-20260901-PHASE-H",
         "MI-59"
       ]
+    },
+    {
+      "id": "MI-74",
+      "title": "The daily manager cadence: day session → declared wrap → night manager → morning brief",
+      "state": "queued",
+      "priority": "P1_HANDOFF_CAPABILITY",
+      "owner": null,
+      "tier": "1 (scheduling, registers, ping cadence)",
+      "raised_by": "operator, 2026-09-02, in conversation, as the shape the handoff should take",
+      "⚠️_THIS_SUPERSEDES_THE_MANAGERS_OWN_FRAMING": "The manager reported that `open_prs` completeness is POINT-IN-TIME and concluded 'a handoff has to be taken in a QUIET WINDOW, or the check needs a bounded tolerance.' That framing is PASSIVE -- it waits for a quiet moment that a busy repo never reliably offers. The operator's answer is ACTIVE and is better: you do not wait for a quiet window, you CREATE one, by declaring per thread which PR is the LAST one before the manager moves on. Do not re-derive the tolerance idea from the old framing; the boundary is declared, not awaited.",
+      "the_cycle": {
+        "1_morning": "The day STARTS WITH A PING — a daily brief into a NEW manager session. ⚠️ The brief must carry WHAT WAS DONE OVERNIGHT and what was wrapped up after the operator went to bed. Operator: 'by the [brief] in the morning, I want that to include what was done overnight and what was wrapped up after I went to bed, so that I know where I'm starting off from.' A brief that only describes the new day's plan fails its purpose.",
+        "2_day": "ONE manager session per day.",
+        "3_wrap": "The operator SAYS when they are going to bed. That is the trigger, not a clock. The manager then produces a RAPID WRAP PLAN: (a) the LAST PR for each thread; (b) confirmation that NO Tier-3 decision is left dangling -- and any that is gets LOGGED FOR THE NEXT DAY rather than carried in a session's head; (c) close everything down.",
+        "4_night": "The manager SETS OFF THE NIGHT SESSION ITSELF, scoped by HOW MUCH TIME IT HAS until the morning brief. Night work is deliberately the low-operator-dependency kind: backlog items and UI, 'things that are less important and need less of me, and very easy to run without me.' ⚠️ NOTHING TIER-3 AND NOTHING NEEDING A DECISION goes to the night session -- it cannot get an answer."
+      },
+      "the_last_PR_per_thread_rule": "⚠️ READ WHAT THE OPERATOR RULED OUT, not just what they asked for. They explicitly did NOT ask that entire MILESTONES be finished before a handoff: 'it just means that for each thread of workflow, we need to decide what the last PR for each manager is gonna be before we move on, and that needs to be documented clearly so that we can make sure that we're sticking to that.' So the unit is a DECLARED TERMINAL PR PER THREAD, documented in advance and held to -- not milestone completion, which would block every handoff indefinitely.",
+      "what_this_needs_built": "Not yet designed, and deliberately not designed here: where the per-thread terminal PR is DECLARED (OPEN-PRS.json rows already carry a thread via checklist_item, so this may be a field rather than a new register); how the morning brief is GENERATED from the overnight record rather than written by hand; and whether the night session's scope is bounded by a stated deadline it can read. Operator also raised timers/pings for start-and-finish awareness -- worth a design pass, not a guess.",
+      "⚠️_honest_precondition": "The operator's own read: 'it sounds like we still have a lot of [work] here to get [addressed] so that we're able to do an actual reliable handoff.' This item does NOT claim the cadence is achievable today. handoff_check.py still reads not_ready more often than ready on a busy repo.",
+      "refs": [
+        "MI-67",
+        "MI-73",
+        "WO-20260902-MANAGER-PREFLIGHT"
+      ],
+      "⚠️_CORRECTION_THE_MANAGER_MADE_TO_ITSELF": "THE NIGHT HOP NEEDS NO NEW MECHANISM, and the first version of this row said it did. It read: 'the night-manager hop depends on a fresh-session-per-fire routine gated on the lease, which does not exist.' That is FALSE for the flow the operator actually described, which has the MANAGER setting the night session off directly -- 'set off the night manager session yourself' -- and `create_session` is proven to do exactly that (MI-73 was spawned with it on 2026-09-02). Overstating a blocker is not a safe error: it invites a session to build a routine nobody needs and to treat tonight's handoff as impossible when it is not.",
+      "what_ACTUALLY_needs_a_mechanism": "THE MORNING END, not the night end. Something must wake a NEW manager session with the daily brief -- and THAT is the fresh-session-per-fire shape, because by then the previous manager is gone and a self-bound routine died with it. Two candidates, neither chosen here: a cron routine with create_new_session_on_fire, gated on the lease so it stands down if a manager is somehow still live; or the operator's own morning message as the trigger, which needs no machinery at all and may be the right answer for now. ⚠️ ALSO UNSOLVED AND SEPARATE: the brief must CARRY what happened overnight, so whatever wakes the session must be able to READ the night session's record -- a wake with an empty brief satisfies the cadence's letter and defeats its stated purpose.",
+      "⚠️_the_self_bound_sweep_limit_is_still_real": "Unchanged by the correction above: the manager sweep re-armed 2026-09-02T15:20Z is SELF-BOUND and dies with its session. That is a genuine gap for a manager that DIES mid-day -- it is simply not the gap the night handoff has, because the night handoff is deliberate and the manager is alive to perform it."
     }
   ],
-  "as_of": "2026-09-02T11:22:00Z"
+  "as_of": "2026-09-02T15:26:00Z"
 }

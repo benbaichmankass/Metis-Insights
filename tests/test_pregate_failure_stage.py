@@ -12,6 +12,7 @@ genuinely unparseable stream must still name parsing and NOT transport.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -333,8 +334,31 @@ def test_driver_emits_the_wire_format_the_classifier_consumes():
 
 
 def test_workflow_no_longer_discards_the_ssh_exit_code():
+    """An exit code must be CAPTURED and carried to the classifier.
+
+    ⚠️ THE ASSERTION MOVED FROM A LITERAL TO THE INVARIANT, and it now covers
+    MORE, not less. It read `assert "|| rc=$?" in wf`, pinning the exact
+    variable name the 2026-09-01 fix happened to use. On 2026-09-02 the run was
+    DETACHED (see the detach test below) and the code that matters became the
+    DRIVER's own, read back from a sentinel file, with the poll's ssh status
+    captured separately as `prc` — strictly better evidence than the value this
+    string named, because ssh's 255 is legitimately both a transport failure and
+    a remote command's exit.
+
+    So the literal broke while the property it guarded got stronger. Pinning the
+    spelling of a variable is what made an improvement look like a regression;
+    what run #4365 actually cost us was the exit code being DISCARDED, and that
+    is what is asserted here.
+    """
     wf = (REPO / ".github/workflows/replay-pregate-nightly.yml").read_text(encoding="utf-8")
-    assert "|| rc=$?" in wf
+    executable = [ln for ln in wf.splitlines() if not ln.lstrip().startswith("#")]
+
+    # Some exit status is captured into a variable rather than thrown away.
+    assert [ln for ln in executable if re.search(r"\|\|\s*\w+=\$\?", ln)], \
+        "no `|| <var>=$?` capture — an exit status is being discarded again"
+    # ...and it reaches the classifier rather than dying in the step.
+    assert "/tmp/pregate_rc.txt" in wf, "the captured code must be persisted for the classifier"
+    assert "--exit-code" in wf, "the classifier must be GIVEN the code, not left to guess"
     assert "2>/tmp/pregate_err.txt || true" not in wf, "the exit code is the evidence"
     assert "pregate_stream.py" in wf
     # The old message may survive in a COMMENT -- it is the record of what was
@@ -383,3 +407,42 @@ def test_driver_stream_round_trips_through_the_classifier(monkeypatch, capsys):
     assert partial["state"] == ps.TRANSPORT_FAILED
     assert ps.partial_report(partial)["n_models"] == 3
     assert ps.partial_report(partial)["n_scored"] == 2
+
+
+def test_workflow_detaches_the_run_so_a_dropped_transport_is_not_a_lost_run():
+    """The fleet run must not depend on ONE ssh channel surviving ~20 minutes.
+
+    Anchored on run #4390 (`33637802498`, `event=workflow_dispatch`,
+    2026-09-02T13:46:34Z), the first run after the detach. Its launch step
+    returned in 4 SECONDS where the previous shape held the channel ~9 minutes,
+    and the poll then ran its full budget with ZERO transport failures — where 7
+    of the 8 preceding scheduled runs had died at ~8m55s, all at the same head.
+
+    ⚠️ IT STILL FAILED, and that is the point of asserting the detach separately
+    from the outcome: the trainer was measured at 5508/5909 MB used with 4 GB of
+    swap consumed and BOTH OOM greps empty, so the driver was alive and crawling.
+    The transport repair and the memory problem are different facts, and a test
+    that conflated them would go red for the wrong reason.
+    """
+    wf = (REPO / ".github/workflows/replay-pregate-nightly.yml").read_text(encoding="utf-8")
+    executable = [ln for ln in wf.splitlines() if not ln.lstrip().startswith("#")]
+    body = "\n".join(executable)
+
+    # Detached, with a completion sentinel the poller reads.
+    assert "setsid" in body, "the driver must be launched detached"
+    assert "/rc" in body, "a completion sentinel is what separates 'finished' from 'still running'"
+
+    # A failed POLL must not be read as a verdict about the run.
+    assert "poll_fail" in body, "a failed poll must be counted and retried, not concluded from"
+
+    # `git add -f` is load-bearing: runtime_logs/ is gitignored, so a plain
+    # `git add` refuses the path and, under `set -e`, destroys the salvaged
+    # rows. Measured on #4390, and pre-existing — runtime_logs/replay_pregate/
+    # has never had a file on main.
+    assert "git add -f" in body, (
+        "runtime_logs/ is gitignored; a plain `git add` kills the commit step "
+        "and discards the salvaged heads"
+    )
+    assert not [ln for ln in executable
+                if "git add" in ln and "-f" not in ln and "replay_pregate" not in ln
+                and "$DIR" in ln], "an unforced `git add \"$DIR\"` is back"

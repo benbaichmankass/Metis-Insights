@@ -71,8 +71,13 @@ contract + generation discipline. This skill adds the two missing halves:
    does NOT waive this.
 2. **Know your capabilities BEFORE you reach for a tool you don't have.** On
    Claude Code on the web / PM-side sessions (see `CLAUDE.md` § "PM-side session
-   capabilities"): `run_workflow` 403s — drive workflows via **labelled issues**
-   (the diag/system-action relays). Direct VM egress is firewalled for a raw
+   capabilities"): **`run_workflow` WORKS** — this line read "`run_workflow`
+   403s" until 2026-09-02 and that is stale in the direction that COSTS you a
+   capability. It 403'd when checked 2026-06-11; the 2026-08 MCP added it, and
+   it was exercised again 2026-09-02 (`actions_run_trigger method=run_workflow`
+   on `replay-pregate-nightly.yml` against a feature ref → 204, run #4390).
+   Labelled issues (the diag/system-action relays) remain the fallback, and are
+   still the only path for workflows that expose no `workflow_dispatch`. Direct VM egress is firewalled for a raw
    `http://IP:port` but **not** for the Caddy HTTPS hostname (measured
    2026-08-20 at default-`Trusted`) — try `https://ict-bot.duckdns.org/api/diag/*`
    first, then the **`vm-diag-snapshot` relay**; the trainer is relay-only
@@ -80,6 +85,16 @@ contract + generation discipline. This skill adds the two missing halves:
    with backoff (2s/4s/8s/16s), never treat the first failure as an expired token
    or hand off to the operator. There is **no `create_label`** — labels come from
    `bootstrap-labels.yml`.
+3. **Claim the WORK, not just the files.** `docs/claude/work/` is the state of
+   record for what is being worked and under which intent, and it is the only
+   surface a session arriving COLD can read. Before you start: if your task
+   corresponds to a work object, say which in your board `START`; if it does
+   not, that is worth noticing rather than skipping past. ⚠️ **Two sessions can
+   claim disjoint FILES and still be the same WORK** — the file list cannot show
+   that, and the object id can. If you are MANAGING, the lease
+   (`scripts/ops/manager_lease.py status`) and the sub-session registry
+   (`docs/claude/work/SESSIONS.json`) are separate obligations; see `CLAUDE.md`.
+
 > ⚠️ **EVERY board post goes through `add_issue_comment`. NEVER `issue_write
 > method=update` — that REPLACES the issue body and destroys the board's pinned
 > protocol header.** It has happened six times (2026-07-30, 08-09, 08-15, 08-19,
