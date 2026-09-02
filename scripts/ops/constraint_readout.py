@@ -32,14 +32,29 @@ the exact class this repo keeps paying for. Three defences, all load-bearing:
    because *"we looked at 6 objects and here is what they say"* is useful and
    *"the constraint is INTEGRITY"* over a 1% sample is not.
 
-⚠️ **A STAGE HISTOGRAM OVER THIS STORE IS NOT A CONSTRAINT.** ``stage``
-describes what each object IS, not where the chain is stuck. Measured
-2026-09-01 the store holds INTEGRITY 498 · EVIDENCE 78 · CAPABILITY 8 and
-**zero** objects on QUESTION, DECISION, DEPLOYMENT or OBSERVATION — because the
-migration's source was three review backlogs, which are registers of defects.
-Reading "the constraint is INTEGRITY" off that would be reporting the shape of
-the *migration*. ``chain_coverage`` publishes the empty stages explicitly so a
-consumer cannot miss them.
+⚠️ **A STAGE HISTOGRAM OVER THIS STORE IS NOT A CONSTRAINT — IT IS A CENSUS OF
+SOURCE FILENAMES.** This paragraph read *"``stage`` describes what each object
+IS … because the migration's source was three review backlogs"* until
+2026-09-02. The conclusion was right and the mechanism was understated, and it
+also named ``chain_coverage``, **a key this module has never emitted** (it is
+``chain_stages_with_no_objects``). Measured over all 584 objects: **576 carry
+``source.backlog`` and their stage is a deterministic function of that ONE
+field** — ``migrate_backlog_to_work_objects.py::SOURCES`` maps
+``health-review-backlog.json`` → INTEGRITY (498) and
+``{ml,performance,research}-review-backlog.json`` → EVIDENCE (78), with **no
+per-row judgement and zero exceptions**; the other 8 are the build's own phases,
+all CAPABILITY. So ``INTEGRITY 498`` counts one filename, and **not one object
+in the store had its chain stage chosen by someone reading the work.** QUESTION
+/ DECISION / DEPLOYMENT / OBSERVATION are therefore empty **by construction**,
+not by measurement — a reader must not conclude the system makes no decisions.
+
+⚠️ **AND THAT IS INDEPENDENT OF EDGE COVERAGE, WHICH IS THE TRAP.** Assessing
+every one of the 584 objects with perfectly true edges would clear
+``MIN_ASSESSED_COVERAGE`` and this module would then name a stage
+**confidently**, off a histogram describing four backlog filenames. The refusal
+is currently the only thing stopping that. ``chain_stages_with_no_objects``
+publishes the empty stages; ``stage_basis`` publishes WHY they are empty, graded
+off each row's own ``source`` block rather than asserted here.
 
 **Money is MEASURED or it says it could not look — never zero.** Item 2 reads
 ``/api/bot/performance`` live and carries ``pnlCoverage`` and ``journalTrust``
