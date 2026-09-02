@@ -24,6 +24,24 @@ work-list* (list the files, find the endpoint families, scope the diff), then
 delegate the pipeline over that list. You don't need to know the shape before
 the *task* — only before the *delegation step*.
 
+**Two caps bind BEFORE you spawn anything, and neither is in the registry
+prompt** (`docs/claude/work/`):
+
+- **The WIP ceiling is 8 `in_flight` work objects, and it is ENFORCED** —
+  `scripts/ci/check_wip_ceiling.py` fails CI on a ninth, and an exception needs
+  an *approved* `docs/claude/work/wip-ceiling-exception.yaml` (merely filing one
+  still fails). Fanning out five sub-sessions that each open an object is how a
+  fan-out reds every subsequent PR in the repo. Fan out over units of ONE
+  object where you can, and check the current count first — the count is a
+  reading, not a permission slip.
+- **Exactly one MANAGEMENT session at a time** (operator requirement). If you
+  are supervising rather than doing, claim the lease FIRST:
+  `python3 scripts/ops/manager_lease.py status`. ⚠️ **`unreadable` REFUSES the
+  claim** — *we did not look* is not *nobody holds it* — and a claim you did not
+  PUSH protects nothing, because another session reads `origin`, not your
+  working tree. Ordinary work needs no lease, and sub-sessions keep running with
+  none held; what pauses is SUPERVISION.
+
 ## Step 2 — Decompose into independent units
 
 Carve the scope into units that can run **without sharing live state**:
