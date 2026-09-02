@@ -1,0 +1,187 @@
+name: pr-automerge-disable
+
+# The OFF switch for `claude-pr-automerge.yml`, and the reason it exists is a
+# live incident rather than symmetry-for-its-own-sake.
+#
+# This repo could TURN AUTO-MERGE ON from a runner and could not turn it OFF.
+# `claude-pr-automerge.yml` does two irreversible-from-here things in one go:
+# it marks a PR ready for review (un-drafting it) and enables squash
+# auto-merge. Both are GraphQL mutations a read-only-MCP session cannot undo —
+# `update_pull_request` returns 403 "Resource not accessible by integration",
+# `pr-close.yml`'s own header says it "cannot reopen", and there is no
+# `disablePullRequestAutoMerge` anywhere in the repo (grep-verified before this
+# file was written).
+#
+# MEASURED 2026-09-02 on PR #10788. That PR was opened DRAFT on an explicit
+# operator instruction — *keep it a draft; the operator un-drafts and merges*.
+# A routine `git merge origin/main` brought the LEGACY shared trigger file
+# `.github/pr-automerge-request` (written by an unrelated session's PR #10786,
+# merged to main) onto the branch. The merge commit therefore "touched" that
+# path, `claude-pr-automerge` fired on a request nobody made, un-drafted the
+# PR and armed squash auto-merge. Job `open-and-automerge` ran for FOUR
+# SECONDS — the early-return path taken only when `enablePullRequestAutoMerge`
+# SUCCEEDS — and the PR flipped `draft: true -> false`. So a merge of main was
+# enough to overrule a stated operator decision, and nothing could put it back.
+#
+# ⚠️ THE TRIGGER DEFECT IS FIXED SEPARATELY AND NEITHER FIX SUBSTITUTES FOR THE
+# OTHER. Narrowing the trigger stops the next accidental arm; it does nothing
+# for an auto-merge already enabled. An automation that can arm a merge and
+# cannot disarm one is a one-way door, whatever fires it.
+#
+# Contract:
+#   * Drop a JSON file at `automation/pr-automerge-disable/<name>.json`, push it:
+#       {"pr": 10788,
+#        "head_sha": "b6f14a0a4d62f36cb60ac184d2ac20ec1eeade98",
+#        "draft": true,                     # optional: also convert back to draft
+#        "reason": "why this must not merge itself"}
+#   * The outcome lands at `automation/pr-automerge-disable-results/<name>.txt`.
+#
+# ⚠️ `head_sha` IS REQUIRED AND IS THE WHOLE SAFETY MODEL — copied deliberately
+# from `pr-close.yml` rather than reinvented. The request must name the PR's
+# CURRENT head or the run REFUSES, so you cannot disarm a PR you never looked
+# at, and a stale request that lands after someone resumed the branch is inert.
+#
+# ⚠️ THE TWO ACTIONS ARE GRADED SEPARATELY AND ARE NEVER COLLAPSED.
+# `disable_state` and `draft_state` are reported independently, because
+# "auto-merge is off" and "the PR is back to draft" are different facts and a
+# single ok/failed would let a half-applied result read as a clean one. A PR
+# that never had auto-merge enabled grades `already_off` — a real state, not a
+# failure — and is distinct from `unknown`, which means we could not establish
+# it. Reporting *we did not look* as *it is off* is the collapse this repo
+# names as its own bug class.
+#
+# Blast radius: disables auto-merge and optionally converts a PR to draft. It
+# cannot merge, cannot close, cannot push to a head branch, cannot delete a
+# branch, and touches no `src/`, no `config/`, no unit file, and neither VM.
+# Every effect it has makes a merge LESS likely, never more — so a bug here
+# fails toward "a PR did not merge itself", which is the safe direction.
+
+on:
+  push:
+    paths: ['automation/pr-automerge-disable/*.json']
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pr-automerge-disable
+  cancel-in-progress: false
+
+jobs:
+  disable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Disable auto-merge on pending requests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          mkdir -p automation/pr-automerge-disable-results
+          shopt -s nullglob
+          failed=0
+          for req in automation/pr-automerge-disable/*.json; do
+            base="$(basename "$req" .json)"
+            out="automation/pr-automerge-disable-results/${base}.txt"
+
+            if [ -f "$out" ]; then
+              echo ">>> ${base}: already processed, skipping ($(head -1 "$out"))"
+              continue
+            fi
+
+            pr="$(jq -r '.pr // empty' "$req")"
+            want_sha="$(jq -r '.head_sha // empty' "$req")"
+            want_draft="$(jq -r '.draft // false' "$req")"
+
+            if ! printf '%s' "$pr" | grep -qE '^[0-9]+$'; then
+              echo "REFUSED: .pr missing or not a number" > "$out"
+              echo ">>> ${base}: REFUSED (bad .pr)"; failed=1; continue
+            fi
+            if [ -z "$want_sha" ]; then
+              echo "REFUSED: .head_sha is required -- see this workflow's header" > "$out"
+              echo ">>> ${base}: REFUSED (no head_sha)"; failed=1; continue
+            fi
+
+            # A read failure is NOT permission to proceed and NOT a mismatch --
+            # we did not look.
+            if ! meta="$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" \
+                          --json state,headRefOid,isDraft,autoMergeRequest 2>&1)"; then
+              printf 'FAILED: could not read PR %s:\n%s\n' "$pr" "$meta" > "$out"
+              echo ">>> ${base}: FAILED (could not read PR)"; failed=1; continue
+            fi
+            state="$(printf '%s' "$meta" | jq -r '.state')"
+            got_sha="$(printf '%s' "$meta" | jq -r '.headRefOid')"
+            was_draft="$(printf '%s' "$meta" | jq -r '.isDraft')"
+            had_auto="$(printf '%s' "$meta" | jq -r 'if .autoMergeRequest == null then "false" else "true" end')"
+
+            if [ "$state" != "OPEN" ]; then
+              # A merged or closed PR cannot auto-merge. Desired end state.
+              echo "NOOP: PR #${pr} is ${state} -- nothing can auto-merge" > "$out"
+              echo ">>> ${base}: NOOP (${state})"; continue
+            fi
+            if [ "$got_sha" != "$want_sha" ]; then
+              printf 'REFUSED: PR #%s head moved.\n  request names: %s\n  actual head:   %s\nRe-inspect and file a fresh request.\n' \
+                "$pr" "$want_sha" "$got_sha" > "$out"
+              echo ">>> ${base}: REFUSED (head moved)"; failed=1; continue
+            fi
+
+            # --- action 1: auto-merge -------------------------------------
+            if [ "$had_auto" = "false" ]; then
+              disable_state="already_off"
+              disable_detail="no auto-merge request was set on this PR"
+            elif derr="$(gh pr merge "$pr" --repo "$GITHUB_REPOSITORY" --disable-auto 2>&1)"; then
+              disable_state="disabled"
+              disable_detail="auto-merge request removed"
+            else
+              disable_state="failed"
+              disable_detail="$derr"
+              failed=1
+            fi
+
+            # --- action 2: draft (optional, graded separately) -------------
+            if [ "$want_draft" != "true" ]; then
+              draft_state="not_requested"
+              draft_detail="the request did not ask for a draft conversion"
+            elif [ "$was_draft" = "true" ]; then
+              draft_state="already_draft"
+              draft_detail="the PR was already a draft"
+            elif rerr="$(gh pr ready "$pr" --repo "$GITHUB_REPOSITORY" --undo 2>&1)"; then
+              draft_state="converted"
+              draft_detail="converted back to draft"
+            else
+              draft_state="failed"
+              draft_detail="$rerr"
+              failed=1
+            fi
+
+            {
+              echo "PR #${pr} at ${got_sha}"
+              echo "auto_merge: ${disable_state} -- ${disable_detail}"
+              echo "draft:      ${draft_state} -- ${draft_detail}"
+            } > "$out"
+            echo ">>> ${base}: auto_merge=${disable_state} draft=${draft_state}"
+          done
+
+          # A failed disarm must FAIL the run. A session that believes it
+          # disarmed a PR and did not will walk away while the PR merges
+          # itself -- which is the exact failure this workflow exists for.
+          exit "$failed"
+
+      - name: Commit results back to branch
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # ONLY the results dir -- staging the request path would retrigger
+          # this workflow.
+          git add -A automation/pr-automerge-disable-results
+          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
+          git commit -m "pr-automerge-disable: results"
+          git push origin HEAD:${{ github.ref_name }}

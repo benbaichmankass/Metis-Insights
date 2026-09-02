@@ -54,9 +54,24 @@ on:
     # documentation. A trigger path that a doc edit can fire is a trigger that
     # merges PRs nobody asked to merge. Requests are `<branch-slug>.txt`; prose
     # in this directory must never be a signal.
+    # ⚠️ THE LEGACY SHARED PATH IS REMOVED (2026-09-02). The header above says it
+    # stayed "for a transition window ... Remove it once no open PR carries that
+    # file" -- and that window closed in the worst possible way: the file was
+    # COMMITTED TO `main` (by #10786), so from then on it was carried by every
+    # branch in the repo and an ordinary `git merge origin/main` "touched" it.
+    # MEASURED the same day on #10788: a DRAFT PR held draft on an explicit
+    # operator instruction was un-drafted and armed for squash auto-merge by a
+    # merge commit that requested nothing -- job `open-and-automerge` took FOUR
+    # SECONDS, the early-return path taken only when `enablePullRequestAutoMerge`
+    # SUCCEEDS, and the PR flipped `draft: true -> false`.
+    # A trigger that a doc edit could fire was already rejected above; a trigger
+    # that MERGING MAIN can fire is the same defect with a wider blast radius,
+    # because every branch merges main. Requests are `<branch-slug>.txt` only.
+    # The stale file itself is deleted in a LATER commit, deliberately: deleting
+    # it in the same push would touch this very path one last time and re-arm
+    # the thing being disarmed.
     paths:
       - ".github/pr-automerge-requests/*.txt"
-      - ".github/pr-automerge-request"
 
 permissions:
   contents: write
