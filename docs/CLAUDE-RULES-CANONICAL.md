@@ -548,6 +548,115 @@ its `CONTRACTS` table is how it becomes enforced.
 > That is a testing rule, not a state-modelling one, and it remains the
 > operator's call; it is not silently absorbed by this section.
 
+## A soak must carry its own alarm (operator directive 2026-09-02, binding)
+
+> **"Anything soaking needs to be logged with an alarm that has either a timer
+> or a soak threshold, so that we know to get back to it when the soak is
+> ready."**
+
+**If you ship something that accrues evidence over time, it does not exist
+until a register row says when to come back for it.** This is the third member
+of the family above — "Collapsed states" asks whether a field can say *we did
+not look*; this asks whether anything will ever **tell you the waiting is
+over**, or that it has become futile.
+
+### The rule
+
+Anything that soaks — a `*_soak.jsonl` writer, a gate armed in `annotate`
+pending evidence, a fix deployed and awaiting a live sighting — gets a row in
+[`docs/claude/OPEN-ITEMS.json`](docs/claude/OPEN-ITEMS.json) carrying a **`soak`**
+block:
+
+```json
+"soak": {
+  "log": "bybit_coverage_soak",
+  "declared_at": "2026-09-02",
+  "ready_when": "verdicts_differ=true",
+  "min_matching": 1
+}
+```
+
+* **`ready_when` states what READY means in DATA**, as a `probe_lib` condition —
+  not in elapsed days. `check_every_days` already carries the timer, and the two
+  answer different questions: the timer says *is it time to LOOK?*, the
+  threshold says *is it READY?*. A block with no `ready_when` is **refused** by
+  `scripts/ops/soak_alarm.py::declaration_problems`, because it is a second
+  timer wearing a threshold's name.
+* **`declared_at` is what makes a dead soak detectable at all.** `not_writing`
+  means *no rows SINCE THE SOAK WAS DECLARED*; with no start date that sentence
+  has no meaning, so the block is refused without it.
+* **A review-backlog row is NOT a substitute.** The three backlogs are not
+  due-list sources — `render_due_list.py::SOURCES` reads `open_items`,
+  `soaks`, `operator_owed`, `research_queue`, `probes`, `red_crons` and
+  `unlanded_automation`, and none of them is a backlog. A soak tracked only in
+  a backlog accrues to nobody.
+
+### The four states, and why `accruing` must stay quiet
+
+`scripts/ops/soak_alarm.py` grades every declared soak into four states that
+are **never collapsed**:
+
+| state | meaning | surfaces? |
+|---|---|---|
+| `ready` | the threshold is MET — come back now | **loud row** |
+| `not_writing` | NO rows since it was declared — **the soak is DEAD** | **loud row** |
+| `unknown` | we could not READ the soak file | quiet row |
+| `accruing` | rows arriving, threshold not met | **no row** — context only |
+
+⚠️ **`not_writing` is the state that did not exist before 2026-09-02, and it is
+the dangerous one.** A soak that silently stopped writing was indistinguishable
+from one patiently accruing: both rendered as "not ready yet", both re-checked
+on the same cadence, and the operator waited indefinitely on evidence that was
+never coming.
+
+⚠️ **`unknown` is NOT `not_writing`.** *"The log is unreadable"* and *"the log
+is empty"* are opposite findings: the first says nothing about the world, the
+second is a real and alarming measurement of it. This is the same collapse
+`curl … || echo '{}'` produced twice, and the reason `probe_lib` gained a
+fourth exit code.
+
+⚠️ **`accruing` DOES NOT ESCALATE, and that is a deliberate refusal.** It is the
+expected state of a healthy soak for its entire life, so a daily "soak not
+ready" ping is the desensitised alarm this document already calls a P1 —
+`BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART` put ONE condition
+on 53.7% of the operator's entire ERROR+ feed by exactly that mechanism. It
+rides in the due-list body as context. **And this rule REMOVED such a page
+rather than only adding new ones:** `src_probes` emits a loud row for every
+probe in state `fail`, and a patiently-accruing soak WAS `fail` — so a healthy
+soak was already firing a loud daily row inside the machinery meant to prevent
+that.
+
+### Mechanically enforced
+
+`scripts/ci/check_soak_registered.py` (`soak-registered-guard`, every PR) fails
+when a `*_soak.jsonl` log exists in `src/` with no register alarm. It runs over
+the **whole tree, not the diff**: a diff-scoped version would pass vacuously on
+nearly every PR, which is a green that checked nothing.
+
+⚠️ **Its honest limit, stated rather than hidden.** The pre-2026-09-02 debt —
+**16 soak logs, of which ZERO carried an alarm on that date** — is carried in an
+explicit dated `BASELINE` inside the script. That list is an escape hatch, and
+adding a name to it is cheaper than writing a register row. What makes it
+acceptable is that it is **not silent**: the name lands as a visible line in a
+file called `check_soak_registered.py`, in the PR diff, under a comment saying
+the list may only shrink. A reviewer sees a deliberate act. That is the whole
+difference from `new-table-wiring-guard`, whose presence-only marker made the
+cheapest way to silence a real finding a comment naming a table that does not
+exist. The guard also **fails on a BASELINE entry whose writer is gone** (the
+list cannot accumulate slots) and **prints the debt count on every run**, so a
+growing number is visible without anyone auditing the file.
+
+### What "registered" does NOT mean
+
+A probe command that merely mentions the soak. A probe **reads**; an alarm says
+what ready means and can tell a dead soak from a patient one. Four of the
+sixteen live soaks were "mentioned" that way and could answer neither question
+— counting mentions would make the guard pass while changing nothing.
+
+And `ready` is **not** `cleared`: the threshold being met says a session should
+LOOK, never that the row's `clears_when` is satisfied. Those clauses routinely
+carry conditions no predicate can express.
+
 ## Always state the population (2026-07-31, binding — every quantitative claim)
 
 Promoted from `CLAUDE.md` § "Number provenance", where it was scoped to
