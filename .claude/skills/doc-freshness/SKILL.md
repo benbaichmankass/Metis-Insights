@@ -29,6 +29,21 @@ Then, scoped to what changed this session:
    thing the session renamed/removed.
 7. The dashboard repo's `CLAUDE.md` pointer (it must defer to this repo, not
    restate rules).
+8. **The work store — `docs/claude/work/`** — for any object this session
+   moved. This is a *reconciliation* target, not a doc: the failure it catches
+   is a unit that shipped while its object still reads `in_flight`, or an
+   object whose `blocked_on` names a hold-up this session actually cleared.
+   ⚠️ **A stale `in_flight` is not cosmetic** — the ceiling of 8 is enforced by
+   `scripts/ci/check_wip_ceiling.py`, so it fails a later session's CI for work
+   that finished. ⚠️ **Do NOT bulk-assess `blocked_on` here.** Writing edges you
+   did not establish is the one change this pass must never make; the store's
+   README records that exact harm.
+9. **`docs/claude/READOUT.md` + `docs/claude/CONSTRAINT.json`** — regenerated
+   daily by `constraint-readout.yml`, so **do not hand-edit them**. What this
+   pass owns is the CLAIM: if this session changed something the readout
+   describes, run `python3 scripts/ops/constraint_readout.py --write` followed
+   by `python3 scripts/ops/render_session_brief.py --write` rather than editing
+   the rendered block in `CLAUDE.md`, which is generated.
 
 ## Procedure
 

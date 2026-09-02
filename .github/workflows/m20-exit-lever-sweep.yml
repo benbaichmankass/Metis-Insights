@@ -78,8 +78,16 @@ on:
   # touching it registers the workflow and fires the first run from the branch,
   # so the sweep does not have to wait on a merge it is meant to inform.
   push:
+    # 2026-09-02 (MI-66): was pinned to literal branch(es) that have since been
+    # DELETED from origin, so this push trigger could not fire at all — the
+    # workflow was reachable only by `workflow_dispatch`. Generalised to the
+    # `claude/**` namespace rather than dropped, because the `paths:` sentinel
+    # below is the real trigger (the branch list was only ever a convenience)
+    # and the header's documented "re-trigger by committing a new value to that
+    # sentinel" had been silently untrue since those branches went away.
+    # Enforced by scripts/ci/check_workflow_trigger_reachability.py.
     branches:
-      - 'claude/m20-exit-refinement-continue-g1qv46'
+      - 'claude/**'
     paths:
       - '.github/exit-lever-sweep-request'
 
