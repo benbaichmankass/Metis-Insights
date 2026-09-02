@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-02T19:39:51Z",
+      "rows_graded": 80,
+      "by_state": {
+        "active": 7,
+        "stalled_with_work": 22,
+        "landed": 12,
+        "no_landing_evidence": 11,
+        "unreadable": 28
+      },
+      "by_branch_source": {
+        "registry_declared": 34,
+        "recovered_from_commit_trailer": 18,
+        "none_found": 28
+      }
+    },
+    {
       "generated_at": "2026-09-02T18:42:00Z",
       "rows_graded": 75,
       "by_state": {
@@ -110,24 +126,24 @@
       }
     }
   ],
-  "updated_at": "2026-09-02T18:42:00Z",
+  "updated_at": "2026-09-02T19:39:51Z",
   "latest": {
-    "generated_at": "2026-09-02T18:42:00Z",
-    "rows_graded": 75,
+    "generated_at": "2026-09-02T19:39:51Z",
+    "rows_graded": 80,
     "by_state": {
       "active": 7,
       "stalled_with_work": 22,
       "landed": 12,
-      "no_landing_evidence": 10,
-      "unreadable": 24
+      "no_landing_evidence": 11,
+      "unreadable": 28
     },
     "by_branch_source": {
       "registry_declared": 34,
-      "recovered_from_commit_trailer": 17,
-      "none_found": 24
+      "recovered_from_commit_trailer": 18,
+      "none_found": 28
     },
     "coverage": {
-      "unregistered_claude_branches": 190,
+      "unregistered_claude_branches": 192,
       "unregistered_sample": [
         "claude/adoring-pasteur-P60hd",
         "claude/ai-trading-profitability-gaps-ldQCu",
@@ -358,7 +374,7 @@
       },
       "unregistered_attribution_caveat": "A session id recovered here says WHOSE the work is, never WHAT it was for: `owns_object` lives only in the registry, so an unregistered session's work is locatable and still unattached to any work object. Recovery is not a substitute for registering.",
       "registry_declared_branches": 33,
-      "origin_head_count": 231,
+      "origin_head_count": 235,
       "unregistered_caveat": "COUNT ONLY, no ratio: `claude/**` includes board-post and relay branches that were never sub-sessions, and the registry began 2026-09-01 while branches predate it. This is an upper bound on unregistered sessions, not a measurement of them.",
       "unpushed_work": "invisible_by_construction",
       "unpushed_caveat": "Work never pushed lives in a container nothing outside it can reach. The reaper has ZERO visibility of it and no reaper can have any. The only remedy is pushing early.",
@@ -511,8 +527,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-01T23:09:21Z",
-      "branch_age_minutes": 1172.7,
-      "why": "no commit for 1173 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 1230.5,
+      "why": "no commit for 1231 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01LvzsinECH8HPCyauVJZBZw",
@@ -613,8 +629,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T02:05:48Z",
-      "branch_age_minutes": 996.2,
-      "why": "no commit for 996 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 1054.1,
+      "why": "no commit for 1054 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01JXBmVC65hkkoSQ2LcV1ETY",
@@ -728,8 +744,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T03:40:05Z",
-      "branch_age_minutes": 901.9,
-      "why": "no commit for 902 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 959.8,
+      "why": "no commit for 960 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01NocraYKXWU6jPEFv2QEMv8",
@@ -746,8 +762,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T03:43:22Z",
-      "branch_age_minutes": 898.6,
-      "why": "no commit for 899 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 956.5,
+      "why": "no commit for 956 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01Buj7phmYPjDt6FPTyuVoYp",
@@ -802,8 +818,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T11:07:09Z",
-      "branch_age_minutes": 454.9,
-      "why": "no commit for 455 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 512.7,
+      "why": "no commit for 513 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01EihsgewHt7BZv43YcC7caV",
@@ -817,8 +833,8 @@
       "malformed_branch_entries": [],
       "prs": [],
       "state": "active",
-      "newest_commit_utc": "2026-09-02T18:41:53Z",
-      "branch_age_minutes": 0.1,
+      "newest_commit_utc": "2026-09-02T19:02:55Z",
+      "branch_age_minutes": 36.9,
       "why": "a commit inside the freshness window"
     },
     {
@@ -862,8 +878,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T06:14:48Z",
-      "branch_age_minutes": 747.2,
-      "why": "no commit for 747 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 805.1,
+      "why": "no commit for 805 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01XbigCVRcy2bnVpm1tKNPno",
@@ -880,8 +896,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T08:13:43Z",
-      "branch_age_minutes": 628.3,
-      "why": "no commit for 628 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 686.1,
+      "why": "no commit for 686 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01N1BmbHtE6PpfHtzTXMtbLh",
@@ -910,8 +926,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T11:07:09Z",
-      "branch_age_minutes": 454.9,
-      "why": "no commit for 455 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 512.7,
+      "why": "no commit for 513 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01PcirVtpMXJGiKm2548nkrR",
@@ -940,8 +956,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T07:36:09Z",
-      "branch_age_minutes": 665.9,
-      "why": "no commit for 666 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 723.7,
+      "why": "no commit for 724 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01Ryr6K2VXGojZbqjFgQ2PrN",
@@ -958,7 +974,7 @@
       "prs": [],
       "state": "active",
       "newest_commit_utc": "2026-09-02T18:37:20Z",
-      "branch_age_minutes": 4.7,
+      "branch_age_minutes": 62.5,
       "why": "a commit inside the freshness window"
     },
     {
@@ -976,8 +992,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T08:13:19Z",
-      "branch_age_minutes": 628.7,
-      "why": "no commit for 629 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 686.5,
+      "why": "no commit for 687 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_019udKqceYPBqp4kzBYNZ6Sp",
@@ -994,8 +1010,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T07:35:55Z",
-      "branch_age_minutes": 666.1,
-      "why": "no commit for 666 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 723.9,
+      "why": "no commit for 724 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01PnQLKnuezWVB4D47PtnTqR",
@@ -1024,7 +1040,7 @@
       "prs": [],
       "state": "active",
       "newest_commit_utc": "2026-09-02T18:31:05Z",
-      "branch_age_minutes": 10.9,
+      "branch_age_minutes": 68.8,
       "why": "a commit inside the freshness window"
     },
     {
@@ -1042,8 +1058,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T06:04:07Z",
-      "branch_age_minutes": 757.9,
-      "why": "no commit for 758 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 815.7,
+      "why": "no commit for 816 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01WZVcSxKY59cQXGgz3L5nLf",
@@ -1060,8 +1076,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T03:03:03Z",
-      "branch_age_minutes": 939.0,
-      "why": "no commit for 939 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 996.8,
+      "why": "no commit for 997 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_015oCrkh4XHdMDqUqW3Zhsgw",
@@ -1078,8 +1094,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T02:47:03Z",
-      "branch_age_minutes": 955.0,
-      "why": "no commit for 955 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 1012.8,
+      "why": "no commit for 1013 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_014RAYKspW1gtBsjuHA1XzKJ",
@@ -1096,8 +1112,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T00:57:56Z",
-      "branch_age_minutes": 1064.1,
-      "why": "no commit for 1064 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 1121.9,
+      "why": "no commit for 1122 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01FYEGu7tBoA6u4N1xyCdHDS",
@@ -1284,8 +1300,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-08-30T12:07:21Z",
-      "branch_age_minutes": 4714.7,
-      "why": "no commit for 4715 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 4772.5,
+      "why": "no commit for 4773 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01TpKSAVKKUXLHyFUFep32B1",
@@ -1299,8 +1315,8 @@
       "malformed_branch_entries": [],
       "prs": [],
       "state": "active",
-      "newest_commit_utc": "2026-09-02T18:39:16Z",
-      "branch_age_minutes": 2.7,
+      "newest_commit_utc": "2026-09-02T18:53:03Z",
+      "branch_age_minutes": 46.8,
       "why": "a commit inside the freshness window"
     },
     {
@@ -1330,8 +1346,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T13:18:59Z",
-      "branch_age_minutes": 323.0,
-      "why": "no commit for 323 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 380.9,
+      "why": "no commit for 381 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01XH17FTCCjiwHcMLAVeDLQZ",
@@ -1346,8 +1362,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T12:43:11Z",
-      "branch_age_minutes": 358.8,
-      "why": "no commit for 359 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 416.7,
+      "why": "no commit for 417 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01272CQFvWA5F9tS9nNRpJtK",
@@ -1362,7 +1378,7 @@
       "prs": [],
       "state": "active",
       "newest_commit_utc": "2026-09-02T18:36:57Z",
-      "branch_age_minutes": 5.1,
+      "branch_age_minutes": 62.9,
       "why": "a commit inside the freshness window"
     },
     {
@@ -1378,8 +1394,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T15:49:04Z",
-      "branch_age_minutes": 172.9,
-      "why": "no commit for 173 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 230.8,
+      "why": "no commit for 231 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01NfzmaV7FxP4bAZtKbXYVb9",
@@ -1394,7 +1410,7 @@
       "prs": [],
       "state": "active",
       "newest_commit_utc": "2026-09-02T18:33:48Z",
-      "branch_age_minutes": 8.2,
+      "branch_age_minutes": 66.1,
       "why": "a commit inside the freshness window"
     },
     {
@@ -1410,8 +1426,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T11:46:23Z",
-      "branch_age_minutes": 415.6,
-      "why": "no commit for 416 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 473.5,
+      "why": "no commit for 473 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_01RQiedALVJzWCGdBqY6aNV7",
@@ -1426,8 +1442,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T13:17:51Z",
-      "branch_age_minutes": 324.2,
-      "why": "no commit for 324 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 382.0,
+      "why": "no commit for 382 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_013ANr63vsQ9TjU4sh51vxny",
@@ -1482,10 +1498,8 @@
       "recovered_branches": [],
       "malformed_branch_entries": [],
       "prs": [],
-      "state": "active",
-      "newest_commit_utc": "2026-09-02T18:31:41Z",
-      "branch_age_minutes": 10.3,
-      "why": "a commit inside the freshness window"
+      "state": "no_landing_evidence",
+      "why": "no branch on origin and no PR this row names is in origin/main. ⚠️ NOT a claim the work was lost — the row may simply never have recorded the PR its work landed under."
     },
     {
       "session_id": "session_01ThkrPrGUvmomoY8uGEa148",
@@ -1514,8 +1528,8 @@
       "prs": [],
       "state": "stalled_with_work",
       "newest_commit_utc": "2026-09-02T17:04:49Z",
-      "branch_age_minutes": 97.2,
-      "why": "no commit for 97 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+      "branch_age_minutes": 155.0,
+      "why": "no commit for 155 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
     },
     {
       "session_id": "session_015r4U4QhowTzXAmr5KQ6f8L",
@@ -1533,6 +1547,74 @@
       "session_id": "session_01PbQAQXRY2oB1ep2BFEUZeA",
       "owns_object": "WO-20260902-MANAGER-PREFLIGHT",
       "title": "MI-77 — the manager watcher that can actually see (MI-73 respawn)",
+      "branches_in_repo": [
+        "claude/mi77-clause2-record",
+        "claude/mi77-escalation-exit-code"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/mi77-clause2-record",
+        "claude/mi77-escalation-exit-code"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "active",
+      "newest_commit_utc": "2026-09-02T19:14:55Z",
+      "branch_age_minutes": 24.9,
+      "why": "a commit inside the freshness window"
+    },
+    {
+      "session_id": "session_01Ue52itfxGxsbZrJJtswtCg",
+      "owns_object": "WO-20260902-TWO-OPEN-NON-DRAFT-PRS-ARE-RED",
+      "title": "MI-78 — two open PRs are RED on pytest-run; both failures are their OWN, not the base branch",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_017BMpMRDpnR8U7aodUBSPCg",
+      "owns_object": "WO-20260902-THE-PR-QUEUE-CANNOT-DRAIN-EVERY-MERGE",
+      "title": "MI-79 — drain the stalled draft queue: 5 of 5 branches conflict against a freshly fetched main",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01R4tWq3YJZnDUY3EhAYZ9En",
+      "owns_object": "WO-20260902-THE-OPERATOR-S-PING-CADENCE-RIDES-GITHUB",
+      "title": "MI-80 — the operator's ping cadence rides GitHub cron and GitHub cron does not fire",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_017TRSSpkQ2NZHHxCp8MNXbg",
+      "owns_object": "WO-20260902-A-DUE-MONITORING-ROW-ON-AN-UNMONITORED",
+      "title": "MI-81 — the overdue trainer row: observe it, and build the freshness alarm if one can be built",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01R9EwEtP2JPYqxUH1tjSa5Q",
+      "owns_object": "WO-20260902-PRS-WHOSE-OWN-BODIES-SAY-DO-NOT",
+      "title": "MI-82 — measure the unauthorised-merge population, and assess the blast radius of each",
       "branches_in_repo": [],
       "branch_source": "none_found",
       "recovered_branches": [],
