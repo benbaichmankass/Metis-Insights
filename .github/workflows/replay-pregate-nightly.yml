@@ -14,10 +14,20 @@ name: replay-pregate-nightly
 #   2. Run scripts/ml/replay_pregate_fleet.py over every shadow-stage regime
 #      head, scoring each through the LIVE predict path vs the dataset's own
 #      regime_label (true market_features parity — no threshold guessing).
-#   3. Capture the JSON report on the runner, write it under
-#      runtime_logs/replay_pregate/, render a markdown summary, and commit both
-#      back to the branch.
-#   4. On the issue path, post the summary as a comment and close the issue.
+#   3. Classify the run by the STAGE that failed (scripts/ml/pregate_stream.py),
+#      NEVER by guessing: the ssh exit code plus a line-anchored OpenSSH client
+#      signature separate a broken transport from a crashed driver from output
+#      that genuinely did not parse -- and `undetermined` stays available for
+#      "we could not tell". Run #4365 (2026-09-01) reported a PARSING error for
+#      a `client_loop: send disconnect: Broken pipe`, because this step used to
+#      end in `|| true` and threw the exit code away.
+#   4. On a COMPLETE run: write the report under runtime_logs/replay_pregate/,
+#      advance latest.json + latest.md, and commit.
+#      On a TRUNCATED run: commit the salvaged heads as <TS>.partial.json --
+#      never as latest.json, so a partial baseline can never pass for a complete
+#      one -- and FAIL the job anyway. Preserving evidence and reporting success
+#      are different things.
+#   5. On the issue path, post the summary as a comment and close the issue.
 #
 # Three trigger paths:
 #   1. schedule          — nightly 04:00 UTC (the unattended overnight run).
