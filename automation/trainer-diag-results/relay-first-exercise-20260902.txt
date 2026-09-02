@@ -1,0 +1,23 @@
+=== trainer-diag-relay result ===
+request: relay-first-exercise-20260902
+state: ran
+remote_exit: 0
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/33590757259
+=================================
+=== whoami / host ===
+ubuntu
+ict-trainer-vm
+
+=== does the file exist? ===
+-rw-r--r-- 1 ubuntu ubuntu 9352282 Sep  2 01:09 /home/ubuntu/ict-trading-bot/runtime_logs/trainer/dataset_audit.jsonl
+
+=== line count + date span (the denominator) ===
+4147 /home/ubuntu/ict-trading-bot/runtime_logs/trainer/dataset_audit.jsonl
+--- oldest:
+{"ok": true, "manifest": "execution-quality-baseline-v0", "n_rows": 325, "dead_fraction_threshold": 0.99, "features": [], "label": {"name": "entry_slippage_bps", "kind": "regression", "n": 325, "balance": {}, "n_classes": 72, "stats": {"count": 325, "mean": -0.58557927, "std": 2.18852882, "min": -10.84008661, "max": 5.94247373, "n_unique": 72}, "flagged": false, "reason": null}, "flags": [], "quar
+--- newest:
+{"ok": true, "manifest": "trade-outcome-lgbm-v1", "n_rows": 1886, "dead_fraction_threshold": 0.99, "features": [{"name": "strategy_name", "n": 1886, "zero_fraction": 0.0, "nan_fraction": 0.0, "variance": null, "n_unique": 42, "flagged": false, "reason": null, "expected_optional": false}, {"name": "symbol", "n": 1886, "zero_fraction": 0.0, "nan_fraction": 0.0, "variance": null, "n_unique": 17, "fla
+
+=== negative control: a path that should NOT exist ===
+ls: cannot access '/home/ubuntu/definitely-not-a-real-path-xyz': No such file or directory
+
