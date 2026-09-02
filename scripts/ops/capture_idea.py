@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+#
+# wiring: manual-only - a MANAGER runs this the moment the operator raises an
+# idea, to park it under an intent in one command instead of dispatching a
+# session for it. It has no runner and should not get one: capture is a
+# judgement (which intent does this serve?) that this file deliberately
+# refuses to make automatically -- see the --intent note below.
+# NOTE: unwired-artifact-guard already passes this file because spawn_gate.py
+# NAMES it in a refusal message, but a mention in a print string is a
+# reference, not a runner. Declaring it explicitly rather than resting on
+# that: a guard that is cheaper to satisfy by accident than on purpose is one
+# nobody can trust the next time.
 """CAPTURE AN IDEA AS A WORK OBJECT — in one command, in seconds.
 
 WHY THIS SHIPS IN THE SAME CHANGE AS THE GATE
