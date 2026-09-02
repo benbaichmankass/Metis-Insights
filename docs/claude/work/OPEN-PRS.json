@@ -192,40 +192,6 @@
       "blocker": "Manager review not complete."
     },
     {
-      "pr": 10800,
-      "title": "manager: complete the open-PR record so a successor can see what is in flight",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-67",
-      "draft": false,
-      "tier": "1 (register)",
-      "state": "manager_own_work",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": "2026-09-02",
-        "text": "None required (Tier-1 register maintenance, which this file's own `maintained_by` assigns to the manager holding the lease)."
-      },
-      "blocker": "⚠️ THIS PR IS THE ONE NAMED HANDOFF BLOCKER. handoff_check.py graded `open_prs` FAIL at 14:47Z — 13 open PRs with no row, of 20 open against 11 recorded — and every other check PASSED. Its earlier content (4 rows) was superseded when the MI-57 reconciler restructured this file into open_prs/settled_prs; the branch was reset onto that and re-authored against the LIVE open set."
-    },
-    {
-      "pr": 10807,
-      "title": "work: operator answers DEC-20260902-REVIEW-PACKET-POPULATION — both options refused",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-67",
-      "draft": false,
-      "tier": "1 (work store)",
-      "state": "ready_to_merge",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": "2026-09-02",
-        "text": "None required — the PR RECORDS an operator decision rather than asking for one."
-      },
-      "blocker": "None. Ready to merge."
-    },
-    {
       "pr": 10808,
       "title": "manager: three halves as executable refusals — preflight, queue watch, spawn priority gate",
       "owner_session": "session_013ANr63vsQ9TjU4sh51vxny",
@@ -417,8 +383,50 @@
       "merge_sha": "9df1502b02c0202c411981965c94ce90954fd78b",
       "observed_at": "2026-09-02T14:36:19Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10800,
+      "title": "manager: complete the open-PR record so a successor can see what is in flight",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-67",
+      "draft": false,
+      "tier": "1 (register)",
+      "state": "manager_own_work",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": "2026-09-02",
+        "text": "None required (Tier-1 register maintenance, which this file's own `maintained_by` assigns to the manager holding the lease)."
+      },
+      "blocker": "⚠️ THIS PR IS THE ONE NAMED HANDOFF BLOCKER. handoff_check.py graded `open_prs` FAIL at 14:47Z — 13 open PRs with no row, of 20 open against 11 recorded — and every other check PASSED. Its earlier content (4 rows) was superseded when the MI-57 reconciler restructured this file into open_prs/settled_prs; the branch was reset onto that and re-authored against the LIVE open set.",
+      "terminal": "merged",
+      "merge_sha": "a1d55a88f84bcda1be53fb87a41f46f4119d2aa5",
+      "observed_at": "2026-09-02T14:58:58Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10807,
+      "title": "work: operator answers DEC-20260902-REVIEW-PACKET-POPULATION — both options refused",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-67",
+      "draft": false,
+      "tier": "1 (work store)",
+      "state": "ready_to_merge",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": "2026-09-02",
+        "text": "None required — the PR RECORDS an operator decision rather than asking for one."
+      },
+      "blocker": "None. Ready to merge.",
+      "terminal": "merged",
+      "merge_sha": "1efb5defb05920497325d528291e38224f4e1af7",
+      "observed_at": "2026-09-02T14:58:58Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-02T14:36:19Z",
-  "last_reconciled_sha": "41c7bc39e39f0f7dae42def48483fc531f4d9d96"
+  "last_reconciled_at": "2026-09-02T14:58:58Z",
+  "last_reconciled_sha": "fcbecad79828e8fe696c7ab06a3df12d3fa9cc9e"
 }
