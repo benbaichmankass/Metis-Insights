@@ -716,6 +716,28 @@
    "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP",
    "OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN"
   ]
+ },
+ {
+  "id": "OI-20260902-DECISION-PUSH-BACK-BUILT-AND-THE-DELIVERY-HALF-HAS-NO-CREDENTIAL",
+  "opened": "2026-09-02",
+  "kind": "awaiting_verification",
+  "loud": true,
+  "verified_at": null,
+  "last_checked": "2026-09-02",
+  "summary": "The last hop of the decision round-trip is BUILT and its delivery half is UNARMED, and those are two different facts. asked_by now records WHICH SESSION asked a decision request (measured before this: of 584 objects, ZERO requests named their asker, so every committed answer had NO ADDRESS), and scripts/ops/push_decisions_back.py + two new steps in work-decision-commit.yml deliver a committed answer into that session with `claude -p --cloud <session-id>`. [!] NOT ONE ANSWER HAS EVER BEEN PUSHED, and it cannot be until an OPERATOR mints a credential this session could not: the call needs a claude.ai OAuth token, API keys are refused, and there is NO long-lived CI token -- the `user:sessions:claude_code` scope is capped server-side at 30 days, so it must be re-minted interactively on that cadence. [!] SEPARATELY, NO REQUEST IN THE STORE YET CARRIES `asked_by`: existing requests were deliberately NOT back-filled (inventing an asker would assert a fact nobody established), so the field is live and its population is zero until a session writes one.",
+  "detail": "WHAT IS ESTABLISHED, and by what. TESTED this session: watch_url returns a sealed_secret that 'only the artifact service can open', so a GitHub runner cannot deliver to it at all -- which disqualifies watch_url on a measurement rather than an inference (its watch also ends with the session, and a webhook URL in this PUBLIC repo would be a published endpoint). TESTED: get_session with session_id OMITTED returns the calling session's own id, which is what makes asked_by fillable at all. READ (documentation, NOT measured): the Routine /fire HTTP endpoint exists but 'starts a new session', and its token is minted per-routine from the web UI -- so a runner cannot fire a SESSION-BOUND Routine, which is the mechanism this task was dispatched expecting. tests/test_decision_push.py (45 passing) pins the decision policy, including that an unrecognised failure NEVER grades session_gone and that an `unknown` writes no marker so it is retried. [!] A GREEN SUITE PROVES THE DECISION FUNCTION, NOT THE CHANNEL -- the harness cannot reach a real session, which is exactly what is unproven. Full evidence, TESTED vs READ per claim: docs/design/decision-push-back-FEASIBILITY.md. THE FALLBACK IF THE OPERATOR DECLINES THE SECRET is a two-hop design stated in that doc: a fresh-session Routine on a schedule DOES hold mcp__* tools and can run the create_trigger(persistent_session_id=...)+fire_trigger sequence the manager measured working on 2026-09-02T05:35Z; the missing hop is that nothing in the repo can CAUSE that routine to exist -- an operator creates it once, and its minimum cadence is one hour.",
+  "clears_when": "ONE committed answer is OBSERVED reaching the session that asked it, end to end: (1) a decision request in docs/claude/work/objects/ carries an `asked_by` block naming a real session; (2) that request is answered and the answer COMMITS to main; (3) the work-decision-commit run's push step reports `pushed` for it; and (4) THE ASKING SESSION IS OBSERVED WAKING -- read IDLE/disconnected before and RUNNING/connected after via get_session, doing something ATTRIBUTABLE to the pushed answer. Record which request and which session. [!] STAGE (4) IS THE ONE THAT MATTERS AND THE OTHERS DO NOT SUBSTITUTE FOR IT: `pushed` means the delivery command returned ok:true, which is a claim about the CALL, not an observation of a wake. [!] A GREEN TEST SUITE CLEARS NOTHING -- tests/test_decision_push.py already passes and is precisely what cannot reach a real session. [!] NEITHER DOES MERGING, NOR A GREEN work-decision-commit RUN: with the credential unset the push steps are SKIPPED and the script prints `channel: off_no_credential`, so a green run is the expected output of a channel that is switched OFF. Read the step log, not the tick. [!] AND IF THE OPERATOR DECIDES NOT TO MINT CLAUDE_CODE_OAUTH_REFRESH_TOKEN, THIS ROW DOES NOT CLEAR -- IT CHANGES: push-back over the CLI is then declared closed, which is a legitimate decision (the credential is account-wide session control and expires every 30 days) and must be RECORDED as one, with the two-hop Routine fallback either adopted or explicitly declined, rather than left looking like a channel that is about to work.",
+  "observation": null,
+  "refs": [
+   "docs/design/decision-push-back-FEASIBILITY.md",
+   "src/runtime/decision_push.py",
+   "src/runtime/work_decisions.py",
+   "scripts/ops/push_decisions_back.py",
+   ".github/workflows/work-decision-commit.yml",
+   "tests/test_decision_push.py",
+   "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP",
+   "OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE"
+  ]
  }
  ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
