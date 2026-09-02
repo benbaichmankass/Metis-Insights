@@ -212,6 +212,27 @@ now `enable --now`s it on the trader box (idempotent; gateway VM excluded by the
 role-prune block; tolerant of a failed start when the token isn't synced yet), so
 it survives reboots like the other core services.
 
+**`ict-claude-decision-bot` boot-enable (2026-09-02):** the same treatment, for
+the same reason, on the unit that POLLS the dedicated Claude bot
+(`TELEGRAM_CLAUDE_BOT_SECRET`) so work-decision buttons sent there are actually
+ANSWERABLE. `scripts/install_systemd_units.sh` `enable --now`s it on the trader
+box (idempotent; gateway VM excluded by the role-prune block).
+
+⚠️ **Tolerant of a failed start BY DESIGN, and the failure is not silent.**
+Without `TELEGRAM_CLAUDE_BOT_SECRET` in the VM `.env` the service exits
+`EX_CONFIG` (78) with a secret-free message naming the variable, and the unit's
+`RestartPreventExitStatus=78` stops it in a visible `failed` state rather than
+crash-looping a log line every 15 s forever — restarting cannot set an env var,
+and 5,760 identical lines a day is the desensitised-alarm P1 in its own right.
+Putting that key on the VM is an operator action; a deploy must never hard-fail
+on it. Meanwhile the decision sweep keeps working by falling back to the TRADER
+bot, loudly (`destination` / `poll_state` in its stats), so the cost of the key
+being absent is prompts in the wrong chat — never no prompts at all.
+
+⚠️ **`ict-claude-decision-bot` is NOT `ict-claude-bridge`**, whose name is
+historical: that one serves the PROP channel. And `TELEGRAM_CLAUDE_BOT_TOKEN`
+drives the PROP bot despite its name — do not substitute it here.
+
 ### Post-deploy version round-trip assertion
 
 After the restarts, the script asserts that `/api/diag/version` on

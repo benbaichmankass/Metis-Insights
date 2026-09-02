@@ -145,6 +145,17 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # ict-claude-bridge.service` tail its journal (the unit now logs to
     # journald — see deploy/ict-claude-bridge.service).
     "ict-claude-bridge.service",
+    # 2026-09-02 — the DEDICATED Claude bot's polling half, which is what makes
+    # a work-decision button ANSWERABLE rather than merely delivered (a tap on
+    # an unpolled bot produces a callback_query nobody collects, with no error
+    # anywhere). Registered in the SAME change that ships the unit, because the
+    # failure this service exists to prevent is precisely a SILENT one: if it is
+    # not running, prompts fall back to the trader bot and the only way to see
+    # that from outside is `/api/diag/services` + this unit's journal, whose
+    # startup banner names which token is polled and which prefixes are handled.
+    # ⚠️ Despite the adjacent name, this is NOT ict-claude-bridge.service — that
+    # one polls the PROP token.
+    "ict-claude-decision-bot.service",
     # 2026-05-29 — M13 AI-analyst generator (fast tier every 15 min) + its
     # per-strategy slow tier (every 60 min) and their driving timers. These
     # are the SOLE writers of the insights cache + insights_history/usage
@@ -521,6 +532,32 @@ _LOG_FILES: dict[str, Path] = {
     # distinguished from an outage. An ABSENT file means the sweep has never
     # prompted anything on this VM -- never that nothing is waiting.
     "work_decision_prompted": _WORK_DECISION_PROMPTED_STATE,
+    # 2026-09-02 — the POLL CLAIMS behind the decision channel's destination:
+    # which token variable a live process says it polls, and which callback
+    # prefixes it handles. One file per token VARIABLE (never a shared file, so
+    # two pollers cannot race each other's writes and a corrupt entry condemns
+    # only its own bot). Allowlisted in the SAME commit that ships the writer —
+    # the FIFTH recurrence of
+    # BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE is
+    # not one this change is going to add either.
+    #
+    # ⚠️ THIS IS THE FILE THAT DECIDES WHETHER A BUTTON IS DEAD, so it is the
+    # one a session needs when the operator says a tap did nothing. A prompt
+    # sent to a bot nobody polls ARRIVES, RENDERS and HIGHLIGHTS ON TAP while
+    # doing nothing — there is no error anywhere else to read.
+    #
+    # ⚠️ AN ABSENT FILE IS NOT "NOT POLLED" — it is the state the resolver
+    # grades `token_only_not_polled` ONLY when the registry root is reachable;
+    # if it is not, the verdict is `unknown` (we could not look) and the two
+    # must not be read as the same thing. Read the trader's journal
+    # (`journalctl -u ict-claude-decision-bot` / `-u ict-telegram-bot`) for the
+    # startup banner naming which token each process actually polls.
+    #
+    # ⚠️ The entry names the token VARIABLE, never a token value.
+    "telegram_poll_claude":
+        runtime_logs_dir() / "telegram_pollers" / "TELEGRAM_CLAUDE_BOT_SECRET.json",
+    "telegram_poll_trader":
+        runtime_logs_dir() / "telegram_pollers" / "TELEGRAM_BOT_TOKEN.json",
     # The alert LATCH for the above, distinct from the state it grades. A
     # breach alerts once per PROCESS (max_interval_ms resets on restart, so a
     # global latch would go silent after the first breach ever) -- which is
