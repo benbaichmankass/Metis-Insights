@@ -1195,6 +1195,20 @@
       "owns_object": "WO-20260902-THE-OPERATOR-S-PING-CADENCE-RIDES-GITHUB",
       "spawned_at": "2026-09-02T18:35:26Z",
       "note": "P1 rather than P2 because F6 makes operator notification the CONDITION the autonomy grant rests on, so this precondition has been unmet all day with nobody noticing -- which is the failure, more than the missing pings. MI-80 is explicitly told NOT to reduce the cadence because it judges hourly noisy: the operator accepted that noise deliberately and it is their call. Manager fired work-digest.yml manually at ~18:34Z so the operator gets something now; that is a patch and is recorded as one."
+    },
+    {
+      "id": "MI-81",
+      "title": "The overdue trainer row — observe it, and build the data-freshness alarm if one can be built",
+      "state": "in_flight",
+      "priority": "P2_OVERHAUL_IMPLEMENTATION",
+      "owner": "session_017TRSSpkQ2NZHHxCp8MNXbg",
+      "tier": "1 (trainer read; trainer VM is autonomous territory)",
+      "why": "OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED is FOUR days past a THREE-day cadence. The operator DECIDED on 2026-08-29 to keep the trainer for L2 order-flow capture -- a forward-only stream nothing can re-derive -- and the row records the disk at 92% with nothing watching. The row is loud and renders in the CLAUDE.md brief and was STILL not observed, which makes it a live instance of the failure OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION watches: the register surfaces it and nobody acts.",
+      "the_hypothesis_to_TEST": "The two halves are DIFFERENT FACTS and must not be collapsed. (1) OBSERVE -- what is the disk headroom, is the capture still writing, how stale is its newest data. (2) ALARM -- keyed on the DATA's freshness at the named path, NEVER on the unit's ActiveState, because a systemd unit can be `active` while writing nothing and a unit-state alarm would be green straight through the failure this watches. The row's own clears_when requires the alarm be SHOWN to fire against PLANTED staleness, not merely deployed.",
+      "done_when": "The row's observation carries what was SEEN (verbatim, with the command) and verified_at is re-dated. The row clears only if the freshness alarm exists AND was shown to fire against planted staleness; otherwise it stays open with the reason. Disk headroom recovering on its own does NOT clear it -- the gap is the missing alarm, not the free space.",
+      "owns_object": "WO-20260902-A-DUE-MONITORING-ROW-ON-AN-UNMONITORED",
+      "spawned_at": "2026-09-02T18:39:52Z",
+      "note": "MANAGER PRIORITY CALL, stated so it can be argued with. This is INTEGRITY work and the cycle priority is the operating layer's STEERING half, so it is not obviously in-priority. I spawned it anyway on two grounds: a forward-only capture that cannot be re-derived sitting on a 92%-full disk with no alarm is a live risk to an operator-DECIDED dependency; and the fact that a loud, rendered, four-days-overdue row went unacted-on IS a steering failure, which is the cycle's subject. It used the last of the four concurrent session slots and nothing else was queued for it."
     }
   ],
   "as_of": "2026-09-02T17:20:00Z"

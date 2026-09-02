@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T18:35:31Z",
+  "updated_at": "2026-09-02T18:40:17Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -1183,6 +1183,17 @@
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "Operator asked directly at 18:33Z. work-digest.yml has 3 runs in its entire history against 6x/day then hourly; two hourly slots missed since the change went live at 16:22Z; one of the three runs FAILED and nobody learned. Claude Routines on the same account fire within a minute.",
       "confirmed_at": "2026-09-02T18:35:31Z"
+    },
+    {
+      "session_id": "session_017TRSSpkQ2NZHHxCp8MNXbg",
+      "registry_key": "pending-20260902T183916Z",
+      "state": "working",
+      "title": "MI-81 — the overdue trainer row: observe it, and build the freshness alarm if one can be built",
+      "owns_object": "WO-20260902-A-DUE-MONITORING-ROW-ON-AN-UNMONITORED",
+      "spawned_at": "2026-09-02T18:39:16Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "why": "4 days past a 3-day cadence on an operator-DECIDED dependency: a forward-only L2 capture nothing can re-derive, disk at 92%, nothing watching. Loud, rendered in the brief, still unobserved.",
+      "confirmed_at": "2026-09-02T18:40:17Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."
