@@ -247,3 +247,69 @@ mi77_pr_queue_watcher:
     CORRECT reading and deliberately PASSES (failing would red every PR on merge day, which is
     how a guard gets disabled instead of fixed); it arms itself on the first real run. Tracked
     as OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED (loud).
+
+# ── NIGHT MANAGER 2026-09-02 (session_01AYPxs3aDHwv3XBLRF4oK15) ─────────────
+# THE DONE-CONDITION OF THIS OBJECT IS MET. A manager session ran the preflight,
+# was REFUSED by it, and acted on the refusal. Observed, not asserted — and the
+# refusal was correct, because the premise the session was spawned on was false.
+preflight_first_observed_refusal:
+  observed_at: '2026-09-02T21:40Z'
+  session: session_01AYPxs3aDHwv3XBLRF4oK15 (spawned 21:37:58Z as NIGHT MANAGER)
+  invocation: python3 scripts/ops/manager_preflight.py --session-id session_01AYPxs3aDHwv3XBLRF4oK15
+  result: 'readiness=not_ready, exit 3. FAIL on work_has_parent, f6_digest_owed, blocked_claims, lease.'
+  the_refusal_that_bound: >-
+    The `lease` check: "you do not hold the manager lease (state=held_fresh) ... DO NOT MANAGE ...
+    managing without the lease is the concurrent-manager condition the lease exists to prevent."
+  what_the_session_did: >-
+    STOOD DOWN. Did not claim the lease, did not pass --force, did not wait out the 22:42:22Z
+    expiry, did not merge #10857 or #10398, did not touch SESSIONS.json / MANAGER-CHECKLIST.json /
+    MANAGER-LEASE.json, and did no management of any kind. The night's assigned work was NOT done,
+    deliberately. That cost is the point: the check named it and the session paid it.
+
+  # ── the defect the refusal exposed, which is larger than the refusal ──
+  the_spawn_prompt_asserted_a_lease_state_that_the_lease_contradicted: >-
+    ⚠️ THE SESSION WAS SPAWNED ON A FALSE PREMISE, VERBATIM: "The day manager
+    (session_011JWFxuYAaEQKCFCmG6gnHJ) is standing down and has RELEASED the manager lease so you
+    can claim it immediately." IT HAD NOT. Measured three independent ways within 2 minutes of
+    session start, all agreeing:
+      (1) MANAGER-LEASE.json on origin/main at 14f101eb: state=held, holder=the day manager,
+          claimed_at=2026-09-02T07:55:46Z, heartbeat_at=2026-09-02T21:12:22Z,
+          expires_at=2026-09-02T22:42:22Z, forced=false. NO release commit exists in the file's
+          history; the newest is 558a3560. `manager_lease.py status` -> claimable=False.
+      (2) A LIVE get_session read of the day manager at 21:39:35Z (2 seconds before this
+          session's own clock read of 21:39:37Z): SESSION_STATUS_RUNNING, status_bucket WORKING,
+          task_summary "reverted and re-registering spawn_pending". It was not standing down; it
+          was mid-write on THIS session's own registration.
+      (3) manager_preflight.py, independently, from the same file: state=held_fresh.
+  why_waiting_for_expiry_was_also_refused: >-
+    Rejected on the mechanism's own reasoning, not on preference. Expiry-based takeover exists so
+    that a holder that DIED cannot block succession — the file says so in its own `_doc`. This
+    holder is alive and heartbeating, so claiming at 22:42Z would not be the designed takeover; it
+    would be the concurrent-manager condition arriving 62 minutes late. A live holder would also
+    heartbeat before then and move the expiry.
+  what_this_costs_if_not_fixed: >-
+    A compliant night manager that trusted its prompt over the file would have claimed a held
+    lease and produced exactly the two-concurrent-managers state the operator prohibited — while
+    the day manager was actively writing the shared registers. The lease guard held. NOTHING
+    UPSTREAM OF IT DID: no check compares a spawn prompt's claims about live state against the
+    state itself at spawn time, so the prompt is an unverified claim with the authority of an
+    instruction. Same shape as `blocked_claims`, one level up — a claim about live state with no
+    dated observation behind it — except this one directs a session rather than blocking one.
+  corroborating_absences: >-
+    Three artifacts the spawn prompt referenced as existing are NOT on origin/main at 14f101eb:
+    registry row `pending-20260902T213714Z` (newest present is pending-20260902T203841Z),
+    and WO-20260902-NIGHT-SHIFT-2026-09-02-03-FINISH (absent from the 599 objects on disk).
+    Checklist rows MI-84 and MI-85 DO exist and are correctly described. Consistent with the day
+    manager holding those writes unpushed, which is the already-recorded unpushed-window risk.
+  not_claimed: >-
+    This session did NOT verify whether the day manager intended to stand down and merely failed
+    to run `release`, or never intended to. Both are consistent with what was measured, and the
+    session had no channel to ask: no cross-session path to a cloud session was available to it,
+    and the operator was asleep. State: unknown.
+  suggested_fix_not_built: >-
+    NOT IMPLEMENTED — stated so it is not mistaken for shipped. The narrow version is a spawn-time
+    check that reads MANAGER-LEASE.json and refuses to hand a session a manager mandate while the
+    lease is held_fresh by a different session. The load-bearing half is the same one MI-84 names
+    for the registry: the outgoing manager's release is the step that is skipped, and a session
+    that dies cannot run it — so a reaper that releases an expired lease is worth more than any
+    wording added to a prompt.
