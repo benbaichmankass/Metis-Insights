@@ -232,3 +232,47 @@ def test_a_bare_number_observation_excludes_nothing():
     evaluated the caller must exclude NOTHING — fail-closed, so the failure
     direction of an unevaluable predicate is the loud one."""
     assert opr.automation_landing_prs([10398, 10783]) is None
+
+
+# --------------------------------------------------------------------------- #
+# ⚠️ THE EXCLUSION IS INERT ON THIS REPO'S REAL AUTOMATION PRs. MEASURED.
+#
+# The predicate requires a BOT author. Every automation landing PR here is
+# opened by `.github/actions/commit-to-main` using `BRANCH_PROTECTION_TOKEN`, a
+# PAT owned by the operator — so its `user.login` is the HUMAN account
+# `benbaichmankass`, not a bot. That is not incidental: the action's own header
+# says a PR opened with the default GITHUB_TOKEN "does NOT trigger the
+# on:pull_request required checks (so it would stall auto-merge forever)", so
+# the PAT is load-bearing and cannot simply be swapped for a bot identity.
+#
+# Measured 2026-09-02 on BOTH live instances (n=2, the whole population of
+# automation landing PRs visible at the time):
+#   #10398 head `automation/econ-calendar-33232352515-1` user `benbaichmankass`
+#   #10781 head `automation/due-list-33616772895-1`      user `benbaichmankass`
+#
+# So the residual this exclusion was built to close is NOT closed. This test
+# pins the gap so it is ASSERTED rather than assumed — a decorative predicate
+# that looks like coverage is worse than a named gap, and a later session
+# reading only the docstring would otherwise conclude it works.
+#
+# The code is deliberately left as specified (fail-closed: it excuses nothing,
+# so nothing is wrongly hidden). Changing the predicate is the manager's call —
+# see the PR body for the options and the recommendation.
+# --------------------------------------------------------------------------- #
+PAT_AUTHORED_AUTOMATION = {"number": 10398,
+                           "user": {"login": "benbaichmankass"},
+                           "head": {"ref": "automation/econ-calendar-33232352515-1"}}
+
+
+def test_the_exclusion_is_inert_on_this_repos_real_automation_prs():
+    """MEASURED GAP, pinned. Not the intended end state."""
+    assert opr.is_automation_landing_pr(PAT_AUTHORED_AUTOMATION) is False
+    doc = {"open_prs": [_row(1)]}
+    obs = [PAT_AUTHORED_AUTOMATION, {"number": 1, "user": {"login": "x"},
+                                     "head": {"ref": "claude/a"}}]
+    assert opr.automation_landing_prs(obs) == []
+    # ...so a real automation landing PR still reads `unrecorded`.
+    v = opr.grade_completeness(doc, True, [1, 10398],
+                               automation_excluded=opr.automation_landing_prs(obs))
+    assert v["state"] == "unrecorded"
+    assert v["unrecorded"] == [10398]

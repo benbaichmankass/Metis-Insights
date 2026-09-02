@@ -286,6 +286,27 @@ def normalise_open_prs(raw: Any) -> Optional[List[int]]:
 #:     2026-08-30, the oldest ten weeks. That is `verify-merged`'s job on the
 #:     producing workflow, not this one's — named so the gap is not mistaken for
 #:     coverage.
+#:   * ⚠️ **AS SPECIFIED IT IS CURRENTLY INERT ON THIS REPO, MEASURED.** Every
+#:     automation landing PR here is opened by `.github/actions/commit-to-main`
+#:     using `BRANCH_PROTECTION_TOKEN`, a PAT owned by the operator, so its
+#:     `user.login` is the HUMAN account `benbaichmankass` and the bot half of
+#:     the predicate never matches. Measured 2026-09-02 on BOTH live instances
+#:     (n=2, the whole visible population): #10398
+#:     `automation/econ-calendar-33232352515-1` and #10781
+#:     `automation/due-list-33616772895-1`, both `benbaichmankass`. The PAT is
+#:     load-bearing and cannot be swapped for a bot identity — the action's own
+#:     header records that a GITHUB_TOKEN-opened PR does not trigger the
+#:     required checks and would stall auto-merge forever. So the residual this
+#:     exclusion was built to close is NOT closed; the predicate is kept as
+#:     specified because it is FAIL-CLOSED (it excuses nothing, so nothing is
+#:     wrongly hidden), and the gap is pinned by
+#:     `test_the_exclusion_is_inert_on_this_repos_real_automation_prs` so it
+#:     cannot read as coverage. Widening it is a decision, not a bug-fix: the
+#:     candidate is to replace the author condition with the machine-generated
+#:     `-<run_id>-<attempt>` suffix that only `commit-to-main` produces, which
+#:     keeps two independent conditions but WOULD excuse a human on such a
+#:     branch — i.e. it trades one of the three required assertions away, which
+#:     is why it is not taken unilaterally.
 #:   * It is only applied when the OBSERVATION carries author and head-ref
 #:     fields. A caller passing bare PR numbers gets NO exclusion, so an
 #:     automation PR then reads `unrecorded` — fail-closed, deliberately: the
