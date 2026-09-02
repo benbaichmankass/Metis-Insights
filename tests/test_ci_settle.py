@@ -203,6 +203,32 @@ def test_observe_once_polls_exactly_once_and_claims_no_timeout():
     assert result["state"] == "pending"
 
 
+def test_observe_once_does_not_claim_it_stopped_waiting():
+    """The wait path's `pending` reason says the watcher stopped waiting. In
+    `once` mode nothing waited, so that sentence would name an action no code
+    path took -- UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A. Caught live on
+    the first `once` run against PR #10757."""
+    stub = _StubGitHub([[RUNNING]])
+    result = ci_settle.watch(
+        stub, 1, timeout_s=0, poll_s=0, with_threads=False, sleeper=lambda _: None
+    )
+    assert "stopped waiting" not in result["reason"]
+    assert "SINGLE observation" in result["reason"]
+    # the count itself is unchanged -- only the claim about how it was obtained
+    assert result["counts"]["running"] == 1
+
+
+def test_wait_mode_still_says_the_watcher_stopped_waiting():
+    """The counterpart: in wait mode that sentence is TRUE and must survive."""
+    ticks = iter(range(20))
+    stub = _StubGitHub([[RUNNING]] * 20)
+    result = ci_settle.watch(
+        stub, 1, timeout_s=1, poll_s=0, with_threads=False,
+        sleeper=lambda _: None, clock=lambda: next(ticks),
+    )
+    assert "stopped waiting" in result["reason"]
+
+
 def test_observe_once_still_reports_a_settled_state_when_there_is_one():
     stub = _StubGitHub([[OK]])
     result = ci_settle.watch(

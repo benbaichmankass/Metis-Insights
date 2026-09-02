@@ -518,6 +518,20 @@ def watch(
         # `timed_out_waiting` would claim an attempt nobody made.
         if timeout_s <= 0:
             summary["observed_once"] = True
+            # The `pending` reason is written for the WAIT path and says the
+            # watcher stopped waiting. In `once` mode nothing waited, so that
+            # sentence names an action no code path took -- the semantic
+            # substitution CLAUDE.md files as UNPROVENANCED DIAGNOSTIC OUTPUT
+            # sub-class A. Branch on the actual condition rather than reword it
+            # generically: the count is the same, the claim about how we got it
+            # is not.
+            if summary.get("state") == "pending":
+                summary["reason"] = (
+                    f"{summary['counts']['running']} check(s) still running as of "
+                    "this SINGLE observation — nothing was waited for. Re-observe, "
+                    "or use the wait mode if this PR has no subscribe_pr_activity "
+                    "wake behind it."
+                )
             break
         if clock() >= deadline:
             summary["timed_out_waiting"] = True
@@ -623,6 +637,10 @@ def self_test() -> int:
     _check("once-sets-observed-once", once.get("observed_once") is True, f)
     _check("once-never-claims-timeout", "timed_out_waiting" not in once, f)
     _check("once-still-pending", once["state"] == "pending", f)
+    _check("once-reason-says-single-observation",
+           "SINGLE observation" in once["reason"], f)
+    _check("once-reason-does-not-claim-waiting",
+           "stopped waiting" not in once["reason"], f)
     stub_once_green = _Stub([[ok]])
     og = watch(stub_once_green, 1, timeout_s=0, poll_s=0, with_threads=False,
                sleeper=lambda _: None)

@@ -243,6 +243,17 @@ The general lesson, and the reason it is recorded here rather than quietly
 patched: **green checks are not mergeability**, and a tool that reports both must
 not let one of them silently speak for the other.
 
+**Run 7 — `once` mode, live.** `mode: once`, `polls: 1`, `observed_once: true`,
+no `timed_out_waiting`. Exit 1 (`pending`: three checks running).
+
+It also caught a wording bug in itself, of exactly the kind this repo files as
+**UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A**: the `pending` reason is written
+for the wait path and said *"the watcher stopped waiting, CI did not stop"* —
+naming an action no code path took, because in `once` mode nothing waited. Fixed
+by branching on the actual condition rather than rewording it generically, with
+a test in each direction (the sentence must vanish in `once` mode and must
+survive in `wait` mode, where it is true).
+
 ### State ledger — what is proven LIVE, and what is not
 
 | state | evidence |
