@@ -24,7 +24,7 @@
     "MI-43 is building the check that refuses a handoff when this is stale."
   ],
   "schema_version": 1,
-  "as_of": "2026-09-02T06:18:12Z",
+  "as_of": "2026-09-02T07:20:22Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -94,6 +94,43 @@
       "state": "needs_operator_action",
       "operator_decision": "Pending -- requires the operator to restart `ict-telegram-bot.service` after merge.",
       "blocker": "OPERATOR ACTION, not a code blocker."
+    },
+    {
+      "pr": 10766,
+      "title": "sub-session registry: couple the spawn to the record, and a handoff-readiness check",
+      "owner_session": "session_019udKqceYPBqp4kzBYNZ6Sp",
+      "checklist_item": "MI-43",
+      "draft": true,
+      "tier": "1",
+      "state": "REVIEWED — ALL 4 CHECKS GREEN — MERGE FIRST",
+      "manager_review": "This is the gate for the MI-44 handoff test. Reviewed in full: it REFUSES to fake the spawn/register coupling (the repo does not own create_session) and ships three graded mechanisms instead, labelling the strongest 'necessary, not sufficient'. Re-measured the registry gap as 26 of 55 absent (17 with the manager as parent, 5 RUNNING) against the 6-of-9 it was briefed. Found LIVE unregistered session_01PnQLKnuezWVB4D47PtnTqR owning MI-08 Phase H with three unactioned operator asks. Caught its own detector's 3 false findings and fixed them.",
+      "operator_decision": "None required (Tier-1).",
+      "blocker": "GitHub API WRITE rate limit on the manager, 2026-09-02T07:20Z. Not a code blocker."
+    },
+    {
+      "pr": 10757,
+      "title": "ci-settled: a session-invokable CI waiter, so the runner polls instead of the session",
+      "owner_session": "session_01NeR2kREiXrXQcYYuRHvzRa",
+      "checklist_item": "MI-41-A",
+      "draft": true,
+      "tier": "1",
+      "state": "REVIEWED — green at last read, re-verify pytest-run",
+      "manager_review": "The operator's automation ask, answered in their framing. VERIFIED BEYOND THE PR'S CLAIM: the workflow has actually RUN 4 times (3 success), and its committed result correctly reported state=pending / 'the watcher stopped waiting, CI did not stop' on a timeout — never green. 51 polls happened on the runner instead of in a session. ⚠️ Its body claims an end-to-end proof 'posted as a comment below'; no such comment exists — it commits a result FILE instead. The substantive claim holds; the wording does not.",
+      "operator_decision": "None required (Tier-1).",
+      "blocker": "GitHub API WRITE rate limit on the manager, 2026-09-02T07:20Z. Not a code blocker."
+    },
+    {
+      "pr": 10764,
+      "title": "docs: split the API payload reference out of CLAUDE.md (-34.4%, verbatim)",
+      "owner_session": "session_01Ryr6K2VXGojZbqjFgQ2PrN",
+      "checklist_item": "MI-41-B",
+      "draft": true,
+      "tier": "1",
+      "state": "ci_red_with_owner",
+      "operator_decision": "None required (Tier-1).",
+      "blocker": "pytest-run RED. ⚠️ THERE IS NO GREEN BASELINE ON THIS BRANCH — pytest-run has run exactly TWICE: run 9814 (head a9c152b7, the AUTHOR's own merge of main) CANCELLED, and run 9819 (head 0890fc02, the MANAGER's merge resolving the backlog append conflict) FAILURE. So 'it was already broken' and 'the manager broke it' are BOTH unsupported; do not adopt either. The manager could not reproduce locally — its container fails collection on 110 test files (pyo3 PanicException), which is UNAVAILABLE, not clean. get_job_logs returns only post-job cleanup; the failing test name lives in the job STEP SUMMARY, which that API does not expose. Handed back to the author 2026-09-02T07:19Z via a session-bound Routine.",
+      "manager_review": "Independently verified: CLAUDE.md 429,804 -> 282,007 bytes = exactly -34.4%. The PR refuses to let that headline stand alone, publishing the -9.7% five-file figure with ROADMAP.md named as 42% of the denominator. It also caught its own split test passing with the fix DISABLED (deleting the source file rendered as a pure rename, emitting no + lines) — found by running the negative control, not by reading the test."
     }
-  ]
+  ],
+  "⚠️_manager_is_github_write_rate_limited": "MEASURED 2026-09-02T07:20Z. mcp__github__update_pull_request and merge_pull_request return 'API rate limit already exceeded for user ID 119055177'. READS STILL WORK — pull_request_read and actions_list answer normally, so this is the WRITE bucket, not a total outage. CAUSE, stated plainly: this manager polled get_check_runs in a loop across ~11 PRs for hours instead of relying on the check_suite.completed wake that already arrives for any subscribed PR. That is precisely the waste PR #10757 exists to remove, and it took the manager's own merge capability down. ⚠️ CONSEQUENCE FOR A SUCCESSOR: several PRs below are REVIEWED AND READY and were blocked only by this. Do not re-review them from scratch; re-verify CI (cheap, reads work) and merge."
 }
