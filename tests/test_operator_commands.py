@@ -130,6 +130,13 @@ def test_the_bots_own_is_authorised_is_what_gets_wired():
 
 
 def test_status_sends_every_message_of_a_chunked_readout(monkeypatch):
+    # collapsed-state: synced — this file tests command WIRING, not tree
+    # grading. The TreeProvenance below is an inert fixture value for a stubbed
+    # readout, so it names one state without branching on any. The three states
+    # are exercised where they mean something: reachability and rendering in
+    # tests/test_manager_status.py, and their operator-facing consequences in
+    # tests/test_telegram_decisions.py (a behind_main tree warns that an
+    # answered question may still read unanswered).
     import src.runtime.manager_status as ms
 
     readout = ms.StatusReadout(
