@@ -599,6 +599,16 @@ def cmd_status(a) -> int:
     if pend:
         print(f"session-registry: {len(pend)} unconfirmed spawn_pending row(s): "
               + ", ".join(str(p.get('registry_key')) for p in pend))
+    # ⚠️ Printed on EVERY run, including a clean one, and that is the point: a
+    # green `status` is the moment a reader is most likely to conclude the
+    # registry is complete. It is not — this command compares two REPO FILES,
+    # so a session written into neither is invisible to it. Saying so only on a
+    # finding would leave the quiet case reading as full coverage, which is the
+    # unstated-denominator error one level up.
+    print("session-registry: ⚠️ this is the OFFLINE half only — it compares "
+          "MANAGER-CHECKLIST.json owners against the registry and CANNOT see a "
+          "session absent from both. For what is actually RUNNING: "
+          "`reconcile --live-sessions <list_sessions output>`.")
     if a.json:
         print(json.dumps({"structural": st, "cross_check": xc,
                           "pending": len(pend)}, indent=2, ensure_ascii=False))
