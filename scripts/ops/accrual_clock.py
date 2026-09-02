@@ -67,7 +67,7 @@ import json
 import pathlib
 import re
 import sys
-from typing import Any, Iterable
+from typing import Any
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from _backlog import UnsupportedCriteriaShape, criteria_text  # noqa: E402
