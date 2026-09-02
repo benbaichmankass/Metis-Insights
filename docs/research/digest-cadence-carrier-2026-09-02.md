@@ -177,8 +177,8 @@ reviewer to merge past a real failure this PR introduced.
 
 `artifact-validity-guard` did fail on #10845, via
 `check_backlog_refs.py --base origin/main`. It was **mine**: the new backlog
-row's *title* opened `RECURRENCE of BL-20260830-SCHEDULED-WORKFLOW-LAG: ...`
-and the colon truncated the id, so the citation resolved to nothing — a row
+row's *title* opened ``RECURRENCE of BL-20260830-…-LAG: ...`` and the colon
+truncated the id, so the citation resolved to nothing — a row
 reading as tracked while tracked by nobody, exactly what that guard exists to
 catch. The `detail` field carried the full id all along; only the title was
 short.
@@ -195,6 +195,13 @@ the name of a control — a "before" measurement that was silently a second
 
 A second guard, `check_backlog_criteria.py`, then correctly refused the row for
 having no `resolution_criteria` and no `tier`. Both added.
+
+**And the correction above tripped the same guard a third time**, which is worth
+recording: *quoting* the broken id verbatim in this post-mortem re-emitted a
+parseable-but-dangling reference. The guard was right again. The id is now
+written with the truncation elided (`BL-20260830-…-LAG`) so the prose can
+describe the mistake without reproducing it — a real constraint on how a
+dangling-reference incident can be written up at all.
 
 **Genuinely not mine:** `layer-guard` fails locally with `lint-imports: command
 not found` (exit 127) — `import-linter` ships in `requirements-dev.txt` and is
