@@ -45,23 +45,6 @@
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
     {
-      "pr": 10746,
-      "title": "bybit: the naked sweep must grade coverage of the book it is protecting",
-      "owner_session": "session_01Wu7y3KL6MMgAV1ghetQWFx",
-      "checklist_item": "MI-37",
-      "draft": true,
-      "tier": "2 (order path)",
-      "state": "in_progress_by_owner",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "Must ship scoped behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE). Merging without the allowlist, or widening beyond bybit_1, EXCEEDS the approval given. PLUS (2026-09-02, second decision): arming is HELD pending soak evidence; merge is permitted because it arms nothing.",
-        "scope": "bybit_1 (demo) ONLY. NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug for the duration of the soak.",
-        "decided_on": "2026-09-02",
-        "text": "APPROVED WITH STAGING 2026-09-02 -- bybit_1 (demo) ONLY. ⚠️ NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug during the soak. Merging this without the account allowlist, or widening beyond bybit_1, EXCEEDS the approval given. ⚠️ SECOND OPERATOR DECISION 2026-09-02 (manager asked, operator answered 'hold it until the soak'): ARMING IS HELD. Merging is still within the approval -- the shipped default resolves MODE to `annotate` and an empty BYBIT_GRADED_COVERAGE_ACCOUNTS means NONE for every account, so the merge binds no order path. What is HELD is the separate two-key set-env (BYBIT_GRADED_COVERAGE_MODE=apply + BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1) plus the trader restart. ⚠️ MERGING IS WHAT STARTS THE SOAK, so holding the merge would make the operator's condition unsatisfiable -- the allowlist scopes the BINDING, never the MEASUREMENT (verified in the diff: every Bybit account is graded and annotated regardless), which is the exact correction NETTING_ATTRIBUTION_ACCOUNTS needed on 2026-08-09 when intersecting the account set at the top of the pass made the account being staged TOWARD invisible. Do NOT arm on a quiet soak: the criterion is a bybit_coverage_soak row carrying `verdicts_differ: true`, and the evidence behind this whole PR is n=1 and CONSTRUCTED, never a sighting -- so a demo soak may never produce one, and not seeing it is not evidence the fix is wrong."
-      },
-      "blocker": "MERGE CONFLICT — mergeable_state `dirty`, base 2e6b51d2 against a main that has moved far ahead. 21 files / 1949 lines on the ORDER PATH, so the AUTHOR session resolves it, not the manager. Arming is separately HELD by operator decision pending soak evidence."
-    },
-    {
       "pr": 10748,
       "title": "R-metric contamination: detector + Tier-3 proposal",
       "owner_session": "session_01EihsgewHt7BZv43YcC7caV",
@@ -145,21 +128,6 @@
       "blocker": "NOT YET REVIEWED BY THE MANAGER. ⚠️ Its done-condition is NOT a green CI run: it needs a workflow_dispatch run with a quoted conclusion, producing a digest in which the AVAX dead leg is visible. Do not merge on green alone — that exact mistake cost two failed fixes this morning."
     },
     {
-      "pr": 10779,
-      "title": "manager: register MI-57 — the open-PR record's staleness regress, and the structural fix",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-57",
-      "draft": false,
-      "tier": "1 (coordination records)",
-      "state": "in_ci",
-      "operator_decision": {
-        "verdict": "not_required",
-        "decided_on": "2026-09-02",
-        "text": "No operator statement was sought or given. Tier-1 coordination records only (MANAGER-CHECKLIST.json + SESSIONS.json); no code, no order path, no config. Recording the ABSENCE of a decision rather than inventing one."
-      },
-      "blocker": "CI. Merges on green."
-    },
-    {
       "pr": 10780,
       "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
       "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
@@ -175,51 +143,19 @@
       "blocker": "Needs a live session to take ownership and verify the resolution path against a real venue read, then re-open as a normal Tier-gated PR. Until then this branch is a BACKUP, not a proposal."
     },
     {
-      "pr": 10783,
-      "title": "open-prs: split the settled record out of the graded one, and reconcile after the merge (MI-57)",
-      "owner_session": "session_01T8iWSepqAuBU7sgbs8GPHu",
-      "checklist_item": "MI-57",
-      "draft": true,
-      "tier": "1 (tooling + CI)",
-      "state": "in_progress_by_owner",
-      "operator_decision": {
-        "verdict": "not_required",
-        "decided_on": "2026-09-02",
-        "text": "No operator statement exists and none is needed: Tier-1 tooling and CI, no order path, no config, no runtime. This field records the ABSENCE of an operator decision and is deliberately not a quotation."
-      },
-      "blocker": "⚠️ THIS PR IS THE FIX FOR THE VERY CHECK THAT FLAGGED IT. handoff_check's open_prs check cannot read clean by construction: every open PR needs a row, the PR maintaining the rows is itself open, and merging it makes that row stale. MANAGER DECISION RELAYED 2026-09-02: drop the bot-author condition entirely and key ONLY on the anchored `automation/` branch prefix -- the manager's original spec required bot-author AND prefix, and MEASUREMENT INVERTED IT ON BOTH SIDES (#10785 and #10781 sit on automation/ branches with the HUMAN author because they are PAT-authored; #10783 itself is on a claude/ branch with author github-actions[bot] because pr-opener.yml relayed it). Also approved: the .github/actions/commit-to-main landing route with verify-merged, since GH006 forbids a direct push to main."
-    },
-    {
       "pr": 10788,
       "title": "feat(work): push a committed decision answer back to the session that asked it",
       "owner_session": "session_01PEYVqTaCY92C3HmtHwxYff",
       "checklist_item": "MI-60",
       "draft": true,
-      "tier": "1 -- docs, a pure decision module, ops scripts, tests and CI. No order path, no config, no unit file, no VM state.",
+      "tier": "1 for the investigation; the build depends on what it touches",
       "state": "in_progress_by_owner",
       "operator_decision": {
         "verdict": "pending",
         "decided_on": "2026-09-02",
-        "condition": "Keep it a DRAFT -- the operator un-drafts and merges. Nothing is ever minted: do not re-introduce a credential-gated delivery step, nor a longer-lived variant of one.",
-        "scope": "Applies to this PR only. The DESIGN (C+B+A) is decided; the MERGE is not.",
-        "text": "TWO OPERATOR DECISIONS, ONE DAY, AND THEY ARE ABOUT DIFFERENT THINGS -- do not read either as approval to merge. (1) THE DESIGN IS DECIDED: 'C as the design, B as the mechanism, A as the fast path. Nothing is ever minted.' (2) THE CREDENTIAL PATH IS RULED OUT, verbatim: 'we definitely can't have a flow that relies on my minting new tokens every month - but we also need the 2 way flow here.' That is an objection to a HUMAN RE-MINTING ANYTHING ON A SCHEDULE, so do NOT propose a variant (a longer-lived token, a PAT, a service account) as a way around it. The `claude -p --cloud` steps were DELETED rather than parked behind a secret nobody will set. B carries a binding requirement: 'B is not done when the Routine exists. B is done when something WATCHES that it fired.' C is right and NOT YET EARNED -- it depends on Phase E, whose exit condition is 'killing a session mid-work loses nothing, DEMONSTRATED by killing one', and NOBODY HAS KILLED ONE; nothing here may assert that resumption works. (3) MERGING IS STILL THE OPERATOR'S: 'Keep the PR a DRAFT; the operator un-drafts and merges.' `verdict` therefore stays `pending`."
+        "text": "The operator DIRECTED THE WORK and has made NO decision on merging this PR -- do not read the first as the second. Their words: 'Can we maybe add, like, a push something on the end of that so that, when the answer gets to the repo, it knows to push it to the session instead of waiting for the session to pull, or is that not something we're capable of doing?'"
       },
-      "blocker": "NOT BLOCKED ON FEASIBILITY ANY MORE -- that is established and written up. This row's predecessor said the runner half was UNKNOWN; it is now answered and the answer is NO: no runner can deliver into an existing session by any mechanism (Routine /fire starts a NEW session; watch_url's credential is sealed to the artifact service, TESTED; the CLI has no long-lived CI credential and the operator has ruled minting out). Evidence per claim, marked TESTED / READ / RECORDED: docs/design/decision-push-back-FEASIBILITY.md; what is PROVEN vs NOT PROVEN per mechanism: docs/design/decision-push-back-DESIGN.md. WHAT BLOCKS IT NOW is the operator's own review -- it stays a DRAFT until they un-draft and merge it. TWO THINGS A SUCCESSOR MUST KNOW. (a) THE PR BODY IS STALE IN THE DANGEROUS DIRECTION and could not be corrected: it still describes the ruled-out credential mechanism and asks the operator to mint CLAUDE_CODE_OAUTH_REFRESH_TOKEN. `update_pull_request` returns 403 from the owning session (attempted twice) and no relay in this repo edits a PR body -- board-post is hardcoded to issue #6927 and pr-opener only creates. Read the DESIGN doc as authoritative, never the PR body. (b) IT WAS ARMED FOR AUTO-MERGE BY ACCIDENT on 2026-09-02 and has been disarmed: a `git merge origin/main` brought the legacy shared trigger file `.github/pr-automerge-request` onto the branch, so `claude-pr-automerge` fired on a request nobody made, un-drafted the PR and enabled squash auto-merge. Disarmed via the new `pr-automerge-disable` relay (auto_merge: disabled, draft: converted) and the legacy trigger path removed; re-verified `draft: true` on the live PR."
-    },
-    {
-      "pr": 10789,
-      "title": "feat(telegram): make the Claude bot polled, then move decision prompts to it",
-      "owner_session": "session_01XH17FTCCjiwHcMLAVeDLQZ",
-      "checklist_item": "MI-58",
-      "draft": true,
-      "tier": "2 (a live service gains a polling loop; no order path)",
-      "state": "in_progress_by_owner",
-      "operator_decision": {
-        "verdict": "pending",
-        "decided_on": "2026-09-02",
-        "text": "The operator DIRECTED THE CHANNEL, not the merge: 'that's supposed to be showing up in Cloudbot. Right? Not on the trader one, the decisions.' No Tier-2 merge or restart decision has been recorded; treating the direction as merge approval would be the half-informed state this record exists to prevent."
-      },
-      "blocker": "⚠️ BOTH HALVES OR NEITHER. It must NOT change answerable_route() without first making TELEGRAM_CLAUDE_BOT_SECRET genuinely POLLED with a CallbackQueryHandler -- a button in an unpolled bot renders perfectly and does nothing when tapped, which is strictly WORSE than the current wrong-channel state. #10778 chose the trader bot for exactly this reason and was right to. Must not fork handle_decision_callback (the route stays the one owner of every refusal) and must not reuse TELEGRAM_CLAUDE_BOT_TOKEN, which drives the PROP bot. Concurrent with MI-59 in src/bot/telegram_query_bot.py -- whichever lands second resolves."
+      "blocker": "Feasibility FIRST, deliberately: whether a GitHub Actions runner can fire a session-bound Routine is UNKNOWN and must be established rather than assumed -- the manager made exactly that error today, declaring a capability absent off ONE failed probe and writing it into a merged PR body. A session-bound Routine IS verified to wake a running session from a session holding MCP; the runner half is not. The watch_url alternative dies with its session AND would publish an endpoint in a PUBLIC repo. Nothing today records WHICH session asked a decision, so there is no address to push to; that recording gates everything else."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -266,5 +202,87 @@
     }
   ],
   "⚠️_the_last_row_is_always_stale_and_that_is_STRUCTURAL": "A handoff can never reach open_prs=PASS at the exact moment of the final merge, and this is a PROPERTY of the design rather than a bug to chase. Every open PR must have a row; the PR that prunes the last stale row is itself an open PR and needs a row; merging it makes THAT row stale. The regress terminates only if the manager stops opening PRs. ⚠️ DO NOT 'fix' this by exempting the currently-merging PR from the completeness check — the exemption would be indistinguishable from the real failure it exists to catch (a PR nobody recorded), and a check that cannot tell those apart is worse than the transient row. The correct reading: at handoff, `open_prs` naming ONLY the PR being merged right now is materially ready; naming any OTHER pr is not. State which case you are in rather than quoting the verdict alone.",
-  "⚠️_a_row_can_UNDER_claim_and_no_check_catches_it": "Found 2026-09-02 on this very row. `open_pr_record.py --strict` grades a verdict that DECLARES conditions and records none — the over-claiming direction, which is the dangerous one. It cannot catch the OPPOSITE: I typed #10758 `none_recorded` while a full operator decision, with its condition, sat in MANAGER-CHECKLIST.json under MI-34 the whole time. `none_recorded` is a valid verdict needing no condition, so the row passed every check while being simply wrong. ⚠️ The cost is real but is NOT symmetric with the over-claiming case: a successor reading `none_recorded` re-asks the operator — wasteful and SAFE — where one reading a bare 'approved' could merge a demo-only Tier-2 approval onto a real-money account. So this is worth KNOWING, not worth a new failing check: cross-checking every row against the checklist would fire on the many PRs that legitimately have no decision anywhere. The mitigation is the reviewer's, not the guard's — read MANAGER-CHECKLIST for the PR's item before typing `none_recorded`."
+  "⚠️_a_row_can_UNDER_claim_and_no_check_catches_it": "Found 2026-09-02 on this very row. `open_pr_record.py --strict` grades a verdict that DECLARES conditions and records none — the over-claiming direction, which is the dangerous one. It cannot catch the OPPOSITE: I typed #10758 `none_recorded` while a full operator decision, with its condition, sat in MANAGER-CHECKLIST.json under MI-34 the whole time. `none_recorded` is a valid verdict needing no condition, so the row passed every check while being simply wrong. ⚠️ The cost is real but is NOT symmetric with the over-claiming case: a successor reading `none_recorded` re-asks the operator — wasteful and SAFE — where one reading a bare 'approved' could merge a demo-only Tier-2 approval onto a real-money account. So this is worth KNOWING, not worth a new failing check: cross-checking every row against the checklist would fire on the many PRs that legitimately have no decision anywhere. The mitigation is the reviewer's, not the guard's — read MANAGER-CHECKLIST for the PR's item before typing `none_recorded`.",
+  "settled_prs": [
+    {
+      "pr": 10746,
+      "title": "bybit: the naked sweep must grade coverage of the book it is protecting",
+      "owner_session": "session_01Wu7y3KL6MMgAV1ghetQWFx",
+      "checklist_item": "MI-37",
+      "draft": true,
+      "tier": "2 (order path)",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "Must ship scoped behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE). Merging without the allowlist, or widening beyond bybit_1, EXCEEDS the approval given. PLUS (2026-09-02, second decision): arming is HELD pending soak evidence; merge is permitted because it arms nothing.",
+        "scope": "bybit_1 (demo) ONLY. NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug for the duration of the soak.",
+        "decided_on": "2026-09-02",
+        "text": "APPROVED WITH STAGING 2026-09-02 -- bybit_1 (demo) ONLY. ⚠️ NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug during the soak. Merging this without the account allowlist, or widening beyond bybit_1, EXCEEDS the approval given. ⚠️ SECOND OPERATOR DECISION 2026-09-02 (manager asked, operator answered 'hold it until the soak'): ARMING IS HELD. Merging is still within the approval -- the shipped default resolves MODE to `annotate` and an empty BYBIT_GRADED_COVERAGE_ACCOUNTS means NONE for every account, so the merge binds no order path. What is HELD is the separate two-key set-env (BYBIT_GRADED_COVERAGE_MODE=apply + BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1) plus the trader restart. ⚠️ MERGING IS WHAT STARTS THE SOAK, so holding the merge would make the operator's condition unsatisfiable -- the allowlist scopes the BINDING, never the MEASUREMENT (verified in the diff: every Bybit account is graded and annotated regardless), which is the exact correction NETTING_ATTRIBUTION_ACCOUNTS needed on 2026-08-09 when intersecting the account set at the top of the pass made the account being staged TOWARD invisible. Do NOT arm on a quiet soak: the criterion is a bybit_coverage_soak row carrying `verdicts_differ: true`, and the evidence behind this whole PR is n=1 and CONSTRUCTED, never a sighting -- so a demo soak may never produce one, and not seeing it is not evidence the fix is wrong."
+      },
+      "blocker": "MERGE CONFLICT — mergeable_state `dirty`, base 2e6b51d2 against a main that has moved far ahead. 21 files / 1949 lines on the ORDER PATH, so the AUTHOR session resolves it, not the manager. Arming is separately HELD by operator decision pending soak evidence.",
+      "terminal": "merged",
+      "merge_sha": "af9af5e332703032c96b077aff2e8d788daab6ed",
+      "observed_at": "2026-09-02T14:36:19Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10779,
+      "title": "manager: register MI-57 — the open-PR record's staleness regress, and the structural fix",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-57",
+      "draft": false,
+      "tier": "1 (coordination records)",
+      "state": "in_ci",
+      "operator_decision": {
+        "verdict": "not_required",
+        "decided_on": "2026-09-02",
+        "text": "No operator statement was sought or given. Tier-1 coordination records only (MANAGER-CHECKLIST.json + SESSIONS.json); no code, no order path, no config. Recording the ABSENCE of a decision rather than inventing one."
+      },
+      "blocker": "CI. Merges on green.",
+      "terminal": "merged",
+      "merge_sha": "fdad6cc1cb9afe404509b3c7607bcd7997d0064b",
+      "observed_at": "2026-09-02T14:36:19Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10783,
+      "title": "open-prs: split the settled record out of the graded one, and reconcile after the merge (MI-57)",
+      "owner_session": "session_01T8iWSepqAuBU7sgbs8GPHu",
+      "checklist_item": "MI-57",
+      "draft": true,
+      "tier": "1 (tooling + CI)",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "not_required",
+        "decided_on": "2026-09-02",
+        "text": "No operator statement exists and none is needed: Tier-1 tooling and CI, no order path, no config, no runtime. This field records the ABSENCE of an operator decision and is deliberately not a quotation."
+      },
+      "blocker": "⚠️ THIS PR IS THE FIX FOR THE VERY CHECK THAT FLAGGED IT. handoff_check's open_prs check cannot read clean by construction: every open PR needs a row, the PR maintaining the rows is itself open, and merging it makes that row stale. MANAGER DECISION RELAYED 2026-09-02: drop the bot-author condition entirely and key ONLY on the anchored `automation/` branch prefix -- the manager's original spec required bot-author AND prefix, and MEASUREMENT INVERTED IT ON BOTH SIDES (#10785 and #10781 sit on automation/ branches with the HUMAN author because they are PAT-authored; #10783 itself is on a claude/ branch with author github-actions[bot] because pr-opener.yml relayed it). Also approved: the .github/actions/commit-to-main landing route with verify-merged, since GH006 forbids a direct push to main.",
+      "terminal": "merged",
+      "merge_sha": "7fd659000f2f8d7c4ef035153a83cd82770eddf3",
+      "observed_at": "2026-09-02T14:36:19Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10789,
+      "title": "feat(telegram): make the Claude bot polled, then move decision prompts to it",
+      "owner_session": "session_01XH17FTCCjiwHcMLAVeDLQZ",
+      "checklist_item": "MI-58",
+      "draft": true,
+      "tier": "2 (a live service gains a polling loop; no order path)",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "pending",
+        "decided_on": "2026-09-02",
+        "text": "The operator DIRECTED THE CHANNEL, not the merge: 'that's supposed to be showing up in Cloudbot. Right? Not on the trader one, the decisions.' No Tier-2 merge or restart decision has been recorded; treating the direction as merge approval would be the half-informed state this record exists to prevent."
+      },
+      "blocker": "⚠️ BOTH HALVES OR NEITHER. It must NOT change answerable_route() without first making TELEGRAM_CLAUDE_BOT_SECRET genuinely POLLED with a CallbackQueryHandler -- a button in an unpolled bot renders perfectly and does nothing when tapped, which is strictly WORSE than the current wrong-channel state. #10778 chose the trader bot for exactly this reason and was right to. Must not fork handle_decision_callback (the route stays the one owner of every refusal) and must not reuse TELEGRAM_CLAUDE_BOT_TOKEN, which drives the PROP bot. Concurrent with MI-59 in src/bot/telegram_query_bot.py -- whichever lands second resolves.",
+      "terminal": "merged",
+      "merge_sha": "9df1502b02c0202c411981965c94ce90954fd78b",
+      "observed_at": "2026-09-02T14:36:19Z",
+      "settled_by": "reconciler"
+    }
+  ],
+  "last_reconciled_at": "2026-09-02T14:36:19Z",
+  "last_reconciled_sha": "41c7bc39e39f0f7dae42def48483fc531f4d9d96"
 }
