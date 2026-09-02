@@ -1,0 +1,81 @@
+=== trainer-diag-relay result ===
+request: r-contamination-probe-20260902c
+state: ran
+remote_exit: 0
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/33591548756
+=================================
+DB_PATH: /home/ubuntu/ict-trading-bot/data/trade_journal.db
+DB_MTIME_UTC: 2026-09-02T04:28:35.692023Z
+max_created_at: 2026-09-02T04:11:21.348745+00:00
+
+=== 4a. order_packages.sl vs trades.stop_loss (v2 SQL was mangled) ===
+{'n': 1325, 'no_pkg': 360, 'pkg_eq': 929, 'pkg_diff': 36, 'meta_has_rpu': 682, 'wrong_and_rpu': 226}
+
+=== 4d. is intent_reduce ALREADY excluded from /performance? (setup_type + notes) ===
+{'st': 'intent_reduce', 'n': 33, 'notes_flag': 32}
+
+=== 7. THREE-STATE GRADING against order_packages.meta.risk_per_unit ===
+stored_dist = |entry - stop_loss| ; declared = meta.risk_per_unit (signal time)
+total gradeable rows: 1325
+  unverifiable_no_declared_risk      x side_ok    : 643
+  contaminated_vs_declared           x side_ok    : 300
+  contaminated_vs_declared           x wrong_side : 192
+  confirmed_initial                  x side_ok    : 156
+  confirmed_initial                  x wrong_side : 34
+
+!! CROSS-CHECK — rows CONFIRMED-initial yet WRONG-SIDE (must be ~0; a non-zero
+   count means one of the two instruments is wrong): 34
+
+R INFLATION FACTOR (declared_initial_risk / stored_stop_dist) over n=492 contaminated-vs-declared rows:
+  min 0.215 | p25 0.986 | median 1.022 | p75 1.371 | p95 17.754 | max 3014.2
+  rows where stored R is INFLATED >2x: 103
+  rows where stored R is INFLATED >10x: 35
+
+=== 8. PER-STRATEGY three-state (n>=5), worst-verifiable first ===
+strategy                         acct           n confirmed  contam  unverif wrongside
+htf_pullback_trend_2h            paper         48         6      42        0        25
+ict_scalp_5m                     paper         47         4      38        5         9
+eth_pullback_2h                  paper         32         7      25        0        17
+ict_scalp_5m                     real_money    33         5      24        4         9
+ict_scalp_avax_5m                paper         30         7      23        0        11
+ict_scalp_sol_5m                 paper         29         7      22        0        13
+ada_pullback_2h                  paper         22         2      20        0         9
+ict_scalp_xrp_5m                 paper         21         1      20        0         8
+trend_donchian                   paper         23         3      19        1         3
+ict_scalp_sol_15m                paper         22         3      19        0         8
+mgc_trend_1h                     paper         19         1      18        0        18
+trend_donchian_ada_4h            paper         24         7      17        0         9
+sol_pullback_2h                  paper         22         6      16        0        17
+xrp_pullback_2h                  paper         17         4      13        0         7
+ict_scalp_xrp_15m                paper         17         4      13        0         6
+trend_donchian_eth_4h            paper         16         3      13        0         5
+trend_donchian_avax_4h           paper         15         2      13        0         3
+avax_pullback_2h                 paper         18         6      12        0        10
+eth_pullback_2h                  real_money    13         3      10        0         1
+trend_donchian_sol_4h            paper         14         5       9        0         6
+trend_donchian_xrp_4h            paper         10         2       8        0         3
+fade_breakout_4h                 real_money     9         1       8        0         0
+ict_scalp_eth_15m                paper         18        11       7        0         5
+trend_donchian                   real_money    13         5       7        1         1
+gld_pullback_1h                  paper         13         6       7        0         0
+fade_breakout_4h                 paper          7         0       7        0         0
+spy_pullback_1h                  paper         12         6       6        0         4
+xrp_pullback_2h                  real_money     8         2       6        0         1
+slv_trend_1h                     paper         23        18       5        0         2
+qqq_pullback_1h                  paper         13         8       5        0         1
+trend_donchian_eth_4h            real_money     8         3       5        0         3
+uso_trend_1h                     paper         11         7       4        0         4
+htf_pullback_trend_2h            real_money     8         4       4        0         2
+ada_pullback_2h                  real_money     6         2       4        0         0
+ict_scalp_mgc_15m                paper          6         2       4        0         4
+squeeze_breakout_4h              paper          5         1       4        0         1
+trend_donchian_xrp_4h            real_money     5         3       2        0         0
+tlt_pullback_1h                  paper          9         8       1        0         1
+vwap                             real_money   318         0       0      318         0
+pairs_sol_eth_a                  paper         86         0       0       86         0
+pairs_sol_eth_b                  paper         85         0       0       85         0
+pairs_bnb_btc_b                  paper         57         0       0       57         0
+pairs_bnb_btc_a                  paper         55         0       0       55         0
+vwap                             paper         30         0       0       30         0
+=== END ===
+
