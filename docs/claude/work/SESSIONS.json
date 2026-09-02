@@ -553,6 +553,82 @@
       "state": "working"
     },
     {
+      "session_id": "session_01N1BmbHtE6PpfHtzTXMtbLh",
+      "title": "MI-37 (retry 1): stage the book-aware Bybit coverage grade",
+      "checklist_item": "MI-37",
+      "spawned_at": "2026-09-02T06:12:45Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "archived",
+      "note": "ARCHIVED without producing work. Blocked: 'repo absent from container'. CAUSE WAS MY OWN INSTRUCTION -- I told it not to clone after attempt 1 stalled on a clone-permission prompt, and its container genuinely had no checkout. Superseded by session_01Wu7y3KL6MMgAV1ghetQWFx.",
+      "registered_late": true,
+      "registered_late_reason": "Registered retroactively 2026-09-02 when a handoff readiness check found 6 of 9 spawned sessions absent. spawned_at is the REGISTRATION time, not the spawn time -- do not read it as when the session started."
+    },
+    {
+      "session_id": "session_01Wu7y3KL6MMgAV1ghetQWFx",
+      "title": "MI-37 (retry 2): stage the book-aware Bybit coverage grade on bybit_1",
+      "checklist_item": "MI-37",
+      "spawned_at": "2026-09-02T06:12:45Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "working",
+      "note": "Branch claude/bybit-coverage-graded-book, PR #10746 (DRAFT, Tier-2 order path). Operator APPROVED WITH STAGING on bybit_1 only -- NOT a fleet-wide flip. Spawned with explicit source_url+source_revision, which is what the two failed attempts lacked.",
+      "registered_late": true,
+      "registered_late_reason": "Registered retroactively 2026-09-02 when a handoff readiness check found 6 of 9 spawned sessions absent. spawned_at is the REGISTRATION time, not the spawn time -- do not read it as when the session started."
+    },
+    {
+      "session_id": "session_01PcirVtpMXJGiKm2548nkrR",
+      "title": "MI-39 fix: register pending-pings.jsonl so the notify test cannot be short-circuited",
+      "checklist_item": "MI-39",
+      "spawned_at": "2026-09-02T06:12:45Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "working",
+      "note": "Branch claude/work-digest-empty-body, PR #10747 (DRAFT). Its guard's own self-test is RED in CI and green in two local reproductions; handed back with the evidence. WOKEN TWICE VIA A SESSION-BOUND ROUTINE after going idle -- see the MI-32 correction.",
+      "registered_late": true,
+      "registered_late_reason": "Registered retroactively 2026-09-02 when a handoff readiness check found 6 of 9 spawned sessions absent. spawned_at is the REGISTRATION time, not the spawn time -- do not read it as when the session started."
+    },
+    {
+      "session_id": "session_01NeR2kREiXrXQcYYuRHvzRa",
+      "title": "MI-41-A: actions Claude can INVOKE to save tokens",
+      "checklist_item": "MI-41-A",
+      "spawned_at": "2026-09-02T06:12:45Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "working",
+      "note": "Branch claude/session-invokable-actions-ci-settled. ⚠️ MY BRIEF WAS CORRECTED MID-FLIGHT: the CI-settled notifier I told it to build ALREADY EXISTS as the check_suite.completed wake on a subscribed PR. Its task is now to measure that wake's real gaps and build only into them -- and 'the gap is small, it was operator error' is an ACCEPTABLE deliverable.",
+      "registered_late": true,
+      "registered_late_reason": "Registered retroactively 2026-09-02 when a handoff readiness check found 6 of 9 spawned sessions absent. spawned_at is the REGISTRATION time, not the spawn time -- do not read it as when the session started."
+    },
+    {
+      "session_id": "session_01Ryr6K2VXGojZbqjFgQ2PrN",
+      "title": "MI-41-B: split the instruction surface",
+      "checklist_item": "MI-41-B",
+      "spawned_at": "2026-09-02T06:12:45Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "working",
+      "note": "Branch claude/claude-md-reference-split. 77% of CLAUDE.md (330,333 of 430,453 bytes) is API/env/diag reference. Deliver a measured proposal THEN the lowest-risk slice; do not delete content to hit a number.",
+      "registered_late": true,
+      "registered_late_reason": "Registered retroactively 2026-09-02 when a handoff readiness check found 6 of 9 spawned sessions absent. spawned_at is the REGISTRATION time, not the spawn time -- do not read it as when the session started."
+    },
+    {
+      "session_id": "session_01YBQQzvgJzSumk1APmjiG7B",
+      "title": "MI-41-C/D: map 32 skills onto the five session types; inventory 129 workflows",
+      "checklist_item": "MI-41-CD",
+      "spawned_at": "2026-09-02T06:12:45Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "working",
+      "note": "AUDIT producing a proposal + safe repairs. Must NOT mass-delete skills or workflows. Told to grade a workflow by its run history, never by its YAML.",
+      "registered_late": true,
+      "registered_late_reason": "Registered retroactively 2026-09-02 when a handoff readiness check found 6 of 9 spawned sessions absent. spawned_at is the REGISTRATION time, not the spawn time -- do not read it as when the session started."
+    },
+    {
+      "session_id": "session_019udKqceYPBqp4kzBYNZ6Sp",
+      "title": "MI-43: handoff-readiness check + make spawn-and-register one action",
+      "checklist_item": "MI-43",
+      "spawned_at": "2026-09-02T06:14:39Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "working",
+      "note": "Registered in the SAME action that spawned it -- deliberately, because this session's own subject is that spawn and register keep diverging (MI-15, recurred 6-of-9 the same hour). Building the coupling by hand each time is the interim; its deliverable is to make the coupling mechanical so no manager has to.",
+      "registered_late": false
+    },
+    {
       "session_id": "session_01PnQLKnuezWVB4D47PtnTqR",
       "title": "Operating layer Phase H — the control half: decisions answerable from the UI",
       "checklist_item": "MI-08-PHASE-H",
@@ -578,5 +654,6 @@
       "note": "POLLED: session_status SESSION_STATUS_ARCHIVED, status_bucket FAILED, parent_session_id session_011JWFxuYAaEQKCFCmG6gnHJ. ⚠️ REGISTERED DESPITE BEING ARCHIVED, deliberately. An archived session cannot be orphaned, so this row is not about rescue — it is about the WORK it left standing: MI-18 is still in_flight and its PR #10694 stands. A successor that cannot see this row sees an in_flight item whose owner is a session it has no record of, which is the same dead end one step removed.",
       "state": "working"
     }
-  ]
+  ],
+  "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."
 }

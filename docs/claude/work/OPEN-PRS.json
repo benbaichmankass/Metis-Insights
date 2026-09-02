@@ -1,0 +1,99 @@
+{
+  "_doc": [
+    "THE OPEN-PR HANDOFF RECORD. What a manager arriving COLD needs to know about every",
+    "PR in flight that it did not open.",
+    "",
+    "WHY IT EXISTS. Measured 2026-09-02T06:17Z while checking whether a manager handoff",
+    "would actually work: SESSIONS.json carried ZERO structured PR fields and 19 rows",
+    "mentioning a PR only in PROSE, and nothing anywhere mapped a PR to its owning",
+    "session, its blocker, or the operator decisions already attached to it. A cold",
+    "manager would have had to grep prose.",
+    "",
+    "⚠️ THE DANGEROUS CASE IS NOT A FORGOTTEN PR -- IT IS A FORGOTTEN APPROVAL.",
+    "#10746 carries a Tier-2 operator approval that is CONDITIONAL (stage on bybit_1,",
+    "NOT a fleet-wide flip). A manager that does not know the approval exists stalls and",
+    "re-asks, which is merely wasteful. A manager that knows it was approved but NOT the",
+    "condition could merge it fleet-wide onto a real-money account. Those are opposite",
+    "failure modes and only the second is dangerous, which is why `operator_decision`",
+    "records the CONDITION and not just the verdict.",
+    "",
+    "⚠️ THIS FILE IS WRITTEN BY HAND AND GOES STALE THE MOMENT A PR MERGES.",
+    "It is NOT the source of truth for PR state -- GitHub is. Read it for OWNERSHIP,",
+    "INTENT and DECISIONS, which GitHub does not carry; re-read CI and mergeability from",
+    "the API before acting on any row. `as_of` is when a human last touched it.",
+    "MI-43 is building the check that refuses a handoff when this is stale."
+  ],
+  "schema_version": 1,
+  "as_of": "2026-09-02T06:18:12Z",
+  "maintained_by": "the manager session holding the lease",
+  "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
+  "open_prs": [
+    {
+      "pr": 10746,
+      "title": "bybit: the naked sweep must grade coverage of the book it is protecting",
+      "owner_session": "session_01Wu7y3KL6MMgAV1ghetQWFx",
+      "checklist_item": "MI-37",
+      "draft": true,
+      "tier": "2 (order path)",
+      "state": "in_progress_by_owner",
+      "operator_decision": "APPROVED WITH STAGING 2026-09-02 -- bybit_1 (demo) ONLY. ⚠️ NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug during the soak. Merging this without the account allowlist, or widening beyond bybit_1, EXCEEDS the approval given.",
+      "blocker": "Owner is reworking it to scope the changed grading behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE)."
+    },
+    {
+      "pr": 10747,
+      "title": "notify: the ping body was silently dropped, and the digest measured the wrong thing",
+      "owner_session": "session_01PcirVtpMXJGiKm2548nkrR",
+      "checklist_item": "MI-39",
+      "draft": true,
+      "tier": "1",
+      "state": "ci_red_with_owner",
+      "operator_decision": "None required (Tier-1).",
+      "blocker": "guards RED: the PR's own new guard `scripts/ci/check_pending_pings_render.py --self-test` exits 1 in CI while passing locally on the same commit AND on a merge ref. Handed back with that evidence and an explicit bar on silencing it. ⚠️ Do NOT merge red, and do NOT 'fix' it by loosening the self-test.",
+      "why_it_matters": "Until this lands, every operator review ping still renders as a bare event label -- 21 of 50 committed queue rows measured."
+    },
+    {
+      "pr": 10748,
+      "title": "R-metric contamination: detector + Tier-3 proposal",
+      "owner_session": "session_01EihsgewHt7BZv43YcC7caV",
+      "checklist_item": "MI-30",
+      "draft": true,
+      "tier": "1 shipped; the FIX it proposes is Tier-3 and is NOT in the diff",
+      "state": "awaiting_manager_review",
+      "operator_decision": "None yet. §5 contains a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it.",
+      "blocker": "Manager review not complete. ⚠️ Carry its CORRECTION to the brief: neither automated gate (M7 packet, R4 results gate) reads R -- the contamination reaches decisions through human/Claude review, which is a different severity than originally stated."
+    },
+    {
+      "pr": 10761,
+      "title": "manager-lease: heartbeat 06:15Z",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-11",
+      "draft": false,
+      "tier": "1",
+      "state": "manager_own_awaiting_ci",
+      "operator_decision": "None required.",
+      "blocker": "None. Merge when green."
+    },
+    {
+      "pr": 10398,
+      "title": "chore(m1): economic-calendar PIT snapshots (auto)",
+      "owner_session": null,
+      "checklist_item": "MI-12",
+      "draft": false,
+      "tier": "1",
+      "state": "not_this_managers_pr",
+      "operator_decision": "None recorded.",
+      "blocker": "Open since 2026-08-29, automation-generated, no owning session. Held under MI-12; do not merge without establishing what it does."
+    },
+    {
+      "pr": 10694,
+      "title": "claude pings: one OWNER for pending_claude_pings, grace-gated failover",
+      "owner_session": null,
+      "checklist_item": "MI-18",
+      "draft": true,
+      "tier": "2 (service)",
+      "state": "needs_operator_action",
+      "operator_decision": "Pending -- requires the operator to restart `ict-telegram-bot.service` after merge.",
+      "blocker": "OPERATOR ACTION, not a code blocker."
+    }
+  ]
+}

@@ -241,6 +241,107 @@ def _evidence_block(index: Dict[str, Any], rows: list) -> Dict[str, Any]:
         "gradeable": gradeable,
         # Rows whose n_closed itself was unknown — not folded into either.
         "floor_unknown_rows": ungraded,
+        # ⚠️ AND WHAT WOULD HAVE TO CHANGE. `below_floor` says the run could
+        # not act; it does not say whether waiting would ever help. See
+        # `_horizon_block`.
+        "horizon": _horizon_block(index, rows),
+    }
+
+
+def _horizon_block(index: Dict[str, Any], rows: list) -> Dict[str, Any]:
+    """How far the fleet is from gradeable — and whether waiting reaches it.
+
+    ⚠️ **`below_floor: 52` IS ONE NUMBER COVERING FOUR DIFFERENT PROBLEMS, AND
+    ONLY ONE OF THEM IS A WINDOW PROBLEM.** A leg closing 8 trades a week
+    reaches n=20 in a few more weeks; a leg that closed nothing has no
+    measurable rate to project from at all; a leg in `execution: shadow` does
+    not fill by design and so accumulates NO closed-trade evidence at any
+    window whatsoever. Rendering those as one count invites the one remedy that
+    is a trap — widen the window until something clears the floor — which fires
+    a KILL off an evidence base assembled to make a KILL fireable, the same
+    low-n hazard the floor exists to prevent, one level up.
+
+    ⚠️ **READ FROM THE GENERATOR'S PUBLISHED PER-ROW BLOCK, NEVER RECOMPUTED
+    HERE.** The horizon needs the window length and the funnel counts, and a
+    route holding its own copy of that arithmetic is how the two spellings of
+    a rule drift apart — the reasoning `min_closed_for_action` is published
+    for. An index whose rows predate the field therefore grades
+    ``horizon_state: "unknown"``, exactly as `floor_state` does: *we could not
+    look*, never "no leg has a horizon problem".
+    """
+    published = [
+        r.get("evidence_horizon") for r in rows
+        if isinstance(r.get("evidence_horizon"), dict)
+    ]
+    if not rows or not published:
+        return {
+            # ⚠️ `unknown` here is WE COULD NOT LOOK — the committed index
+            # predates the generator publishing the block. It is emphatically
+            # not "every leg is reachable".
+            "horizon_state": "unknown",
+            "why_unknown": (
+                "no row carries the generator's evidence_horizon block — this "
+                "index predates it. NOT a reading that every leg is reachable."
+            ),
+            "window_days": index.get("window_days"),
+            "rows_with_horizon": 0,
+            "rows_total": len(rows),
+            "by_horizon_class": None,
+            "by_funnel_stage": None,
+            "days_to_grade_all_reachable_point": None,
+            "structurally_ungradeable": None,
+        }
+
+    by_class: Dict[str, int] = {}
+    by_stage: Dict[str, int] = {}
+    reachable_days: list = []
+    for h in published:
+        cls = str(h.get("horizon_class") or "unknown")
+        by_class[cls] = by_class.get(cls, 0) + 1
+        stage = str(h.get("funnel_stage") or "unknown")
+        by_stage[stage] = by_stage.get(stage, 0) + 1
+        # Only a `reachable` leg HAS a point projection; `unbounded_no_closes`
+        # and `structurally_ungradeable` carry None for opposite reasons and
+        # pooling them into one "days" figure is the collapse this block
+        # exists to undo.
+        if cls == "reachable" and h.get("days_to_floor_point") is not None:
+            reachable_days.append(float(h["days_to_floor_point"]))
+
+    reachable = by_class.get("reachable", 0)
+    structural = by_class.get("structurally_ungradeable", 0)
+    unbounded = by_class.get("unbounded_no_closes", 0)
+    gradeable_now = by_class.get("gradeable_now", 0)
+
+    if gradeable_now == len(published):
+        state = "all_gradeable_now"
+    elif reachable == 0 and gradeable_now == 0:
+        # Nothing a longer window reaches. THE FINDING: the floor is not a
+        # window away, and proposing a wider one would buy nothing.
+        state = "none_reachable_by_waiting"
+    elif structural or unbounded:
+        state = "partly_reachable"
+    else:
+        state = "all_reachable"
+
+    return {
+        "horizon_state": state,
+        "why_unknown": None,
+        "window_days": index.get("window_days"),
+        # ⚠️ THE DENOMINATOR. A distribution over 3 of 52 rows is not a
+        # statement about the fleet, and `rows_total` is what says so.
+        "rows_with_horizon": len(published),
+        "rows_total": len(rows),
+        "by_horizon_class": by_class,
+        "by_funnel_stage": by_stage,
+        # The window that would grade every leg with a finite projection —
+        # AND NO OTHER LEG. Read it beside `structurally_ungradeable` and
+        # `unbounded_no_closes`, or it reads as a window that grades the fleet.
+        "days_to_grade_all_reachable_point": max(reachable_days) if reachable_days else None,
+        "reachable_legs": reachable,
+        "unbounded_no_closes": unbounded,
+        # Legs no window reaches under their current configuration. These need
+        # a different disposition mechanism, not a bigger number.
+        "structurally_ungradeable": structural,
     }
 
 

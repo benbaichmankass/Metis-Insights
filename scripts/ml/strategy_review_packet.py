@@ -46,6 +46,10 @@ import yaml
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
 
+from src.runtime.evidence_horizon import (  # noqa: E402
+    evidence_horizon,
+    summarize_horizons,
+)
 from src.utils.paths import runtime_logs_dir, trade_journal_db_path  # noqa: E402
 
 _STRATEGIES_YAML = _REPO_ROOT / "config" / "strategies.yaml"
@@ -1392,6 +1396,13 @@ def build_packet(
         tuning_attempted=tuning_attempt_on_record(strategy),
     )
 
+    # The window IN DAYS, derived from the window the packet was actually
+    # built over rather than from the CLI flag — a caller passing explicit
+    # datetimes must not have the horizon computed against a default it never
+    # used. Fractional, deliberately: rounding a 7.0002d window to 7 is fine,
+    # rounding a 12h window to 0 would make every rate infinite.
+    window_days = (window_end - window_start).total_seconds() / 86400.0
+
     now = datetime.now(timezone.utc).isoformat()
     sla_due = None
     if decision.action in ("demote_shadow", "kill"):
@@ -1408,6 +1419,32 @@ def build_packet(
         "regime_cells": [c.to_dict() for c in cells],
         "execution_diagnostics": diag.to_dict(),
         "backtest_anchor": load_backtest_anchor(strategy),
+        # collapsed-state: unknown — this module is a pure PRODUCER of
+        # `horizon_class` by delegation: it calls `evidence_horizon()` and
+        # publishes the block verbatim, branching on none of its five states.
+        # Its only match for the contract's vocabulary is the word "unknown",
+        # which here belongs to the UNRELATED `regime_policy_cell`
+        # ({"on","off","unknown"}) — a coincidence of English, not a collapsed
+        # branch. Branching on the horizon here would be the second, drifting
+        # copy of a rule the model owns; the CONSUMER that must keep the states
+        # apart is `src/web/api/routers/strategy_review.py::_horizon_block`,
+        # and it reads all five.
+        #
+        # HOW FAR THIS LEG IS FROM GRADEABLE, AND HOW LONG UNTIL IT WOULD BE.
+        # `reasons` already says the leg is below the floor; it cannot say what
+        # would have to change, and the candidate answers are different KINDS
+        # of fact (a wider window · no measurable rate at all · a leg no window
+        # reaches). See src/runtime/evidence_horizon.py. Published so no
+        # consumer re-derives it — the same reasoning MIN_CLOSED_FOR_ACTION is
+        # published for.
+        "evidence_horizon": evidence_horizon(
+            floor=MIN_CLOSED_FOR_ACTION,
+            n_closed=headline.n_closed,
+            window_days=window_days,
+            n_decisions=headline.n_decisions,
+            n_filled=headline.n_filled,
+            execution=execution,
+        ),
         "proposed_action": decision.action,
         "reasons": decision.reasons,
         "alternative": decision.alternative,
@@ -1504,7 +1541,11 @@ def is_actionable(action: Optional[str]) -> bool:
 MIN_CLOSED_FOR_ACTION = 20
 
 
-def write_index(rows: List[Dict[str, Any]], out_dir: Path) -> Path:
+def write_index(
+    rows: List[Dict[str, Any]],
+    out_dir: Path,
+    window_days: Optional[float] = None,
+) -> Path:
     """Write the day's INDEX.json — one row per strategy GRADED, action first.
 
     ⚠️ **This is the DENOMINATOR and it is why it is always committed.** The
@@ -1531,6 +1572,14 @@ def write_index(rows: List[Dict[str, Any]], out_dir: Path) -> Path:
         # the run COULD NOT have proposed an action whatever the PnL. Without
         # this field that is indistinguishable from a clean bill of health.
         "min_closed_for_action": MIN_CLOSED_FOR_ACTION,
+        # ⚠️ WITHOUT THIS THE FLOOR IS UNINTERPRETABLE AND THE INDEX COULD NOT
+        # SAY SO. `n_closed=4` is a healthy leg over 1 day and a nearly-dead
+        # one over 90, and every committed index before this field carried the
+        # count with no exposure beside it — so a reader could see 52/52 below
+        # the floor and could NOT compute what window would clear it. `None`
+        # means the run did not state its window; a consumer must grade that
+        # `unknown`, never assume 7.
+        "window_days": window_days,
         "below_evidence_floor": sum(
             1 for r in rows if r.get("below_evidence_floor") is True
         ),
@@ -1542,6 +1591,14 @@ def write_index(rows: List[Dict[str, Any]], out_dir: Path) -> Path:
             a: sum(1 for r in rows if r.get("proposed_action") == a)
             for a in sorted({r.get("proposed_action") for r in rows if r.get("proposed_action")})
         },
+        # THE FLEET-LEVEL ANSWER TO "and what would have to change?".
+        # `below_evidence_floor: 52` is one number covering four different
+        # problems — see src/runtime/evidence_horizon.py — and only one of them
+        # is a window problem. Aggregated from the SAME per-row blocks below,
+        # never recomputed, so the summary and the rows cannot disagree.
+        "evidence_horizon_summary": summarize_horizons(
+            [r["evidence_horizon"] for r in rows if r.get("evidence_horizon")]
+        ),
         "rows": sorted(rows, key=lambda r: (r.get("proposed_action") or "", r.get("strategy") or "")),
     }
     path = day_dir / "INDEX.json"
@@ -1633,6 +1690,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 None if headline.get("n_closed") is None
                 else headline.get("n_closed") < MIN_CLOSED_FOR_ACTION
             ),
+            # ⚠️ PUBLISHED SO THE INDEX IS SELF-SUFFICIENT FOR THE EVIDENCE
+            # DIAGNOSIS. Until now these lived ONLY in the per-strategy packet,
+            # and a reader needing them had to join index rows to packet files
+            # — which silently CROSSES A RUN BOUNDARY: measured on the
+            # committed 2026-09-01 day directory, the INDEX is from run #10656
+            # (12:51:37Z) while all 52 packets are from run #10652 (12:03:27Z),
+            # and one row already disagrees (`qqq_pullback_1h`: n_closed 1 vs
+            # 0, pnl -212.52 vs 0.0). Nothing stamped that the join crossed
+            # runs. Carrying the fields here removes the join.
+            "n_decisions": headline.get("n_decisions"),
+            "n_filled": headline.get("n_filled"),
+            "execution": packet.get("execution"),
+            "evidence_horizon": packet.get("evidence_horizon"),
             "win_rate": headline.get("win_rate"),
             "expectancy": headline.get("expectancy"),
             "pnl_total": headline.get("pnl_total"),
@@ -1641,7 +1711,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         })
         print(f"[{strategy}] action={packet['proposed_action']:<14} -> {md_path}")
 
-    index_path = write_index(index_rows, out_dir)
+    index_path = write_index(
+        index_rows, out_dir,
+        window_days=(window_end - window_start).total_seconds() / 86400.0,
+    )
     print(f"index -> {index_path} ({len(index_rows)} graded)")
     return 0
 
