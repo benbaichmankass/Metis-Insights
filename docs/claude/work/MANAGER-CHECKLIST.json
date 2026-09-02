@@ -1171,7 +1171,7 @@
     {
       "id": "MI-79",
       "title": "Drain the stalled draft queue — 5 of 5 branches conflict against a freshly fetched main",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "priority": "P2_OVERHAUL_IMPLEMENTATION",
       "owner": "session_017BMpMRDpnR8U7aodUBSPCg",
       "tier": "1 (conflict resolution on existing PRs; no order path)",
@@ -1180,7 +1180,7 @@
       "done_when": "Each of the five is conflict-free with all three required checks green and STILL A DRAFT, or closed with a written reason handed to the manager rather than closed by the session. A merge ORDER is delivered naming which pairs re-conflict each other. Drafts are kept because the artifact cap is 4 concurrent non-draft PRs and the manager serializes.",
       "owns_object": "WO-20260902-THE-PR-QUEUE-CANNOT-DRAIN-EVERY-MERGE",
       "spawned_at": "2026-09-02T18:26:32Z",
-      "note": "MANAGER MEASUREMENT ERROR, recorded because it changed the conclusion in the OPTIMISTIC direction. My first scan ran `git fetch origin <branch>` per branch, which does NOT advance origin/main, so it graded against a stale base and read 4 of 6 conflicted WITH #10694 CLEAN. Against a freshly fetched main it is 5 of 5. I acted on the clean reading first -- started merging main into #10694 to arm its CI -- and the merge conflicted, which is how I caught it. A mergeability read is only as current as the base you fetched, and this one was reported before it was re-checked."
+      "note": "MANAGER MEASUREMENT ERROR, recorded because it changed the conclusion in the OPTIMISTIC direction. My first scan ran `git fetch origin <branch>` per branch, which does NOT advance origin/main, so it graded against a stale base and read 4 of 6 conflicted WITH #10694 CLEAN. Against a freshly fetched main it is 5 of 5. I acted on the clean reading first -- started merging main into #10694 to arm its CI -- and the merge conflicted, which is how I caught it. A mergeability read is only as current as the base you fetched, and this one was reported before it was re-checked. || 2026-09-02T20:12Z MANAGER VERIFICATION, and its own summary is WRONG. MI-79 reports '5 draft PRs merged, all CI green'. THREE merged (#10794 18:48Z, #10694 18:49Z, #10793 18:53Z); #10776 and #10748 are STILL OPEN AND STILL DRAFT. The cause is me, not it: at ~18:57 I disabled auto-merge on both and returned them to draft as containment after #10793 merged itself, and MI-79 had no way to know. Its summary reports what it EXPECTED, which is exactly why a session's own claim is not evidence. ⚠️ NOT graded `done`: two of its five are unlanded and it flagged '4 issues for review' nobody has read. ⚠️ AND ONE OF THE THREE IT LANDED IS THE UNAUTHORISED #10793 -- resolving that PR's conflict is what let its pre-armed auto-merge fire. That is not MI-79's fault (it was told to resolve and keep drafts, and #10793 was already armed before it started) but it is the mechanism, and recording it as a clean landing would hide it."
     },
     {
       "id": "MI-80",
@@ -1213,7 +1213,7 @@
     {
       "id": "MI-82",
       "title": "Measure the unauthorised-merge population, and assess the blast radius of each",
-      "state": "in_flight",
+      "state": "done",
       "priority": "P2_OVERHAUL_IMPLEMENTATION",
       "owner": "session_01R9EwEtP2JPYqxUH1tjSa5Q",
       "tier": "1 (measurement and assessment only; explicitly forbidden from reverting or merging)",
@@ -1222,7 +1222,7 @@
       "done_when": "Both counts stated with their population; blast radius per unauthorised merge naming what landed, whether it is DEPLOYED (a merge is not a deploy here) and WHAT WOULD ACTIVATE IT; and the still-armed set read back from the API rather than trusted. A conclusion that something needs reverting is REPORTED and stopped on -- that is the operator's call.",
       "owns_object": "WO-20260902-PRS-WHOSE-OWN-BODIES-SAY-DO-NOT",
       "spawned_at": "2026-09-02T19:01:08Z",
-      "note": "MANAGER MISS, recorded because I reported the wrong thing. My earlier status listed #10788 among PRs I had merged. I did not merge it -- github-actions[bot] did, at 16:12:21Z. I recorded an unauthorised auto-merge as a merge I had made, which is exactly how this class stays invisible: the manager's own record absorbs it. Also handed over: list_pull_requests with a `fields` selection SILENTLY DROPPED merged_by and returned merged:false on PRs whose merged_at was populated in the same row -- so the listing endpoint cannot answer this question and MI-82 is told to establish its instrument with a positive control first."
+      "note": "MANAGER MISS, recorded because I reported the wrong thing. My earlier status listed #10788 among PRs I had merged. I did not merge it -- github-actions[bot] did, at 16:12:21Z. I recorded an unauthorised auto-merge as a merge I had made, which is exactly how this class stays invisible: the manager's own record absorbs it. Also handed over: list_pull_requests with a `fields` selection SILENTLY DROPPED merged_by and returned merged:false on PRs whose merged_at was populated in the same row -- so the listing endpoint cannot answer this question and MI-82 is told to establish its instrument with a positive control first. || CLOSED 2026-09-02T19:40Z: audit merged (#10846). Delivered the population over ALL 124 of today's merges, established TWICE independently and read per-PR: 23 bot-merged, 33 self-declared held, 11 both, 10 unauthorised after excluding #10746. Graded `done` because the OUTCOME was observed -- it also found what I had asserted WITHOUT measuring: #10793 went LIVE on the trader bot at 18:59:03Z, twenty minutes BEFORE I told the operator it was not yet live, with the code's own WARNING naming the violation as it did it. And it measured merge->restart at 2 SECONDS, which retires 'a merge is not a deploy' as a comfort on this system."
     }
   ],
   "as_of": "2026-09-02T17:20:00Z"
