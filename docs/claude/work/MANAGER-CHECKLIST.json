@@ -942,7 +942,29 @@
         "WO-20260901-PHASE-H",
         "MI-59"
       ]
+    },
+    {
+      "id": "MI-72",
+      "title": "A notifications menu per bot: choose WHICH notifications, and a CADENCE for the periodic ones",
+      "state": "deferred",
+      "priority": "DEFERRED",
+      "owner": null,
+      "tier": "2 (Telegram bridge + a stored per-chat preference; no order path, no strategy config, no risk caps)",
+      "raised_by": "operator, 2026-09-02, in conversation, EXPLICITLY for the backlog: 'a further idea, though, that I do want us to backlog as well ... so that we eventually get to it.'",
+      "observed": "Operator: 'in the menu for each of the bots for there to be an option for notifications, which would then pull up a list of the notifications, and I could choose which ones. And for the ones that are periodic, there should be some choices for cadence -- hourly, daily, weekly, maybe once, twice, three times daily, depending on what kind of thing it is.' Raised alongside making the work digest hourly, which is the manual version of exactly this control.",
+      "⚠️_HALF_OF_THIS_ALREADY_EXISTS_AND_LOST_ITS_CONSUMER": "DO NOT BUILD THE 'WHICH' HALF FROM SCRATCH -- measure it first. A per-kind subscription model is already shipped and has been since M12: `GET /api/bot/devices/event-kinds` serves the canonical taxonomy from `src.runtime.mobile_push.event_kinds` (kind/label/description/in_flight) precisely so a client need not mirror the list, and `PATCH /api/bot/devices/{id}/subscriptions` stores a per-device choice as `null|[kinds]|{kind:bool}`. It was built for the Android app's Notifications screen -- and the Android app was RETIRED from the live feed on 2026-09-01, with `device_tokens` measured EMPTY (0 registered devices). So this is a mechanism that is written, works, and now has no reader: the `provenance-consumer-guard` shape one level up, the same shape MI-70 found with the `Claude-Session:` commit trailer. The honest framing of this item is RE-POINT AN EXISTING TAXONOMY AT TELEGRAM, plus build the genuinely new half.",
+      "what_is_genuinely_new": {
+        "cadence_per_kind": "The existing model is a BOOLEAN per kind (on/off). Cadence is a third value and the taxonomy has no field for it. Note the operator's own distinction -- 'depending on what kind of thing it is' -- so cadence is not universal: an EVENT (a decision ready, an incident) is immediate-or-nothing and a cadence choice on it is meaningless, while a DIGEST (the work digest, the daily roll-up) is exactly where cadence belongs. The taxonomy therefore needs to say which kinds are cadence-BEARING, or the menu will offer 'weekly' on an alert.",
+        "per_CHAT_not_per_DEVICE": "`device_tokens` is keyed on an FCM token. Telegram has no such token; the natural key is the chat/bot pair. Whether that is a new table or a widened one is the first design question, and it is the one that decides how much of the existing model is reusable.",
+        "a_menu_is_stateful": "Same constraint as MI-71: one inline press submits one value, so a multi-select preferences screen is a TOGGLE keyboard plus an explicit Save, which means holding partial unsubmitted state. The two items share this problem and should probably share its solution -- do not solve it twice, differently."
+      },
+      "⚠️_what_must_not_become_switchable": "A preferences menu that can silence anything is a way to turn off an alarm and forget. The severity-band rule stands: a P0 (money at risk) page is NOT a preference. Whatever this ships with, the CRITICAL/unprotected-position class must remain unmutable, or this feature becomes the desensitized-alarm P1 with a UI in front of it.",
+      "why_deferred": "P1 is the handoff capability, P2 the overhaul implementation. The operator asked for it to be backlogged, not built, and the immediate need it came with -- an hourly work digest -- was satisfied directly by a cron change.",
+      "refs": [
+        "MI-71",
+        "#10793"
+      ]
     }
   ],
-  "as_of": "2026-09-02T14:42:00Z"
+  "as_of": "2026-09-02T14:52:00Z"
 }
