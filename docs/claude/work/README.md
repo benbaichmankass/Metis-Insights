@@ -295,6 +295,83 @@ exist: an interactive session's `list_pull_requests`, or a workflow. Pass it
 with `--open-prs`; without it, completeness grades **`not_observed`**, which is
 `unknown` and therefore never `ready`.
 
+## Merging these files — the driver, and what it does NOT do
+
+`MANAGER-CHECKLIST.json`, `SESSIONS.json` and `OPEN-PRS.json` are monolithic and
+re-conflict on sibling PRs. ⚠️ **The mechanism is NOT the rows.** Measured on
+`main` @`1b82ab7` over adjacent register-touching commit pairs since 2026-08-26,
+the share where BOTH sides bump the same `updated_at`/`as_of` header line:
+**MANAGER-CHECKLIST 29/39 (74%)** · OPEN-PRS 8/12 (67%) · SESSIONS 14/23 (61%).
+PR #10815's entire conflict here was that one line. Row contention is the
+minority (31% / 50% / 9%).
+
+So the remedy is `.gitattributes` + `scripts/ops/merge_json_register.py`, a
+row-aware 3-way merge — **not** one-file-per-row. ⚠️ **Sharding would not have
+fixed the majority case**: `as_of` lives in the container and would keep
+conflicting. Install it once per clone:
+
+```bash
+scripts/ops/install_merge_driver.sh   # git refuses an executable path from a tracked file
+```
+
+⚠️ **IT IS CLIENT-SIDE. GITHUB DOES NOT RUN IT.** A `mergeable_state: dirty` PR
+is still dirty on GitHub; what this removes is resolving it by hand. A clone that
+never ran the installer merges these files the old way — it degrades, it does not
+break.
+
+⚠️ **IT REFUSES RATHER THAN PICKING A WINNER.** Divergent same-id ADD, divergent
+same-id EDIT and delete-vs-edit all exit 1 with markers left. This is not
+caution for its own sake: a union-by-id resolver once reported *"no id lost, none
+resurrected"* while silently dropping an edit, because both sides had ADDED the
+same id and the divergence check only covered rows present in the merge base. A
+row deleted on one side and untouched on the other **stays deleted** — deletion
+is intent.
+
+It never reformats: rows are spliced as original byte spans, so
+`backlog_append.py::append_row`'s exact-serialisation contract holds and
+`OPEN-ITEMS.json` — which is NOT byte-reproducible — is safe. Round-trip is
+byte-identical on all five registers; `--check-round-trip` is the proof.
+
+## The morning handoff: THE DAILY BRIEF
+
+`SESSIONS.json` says which sub-sessions a successor inherits and `OPEN-PRS.json`
+says which PRs. **Neither of them, nor anything else, produced the thing a
+PERSON is handed at the day boundary** — which is what the operator's daily
+cadence assumes. Their own words are the acceptance criterion:
+
+> *"by the [brief] in the morning, I want that to include what was done
+> overnight and what was wrapped up after I went to bed, **so that I know where
+> I'm starting off from**."*
+
+[`scripts/ops/render_daily_brief.py`](../../../scripts/ops/render_daily_brief.py)
+renders it to [`comms/briefs/<UTC-date>.md`](../../../comms/briefs/). It has a
+**DELTA** half (§1, what moved overnight — `work_digest`, imported not
+re-derived) and a **STATE** half (§2, the checklist split by state, the lease,
+the open-PR conditions, the `loud` open-items). *The delta alone is a changelog,
+and a changelog does not tell anyone where they are.*
+
+⚠️ **IT IS A CLOSE-OUT DELIVERABLE THE NIGHT MANAGER RUNS, NOT A CRON — and the
+reason is a tool boundary, not a preference.** What merged is readable from git
+and the registers are readable, but **what a night session CONCLUDED lives in
+`get_session`'s `post_turn_summary`, and `mcp__*` tools are unavailable to CI
+and to Routine-fired turns.** A cron would ship, every morning, a brief
+structurally unable to answer the question it exists for. The manager passes
+what it observed with `--session-notes`.
+
+⚠️ **It still runs with none of that**, because the case this phase exists for
+is *the manager died*. An omitted observation renders **`not_observed`** — a
+declared hole — never silence and never *"nothing was concluded"*.
+
+⚠️ **`landed_unproven` is NOT `done` and the brief must never flatten them.** A
+merge is a deploy, not an observation; an item reported as finished whose effect
+was never seen actively misinforms the person starting the day. The two are
+counted and listed separately, and `daily-brief-guard` asserts it on every PR
+with planted controls in both directions.
+
+⚠️ **Every file under `comms/briefs/` is a DATED SNAPSHOT, not current state.**
+Taking over mid-day? **Re-run it** — it reads live files. Full contract:
+[`comms/briefs/README.md`](../../../comms/briefs/README.md).
+
 ## What is NOT here
 
 **Bugs to fix** still go to the three review backlogs (`docs/claude/*-review-backlog.json`),

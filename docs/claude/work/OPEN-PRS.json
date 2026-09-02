@@ -143,21 +143,6 @@
       "blocker": "Needs a live session to take ownership and verify the resolution path against a real venue read, then re-open as a normal Tier-gated PR. Until then this branch is a BACKUP, not a proposal."
     },
     {
-      "pr": 10788,
-      "title": "feat(work): push a committed decision answer back to the session that asked it",
-      "owner_session": "session_01PEYVqTaCY92C3HmtHwxYff",
-      "checklist_item": "MI-60",
-      "draft": true,
-      "tier": "1 for the investigation; the build depends on what it touches",
-      "state": "in_progress_by_owner",
-      "operator_decision": {
-        "verdict": "pending",
-        "decided_on": "2026-09-02",
-        "text": "The operator DIRECTED THE WORK and has made NO decision on merging this PR -- do not read the first as the second. Their words: 'Can we maybe add, like, a push something on the end of that so that, when the answer gets to the repo, it knows to push it to the session instead of waiting for the session to pull, or is that not something we're capable of doing?'"
-      },
-      "blocker": "Feasibility FIRST, deliberately: whether a GitHub Actions runner can fire a session-bound Routine is UNKNOWN and must be established rather than assumed -- the manager made exactly that error today, declaring a capability absent off ONE failed probe and writing it into a merged PR body. A session-bound Routine IS verified to wake a running session from a session holding MCP; the runner half is not. The watch_url alternative dies with its session AND would publish an endpoint in a PUBLIC repo. Nothing today records WHICH session asked a decision, so there is no address to push to; that recording gates everything else."
-    },
-    {
       "pr": 10793,
       "title": "telegram: /status and /decisions operator pull commands — HELD",
       "owner_session": "session_01272CQFvWA5F9tS9nNRpJtK",
@@ -207,23 +192,6 @@
         "text": "None yet."
       },
       "blocker": "⚠️ FIXES A LIVE MISFIRE, OBSERVED TODAY. claude-pr-automerge.yml still carries the LEGACY shared marker .github/pr-automerge-request in its paths: filter, so any claude/** branch that merges main is un-drafted and armed unasked — seen on three PRs at 13:19Z, and again on #10809 which self-merged at ~14:40Z while the manager was mid-review. Also carries the backlog row this record's own checklist entry points at."
-    },
-    {
-      "pr": 10815,
-      "title": "work-digest: hourly, with the window moved to match; backlog the notifications menu (MI-72)",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-72",
-      "draft": false,
-      "tier": "1 (workflow cadence + register)",
-      "state": "manager_own_work",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "Operator asked for the work digest HOURLY and flagged it immediate: 'I realize that's a lot of noise, but that's how I want it for now until we get a little more settled in.' THE NOISE IS ACCEPTED DELIBERATELY -- do not quietly reduce the cadence later on noise grounds, which would reverse a decision without asking.",
-        "scope": "The work digest only. The notifications-menu half is MI-72, backlogged and NOT built.",
-        "decided_on": "2026-09-02",
-        "text": "Operator, verbatim, on the menu half: 'a further idea, though, that I do want us to backlog as well ... so that we eventually get to it.'"
-      },
-      "blocker": "⚠️ THE WINDOW MOVED WITH THE CRON AND HAD TO. It was described as one number and the cron is one number, but the window was pinned at 24h -- firing hourly alone would have re-reported the same day 24 times, which is the same report louder rather than more frequent reporting. Cadence and window are ONE decision; a future change to either must move both."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -475,8 +443,48 @@
       "merge_sha": "449031539896ee077fc6431ec5c6870d59f9f29b",
       "observed_at": "2026-09-02T16:06:33Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10788,
+      "title": "feat(work): push a committed decision answer back to the session that asked it",
+      "owner_session": "session_01PEYVqTaCY92C3HmtHwxYff",
+      "checklist_item": "MI-60",
+      "draft": true,
+      "tier": "1 for the investigation; the build depends on what it touches",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "pending",
+        "decided_on": "2026-09-02",
+        "text": "The operator DIRECTED THE WORK and has made NO decision on merging this PR -- do not read the first as the second. Their words: 'Can we maybe add, like, a push something on the end of that so that, when the answer gets to the repo, it knows to push it to the session instead of waiting for the session to pull, or is that not something we're capable of doing?'"
+      },
+      "blocker": "Feasibility FIRST, deliberately: whether a GitHub Actions runner can fire a session-bound Routine is UNKNOWN and must be established rather than assumed -- the manager made exactly that error today, declaring a capability absent off ONE failed probe and writing it into a merged PR body. A session-bound Routine IS verified to wake a running session from a session holding MCP; the runner half is not. The watch_url alternative dies with its session AND would publish an endpoint in a PUBLIC repo. Nothing today records WHICH session asked a decision, so there is no address to push to; that recording gates everything else.",
+      "terminal": "merged",
+      "merge_sha": "c35fd1f7643f7b7c18afa21f6cf1a6e94a265b0b",
+      "observed_at": "2026-09-02T16:23:16Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10815,
+      "title": "work-digest: hourly, with the window moved to match; backlog the notifications menu (MI-72)",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-72",
+      "draft": false,
+      "tier": "1 (workflow cadence + register)",
+      "state": "manager_own_work",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "Operator asked for the work digest HOURLY and flagged it immediate: 'I realize that's a lot of noise, but that's how I want it for now until we get a little more settled in.' THE NOISE IS ACCEPTED DELIBERATELY -- do not quietly reduce the cadence later on noise grounds, which would reverse a decision without asking.",
+        "scope": "The work digest only. The notifications-menu half is MI-72, backlogged and NOT built.",
+        "decided_on": "2026-09-02",
+        "text": "Operator, verbatim, on the menu half: 'a further idea, though, that I do want us to backlog as well ... so that we eventually get to it.'"
+      },
+      "blocker": "⚠️ THE WINDOW MOVED WITH THE CRON AND HAD TO. It was described as one number and the cron is one number, but the window was pinned at 24h -- firing hourly alone would have re-reported the same day 24 times, which is the same report louder rather than more frequent reporting. Cadence and window are ONE decision; a future change to either must move both.",
+      "terminal": "merged",
+      "merge_sha": "e7592674009ca4eb88f60654a82e69c6328ce1b5",
+      "observed_at": "2026-09-02T16:23:16Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-02T16:06:33Z",
-  "last_reconciled_sha": "509d33c6bf31b0558335f0cd5ff1d06777c6eef9"
+  "last_reconciled_at": "2026-09-02T16:23:16Z",
+  "last_reconciled_sha": "e7592674009ca4eb88f60654a82e69c6328ce1b5"
 }
