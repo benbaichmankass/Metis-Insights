@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T01:32Z",
+  "updated_at": "2026-09-02T01:50Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -120,7 +120,7 @@
     {
       "id": "MI-06-PHASE-G",
       "title": "Phase G -- the forcing function: retirement, and the capability pull rule",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01AT7e9N9FMbrLPRbzzueexL",
       "blocked_on": [
         {
@@ -130,7 +130,7 @@
           "what": "the pull rule is only enforceable once E1 can name the held-up stage"
         }
       ],
-      "note": "PR #10708 OPEN (claude/phase-g-forcing-function). Manager has NOT read the diff. Spawned 22:52Z on #10680's merge. ⚠️ Its brief told it NOT to build a second retirement mechanism — the M7 kill packet already exists and is inert (gitignored path, no cron, Override 5 converting every kill to `tune`), so establishing WHY the existing one cannot fire was the first task, not writing a new one.",
+      "note": "MERGED 2026-09-02T01:47Z as 7e54089e. Tier-1 throughout (24 files; no config/, no order path) — verified by the manager against the file list before merging, not taken from the PR body. ⚠️ THE SESSION REPORTED ITS OWN DONE-CONDITION AS **HALF MET** AND REFUSED TO PAD IT: 'something has actually been REMOVED' is NOT satisfied, because every candidate is either Tier-3 (the 10 strategy legs — retiring one edits config/strategies.yaml) or Tier-1 where the right disposition is not deletion. It examined both 'unwired' tools rather than counting them and dispositioned one `wire`, one `keep`. Deleting something safe-but-arbitrary to satisfy the done-condition would be the cosmetic retirement the phase exists to end; that refusal is the correct output, not a miss. === ⚠️ IT ALSO REFUTED THE BUILD PLAN'S STATED CAUSE, with a measurement. The plan says the M7 kill packet cannot fire because 'Override 5 converts every kill to tune'. Measured over ALL 52 enabled strategies (comms/strategy_reviews/2026-09-01, window 08-25->09-01): Override 5 fired on 0 of 52 — IT IS NEVER REACHED. The matrix short-circuits on insufficient evidence first: 35 legs had ZERO closes in window, 17 were below the floor, and the highest n_closed in the fleet was 8 against a KILL/DEMOTE floor of 20. The real blocker is that the gate's 7-day window is shorter than the sample its own floor demands — no leg closes 20 trades in a week and the best is 2.5x short. Filed as BL-20260901-M7-GATE-WINDOW-IS-SHORTER-THAN-ITS-OWN-EVIDENCE-FLOOR; widening the window changes the decision gate itself and is the operator's call.",
       "pr": "#10708"
     },
     {
@@ -276,6 +276,15 @@
       "pr": null,
       "blocked_on": "MI-21 — OPEN-ITEMS.json is the hottest conflict file tonight; editing it mid-train adds a ninth conflicting PR",
       "note": "Surfaced by session_01FYEGu7 in #10707's body under FOR THE MANAGER. (1) OI-20260901-PROP-FILLS-STALE-BANNER-IS-A-KNOWN-FALSE-POSITIVE-UNTIL-THE-FIX-MERGES — its clears_when asks for merge, restart on the merged sha, one cadence window, then banner ABSENT; the session evidenced all four, including that the latch cleared ITSELF with no state-file surgery, which that row explicitly forbids. (2) OI-20260830-BYBIT-HEDGE-MODE-ARMED-BUT-UNEXERCISED — all three criteria read off a single live pairs_soak open row, including the directional_open clause that row calls 'the whole criterion'. ⚠️ THE SESSION WAS RIGHT NOT TO CLEAR THEM: OPEN-ITEMS.json was outside its declared scope with siblings live, and clearing a monitoring row is an OBSERVATION the clearer must have made — which is exactly why it must not be done second-hand off a PR body either. Whoever takes this RE-READS the live surfaces and writes what THEY saw into `observation`; if the state has moved, that is the finding."
+    },
+    {
+      "id": "MI-23-PHASE-G-ASKS-THE-OPERATOR-FOR-THREE-RETIREMENT-DECISIONS",
+      "title": "The first sunset pass produced evidenced candidates; three need an operator call",
+      "state": "blocked",
+      "owner": null,
+      "pr": "#10708 (merged)",
+      "blocked_on": "operator — two of the three are Tier-3 (they edit config/strategies.yaml)",
+      "note": "FIRST ITEM SET FOR THE MORNING REPORT. From comms/sunset/2026-09-01/ — 10 retirement candidates over 52 legs (watch 39, not_assessed 3). (1) `turtle_soup` is `enabled: true` in config/strategies.yaml and appears in the `strategies:` list of ZERO accounts — it cannot reach the order path at all, and has 0 lifetime trades. Either the routing is the bug or the leg is dead; the session deliberately did not presume which. ROUTE IT OR RETIRE IT. (2) Nine `never_closed_lifetime` legs, mostly `*_trend_long_1d` on alpaca_paper — retire, or accept on the record that they are long-horizon. (3) `scripts/validate_registry_vm.py`, the S-007 pre-flight over strategies.yaml, is genuinely unwired — wire it into the deploy path or retire it; it was dispositioned `keep` with a review_by rather than deleted at Tier-1 on a reference count alone, which was right. === ⚠️ THE PROP CAVEAT IS NOT A DETAIL — 3 of the 12 legs reading 'never closed a trade' are breakout_1 PROP legs, and they read zero because prop fills live in `prop_fills`, isolated from `trades` BY DESIGN. A naive pass would have proposed 3 actively-trading legs for retirement. They are `not_assessed` with the reason on the row, pinned by a test. === ⚠️ THE NUMBER THAT MATTERS MOST FOR THE OPERATOR'S ACTUAL GOAL: joined to lifetime closes, 12 of 52 enabled legs have NEVER closed a trade, and only 11 of 52 would EVER be gradeable at the n>=20 floor over their entire history. MEDIAN LIFETIME n IS 6. The fleet is largely untested by its own gate — a stronger statement than 'nothing gets retired', and the same root cause."
     }
   ]
 }
