@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T02:03Z",
+  "updated_at": "2026-09-02T02:00Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -348,6 +348,15 @@
       "pr": "#10717 (refused there, correctly)",
       "blocked_on": null,
       "note": "⚠️ MORNING REPORT. PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN was REFUSED by drain #3 rather than closed, and the refusal is the right call — its criteria split, the real-money limb PASSES (n=28, +$18.40, +44.840R, rCoverage 1.000) and the plausible-bound limb FAILS HARD. Closing on the limb that passed would be exactly the sign-flip-by-choice-of-population failure this repo has already paid for. === THE ROW GOT WORSE, and its mechanism is now proven rather than inferred: it reasoned from ONE trade (4824) that trades.stop_loss holds the CURRENT TRAILED stop rather than the initial one. Direct test over closed rows with pnl NOT NULL (n=477): 82 carry a stored stop on the WRONG SIDE OF ENTRY — impossible for an initial stop — i.e. 17.2%, against the row's n=1. Sign disagreement has spread from 2 of 31 strategy x account_class rows to 7 of 40. Worst: ict_scalp_sol_15m paper n=18, totalPnl -$2,064.01 against totalR +3,724.567. New worst expectancyR +206.920, 59x the one on file, from a SINGLE trade at R = +3,672.32. === WHY IT IS A PRIORITY RATHER THAN A TIDY-UP: it contaminates every totalR / expectancyR consumer, INCLUDING R-BASED PROMOTION GATES. A gate reading expectancyR on this data is reading a number that can exceed its true value by two orders of magnitude. === Needs its own session and the fix is Tier-3 — it changes what a promotion gate reads, which is why a drain session correctly would not write it. === Context worth carrying beside any dollar figure from this fleet: measured fleet pnlCoverage (MEASURED-only via classify_pnl) is 0.126 — 64 of 508 closed trades in that 30.9d window. 87% of the fleet's PnL is not a measurement."
+    },
+    {
+      "id": "MI-31-SUB-SESSIONS-HAVE-NO-DIAG-PATH-TO-THE-TRAINER-AT-ALL",
+      "title": "The trainer relay is issue-driven, and a sub-session's issue_write is 403",
+      "state": "queued",
+      "owner": null,
+      "pr": "#10718 (reported it; not its to fix)",
+      "blocked_on": null,
+      "note": "REPORTED BY backlog drain #2 (session_01BNXj6o) as a bound on two of its own refusals, and it is a real CAPABILITY GAP rather than that session's limitation. The trainer VM has NO HTTP diag API — CLAUDE.md is explicit that it is reachable only through the `trainer-vm-diag` ISSUE relay (label trainer-vm-diag-request, body carrying a `cmd:` block). But a sub-session's `issue_write` returns 403 `Resource not accessible by integration` — a write-scope boundary, NOT the transient hosted-MCP drop, so retrying with backoff will never clear it. And the file-drop relays that exist (.github/workflows/pr-opener.yml, board-post.yml) cover PRs and coordination-board posts and NOTHING ELSE. So there is no diag path to the trainer for any sub-session. === WHAT IT COST, concretely: drain #2 could not read dataset_audit.jsonl or training_cycle.jsonl, which is exactly the evidence two of its three refusals needed, and it said so rather than inferring. Its whole stale-shard mechanism is therefore code-plus-live-registry inference — strongly corroborated (identical sibling manifests differing only in dataset.version; all four freezing on the same day; each pinning a low version) but NOT the direct read, and the direct read is one `ls` away for whoever holds that access. === ⚠️ IT ALSO FOUND A PARTIAL WORKAROUND NOBODY HAS WRITTEN DOWN: /api/bot/ml/registry is a live trainer-evidence surface reachable over plain HTTPS with no issue relay, carrying mirror_age_seconds, and it used that successfully (96 rows, HTTP 200, mirror 21.5s old; sibling paths /api/bot/ml/models and /api/bot/models both 404, so the 200 is a real route and not a catch-all). docs/claude/diag-relay.md does not mention it and currently tells such a session the trainer is reachable ONLY via the issue relay — the relay it cannot use. THAT IS THE SAME SHAPE AS THE pr-opener / board-post GAP THIS FILE ALREADY RECORDS: a capability that exists and is unreachable from the surface its user reads is, for that user, identical to no capability. The manager told drain #2 to FILE the docs gap rather than fix it in a backlog-drain PR. === ⚠️ NOTE THE PARTIAL: the mirror is a READ of what the trainer published, not a shell on the trainer. It does not cover the jsonl reads that were actually needed, so it narrows this gap without closing it."
     }
   ]
 }
