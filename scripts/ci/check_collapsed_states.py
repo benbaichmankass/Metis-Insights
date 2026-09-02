@@ -777,6 +777,98 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "share_hold.state",
+        "producer": "src/units/accounts/alpaca_client.py",
+        # No `producer_field`: the states are emitted as bare tuple returns
+        # (`return ("residual_unreadable", "could not read ...")`) and as members
+        # of the module constant SHARE_HOLD_STATES, so no literal shares a line
+        # with the word "state". Narrowing here would fail for a spelling reason
+        # rather than a correctness one — the `research_queue.power_state`
+        # reasoning, same shape.
+        "consumer_token": (r"\bshare_hold\b|\bSHARE_HOLD_STATES\b|"
+                           r"\bclassify_share_hold\b|\bparse_share_hold\b|"
+                           r"\bUNCLEARABLE_HOLD_STATE\b"),
+        "states": ["residual_unreadable", "no_residual_orders",
+                   "broker_cancel_wedged", "orders_still_resting"],
+        "why": (
+            "WILL RETRYING HELP? Both Alpaca close paths produce a "
+            "BYTE-IDENTICAL failure for a transient cancel race and for an order "
+            "wedged in `pending_cancel` forever — same retMsg ('insufficient qty "
+            "available'), same ERROR, same 'won't flatten' page, every tick, "
+            "indefinitely. The four states are the answer, and as of 2026-09-02 "
+            "one of them BUYS SILENCE: `broker_cancel_wedged` is the sole "
+            "trigger that downgrades a close-failure page out of the paging "
+            "channel into the daily digest (src/runtime/close_wedge_standing.py, "
+            "operator decision on OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-"
+            "SHIPPED-NOT-YET-OBSERVED). That is exactly why this contract had to "
+            "be registered rather than left as a log string: a state that gates "
+            "an alarm must be enforced as a state. "
+            "`residual_unreadable` is the one that must never collapse into "
+            "`no_residual_orders` — 'we could not read the open orders' and 'we "
+            "read them and nothing rests' are opposite claims, and the second "
+            "would let a broker we could not reach look like a clean book. "
+            "`no_residual_orders` is deliberately distinct from "
+            "`orders_still_resting` because only the second says a retry may "
+            "work; the first means the shares are held by something this "
+            "classifier does not model, which is a different operator action. "
+            "A FIFTH reading, `not_classified` (SHARE_HOLD_NOT_CLASSIFIED), is "
+            "deliberately NOT a declared state here: it means NOBODY CLASSIFIED "
+            "the failure — a non-Alpaca venue, or a path that never reached the "
+            "give-up branch — which is a fact about our own coverage, not "
+            "something the classifier observed. Registering it would claim "
+            "producer integrity for a value the producer cannot emit, the "
+            "`trainer_disk_unknown` reasoning in "
+            "src/web/api/routers/notifications.py. It is enforced instead by "
+            "parse_share_hold's own contract (an unknown token reads as "
+            "not_classified, never as one of the four) and by "
+            "tests/test_close_wedge_downgrade.py. "
+            "The consumer that branches on all four is "
+            "execution_diagnostics._share_hold_guidance, which turns each into "
+            "the operator action it implies — before it existed every page said "
+            "'investigate the venue/connection' regardless, which is the "
+            "collapse in miniature: a field written and never read."
+        ),
+    },
+    {
+        "name": "close_wedge.transition",
+        "producer": "src/runtime/close_wedge_standing.py",
+        "consumer_token": (r"\bclose_wedge\b|\bclose_wedge_standing\b|"
+                           r"\bTRANSITIONS\b|\bLOUD_TRANSITIONS\b|"
+                           r"\bsweep_close_wedges\b|\bwedge_transition\b|"
+                           r"\benqueue_close_wedge_state_change\b"),
+        "states": ["newly_wedged", "still_standing", "evidence_changed",
+                   "cleared_confirmed", "vanished_unattributed"],
+        "why": (
+            "This contract decides WHETHER THE OPERATOR IS PAGED about a "
+            "position that will not flatten, so a collapse here is silence about "
+            "a stuck position — the failure the close-failure pager was built to "
+            "end, reintroduced through its own de-noising. Exactly ONE state is "
+            "quiet (`still_standing`, and even it is floored by "
+            "CLOSE_WEDGE_REPAGE_HOURS); LOUD_TRANSITIONS is computed as the "
+            "COMPLEMENT of that one so a state added later is loud by default "
+            "rather than inheriting silence. "
+            "`vanished_unattributed` is the state this repo has already paid for "
+            "losing: it means the wedge stopped being observed with NO confirmed "
+            "close, and folding it into `cleared_confirmed` would bank a repair "
+            "nobody can name. CLAUDE.md's PROTECTION_REASSERT_MODE row is the "
+            "precedent — a gate at `annotate` with an empty allowlist got read as "
+            "having fixed a divergence it could not have touched — and "
+            "OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED "
+            "names the same trap for this exact GLD wedge in its `Clears when`. "
+            "`cleared_confirmed` is reachable ONLY from the monitor's "
+            "confirmed-close path (order_monitor._resolve_close_wedge_confirmed), "
+            "because that is the only place with attribution; the staleness "
+            "sweep can produce nothing but `vanished_unattributed`, by "
+            "construction. "
+            "`evidence_changed` must not collapse into `still_standing`: it means "
+            "the same (account, symbol, side) is now wedged on DIFFERENT orders "
+            "or a different hold state — a second, unexamined fault, which would "
+            "otherwise inherit the first one's suppression budget. "
+            "`newly_wedged` is loud on purpose: downgrading the ARRIVAL of a "
+            "wedge would hide the condition rather than de-noise it."
+        ),
+    },
+    {
         "name": "netting_attribution.anchor_status",
         "producer": "src/runtime/order_monitor.py",
         "consumer_token": r"\banchor_status\b|\bnetting_anchor_basis\b",

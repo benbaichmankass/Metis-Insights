@@ -89,6 +89,19 @@ from scripts.ops.work_phase_ping import (  # noqa: E402
 PENDING = REPO_ROOT / "docs" / "claude" / "pending-pings.jsonl"
 STATE = REPO_ROOT / "runtime_logs" / "work_digest_state.json"
 
+# The standing close-wedge ledger (MI-34). Written by the TRADER
+# (src/runtime/close_wedge_standing.py) into runtime_logs/, which is
+# .gitignore'd and VM-local — so on a GitHub runner this path is ABSENT unless
+# the workflow fetched it from the live diag surface first
+# (/api/diag/log_file?name=close_wedge_standing), which is exactly what
+# .github/workflows/work-digest.yml does before calling this.
+#
+# ⚠️ ABSENT HERE IS "WE DID NOT LOOK", NOT "NOTHING IS WEDGED". The digest is
+# the channel an operator-approved downgrade was routed INTO, so a missing
+# ledger rendering as a clean bill of health is the precise failure this whole
+# section exists to prevent: the item falling quietly out of BOTH channels.
+STANDING_WEDGES = REPO_ROOT / "runtime_logs" / "close_wedge_standing.json"
+
 # Mirrors src/web/api/routers/work.py. Kept in the same order as the design.
 LIFECYCLE_STATES: tuple[str, ...] = (
     "dormant", "ready", "in_flight", "waiting", "done", "accepted",
@@ -164,6 +177,112 @@ def standing_state(ref: str = "HEAD") -> dict[str, Any]:
         },
     }
 
+
+def standing_wedges(path: Path | None = None) -> dict[str, Any]:
+    """The close failures DOWNGRADED into this digest, and whether we could see them.
+
+    ``wedgeState`` is three states and they are never collapsed — the same
+    discipline ``digestState`` already applies to the git window, applied to a
+    file that arrives over a network from another machine:
+
+      * ``not_fetched``  — no ledger on disk. **We did not look.** On a GitHub
+        runner this is the DEFAULT state, because ``runtime_logs/`` is VM-local;
+        it means the diag fetch did not happen or did not succeed, NOT that the
+        fleet is clean.
+      * ``unreadable``   — a ledger is here and could not be parsed. We looked
+        and could not see. Distinct from both of the others.
+      * ``read``         — parsed. ``wedges`` is the real set, and an EMPTY set
+        is a real, reportable observation: nothing is standing.
+
+    ⚠️ **``read`` + zero wedges is the ONLY state that may be reported as "no
+    standing wedges".** The other two must say what they are, out loud, in the
+    operator-visible text.
+    """
+    p = path or STANDING_WEDGES
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {"wedgeState": "not_fetched", "wedges": [], "count": 0,
+                "schema": None, "source": str(p)}
+    except (OSError, ValueError) as exc:
+        return {"wedgeState": "unreadable", "wedges": [], "count": 0,
+                "schema": None, "source": str(p), "reason": str(exc)[:200]}
+    if not isinstance(raw, dict):
+        return {"wedgeState": "unreadable", "wedges": [], "count": 0,
+                "schema": None, "source": str(p),
+                "reason": "ledger is not a JSON object"}
+    wedges = raw.get("wedges")
+    rows = [
+        dict(v, key=k) for k, v in sorted((wedges or {}).items())
+        if isinstance(v, dict)
+    ]
+    return {
+        "wedgeState": "read",
+        "wedges": rows,
+        "count": len(rows),
+        "schema": raw.get("schema"),
+        "updatedAt": raw.get("updated_at"),
+        "source": str(p),
+    }
+
+
+def _age_days(first_seen: object, now: datetime) -> str:
+    """How long this wedge has stood, or an explicit refusal to guess."""
+    try:
+        dt = datetime.fromisoformat(str(first_seen))
+    except (TypeError, ValueError):
+        return "age unknown"
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return f"{(now - dt).total_seconds() / 86400.0:.1f}d"
+
+
+def render_standing_wedges(sw: dict[str, Any], now: datetime) -> list[str]:
+    """The standing-wedge block. **It is never empty** — every state prints a line.
+
+    A section that renders nothing when it has nothing to say is
+    indistinguishable from a section that has broken, and this one carries items
+    the pager was deliberately told to stop carrying. So all three states speak.
+    """
+    state = sw.get("wedgeState")
+    if state == "not_fetched":
+        return [
+            "⚠️ STANDING CLOSE WEDGES: NOT EXAMINED — no ledger at "
+            f"{sw.get('source')}. This is 'we did not look', NOT 'nothing is "
+            "wedged'. Close failures confirmed unclearable broker-side are "
+            "DOWNGRADED out of the pager into this digest, so an un-fetched "
+            "ledger means such an item is currently in NEITHER channel. Fetch "
+            "/api/diag/log_file?name=close_wedge_standing from the live VM."
+        ]
+    if state == "unreadable":
+        return [
+            "⚠️ STANDING CLOSE WEDGES: ledger present but UNREADABLE "
+            f"({sw.get('reason') or 'no reason recorded'}). We looked and could "
+            "not see — this is NOT 'nothing is wedged'."
+        ]
+    rows = sw.get("wedges") or []
+    if not rows:
+        return [
+            "Standing close wedges: none (ledger read, 0 entries) — a real "
+            "observation, not an absence of one."
+        ]
+    out = [
+        f"🧱 STANDING CLOSE WEDGES: {len(rows)} — confirmed unclearable by any "
+        f"bot-side lever, downgraded out of the pager and carried HERE until the "
+        f"state changes:"
+    ]
+    for w in rows:
+        out.append(
+            f"  • {w.get('account')}/{w.get('symbol')} {w.get('side')} · "
+            f"standing {_age_days(w.get('first_seen'), now)} · "
+            f"{w.get('share_hold')} · {int(w.get('pages_suppressed') or 0)} page(s) "
+            f"suppressed · {str(w.get('detail') or w.get('evidence') or '')[:160]}"
+        )
+    out.append(
+        "  These need OPERATOR or VENUE action; the bot has no lever. They page "
+        "again the moment the state changes (cleared, or wedged on new evidence)."
+    )
+    return out
 
 # ── The registers the digest reads, beyond the work store ────────────────────
 #
@@ -406,6 +525,14 @@ def build_digest(base: str, head: str = "HEAD", now: datetime | None = None) -> 
     base_sha, head_sha = _resolve(base), _resolve(head)
     standing = standing_state(head if head_sha else "HEAD")
 
+    # ⚠️ READ UNCONDITIONALLY, AND BEFORE THE WINDOW BRANCH. A standing wedge is
+    # a condition of the FLEET, not of the git window — an unresolvable base
+    # says nothing about whether a position is stuck, and letting the early
+    # return skip this block would drop the downgraded item on exactly the runs
+    # most likely to be degraded (a shallow clone, a bad ref). Silence must not
+    # be reachable while the wedge stands.
+    wedges = standing_wedges()
+
     if base_sha is None or head_sha is None:
         return {
             "digestState": "window_unresolved",
@@ -418,6 +545,7 @@ def build_digest(base: str, head: str = "HEAD", now: datetime | None = None) -> 
             "sourceCounts": {},
             "window": {"commits": None, "mergedPrs": None},
             "standing": standing,
+            "standingWedges": wedges,
             "generatedAt": now.isoformat(),
             "coverageComplete": False,
         }
@@ -452,6 +580,7 @@ def build_digest(base: str, head: str = "HEAD", now: datetime | None = None) -> 
         "sourceCounts": counts,
         "window": _window_attribution(base, head),
         "standing": standing,
+        "standingWedges": wedges,
         "generatedAt": now.isoformat(),
         "coverageComplete": False,
     }
@@ -582,6 +711,15 @@ def render(d: dict[str, Any]) -> str:
                 lines.append(f"  {mark} {e['id']}: {e['to']}{title}")
             if len(attention) > _MAX_ENUMERATED:
                 lines.append(f"  … +{len(attention) - _MAX_ENUMERATED} more")
+
+    # ⚠️ RENDERED ON EVERY DIGEST, IN EVERY STATE, HIGH IN THE MESSAGE.
+    # `.get` with a default rather than `d["standingWedges"]`: a caller holding a
+    # digest dict built before this key existed must still render, and the
+    # default is the ALARMING state ("we did not look"), never the reassuring one.
+    lines.extend(render_standing_wedges(
+        d.get("standingWedges") or {"wedgeState": "not_fetched", "wedges": []},
+        datetime.fromisoformat(d["generatedAt"]),
+    ))
 
     lines.append(
         "Standing: "
@@ -753,6 +891,65 @@ def _self_test() -> int:
     check(12, "sourceReads ships on the unresolved envelope",
           set(d.get("sourceReads") or {}) == {src.name for src in SOURCES},
           str(sorted(d.get("sourceReads") or {})))
+
+    # 13-16: the standing-wedge block. Each has a positive control — a check
+    # that cannot fail is not a check.
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        missing = standing_wedges(tmp / "nope.json")
+        check(13, "absent ledger -> not_fetched, never 'no wedges'",
+              missing["wedgeState"] == "not_fetched", str(missing["wedgeState"]))
+
+        txt10 = "\n".join(render_standing_wedges(missing, datetime.now(timezone.utc)))
+        check(14, "and it SAYS we did not look, in operator-visible text",
+              "NOT EXAMINED" in txt10 and "did not look" in txt10, txt10[:90])
+
+        bad = tmp / "bad.json"
+        bad.write_text("{not json", encoding="utf-8")
+        b = standing_wedges(bad)
+        check(15, "garbled ledger -> unreadable, distinct from not_fetched",
+              b["wedgeState"] == "unreadable", str(b["wedgeState"]))
+
+        good = tmp / "good.json"
+        # collapsed-state: broker_cancel_wedged — the digest carries the
+        # DOWNGRADED class and nothing else, so this is the only share_hold
+        # value that can appear in a ledger entry. The other three states never
+        # produce a ledger row: they page instead, and never reach this file.
+        # The digest does NOT re-derive the routing decision, deliberately —
+        # re-implementing "which failures are quiet" in a second module is how
+        # the two would come to disagree about what the operator is being told.
+        good.write_text(json.dumps({"schema": 1, "wedges": {"a|GLD|sell": {
+            "account": "a", "symbol": "GLD", "side": "sell",
+            "share_hold": "broker_cancel_wedged", "detail": "x is pending_cancel",
+            "first_seen": "2026-08-27T14:02:00+00:00", "pages_suppressed": 9,
+        }}}), encoding="utf-8")
+        g = standing_wedges(good)
+        txt13 = "\n".join(render_standing_wedges(g, datetime.now(timezone.utc)))
+        # A wedge must RENDER, and an empty ledger must render DIFFERENTLY —
+        # the positive control on the negative, the shape check 7 uses.
+        empty = tmp / "empty.json"
+        empty.write_text('{"schema":1,"wedges":{}}', encoding="utf-8")
+        txt_empty = "\n".join(
+            render_standing_wedges(standing_wedges(empty), datetime.now(timezone.utc))
+        )
+        check(16, "a standing wedge renders, and an empty ledger renders otherwise",
+              g["count"] == 1 and "GLD" in txt13 and "GLD" not in txt_empty
+              and txt_empty.strip() != "",
+              f"{g['count']} / {txt13[:60]!r} / {txt_empty[:60]!r}")
+
+    # 14: THE ONE THAT MATTERS. No reachable state of the wedge block is silent
+    # — an item downgraded out of the pager falling out of the digest too is the
+    # whole risk of the operator's decision, and it must be structurally
+    # impossible, not merely unobserved.
+    silent = [
+        st for st in ("not_fetched", "unreadable", "read")
+        if not "".join(render_standing_wedges(
+            {"wedgeState": st, "wedges": [], "count": 0}, datetime.now(timezone.utc)
+        )).strip()
+    ]
+    check(17, "NO wedge state renders silence", not silent, str(silent))
 
     print("work-digest self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1

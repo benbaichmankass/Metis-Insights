@@ -10,10 +10,14 @@ name: work-digest
 #   DOES NOT EXIST on origin, so it was not waiting on another session's paths;
 #   it was waiting on nobody.
 #
-# ⚠️ A SCHEDULED WORKFLOW IN THIS REPO IS NOT EVIDENCE THAT IT FIRES.
-#   probes.yml and due-list.yml are both merged, enabled, carry correct cron
-#   syntax — and have never once fired
-#   (OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON).
+# ⚠️ A SCHEDULED WORKFLOW IN THIS REPO IS NOT EVIDENCE THAT IT FIRES ON TIME.
+#   CORRECTED 2026-09-02: this header read "have never once fired" and that is
+#   now FALSE — do not re-quote it. probes.yml HAS fired on cron (run #34,
+#   event=schedule, success, 2026-09-01T10:12:17Z) and
+#   OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON is
+#   CLEARED. The caution stands and is better evidenced, not weaker: that run
+#   came ~4h50m LATE against a `20 5 * * *` cron, and once rather than daily.
+#   Correct cron syntax is still not evidence of a run — read the run history.
 #   So this file being green on the day it lands says nothing. The digest is
 #   DEPLOYED, and stays that way until a RUN with event=schedule is observed.
 #   The `workflow_dispatch` below exists so that observation can be forced
@@ -91,7 +95,12 @@ jobs:
           python-version: "3.11"
 
       - name: Self-test the digest before trusting its output
-        run: python3 scripts/ops/work_digest.py --self-test
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/work_digest.py --self-test
+          # The ledger unwrapper gates the standing-wedge section, so it is
+          # trusted on exactly the same terms as the renderer it feeds.
+          python3 scripts/ops/fetch_standing_wedges.py --self-test
 
       - name: Resolve the 24h window
         id: window
@@ -110,6 +119,67 @@ jobs:
           fi
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "work-digest: window $BASE..main"
+
+      # MI-34. A close failure CONFIRMED unclearable by any bot-side lever is
+      # downgraded out of the paging channel and carried here instead (operator
+      # decision 2026-09-02). The trader writes that ledger to
+      # runtime_logs/close_wedge_standing.json, which is .gitignore'd and lives
+      # on the VM — so on this runner the file is ABSENT unless we fetch it.
+      #
+      # ⚠️ THE FETCH IS BEST-EFFORT AND THE FAILURE DIRECTION IS THE POINT.
+      # `continue-on-error` is deliberate: a diag outage must not kill the
+      # digest, because the digest still has the rest of the day to report. What
+      # it must NOT do is render a fetch failure as a clean fleet. It cannot —
+      # work_digest.standing_wedges() reports `not_fetched` for a missing file
+      # and the renderer prints "NOT EXAMINED — this is 'we did not look', NOT
+      # 'nothing is wedged'", loudly, in the operator-visible message. A digest
+      # that quietly omitted the section on a failed fetch would put a
+      # downgraded item in NEITHER channel, which is the one outcome this whole
+      # change exists to make unreachable.
+      #
+      # ⚠️ AND IT IS NOT THE ONLY THING HOLDING THAT LINE. The trader keeps its
+      # own re-page floor (CLOSE_WEDGE_REPAGE_HOURS, default 24h) precisely
+      # because this workflow has no track record of firing ON TIME: probes.yml's
+      # first-ever scheduled run (#34, success, 2026-09-01T10:12:17Z) came ~4h50m
+      # LATE against its `20 5 * * *` cron, and once rather than daily. (The row
+      # OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON was
+      # CLEARED on that observation 2026-09-02; this comment cited it as "never
+      # once fired" until then — do not re-quote that. The caution is unchanged
+      # and better evidenced: a cadence that slips five hours is a worse carrier
+      # for a standing alarm than one that was never tried.)
+      # Do not remove that floor on the strength of this step existing.
+      - name: Fetch the standing close-wedge ledger from the live VM
+        continue-on-error: true
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+        run: |
+          set -uo pipefail
+          mkdir -p runtime_logs
+          if [ -z "${DIAG_READ_TOKEN:-}" ]; then
+            echo "::warning::work-digest: no DIAG_READ_TOKEN — the standing " \
+                 "close-wedge ledger will report NOT EXAMINED (we did not look)."
+            exit 0
+          fi
+          # `|| echo '{}'` is deliberately NOT used here. That idiom is what
+          # makes a failed fetch indistinguishable from an empty answer, and
+          # this repo has paid for it twice. On any failure we write NOTHING and
+          # let the absent file speak for itself.
+          if ! out="$(scripts/ops/diag_fetch.sh \
+                        'log_file?name=close_wedge_standing&lines=2000')"; then
+            echo "::warning::work-digest: diag fetch FAILED — the ledger will " \
+                 "report NOT EXAMINED. This is not 'nothing is wedged'."
+            exit 0
+          fi
+          # Unwrapping is a SCRIPT, not four lines of inline YAML, because it
+          # decides which of three operator-visible states the digest reports —
+          # and "the fetch failed" and "nothing is wedged" are two of them. Its
+          # own --self-test covers every branch including the failure ones.
+          if ! printf '%s' "$out" \
+               | python3 scripts/ops/fetch_standing_wedges.py \
+                   --out runtime_logs/close_wedge_standing.json; then
+            echo "::warning::work-digest: ledger payload unusable — the digest " \
+                 "will report NOT EXAMINED rather than guessing at a clean fleet."
+          fi
 
       - name: Render the digest
         run: |
