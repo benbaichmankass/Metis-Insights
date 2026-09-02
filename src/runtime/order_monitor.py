@@ -8485,18 +8485,27 @@ def _bybit_position_protection(client, category: str, symbol: str):
     ``covered_qty`` 0.478 against a size of 0.018.
 
     ``leg_side_split`` (:mod:`src.runtime.bybit_leg_sides`) carries the
-    per-book breakdown ADDITIVELY, and **only the over-cover PAGE reads it**.
-    The re-arm decision in :func:`_check_broker_naked_bybit_positions` still
-    reads ``covered_qty``, byte-identically to before this field existed, so
-    nothing about which positions get re-armed changed here.
+    per-book breakdown ADDITIVELY. ⚠️ **THE TWO SENTENCES THAT STOOD HERE UNTIL
+    2026-09-02 SAID "only the over-cover PAGE reads it" AND "the re-arm decision
+    … still reads ``covered_qty``, byte-identically … so nothing about which
+    positions get re-armed changed here". BOTH ARE NOW FALSE AND MUST NOT BE
+    RE-QUOTED** — they were true of the diagnostic repair (#10739) and stopped
+    being true when the Tier-2 change that repair named was made.
+    :func:`_check_broker_naked_bybit_positions` now grades coverage through
+    ``bybit_leg_sides.graded_book_coverage(leg_side_split)``, so this split
+    DECIDES which live positions get a protective stop re-armed.
 
-    ⚠️ That the side-blind sum can therefore ALSO mask a genuinely
-    under-covered book — an other-book leg can push ``covered_qty`` past
-    ``size`` on a position whose own stop is gone, and the sweep then skips it
-    as "fully covered" — is a REAL and SEPARATE defect. It is a Tier-2 change
-    to the re-arm path and is deliberately NOT made here; it is named in the
-    PR that added this field so it is fixed with its own review and its own
-    both-direction tests, not as a side effect of a diagnostic repair.
+    That change closed the masking this docstring used to name as open: an
+    other-book leg pushing ``covered_qty`` past ``size`` on a position whose own
+    stop is gone, which the sweep then skipped as "fully covered". ⚠️ It was
+    CONSTRUCTED from the live 2026-09-02T03:30:33Z read above — **n = 1, and no
+    live instance of the masking has been observed.**
+
+    ⚠️ ``covered_qty`` ITSELF IS UNCHANGED AND STAYS SIDE-BLIND. It feeds the
+    over-cover TRIP, which is the UNION of same-book pile-up and other-book legs
+    resting on the symbol; narrowing that to the graded book would make the
+    second condition stop tripping and go SILENT — worse than the mislabelling
+    #10739 fixed. Only the coverage/re-arm comparison moved.
     """
     try:
         pos_resp = client.get_positions(category=category, symbol=symbol)
@@ -8614,12 +8623,13 @@ def _bybit_position_protection(client, category: str, symbol: str):
         "sl_leg_ids": leg_ids, "unknown_qty_sl_legs": unknown,
         # Combined TP+SL, for the 20-leg cap only. NOT a coverage figure.
         "protective_leg_count": protective_legs,
-        # WHICH BOOK each SL leg acts on (2026-09-02). ⚠️ `covered_qty` above
-        # is DELIBERATELY LEFT SIDE-BLIND so the re-arm decision below is
-        # byte-identical to before this field existed — this split is read by
-        # the over-cover PAGE only, never by an order path. That the
-        # side-blind sum can also mask a genuinely under-covered book is a
-        # separate, real defect and a Tier-2 change; it is named, not enacted.
+        # WHICH BOOK each SL leg acts on (2026-09-02). ⚠️ THIS IS AN ORDER-PATH
+        # INPUT: `_check_broker_naked_bybit_positions` grades coverage through
+        # `bybit_leg_sides.graded_book_coverage` over this split, so a
+        # misclassification here changes which live positions get re-armed.
+        # `covered_qty` above stays SIDE-BLIND on purpose — it feeds the
+        # over-cover TRIP (a union of two conditions) and the page, never the
+        # re-arm. Do not "harmonise" the two.
         "leg_side_split": _bybit_leg_sides.split_legs_by_side(
             pos.get("side"), sl_legs_seen,
             qty_of=_bybit_sl_leg_qty, position_idx=pos_idx,
@@ -8630,6 +8640,30 @@ def _bybit_position_protection(client, category: str, symbol: str):
         # readable trigger, which is not "the prices are fine".
         "stop_prices": sorted(leg_prices),
     }
+
+
+def _bybit_mark_fully_covered(state: dict, size: float) -> dict:
+    """In-tick idempotency marker: this symbol has just been re-protected.
+
+    A netted symbol holds MANY journal rows and ONE exchange position, so after
+    a top-up or a Full-mode re-arm the remaining rows for that symbol must not
+    each fire another one. The sweep has always done this by rewriting the
+    cached ``covered_qty`` to ``size``; since 2026-09-02 the re-arm decision
+    reads the GRADED-book figure instead, so the split has to say full too or
+    the marker would stop working and every sibling row would re-arm again.
+
+    ⚠️ The returned dict is a CACHE MARKER, not a venue reading, and it never
+    replaces the read: it is built per-tick and thrown away. The side-blind
+    ``covered_qty`` is set the same way it always was.
+    """
+    marked = {**state, "covered_qty": size}
+    split = state.get("leg_side_split")
+    if isinstance(split, dict):
+        marked["leg_side_split"] = {
+            **split,
+            f"{_bybit_leg_sides.LEG_REDUCES_GRADED_BOOK}_qty": size,
+        }
+    return marked
 
 
 def _bybit_top_up_partial_sl(acc: dict, symbol: str, row, uncovered_qty, sl) -> bool:
@@ -9266,6 +9300,28 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
     IS the idempotency; a read failure is skipped; an actively-closing symbol is
     skipped (mirrors the Alpaca sweep's close-vs-rearm guard). Never raises.
 
+    ⚠️ **COVERAGE IS GRADED AGAINST THE BOOK THIS POSITION IS ON** (2026-09-02).
+    A protective leg is reduce-only, so it acts on the book it can SHRINK.
+    ``_bybit_position_protection``'s ``covered_qty`` sums EVERY resting SL leg
+    on the symbol regardless of side, and since HEDGE mode was armed on
+    ``bybit_1``/``bybit_2`` (2026-08-30) a symbol can carry legs for TWO books
+    in that one sum — so an OTHER-book leg can push the total past ``size`` on a
+    position whose OWN stop is gone, and this sweep would skip a genuinely naked
+    position as "fully covered". The re-arm/top-up decision therefore reads
+    ``bybit_leg_sides.graded_book_coverage(leg_side_split)``; ``covered_qty``
+    still feeds the over-cover TRIP, which is deliberately the side-blind UNION
+    of same-book pile-up AND other-book legs — narrowing that would make the
+    other-book case go silent.
+
+    ⚠️ CONSTRUCTED from the live 2026-09-02T03:30:33Z read — **n = 1, and no
+    live instance of the masking has been observed.**
+
+    An UNGRADEABLE side split (``graded_book_coverage`` returns ``None``)
+    refuses in BOTH directions: no re-arm, and the side-blind sum is not banked
+    as coverage either. It is counted (``coverage_side_ungradeable``) and
+    logged, so *we could not look* is a reportable condition rather than a
+    silent skip — the same posture the unparseable-leg-qty guard already takes.
+
     Returns ``{"checked", "broker_naked", "rearmed", "errors"}``.
     """
     summary: Dict[str, int] = {
@@ -9284,6 +9340,11 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
         # exists to stop. `over_cover_split_ungraded` is *we could not tell
         # which* — emphatically not a third finding, and not a clean read.
         "over_cover_other_book": 0, "over_cover_split_ungraded": 0,
+        # The re-arm decision could not be graded because the leg/position SIDE
+        # split was incomplete. Counted SEPARATELY from `unconfirmed` (an
+        # unparseable leg QTY): both refuse, but they refuse for different
+        # reasons and a reader chasing one must not find the other's rows.
+        "coverage_side_ungradeable": 0,
         "journal_qty_divergent": 0,
         "journal_qty_divergent_pairs": 0,
     }
@@ -9561,23 +9622,70 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                 )
                 protection_cache[cache_key] = None  # don't re-grade this tick
                 continue
-            if covered + eps >= size:
-                continue  # fully covered
+            # ---- COVERAGE OF THE GRADED BOOK ---------------------------------
+            # ⚠️ `covered` above is SIDE-BLIND and stays that way: it feeds the
+            # over-cover TRIP (a union of two conditions — narrowing it would
+            # make the other-book case go silent) and the page. It must NOT
+            # decide re-arm. A protective leg is reduce-only, so it acts on the
+            # book it can SHRINK; since HEDGE mode was armed on bybit_1/bybit_2
+            # (2026-08-30, BYBIT_HEDGE_MODE_SYMBOLS) a symbol can carry legs for
+            # TWO books in that one sum, and an OTHER-book leg can push the
+            # total past `size` on a position whose OWN stop is gone — so the
+            # test below would skip a genuinely naked position as fully covered.
+            #
+            # CONSTRUCTED from the live 2026-09-02T03:30:33Z read (bybit_1
+            # BTCUSDT: Buy 0.018 idx=1, own Sell 0.018 SL, plus Buy 0.46 SL on
+            # the other book): lose the Sell 0.018 and `covered` still reads
+            # 0.46 >= 0.018. ⚠️ n = 1, CONSTRUCTED — no live instance of the
+            # masking has been observed.
+            if state["source"] == "partial_sl_legs":
+                graded_covered, _cov_reason = _bybit_leg_sides.graded_book_coverage(
+                    state.get("leg_side_split"))
+            else:
+                # `full_position_stop` genuinely covers the WHOLE net position
+                # and returns before the legs are read at all, so there is no
+                # split to grade and `covered_qty == size` is the measurement.
+                graded_covered, _cov_reason = covered, _bybit_leg_sides.COVERAGE_GRADED
+            if graded_covered is None:
+                # WE COULD NOT LOOK. Refuse in BOTH directions — do not re-arm
+                # (a Full-mode re-arm is a live order that stamps ONE trade's
+                # levels over the whole netted position, and under hedge mode it
+                # would target a book we just failed to identify), and do not
+                # bank the side-blind sum as coverage either. This is the same
+                # posture the `unknown_qty_sl_legs` guard above already takes,
+                # and it is LOUD: a WARNING plus its own counter, so the refusal
+                # is a reportable condition rather than a silent skip.
+                summary["coverage_side_ungradeable"] += 1
+                logger.warning(
+                    "_check_broker_naked_bybit_positions: %s/%s coverage of the "
+                    "GRADED book is ungradeable (%s) — skipping re-arm "
+                    "(size=%s, side-blind SL total=%s, position side=%s). The "
+                    "side-blind total is NOT coverage of this book and is not "
+                    "used to skip. Run the bybit-bracket-audit action.",
+                    account_id, symbol, _cov_reason, size, covered,
+                    exch_side or "unreadable",
+                )
+                protection_cache[cache_key] = None  # don't re-grade this tick
+                continue
+            if graded_covered + eps >= size:
+                continue  # fully covered ON THE BOOK WE GRADED
             # ---- NOT fully covered -------------------------------------------
             # covered == 0 → fully naked (the pre-2026-07-30 case).
             # 0 < covered < size → PARTIALLY naked: the netted position carries
             # SOME per-trade legs but not enough qty to cover all of it. This is
             # the case the old any()-boolean silently skipped.
-            partial = covered > 0
+            partial = graded_covered > 0
             summary["broker_naked"] += 1
             if partial:
                 summary["partially_naked"] += 1
                 logger.error(
                     "_check_broker_naked_bybit_positions: PARTIALLY NAKED "
-                    "%s/%s — position size=%s but resting SL legs cover only %s "
-                    "(uncovered=%s). Per-trade qty-scoped legs have been lost "
+                    "%s/%s — position size=%s but resting SL legs on THIS book "
+                    "cover only %s (uncovered=%s; side-blind SL total across "
+                    "both books is %s). Per-trade qty-scoped legs have been lost "
                     "(20-leg cap rejection, or cancelled with a sibling close).",
-                    account_id, symbol, size, covered, size - covered,
+                    account_id, symbol, size, graded_covered,
+                    size - graded_covered, covered,
                 )
             summary["broker_naked_qty_uncovered"] = int(
                 summary.get("broker_naked_qty_uncovered", 0)
@@ -9606,7 +9714,11 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
             # everything but stamps one trade's levels over the netted position).
             topped_up = False
             if partial:
-                uncovered = size - covered
+                # The hole is measured against the GRADED book. Sizing the
+                # top-up off the side-blind sum would place a leg for the wrong
+                # quantity — or, once the other book's legs exceed `size`, for a
+                # negative one.
+                uncovered = size - graded_covered
                 topped_up = _bybit_top_up_partial_sl(
                     acc, symbol, row, uncovered, a_sl,
                 )
@@ -9618,9 +9730,8 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                     # the two apart. Like the naked re-arm it adds no read-back,
                     # hence the default `unverified`.
                     _stamp_repair(db, row, "partial_topup")
-                    protection_cache[cache_key] = {
-                        **state, "covered_qty": size,
-                    }
+                    protection_cache[cache_key] = _bybit_mark_fully_covered(
+                        state, size)
                     logger.warning(
                         "_check_broker_naked_bybit_positions: topped up %s/%s "
                         "with a qty-scoped Partial SL leg for the uncovered %s "
@@ -9630,7 +9741,7 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
             if not topped_up and _attempt_naked_autoprotect(
                 row, a_sl, a_tp, db=db):
                 summary["rearmed"] += 1
-                protection_cache[cache_key] = {**state, "covered_qty": size}
+                protection_cache[cache_key] = _bybit_mark_fully_covered(state, size)
                 logger.info(
                     "_check_broker_naked_bybit_positions: re-armed Full-mode "
                     "position bracket (sl=%s tp=%s) on broker-naked trade_id=%s "

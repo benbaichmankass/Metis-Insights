@@ -28,12 +28,26 @@ live position — the lesson of
 and the same shape as ``src/runtime/over_cover_decision.py`` and
 ``src/runtime/stray_oca_groups.py``.
 
-⚠️ **THIS MODULE DECIDES NOTHING AND CANCELS NOTHING.** It classifies. The
-caller's re-arm decision still reads the unchanged side-blind ``covered_qty``
-(see ``_bybit_position_protection``), so landing this changes no order-path
+⚠️ **THIS MODULE STILL CANCELS NOTHING AND PLACES NOTHING** — it classifies,
+and every function here is pure. But it is **no longer read only by a page.**
+
+⚠️ **THE PARAGRAPH THAT STOOD HERE UNTIL 2026-09-02 SAID THE OPPOSITE AND MUST
+NOT BE RE-QUOTED.** It read: *"The caller's re-arm decision still reads the
+unchanged side-blind ``covered_qty`` … so landing this changes no order-path
 behaviour — only what the page SAYS. That the side-blind sum can also mask a
-genuinely under-covered book is a real and separate defect; it is named in
-the PR body and is a Tier-2 change, not enacted here.
+genuinely under-covered book is a real and separate defect; it is named in the
+PR body and is a Tier-2 change, not enacted here."* That was true of the
+diagnostic repair (#10739) and became false the moment the separate Tier-2
+change it named was made. :func:`graded_book_coverage` is now what the naked
+sweep's **RE-ARM DECISION** reads (``order_monitor``
+``_check_broker_naked_bybit_positions``), so a classification error here
+changes which live positions get a protective stop re-armed.
+
+The **over-cover TRIP threshold is deliberately still side-blind** and reads
+``covered_qty``: that check is the UNION of two conditions — genuine same-book
+pile-up AND other-book legs resting on the symbol — and narrowing it to the
+graded book would make the second case stop tripping and go SILENT, which is
+worse than the mislabelling #10739 fixed. Only the *coverage* comparison moved.
 
 ⚠️ **"REDUCES THE OTHER BOOK" IS NOT "ORPHANED", AND THIS MODULE REFUSES TO
 SAY IT IS.** Under one-way netting (``positionIdx == 0``) no opposite book can
@@ -64,6 +78,12 @@ __all__ = [
     "classify_leg_side",
     "other_book_state",
     "split_legs_by_side",
+    "COVERAGE_GRADED",
+    "COVERAGE_UNGRADED_NO_SPLIT",
+    "COVERAGE_UNGRADED_POSITION_SIDE",
+    "COVERAGE_UNGRADED_LEG_SIDE",
+    "COVERAGE_UNGRADED_LEG_QTY",
+    "graded_book_coverage",
 ]
 
 # --- the leg-side vocabulary, never collapsed -------------------------------
@@ -205,3 +225,83 @@ def split_legs_by_side(
     out["qty_unreadable_legs"] = unreadable_total
     out["legs_seen"] = len(out["leg_states"])
     return out
+
+
+# --- coverage of the GRADED book, for the RE-ARM decision -------------------
+#
+# ⚠️ THESE FOUR TOKENS ARE A LOG/DIAGNOSTIC VOCABULARY, NOT A DECLARED
+# `collapsed-state-guard` CONTRACT, and that is deliberate. The load-bearing
+# distinction — *we could not grade this* versus *we graded it and nothing
+# covers the book* — is carried by `qty is None` versus `qty == 0.0`, and the
+# thing that PRODUCES it is `leg_side_class`, which IS a declared contract
+# (`scripts/ci/check_collapsed_states.py`). Registering a second vocabulary
+# over the same underlying four states would need a real consumer branch per
+# token; the caller legitimately takes ONE branch on `qty is None` and prints
+# the token, so declaring it would buy a decorative branch — the failure that
+# guard exists to prevent, not the one it exists to catch.
+COVERAGE_GRADED = "graded"
+COVERAGE_UNGRADED_NO_SPLIT = "no_split"
+COVERAGE_UNGRADED_POSITION_SIDE = "position_side_ungraded"
+COVERAGE_UNGRADED_LEG_SIDE = "leg_side_ungraded"
+COVERAGE_UNGRADED_LEG_QTY = "leg_qty_ungraded"
+
+
+def graded_book_coverage(split: Any):
+    """Qty of resting protection acting on the GRADED book — or a refusal.
+
+    Returns ``(qty, reason)``:
+
+    * ``(float, COVERAGE_GRADED)`` — every leg on the symbol was classified AND
+      its qty parsed, so the float is a MEASUREMENT of how much protection acts
+      on the position we graded. ``0.0`` here is a real reading (nothing
+      protects this book), never *we could not look*.
+    * ``(None, <one of the four ungraded tokens>)`` — REFUSE. The caller must
+      not re-arm, and must not skip on the strength of the side-blind sum
+      either; it says so and moves on.
+
+    **Why the caller needs this and not ``covered_qty``** (2026-09-02). A
+    protective leg is reduce-only, so it acts on the book it can SHRINK.
+    ``order_monitor._bybit_position_protection`` sums EVERY resting SL leg on
+    the symbol into one side-blind ``covered_qty``, and the naked sweep then
+    decides ``if covered + eps >= size: continue``. Under one-way netting that
+    was sound — one book, so every leg was the graded book's. Since HEDGE mode
+    was armed on ``bybit_1``/``bybit_2`` (2026-08-30,
+    ``BYBIT_HEDGE_MODE_SYMBOLS``) a symbol can carry legs for TWO books in that
+    one sum, so an OTHER-book leg can push the total past ``size`` on a
+    position whose own stop is gone — and the sweep skips a genuinely naked
+    position as "fully covered".
+
+    ⚠️ CONSTRUCTED FROM THE LIVE 2026-09-02T03:30:33Z READ, **n = 1, and NO
+    LIVE INSTANCE OF THE MASKING HAS BEEN OBSERVED.** ``bybit_1``/BTCUSDT held
+    ``Buy 0.018 positionIdx=1`` with its own ``Sell 0.018`` SL plus a
+    ``Buy 0.46`` SL on the other book. Had the ``Sell 0.018`` leg been lost,
+    ``covered_qty`` would still have read ``0.46 >= 0.018`` and the sweep would
+    NOT have re-armed a naked long. That is the shape; it is a construction
+    over a real venue reading, not a sighting.
+
+    ⚠️ **REFUSAL IS ALL-OR-NOTHING, mirroring the caller's existing
+    ``unknown_qty_sl_legs`` guard.** ONE ungradeable leg leaves the graded sum
+    a LOWER BOUND, and a lower bound compared against ``size`` under-reports
+    coverage — which drives a re-arm, i.e. a live order-path mutation, on a
+    position that may already be protected. So a partial read refuses outright
+    rather than grading the part it could see.
+    """
+    if not isinstance(split, dict):
+        # No split at all — the legs were never read. Emphatically not "no leg
+        # covers this book"; that is a measurement nobody took.
+        return None, COVERAGE_UNGRADED_NO_SPLIT
+    if int(split.get(f"{POSITION_SIDE_UNREADABLE}_legs") or 0):
+        # NOTHING on the symbol is gradeable — with no position side there is
+        # no "opposite" to compare a leg against. Reported ahead of the
+        # per-leg reason because it points at the other half of the read.
+        return None, COVERAGE_UNGRADED_POSITION_SIDE
+    if int(split.get(f"{LEG_SIDE_UNREADABLE}_legs") or 0):
+        return None, COVERAGE_UNGRADED_LEG_SIDE
+    unreadable_qty = int(split.get("qty_unreadable_legs") or 0)
+    if unreadable_qty:
+        # Defence in depth: `_bybit_position_protection`'s own
+        # `unknown_qty_sl_legs` guard already refuses this upstream. Repeated
+        # here so the accessor is safe on its own terms — a caller that reached
+        # it by another route must not be handed a lower bound as a total.
+        return None, COVERAGE_UNGRADED_LEG_QTY
+    return float(split.get(f"{LEG_REDUCES_GRADED_BOOK}_qty") or 0.0), COVERAGE_GRADED
