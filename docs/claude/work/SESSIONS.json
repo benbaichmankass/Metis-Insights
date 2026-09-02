@@ -436,6 +436,23 @@
         "state": "spawned_not_yet_observed",
         "note": "SPAWNED, NOT OBSERVED. Told to CANCEL NOTHING, and given the bounded severity as a measurement (bybit_2 mainnet checked and clean) so it does not over-report. ⚠️ First spawn attempt died on a typo'd repo URL (github.comute.com) and was archived — the init error read 'Authentication failed', itself a misleading diagnostic for a bad hostname, which is the same class the session is being sent to fix."
       }
+    },
+    {
+      "session_id": "session_01LsuxVvkKLcnicv6TkzrZw9",
+      "owns_object": null,
+      "title": "Backlog drain wave 2 — health-review-backlog (pass 3)",
+      "spawned_at": "2026-09-02T03:31Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/drain-health-backlog-pass3"
+      ],
+      "prs": [],
+      "why": "The elephant: 524 unresolved of 1,100 (open 337 / kept_open 187) at main b3772e3a, against 44 / 22 / 6 in the other three combined. Two prior passes. Spawned once the ml and performance drains were confirmed on OTHER files, so no two sessions hold the same backlog. Given three already-measured leads so it does not re-derive them: the diagnostic-provenance audit still at exactly 52 findings twenty-six days after filing, now SPLIT (A/semantic-substitution is only 5 rows, which is what makes it drainable); criterion 1 of the no-exit-condition class, whose criteria 3 and 4 landed tonight in #10724; and the issue-trigger fanout, re-measured WORSE in absolute terms at 87 of 127.",
+      "last_observed": {
+        "at": "2026-09-02T03:31Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Told explicitly NOT to try to drain this file — retire a class or close a handful, then stop. Warned about the trap in lead 3: the fanout SHARE fell 85% -> 68.5% while the ABSOLUTE count rose 85 -> 87, and the blast radius of one issue is the absolute count, so reading the share as improvement inverts the finding."
+      }
     }
   ]
 }
