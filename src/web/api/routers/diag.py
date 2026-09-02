@@ -145,6 +145,17 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # ict-claude-bridge.service` tail its journal (the unit now logs to
     # journald — see deploy/ict-claude-bridge.service).
     "ict-claude-bridge.service",
+    # 2026-09-02 — the DEDICATED Claude bot's polling half, which is what makes
+    # a work-decision button ANSWERABLE rather than merely delivered (a tap on
+    # an unpolled bot produces a callback_query nobody collects, with no error
+    # anywhere). Registered in the SAME change that ships the unit, because the
+    # failure this service exists to prevent is precisely a SILENT one: if it is
+    # not running, prompts fall back to the trader bot and the only way to see
+    # that from outside is `/api/diag/services` + this unit's journal, whose
+    # startup banner names which token is polled and which prefixes are handled.
+    # ⚠️ Despite the adjacent name, this is NOT ict-claude-bridge.service — that
+    # one polls the PROP token.
+    "ict-claude-decision-bot.service",
     # 2026-05-29 — M13 AI-analyst generator (fast tier every 15 min) + its
     # per-strategy slow tier (every 60 min) and their driving timers. These
     # are the SOLE writers of the insights cache + insights_history/usage
