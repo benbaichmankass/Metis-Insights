@@ -315,3 +315,86 @@ drain), which makes it a genuine candidate for the *watchdog* role. It is
 
 **Creating the Routine is not mine to do**: it is recurring spend on the
 operator's account. Evidence and cost are here; the decision is theirs.
+
+---
+
+# Addendum 2 — the carrier was NOT the reason the operator saw nothing
+
+The manager measured the live VM at 20:26–20:31Z and the premise of this whole
+document needs qualifying. **`work-digest.yml` run #5 fired on `event: schedule`
+at 19:47:22Z, conclusion success.** The cron is erratic — 5 runs total, one of
+the four hourly slots since 16:22Z, and at :47 rather than :20 — so §1 stands as
+a *cadence* finding. But a cron that fires is not the reason nothing arrived.
+
+## The chain, and where the evidence stops
+
+1. `work-digest.yml` renders and appends to `pending-pings.jsonl`, committed to
+   `main`. **Proven** — 53 rows, the last four `work_digest`.
+2. The VM pulls; `notify_on_pull.py` drains. **Proven** — journal shows the
+   drain and `>>> Pings dispatched.`
+3. The drain calls `send_ping.enqueue(..., target="claude")`.
+4. `ict-claude-bridge.service` must pick the file up and call Telegram.
+
+**Step 4 is where every piece of evidence runs out, and the reason is structural,
+not incidental.**
+
+## What `already-delivered` actually attests — measured in the code, not inferred
+
+`notify_on_pull.py:767` calls `send_ping.enqueue(...)`, and `enqueue()` **writes
+a JSON file into an inbox directory and returns its path**. It makes no network
+call. `_record_delivered_hash` then fires on that file write, with the comment
+*"Record the hash after a successful enqueue"* — which is honest about exactly
+what it means.
+
+⚠️ **`_post_telegram` — the one function that checks `status_code == 200` — and
+`_send_priority` are DEFINED AND NEVER CALLED in that module.** `grep` returns
+their `def` lines and no call sites. The response-reading code is dead on this
+path.
+
+**So the `skipping already-delivered line (hash=…)` lines attest a local file
+write. They are worthless as evidence that the operator was pinged.** That is
+the manager's possibility (b), and it is confirmed *structurally* — the marking
+records the attempt, not the effect. This is the third instance of that class
+today.
+
+## And the delivery hop is unobservable from the VM at all
+
+`/api/diag/journalctl?unit=ict-claude-bridge.service` (60 lines, 20:31–20:33Z):
+the bridge is alive and runs `drain_pending_claude_pings` every 5 seconds,
+"executed successfully" every time. **It logs nothing else** — no count drained,
+no chat id, no Telegram response. Pure apscheduler start/finish.
+
+So even reading the journal at exactly the right second would establish nothing.
+
+## What is established, and what is NOT
+
+**Established:** the delivery marking is made on the attempt (twice over — the
+hash on a file write, and the drainer recording no outcome), so **no VM-side log
+can distinguish "delivered to the wrong chat" from "never delivered".**
+
+**NOT established, and I am not going to round it up:** which of those actually
+happened. Possibility (a) remains fully live and is well-supported by
+`OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN`, which records this
+exact confusion on 2026-09-01 with `TELEGRAM_CLAUDE_BOT_SECRET` unset. **The last
+hop is observable only on the operator's phone**, as that row already says.
+
+## What this means for this PR — kept, dropped, and the honest limit
+
+**KEPT.** The cadence finding (§1) and the push carrier: the cron genuinely does
+fire erratically, one slot in four, and a digest that is never *queued* cannot be
+delivered by any bot. That is a real improvement and it generalises.
+
+**DROPPED — the claim that this fixes the operator's missing pings.** It does
+not, and §1 should not be read as the root cause of the 18:33Z complaint.
+
+⚠️ **THE DETECTOR WATCHES THE WRONG END OF THE PIPE FOR THIS FAILURE, and that
+is the more important correction.** `check_digest_liveness.py` grades the
+committed receipt, so it answers *"was a digest QUEUED recently?"* A digest
+queued, marked delivered, and never seen by the operator reads **`fresh`** — a
+clean pass over precisely the failure that prompted the work. The detector half
+of the brief was right; **the thing it must ultimately detect is an undelivered
+ping, not a skipped cron**, and this PR does not do that.
+
+Not widened to fix it here: the drain is VM-side and Tier-2, the fix is a
+delivery receipt recorded from Telegram's own response, and guessing at it would
+be worse than naming it. Filed instead.
