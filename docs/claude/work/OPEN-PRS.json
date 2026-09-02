@@ -192,23 +192,6 @@
       "blocker": "Manager review not complete."
     },
     {
-      "pr": 10808,
-      "title": "manager: three halves as executable refusals — preflight, queue watch, spawn priority gate",
-      "owner_session": "session_013ANr63vsQ9TjU4sh51vxny",
-      "checklist_item": "MI-68",
-      "draft": true,
-      "tier": "1 (tooling/CI)",
-      "state": "in_progress_by_owner",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "DEC-20260902-WHAT-IS-AN-ARTIFACT answered 2026-09-02: an artifact is an OPEN, NON-DRAFT PR excluding DO-NOT-MERGE and bot automation (option C). ⚠️ The operator ACCEPTED that this gate will bite the next manager — that is the acceptance criterion, not a caveat.",
-        "scope": "The caps are 4 concurrent SESSIONS and 4 concurrent ARTIFACTS, independently.",
-        "decided_on": "2026-09-02",
-        "text": "Operator, verbatim: 'let's go with your recommendation for c, and I understand this will bite the next manager, but that is, like you said, exactly the point, so that's fine.'"
-      },
-      "blocker": "⚠️ THE COUNT WAS 10 AGAINST A CAP OF 4 WHEN THE DEFINITION WAS CHOSEN. That is a manager merge backlog, NOT evidence the definition is wrong — do not widen the definition to make the number pass. Manager wants three things before merge: whether queue_latency.py can obtain a LIVE session read or grades `unknown`; BOTH negative controls for spawn_gate.py; and whether `register` is genuinely the chokepoint."
-    },
-    {
       "pr": 10810,
       "title": "automerge: gate the relay on the branch's OWN request, and stop it un-drafting",
       "owner_session": "session_01XrwTGRY819PCzBnppCTLbi",
@@ -241,23 +224,6 @@
         "text": "None yet."
       },
       "blocker": "Owner still running. Enacts the inventory whose headline finding is that ZERO of 32 role packs reference the operating layer, so role packs and work objects are wired to different systems."
-    },
-    {
-      "pr": 10812,
-      "title": "MI-70: the session reaper, and the kill test — a PARTIAL loss, honestly reported",
-      "owner_session": "session_01NkekPZw73VYuynYhSdWLWm",
-      "checklist_item": "MI-70",
-      "draft": true,
-      "tier": "1 (tooling/CI)",
-      "state": "awaiting_owner_revision",
-      "operator_decision": {
-        "verdict": "pending",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None yet — the DONE-CONDITION amendment below is a MANAGER ruling, not an operator decision."
-      },
-      "blocker": "⚠️ CARRY THE RULING, NOT JUST THE PR. The kill was actually run and demonstrated 'killing a session loses everything it had not pushed, and nothing it had' — which CONTRADICTS Phase E's done-condition ('loses nothing'). Manager ruled 2026-09-02: do NOT amend the condition to match the result (that fits the bar to the outcome), and do NOT leave 'loses nothing' (unachievable — the loss is in a dead container). BOUND it instead, and Phase E does not close until a successor object exists for push cadence. ⚠️ claude/mi70-kill-subject MUST NOT BE MERGED — it is the evidence."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -425,8 +391,50 @@
       "merge_sha": "1efb5defb05920497325d528291e38224f4e1af7",
       "observed_at": "2026-09-02T14:58:58Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10808,
+      "title": "manager: three halves as executable refusals — preflight, queue watch, spawn priority gate",
+      "owner_session": "session_013ANr63vsQ9TjU4sh51vxny",
+      "checklist_item": "MI-68",
+      "draft": true,
+      "tier": "1 (tooling/CI)",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "DEC-20260902-WHAT-IS-AN-ARTIFACT answered 2026-09-02: an artifact is an OPEN, NON-DRAFT PR excluding DO-NOT-MERGE and bot automation (option C). ⚠️ The operator ACCEPTED that this gate will bite the next manager — that is the acceptance criterion, not a caveat.",
+        "scope": "The caps are 4 concurrent SESSIONS and 4 concurrent ARTIFACTS, independently.",
+        "decided_on": "2026-09-02",
+        "text": "Operator, verbatim: 'let's go with your recommendation for c, and I understand this will bite the next manager, but that is, like you said, exactly the point, so that's fine.'"
+      },
+      "blocker": "⚠️ THE COUNT WAS 10 AGAINST A CAP OF 4 WHEN THE DEFINITION WAS CHOSEN. That is a manager merge backlog, NOT evidence the definition is wrong — do not widen the definition to make the number pass. Manager wants three things before merge: whether queue_latency.py can obtain a LIVE session read or grades `unknown`; BOTH negative controls for spawn_gate.py; and whether `register` is genuinely the chokepoint.",
+      "terminal": "merged",
+      "merge_sha": "67cfb8be338ff536e46b8ac425f4dcf96582b839",
+      "observed_at": "2026-09-02T15:02:02Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10812,
+      "title": "MI-70: the session reaper, and the kill test — a PARTIAL loss, honestly reported",
+      "owner_session": "session_01NkekPZw73VYuynYhSdWLWm",
+      "checklist_item": "MI-70",
+      "draft": true,
+      "tier": "1 (tooling/CI)",
+      "state": "awaiting_owner_revision",
+      "operator_decision": {
+        "verdict": "pending",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None yet — the DONE-CONDITION amendment below is a MANAGER ruling, not an operator decision."
+      },
+      "blocker": "⚠️ CARRY THE RULING, NOT JUST THE PR. The kill was actually run and demonstrated 'killing a session loses everything it had not pushed, and nothing it had' — which CONTRADICTS Phase E's done-condition ('loses nothing'). Manager ruled 2026-09-02: do NOT amend the condition to match the result (that fits the bar to the outcome), and do NOT leave 'loses nothing' (unachievable — the loss is in a dead container). BOUND it instead, and Phase E does not close until a successor object exists for push cadence. ⚠️ claude/mi70-kill-subject MUST NOT BE MERGED — it is the evidence.",
+      "terminal": "merged",
+      "merge_sha": "8569b20809d057b92836c5e72c6019e5e95f1d3a",
+      "observed_at": "2026-09-02T15:02:02Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-02T14:58:58Z",
-  "last_reconciled_sha": "fcbecad79828e8fe696c7ab06a3df12d3fa9cc9e"
+  "last_reconciled_at": "2026-09-02T15:02:02Z",
+  "last_reconciled_sha": "79525adb7794cde5d3a850146e2dd8cd4e84b2dd"
 }
