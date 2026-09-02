@@ -34,6 +34,11 @@ class ClassificationEvaluator(Evaluator):
             if target_value is None:
                 continue
             label = 1 if bool(target_value) else 0
+            # `target` is coerced to a boolean label above, so tp/fp/fn/tn
+            # and Brier are only meaningful for a two-class head; a
+            # MulticlassPredictor returns max(proba) from this same call and
+            # is not a valid input.
+            # provenance: predict — P(positive) for the BINARY head graded here
             prob = predictor.predict(row)
             # Clamp into [0,1] so a regression-style predictor used
             # for classification doesn't break Brier.

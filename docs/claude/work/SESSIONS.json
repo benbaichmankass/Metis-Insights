@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T02:12Z",
+  "updated_at": "2026-09-02T06:14:39Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -470,6 +470,164 @@
         "state": "spawned_not_yet_observed",
         "note": "SPAWNED, NOT OBSERVED. Given a SECOND axis the existing backlog note does not carry, and told to verify it rather than take it on trust: #10731's eight matches were genuinely other sessions but ALL of their PRs had already MERGED, so the audit cannot tell a live declaration from a stale one either. A fix handling only self-attribution leaves that half firing. Told explicitly NOT to make the audit quieter in general — suppressing a real overlap is the strictly worse error — and to keep the four states apart rather than collapsing them into 'another session declared'."
       }
+    },
+    {
+      "session_id": "session_01JtCLjnWPvNRN7K3td116BY",
+      "owns_object": null,
+      "title": "MI-37 — side-blind covered_qty can mask a genuinely naked Bybit position (Tier-2, DRAFT ONLY)",
+      "spawned_at": "2026-09-02T04:28Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/bybit-coverage-graded-book"
+      ],
+      "prs": [],
+      "why": "The money-at-risk item, unblocked the moment #10739 merged and shipped reduces_graded_book_qty. The Bybit naked-sweep's re-arm decision reads a SIDE-BLIND covered_qty; since hedge mode was armed 2026-08-30 one symbol can carry legs for two books in one sum, so an other-book leg can push covered past `size` on a position whose OWN stop is gone and `if covered + eps >= size: continue` skips a naked book as fully covered.",
+      "last_observed": {
+        "at": "2026-09-02T04:28Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. TIER-2 ORDER PATH — told DRAFT ONLY, no auto-merge; the operator owns the approval and it is on the morning report. Given the trap explicitly: fix the COVERAGE COMPARISON and NOT the trip threshold, because the side-blind sum is the UNION of two conditions and narrowing it would make the other-book case go SILENT — strictly worse than the mislabelling #10739 just fixed. Told to import reduces_graded_book_qty rather than re-derive a second notion of which book a leg reduces. Four controls demanded including the mirror (a genuinely-covered position is still skipped) and an argued answer for which way `unknown` should fail on a SAFETY mechanism. Also told to re-run guards on the FINAL committed head, citing #10739's PASS-50-FAIL-0 that predated its last commits. ⚠️ The n=1 CONSTRUCTED status of the evidence was stressed — no live instance of the masking has been observed, and that must not get upgraded to a sighting in the PR body."
+      }
+    },
+    {
+      "session_id": "session_01EihsgewHt7BZv43YcC7caV",
+      "owns_object": null,
+      "title": "MI-30 — R-metrics contaminated and feeding promotion gates",
+      "spawned_at": "2026-09-02T04:31Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/r-metric-contamination"
+      ],
+      "prs": [],
+      "why": "Unblocked once the performance drain reported. It contaminates every totalR/expectancyR consumer INCLUDING R-BASED PROMOTION GATES — a gate can read a number two orders of magnitude above its true value. Worst observed expectancyR +206.920 driven by a SINGLE trade at R = +3,672.32, and on real money ict_scalp_5m reads +26.02R against -$6.59 while the fleet aggregate's signs agree only because trend_donchian_eth_4h outweighs it.",
+      "last_observed": {
+        "at": "2026-09-02T04:31Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Framed as ANALYSE + a Tier-1 DETECTOR + a Tier-3 PROPOSAL NOT ENACTED, since the fix changes what a promotion gate reads. Told to EXTEND the existing measurement rather than re-derive it (82 of 477 closed rows carry a stop on the WRONG SIDE OF ENTRY — impossible for an initial stop, so the mechanism is proven rather than inferred). Two traps named: do NOT silently exclude contaminated rows from the aggregate, which converts a visible-wrong number into an invisible-wrong one over an unstated population; and do NOT collapse 'stop provably wrong-side' with 'stop plausible but unverifiable as initial' — the latter is most rows and is emphatically NOT clean. Also handed the filter_state trap (the DB explorer silently ignores an unknown filter column and returns the WHOLE table; the column is strategy_name, not strategy) because a drain hit exactly that tonight, and the fleet pnlCoverage 0.126 context so it cannot present an R conclusion as firmer than the PnL underneath it."
+      }
+    },
+    {
+      "session_id": "session_01JMWwopaYAQgNS8uJ2pAj5E",
+      "owns_object": null,
+      "title": "MI-39 — the work digest fired empty, and would have said nothing true even if it hadn't",
+      "spawned_at": "2026-09-02T04:43Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/work-digest-empty-body"
+      ],
+      "prs": [],
+      "why": "Reported first-hand by the operator on waking: the last message their ClaudeBot channel received was at 03:24 and read, in its entirety, 'work_digest' — no body — while the night had produced 52 merged PRs and two retired backlog classes. This is F6, the notification function the whole autonomy grant is conditioned on. A digest that fires and says nothing is WORSE than one that does not fire, because it looks like oversight happened.",
+      "last_observed": {
+        "at": "2026-09-02T04:43Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Two defects, and the SECOND is the worse one. (1) DELIVERY: work_digest.py queues its text under the key 'message'; notify_on_pull.py::_render_ping_message builds the body from a FIXED key list (cp_id/next_cp/phase/strategy/model/result/grade/question/summary + URL keys) that does not include it, so the label rendered and the body vanished. Its docstring asserts 'nothing is silently dropped', which is true of the LABEL and false of the BODY. Told explicitly NOT to fix it by adding 'message' to the list — that is the same hand-maintained list one entry longer and the next producer picking a different key fails identically, which is the call this repo already made on LIVE_BACKLOGS in #10725. (2) CONTENT: I ran the generator on last night's range and it emits 'No lifecycle change in a9444bc6..34f2beb5' after 52 merged PRs, two retired backlog classes, two cleared register rows and a closed capability gap — because none of that moves a work-object `lifecycle` field. It measures the work STORE, not the WORK. Two traps handed over: do NOT turn it into a PR counter (CLAUDE.md's own contract says ping on state changes and decisions, NEVER on activity, and the 202-of-376 un-latched-alarm record is why), and 'nothing changed' must become distinguishable from 'we could not look', which today it is not. Told to establish its own tier rather than assume Tier-1, since notify_on_pull.py executes on the live VM via deploy_pull_restart.sh."
+      }
+    },
+    {
+      "session_id": "session_01RT889wBPYj1dVEqQnkzj7h",
+      "title": "MI-37: stage the book-aware Bybit coverage grade on bybit_1",
+      "checklist_item": "MI-37",
+      "spawned_at": "2026-09-02T05:24:18Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "wave": "3",
+      "basis": "operator decision 2026-09-02 (AskUserQuestion)",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01CU2izDKoWpfyACrMdR43Mu",
+      "title": "Phase G: make the strategy-review evidence floor reachable",
+      "checklist_item": "MI-23",
+      "spawned_at": "2026-09-02T05:24:18Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "wave": "3",
+      "basis": "operator decision 2026-09-02 (AskUserQuestion)",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01XbigCVRcy2bnVpm1tKNPno",
+      "title": "MI-34: unclearable GLD wedge moves from paging to the daily digest",
+      "checklist_item": "MI-34",
+      "spawned_at": "2026-09-02T05:24:18Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "wave": "3",
+      "basis": "operator decision 2026-09-02 (AskUserQuestion)",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01N1BmbHtE6PpfHtzTXMtbLh",
+      "title": "MI-37 (retry 1): stage the book-aware Bybit coverage grade",
+      "checklist_item": "MI-37",
+      "spawned_at": "2026-09-02T06:12:45Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "archived",
+      "note": "ARCHIVED without producing work. Blocked: 'repo absent from container'. CAUSE WAS MY OWN INSTRUCTION -- I told it not to clone after attempt 1 stalled on a clone-permission prompt, and its container genuinely had no checkout. Superseded by session_01Wu7y3KL6MMgAV1ghetQWFx.",
+      "registered_late": true,
+      "registered_late_reason": "Registered retroactively 2026-09-02 when a handoff readiness check found 6 of 9 spawned sessions absent. spawned_at is the REGISTRATION time, not the spawn time -- do not read it as when the session started."
+    },
+    {
+      "session_id": "session_01Wu7y3KL6MMgAV1ghetQWFx",
+      "title": "MI-37 (retry 2): stage the book-aware Bybit coverage grade on bybit_1",
+      "checklist_item": "MI-37",
+      "spawned_at": "2026-09-02T06:12:45Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "working",
+      "note": "Branch claude/bybit-coverage-graded-book, PR #10746 (DRAFT, Tier-2 order path). Operator APPROVED WITH STAGING on bybit_1 only -- NOT a fleet-wide flip. Spawned with explicit source_url+source_revision, which is what the two failed attempts lacked.",
+      "registered_late": true,
+      "registered_late_reason": "Registered retroactively 2026-09-02 when a handoff readiness check found 6 of 9 spawned sessions absent. spawned_at is the REGISTRATION time, not the spawn time -- do not read it as when the session started."
+    },
+    {
+      "session_id": "session_01PcirVtpMXJGiKm2548nkrR",
+      "title": "MI-39 fix: register pending-pings.jsonl so the notify test cannot be short-circuited",
+      "checklist_item": "MI-39",
+      "spawned_at": "2026-09-02T06:12:45Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "working",
+      "note": "Branch claude/work-digest-empty-body, PR #10747 (DRAFT). Its guard's own self-test is RED in CI and green in two local reproductions; handed back with the evidence. WOKEN TWICE VIA A SESSION-BOUND ROUTINE after going idle -- see the MI-32 correction.",
+      "registered_late": true,
+      "registered_late_reason": "Registered retroactively 2026-09-02 when a handoff readiness check found 6 of 9 spawned sessions absent. spawned_at is the REGISTRATION time, not the spawn time -- do not read it as when the session started."
+    },
+    {
+      "session_id": "session_01NeR2kREiXrXQcYYuRHvzRa",
+      "title": "MI-41-A: actions Claude can INVOKE to save tokens",
+      "checklist_item": "MI-41-A",
+      "spawned_at": "2026-09-02T06:12:45Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "working",
+      "note": "Branch claude/session-invokable-actions-ci-settled. ⚠️ MY BRIEF WAS CORRECTED MID-FLIGHT: the CI-settled notifier I told it to build ALREADY EXISTS as the check_suite.completed wake on a subscribed PR. Its task is now to measure that wake's real gaps and build only into them -- and 'the gap is small, it was operator error' is an ACCEPTABLE deliverable.",
+      "registered_late": true,
+      "registered_late_reason": "Registered retroactively 2026-09-02 when a handoff readiness check found 6 of 9 spawned sessions absent. spawned_at is the REGISTRATION time, not the spawn time -- do not read it as when the session started."
+    },
+    {
+      "session_id": "session_01Ryr6K2VXGojZbqjFgQ2PrN",
+      "title": "MI-41-B: split the instruction surface",
+      "checklist_item": "MI-41-B",
+      "spawned_at": "2026-09-02T06:12:45Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "working",
+      "note": "Branch claude/claude-md-reference-split. 77% of CLAUDE.md (330,333 of 430,453 bytes) is API/env/diag reference. Deliver a measured proposal THEN the lowest-risk slice; do not delete content to hit a number.",
+      "registered_late": true,
+      "registered_late_reason": "Registered retroactively 2026-09-02 when a handoff readiness check found 6 of 9 spawned sessions absent. spawned_at is the REGISTRATION time, not the spawn time -- do not read it as when the session started."
+    },
+    {
+      "session_id": "session_01YBQQzvgJzSumk1APmjiG7B",
+      "title": "MI-41-C/D: map 32 skills onto the five session types; inventory 129 workflows",
+      "checklist_item": "MI-41-CD",
+      "spawned_at": "2026-09-02T06:12:45Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "working",
+      "note": "AUDIT producing a proposal + safe repairs. Must NOT mass-delete skills or workflows. Told to grade a workflow by its run history, never by its YAML.",
+      "registered_late": true,
+      "registered_late_reason": "Registered retroactively 2026-09-02 when a handoff readiness check found 6 of 9 spawned sessions absent. spawned_at is the REGISTRATION time, not the spawn time -- do not read it as when the session started."
+    },
+    {
+      "session_id": "session_019udKqceYPBqp4kzBYNZ6Sp",
+      "title": "MI-43: handoff-readiness check + make spawn-and-register one action",
+      "checklist_item": "MI-43",
+      "spawned_at": "2026-09-02T06:14:39Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "working",
+      "note": "Registered in the SAME action that spawned it -- deliberately, because this session's own subject is that spawn and register keep diverging (MI-15, recurred 6-of-9 the same hour). Building the coupling by hand each time is the interim; its deliverable is to make the coupling mechanical so no manager has to.",
+      "registered_late": false
     }
-  ]
+  ],
+  "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."
 }

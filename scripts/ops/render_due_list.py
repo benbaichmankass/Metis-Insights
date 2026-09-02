@@ -385,7 +385,7 @@ def src_probes(
 
 def src_research_queue(
     root: Path,
-    today: date,  # inert: every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
+    today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
 ) -> SourceResult:
     """Queued research jobs, so a stalled queue is visible without opening it."""
     d = root / _RESEARCH_QUEUE
@@ -422,8 +422,8 @@ def _gh(path: str, token: str) -> Any:
 
 
 def src_red_crons(
-    root: Path,  # inert: every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
-    today: date,  # inert: every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
+    root: Path,  # inert: root — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
+    today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
     *,
     token: str | None = None,
 ) -> SourceResult:
@@ -456,7 +456,7 @@ def src_red_crons(
 
 
 def src_unlanded_automation(
-    root: Path,  # inert: every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
+    root: Path,  # inert: root — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
     today: date,
     *,
     token: str | None = None,

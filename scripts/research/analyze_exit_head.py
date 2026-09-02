@@ -360,7 +360,7 @@ def _policy_sim(usable, test_idx, beta, mu, sd, feats, threshold, fee_r,
         delta_r.append(realized - base)
 
 
-def _summarize_regression(auc_folds, r2_folds, imp_drop, feats) -> Dict[str, Any]:
+def _summarize_regression(auc_folds, r2_folds, imp_drop, feats) -> Dict[str, Any]:  # inert: feats — the ranked importance is keyed off imp_drop, which already carries the feature names; feats is redundant
     if not auc_folds:
         return _not_computed("no fold produced a defined OOS AUC")
     mean_auc = round(sum(auc_folds) / len(auc_folds), 4)

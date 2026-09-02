@@ -292,11 +292,16 @@ python -m ml train {manifest_path} --datasets-root datasets-out \\
 # Bundle the freshest experiment run's model_state + metrics + manifest as ONE
 # JSON blob for return (there's exactly one run -- the pod trains one manifest).
 python3 - > /workspace/bundle.json <<'PYEOF'
-import glob, json, os
+import glob, json, os, sys
 runs = sorted(glob.glob('ml/experiments-runs/*/*/'), key=os.path.getmtime)
+# DISCOVERED by mtime, not declared. The comment above asserts there is exactly
+# one run; print the count so that claim is CHECKED rather than trusted.
+# stderr, because stdout is redirected into bundle.json.
+print('[input] run candidates: ' + str(len(runs)), file=sys.stderr)
 if not runs:
     raise SystemExit('no experiment run produced -- train did not write an artifact')
 run = runs[-1]
+print('[input] run=' + run + ' (newest by mtime)', file=sys.stderr)
 def _load(name):
     p = os.path.join(run, name)
     return json.load(open(p)) if os.path.exists(p) else None

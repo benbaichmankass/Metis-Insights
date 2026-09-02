@@ -292,8 +292,16 @@ def _section_trading(report: dict) -> str:
         )
         meta = d.get("meta") or {}
         ms = d.get("model_scores") or {}
+        # Rendered as `logged score`, never as a class probability: the field
+        # is `ShadowPredictor.predict`, which is P(positive) for a binary head
+        # but max(proba) for a multiclass one (>= 0.5 by construction, and HIGH
+        # for a confidently-CALM regime head). The one module that owns this
+        # answer is `scripts/ml/_regime_score_semantics`; it is cited rather
+        # than imported because this renderer is deliberately stdlib-only.
+        # provenance: score — the raw logged predict() field, arity-dependent
         ms_str = ", ".join(
-            f"{html.escape(str(mid))}:{_f((mv or {}).get('stage'))}={_num((mv or {}).get('score'), 3)}"
+            f"{html.escape(str(mid))}:{_f((mv or {}).get('stage'))}"
+            f"={_num((mv or {}).get('score'), 3)}"
             for mid, mv in ms.items()
         ) or DASH
         body = ['<div class="body"><div class="kv">']
@@ -312,7 +320,11 @@ def _section_trading(report: dict) -> str:
             ("risk mgmt", grade.get("risk_management")),
         ):
             body.append(f'<div class="k">{html.escape(k)}</div><div>{_f(v)}</div>')
-        body.append(f'<div class="k">model scores</div><div>{ms_str}</div>')
+        body.append(
+            '<div class="k">model scores</div>'
+            f'<div>{ms_str} <span class="muted">(logged score = predict(); '
+            'max(proba) for a multiclass head, not P(class))</span></div>'
+        )
         body.append(f'<div class="k">signal logic</div><div>{_f(d.get("signal_logic"))}</div>')
         body.append(f'<div class="k">grade rationale</div><div>{_f(grade.get("rationale"))}</div>')
         body.append("</div></div>")

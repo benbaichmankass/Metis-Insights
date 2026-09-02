@@ -917,8 +917,8 @@ def _selftest() -> int:
         rs,
         *,
         seed,
-        signal_noise=1.0,  # inert: signature parity with inject_controls; reading it would un-break the plant
-        target=TARGET_COL,  # inert: signature parity with inject_controls; the plant must ignore the label
+        signal_noise=1.0,  # inert: signal_noise — signature parity with inject_controls; reading it would un-break the plant
+        target=TARGET_COL,  # inert: target — signature parity with inject_controls; the plant must ignore the label
         n_negative=N_NEGATIVE_CONTROLS,
     ):
         r = random.Random(seed)

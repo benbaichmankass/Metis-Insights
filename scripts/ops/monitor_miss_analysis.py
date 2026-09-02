@@ -101,7 +101,7 @@ def _f(x: Any, default: Optional[float] = None) -> Optional[float]:
 def _classify(
     direction: str,
     entry: float, exit_: float, sl: float, tp: float,
-    tol: float = 0.001,
+    tol: float = 0.001,  # inert: tol — classification below is by exact comparison with no tolerance band; the sole caller does not pass it, so this default has never been exercised
 ) -> Tuple[str, float, float, float]:
     """Return (classification, dist_to_tp_bps, dist_to_sl_bps,
     realized_R) for one trade.

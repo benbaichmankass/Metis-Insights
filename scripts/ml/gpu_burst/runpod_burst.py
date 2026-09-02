@@ -335,7 +335,7 @@ def _write_bundle(manifest: str, data: bytes) -> str:
 
 def run(
     *,
-    experiment: str,
+    experiment: str,  # inert: experiment — accepted for CLI symmetry; the GPU spend ledger's experiment field is written by scripts/ml/gpu_burst/record_run.py, which takes its own --experiment
     gpu_type: str,
     image: str,
     verify: bool,
