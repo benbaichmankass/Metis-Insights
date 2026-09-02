@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T09:30:00Z",
+  "updated_at": "2026-09-02T09:26:00Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -703,6 +703,23 @@
       "⚠️_it_would_be_the_FIRST_real_exercise_of_the_round_trip": "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP is open: not one decision has gone submit -> in_transit -> committed end to end. That is an ARGUMENT FOR building this, not against — the channel has no user, and this gives it one. But it means the done-condition is the ROUND TRIP observed, never a green test: an answer submitted from Telegram must appear on /api/bot/work/decisions as in_transit and then read `committed` with the answer block visible in the work object on main.",
       "the_fallback_the_operator_offered": "'or maybe like a link so I can easily get to where I need to answer'. That half is FREE and is already done as of today: every decision ping now carries the session link. Ship that regardless of whether the two-way build is approved — it is the cheap 80%.",
       "next": "Tier-2, needs its own operator OK and its own ict-telegram-bot.service restart. PROPOSE, do not build unasked."
+    },
+    {
+      "id": "MI-56-THE-STOP-HOOK-CANNOT-TELL-MY-WORK-FROM-A-CONCURRENT-AGENTS",
+      "title": "stop-hook-git-check pressures the manager to commit a running sub-agent's in-flight source changes",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": null,
+      "tier": "1",
+      "observed": "2026-09-02, FOUR times in ~20 minutes. `~/.claude/stop-hook-git-check.sh` fires 'There are uncommitted changes ... Please commit and push' whenever the working tree is dirty. It has no notion of WHOSE changes those are. Every firing today was on a live sub-agent's work, not mine — my branch was in sync with origin each time.",
+      "what_complying_would_have_done": "⚠️ NOT a tidiness issue. The dirty paths were config/instruments.yaml, src/units/accounts/execute.py, src/units/accounts/qty_legalize.py, precision.py, instrument_profile.py, profile_loader.py and two test files — a live, unreviewed, ORDER-PATH-ADJACENT change. Committing them would have (a) put unreviewed order-path code into a PR about recording operator decisions, and (b) taken the work out from under a running agent that had not finished or tested it.",
+      "root_cause": "One git working tree, two writers. The hook assumes a single writer per checkout. It is correct for that case and actively harmful for this one. The manager's own `git checkout` compounds it: it does not move an agent's uncommitted files aside, it DRAGS them onto whatever branch the manager lands on.",
+      "what_actually_prevents_it": [
+        "Sub-sessions in their OWN CONTAINER (create_session) rather than in-process agents — used for MI-53 today, and the reason it was used.",
+        "Agent worktree isolation — ATTEMPTED today and REFUSED: 'Cannot create agent worktree: not in a git repository', because the session cwd is /home/user while the repo is /home/user/Metis-Insights. Spawning with the repo as cwd would likely fix it; UNVERIFIED, do not assert it.",
+        "NEVER `git add -A` while any agent shares the tree. Explicit paths only. This is the discipline that saved it today after the first near-miss."
+      ],
+      "the_honest_residual": "⚠️ The hook is not wrong to fire — it cannot know. So this is not 'fix the hook to be quiet'; a hook that learned to ignore dirty trees would stop catching the case it exists for. The fix is on the SPAWN side: agents should not share a tree. Recorded so the next manager does not resolve four hook warnings by committing someone else's work."
     }
   ]
 }
