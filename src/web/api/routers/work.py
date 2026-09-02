@@ -70,6 +70,8 @@ from fastapi import APIRouter, Header, HTTPException, Request
 # counts as committed" is how a committed answer stops grading as committed).
 from src.runtime.work_decisions import (
     ANSWER_STATES,
+    ASKED_BY_RECORDED,
+    ASKED_BY_STATES,
     COMMITTED,
     IN_TRANSIT,
     MAX_FREE_TEXT_CHARS,
@@ -710,6 +712,42 @@ def _decision_inbox() -> dict[str, Any]:
         1 for r in requests if r["answerState"] == IN_TRANSIT and r["transit"].get("stale")
     )
 
+    # ── the PUSH-BACK reading ────────────────────────────────────────────────
+    # `committed` says the operator's answer reached the repo. It says NOTHING
+    # about whether the session that ASKED ever learned it — which, until
+    # 2026-09-02, nothing anywhere did (measured: zero requests in the store
+    # named their asker). These counts are that missing half.
+    #
+    # ⚠️ Read `committedWithNoAsker` beside `delivered`. A push-back rate over a
+    # population that mostly HAS no address is not a delivery rate; it is a
+    # recording-coverage problem wearing a delivery figure's label.
+    by_asked_by = {s: 0 for s in ASKED_BY_STATES}
+    for req in requests:
+        state_key = req.get("askedByState")
+        if state_key in by_asked_by:
+            by_asked_by[state_key] += 1
+
+    committed = [r for r in requests if r["answerState"] == COMMITTED]
+    push_states = [(r.get("push") or {}).get("state") for r in committed]
+    push_back = {
+        "delivered": sum(1 for s in push_states if s == "pushed"),
+        # A REAL state, not an error: the asking session could not receive it.
+        # The answer stays discoverable on the pull path, which is untouched.
+        "sessionGone": sum(1 for s in push_states if s == "session_gone"),
+        # Committed, has a reachable asker, and no settled push outcome yet —
+        # either not attempted or retried after an `unknown`.
+        "notYetDelivered": sum(
+            1 for r in committed
+            if not (r.get("push") or {}).get("state")
+            and r.get("askedByState") == ASKED_BY_RECORDED
+        ),
+        # ⚠️ The denominator that matters: a committed answer with nobody to
+        # push it to. Not a failure of delivery — a failure to record an asker.
+        "committedWithNoAsker": sum(
+            1 for r in committed if r.get("askedByState") != ASKED_BY_RECORDED
+        ),
+    }
+
     return {
         "present": index.get("present", False),
         # Explicitly None on the healthy envelope, matching `/api/bot/work`.
@@ -736,6 +774,12 @@ def _decision_inbox() -> dict[str, Any]:
             "unanswerableOperatorEdgeCount": len(unanswerable),
             "staleOpenWindows": stale_open,
             "staleAfterSeconds": STALE_TRANSIT_SECONDS,
+            # Who asked, graded over EVERY request — the coverage denominator
+            # for the push-back block below. `unrecorded` is the ordinary state
+            # of every request written before the field existed; `malformed` is
+            # a finding (an asker was recorded and cannot be reached).
+            "byAskedByState": by_asked_by,
+            "pushBack": push_back,
         },
         "transit": {
             # ⚠️ `absent` and `unreadable` are NOT the same. An append-only log

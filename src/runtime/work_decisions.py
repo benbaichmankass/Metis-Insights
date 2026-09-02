@@ -70,6 +70,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import tempfile
 import uuid
 from datetime import datetime, timezone
@@ -96,6 +97,57 @@ ANSWER_STATES: tuple[str, ...] = (NOT_SUBMITTED, IN_TRANSIT, COMMITTED, UNREADAB
 TRANSIT_READ = "read"
 TRANSIT_ABSENT = "absent"
 TRANSIT_UNREADABLE = "unreadable"
+
+# ── who ASKED — the address a committed answer can be pushed back to ─────────
+# Until 2026-09-02 a decision request recorded the question, the options and the
+# answer, and NOT ONE RECORDED WHO ASKED IT. Measured over the whole store that
+# day: zero requests carried any field naming the asking session. So the answer
+# had no address, and the session that raised the question could only learn the
+# answer by polling — the gap `docs/design/decision-push-back-FEASIBILITY.md`
+# was written about.
+#
+# Three states, never collapsed, because the two failures are different facts:
+#   `recorded`    an asker is named and its id is usable
+#   `unrecorded`  NOBODY WROTE ONE DOWN. Not an error — every request written
+#                 before this field existed reads this way, and so does one
+#                 asked by a human rather than a session.
+#   `malformed`   someone DID record an asker and it is not usable. That is a
+#                 FINDING: a question whose answer will silently never be
+#                 delivered, which reads identically to `unrecorded` from any
+#                 surface that collapses the two.
+ASKED_BY_RECORDED = "recorded"
+ASKED_BY_UNRECORDED = "unrecorded"
+ASKED_BY_MALFORMED = "malformed"
+
+# ── can a FRESH session pick this work up? (design C, 2026-09-02) ────────────
+# Three states, never collapsed. `partial` is the one that matters: context
+# that looks complete and omits the per-option next step is where a resumer
+# re-derives the wrong action while believing it was told.
+RESUME_STATED = "stated"
+RESUME_PARTIAL = "partial"
+RESUME_UNSTATED = "unstated"
+
+RESUME_STATES: tuple[str, ...] = (RESUME_STATED, RESUME_PARTIAL, RESUME_UNSTATED)
+
+ASKED_BY_STATES: tuple[str, ...] = (
+    ASKED_BY_RECORDED,
+    ASKED_BY_UNRECORDED,
+    ASKED_BY_MALFORMED,
+)
+
+# A cloud session id, in either of the two forms the platform uses for the SAME
+# id: `session_…` as the CLI and the session list print it, `cse_…` as it is
+# exported into a session's own environment. Anchored and bounded because this
+# value is handed to a subprocess as an argument — validated here even though
+# the caller passes it through argv rather than a shell, since a value that
+# reaches a delivery command should be checked where it is READ, not only where
+# it is used.
+_SESSION_ID_RE = re.compile(r"^(?:session|cse)_[A-Za-z0-9]{16,64}$")
+
+
+def is_session_id(value: Any) -> bool:
+    """Whether ``value`` is a usable cloud-session id."""
+    return isinstance(value, str) and bool(_SESSION_ID_RE.match(value.strip()))
 
 # How long a submitted-but-uncommitted window may stand before it is a
 # REPORTABLE condition. A bound, not an enforcement: nothing here expires a
@@ -190,6 +242,175 @@ def normalise_answer(raw: Any) -> dict[str, Any] | None:
     }
 
 
+def normalise_asked_by(raw: Any) -> tuple[dict[str, Any] | None, str]:
+    """The session that ASKED, and how confident we are that we can reach it.
+
+    Returns ``(asked_by, state)`` where ``state`` is one of the three
+    ``ASKED_BY_*`` values. The block itself is ``None`` for anything but
+    ``recorded`` — a half-usable address is not an address, and returning a
+    partially-filled block would invite a caller to try to deliver to it.
+
+    ⚠️ **The two failures are kept apart deliberately.** ``unrecorded`` is the
+    ordinary state of every request written before this field existed, and of
+    any question a human asked; it is not a defect. ``malformed`` means someone
+    recorded an asker that cannot be used — a question whose answer will never
+    be delivered and whose owner probably believes it will. Collapsing them
+    would bury the second in the first, which is exactly the shape
+    ``collapsed-state-guard`` exists to stop.
+
+    A ``session_url`` is NOT trusted from the file: it is derived from the id
+    we validated, so a mismatched or hand-edited URL cannot send a reader
+    somewhere the id does not name.
+    """
+    if raw is None:
+        return None, ASKED_BY_UNRECORDED
+    if not isinstance(raw, dict):
+        return None, ASKED_BY_MALFORMED
+    session_id = raw.get("session_id")
+    if session_id is None:
+        # A block that exists and names no session at all. Someone started
+        # recording an asker and did not finish — still a finding, not "nobody
+        # wrote one down".
+        return None, ASKED_BY_MALFORMED
+    if not is_session_id(session_id):
+        return None, ASKED_BY_MALFORMED
+    sid = str(session_id).strip()
+    return (
+        {
+            "sessionId": sid,
+            # Derived, never read from the file. See the docstring.
+            "sessionUrl": f"https://claude.ai/code/{sid}",
+            "recordedAt": (
+                raw.get("recorded_at") if isinstance(raw.get("recorded_at"), str) else None
+            ),
+            "note": raw.get("note") if isinstance(raw.get("note"), str) else None,
+        },
+        ASKED_BY_RECORDED,
+    )
+
+
+def normalise_resume_context(raw: Any, options: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, str]:
+    """What a FRESH session needs in order to pick this work up. ``(block, state)``.
+
+    This is the substrate for design **C** (operator decision, 2026-09-02): a
+    blocking question ends its session cleanly and a fresh one resumes when the
+    answer lands, **reloading context from the work object rather than holding a
+    session open**. That deletes the push requirement entirely — if nothing has
+    to reach INTO a running session, nothing needs a credential to do it.
+
+    ⚠️ **THIS MAKES RESUMPTION POSSIBLE. IT DOES NOT MAKE IT PROVEN.** The claim
+    *"killing a session mid-work loses nothing"* is `WO-20260901-PHASE-E`'s exit
+    condition and it is explicitly *"DEMONSTRATED by killing one"* — **nobody
+    has killed one.** Nothing here may be read as evidence that a resume works;
+    it is the input a resume would need, and no more.
+
+    Three states, never collapsed:
+
+    ``stated``    a resumer is told what was in flight AND what to do for the
+                  option that was chosen
+    ``partial``   context is present but no per-option next step — a resumer
+                  knows the direction and must re-derive the action, which is
+                  where a resume most plausibly goes wrong
+    ``unstated``  nobody wrote one. The ordinary state of every request written
+                  before 2026-09-02, and of any question a human asked
+
+    ⚠️ ``partial`` is deliberately NOT folded into ``stated``. The whole risk in
+    C is a resumer that reads a confident-looking block, re-derives the wrong
+    next action, and proceeds — so *"we recorded some context"* must not grade
+    the same as *"we recorded the context a resumer acts on"*.
+    """
+    if raw is None:
+        return None, RESUME_UNSTATED
+    if not isinstance(raw, dict):
+        return None, RESUME_UNSTATED
+
+    def _text(key: str) -> str | None:
+        v = raw.get(key)
+        return v.strip() if isinstance(v, str) and v.strip() else None
+
+    per_option_raw = raw.get("next_step_per_option")
+    per_option: dict[str, str] = {}
+    if isinstance(per_option_raw, dict):
+        for k, v in per_option_raw.items():
+            if isinstance(k, str) and isinstance(v, str) and v.strip():
+                per_option[k.strip()] = v.strip()
+
+    block = {
+        "whatWasInFlight": _text("what_was_in_flight"),
+        "whatThisUnblocks": _text("what_this_unblocks"),
+        "branch": _text("branch"),
+        "nextStepPerOption": per_option or None,
+    }
+    if not any(block.values()):
+        return None, RESUME_UNSTATED
+
+    # `stated` requires a next step for at least one DECLARED option — a map
+    # keyed on options the author never wrote is not guidance a resumer can use.
+    declared = {o["key"] for o in options}
+    usable = declared & set(per_option) if declared else set(per_option)
+    if usable and (block["whatWasInFlight"] or block["whatThisUnblocks"]):
+        return block, RESUME_STATED
+    return block, RESUME_PARTIAL
+
+
+def render_asked_by_block(
+    *, session_id: str, note: str | None = None, recorded_at: str | None = None
+) -> dict[str, Any]:
+    """The exact mapping a session writes into its own ``decision_request``.
+
+    Defined beside the reader (``normalise_asked_by``) for the same reason
+    ``render_answer_yaml_block`` is: two definitions of the shape is how a
+    recorded asker starts grading as ``malformed``.
+
+    ⚠️ **Raises on an unusable id rather than writing one.** A block that will
+    grade ``malformed`` later is worse than no block at all — it looks like an
+    address, so nobody notices the answer is undeliverable until it is not
+    delivered. Failing here puts the error in front of the session that can
+    still fix it.
+
+    A session gets its own id from ``get_session`` with the id **omitted**,
+    which returns its own record (TESTED 2026-09-02). No ``session_url`` is
+    written: it is derived from the id on read, so the two can never disagree.
+    """
+    if not is_session_id(session_id):
+        raise ValueError(
+            f"{session_id!r} is not a usable session id. Expected "
+            f"`session_…` or `cse_…`; get yours from `get_session` with the "
+            f"session_id argument omitted."
+        )
+    block: dict[str, Any] = {
+        "session_id": session_id.strip(),
+        "recorded_at": recorded_at or _utcnow_iso(),
+    }
+    if note:
+        block["note"] = note
+    return block
+
+
+def normalise_push(raw: Any) -> dict[str, Any] | None:
+    """The PUSH marker, read back from the committed answer in the repo.
+
+    Its only job is idempotence, and idempotence comes from the repo rather
+    than from a workflow remembering what it did. A marker naming no state is
+    ``None`` — an unreadable marker must not suppress a delivery, because the
+    failure direction that matters is *never delivered*, not *delivered twice*.
+    """
+    if not isinstance(raw, dict):
+        return None
+    state = raw.get("state")
+    if not isinstance(state, str) or not state.strip():
+        return None
+    return {
+        "state": state.strip(),
+        "attemptedAt": (
+            raw.get("attempted_at") if isinstance(raw.get("attempted_at"), str) else None
+        ),
+        "sessionId": raw.get("session_id") if isinstance(raw.get("session_id"), str) else None,
+        "detail": raw.get("detail") if isinstance(raw.get("detail"), str) else None,
+        "pushedBy": raw.get("pushed_by") if isinstance(raw.get("pushed_by"), str) else None,
+    }
+
+
 def normalise_requests(object_data: dict[str, Any], object_id: str) -> list[dict[str, Any]]:
     """Every answerable decision request declared on one work object.
 
@@ -210,10 +431,29 @@ def normalise_requests(object_data: dict[str, Any], object_id: str) -> list[dict
             continue
         options = [o for o in (normalise_option(o) for o in raw.get("options") or []) if o]
         allows_free_text = raw.get("allows_free_text")
+        asked_by, asked_by_state = normalise_asked_by(raw.get("asked_by"))
+        resume, resume_state = normalise_resume_context(raw.get("resume_context"), options)
+        answer_block = normalise_answer(raw.get("answer"))
+        # The push marker lives INSIDE the answer, not beside it: a push is a
+        # fact about a COMMITTED answer, and hanging it off the request would
+        # let a marker outlive the answer it describes.
+        raw_answer = raw.get("answer") if isinstance(raw.get("answer"), dict) else {}
+        push = normalise_push(raw_answer.get("push")) if answer_block else None
         out.append(
             {
                 "id": req_id.strip(),
                 "objectId": object_id,
+                # Who asked, and how sure we are we could reach them. Always
+                # present as keys — a key that vanishes makes a consumer branch
+                # on absence, and absence is not one of the states.
+                "askedBy": asked_by,
+                "askedByState": asked_by_state,
+                "push": push,
+                # Design C: what a FRESH session would need to resume this
+                # work. Present as keys always — a key that vanishes makes a
+                # consumer branch on absence, and absence is not a state.
+                "resumeContext": resume,
+                "resumeState": resume_state,
                 "question": raw.get("question") if isinstance(raw.get("question"), str) else None,
                 "options": options,
                 # An explicit `false` closes free text; anything else leaves it
@@ -223,7 +463,7 @@ def normalise_requests(object_data: dict[str, Any], object_id: str) -> list[dict
                 "urgency": raw.get("urgency") if raw.get("urgency") in ("routine", "blocking") else "routine",
                 "askedOn": str(raw.get("asked_on")) if raw.get("asked_on") is not None else None,
                 "context": raw.get("context") if isinstance(raw.get("context"), str) else None,
-                "answer": normalise_answer(raw.get("answer")),
+                "answer": answer_block,
             }
         )
     return out

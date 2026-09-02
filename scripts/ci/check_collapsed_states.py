@@ -106,6 +106,53 @@ _REGISTRY_PATH = Path(__file__).resolve()
 
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "decision_push.delivery_state",
+        "producer": "src/runtime/decision_push.py",
+        "consumer_token": (r"\bdeliveryState\b|\bDELIVERY_STATES\b|"
+                           r"\bclassify_delivery\b|\bpushBack\b"),
+        "states": ["pushed", "session_gone", "unknown"],
+        "why": (
+            "The last hop of the decision round-trip: a committed answer is "
+            "PUSHED back to the session that asked, instead of that session "
+            "polling for it. The pair that must never collapse is "
+            "`session_gone` vs `unknown`. A `session_gone` verdict WRITES A "
+            "MARKER, and the marker is what stops any further attempt — so "
+            "grading an unrecognised failure (a timeout, a 529, an unset "
+            "credential) as `session_gone` would permanently strand an answer "
+            "for a session that was alive the whole time, on the strength of a "
+            "blip. `unknown` therefore writes NOTHING and is retried, and it is "
+            "the DEFAULT for anything not positively identified. `pushed` is "
+            "reserved for the delivery command's own `ok: true` — silence, a "
+            "zero exit with no parsable result, and an `ok:false` we cannot "
+            "attribute are all `unknown`, because reading silence as success is "
+            "the forward failure this whole subsystem refuses. And "
+            "`session_gone` is a REAL STATE, not an error: the answer stays "
+            "discoverable on the pull path, which this ADDS to and never "
+            "replaced."
+        ),
+    },
+    {
+        "name": "work_decisions.asked_by_state",
+        "producer": "src/runtime/work_decisions.py",
+        "consumer_token": (r"\baskedByState\b|\bASKED_BY_STATES\b|"
+                           r"\bnormalise_asked_by\b|\bbyAskedByState\b"),
+        "states": ["recorded", "unrecorded", "malformed"],
+        "why": (
+            "Whether a decision request records WHICH SESSION ASKED IT — the "
+            "address a committed answer can be pushed back to. Measured "
+            "2026-09-02 over the whole store: ZERO requests carried any such "
+            "field, so every answer had nowhere to go. `unrecorded` is the "
+            "ordinary and blameless state of every request written before the "
+            "field existed, and of any question a human asked. `malformed` "
+            "means somebody DID record an asker and it cannot be used — a "
+            "question whose answer will silently never be delivered while its "
+            "owner believes it will, which is a FINDING and fails the run. "
+            "Collapsing the two buries the finding among the ordinary ones, "
+            "and a push-back RATE computed without splitting them is a "
+            "recording-coverage problem wearing a delivery figure's label."
+        ),
+    },
+    {
         "name": "research_queue.power_state",
         # The producer is the GATE itself: `grade_power` returns a PowerVerdict
         # whose `state` is one of these seven, and the vocabulary is defined as
