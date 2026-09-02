@@ -71,6 +71,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # ⚠️ MUST be the PAT, not GITHUB_TOKEN: `commit-to-main` pushes its
+          # branch with whatever credential the checkout configured, and a PR
+          # opened by GITHUB_TOKEN does NOT trigger the on:pull_request required
+          # checks — so it would stall auto-merge forever. The action's own
+          # docstring states this as a REQUIREMENT of calling it.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
           # The reaper needs origin/main's history to tell `landed` from
           # `no_landing_evidence`, and every claude/** head to recover a branch
           # from its commit trailers. A shallow clone would grade both wrong,
@@ -92,21 +98,35 @@ jobs:
             --write \
             --stale-after-minutes "${{ github.event.inputs.stale_after_minutes || '90' }}"
 
-      - name: Commit the ledger
-        run: |
-          set -euo pipefail
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- docs/claude/work/REAPER-OBSERVATIONS.json; then
-            echo "reaper: no change to the ledger this run"
-            exit 0
-          fi
-          git add docs/claude/work/REAPER-OBSERVATIONS.json
-          # [skip ci] so a ledger commit cannot re-trigger CI on main. NOTE the
-          # bot-push caveat this repo has paid for twice: a github-actions[bot]
-          # push triggers NO workflows, so this commit can never loop.
-          git commit -m "reaper: record what each session left behind [skip ci]"
-          # Rebase rather than force: another session's commit landing mid-run
-          # must not be discarded by an observation file.
-          git pull --rebase --quiet origin main
-          git push origin HEAD:main
+      - name: Land the ledger on main (auto-merge PR)
+        # ⚠️ THIS STEP WAS A DIRECT `git push origin HEAD:main` WHEN THIS
+        # WORKFLOW FIRST SHIPPED, AND IT COULD NEVER HAVE WORKED. `main` is
+        # protected and REJECTS a direct workflow push (GH006) — the exact
+        # failure `.github/actions/commit-to-main` exists to absorb
+        # (BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN). The capability
+        # already existed and was hand-rolled anyway, which is the
+        # `RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED` shape; measured 2026-09-02,
+        # session-reaper.yml was the ONLY workflow in the repo pushing straight
+        # to main, and that on its own should have been read as the answer.
+        #
+        # The action no-ops cleanly when the ledger is unchanged, so the
+        # hand-rolled `git diff --quiet` early-exit is dropped rather than
+        # duplicated.
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/work/REAPER-OBSERVATIONS.json
+          message: "chore(ops): record what each session left behind"
+          pr-title: "chore(ops): session-reaper observations (auto)"
+          pr-body: >-
+            Automated reaper ledger refresh — what each sub-session left behind,
+            recorded from outside it. Generated artifact only; auto-merge.
+          branch-prefix: automation/session-reaper
+          # ⚠️ NOT decoration, and load-bearing for THIS workflow specifically.
+          # Without it the step exits 0 the moment the PR OPENS, so a green run
+          # would mean "a PR exists" and never "the observations are on main".
+          # The action's own docs record 12 of 13 callers verifying nothing and
+          # origin carrying 5 stranded `automation/*` branches, the oldest 10
+          # weeks. A reaper whose whole premise is that SHIPPED and WORKING are
+          # different states cannot be one of those 12.
+          verify-merged: "true"
