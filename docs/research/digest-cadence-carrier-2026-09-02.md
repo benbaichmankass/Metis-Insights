@@ -197,3 +197,89 @@ fallout from this PR.
 run — the same distinction this file is about. The first merge to `main` after
 this lands is the real test, and the receipt's `trigger` field records which
 event carried it.
+
+---
+
+# Addendum — the general case: what fires reliably AND survives its creator
+
+Scope widened by the operator, relayed 18:52Z: *"we definitely need that, like,
+more reliable timers. We can't just go dead every time I stop checking you."*
+
+The requirement is not "the digest arrives hourly." It is **the system must not
+go dead when the operator stops looking.** The digest is one instance.
+
+## The census — measured, not assumed
+
+`list_triggers(limit=100)` → **n = 26, `next_cursor: None`.** ⚠️ **Population
+caveat:** `include_completed` defaults to false, so already-fired one-shots are
+hidden. This is a census of **live** Routines, not of all Routines ever.
+
+| fact | count |
+|---|---|
+| Routines returned | **26** |
+| cron-driven | **3** (`26 * * * *`, `56 * * * *`, `10 * * * *`) |
+| bound to a `persistent_session_id` | **25 of 26** |
+| carrying an observable `last_run` | **1 of 26** |
+
+**25 of 26 are bound to `session_011JWFxuYAaEQKCFCmG6gnHJ`.** When that session
+ends, the reliable half of this system's cadence ends with it. That is the
+operator's complaint, stated structurally: the durable carrier does not fire,
+and the firing carrier is not durable.
+
+## The one that is not session-bound — and it is the answer
+
+`trig_01TWdAvrwFLe6T9XFoNopTeo` · *"Manager queue watch — escalate a blocked
+sub-session PAST the manager"* · `cron_expression: 56 * * * *`
+
+- `persist_session`: **absent**. `persistent_session_id`: **absent.**
+- `last_run`: `{"status": "ROUTINE_RUN_STATUS_PENDING", "fired_at":
+  "2026-09-02T18:56:42Z", "session_id": "cse_01Lz7NKcTSW99UJn3eLoAdBA"}`
+
+It fired **42 seconds** after its `:56` slot, into a **new session**. It is the
+**only** Routine in the census whose run is observable at all.
+
+So the manager's open question — *does a fresh-session Routine survive its
+creator?* — is answered **positively and by measurement, not by assumption**:
+this account already runs one, it is creator-independent by construction, and it
+fires on time.
+
+⚠️ **What this does NOT show.** The two session-bound sweeps report `last_run:
+absent`, which per `CLAUDE.md` is the *correct* state of a working poke-only
+Routine — so their absence is **not** evidence they are broken, and I did not
+treat it as such. The claim "Routines fire reliably" rests here on **one**
+observable firing, not on three. That is thinner than it looks and is stated
+rather than rounded up.
+
+## Recommendation, costed
+
+**Do not put the digest itself on a Routine.** Hourly would cost 24 fresh
+sessions a day, each loading the full project context, to carry a job the
+push-trigger already carries whenever anything is happening.
+
+**Put the WATCHDOG on a fresh-session Routine instead — ~4 firings a day.** It
+reads the digest receipt and pings only when stale. This is strictly better on
+three axes:
+
+1. **It is the carrier that survives**, per the measurement above.
+2. **It is cheap** — 4 sessions/day, not 24, because a watchdog does not need
+   the cadence of the thing it watches.
+3. **It satisfies the repo's own rule** that the detector must not be the timer
+   it watches. The CI guard shipped in this PR is a good detector with one
+   weakness: it only runs when somebody opens a PR, so it is silent in exactly
+   the "operator stopped looking" window. A fresh-session Routine has no such
+   dependency.
+
+**Cost I could not measure:** the token spend of one fired session. I can state
+the shape (full project context load per firing) but not the number, and I am
+not going to invent one.
+
+**Third carrier, assessed and rejected for this job: a VM systemd timer.** The
+`ict-*.timer` units are the existence proof that they fire reliably here. But
+the digest must *commit to `main`*, and the VM holds only
+`VM_GIT_DEPLOY_TOKEN`, which is **Contents: read-only** — it cannot push. A VM
+timer could still ping the operator directly (the VM already owns the Telegram
+drain), which makes it a genuine candidate for the *watchdog* role. It is
+**Tier-2** (a new unit on the live VM) and is therefore proposed, not enacted.
+
+**Creating the Routine is not mine to do**: it is recurring spend on the
+operator's account. Evidence and cost are here; the decision is theirs.
