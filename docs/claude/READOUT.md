@@ -1,6 +1,6 @@
 # The readout — where the chain is held up, and what that costs
 
-_Generated 2026-09-01T21:49:49+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260901-OPERATING-LAYER` (basis DECIDED)_
+_Generated 2026-09-01T23:15:16+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260901-OPERATING-LAYER` (basis DECIDED)_
 
 > **This is A1, and it is computed rather than judged.** It reports its denominator before its conclusion, because a constraint named over unassessed edges is a fabricated answer wearing a computed label.
 
@@ -34,15 +34,14 @@ Objects by stage: `EVIDENCE` 78 · `CAPABILITY` 8 · `INTEGRITY` 498
 - **`WO-20260901-PHASE-D`** (CAPABILITY · waiting) — Phase D — the constraint, computed rather than judged
   - `external_event` → `a session writing TRUE blocked_on edges, taking assessed coverage over the declared 50% floor so E1 can name a stage instead of refusing` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-01
   - `external_event` → `a demonstration that the readout supersedes docs/claude/DUE.* in full, or an operator decision to keep both` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-01
-- **`WO-20260901-PHASE-G`** (CAPABILITY · dormant) — Phase G — the forcing function — retirement, and the E2 pull rule
-  - `object` → `WO-20260901-PHASE-D` → `waiting` · ref `resolved` · hold **`holding`** · since 2026-09-01
+- **`WO-20260901-PHASE-G`** (CAPABILITY · in_flight) — Phase G — the forcing function — retirement, and the E2 pull rule
+  - `external_event` → `assessed `blocked_on` coverage crossing the readout's declared 50% floor, so E1 can NAME a held-up stage instead of refusing` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-01
 - **`WO-20260901-PHASE-H`** (CAPABILITY · dormant) — Phase H — the control half — decisions from the UI, and the read gate
   - `object` → `WO-20260901-PHASE-B` → `waiting` · ref `resolved` · hold **`holding`** · since 2026-09-01
   - `object` → `BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED` → `dormant` · ref `resolved` · hold **`holding`** · since 2026-09-01
   - `object` → `BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN` → `dormant` · ref `resolved` · hold **`holding`** · since 2026-09-01
 
-⚠️ **2 of the live `object` holds point at a target whose lifecycle is `waiting`, and that is the weakest hold the graph can express.** `waiting` covers two opposite facts — *not delivered yet* and *delivered, awaiting an observation* — and a dependent needs the capability, not the observation. The store cannot tell them apart, so this is published as a caveat rather than resolved into a state nobody measured. Check the target before treating one of these as a real blocker:
-  - `WO-20260901-PHASE-G` → `WO-20260901-PHASE-D`
+⚠️ **1 of the live `object` holds point at a target whose lifecycle is `waiting`, and that is the weakest hold the graph can express.** `waiting` covers two opposite facts — *not delivered yet* and *delivered, awaiting an observation* — and a dependent needs the capability, not the observation. The store cannot tell them apart, so this is published as a caveat rather than resolved into a state nobody measured. Check the target before treating one of these as a real blocker:
   - `WO-20260901-PHASE-H` → `WO-20260901-PHASE-B`
 
 ## 2 · The book and the money
@@ -65,11 +64,11 @@ Provenance split — measured 18 · estimated 11 · fabricated 0 · unverified 0
 
 ## 3 · In flight against the ceiling, and what has stopped moving
 
-**2 in flight against a ceiling of 8** (headroom 6) · 4 waiting.
+**3 in flight against a ceiling of 8** (headroom 5) · 4 waiting.
 
 Ceiling source: scripts/ci/check_wip_ceiling.py::CEILING (imported, not restated). `waiting` is deliberately free of the ceiling — a thing blocked on an operator decision is not consuming the attention the ceiling rations.
 
-In flight: `WO-20260901-PHASE-E` · `WO-20260901-PHASE-F`
+In flight: `WO-20260901-PHASE-E` · `WO-20260901-PHASE-F` · `WO-20260901-PHASE-G`
 
 Waiting: `WO-20260901-PHASE-A` · `WO-20260901-PHASE-B` · `WO-20260901-PHASE-C` · `WO-20260901-PHASE-D`
 

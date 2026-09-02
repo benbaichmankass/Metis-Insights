@@ -1,0 +1,1679 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-01T23:13:46.788226+00:00",
+  "utc_date": "2026-09-01",
+  "generated_by": "scripts/ops/sunset_pass.py",
+  "population": {
+    "packet_dates_read": [
+      "2026-09-01"
+    ],
+    "packet_dates_unreadable": [],
+    "strategy_legs_graded": 52,
+    "lifetime_state": "read",
+    "lifetime_strategies_in_capture": 45,
+    "routing_state": "read",
+    "machinery_probe": {
+      "probe_state": "measured",
+      "scanned": 115,
+      "targets": 466,
+      "control": "passed",
+      "reason": "",
+      "summarised": {
+        "skill_invoked": {
+          "count": 9,
+          "names": [
+            "scripts/analysis/classify_paper_records.py",
+            "scripts/ml/strategy_tune_sweep.py",
+            "scripts/ops/backlog_drain_candidates.py",
+            "scripts/ops/exit_path_coverage.py",
+            "scripts/ops/grade_closed_trades_from_diag.py",
+            "scripts/ops/paper_book_tracker.py",
+            "scripts/ops/system_invariants.py",
+            "scripts/ops/system_review_checklist.py",
+            "scripts/ops/trainer_dataset_gc.py"
+          ]
+        },
+        "doc_only": {
+          "count": 104,
+          "names": [
+            "scripts/backtest_orb.py",
+            "scripts/comms_ask.py",
+            "scripts/hf_upload_large_files.py",
+            "scripts/init_db.py",
+            "scripts/macro/crypto_momentum_probe.py",
+            "scripts/macro/iv_skew_probe.py",
+            "scripts/macro/schwab_chain_adapter.py",
+            "scripts/macro/thesis_c4_run.py",
+            "scripts/ml/_feature_parity_probe.py",
+            "scripts/ml/backfill_dataset_vol_threshold.py",
+            "scripts/ml/build_calibration_corpus.py",
+            "scripts/ml/build_corpus_embeddings.py",
+            "scripts/ml/build_cross_asset.py",
+            "scripts/ml/build_embeddings.py",
+            "scripts/ml/build_forecasts.py",
+            "scripts/ml/eval_split_compare.py",
+            "scripts/ml/export_entry_head.py",
+            "scripts/ml/fc_geometry_resolve.py",
+            "scripts/ml/fetch_fred_corpus.py",
+            "scripts/ml/fetch_funding_oi.py",
+            "scripts/ml/fetch_macro.py",
+            "scripts/ml/fit_regime_alignment_calibrators.py",
+            "scripts/ml/gpu_burst/ingest_bundle.py",
+            "scripts/ml/gpu_burst/preflight.py",
+            "scripts/ml/gpu_burst/record_run.py",
+            "scripts/ml/gpu_burst/runpod_burst.py",
+            "scripts/ml/hpo_sweep.py",
+            "scripts/ml/m23_ev_gate.py",
+            "scripts/ml/orderflow_capture.py",
+            "scripts/ml/publish_live_forecasts.py",
+            "scripts/ml/sweep_conviction_weights.py",
+            "scripts/ml/walkforward_cell_selection.py",
+            "scripts/ml/window_recency_sweep.py",
+            "scripts/ops/exit_mechanics_audit.py",
+            "scripts/ops/fetch_binance_vision.py",
+            "scripts/ops/git_history_check.py",
+            "scripts/ops/m15_candle_fidelity.py",
+            "scripts/ops/portfolio_conflict_audit.py",
+            "scripts/ops/portfolio_robustness.py",
+            "scripts/ops/provenance_exposure_audit.py",
+            "scripts/ops/recombination_sweep.py",
+            "scripts/ops/reconcile_netting_pnl.py",
+            "scripts/ops/regime_performance_map.py",
+            "scripts/ops/regime_weight_overlay.py",
+            "scripts/ops/research_sweep.py",
+            "scripts/options/probe_alpaca_options.py",
+            "scripts/render_env_from_master.py",
+            "scripts/research/backtest_fidelity_cost_ab.py",
+            "scripts/research/build_continuous_contract.py",
+            "scripts/research/build_exit_panel.py",
+            "scripts/research/chop_scalp_study.py",
+            "scripts/research/component_edge_report.py",
+            "scripts/research/e2_null_calibration.py",
+            "scripts/research/e35_barrier_race.py",
+            "scripts/research/e3_barrier_decomposition.py",
+            "scripts/research/e3_joint_lever_sweep.py",
+            "scripts/research/exit_census.py",
+            "scripts/research/exit_reconstruction_validator.py",
+            "scripts/research/exit_reconstruction_validator_v2.py",
+            "scripts/research/ict_scalp_phase0/build_percell.py",
+            "scripts/research/ict_scalp_phase0/stamp_vol_post.py",
+            "scripts/research/m20_ack_corpus_disagreements.py",
+            "scripts/research/m20_backfill_corpus_fold_offset.py",
+            "scripts/research/m20_consolidate_dispersion_arms.py",
+            "scripts/research/m20_corpus_relabel_tp_cap.py",
+            "scripts/research/m20_dispersion_rate.py",
+            "scripts/research/m20_exit_head_denominator.py",
+            "scripts/research/m20_ladder_headroom.py",
+            "scripts/research/m20_ml_exit_probe.py",
+            "scripts/research/m20_path_b_floor.py",
+            "scripts/research/m20_split_dispersion.py",
+            "scripts/research/m20_trail_attribution.py",
+            "scripts/research/m20_trail_resweep.py",
+            "scripts/research/m21_entry_baseline.py",
+            "scripts/research/m21_entry_head_round.py",
+            "scripts/research/m26_p0_conflict_bleed.py",
+            "scripts/research/m27/diagnose_futures_gaps.py",
+            "scripts/research/m27/fetch_bybit_5m.py",
+            "scripts/research/m27/fetch_yfinance_5m.py",
+            "scripts/research/m27/ibkr_jsonl_to_csv.py",
+            "scripts/research/maker_economics.py",
+            "scripts/research/market_raw_to_csv.py",
+            "scripts/research/pair_funding_drag.py",
+            "scripts/research/pairs_universe_scan.py",
+            "scripts/research/peak_banking_basis.py",
+            "scripts/research/rank_walkforward.py",
+            "scripts/research/research_results_gate_report.py",
+            "scripts/research/session_gating.py",
+            "scripts/research/sweep_research_panels.py",
+            "scripts/research/sweep_wave1_families.py",
+            "scripts/research/sweep_wave2_momentum.py",
+            "scripts/research/validate_corr.py",
+            "scripts/research/validate_robustness.py",
+            "scripts/research/ws_a_futures_sweep.py",
+            "scripts/research/ws_a_s2_retune.py",
+            "scripts/research/ws_a_s3_significance.py",
+            "scripts/research/ws_a_s3b_fee_breakeven.py",
+            "scripts/session_handoff/close_session.py",
+            "scripts/sprint015/analyze_fixtures.py",
+            "scripts/sprint015/run_smoke_test.py",
+            "scripts/sprint047/spot_margin_smoke.py",
+            "scripts/strategy_gate.py",
+            "scripts/training/backtest_helpers.py",
+            "scripts/walkforward_netting_guard.py"
+          ]
+        }
+      }
+    },
+    "min_passes_for_index_basis": 3
+  },
+  "strategy_verdicts": {
+    "watch": 39,
+    "not_assessed": 3,
+    "retire_candidate": 10
+  },
+  "machinery_verdicts": {
+    "unwired": 2
+  },
+  "retire_candidates": 10,
+  "rows": [
+    {
+      "id": "strategy:ada_pullback_2h",
+      "class": "strategy_leg",
+      "name": "ada_pullback_2h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 1,
+        "max_n_closed_ever_seen": 1,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 21,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:avax_pullback_2h",
+      "class": "strategy_leg",
+      "name": "avax_pullback_2h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 8,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:eth_pullback_2h",
+      "class": "strategy_leg",
+      "name": "eth_pullback_2h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 29,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ],
+          [
+            "bybit_2",
+            "real_money"
+          ],
+          [
+            "bybit_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:eth_pullback_prop_2h",
+      "class": "strategy_leg",
+      "name": "eth_pullback_prop_2h",
+      "verdict": "not_assessed",
+      "basis": "prop_routed",
+      "note": "routed to a prop account \u2014 prop fills live in `prop_fills`, isolated from `trades`, so the lifetime read structurally cannot see them. A zero here is OUR blindness, not the leg's silence.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 1,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ],
+          [
+            "breakout_1",
+            "prop"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:fade_breakout_4h",
+      "class": "strategy_leg",
+      "name": "fade_breakout_4h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 13,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:fvg_range_15m",
+      "class": "strategy_leg",
+      "name": "fvg_range_15m",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 1,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ],
+          [
+            "bybit_2",
+            "real_money"
+          ],
+          [
+            "bybit_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:gdx_pullback_1d",
+      "class": "strategy_leg",
+      "name": "gdx_pullback_1d",
+      "verdict": "retire_candidate",
+      "basis": "never_closed_lifetime",
+      "note": "has never closed a single trade in its life, and the gate files it identically to a healthy young leg every day.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 0,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ],
+          [
+            "alpaca_options_paper",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:gld_pullback_1d",
+      "class": "strategy_leg",
+      "name": "gld_pullback_1d",
+      "verdict": "retire_candidate",
+      "basis": "never_closed_lifetime",
+      "note": "has never closed a single trade in its life, and the gate files it identically to a healthy young leg every day.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 0,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:gld_pullback_1h",
+      "class": "strategy_leg",
+      "name": "gld_pullback_1h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 2,
+        "max_n_closed_ever_seen": 2,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 13,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:htf_pullback_trend_2h",
+      "class": "strategy_leg",
+      "name": "htf_pullback_trend_2h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 29,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:iaum_pullback_1d",
+      "class": "strategy_leg",
+      "name": "iaum_pullback_1d",
+      "verdict": "retire_candidate",
+      "basis": "never_closed_lifetime",
+      "note": "has never closed a single trade in its life, and the gate files it identically to a healthy young leg every day.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 0,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:ict_scalp_5m",
+      "class": "strategy_leg",
+      "name": "ict_scalp_5m",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 5,
+        "max_n_closed_ever_seen": 5,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 72,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ],
+          [
+            "bybit_2",
+            "real_money"
+          ],
+          [
+            "bybit_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:ict_scalp_avax_5m",
+      "class": "strategy_leg",
+      "name": "ict_scalp_avax_5m",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 4,
+        "max_n_closed_ever_seen": 4,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 29,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:ict_scalp_eth_15m",
+      "class": "strategy_leg",
+      "name": "ict_scalp_eth_15m",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 6,
+        "max_n_closed_ever_seen": 6,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 17,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:ict_scalp_mgc_15m",
+      "class": "strategy_leg",
+      "name": "ict_scalp_mgc_15m",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 1,
+        "max_n_closed_ever_seen": 1,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 6,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "ib_paper",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:ict_scalp_sol_15m",
+      "class": "strategy_leg",
+      "name": "ict_scalp_sol_15m",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 5,
+        "max_n_closed_ever_seen": 5,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 21,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:ict_scalp_sol_5m",
+      "class": "strategy_leg",
+      "name": "ict_scalp_sol_5m",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 8,
+        "max_n_closed_ever_seen": 8,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 28,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:ict_scalp_xrp_15m",
+      "class": "strategy_leg",
+      "name": "ict_scalp_xrp_15m",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 4,
+        "max_n_closed_ever_seen": 4,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 17,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:ict_scalp_xrp_5m",
+      "class": "strategy_leg",
+      "name": "ict_scalp_xrp_5m",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 4,
+        "max_n_closed_ever_seen": 4,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 21,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:ief_pullback_1d",
+      "class": "strategy_leg",
+      "name": "ief_pullback_1d",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 2,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:iwm_trend_long_1d",
+      "class": "strategy_leg",
+      "name": "iwm_trend_long_1d",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 3,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "ib_paper",
+            "paper"
+          ],
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:mes_trend_long_1d",
+      "class": "strategy_leg",
+      "name": "mes_trend_long_1d",
+      "verdict": "retire_candidate",
+      "basis": "never_closed_lifetime",
+      "note": "has never closed a single trade in its life, and the gate files it identically to a healthy young leg every day.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 0,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "ib_paper",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:mgc_pullback_1d",
+      "class": "strategy_leg",
+      "name": "mgc_pullback_1d",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 1,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "ib_paper",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:mgc_trend_1h",
+      "class": "strategy_leg",
+      "name": "mgc_trend_1h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 2,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "ib_paper",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:mhg_pullback_1d",
+      "class": "strategy_leg",
+      "name": "mhg_pullback_1d",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 4,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "ib_paper",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:qld_trend_long_1d",
+      "class": "strategy_leg",
+      "name": "qld_trend_long_1d",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 1,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:qqq_pullback_1h",
+      "class": "strategy_leg",
+      "name": "qqq_pullback_1h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 1,
+        "max_n_closed_ever_seen": 1,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 11,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:qqq_trend_long_1d",
+      "class": "strategy_leg",
+      "name": "qqq_trend_long_1d",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 2,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "ib_paper",
+            "paper"
+          ],
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:scha_trend_long_1d",
+      "class": "strategy_leg",
+      "name": "scha_trend_long_1d",
+      "verdict": "retire_candidate",
+      "basis": "never_closed_lifetime",
+      "note": "has never closed a single trade in its life, and the gate files it identically to a healthy young leg every day.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 0,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:slv_pullback_1d",
+      "class": "strategy_leg",
+      "name": "slv_pullback_1d",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 2,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ],
+          [
+            "alpaca_options_paper",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:slv_trend_1h",
+      "class": "strategy_leg",
+      "name": "slv_trend_1h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 23,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ],
+          [
+            "alpaca_options_paper",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:sol_pullback_2h",
+      "class": "strategy_leg",
+      "name": "sol_pullback_2h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 1,
+        "max_n_closed_ever_seen": 1,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 6,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:splg_trend_long_1d",
+      "class": "strategy_leg",
+      "name": "splg_trend_long_1d",
+      "verdict": "retire_candidate",
+      "basis": "never_closed_lifetime",
+      "note": "has never closed a single trade in its life, and the gate files it identically to a healthy young leg every day.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 0,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:spy_pullback_1h",
+      "class": "strategy_leg",
+      "name": "spy_pullback_1h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 1,
+        "max_n_closed_ever_seen": 1,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 10,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:spy_trend_long_1d",
+      "class": "strategy_leg",
+      "name": "spy_trend_long_1d",
+      "verdict": "retire_candidate",
+      "basis": "never_closed_lifetime",
+      "note": "has never closed a single trade in its life, and the gate files it identically to a healthy young leg every day.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 0,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "ib_paper",
+            "paper"
+          ],
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:squeeze_breakout_4h",
+      "class": "strategy_leg",
+      "name": "squeeze_breakout_4h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 4,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:tlt_pullback_1d",
+      "class": "strategy_leg",
+      "name": "tlt_pullback_1d",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 2,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "ib_paper",
+            "paper"
+          ],
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:tlt_pullback_1h",
+      "class": "strategy_leg",
+      "name": "tlt_pullback_1h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 1,
+        "max_n_closed_ever_seen": 1,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 9,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ],
+          [
+            "alpaca_live",
+            "real_money"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:tqqq_trend_long_1d",
+      "class": "strategy_leg",
+      "name": "tqqq_trend_long_1d",
+      "verdict": "retire_candidate",
+      "basis": "never_closed_lifetime",
+      "note": "has never closed a single trade in its life, and the gate files it identically to a healthy young leg every day.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 0,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:trend_donchian",
+      "class": "strategy_leg",
+      "name": "trend_donchian",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 33,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ],
+          [
+            "bybit_2",
+            "real_money"
+          ],
+          [
+            "bybit_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:trend_donchian_ada_4h",
+      "class": "strategy_leg",
+      "name": "trend_donchian_ada_4h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 15,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:trend_donchian_avax_4h",
+      "class": "strategy_leg",
+      "name": "trend_donchian_avax_4h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 1,
+        "max_n_closed_ever_seen": 1,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 13,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:trend_donchian_eth",
+      "class": "strategy_leg",
+      "name": "trend_donchian_eth",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 3,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:trend_donchian_eth_4h",
+      "class": "strategy_leg",
+      "name": "trend_donchian_eth_4h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 21,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ],
+          [
+            "bybit_2",
+            "real_money"
+          ],
+          [
+            "bybit_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:trend_donchian_eth_prop",
+      "class": "strategy_leg",
+      "name": "trend_donchian_eth_prop",
+      "verdict": "not_assessed",
+      "basis": "prop_routed",
+      "note": "routed to a prop account \u2014 prop fills live in `prop_fills`, isolated from `trades`, so the lifetime read structurally cannot see them. A zero here is OUR blindness, not the leg's silence.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 0,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "breakout_1",
+            "prop"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:trend_donchian_sol",
+      "class": "strategy_leg",
+      "name": "trend_donchian_sol",
+      "verdict": "retire_candidate",
+      "basis": "never_closed_lifetime",
+      "note": "has never closed a single trade in its life, and the gate files it identically to a healthy young leg every day.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 0,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:trend_donchian_sol_4h",
+      "class": "strategy_leg",
+      "name": "trend_donchian_sol_4h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 2,
+        "max_n_closed_ever_seen": 2,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 10,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:trend_donchian_sol_prop",
+      "class": "strategy_leg",
+      "name": "trend_donchian_sol_prop",
+      "verdict": "not_assessed",
+      "basis": "prop_routed",
+      "note": "routed to a prop account \u2014 prop fills live in `prop_fills`, isolated from `trades`, so the lifetime read structurally cannot see them. A zero here is OUR blindness, not the leg's silence.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 0,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "breakout_1",
+            "prop"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:trend_donchian_xrp_4h",
+      "class": "strategy_leg",
+      "name": "trend_donchian_xrp_4h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 1,
+        "max_n_closed_ever_seen": 1,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 12,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ],
+          [
+            "bybit_2",
+            "real_money"
+          ],
+          [
+            "bybit_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:turtle_soup",
+      "class": "strategy_leg",
+      "name": "turtle_soup",
+      "verdict": "retire_candidate",
+      "basis": "unrouted",
+      "note": "declared in strategies.yaml and routed to NO account \u2014 it cannot reach the order path at all, so it can never become gradeable.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 0,
+        "lifetime_state": "read",
+        "routed_to": []
+      }
+    },
+    {
+      "id": "strategy:uso_trend_1h",
+      "class": "strategy_leg",
+      "name": "uso_trend_1h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 0,
+        "max_n_closed_ever_seen": 0,
+        "gate_floor": null,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 11,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "alpaca_paper",
+            "paper"
+          ],
+          [
+            "alpaca_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "strategy:xrp_pullback_2h",
+      "class": "strategy_leg",
+      "name": "xrp_pullback_2h",
+      "verdict": "watch",
+      "basis": "still_producing",
+      "note": "the gate cannot grade it yet, but the evidence does not support a retirement proposal.",
+      "tier": 3,
+      "evidence": {
+        "indices_seen": 1,
+        "first_seen": "2026-09-01",
+        "last_seen": "2026-09-01",
+        "closes_in_latest_window": 2,
+        "max_n_closed_ever_seen": 2,
+        "gate_floor": 20,
+        "gate_reached_matrix_on": [],
+        "lifetime_closed_trades": 18,
+        "lifetime_state": "read",
+        "routed_to": [
+          [
+            "bybit_1",
+            "paper"
+          ],
+          [
+            "bybit_2",
+            "real_money"
+          ],
+          [
+            "bybit_portfolio",
+            "paper"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "tool:scripts/ml/fetch_fred_macro.py",
+      "class": "ops_tool",
+      "name": "scripts/ml/fetch_fred_macro.py",
+      "verdict": "unwired",
+      "basis": "check_unwired_artifacts",
+      "note": "no runner references it at all",
+      "tier": 1,
+      "evidence": {
+        "reported_by": "scripts/ci/check_unwired_artifacts.py"
+      }
+    },
+    {
+      "id": "tool:scripts/validate_registry_vm.py",
+      "class": "ops_tool",
+      "name": "scripts/validate_registry_vm.py",
+      "verdict": "unwired",
+      "basis": "check_unwired_artifacts",
+      "note": "no runner references it at all",
+      "tier": 1,
+      "evidence": {
+        "reported_by": "scripts/ci/check_unwired_artifacts.py"
+      }
+    }
+  ]
+}
