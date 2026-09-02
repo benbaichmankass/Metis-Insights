@@ -156,3 +156,43 @@ def test_coverage_declares_what_the_reaper_cannot_see():
 def test_states_are_declared_once_so_a_caller_can_branch_exhaustively():
     assert set(reaper.REAPER_STATES) == {
         "active", "stalled_with_work", "landed", "no_landing_evidence", "unreadable"}
+
+
+def test_an_unregistered_sessions_work_is_still_attributable_to_a_session_id():
+    """⚠️ THE CASE A REGISTRY-KEYED REAPER MISSES EXACTLY WHEN IT MATTERS.
+
+    `SESSIONS.json` has been measured incomplete twice (3 of 6 absent on
+    2026-09-01; 26 of 55 on 2026-09-02, 17 carrying the manager's own id as
+    parent). Reading the commit trailer instead of the registry is what turns
+    "184 branches nobody claims" into "this named session left this work".
+
+    This is the shape the MI-70 kill demonstrated live: the killed subject
+    (`session_01NN97cVYW5dmiNNXHfsu7Nn`) was deliberately never registered, and
+    the reaper located its branch by session id 62 s after the kill.
+    """
+    cov = reaper.coverage(
+        [{"session_id": "registered", "branches": ["claude/live"]}],
+        ORIGIN,
+        unregistered_owners={"session_01DEAD": ["claude/stray"]},
+    )
+    assert cov["unregistered_but_attributable_sessions"] == 1
+    assert cov["unregistered_owner_map"]["session_01DEAD"] == ["claude/stray"]
+
+
+def test_attribution_does_not_claim_to_know_what_the_work_was_for():
+    """`owns_object` lives only in the registry. Recovery locates the work and
+    leaves it unattached to any work object — stated, not glossed."""
+    cov = reaper.coverage([], ORIGIN, unregistered_owners={"s": ["claude/stray"]})
+    assert "never WHAT it was for" in cov["unregistered_attribution_caveat"]
+    assert "not a substitute for registering" in cov["unregistered_attribution_caveat"]
+
+
+def test_zero_attributable_is_not_reported_as_zero_unregistered():
+    """A branch whose commits carry no trailer is still COUNTED as unregistered.
+
+    Collapsing "we could not attribute it" into "there is nothing there" is the
+    silent-empty shape on the consumer side.
+    """
+    cov = reaper.coverage([], ORIGIN, unregistered_owners={})
+    assert cov["unregistered_claude_branches"] == 3
+    assert cov["unregistered_but_attributable_sessions"] == 0

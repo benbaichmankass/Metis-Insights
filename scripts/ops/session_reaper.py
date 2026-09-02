@@ -375,8 +375,20 @@ def grade_row(row: Dict, origin: Dict, now: datetime,
                     "have recorded the PR its work landed under.")}
 
 
-def coverage(rows: List[Dict], origin: Dict) -> Dict:
-    """What the reaper could NOT see, measured rather than asserted."""
+def coverage(rows: List[Dict], origin: Dict,
+             unregistered_owners: Optional[Dict[str, List[str]]] = None) -> Dict:
+    """What the reaper could NOT see, measured rather than asserted.
+
+    `unregistered_owners` maps session id -> branches, for sessions whose work
+    is on `origin` and which NO registry row names. ⚠️ **THIS IS THE HALF A
+    REGISTRY-KEYED REAPER WOULD MISS, AND IT MISSES IT EXACTLY WHEN IT MATTERS**
+    — `SESSIONS.json` has been measured incomplete twice (3 of 6 absent on
+    2026-09-01; 26 of 55 on 2026-09-02, 17 carrying the manager's own id as
+    parent). Reading the commit trailer instead of the registry means an
+    unregistered session's work is still ATTRIBUTABLE to a session id, which is
+    the difference between "184 branches nobody claims" and "this named session
+    left this work behind".
+    """
     declared = set()
     for r in rows:
         for b in _branch_names(r):
@@ -386,11 +398,24 @@ def coverage(rows: List[Dict], origin: Dict) -> Dict:
         h for h in origin.get("heads", {})
         if h.startswith("claude/") and h not in declared
     ]
+    owners = unregistered_owners or {}
     return {
         # A branch on origin under claude/ that no registry row names. Each is a
         # session that demonstrably EXISTED and was never registered.
         "unregistered_claude_branches": len(session_shaped),
         "unregistered_sample": sorted(session_shaped)[:15],
+        # ...and, where its commits carry a `Claude-Session:` trailer, WHICH
+        # session left it. This is recovered without the registry and without
+        # the session, which is the only route that works for the case the
+        # registry is measured to fail at.
+        "unregistered_but_attributable_sessions": len(owners),
+        "unregistered_owner_map": {k: v[:3] for k, v in sorted(owners.items())},
+        "unregistered_attribution_caveat": (
+            "A session id recovered here says WHOSE the work is, never WHAT it "
+            "was for: `owns_object` lives only in the registry, so an "
+            "unregistered session's work is locatable and still unattached to "
+            "any work object. Recovery is not a substitute for registering."
+        ),
         "registry_declared_branches": len(declared),
         "origin_head_count": origin.get("head_count", 0),
         # ⚠️ Deliberately NOT a ratio. Many `claude/**` heads are board-post and
@@ -448,6 +473,22 @@ def reap(now: Optional[datetime] = None, stale_after_min: int = DEFAULT_STALE_AF
         if b in origin["heads"]:
             commit_times[b] = branch_last_commit_utc(b) if fetch else None
 
+    # Whose is the work on a branch NO registry row names? Read the trailer
+    # rather than the registry — the registry is precisely what failed here.
+    declared_all = set()
+    for r in rows:
+        declared_all.update(b for b in _branch_names(r) if _is_branch_shaped(b))
+    for bs in attributed.values():
+        declared_all.update(bs)
+    unregistered_owners: Dict[str, List[str]] = {}
+    if fetch:
+        for b in sorted(origin.get("heads", {})):
+            if not b.startswith("claude/") or b in declared_all:
+                continue
+            body = _git("log", "--format=%B%x00", "-40", f"origin/{b}", "^origin/main")
+            for sid in set(SESSION_ID_RE.findall(body or "")):
+                unregistered_owners.setdefault(sid, []).append(b)
+
     graded = [grade_row(r, origin, now, stale_after_min, commit_times, attributed)
               for r in rows]
     by_state = {s: sum(1 for g in graded if g["state"] == s) for s in REAPER_STATES}
@@ -466,7 +507,7 @@ def reap(now: Optional[datetime] = None, stale_after_min: int = DEFAULT_STALE_AF
         # count means the REGISTRY failed and the reaper covered for it.
         "by_branch_source": by_source,
         "observations": graded,
-        "coverage": coverage(rows, origin),
+        "coverage": coverage(rows, origin, unregistered_owners),
     }
 
 
@@ -626,6 +667,8 @@ def main(argv=None) -> int:
         print(f"  unregistered claude/ branches on origin: "
               f"{c['unregistered_claude_branches']} (count only — "
               f"{c['unregistered_caveat'].split(':')[0]})")
+        print(f"    ...of which attributable to a session by commit trailer: "
+              f"{c['unregistered_but_attributable_sessions']} session id(s)")
         print(f"  unpushed work: {c['unpushed_work']}")
         print(f"  liveness:      {c['liveness']}")
         for g in rep["observations"]:

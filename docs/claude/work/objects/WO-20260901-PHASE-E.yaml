@@ -226,6 +226,86 @@ note: >-
   never collapsed (not_submitted · in_transit · committed), and transit fails
   BACK never forward.
 
+the_kill_was_run_and_it_was_a_PARTIAL_loss:
+  # ⚠️ THE DONE-CONDITION AS WRITTEN IS NOT MET, AND THE MEASUREMENT SAYS SO
+  # RATHER THAN BEING SHAPED TO PASS. "Killing a session mid-work loses
+  # NOTHING" is FALSE. What is true, and is now demonstrated rather than
+  # asserted, is: **killing a session loses everything it had not pushed, and
+  # nothing it had.**
+  run_by: MI-70 (session_01NkekPZw73VYuynYhSdWLWm)
+  subject: session_01NN97cVYW5dmiNNXHfsu7Nn
+  subject_was: >-
+    A PURPOSE-MADE, EXPENDABLE session doing throwaway doc work. No real work
+    was killed. It was instructed to hold THREE tiers of state at the moment of
+    death — pushed, committed-not-pushed, uncommitted — because a subject that
+    pushes everything measures nothing.
+  subject_was_deliberately_NOT_registered: >-
+    It has no row in SESSIONS.json. That was a choice, and it makes the test
+    HARDER in the direction that matters: the registry has been measured
+    incomplete twice (3 of 6 on 2026-09-01; 26 of 55 on 2026-09-02), so a
+    demonstration run on a registered session would have proved recovery only
+    in the case that was never the problem.
+  killed_at: 2026-09-02T13:49:13Z   # archive_session -> ARCHIVED, container released
+  killed_while: >-
+    SESSION_STATUS_RUNNING, mid-step. Not idle, not finished. Its own final
+    status_detail — "pushed claude/mi70-kill-subject; local phase 2 commit
+    held" — is the independent confirmation that unpushed state existed at the
+    moment of death.
+
+  what_survived:
+    tier_1_pushed: >-
+      ALL of it. Branch claude/mi70-kill-subject @ 4d9c0c48 on origin, one
+      commit, docs/claude/work/kill-subject-notes.md intact, and the
+      `Claude-Session:` trailer naming the dead session.
+  what_was_lost:
+    tier_2_committed_not_pushed: >-
+      LOST. The phase-2 commit existed (the session said so) and is gone with
+      the container. `git rev-list origin/main..origin/claude/mi70-kill-subject`
+      = 1, and the pushed file contains no "phase 2" section.
+    tier_3_uncommitted: >-
+      LOST. docs/claude/work/kill-subject-scratch.md does not exist on origin.
+    # ⚠️ NEITHER LOSS IS RECOVERABLE BY ANY REAPER, EVER. It lived in a
+    # container nothing outside it can reach. This is not a gap a better
+    # mechanism closes — it is why session_registry.py's spawn prompt makes a
+    # PUSHED BRANCH a precondition of reporting done.
+
+  by_which_mechanism_each_was_recovered:
+    the_branch: >-
+      NOT by SESSIONS.json — the subject has no row there, so the registry
+      contributed nothing. Recovered by scripts/ops/session_reaper.py reading
+      the `Claude-Session:` commit trailer, 62 s after the kill, with no
+      cooperation from the dead session: it returned
+      session_01NN97cVYW5dmiNNXHfsu7Nn -> ['claude/mi70-kill-subject'].
+    what_it_was_FOR: >-
+      NOT RECOVERED, and this is the honest boundary. `owns_object` exists only
+      in the registry. The reaper can say WHOSE work a branch is; it cannot say
+      what it was for. Recovery locates work and leaves it unattached.
+
+  the_incremental_progress_mechanism_already_existed_and_nothing_read_it: >-
+    ⚠️ The design asks for "state written as work happens". It is already
+    written: every commit carries a `Claude-Session:` trailer. Nothing read it
+    — the provenance-consumer-guard shape one level up, a signal WRITTEN and
+    never READ. Measured 2026-09-02: 35 of 67 registry rows name NO branch at
+    all (the registry is a spawn-time record nothing updates), and scanning the
+    194 claude/** heads for that trailer located the work of 16 of them anyway.
+    Live reap: `unreadable` 37 -> 21.
+
+  what_the_reaper_cannot_see_stated_rather_than_hidden:
+    - "LIVENESS. It cannot tell alive from dead — list_sessions is an MCP tool
+       CI does not hold. It grades branch quiescence, a PROXY. That is safe
+       ONLY because it records and never acts; a reaper that killed on the same
+       proxy would have to be right about death, and it cannot be."
+    - "UNPUSHED WORK. Zero visibility, by construction. See the two losses above."
+    - "WHAT UNREGISTERED WORK WAS FOR. 187 claude/** heads carry no registry
+       row; 98 session ids are attributable from trailers; none of them can be
+       tied to a work object."
+    - "`no_landing_evidence` IS NOT `lost`. The registry records PRs by hand, so
+       a row whose work landed under an unrecorded PR grades there too — one of
+       the 7 live rows in that state landed as #10789."
+
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md
+  - scripts/ops/session_reaper.py
+  - .github/workflows/session-reaper.yml
+  - docs/claude/work/REAPER-OBSERVATIONS.json
 verdict: null
