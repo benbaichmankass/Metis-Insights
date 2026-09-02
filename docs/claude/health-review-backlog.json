@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-09-02",
+  "updated_at": "2026-09-02T00:00:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -31186,6 +31186,37 @@
       "refs": [
         "BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR",
         "BL-20260902-THE-PER-SUITE-CHECK-EVENT-NOW-HAS-A-READER-AND-THE-MERGE-PROTOCOL-DOES-NOT-POINT-AT-IT"
+      ]
+    },
+    {
+      "id": "BL-20260902-FU-IDS-CAN-NEVER-RESOLVE-IN-CHECK-BACKLOG-REFS",
+      "severity": "low",
+      "tier": "1",
+      "status": "open",
+      "filed": "2026-09-02",
+      "title": "check_backlog_refs screens for FU- ids but resolves only against docs/claude/*backlog*.json, so every FU- reference dangles by construction",
+      "detail": "MEASURED 2026-09-02 while splitting the API reference out of CLAUDE.md (scripts/ops/check_backlog_refs.py, read at commit d8aac5c6). Population: every tracking id matched by the guard's own REF regex across SEARCH_DIRS = docs/ scripts/ .github/ config/ src/.\n\nREF matches three prefixes -- (?:BL|MB|FU) -- but filed_ids() reads ONLY docs/claude/*backlog*.json items[].id. FU- rows do not live there; they live in comms/follow_ups.json. So an FU- id can never resolve, however correctly it is filed. Measured: 13 distinct FU- ids are cited repo-wide; FU-20260511-001 and FU-20260516-001 are both genuinely filed in comms/follow_ups.json and both are reported dangling.\n\nLatent rather than live: the guard is diff-scoped, so it only fires when a diff introduces an FU- citation. It did fire on this session's PR, which is how it was found. When it fires the finding is FALSE and pushes a session toward 'file the row' for a row that already exists -- i.e. toward a duplicate in the wrong register.\n\nUPDATE 2026-09-02, same session: option (a) IS NOW DONE. filed_ids() reads comms/follow_ups.json via a new EXTRA_REGISTERS table, because the false findings were blocking a PR and the fix is unambiguous -- an id that IS filed should resolve. MEASURED before and after: 12 of the 13 cited FU- ids are genuinely filed there and now resolve; the thirteenth is cited and never filed and STILL dangles, which is the live positive control pinned by tests/test_check_backlog_refs.py::TestFollowUpsRegisterResolves (the id is named THERE and not here -- see the second finding below). So this made the guard MORE accurate, not quieter.\n\nSECOND FINDING, found by tripping it: CITING AN ID *AS AN EXAMPLE OF NON-RESOLUTION* IS A FALSE POSITIVE FOR THIS GUARD. Naming the unfiled control id in this row and in the guard's own docstring made the guard report both files. The guard's premise -- 'a doc saying tracked by BL-X where BL-X was never filed reads as tracked' -- does not hold for a citation whose whole point is that it does NOT resolve. Worked around here by keeping the literal only under tests/, which is outside SEARCH_DIRS; that is a workaround, not a fix. The guard has no override mechanism (unlike collapsed-state-guard's '# collapsed-state:' or diagnostic-provenance-guard's '# inert:'), and if it gains one it must be VERIFIED rather than presence-only, per the new-table-wiring-guard lesson this repo already paid for -- a guard cheaper to lie to than to satisfy is worse than no guard. Low severity: the workaround is cheap and the class is rare.\n\nWHAT REMAINS OPEN, and it is a real question rather than tidy-up: whether the follow-ups register is RETIRED. The newest FU- id anywhere is FU-20260516-001, ~3.5 months old, and nothing canonical says the register is live or dead. If it is retired, FU should come out of REF and the 29 rows in comms/follow_ups.json need a disposition; if it is live, it belongs in the session-end filing instructions alongside the three backlogs, where it currently is not mentioned. Either way somebody has to decide, and 'nobody has filed one lately' is not that decision.",
+      "resolution_criteria": "The RESOLUTION half is done (2026-09-02) and is not what closes this. This closes when the follow-ups register's STATUS is settled and written down: either it is declared live and named in the session-end filing instructions beside the three backlogs, or it is declared retired, FU is removed from REF, and its 29 rows get a disposition. Reporting 'no FU- ids were introduced lately' does NOT close it -- that is the symptom the diff-scoping hides, not the question.",
+      "refs": [
+        "scripts/ops/check_backlog_refs.py",
+        "comms/follow_ups.json",
+        "tests/test_check_backlog_refs.py",
+        "BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS"
+      ]
+    },
+    {
+      "id": "BL-20260902-BOOT-READ-IS-427K-TOKENS-AND-ROADMAP-IS-42-PERCENT-OF-IT",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "filed": "2026-09-02",
+      "title": "The mandatory session boot read is ~1.54 MB / ~427k est. tokens; ROADMAP.md alone is 42% and no CLAUDE.md slice can fix it",
+      "detail": "MEASURED 2026-09-02, wc -c at origin/main d8aac5c6. Population: the five files a session is instructed to read before acting (CLAUDE.md 'Every session' + CLAUDE-RULES-CANONICAL 'Session-start documentation read'). ROADMAP.md 648,407 (42.1%) | CLAUDE.md 430,453 (28.0%) | OPEN-ITEMS.json 191,955 (12.5%) | ARCHITECTURE-CANONICAL 168,495 (10.9%) | CLAUDE-RULES-CANONICAL 99,222 (6.4%) = 1,538,532 B, ~427k tokens ESTIMATED at ~3.6 B/token (an estimate, not a measurement). The operating-model design measured ~403k on 2026-09-01, so it grew ~24k tokens in one day.\n\nThe API-reference split (2026-09-02) took CLAUDE.md 430,453 -> 283,388 B, which is -34.2% of that file but only -8.7% of the boot read. RE-MEASURED after merging main: the boot-read figure FELL from -9.7% while the PR sat UNCHANGED, because OPEN-ITEMS.json grew 191,955 -> 205,121 B in the same few hours. The register outgrew the split, which is this row's whole point. Anyone reporting the boot-read problem as solved on the strength of a CLAUDE.md slice is quoting the wrong denominator.\n\nInside ROADMAP.md (measured same day): '## Milestone Roadmap' 347,909 B (53.7%), '## Historical Sprint Ledger' 179,606 B (27.7%). The ledger is the cleaner cut -- CLAUDE-RULES-CANONICAL 'Historical Notes Policy' already says historical material is context-only -- BUT src/web/api/routers/roadmap.py PARSES the ledger's M-mapping column (roadmap.py:196-198, 341) as one of three sprint->milestone resolution paths and serves it at GET /api/bot/roadmap, so a blind move breaks the SPA Roadmap tab.\n\nUNMEASURED, and it is the next thing worth measuring: what fraction of the 347,909 B Milestone Roadmap is CLOSED milestones. Nobody has counted, so 'split the closed ones out' is a guess, not a plan.",
+      "resolution_criteria": "The boot read is measured below 1,000,000 B by the same five-file population and method, AND the reduction is attributed per file. A CLAUDE.md-only reduction does NOT close this -- slice 1 already showed that path tops out around -10%. If the operator decides the current size is acceptable, record THAT as the disposition with the reasoning, closing it as closed_answered rather than leaving it open.",
+      "refs": [
+        "docs/design/boot-read-size-PROPOSAL.md",
+        "docs/design/operating-model-DESIGN.md",
+        "src/web/api/routers/roadmap.py"
       ]
     },
     {

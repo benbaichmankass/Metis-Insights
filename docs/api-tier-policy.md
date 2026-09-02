@@ -275,9 +275,11 @@ Tier-3 decision is Tier 1; enacting one is not on this API at all.**
   the guard that keeps this file complete. `--list` for coverage, `--all` for
   the standing audit.
 - `src/web/api/auth.py` — `PUBLIC_ROUTES` constant + `require_session` dependency.
-- `CLAUDE.md` § "Dashboard REST API" — the **contract** (shapes, nullability,
-  data sources). This file is the **tier** inventory; that one is the payload
-  inventory. Where they overlap, neither is a substitute for reading the gate.
+- [`docs/reference/bot-api-reference.md`](reference/bot-api-reference.md) — the
+  **contract** (shapes, nullability, data sources, per-field caveats). It lived
+  in `CLAUDE.md` § "Dashboard REST API" until 2026-09-02 and moved out verbatim.
+  This file is the **tier** inventory; that one is the payload inventory. Where
+  they overlap, neither is a substitute for reading the gate.
 - `docs/claude/vm-operator-mode.md` § 9 — diag-token contract.
 - `docs/claude/system-actions.md` — the GitHub-workflow allowlist for mutating
   ops actions.

@@ -735,7 +735,9 @@ it).
 3. `ROADMAP.md`
 4. The current sprint log (`docs/sprint-logs/`)
 5. Skills under `.claude/skills/` (binding, composable workflows)
-6. The root `CLAUDE.md` (repo orientation + dashboard REST-API reference)
+6. The root `CLAUDE.md` (repo orientation. The dashboard REST-API + diag-API
+   reference split out to [`reference/bot-api-reference.md`](reference/bot-api-reference.md)
+   on 2026-09-02 — that file is a level-7 subsystem spec, not level 6)
 7. Focused implementation specs (sprint prompts, subsystem specs) and
    workflow-helper docs (e.g. `docs/github-actions-workflows.md`)
 8. `docs/claude/*` and older sprint plans, PR summaries, and historical notes
@@ -1729,7 +1731,8 @@ reconciliation pass).
 | Operator-actions / VM dispatch | [`claude/system-actions.md`](claude/system-actions.md) |
 | Mode mutation contract | [`ARCHITECTURE-CANONICAL.md`](ARCHITECTURE-CANONICAL.md) § Mode Mutation Contract |
 | Deployment & ops | [`claude/deployment-ops.md`](claude/deployment-ops.md), [`DEPLOYMENT_LIVE_TRADING.md`](../DEPLOYMENT_LIVE_TRADING.md) |
-| API tier policy | [`api-tier-policy.md`](api-tier-policy.md) |
+| API tier policy (which tier a route is) | [`api-tier-policy.md`](api-tier-policy.md) |
+| API payload contract (a route's shape, source, caveats) | [`reference/bot-api-reference.md`](reference/bot-api-reference.md) |
 | Trading mode flags | [`claude/trading-mode-flags.md`](claude/trading-mode-flags.md) |
 | Cleanup policy | [`claude/cleanup-policy.md`](claude/cleanup-policy.md) |
 
