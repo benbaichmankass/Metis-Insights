@@ -416,7 +416,15 @@ def liveness(st: dict, *, done_posts=None, branch_states=None) -> tuple[str, str
 
 def assess(changed_files, starts, *, my_branch: str, my_pr: int | None = None,
            my_body: str = "", done_posts=None, branch_states=None) -> dict:
-    """`starts` is [{branch?, body, url, created_at}, ...]."""
+    """`starts` is [{body, url, created_at}, ...].
+
+    ⚠️ NO `branch` KEY. The collector used to supply one and it is now
+    deliberately absent: the branch it supplied was grepped out of prose, which
+    is the defect this module was repaired for. Identity comes from `body` via
+    `parse_identity`, which reads only self-identifying positions. A stray
+    `branch` key on an input row is IGNORED rather than honoured, so a caller
+    that has not been updated cannot quietly reinstate the old behaviour.
+    """
     if not changed_files:
         return {"state": "could_not_check",
                 "reason": "no changed-file list — nothing was compared",

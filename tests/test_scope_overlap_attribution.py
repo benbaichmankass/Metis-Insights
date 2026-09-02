@@ -253,3 +253,12 @@ def test_the_quoted_footer_residual_is_pinned_not_latent():
                  [{"body": G._DRAIN3_START, "url": "u", "created_at": "t"}],
                  my_branch="claude/x", my_pr=1, my_body=quoted)
     assert v["self_declared"] == 1 and v["hits"] == []
+
+
+def test_a_stray_branch_key_on_an_input_row_is_ignored():
+    """The collector no longer supplies one. A caller that has not been updated
+    must not be able to reinstate the grepped-from-prose behaviour."""
+    st = {"branch": "claude/mine", "body": "▶️ START · branch `claude/other`\n"
+                                           "Touching: `a/x.py`\n",
+          "url": "u", "created_at": "t"}
+    assert G.attribution(st, my_branch="claude/mine") == "other"
