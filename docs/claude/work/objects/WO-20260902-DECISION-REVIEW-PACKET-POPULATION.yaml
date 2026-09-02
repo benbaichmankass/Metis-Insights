@@ -1,106 +1,72 @@
-# ⚠️ NOT a migrated row. Hand-authored by MI-63 on 2026-09-02 from an EXISTING
-# `kind: pending_decision` row in docs/claude/OPEN-ITEMS.json. Nothing here is a new
-# finding: the finding, its measurement and its two named alternatives were all
-# established on 2026-09-02 by the session that filed
-# `OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL`. What is new is that
-# it now exists as a DECISION object, so the constraint computation can see it.
 id: WO-20260902-DECISION-REVIEW-PACKET-POPULATION
 type: question
 parent_intent: null
-title: >-
-  Which POPULATION does the M7 strategy-review gate decide on — real money, or real
-  blended with paper?
+title: Which POPULATION does the M7 strategy-review gate decide on — real money, or real blended with
+  paper?
 stage: DECISION
 lifecycle: waiting
 owner: null
 opened_at: '2026-09-02'
 closed_at: null
-
-# ⚠️ THE STAGE IS CHOSEN PER OBJECT, and that is deliberately unusual in this store.
-# Measured 2026-09-02: 576 of 584 objects had `stage` assigned in BULK from the source
-# FILENAME by the Phase C migration (health-review-backlog.json -> INTEGRITY,
-# {ml,performance,research}-review-backlog.json -> EVIDENCE), with ZERO exceptions, and
-# the other 8 are the build's own phases (all CAPABILITY). So before this object the
-# store held no row whose chain stage anybody had chosen by reading the work, and
-# QUESTION / DECISION / DEPLOYMENT / OBSERVATION held zero objects BY CONSTRUCTION —
-# not because the system makes no decisions.
-#
-# DECISION is the stage because every input already exists and the only missing thing
-# is a choice: the defect is measured, the split is measured, and the row's own
-# `clears_when` names two alternatives.
-
-review_trigger: >-
-  Re-read when the operator answers DEC-20260902-REVIEW-PACKET-POPULATION, or when
-  anyone proposes "just adding the account_class filter" to
-  scripts/ml/strategy_review_packet.py — which the source row warns is the wrong shape.
-
-done_condition: >-
-  The operator has recorded a decision on § 4A of
-  docs/design/evidence-floor-horizon-PROPOSAL.md — EITHER the packet reports real and
-  paper as separate populations with the grade taken on real money, OR blending is
-  explicitly DECLARED acceptable for this gate with the reason written down.
-  ⚠️ A MERGED FILTER DOES NOT SATISFY THIS BY ITSELF. The question is which population
-  the gate DECIDES on; shipping a filter without recording the decision settles it by
-  default, which is how it got into this state.
-
+review_trigger: Re-read when the operator answers DEC-20260902-REVIEW-PACKET-POPULATION, or when anyone
+  proposes "just adding the account_class filter" to scripts/ml/strategy_review_packet.py — which the
+  source row warns is the wrong shape.
+done_condition: The operator has recorded a decision on § 4A of docs/design/evidence-floor-horizon-PROPOSAL.md
+  — EITHER the packet reports real and paper as separate populations with the grade taken on real money,
+  OR blending is explicitly DECLARED acceptable for this gate with the reason written down. ⚠️ A MERGED
+  FILTER DOES NOT SATISFY THIS BY ITSELF. The question is which population the gate DECIDES on; shipping
+  a filter without recording the decision settles it by default, which is how it got into this state.
 blocked_on:
-  - kind: operator_decision
-    ref: DEC-20260902-REVIEW-PACKET-POPULATION
-    since: '2026-09-02'
-    note: >-
-      ⚠️ THE EDGE IS ESTABLISHED, NOT INFERRED. The source row's own `clears_when` says
-      in terms that what ends this is "the operator records a decision on § 4A", and
-      names both alternatives. No session can settle it by doing more work: the
-      measurement is complete and the two options are mutually exclusive policy.
-blocked_on_basis: >-
-  ASSESSED 2026-09-02 by MI-63, from the source row's `clears_when` rather than from
-  prose about it. ⚠️ WHAT IS NOT CLAIMED: that this is the ONLY thing blocking the
-  packet's usefulness. `OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-
-  EVIDENCE-BLOCK-IS-UNEXERCISED` is a separate and probably larger hold — 52 of 52
-  legs sat under the generator's own n>=20 floor — and that one is NOT an operator
-  decision. This edge covers the population question only.
-
+- kind: operator_decision
+  ref: DEC-20260902-REVIEW-PACKET-POPULATION
+  since: '2026-09-02'
+  note: '⚠️ THE EDGE IS ESTABLISHED, NOT INFERRED. The source row''s own `clears_when` says in terms that
+    what ends this is "the operator records a decision on § 4A", and names both alternatives. No session
+    can settle it by doing more work: the measurement is complete and the two options are mutually exclusive
+    policy.'
+blocked_on_basis: 'ASSESSED 2026-09-02 by MI-63, from the source row''s `clears_when` rather than from
+  prose about it. ⚠️ WHAT IS NOT CLAIMED: that this is the ONLY thing blocking the packet''s usefulness.
+  `OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS- EVIDENCE-BLOCK-IS-UNEXERCISED` is a separate
+  and probably larger hold — 52 of 52 legs sat under the generator''s own n>=20 floor — and that one is
+  NOT an operator decision. This edge covers the population question only.'
 decision_requests:
-  - id: DEC-20260902-REVIEW-PACKET-POPULATION
-    question: >-
-      Every M7 strategy-review packet blends real-money and paper PnL, against
-      CLAUDE.md's P4 contract that "real and paper performance are never blended".
-      Which population should the gate decide on?
-    urgency: routine
-    asked_on: '2026-09-02'
-    context: >-
-      `scripts/ml/strategy_review_packet.py::pull_decisions` filters ONLY `is_backtest`
-      — it never consults `account_class` or `is_demo` — while /api/bot/stats,
-      /api/bot/performance, /api/bot/trades/closed and /api/bot/strategy/attribution all
-      honour the split. ⚠️ THIS CHANGES WHAT THE HEADLINE FINDING MEANS, not a report's
-      tidiness: the -35,446 of "losing pnl no window could act on", which was the
-      measured motivation for widening the evidence floor's window, is essentially all
-      PAPER. Population: 142 closed non-backtest trades inside the 2026-09-01 packet
-      window (2026-08-25T12:03Z..2026-09-01T12:03Z), joined trades -> order_packages.
-      Split: PAPER 136 trades / -36,219.07 · REAL MONEY 6 trades / -3.11. And 59.4% of
-      the total is ONE leg with ONE closed trade (ict_scalp_mgc_15m, -21,070.00, on
-      ib_paper). ⚠️ THE OBVIOUS FIX IS THE TRAP: on real money the fleet closed 6 trades
-      in 7 days, so a real-money-ONLY gate is MORE ungradeable than the blended one, not
-      less. This is why it is a decision and not a cleanup.
-    options:
-      - key: separate_populations
-        label: Report real and paper side by side; take the GRADE on real money
-        implication: >-
-          Honours P4 and keeps the paper evidence visible instead of discarding it. Cost,
-          stated plainly: the gate then grades on 6 closed trades in 7 days and will
-          refuse far more often than it does now — which is honest, and is a REFUSAL the
-          operator will see rather than a confident blended number.
-      - key: declare_blending_acceptable
-        label: Declare blending acceptable FOR THIS GATE, and write down why
-        implication: >-
-          A legitimate answer — the gate asks "is this leg's logic working", which paper
-          fills can speak to — but it must be RECORDED as a declared exception to P4,
-          naming this gate only, or the next reader reads it as the defect it currently
-          is.
-    allows_free_text: true
-
+- id: DEC-20260902-REVIEW-PACKET-POPULATION
+  question: Every M7 strategy-review packet blends real-money and paper PnL, against CLAUDE.md's P4 contract
+    that "real and paper performance are never blended". Which population should the gate decide on?
+  urgency: routine
+  asked_on: '2026-09-02'
+  context: '`scripts/ml/strategy_review_packet.py::pull_decisions` filters ONLY `is_backtest` — it never
+    consults `account_class` or `is_demo` — while /api/bot/stats, /api/bot/performance, /api/bot/trades/closed
+    and /api/bot/strategy/attribution all honour the split. ⚠️ THIS CHANGES WHAT THE HEADLINE FINDING
+    MEANS, not a report''s tidiness: the -35,446 of "losing pnl no window could act on", which was the
+    measured motivation for widening the evidence floor''s window, is essentially all PAPER. Population:
+    142 closed non-backtest trades inside the 2026-09-01 packet window (2026-08-25T12:03Z..2026-09-01T12:03Z),
+    joined trades -> order_packages. Split: PAPER 136 trades / -36,219.07 · REAL MONEY 6 trades / -3.11.
+    And 59.4% of the total is ONE leg with ONE closed trade (ict_scalp_mgc_15m, -21,070.00, on ib_paper).
+    ⚠️ THE OBVIOUS FIX IS THE TRAP: on real money the fleet closed 6 trades in 7 days, so a real-money-ONLY
+    gate is MORE ungradeable than the blended one, not less. This is why it is a decision and not a cleanup.'
+  options:
+  - key: separate_populations
+    label: Report real and paper side by side; take the GRADE on real money
+    implication: 'Honours P4 and keeps the paper evidence visible instead of discarding it. Cost, stated
+      plainly: the gate then grades on 6 closed trades in 7 days and will refuse far more often than it
+      does now — which is honest, and is a REFUSAL the operator will see rather than a confident blended
+      number.'
+  - key: declare_blending_acceptable
+    label: Declare blending acceptable FOR THIS GATE, and write down why
+    implication: A legitimate answer — the gate asks "is this leg's logic working", which paper fills
+      can speak to — but it must be RECORDED as a declared exception to P4, naming this gate only, or
+      the next reader reads it as the defect it currently is.
+  allows_free_text: true
+  answer:
+    chosen: separate_populations
+    free_text: null
+    answered_at: '2026-09-02T13:41:24.542165Z'
+    answered_by: telegram
+    committed_by: commit_work_decisions.py
+    submission_id: e380ea72ed4e4a15af6b16a08e2efb22
 evidence:
-  - docs/claude/OPEN-ITEMS.json#OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL
-  - docs/design/evidence-floor-horizon-PROPOSAL.md
-  - scripts/ml/strategy_review_packet.py
+- docs/claude/OPEN-ITEMS.json#OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL
+- docs/design/evidence-floor-horizon-PROPOSAL.md
+- scripts/ml/strategy_review_packet.py
 verdict: null
