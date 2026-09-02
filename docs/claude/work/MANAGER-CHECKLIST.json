@@ -964,7 +964,119 @@
         "MI-71",
         "#10793"
       ]
+    },
+    {
+      "id": "MI-65-MANAGER-ASSERTED-A-SECRET-WAS-UNSET-WITHOUT-MEASURING-IT",
+      "title": "Claimed TELEGRAM_CLAUDE_BOT_SECRET was unset from a doc row, over the operator's own contrary observation",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "tier": "1 (process; no code)",
+      "observed": "Operator, 2026-09-02: 'I really can't believe we're going back to this again, we already established that the channel works!!!! JUST WIRE THE PR TO RIGHT BOT!!!' They were right. The manager told them TWICE that TELEGRAM_CLAUDE_BOT_SECRET was unset, and gated the ClaudeBot work on it, having never measured it. The claim came from OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN (dated the PREVIOUS day) and from #10789's body saying its author could not read the VM. Neither is a measurement.",
+      "root_cause": "FIELD BEATS COMMENT, INVERTED. The operator had ALREADY shown a ping arriving on ClaudeBot earlier the same day and said 'got this'. That is a direct observation of the channel working, and it was weighed BELOW a dated doc row. This repo's first rule is that a doc is a CLAIM about the field and the field wins; an operator's own sighting is field evidence, not opinion.",
+      "what_actually_prevents_it": "The blocker was asserted, not measured, so it was never a blocker to remove -- it was a claim to check. The correct action is the one the operator gave: wire and merge, and let the DEPLOY be the measurement. The new unit exits EX_CONFIG into a visible `failed` state if the var really is missing, so one deploy settles it at less cost than two rounds of argument.",
+      "the_honest_residual": "IT IS STILL NOT MEASURED. get-env's ALLOWED_KEYS admits a key only when its VALUE is safe to publish, so a bot token is not readable that way, and presence-vs-value is a distinction that path does not expose. The honest state is UNMEASURED -- not 'set', and not 'unset'. Do not close this row on the argument being over; close it on the deploy.",
+      "refs": [
+        "#10789",
+        "#10793",
+        "OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN"
+      ]
+    },
+    {
+      "id": "MI-66-ENACT-THE-OPERATING-LAYER-INVENTORY-QUEUED-FOR-THE-NEXT-FREE-SLOT",
+      "title": "Enact the skills/workflow inventory: wire the role packs to the operating layer, and repair the 4 named workflows",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": null,
+      "tier": "1 for the skills + workflow repairs; a RETIRE is Tier-3 and is proposed, never enacted",
+      "spawn_when": "THE NEXT FREE SESSION SLOT. Operator-directed 2026-09-02: \"queue that up for the next free slot\". The caps are 4 sessions AND 4 artifacts, independently (MI-64), and both were at or over cap when this was queued. The expected first opening is MI-58 (#10789) completing.",
+      "observed": "docs/audits/operating-layer-skills-workflows-inventory-2026-09-02.md (730 lines) DELIVERED the mapping MI-41 asked for -- the skill/session-type map, the 129-workflow census, and verdicts. Its own closing section says: 'It enacted nothing. No skill, workflow, register or Routine was created, edited or deleted. The only file added is this one.' So MI-41's diagnosis is DONE and its enactment has not started, and MI-41 carries owner: None.",
+      "root_cause": "THE STRUCTURAL FINDING, and the reason the operating layer keeps not being used: it shipped its OBJECT half on 2026-09-01 -- store, intents, WIP ceiling, constraint readout, lease, checklist, cycle priority, sunset pass -- and NOT ONE ROLE PACK was updated to know it exists. Measured across all 32 SKILL.md files, case-insensitively: docs/claude/work 0 hits, 'work object' 0, WIP 0, blocked_on 0, CYCLE-PRIORITY 0, READOUT 0, PRODUCE/DISPOSE 0, SUNSET-DISPOSITIONS 0. The model's anti-silo mechanism is context = work object + role pack, and its two halves are wired to DIFFERENT SYSTEMS. A session handed a work object opens a role pack describing the pre-2026-09-01 world of three backlogs and DUE.md.",
+      "scope": "IN: (a) wire the handful of role packs that govern how a session SITUATES itself -- the audit's 4.2 names them -- to the work store, the readout and the caps. (b) The 4 REPAIR workflows the audit evidences: replay-pregate-nightly (5 of 5 most recent runs FAILED, and it is now correctly alarmed, so it is generating a nightly page nobody acts on -- a desensitized alarm forming in real time), probes + due-list (reliability, distinct from the already-cleared 'has it ever fired'), strategy-review-packets (20 lifetime runs, 0 on cron -- RE-READ before grading, a late fire is possible), ict-scalp-exit-sweep (red since 2026-08-10, 23 days). (c) The audit's single CREATE item, which it calls the highest-leverage in the document. [!] NOT IN SCOPE: editing all 32 skills. The audit is explicit that most role packs are domain procedure (how to wire a broker, how to run a sweep) and are CORRECTLY indifferent to where work is tracked. A 32-file sweep would be the wrong shape and would bury the handful that matter.",
+      "what_actually_prevents_it": "Nothing technical -- it is unowned, and it was queued behind a session cap rather than behind a blocker. That distinction matters: this is not waiting on evidence or a decision.",
+      "the_honest_residual": "[!] 87 OF THE 129 WORKFLOWS CANNOT BE GRADED ON DORMANCY AT ALL, and the audit says so rather than guessing. They are issue-label-driven and their run history is dominated by skipped label evaluations whose most recent entry is always today; no cheap surface answers 'has this ever done work, and when last'. That is why the RETIRE list is short -- an honest audit cannot retire what it could not measure. Do not let an enacting session 'finish the job' by retiring on a dormancy signal that does not exist. [!] AND THE AUDIT ITSELF CORRECTED THE DESIGN DOCS IN BOTH DIRECTIONS: 5 functions the derivation lists as MISSING have all since shipped, and A1's readout is declared Cadenced while having NO cadence and no freshness check -- stale in the dangerous direction. An enacting session must read the audit, not the derivation, and must not re-derive from build-plan text that the audit already superseded.",
+      "refs": [
+        "MI-41",
+        "docs/audits/operating-layer-skills-workflows-inventory-2026-09-02.md",
+        "#10764"
+      ]
+    },
+    {
+      "id": "MI-67-HANDOFF-BAR-IS-VERIFIED-NOT-MERGED",
+      "title": "No manager handoff until the requisite flows are built, implemented AND verified working",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "tier": "1 (process)",
+      "observed": "Operator-directed 2026-09-02: \"I don't want to handoff before we are at least 200% certain that the requisite flows and merchanisms are built, implmented, and verified working correctly\". Also, earlier the same hour: \"i don't want to hand off before we're ready - that's why I keep asking you instead of telling you.\" So handoff readiness is the OPERATOR'S call and handoff_check's readiness=ready is NECESSARY AND NOT SUFFICIENT.",
+      "root_cause": "handoff_check grades whether a SUCCESSOR CAN SEE the state -- registry, lease, checklist, open-PR rows. It says nothing about whether the MECHANISMS WORK. Those are different questions and this repo's whole vocabulary exists to keep them apart: landed_unproven is not done, a merge is not a deploy, and a deploy is not an observation.",
+      "what_actually_prevents_it": "THE BAR, STATED AS OBSERVATIONS SO IT IS CHECKABLE RATHER THAN A FEELING. Each names what would settle it, and a green test settles NONE of them: (1) DECISION ROUND-TRIP ON CLAUDEBOT -- a tap on ClaudeBot producing a work_decision_transit row, then that same request grading `committed` on /api/bot/work/decisions with the answer block on main. Already PROVEN on the TRADER bot (10:11:42Z prompt, 10:16:36Z tap, submitted_by telegram); the ClaudeBot leg is not. [!] CORRECTED 2026-09-02 BY MI-58, AND THE MANAGER'S PREMISE WAS FALSE. The manager told MI-58 that 'once TELEGRAM_CLAUDE_BOT_SECRET is set, the fallback can never fire' and used that to argue for KEEPING the trader-bot fallback rather than making it fail-closed. WRONG: answerable_route() requires a live HEARTBEAT, not merely a token, so if ict-claude-decision-bot.service dies or is masked, decisions land on the trader bot again WITH THE SECRET SET. The fallback is PERMANENT, not a pre-secret window. The decision to keep it may still be right on its own merits -- a wrong chat is a noise complaint, holding every prompt is an outage -- but the reason given for it was not. [!] SO SETTING THE SECRET IS NOT THE POST-DEPLOY CHECK. Read /api/diag/log_file?name=telegram_poll_claude and `destination` in the sweep stats. 'Decisions still arrive' is NOT evidence the move happened -- that is precisely what the fallback produces. (2) /status AND /decisions -- the operator types each and gets a correct reply, ON CLAUDEBOT. #10793 is held as a draft precisely so this cannot be satisfied on the wrong bot. (3) PUSH-BACK TO THE ASKING SESSION (MI-60, #10788) -- a committed decision reaching the session that asked, without a minted token. B is not done when the Routine EXISTS; it is done when something WATCHES that it FIRED (list_triggers.last_run), because two Routines on this account were enabled and never once fired. (4) THE WORK STORE -- a COLD session, not pointed there by its prompt, acting on the readout or the cycle priority and citing where it read it. (5) NO WORK IS LOST (Phase E) -- demonstrated BY KILLING A SESSION MID-WORK, not asserted from a test. Nobody has killed one. (6) THE DAILY DIGEST -- one run with event=schedule. A workflow_dispatch run is not a cron run.",
+      "the_honest_residual": "[!] THE MANAGER IS THE WRONG JUDGE OF (4) AND CANNOT CLEAR IT. A cold observation is by definition made by a session that was not told, and this manager built or dispatched most of these. Record WHICH session made each observation. [!] AND DO NOT LET THIS ROW BECOME A REASON NEVER TO HAND OFF. It is a bar, not a veto: if a mechanism turns out to be unverifiable rather than merely unverified, that is a finding to report to the operator, not a condition to wait out forever.",
+      "refs": [
+        "#10789",
+        "#10793",
+        "#10788",
+        "MI-64",
+        "MI-65"
+      ]
+    },
+    {
+      "id": "MI-68-THE-MANAGER-ROLE-HAS-NO-ROLE-PACK-AND-NO-EXECUTABLE-PREFLIGHT",
+      "title": "The most privileged role in the system has no skill, so every manager re-derives the job from prose and repeats the same mistakes",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": null,
+      "tier": "1 (a skill + checks; no order path)",
+      "spawn_when": "After MI-66, or in the same session if scope allows. Both are enactment of the operating-layer inventory.",
+      "observed": "Operator, 2026-09-02: 'how do we ensure that you future manager session don't make the same mistake?' MEASURED in answering it: 32 skills exist and NOT ONE is a manager role pack. The role that merges, deploys, spawns sessions, holds the lease and answers to the operator is the only significant role with no pack. Everything a manager knows arrives as prose -- CLAUDE.md, a sweep-trigger prompt, and whatever the previous manager wrote in a checklist note.",
+      "root_cause": "DOCUMENTATION HAS ALREADY BEEN TRIED AND MEASURABLY FAILED, and that is the whole argument for this row. The CI-never-fired trap is stated VERBATIM in CLAUDE.md ('if such a commit lands last your PR shows ZERO checks and is blocked, not green -- push an ordinary commit after, to arm CI'). The manager session of 2026-09-02 had read that line and hit the trap THREE TIMES the same afternoon (#10793, #10795, #10789). Restating a rule that is known and still broken is not a fix; this repo's own F4 says a repeated mistake becomes an executable check or it is not a lesson.",
+      "scope": "A `manager` skill carrying (a) the loop -- lease heartbeat, read the registers, merge one at a time re-verifying between, review before un-drafting, spawn through the registry -- and (b) an EXECUTABLE PREFLIGHT rather than a list of reminders. The preflight must include, at minimum, the four failures measured on 2026-09-02: 1. BEFORE trusting `total_count: 0`, read mergeable_state AND the head commit's AUTHOR -- a bot-authored head means CI never fired (BL-20260902-BOARD-POST-RELAY-SILENTLY-KILLS-CI-ON-THE-PR-OF-ANY-SESSION-THAT-FOLLOWS-THE-PROTOCOL...). 2. BEFORE landing a register-touching manager PR, check what sibling PRs it will re-conflict; the manager is the highest-frequency writer to those files (BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE...). 3. BEFORE blocking work on a claim about live state, PROBE it. The 2026-09-02 manager blocked the ClaudeBot work on 'TELEGRAM_CLAUDE_BOT_SECRET is unset', asserted from a doc row dated the previous day, against the operator's own contrary sighting (MI-65). 4. BEFORE a read-append-write on any register, confirm the file round-trips; OPEN-ITEMS.json does not (BL-20260902-OPEN-ITEMS-IS-THE-ONE-REGISTER-NO-APPEND-HELPER-PROTECTS). 5. F6 -- REFUSE TO PROCEED when the count of unnotified autonomous actions since the last ping exceeds a stated threshold. This is the fifth item and arguably the first in importance: F6 is the CONDITION the autonomy grant rests on, and on 2026-09-02 a manager merged 5 PRs, dispatched 4 sessions, held a PR to block a deploy and made a fallback design call across ~8 hours while sending ZERO pings -- the operator noticed before the manager did. The class of action most worth reporting is exactly the class that is silent, because merge_pull_request / update_pull_request / create_session / fire_trigger are MCP calls with no notification hop, while the narrow VM system-actions DO carry one. BL-20260902-THE-MANAGERS-HIGH-IMPACT-ACTIONS-BYPASS-EVERY-PATH-THAT-NOTIFIES.",
+      "what_actually_prevents_it": "An executable preflight the manager RUNS, not a section it reads -- the `handoff_check.py` shape, which already refuses `ready` rather than grading a soft pass, and which is the one manager mechanism that has worked reliably today. Every item above is checkable from a script.",
+      "the_honest_residual": "[!] A SKILL IS STILL PROSE UNTIL THE CHECKS EXIST. Writing a `manager` SKILL.md and stopping there would reproduce exactly the failure this row documents -- and would be harder to see, because the role pack would LOOK like the fix. The deliverable is the checks; the skill is where they are invoked from. [!] AND IT INHERITS MI-66's FINDING: no role pack references the operating layer at all, so a new manager pack must point at the work store, the readout and the caps rather than the pre-2026-09-01 world of three backlogs and DUE.md. Writing it against the old world would add a 33rd skill with the same gap.",
+      "refs": [
+        "MI-66",
+        "MI-65",
+        "MI-20",
+        "MI-28",
+        "BL-20260902-BOARD-POST-RELAY-SILENTLY-KILLS-CI-ON-THE-PR-OF-ANY-SESSION-THAT-FOLLOWS-THE-PROTOCOL",
+        "BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE",
+        "BL-20260902-OPEN-ITEMS-IS-THE-ONE-REGISTER-NO-APPEND-HELPER-PROTECTS"
+      ]
+    },
+    {
+      "id": "MI-69-A-REBASE-CAN-ARM-AUTOMERGE-WITHOUT-ANYONE-ASKING",
+      "title": "A rebase or merge of main arms auto-merge on a claude/** branch, because the push diff includes everything main changed",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": null,
+      "tier": "1 (CI/workflow)",
+      "observed": "Found and filed by MI-58. claude-pr-automerge.yml still carries the LEGACY shared marker `.github/pr-automerge-request` in its paths: filter and that file is still in the tree, so any claude/** branch that merges or rebases main touches the path and is UN-DRAFTED AND ARMED having asked for nothing. [!] THIS EXPLAINS AN OBSERVATION THE MANAGER MADE AND COULD NOT ACCOUNT FOR: on #10795 the manager noted that github-actions[bot] un-drafted the PR and enabled auto-merge 'without a marker file in my diff' and flagged it as odd. This is the cause. The manager had the symptom; MI-58 had the mechanism.",
+      "what_actually_prevents_it": "Remove the legacy shared path from the workflow's paths: filter so ONLY the per-request .github/pr-automerge-requests/<slug>.txt opt-in arms it. That per-request path is already the documented convention and its README records why the shared marker was wrong.",
+      "the_honest_residual": "[!] DELETING A HOLD FILE IS NOT THE FIX. A test-file hold WAS deleted on 2026-09-02 (correctly, for an unrelated reason) and could be mistaken for remediation. The mechanism is untouched.",
+      "refs": [
+        "#10789",
+        "#10795",
+        "#10810"
+      ]
+    },
+    {
+      "id": "MI-73",
+      "title": "The manager watcher is BLIND by construction — give it a sensor that can actually see",
+      "state": "in_flight",
+      "priority": "P2_OVERHAUL_IMPLEMENTATION",
+      "owner": "session_01ThkrPrGUvmomoY8uGEa148",
+      "tier": "1 (tooling/CI)",
+      "observed": "Of the three mechanisms MI-68 built to watch the manager (merged #10808), TWO WORK and the third cannot. `spawn_gate.py` was verified by the manager on BOTH controls -- out-of-priority object exits 3, in-priority exits 0. But `queue_latency.py`, the one aimed at the manager sitting on a blocked queue, reports `unknown` PERMANENTLY: its verdict needs a live `list_sessions` read, that is an mcp__* tool, and CI holds no MCP tools. It refuses to substitute SESSIONS.json's stale `last_observed`, which is correct -- that register has been measured incomplete twice.",
+      "why_it_matters": "This is the failure that cost the most on 2026-09-02: four sub-sessions sat IDLE and BLOCKED on the manager for up to 142 minutes while the manager asserted they held work. It is also the operator's core ask -- 'actual guards and mechanisms in the repo/vm themselves that watch the manager and enforce the rules on him.' A permanently-`unknown` watcher is honest but is not yet that guard.",
+      "the_hypothesis_to_TEST_not_assume": "The same failure has an MCP-FREE PROXY that GitHub Actions can see with nothing but its own GITHUB_TOKEN: a PR green/mergeable/unmerged and ageing; a `needs_action` posted with nothing since; a board `▶️ START` with no `✅ DONE`, ageing; an `in_flight` checklist item whose owner's branch has had no push for N hours. ⚠️ THE MANAGER BELIEVES THIS AND HAS NOT PROVEN IT. If the proxy is weaker than it looks, a STATED BOUNDARY is the better deliverable -- which is exactly what MI-68 delivered on queue_latency and why its work merged.",
+      "what_must_not_regress": "(a) Do NOT delete or weaken the `unknown` path -- `quiet`/`escalate`/`unknown` must never collapse, because 'we could not look' and 'nothing is waiting' are opposite facts. (b) It must NOT be invokable by the manager: MI-68's own measurement is that every mechanism the manager had to choose to run went unused, and every mechanism that stood in the way worked. (c) Never page on activity, only on a state that is actually stuck, rate-limited per class -- 202 of 376 CRITICAL rows in one measured window here were a single un-latched alarm.",
+      "⚠️_a_cron_is_not_evidence_of_a_run": "work-digest.yml's own header records a scheduled workflow in this repo firing ~4h50m LATE and once instead of daily. Whatever carries this must make its own liveness checkable.",
+      "refs": [
+        "#10808",
+        "MI-68",
+        "WO-20260902-MANAGER-PREFLIGHT"
+      ]
     }
   ],
-  "as_of": "2026-09-02T14:52:00Z"
+  "as_of": "2026-09-02T15:15:00Z"
 }

@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-09-02T00:00:00+00:00",
+  "updated_at": "2026-09-02",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -31153,6 +31153,25 @@
       ]
     },
     {
+      "id": "BL-20260902-OPEN-ITEMS-IS-THE-ONE-REGISTER-NO-APPEND-HELPER-PROTECTS",
+      "opened": "2026-09-02",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "area": "tooling",
+      "title": "OPEN-ITEMS.json is not byte-reproducible, so every naive edit silently reformats 1,412 lines and re-attributes the whole register to that PR",
+      "detail": "MEASURED 2026-09-02, WITH A VALIDATED POSITIVE CONTROL, after the manager session did exactly this and caught it in its own PR diff. scripts/ops/backlog_append.detect_format tries 5 candidate serialisations and REFUSES to write when none reproduces the file byte-for-byte -- the protection added by BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES. backlog_append.LIVE_BACKLOGS names FOUR files -- health-review, performance-review, ml-review and research-review -- and ALL FOUR reproduce (indent=2, ensure_ascii=False, no trailing newline), so the probe is known to find a match when one exists. docs/claude/OPEN-ITEMS.json is NOT IN THAT LIST AT ALL, and reproduces under none of the 5 candidates. docs/claude/OPEN-ITEMS.json reproduces under NONE of the 5. CAUSE: its escaping is MIXED. The header's what_this_is carries a literal em-dash while an item written later carries the same character as \\u2014, so no single ensure_ascii setting can reproduce the file. It was written by at least two different tools at different times. WHY THIS MATTERS MORE THAN IT LOOKS: the four protected files are the review backlogs, which the repo's own guidance says nobody reads at session start precisely because they are enormous. OPEN-ITEMS.json is the opposite -- it is THE SHORT LIST EVERY SESSION READS AT START, and its live contents are rendered into CLAUDE.md by render_session_brief.py. So the register with the widest readership is the only one with no append helper and no format guard, and CLAUDE.md's instruction to file 'through scripts/ops/backlog_append.py, never by hand' does not name it. MEASURED BLAST RADIUS, not estimated: a read-append-write with json.dumps(indent=2) produced a diff of 742 insertions / 699 deletions across 1,412 lines for a two-row edit. The correct surgical edit is 21 insertions / 3 deletions. Both pass check_open_items.py, so the guard that exists cannot tell them apart -- it grades CONTENT and says nothing about SERIALISATION. [!] THE REFORMAT IS NOT COSMETIC. It re-attributes every pre-existing row to whoever touched the file, which destroys git blame on the one register used to establish who observed what and when -- the field this repo leans on hardest when separating 'we deployed it' from 'we verified it'.",
+      "evidence": "detect_format over LIVE_BACKLOGS (4 files) plus OPEN-ITEMS.json: 4 reproducible, OPEN-ITEMS not, and OPEN-ITEMS is not a member of LIVE_BACKLOGS so check_live_backlogs never looks at it -- its OK line reads '4 live backlog(s) reproduce byte-for-byte' whether or not OPEN-ITEMS is broken. First byte mismatch at offset 86 under ensure_ascii=True (literal em-dash in the header) and at offset 1450 under ensure_ascii=False (\\u2014 escape inside an item added later). Naive rewrite diff --numstat: 742/699 for a two-row edit. Surgical edit: 21/3. Both pass check_open_items.py. [!] CORRECTED IN THE FILING: a first draft of this row said THREE protected files, because three is all it probed. The list has four. The finding survives the correction and the count was wrong.",
+      "resolution_criteria": "EITHER (a) OPEN-ITEMS.json is normalised ONCE to a single reproducible serialisation, in a PR that says the 1,412-line diff is a deliberate one-time normalisation, AND an open_items_append helper (or an extension of backlog_append) is added that round-trips it, AND CLAUDE.md's 'file through the helper, never by hand' rule is extended to name this register; OR (b) a CI check FAILS a PR whose OPEN-ITEMS.json diff touches more lines than the rows it changes, so a reformat cannot land silently even without a helper. [!] A HELPER ALONE DOES NOT CLOSE THIS while the file stays unreproducible -- detect_format would refuse and the caller would be pushed straight back to hand-editing, which is the state today. [!] NORMALISING WITHOUT A GUARD DOES NOT CLOSE IT EITHER: the file drifted into mixed escaping once and nothing stopped it, so it will drift again. [!] DO NOT CLOSE THIS BY DOCUMENTING 'edit carefully'. The manager session knew this rule, cited it about backlogs in the same session, and still reformatted the file -- a rule that is known and still broken is evidence for machinery, not for restating the rule.",
+      "refs": [
+        "#10795",
+        "BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES",
+        "scripts/ops/backlog_append.py",
+        "scripts/ci/check_open_items.py",
+        "docs/claude/OPEN-ITEMS.json"
+      ]
+    },
+    {
       "id": "BL-20260902-FIVE-TEST-MODULES-STUB-NUMPY-AND-BREAK-PYTEST-APPROX-WHERE-NUMPY-IS-ABSENT",
       "title": "Five test modules still MagicMock `numpy` into sys.modules at import time, which breaks pytest.approx for the whole session on any box without numpy -- the exact defect tests/conftest.py documents as fixed",
       "severity": "medium",
@@ -31174,6 +31193,61 @@
       ]
     },
     {
+      "id": "BL-20260902-BOARD-POST-RELAY-SILENTLY-KILLS-CI-ON-THE-PR-OF-ANY-SESSION-THAT-FOLLOWS-THE-PROTOCOL",
+      "opened": "2026-09-02",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "area": "ci",
+      "title": "Following the coordination-board protocol leaves a bot-authored commit at HEAD, so the session's own PR runs no CI and reads as 'waiting'",
+      "detail": "MEASURED: this trap fired THREE TIMES on 2026-09-02 alone -- #10793, #10795 and #10789 -- each time on a PR whose head commit was `github-actions[bot] | board-post: results`. Each read `total_count: 0` check runs and `mergeable_state: blocked`, which is indistinguishable from 'CI has not started yet'. #10793 sat that way for ~35 minutes and #10789 for ~20 before a manager noticed. MECHANISM: `board-post.yml` and `pr-opener.yml` commit a results file back to the PR branch using the workflow's GITHUB_TOKEN. GitHub does not trigger workflows for GITHUB_TOKEN pushes. So if that results commit lands LAST, no workflow fires on the head and the PR is silently un-tested. [!] THE INCENTIVE IS INVERTED, which is what makes this worse than a bug: a session that follows the board protocol is PUNISHED with an invisible PR, and one that skips it is not. That is the MI-28 shape ('following the board protocol makes the audit louder, which inverts the incentive') recurring in a new place. [!] IT IS DOCUMENTED AND THAT HAS NOT WORKED. CLAUDE.md states it verbatim -- 'if such a commit lands last your PR shows ZERO checks and is blocked, not green -- push an ordinary commit after, to arm CI' -- and the manager session that had READ that line hit it three times in one afternoon. A rule that is known and still broken is evidence for machinery, not for restating the rule.",
+      "evidence": "#10789 head 9faec369 authored by github-actions[bot], message 'board-post: results', get_check_runs total_count 0, mergeable_state blocked. #10793 head 069ff90d, same author and message, same symptoms. Both armed by a manager merging origin/main in. No check in scripts/ci/ references check_runs, total_count or a bot-authored head (grep returned nothing; control: 60+ files exist in scripts/ci/).",
+      "resolution_criteria": "EITHER (a) THE CAUSE IS REMOVED -- the relays stop pushing a results commit to the PR branch (write the result to the issue comment, a run artifact, or a side branch), so a bot commit can never be at HEAD; OR (b) the relays push with a credential that DOES trigger workflows (a PAT), which is the documented GitHub behaviour difference; OR (c) the relay itself dispatches the required workflows after its push. [!] AND A DETECTOR EITHER WAY, because the trap is not unique to these two relays -- ANY bot-authored head reproduces it: something that flags an OPEN PR whose head has zero check runs, reaching a surface a manager actually reads. [!] DO NOT CLOSE THIS ON DOCUMENTATION. It is already documented in CLAUDE.md and was hit three times by a session that had read it.",
+      "refs": [
+        "#10789",
+        "#10793",
+        "#10795",
+        ".github/workflows/board-post.yml",
+        ".github/workflows/pr-opener.yml",
+        "MI-28"
+      ]
+    },
+    {
+      "id": "BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE",
+      "opened": "2026-09-02",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "area": "tooling",
+      "title": "The append-mostly registers are single JSON files, so each merge invalidates every sibling PR's resolve — and the repo already solved this once",
+      "detail": "MEASURED 2026-09-02: five registers are monolithic JSON and every session appends to them -- health-review-backlog.json 6,236,300 bytes, OPEN-ITEMS.json 220,809, MANAGER-CHECKLIST.json 146,755, SESSIONS.json 83,124, OPEN-PRS.json 21,219. There is NO .gitattributes and NO merge driver, so every append is a textual conflict against every other append. [!] THE REPO HAS ALREADY SOLVED THIS AND DID NOT GENERALISE THE SOLUTION. docs/claude/work/objects/ holds 584 objects as ONE FILE PER OBJECT, and the work store's README states the reason outright: 'One file per object, so two sessions touching different work never conflict.' The registers that keep conflicting are exactly the ones that did not get that treatment. [!] IT IS A MANAGER-AMPLIFIED DEFECT. MI-20 already recorded 'nine merges in three hours left four PRs conflicted on the same append-mostly register', and on 2026-09-02 a manager landed five register-touching PRs in one afternoon (#10790, #10791, #10792, #10795, #10798), re-conflicting every sub-session PR beneath them -- while instructing another session on how to resolve those same conflicts. The manager is the highest-frequency writer and therefore the largest source of the churn.",
+      "evidence": "wc -c on the five files as above. `ls docs/claude/work/objects/*.yaml | wc -l` = 584. `cat .gitattributes` -> file does not exist. MI-20 in MANAGER-CHECKLIST.json records the prior occurrence.",
+      "resolution_criteria": "EITHER (a) the registers move to one-file-per-row under a directory, as the work store already did, with the aggregate JSON generated for consumers that need it; OR (b) a git merge driver registered in .gitattributes merges these files BY ROW ID -- union on id, refusing on a genuine same-id divergence -- so two appends never conflict textually. [!] (b) MUST ASSERT BOTH WAYS, not just count: every id present on either side present in the output, AND the counts reconcile. A count can reconcile by luck while a row is lost, which is why the manual resolutions this week asserted per-id membership. [!] DO NOT CLOSE THIS BY ASKING SESSIONS TO MERGE MORE CAREFULLY. Careful manual resolution is what is happening now and it costs a round trip per PR per merge.",
+      "refs": [
+        "MI-20",
+        "docs/claude/work/README.md",
+        "#10783"
+      ]
+    },
+    {
+      "id": "BL-20260902-THE-MANAGERS-HIGH-IMPACT-ACTIONS-BYPASS-EVERY-PATH-THAT-NOTIFIES",
+      "opened": "2026-09-02",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "area": "observability",
+      "title": "F6 is the condition the autonomy grant rests on, and a manager can merge, spawn, hold and decide all day without any of it touching a notifying path",
+      "detail": "MEASURED 2026-09-02: docs/claude/pending-pings.jsonl was last written at 03:14 and the manager session that ran from ~05:00 to ~13:00 queued NOTHING, while in that window it merged 5 PRs, dispatched 4 sub-sessions, converted a PR to draft to block a deploy, made a judgement call on a fallback design, and corrected itself three times. The operator noticed before the manager did and said so: 'I'm still not getting any pings from you either, which is also a serious lapse here.' MECHANISM, and it is structural rather than forgetfulness: the actions that DO notify are the narrow VM system-actions, which carry a transparency notify (scripts/ops/notify_run.sh). The manager's highest-impact actions do not go through that path at all -- merge_pull_request, update_pull_request (draft/undraft), create_session, create_trigger/fire_trigger and enable_pr_auto_merge are all MCP calls with no notification hop. So the class of action MOST worth telling the operator about is precisely the class that is silent, and the manager must remember to narrate it by hand. [!] F6 IS NOT A NICE-TO-HAVE: the operating-model design names 'autonomous-action notification' as THE CONDITION ON WHICH THE AUTONOMY GRANT WAS MADE. An unnotified autonomous action is not merely undocumented; it is outside the terms the operator agreed to. [!] AND FILING HAS ALREADY FAILED ONCE. MI-54 ('I asked seven decisions today as in-session popups and sent zero pings') was filed EARLIER THE SAME DAY, is still state in_flight, and the manager reproduced the lapse for the following eight hours. A row that records a behaviour does not change it.",
+      "evidence": "pending-pings.jsonl mtime 2026-09-02 03:14, 50 rows, none from this session. send-ping exists as a Tier-1 system-action and was not dispatched until the operator complained (issue #10804). MI-54 in MANAGER-CHECKLIST.json, state in_flight, filed the same day. grep of the system-actions notify path shows it covers the allowlisted VM actions only.",
+      "resolution_criteria": "A manager's autonomous action produces a notification WITHOUT the manager choosing to send one. Acceptable shapes: (a) a repo-side hook on the events that are already observable -- a merge to main authored by a manager session, a new SESSIONS.json row, a PR draft-state flip -- rendering a rolled-up ping on the digest cadence; or (b) the manager preflight of MI-68 REFUSING to proceed when the count of unnotified autonomous actions since the last ping exceeds a stated threshold, in the handoff_check shape that grades `unknown` rather than passing softly. [!] A ROLLED-UP DIGEST IS THE TARGET, NOT A PING PER ACTION. The design is explicit that F6 pings on STATE CHANGES AND DECISIONS and never on ACTIVITY, and this repo has already measured what the other choice costs: 202 of 376 CRITICAL rows in one window were a single un-latched alarm that trained the operator past the one channel reserved for an unprotected position. [!] DO NOT CLOSE THIS BY ADDING A REMINDER TO A PROMPT OR A SKILL. MI-54 is that fix and it did not hold for eight hours.",
+      "refs": [
+        "MI-54",
+        "MI-68",
+        "#10804",
+        "docs/design/operating-model-DESIGN.md"
+      ]
+    },
+    {
       "id": "BL-20260902-WORK-STORE-STAGE-IS-A-CENSUS-OF-FILENAMES-SO-FOUR-CHAIN-STAGES-ARE-EMPTY-BY-CONSTRUCTION",
       "opened": "2026-09-02",
       "status": "open",
@@ -31190,25 +31264,6 @@
         "docs/design/operating-model-DESIGN.md",
         "docs/claude/work/README.md",
         "BL-20260901-WORK-STORE-EDGES-ARE-1-PERCENT-ASSESSED-SO-THE-CONSTRAINT-CANNOT-BE-COMPUTED"
-      ]
-    },
-    {
-      "id": "BL-20260902-OPEN-ITEMS-IS-THE-ONE-REGISTER-NO-APPEND-HELPER-PROTECTS",
-      "opened": "2026-09-02",
-      "severity": "medium",
-      "tier": 1,
-      "status": "open",
-      "area": "tooling",
-      "title": "OPEN-ITEMS.json is not byte-reproducible, so every naive edit silently reformats 1,412 lines and re-attributes the whole register to that PR",
-      "detail": "MEASURED 2026-09-02, WITH A VALIDATED POSITIVE CONTROL, after the manager session did exactly this and caught it in its own PR diff. scripts/ops/backlog_append.detect_format tries 5 candidate serialisations and REFUSES to write when none reproduces the file byte-for-byte -- the protection added by BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES. backlog_append.LIVE_BACKLOGS names FOUR files -- health-review, performance-review, ml-review and research-review -- and ALL FOUR reproduce (indent=2, ensure_ascii=False, no trailing newline), so the probe is known to find a match when one exists. docs/claude/OPEN-ITEMS.json is NOT IN THAT LIST AT ALL, and reproduces under none of the 5 candidates. docs/claude/OPEN-ITEMS.json reproduces under NONE of the 5. CAUSE: its escaping is MIXED. The header's what_this_is carries a literal em-dash while an item written later carries the same character as \\u2014, so no single ensure_ascii setting can reproduce the file. It was written by at least two different tools at different times. WHY THIS MATTERS MORE THAN IT LOOKS: the four protected files are the review backlogs, which the repo's own guidance says nobody reads at session start precisely because they are enormous. OPEN-ITEMS.json is the opposite -- it is THE SHORT LIST EVERY SESSION READS AT START, and its live contents are rendered into CLAUDE.md by render_session_brief.py. So the register with the widest readership is the only one with no append helper and no format guard, and CLAUDE.md's instruction to file 'through scripts/ops/backlog_append.py, never by hand' does not name it. MEASURED BLAST RADIUS, not estimated: a read-append-write with json.dumps(indent=2) produced a diff of 742 insertions / 699 deletions across 1,412 lines for a two-row edit. The correct surgical edit is 21 insertions / 3 deletions. Both pass check_open_items.py, so the guard that exists cannot tell them apart -- it grades CONTENT and says nothing about SERIALISATION. [!] THE REFORMAT IS NOT COSMETIC. It re-attributes every pre-existing row to whoever touched the file, which destroys git blame on the one register used to establish who observed what and when -- the field this repo leans on hardest when separating 'we deployed it' from 'we verified it'.",
-      "evidence": "detect_format over LIVE_BACKLOGS (4 files) plus OPEN-ITEMS.json: 4 reproducible, OPEN-ITEMS not, and OPEN-ITEMS is not a member of LIVE_BACKLOGS so check_live_backlogs never looks at it -- its OK line reads '4 live backlog(s) reproduce byte-for-byte' whether or not OPEN-ITEMS is broken. First byte mismatch at offset 86 under ensure_ascii=True (literal em-dash in the header) and at offset 1450 under ensure_ascii=False (\\u2014 escape inside an item added later). Naive rewrite diff --numstat: 742/699 for a two-row edit. Surgical edit: 21/3. Both pass check_open_items.py. [!] CORRECTED IN THE FILING: a first draft of this row said THREE protected files, because three is all it probed. The list has four. The finding survives the correction and the count was wrong.",
-      "resolution_criteria": "EITHER (a) OPEN-ITEMS.json is normalised ONCE to a single reproducible serialisation, in a PR that says the 1,412-line diff is a deliberate one-time normalisation, AND an open_items_append helper (or an extension of backlog_append) is added that round-trips it, AND CLAUDE.md's 'file through the helper, never by hand' rule is extended to name this register; OR (b) a CI check FAILS a PR whose OPEN-ITEMS.json diff touches more lines than the rows it changes, so a reformat cannot land silently even without a helper. [!] A HELPER ALONE DOES NOT CLOSE THIS while the file stays unreproducible -- detect_format would refuse and the caller would be pushed straight back to hand-editing, which is the state today. [!] NORMALISING WITHOUT A GUARD DOES NOT CLOSE IT EITHER: the file drifted into mixed escaping once and nothing stopped it, so it will drift again. [!] DO NOT CLOSE THIS BY DOCUMENTING 'edit carefully'. The manager session knew this rule, cited it about backlogs in the same session, and still reformatted the file -- a rule that is known and still broken is evidence for machinery, not for restating the rule.",
-      "refs": [
-        "#10795",
-        "BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES",
-        "scripts/ops/backlog_append.py",
-        "scripts/ci/check_open_items.py",
-        "docs/claude/OPEN-ITEMS.json"
       ]
     },
     {
@@ -31247,6 +31302,28 @@
         "https://github.com/benbaichmankass/Metis-Insights/pull/10789",
         "tests/test_zz_automerge_hold.py"
       ]
+    },
+    {
+      "id": "BL-20260902-SESSIONS-REGISTRY-IS-A-SPAWN-TIME-RECORD-35-OF-67-ROWS-NAME-NO-BRANCH",
+      "title": "SESSIONS.json is written at spawn and NEVER updated: 35 of 67 rows name no branch at all, so a cold successor reading them knows a session existed and has no route to its work",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-02",
+      "source": "session_01NkekPZw73VYuynYhSdWLWm (MI-70) — measured at main 90437919 while building the Phase E reaper, not reasoned about.",
+      "detail": "MEASURED, population stated: all 67 rows of docs/claude/work/SESSIONS.json at main 90437919, and all 34 branch entries across them. 35 rows carry `branches: []` and `prs: []` — written at spawn, with nothing ever writing back where the work went. Of the 34 branch entries that DO exist: 11 live on origin, 14 landed (a PR they name is in origin/main's history), 7 have no landing evidence, and 2 are PROSE typed into a `branches` array ('(rotating — one PR head at a time)' and 'claude/telegram-ping-mirror (expected; not yet pushed)' — the second being the documented lost-work case from WO-20260901-PHASE-E itself). One row's `prs` entry is a bare int rather than a string.\n\n⚠️ THIS IS A DIFFERENT DEFECT FROM MI-15 / the 26-of-55 census, AND THE EXISTING DETECTORS DO NOT LOOK FOR IT. Those measure sessions ABSENT from the registry. This is sessions PRESENT whose row points at nothing — which reads as coverage while providing none, and is therefore the more dangerous of the two. `session_registry.py::cross_check` compares owner ids and never asks whether a row names a branch, so it passes on all 35.\n\nWHY IT IS NOT 'REMEMBER TO UPDATE THE ROW': the manager CANNOT message a running sub-session, and the constraint is SYMMETRIC — verified again this session, SendMessage from a sub-session to its manager also returns 'No agent named ... is reachable'. The sub-session that would update its own row is exactly the one that may die first. 'Remember to register' has already failed twice; 'remember to update' is the same remedy one step later.\n\nPARTIAL MITIGATION SHIPPED, NOT A FIX: scripts/ops/session_reaper.py recovers the branch from the `Claude-Session:` commit trailer and located 16 of the 35 anyway (live reap: `unreadable` 37 -> 21). It reports recovery on a SEPARATE axis (`branch_source`) precisely so this defect stays visible rather than being masked by a healthy-looking state count. The other 19 rows remain `none_found`.",
+      "resolution_criteria": "`python3 scripts/ops/session_reaper.py --json` reports `by_branch_source.none_found` at 0 over a registry of >=20 rows — i.e. every row either names its own branch or has one recoverable from a commit trailer. ⚠️ A FALLING `none_found` IS NOT ENOUGH ALONE: it also falls when old rows age out, so state the row count beside it. ⚠️ AND THE REAL FIX IS `recovered_from_commit_trailer` FALLING WHILE `registry_declared` RISES (rows record their own branch). The reverse — recovery carrying an ever-larger share — is this defect being MASKED, not resolved, and must be reported as such rather than counted as progress."
+    },
+    {
+      "id": "BL-20260902-THE-CLAUDE-SESSION-COMMIT-TRAILER-IS-WRITTEN-BY-EVERY-SESSION-AND-WAS-READ-BY-NOTHING",
+      "title": "Every commit carries a `Claude-Session:` trailer written as work happens — the durable session→work link the operating model asks for — and until MI-70 nothing in the repo read it",
+      "severity": "medium",
+      "tier": 1,
+      "status": "resolved",
+      "opened": "2026-09-02",
+      "source": "session_01NkekPZw73VYuynYhSdWLWm (MI-70) — found while looking for the MISSING incremental-progress mechanism and discovering it already existed.",
+      "detail": "operating-model-DESIGN.md § 'The coordination layer' names three mechanisms, the first being 'state written to the work object AS WORK HAPPENS, not at the end'. That was read as absent. It is not: the attribution footer every session appends puts `Claude-Session: https://claude.ai/code/session_XXXX` in every commit body — a per-commit, durable, session-authored link from a session to its work, written incrementally and surviving the session's death in git.\n\nMEASURED at main 90437919: 63 distinct session ids in the last 400 origin/main commit bodies; 118 attributable across the 194 claude/** heads. ZERO consumers — grep over scripts/ and src/ found only the templates that WRITE it.\n\nThis is the `provenance-consumer-guard` shape one level up: a signal written and never read, worse than a missing one because a reader sees the field and assumes something acts on it. Here it cost real work — the registry's 35 empty rows were treated as unrecoverable when 16 were recoverable from a signal already on disk.",
+      "resolution_criteria": "ALREADY MET for the CONSUMER gap this row names, verified 2026-09-02: `grep -rn 'Claude-Session' scripts/` returns a reader (scripts/ops/session_reaper.py::attribute_branches_by_trailer), and a live reap attributed 16 registry rows and 98 unregistered branches by it. ⚠️ CLOSED FOR THE CONSUMER GAP ONLY, and the residual is stated rather than claimed fixed: the trailer is a system-prompt CONVENTION, not an enforced format, so a session that omits or rewords it is unattributable and nothing detects that. Closing that residual needs its OWN row."
     }
   ]
 }
