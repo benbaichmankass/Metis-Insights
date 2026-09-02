@@ -324,10 +324,36 @@ Three distinctions the readout keeps and a reader must too:
 - **`declared_none` vs `unstated`.** An empty list with a basis that ASSERTS an assessment
   is a claim; an empty list with `NOT_ASSESSED`, or with no basis key at all, is nobody
   having looked. Collapsing them turns 578 unexamined rows into 578 all-clears.
-- **The `stage` histogram is not a constraint.** `INTEGRITY` 498 · `EVIDENCE` 78 ·
-  `CAPABILITY` 8, and **zero** on QUESTION / DECISION / DEPLOYMENT / OBSERVATION — the
-  shape of what got migrated (review-backlog defect rows), not of where the chain is
-  stuck. `chain_stages_with_no_objects` publishes the gap explicitly.
+- **The `stage` histogram is not a constraint, and it is worse than that — it is a
+  census of FILENAMES.** ⚠️ **This bullet read `INTEGRITY 498 · EVIDENCE 78 ·
+  CAPABILITY 8, and zero on QUESTION / DECISION / DEPLOYMENT / OBSERVATION … the shape
+  of what got migrated` until 2026-09-02.** The conclusion was right and the mechanism
+  was understated. Measured over all 584 objects: **576 carry `source.backlog`, and
+  their stage is a deterministic function of that ONE field** —
+  `migrate_backlog_to_work_objects.py::SOURCES` maps `health-review-backlog.json` →
+  INTEGRITY and `{ml,performance,research}-review-backlog.json` → EVIDENCE with **no
+  per-row judgement and zero exceptions**; the other 8 are the build's own phases, all
+  CAPABILITY. So `INTEGRITY 498` counts one filename, and **not one object in the store
+  had its chain stage chosen by someone reading the work.**
+  `constraint_readout.py` now grades this as **`stage_basis`** — `per_object` ·
+  `bulk_by_source_file` · `unstated`, never collapsed, summing to the population
+  checkably — and both `READOUT.md` and the `CLAUDE.md` brief say so beside the
+  histogram. ⚠️ **AND THIS IS INDEPENDENT OF EDGE COVERAGE.** Assessing every one of the
+  584 objects with perfectly true edges would leave DECISION at whatever anyone happened
+  to hand-author, so the readout would then name a stage **confidently**, off a histogram
+  describing four backlog filenames. The refusal is currently the only thing stopping
+  that. `chain_stages_with_no_objects` publishes the empty stages; `stage_basis`
+  publishes why they are empty.
+  ⚠️ **The chain work EXISTS — it is outside the store, under a different vocabulary.**
+  `docs/claude/OPEN-ITEMS.json` holds `pending_decision` (= DECISION) and
+  `monitoring` / `awaiting_verification` (= OBSERVATION, *"deployed, awaiting an
+  observation"* being that stage's definition). Phase C carried the review **backlogs**
+  and never the **register**, which is exactly why the support half is full and the
+  chain half is empty. Filed as
+  `BL-20260902-WORK-STORE-STAGE-IS-A-CENSUS-OF-FILENAMES-SO-FOUR-CHAIN-STAGES-ARE-EMPTY-BY-CONSTRUCTION`.
+  ⚠️ **Do NOT "fix" this with a bulk re-stage** — a stage assigned by a second uniform
+  rule is the same defect wearing different numbers, and `stage_basis` will still read
+  `bulk_by_source_file` for every row.
 - **A hold on a `waiting` target is the weakest hold the graph can express.** `waiting`
   covers both *not delivered* and *delivered, awaiting an observation*, and a dependent
   needs the capability rather than the observation. Reported as
