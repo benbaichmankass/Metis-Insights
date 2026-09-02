@@ -483,6 +483,29 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # The error feed the `duty` pass triages. Same posture as
+        # due-list-guard above and for the same reason: it does NOT check
+        # freshness — a committed digest is stale by construction and a
+        # clock-based failure would red every unrelated PR. It checks the one
+        # thing that is never acceptable, that a digest claims a completeness
+        # it never had: a `partial` verdict MUST name the feed it could not
+        # read, or a quiet section reads as "nothing fired" when it means
+        # "nobody looked".
+        #
+        # The self-test runs FIRST, deliberately. Its controls are the ones a
+        # reader's conclusion depends on — an unreachable feed not rendering as
+        # empty, a digit-varying flood collapsing to one row, and the watermark
+        # never advancing over a window nobody read. A grouper that regressed
+        # would land an artifact a session then triages, and the artifact
+        # itself would look fine.
+        "name": "error-feed-digest-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/error_feed_digest.py", "--self-test"],
+            ["python3", "scripts/ops/error_feed_digest.py", "--check"],
+        ],
+    },
+    {
         "name": "recurrence-ledger-guard",
         "when": None,
         "steps": [

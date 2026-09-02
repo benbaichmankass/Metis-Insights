@@ -1,0 +1,127 @@
+name: error-feed-digest
+
+# Feed the trader's ERROR FEED to the manager session, grouped for triage.
+#
+# WHY (operator ask, 2026-09-02)
+#   "can the error feed that's in the trader bot be fed directly to the manager
+#    session, so you can decide what should be resolved immediately vs.
+#    backlogged?"
+#
+#   Every piece already existed: `runtime_logs/operator_alerts.jsonl` is the
+#   durable ring behind the notifications banner, `/api/bot/logs?level=error` is
+#   the outcomes feed, and `.claude/skills/duty/SKILL.md` is a pass whose entire
+#   job is giving each detected signal an OWNER with a written disposition.
+#   Nothing pointed the pass at the feeds on a cadence. So this run renders the
+#   digest and re-renders `docs/claude/DUE.md` over it, and the EXISTING duty
+#   pass does the deciding.
+#
+#   The measured cost of the gap: `ict_scalp_avax_5m` on `bybit_1` signalled 8
+#   times in one day and placed ZERO orders — every one rejected by the venue
+#   for an oversized qty — the third recurrence across three backlog rows, and
+#   it surfaced only because the operator pasted the feed by hand.
+#
+# ⚠️ THE CADENCE IS BEST-EFFORT AND THE DIGEST SAYS SO ITSELF.
+#   This repo has scheduled workflows that are merged, enabled, correct — and
+#   fire LATE and ERRATICALLY. `probes.yml` has exactly ONE scheduled run ever
+#   (#34, success, 2026-09-01T10:12:17Z) against a `20 5 * * *` cron: ~4h50m
+#   late, once rather than daily. So nothing here may claim an hourly feed.
+#   Instead the digest carries its own `generated_at` + `covers_since`, and
+#   `render_due_list.py::src_error_feed` raises a LOUD `ERROR-FEED-DIGEST-STALE`
+#   row past 6h — a stale digest is self-evidently stale rather than reading as
+#   "nothing happened".
+#
+# ⚠️ THIS RUN NEVER FAILS ON A BUSY FEED.
+#   Error groups are the NORMAL state of these feeds. Failing the workflow on
+#   them would fire the cron-failure alert on correct behaviour, which is the
+#   desensitized-alarm P1 this repo has already paid for twice. It fails only if
+#   the RUNNER itself is broken. A feed that could not be READ is not a failure
+#   either — it lands in the digest as `unreachable` and the due-list raises it
+#   as its own loud row, which is the honest disposition.
+#
+# Tier-1: read-only against the bot. The diag bearer serves GET /api/diag/*
+# only; /api/bot/logs is unauthenticated (Tier-1 read surface). No order path,
+# no VM mutation, no config write, and nothing here can fire a job.
+
+on:
+  schedule:
+    # Hourly at :35. The repo minimum is hourly, and :35 keeps this clear of
+    # the :00 rush where every other cron in the org lands. It is deliberately
+    # NOT aligned to `due-list` at 05:50 — that run re-renders DUE.md from
+    # whatever digest is committed, so the two are coupled through the artifact
+    # rather than through a schedule that has been measured not to hold.
+    - cron: "35 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: error-feed-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # The controls run BEFORE the fetch, deliberately: a broken grouper that
+      # collapses two conditions into one, or a watermark that advances over an
+      # unread window, must never land an artifact a session then triages.
+      - name: Self-test
+        run: python3 scripts/ops/error_feed_digest.py --self-test
+
+      # stdlib-only, so there is nothing to install. The bearer is passed as an
+      # env var and is never an argv, so it cannot reach the run log.
+      - name: Render digest
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/error_feed_digest.py --write
+          python3 scripts/ops/error_feed_digest.py --check
+
+      # The whole point of the wiring: the `duty` pass reads DUE.md, so the
+      # digest is only useful once the due-list has been re-rendered over it.
+      # A failure here must NOT silently leave a fresh digest with a stale
+      # due-list, so the step is not `continue-on-error`.
+      - name: Re-render the due-list over the fresh digest
+        run: python3 scripts/ops/render_due_list.py --write
+
+      - name: Summary
+        run: |
+          set -euo pipefail
+          {
+            echo "### Error-feed digest"
+            echo
+            sed -n '1,40p' docs/claude/ERROR-FEED-DIGEST.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: >-
+            docs/claude/ERROR-FEED-DIGEST.json
+            docs/claude/ERROR-FEED-DIGEST.md
+            docs/claude/DUE.json
+            docs/claude/DUE.md
+          message: "chore(ops): refresh the error-feed digest + due-list"
+          pr-title: "chore(ops): refresh the error-feed digest (auto)"
+          pr-body: >-
+            Automated error-feed digest refresh. Generated artifacts only
+            (digest + the due-list rendered over it); auto-merge.
+          branch-prefix: automation/error-feed-digest
+          verify-merged: "true"
