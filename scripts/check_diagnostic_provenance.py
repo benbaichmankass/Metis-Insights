@@ -379,7 +379,12 @@ def _ast_findings(path: str, lines: Sequence[str]) -> List[Finding]:
             ln = getattr(p, "lineno", node.lineno)
             line = lines[ln - 1] if 0 < ln <= len(lines) else ""
             inert = _INERT_OK_RE.search(line)
-            if inert and name in _IDENT_RE.findall(inert.group(1)):
+            # Word-boundary match on the EXACT parameter name, deliberately not
+            # `_IDENT_RE.findall`: that pattern requires >= 3 characters, so a
+            # parameter called `df`, `n` or `id` could never satisfy its own
+            # override — permanently un-excusable, with renaming as the only
+            # escape. Verified: `df` was refused even when correctly named.
+            if inert and re.search(rf"\b{re.escape(name)}\b", inert.group(1)):
                 continue
             bad_inert = (
                 f" (`# inert:` on this line does not name `{name}` — an "

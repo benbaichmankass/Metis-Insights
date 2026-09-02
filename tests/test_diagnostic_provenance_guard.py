@@ -346,6 +346,22 @@ def test_D_inert_override_is_VERIFIED_not_presence_only():
             if f.check.startswith("D") and "trend_threshold" in f.detail]
 
 
+def test_D_inert_override_accepts_a_SHORT_parameter_name():
+    """A 1-2 character parameter must still be able to excuse itself.
+
+    The first cut of the verified override reused ``_IDENT_RE``, which requires
+    >= 3 characters — so a parameter called ``df``, ``n`` or ``id`` could never
+    satisfy its own override however honestly it was annotated, leaving rename
+    or an underscore prefix as the only escape. Caught by trying it.
+    """
+    src = '\n'.join([
+        'def f(rows, df):  # inert: df — the frame is taken from the caller',
+        '    return len(rows)',
+    ])
+    assert not [x for x in _scan(src, "scripts/research/p.py")
+                if x.check.startswith("D") and "`df`" in x.detail]
+
+
 def test_E_flags_an_interpretation_printed_unconditionally():
     """The m20 probe shape: conclusion emitted with every bucket at n=0.
 
