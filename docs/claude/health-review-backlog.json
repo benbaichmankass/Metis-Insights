@@ -30566,6 +30566,23 @@
         "docs/claude/work/README.md",
         "CLAUDE.md#instruction-hierarchy"
       ]
+    },
+    {
+      "id": "BL-20260902-SESSION-BRIEF-GUARD-CAN-TURN-A-PR-RED-FROM-THE-CLOCK-ALONE-NOT-FROM-ITS-DIFF",
+      "opened_at": "2026-09-02",
+      "opened_by": "claude-session-phase-h-decision-roundtrip",
+      "severity": "low",
+      "tier": 1,
+      "status": "open",
+      "area": "ci",
+      "title": "session-brief-guard went red on PR #10705 with NO change to the PR and no change to main -- the UTC date rolled, two monitoring rows came DUE on their own cadence, and the rendered brief stopped matching",
+      "detail": "OBSERVED 2026-09-02T00:02Z on PR #10705. Sequence, all timestamped: at 2026-09-01T23:5xZ `run_guards.py` passed locally with `session-brief-guard` green and the branch was pushed. The very next CI run reported `session-brief-guard: render_session_brief.py --check --base origin/main exited 1`, verdict `introduced_registers_changed`. NOTHING in the PR changed between the green local run and the red CI run except a later commit touching ONE line of `docs/api-tier-policy.md`, and `origin/main` was unchanged at `cc1d71eb` across both. \n\nTHE CAUSE IS THE CLOCK. `render_session_brief.py` renders the DUE monitoring rows, and due-ness is a function of `check_every_days` against TODAY. The UTC date rolled to 2026-09-02 and two rows came due on their own cadence (OI-20260901-OPERATING-LAYER-BUILD-IS-IN-FLIGHT-AND-CARRIED-ONLY-BY-THIS-ROW and OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON), taking the block from 9 due items to 11. Re-running `--write` produced exactly that diff (+8/-2 on CLAUDE.md) and the guard went green. \n\n⚠️ THE GUARD IS NOT WRONG, AND THIS IS NOT A REQUEST TO WEAKEN IT. Its premise holds: a session reading a stale brief reads something no longer true. The FINDING is narrower -- the guard's verdict string says `introduced_registers_changed`, i.e. it attributes the staleness to THIS DIFF, and on this occasion the diff did not introduce it; the calendar did. A reader of that verdict looks for what their change broke and finds nothing, which is the wrong search. \n\nWHO THIS BITES, and it is a small but growing population: any PR that (a) touches a register the brief renders and (b) is open across a UTC midnight or a cadence boundary. Both are ordinary for a PR left for a manager or an operator to merge in the morning -- which is precisely the disposition the operating-layer sub-sessions are using tonight. \n\n⚠️ COST IS A FULL CI CYCLE, NOT A CORRECTNESS PROBLEM. Nothing shipped wrong; the re-render is one command and the fix is trivial. Filed because the DIAGNOSIS is not trivial: it presents as an unexplained red on an unchanged PR, and the first instinct is to hunt the diff.",
+      "resolution_criteria": "EITHER (a) the guard distinguishes 'this diff made the brief stale' from 'the brief went stale because the register cadence advanced', and says which in its verdict -- a third verdict value, not a suppression, since both still need a re-render; OR (b) the guard's error text names the cadence roll as a candidate cause so a reader is not sent hunting their diff; OR (c) a session reproduces this and establishes the frequency is low enough that the current message is fine, and records THAT -- an explicit no-change decision is a legitimate close. ⚠️ NOT satisfied by making the guard advisory or by pinning the render to a fixed date: the brief being current is the whole mechanism (`OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION`), and a brief that stops tracking the cadence is a brief that stops being true.",
+      "refs": [
+        "scripts/ops/render_session_brief.py",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/10705",
+        "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33573516452"
+      ]
     }
   ]
 }
