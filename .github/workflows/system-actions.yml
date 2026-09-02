@@ -639,7 +639,7 @@ jobs:
           echo "ACTION_IDS=${ids:-}" >>"$GITHUB_ENV"
           echo "ACTION_EQUAL_ONLY=${equal_only:-}" >>"$GITHUB_ENV"
           echo "ACTION_EXIT_PRICE=${exit_price:-}" >>"$GITHUB_ENV"
-          echo ">>> Resolved ACTION=${action} REASON=${reason} ACCOUNT_ID=${account_id} MODE=${mode} TRADE_ID=${trade_id} SYMBOL=${symbol} DAYS=${days} WINDOWS=${windows} WINDOW_DAYS=${window_days} BT_MODE=${bt_mode} RECENT_ONLY_FRAC=${recent_only_frac} (event=${{ github.event_name }})"
+          echo ">>> Resolved ACTION=${action:-} REASON=${reason:-} ACCOUNT_ID=${account_id:-} MODE=${mode:-} TRADE_ID=${trade_id:-} SYMBOL=${symbol:-} DAYS=${days:-} WINDOWS=${windows:-} WINDOW_DAYS=${window_days:-} BT_MODE=${bt_mode:-} RECENT_ONLY_FRAC=${recent_only_frac:-} (event=${{ github.event_name }})"
 
       - name: Validate action and tier policy
         run: |

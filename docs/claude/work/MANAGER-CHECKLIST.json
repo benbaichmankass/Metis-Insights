@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T08:05:00Z",
+  "updated_at": "2026-09-02T08:12:00Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -533,6 +533,47 @@
         "Only then answer DEC-20260901-READ-GATE-SEQUENCING with the operator's choice recorded as the decision."
       ],
       "note": "'On ice, not deleted' is explicit: do NOT propose deleting streamlit_app.py or the Android app. The ask is that they stop CONSUMING."
+    },
+    {
+      "id": "MI-45-PING-RENDERER-DROPS-THE-MESSAGE-KEY",
+      "title": "pending-pings renders a fixed key list and ignores `message` — 42% of queued pings delivered as one word",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "subagent:fix-ping-renderer-drops-message",
+      "finding": "scripts/notify_on_pull.py::_render_event_body emits ONLY: head=EVENT_LABELS.get(event,event) + sprint/title; details cp_id,next_cp,phase,strategy,model,result,grade,question,summary; urls pr_url,commit_url,chat_url,summary_url. `message` is on NO list, and `message` is the key almost every real queued ping uses. Those pings deliver as the bare event name and nothing else.",
+      "measured": "Population: all 50 rows in docs/claude/pending-pings.jsonl at 2026-09-02. 21 rows carry `message`; 21 of 50 (42.0%) carry NO recognised key at all. They render as: 6x 'health-review', 6x 'performance-review', 5x 'ml-review', 2x 'ping', 1x 'session-wrap', 1x 'work_digest'. Earliest affected 2026-07-10T15:45Z.",
+      "operator_confirmed": "Operator screenshot 2026-09-02 10:10 shows the work-digest ping delivered as the bare token 'work-digest'.",
+      "why_undetected": "tests/test_notify_on_pull.py has 5 drain tests and every one uses the RECOGNISED keys. They asserted the definition as written rather than the population that exists — the same shape as the pairs tests that passed against a fictional order_packages schema.",
+      "no_replay_risk": "Delivery dedupe is by _line_hash into runtime_logs/pending_pings_delivered, so fixing the renderer does NOT re-fire the 21 stale rows. Sub-session instructed to verify and to STOP if that is not true.",
+      "note": "Three mandatory review-session ping types (health/performance/ml) have been content-free for ~8 weeks."
+    },
+    {
+      "id": "MI-46-SYSTEM-ACTIONS-SSH-FAILED-SO-THE-STATUS-PING-NEVER-SENT",
+      "title": "system-actions run 33604747877 failed at SSH — ~/.ssh/id_rsa absent on the runner",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "finding": "Run 33604747877 (send-ping, target=claude) concluded FAILURE. Log: 'Identity file /home/runner/.ssh/id_rsa not accessible: No such file or directory' then 'ubuntu@141.145.193.91: Permission denied (publickey)' then 'notify_run.sh failed; transparency ping not delivered'. The post-action diag fetch failed the same way. EXIT_CODE and NOTIFY_EXIT_CODE were both EMPTY, which the workflow's own comment says means the action step never produced an exit code (pre-flight failure).",
+      "ruled_out": [
+        "The SSH-key step is UNCHANGED: git log -L on lines 1082-1096 shows no edit since it was written.",
+        "VM_SSH_KEY is not obviously unset: the step exits 1 with an explicit ::error:: when it is, and that error is absent from the log.",
+        "Not input injection: DISPATCH_MESSAGE rides through `env`, not inline ${{ }} interpolation, so backticks/newlines in the body are safe.",
+        "Not a workflow regression from overnight: only #10683 touched system-actions.yml since the last good run, and it only added the ping classes."
+      ],
+      "still_unknown": "WHICH earlier step failed. Only the last 200 of 674 log lines were read; the failing step is in the unread head. This is 'we did not look', NOT 'there was no cause'.",
+      "blast_radius": "If SSH from Actions to the live VM is broken generally, EVERY VM-touching system-action is down: send-ping, set-env, get-env, pull-and-deploy, restart-bot-service, and sync-vm-secrets.yml.",
+      "note": "I reported the first ping as 'queued'. Queued is not delivered, and it was not delivered. Re-dispatched with a short single-line body as the discriminating test."
+    },
+    {
+      "id": "MI-47-CLAUDE-CHANNEL-SEPARATION-CLAIM-WAS-STALE",
+      "title": "I treated the Claude/trader channel split as unset; the operator says pings do arrive on the Claude bot",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "finding": "I was about to dispatch sync-vm-secrets to propagate TELEGRAM_CLAUDE_BOT_SECRET on the strength of OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN, which says the secret is unset on the VM. The operator states messages DO reach the Claude channel. Supporting evidence I already held and had not used: system-actions runs 'PING TEST P1c (low/claude)' and P2a-P2e all concluded SUCCESS at 22:25-22:36Z on 2026-09-01.",
+      "correction": "What the operator saw on the Trader bot at 10:41 was the [RUN failure] transparency notice for my own failed run, not a mis-routed status ping. Routing and my run's failure are two different things and I conflated them.",
+      "recurrence_of": "MI-42 / the DASHBOARD_API_TOKEN error — relaying a register row's claim without measuring it. Second occurrence in one session.",
+      "next": "Re-measure the OI row against the live VM before anyone acts on it; it is stale in the direction that costs operator time."
     }
   ]
 }
