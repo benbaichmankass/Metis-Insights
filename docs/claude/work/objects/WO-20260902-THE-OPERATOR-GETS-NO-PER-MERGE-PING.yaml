@@ -1,0 +1,30 @@
+id: WO-20260902-THE-OPERATOR-GETS-NO-PER-MERGE-PING
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The operator gets no per-merge ping, and every clock we have either dies with a session or does not fire
+stage: DEPLOYMENT
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  (1) A PR merging to main produces an operator ping, delivered by the EXISTING notify_on_pull drain, and it is OBSERVED arriving -- not inferred from a log line saying dispatched. (2) The hourly digest fires on a carrier that survives every session AND is measured to fire on its declared cadence over at least 3 consecutive slots. ⚠️ A Claude Routine does not satisfy (2) under any framing; the operator has refused it. ⚠️ And a cron expression is not evidence -- read the run history.
+
+why: >-
+  Operator, 2026-09-02: 'every time a PR merges, I'm supposed to get updated about that and other ongoing things, and I'm not getting any updates except the work digest, and even that isn't coming at the cadence it's supposed to.' MEASURED: PING_WORTHY = {in_flight, waiting, done, accepted} and the emitter walks transitions(base, head) over work-object LIFECYCLE fields -- so it pings on work-object state changes and NOT on PR merges. That is why notify_on_pull logged 'No pingable events in 90b541a9..2156e8a6' across a range containing five merges. Not a bug: a missing capability. Separately the hourly clock has no durable carrier -- GitHub cron does not honour its schedule (5 runs in a day against hourly, never on its declared minute) and the operator has EXPLICITLY REFUSED a Claude Routine: 'no cloud routine, we cannot have anything that is gonna die at the end of the session'.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
