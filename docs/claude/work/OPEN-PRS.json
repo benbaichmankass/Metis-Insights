@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-02T09:56:00Z",
+  "as_of": "2026-09-02T10:52:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -54,12 +54,12 @@
       "state": "in_progress_by_owner",
       "operator_decision": {
         "verdict": "approved_with_conditions",
-        "condition": "Must ship scoped behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE). Merging without the allowlist, or widening beyond bybit_1, EXCEEDS the approval given.",
+        "condition": "Must ship scoped behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE). Merging without the allowlist, or widening beyond bybit_1, EXCEEDS the approval given. PLUS (2026-09-02, second decision): arming is HELD pending soak evidence; merge is permitted because it arms nothing.",
         "scope": "bybit_1 (demo) ONLY. NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug for the duration of the soak.",
         "decided_on": "2026-09-02",
-        "text": "APPROVED WITH STAGING 2026-09-02 -- bybit_1 (demo) ONLY. ⚠️ NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug during the soak. Merging this without the account allowlist, or widening beyond bybit_1, EXCEEDS the approval given."
+        "text": "APPROVED WITH STAGING 2026-09-02 -- bybit_1 (demo) ONLY. ⚠️ NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug during the soak. Merging this without the account allowlist, or widening beyond bybit_1, EXCEEDS the approval given. ⚠️ SECOND OPERATOR DECISION 2026-09-02 (manager asked, operator answered 'hold it until the soak'): ARMING IS HELD. Merging is still within the approval -- the shipped default resolves MODE to `annotate` and an empty BYBIT_GRADED_COVERAGE_ACCOUNTS means NONE for every account, so the merge binds no order path. What is HELD is the separate two-key set-env (BYBIT_GRADED_COVERAGE_MODE=apply + BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1) plus the trader restart. ⚠️ MERGING IS WHAT STARTS THE SOAK, so holding the merge would make the operator's condition unsatisfiable -- the allowlist scopes the BINDING, never the MEASUREMENT (verified in the diff: every Bybit account is graded and annotated regardless), which is the exact correction NETTING_ATTRIBUTION_ACCOUNTS needed on 2026-08-09 when intersecting the account set at the top of the pass made the account being staged TOWARD invisible. Do NOT arm on a quiet soak: the criterion is a bybit_coverage_soak row carrying `verdicts_differ: true`, and the evidence behind this whole PR is n=1 and CONSTRUCTED, never a sighting -- so a demo soak may never produce one, and not seeing it is not evidence the fix is wrong."
       },
-      "blocker": "Owner is reworking it to scope the changed grading behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE)."
+      "blocker": "MERGE CONFLICT — mergeable_state `dirty`, base 2e6b51d2 against a main that has moved far ahead. 21 files / 1949 lines on the ORDER PATH, so the AUTHOR session resolves it, not the manager. Arming is separately HELD by operator decision pending soak evidence."
     },
     {
       "pr": 10748,
