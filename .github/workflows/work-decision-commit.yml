@@ -1,0 +1,161 @@
+name: work-decision-commit
+
+# Phase H — the half that makes a SUBMITTED decision TRUE.
+#
+# WHY IT EXISTS, and why it ships in the same change as the write route.
+#   `POST /api/bot/work/decision` appends the operator's answer to a transit
+#   log on the live VM and DECIDES NOTHING: the repo is the source of truth, so
+#   the answer becomes a decision only when it is written into the work object
+#   under docs/claude/work/objects/. Without a runner for that step, an answer
+#   would sit in transit forever and the operator would have answered into a
+#   void — the exact forward failure the transit contract refuses. A writer
+#   with no committer is worse than no writer.
+#
+#   The precedent is not hypothetical: scripts/ops/work_digest.py shipped with
+#   NO trigger and appeared in 0 of 125 workflow files, so it could not have
+#   fired. This file exists so the same thing is not said about the committer.
+#
+# ⚠️ A SCHEDULED WORKFLOW IN THIS REPO IS NOT EVIDENCE THAT IT FIRES.
+#   probes.yml and due-list.yml are merged, enabled, syntactically correct, and
+#   have NEVER ONCE fired on cron
+#   (OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON). So
+#   this being green on the day it lands says nothing. The committer is
+#   DEPLOYED until a run with `event=schedule` is observed closing a real
+#   round-trip. `workflow_dispatch` is here so that can be FORCED rather than
+#   waited for — but a dispatch run is not a cron run, and reading one as the
+#   other is the substitution that left those two dead.
+#
+# ⚠️ MOST RUNS WILL COMMIT NOTHING, AND THAT IS CORRECT. There is normally no
+#   open decision. A committer that only runs when something is waiting is
+#   indistinguishable from one that has broken; the empty run IS the evidence
+#   the cadence is alive.
+#
+# BLAST RADIUS. It writes ONE nested `answer:` mapping into a YAML file under
+# docs/claude/work/objects/, and only for a submission that (a) arrived through
+# the token-gated, fail-closed write route and (b) names an option the object's
+# author declared. It touches no order path, no config, no unit file, and no
+# live-VM state — its only VM contact is a READ of one log over the existing
+# diag surface. It cannot answer a question nobody asked: an orphan submission
+# is REFUSED and fails the run rather than being written somewhere plausible.
+#
+# Tier-1 by the tier table (an ops producer over the work store). It does not
+# make decisions; it records ones the operator already made.
+
+on:
+  schedule:
+    # Every 2h at :35. Offset off the :20 slots work-digest uses so a digest
+    # rendered right after a commit sees the landed answer rather than racing
+    # it — the same ordering argument work-digest makes about probes/due-list.
+    - cron: "35 1,3,5,7,9,11,13,15,17,19,21,23 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: work-decision-commit
+  cancel-in-progress: false
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    # BUDGET = work + wait + slack, and the WAIT dominates: commit-to-main with
+    # verify-merged waits up to 30m for the auto-merge PR. A budget under 35
+    # kills the job mid-wait and reports failure for a merge about to succeed.
+    # This is the value tests/test_commit_to_main_callers.py pins.
+    timeout-minutes: 40
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PyYAML
+        run: python3 -m pip install --quiet pyyaml
+
+      - name: Prepare SSH
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Pull the transit log off the live VM
+        id: pull
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+          VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DIAG_READ_TOKEN}" ]; then
+            echo "::error::DIAG_READ_TOKEN secret is unset."
+            exit 1
+          fi
+          # READ ONLY. Curl runs ON the VM against 127.0.0.1, exactly as
+          # vm-diag-snapshot.yml does — no new network path and no new
+          # credential. `log_file` gets the 120s budget that workflow's own
+          # per-path case statement gives log tails (BL-20260606-001).
+          ssh -i ~/.ssh/id_rsa -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "curl -sS --fail --max-time 120 \
+                    -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' \
+                    'http://127.0.0.1:8001/api/diag/log_file?name=work_decision_transit&lines=1000'" \
+              > diag-transit.json
+          # ⚠️ `present:false` means the log does not exist — nothing has ever
+          # been submitted. That is a POSITIVE reading and exits clean. It is
+          # NOT the same as a read failure, which `curl --fail` has already
+          # turned into a non-zero exit above, so the two cannot be confused.
+          python3 - <<'PY'
+          import json, os
+          d = json.load(open("diag-transit.json"))
+          lines = d.get("lines") or []
+          open("transit.jsonl", "w", encoding="utf-8").write("\n".join(lines) + ("\n" if lines else ""))
+          print(f"work-decision-commit: present={d.get('present')} lines={len(lines)}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"lines={len(lines)}\n")
+          PY
+
+      - name: Dry run — show what would be committed
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/commit_work_decisions.py --transit transit.jsonl
+
+      - name: Commit the answers into the work store
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/commit_work_decisions.py --transit transit.jsonl --apply
+
+      - name: Land the answers on main (auto-merge PR)
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/work/objects
+          message: "chore(ops): record operator decision answers in the work store"
+          pr-title: "chore(ops): record operator decision answers (auto)"
+          pr-body: >-
+            Automated commit of decision answers the operator submitted from the
+            SPA (Phase H). Each answer arrived through the token-gated,
+            fail-closed `POST /api/bot/work/decision` and named an option the
+            object's author declared. Until this lands, the question reads
+            UNANSWERED — transit fails back, never forward.
+          branch-prefix: automation/work-decision-commit
+          # "the PR opened" is not "the decision landed", and only the second
+          # makes the answer true.
+          verify-merged: "true"
