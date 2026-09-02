@@ -251,7 +251,33 @@
         }
       ],
       "snoozed_at": "2026-08-29T17:05:00+00:00",
-      "disposition": "snoozed"
+      "disposition": "snoozed",
+      "accrual_legs": [
+        "tqqq_trend_long_1d",
+        "qld_trend_long_1d"
+      ],
+      "accrual_clock_2026_09_02": {
+        "clock": {
+          "tqqq_trend_long_1d": {
+            "state": "can_run",
+            "closed_since_filed": 0,
+            "journal_rows_ever": 0,
+            "signal_rows": 5333
+          },
+          "qld_trend_long_1d": {
+            "state": "can_run",
+            "closed_since_filed": 1,
+            "journal_rows_ever": 1,
+            "signal_rows": 5333,
+            "months_to_20_at_observed_rate": 40.5
+          },
+          "age_days": 64,
+          "threshold": ">=20-30 clean closed paper trades per cell"
+        },
+        "verdict": "ACCRUAL CLOCK MEASURED 2026-09-02 (performance-backlog drain pass 2). This row is one of ELEVEN accrual-gated rows in this file whose clocks were measured together for the first time. NOT ONE of the eleven was in the state its text implies: five had passed their own threshold (375 closed trades sitting unread), four named a leg that cannot trade. Forward-prevention: scripts/ops/accrual_clock.py + the accrual-clock arm of scripts/ops/check_backlog_criteria.py. THE GATES ARE OPEN AND THE THRESHOLD IS STILL ~40 MONTHS AWAY — a different failure from the shadow rows above, and it must not be conflated with them. Both legs are enabled, execution: live and routed to alpaca_paper, and both evaluate normally: 5,333 signal rows each, reasons of the ordinary form \"no breakout on the latest bar (close=... within channel [...])\". Nothing is broken. They are simply 1d Donchian breakouts on leveraged ETFs, and in 64 days they have produced ZERO and ONE journal row respectively. At that rate qld reaches this row's own '>=20-30 clean closed paper trades per cell' bar in ~40 months and tqqq never does. Neither limb (a) nor limb (b) of the criterion is reachable: the soak did not diverge from the backtest, IT DID NOT HAPPEN. This corroborates the operator CORRECTION already on this row (2026-08-11) that its real blocker is an unrun offline backtest, not live accrual — the correction was doctrine; this is the arithmetic behind it. Population: trade_journal.db::trades, read live 2026-09-02 via the DB-explorer route with filter_col=strategy_name (filter_state 'applied' asserted on every call), restricted to status=='closed' AND falsy is_backtest, account-scoped where named; 'since filed' keys on closed_at falling back to timestamp. Trader serving sha 68e73de8.",
+        "evidence": "checked: scripts/ops/accrual_clock.py — plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8."
+      },
+      "next_action": "RE-SCOPED BY MEASUREMENT 2026-09-02: stop waiting. tqqq_trend_long_1d has produced 0 journal rows in 64 days and qld_trend_long_1d exactly 1, both from healthy evaluation (5,333 signal rows each, ordinary 'no breakout' reasons) — so limb (a)'s '>=20-30 clean closed paper trades per cell' is ~40 months away for qld and unreachable for tqqq. Per the operator correction already on this row, run the offline backtest on a free GitHub runner and decide from THAT; the live-paper limb should be struck rather than re-deferred."
     },
     {
       "id": "PB-20260630-001",
@@ -296,7 +322,22 @@
           "disposition": "kept_open",
           "note": "Re-validated: this row exists to STOP a wrong read (June-7 reconciliation artifacts contaminate htf_pullback_trend_2h paper PnL). Live 30d paper now shows just 1 closed trade at -$560.77, coverage 0.0 — too thin to re-judge either way, so the caveat this row carries is still load-bearing. Keep as a standing caveat, not as work."
         }
-      ]
+      ],
+      "accrual_legs": [
+        "htf_pullback_trend_2h"
+      ],
+      "accrual_clock_2026_09_02": {
+        "clock": {
+          "htf_pullback_trend_2h": {
+            "state": "gated_shadow",
+            "execution": "shadow",
+            "closed_on_bybit_2_since_filed": 2,
+            "closed_on_bybit_2_ever": 8
+          }
+        },
+        "verdict": "ACCRUAL CLOCK MEASURED 2026-09-02 (performance-backlog drain pass 2). This row is one of ELEVEN accrual-gated rows in this file whose clocks were measured together for the first time. NOT ONE of the eleven was in the state its text implies: five had passed their own threshold (375 closed trades sitting unread), four named a leg that cannot trade. Forward-prevention: scripts/ops/accrual_clock.py + the accrual-clock arm of scripts/ops/check_backlog_criteria.py. CLOCK STOPPED. Same leg and same gate as PRB-20260716-HTF-CROSSBOOK-NEG: execution: shadow, no close anywhere since 2026-08-10. This row waits for 'enough real bybit_2 htf_pullback_trend_2h trades to accrue'; 2 have closed there since it was filed 64 days ago and no more will while the gate holds. The row's SUBSTANCE — that bybit_1's paper stats for this leg are contaminated by the June-7 mass reconciliation and must not be used to judge it — remains true and is worth carrying; the ACCRUAL framing around it is not. Population: trade_journal.db::trades, read live 2026-09-02 via the DB-explorer route with filter_col=strategy_name (filter_state 'applied' asserted on every call), restricted to status=='closed' AND falsy is_backtest, account-scoped where named; 'since filed' keys on closed_at falling back to timestamp. Trader serving sha 68e73de8.",
+        "evidence": "checked: scripts/ops/accrual_clock.py — plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8."
+      }
     },
     {
       "id": "PB-20260626-001",
@@ -507,7 +548,25 @@
       ],
       "severity": "medium",
       "disposition": "snoozed",
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "accrual_legs": [
+        "eth_pullback_prop_2h"
+      ],
+      "accrual_clock_2026_09_02": {
+        "clock": {
+          "eth_pullback_prop_2h": {
+            "state": "gated_shadow",
+            "execution": "shadow",
+            "journal_rows_ever": 5,
+            "closed_on_breakout_1_ever": 0,
+            "rejections_on_breakout_1": 2,
+            "last_close_anywhere": "2026-07-18T00:01:32 (bybit_1)",
+            "signal_rows": 32606
+          }
+        },
+        "verdict": "ACCRUAL CLOCK MEASURED 2026-09-02 (performance-backlog drain pass 2). This row is one of ELEVEN accrual-gated rows in this file whose clocks were measured together for the first time. NOT ONE of the eleven was in the state its text implies: five had passed their own threshold (375 closed trades sitting unread), four named a leg that cannot trade. Forward-prevention: scripts/ops/accrual_clock.py + the accrual-clock arm of scripts/ops/check_backlog_criteria.py. CLOCK STOPPED — THE THRESHOLD IS UNREACHABLE BY CONSTRUCTION. This row waits for '>=10-20 closed prop ETH trades'. config/strategies.yaml::eth_pullback_prop_2h is execution: shadow, which CLAUDE.md names as one of the two execution gates: the strategy runs and logs and NEVER sends a live order. It has 32,606 signal rows (so it evaluates fine) and FIVE journal rows in its entire life, of which ZERO are closed on breakout_1 (2 rejections there) and one closed on bybit_1 on 2026-07-18. No prop ETH trade will arrive while the gate is shadow, however long this is carried. The row is therefore not waiting on ACCRUAL, it is waiting on a Tier-3 DECISION to take the leg out of shadow — which is a different question with a different owner. Its snoozed_until 2026-10-01 will expire onto exactly the same non-event. Population: trade_journal.db::trades, read live 2026-09-02 via the DB-explorer route with filter_col=strategy_name (filter_state 'applied' asserted on every call), restricted to status=='closed' AND falsy is_backtest, account-scoped where named; 'since filed' keys on closed_at falling back to timestamp. Trader serving sha 68e73de8.",
+        "evidence": "checked: scripts/ops/accrual_clock.py — plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8."
+      }
     },
     {
       "id": "PB-20260622-002",
@@ -565,7 +624,26 @@
       ],
       "severity": "low",
       "disposition": "snoozed",
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "accrual_legs": [
+        "tlt_pullback_1d",
+        "tlt_pullback_1h"
+      ],
+      "accrual_clock_2026_09_02": {
+        "clock": {
+          "tlt_pullback_1d": {
+            "state": "can_run",
+            "closed_since_filed": 5
+          },
+          "tlt_pullback_1h": {
+            "state": "can_run",
+            "closed_since_filed": 9
+          },
+          "age_days": 72
+        },
+        "verdict": "ACCRUAL CLOCK MEASURED 2026-09-02 (performance-backlog drain pass 2). This row is one of ELEVEN accrual-gated rows in this file whose clocks were measured together for the first time. NOT ONE of the eleven was in the state its text implies: five had passed their own threshold (375 closed trades sitting unread), four named a leg that cannot trade. Forward-prevention: scripts/ops/accrual_clock.py + the accrual-clock arm of scripts/ops/check_backlog_criteria.py. CLOCK RUNNING BUT THIN: 14 closed rows across both TLT legs in 72 days. The row asks for 'live + out-of-sample evidence' for a TLT-only min_confidence ~0.10 floor without naming a number, so no threshold can be tested against this. That is the row's own gap and it is worth stating rather than re-deferring: snoozed_until 2026-10-15 will arrive with ~20 rows, which is not obviously enough for a confidence-floor decision and nothing here says whether it would be. Population: trade_journal.db::trades, read live 2026-09-02 via the DB-explorer route with filter_col=strategy_name (filter_state 'applied' asserted on every call), restricted to status=='closed' AND falsy is_backtest, account-scoped where named; 'since filed' keys on closed_at falling back to timestamp. Trader serving sha 68e73de8.",
+        "evidence": "checked: scripts/ops/accrual_clock.py — plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8."
+      }
     },
     {
       "id": "PB-20260622-001",
@@ -1508,7 +1586,22 @@
       "disposition": "do_now",
       "next_action": "NO LONGER BLOCKED — the soak clock started 2026-06-11 16:20Z after the #3406 lot-step fix, so 63 days of bybit_1 fills exist. Pull eth_pullback_2h closed trades for the soak window, compare realised expectancy against the k-fold expectation, record keep/tune/drop. Read-only.",
       "updated_at": "2026-08-13T10:05:00+00:00",
-      "resolution_criteria": "A recorded comparison of eth_pullback_2h's realised expectancy on bybit_1 over the soak window (clock started 2026-06-11T16:20Z, per next_action) against the k-fold expectation, stating n_closed AND the pnl provenance coverage of that window, plus an explicit keep/tune/drop verdict. A verdict with no stated n and no stated coverage does not close this - the comparison IS the deliverable, and an expectancy over unmeasured pnl is not one."
+      "resolution_criteria": "A recorded comparison of eth_pullback_2h's realised expectancy on bybit_1 over the soak window (clock started 2026-06-11T16:20Z, per next_action) against the k-fold expectation, stating n_closed AND the pnl provenance coverage of that window, plus an explicit keep/tune/drop verdict. A verdict with no stated n and no stated coverage does not close this - the comparison IS the deliverable, and an expectancy over unmeasured pnl is not one.",
+      "accrual_legs": [
+        "eth_pullback_2h"
+      ],
+      "accrual_clock_2026_09_02": {
+        "clock": {
+          "eth_pullback_2h": {
+            "state": "can_run",
+            "closed_since_filed": 28,
+            "account": "bybit_1",
+            "age_days": 83
+          }
+        },
+        "verdict": "ACCRUAL CLOCK MEASURED 2026-09-02 (performance-backlog drain pass 2). This row is one of ELEVEN accrual-gated rows in this file whose clocks were measured together for the first time. NOT ONE of the eleven was in the state its text implies: five had passed their own threshold (375 closed trades sitting unread), four named a leg that cannot trade. Forward-prevention: scripts/ops/accrual_clock.py + the accrual-clock arm of scripts/ops/check_backlog_criteria.py. THE CLOCK RAN: 28 closed bybit_1 rows since the soak clock started. The row's own operator CORRECTION of 2026-08-11 already says citing live accrual as the blocker is DOCTRINE-WRONG and that the real blocker is an unrun offline backtest. Both statements now agree, from opposite directions: the data is there AND it was never the gate. Population: trade_journal.db::trades, read live 2026-09-02 via the DB-explorer route with filter_col=strategy_name (filter_state 'applied' asserted on every call), restricted to status=='closed' AND falsy is_backtest, account-scoped where named; 'since filed' keys on closed_at falling back to timestamp. Trader serving sha 68e73de8.",
+        "evidence": "checked: scripts/ops/accrual_clock.py — plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8."
+      }
     },
     {
       "id": "PB-20260611-M15-3",
@@ -1989,7 +2082,7 @@
       "source": "S-STRAT-REFINE-0618: eth_pullback_2h was promoted to bybit_2 REAL MONEY (operator-directed live test) + the ADX>=25 gate ported into the live htf_pullback unit on the 5 bybit_1 paper pullback cells. As of 2026-06-18 evening the market was quiet — no ETH fills on bybit_2 and no ADX-gate rejections observed yet.",
       "title": "Review eth_pullback_2h real-money performance on bybit_2 + ADX-gate firing once trades accrue",
       "description": "Once trades accrue: (a) review eth_pullback_2h real PnL on bybit_2 (real-money test cell; ETH-BTC correlation + no-prior-track-record caveats stand; rollback = remove from bybit_2.strategies), and (b) confirm the new ADX>=25 entry gate is actually firing/rejecting on the bybit_1 paper pullback cells (audit *_eval rows carry adx_14; gate raises ValueError below 25). Cross-check the live behavior matches the backtested OOP expectation.",
-      "status": "kept_open",
+      "status": "resolved",
       "tier": 3,
       "updates": [
         "2026-07-20 (/system-review, operator-requested verify): ada/xrp_pullback_2h real-money losers are NOT chop entries — every actionable entry in 2026-06-13->07-20 fired at regime=trending, ADX 25-32 (ADA sells @31, XRP buys @25.6-26.4); the adx_min:25 gate is provably working (blocks ADX<25 live). The losses are MARGINAL-TREND / transition fakeouts (ADX just clears 25 then the move fails) — same family as ict_scalp's trending+volatile losing cell. Disposition: NOT a demote (M7 verdict HOLD, n_closed=0 in the packet window; small live n). Refinement lever (backtest-gated, Tier-3): a higher trend-quality floor (e.g. ADX>=30) and/or a vol-at-entry cap for the marginal-trend band, OR let the maturing 15m regime heads route it. Logged for the entry-refinement / regime-router track (PERF-20260601-006/007, MB-20260628).",
@@ -2062,7 +2155,20 @@
         "decision": "keep live on real money; wait for n_closed>=20",
         "decided_by": "operator"
       },
-      "resolution_criteria": "A recorded real-money read of eth_pullback_2h on bybit_2: closed-trade count, win rate, pnl WITH its provenance coverage, and the ADX-gate rejection count from the audit log over the SAME window. State the population. This closes on the review being recorded; any parameter change it argues for is a separate Tier-3 item and is explicitly NOT part of this criterion (the row itself splits the Tier-1 read from the Tier-3 half)."
+      "resolution_criteria": "A recorded real-money read of eth_pullback_2h on bybit_2: closed-trade count, win rate, pnl WITH its provenance coverage, and the ADX-gate rejection count from the audit log over the SAME window. State the population. This closes on the review being recorded; any parameter change it argues for is a separate Tier-3 item and is explicitly NOT part of this criterion (the row itself splits the Tier-1 read from the Tier-3 half).",
+      "resolved_at": "2026-09-02T03:40:00+00:00",
+      "resolved_by": "claude (performance-backlog drain pass 2)",
+      "accrual_legs": [
+        "eth_pullback_2h"
+      ],
+      "resolution": "CLOSED ON THE RECORDED READ, which is exactly what this row's resolution_criteria asks for ('This closes on the review being recorded'). Both halves measured live this session; neither is inferred. Population, stated: trade_journal.db::trades read LIVE 2026-09-02 via GET /api/bot/db/table/trades?filter_col=strategy_name&filter_op=eq&filter_val=<leg>&limit=500, with filter_state=='applied' ASSERTED on every call (the first attempt used filter_col=strategy, which the route IGNORES silently and returned total=5324 = the WHOLE table — BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN, hit and caught this session). Rows restricted to status=='closed' AND falsy is_backtest, plus account_id where named. 'Since filed' keys on closed_at falling back to timestamp. Trader was serving sha 68e73de8 (/api/diag/version, restart_pending false).\n\n(a) REAL-MONEY READ — eth_pullback_2h on bybit_2, the whole lifetime of the cell (2026-06-24T04:01Z first entry -> 2026-08-28T16:25Z last close): 14 closed rows, of which 13 carry a non-null pnl (the 14th, trade 4730, is an intent_reduce_executed row whose pnl is deliberately deferred). Over the 13: win rate 0.3846 (5W/8L), sum pnl -14.3979 USD. PROVENANCE, via src.runtime.provenance.split_counts/coverage — the canonical predicate, not a hand-rolled one — measured 9 MEASURED / 4 ESTIMATED / 0 FABRICATED / 0 UNVERIFIED, pnlCoverage 0.6923. Restricted to the 9 MEASURED rows the sum is -14.062 and the win rate is 0.3333 (3/9), i.e. the loss is not a provenance artifact — it survives restriction to broker truth. MEASURED+ESTIMATED sums to -14.3979, identical to the raw sum, because no row is fabricated or unverified. Exit sources: 8x bybit_closed_pnl, 1x exchange_fill (both broker truth), 3x candle_at_close, 1x recorded_exit_price (both ESTIMATED since the 2026-08-24 reclassification).\n\n(b) ADX-GATE FIRING — config/strategies.yaml::eth_pullback_2h carries adx_min: 25 and the refusal string is htf_pullback_trend_2h.py's \"Strategy 'X': ADX {v} < adx_min {n} — regime filter, non-actionable.\" Counted on trade_journal.db::signals through the same DB-explorer route (filter_state 'applied' asserted), LIKE \"%'eth_pullback_2h': ADX %< adx_min %\": 2,649 rejections lifetime, and 2,368 inside the SAME window as (a) (2026-06-24T04:01Z..2026-08-28T17:00Z), located by bisecting the ordered result on logged_at_utc. Against 43,370 total eth_pullback_2h signal rows lifetime, so the gate refuses ~6.1% of evaluations. THE GATE IS FIRING; it is not merely configured.\n\nDENOMINATOR CHECKED RATHER THAN ASSUMED (a negative needs one): the signals dual-write's earliest row overall is 2026-05-02T23:18Z and its earliest eth_pullback_2h row is 2026-06-11T15:30Z — BOTH before the window opens — so the first in-window rejection at 2026-06-25T08:05Z is a real first-rejection, not a log-start artifact.\n\nTHREE CAVEATS, all OBSERVED, none of which the criterion asks me to resolve. (1) bybit_2 is journalTrust 'known_divergent' (/api/bot/performance, readState 'read', accountsKnownDivergent ['bybit_2']), so the -14.3979 is the JOURNAL's figure and is not reconciled against the venue wallet — BL-20260713-BYBIT2-PNL-UNDERRECORD. (2) The signals table carries no account_id, so the 2,368 is a SIGNAL-level count: the ADX gate runs once per (strategy, symbol) before the per-account fan-out, so it is not scoped to bybit_1 or to any account. (3) n=13 is far under any promotion bar; this row is the Tier-1 READ and says so, and it explicitly excludes the Tier-3 half ('any parameter change it argues for is a separate Tier-3 item').\n\nWHAT THE READ ARGUES, recorded but NOT enacted (Tier-3): 5W/8L and -$14.40 over 66 days on a real-money cell, with the loss confirmed on broker truth. That is a keep/tune/drop question for the operator and belongs in a fresh Tier-3 row, not in this one.",
+      "accrual_clock_2026_09_02": {
+        "leg": "eth_pullback_2h",
+        "clock_state": "can_run",
+        "closed_on_bybit_2_since_filed": 13,
+        "note": "The clock DID run for this row — 13 gradeable real-money closes in 76 days. It was carried 76 days anyway because nobody read it, not because the data was missing. CLASS MEASUREMENT 2026-09-02 (performance-backlog drain pass 2). This row is one of ELEVEN accrual-gated rows in this file. Measured against the live journal, NOT ONE of the eleven was in the state its own text implies ('waiting, on track'): FIVE had passed their own threshold months earlier with 375 closed trades sitting unread behind them, and FOUR named a leg that cannot produce a trade at all. That is why kept_open (31) outnumbers open (13) 2.4x in this file. An accrual threshold on a leg that does not trade is a permanent resident WEARING a field — the BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED failure one level down, where the exit condition is present and VACUOUS rather than absent, which is strictly harder to spot by reading. Retired forward by scripts/ops/accrual_clock.py + the accrual-clock arm of check_backlog_criteria.py, which refuse a NEW accrual row that does not name legs whose execution/routing gates are actually open.",
+        "evidence": "checked: scripts/ops/accrual_clock.py — plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8."
+      }
     },
     {
       "id": "PB-20260620-001",
@@ -2135,8 +2241,54 @@
       ],
       "severity": "low",
       "disposition": "do_now",
-      "next_action": "NOT blocked — all six cells still routed (accounts.yaml alpaca_paper carries gld/slv/spy/qqq/tlt/uso _1h) and the account is live paper, so ~54 days of US RTH sessions have passed. Query /api/bot/trades/closed?account_id=alpaca_paper&include_paper=true for the six _1h cells: confirm a clean closed-1h-bar entry + bracket fill, or escalate the specific defect. Either they filled (close it) or they did not, which is itself the defect being watched for.",
-      "updated_at": "2026-08-13T10:05:00+00:00"
+      "next_action": "SHARPENED 2026-09-02 (measured, not re-read). The fills question is ANSWERED — all six cells fill (51 closed alpaca_paper rows since 2026-06-20). What remains is exactly two things and they need different tools: (i) join order_packages to separate 'entry fired mid-bar' from 'journal row written late' before calling the scattered entry minutes a defect; (ii) get Alpaca broker truth for a bracket fill — exit_reason cannot answer it and there is no diag route for Alpaca resting orders, which is itself the smallest thing that would unblock this row.",
+      "updated_at": "2026-08-13T10:05:00+00:00",
+      "accrual_legs": [
+        "gld_pullback_1h",
+        "slv_trend_1h",
+        "spy_pullback_1h",
+        "qqq_pullback_1h",
+        "tlt_pullback_1h",
+        "uso_trend_1h"
+      ],
+      "accrual_clock_2026_09_02": {
+        "clock": {
+          "gld_pullback_1h": {
+            "state": "can_run",
+            "closed_since_filed": 10
+          },
+          "slv_trend_1h": {
+            "state": "gated_shadow",
+            "execution": "shadow",
+            "execution_flipped_to_shadow": "2026-08-24 (6f7c14f8)",
+            "closed_since_filed": 14,
+            "last_close": "2026-08-25T13:36:45",
+            "note": "Its 14 closes ALL predate the flip; it cannot produce a new one."
+          },
+          "spy_pullback_1h": {
+            "state": "can_run",
+            "closed_since_filed": 8
+          },
+          "qqq_pullback_1h": {
+            "state": "can_run",
+            "closed_since_filed": 10
+          },
+          "tlt_pullback_1h": {
+            "state": "can_run",
+            "closed_since_filed": 4
+          },
+          "uso_trend_1h": {
+            "state": "can_run",
+            "closed_since_filed": 5
+          },
+          "row_total_since_filed": 51,
+          "age_days": 74,
+          "account": "alpaca_paper"
+        },
+        "verdict": "ACCRUAL CLOCK MEASURED 2026-09-02 (performance-backlog drain pass 2). This row is one of ELEVEN accrual-gated rows in this file whose clocks were measured together for the first time. NOT ONE of the eleven was in the state its text implies: five had passed their own threshold (375 closed trades sitting unread), four named a leg that cannot trade. Forward-prevention: scripts/ops/accrual_clock.py + the accrual-clock arm of scripts/ops/check_backlog_criteria.py. HALF ANSWERED, HALF NOT REACHABLE FROM HERE — deliberately NOT closed. The 'do they produce live paper fills' half is settled: all six cells produce closed alpaca_paper rows, 51 in total since filing. The two hard clauses are not. (1) 'clean closed-1h-bar entry': the 51 rows' entry minute-past-the-hour is spread across the WHOLE hour — 18 in :00-:05, 8 in :30-:36, and 25 scattered (:07 :09 :11 :13 :19x5 :22 :27 :38 :43 :45 :50x4 :54 :59). That is consistent with mid-bar entries on EITHER alignment (clock-hour or 13:30-session-aligned), but trades.timestamp is the JOURNAL-ROW time and can lag the signal, so it does not by itself establish a mid-bar entry — separating the two needs an order_packages join this drain did not do. (2) 'bracket fill': exit_reason over the 51 rows is exchange_flat_reconciled 36, sl_cross 11, stuck_strategy_watchdog 3, giveback_stop 1 — NOT ONE broker-bracket exit label. But BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS says exactly that label under-reports bracket hits, so this is NOT evidence there was no bracket fill; it is evidence the label cannot answer the question. Confirming a bracket fill needs Alpaca broker truth, and there is no /api/diag/alpaca_open_orders analogue to the ib_ and bybit_ routes. REFUSED for want of that surface, not for want of data. Population: trade_journal.db::trades, read live 2026-09-02 via the DB-explorer route with filter_col=strategy_name (filter_state 'applied' asserted on every call), restricted to status=='closed' AND falsy is_backtest, account-scoped where named; 'since filed' keys on closed_at falling back to timestamp. Trader serving sha 68e73de8.",
+        "correction_2026_09_02": "SELF-CORRECTION, caught by the census tool this drain shipped rather than by re-reading. The first draft of the verdict above said 'all six cells produce closed alpaca_paper rows'. That is true of the HISTORY and false as a statement about the sleeve NOW: slv_trend_1h was flipped to execution: shadow on 2026-08-24 (commit 6f7c14f8, '/system-review 2026-08-24') and its last close was 2026-08-25, so five of the six cells can still fill and one cannot. This is the row's own hazard in miniature — a count over a window during which the generator was switched off is not a rate.",
+        "evidence": "checked: scripts/ops/accrual_clock.py — plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8."
+      }
     },
     {
       "id": "PB-20260620-002",
@@ -2548,7 +2700,39 @@
         }
       ],
       "snoozed_at": "2026-08-29T17:05:00+00:00",
-      "disposition": "snoozed"
+      "disposition": "snoozed",
+      "accrual_legs": [
+        "eth_pullback_2h",
+        "trend_donchian_eth_4h",
+        "trend_donchian_eth",
+        "ict_scalp_eth_15m"
+      ],
+      "accrual_clock_2026_09_02": {
+        "clock": {
+          "eth_pullback_2h": {
+            "state": "can_run",
+            "closed_since_filed": 31
+          },
+          "trend_donchian_eth_4h": {
+            "state": "can_run",
+            "closed_since_filed": 21
+          },
+          "ict_scalp_eth_15m": {
+            "state": "can_run",
+            "closed_since_filed": 20
+          },
+          "trend_donchian_eth": {
+            "state": "can_run",
+            "closed_since_filed": 4
+          },
+          "row_total_since_filed": 76,
+          "age_days": 58,
+          "threshold": ">=20 closed across the ETH strategies"
+        },
+        "verdict": "ACCRUAL CLOCK MEASURED 2026-09-02 (performance-backlog drain pass 2). This row is one of ELEVEN accrual-gated rows in this file whose clocks were measured together for the first time. NOT ONE of the eleven was in the state its text implies: five had passed their own threshold (375 closed trades sitting unread), four named a leg that cannot trade. Forward-prevention: scripts/ops/accrual_clock.py + the accrual-clock arm of scripts/ops/check_backlog_criteria.py. THRESHOLD MET AND LONG PASSED. This row asks for >=20 closed across the ETH strategies; 76 have closed since it was filed on 2026-07-06, and THREE individual legs each cleared 20 on their own. It is not blocked on accrual and has not been since roughly mid-August — it is blocked on nobody having run the M7 gate. It also carries snoozed_until 2026-08-01, a month in the past, so it is not even deferred any more. Population: trade_journal.db::trades, read live 2026-09-02 via the DB-explorer route with filter_col=strategy_name (filter_state 'applied' asserted on every call), restricted to status=='closed' AND falsy is_backtest, account-scoped where named; 'since filed' keys on closed_at falling back to timestamp. Trader serving sha 68e73de8.",
+        "evidence": "checked: scripts/ops/accrual_clock.py — plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8."
+      },
+      "next_action": "NOT BLOCKED — RUN THE GATE. 76 closed ETH rows have accrued since filing (eth_pullback_2h 31, trend_donchian_eth_4h 21, ict_scalp_eth_15m 20, trend_donchian_eth 4), measured 2026-09-02 against the live journal at sha 68e73de8. Re-run the M7 gate per leg against the 2026-07-06 backtest fold evidence and state pnlCoverage beside every figure — the paper book's coverage is 0.2008 lifetime and 0.0939 over 30d, so an unqualified expectancy over these rows would be mostly unmeasured."
     },
     {
       "id": "PB-20260707-MGC-PULLBACK-1H-WALKFORWARD",
@@ -2708,7 +2892,7 @@
       "tier": 3,
       "trigger_condition": "operator go-signal + paper soak accrued",
       "resolution_criteria": "paper soak reviewed; Tier-3 promotion PR proposed or deferred with reason",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -2735,7 +2919,31 @@
         }
       ],
       "snoozed_at": "2026-08-29T17:05:00+00:00",
-      "disposition": "snoozed"
+      "disposition": "snoozed",
+      "resolved_at": "2026-09-02T03:40:00+00:00",
+      "resolved_by": "claude (performance-backlog drain pass 2)",
+      "severity": "medium",
+      "accrual_legs": [
+        "splg_trend_long_1d",
+        "iaum_pullback_1d"
+      ],
+      "resolution": "CLOSED AS 'DEFERRED WITH REASON', the second limb this row's own resolution_criteria offers ('paper soak reviewed; Tier-3 promotion PR proposed or deferred with reason'). The paper soak was reviewed live this session and THERE IS NO SOAK TO REVIEW. Population, stated: trade_journal.db::trades read LIVE 2026-09-02 via GET /api/bot/db/table/trades?filter_col=strategy_name&filter_op=eq&filter_val=<leg>&limit=500, with filter_state=='applied' ASSERTED on every call (the first attempt used filter_col=strategy, which the route IGNORES silently and returned total=5324 = the WHOLE table — BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN, hit and caught this session). Rows restricted to status=='closed' AND falsy is_backtest, plus account_id where named. 'Since filed' keys on closed_at falling back to timestamp. Trader was serving sha 68e73de8 (/api/diag/version, restart_pending false).\n\nMEASURED, 57 days after this row was filed: splg_trend_long_1d has ZERO rows in the trades table — not zero closes, ZERO ROWS, including zero rejections. iaum_pullback_1d has 12 rows: 1 closed (alpaca_paper, 2026-08-05) and 11 refusals (5 alpaca_paper, 6 alpaca_live). Against this row's implied promotion bar that is 0 and 1 observations; at the observed rate iaum needs ~36 months to reach 20 and splg never gets there. A Tier-3 real-money promotion PR on that evidence would be indefensible, so promotion is DEFERRED and this row's question is answered.\n\nWHY splg IS EMPTY, and it is NOT low signal rate — it is a DATABLE REGRESSION, which is the finding worth more than the closure. splg_trend_long_1d has 4,736 rows in trade_journal.db::signals, so it is evaluating every tick. 3,660 of them read \"Strategy 'splg_trend_long_1d': need at least 46 candles for the donchian(30) / atr(14) windows; got 18.\" — the leg is CANDLE-STARVED and cannot form a signal at all. Continuous since 2026-07-23T13:30:34Z; the most recent 500-row page is 100% starvation. The oldest 500-row page (2026-07-08T13:32Z..2026-07-14T17:49Z) is 100% ordinary \"no breakout on the latest bar\", so the leg WAS working and stopped. And it is splg-specific: a LIKE '%need at least%candles%' sweep of the ENTIRE signals table returns 3,660 rows, every one of them splg_trend_long_1d — a positive-control-free negative would have been worthless here, so the sweep was run fleet-wide rather than leg-scoped. Filed as its own row: PB-20260902-SPLG-TREND-LONG-1D-IS-CANDLE-STARVED-AND-CANNOT-SIGNAL.\n\nCAVEATS, OBSERVED vs INFERRED. OBSERVED: the row counts, the reason strings, the onset date, the fleet-wide uniqueness of the starvation reason. INFERRED and NOT verified: WHY only 18 candles arrive for SPLG — that is a data-feed question this drain did not open, and it is the successor row's job. Also OBSERVED: tqqq/qld (the sibling leveraged-ETF row PB-20260630-002) evaluate NORMALLY at 5,333 signal rows each with ordinary 'no breakout' reasons, so they are LOW-RATE legs rather than broken ones — do not generalise splg's defect to them.",
+      "accrual_clock_2026_09_02": {
+        "splg_trend_long_1d": {
+          "clock_state": "can_run",
+          "closed_since_filed": 0,
+          "journal_rows_ever": 0,
+          "verdict": "gate is open, leg is data-starved — can_run is the NECESSARY condition only, never proof a leg trades"
+        },
+        "iaum_pullback_1d": {
+          "clock_state": "can_run",
+          "closed_since_filed": 1,
+          "journal_rows_ever": 12,
+          "months_to_20_at_observed_rate": 36.1
+        },
+        "note": "CLASS MEASUREMENT 2026-09-02 (performance-backlog drain pass 2). This row is one of ELEVEN accrual-gated rows in this file. Measured against the live journal, NOT ONE of the eleven was in the state its own text implies ('waiting, on track'): FIVE had passed their own threshold months earlier with 375 closed trades sitting unread behind them, and FOUR named a leg that cannot produce a trade at all. That is why kept_open (31) outnumbers open (13) 2.4x in this file. An accrual threshold on a leg that does not trade is a permanent resident WEARING a field — the BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED failure one level down, where the exit condition is present and VACUOUS rather than absent, which is strictly harder to spot by reading. Retired forward by scripts/ops/accrual_clock.py + the accrual-clock arm of check_backlog_criteria.py, which refuse a NEW accrual row that does not name legs whose execution/routing gates are actually open.",
+        "evidence": "checked: scripts/ops/accrual_clock.py — plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8."
+      }
     },
     {
       "id": "PB-20260710-ETF-PULLBACK-ZEROWIN",
@@ -2991,7 +3199,24 @@
           "disposition": "kept_open",
           "note": "Re-validated: htf_pullback_trend_2h has 1 paper close in 30d at -$560.77 (coverage 0.0). Not recovery and not decay — too thin to call either. Watch continues."
         }
-      ]
+      ],
+      "accrual_legs": [
+        "htf_pullback_trend_2h"
+      ],
+      "accrual_clock_2026_09_02": {
+        "clock": {
+          "htf_pullback_trend_2h": {
+            "state": "gated_shadow",
+            "execution": "shadow",
+            "closed_on_bybit_1_since_filed": 8,
+            "last_close_anywhere": "2026-08-10T13:56:54",
+            "journal_rows_ever": 141
+          }
+        },
+        "verdict": "ACCRUAL CLOCK MEASURED 2026-09-02 (performance-backlog drain pass 2). This row is one of ELEVEN accrual-gated rows in this file whose clocks were measured together for the first time. NOT ONE of the eleven was in the state its text implies: five had passed their own threshold (375 closed trades sitting unread), four named a leg that cannot trade. Forward-prevention: scripts/ops/accrual_clock.py + the accrual-clock arm of scripts/ops/check_backlog_criteria.py. CLOCK STOPPED, AND MY OWN FIRST READING OF THIS ROW WAS WRONG — recorded because the correction is the point. Extrapolating the observed rate (8 bybit_1 closes in the 48 days since filing) gave '~1.4 months to the >=15 fresh trades this row asks for', which reads as on-track. Reading the EXECUTION GATE refutes it: htf_pullback_trend_2h is execution: shadow, its last close ANYWHERE was 2026-08-10 (23 days before this measurement), and all 8 of those closes predate the flip. The rate extrapolation was a projection over a period during which the mechanism generating the data was switched off. A rate is not a forecast unless the generator is still running. Population: trade_journal.db::trades, read live 2026-09-02 via the DB-explorer route with filter_col=strategy_name (filter_state 'applied' asserted on every call), restricted to status=='closed' AND falsy is_backtest, account-scoped where named; 'since filed' keys on closed_at falling back to timestamp. Trader serving sha 68e73de8.",
+        "evidence": "checked: scripts/ops/accrual_clock.py — plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8."
+      },
+      "next_action": "NOT WAITING FOR TRADES. htf_pullback_trend_2h is execution: shadow and has not closed a trade anywhere since 2026-08-10 (measured 2026-09-02, sha 68e73de8), so neither the '>45% over >=15 fresh trades -> re-promote' limb nor the '<25% -> propose KILL' limb can ever be evaluated. Restate this as the Tier-3 decision it actually is: either take the leg out of shadow so the paper soak can resume, or propose the KILL on the evidence already in hand (58 closed rows lifetime, 50 on bybit_1) and stop carrying it as a soak."
     },
     {
       "id": "PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION",
@@ -3144,7 +3369,36 @@
           "disposition": "kept_open",
           "note": "Re-validated on live 30d paper and the read is BAD for promotion: ict_scalp_avax_5m 17 trades / -$6,804.83 / pnlCoverage 0.0588; ict_scalp_sol_5m and _xrp_5m also closed in this window. This row is a real-money PROMOTION gate and the current evidence argues against promoting, which is a usable answer rather than a pending one."
         }
-      ]
+      ],
+      "accrual_legs": [
+        "ict_scalp_sol_5m",
+        "ict_scalp_xrp_5m",
+        "ict_scalp_avax_5m"
+      ],
+      "accrual_clock_2026_09_02": {
+        "clock": {
+          "ict_scalp_sol_5m": {
+            "state": "can_run",
+            "closed_since_filed": 31,
+            "account": "bybit_1"
+          },
+          "ict_scalp_xrp_5m": {
+            "state": "can_run",
+            "closed_since_filed": 25,
+            "account": "bybit_1"
+          },
+          "ict_scalp_avax_5m": {
+            "state": "can_run",
+            "closed_since_filed": 31,
+            "account": "bybit_1"
+          },
+          "row_total_since_filed": 87,
+          "age_days": 43
+        },
+        "verdict": "ACCRUAL CLOCK MEASURED 2026-09-02 (performance-backlog drain pass 2). This row is one of ELEVEN accrual-gated rows in this file whose clocks were measured together for the first time. NOT ONE of the eleven was in the state its text implies: five had passed their own threshold (375 closed trades sitting unread), four named a leg that cannot trade. Forward-prevention: scripts/ops/accrual_clock.py + the accrual-clock arm of scripts/ops/check_backlog_criteria.py. THRESHOLD MET ON ALL THREE LEGS. 87 closed paper rows on bybit_1 since filing on 2026-07-21, every leg past 25. This row is DUE, not waiting. Population: trade_journal.db::trades, read live 2026-09-02 via the DB-explorer route with filter_col=strategy_name (filter_state 'applied' asserted on every call), restricted to status=='closed' AND falsy is_backtest, account-scoped where named; 'since filed' keys on closed_at falling back to timestamp. Trader serving sha 68e73de8.",
+        "evidence": "checked: scripts/ops/accrual_clock.py — plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8."
+      },
+      "next_action": "NOT BLOCKED — DO THE COMPARISON. All three legs cleared 20 closed paper rows on bybit_1 (sol 31 / xrp 25 / avax 31 since 2026-07-21, measured 2026-09-02 at sha 68e73de8). Compare against the M27 Batch-1 backtest and state n AND pnlCoverage per leg. WARNING before quoting any R figure from this population: ict_scalp_sol_15m currently reports expectancyR 206.920 over 18 paper trades against -$2,064 of PnL, so the paper R denominator on the ict_scalp family is not trustworthy without a per-trade risk check — see PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN."
     },
     {
       "id": "PB-20260721-M27-EQUITIES-DATACAP",
@@ -3196,7 +3450,48 @@
           "note": "Re-validated and coupled to the row above: the SOL/XRP/AVAX candidates it would ship are the same legs whose paper read is negative and largely UNMEASURED (avax coverage 0.0588). Tier-3 and should not advance on this evidence."
         }
       ],
-      "status": "kept_open"
+      "status": "kept_open",
+      "accrual_legs": [
+        "ict_scalp_sol_5m",
+        "ict_scalp_sol_15m",
+        "ict_scalp_xrp_5m",
+        "ict_scalp_xrp_15m",
+        "ict_scalp_avax_5m",
+        "ict_scalp_eth_15m"
+      ],
+      "accrual_clock_2026_09_02": {
+        "clock": {
+          "ict_scalp_sol_5m": {
+            "state": "can_run",
+            "closed_since_filed": 28
+          },
+          "ict_scalp_sol_15m": {
+            "state": "can_run",
+            "closed_since_filed": 24
+          },
+          "ict_scalp_avax_5m": {
+            "state": "can_run",
+            "closed_since_filed": 25
+          },
+          "ict_scalp_eth_15m": {
+            "state": "can_run",
+            "closed_since_filed": 20
+          },
+          "ict_scalp_xrp_5m": {
+            "state": "can_run",
+            "closed_since_filed": 19
+          },
+          "ict_scalp_xrp_15m": {
+            "state": "can_run",
+            "closed_since_filed": 17
+          },
+          "row_total_since_filed": 133,
+          "age_days": 36,
+          "account": "bybit_1"
+        },
+        "verdict": "ACCRUAL CLOCK MEASURED 2026-09-02 (performance-backlog drain pass 2). This row is one of ELEVEN accrual-gated rows in this file whose clocks were measured together for the first time. NOT ONE of the eleven was in the state its text implies: five had passed their own threshold (375 closed trades sitting unread), four named a leg that cannot trade. Forward-prevention: scripts/ops/accrual_clock.py + the accrual-clock arm of scripts/ops/check_backlog_criteria.py. SOAK COMPLETE ON 4 OF 6 LEGS, AND THE OTHER TWO ARE DAYS AWAY (xrp_5m 19/20, xrp_15m 17/20 at ~15/30d). 133 closed paper rows on bybit_1 in 36 days. This is the highest-accrual row in the file and it reads as 'soak-gated'; it is not. Population: trade_journal.db::trades, read live 2026-09-02 via the DB-explorer route with filter_col=strategy_name (filter_state 'applied' asserted on every call), restricted to status=='closed' AND falsy is_backtest, account-scoped where named; 'since filed' keys on closed_at falling back to timestamp. Trader serving sha 68e73de8.",
+        "evidence": "checked: scripts/ops/accrual_clock.py — plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8."
+      }
     },
     {
       "id": "SRQ-20260728-FVGRANGE-DEMOTE",
@@ -4003,7 +4298,8 @@
           "disposition": "open (REFUSED — headline stale for the SECOND time; corrected again)",
           "note": "REFUSED. The criteria requires an M7 packet per leg AND an operator decision; I generated no packet and cannot make an operator decision, so nothing here closes it. Recording the current numbers because this row's headline has now gone stale twice and re-quoting either previous figure would be wrong.\n\nPOPULATION, stated once and used by every number below. Two live diag reads at 2026-09-02T01:2xZ: /api/diag/journal?table=order_packages&limit=1000 (the 1000 most-recently-updated packages, created_at 2026-07-09 -> 2026-09-02) and /api/diag/journal?table=trades&limit=1000 (ids 4318-5317, timestamp 2026-08-02T02:27:21Z -> 2026-09-02T00:40:24Z). Both are capped at the route's _MAX_LIMIT=1000 and there is no offset param, so the OVERLAP WINDOW where BOTH tables are complete is 2026-08-02T02:27:21Z -> 2026-09-02T00:40:22Z (30.9 days): 805 packages, 508 closed trades. n_decisions/n_filled are computed exactly as scripts/ml/strategy_review_packet.py does it — one row per order_packages row, filled == linked_trade_id IS NOT NULL. ⚠️ The live trader was serving git_sha 49f03e37 with git_sha_on_disk b466e327 and restart_pending=true, so every statement here describes 49f03e37, not merged main.\n\nslv_trend_1h, PAPER, status=closed in the overlap window: n=8, wins=2, winRate 0.250, totalPnl -$2,560.31, totalPnlMeasured (MEASURED+ESTIMATED) -$1,450.14, pnlCoverage (MEASURED-only) 0.125 — classify_pnl buckets {estimated: 3, unverified: 4, measured: 1}. totalR -3.580, expectancyR -0.511 over rn=7. Accounts: alpaca_portfolio x4, alpaca_paper x4. REAL MONEY: n=0 closed.\n\nSO ALL THREE HEADLINES NOW DISAGREE AND THE TREND IS THE POINT: filed 2026-08-21 as 0 wins in 13 / -$5,374.59 / coverage 0.77; corrected 2026-08-29 to 2 wins in 9 / -$2,718.87 / coverage 0.2222; measured here 2 wins in 8 / -$2,560.31 / coverage 0.125. The LOSS is shrinking and the COVERAGE is collapsing — 0.77 -> 0.2222 -> 0.125. The row's whole claim to being actionable ahead of the other big losers was that it was 'the only large loser whose loss is well MEASURED (coverage 0.77)'. AT COVERAGE 0.125 THAT PREMISE NO LONGER HOLDS, and a kill/demote argued on it today would rest on 1 broker-measured trade out of 8.\n\nWHAT SURVIVES: negative expectancy (-0.511R) and a 25% win rate over n=8, paper-only. What does NOT survive is the reason this leg was singled out. The 2026-08-22 finding still stands and still matters more than the entry verdict: 5 of 8 closes are exchange_flat_reconciled and 3 sl_cross — zero take-profit exits — so the leg's exits remain the fleet-wide defect, and judging entry quality on it grades the wrong half of the trade."
         }
-      ]
+      ],
+      "drain_2026_09_02": "MEASURED THIS SESSION, and it moves two of this row's four legs — NOT CLOSED, because the criterion wants an M7 packet AND an operator decision per leg and I produced neither. Read off config/strategies.yaml at sha 68e73de8 and ATTRIBUTED through git history rather than assumed: slv_trend_1h is now execution: shadow, flipped 2026-08-24 in commit 6f7c14f8 ('/system-review 2026-08-24'); htf_pullback_trend_2h is now execution: shadow, flipped 2026-08-23 in commit 9544ced3 ('... htf demoted on a ...'). eth_pullback_2h and tlt_pullback_1h are both still execution: live. So the 'demote to shadow' disposition this row proposes has ALREADY BEEN APPLIED to two of its four legs. ⚠️ ATTRIBUTION IS INFERRED, NOT ESTABLISHED: both flips POSTDATE this row (filed 2026-08-21) and match its proposal, but neither commit cites this row id, so 'this row caused them' is a plausible reading and not an observation — recording it that way rather than crediting the row, which is the mistake CLAUDE.md's PROTECTION_REASSERT_MODE note exists to warn against. CONSEQUENCE FOR THE OTHER ROWS IN THIS FILE: both demoted legs are now on a STOPPED accrual clock, which is why PRB-20260716-HTF-CROSSBOOK-NEG and PB-20260630-001 (both waiting on htf_pullback_trend_2h trades) can never reach their thresholds. WHAT REMAINS FOR THIS ROW, unchanged: run generate-strategy-review-packets for all four legs and put the badges in front of the operator with pnlCoverage stated beside each verdict. For the two already in shadow the question is narrower — ratify the demotion or go to KILL — but it is still the operator's, and it is still Tier-3."
     },
     {
       "id": "PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN",
@@ -4031,7 +4327,8 @@
           "disposition": "kept_open (REFUSED — measured, does not close, and has WORSENED)",
           "note": "REFUSED. Re-measured against the live journal and the defect not only reproduces, it is materially worse than filed.\n\nPOPULATION, stated once and used by every number below. Two live diag reads at 2026-09-02T01:2xZ: /api/diag/journal?table=order_packages&limit=1000 (the 1000 most-recently-updated packages, created_at 2026-07-09 -> 2026-09-02) and /api/diag/journal?table=trades&limit=1000 (ids 4318-5317, timestamp 2026-08-02T02:27:21Z -> 2026-09-02T00:40:24Z). Both are capped at the route's _MAX_LIMIT=1000 and there is no offset param, so the OVERLAP WINDOW where BOTH tables are complete is 2026-08-02T02:27:21Z -> 2026-09-02T00:40:22Z (30.9 days): 805 packages, 508 closed trades. n_decisions/n_filled are computed exactly as scripts/ml/strategy_review_packet.py does it — one row per order_packages row, filled == linked_trade_id IS NOT NULL. ⚠️ The live trader was serving git_sha 49f03e37 with git_sha_on_disk b466e327 and restart_pending=true, so every statement here describes 49f03e37, not merged main.\nSub-population: status=closed AND pnl IS NOT NULL, n=477 (real_money 28, paper 449). R is computed by calling the ENDPOINT'S OWN src/web/api/_clean_trades.py::r_multiple with src/runtime/local_pnl.py::contract_value_usd_for, so these are its numbers, not a re-derivation of mine.\n\nPOSITIVE CONTROL THAT MY METHOD MATCHES THE ENDPOINT: computing from raw journal rows I get trend_donchian_ada_4h expectancyR = 63.183 over n=7 — identical to 3 decimal places to the 63.183 the 2026-08-29 triage read off /api/bot/performance. The method agrees with the surface it is auditing.\n\n1. THE ROOT-CAUSE MECHANISM IS NOW DIRECTLY PROVEN, not inferred from one trade. The row reasoned that trades.stop_loss is the CURRENT trailed stop rather than initial risk, citing trade 4824. Direct test: count closed rows whose stored stop sits on the WRONG SIDE of entry (impossible for an initial stop) — 82 of 477 (17.2%). Examples: 5299 ict_scalp_avax_5m short entry 7.275 stop 7.26708; 5234 ict_scalp_xrp_5m long entry 1.3936 stop 1.39599. The row had n=1; the population is 82.\n\n2. SIGN DISAGREEMENT HAS SPREAD: 7 of 40 strategy x account_class rows now disagree (row filed 2 of 31). ict_scalp_sol_15m paper n=18 totalPnl -$2,064.01 vs totalR +3,724.567; ict_scalp_avax_5m paper n=20 -$7,711.40 vs +14.250; ict_scalp_5m REAL MONEY n=14 -$6.59 vs +26.022; trend_donchian_avax_4h paper n=7 -$1,991.66 vs +5.540; ada_pullback_2h, eth_pullback_2h, spy_pullback_1h likewise.\n\n3. A NEW WORST CASE, 59x the one on file: ict_scalp_sol_15m expectancyR +206.920, from a single trade at R = +3,672.32. The row's headline outlier was 62.6R.\n\nWHY IT DOES NOT CLOSE — the criteria has two limbs and they now split. 'the real-money totalR sign matches its totalPnl sign' PASSES at the aggregate (n=28, totalPnl +$18.40, totalR +44.840, rCoverage 1.000). 'no per-strategy expectancyR exceeds a stated plausible bound without an explicit outlier annotation' FAILS hard — 206.920, 63.183, 7.994 and 5.057 all exceed any plausible bound and none carries an annotation. Closing on the limb that passed would be exactly the sign-flip-by-choice-of-population failure this repo has already paid for. The fix named in next_action (floor the R denominator at a venue-tick-derived minimum; report rTradeCount and max|R|) remains UNWRITTEN, and I did not write it: it changes what an R-based promotion gate reads, which is Tier-3."
         }
-      ]
+      ],
+      "drain_2026_09_02": "RE-MEASURED 2026-09-02 against /api/bot/performance?window=30d on the live fleet (trader sha 68e73de8). NOT CLOSED — one clause of the criterion now holds and the other still fails, and it is conjunctive.\nCLAUSE 1 (real-money sign agreement) NOW HOLDS, and the population clears the criterion's own bar: real money, 30d, totalTrades 30 (>= the 20 required), rCoverage 1.0000 over rTradeCount 30 — totalPnl +25.4214 against totalR +46.8871, signs MATCH, expectancyR 1.5629.\nCLAUSE 2 (no implausible per-strategy expectancyR) STILL FAILS, on paper: ict_scalp_sol_15m reports expectancyR 206.920 over 18 trades against -$2,064.01 of PnL, and trend_donchian_ada_4h 73.697 over 6. The paper book as a whole reads totalR 4495.546 / expectancyR 9.8156 over totalPnl $198,196.65, at pnlCoverage 0.0939.\n⚠️ AND THE AGGREGATE AGREEING DOES NOT MEAN THE DEFECT IS GONE — this is the trap a future session should not fall into. Per-strategy on REAL MONEY, ict_scalp_5m still reports totalR +26.0225 against totalPnl -$6.5892 over 14 trades: R and dollars still disagree in SIGN on the very leg this row named, and the fleet aggregate only agrees because trend_donchian_eth_4h (+20.21R / +$21.01) outweighs it. Closing this on the aggregate sign alone would report a fixed defect that is still live. The per-leg clause is the load-bearing one.\nNOT RE-DERIVED HERE: the root cause. A concurrent live finding measures 17.2% of closed rows storing a stop on the WRONG SIDE of entry, which gives a negative-or-inverted risk denominator and is a sufficient mechanism for exactly these readings. That finding is not this drain's and is not restated as if it were."
     },
     {
       "id": "PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK",
@@ -4187,7 +4484,29 @@
         "PB-20260707-MGC-TREND-1H-STRUCTURAL",
         "PB-20260707-NATIVE-MES-PULL"
       ]
+    },
+    {
+      "id": "PB-20260902-SPLG-TREND-LONG-1D-IS-CANDLE-STARVED-AND-CANNOT-SIGNAL",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 to diagnose (a data-feed read); any leg disposition it argues for is Tier-3 and the operator's",
+      "created": "2026-09-02T03:45:00+00:00",
+      "opened_by": "claude (performance-backlog drain pass 2)",
+      "area": "strategy / market data",
+      "title": "splg_trend_long_1d is enabled, execution:live and routed to alpaca_paper, and has been CANDLE-STARVED since 2026-07-23 — it evaluates every tick, refuses every tick for want of candles, and has produced ZERO journal rows in its life",
+      "accrual_legs": [
+        "splg_trend_long_1d"
+      ],
+      "detail": "MEASURED 2026-09-02 against the live fleet, trader serving sha 68e73de8 (/api/diag/version, restart_pending false). Population for every count: trade_journal.db::signals and ::trades read through GET /api/bot/db/table/<t> with filter_state=='applied' ASSERTED on each call.\n\nsplg_trend_long_1d has 4,736 rows in `signals`, so the leg IS being evaluated. 3,660 of them read verbatim: \"Strategy 'splg_trend_long_1d': need at least 46 candles for the donchian(30) / atr(14) windows; got 18.\" It cannot form a signal, so it has never placed an order: `trades` holds ZERO rows for it — not zero closes, ZERO ROWS, including zero rejections.\n\nIT IS A REGRESSION WITH A DATABLE ONSET, not a leg that never worked. The OLDEST 500-row page of its signals (2026-07-08T13:32:01Z..2026-07-14T17:49:37Z, ordered by id asc) is 100% ordinary \"no breakout on the latest bar (close=... within channel [...])\" — the leg was computing its Donchian channel fine. The earliest candle-starvation row is 2026-07-23T13:30:34Z and the NEWEST 500-row page is 100% starvation. So it worked, and on or about 2026-07-23 it stopped.\n\nIT IS SPLG-SPECIFIC, established with a fleet-wide sweep rather than a leg-scoped one so the negative has a denominator: LIKE '%need at least%candles%' over the ENTIRE signals table returns 3,660 rows and every single one is splg_trend_long_1d. No other strategy in the fleet is starved. The sibling 1d ETF legs are healthy by contrast — tqqq_trend_long_1d and qld_trend_long_1d each carry 5,333 signal rows of ordinary 'no breakout' reasons — so this is not a 1d-timeframe or an ETF-feed problem.\n\nWHY IT MATTERS BEYOND ONE LEG. A strategy that is enabled, execution:live and routed reads as WORKING on every config surface and on /api/bot/strategies' runtime block; nothing anywhere says 'this leg cannot signal'. PB-20260707-SPLG-IAUM-PROMOTION spent 57 days waiting for splg's 'paper soak' before anyone asked whether a soak was possible. This is the same shape as PB-20260902-MGC-TREND-1H-IS-LIVE-AND-STRUCTURALLY-CANNOT-TRADE (95 decisions, zero fills) with a different mechanism: there the leg lost arbitration, here it never gets its bars.",
+      "why_it_matters": "A live-declared leg that is structurally incapable of signalling is indistinguishable, from every surface an operator or a review session reads, from a live leg that is simply not seeing setups. That is the collapsed-state failure this repo names as a class, applied to strategy liveness.",
+      "resolution_criteria": "The candle supply for SPLG is diagnosed and stated — WHY the 1d fetch returns 18 bars against the 46 the donchian(30)/atr(14) windows need — and then EITHER the feed is repaired and a signals read shows splg_trend_long_1d producing non-starvation reasons again (count them; a single row is not evidence), OR the leg is dispositioned by the operator (Tier-3) so its declared state matches its behaviour. ⚠️ A code change alone does NOT close this: re-read `signals` filtered to reason LIKE \"%'splg_trend_long_1d': need at least%\" and show the count has STOPPED GROWING after the fix deployed, dated against the deploy. ⚠️ And zero NEW starvation rows is not the same as the leg working — confirm it is emitting real evaluations, not silence.",
+      "next_action": "Read the SPLG 1d candle fetch. Start from the fetcher's own view rather than the strategy: GET /api/bot/candles?symbol=SPLG&interval=1d&limit=60 and see how many bars come back and with what `error`, then compare against a sibling that works (TQQQ or QLD, same timeframe, same alpaca_paper routing, 5,333 healthy signal rows each). The contrast between a starved leg and a healthy sibling on the same venue and timeframe is the cheapest available discriminator.",
+      "found_by": "performance-backlog drain pass 2, 2026-09-02 — found while measuring whether PB-20260707-SPLG-IAUM-PROMOTION's 'paper soak' could ever exist. It could not.",
+      "refs": [
+        "PB-20260707-SPLG-IAUM-PROMOTION",
+        "PB-20260902-MGC-TREND-1H-IS-LIVE-AND-STRUCTURALLY-CANNOT-TRADE"
+      ]
     }
   ],
-  "updated_at": "2026-08-22T18:05:00+00:00"
+  "updated_at": "2026-09-02T03:45:00+00:00"
 }
