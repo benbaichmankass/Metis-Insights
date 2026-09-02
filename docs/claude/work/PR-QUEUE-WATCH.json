@@ -123,7 +123,5 @@
       "escalated": true
     }
   ],
-  "last_paged_at": "2026-09-02T18:20:44Z",
-  "last_band": 1920,
-  "last_page_reason": "first escalation — no previous page recorded."
+  "_latch_correction": "2026-09-02: `last_paged_at` / `last_band` were cleared BY HAND, once. Run 33666587546 stamped them at 18:20:44Z on a real escalation (6 waiting, worst 110.5h) and THE OPERATOR WAS NEVER PAGED: the workflow captured `$?` after a `| tee` pipeline, so it read tee's status (always 0), took the quiet branch and concluded `success` — claude-run-failure-alert.yml therefore saw nothing to alert on. Leaving the latch would have suppressed the NEXT real escalation for up to 12h on the strength of a page that never happened, which is the same counts-the-call-not-its-effect defect one level up. The workflow bug is fixed in the same change and a self-test now refuses the pipe. ⚠️ This key is a one-off record of a manual correction to a GENERATED file; the next run overwrites the whole receipt and it disappears — that is intended."
 }
