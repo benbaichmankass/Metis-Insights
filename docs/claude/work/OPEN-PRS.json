@@ -40,27 +40,10 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-02T11:17:00Z",
+  "as_of": "2026-09-02",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
-    {
-      "pr": 10746,
-      "title": "bybit: the naked sweep must grade coverage of the book it is protecting",
-      "owner_session": "session_01Wu7y3KL6MMgAV1ghetQWFx",
-      "checklist_item": "MI-37",
-      "draft": true,
-      "tier": "2 (order path)",
-      "state": "in_progress_by_owner",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "Must ship scoped behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE). Merging without the allowlist, or widening beyond bybit_1, EXCEEDS the approval given. PLUS (2026-09-02, second decision): arming is HELD pending soak evidence; merge is permitted because it arms nothing.",
-        "scope": "bybit_1 (demo) ONLY. NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug for the duration of the soak.",
-        "decided_on": "2026-09-02",
-        "text": "APPROVED WITH STAGING 2026-09-02 -- bybit_1 (demo) ONLY. ⚠️ NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug during the soak. Merging this without the account allowlist, or widening beyond bybit_1, EXCEEDS the approval given. ⚠️ SECOND OPERATOR DECISION 2026-09-02 (manager asked, operator answered 'hold it until the soak'): ARMING IS HELD. Merging is still within the approval -- the shipped default resolves MODE to `annotate` and an empty BYBIT_GRADED_COVERAGE_ACCOUNTS means NONE for every account, so the merge binds no order path. What is HELD is the separate two-key set-env (BYBIT_GRADED_COVERAGE_MODE=apply + BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1) plus the trader restart. ⚠️ MERGING IS WHAT STARTS THE SOAK, so holding the merge would make the operator's condition unsatisfiable -- the allowlist scopes the BINDING, never the MEASUREMENT (verified in the diff: every Bybit account is graded and annotated regardless), which is the exact correction NETTING_ATTRIBUTION_ACCOUNTS needed on 2026-08-09 when intersecting the account set at the top of the pass made the account being staged TOWARD invisible. Do NOT arm on a quiet soak: the criterion is a bybit_coverage_soak row carrying `verdicts_differ: true`, and the evidence behind this whole PR is n=1 and CONSTRUCTED, never a sighting -- so a demo soak may never produce one, and not seeing it is not evidence the fix is wrong."
-      },
-      "blocker": "MERGE CONFLICT — mergeable_state `dirty`, base 2e6b51d2 against a main that has moved far ahead. 21 files / 1949 lines on the ORDER PATH, so the AUTHOR session resolves it, not the manager. Arming is separately HELD by operator decision pending soak evidence."
-    },
     {
       "pr": 10748,
       "title": "R-metric contamination: detector + Tier-3 proposal",
@@ -203,6 +186,74 @@
         "text": "The operator DIRECTED THE CHANNEL, not the merge: 'that's supposed to be showing up in Cloudbot. Right? Not on the trader one, the decisions.' No Tier-2 merge or restart decision has been recorded; treating the direction as merge approval would be the half-informed state this record exists to prevent."
       },
       "blocker": "⚠️ BOTH HALVES OR NEITHER. It must NOT change answerable_route() without first making TELEGRAM_CLAUDE_BOT_SECRET genuinely POLLED with a CallbackQueryHandler -- a button in an unpolled bot renders perfectly and does nothing when tapped, which is strictly WORSE than the current wrong-channel state. #10778 chose the trader bot for exactly this reason and was right to. Must not fork handle_decision_callback (the route stays the one owner of every refusal) and must not reuse TELEGRAM_CLAUDE_BOT_TOKEN, which drives the PROP bot. Concurrent with MI-59 in src/bot/telegram_query_bot.py -- whichever lands second resolves."
+    },
+    {
+      "pr": 10793,
+      "title": "telegram: /status and /decisions operator pull commands — HELD, must not reach the trader bot",
+      "owner_session": "session_01272CQFvWA5F9tS9nNRpJtK",
+      "checklist_item": "MI-59",
+      "draft": true,
+      "tier": "2 (a live service gains command handlers; no order path)",
+      "state": "held_by_manager",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "MUST NOT be deployed to the trader bot. It may only reach a bot that is ClaudeBot. The manager converted the PR back to DRAFT and auto-merge was removed as a MECHANISM rather than a promise, because merging alone is sufficient to break the condition: once the code is on main, the NEXT restart of ict-telegram-bot.service for ANY reason registers both commands on whatever bot is polled.",
+        "scope": "The commands themselves. The operator did NOT rule on the trader-bot FALLBACK in #10789, which is a failure mode rather than a designed destination; that call was the manager's.",
+        "decided_on": "2026-09-02",
+        "text": "don't add those commands to the trader bot, thats definitely not what i asked for - i asked for them in cluade bot. It's ok if they're not ready yet, I just wanted an answer"
+      },
+      "blocker": "BLOCKED ON #10789 (MI-58) making ClaudeBot genuinely polled. ⚠️ DO NOT 'fix' this by gating registration on bot identity: operator_commands deliberately registers in ALL THREE route states because a silently absent command is indistinguishable from a broken one. The unblock is MI-58, not a conditional. ⚠️ AND MERGING #10789 IS NOT SUFFICIENT — this stays held until ClaudeBot is CONFIRMED POLLED ON THE LIVE VM, which is a deploy observation, not a merge.",
+      "note": "The code is complete and guard-clean: +2,552 lines, 146 tests, guards 49/0 locally, and CI green on guards/pytest-collect/repo-inventory after the manager armed it. ⚠️ CI HAD NEVER RUN BEFORE THAT and it was invisible: the head commit was a board-post relay commit authored by github-actions[bot], which triggers no workflows, so total_count read 0 and looked like 'not started' rather than 'never fired'."
+    },
+    {
+      "pr": 10797,
+      "title": "work store: record the assessments already made, write 3 true edges, and grade how a stage was arrived at (MI-63)",
+      "owner_session": "session_01RQiedALVJzWCGdBqY6aNV7",
+      "checklist_item": "MI-05-PHASE-D",
+      "draft": true,
+      "tier": "1 (work store + a read-only readout; no order path)",
+      "state": "awaiting_manager_review",
+      "operator_decision": {
+        "verdict": "not_required",
+        "decided_on": "2026-09-02",
+        "text": "Tier-1. No operator decision is needed to merge; the manager reviews and merges."
+      },
+      "blocker": "None. Measured CLEAN against main, guards PASS 50 / FAIL 1 where the single failure is `layer-guard: lint-imports exited 127` — a MISSING BINARY in this container, not a finding. Confirm it passes in CI before merging rather than assuming the 127 is environmental.",
+      "note": "⚠️ THE HEADLINE FINDING IS NOT THE EDGE COUNT. It measured that 576 of 587 stage assignments were made in BULK FROM THE SOURCE FILENAME by the Phase C migration, never by reading the row — so `INTEGRITY 498` is a census of ONE filename and the stage histogram was never evidence about where the chain is stuck. It publishes `stage_basis` (bulk_by_source_file vs per_object) so that can never again be read as a measurement. Coverage moved 6→9 of 587 (1.0%→1.5%), which is correctly small: three TRUE edges, not a bulk pass, which the store's README calls a harm. It also created the store's first two DECISION objects and added a `capability` edge kind — the input the E2 pull rule needs."
+    },
+    {
+      "pr": 10794,
+      "title": "MI-61: a soak must alarm — a threshold, a timer, and a state for a DEAD soak",
+      "owner_session": "unknown_at_time_of_recording",
+      "checklist_item": "MI-61",
+      "draft": true,
+      "tier": "1 (alarm/threshold machinery; no order path) — VERIFY, not read from the PR",
+      "state": "awaiting_manager_review",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "decided_on": "2026-09-02",
+        "text": "No operator decision has been put to or given on this PR. It implements the standing rule the operator stated on 2026-09-02 — 'anything soaking needs to be logged with an alarm that has either a timer or a soak threshold, so that we know to get back to it when the soak is ready' — but a rule is not an approval of a specific diff."
+      },
+      "blocker": "UNREVIEWED BY THE MANAGER. ⚠️ This row is recorded from the open-PR listing alone; its owner session, tier and readiness were NOT established. Treat every field here as unverified except the number and title.",
+      "note": "Sibling of the #10746 soak alarm the manager filed by hand as OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK. Check for overlap before merging both."
+    },
+    {
+      "pr": 10799,
+      "title": "manager: caps are 4 sessions AND 4 artifacts, independently; record an asserted-not-measured error",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-64",
+      "draft": false,
+      "tier": "1 (registers only; no code, no order path)",
+      "state": "in_progress_by_owner",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "TWO caps, respected INDEPENDENTLY: at most 4 concurrent SESSIONS and at most 4 concurrent ARTIFACTS. The pairing is explicitly NOT 1:1 — several sessions may share one artifact when there are fewer than 4.",
+        "scope": "Concurrency only. Not a change to the WIP ceiling of 8, which counts in_flight work OBJECTS and is enforced by check_wip_ceiling.py — a different register with a different population.",
+        "decided_on": "2026-09-02",
+        "text": "we can pair 4 sessions and 4 artifacts (if less then 4 artifacts then we can have more then one session per artifact, we jsut need both caps to be respected independently)"
+      },
+      "blocker": "None; manager-only, empty conflict surface.",
+      "note": "⚠️ THE ARTIFACT CAP IS ALREADY BREACHED AND HAS NO DEFINITION: 13 open PRs against a cap of 4. But #10780 is marked DO NOT MERGE and #10398 is an automation PR open since 2026-08-29, so 'open PR' overcounts and 'in_flight work object' undercounts. Defining 'artifact' is unfinished work, stated in the row rather than silently resolved. Also carries MI-65: the manager asserted TELEGRAM_CLAUDE_BOT_SECRET was unset from a doc row dated the previous day, over the operator's own contrary sighting of a ping arriving on ClaudeBot. Its honest state is UNMEASURED — not set, not unset."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -246,6 +297,19 @@
       "pr": 10775,
       "merge_sha": "d08cac48",
       "note": "Pruned in the SAME PR that added it — it merged between the two commits. That is the structural regress this file documents, observed live rather than in the abstract: the row was correct when written and stale ~90 seconds later."
+    },
+    {
+      "pr": 10746,
+      "merge_sha": "af9af5e3",
+      "note": "Pruned 2026-09-02: merged, so handoff_check correctly grades the open row STALE. ⚠️ THE FULL operator_decision IS CARRIED BELOW RATHER THAN REDUCED TO A ONE-LINER, which is what every earlier prune in this list did. That reduction is the defect #10783 (MI-57) exists to fix: a merged PR's CONDITIONS become MORE load-bearing after the merge, not less, because the merge is when someone can act on them. A successor knowing nothing stalls and re-asks, which is safe; one knowing 'approved' without the condition could arm a gate on a real-money account.",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "Must ship scoped behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE). Merging without the allowlist, or widening beyond bybit_1, EXCEEDS the approval given. PLUS (2026-09-02, second decision): arming is HELD pending soak evidence; merge is permitted because it arms nothing.",
+        "scope": "bybit_1 (demo) ONLY. NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug for the duration of the soak.",
+        "decided_on": "2026-09-02",
+        "text": "APPROVED WITH STAGING 2026-09-02 -- bybit_1 (demo) ONLY. ⚠️ NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug during the soak. Merging this without the account allowlist, or widening beyond bybit_1, EXCEEDS the approval given. ⚠️ SECOND OPERATOR DECISION 2026-09-02 (manager asked, operator answered 'hold it until the soak'): ARMING IS HELD. Merging is still within the approval -- the shipped default resolves MODE to `annotate` and an empty BYBIT_GRADED_COVERAGE_ACCOUNTS means NONE for every account, so the merge binds no order path. What is HELD is the separate two-key set-env (BYBIT_GRADED_COVERAGE_MODE=apply + BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1) plus the trader restart. ⚠️ MERGING IS WHAT STARTS THE SOAK, so holding the merge would make the operator's condition unsatisfiable -- the allowlist scopes the BINDING, never the MEASUREMENT (verified in the diff: every Bybit account is graded and annotated regardless), which is the exact correction NETTING_ATTRIBUTION_ACCOUNTS needed on 2026-08-09 when intersecting the account set at the top of the pass made the account being staged TOWARD invisible. Do NOT arm on a quiet soak: the criterion is a bybit_coverage_soak row carrying `verdicts_differ: true`, and the evidence behind this whole PR is n=1 and CONSTRUCTED, never a sighting -- so a demo soak may never produce one, and not seeing it is not evidence the fix is wrong."
+      },
+      "standing_condition_after_merge": "⚠️ MERGED IS NOT ARMED. BYBIT_GRADED_COVERAGE_ACCOUNTS ships EMPTY and for this knob an empty allowlist means NONE, so the gate is deployed and binding nothing — verified in the diff (account_may_apply returns False for every account on an empty allowlist; resolve_mode falls back to annotate). The operator said 'hold it until the soak' in conversation on 2026-09-02. Arming is a SEPARATE Tier-2 decision and the approval to MERGE was never an approval to ARM. Staging is bybit_1 (demo) FIRST, with real-money bybit_2 explicitly accepted as exposed during the soak. The soak threshold and its alarm live in OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK: >=20 graded rows over >=3 distinct UTC days AND at least one verdicts_differ row. Deciding NOT to arm clears that row too and must be RECORDED as a decision."
     }
   ],
   "⚠️_the_last_row_is_always_stale_and_that_is_STRUCTURAL": "A handoff can never reach open_prs=PASS at the exact moment of the final merge, and this is a PROPERTY of the design rather than a bug to chase. Every open PR must have a row; the PR that prunes the last stale row is itself an open PR and needs a row; merging it makes THAT row stale. The regress terminates only if the manager stops opening PRs. ⚠️ DO NOT 'fix' this by exempting the currently-merging PR from the completeness check — the exemption would be indistinguishable from the real failure it exists to catch (a PR nobody recorded), and a check that cannot tell those apart is worse than the transient row. The correct reading: at handoff, `open_prs` naming ONLY the PR being merged right now is materially ready; naming any OTHER pr is not. State which case you are in rather than quoting the verdict alone.",
