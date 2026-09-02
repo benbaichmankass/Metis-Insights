@@ -6,7 +6,9 @@ The 2026-05 overhaul (see ``docs/TELEGRAM-SPEC.md``) replaced the old
     🛑 Kill switch · 🩺 System update · 💼 Accounts · 📈 Strategies ·
     🚨 Close all positions
 
-``/start`` and ``/menu`` are the only slash commands. Every view reads
+``/start`` and ``/menu`` are the menu openers; ``/status`` and
+``/decisions`` (added 2026-09-02, see ``src.bot.operator_commands``)
+are the two operator pulls. Every view reads
 live state (accounts.yaml, strategies.yaml, the journal, runtime_status,
 systemd) so adding an account or strategy needs no bot code change.
 
