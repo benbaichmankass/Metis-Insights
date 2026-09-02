@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+# wiring: manual-only - a ONE-OFF ANALYSIS over a COMMITTED day, deliberately
+# not on a cadence. The recurring path is the generator: as of this change
+# `scripts/ml/strategy_review_packet.py` publishes the same `evidence_horizon`
+# block on every packet and index row, and `GET /api/bot/strategy-reviews`
+# reads it — so a scheduled run of this script would be a SECOND producer of
+# the same numbers over the same artifacts, free to drift from the one the
+# decision surface actually serves. It exists only because the committed
+# 2026-09-01 index PREDATES that field and is deliberately not back-filled
+# (rewriting a committed decision record would make a later reader believe the
+# run published something it did not), so the operator decision waiting today
+# needs the numbers computed from outside. Run it by hand to regenerate the
+# tables in docs/design/evidence-floor-horizon-PROPOSAL.md; `--self-test`
+# proves the probe finds a positive before its silence is trusted.
 """What window each leg would need to reach the evidence floor — over a COMMITTED day.
 
 WHY THIS EXISTS SEPARATELY FROM THE GENERATOR
