@@ -1,0 +1,140 @@
+name: session-reaper
+
+# THE REAPER'S CLOCK — the external, cadenced thing that records what a session
+# left behind, because the session that died cannot and the manager will not.
+#
+# WHY A WORKFLOW AND NOT A SESSION-INVOKED SCRIPT.
+# `docs/claude/work/objects/WO-20260901-PHASE-E.yaml` names three mechanisms and
+# shipped only two. Its own words on the missing one:
+#
+#     "Close-out alone cannot satisfy this. A session that dies cannot run its
+#      own close-out — which is precisely why continue-work.yml does not achieve
+#      this today: it depends on the session voluntarily finishing."
+#
+# The same objection kills every session-invoked design, `close_session.py`
+# included. So the clock must be owned by nothing that can die with the work.
+#
+# ⚠️ AND IT CANNOT BE THE MANAGER EITHER. Measured 2026-09-02: four sub-sessions
+# sat IDLE/BLOCKED for up to 142 minutes while the manager asserted they held
+# work. A mechanism that depends on the manager noticing is not a mechanism.
+#
+# ⚠️ A SCHEDULED WORKFLOW IN THIS REPO IS NOT EVIDENCE IT RUNS, AND THIS ONE
+# HAS NOT BEEN OBSERVED FIRING ON CRON. `probes.yml`'s first-ever scheduled run
+# fired ~4h50m late against a `20 5 * * *` cron, once rather than daily. So this
+# workflow ALSO carries `workflow_dispatch` and a `push` trigger on its own
+# inputs, and the ledger it writes stamps `generated_at` on every run — read the
+# run history and that stamp, never the cron expression, to decide whether the
+# reaper is actually reaping. Until a scheduled run is OBSERVED, treat the cadence
+# as UNPROVEN rather than as working.
+#
+# BLAST RADIUS. It runs one read-only Python script over `origin` and lands
+# ONE generated file (`docs/claude/work/REAPER-OBSERVATIONS.json`). ⚠️ IT NEVER
+# KILLS, ARCHIVES, DELETES, CLOSES OR MERGES ANYTHING — which is exactly what
+# makes it safe to grade on branch quiescence, a PROXY for death that it cannot
+# verify. A reaper that ACTED on that proxy would have to be right about whether
+# a session is alive, and CI holds no tool that can answer that.
+#
+# ⚠️ THE ONE THING IT MERGES IS ITS OWN LEDGER, AND ONLY THROUGH THE SHARED
+# LANDING PATH. `main` is protected and rejects a direct workflow push (GH006),
+# so the ledger lands via `.github/actions/commit-to-main` as a PAT-authenticated
+# auto-merge PR — the same route `due-list.yml` uses for the same reason. That
+# is NOT an exception to the paragraph above: the auto-merge is this workflow's
+# own generated artifact, never a session's branch, never a session's PR, and
+# never anything a session is working on.
+
+on:
+  schedule:
+    # Every 3 hours. Chosen against the 90-minute manager-lease TTL: a reaper
+    # slower than the lease would let a manager expire, be replaced, and have
+    # its sub-sessions go unrecorded across the gap. NOT tuned — no distribution
+    # of session lifetimes exists to tune it against, and inventing one would be
+    # the unmeasured-premise shape this repo keeps paying for.
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+    inputs:
+      stale_after_minutes:
+        description: 'Minutes without a commit before a branch stops counting as active'
+        required: false
+        default: '90'
+  push:
+    branches: [main]
+    paths:
+      # Re-reap when the registry changes, so a newly-spawned session is graded
+      # without waiting up to 3h for the cron.
+      - 'docs/claude/work/SESSIONS.json'
+      - 'scripts/ops/session_reaper.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  # One reaper at a time. Two concurrent runs would race the same ledger file
+  # and the loser's observations would be silently overwritten.
+  group: session-reaper
+  cancel-in-progress: false
+
+jobs:
+  reap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # ⚠️ MUST be the PAT, not GITHUB_TOKEN: `commit-to-main` pushes its
+          # branch with whatever credential the checkout configured, and a PR
+          # opened by GITHUB_TOKEN does NOT trigger the on:pull_request required
+          # checks — so it would stall auto-merge forever. The action's own
+          # docstring states this as a REQUIREMENT of calling it.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          # The reaper needs origin/main's history to tell `landed` from
+          # `no_landing_evidence`, and every claude/** head to recover a branch
+          # from its commit trailers. A shallow clone would grade both wrong,
+          # and wrong in the direction that reports work as missing.
+          fetch-depth: 0
+
+      - name: Fetch every origin branch
+        run: git fetch --quiet origin '+refs/heads/*:refs/remotes/origin/*'
+
+      - name: Self-test the grading policy before trusting a live run
+        # The policy is a pure function precisely so it is arguable here rather
+        # than against live state. A reaper whose grading is broken must fail
+        # loudly, not write a confident ledger.
+        run: python3 scripts/ops/session_reaper.py --self-test
+
+      - name: Reap
+        run: |
+          python3 scripts/ops/session_reaper.py \
+            --write \
+            --stale-after-minutes "${{ github.event.inputs.stale_after_minutes || '90' }}"
+
+      - name: Land the ledger on main (auto-merge PR)
+        # ⚠️ THIS STEP WAS A DIRECT `git push origin HEAD:main` WHEN THIS
+        # WORKFLOW FIRST SHIPPED, AND IT COULD NEVER HAVE WORKED. `main` is
+        # protected and REJECTS a direct workflow push (GH006) — the exact
+        # failure `.github/actions/commit-to-main` exists to absorb
+        # (BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN). The capability
+        # already existed and was hand-rolled anyway, which is the
+        # `RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED` shape; measured 2026-09-02,
+        # session-reaper.yml was the ONLY workflow in the repo pushing straight
+        # to main, and that on its own should have been read as the answer.
+        #
+        # The action no-ops cleanly when the ledger is unchanged, so the
+        # hand-rolled `git diff --quiet` early-exit is dropped rather than
+        # duplicated.
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/work/REAPER-OBSERVATIONS.json
+          message: "chore(ops): record what each session left behind"
+          pr-title: "chore(ops): session-reaper observations (auto)"
+          pr-body: >-
+            Automated reaper ledger refresh — what each sub-session left behind,
+            recorded from outside it. Generated artifact only; auto-merge.
+          branch-prefix: automation/session-reaper
+          # ⚠️ NOT decoration, and load-bearing for THIS workflow specifically.
+          # Without it the step exits 0 the moment the PR OPENS, so a green run
+          # would mean "a PR exists" and never "the observations are on main".
+          # The action's own docs record 12 of 13 callers verifying nothing and
+          # origin carrying 5 stranded `automation/*` branches, the oldest 10
+          # weeks. A reaper whose whole premise is that SHIPPED and WORKING are
+          # different states cannot be one of those 12.
+          verify-merged: "true"

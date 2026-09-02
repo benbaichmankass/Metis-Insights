@@ -634,6 +634,24 @@ def cmd_reconcile(a) -> int:
 
 
 def cmd_register(a) -> int:
+    # ⚠️ THE PRIORITY GATE, AT THE SPAWN CHOKEPOINT. Imported lazily because
+    # `spawn_gate` imports THIS module — a top-level import would be circular.
+    #
+    # There is deliberately NO --force. The escape is an operator-approved
+    # `spawn-priority-exception.yaml`, which is visible and argued; a bypass flag
+    # is neither, and a gate with a flag beside it is a gate that gets flagged
+    # past. `unknown` (an unreadable priority file) does NOT block — a typo must
+    # not halt the fleet — but it is printed and is never silent.
+    import spawn_gate
+    verdict = spawn_gate.grade_spawn(a.owns_object)
+    if verdict["state"] != spawn_gate.PERMITTED:
+        print(f"session-registry: spawn-gate [{verdict['state'].upper()}] "
+              f"{verdict['reason']}")
+    if verdict["state"] == spawn_gate.REFUSED:
+        print("session-registry: NOTHING WAS WRITTEN and no spawn prompt was "
+              "produced. Fix the above, or file the exception, then re-run.")
+        return 3
+
     row, ref = register(
         REGISTRY_PATH, title=a.title, why=a.why or "", spawned_by=a.spawned_by,
         session_id=a.session_id, branches=a.branch or None, owns_object=a.owns_object,
