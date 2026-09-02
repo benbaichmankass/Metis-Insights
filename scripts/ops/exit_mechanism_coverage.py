@@ -130,8 +130,9 @@ _CFG_READ = re.compile(r"\b(?:meta|cfg|cfg_dict|c)\.get\(\s*\"([a-z0-9_]+)\"")
 #: unit delegates to (`exit_levers.py`, `trail_decay.py`, `exit_head_shadow.py`
 #: today). Scanned WHOLESALE rather than by an explicit module list, because a
 #: lever extracted to a NEW shared module is exactly the move that broke the
-#: source-only greps in `BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-
-#: SHARED-LEVERS`, and an explicit list would reproduce it.
+#: source-only greps in
+#: `BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS`, and an
+#: explicit list would reproduce it.
 _IMPL_DIRS = (REPO / "src" / "units" / "strategies", REPO / "src" / "runtime")
 
 # Per (leg, mechanism) state. FIVE values, never collapsed — in particular
