@@ -31247,6 +31247,23 @@
         "https://github.com/benbaichmankass/Metis-Insights/pull/10789",
         "tests/test_zz_automerge_hold.py"
       ]
+    },
+    {
+      "id": "BL-20260902-A-LOUD-OPEN-ITEM-IS-ABSENT-FROM-THE-SESSION-BRIEF-THAT-ORDERS-IT-REPORTED",
+      "title": "The CLAUDE.md session brief renders only monitoring rows past their CADENCE, so a `loud: true` row inside its cadence is NOT shown — while the brief's own text, in the same block, orders every loud row to be reported on and never silently carried",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-02",
+      "source": "MI-66 (session_019vcX5ZTD8C7wNAEtfPUdFQ), noticed while verifying that two loud rows this session added had reached the brief. They had not, and the guard was right to say the brief matched the registers.",
+      "detail": "MEASURED, not inferred. scripts/ops/render_session_brief.py::due_items selects on CADENCE ALONE -- `kind == monitoring` and (verified_at absent, or check_every_days <= 0, or elapsed >= cadence). It never reads `loud`. So a loud row observed today with check_every_days 3 is absent from the brief for three days. Verified: two rows added this session with loud:true and verified_at 2026-09-02 produced ZERO occurrences in CLAUDE.md, and session-brief-guard --check passed, so this is the renderer's declared behaviour rather than a stale file.\n\nTHE INCONSISTENCY IS WITH TWO OTHER SURFACES, BOTH EXPLICIT.\n(1) scripts/ops/render_due_list.py::src_open_items takes the opposite rule, in its own words: 'A `loud` row is listed even when not overdue: CLAUDE.md requires it to be REPORTED ON every session, so it is due by definition.' Two renderers over ONE register disagree about whether loud implies due.\n(2) CLAUDE.md's own text -- inside the generated block -- reads: 'A row with `loud: true` must be REPORTED ON in your closing summary -- checked and stated, never silently carried.' So the brief instructs a session to report on rows it does not show it, unless they happen to be overdue.\n\nWHY IT MATTERS RATHER THAN BEING PEDANTRY: CLAUDE.md describes itself as 'the only surface that reaches a session before it acts', and hooks do not run on Claude Code on the web, so for a web session the brief is the whole mechanism. A loud row's entire purpose is to be un-skippable; being visible only while overdue makes loudness a function of the cadence, which is the one property loud exists to be independent of.\n\n!! I AM NOT ASSERTING THIS IS A BUG, AND DID NOT CHANGE IT. The one-line fix (`if it.get('loud') or ...`) may be deliberately rejected: priority_lines' docstring says 'The brief must SHRINK as work lands; a priority block that grew into a manifesto would be one more wall to skim past', and permanently rendering every loud row cuts against that. Someone who knows which reading was intended should decide; a session that silently 'fixed' it could make the brief the wall its own design warns about.",
+      "resolution_criteria": "A decision is RECORDED, either way, and the surfaces are made to agree with it. Either (a) loud implies due -- due_items consults `loud`, matching src_open_items' stated rule, and the brief-shrinks concern is addressed (e.g. loud rows render as one compact line rather than the full block); or (b) loud does NOT imply due in the brief -- in which case src_open_items' docstring and the 'must be REPORTED ON in your closing summary' line are corrected to say WHICH surface carries loud rows (DUE.md), so a session is not told to report on something the brief never showed it. !! CLOSING THIS BY EDITING ONLY THE PROSE ON ONE SIDE IS NOT A RESOLUTION -- the defect is that two generators over one register encode different rules, and prose that agrees with neither is how that survived. !! AND A GREEN session-brief-guard DOES NOT RESOLVE IT: the guard checks CLAUDE.md matches what the renderer produces, which is true today and is exactly why this was invisible.",
+      "refs": [
+        "scripts/ops/render_session_brief.py",
+        "scripts/ops/render_due_list.py",
+        "docs/claude/OPEN-ITEMS.json",
+        "CLAUDE.md"
+      ]
     }
   ]
 }
