@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-02T08:00:20Z",
+  "as_of": "2026-09-02T08:05:29Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -175,22 +175,6 @@
         "text": "NO OPERATOR STATEMENT EXISTS. This row is `none_recorded` precisely because no decision was sought or given — the text records that ABSENCE and is deliberately not a quotation. Inventing operator wording to satisfy the field would be the half-informed state this check exists to prevent, one level up."
       },
       "blocker": "NOT YET REVIEWED. Touches which conditions PAGE vs digest, so it wants a careful read against the desensitised-alarm rule before merging."
-    },
-    {
-      "pr": 10769,
-      "title": "manager state: reclaim the lease, back-register 19 live sessions, record 4 open PRs and the on-ice decision",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-48",
-      "draft": false,
-      "tier": "1 (manager coordination state; no runtime code)",
-      "state": "ready_awaiting_ci",
-      "operator_decision": {
-        "verdict": "approved",
-        "condition": null,
-        "scope": null,
-        "text": "Operator, 2026-09-02, verbatim: 'both the Streamlit app and the Android app should not be consuming right now. They should be turned off. We don't need to delete them, but they're just on ice in the meantime, and they shouldn't be consuming anything because that's just unnecessary risk. The only UI that we're using is the Git pages website.' ⚠️ That statement approves the DECISION recorded in MI-48; it is not an approval of this PR's other contents (lease, registry, PR rows), which are Tier-1 and needed none."
-      },
-      "blocker": "None known. ⚠️ Note this PR is what makes `manager_state_pushed` pass — that check reads origin/main, so it stays FAIL until this merges. That is the check working, not a defect."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -209,6 +193,12 @@
       "pr": 10766,
       "merge_sha": "3b9c80d0",
       "note": "Pruned 2026-09-02 because handoff_check graded it a STALE row: the record's own _doc says this file goes stale the moment a PR merges. Kept here as a one-line trace so the prune is visible rather than silent — a row vanishing with no record is how a successor concludes the PR never existed."
+    },
+    {
+      "pr": 10769,
+      "merge_sha": "448f086a",
+      "note": "Pruned 2026-09-02. Its row went stale the instant it merged — which is the record working, not a defect."
     }
-  ]
+  ],
+  "⚠️_the_last_row_is_always_stale_and_that_is_STRUCTURAL": "A handoff can never reach open_prs=PASS at the exact moment of the final merge, and this is a PROPERTY of the design rather than a bug to chase. Every open PR must have a row; the PR that prunes the last stale row is itself an open PR and needs a row; merging it makes THAT row stale. The regress terminates only if the manager stops opening PRs. ⚠️ DO NOT 'fix' this by exempting the currently-merging PR from the completeness check — the exemption would be indistinguishable from the real failure it exists to catch (a PR nobody recorded), and a check that cannot tell those apart is worse than the transient row. The correct reading: at handoff, `open_prs` naming ONLY the PR being merged right now is materially ready; naming any OTHER pr is not. State which case you are in rather than quoting the verdict alone."
 }
