@@ -1,0 +1,1 @@
+manager: register MI-68 spawn

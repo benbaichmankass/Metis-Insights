@@ -43,11 +43,20 @@ decoration that makes the verdict look better-evidenced than it is).
                          it is a weaker record than a real row and must not be
                          handed over silently.
   6. ``open_prs``        an OPEN pull request with no row in OPEN-PRS.json, or a
-                         row naming a PR that is no longer open. The second is
-                         the STALENESS signal, and it needs no wall-clock
-                         threshold: the record's own `_doc` says it goes stale
-                         the moment a PR merges, so a row for a closed PR IS
-                         that, observed rather than guessed.
+                         row naming a PR that is no longer open. ⚠️ Graded over
+                         `open_prs[]` ALONE — `settled_prs[]` names PRs that are
+                         SUPPOSED to be closed, and folding it in would report
+                         the whole decision history as stale, which is exactly
+                         the pressure that used to get it deleted (MI-57).
+                         The stale half now splits in two, deliberately:
+                         ``stale_row`` (a session left a row behind) and
+                         ``reconciler_not_run`` (`last_reconciled_sha` lags
+                         `main`, so the automation that moves settled rows is
+                         not keeping up). Both FAIL, but they have different
+                         remedies and a shape that reports the second as the
+                         first is how a dead reconciler stays dead — this repo
+                         has `due-list.yml` with no scheduled run and two Claude
+                         Routines `enabled: true` at `next_run_at: 0001-01-01`.
   7. ``pr_decisions``    a row whose verdict DECLARES that conditions were
                          attached and records none. ⚠️ **This is the more
                          dangerous half of the whole handoff.** A successor
@@ -59,6 +68,16 @@ decoration that makes the verdict look better-evidenced than it is).
                          condition is WORSE than a missing row, because it reads
                          as complete. See `open_pr_record.py` for what this
                          CANNOT detect — the residual is named, not hidden.
+  8. ``settled_prs``     a settled PR that never reached `main` and carries no
+                         `disposition`. ⚠️ This is what keeps the open-PR half
+                         HONEST after MI-57 split the record into an in-flight
+                         population and a durable one. The mechanical staleness
+                         regress is gone; this is not mechanical. A merged row
+                         explains itself — the code is on `main`. An ABANDONED
+                         row does not, and "superseded by #X", "the operator
+                         refused it" and "the author gave up" imply opposite
+                         next actions, one of them being to re-open something an
+                         operator already turned down.
 
 ⚠️ NEITHER PR CHECK RE-DERIVES CI OR MERGEABILITY. GitHub stays the source of
 truth for PR state; the record is authoritative only for ownership, intent and
@@ -189,14 +208,20 @@ def check_manager_state_pushed(base: str = "origin/main") -> Dict[str, Any]:
               f"registry, checklist and lease all match `{base}`.")
 
 
-def check_open_prs_recorded(rec_doc, rec_readable,
-                            observed_open) -> Dict[str, Any]:
-    v = opr.grade_completeness(rec_doc, rec_readable, observed_open)
-    state = {"recorded": PASS, "unrecorded": FAIL, "stale_row": FAIL}.get(
-        v["state"], UNKNOWN)
+def check_open_prs_recorded(rec_doc, rec_readable, observed_open,
+                            head_sha: Optional[str] = None,
+                            automation_excluded=None) -> Dict[str, Any]:
+    v = opr.grade_completeness(rec_doc, rec_readable, observed_open, head_sha,
+                               automation_excluded=automation_excluded)
+    # `reconciler_not_run` FAILS like `stale_row` — both mean a successor reads
+    # a row for a PR that is gone — but it is reported as its own verdict so the
+    # remedy is not misdirected at a session that did nothing wrong.
+    state = {"recorded": PASS, "unrecorded": FAIL, "stale_row": FAIL,
+             "reconciler_not_run": FAIL}.get(v["state"], UNKNOWN)
     return _c("open_prs", state, v["message"], verdict=v["state"],
               unrecorded=v.get("unrecorded"), stale_rows=v.get("stale_rows"),
-              population=v.get("population"))
+              last_reconciled_sha=v.get("last_reconciled_sha"),
+              head_sha=v.get("head_sha"), population=v.get("population"))
 
 
 def check_pr_decisions(rec_doc, rec_readable) -> Dict[str, Any]:
@@ -206,6 +231,25 @@ def check_pr_decisions(rec_doc, rec_readable) -> Dict[str, Any]:
     return _c("pr_decisions", state, v["message"], verdict=v["state"],
               findings=[f["pr"] for f in v.get("findings", [])],
               prose_rows=v.get("prose_rows"), population=v.get("population"))
+
+
+def check_settled_prs(rec_doc, rec_readable) -> Dict[str, Any]:
+    """A settled PR that never reached `main`, with no reason recorded.
+
+    ⚠️ This is what keeps the open-PR half of the handoff honest after MI-57
+    split the record. The mechanical staleness regress is gone; this is not
+    mechanical. A merged row explains itself — the code is on `main`. An
+    ABANDONED row does not, and "superseded by #X", "the operator refused it"
+    and "the author gave up" imply opposite next actions that an undispositioned
+    row cannot tell apart, one of them being to re-open something an operator
+    already turned down.
+    """
+    v = opr.grade_settled(rec_doc, rec_readable)
+    state = {"settled_graded": PASS, "undispositioned": FAIL}.get(
+        v["state"], UNKNOWN)
+    return _c("settled_prs", state, v["message"], verdict=v["state"],
+              findings=[f["pr"] for f in v.get("findings", [])],
+              population=v.get("population"))
 
 
 def check_pending_spawns(reg_doc, reg_readable) -> Dict[str, Any]:
@@ -237,7 +281,9 @@ def grade(checks: List[Dict[str, Any]]) -> str:
 
 def run(observation: Optional[Any] = None, manager_session_id: Optional[str] = None,
         base: str = "origin/main", enforced_states=sr.DEFAULT_ENFORCED_STATES,
-        open_prs: Optional[Any] = None) -> Dict[str, Any]:
+        open_prs: Optional[Any] = None,
+        head_sha: Optional[str] = None,
+        automation_excluded: Optional[Any] = None) -> Dict[str, Any]:
     reg, reg_ok = sr.read_json(sr.REGISTRY_PATH)
     ck, ck_ok = sr.read_json(sr.CHECKLIST_PATH)
     lease, lease_ok = manager_lease.read_lease()
@@ -248,8 +294,10 @@ def run(observation: Optional[Any] = None, manager_session_id: Optional[str] = N
         check_lease(lease, lease_ok, manager_session_id),
         check_manager_state_pushed(base),
         check_pending_spawns(reg, reg_ok),
-        check_open_prs_recorded(rec, rec_ok, open_prs),
+        check_open_prs_recorded(rec, rec_ok, open_prs, head_sha,
+                                automation_excluded),
         check_pr_decisions(rec, rec_ok),
+        check_settled_prs(rec, rec_ok),
     ]
     return {"readiness": grade(checks), "checks": checks}
 
@@ -354,6 +402,46 @@ def _self_test() -> int:
     check("an unreadable PR record is UNKNOWN, never a pass",
           check_pr_decisions(None, False)["state"], UNKNOWN)
 
+    # --- MI-57: the split, and the two findings it must keep ---------------
+    settled_ok = {"open_prs": [], "settled_prs": [
+        {"pr": 1, "terminal": "merged", "merge_sha": "a"}]}
+    check("a SETTLED row is never graded against the live open list — #1 is "
+          "closed and must not FAIL the handoff",
+          check_open_prs_recorded(settled_ok, True, [])["state"], PASS)
+    check("an ABANDONED settled row with no disposition FAILS — the finding "
+          "that keeps the teeth after the regress is gone",
+          check_settled_prs({"settled_prs": [
+              {"pr": 1, "terminal": "closed_unmerged"}]}, True)["state"], FAIL)
+    check("...and it PASSES once a reason is stated (not a constant)",
+          check_settled_prs({"settled_prs": [
+              {"pr": 1, "terminal": "closed_unmerged",
+               "disposition": "superseded by #2"}]}, True)["state"], PASS)
+    check("an unreadable record is `unknown` for settled, never a pass",
+          check_settled_prs(None, False)["state"], UNKNOWN)
+
+    stale = {"open_prs": [{"pr": 1, "operator_decision": {
+        "verdict": "approved", "text": "t"}}], "last_reconciled_sha": "old"}
+    check("a stale row + a LAGGING reconciler sha FAILS as `reconciler_not_run`, "
+          "not as `stale_row` — same verdict, different remedy",
+          check_open_prs_recorded(stale, True, [], head_sha="new")["verdict"],
+          "reconciler_not_run")
+    check("...and it is still a FAIL, never a soft pass",
+          check_open_prs_recorded(stale, True, [], head_sha="new")["state"], FAIL)
+    check("a stale row while the reconciler HAS run is a session's own miss",
+          check_open_prs_recorded(stale, True, [], head_sha="old")["verdict"],
+          "stale_row")
+
+    auto = {"open_prs": [{"pr": 1, "operator_decision": {
+        "verdict": "approved", "text": "t"}}]}
+    check("an excused `automation/` landing PR does not FAIL the handoff (the "
+          "typed exclusion, threaded through; the author is not read)",
+          check_open_prs_recorded(auto, True, [1, 10398],
+                                  automation_excluded=[10398])["state"], PASS)
+    check("...and a Claude-opened `claude/**` PR with no row still FAILS, so "
+          "the exclusion cannot be mistaken for `skip bots`",
+          check_open_prs_recorded(auto, True, [1, 10783],
+                                  automation_excluded=[])["state"], FAIL)
+
     print("handoff-check self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
@@ -376,6 +464,11 @@ def main(argv=None) -> int:
                          "is 403 at the sandbox proxy) — it must come from an "
                          "interactive session or a workflow.")
     ap.add_argument("--base", default="origin/main")
+    ap.add_argument("--head-sha", default=None,
+                    help="the current `main` sha. Supplying it separates a stale "
+                         "row a SESSION left behind from one the RECONCILER never "
+                         "moved. Without it that half is not checked and the "
+                         "message says so rather than picking a cause.")
     ap.add_argument("--enforce-states", default=None,
                     help="CSV of checklist states to enforce (default: in_flight)")
     ap.add_argument("--json", action="store_true")
@@ -384,9 +477,16 @@ def main(argv=None) -> int:
         return _self_test()
 
     states = tuple(a.enforce_states.split(",")) if a.enforce_states else sr.DEFAULT_ENFORCED_STATES
+    # Read the observation ONCE: the completeness comparison needs the PR
+    # numbers, and the typed automation exclusion needs the author and head-ref
+    # fields off the SAME payload. Parsing it twice would let the two disagree.
+    _obs_raw = opr._load(a.open_prs) if a.open_prs else None
     res = run(sr._load_observation(a.live_sessions), a.session_id, a.base, states,
-              open_prs=opr.normalise_open_prs(opr._load(a.open_prs)) if a.open_prs
-              else None)
+              open_prs=opr.normalise_open_prs(_obs_raw) if a.open_prs else None,
+              automation_excluded=opr.automation_landing_prs(_obs_raw)
+              if a.open_prs else None,
+              head_sha=a.head_sha or (_git(["rev-parse", a.base]) or "").strip()
+              or None)
     for c in res["checks"]:
         icon = {PASS: "PASS", FAIL: "FAIL", UNKNOWN: "????"}[c["state"]]
         print(f"handoff-check: [{icon}] {c['check']}: {c['message']}")
