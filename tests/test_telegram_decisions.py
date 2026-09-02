@@ -918,3 +918,24 @@ def test_the_summary_says_it_does_not_change_what_the_sweep_will_ask(monkeypatch
     _stub_inbox(monkeypatch, _pull_inbox(_pending(1)))
     assert "does not change what the periodic sweep will ask" in " ".join(
         td.build_on_demand_decisions(tree=_tree())[0][0].split())
+
+
+def test_a_failing_tree_read_degrades_the_caveat_not_the_reply(monkeypatch):
+    """A git failure must not cost the operator the whole decisions reply.
+
+    And it must degrade to a STATED `unknown`, not to a missing stamp: an
+    absent caveat reads as a tree nobody had to qualify.
+    """
+    import src.runtime.manager_status as ms
+
+    def boom(*a, **k):
+        raise RuntimeError("git is on fire")
+
+    monkeypatch.setattr(ms, "read_tree_provenance", boom)
+    _stub_inbox(monkeypatch, _pull_inbox(_pending(2)))
+
+    out = td.build_on_demand_decisions()
+    assert len(out) == 3, "the questions still arrive"
+    summary = out[0][0]
+    assert "COULD NOT BE ESTABLISHED" in summary
+    assert "WAITING ON YOU: 2" in summary

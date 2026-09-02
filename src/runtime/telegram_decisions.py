@@ -1176,8 +1176,25 @@ def build_on_demand_decisions(
         send, withheld = pending[:MAX_ON_DEMAND_PROMPTS], pending[MAX_ON_DEMAND_PROMPTS:]
 
         if tree is None:
-            from src.runtime.manager_status import read_tree_provenance
-            tree = read_tree_provenance()
+            # Its OWN try/except, deliberately. The provenance stamp is a
+            # CAVEAT on the answer, so a git failure must degrade the caveat --
+            # never cost the operator the whole decisions reply. And it
+            # degrades to a stated `unknown` rather than to no stamp at all: a
+            # missing caveat reads as a tree nobody had to qualify, which is
+            # the reassuring value this module refuses to fabricate.
+            from src.runtime.manager_status import (
+                TREE_UNKNOWN, TreeProvenance, read_tree_provenance,
+            )
+
+            try:
+                tree = read_tree_provenance()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "telegram_decisions: tree provenance failed: %s", exc)
+                tree = TreeProvenance(
+                    state=TREE_UNKNOWN,
+                    note=f"provenance read raised: {exc}"[:160],
+                )
 
         out: list[tuple[str, Optional[dict[str, Any]]]] = [(
             render_decisions_summary(
