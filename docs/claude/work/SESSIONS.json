@@ -24,8 +24,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T19:01:33Z",
-  "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+  "updated_at": "2026-09-02T20:56:00Z",
+  "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ (manager wrap)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -1044,7 +1044,7 @@
     {
       "session_id": "session_01RQiedALVJzWCGdBqY6aNV7",
       "registry_key": "pending-20260902T115140Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-63 — write TRUE blocked_on edges, and create the DECISION/QUESTION objects the store has none of",
       "checklist_item": "MI-05-PHASE-D",
       "spawned_at": "2026-09-02T11:51:40Z",
@@ -1053,12 +1053,14 @@
         "claude/mi63-true-blocked-on-edges"
       ],
       "why": "Phase D's readout refuses (assessed coverage 2/584 = 0.34% against a 50% floor) and Phase G's E2 pull rule is stuck in advisory because named_stage is null. Two phases held by one thing. The store also holds ZERO DECISION, QUESTION, DEPLOYMENT and OBSERVATION objects, so it cannot locate the constraint the design named.",
-      "confirmed_at": "2026-09-02T11:52:57Z"
+      "confirmed_at": "2026-09-02T11:52:57Z",
+      "last_observed_at": "2026-09-02T12:30:18Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     },
     {
       "session_id": "session_013ANr63vsQ9TjU4sh51vxny",
       "registry_key": "pending-20260902T132159Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-68 — the manager preflight: enforce the agreed workflow structure as executable refusals",
       "checklist_item": "MI-68",
       "spawned_at": "2026-09-02T13:21:59Z",
@@ -1067,12 +1069,14 @@
         "claude/mi68-manager-preflight"
       ],
       "why": "Documentation-as-control failed measurably on 2026-09-02: the CI trap is in CLAUDE.md verbatim and was hit 3x, F6 was filed as MI-54 in the morning and reproduced for 8 hours, and SESSIONS.json needs_action is step 3 of every sweep prompt and was skipped every pass. Every control that DID hold was an executable refusal, not a document.",
-      "confirmed_at": "2026-09-02T13:23:03Z"
+      "confirmed_at": "2026-09-02T13:23:03Z",
+      "last_observed_at": "2026-09-02T15:03:02Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     },
     {
       "session_id": "session_019vcX5ZTD8C7wNAEtfPUdFQ",
       "registry_key": "pending-20260902T133456Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-66 — Enact the operating-layer inventory: wire the role packs, repair the 4 named workflows",
       "checklist_item": "MI-66",
       "spawned_at": "2026-09-02T13:34:56Z",
@@ -1080,12 +1084,14 @@
       "branches": [
         "claude/mi66-enact-inventory"
       ],
-      "why": "The 730-line inventory delivered the map and enacted NOTHING. Zero of 32 role packs reference the operating layer, and 4 workflows are evidenced-red including replay-pregate-nightly at 5 of 5 nights."
+      "why": "The 730-line inventory delivered the map and enacted NOTHING. Zero of 32 role packs reference the operating layer, and 4 workflows are evidenced-red including replay-pregate-nightly at 5 of 5 nights.",
+      "last_observed_at": "2026-09-02T15:42:30Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     },
     {
       "session_id": "session_01NkekPZw73VYuynYhSdWLWm",
       "registry_key": "pending-20260902T133456Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-70 — Phase E: prove no work is lost by KILLING a session mid-work",
       "checklist_item": "MI-70",
       "spawned_at": "2026-09-02T13:34:56Z",
@@ -1093,12 +1099,14 @@
       "branches": [
         "claude/mi70-kill-test"
       ],
-      "why": "Phase E exit condition is 'killing a session mid-work loses nothing, DEMONSTRATED by killing one'. Nobody has killed one. This is handoff-bar observation 5 and it is unowned."
+      "why": "Phase E exit condition is 'killing a session mid-work loses nothing, DEMONSTRATED by killing one'. Nobody has killed one. This is handoff-bar observation 5 and it is unowned.",
+      "last_observed_at": "2026-09-02T15:31:40Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     },
     {
       "session_id": "session_01XrwTGRY819PCzBnppCTLbi",
       "registry_key": "pending-20260902T133456Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-69 — A rebase arms auto-merge without anyone asking",
       "checklist_item": "MI-69",
       "spawned_at": "2026-09-02T13:34:56Z",
@@ -1106,7 +1114,9 @@
       "branches": [
         "claude/mi69-automerge-misfire"
       ],
-      "why": "Observed LIVE at 13:19Z: merging main into three sub-session branches armed auto-merge on all three PRs, because the legacy shared marker is still in the workflow paths filter."
+      "why": "Observed LIVE at 13:19Z: merging main into three sub-session branches armed auto-merge on all three PRs, because the legacy shared marker is still in the workflow paths filter.",
+      "last_observed_at": "2026-09-02T14:22:32Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     },
     {
       "session_id": "session_01ThkrPrGUvmomoY8uGEa148",
@@ -1117,7 +1127,9 @@
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "queue_latency.py (merged in #10808) reports `unknown` PERMANENTLY: its verdict needs a live `list_sessions` read and CI holds no mcp__* tools. Honest, and not yet the guard the operator asked for. MI-73 tests whether an MCP-free proxy visible to Actions (green-unmerged PR ageing, START with no DONE, needs_action unanswered) can see the same failure — four sub-sessions IDLE and BLOCKED on the manager for up to 142 min.",
       "note": "Spawn gate consulted BEFORE spawning and PERMITTED (exit 0). Both gate controls verified independently by the manager: refuse=exit 3, permit=exit 0.",
-      "state": "working"
+      "state": "idle",
+      "last_observed_at": "2026-09-02T16:09:50Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     },
     {
       "session_id": "session_017CSW7fZsqsbgGSDN6Atijj",
@@ -1128,7 +1140,9 @@
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "The operator set the daily cadence and decided BOTH hops are manual (manager spawns the night session; operator starts the morning one). That closed the wake question and left exactly one gap: they say they will GET the daily brief -- they are the TRIGGER, not the author, and NOTHING produces one. Their stated reason is the acceptance criterion: it must carry what was done overnight 'so that I know where I'm starting off from'.",
       "note": "Spawn gate consulted BEFORE spawning and PERMITTED (exit 0). Prompt names the existing renderers to read first, because RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED recurred TODAY (MI-70 hand-rolled a push to protected main that .github/actions/commit-to-main already absorbed).",
-      "state": "working"
+      "state": "idle",
+      "last_observed_at": "2026-09-02T17:33:39Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     },
     {
       "session_id": "session_015r4U4QhowTzXAmr5KQ6f8L",
@@ -1139,7 +1153,9 @@
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "MEASURED 2026-09-02 on origin/main, 12h window: 52 commits touched a register file. Six PRs sat armed with auto-merge for 15 minutes doing nothing because four were mergeable_state dirty -- auto-merge does not resolve conflicts. The manager re-resolved the same registers across seven PRs, several twice, because merging any one re-dirtied the rest. docs/claude/work/objects/ holds 584 rows as one-file-per-object and has produced ZERO of these conflicts.",
       "note": "Spawn gate PERMITTED (exit 0). Deliberately NOT told to shard: a .gitattributes merge driver may win and saying so is a fine outcome. Prompt carries the manager's own resolver defect -- it reported 'no id lost' while silently dropping an edit both sides had added -- so any merge driver must REFUSE divergent same-id edits rather than pick a winner. ⚠️ Registered on the SECOND attempt: the first was written onto a branch that predated MI-75's row, which would have dropped it -- the exact hazard this item exists to end.",
-      "state": "working"
+      "state": "idle",
+      "last_observed_at": "2026-09-02T16:43:04Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     },
     {
       "session_id": "session_01PbQAQXRY2oB1ep2BFEUZeA",
@@ -1150,7 +1166,9 @@
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "MI-73 was given this task, worked ~$10, and LOST ALL OF IT: 'blocked on permission classifier; auto-mode denied add_repo x2 and git push x3'. It never pushed a branch, so nothing survives. Respawned WITH an explicit source_url (which MI-73 lacked) and with a standing instruction to push within its first minutes, before it has anything good.",
       "note": "Spawn gate PERMITTED (exit 0). Created with explicit source_url and sources confirmed present at creation, unlike MI-73.",
-      "state": "working"
+      "state": "idle",
+      "last_observed_at": "2026-09-02T20:40:28Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     },
     {
       "session_id": "session_01Ue52itfxGxsbZrJJtswtCg",
@@ -1160,51 +1178,79 @@
       "spawned_at": "2026-09-02T18:17:03Z",
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "#10764 and #10810 are both non-draft and both red on pytest-run since 16:43Z. Their sub-sessions are gone. Manager verified main is CLEAN on the failing coherence check, so neither is a base-branch failure.",
-      "state": "working"
+      "state": "idle",
+      "last_observed_at": "2026-09-02T18:58:59Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     },
     {
       "session_id": "session_017BMpMRDpnR8U7aodUBSPCg",
       "registry_key": "pending-20260902T182551Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-79 — drain the stalled draft queue: 5 of 5 branches conflict against a freshly fetched main",
       "owns_object": "WO-20260902-THE-PR-QUEUE-CANNOT-DRAIN-EVERY-MERGE",
       "spawned_at": "2026-09-02T18:25:51Z",
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "5 open drafts from finished sessions, all conflicting, oldest quiescent 20h. Contention is concentrated in two shared scripts, not diffuse. Main merged 3x in 40 minutes, so each is strictly harder to land tomorrow.",
-      "confirmed_at": "2026-09-02T18:26:37Z"
+      "confirmed_at": "2026-09-02T18:26:37Z",
+      "checklist_item": "MI-79",
+      "last_observed_at": "2026-09-02T19:26:11Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     },
     {
       "session_id": "session_01R4tWq3YJZnDUY3EhAYZ9En",
       "registry_key": "pending-20260902T183448Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-80 — the operator's ping cadence rides GitHub cron and GitHub cron does not fire",
       "owns_object": "WO-20260902-THE-OPERATOR-S-PING-CADENCE-RIDES-GITHUB",
       "spawned_at": "2026-09-02T18:34:48Z",
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "Operator asked directly at 18:33Z. work-digest.yml has 3 runs in its entire history against 6x/day then hourly; two hourly slots missed since the change went live at 16:22Z; one of the three runs FAILED and nobody learned. Claude Routines on the same account fire within a minute.",
-      "confirmed_at": "2026-09-02T18:35:31Z"
+      "confirmed_at": "2026-09-02T18:35:31Z",
+      "checklist_item": "MI-80",
+      "last_observed_at": "2026-09-02T20:40:58Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     },
     {
       "session_id": "session_017TRSSpkQ2NZHHxCp8MNXbg",
       "registry_key": "pending-20260902T183916Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-81 — the overdue trainer row: observe it, and build the freshness alarm if one can be built",
       "owns_object": "WO-20260902-A-DUE-MONITORING-ROW-ON-AN-UNMONITORED",
       "spawned_at": "2026-09-02T18:39:16Z",
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "4 days past a 3-day cadence on an operator-DECIDED dependency: a forward-only L2 capture nothing can re-derive, disk at 92%, nothing watching. Loud, rendered in the brief, still unobserved.",
-      "confirmed_at": "2026-09-02T18:40:17Z"
+      "confirmed_at": "2026-09-02T18:40:17Z",
+      "checklist_item": "MI-81",
+      "last_observed_at": "2026-09-02T20:45:47Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     },
     {
       "session_id": "session_01R9EwEtP2JPYqxUH1tjSa5Q",
       "registry_key": "pending-20260902T190034Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-82 — measure the unauthorised-merge population, and assess the blast radius of each",
       "owns_object": "WO-20260902-PRS-WHOSE-OWN-BODIES-SAY-DO-NOT",
       "spawned_at": "2026-09-02T19:00:34Z",
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "Two confirmed by direct read (#10788, #10793), both merged by github-actions[bot], both declaring themselves not-for-merge. Both found by accident. #10810's fix stops NEW mis-arming and says in its own text it cannot retract arming already enabled.",
-      "confirmed_at": "2026-09-02T19:01:33Z"
+      "confirmed_at": "2026-09-02T19:01:33Z",
+      "checklist_item": "MI-82",
+      "last_observed_at": "2026-09-02T19:42:22Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
+    },
+    {
+      "session_id": "session_018ruZdgEkPZ1XceWzLwuYUU",
+      "registry_key": "pending-20260902T203841Z",
+      "state": "running",
+      "title": "MI-83 — per-merge pings, and a clock that survives the session",
+      "owns_object": "WO-20260902-THE-OPERATOR-GETS-NO-PER-MERGE-PING",
+      "spawned_at": "2026-09-02T20:38:41Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "why": "Operator directive, twice. PING_WORTHY watches work-object lifecycle transitions, not merges. And the hourly clock has no durable carrier: GitHub cron does not honour schedules, and a Claude Routine is REFUSED because it dies with the session.",
+      "confirmed_at": "2026-09-02T20:39:21Z",
+      "checklist_item": "MI-83",
+      "last_observed_at": "2026-09-02T20:51:54Z",
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."

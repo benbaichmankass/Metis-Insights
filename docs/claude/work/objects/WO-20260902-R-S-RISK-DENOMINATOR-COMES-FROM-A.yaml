@@ -1,0 +1,74 @@
+id: WO-20260902-R-S-RISK-DENOMINATOR-COMES-FROM-A
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  R's risk denominator comes from a trailed stop; the fix needs an operator call on the fallback
+stage: DECISION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The operator has chosen the fallback behaviour for _clean_trades.r_multiple, the choice is recorded, and the Tier-3 sequence is either scheduled or declined as a whole.
+
+why: >-
+  #10748 shipped the Tier-1 detector and measured the damage: over n=1346 closed non-backtest rows, 118 are PROVEN contaminated, 156 confirmed_initial, 1051 unverified (78.1%), worst single row R = +3672.32. The Tier-3 fix is a 5-step sequence the PR spells out and deliberately did NOT make. Its step 4 contains a choice the PR explicitly refuses to take a position on, and it is the operator's.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
+
+decision_requests:
+- id: DEC-20260902-R-METRIC-FALLBACK
+  question: >-
+    When the R-metric fix lands, what should r_multiple do for a row with no trustworthy
+    initial-stop basis: keep using the trailed stop_loss, or return None?
+  urgency: routine
+  asked_on: 2026-09-02
+  asked_by: session_011JWFxuYAaEQKCFCmG6gnHJ
+  context: >-
+    #10748 shipped the DETECTOR only and changed no existing number — totalR, expectancyR,
+    rTradeCount and rCoverage are byte-identical, asserted by test. The Tier-3 fix is a 5-step
+    sequence in its §5 and was deliberately NOT made; step 4 is this choice and the PR takes no
+    position.
+    MEASURED, n=1346 closed non-backtest rows: 118 contaminated, 156 confirmed_initial, 1051
+    unverified (78.1%), 21 no_basis; worst row R = +3672.32. ~51% of history (682 rows) is
+    BACKFILLABLE from order_packages.meta.risk_per_unit, so the fix is not forward-only; the other
+    ~49% — including all 318 vwap real-money rows and all 283 pairs rows — has no independent record
+    and is permanently ungradeable.
+    ⚠️ CONTEXT THAT TRAVELS WITH EVERY R FIGURE: fleet pnlCoverage is 0.126, so 87% of this fleet's
+    PnL is not a measurement and no R conclusion is firmer than that.
+    ⚠️ AND THE SEVERITY IS LOWER THAN IT WAS BRIEFED: #10748 checked both automated gates and NEITHER
+    reads R — the M7 packet keys on dollars/win-rate/n, the R4 gate on coverage. This reaches
+    decisions through human and Claude REVIEW verdicts, not automated promotion.
+  options:
+  - key: keep_stop_loss_fallback
+    label: Keep falling back to stop_loss, with the row flagged unverified
+    implication: >-
+      R stays computable for 100% of rows and rCoverage does not move, but ~78% of it is flagged
+      unverifiable. Every consumer keeps working; the honesty lives in the flag, which only helps a
+      reader who looks at the flag.
+  - key: return_none
+    label: Return None when there is no trustworthy basis
+    implication: >-
+      R becomes honest but thin — rCoverage drops toward the confirmed-plus-backfilled fraction, and
+      review sessions lose R for most rows rather than reading a contaminated one. Surfaces that
+      assume R is always present will need to render a gap.
+  - key: decline_the_tier3_fix
+    label: Do not do the Tier-3 fix at all; keep only the detector
+    implication: >-
+      The contamination stays and is now visible. Legitimate if R is not load-bearing enough to
+      justify a money-DB migration and a backfill — and the finding that no automated gate reads R is
+      the argument for it. Must be RECORDED as a decision rather than drifted into.
+  allows_free_text: true
