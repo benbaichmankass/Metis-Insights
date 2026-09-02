@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T06:23:01Z",
+  "updated_at": "2026-09-02T06:24:47Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -507,7 +507,8 @@
         "2. The operator RECEIVES a takeover ping that RENDERS -- carrying a link to the successor. ⚠️ A ping that arrives as a bare event label is a FAILURE of this criterion, not a partial pass: that is the exact defect #10747 exists to fix, and `message` is not a recognised renderer key.",
         "3. The successor demonstrates it can READ the handoff state it inherited -- naming the live sub-sessions from SESSIONS.json and the open PRs with their CONDITIONS from OPEN-PRS.json. ⚠️ Inheriting the files is not the test; USING them is. A successor that claims the lease and cannot say what #10746's staging condition is has failed, because that is the case where a half-informed manager is more dangerous than an ignorant one.",
         "4. Only after 1-3 are OBSERVED does the outgoing manager stand down. If any fails, it RE-CLAIMS and reports the failed handoff rather than leaving the system unmanaged."
-      ]
+      ],
+      "criterion_2_PROVEN": "VERIFIED 2026-09-02T06:24Z, ahead of the test rather than during it. Ran the REAL renderer (scripts/notify_on_pull.py::_render_event_body, on main) over two candidate takeover payloads:\n  • title+summary+chat_url -> 3 lines, link PRESENT:\n      'manager_takeover — Manager handover complete\\n<summary>\\nhttps://claude.ai/code/session_XXXX'\n  • the same information under `message` -> 1 line, link ABSENT: 'manager_takeover'\nCONCLUSION: the takeover ping WORKS TODAY on unfixed main and is NOT blocked on #10747 -- PROVIDED it is built with the recognised keys. Built with `message` it announces nothing, which would look like a successful silent handoff. This is a HARD REQUIREMENT for the successor's spawn prompt.\n⚠️ METHOD NOTE, because the first attempt nearly produced a false finding: I initially guarded the call on a function name that does not exist, so BOTH arms returned None and read as 'the ping path is broken'. That is the `curl || echo '{}'` shape this repo files against its own diagnostics -- a probe that cannot find a positive reporting a confident negative. Caught only because both arms failing identically is implausible. A negative needs a positive control."
     }
   ]
 }
