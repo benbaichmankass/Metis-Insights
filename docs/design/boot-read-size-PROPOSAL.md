@@ -33,7 +33,7 @@ root cause. One day later it is ~427k: `CLAUDE.md` grew ~13% and
 the largest file in the set — 648,407 B against `CLAUDE.md`'s 430,453 B, over
 the five-file population in the table above — and no slice of `CLAUDE.md` alone
 can fix the boot read. Slice 1 — the largest clean cut available inside `CLAUDE.md` —
-removes **34.9% of that file and 9.7% of the boot read**. Anyone reporting this
+removes **34.2% of that file and 8.7% of the boot read**. Anyone reporting this
 work as "the boot-read problem is solved" would be quoting the wrong
 denominator.
 
@@ -74,11 +74,26 @@ table.
 
 | | bytes |
 |---|--:|
-| `CLAUDE.md` before | 430,453 |
-| moved verbatim | 154,074 |
+| `CLAUDE.md` before (`d8aac5c6`) | 430,453 |
+| moved verbatim | 156,448 |
 | pointer + index added back | 4,062 |
-| **`CLAUDE.md` after** | **280,607** (**−34.9%**) |
-| boot-read total after | 1,389,008 (**−9.7%**) |
+| **`CLAUDE.md` after** | **283,388** (**−34.2%**) |
+| boot-read total after | 1,404,955 (**−8.7%**) |
+
+⚠️ **RE-MEASURED 2026-09-02 after merging `main`, and BOTH figures moved — do
+not quote the earlier −34.9% / −9.7% pair.** Two independent causes, and the
+second is the more interesting:
+
+1. **`main` edited one moved row.** The `GET /api/bot/strategy-reviews` row
+   gained an `evidence.horizon` block (+2,374 B) while this branch was open.
+   That edit was **carried into the reference file verbatim** rather than
+   dropped, so "moved verbatim" rose 154,074 → 156,448.
+2. **`OPEN-ITEMS.json` grew 191,955 → 205,121 B (+13,166) in the same few
+   hours** — five new rows, four of them `main`'s. So the boot-read reduction
+   fell from 9.7% to 8.7% **without this PR changing at all**. The register
+   grew faster than the split shrank `CLAUDE.md`. That is not an argument
+   against the split; it is the strongest available evidence for §1's claim
+   that a `CLAUDE.md`-only path cannot fix the boot read.
 
 **What a session loses, and how it gets it back.** It loses the per-endpoint
 payload contract at boot. It gets it back from a five-row index left in
@@ -253,7 +268,7 @@ removal.
 
 | after | `CLAUDE.md` | boot-read total | vs. today |
 |---|--:|--:|--:|
-| slice 1 (done) | 280,607 | 1,389,008 | −9.7% |
+| slice 1 (done) | 283,388 | 1,404,955 | −8.7% |
 | + slice 2 | ~149,000 | ~1,257,000 | −18.3% |
 | + slice 3 | ~149,000 | ~1,078,000 | −29.9% |
 | + slice 5 | ~131,000 | ~1,060,000 | −31.1% |
