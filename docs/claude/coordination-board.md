@@ -219,6 +219,32 @@ The two siblings, for the same 403: `automation/pr-requests/<name>.json` →
 no-op), and `.github/pr-automerge-requests/<branch>.txt` →
 `claude-pr-automerge.yml` enables auto-merge.
 
+### ⚠️ EVERY RELAY POST ON A BRANCH WITH AN OPEN PR BURIES THAT PR'S CI
+
+**All three relays commit a result file back to your branch, authored by
+`github-actions[bot]` — and GitHub does not trigger workflows for
+`GITHUB_TOKEN` pushes.** So whenever that results commit lands last, your PR
+sits at **`mergeable_state: blocked` with `total_count: 0` check runs**: no
+checks fired at all.
+
+⚠️ **The more diligently you use the board, the more often this happens**, and
+`board-post.yml`'s own header does not mention it — `CLAUDE.md` documents the
+trap for `pr-opener` only. Measured on PR #10794 (MI-61, 2026-09-02): it fired
+**twice in one session**, once from the `pr-opener` results commit at PR
+creation, and again from the `board-post` results commit for the ✅ DONE post.
+
+**The fix is one ordinary commit from a real author**, which re-arms CI on the
+new head. Prefer a commit you owed anyway over an empty one.
+
+⚠️ **AND SEQUENCE IT: post your DONE to the board BEFORE the last commit you
+intend to push, or expect to push once more afterwards.** A DONE post is
+normally the last thing a session does, which is exactly when this bites.
+
+⚠️ **`blocked` and `dirty` BOTH render as `total_count: 0`, and only the second
+is a merge conflict.** Read `mergeable_state` before concluding anything:
+`blocked` here means *no checks fired* (this trap), `dirty` means GitHub could
+not build the merge ref and the fix is the merge, not another commit.
+
 ⚠️ **This paragraph exists because the relay was undiscoverable from the
 documents a session actually reads.** `board-post.yml` shipped 2026-08-20
 specifically so a 403-scoped session could comply with a binding rule — and the
