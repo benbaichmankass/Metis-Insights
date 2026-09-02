@@ -1,0 +1,46 @@
+#10758 — alarm: a close wedge PROVEN unclearable goes to the digest, not the pager (MI-34)
+
+Reviewed by the manager against the operator's own recorded decision, not
+against the PR's description of it.
+
+THE DECISION IS REAL AND I CHECKED IT. The PR asserts an operator decision; my
+OPEN-PRS row had typed it `none_recorded`. MANAGER-CHECKLIST MI-34 carries the
+2026-09-02 decision in full — "DOWNGRADE TO THE DAILY DIGEST" — with the
+condition that the downgrade key on CONFIRMED-UNCLEARABLE, never on a failure
+merely repeating, and page again on any state change. My row was the wrong one;
+it is corrected in #10770.
+
+ALL THREE OPERATOR CONDITIONS ARE MET:
+  * keys on share_hold == broker_cancel_wedged, an evidenced determination read
+    from the broker — and an AST test asserts NO retry count exists anywhere in
+    the module, so the module's own prose cannot satisfy it
+  * pages again on any state change: 4 of 5 transitions PAGE (newly_wedged,
+    evidence_changed, cleared_confirmed, vanished_unattributed). LOUD_TRANSITIONS
+    is the COMPLEMENT of the quiet state, so a transition added later is loud by
+    default
+  * scope: alarm ROUTING only. It does not touch a close path, the classifier or
+    the order path, and explicitly does not approve #10679
+
+SILENCE IS NOT REACHABLE, which was the operator's stated risk. still_standing is
+FLOORED at one page per 24h, not silenced — ~24/day to 1, not to 0 — and the floor
+does not depend on the digest working at all. Suppression is conditional on the
+carry: a failed or unreadable ledger write pages.
+
+It also caught a defect its own unit tests passed over: sweep_vanished persisted
+its clock only when it retired something, making vanished_unattributed
+unreachable in production.
+
+MANAGER-RESOLVED MERGE CONFLICT — scripts/ops/work_digest.py, two INDEPENDENT
+additions at the same points (this branch's wedge block vs the register-Source
+block from #10747's digest work). Union, because keeping either side wholesale
+would have silently reverted the other. Both self-test blocks collided on check
+numbers; this branch's are renumbered 13-17. Verified: 0 markers, ast.parse OK,
+every symbol from both sides present, self-test 17/17 PASS, no duplicate ids,
+NO test semantics changed. Merge commit, not a rebase, so the author's checkout
+stays valid.
+
+Its earlier green was on the pre-merge head 96dcfc5d and does NOT cover this;
+required checks gate the merge on the current head.
+
+Routed through this relay because the manager's GitHub write bucket is
+exhausted. Nothing is bypassed.

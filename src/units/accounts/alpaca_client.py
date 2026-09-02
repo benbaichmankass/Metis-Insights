@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time
 from datetime import date
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
@@ -71,6 +72,56 @@ SHARE_HOLD_STATES = (
     "broker_cancel_wedged",    # >=1 order stuck pending_cancel/replace — NO app-level retry can clear it
     "orders_still_resting",    # ordinary cancellable orders rest — a retry may well work
 )
+
+
+#: The reading when NO marker is present in a close-failure message at all.
+#: Deliberately NOT one of ``SHARE_HOLD_STATES``: those four are things
+#: ``classify_share_hold`` *observed*, and this one means **nobody classified
+#: this failure** — a non-Alpaca venue, an Alpaca path that never reached the
+#: give-up branch, or a message that predates the marker. It is *"we did not
+#: look"*, and it must never be routed as though we had. Every consumer treats
+#: it as the most alarming reading, not the most reassuring one.
+SHARE_HOLD_NOT_CLASSIFIED = "not_classified"
+
+#: The marker ``classify_share_hold``'s callers embed in the close-failure
+#: ``retMsg``, and the ONLY thing that parses it, in one module — so producer
+#: and consumer cannot drift. Both close paths APPEND this (never substitute),
+#: so the broker's own text survives ahead of it.
+_SHARE_HOLD_MARKER_RE = re.compile(r"\[share_hold=([a-z_]+):")
+
+
+def format_share_hold_marker(state: str, detail: str) -> str:
+    """Render the ``[share_hold=<state>: <detail>]`` marker. The ONE formatter.
+
+    Paired with :func:`parse_share_hold` in this module deliberately: the marker
+    is a real inter-process contract — it is how the classified state reaches
+    ``order_monitor`` and, through it, the operator-alert router — and a format
+    written in two places and read in a third is how that contract silently
+    stops matching. Nothing outside this module builds the string.
+    """
+    return f"[share_hold={state}: {detail}]"
+
+
+def parse_share_hold(text: object) -> str:
+    """Recover the share-hold state from a close-failure message.
+
+    Returns one of :data:`SHARE_HOLD_STATES`, or
+    :data:`SHARE_HOLD_NOT_CLASSIFIED` when no marker is present **or** the
+    marker names a state this module does not declare.
+
+    ⚠️ **An unrecognised state token reads as "we did not look", never as one of
+    the four.** If a future writer emits a state this build has never heard of,
+    the safe reading is that this build cannot classify the failure — not that
+    it may be treated as any particular one of the four. The dangerous direction
+    is the reassuring one, so the fallback is the alarming one.
+
+    Pure and total: any input, no exceptions.
+    """
+    m = _SHARE_HOLD_MARKER_RE.search(str(text or ""))
+    if m is None:
+        return SHARE_HOLD_NOT_CLASSIFIED
+    state = m.group(1)
+    return state if state in SHARE_HOLD_STATES else SHARE_HOLD_NOT_CLASSIFIED
 
 
 def classify_share_hold(residual: Optional[list]) -> Tuple[str, str]:
@@ -777,7 +828,10 @@ class AlpacaClient:
                         "residual open orders=%s",
                         sym, place_s, qty, hold_state, hold_detail, residual,
                     )
-                suffix = f" [share_hold={hold_state}: {hold_detail}]" if held else ""
+                suffix = (
+                    " " + format_share_hold_marker(hold_state, hold_detail)
+                    if held else ""
+                )
                 return {"retCode": 1, "retMsg": (
                     f"extended-hours limit close rejected: "
                     f"{env.get('retMsg')}{suffix}")}
@@ -983,7 +1037,7 @@ class AlpacaClient:
                         "retCode": env.get("retCode", 1),
                         "retMsg": (
                             f"{env.get('retMsg')} "
-                            f"[share_hold={hold_state}: {hold_detail}]"
+                            f"{format_share_hold_marker(hold_state, hold_detail)}"
                         ),
                     }
                 return env

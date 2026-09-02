@@ -312,6 +312,7 @@ _PACKAGE_LEG_COVERAGE_STATE = (
 _EXIT_INTERVAL_SOAK_LOG = runtime_logs_dir() / "exit_interval_soak.jsonl"
 _CASH_SETTLEMENT_SOAK_LOG = runtime_logs_dir() / "cash_settlement_soak.jsonl"
 _WORK_DECISION_TRANSIT_LOG = runtime_logs_dir() / "work_decision_transit.jsonl"
+_WORK_DECISION_PROMPTED_STATE = runtime_logs_dir() / "work_decision_prompted.json"
 _PROP_TICKET_RISK_SOAK_LOG = (
     runtime_logs_dir() / "prop_ticket_risk_soak.jsonl"
 )
@@ -503,6 +504,23 @@ _LOG_FILES: dict[str, Path] = {
     # never become truth -- the exit_loop_health #8778 shape, which this file
     # already records three recurrences of.
     "work_decision_transit": _WORK_DECISION_TRANSIT_LOG,
+    # The ASK half's idempotency marker (2026-09-02): which decision requests
+    # the Telegram prompt sweep has already put in front of the operator.
+    # Allowlisted in the SAME commit that ships the writer. The fourth
+    # recurrence of
+    # BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE
+    # is not one this change is going to add.
+    #
+    # ⚠️ READ IT BESIDE THE INBOX, NEVER ALONE, and read the two SILENCES
+    # apart. A request absent from `prompted` means the sweep has not asked --
+    # which is either "it has not run" or "it HELD", and those are opposite
+    # facts. The sweep holds deliberately when the API's write gate is closed
+    # (a tappable prompt whose taps would 503 is the "reads as dealt with while
+    # nothing landed" failure) or when no POLLED bot can carry the buttons; both
+    # log a WARNING naming the reason, so journalctl is where a hold is
+    # distinguished from an outage. An ABSENT file means the sweep has never
+    # prompted anything on this VM -- never that nothing is waiting.
+    "work_decision_prompted": _WORK_DECISION_PROMPTED_STATE,
     # The alert LATCH for the above, distinct from the state it grades. A
     # breach alerts once per PROCESS (max_interval_ms resets on restart, so a
     # global latch would go silent after the first breach ever) -- which is
@@ -597,6 +615,29 @@ _LOG_FILES: dict[str, Path] = {
     # backoff (here: the exponential one shipped in #10666) is actually working
     # -- which is precisely the desensitised-alarm question CLAUDE.md calls a P1.
     "operator_alerts": runtime_logs_dir() / "operator_alerts.jsonl",
+    # STANDING CLOSE WEDGES -- the set of close failures established as
+    # unclearable by any bot-side lever, which are DOWNGRADED out of the paging
+    # channel and carried in the rolled-up digest instead (operator decision
+    # 2026-09-02, MI-34). A single small JSON OBJECT, not JSONL: it is the set of
+    # conditions standing RIGHT NOW, and a tail of appends cannot answer that
+    # without replaying it (the `exit_loop_health` shape).
+    #
+    # [!] ALLOWLISTED IN THE SAME COMMIT AS ITS WRITER, and that is load-bearing
+    # rather than tidy. This file is how the wedge reaches the operator once the
+    # pager has been told to stand down, and `.github/workflows/work-digest.yml`
+    # fetches THIS ROUTE to render it -- the digest runs on a GitHub runner from
+    # a fresh checkout, and `runtime_logs/` is .gitignore'd and lives on the
+    # trader VM, so without this entry the downgraded item would be readable from
+    # nowhere at all. That is the exact
+    # BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE shape
+    # (the `exit_loop_health` #8778 recurrence), and here it would not merely
+    # hide a state -- it would convert an operator-approved downgrade into
+    # silence.
+    #
+    # [!] READ `readState` BEFORE `wedges`. An ABSENT file on the trader means no
+    # wedge has ever been recorded; an absent file anywhere else means it was
+    # never fetched. Those are opposite claims and only one of them is good news.
+    "close_wedge_standing": runtime_logs_dir() / "close_wedge_standing.json",
     # PROP CADENCE STATE. The prop bridge is manual, so these three files are
     # the only evidence that the bot is still doing its half of it:
     #   prop_status_request -- when each account was last asked for a balance.

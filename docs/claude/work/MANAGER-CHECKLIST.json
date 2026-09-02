@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T08:05:00Z",
+  "updated_at": "2026-09-02T09:36:00Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -199,7 +199,8 @@
         "kind": "object",
         "ref": "MI-41-IMPLEMENT-THE-OPERATING-MODEL-PLAN-WAS-NEVER-SCHEDULED-AND-SLIPPED",
         "since": "2026-09-02T05:45:26Z"
-      }
+      },
+      "unblock_condition_DECIDED": "OPERATOR DECISION 2026-09-02: the backlog drain unblocks WHEN MI-41-B MERGES — not before, and not on my judgement. A (#10757) and C/D (#10760, #10765) are merged; B is the 330KB CLAUDE.md split, currently conflicted and with its author (session_01Ryr6K2VXGojZbqjFgQ2PrN, PR #10764). ⚠️ Do NOT restart a drain because three of four look done — the operator's sequencing rule was 'the plan before the drain', and B IS the plan's core piece: the 403k-token instruction surface no session can read."
     },
     {
       "id": "MI-14-CI-GREEN-THE-THREE-DRAFTS",
@@ -309,11 +310,13 @@
     {
       "id": "MI-25-FULL-TRADING-HISTORY-IS-WORLD-READABLE-UNAUTHENTICATED",
       "title": "The Data Explorer serves the live journal to anyone on the public Caddy host",
-      "state": "blocked",
+      "state": "done",
       "owner": null,
       "pr": "#10687 (filed the finding; NOT a fix)",
-      "blocked_on": "operator — gating a live public read route is Tier-2 and would change what the Svelte SPA can render",
-      "note": "⚠️ TOP ITEM FOR THE MORNING REPORT, ABOVE THE RETIREMENT DECISIONS. Surfaced by session_01LvzsinECH8HP in #10687 and then MEASURED INDEPENDENTLY BY THE MANAGER rather than taken on report — plain curl, no Authorization header, from outside the VM against https://ict-bot.duckdns.org : /api/bot/db/table/trades -> HTTP 200, total 5,318 · order_packages -> 200, 4,275 · balance_snapshots -> 200, 29,892. NEGATIVE CONTROL: device_tokens -> HTTP 404, so #10682's exclusion genuinely holds and the probe can distinguish a refusal from a serve. The filing session counted `signals` at 2,301,022 rows. === WHY IT HAPPENED, AND IT IS NOT A CODING ERROR: CLAUDE.md justifies the Data Explorer as Tier-1 on the premise 'no secrets in either DB' — a claim about CREDENTIALS, not about the CONFIDENTIALITY of the trading record. That judgement was made while the API sat on a firewalled IP reachable only server-side by Streamlit. Caddy was then added (2026-08-13) so the browser-direct Svelte SPA could reach the API over HTTPS, and NOBODY RE-DERIVED THE TIER DECISION AFTER THE TRANSPORT CHANGED. The route did not become less safe; the world became able to reach it. === HONEST SEVERITY, in the direction that does not overstate: this is a CONFIDENTIALITY exposure, NOT a control path. The explorer is SELECT-only on a mode=ro connection with bound values and schema-validated identifiers; nothing writes, no order can be placed, and no credential is reachable now that device_tokens is excluded. Nobody's money can be moved with it. What is exposed is the operator's complete trading record — every trade, order package and balance snapshot. === ⚠️ DELIBERATELY NOT FIXED TONIGHT, and that is a decision rather than an omission. Gating a live public read route is Tier-2, and the Data Explorer tab of the Svelte SPA reaches this route BROWSER-DIRECT, so adding a bearer would break a working operator surface. Doing that unannounced at 02:00 while the operator sleeps trades a three-week-old read exposure for a broken dashboard they wake up to. The options worth putting to them: leave it (the record is not secret), gate it behind DASHBOARD_API_TOKEN and teach the SPA to send one, or put Caddy basic-auth in front of /api/bot/db/* only. === ⚠️ THE BLAST RADIUS IS NOW BOUNDED BY MEASUREMENT, NOT BY REASONING — the manager probed the same public host unauthenticated for anything WRITEABLE or PRIVILEGED and every gate refused: POST /api/bot/prop/report (the one route that writes the journal) -> HTTP 401 'missing authorization', confirming its documented FAIL-CLOSED behaviour; GET /api/pnl -> 401 and GET /api/status -> 401, so require_session is genuinely enforced on both session-gated routes; GET /api/diag/version -> 401 without a bearer. SO: NO UNAUTHENTICATED WRITE EXISTS ANYWHERE on the public surface, and no privileged read. The exposure is exactly and only the Tier-1 READ surface. That is what makes 'confidentiality, not control' a measured statement rather than a hedge, and it is why this can wait for the operator rather than being fixed unilaterally overnight. === Incidental confirmation worth keeping: this independently verifies CLAUDE.md's 2026-08-13 correction that require_session enforcement IS live on /api/pnl and /api/status — an earlier version of that row said 'issuance only', which was stale in the dangerous direction. Field now matches comment."
+      "note": "⚠️ TOP ITEM FOR THE MORNING REPORT, ABOVE THE RETIREMENT DECISIONS. Surfaced by session_01LvzsinECH8HP in #10687 and then MEASURED INDEPENDENTLY BY THE MANAGER rather than taken on report — plain curl, no Authorization header, from outside the VM against https://ict-bot.duckdns.org : /api/bot/db/table/trades -> HTTP 200, total 5,318 · order_packages -> 200, 4,275 · balance_snapshots -> 200, 29,892. NEGATIVE CONTROL: device_tokens -> HTTP 404, so #10682's exclusion genuinely holds and the probe can distinguish a refusal from a serve. The filing session counted `signals` at 2,301,022 rows. === WHY IT HAPPENED, AND IT IS NOT A CODING ERROR: CLAUDE.md justifies the Data Explorer as Tier-1 on the premise 'no secrets in either DB' — a claim about CREDENTIALS, not about the CONFIDENTIALITY of the trading record. That judgement was made while the API sat on a firewalled IP reachable only server-side by Streamlit. Caddy was then added (2026-08-13) so the browser-direct Svelte SPA could reach the API over HTTPS, and NOBODY RE-DERIVED THE TIER DECISION AFTER THE TRANSPORT CHANGED. The route did not become less safe; the world became able to reach it. === HONEST SEVERITY, in the direction that does not overstate: this is a CONFIDENTIALITY exposure, NOT a control path. The explorer is SELECT-only on a mode=ro connection with bound values and schema-validated identifiers; nothing writes, no order can be placed, and no credential is reachable now that device_tokens is excluded. Nobody's money can be moved with it. What is exposed is the operator's complete trading record — every trade, order package and balance snapshot. === ⚠️ DELIBERATELY NOT FIXED TONIGHT, and that is a decision rather than an omission. Gating a live public read route is Tier-2, and the Data Explorer tab of the Svelte SPA reaches this route BROWSER-DIRECT, so adding a bearer would break a working operator surface. Doing that unannounced at 02:00 while the operator sleeps trades a three-week-old read exposure for a broken dashboard they wake up to. The options worth putting to them: leave it (the record is not secret), gate it behind DASHBOARD_API_TOKEN and teach the SPA to send one, or put Caddy basic-auth in front of /api/bot/db/* only. === ⚠️ THE BLAST RADIUS IS NOW BOUNDED BY MEASUREMENT, NOT BY REASONING — the manager probed the same public host unauthenticated for anything WRITEABLE or PRIVILEGED and every gate refused: POST /api/bot/prop/report (the one route that writes the journal) -> HTTP 401 'missing authorization', confirming its documented FAIL-CLOSED behaviour; GET /api/pnl -> 401 and GET /api/status -> 401, so require_session is genuinely enforced on both session-gated routes; GET /api/diag/version -> 401 without a bearer. SO: NO UNAUTHENTICATED WRITE EXISTS ANYWHERE on the public surface, and no privileged read. The exposure is exactly and only the Tier-1 READ surface. That is what makes 'confidentiality, not control' a measured statement rather than a hedge, and it is why this can wait for the operator rather than being fixed unilaterally overnight. === Incidental confirmation worth keeping: this independently verifies CLAUDE.md's 2026-08-13 correction that require_session enforcement IS live on /api/pnl and /api/status — an earlier version of that row said 'issuance only', which was stale in the dangerous direction. Field now matches comment.",
+      "disposition": "wont_fix — accepted risk, operator decision 2026-09-02",
+      "operator_decision": "2026-09-02, via MI-50: the read gate will NEVER be flipped. That is the mechanism this row was blocked on, so the exposure is ACCEPTED rather than pending. Closing it as `wont_fix` is the honest state: a row left `open` on a decision already made is the 'looks like progress is pending' failure this repo keeps paying for.",
+      "⚠️_what_reopens_it": "This decision rests on the route being READ-ONLY and CREDENTIAL-FREE. If /api/bot/db/* or any other ungated route ever gains a WRITE capability, or begins serving a secret, the premise is gone and this must go back to the operator rather than being assumed to carry over. Same reopening clause as the diag-token decision."
     },
     {
       "id": "MI-26-CRON-DOES-FIRE-IN-THIS-REPO-BUT-HOURS-LATE",
@@ -436,7 +439,7 @@
     {
       "id": "MI-40-STALE-PING-ROWS-WILL-REFIRE-WITH-BODIES-ONCE-THE-RENDERER-IS-FIXED",
       "title": "21 stale queue rows will re-fire WITH bodies once #10747 lands and the VM is re-provisioned",
-      "state": "queued",
+      "state": "ready",
       "detail": "docs/claude/pending-pings.jsonl holds 21 rows that render today as bare event labels. #10747 makes the renderer emit real bodies. The dedupe ledger that suppresses re-sends (runtime_logs/pending_pings_delivered) is VM-LOCAL and gitignored, so a re-provision would replay all 21 -- this time with content -- as one burst on the channel we just made trustworthy.",
       "operator_decision": "2026-09-02: MARK THEM DELIVERED, KEEP THE ROWS. The operator chose the record-preserving option over pruning, on the grounds that these 21 rows ARE the evidence base for the 42%-bare-label finding and pruning them would destroy the proof of the bug just as it is fixed. The stamp must say WHICH state it is asserting: they were delivered EMPTY, and stamping a bare 'delivered' would be a false claim.",
       "blocked_on": {
@@ -444,7 +447,11 @@
         "ref": "PR #10747",
         "since": "2026-09-02T05:24:18Z"
       },
-      "note": "Dispatch AFTER #10747 merges -- it touches scripts/notify_on_pull.py and would conflict."
+      "note": "Dispatch AFTER #10747 merges -- it touches scripts/notify_on_pull.py and would conflict.",
+      "owner": null,
+      "⚠️_I_MARKED_THIS_OWNED_BEFORE_IT_WAS": "CORRECTED 2026-09-02T09:20Z. I set state=in_flight and owner='subagent:stale-ping-delivered-stamp' in the same edit that unblocked it, and then DID NOT SPAWN. For ~5 minutes the checklist asserted an owner that did not exist. ⚠️ That is the same class as MI-15 (the registry claiming sessions it did not have) and it is worse in this direction: a row reading in_flight WITH AN OWNER is one a successor skips, so a false owner does not just lose information, it actively diverts attention away from real work. State is `ready` — unblocked, decided, nobody on it.",
+      "why_not_spawned_yet": "Two sub-sessions cannot share one git working tree: they would fight over checkouts and `git add -A` from either can sweep the other's uncommitted files into the wrong branch — a hazard that already nearly bit this session, whose `git status` surfaced the AVAX agent's in-progress test file on an unrelated workflow branch. Agent worktree isolation was ATTEMPTED and REFUSED here: 'Cannot create agent worktree: not in a git repository' — the session's cwd is /home/user while the repo is /home/user/Metis-Insights. So this waits for the AVAX sub-session to finish, or goes to a cloud session with its own container (create_session), which must be REGISTERED IN SESSIONS.json in the same action.",
+      "risk_is_real_but_not_imminent": "Firing requires the VM-local gitignored ledger to be LOST (re-provision / re-clone / fresh data dir). It is not on a timer. So deferring is defensible; leaving a false owner on it was not."
     },
     {
       "id": "MI-41-IMPLEMENT-THE-OPERATING-MODEL-PLAN-WAS-NEVER-SCHEDULED-AND-SLIPPED",
@@ -532,7 +539,248 @@
         "Android: device_tokens is EMPTY on the live host (0 registered devices), so the Android side is already non-consuming in fact. Record that as measured, not assumed.",
         "Only then answer DEC-20260901-READ-GATE-SEQUENCING with the operator's choice recorded as the decision."
       ],
-      "note": "'On ice, not deleted' is explicit: do NOT propose deleting streamlit_app.py or the Android app. The ask is that they stop CONSUMING."
+      "note": "'On ice, not deleted' is explicit: do NOT propose deleting streamlit_app.py or the Android app. The ask is that they stop CONSUMING.",
+      "⚠️_CORRECTED_2026_09_02_SAME_DAY": "The operator REFINED this within the hour and the earlier reading is now WRONG: 'oh, don't wait for me to turn off streamlit - it can stay alive, I just don't want us doing any work on it for now.' SO 'ON ICE' MEANS **NO DEVELOPMENT EFFORT**, NOT 'TURNED OFF'. The earlier verbatim ('They should be turned off ... they shouldn't be consuming anything') is superseded on the TURNED-OFF half and stands on the NO-WORK half. ⚠️ Do NOT file, schedule or propose work to retire, stop or delete the Streamlit app, and do NOT block anything on it being stopped.",
+      "what_this_means_operationally": [
+        "Streamlit STAYS DEPLOYED and stays a reachable consumer of the read surface.",
+        "Android is separately non-consuming IN FACT (device_tokens empty on the live host) — that is measured, and unaffected by this correction.",
+        "No dashboard/Streamlit work is scheduled. The repo's Streamlit files stay untouched.",
+        "The CLAUDE.md claim that Streamlit is 'retired from the live feed' is STILL not observed — and now will not be. It should be softened to what is true: retired from DEVELOPMENT, still deployed."
+      ]
+    },
+    {
+      "id": "MI-45-PING-RENDERER-DROPS-THE-MESSAGE-KEY",
+      "title": "pending-pings renders a fixed key list and ignores `message` — 42% of queued pings delivered as one word",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "subagent:fix-ping-renderer-drops-message",
+      "finding": "scripts/notify_on_pull.py::_render_event_body emits ONLY: head=EVENT_LABELS.get(event,event) + sprint/title; details cp_id,next_cp,phase,strategy,model,result,grade,question,summary; urls pr_url,commit_url,chat_url,summary_url. `message` is on NO list, and `message` is the key almost every real queued ping uses. Those pings deliver as the bare event name and nothing else.",
+      "measured": "Population: all 50 rows in docs/claude/pending-pings.jsonl at 2026-09-02. 21 rows carry `message`; 21 of 50 (42.0%) carry NO recognised key at all. They render as: 6x 'health-review', 6x 'performance-review', 5x 'ml-review', 2x 'ping', 1x 'session-wrap', 1x 'work_digest'. Earliest affected 2026-07-10T15:45Z.",
+      "operator_confirmed": "Operator screenshot 2026-09-02 10:10 shows the work-digest ping delivered as the bare token 'work-digest'.",
+      "why_undetected": "tests/test_notify_on_pull.py has 5 drain tests and every one uses the RECOGNISED keys. They asserted the definition as written rather than the population that exists — the same shape as the pairs tests that passed against a fictional order_packages schema.",
+      "no_replay_risk": "Delivery dedupe is by _line_hash into runtime_logs/pending_pings_delivered, so fixing the renderer does NOT re-fire the 21 stale rows. Sub-session instructed to verify and to STOP if that is not true.",
+      "note": "Three mandatory review-session ping types (health/performance/ml) have been content-free for ~8 weeks."
+    },
+    {
+      "id": "MI-46-SYSTEM-ACTIONS-SSH-FAILED-SO-THE-STATUS-PING-NEVER-SENT",
+      "title": "system-actions run 33604747877 failed at SSH — ~/.ssh/id_rsa absent on the runner",
+      "state": "done",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "finding": "Run 33604747877 (send-ping, target=claude) concluded FAILURE. Log: 'Identity file /home/runner/.ssh/id_rsa not accessible: No such file or directory' then 'ubuntu@141.145.193.91: Permission denied (publickey)' then 'notify_run.sh failed; transparency ping not delivered'. The post-action diag fetch failed the same way. EXIT_CODE and NOTIFY_EXIT_CODE were both EMPTY, which the workflow's own comment says means the action step never produced an exit code (pre-flight failure).",
+      "ruled_out": [
+        "The SSH-key step is UNCHANGED: git log -L on lines 1082-1096 shows no edit since it was written.",
+        "VM_SSH_KEY is not obviously unset: the step exits 1 with an explicit ::error:: when it is, and that error is absent from the log.",
+        "Not input injection: DISPATCH_MESSAGE rides through `env`, not inline ${{ }} interpolation, so backticks/newlines in the body are safe.",
+        "Not a workflow regression from overnight: only #10683 touched system-actions.yml since the last good run, and it only added the ping classes."
+      ],
+      "still_unknown": "WHICH earlier step failed. Only the last 200 of 674 log lines were read; the failing step is in the unread head. This is 'we did not look', NOT 'there was no cause'.",
+      "blast_radius": "If SSH from Actions to the live VM is broken generally, EVERY VM-touching system-action is down: send-ping, set-env, get-env, pull-and-deploy, restart-bot-service, and sync-vm-secrets.yml.",
+      "note": "I reported the first ping as 'queued'. Queued is not delivered, and it was not delivered. Re-dispatched with a short single-line body as the discriminating test.",
+      "PROVEN_2026_09_02T09_34Z": "⚠️ PROVEN BY OBSERVATION, not by test — and it is the FIRST thing today to earn that word. Run 33614797065, event=workflow_dispatch, head de3f0a19, conclusion=SUCCESS. AND the operator CONFIRMED RECEIPT of the ping it sent, with a screenshot. Both halves matter and neither alone would do: a `success` conclusion proves the workflow ran, and only the operator seeing the message proves it DELIVERED.",
+      "why_no_test_could_have_established_this": "CI never dispatches this workflow, so the defect is unreachable from every required check. #10768 was GREEN on all four, reproduced its failure and its fix in both directions, and was still wrong. That is the whole lesson: a green suite over a path the suite does not exercise is not evidence about that path.",
+      "the_transferable_error": "I read the failing step's TAIL, saw the lines around it already using ${x:-}, and fixed the one site the log pointed at. Sampling the visible evidence and treating it as the POPULATION. Seven bare refs sat in one contiguous block and each would have aborted the step IN TURN — fixing them one failure at a time would have cost seven dispatch cycles. ⚠️ It took a FAILED PROOF RUN to make me enumerate. The first fix's own verification (reproduced both directions, exact error matched) is precisely what made it convincing."
+    },
+    {
+      "id": "MI-47-CLAUDE-CHANNEL-SEPARATION-CLAIM-WAS-STALE",
+      "title": "I treated the Claude/trader channel split as unset; the operator says pings do arrive on the Claude bot",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "finding": "I was about to dispatch sync-vm-secrets to propagate TELEGRAM_CLAUDE_BOT_SECRET on the strength of OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN, which says the secret is unset on the VM. The operator states messages DO reach the Claude channel. Supporting evidence I already held and had not used: system-actions runs 'PING TEST P1c (low/claude)' and P2a-P2e all concluded SUCCESS at 22:25-22:36Z on 2026-09-01.",
+      "correction": "What the operator saw on the Trader bot at 10:41 was the [RUN failure] transparency notice for my own failed run, not a mis-routed status ping. Routing and my run's failure are two different things and I conflated them.",
+      "recurrence_of": "MI-42 / the DASHBOARD_API_TOKEN error — relaying a register row's claim without measuring it. Second occurrence in one session.",
+      "next": "Re-measure the OI row against the live VM before anyone acts on it; it is stale in the direction that costs operator time."
+    },
+    {
+      "id": "MI-49-BYBIT-GRADED-COVERAGE-ARM-AND-CONDITIONAL-WIDENING",
+      "title": "Operator: arm the graded-coverage gate on bybit_1, and widen to the others IF it proves itself",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "tier": "2 (order path env flip) / 3 to widen",
+      "operator_decision": "2026-09-02, verbatim: 'yes, and if its proves itself on bybit 1, then apply to bybits 2 and 3 as well'. Approves ARMING BYBIT_GRADED_COVERAGE_MODE=apply + BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1 after #10746 merges, and approves a LATER widening CONDITIONAL on the gate proving itself.",
+      "⚠️_what_PROVES_ITSELF_must_mean": "The operator did not define it and a vague criterion is how a demo-only approval leaks to real money. I will NOT widen on any of: time elapsed, a quiet soak, or a green test suite. THE BAR: (a) the arm is read back off /proc/<MainPID>/environ via get-env, never the .env; AND (b) at least one bybit_coverage_soak row on bybit_1 carries verdicts_differ: true -- i.e. the graded and side-blind bases actually reached OPPOSITE verdicts, so arming demonstrably changed an outcome; AND (c) a re-arm actually occurred on a position whose side-blind coverage exceeded its size, which is the defect itself. ⚠️ THE DEFECT IS n=1 AND CONSTRUCTED -- no live instance has ever been observed -- so (b) and (c) MAY NEVER OCCUR ON DEMO. If they do not, the honest report is 'unproven, not proven-good', and widening to real money on an unexercised gate is NOT what the operator approved. Put that back to them rather than letting a quiet soak read as a pass.",
+      "next": [
+        "Merge #10746 (queued on green).",
+        "Arm bybit_1 via set-env, both keys, then restart, then read back off /proc/<pid>/environ.",
+        "Watch bybit_coverage_soak for verdicts_differ: true. Report what is observed, not elapsed time.",
+        "Before ANY widening: confirm with the operator which accounts 'bybit 3' meant."
+      ],
+      "account_identity_CONFIRMED_BY_OPERATOR": "2026-09-02, operator confirmed on being asked: 'bybit portfolio is bybit3'. So the widening target set is bybit_2 + bybit_portfolio, CONFIRMED, no longer an assumption. ⚠️ There is NO account literally named `bybit_3` in config/accounts.yaml — measured, `grep -c '^  bybit_3:'` returns 0 — so 'bybit 3' is the operator's shorthand for `bybit_portfolio` and any code, env value or allowlist must use the REAL id. An allowlist naming `bybit_3` would silently match nothing and read as armed. ⚠️ NOTE THE ASYMMETRY IN THE TARGET SET, because it is the whole risk: bybit_portfolio is account_class PAPER (paper_role: portfolio), while bybit_2 is account_class REAL_MONEY on Bybit mainnet. Widening reaches real money.",
+      "widening_order": "DECIDED BY THE OPERATOR 2026-09-02: bybit_portfolio FIRST, then bybit_2. The paper mirror gets the gate before real money does, so bybit_2 inherits a precedent instead of a first exposure. ⚠️ bybit_portfolio is not a quiet account — it runs a continuous ~2.0x book (measured 2026-08-25: equity $98,618.60 at 2.0057x), so it is a genuine exercise of the gate, not a formality."
+    },
+    {
+      "id": "MI-50-PHASE-H-READ-GATE-WAITS-ON-STREAMLIT-BEING-OFF",
+      "title": "Operator: do not flip the Phase-H read gate until Streamlit is confirmed off",
+      "state": "done",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "operator_decision": "2026-09-02: WAIT until Streamlit is confirmed off. Chosen over flipping now and over gating only the routes no live consumer calls.",
+      "why": "The gate attaches require_session to the read surface. Measured 2026-09-02: the Streamlit Cloud app still EXISTS (303 -> share.streamlit.io/-/auth/app, a sign-in wall, NOT a 404), and ⚠️ WHETHER IT IS RUNNING WAS NOT ESTABLISHED -- an auth redirect is identical for 'running but private' and 'exists but paused'. So flipping now could break a live consumer.",
+      "note": "This CLOSES DEC-20260901-READ-GATE-SEQUENCING. That inbox question must no longer be relayed as open, and its premise ('Streamlit is still a live consumer') is now confirmed TRUE in the sense that matters -- it is still deployed and reachable -- while CLAUDE.md has asserted the retirement since 2026-09-01. Declared, not observed.",
+      "⚠️_ITS_BLOCKER_IS_GONE_AND_SO_IS_ITS_PATH": "The operator's correction REMOVES the precondition this row was waiting on — Streamlit is NOT going to be turned off. That does not unblock the gate; it removes the route the decision chose. ⚠️ 'WAIT UNTIL STREAMLIT IS CONFIRMED OFF' IS NOW AN INDEFINITE BLOCK ON A CONDITION THAT WILL NEVER ARRIVE, which is strictly worse than a live blocker because it looks like progress is pending. Do not leave it stated that way.",
+      "the_three_remaining_routes": [
+        "(a) NEVER FLIP IT — accept the read surface stays unauthenticated. Legitimate, but it must be RECORDED as a decision rather than left looking pending, and MI-25 (full trading history world-readable) then stays open permanently and should say so.",
+        "(b) FLIP AND BREAK STREAMLIT — consistent with 'no work on it': if nobody is developing it, nobody is hurt by it breaking. But the operator said it 'can stay alive', which reads as wanting it usable, so this needs their explicit word.",
+        "(c) GATE ONLY WHAT STREAMLIT DOES NOT CALL — the middle path, and the only one that needs no further operator input to START. Cost: it is a measurement job (establish Streamlit's actual call set) and it leaves the job half-done by construction."
+      ],
+      "recommendation": "(c), and say so rather than asking again. It is the only route that reduces the unauthenticated surface without needing the operator to choose between two things they have already implied they want (Streamlit usable AND the gate closed). ⚠️ But it is NOT free and not silent: establishing Streamlit's call set is real work on a codebase the operator just said not to work on — so the measurement is READ-ONLY (grep the SPA and streamlit_app.py for endpoint strings), never a change to it.",
+      "operator_decision_FINAL": "2026-09-02: NEVER FLIP IT — recorded as a DECISION, not left pending. The Phase-H read gate will not be attached to the read surface. Chosen over gating only the routes no live consumer calls, and over flipping and letting Streamlit break.",
+      "what_this_ACCEPTS": "⚠️ THE FULL TRADING JOURNAL STAYS WORLD-READABLE ON THE PUBLIC CADDY HOST. This is the accepted consequence and must not be softened. MEASURED by the manager independently — plain curl, no Authorization header, from outside the VM against https://ict-bot.duckdns.org : /api/bot/db/table/trades -> HTTP 200, 5,318 rows · order_packages -> 200, 4,275 · balance_snapshots -> 200, 29,892 · signals counted at 2,301,022. NEGATIVE CONTROL: device_tokens -> HTTP 404, so the probe can distinguish a refusal from a serve and #10682's exclusion genuinely holds.",
+      "severity_stated_honestly": "CONFIDENTIALITY exposure, NOT a control path. The Data Explorer is SELECT-only on a mode=ro connection with bound values and schema-validated identifiers: nothing writes, no order can be placed, no credential is served. The risk is that the trading record — strategies, sizes, timings, PnL — is public to anyone who has the hostname.",
+      "ONE_NARROWER_OPTION_THAT_EXISTS_stated_once_not_re_asked": "The operator was offered 'gate only what Streamlit does not call' and declined it. A NARROWER option was not on that ballot and is recorded here once, for a future decision rather than a re-ask: gate ONLY the Data Explorer DB routes (/api/bot/db/*), which are what serve raw journal rows, leaving every other read route open. ⚠️ THE COST IS CONCRETE — the Svelte SPA has a Data Explorer tab that calls exactly those routes, so gating them breaks that tab for the one consumer we have. That is why it is a real trade and not a free win.",
+      "closes": "DEC-20260901-READ-GATE-SEQUENCING — decided. Never relay it as an open question again."
+    },
+    {
+      "id": "MI-51-MANAGER-HANDOFF-DEFERRED-BY-OPERATOR",
+      "title": "Operator: keep this manager session for now; do not hand off yet",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "operator_decision": "2026-09-02: KEEP THIS SESSION. Chosen over handing off now as the MI-44 test, and over handing off once the ping channel is proven.",
+      "note": "⚠️ MI-44's acceptance criteria are NOT withdrawn -- the handoff is DEFERRED, not cancelled, and the operator has said they want it exercised before this session closes. Keep the lease heartbeated (TTL 90 min; it EXPIRED for 101 min earlier today, so this is not a formality) and keep handoff_check at 6/7 or better so the handoff stays cheap when it is called."
+    },
+    {
+      "id": "MI-52-PING-DRAIN-OWNERSHIP-LAND-AND-RESTART",
+      "title": "Operator: review and land #10694 (one owner for the ping drain), restart included",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "tier": "2 (service restart)",
+      "operator_decision": "2026-09-02: 'Review and land it, restart included.' This IS the Tier-2 approval for restarting ict-telegram-bot.service after merge -- recorded so a successor does not re-ask.",
+      "why_now": "Today proved the ping path is fragile in the SILENCE direction (two independent bugs: the renderer dropping 21 of 50 bodies, and workflow_dispatch dead on every action). #10694 addresses the DUPLICATION direction. Different failure mode, same fragile channel.",
+      "next": [
+        "Review #10694 on its merits; do not merge on the operator's prioritisation alone.",
+        "If sound: merge, then dispatch the restart, then VERIFY the post-state rather than assuming it.",
+        "landed_unproven until a ping is observed delivered exactly once."
+      ]
+    },
+    {
+      "id": "MI-53-ERROR-FEED-INTO-A-CADENCED-DUTY-PASS",
+      "title": "Wire the trader error feed into the duty pass so it is triaged, not read by accident",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01TpKSAVKKUXLHyFUFep32B1",
+      "tier": "1",
+      "operator_decision": "2026-09-02, approved: 'You can, uh, build the wiring.' Answering their question: 'can the error feed that's in the trader bot be fed directly to the manager session, so you can decide what should be resolved immediately vs. backlogged?'",
+      "what_it_is_NOT": "NOT true push. `watch_url`'s signing credential is sealed to the artifact service, so the trader VM cannot sign deliveries into a session. This is a cadenced PULL, and the cron floor is hourly — so it is TRIAGE, not immediate. Anything genuinely urgent still rides the existing Telegram path, which reaches the operator in seconds.",
+      "why_it_is_worth_it": "Measured today: `ict_scalp_avax_5m` has been a DEAD LEG on bybit_1 — 8 signals, 0 orders placed, every one exchange-rejected — across THREE backlog rows and two fixes marked `resolved`. It was caught only because the operator pasted the feed by hand. The feed is produced and not read; that is the same PRODUCE-without-DISPOSE defect the operating-model design names as the measured constraint.",
+      "⚠️_the_cadence_must_not_be_claimed": "This repo has scheduled workflows that are merged, enabled, correct and fire ~4h50m LATE or once instead of daily. The digest must carry generated_at + covers_since so a stale one is self-evidently stale rather than reading as 'nothing happened'.",
+      "done_condition": "A workflow_dispatch run whose conclusion is quoted, producing a digest in which the AVAX dead leg is visible and triage-able. CI green does NOT establish this — that lesson cost two failed fixes this morning."
+    },
+    {
+      "id": "MI-54-DECISIONS-WERE-PUT-TO-THE-OPERATOR-WITH-NO-PING",
+      "title": "I asked seven decisions today as in-session popups and sent zero pings",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "operator_observation": "2026-09-02: 'I'm supposed to get a ping when there's a decision waiting for me, and I didn't get any pings about decisions waiting for me.' Correct.",
+      "measured": "SEVEN decisions were put to the operator via in-session popups across this session (bybit arming · widening order · Phase-H route · handoff timing · #10694 restart · drain unblock · build the wiring). ZERO pings were sent announcing any of them.",
+      "why_it_matters_more_than_politeness": "F6 — 'the operator is told, by Telegram, whenever something is done without them' — is the CONDITION ON WHICH THE AUTONOMY GRANT WAS MADE. A decision waiting is a checkpoint, and a checkpoint that only exists inside a session the operator is not looking at is not a checkpoint. ⚠️ It also compounds: the operator cannot answer what they cannot see, so an unpinged decision silently becomes a BLOCKED work item that looks like it is merely pending.",
+      "⚠️_the_channel_was_also_broken_but_that_is_NOT_the_excuse": "Both ping paths were down for part of today (renderer dropping bodies until #10747; workflow_dispatch dead until #10772, still unmerged). But the ISSUE-driven path worked THROUGHOUT and I used it for status pings — so I could have pinged the decisions and did not. Do not let the channel outage absorb this.",
+      "remedy": [
+        "IMMEDIATE, behavioural: every AskUserQuestion is followed by a ping naming the decisions and carrying the session link. Done for today's seven (issue #10774).",
+        "DURABLE: the mechanism belongs with MI-55 — a decision in the work store should ping on its own, not depend on the manager remembering."
+      ]
+    },
+    {
+      "id": "MI-55-TWO-WAY-TELEGRAM-DECISIONS-ANSWERABLE-FROM-THE-CHAT",
+      "title": "Operator ask: deliver decisions as Telegram popups and accept the answer from there",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01LNHkQQuxku3khrjoDinw91",
+      "tier": "2 (telegram bridge + service restart)",
+      "operator_ask": "2026-09-02, verbatim: 'is it possible for the telegram channel to become 2A [two-way] channel like through the replay or something so that if there's decisions that are pop-ups they can be given to me as pop-ups in the telegram chat? I can answer them there and send them back from there instead of having to see the ping and then open the session ... if not, then maybe like a link or something so that I can easily get to where I need to answer the questions and not get lost in the middle'",
+      "VERIFIED_FEASIBLE_every_piece_already_exists": [
+        "GET /api/bot/work/decisions + POST /api/bot/work/decision are ON MAIN (src/web/api/routers/work.py, 3 matches for work/decision). The inbox already models options.",
+        "src/bot/claude_bridge.py ALREADY imports InlineKeyboardButton + InlineKeyboardMarkup and handles callback_query in on_callback.",
+        "src/prop/prop_expiry_prompt.py is a LIVE WORKING PRECEDENT: a Yes/No inline keyboard with callback_data 'propexp:<y|n>:<ticket_id>', parsed by handle_expiry_callback.",
+        "DASHBOARD_API_TOKEN IS SET — measured this session, writeGate reads state=open / acceptsWrites=true. The write route is fail-closed without it, so this was the gating unknown and it is resolved."
+      ],
+      "design": "Generalise 'propexp:<y|n>:<id>' to 'decide:<request_id>:<option_idx>'. A decision_request's options become inline buttons; the callback POSTs to /api/bot/work/decision.",
+      "⚠️_two_real_constraints": [
+        "Telegram callback_data is capped at 64 BYTES, so a button must carry an INDEX, not the option text. prop_expiry_prompt.py's docstring already notes this — follow it rather than rediscovering it.",
+        "Free-text answers cannot be buttons. They need the reply-flow the prop bridge already uses for pasting a fill. Multiple-choice works today; free-text is a second step."
+      ],
+      "⚠️_it_would_be_the_FIRST_real_exercise_of_the_round_trip": "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP is open: not one decision has gone submit -> in_transit -> committed end to end. That is an ARGUMENT FOR building this, not against — the channel has no user, and this gives it one. But it means the done-condition is the ROUND TRIP observed, never a green test: an answer submitted from Telegram must appear on /api/bot/work/decisions as in_transit and then read `committed` with the answer block visible in the work object on main.",
+      "the_fallback_the_operator_offered": "'or maybe like a link so I can easily get to where I need to answer'. That half is FREE and is already done as of today: every decision ping now carries the session link. Ship that regardless of whether the two-way build is approved — it is the cheap 80%.",
+      "next": "Tier-2, needs its own operator OK and its own ict-telegram-bot.service restart. PROPOSE, do not build unasked.",
+      "operator_APPROVED_build_and_test": "2026-09-02, verbatim: 'once we have the mechanism ready for the two way channel, then let's test it also. Right? Just, like, somebody being asking me if I see the question, and then I'll answer, and then you'll tell me if you see the answer that I sent you.' That approves BUILDING and LIVE-TESTING it. The ict-telegram-bot.service restart is still a Tier-2 dispatch and is the MANAGER'S to run, not the sub-session's.",
+      "DONE_CONDITION_is_the_operators_own_test": "⚠️ NOT a test suite. The operator defined it: a real question reaches them in Telegram, they answer THERE, and the manager confirms it received the answer. Three parties, one loop. A green harness clears NONE of it — tests/test_work_decisions.py already exercises submit→commit→committed in a harness and the round-trip has still never happened on the fleet.",
+      "⚠️_this_would_CLEAR_a_row_that_has_never_cleared": "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP is open and has never once completed submit → in_transit → committed. This build would be its FIRST real exercise. Its clears_when is explicit that a merge is not a deploy, a green harness is not the fleet, and a workflow_dispatch of the committer clears only ONE stage — so say which stages were cleared rather than clearing it on the easiest.",
+      "manager_owns_the_live_test": "The sub-session is told NOT to message the operator. The manager runs the live test, because the operator's own formulation requires the manager to be the one confirming receipt.",
+      "operator_signal_2026_09_02": "On receiving the proof ping the operator remarked: 'Just got this, not a question though.' They are distinguishing a STATUS ping from an ANSWERABLE decision — which is exactly the gap MI-55 closes. Prose is fine for status; a DECISION needs buttons. Carry this: the value of the two-way channel is not notification (that works now), it is ANSWERABILITY."
+    },
+    {
+      "id": "MI-56-THE-STOP-HOOK-CANNOT-TELL-MY-WORK-FROM-A-CONCURRENT-AGENTS",
+      "title": "stop-hook-git-check pressures the manager to commit a running sub-agent's in-flight source changes",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": null,
+      "tier": "1",
+      "observed": "2026-09-02, FOUR times in ~20 minutes. `~/.claude/stop-hook-git-check.sh` fires 'There are uncommitted changes ... Please commit and push' whenever the working tree is dirty. It has no notion of WHOSE changes those are. Every firing today was on a live sub-agent's work, not mine — my branch was in sync with origin each time.",
+      "what_complying_would_have_done": "⚠️ NOT a tidiness issue. The dirty paths were config/instruments.yaml, src/units/accounts/execute.py, src/units/accounts/qty_legalize.py, precision.py, instrument_profile.py, profile_loader.py and two test files — a live, unreviewed, ORDER-PATH-ADJACENT change. Committing them would have (a) put unreviewed order-path code into a PR about recording operator decisions, and (b) taken the work out from under a running agent that had not finished or tested it.",
+      "root_cause": "One git working tree, two writers. The hook assumes a single writer per checkout. It is correct for that case and actively harmful for this one. The manager's own `git checkout` compounds it: it does not move an agent's uncommitted files aside, it DRAGS them onto whatever branch the manager lands on.",
+      "what_actually_prevents_it": [
+        "Sub-sessions in their OWN CONTAINER (create_session) rather than in-process agents — used for MI-53 today, and the reason it was used.",
+        "Agent worktree isolation — ATTEMPTED today and REFUSED: 'Cannot create agent worktree: not in a git repository', because the session cwd is /home/user while the repo is /home/user/Metis-Insights. Spawning with the repo as cwd would likely fix it; UNVERIFIED, do not assert it.",
+        "NEVER `git add -A` while any agent shares the tree. Explicit paths only. This is the discipline that saved it today after the first near-miss."
+      ],
+      "the_honest_residual": "⚠️ The hook is not wrong to fire — it cannot know. So this is not 'fix the hook to be quiet'; a hook that learned to ignore dirty trees would stop catching the case it exists for. The fix is on the SPAWN side: agents should not share a tree. Recorded so the next manager does not resolve four hook warnings by committing someone else's work."
+    },
+    {
+      "id": "MI-57-OPEN-PR-RECORD-HAS-A-NON-TERMINATING-STALENESS-REGRESS",
+      "title": "The open-PR handoff record can never read clean, because the PR that maintains it is itself an open PR",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01T8iWSepqAuBU7sgbs8GPHu",
+      "tier": "1 (tooling + CI)",
+      "observed": "handoff_check's open_prs check FAILS in both directions by construction. Every open PR must have a row (recorded - observed_open -> stale_row; observed_open - recorded -> unrecorded). The PR that maintains the rows is itself an open PR, so it needs a row, and merging it makes that row stale. MEASURED LIVE 2026-09-02: #10775 merged (d08cac48) about NINETY SECONDS after a branch recorded a row for it -- the row was correct when written and stale before the PR carrying it could open. The manager then pruned it and opened #10777, whose own row went stale on merge (cd8554fa). Two full iterations of the loop, observed, not argued.",
+      "what_complying_would_have_done": "Nothing. There is no compliant sequence: the gate cannot read `ready` on the merge that closes it. Restating the regress in each PR body -- which is what happened twice -- documents the trap without removing it, and the operator correctly named that as the failure: a structural fix was needed, not a better description.",
+      "root_cause": "TWO, and only the second is the terminator. (1) TWO POPULATIONS CONFLATED UNDER ONE KEY: open_prs[] holds both an in-flight CLAIM (this PR is open, here is its owner and blocker) and the durable DECISION RECORD (what the operator actually said, verbatim). Only the first should be graded against the live open list; the second is HISTORY and is MORE load-bearing after the merge than before -- #10746's conditional Tier-2 approval (bybit_1 demo only, real-money bybit_2 accepted as exposed) is precisely what a successor must not lose. So 'pruning a stale row' DELETES decision knowledge in order to satisfy a freshness rule: the same shape as the OPEN-ITEMS cap that instructed a session to EVICT a valid row, which CLAUDE.md already records as a failure. (2) A COMMIT CANNOT RECORD ITS OWN MERGE. Whatever writes a row's terminal state must run OUTSIDE the commit being merged, and nothing did.",
+      "what_actually_prevents_it": "Four parts, spawned as MI-57. (A) SPLIT THE FILE: open_prs[] graded against live, settled_prs[] never compared -- pruning becomes a MOVE, so knowledge is preserved and the freshness check keeps its teeth. (B) A POST-MERGE RECONCILER on push:main that moves a row whose PR is no longer open into settled_prs[] stamped with terminal/merge_sha/observed_at. Running outside the merging commit is what terminates the regress. (C) grade_completeness reads only open_prs[]; a NEW finding fails a settled_prs[] row with terminal=closed_unmerged and no disposition, because an abandoned PR with no stated reason IS real lost knowledge. (D) A DEAD RECONCILER MUST BE VISIBLE: if a stale row exists AND last_reconciled_sha != current main sha, the message says the RECONCILER has not run -- a different finding from a session forgetting, never collapsed into stale_row. (E) MEASURED CONSTRAINT ON (B), recorded here AND relayed. ⚠️ THIS ROW SAID 'a manager CANNOT message a running sub-session' AND THAT WAS WRONG -- do not re-quote it. The true statement is narrower: SendMessage/ListAgents do not ADDRESS cloud sessions from a manager container (measured -- SendMessage to the session id returned 'No agent named ... is reachable'), and the manager generalised from those two tools to the capability. A session-bound Routine DOES reach it: create_trigger with persistent_session_id set and BOTH cron_expression and run_once_at omitted, then fire_trigger. Two limits travel with it -- the fired turn runs WITHOUT mcp__* tools (so never tell it to pull a job log; quote the log INTO the prompt), and it is ONE-WAY, so the outcome is read from the branch/PR/get_session and never as a reply. The constraint below is therefore BOTH a relayed instruction and a review criterion on the draft PR: `main` is branch-protected and a direct push is REJECTED -- I tried one for this very commit and got `GH006 ... 3 of 3 required status checks are expected`. The repo already solved this: `.github/actions/commit-to-main` lands a change via a PAT-authored auto-merge PR with `verify-merged: true`, whose own comment records BL-20260706-GPU-BURST-LEDGER-PUSH-RACE (a direct push rejected, rows SILENTLY dropped, the $10 spend gate defeated). ⚠️ THAT CREATES THE REGRESS FROM THE OTHER SIDE: the reconciler's own landing PR is an open PR and would itself need a row. The resolution is a TYPED exclusion -- bot author AND `automation/` head-branch prefix, BOTH, never either -- which is categorically different from the rejected exemption: an automation landing PR carries no owner session, no intent and no operator decision, i.e. none of the three things this record exists to carry, so its absence cannot hide a forgotten human decision. A bare 'skip bots' is WRONG and must fail a test: a Claude-opened PR is bot-authored in the API sense and must still require a row.",
+      "the_honest_residual": "The fix depends on a workflow actually firing, and this repo has a documented history of machinery that looks armed and is not -- probes.yml and due-list.yml at zero scheduled runs, two Claude Routines enabled:true with next_run_at 0001-01-01. That is exactly why (D) exists: the failure mode is not 'the reconciler is wrong' but 'the reconciler silently stopped and stale rows read as a session's negligence'. Separately, the REJECTED fix must stay rejected: exempting the in-flight PR from the completeness check is byte-indistinguishable from the real failure the check exists to catch (a PR nobody recorded), and open_pr_record.py's own docstring says so. And the residual open_pr_record.py already names is untouched -- an author writing verdict:approved where conditions were in fact given is undetectable from inside the repo, because this file IS the record. AND the manager initially believed (E) could not be relayed at all, which was FALSE and is corrected above -- the wrong belief came from generalising two tools' addressing limits into a capability claim, which is the same unprovenanced-inference shape this repo keeps filing. It was relayed by a session-bound Routine. What remains genuinely one-way is the RETURN path: the sub-session cannot answer, so a relayed constraint is a broadcast and the manager still learns whether it landed only by reading the branch. A constraint that must be ACKNOWLEDGED still has no channel."
+    },
+    {
+      "id": "MI-58-DECISION-PROMPTS-LAND-ON-THE-TRADER-BOT-NOT-CLAUDEBOT",
+      "title": "Work-decision prompts are answerable only on the trader bot, because nothing polls the dedicated Claude bot",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01XH17FTCCjiwHcMLAVeDLQZ",
+      "tier": "2 (a live service gains a polling loop; no order path)",
+      "observed": "Operator direction 2026-09-02, on seeing the first live prompt: 'that's supposed to be showing up in Cloudbot. Right? Not on the trader one, the decisions.' Correct. #10778 (merged 133587f1) routes prompts to the TRADER bot via telegram_decisions.answerable_route(), deliberately NOT claude_route(). Measured in that PR: the trader token is polled by ict-telegram-bot.service with a CallbackQueryHandler; the prop token is polled by ict-claude-bridge.service despite its name; TELEGRAM_CLAUDE_BOT_SECRET is polled by NOTHING. The operator DOES receive pings on ClaudeBot (an OPS deploy ping landed there at 10:11Z and they screenshotted it), which is exactly the distinction: sending needs only a token, a BUTTON needs a polling process to collect the callback_query.",
+      "what_complying_would_have_done": "Nothing was violated. The build's choice was correct given what exists -- pointing prompts at ClaudeBot today would have shipped DEAD BUTTONS THAT LOOK HEALTHY, which is strictly worse than the wrong-channel state, and the PR said so explicitly rather than picking claude_route() because the name matched. The gap is that only half the capability exists, not that the wrong half was built.",
+      "root_cause": "DELIVERY AND ANSWERABILITY ARE DIFFERENT PROPERTIES and only the first was ever built for the Claude bot. OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN tracks the delivery half; nothing tracked the second, because until a button existed nobody needed the Claude bot to be polled. A channel that can be written to but not answered on reads as a working two-way channel from the operator's side right up until the first tap.",
+      "what_actually_prevents_it": "MI-58 builds BOTH halves in one PR, in order: (1) make the Claude bot genuinely polled with a CallbackQueryHandler wired to the SAME handle_decision_callback -- not a fork, one owner, so the route stays the single owner of every refusal; (2) only THEN point answerable_route() at it. Plus the state that makes a regression visible: a startup line naming which token is polled and whether a handler is attached, and a sweep HOLD with a WARNING when the answerable bot is not confirmed polled -- three states, never collapsed (polled_with_handler / token_only_not_polled / unknown), because 'the button rendered' and 'the button works' are otherwise indistinguishable from the operator's side.",
+      "the_honest_residual": "A green harness cannot prove this: the done-condition is a real tap on ClaudeBot producing a work_decision_transit.jsonl row, which needs the operator. The trader-bot round-trip IS already proven end to end (2026-09-02T10:16:36Z, chosen=accept_ungated, submitted_by=telegram), so MI-58 changes WHERE it happens and must not be read as re-proving WHETHER it works. And if the VM's .env lacks TELEGRAM_CLAUDE_BOT_SECRET the build stops at a manager/operator action -- it must NOT be worked around, and must NOT reuse TELEGRAM_CLAUDE_BOT_TOKEN, which drives the PROP bot."
+    },
+    {
+      "id": "MI-59-STATUS-AND-DECISIONS-COMMANDS-ON-THE-CLAUDE-CHANNEL",
+      "title": "/status and /decisions — pull the status update and every waiting decision on demand, instead of only receiving them as they fire",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01272CQFvWA5F9tS9nNRpJtK",
+      "tier": "2 (a live service gains command handlers; no order path)",
+      "observed": "Operator ask 2026-09-02, immediately after the first decision round-trip closed: a /status command returning the status update 'with the checklist and everything', and a /decisions command so every still-unanswered decision 'can all pop up at once, in case I don't get them as they come in'. The second names a real gap the push channel cannot close by itself: a prompt that fires while the operator is away is not re-offered, and the periodic sweep deliberately asks ONCE per request (a per-process re-ask is BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART, which put 202 CRITICALs on the operator's channel). PULL is the correct complement to PUSH here, not a duplicate of it.",
+      "what_complying_would_have_done": "Nothing was violated; this is new capability. Worth recording is the SEQUENCING constraint the ask does not mention: a /command reaches only a bot some process is POLLING, exactly like a button, so on ClaudeBot these arrive WITH MI-58 and not before it. Building them against a hardcoded token would have created a second migration the moment MI-58 lands.",
+      "root_cause": "n/a — a feature request. The dependency is structural: DELIVERY needs only a token, but a COMMAND and a BUTTON both need a polling process. MI-58 is what makes ClaudeBot satisfy that; MI-59 must not duplicate the decision.",
+      "what_actually_prevents_it": "Both commands register on telegram_decisions.answerable_route() -- the SAME resolver the prompts use -- so they work today on whatever bot is genuinely polled and follow MI-58 to ClaudeBot automatically, with no second migration and no operator decision required. /decisions reuses the sweep's own prompt/keyboard builder rather than a second copy, because two copies of the callback_data construction is how the 64-byte budget and the key-digest scheme drift apart. /status prints in the operator's required order (checklist -> recently done -> next) and STAMPS the sha it read plus whether the VM tree is behind main, three states never collapsed (synced / behind_main / unknown) -- measured today, the decisions route read `in_transit` for minutes after the answer was already committed to main, purely because the VM had not synced, so a confident status over a stale tree is a live failure mode and not a hypothetical. A truncated checklist must state how many items it omitted; a /decisions with nothing waiting must say so explicitly, because silence is indistinguishable from a broken command.",
+      "the_honest_residual": "A green harness proves none of it: the done-condition is the operator typing each command and getting a correct reply, which needs them. Authorization is the sharper risk -- the repo is PUBLIC and the bot username is discoverable, so both commands expose internal state to anyone who finds the bot unless they answer only the operator's own chat; the spec requires reusing the existing handlers' auth notion rather than inventing a second one, and that is the thing to check hardest at review. And /status reads the MANAGER's checklist, which is only as honest as the manager keeping it -- a stale as_of will render as confidently as a fresh one, which the sha stamp mitigates but does not solve."
+    },
+    {
+      "id": "MI-60-A-COMMITTED-DECISION-IS-NEVER-PUSHED-BACK-TO-THE-SESSION-THAT-ASKED",
+      "title": "The decision round-trip ends in the repo and stops — the session that asked learns the answer only by polling",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01PEYVqTaCY92C3HmtHwxYff",
+      "tier": "1 for the investigation; the build depends on what it touches. No order path either way.",
+      "observed": "Operator ask on watching the first round-trip close: 'can we add a push on the end of that so that when the answer gets to the repo, it knows to push it to the session instead of waiting for the session to pull'. MEASURED against the machinery that shipped today: a decision request carries object_id, request_id, options, urgency and context -- and NOTHING identifying the session that asked. So there is currently no address to push to, whatever the transport turns out to be.",
+      "what_complying_would_have_done": "n/a -- a feature request, and a well-aimed one. Phase H's own design says visibility is the enforcement mechanism this system has never had; a channel that carries a question outward and cannot carry the answer back to the asker is half of that.",
+      "root_cause": "The round-trip was designed to make truth land in the REPO, which it does correctly. Delivery back to the ASKER was never in scope, so the asking session's identity was never recorded. That is a gap in the object schema before it is a gap in transport.",
+      "what_actually_prevents_it": "MI-60, and its FIRST deliverable is deliberately not code: a feasibility doc stating per claim what was TESTED versus READ FROM DOCUMENTATION. ⚠️ The manager made exactly this error today -- declared 'a manager cannot message a running sub-session' off ONE failed SendMessage, wrote it into a merged PR body and a checklist row, and it was FALSE. A session-bound Routine (create_trigger with persistent_session_id, no cron, no run_once_at, then fire_trigger) IS verified to wake a running session, observed 2026-09-02T10:12Z. The genuine unknown is whether an Actions runner can fire one -- it holds no mcp__* tools -- and the watch_url alternative has two limits that shape the design rather than decorate it: the watch dies with the session, and THIS REPO IS PUBLIC so a webhook URL committed to it is a published endpoint. Design constraints that hold whichever transport wins: record the asking session (smallest change, gates everything); the push must CARRY the answer because a fired turn cannot go fetch it; one-way, so nothing waits for an ack; three states never collapsed (pushed / session_gone / unknown); and PUSH ADDS TO PULL rather than replacing it.",
+      "the_honest_residual": "session_gone is not an edge case -- a long question is exactly the kind whose asking session dies before the answer lands, so the fallback is the common path and the push is the optimisation. A push-only design would silently lose answers precisely when they matter most. And a green test proves nothing here: the done-condition is an OBSERVED wake -- a session idle before and running after, doing something attributable to the push."
     }
-  ]
+  ],
+  "as_of": "2026-09-02T10:37:00Z"
 }

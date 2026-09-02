@@ -524,6 +524,23 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 result, reply_markup=menu.back_to_menu_keyboard()
             )
 
+        elif action == "wdec":
+            # Work-decision answer — the two-way half of the operator's
+            # decision channel (operator ask, 2026-09-02). The button carries
+            # DIGESTS of (object_id, request_id) and of the option KEY, never
+            # the ids and never a positional index: 64 bytes is the whole
+            # budget, and an index would silently select a different option if
+            # the request were edited between the send and the tap.
+            #
+            # ⚠️ The reply this renders must never say `committed`. The route
+            # returns `in_transit`; the answer is not the decision until a
+            # committer writes it into the repo.
+            from src.runtime.telegram_decisions import handle_decision_callback
+
+            result = await asyncio.to_thread(handle_decision_callback, raw)
+            if result is not None:
+                await query.edit_message_text(result["reply"])
+
         elif action == "propexp":
             # Prop ticket-expiry Yes/No answer. The prompt is normally sent to
             # (and answered on) the prop bot, but breakout_notify._prop_bot_token
@@ -675,6 +692,38 @@ def main():
             first=4,
             name="drain_pending_claude_pings",
         )
+
+        # Work-decision prompts — the ASK half of the two-way decision channel.
+        # Sweeps GET /api/bot/work/decisions and sends ONE inline-keyboard
+        # prompt per un-prompted, unanswered request. It lives HERE rather than
+        # on the trader tick because a button only works in a bot some process
+        # POLLS, and this process is the one that polls the token these prompts
+        # are sent on (see telegram_decisions.answerable_route).
+        from src.runtime.telegram_decisions import (
+            prompt_interval_seconds,
+            run_decision_prompt_sweep,
+        )
+
+        async def _sweep_work_decisions(context) -> None:
+            # Off the event loop: the sweep does blocking loopback HTTP and a
+            # file write, and polling must never stall behind it.
+            stats = await asyncio.to_thread(run_decision_prompt_sweep)
+            if stats.get("prompted_choice") or stats.get("prompted_free_text"):
+                logger.info("work-decision prompts: %s", stats)
+
+        _wd_interval = prompt_interval_seconds()
+        if _wd_interval > 0:
+            application.job_queue.run_repeating(
+                _sweep_work_decisions,
+                interval=_wd_interval,
+                first=20,
+                name="sweep_work_decisions",
+            )
+        else:
+            logger.info(
+                "work-decision prompts PAUSED "
+                "(WORK_DECISION_PROMPT_SECONDS <= 0)",
+            )
     else:
         logger.warning(
             "JobQueue unavailable — pending-pings inbox drain disabled. "

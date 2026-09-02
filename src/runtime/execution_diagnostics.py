@@ -185,8 +185,26 @@ OPERATOR_ALERTS_LOG = runtime_logs_dir() / "operator_alerts.jsonl"
 _OPERATOR_ALERTS_KEEP = 300
 
 
-def _append_operator_alert(kind: str, priority: str, body: str) -> None:
-    """Append one operator alert to the durable banner-feed ring (best-effort)."""
+def _append_operator_alert(
+    kind: str, priority: str, body: str,
+    extra: Optional[dict] = None,
+) -> None:
+    """Append one operator alert to the durable banner-feed ring (best-effort).
+
+    ``extra`` adds flat scalar fields to the row. It exists for exactly one
+    reason and it is worth stating: this file is **the only surface from which a
+    page RATE is recoverable** (CLAUDE.md § diag ``log_file``, the
+    ``operator_alerts`` row). ``/api/bot/notifications`` renders the CURRENT
+    banner and nothing else, and these alerts deliberately do not ride
+    ``outcomes.jsonl``, so ``/api/bot/logs?level=error`` returns zero of them.
+
+    So when an alert is DOWNGRADED out of the paging channel, the row must still
+    land here — carrying ``route`` — or the downgrade itself becomes
+    unmeasurable: "we downgraded it" and "it never fired" would render
+    identically, and a reviewer could never establish how often the quiet path
+    was taken. Suppressing the row along with the page would destroy the one
+    instrument that answers the desensitised-alarm question.
+    """
     try:
         from datetime import datetime, timezone
 
@@ -197,6 +215,14 @@ def _append_operator_alert(kind: str, priority: str, body: str) -> None:
             "priority": str(priority or "high"),
             "body": str(body or "")[:1024],
         }
+        # Flat scalars only, and never shadowing a core field: a row whose `kind`
+        # or `ts` could be overwritten by a caller would corrupt the one feed a
+        # page rate is computed from.
+        for k, v in (extra or {}).items():
+            if str(k) in row:
+                continue
+            if v is None or isinstance(v, (str, int, float, bool)):
+                row[str(k)] = v
         with OPERATOR_ALERTS_LOG.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
         # Trim the ring when it grows past ~2x the keep target (cheap amortised).
@@ -363,19 +389,63 @@ def enqueue_close_failure(
     flatten could be retried forever unnoticed. After N consecutive failures for
     the same (account, symbol, direction) this fires so the operator can act.
     Best-effort; never raises.
+
+    ⚠️ **ONE NARROW CLASS IS ROUTED TO THE DIGEST INSTEAD OF THE PAGER** — see
+    :func:`route_close_failure` and :mod:`src.runtime.close_wedge_standing`.
+    Everything else, including a close that has failed a hundred times for a
+    reason nobody has established, pages exactly as before. The routing keys on
+    an EVIDENCED determination, never on the failure repeating.
     """
     try:
-        body = (
-            "🛑 Position CLOSE failing — won't flatten\n"
-            f"Account: {account}\n"
-            f"Symbol: {symbol} | Side: {side} | "
-            f"Qty: {qty if qty is not None else '?'}\n"
-            f"Consecutive close failures: {consecutive}\n"
-            f"Last error: {error}\n"
-            "The DB row is left OPEN and retried each tick — investigate the "
-            "venue/connection; the stuck-strategy watchdog is the backstop."
-        )[:1024]
-        _append_operator_alert("close_failure", priority, body)
+        route, transition, reason, share_hold = route_close_failure(
+            account=account, symbol=symbol, side=side, error=error,
+        )
+        if route == "digest":
+            body = (
+                "🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest\n"
+                f"Account: {account}\n"
+                f"Symbol: {symbol} | Side: {side} | "
+                f"Qty: {qty if qty is not None else '?'}\n"
+                f"Consecutive close failures: {consecutive}\n"
+                f"share_hold: {share_hold}\n"
+                f"{_share_hold_guidance(share_hold)}\n"
+                f"Standing: {_standing_phrase(transition)}\n"
+                f"Routing: {reason}\n"
+                f"Last error: {error}\n"
+                "This is NOT resolved and NOT ignored: it is carried in the "
+                "rolled-up digest every run until the state changes, and it pages "
+                "again the moment it does (cleared, or wedged on new evidence)."
+            )[:1024]
+        else:
+            body = (
+                "🛑 Position CLOSE failing — won't flatten\n"
+                f"Account: {account}\n"
+                f"Symbol: {symbol} | Side: {side} | "
+                f"Qty: {qty if qty is not None else '?'}\n"
+                f"Consecutive close failures: {consecutive}\n"
+                f"share_hold: {share_hold}\n"
+                f"{_share_hold_guidance(share_hold)}\n"
+                f"Last error: {error}\n"
+                "The DB row is left OPEN and retried each tick; the "
+                "stuck-strategy watchdog is the backstop."
+            )[:1024]
+
+        # THE RING ROW IS WRITTEN ON BOTH ROUTES, DELIBERATELY. It carries
+        # `route`, so the downgrade RATE is recoverable from the same file the
+        # page rate is — see `_append_operator_alert`. Dropping the row with the
+        # page would make "downgraded" and "never fired" identical here, which is
+        # the one thing this file is relied on to tell apart.
+        _append_operator_alert(
+            "close_failure", priority, body,
+            extra={
+                "route": route,
+                "share_hold": share_hold,
+                "wedge_transition": transition,
+                "route_reason": reason[:400],
+            },
+        )
+        if route == "digest":
+            return None
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-closefail.json"
@@ -389,6 +459,194 @@ def enqueue_close_failure(
         logger.warning(
             "execution_diagnostics: close-failure enqueue failed account=%s "
             "symbol=%s: %s", account, symbol, exc,
+        )
+        return None
+
+
+def _standing_phrase(transition: str) -> str:
+    """How long this wedge has been a wedge, in words.
+
+    ``still_standing`` is THE ONE transition the digest route is reachable on —
+    it is the only quiet state — so naming it here is the branch that keeps it
+    from being a value nothing reads. Any other transition arriving on this path
+    is a routing bug and prints itself rather than being smoothed over.
+    """
+    if transition == "still_standing":
+        return "carried in the digest since this wedge was first paged"
+    return f"unexpected transition on the digest route: {transition}"
+
+
+def _share_hold_guidance(share_hold: str) -> str:
+    """What the operator should DO, given why the shares are held.
+
+    ⚠️ **This function is why ``share_hold`` is a state and not a log string.**
+    Until this existed, every "won't flatten" page carried the same sentence —
+    *investigate the venue/connection* — whether a retry was about to work, was
+    provably never going to, or whether we had failed to look at the broker at
+    all. Those are four different operator actions and one of them is "do
+    nothing, it is already retrying". A page that cannot tell them apart trains
+    the reader to skip it, which is the desensitised-alarm P1.
+
+    Every declared state branches here, including the two that mean *we could
+    not establish anything* — and those two say so rather than borrowing the
+    reassuring wording of a state we did not observe.
+    """
+    from src.units.accounts.alpaca_client import SHARE_HOLD_NOT_CLASSIFIED
+
+    if share_hold == "broker_cancel_wedged":
+        return (
+            "WEDGED BROKER-SIDE: an order sits in pending_cancel/pending_replace. "
+            "Our cancel was ACCEPTED and the venue never completed it, so no "
+            "further app-level cancel and no cancel_orders=true liquidation can "
+            "release these shares. This needs OPERATOR or VENUE action."
+        )
+    if share_hold == "orders_still_resting":
+        return (
+            "Ordinary cancellable orders are holding the shares — the next tick's "
+            "cancel-then-retry may well clear this on its own. Worth watching "
+            "before acting."
+        )
+    if share_hold == "no_residual_orders":
+        return (
+            "NO resting order is holding these shares, yet they are held — the "
+            "cause is something this classifier does not model. Do not assume a "
+            "retry helps; check the position and the account's own holds."
+        )
+    if share_hold == "residual_unreadable":
+        return (
+            "We could NOT read the symbol's open orders, so WHY the shares are "
+            "held is unestablished. This is not evidence that nothing rests, and "
+            "it is not evidence that a retry will work."
+        )
+    if share_hold == SHARE_HOLD_NOT_CLASSIFIED:
+        return (
+            "Nobody classified this failure — a non-Alpaca venue, or a path that "
+            "never reached the classifying branch. WE DID NOT LOOK; treat the "
+            "cause as unknown."
+        )
+    return (
+        f"Unrecognised share_hold {share_hold!r} — this build cannot classify it; "
+        f"treat the cause as unknown."
+    )
+
+
+def route_close_failure(
+    *,
+    account: Optional[str],
+    symbol: Optional[str],
+    side: Optional[str],
+    error: Optional[str],
+) -> tuple:
+    """Decide whether this close failure PAGES or is carried in the digest.
+
+    Returns ``(route, transition, reason, share_hold)`` where ``route`` is
+    ``"page"`` or ``"digest"``.
+
+    ⚠️ **"page" IS THE DEFAULT AND EVERY UNCERTAINTY RESOLVES TO IT.** A failure
+    with no ``share_hold`` marker (a non-Alpaca venue, or an Alpaca path that
+    never reached the give-up branch) reads ``not_classified`` — *we did not
+    look* — and pages. An unreadable standing ledger pages. A ledger write
+    failure pages. A raise anywhere in here pages. The quiet route is reachable
+    only by a positive, evidenced determination that no lever can help, and only
+    while that determination is actually being CARRIED somewhere the operator
+    will see it.
+
+    Never raises: on any exception the caller gets ``page``.
+    """
+    try:
+        from src.units.accounts.alpaca_client import parse_share_hold
+        from src.runtime.close_wedge_standing import (
+            NOT_A_WEDGE, Observation, UNCLEARABLE_HOLD_STATE, observe,
+        )
+
+        share_hold = parse_share_hold(error)
+        if share_hold != UNCLEARABLE_HOLD_STATE:
+            return ("page", NOT_A_WEDGE,
+                    f"share_hold={share_hold} is not a confirmed-unclearable "
+                    f"determination", share_hold)
+        decision = observe(Observation(
+            account=str(account or ""), symbol=str(symbol or ""),
+            side=str(side or ""), share_hold=share_hold,
+            detail=str(error or ""),
+        ))
+        route = "page" if decision.should_page else "digest"
+        return (route, decision.transition, decision.reason, share_hold)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: close-failure ROUTING failed (%s) — "
+            "defaulting to page", exc,
+        )
+        return ("page", "routing_failed", f"routing raised {type(exc).__name__}",
+                "not_classified")
+
+
+def enqueue_close_wedge_state_change(decision: Any, priority: str = "high") -> Optional[Path]:
+    """Page the operator that a DOWNGRADED close wedge has CHANGED STATE.
+
+    The operator's bargain when a wedge is downgraded to the digest is that it
+    stops competing with live emergencies **and** that they hear immediately
+    when it stops being true. This is the second half. It pages for every
+    transition except ``still_standing`` — see
+    :data:`~src.runtime.close_wedge_standing.LOUD_TRANSITIONS`, which is
+    computed as the complement of the one quiet state so a transition added
+    later is loud by default.
+
+    ⚠️ **A ``vanished_unattributed`` resolution is reported as UNEXPLAINED, and
+    the body says so.** The position leaving the close path is not evidence that
+    anything repaired it: an operator console action, Alpaca finally completing
+    its own cancel, and a package cascade all look identical from here, and so
+    does a trader that simply stopped observing. ``CLAUDE.md``'s
+    ``PROTECTION_REASSERT_MODE`` row records what it costs to credit an
+    unattributed resolution — a gate at ``annotate`` with an empty allowlist got
+    read as having fixed a divergence it could not have touched.
+
+    Best-effort; never raises.
+    """
+    try:
+        from src.runtime.close_wedge_standing import LOUD_TRANSITIONS
+
+        transition = str(getattr(decision, "transition", "") or "")
+        if transition not in LOUD_TRANSITIONS:
+            return None
+        entry = getattr(decision, "entry", None) or {}
+        headline = {
+            "newly_wedged": "🧱 Position CLOSE wedged BROKER-SIDE (new)",
+            "evidence_changed": "🧱 Close wedge CHANGED — new evidence, re-paging",
+            "cleared_confirmed": "✅ Close wedge CLEARED — confirmed close observed",
+            "vanished_unattributed": "❓ Close wedge GONE — cause NOT established",
+        }.get(transition, f"Close wedge: {transition}")
+        body = (
+            f"{headline}\n"
+            f"Account: {entry.get('account')} | Symbol: {entry.get('symbol')} | "
+            f"Side: {entry.get('side')}\n"
+            f"Transition: {transition}\n"
+            f"share_hold: {entry.get('share_hold')}\n"
+            f"First seen: {entry.get('first_seen')} | Last seen: {entry.get('last_seen')}\n"
+            f"Pages suppressed while it stood: {entry.get('pages_suppressed', 0)}\n"
+            f"Attribution: {entry.get('attribution') or getattr(decision, 'reason', '')}\n"
+            f"Evidence: {entry.get('detail') or entry.get('evidence')}"
+        )[:1024]
+        _append_operator_alert(
+            "close_wedge_state_change", priority, body,
+            extra={
+                "route": "page",
+                "wedge_transition": transition,
+                "share_hold": str(entry.get("share_hold") or ""),
+                "pages_suppressed": int(entry.get("pages_suppressed") or 0),
+            },
+        )
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-wedgestate.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: close-wedge state-change enqueue failed: %s", exc,
         )
         return None
 
