@@ -443,13 +443,29 @@ the manager owns that file.
 - Run `python3 scripts/ci/run_guards.py --base main` AFTER committing; if a tool
   is absent in your container, say which guards you could not run rather than
   reporting them green.
-- `issue_write` / `add_issue_comment` / `create_pull_request` 403 for you. Use
-  `.github/workflows/board-post.yml` and `.github/workflows/pr-opener.yml` with a
-  FRESH filename per use. Post a board START to issue #6927 before your first
-  substantive change, naming your branch AND your session id. Those relays commit
-  as `github-actions[bot]` and trigger no workflows, so if such a commit lands
-  last your PR shows ZERO checks and is blocked, not green — push an ordinary
-  commit after, to arm CI.
+- `issue_write` / `add_issue_comment` / `create_pull_request` MAY 403 for you —
+  TRY THEM DIRECTLY FIRST, and fall back to the relays only on an actual refusal.
+  ⚠️ This line asserted a flat 403 until 2026-09-02 and that was wrong: it has now
+  been measured in BOTH directions on the same day. MI-75 hit
+  `Resource not accessible by integration` on `create_pull_request`; MI-77 used
+  `create_pull_request` AND `add_issue_comment` with no 403 at all and said so.
+  So it is variable, not a property of being a sub-session, and neither reading
+  generalises. Assuming the 403 costs a working session a relay round-trip and a
+  buried CI run; assuming it works costs one refused call you can recover from —
+  which is why the instruction is try-then-fall-back rather than either claim.
+- ⚠️ Distinguish a WRITE-SCOPE 403 from the transient GitHub-MCP drop: the scope
+  boundary refuses writes while `issue_read` on the SAME object succeeds, and no
+  amount of backoff clears it. A drop fails everything and self-heals in seconds.
+  Retry once before reaching for a relay; do not build a retry loop around a 403.
+- The relays are `.github/workflows/board-post.yml` and
+  `.github/workflows/pr-opener.yml`, with a FRESH filename per use (the result
+  file is the idempotency key, so a reused name is a silent no-op). Post a board
+  START to issue #6927 before your first substantive change, naming your branch
+  AND your session id — a 403 is never a reason to skip the board.
+- ⚠️ Those relays commit as `github-actions[bot]`, and GitHub fires no workflows
+  for `GITHUB_TOKEN` pushes, so if such a commit lands LAST your PR shows ZERO
+  checks and reads as blocked, not green. Put board posts on a SEPARATE branch,
+  or push an ordinary commit after, to arm CI.
 - Open the PR as a DRAFT; the manager merges.
 {scope}"""
 

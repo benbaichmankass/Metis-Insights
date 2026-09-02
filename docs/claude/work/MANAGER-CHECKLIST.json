@@ -1153,6 +1153,76 @@
         "#10808",
         "WO-20260902-MANAGER-PREFLIGHT"
       ]
+    },
+    {
+      "id": "MI-78",
+      "title": "Two open non-draft PRs are RED on pytest-run and nothing is driving them",
+      "state": "done",
+      "priority": "P2_OVERHAUL_IMPLEMENTATION",
+      "owner": "session_01Ue52itfxGxsbZrJJtswtCg",
+      "tier": "1 (tests/CI)",
+      "why": "#10764 (the CLAUDE.md instruction-surface split, MI-41-B) and #10810 (the automerge request gate, MI-69) are both non-draft, both mergeable, and both RED on pytest-run since 16:43Z, with their sub-sessions ended. Two finished operating-layer deliverables sitting undeliverable with no owner.",
+      "the_hypothesis_to_TEST": "Both failures are the PRs' OWN, not the base branch's. Evidence: the failing coherence check's code-minus-doc and doc-minus-code sets both reproduce EMPTY against origin/main. #10764: the split moved the log_file row out of CLAUDE.md, main later added four names to CLAUDE.md's copy, the merge kept the branch's deletion and the additions never reached the new home (bybit_coverage_soak, telegram_poll_claude, telegram_poll_trader, work_decision_prompted). #10810: the new automerge-trigger-guard registry entry OMITS the \"when\" key where the convention is an explicit \"when\": None, and the test reads g[\"when\"] directly -- 7 KeyErrors.",
+      "done_when": "Both PRs show pytest-run success on their pushed head and are merged, OR a comment on each names exactly what is failing and why it is not being fixed. Neither test is weakened, skipped or deleted to reach that state, and #10764's verbatim-split claim survives -- the four names' descriptive prose comes across, not just the enum tokens.",
+      "owns_object": "WO-20260902-TWO-OPEN-NON-DRAFT-PRS-ARE-RED",
+      "spawned_at": "2026-09-02T18:16:25Z",
+      "note": "MANAGER ORDERING SLIP, recorded rather than tidied away: I spawned this session BEFORE registering it, and spawn_gate.py duly REFUSED the registration for naming no parent object. That is the gate working -- and it caught me, the manager, which is what it is for. The object was created after the fact via capture_idea.py and the row is correct now, but the spawn was un-gated at the moment it happened. The gate cannot refuse a create_session call it never sees; MI-77 is the watcher for exactly this class. || CLOSED 2026-09-02T19:00Z: both PRs green and MERGED (#10764 the CLAUDE.md split restored its 6 lost blocks; #10810 the automerge gate). Graded `done` rather than `landed_unproven` because the OUTCOME was observed, not just the merge -- #10810's gate is the reason #10776 and #10748 could be disarmed and re-drafted rather than merging themselves, and the session's diagnosis of #10810 CORRECTED the manager's: I said the entry omitted `when`, which was right; it also found the dispatched diagnosis of the ROOT cause (the legacy shared path) was wrong and that removing it 'would have left the defect fully intact while looking like a fix'."
+    },
+    {
+      "id": "MI-79",
+      "title": "Drain the stalled draft queue — 5 of 5 branches conflict against a freshly fetched main",
+      "state": "in_flight",
+      "priority": "P2_OVERHAUL_IMPLEMENTATION",
+      "owner": "session_017BMpMRDpnR8U7aodUBSPCg",
+      "tier": "1 (conflict resolution on existing PRs; no order path)",
+      "why": "Five open drafts from finished sessions -- #10794, #10793, #10776, #10748, #10694 -- all conflicting, oldest quiescent 20h and one automation PR 109.6h. MI-77's watcher flagged exactly this queue on its first run, which is the watcher confirming its own premise. Main merged THREE times in the 40 minutes I measured over (4f664aab -> 82edebd6 -> 002e0ab8), so each branch is strictly harder to land tomorrow than today.",
+      "the_hypothesis_to_TEST": "Contention is CONCENTRATED, not diffuse: scripts/ops/render_due_list.py conflicts in 2 of the 5 branches and scripts/ci/check_collapsed_states.py in 2. If that holds, the queue is blocked by two shared files rather than by five independent problems, and the merge ORDER matters more than the individual resolutions. NOT the register-header churn MI-76 diagnosed -- only one branch touches a register (DUE.json), so the merge driver from #10826 is not what unblocks this.",
+      "done_when": "Each of the five is conflict-free with all three required checks green and STILL A DRAFT, or closed with a written reason handed to the manager rather than closed by the session. A merge ORDER is delivered naming which pairs re-conflict each other. Drafts are kept because the artifact cap is 4 concurrent non-draft PRs and the manager serializes.",
+      "owns_object": "WO-20260902-THE-PR-QUEUE-CANNOT-DRAIN-EVERY-MERGE",
+      "spawned_at": "2026-09-02T18:26:32Z",
+      "note": "MANAGER MEASUREMENT ERROR, recorded because it changed the conclusion in the OPTIMISTIC direction. My first scan ran `git fetch origin <branch>` per branch, which does NOT advance origin/main, so it graded against a stale base and read 4 of 6 conflicted WITH #10694 CLEAN. Against a freshly fetched main it is 5 of 5. I acted on the clean reading first -- started merging main into #10694 to arm its CI -- and the merge conflicted, which is how I caught it. A mergeability read is only as current as the base you fetched, and this one was reported before it was re-checked."
+    },
+    {
+      "id": "MI-80",
+      "title": "The operator's ping cadence rides GitHub cron, and GitHub cron does not fire",
+      "state": "in_flight",
+      "priority": "P1_HANDOFF_CAPABILITY",
+      "owner": "session_01R4tWq3YJZnDUY3EhAYZ9En",
+      "tier": "1 (CI/notification carrier; no order path)",
+      "why": "The operator asked directly at 18:33Z: 'no pings for 3 hours?' -- and it was FOUR. Measured over the COMPLETE run history of work-digest.yml (total_count 3, a census not a page): three runs all day, at 00:19Z / 07:10Z / 14:33Z, ~7h apart against a declared 6x/day, and ONE OF THE THREE FAILED. The hourly cron went live at 16:22Z (#10815) and BOTH the 17:20Z and 18:20Z slots did not fire. The minutes match no declared offset, so GitHub is not late -- it is not honouring the schedule.",
+      "the_hypothesis_to_TEST": "NOT 'move it to a Routine' -- that is the manager's hypothesis and MI-80 is deliberately told not to inherit it. Three candidates to rule in or out with evidence: (a) GitHub deprioritises scheduled workflows on a busy repo; (b) the job's own shape -- budget 40 minutes because commit-to-main waits up to 30m for its auto-merge PR, with concurrency cancel-in-progress:false, so an hourly cadence and a 40-minute job OVERLAP BY DESIGN and that may be the whole story; (c) the right fix is not a new carrier at all but that a MISSED SLOT BECOMES VISIBLE -- today a missed digest and a quiet hour are indistinguishable. Contrast worth testing against: Claude Routines on the same account fire on time (the :26 sweep fired 54s late) while GitHub cron is hours off or absent.",
+      "done_when": "The digest arrives on a cadence OBSERVED over at least 6 consecutive expected slots with the misses COUNTED rather than assumed, and a missed or FAILED run is itself surfaced. Moving the carrier is not sufficient on its own -- a new carrier must be measured against its declared slots the same way GitHub's was. A workflow_dispatch run is NOT evidence the cron works.",
+      "owns_object": "WO-20260902-THE-OPERATOR-S-PING-CADENCE-RIDES-GITHUB",
+      "spawned_at": "2026-09-02T18:35:26Z",
+      "note": "P1 rather than P2 because F6 makes operator notification the CONDITION the autonomy grant rests on, so this precondition has been unmet all day with nobody noticing -- which is the failure, more than the missing pings. MI-80 is explicitly told NOT to reduce the cadence because it judges hourly noisy: the operator accepted that noise deliberately and it is their call. Manager fired work-digest.yml manually at ~18:34Z so the operator gets something now; that is a patch and is recorded as one."
+    },
+    {
+      "id": "MI-81",
+      "title": "The overdue trainer row — observe it, and build the data-freshness alarm if one can be built",
+      "state": "in_flight",
+      "priority": "P2_OVERHAUL_IMPLEMENTATION",
+      "owner": "session_017TRSSpkQ2NZHHxCp8MNXbg",
+      "tier": "1 (trainer read; trainer VM is autonomous territory)",
+      "why": "OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED is FOUR days past a THREE-day cadence. The operator DECIDED on 2026-08-29 to keep the trainer for L2 order-flow capture -- a forward-only stream nothing can re-derive -- and the row records the disk at 92% with nothing watching. The row is loud and renders in the CLAUDE.md brief and was STILL not observed, which makes it a live instance of the failure OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION watches: the register surfaces it and nobody acts.",
+      "the_hypothesis_to_TEST": "The two halves are DIFFERENT FACTS and must not be collapsed. (1) OBSERVE -- what is the disk headroom, is the capture still writing, how stale is its newest data. (2) ALARM -- keyed on the DATA's freshness at the named path, NEVER on the unit's ActiveState, because a systemd unit can be `active` while writing nothing and a unit-state alarm would be green straight through the failure this watches. The row's own clears_when requires the alarm be SHOWN to fire against PLANTED staleness, not merely deployed.",
+      "done_when": "The row's observation carries what was SEEN (verbatim, with the command) and verified_at is re-dated. The row clears only if the freshness alarm exists AND was shown to fire against planted staleness; otherwise it stays open with the reason. Disk headroom recovering on its own does NOT clear it -- the gap is the missing alarm, not the free space.",
+      "owns_object": "WO-20260902-A-DUE-MONITORING-ROW-ON-AN-UNMONITORED",
+      "spawned_at": "2026-09-02T18:39:52Z",
+      "note": "MANAGER PRIORITY CALL, stated so it can be argued with. This is INTEGRITY work and the cycle priority is the operating layer's STEERING half, so it is not obviously in-priority. I spawned it anyway on two grounds: a forward-only capture that cannot be re-derived sitting on a 92%-full disk with no alarm is a live risk to an operator-DECIDED dependency; and the fact that a loud, rendered, four-days-overdue row went unacted-on IS a steering failure, which is the cycle's subject. It used the last of the four concurrent session slots and nothing else was queued for it."
+    },
+    {
+      "id": "MI-82",
+      "title": "Measure the unauthorised-merge population, and assess the blast radius of each",
+      "state": "in_flight",
+      "priority": "P2_OVERHAUL_IMPLEMENTATION",
+      "owner": "session_01R9EwEtP2JPYqxUH1tjSa5Q",
+      "tier": "1 (measurement and assessment only; explicitly forbidden from reverting or merging)",
+      "why": "PRs whose own bodies say do-not-merge have been merging themselves. TWO CONFIRMED by direct read, both merged_by github-actions[bot] with no human decision: #10788 at 16:12:21Z ('Draft. Not for merge -- it carries an operator decision') and #10793 at 18:53:42Z (the operator's HELD constraint is in its title). BOTH WERE FOUND BY ACCIDENT while investigating something else, which is the reason to measure rather than spot-check.",
+      "the_hypothesis_to_TEST": "#10810 landed the auto-merge gate at 18:49:29Z, four minutes BEFORE #10793 merged itself -- consistent rather than contradictory, because that PR states in its own text that it 'cannot retract auto-merge already enabled'. So the residual is an unknown number of PRs ARMED BEFORE 18:49Z that merge themselves the moment their CI goes green. ⚠️ A count of bot-merges is NOT the finding: the relay legitimately merges the chore(ops) automation PRs. The number that matters is bot-merges of PRs that DECLARED THEMSELVES HELD. #10746 is the control -- a held-looking Tier-2 order-path PR whose merge CLAUDE.md records as operator-permitted; a method that flags it as unauthorised is wrong.",
+      "done_when": "Both counts stated with their population; blast radius per unauthorised merge naming what landed, whether it is DEPLOYED (a merge is not a deploy here) and WHAT WOULD ACTIVATE IT; and the still-armed set read back from the API rather than trusted. A conclusion that something needs reverting is REPORTED and stopped on -- that is the operator's call.",
+      "owns_object": "WO-20260902-PRS-WHOSE-OWN-BODIES-SAY-DO-NOT",
+      "spawned_at": "2026-09-02T19:01:08Z",
+      "note": "MANAGER MISS, recorded because I reported the wrong thing. My earlier status listed #10788 among PRs I had merged. I did not merge it -- github-actions[bot] did, at 16:12:21Z. I recorded an unauthorised auto-merge as a merge I had made, which is exactly how this class stays invisible: the manager's own record absorbs it. Also handed over: list_pull_requests with a `fields` selection SILENTLY DROPPED merged_by and returned merged:false on PRs whose merged_at was populated in the same row -- so the listing endpoint cannot answer this question and MI-82 is told to establish its instrument with a positive control first."
     }
   ],
   "as_of": "2026-09-02T17:20:00Z"

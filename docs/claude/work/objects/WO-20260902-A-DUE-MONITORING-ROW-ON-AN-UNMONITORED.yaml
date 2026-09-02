@@ -1,0 +1,30 @@
+id: WO-20260902-A-DUE-MONITORING-ROW-ON-AN-UNMONITORED
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  A due monitoring row on an unmonitored, un-re-derivable data stream has gone unobserved for 4 days
+stage: OBSERVATION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The row's observation field carries what was actually SEEN on the trainer -- disk headroom, whether the capture is still writing, and how stale its newest data is -- with verified_at re-dated. If an alarm keyed on the DATA's freshness (never on the unit's ActiveState) can be built and SHOWN to fire against planted staleness, that is the row's own clears_when and it clears; if it cannot, say why and leave the row open. Disk headroom recovering on its own does NOT clear it.
+
+why: >-
+  OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED is 4 days past a 3-day cadence. The operator DECIDED on 2026-08-29 to keep the trainer VM for L2 order-flow capture -- a forward-only stream nothing can re-derive -- and the row records the disk at 92% with NOTHING watching the capture. It is loud, it renders in the CLAUDE.md brief, and it has still not been observed, which makes it a live instance of the failure OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION watches: the register surfaces it and nobody acts. That is a STEERING failure, not merely a trainer problem, which is why it sits under this intent.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
