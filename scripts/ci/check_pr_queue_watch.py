@@ -242,6 +242,44 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
     except ImportError:
         fails.append("could not import pr_queue_latency to check the window ordering")
 
+    # --- THE ESCALATION CHANNEL MUST ACTUALLY BE ABLE TO FIRE --------------------
+    # ⚠️ A RECURRENCE PREVENTION, not a style check. The workflow captures the
+    # watcher's exit code into `$GITHUB_OUTPUT` and branches on it; exit 3 is the
+    # escalation and it FAILS the job, which is how `claude-run-failure-alert.yml`
+    # reaches the operator. Shipped 2026-09-02 as `python3 ... | tee /tmp/digest.txt`
+    # followed by `echo "code=$?"` -- and `$?` after a PIPELINE is the LAST
+    # command's status, i.e. `tee`'s, which is ALWAYS 0. The first live run
+    # (33666587546) measured 6 waiting PRs at 110.5h, stamped `last_paged_at` in
+    # its own receipt, and concluded `success`. The watcher counted the CALL and
+    # not its EFFECT.
+    #
+    # ⚠️ THE FAILURE WAS INVISIBLE FROM EVERY GREEN SIGNAL: 33 + 17 self-test
+    # cases passed, `guards` passed, the receipt landed on main and read
+    # `measured`. Only comparing the run's CONCLUSION against the receipt's own
+    # `last_paged_at` exposed it -- which is why this assertion reads the YAML
+    # rather than trusting any of them.
+    wf = REPO_ROOT / ".github" / "workflows" / "pr-queue-watch.yml"
+    try:
+        text = wf.read_text(encoding="utf-8")
+    except OSError:
+        text = None
+    if text is None:
+        # ⚠️ `unreadable` is NOT `clean`. We could not look, so this is a finding.
+        fails.append("could not read pr-queue-watch.yml to check the exit-code capture")
+    else:
+        capture = [ln for ln in text.splitlines() if 'code=$?' in ln]
+        check("the workflow captures the watcher's exit code at all", len(capture) == 1)
+        # The command whose status is captured must not be a pipeline. Look at the
+        # lines between the assess `run:` and the capture.
+        idx = text.index('code=$?')
+        window = text[max(0, idx - 700):idx]
+        check("the assessed command is NOT piped -- `$?` after a pipe is `tee`'s, "
+              "and `tee` always exits 0", "| tee" not in window)
+        check("the digest is still shown in the log (redirect, then cat)",
+              "> /tmp/digest.txt" in window)
+        check("exit 3 (escalate) still FAILS the job, which is the only route to "
+              "the operator", "PR-QUEUE ESCALATION" in text and "exit 1" in text)
+
     # --- the backlog is REPORTED and never fails the guard -----------------------
     hot = grade(stamped(1), "read", now)
     txt = render(hot, stamped(1, read_state="measured", waiting=9, worst_hours=99.0))
