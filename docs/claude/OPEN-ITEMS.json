@@ -90,7 +90,7 @@
    ],
    "probe_absent_reason": "MISSING CAPABILITY: the observable is a FRESH session's behaviour — whether a cold session reports on this row citing the brief. No probe can watch that; only a later session's closing summary can attest it. A probe asserting the row RENDERS would be the semantic substitution this repo has a guard family for: rendering is not reading."
   },
- {
+  {
    "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
    "opened": "2026-08-26",
    "kind": "monitoring",
@@ -562,7 +562,7 @@
    "observation": "2026-08-31: routed and armed, ZERO orders placed. The newest alpaca_live journal row of any kind is 2026-08-28T19:00:38Z and every one of the 335 rows on that account is status='rejected' (200 most recent inspected, all rejected; reasons account_mode_dry_run and dry_run_sizing_skip from the pre-2026-08-29 dry_run era). The cash_settlement_soak holds no alpaca_live row at all, which is expected \u2014 with strategies: [] the order path never evaluated it. DEPLOY CONFIRMED 2026-08-31T22:43Z, and confirmed as two SEPARATE facts rather than one: (a) the ROSTER is live \u2014 /api/bot/config returned alpaca_live strategies ['tlt_pullback_1h'] at 22:41:33Z; (b) the CODE is live \u2014 /api/diag/version went running 2c514640 / disk a8a045a6 / restart_pending TRUE at 22:42:32Z to running a8a045a6 / restart_pending FALSE at 22:43:12Z. \u26a0\ufe0f The roster went live BEFORE the restart and did not need it: Coordinator.multi_account_execute calls load_accounts(path) FRESH on every invocation (coordinator.py:909) and the accounts layer is stateless per call by its own docstring (coordinator.py:2662), so ict-git-sync updating accounts.yaml on disk is sufficient. `restart_pending` tracks CODE, not config \u2014 reading it as the roster gate would be the wrong inference in both directions. THE GATE SURVIVED THAT RESTART AND WAS RE-READ ON THE NEW PROCESS, not assumed to carry over \u2014 get-env #10635/#10636 at 22:43-22:44Z: ALPACA_CASH_SETTLEMENT_MODE process='apply', ALPACA_CASH_SETTLEMENT_ACCOUNTS process='alpaca_live' (`set`, NOT `set_empty`, which for this knob means NONE), and NOT widened to the paper mirrors. PR #10633 merged as a8a045a6 after three CI rounds (a merge conflict that presented as ZERO check runs, probe-guard, and one real test failure); main moved twice mid-session and the register was conflict-resolved by union both times. STILL NOT CLEARED: routed and deployed is not traded. US equities were shut at deploy time (Monday 22:43Z; next RTH Tue 2026-09-01 13:30-20:00Z), and every alpaca_live journal row remains status='rejected'. \u26a0\ufe0f RE-CHECKED 2026-09-01T14:20Z, ~50 min into the first RTH: STILL NO TRADE, and that is the EXPECTED outcome, not a fault. alpaca_live total rows unchanged at 335, newest still 2026-08-28T19:00:38Z, 0 non-rejected (filter_state 'applied' asserted). The discriminating check: tlt_pullback_1h has produced ZERO order_packages since the go-live (total still 74, newest 2026-08-28T17:18:14) \u2014 so nothing is being silently dropped, the leg simply has not signalled, and only ~1.8 trading days have elapsed against a ~2.4-day long-signal cadence. Pipeline confirmed alive by control (newest package overall 2026-09-01T14:01:40 ict_scalp_mgc_15m; uso_trend_1h \u2014 an Alpaca equity leg \u2014 also fired today, so the equity session gate is working). \u2705 THE T+1 ALLOWLIST IS PROVEN WORKING ON THE ORDER PATH, not just in the env: cash_settlement_soak rows dated 2026-09-01T13:30Z read mode=apply with scope=not_allowlisted / applied=False for BOTH paper mirrors \u2014 the gate is globally armed and the mirrors are explicitly held back, which is the protection this scoping was chosen for. (alpaca_portfolio's basis read 69177.83 today vs 0.00 twice yesterday, confirming the negative-cash condition is INTERMITTENT as predicted \u2014 it would have halted that account unpredictably.) \u26a0\ufe0f ONE REAL FINDING, recorded on its own row rather than here: SILENT_REFUSAL_SKIP is still 'alpaca_live', so the account that just started trading real money has its refusal detector OFF \u2014 see BL-20260823-ALPACA-LIVE-IS-EXEMPT-FROM-BOTH-DETECTORS-THAT-WATCH-IT, escalated the same day.",
    "last_checked": "2026-08-31"
   },
-    {
+  {
         "id": "OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT",
   "probe_absent_reason": "MISSING CAPABILITY: the observable is a FRESH session's BEHAVIOUR — whether a cold session states this cycle's priority, cites the CLAUDE.md brief as where it read it, and says what it did differently. No probe can watch that; only a later session's closing summary can attest it. ⚠️ A probe asserting the priority BLOCK RENDERS would be exactly the semantic substitution this repo has a guard family for: rendering is not reading, and a green probe on the wrong observable is worse than no probe because it would close this row on a deploy.",
         "opened": "2026-09-01",
@@ -581,7 +581,7 @@
             "docs/design/operating-layer-build-plan-DESIGN.md"
         ]
     },
-    {
+  {
       "id": "OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED",
       "opened": "2026-09-01",
       "kind": "monitoring",
@@ -601,7 +601,7 @@
         "docs/design/operating-layer-build-plan-DESIGN.md"
       ]
     },
-    {
+  {
         "id": "OI-20260901-CONSTRAINT-READOUT-SHIPPED-AND-IT-REFUSES-NOBODY-HAS-ACTED-ON-THE-REFUSAL",
         "probe_absent_reason": "A probe could assert `verdict == insufficient_basis` in docs/claude/CONSTRAINT.json, but that is the CURRENT state and asserting it would make the probe PASS for exactly as long as nothing improves — a green that means 'still broken'. What clears this is a session ACTING on the refusal (writing true edges), and nothing records that a session read the line and did something. Deliberately unprobed rather than probed wrong.",
         "opened": "2026-09-01",
@@ -709,7 +709,7 @@
         "https://github.com/benbaichmankass/Metis-Insights/pull/10674"
      ]
   },
- {
+  {
   "id": "OI-20260902-E0-LIVE-ARM-LEG-SCOPING-SHIPPED-AND-NEVER-RUN-ON-THE-TRAINER",
   "opened": "2026-09-02",
   "kind": "awaiting_verification",
@@ -725,7 +725,7 @@
    "https://github.com/benbaichmankass/Metis-Insights/pull/10756"
   ]
  },
- {
+  {
   "id": "OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE",
   "opened": "2026-09-02",
   "kind": "awaiting_verification",
@@ -776,7 +776,7 @@
     "src/runtime/bybit_coverage_soak.py"
    ]
   },
- {
+  {
   "id": "OI-20260902-DECISION-PROMPTS-MOVED-TO-CLAUDEBOT-AND-NO-TAP-HAS-LANDED-THERE",
   "opened": "2026-09-02",
   "kind": "awaiting_verification",
@@ -889,7 +889,7 @@
     ".claude/skills/duty/SKILL.md"
    ]
   },
- {
+  {
   "id": "OI-20260902-REAPER-SHIPPED-AND-THE-KILL-PROVED-A-PARTIAL-LOSS-NOT-A-CLEAN-ONE",
   "opened": "2026-09-02",
   "kind": "awaiting_verification",
@@ -979,6 +979,40 @@
     ".github/workflows/pr-queue-watch.yml",
     "docs/claude/work/PR-QUEUE-WATCH.json",
     "WO-20260902-MANAGER-PREFLIGHT"
+   ]
+  },
+  {
+   "id": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED",
+   "kind": "monitoring",
+   "loud": true,
+   "opened": "2026-09-02",
+   "check_every_days": 1,
+   "summary": "The operator's digest was moved OFF GitHub cron and onto push:main (#10845, MI-80), because cron does not fire here: work-digest had FOUR runs in its entire life against an hourly declaration, and every other scheduled producer lands hours late or skips days (probes +4h53m and nothing on 09-02; due-list +4h07m; econ-calendar +2h14m; macro-valuation +5h22m and nothing on 09-02). [!] THE NEW TRIGGER HAS NEVER FIRED. A workflow file that parses is not a run -- the exact distinction the whole change is about -- so this is DEPLOYED, not working. [!] AND THE QUIET-WINDOW HALF IS NOT FIXED AT ALL: a push-driven digest cannot produce a heartbeat while main is quiet, which is precisely the 'operator stopped looking' window the operator complained about, and the CI guard shipped with it has the same weakness -- it only runs when someone opens a PR.",
+   "detail": "THIS IS A RECURRENCE, and that is the finding more than the missing pings. BL-20260830-SCHEDULED-WORKFLOW-LAG-WENT-FROM-1H-TO-6-12H-ON-2026-08-27 is OPEN and already said 'ANY plan whose correctness depends on a cron firing at roughly its declared time is now wrong'. Three days later the operator's ping cadence -- which F6 makes the CONDITION the autonomy grant rests on -- was put on exactly that carrier and nobody read the row. The earlier fix did not hold because it was a row nobody read, not a mechanism. MEASURED CARRIER EVIDENCE for the unfixed half: of 26 LIVE Routines (list_triggers limit=100, next_cursor None; include_completed defaults false so fired one-shots are hidden), 25 are bound to one persistent_session_id and die with it. The ONE that is not, trig_01TWdAvrwFLe6T9XFoNopTeo, is also the only one carrying an observable last_run: it fired 42s after its :56 slot into a NEW session. So a fresh-session Routine is both reliable and creator-independent, measured rather than assumed. A ~4x/day WATCHDOG Routine (not the digest itself, which would cost 24 sessions/day) is the proposal; creating it is recurring spend on the operator's account and was deliberately NOT done. A VM systemd timer was assessed and cannot carry the digest -- VM_GIT_DEPLOY_TOKEN is Contents:read-only so the VM cannot push to main -- but is a real Tier-2 candidate for the watchdog.",
+   "clears_when": "TWO PARTS, different facts -- say which you cleared rather than clearing on the easier one. (1) CARRIER: a work-digest run with event=push is OBSERVED completing AND its receipt docs/claude/work/WORK-DIGEST.json appears ON MAIN carrying trigger=\"push\" and a generated_at from that run. Read the run history and that stamp, NEVER the workflow file. (2) DETECTOR: check_digest_liveness.py is observed grading `fresh` on a PR OTHER than #10845, which is what proves it armed itself rather than merely being registered. [!] MERGING #10845 CLEARS NEITHER -- a merge is not a deploy and a deploy is not a run. [!] A GREEN SELF-TEST CLEARS NEITHER: 38 assertions pass in a harness, and a harness is exactly what cannot reach a trigger. [!] A workflow_dispatch run clears NOTHING, because the failure class being watched is a trigger that does not fire. [!] AND CLAUSE (1) IS ABOUT QUEUING, NOT DELIVERY -- CORRECTED 2026-09-02 AFTER THE PREMISE CHANGED. The cron DID fire (run #5, event=schedule, 19:47:22Z, success) and the operator STILL received nothing, so a carrier that fires is not sufficient and this row must not be read as tracking whether pings arrive. Delivery is marked on a LOCAL FILE WRITE (send_ping.enqueue), the response-reading _post_telegram is never called, and the bridge logs no outcome -- see BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE-SO-DELIVERED-IS-NOT-EVIDENCE. Clearing clause (1) says a digest was QUEUED, and says NOTHING about whether the operator saw it. [!] AND THE DIGEST ARRIVING WHILE SOMEONE IS WORKING DOES NOT CLEAR THIS -- that is the half that already works. The quiet-window half clears only on an OBSERVED quiet-period heartbeat, or on a RECORDED operator decision not to buy one. Deciding NOT to is legitimate and must be recorded as a decision rather than left looking like work in flight.",
+   "observation": "2026-09-02 (MI-80, PRE-DEPLOY BASELINE -- this is what the carrier looked like BEFORE the change, NOT evidence about it). SEEN: work-digest.yml run_number 4, i.e. four runs in its entire life; three scheduled, ~7h apart, one CONCLUDING FAILURE at 07:10Z; the 17:20Z and 18:20Z slots after the hourly cron went live at 16:22Z both absent. SEEN: no docs/claude/work/WORK-DIGEST.json exists on main, so check_digest_liveness.py grades `never_ran` -- correct, and deliberately NOT a receipt I hand-wrote, because a hand-made one would claim a digest the operator never received. NOT SEEN, and this is the point: any run of work-digest with event=push. The probe below reads `work-digest: trigger=push` out of the job log and is expected to FAIL until the first such run.",
+   "verified_at": "2026-09-02",
+    "probe": {
+     "cmd": [
+      "python3",
+      "scripts/ops/probe_actions_log.py",
+      "--workflow",
+      "work-digest.yml",
+      "--contains",
+      "work-digest: trigger=push",
+      "--positive-control",
+      "work-digest: trigger="
+     ],
+     "checks": "A work-digest job log contains the literal `work-digest: trigger=push`, i.e. a run of that workflow was carried by a PUSH event. That is the only thing that settles clause (1): the workflow file declaring `push` is a declaration, and this repo's whole finding is that a declared trigger is not a run. The positive control is `work-digest: trigger=` WITHOUT the event value, so a log that is fetched but no longer carries the line at all grades could_not_run rather than a clean negative -- the unstated-denominator error one level up.",
+   "is_not": "A PASS DOES NOT CLEAR THIS ROW. It establishes that a push-triggered run EXISTED; it says nothing about (a) whether that run actually queued a digest -- the gate may have graded `not_due` and skipped, which is correct behaviour and not a delivery, (b) whether the receipt docs/claude/work/WORK-DIGEST.json LANDED on main, which is the fact clause (1) actually requires and which only a read of main can show, (c) clause (2) at all, the detector arming itself on a PR other than #10845, and (d) the QUIET-WINDOW half, which is the part this change does not fix -- a push-triggered run is by definition evidence from a period when main was NOT quiet, so it is the wrong population for that question entirely. A FAIL today is the CORRECT reading, not a defect: nothing has fired yet."
+    },
+   "refs": [
+    "https://github.com/benbaichmankass/Metis-Insights/pull/10845",
+    "BL-20260902-OPERATOR-PING-CADENCE-PUT-ON-A-CRON-A-FILED-OPEN-ROW-SAID-WAS-BROKEN",
+    "BL-20260830-SCHEDULED-WORKFLOW-LAG-WENT-FROM-1H-TO-6-12H-ON-2026-08-27",
+    "scripts/ops/digest_due.py",
+    "scripts/ci/check_digest_liveness.py",
+    "docs/research/digest-cadence-carrier-2026-09-02.md"
    ]
   }
  ],
