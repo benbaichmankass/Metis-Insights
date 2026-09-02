@@ -1,0 +1,120 @@
+name: reconcile-open-prs
+
+# MI-57 — move a settled PR's row out of the graded population, from OUTSIDE
+# the commit that settled it.
+#
+# WHY IT IS A `push: main` WORKFLOW AND NOT ANOTHER THING A SESSION REMEMBERS.
+#   A commit cannot record its own merge. That single fact is what made the old
+#   shape non-terminating: every open PR needs a row; the PR that prunes the
+#   last stale row is itself an open PR and needs one; merging it makes THAT row
+#   stale. Measured 2026-09-02 — #10775 merged (d08cac48) about ninety seconds
+#   after a branch recorded a row for it, so the handoff gate could never read
+#   `ready` on the merge that closed it. Whatever writes a row's TERMINAL state
+#   has to run after the merge. That is this file, and the trigger IS the fix.
+#
+# ⚠️ MOST RUNS WILL MOVE NOTHING, AND THAT IS CORRECT. Most merges close no
+#   recorded PR. A reconciler that only runs when something is waiting is
+#   indistinguishable from one that has broken.
+#
+# ⚠️ A `no_change` RUN COMMITS NOTHING — NOT EVEN THE LIVENESS STAMP, and that
+#   is load-bearing rather than an optimisation. `last_reconciled_sha` is
+#   stamped only on a MOVE, because a stamp is a commit to `main`, which
+#   retriggers this workflow, which would stamp again: an unbounded loop
+#   replacing the one we just closed. Tying the stamp to a move makes the
+#   sequence terminate in exactly one hop.
+#
+# ⚠️ IT NEVER ADDS A ROW FOR AN UNRECORDED OPEN PR. Only a session knows a PR's
+#   owner, intent and operator decision; a stub carrying none of them would
+#   manufacture completeness nobody established. An open PR with no row keeps
+#   FAILING — that finding is the check's whole reason to exist.
+#
+# ⚠️ A MERGED, ENABLED, SYNTACTICALLY CORRECT WORKFLOW IN THIS REPO IS NOT
+#   EVIDENCE THAT IT FIRES. `due-list.yml` has no scheduled run and two Claude
+#   Routines sit `enabled: true` at `next_run_at: 0001-01-01`; `probes.yml` did
+#   eventually fire on cron, ~4h50m late and once rather than daily. This one is
+#   `push`-driven rather than scheduled, which is a different and more reliable
+#   trigger — but it is still DEPLOYED, not proven, until a run is observed
+#   moving a real row. `workflow_dispatch` is here so that can be FORCED rather
+#   than waited for. And the failure is VISIBLE by construction: a stale row
+#   whose `last_reconciled_sha` lags `main` makes `open_pr_record.py` report
+#   `reconciler_not_run` — a different finding from `stale_row`, so a dead
+#   reconciler announces itself instead of looking like a forgetful session.
+#
+# BLAST RADIUS. It reads the GitHub API and rewrites ONE JSON file under
+# docs/claude/work/. No order path, no config, no live-VM state, no unit file.
+# Tier-1.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Serialises passes so two merges landing close together cannot clobber each
+# other. `cancel-in-progress: false` is deliberate: a cancelled pass is a pass
+# that did not look, and the next one would start from a record the cancelled
+# one may have half-written.
+concurrency:
+  group: reconcile-open-prs
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    # BUDGET = work + wait + slack, and the WAIT dominates: commit-to-main with
+    # verify-merged waits up to 30m for the auto-merge PR. A budget under 35
+    # kills the job mid-wait and reports failure for a merge about to succeed.
+    # This is the value tests/test_commit_to_main_callers.py pins.
+    timeout-minutes: 40
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Dry run — show what would move
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/reconcile_open_prs.py --json
+
+      - name: Move settled rows into settled_prs[]
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/reconcile_open_prs.py --apply
+
+      # ⚠️ NOT a direct `git push HEAD:main`. `main` is branch-protected and
+      # rejects a workflow push (GH006) — the direct push was tried and
+      # SILENTLY DROPPED billed rows once already
+      # (BL-20260706-GPU-BURST-LEDGER-PUSH-RACE), which is why the shared
+      # action exists. `verify-merged` because "the PR opened" is not "the row
+      # landed", and only the second makes the record true: 12 of 13 callers
+      # verified nothing and origin carried 5 stranded automation branches.
+      - name: Land the moved rows on main (auto-merge PR)
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/work/OPEN-PRS.json
+          message: "chore(ops): move settled PR rows into settled_prs[] (auto)"
+          pr-title: "chore(ops): reconcile OPEN-PRS.json after merge (auto)"
+          pr-body: >-
+            Automated post-merge reconciliation of
+            `docs/claude/work/OPEN-PRS.json` (MI-57). Rows whose PR is no longer
+            open were MOVED to `settled_prs[]` with their operator decision
+            intact — never deleted, and never invented: this job adds no row for
+            an open PR nobody recorded. If the GitHub API could not be read it
+            moves nothing and fails rather than reporting success.
+          branch-prefix: automation/reconcile-open-prs
+          verify-merged: "true"

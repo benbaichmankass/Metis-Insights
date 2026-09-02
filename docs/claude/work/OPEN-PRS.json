@@ -1,7 +1,8 @@
 {
   "_doc": [
     "THE OPEN-PR HANDOFF RECORD. What a manager arriving COLD needs to know about every",
-    "PR in flight that it did not open.",
+    "PR in flight that it did not open -- and what the operator DECIDED about every PR",
+    "that has since settled.",
     "",
     "WHY IT EXISTS. Measured 2026-09-02T06:17Z while checking whether a manager handoff",
     "would actually work: SESSIONS.json carried ZERO structured PR fields and 19 rows",
@@ -17,11 +18,42 @@
     "failure modes and only the second is dangerous, which is why `operator_decision`",
     "records the CONDITION and not just the verdict.",
     "",
-    "⚠️ THIS FILE IS WRITTEN BY HAND AND GOES STALE THE MOMENT A PR MERGES.",
-    "It is NOT the source of truth for PR state -- GitHub is. Read it for OWNERSHIP,",
+    "⚠️ TWO POPULATIONS AS OF schema_version 3 (MI-57). READ WHICH ONE YOU ARE IN.",
+    "  open_prs[]    an IN-FLIGHT CLAIM -- this PR is open, here is its owner and its",
+    "                blocker. GRADED against a live observation of what is open, and",
+    "                legitimately stale the moment the PR merges.",
+    "  settled_prs[] the DURABLE DECISION RECORD -- what the operator said about #X,",
+    "                verbatim. HISTORY. It is *more* load-bearing after the merge than",
+    "                before it, and it is NEVER compared to the live open list.",
+    "",
+    "⚠️ PRUNING IS A MOVE, NOT A DELETE, AND THAT IS THE WHOLE POINT.",
+    "Until MI-57 both populations shared one key, so the only way to satisfy the",
+    "freshness rule was to DELETE the row -- taking the operator decision with it. Eight",
+    "rows were destroyed that way on 2026-09-02 (see settled_prs[], each carrying",
+    "`operator_decision_not_preserved: true`). That is the same shape as the OPEN-ITEMS",
+    "cap that instructed a session to EVICT a valid row to satisfy a rule nothing was",
+    "checking -- CLAUDE.md § 'Every session' records it. A record that destroys knowledge",
+    "to look current is worse than one that looks stale.",
+    "",
+    "⚠️ THE OLD _doc SAID THIS FILE 'GOES STALE THE MOMENT A PR MERGES'. THAT IS NO",
+    "LONGER THE SHAPE and the sentence has been removed rather than left standing.",
+    "A settled row is moved to settled_prs[] by scripts/ops/reconcile_open_prs.py, which",
+    "runs on `push: main` -- OUTSIDE the commit being merged, because a commit cannot",
+    "record its own merge. That was the terminator for the regress this file used to",
+    "declare structural and unfixable. It also said 'MI-43 is building the check'; MI-43",
+    "shipped, so that is gone too. (Field beats comment: fix the stale text, never flip",
+    "the field on inference.)",
+    "",
+    "⚠️ GITHUB IS STILL THE SOURCE OF TRUTH FOR PR STATE. Read this file for OWNERSHIP,",
     "INTENT and DECISIONS, which GitHub does not carry; re-read CI and mergeability from",
     "the API before acting on any row. `as_of` is when a human last touched it.",
-    "MI-43 is building the check that refuses a handoff when this is stale.",
+    "",
+    "⚠️ `last_reconciled_sha` IS STAMPED ONLY ON A MOVE, DELIBERATELY. A no-op pass",
+    "writes nothing -- a liveness stamp would be a commit to main, which retriggers the",
+    "reconciler, which stamps again. If a row here names a PR that is no longer open AND",
+    "this sha lags main, the RECONCILER IS NOT RUNNING; that is a different finding from",
+    "'a session forgot to prune' and open_pr_record.py reports it as one. Do not prune by",
+    "hand to clear it -- that hides the dead automation.",
     "",
     "⚠️ `operator_decision` IS A TYPED OBJECT AS OF MI-43, NOT A STRING.",
     "{verdict, condition, scope, decided_on, text}. `verdict` is a closed vocabulary --",
@@ -32,6 +64,15 @@
     "neither `condition` nor `scope`: that row reads as approved, which is the",
     "half-informed state that could merge a demo-only approval onto a real-money account.",
     "",
+    "⚠️ A SETTLED ROW HAS ITS OWN FAILING CHECK, so the split did not remove the teeth.",
+    "`terminal` is merged | closed_unmerged | unknown_not_reconstructible, and a row that",
+    "did NOT reach main with no `disposition` FAILS --strict. An abandoned PR with no",
+    "stated reason is real lost knowledge: 'superseded by #X', 'the operator refused it'",
+    "and 'the author gave up' imply opposite next actions and an undispositioned row",
+    "cannot tell them apart. The reconciler may never write",
+    "`unknown_not_reconstructible` -- it either observed a terminal or it could_not_look",
+    "and moved nothing.",
+    "",
     "⚠️ WHAT THAT DOES **NOT** CATCH, SAID PLAINLY: an author who writes",
     "`verdict: approved` where the operator actually attached conditions. Nothing inside",
     "the repo can detect that -- knowing a condition was given requires knowing what the",
@@ -39,10 +80,13 @@
     "'a condition silently absent from prose nobody parses' to 'a verdict field a reader",
     "can compare against `text`'. A narrowing, not a closure."
   ],
-  "schema_version": 2,
-  "as_of": "2026-09-02T09:56:00Z",
-  "maintained_by": "the manager session holding the lease",
+  "schema_version": 3,
+  "as_of": "2026-09-02T10:40:00Z",
+  "maintained_by": "the manager session holding the lease; settled_prs[] is maintained by scripts/ops/reconcile_open_prs.py",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
+  "last_reconciled_at": null,
+  "last_reconciled_sha": null,
+  "last_reconciled_note": "null because the reconciler has never run -- it ships in this change. This is NOT 'nothing has ever settled': the eight settled_prs[] rows were migrated by hand from the destructive prune that preceded it. A null here with stale rows in open_prs[] reads as `reconciler_not_run`, which is the correct reading until the first post-merge run stamps it.",
   "open_prs": [
     {
       "pr": 10746,
@@ -145,21 +189,6 @@
       "blocker": "NOT YET REVIEWED BY THE MANAGER. ⚠️ Its done-condition is NOT a green CI run: it needs a workflow_dispatch run with a quoted conclusion, producing a digest in which the AVAX dead leg is visible. Do not merge on green alone — that exact mistake cost two failed fixes this morning."
     },
     {
-      "pr": 10779,
-      "title": "manager: register MI-57 — the open-PR record's staleness regress, and the structural fix",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-57",
-      "draft": false,
-      "tier": "1 (coordination records)",
-      "state": "in_ci",
-      "operator_decision": {
-        "verdict": "not_required",
-        "decided_on": "2026-09-02",
-        "text": "No operator statement was sought or given. Tier-1 coordination records only (MANAGER-CHECKLIST.json + SESSIONS.json); no code, no order path, no config. Recording the ABSENCE of a decision rather than inventing one."
-      },
-      "blocker": "CI. Merges on green."
-    },
-    {
       "pr": 10780,
       "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
       "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
@@ -175,49 +204,119 @@
       "blocker": "Needs a live session to take ownership and verify the resolution path against a real venue read, then re-open as a normal Tier-gated PR. Until then this branch is a BACKUP, not a proposal."
     }
   ],
-  "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
-  "recently_merged_pruned_from_this_record": [
+  "settled_prs": [
     {
       "pr": 10747,
+      "terminal": "merged",
       "merge_sha": "b9fbf95a",
-      "note": "Pruned 2026-09-02 because handoff_check graded it a STALE row: the record's own _doc says this file goes stale the moment a PR merges. Kept here as a one-line trace so the prune is visible rather than silent — a row vanishing with no record is how a successor concludes the PR never existed."
+      "merged_at": "2026-09-02T07:54:23Z",
+      "observed_at": "2026-09-02T10:09Z",
+      "settled_by": "session:session_01T8iWSepqAuBU7sgbs8GPHu",
+      "migrated_from": "recently_merged_pruned_from_this_record",
+      "operator_decision_not_preserved": true,
+      "disposition": "Pruned 2026-09-02 because handoff_check graded it a STALE row: the record's own _doc says this file goes stale the moment a PR merges. Kept here as a one-line trace so the prune is visible rather than silent — a row vanishing with no record is how a successor concludes the PR never existed."
     },
     {
       "pr": 10761,
+      "terminal": "merged",
       "merge_sha": null,
-      "note": "Pruned 2026-09-02 because handoff_check graded it a STALE row: the record's own _doc says this file goes stale the moment a PR merges. Kept here as a one-line trace so the prune is visible rather than silent — a row vanishing with no record is how a successor concludes the PR never existed."
+      "merged_at": "2026-09-02T06:19:54Z",
+      "observed_at": "2026-09-02T10:09Z",
+      "settled_by": "session:session_01T8iWSepqAuBU7sgbs8GPHu",
+      "migrated_from": "recently_merged_pruned_from_this_record",
+      "operator_decision_not_preserved": true,
+      "disposition": "Pruned 2026-09-02 because handoff_check graded it a STALE row: the record's own _doc says this file goes stale the moment a PR merges. Kept here as a one-line trace so the prune is visible rather than silent — a row vanishing with no record is how a successor concludes the PR never existed."
     },
     {
       "pr": 10766,
+      "terminal": "merged",
       "merge_sha": "3b9c80d0",
-      "note": "Pruned 2026-09-02 because handoff_check graded it a STALE row: the record's own _doc says this file goes stale the moment a PR merges. Kept here as a one-line trace so the prune is visible rather than silent — a row vanishing with no record is how a successor concludes the PR never existed."
+      "merged_at": "2026-09-02T07:53:26Z",
+      "observed_at": "2026-09-02T10:09Z",
+      "settled_by": "session:session_01T8iWSepqAuBU7sgbs8GPHu",
+      "migrated_from": "recently_merged_pruned_from_this_record",
+      "operator_decision_not_preserved": true,
+      "disposition": "Pruned 2026-09-02 because handoff_check graded it a STALE row: the record's own _doc says this file goes stale the moment a PR merges. Kept here as a one-line trace so the prune is visible rather than silent — a row vanishing with no record is how a successor concludes the PR never existed."
     },
     {
       "pr": 10769,
+      "terminal": "merged",
       "merge_sha": "448f086a",
-      "note": "Pruned 2026-09-02. Its row went stale the instant it merged — which is the record working, not a defect."
+      "merged_at": "2026-09-02T08:04:26Z",
+      "observed_at": "2026-09-02T10:09Z",
+      "settled_by": "session:session_01T8iWSepqAuBU7sgbs8GPHu",
+      "migrated_from": "recently_merged_pruned_from_this_record",
+      "operator_decision_not_preserved": true,
+      "disposition": "Pruned 2026-09-02. Its row went stale the instant it merged — which is the record working, not a defect."
     },
     {
       "pr": 10768,
+      "terminal": "merged",
       "merge_sha": null,
-      "note": "Pruned 2026-09-02 — no longer open. handoff_check graded it a stale row; the record's own _doc says this file goes stale the moment a PR merges."
+      "merged_at": "2026-09-02T08:28:29Z",
+      "observed_at": "2026-09-02T10:09Z",
+      "settled_by": "session:session_01T8iWSepqAuBU7sgbs8GPHu",
+      "migrated_from": "recently_merged_pruned_from_this_record",
+      "operator_decision_not_preserved": true,
+      "disposition": "Pruned 2026-09-02 — no longer open. handoff_check graded it a stale row; the record's own _doc says this file goes stale the moment a PR merges."
     },
     {
       "pr": 10765,
+      "terminal": "merged",
       "merge_sha": null,
-      "note": "Pruned 2026-09-02 — no longer open. handoff_check graded it a stale row; the record's own _doc says this file goes stale the moment a PR merges."
+      "merged_at": "2026-09-02T08:15:53Z",
+      "observed_at": "2026-09-02T10:09Z",
+      "settled_by": "session:session_01T8iWSepqAuBU7sgbs8GPHu",
+      "migrated_from": "recently_merged_pruned_from_this_record",
+      "operator_decision_not_preserved": true,
+      "disposition": "Pruned 2026-09-02 — no longer open. handoff_check graded it a stale row; the record's own _doc says this file goes stale the moment a PR merges."
     },
     {
       "pr": 10758,
+      "terminal": "merged",
       "merge_sha": null,
-      "note": "Pruned 2026-09-02 — no longer open. handoff_check graded it a stale row; the record's own _doc says this file goes stale the moment a PR merges."
+      "merged_at": "2026-09-02T08:30:34Z",
+      "observed_at": "2026-09-02T10:09Z",
+      "settled_by": "session:session_01T8iWSepqAuBU7sgbs8GPHu",
+      "migrated_from": "recently_merged_pruned_from_this_record",
+      "operator_decision_not_preserved": true,
+      "disposition": "Pruned 2026-09-02 — no longer open. handoff_check graded it a stale row; the record's own _doc says this file goes stale the moment a PR merges."
     },
     {
       "pr": 10775,
+      "terminal": "merged",
       "merge_sha": "d08cac48",
-      "note": "Pruned in the SAME PR that added it — it merged between the two commits. That is the structural regress this file documents, observed live rather than in the abstract: the row was correct when written and stale ~90 seconds later."
+      "merged_at": "2026-09-02T09:40:15Z",
+      "observed_at": "2026-09-02T10:09Z",
+      "settled_by": "session:session_01T8iWSepqAuBU7sgbs8GPHu",
+      "migrated_from": "recently_merged_pruned_from_this_record",
+      "operator_decision_not_preserved": true,
+      "disposition": "Pruned in the SAME PR that added it — it merged between the two commits. That is the structural regress this file documents, observed live rather than in the abstract: the row was correct when written and stale ~90 seconds later."
+    },
+    {
+      "pr": 10779,
+      "title": "manager: register MI-57 — the open-PR record's staleness regress, and the structural fix",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-57",
+      "draft": false,
+      "tier": "1 (coordination records)",
+      "state": "in_ci",
+      "operator_decision": {
+        "verdict": "not_required",
+        "decided_on": "2026-09-02",
+        "text": "No operator statement was sought or given. Tier-1 coordination records only (MANAGER-CHECKLIST.json + SESSIONS.json); no code, no order path, no config. Recording the ABSENCE of a decision rather than inventing one."
+      },
+      "blocker": "CI. Merges on green.",
+      "terminal": "merged",
+      "merge_sha": "fdad6cc",
+      "merged_at": "2026-09-02T09:55:53Z",
+      "observed_at": "2026-09-02T10:40:00Z",
+      "settled_by": "session:session_01T8iWSepqAuBU7sgbs8GPHu",
+      "disposition": "Merged while this branch was in flight. MOVED here rather than deleted, which is the whole point of the split -- the manager's typed operator_decision (`not_required`, recording the ABSENCE of a decision rather than inventing one) travels with the row. Settled by hand from a direct observation of origin/main because the reconciler this PR ships was not yet on main to do it."
     }
   ],
-  "⚠️_the_last_row_is_always_stale_and_that_is_STRUCTURAL": "A handoff can never reach open_prs=PASS at the exact moment of the final merge, and this is a PROPERTY of the design rather than a bug to chase. Every open PR must have a row; the PR that prunes the last stale row is itself an open PR and needs a row; merging it makes THAT row stale. The regress terminates only if the manager stops opening PRs. ⚠️ DO NOT 'fix' this by exempting the currently-merging PR from the completeness check — the exemption would be indistinguishable from the real failure it exists to catch (a PR nobody recorded), and a check that cannot tell those apart is worse than the transient row. The correct reading: at handoff, `open_prs` naming ONLY the PR being merged right now is materially ready; naming any OTHER pr is not. State which case you are in rather than quoting the verdict alone.",
-  "⚠️_a_row_can_UNDER_claim_and_no_check_catches_it": "Found 2026-09-02 on this very row. `open_pr_record.py --strict` grades a verdict that DECLARES conditions and records none — the over-claiming direction, which is the dangerous one. It cannot catch the OPPOSITE: I typed #10758 `none_recorded` while a full operator decision, with its condition, sat in MANAGER-CHECKLIST.json under MI-34 the whole time. `none_recorded` is a valid verdict needing no condition, so the row passed every check while being simply wrong. ⚠️ The cost is real but is NOT symmetric with the over-claiming case: a successor reading `none_recorded` re-asks the operator — wasteful and SAFE — where one reading a bare 'approved' could merge a demo-only Tier-2 approval onto a real-money account. So this is worth KNOWING, not worth a new failing check: cross-checking every row against the checklist would fire on the many PRs that legitimately have no decision anywhere. The mitigation is the reviewer's, not the guard's — read MANAGER-CHECKLIST for the PR's item before typing `none_recorded`."
+  "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
+  "⚠️_a_row_can_UNDER_claim_and_no_check_catches_it": "Found 2026-09-02 on this very row. `open_pr_record.py --strict` grades a verdict that DECLARES conditions and records none — the over-claiming direction, which is the dangerous one. It cannot catch the OPPOSITE: I typed #10758 `none_recorded` while a full operator decision, with its condition, sat in MANAGER-CHECKLIST.json under MI-34 the whole time. `none_recorded` is a valid verdict needing no condition, so the row passed every check while being simply wrong. ⚠️ The cost is real but is NOT symmetric with the over-claiming case: a successor reading `none_recorded` re-asks the operator — wasteful and SAFE — where one reading a bare 'approved' could merge a demo-only Tier-2 approval onto a real-money account. So this is worth KNOWING, not worth a new failing check: cross-checking every row against the checklist would fire on the many PRs that legitimately have no decision anywhere. The mitigation is the reviewer's, not the guard's — read MANAGER-CHECKLIST for the PR's item before typing `none_recorded`.",
+  "⚠️_the_regress_that_used_to_live_here_and_how_it_was_closed": "This key REPLACES `⚠️_the_last_row_is_always_stale_and_that_is_STRUCTURAL`, which declared the regress a PROPERTY of the design that terminates 'only if the manager stops opening PRs'. That was an accurate description of the OLD shape and is no longer true, so it is corrected rather than left standing. The regress: every open PR needs a row; the PR that prunes the last stale row is itself an open PR and needs one; merging it makes THAT row stale. Observed live -- #10775 merged (d08cac48) about ninety seconds after a branch recorded a row for it. TWO root causes, and only fixing both terminates it: (1) two populations under one key, so pruning destroyed the decision record -- fixed by settled_prs[]; (2) a commit cannot record its own merge -- fixed by running the reconciler on `push: main`, outside the commit. ⚠️ THE OLD KEY'S WARNING STILL STANDS AND WAS NOT THE THING FIXED: do NOT exempt the currently-merging PR from the completeness check. That exemption is byte-indistinguishable from the real failure the check exists to catch (a PR nobody recorded), and nothing in MI-57 does it -- an open PR with no row still FAILS.",
+  "⚠️_the_reconciler_lands_through_an_automation_PR_and_that_PR_has_no_row": "STATED RATHER THAN HIDDEN. `main` is branch-protected and REJECTS a direct workflow push (GH006, BL-20260706-GPU-BURST-LEDGER-PUSH-RACE), so the reconciler lands via .github/actions/commit-to-main, which opens a short-lived automation PR. That PR is an open PR with no row, so `open_prs` reads `unrecorded` for the ~15 minutes it is open. ⚠️ THIS IS A RESIDUAL, NOT A CLOSURE -- but unlike the old regress it TERMINATES: the reconciler commits only when a row actually moved, so the run triggered by its own merge grades `no_change` and opens nothing. One bounded hop, not a loop. It is also not new to this change -- every commit-to-main caller has the same shape, and #10398 and #10781 are automation PRs carrying hand-written rows today."
 }
