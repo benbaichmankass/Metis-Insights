@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T09:06:00Z",
+  "updated_at": "2026-09-02T09:12:00Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -532,7 +532,14 @@
         "Android: device_tokens is EMPTY on the live host (0 registered devices), so the Android side is already non-consuming in fact. Record that as measured, not assumed.",
         "Only then answer DEC-20260901-READ-GATE-SEQUENCING with the operator's choice recorded as the decision."
       ],
-      "note": "'On ice, not deleted' is explicit: do NOT propose deleting streamlit_app.py or the Android app. The ask is that they stop CONSUMING."
+      "note": "'On ice, not deleted' is explicit: do NOT propose deleting streamlit_app.py or the Android app. The ask is that they stop CONSUMING.",
+      "⚠️_CORRECTED_2026_09_02_SAME_DAY": "The operator REFINED this within the hour and the earlier reading is now WRONG: 'oh, don't wait for me to turn off streamlit - it can stay alive, I just don't want us doing any work on it for now.' SO 'ON ICE' MEANS **NO DEVELOPMENT EFFORT**, NOT 'TURNED OFF'. The earlier verbatim ('They should be turned off ... they shouldn't be consuming anything') is superseded on the TURNED-OFF half and stands on the NO-WORK half. ⚠️ Do NOT file, schedule or propose work to retire, stop or delete the Streamlit app, and do NOT block anything on it being stopped.",
+      "what_this_means_operationally": [
+        "Streamlit STAYS DEPLOYED and stays a reachable consumer of the read surface.",
+        "Android is separately non-consuming IN FACT (device_tokens empty on the live host) — that is measured, and unaffected by this correction.",
+        "No dashboard/Streamlit work is scheduled. The repo's Streamlit files stay untouched.",
+        "The CLAUDE.md claim that Streamlit is 'retired from the live feed' is STILL not observed — and now will not be. It should be softened to what is true: retired from DEVELOPMENT, still deployed."
+      ]
     },
     {
       "id": "MI-45-PING-RENDERER-DROPS-THE-MESSAGE-KEY",
@@ -596,17 +603,24 @@
     {
       "id": "MI-50-PHASE-H-READ-GATE-WAITS-ON-STREAMLIT-BEING-OFF",
       "title": "Operator: do not flip the Phase-H read gate until Streamlit is confirmed off",
-      "state": "blocked",
+      "state": "queued",
       "added": "2026-09-02",
       "owner": "manager",
       "operator_decision": "2026-09-02: WAIT until Streamlit is confirmed off. Chosen over flipping now and over gating only the routes no live consumer calls.",
       "blocked_on": {
-        "kind": "external_event",
-        "ref": "operator stops the Streamlit Community Cloud app in its console",
+        "kind": "operator_decision",
+        "ref": "the read gate has no route while Streamlit stays deployed",
         "since": "2026-09-02"
       },
       "why": "The gate attaches require_session to the read surface. Measured 2026-09-02: the Streamlit Cloud app still EXISTS (303 -> share.streamlit.io/-/auth/app, a sign-in wall, NOT a 404), and ⚠️ WHETHER IT IS RUNNING WAS NOT ESTABLISHED -- an auth redirect is identical for 'running but private' and 'exists but paused'. So flipping now could break a live consumer.",
-      "note": "This CLOSES DEC-20260901-READ-GATE-SEQUENCING. That inbox question must no longer be relayed as open, and its premise ('Streamlit is still a live consumer') is now confirmed TRUE in the sense that matters -- it is still deployed and reachable -- while CLAUDE.md has asserted the retirement since 2026-09-01. Declared, not observed."
+      "note": "This CLOSES DEC-20260901-READ-GATE-SEQUENCING. That inbox question must no longer be relayed as open, and its premise ('Streamlit is still a live consumer') is now confirmed TRUE in the sense that matters -- it is still deployed and reachable -- while CLAUDE.md has asserted the retirement since 2026-09-01. Declared, not observed.",
+      "⚠️_ITS_BLOCKER_IS_GONE_AND_SO_IS_ITS_PATH": "The operator's correction REMOVES the precondition this row was waiting on — Streamlit is NOT going to be turned off. That does not unblock the gate; it removes the route the decision chose. ⚠️ 'WAIT UNTIL STREAMLIT IS CONFIRMED OFF' IS NOW AN INDEFINITE BLOCK ON A CONDITION THAT WILL NEVER ARRIVE, which is strictly worse than a live blocker because it looks like progress is pending. Do not leave it stated that way.",
+      "the_three_remaining_routes": [
+        "(a) NEVER FLIP IT — accept the read surface stays unauthenticated. Legitimate, but it must be RECORDED as a decision rather than left looking pending, and MI-25 (full trading history world-readable) then stays open permanently and should say so.",
+        "(b) FLIP AND BREAK STREAMLIT — consistent with 'no work on it': if nobody is developing it, nobody is hurt by it breaking. But the operator said it 'can stay alive', which reads as wanting it usable, so this needs their explicit word.",
+        "(c) GATE ONLY WHAT STREAMLIT DOES NOT CALL — the middle path, and the only one that needs no further operator input to START. Cost: it is a measurement job (establish Streamlit's actual call set) and it leaves the job half-done by construction."
+      ],
+      "recommendation": "(c), and say so rather than asking again. It is the only route that reduces the unauthenticated surface without needing the operator to choose between two things they have already implied they want (Streamlit usable AND the gate closed). ⚠️ But it is NOT free and not silent: establishing Streamlit's call set is real work on a codebase the operator just said not to work on — so the measurement is READ-ONLY (grep the SPA and streamlit_app.py for endpoint strings), never a change to it."
     },
     {
       "id": "MI-51-MANAGER-HANDOFF-DEFERRED-BY-OPERATOR",
