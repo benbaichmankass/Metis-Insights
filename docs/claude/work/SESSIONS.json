@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T09:28:31Z",
+  "updated_at": "2026-09-02T09:46:47Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -968,6 +968,18 @@
       "session_status": "SESSION_STATUS_PENDING",
       "why": "Operator approved 2026-09-02: build the two-way channel AND test it live.",
       "note": "Registered in the SAME action as the spawn (MI-15's remedy, failed 3×). Cloud session with its OWN CONTAINER, not an in-process agent — the shared working tree already has the AVAX session in it (MI-56)."
+    },
+    {
+      "session_id": "session_01T8iWSepqAuBU7sgbs8GPHu",
+      "title": "MI-57 OPEN-PRS: settled/in-flight split + post-merge reconciler",
+      "checklist_item": "MI-57",
+      "spawned_at": "2026-09-02T09:46:47Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/openprs-settled-reconciler"
+      ],
+      "why": "The open-PR handoff record has a non-terminating regress: every open PR needs a row, the PR that maintains the rows is itself an open PR, and merging it makes that row stale. Observed live: #10775 merged ~90s after a branch recorded a row for it. Two root causes: (1) in-flight claims and the durable operator-decision record are conflated under one key, so pruning a stale row DELETES decision knowledge to satisfy a freshness rule; (2) a commit cannot record its own merge, so the terminal state must be written by something running OUTSIDE the merging commit.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."
