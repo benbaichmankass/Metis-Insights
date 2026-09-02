@@ -44,6 +44,10 @@ on:
       # digest sends nothing itself (it queues to pending-pings.jsonl for the
       # VM to drain), so a failed run and a quiet day look identical to the
       # operator.
+      # The reaper is the only thing recording what a killed session left behind.
+      # A dead reaper run is invisible in the worst way: its ledger simply stops
+      # advancing, and a stale ledger reads exactly like a quiet week.
+      - session-reaper
       - work-digest
       - work-decision-commit
       - strategy-review-packets

@@ -1,0 +1,112 @@
+name: session-reaper
+
+# THE REAPER'S CLOCK — the external, cadenced thing that records what a session
+# left behind, because the session that died cannot and the manager will not.
+#
+# WHY A WORKFLOW AND NOT A SESSION-INVOKED SCRIPT.
+# `docs/claude/work/objects/WO-20260901-PHASE-E.yaml` names three mechanisms and
+# shipped only two. Its own words on the missing one:
+#
+#     "Close-out alone cannot satisfy this. A session that dies cannot run its
+#      own close-out — which is precisely why continue-work.yml does not achieve
+#      this today: it depends on the session voluntarily finishing."
+#
+# The same objection kills every session-invoked design, `close_session.py`
+# included. So the clock must be owned by nothing that can die with the work.
+#
+# ⚠️ AND IT CANNOT BE THE MANAGER EITHER. Measured 2026-09-02: four sub-sessions
+# sat IDLE/BLOCKED for up to 142 minutes while the manager asserted they held
+# work. A mechanism that depends on the manager noticing is not a mechanism.
+#
+# ⚠️ A SCHEDULED WORKFLOW IN THIS REPO IS NOT EVIDENCE IT RUNS, AND THIS ONE
+# HAS NOT BEEN OBSERVED FIRING ON CRON. `probes.yml`'s first-ever scheduled run
+# fired ~4h50m late against a `20 5 * * *` cron, once rather than daily. So this
+# workflow ALSO carries `workflow_dispatch` and a `push` trigger on its own
+# inputs, and the ledger it writes stamps `generated_at` on every run — read the
+# run history and that stamp, never the cron expression, to decide whether the
+# reaper is actually reaping. Until a scheduled run is OBSERVED, treat the cadence
+# as UNPROVEN rather than as working.
+#
+# BLAST RADIUS. It runs one read-only Python script over `origin` and commits
+# ONE generated file (`docs/claude/work/REAPER-OBSERVATIONS.json`). ⚠️ IT NEVER
+# KILLS, ARCHIVES, DELETES, CLOSES OR MERGES ANYTHING — which is exactly what
+# makes it safe to grade on branch quiescence, a PROXY for death that it cannot
+# verify. A reaper that ACTED on that proxy would have to be right about whether
+# a session is alive, and CI holds no tool that can answer that.
+
+on:
+  schedule:
+    # Every 3 hours. Chosen against the 90-minute manager-lease TTL: a reaper
+    # slower than the lease would let a manager expire, be replaced, and have
+    # its sub-sessions go unrecorded across the gap. NOT tuned — no distribution
+    # of session lifetimes exists to tune it against, and inventing one would be
+    # the unmeasured-premise shape this repo keeps paying for.
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+    inputs:
+      stale_after_minutes:
+        description: 'Minutes without a commit before a branch stops counting as active'
+        required: false
+        default: '90'
+  push:
+    branches: [main]
+    paths:
+      # Re-reap when the registry changes, so a newly-spawned session is graded
+      # without waiting up to 3h for the cron.
+      - 'docs/claude/work/SESSIONS.json'
+      - 'scripts/ops/session_reaper.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  # One reaper at a time. Two concurrent runs would race the same ledger file
+  # and the loser's observations would be silently overwritten.
+  group: session-reaper
+  cancel-in-progress: false
+
+jobs:
+  reap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The reaper needs origin/main's history to tell `landed` from
+          # `no_landing_evidence`, and every claude/** head to recover a branch
+          # from its commit trailers. A shallow clone would grade both wrong,
+          # and wrong in the direction that reports work as missing.
+          fetch-depth: 0
+
+      - name: Fetch every origin branch
+        run: git fetch --quiet origin '+refs/heads/*:refs/remotes/origin/*'
+
+      - name: Self-test the grading policy before trusting a live run
+        # The policy is a pure function precisely so it is arguable here rather
+        # than against live state. A reaper whose grading is broken must fail
+        # loudly, not write a confident ledger.
+        run: python3 scripts/ops/session_reaper.py --self-test
+
+      - name: Reap
+        run: |
+          python3 scripts/ops/session_reaper.py \
+            --write \
+            --stale-after-minutes "${{ github.event.inputs.stale_after_minutes || '90' }}"
+
+      - name: Commit the ledger
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- docs/claude/work/REAPER-OBSERVATIONS.json; then
+            echo "reaper: no change to the ledger this run"
+            exit 0
+          fi
+          git add docs/claude/work/REAPER-OBSERVATIONS.json
+          # [skip ci] so a ledger commit cannot re-trigger CI on main. NOTE the
+          # bot-push caveat this repo has paid for twice: a github-actions[bot]
+          # push triggers NO workflows, so this commit can never loop.
+          git commit -m "reaper: record what each session left behind [skip ci]"
+          # Rebase rather than force: another session's commit landing mid-run
+          # must not be discarded by an observation file.
+          git pull --rebase --quiet origin main
+          git push origin HEAD:main

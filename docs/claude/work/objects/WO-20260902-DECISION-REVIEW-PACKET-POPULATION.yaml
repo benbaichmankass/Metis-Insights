@@ -98,7 +98,53 @@ decision_requests:
           naming this gate only, or the next reader reads it as the defect it currently
           is.
     allows_free_text: true
-
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-02'
+      chosen: null
+      verdict: BOTH_DECLARED_OPTIONS_REFUSED
+      free_text: >-
+        Neither option was correct. Operator, verbatim: "the whole reason we have paper is to accrue
+        stats so that we can see them... so that we don't need to wait just for real money in order to
+        have data. The paper money isn't less important. They should be side by side. They shouldn't be
+        mixed, but that doesn't mean that the paper doesn't count. The paper in some situations would be
+        much more informative than the real money trail, but that doesn't mean that they need to be mixed
+        together either. Both of those answers were wrong, and we need to build it the right way, which is
+        side by side, but knowing how to consider both for the correct purposes."
+      why_option_a_was_wrong: >-
+        `separate_populations` read "report real and paper side by side; take the GRADE on real money".
+        The first half is right and the second half is the error: it makes paper DECORATIVE. Grading only
+        on real money means a leg that is not routed to a real-money account can never be graded at all,
+        however much evidence it has accrued. That is not hypothetical -- measured on the committed
+        2026-09-01 run (population: all 52 enabled strategies, window 7 days) 34 of 52 legs closed NOTHING
+        and 52 of 52 sat under the generator's own n>=20 floor, so a real-money-only grade leaves most of
+        the fleet permanently ungradeable. Paper is what makes them gradeable at all.
+      why_option_b_was_wrong: >-
+        `declare_blending_acceptable` is refused outright. Blending violates the P4 contract and it
+        destroys the very comparison that makes paper useful. Measured on the same run, the -35,446 of
+        losing pnl splits paper -36,219.07 / real money -3.11 -- a blended number that describes neither
+        book and would have driven a KILL on a real-money leg that lost three dollars.
+      the_shape_to_BUILD: >-
+        SIDE BY SIDE, BOTH AUTHORITATIVE, NEITHER MIXED -- and the gate must know which population answers
+        which question. The two are not a primary and a fallback; they answer DIFFERENT questions:
+        (1) DOES THE EDGE EXIST -- paper is usually the better evidence, and often the ONLY evidence: more
+        legs, more n, and every leg trades there. A real-money leg with 1-3 closes is not a sample.
+        (2) DOES THE EDGE SURVIVE REAL EXECUTION -- real money ONLY. Slippage, partial fills, funding,
+        venue rejects and the netting artifacts do not exist on paper, and no amount of paper n substitutes.
+        (3) IS THIS LEG LOSING MONEY NOW -- real money for the money; paper for whether the LOGIC is broken.
+        (4) SHOULD THIS LEG BE RETIRED -- a leg with no real-money trades can be retired on paper evidence.
+        This is the case that makes "grade on real money" wrong rather than merely incomplete.
+      what_this_does_NOT_authorise: >-
+        It does not authorise blending anywhere, and it does not authorise a single headline number
+        combining the two. It also does not make paper a substitute for the real-money question in (2) --
+        an edge shown only on paper has NOT been shown to survive execution, and a packet that implies
+        otherwise would be the inverse error.
+      implementation_note: >-
+        Not yet built. The change is to scripts/ml/strategy_review_packet.py::pull_decisions, which filters
+        ONLY is_backtest and never consults account_class or is_demo. Every other consumer -- /api/bot/stats,
+        /api/bot/performance, /api/bot/trades/closed, /api/bot/strategy/attribution -- already honours the
+        split, so the packet is the outlier rather than the precedent. Tracked as
+        OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL.
 evidence:
   - docs/claude/OPEN-ITEMS.json#OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL
   - docs/design/evidence-floor-horizon-PROPOSAL.md

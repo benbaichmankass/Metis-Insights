@@ -1,0 +1,1561 @@
+{
+  "_doc": [
+    "THE REAPER'S LEDGER — what each session left behind, recorded by",
+    "the reaper (an external cron) rather than by the session itself.",
+    "",
+    "A dead session cannot run its own close-out. This file is what a",
+    "manager arriving COLD reads to learn what a session that is no",
+    "longer running actually produced.",
+    "",
+    "⚠️ `no_landing_evidence` IS NOT `lost`. See the state table in",
+    "scripts/ops/session_reaper.py. ⚠️ `coverage` names what the reaper",
+    "CANNOT see — read it beside `by_state`, never `by_state` alone."
+  ],
+  "schema_version": 1,
+  "runs": [
+    {
+      "generated_at": "2026-09-02T14:08:04Z",
+      "rows_graded": 67,
+      "by_state": {
+        "active": 4,
+        "stalled_with_work": 23,
+        "landed": 12,
+        "no_landing_evidence": 7,
+        "unreadable": 21
+      },
+      "by_branch_source": {
+        "registry_declared": 30,
+        "recovered_from_commit_trailer": 16,
+        "none_found": 21
+      }
+    },
+    {
+      "generated_at": "2026-09-02T13:50:15Z",
+      "rows_graded": 67,
+      "by_state": {
+        "active": 4,
+        "stalled_with_work": 23,
+        "landed": 12,
+        "no_landing_evidence": 7,
+        "unreadable": 21
+      },
+      "by_branch_source": {
+        "registry_declared": 30,
+        "recovered_from_commit_trailer": 16,
+        "none_found": 21
+      }
+    },
+    {
+      "generated_at": "2026-09-02T13:45:41Z",
+      "rows_graded": 67,
+      "by_state": {
+        "active": 4,
+        "stalled_with_work": 23,
+        "landed": 12,
+        "no_landing_evidence": 7,
+        "unreadable": 21
+      },
+      "by_branch_source": {
+        "registry_declared": 30,
+        "recovered_from_commit_trailer": 16,
+        "none_found": 21
+      }
+    }
+  ],
+  "updated_at": "2026-09-02T14:08:04Z",
+  "latest": {
+    "generated_at": "2026-09-02T14:08:04Z",
+    "rows_graded": 67,
+    "by_state": {
+      "active": 4,
+      "stalled_with_work": 23,
+      "landed": 12,
+      "no_landing_evidence": 7,
+      "unreadable": 21
+    },
+    "by_branch_source": {
+      "registry_declared": 30,
+      "recovered_from_commit_trailer": 16,
+      "none_found": 21
+    },
+    "coverage": {
+      "unregistered_claude_branches": 188,
+      "unregistered_sample": [
+        "claude/adoring-pasteur-P60hd",
+        "claude/ai-trading-profitability-gaps-ldQCu",
+        "claude/analyst-read-cache-check-yv0nyh",
+        "claude/android-overview-page-Ghkyw",
+        "claude/audit-B-salvage-stale-backlog",
+        "claude/audit-B-vestigial-route-order",
+        "claude/audit-B-zombie-bot",
+        "claude/backtest-labeled-setup-candidates-3Xmqg",
+        "claude/board-addendum-ci-settled-20260902",
+        "claude/board-automerge-correction",
+        "claude/board-claim-10083",
+        "claude/board-claim-10086",
+        "claude/board-correction-dispatch",
+        "claude/board-done-bybit-graded-book",
+        "claude/board-done-ci-settled-20260902"
+      ],
+      "unregistered_but_attributable_sessions": 98,
+      "unregistered_owner_map": {
+        "session_011CQB6KHaJV15ai3K5C4zHR": [
+          "claude/vwap-entry-threshold-2sigma"
+        ],
+        "session_011Gqsv3NxLmm5yp9gfNh6ar": [
+          "claude/board-done-drain-perf-pass2"
+        ],
+        "session_011JWFxuYAaEQKCFCmG6gnHJ": [
+          "claude/board-automerge-correction",
+          "claude/land-verified-review-index",
+          "claude/manager-caps-4x4"
+        ],
+        "session_012LzuYyFm1U5BPaN9UHRWeX": [
+          "claude/health-performance-review-z99fxi"
+        ],
+        "session_012TCEVvu215RLhuY5EkAy8k": [
+          "claude/great-dirac-JU0f0",
+          "claude/m12-s1-closeout-docs",
+          "claude/m12-s1-followups"
+        ],
+        "session_012VRPW6wX1DchhEDaRH2MoS": [
+          "claude/analyst-read-cache-check-yv0nyh",
+          "claude/health-strategy-ml-review-2y9vos",
+          "claude/m7-vm-activation"
+        ],
+        "session_012pLDgNXNv3ooJ4E6kJWarz": [
+          "claude/elegant-mccarthy-clean-rerun",
+          "claude/health-review-82GAh",
+          "claude/m12-s1-followups"
+        ],
+        "session_012zFXi272Uywe4vzXsr7Jfi": [
+          "claude/drain-research-board-done"
+        ],
+        "session_013ANr63vsQ9TjU4sh51vxny": [
+          "claude/manager-spawn-mi68",
+          "claude/mi68-manager-preflight"
+        ],
+        "session_013Gc62P9tYC3zTMQuCUbqYv": [
+          "claude/fix-attach-ib-target-db-import",
+          "claude/ib-duplicate-oca-groups",
+          "claude/reopen-observation-0817"
+        ],
+        "session_013GjzPND7uauvW4YuGSZ84b": [
+          "claude/fix-backfill-account-loader",
+          "claude/followup-trade-1454-orphan-skip"
+        ],
+        "session_013fgF6qL29ABJWY26UoMzuY": [
+          "claude/fix-web-app-down-WRmbN"
+        ],
+        "session_013hVMTyqnqeiEvrK711p5ud": [
+          "claude/analyst-read-cache-check-yv0nyh",
+          "claude/m7-vm-activation",
+          "claude/youthful-tesla-tise45"
+        ],
+        "session_013pf3udgf7Z7mETsCDhZ5tr": [
+          "claude/fix-backfill-account-loader",
+          "claude/followup-trade-1454-orphan-skip"
+        ],
+        "session_014myC5S5VacHNuzzBR8dGBC": [
+          "claude/exit-integrity-cluster"
+        ],
+        "session_0151sPopndkktHdnuqDthXTM": [
+          "claude/cool-bell-hYNre-doc-freshness",
+          "claude/health-review-P2Zwr",
+          "claude/health-review-fyeZE"
+        ],
+        "session_015m7BqEPtBJKNA6qe2o56RR": [
+          "claude/elegant-mccarthy-clean-rerun",
+          "claude/health-review-82GAh",
+          "claude/m12-s1-followups"
+        ],
+        "session_015pyrrpXvN2voNi2WYF8TRA": [
+          "claude/cool-bell-hYNre-doc-freshness",
+          "claude/health-review-fyeZE",
+          "claude/mea-ibkr-paper-trading-TO5VT"
+        ],
+        "session_0163wAEERsgMztSeTcKMNVLm": [
+          "claude/backtest-labeled-setup-candidates-3Xmqg",
+          "claude/cleanup-2026-06-08",
+          "claude/health-review-7RlKd"
+        ],
+        "session_016JRVwcFxgB7mzee4iY8toG": [
+          "claude/cloud-docs-phase7a-close-stale",
+          "claude/trader-bot-rebuild-ZtXDS"
+        ],
+        "session_016TZTzAdopNneToiNNXPz1g": [
+          "claude/ai-trading-profitability-gaps-ldQCu",
+          "claude/android-overview-page-Ghkyw",
+          "claude/cap-verify-backlog-note"
+        ],
+        "session_017Egyw8C1skBFRe3qyxdmqM": [
+          "claude/risk-manager-backstop"
+        ],
+        "session_017NNL8SY9PEnQ7HzuK1PL8n": [
+          "claude/diag-relay-labeled-fallback",
+          "claude/health-review-7RlKd",
+          "claude/mlopt-followups-VwDhX"
+        ],
+        "session_017e9t9gcUYwW7EyqgJaTQ4E": [
+          "claude/cloud-docs-phase7a-close-stale",
+          "claude/fix-menu-canonical-runtime-logs",
+          "claude/fix-pending-pings-canonical-path"
+        ],
+        "session_017xEJyZcD31X2hPqFSXfUE5": [
+          "claude/adoring-pasteur-P60hd",
+          "claude/docfresh-ibkr-7E7Re",
+          "claude/great-dirac-JU0f0"
+        ],
+        "session_0187bfajpPSP7WmYzGjQv9BK": [
+          "claude/health-check-CjAWV"
+        ],
+        "session_018DHwHyw85iasvNKgQVR2V8": [
+          "claude/elegant-mccarthy-clean-rerun",
+          "claude/fix-menu-canonical-runtime-logs",
+          "claude/fix-pending-pings-canonical-path"
+        ],
+        "session_018DVD1cUgPSJAqQVsUEQj3i": [
+          "claude/ai-trading-profitability-gaps-ldQCu",
+          "claude/conflict-hold-policy-tier3",
+          "claude/docs-freshness-2026-05-31"
+        ],
+        "session_018b6dC9uUk1z5KDDaN41uJ2": [
+          "claude/system-review-backlog-xsg81e"
+        ],
+        "session_0193VFQDazaYDmMT6tpLX4eE": [
+          "claude/expansion-backtesting-research-y74054"
+        ],
+        "session_019BS8x8sK6saE21V57iN1Aa": [
+          "claude/risk-manager-backstop"
+        ],
+        "session_019JPSm4uqWsdnGRGDQp8iWW": [
+          "claude/elegant-mccarthy-clean-rerun",
+          "claude/health-review-82GAh",
+          "claude/m12-s1-followups"
+        ],
+        "session_019g4iz5Htk6dHXPxoVKhPhV": [
+          "claude/diag-relay-labeled-fallback",
+          "claude/health-review-7RlKd",
+          "claude/m14-progress-next-u260C"
+        ],
+        "session_019vcX5ZTD8C7wNAEtfPUdFQ": [
+          "claude/manager-spawn-mi68",
+          "claude/mi66-enact-inventory"
+        ],
+        "session_01AS4fvrJMdvjDpmnrkfvjyf": [
+          "claude/reconciler-readopt-guard",
+          "claude/regime-weighting-design",
+          "claude/session-review-artifacts"
+        ],
+        "session_01AYYb7VazAkpFm9Ao4eQiRP": [
+          "claude/analyst-read-cache-check-yv0nyh",
+          "claude/cleanup-2026-06-08",
+          "claude/diag-relay-labeled-fallback"
+        ],
+        "session_01Ad7WZwbS1sQAFNH1FN7Beq": [
+          "claude/m26-m27-regime-scalp-qpe9c3"
+        ],
+        "session_01Au13tQ9BaLKsEU7youUomr": [
+          "claude/drain-ml-board-posts"
+        ],
+        "session_01BcdKgkkaVsFww9H7ZXDrqA": [
+          "claude/health-strategy-ml-review-iyn6sw"
+        ],
+        "session_01BszfYWtJAeemBNhAywRuv5": [
+          "claude/session-doc-freshness"
+        ],
+        "session_01D3zZcenL3Z9pwizYmG85pZ": [
+          "claude/vwap-entry-threshold-2sigma"
+        ],
+        "session_01DHN9DC7fspbvCr72wvoFrH": [
+          "claude/elegant-mccarthy-clean-rerun",
+          "claude/health-review-82GAh",
+          "claude/m12-s1-followups"
+        ],
+        "session_01DpbWvWDnN7eQD3SKzmuHU9": [
+          "claude/adoring-pasteur-P60hd",
+          "claude/great-dirac-JU0f0",
+          "claude/health-check-CjAWV"
+        ],
+        "session_01EHkF94b1cSZ9gTfGFkysZH": [
+          "claude/audit-B-salvage-stale-backlog",
+          "claude/audit-B-vestigial-route-order",
+          "claude/audit-B-zombie-bot"
+        ],
+        "session_01EQLJiYrk7NGFqW7CS6vyMw": [
+          "claude/m20-e3-exit-mechanism-cont-plkj6q"
+        ],
+        "session_01FAJhh5Q47LA1zhpPyXQ27c": [
+          "claude/ai-trading-profitability-gaps-ldQCu",
+          "claude/android-overview-page-Ghkyw",
+          "claude/cap-verify-backlog-note"
+        ],
+        "session_01Fcn2W6wKegpU5NmbL5uXiB": [
+          "claude/analyst-read-cache-check-yv0nyh",
+          "claude/health-strategy-ml-review-2y9vos",
+          "claude/m7-vm-activation"
+        ],
+        "session_01GEoYvuaSCxYf86jnwdBXhZ": [
+          "claude/board-claim-10086"
+        ],
+        "session_01GKhbzDXkaxRuYm4JCjBvqB": [
+          "claude/ib-broker-pnl-reader-unwired",
+          "claude/xrp-lever-gate-detail"
+        ],
+        "session_01GVhZg4McfH48jb5MwMxxEm": [
+          "claude/fix-branchprot-rename-301"
+        ],
+        "session_01GZFb5Ugacz71owcSqxXVNG": [
+          "claude/diag-relay-labeled-fallback",
+          "claude/health-review-7RlKd",
+          "claude/mlopt-followups-VwDhX"
+        ],
+        "session_01HMfmAi3sPv4TtZ67SP2utB": [
+          "claude/board-done-drain2-20260902"
+        ],
+        "session_01HXKbVAZqGm3RyqUwa1iJET": [
+          "claude/analyst-read-cache-check-yv0nyh",
+          "claude/m7-vm-activation",
+          "claude/youthful-tesla-tise45"
+        ],
+        "session_01HaWB6g8EsN1x64hKKQHT2B": [
+          "claude/backtest-labeled-setup-candidates-3Xmqg",
+          "claude/cleanup-2026-06-08",
+          "claude/health-review-7RlKd"
+        ],
+        "session_01JBsVN6ngip5seWkpgC38k7": [
+          "claude/fervent-hopper-0x9vy0"
+        ],
+        "session_01JCgNFydjPE8Bn5tocepRxa": [
+          "claude/risk-manager-backstop"
+        ],
+        "session_01JGuWPnMTR4WabiDpsF9v5c": [
+          "claude/wc5-signals-cutover"
+        ],
+        "session_01JtCLjnWPvNRN7K3td116BY": [
+          "claude/board-done-bybit-graded-book"
+        ],
+        "session_01JxSL81c1ZdG1X1LvGRGqmy": [
+          "claude/ict-order-rejections-BmqU1"
+        ],
+        "session_01KFxqGuauQn113r7AgoHAQ7": [
+          "claude/ai-trading-profitability-gaps-ldQCu",
+          "claude/conflict-hold-policy-tier3",
+          "claude/docs-freshness-2026-05-31"
+        ],
+        "session_01KXMj8CrQUTgED6YzYZDpLx": [
+          "claude/risk-manager-backstop"
+        ],
+        "session_01KXVKjavNi9oTbYFwK15TH7": [
+          "claude/fix-backfill-account-loader",
+          "claude/followup-trade-1454-orphan-skip"
+        ],
+        "session_01L8GZoVxY9iqAykyydG13rP": [
+          "claude/phase-b-done-post"
+        ],
+        "session_01LQLULRkm4GatN8GsC81fwQ": [
+          "claude/fix-web-app-down-WRmbN"
+        ],
+        "session_01LsgzrBzfwPkZG5iBrXk8Ss": [
+          "claude/vwap-entry-threshold-2sigma"
+        ],
+        "session_01LsuxVvkKLcnicv6TkzrZw9": [
+          "claude/drain-health-board-start"
+        ],
+        "session_01MXNkPvuhqXjTivW34fCd3S": [
+          "claude/cloud-docs-phase7a-close-stale",
+          "claude/fix-menu-canonical-runtime-logs",
+          "claude/fix-pending-pings-canonical-path"
+        ],
+        "session_01NLwdbYJNCUD8bBVdYBjLVy": [
+          "claude/cloud-docs-phase7a-close-stale",
+          "claude/fix-menu-canonical-runtime-logs",
+          "claude/fix-pending-pings-canonical-path"
+        ],
+        "session_01NN97cVYW5dmiNNXHfsu7Nn": [
+          "claude/mi70-kill-subject",
+          "claude/mi70-kill-test"
+        ],
+        "session_01NjMTWmTnK1EKvYoT6m2UFn": [
+          "claude/ai-trading-profitability-gaps-ldQCu",
+          "claude/android-overview-page-Ghkyw",
+          "claude/cap-verify-backlog-note"
+        ],
+        "session_01NkekPZw73VYuynYhSdWLWm": [
+          "claude/manager-spawn-mi68",
+          "claude/mi70-kill-test"
+        ],
+        "session_01PZC35BUoXSFQBxSTd8KhqN": [
+          "claude/fix-web-app-down-WRmbN"
+        ],
+        "session_01Pd2JtqeQfJSncwv6SqzkjG": [
+          "claude/fix-backfill-account-loader",
+          "claude/followup-trade-1454-orphan-skip"
+        ],
+        "session_01PzXEBfV5v5M6hiBnQc4Le6": [
+          "claude/fix-backfill-account-loader",
+          "claude/followup-trade-1454-orphan-skip"
+        ],
+        "session_01QMyqGF4MSKku9rGtH8Ywnf": [
+          "claude/diag-relay-labeled-fallback",
+          "claude/health-review-7RlKd",
+          "claude/m14-progress-next-u260C"
+        ],
+        "session_01R23EVHRdfpXXzg2xmKW89g": [
+          "claude/elegant-mccarthy-clean-rerun",
+          "claude/health-review-82GAh",
+          "claude/m12-s1-followups"
+        ],
+        "session_01R8AwiHfe59gMXAAhXcq9pi": [
+          "claude/adoring-pasteur-P60hd",
+          "claude/android-overview-page-Ghkyw",
+          "claude/cap-verify-backlog-note"
+        ],
+        "session_01RQiedALVJzWCGdBqY6aNV7": [
+          "claude/manager-register-mi62"
+        ],
+        "session_01RijvyUiR2C92u8XwK7bwfe": [
+          "claude/health-review-P2Zwr"
+        ],
+        "session_01RnHJ3qArTqywF7TzLZr9st": [
+          "claude/unit-a-selective-flip-mamcnu",
+          "claude/unit-c-prop-exits-mamcnu"
+        ],
+        "session_01RyP6vAtAASSAhF6jt8K1gu": [
+          "claude/econ-calendar-source-probe-r30gnq"
+        ],
+        "session_01Rz1uBXibdN6cZKh2nqQyQr": [
+          "claude/backtest-labeled-setup-candidates-3Xmqg",
+          "claude/cleanup-2026-06-08",
+          "claude/health-review-7RlKd"
+        ],
+        "session_01S8UNvkQ7BTVHyYn7xHvvts": [
+          "claude/sharp-galileo-7kc4ni"
+        ],
+        "session_01SYwJD7zLeaQitUGtDwPfBG": [
+          "claude/risk-manager-backstop"
+        ],
+        "session_01SmV9MCgHSd5iQmG9DkzJgL": [
+          "claude/vwap-entry-threshold-2sigma"
+        ],
+        "session_01SmttDAutyQgKFrb9uWXgKF": [
+          "claude/risk-manager-backstop"
+        ],
+        "session_01SxTAh4kAf3KBhhw7p6Le5y": [
+          "claude/tickcost-attributed-pct"
+        ],
+        "session_01SzQZhMoW1NRXcW8hkM1Tef": [
+          "claude/risk-manager-backstop"
+        ],
+        "session_01T9Pbo6aUNfqraU7hQYotBe": [
+          "claude/analyst-read-cache-check-yv0nyh",
+          "claude/health-strategy-ml-review-2y9vos",
+          "claude/m7-vm-activation"
+        ],
+        "session_01TASYv35o6XciFnMC9wmnHi": [
+          "claude/board-done-ping-delivery-ledger"
+        ],
+        "session_01UTcLyMtHKYkhMiMKk1asbv": [
+          "claude/workplan-2026-08-29"
+        ],
+        "session_01VEpsk5NYnuvj7xg9Ti3e1D": [
+          "claude/cloud-docs-phase7a-close-stale",
+          "claude/fix-menu-canonical-runtime-logs",
+          "claude/fix-pending-pings-canonical-path"
+        ],
+        "session_01VtYR8yPaCbjASwM8KPuWrx": [
+          "claude/risk-manager-backstop"
+        ],
+        "session_01Wo12azECV5Yrm7jZkCDQHX": [
+          "claude/fix-backfill-account-loader",
+          "claude/followup-trade-1454-orphan-skip"
+        ],
+        "session_01WqceUpqAJHxzwVNkQFbiC5": [
+          "claude/risk-manager-backstop"
+        ],
+        "session_01X9HcdqY1K9k9nGjfGCFKAc": [
+          "claude/m28-value-thesis-sweep-evapa5"
+        ],
+        "session_01XrwTGRY819PCzBnppCTLbi": [
+          "claude/manager-spawn-mi68"
+        ],
+        "session_01Y4K1itrfPBPi2UYjNmRiFD": [
+          "claude/fix-backfill-account-loader",
+          "claude/followup-trade-1454-orphan-skip"
+        ]
+      },
+      "unregistered_attribution_caveat": "A session id recovered here says WHOSE the work is, never WHAT it was for: `owns_object` lives only in the registry, so an unregistered session's work is locatable and still unattached to any work object. Recovery is not a substitute for registering.",
+      "registry_declared_branches": 29,
+      "origin_head_count": 222,
+      "unregistered_caveat": "COUNT ONLY, no ratio: `claude/**` includes board-post and relay branches that were never sub-sessions, and the registry began 2026-09-01 while branches predate it. This is an upper bound on unregistered sessions, not a measurement of them.",
+      "unpushed_work": "invisible_by_construction",
+      "unpushed_caveat": "Work never pushed lives in a container nothing outside it can reach. The reaper has ZERO visibility of it and no reaper can have any. The only remedy is pushing early.",
+      "liveness": "not_observed",
+      "liveness_caveat": "The reaper cannot tell alive from dead — `list_sessions` is an MCP tool CI does not hold. It grades branch quiescence, a PROXY, which is safe only because it records and never acts."
+    }
+  },
+  "observations": [
+    {
+      "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
+      "owns_object": "WO-20260901-PHASE-B",
+      "title": "Phase B — visibility: the work view + daily digest",
+      "branches_in_repo": [
+        "claude/phase-b-work-view-digest"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [
+        "10654",
+        "210"
+      ],
+      "state": "landed",
+      "merged_prs": [
+        "10654"
+      ],
+      "why": "no branch on origin and PR(s) ['10654'] are in origin/main"
+    },
+    {
+      "session_id": "session_01H5R1PycFHgaVB1AMQzpPJY",
+      "owns_object": "WO-20260901-PHASE-C",
+      "title": "Phase C — migration, the WIP ceiling, and priority propagation",
+      "branches_in_repo": [
+        "claude/operating-layer-phase-c"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [
+        "10657"
+      ],
+      "state": "landed",
+      "merged_prs": [
+        "10657"
+      ],
+      "why": "no branch on origin and PR(s) ['10657'] are in origin/main"
+    },
+    {
+      "session_id": "session_019SqqtiDAZr8w7z5wpJw5cP",
+      "owns_object": null,
+      "title": "GLD close-failure loop on alpaca_paper (30+ CRITICALs)",
+      "branches_in_repo": [
+        "claude/gld-close-failure-loop"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [
+        "10666"
+      ],
+      "state": "landed",
+      "merged_prs": [
+        "10666"
+      ],
+      "why": "no branch on origin and PR(s) ['10666'] are in origin/main"
+    },
+    {
+      "session_id": "session_01BASMLEeyyj3jwRdgRFhV2A",
+      "owns_object": null,
+      "title": "Telegram: mirror Claude pings to the dedicated bot + verify on the VM",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [
+        "claude/telegram-ping-mirror (expected; not yet pushed)"
+      ],
+      "prs": [],
+      "state": "unreadable",
+      "why": "only non-branch text in `branches`: ['claude/telegram-ping-mirror (expected; not yet pushed)']"
+    },
+    {
+      "session_id": "session_01MDjxAnncsh71UiRAWtYHkH",
+      "owns_object": "WO-20260901-PHASE-F",
+      "title": "Phase F — C3 decision preparation (the measured constraint)",
+      "branches_in_repo": [
+        "claude/phase-f-c3-decision-prep"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [
+        "10681"
+      ],
+      "state": "landed",
+      "merged_prs": [
+        "10681"
+      ],
+      "why": "no branch on origin and PR(s) ['10681'] are in origin/main"
+    },
+    {
+      "session_id": "session_01Eb2CgctP8MGHD2Pnh8gpqF",
+      "owns_object": "WO-20260901-PHASE-D",
+      "title": "Phase D — E1 constraint diagnosis, computed not judged",
+      "branches_in_repo": [
+        "claude/phase-d-constraint-readout"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [
+        "10680"
+      ],
+      "state": "landed",
+      "merged_prs": [
+        "10680"
+      ],
+      "why": "no branch on origin and PR(s) ['10680'] are in origin/main"
+    },
+    {
+      "session_id": "session_01Hd8opmCBcNQRchwdasWpvL",
+      "owns_object": null,
+      "title": "GLD extended-hours close — recurrence of BL-20260708 on a sibling call site",
+      "branches_in_repo": [
+        "claude/alpaca-ext-hours-close-qty"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [
+        "10679"
+      ],
+      "state": "landed",
+      "merged_prs": [
+        "10679"
+      ],
+      "why": "no branch on origin and PR(s) ['10679'] are in origin/main"
+    },
+    {
+      "session_id": "session_01J16qHJHbnvqDyRWWAvdiRD",
+      "owns_object": null,
+      "title": "Claude Telegram channel — route the drain to the dedicated bot",
+      "branches_in_repo": [
+        "claude/claude-channel-board"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/claude-channel-board"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-01T23:09:21+00:00",
+      "branch_age_minutes": 898.7,
+      "why": "no commit for 899 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01LvzsinECH8HPCyauVJZBZw",
+      "owns_object": "WO-20260901-PHASE-H",
+      "title": "Phase H preconditions — db-explorer default-deny allowlist + column redaction",
+      "branches_in_repo": [
+        "claude/phase-h-preconditions-db-explorer-gate"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [
+        "10682"
+      ],
+      "state": "landed",
+      "merged_prs": [
+        "10682"
+      ],
+      "why": "no branch on origin and PR(s) ['10682'] are in origin/main"
+    },
+    {
+      "session_id": "session_01Xj5Puf96WC1YGKdZT4TikJ",
+      "owns_object": null,
+      "title": "prop fills-staleness — grade the alert before writing anything to the prop journal",
+      "branches_in_repo": [
+        "claude/prop-fills-gap-20260901"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [
+        "10678"
+      ],
+      "state": "landed",
+      "merged_prs": [
+        "10678"
+      ],
+      "why": "no branch on origin and PR(s) ['10678'] are in origin/main"
+    },
+    {
+      "session_id": "session_012633idhLGncZaWVMVSuXJM",
+      "owns_object": null,
+      "title": "CI-green the three approved drafts (#10678 #10679 #10682)",
+      "branches_in_repo": [
+        "claude/prop-fills-gap-20260901",
+        "claude/alpaca-ext-hours-close-qty",
+        "claude/phase-h-preconditions-db-explorer-gate"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [
+        "10678",
+        "10679",
+        "10682"
+      ],
+      "state": "landed",
+      "merged_prs": [
+        "10678",
+        "10679",
+        "10682"
+      ],
+      "why": "no branch on origin and PR(s) ['10678', '10679', '10682'] are in origin/main"
+    },
+    {
+      "session_id": "session_01CKcZFmZSWNsV8qHAo38YNk",
+      "owns_object": null,
+      "title": "Merge train — serialize every open PR onto main, one at a time",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [
+        "(rotating — one PR head at a time)"
+      ],
+      "prs": [
+        "10707",
+        "10708",
+        "10686",
+        "10687",
+        "10705",
+        "10679"
+      ],
+      "state": "unreadable",
+      "why": "only non-branch text in `branches`: ['(rotating — one PR head at a time)']"
+    },
+    {
+      "session_id": "session_01BNXj6ogjXeixSkQ4ug6gxp",
+      "owns_object": null,
+      "title": "Backlog drain #2 — ml-review backlog, class-first",
+      "branches_in_repo": [
+        "claude/ml-backlog-drain-board-done"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/ml-backlog-drain-board-done"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T02:05:48+00:00",
+      "branch_age_minutes": 722.3,
+      "why": "no commit for 722 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01JXBmVC65hkkoSQ2LcV1ETY",
+      "owns_object": null,
+      "title": "Backlog drain #3 — performance-review backlog, class-first",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01TASYv35o6XciFnMC9wmnHi",
+      "owns_object": null,
+      "title": "Morning report — prove the 06:20 digest REACHES the operator",
+      "branches_in_repo": [
+        "diag-pending-pings-delivered-read-surface"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [
+        "10719"
+      ],
+      "state": "landed",
+      "merged_prs": [
+        "10719"
+      ],
+      "why": "no branch on origin and PR(s) ['10719'] are in origin/main"
+    },
+    {
+      "session_id": "session_012zFXi272Uywe4vzXsr7Jfi",
+      "owns_object": null,
+      "title": "Backlog drain #4 — research-review backlog",
+      "branches_in_repo": [
+        "claude/drain-research-review-backlog"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [
+        "10725"
+      ],
+      "state": "landed",
+      "merged_prs": [
+        "10725"
+      ],
+      "why": "no branch on origin and PR(s) ['10725'] are in origin/main"
+    },
+    {
+      "session_id": "session_01HMfmAi3sPv4TtZ67SP2utB",
+      "owns_object": null,
+      "title": "Backlog drain #5 — health-review backlog, second pass",
+      "branches_in_repo": [
+        "claude/backlog-drain-2-health-20260902"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [
+        "10724"
+      ],
+      "state": "landed",
+      "merged_prs": [
+        "10724"
+      ],
+      "why": "no branch on origin and PR(s) ['10724'] are in origin/main"
+    },
+    {
+      "session_id": "session_01Au13tQ9BaLKsEU7youUomr",
+      "owns_object": null,
+      "title": "Backlog drain wave 2 — ml-review-backlog (pass 2)",
+      "branches_in_repo": [
+        "claude/drain-ml-backlog-pass2"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "no_landing_evidence",
+      "why": "no branch on origin and no PR this row names is in origin/main. ⚠️ NOT a claim the work was lost — the row may simply never have recorded the PR its work landed under."
+    },
+    {
+      "session_id": "session_011Gqsv3NxLmm5yp9gfNh6ar",
+      "owns_object": null,
+      "title": "Backlog drain wave 2 — performance-review-backlog (pass 2)",
+      "branches_in_repo": [
+        "claude/drain-performance-backlog-pass2"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "no_landing_evidence",
+      "why": "no branch on origin and no PR this row names is in origin/main. ⚠️ NOT a claim the work was lost — the row may simply never have recorded the PR its work landed under."
+    },
+    {
+      "session_id": "session_019qeQsttJE4akWLhUeNbcDF",
+      "owns_object": null,
+      "title": "MI-31 — a trainer read path sub-sessions can actually use",
+      "branches_in_repo": [
+        "claude/trainer-relay-demo-scratch"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/trainer-relay-demo-scratch"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T03:40:05+00:00",
+      "branch_age_minutes": 628.0,
+      "why": "no commit for 628 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01NocraYKXWU6jPEFv2QEMv8",
+      "owns_object": null,
+      "title": "MI-27 — replay-pregate nightly: the only failing scheduled job",
+      "branches_in_repo": [
+        "claude/board-post-pregate-done"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/board-post-pregate-done"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T03:43:22+00:00",
+      "branch_age_minutes": 624.7,
+      "why": "no commit for 625 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01Buj7phmYPjDt6FPTyuVoYp",
+      "owns_object": null,
+      "title": "MI-36 — bybit over-cover names the wrong condition",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01LsuxVvkKLcnicv6TkzrZw9",
+      "owns_object": null,
+      "title": "Backlog drain wave 2 — health-review-backlog (pass 3)",
+      "branches_in_repo": [
+        "claude/drain-health-backlog-pass3"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "no_landing_evidence",
+      "why": "no branch on origin and no PR this row names is in origin/main. ⚠️ NOT a claim the work was lost — the row may simply never have recorded the PR its work landed under."
+    },
+    {
+      "session_id": "session_01NdcSVsQtCzUqYLvzdjNPG9",
+      "owns_object": null,
+      "title": "MI-28 — the scope-overlap audit flags a session against its own declaration",
+      "branches_in_repo": [
+        "claude/scope-overlap-self-attribution"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "no_landing_evidence",
+      "why": "no branch on origin and no PR this row names is in origin/main. ⚠️ NOT a claim the work was lost — the row may simply never have recorded the PR its work landed under."
+    },
+    {
+      "session_id": "session_01JtCLjnWPvNRN7K3td116BY",
+      "owns_object": null,
+      "title": "MI-37 — side-blind covered_qty can mask a genuinely naked Bybit position (Tier-2, DRAFT ONLY)",
+      "branches_in_repo": [
+        "claude/bybit-coverage-graded-book"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T11:07:09+00:00",
+      "branch_age_minutes": 180.9,
+      "why": "no commit for 181 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01EihsgewHt7BZv43YcC7caV",
+      "owns_object": null,
+      "title": "MI-30 — R-metrics contaminated and feeding promotion gates",
+      "branches_in_repo": [
+        "claude/r-metric-contamination"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T06:23:57+00:00",
+      "branch_age_minutes": 464.1,
+      "why": "no commit for 464 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01JMWwopaYAQgNS8uJ2pAj5E",
+      "owns_object": null,
+      "title": "MI-39 — the work digest fired empty, and would have said nothing true even if it hadn't",
+      "branches_in_repo": [
+        "claude/work-digest-empty-body"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "no_landing_evidence",
+      "why": "no branch on origin and no PR this row names is in origin/main. ⚠️ NOT a claim the work was lost — the row may simply never have recorded the PR its work landed under."
+    },
+    {
+      "session_id": "session_01RT889wBPYj1dVEqQnkzj7h",
+      "owns_object": null,
+      "title": "MI-37: stage the book-aware Bybit coverage grade on bybit_1",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01CU2izDKoWpfyACrMdR43Mu",
+      "owns_object": null,
+      "title": "Phase G: make the strategy-review evidence floor reachable",
+      "branches_in_repo": [
+        "claude/evidence-floor-horizon-board"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/evidence-floor-horizon-board"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T06:14:48+00:00",
+      "branch_age_minutes": 473.3,
+      "why": "no commit for 473 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01XbigCVRcy2bnVpm1tKNPno",
+      "owns_object": null,
+      "title": "MI-34: unclearable GLD wedge moves from paging to the daily digest",
+      "branches_in_repo": [
+        "claude/mi34-wedge-page-to-digest"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/mi34-wedge-page-to-digest"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T08:13:43+00:00",
+      "branch_age_minutes": 354.4,
+      "why": "no commit for 354 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01N1BmbHtE6PpfHtzTXMtbLh",
+      "owns_object": null,
+      "title": "MI-37 (retry 1): stage the book-aware Bybit coverage grade",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01Wu7y3KL6MMgAV1ghetQWFx",
+      "owns_object": null,
+      "title": "MI-37 (retry 2): stage the book-aware Bybit coverage grade on bybit_1",
+      "branches_in_repo": [
+        "claude/bybit-coverage-graded-book"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/bybit-coverage-graded-book"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T11:07:09+00:00",
+      "branch_age_minutes": 180.9,
+      "why": "no commit for 181 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01PcirVtpMXJGiKm2548nkrR",
+      "owns_object": null,
+      "title": "MI-39 fix: register pending-pings.jsonl so the notify test cannot be short-circuited",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01NeR2kREiXrXQcYYuRHvzRa",
+      "owns_object": null,
+      "title": "MI-41-A: actions Claude can INVOKE to save tokens",
+      "branches_in_repo": [
+        "claude/session-invokable-actions-ci-settled"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/session-invokable-actions-ci-settled"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T07:36:09+00:00",
+      "branch_age_minutes": 391.9,
+      "why": "no commit for 392 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01Ryr6K2VXGojZbqjFgQ2PrN",
+      "owns_object": null,
+      "title": "MI-41-B: split the instruction surface",
+      "branches_in_repo": [
+        "claude/claude-md-reference-split"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/claude-md-reference-split"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T08:42:46+00:00",
+      "branch_age_minutes": 325.3,
+      "why": "no commit for 325 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01YBQQzvgJzSumk1APmjiG7B",
+      "owns_object": null,
+      "title": "MI-41-C/D: map 32 skills onto the five session types; inventory 129 workflows",
+      "branches_in_repo": [
+        "claude/oi-review-packet-cron-observation-p7t2w4"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/oi-review-packet-cron-observation-p7t2w4"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T08:13:19+00:00",
+      "branch_age_minutes": 354.8,
+      "why": "no commit for 355 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_019udKqceYPBqp4kzBYNZ6Sp",
+      "owns_object": null,
+      "title": "MI-43: handoff-readiness check + make spawn-and-register one action",
+      "branches_in_repo": [
+        "claude/subsession-registry-coupling-handoff-check"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/subsession-registry-coupling-handoff-check"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T07:35:55+00:00",
+      "branch_age_minutes": 392.2,
+      "why": "no commit for 392 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01PnQLKnuezWVB4D47PtnTqR",
+      "owns_object": null,
+      "title": "Operating layer Phase H — the control half: decisions answerable from the UI",
+      "branches_in_repo": [
+        "claude/phase-h-decision-roundtrip"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "no_landing_evidence",
+      "why": "no branch on origin and no PR this row names is in origin/main. ⚠️ NOT a claim the work was lost — the row may simply never have recorded the PR its work landed under."
+    },
+    {
+      "session_id": "session_01LqVvgvusnN87neBn5ayzhg",
+      "owns_object": null,
+      "title": "Claude ping delivered TWICE — one bot too many drains the queue",
+      "branches_in_repo": [
+        "claude/claude-ping-double-delivery-x4mq2p"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-01T22:29:26+00:00",
+      "branch_age_minutes": 938.6,
+      "why": "no commit for 939 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_012Nk5tVpHfSHvYfRyN7BC5S",
+      "owns_object": null,
+      "title": "Health drain: retire the exit-head / M20-evidence class (Tier-1, high)",
+      "branches_in_repo": [
+        "claude/pr-req-exit-head-9k2p1x"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/pr-req-exit-head-9k2p1x"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T06:04:07+00:00",
+      "branch_age_minutes": 484.0,
+      "why": "no commit for 484 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01WZVcSxKY59cQXGgz3L5nLf",
+      "owns_object": null,
+      "title": "Resolve #10679 ONE more time — all other merges are held for it",
+      "branches_in_repo": [
+        "claude/resolve-report-10679"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/resolve-report-10679"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T03:03:03+00:00",
+      "branch_age_minutes": 665.0,
+      "why": "no commit for 665 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_015oCrkh4XHdMDqUqW3Zhsgw",
+      "owns_object": null,
+      "title": "Resolve the two register conflicts on #10705 and #10679 (both approved)",
+      "branches_in_repo": [
+        "claude/conflict-resolve-10705-10679-report"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/conflict-resolve-10705-10679-report"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T02:47:03+00:00",
+      "branch_age_minutes": 681.0,
+      "why": "no commit for 681 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_014RAYKspW1gtBsjuHA1XzKJ",
+      "owns_object": null,
+      "title": "Conflict-resolve the stale register/backlog PRs (#10685 #10686 #10687 #10679)",
+      "branches_in_repo": [
+        "claude/pr-conflict-board"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/pr-conflict-board"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T00:57:56+00:00",
+      "branch_age_minutes": 790.1,
+      "why": "no commit for 790 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01FYEGu7tBoA6u4N1xyCdHDS",
+      "owns_object": null,
+      "title": "Backlog drain #1 — health-review backlog, class-first",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01AT7e9N9FMbrLPRbzzueexL",
+      "owns_object": null,
+      "title": "Operating layer Phase G — the forcing function: retirement + capability pull",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01GmjT7SLhVQNJtWnY1asEEb",
+      "owns_object": null,
+      "title": "Resolve merge conflicts on #10679 and #10681",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01P6QyGg3ZJrXcNaEUBTj2ei",
+      "owns_object": null,
+      "title": "Ping test matrix — exercise all three classes end to end",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01RQdSgwPyMbsn1EV9S1Tz3H",
+      "owns_object": null,
+      "title": "CI-green #10683 (send-ping kind params)",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01K6noqHovG1aS6MaXmWLk51",
+      "owns_object": null,
+      "title": "CI-green Phase D (#10680) and Phase F (#10681)",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01QTEtnSdpFtQ8KyrBHG5a7z",
+      "owns_object": null,
+      "title": "Live trades on Alpaca portfolio account",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_011NoRpJ7Shcb2CozzeFVVor",
+      "owns_object": null,
+      "title": "Probe coverage expansion work-plan item 3",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01P2QBKNp37JkvwMRSbBEJ7B",
+      "owns_object": null,
+      "title": "Research disposition re-sweep",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_012LgMzBqskXsti4zh8kT51u",
+      "owns_object": null,
+      "title": "Workflows audit and restructuring",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01Wqc7rQUDzW3Lk16NmigemQ",
+      "owns_object": null,
+      "title": "Arbitration fanout starved-state grading",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_018wqzuqBjxkiaEEBr8kJC59",
+      "owns_object": null,
+      "title": "Research queue landing implementation",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01HYXKHpDQeWv3u4rjWWoL2J",
+      "owns_object": null,
+      "title": "Lane P: E35 geometry verification",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01EcqsSwEGKq9qpireotozUd",
+      "owns_object": null,
+      "title": "Alpaca go-live and trade management",
+      "branches_in_repo": [],
+      "branch_source": "none_found",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "unreadable",
+      "why": "the row names no branch in this repo"
+    },
+    {
+      "session_id": "session_01TXmgt2S1zZjcdCDEpXdxmV",
+      "owns_object": null,
+      "title": "Full system review",
+      "branches_in_repo": [
+        "claude/flatten-marking-durable",
+        "claude/hedge-phase-b-fix"
+      ],
+      "branch_source": "recovered_from_commit_trailer",
+      "recovered_branches": [
+        "claude/flatten-marking-durable",
+        "claude/hedge-phase-b-fix"
+      ],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-08-30T12:07:21+00:00",
+      "branch_age_minutes": 4440.7,
+      "why": "no commit for 4441 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01TpKSAVKKUXLHyFUFep32B1",
+      "owns_object": null,
+      "title": "MI-53: wire the trader error feed into a cadenced duty pass",
+      "branches_in_repo": [
+        "claude/error-feed-duty-pass-wiring"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T09:41:39+00:00",
+      "branch_age_minutes": 266.4,
+      "why": "no commit for 266 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01LNHkQQuxku3khrjoDinw91",
+      "owns_object": null,
+      "title": "MI-55: two-way Telegram decisions — ask, answer in-chat, and prove the round-trip",
+      "branches_in_repo": [
+        "claude/two-way-telegram-decisions"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "no_landing_evidence",
+      "why": "no branch on origin and no PR this row names is in origin/main. ⚠️ NOT a claim the work was lost — the row may simply never have recorded the PR its work landed under."
+    },
+    {
+      "session_id": "session_01T8iWSepqAuBU7sgbs8GPHu",
+      "owns_object": null,
+      "title": "MI-57 OPEN-PRS: settled/in-flight split + post-merge reconciler",
+      "branches_in_repo": [
+        "claude/openprs-settled-reconciler"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "active",
+      "newest_commit_utc": "2026-09-02T13:18:59+00:00",
+      "branch_age_minutes": 49.1,
+      "why": "a commit inside the freshness window"
+    },
+    {
+      "session_id": "session_01XH17FTCCjiwHcMLAVeDLQZ",
+      "owns_object": null,
+      "title": "MI-58: make ClaudeBot answerable — poll it so decision buttons work there",
+      "branches_in_repo": [
+        "claude/claudebot-answerable"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "active",
+      "newest_commit_utc": "2026-09-02T12:43:11+00:00",
+      "branch_age_minutes": 84.9,
+      "why": "a commit inside the freshness window"
+    },
+    {
+      "session_id": "session_01272CQFvWA5F9tS9nNRpJtK",
+      "owns_object": null,
+      "title": "MI-59: /status and /decisions commands on the Claude channel",
+      "branches_in_repo": [
+        "claude/telegram-status-decisions-commands"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T12:05:31+00:00",
+      "branch_age_minutes": 122.6,
+      "why": "no commit for 123 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01PEYVqTaCY92C3HmtHwxYff",
+      "owns_object": null,
+      "title": "MI-60: push a committed decision back to the session that asked it",
+      "branches_in_repo": [
+        "claude/decision-push-back"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "active",
+      "newest_commit_utc": "2026-09-02T13:18:49+00:00",
+      "branch_age_minutes": 49.3,
+      "why": "a commit inside the freshness window"
+    },
+    {
+      "session_id": "session_01NfzmaV7FxP4bAZtKbXYVb9",
+      "owns_object": null,
+      "title": "MI-61: a soak must alarm — threshold + timer + a dead-soak state",
+      "branches_in_repo": [
+        "claude/soak-alarm-threshold"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T11:40:15+00:00",
+      "branch_age_minutes": 147.8,
+      "why": "no commit for 148 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01Jc8yFVG4XP7nJ841byyt1L",
+      "owns_object": null,
+      "title": "MI-62: automation commits, pushes, then fails to land — 17 orphaned branches, nothing notices",
+      "branches_in_repo": [
+        "claude/automation-landing-orphans"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "stalled_with_work",
+      "newest_commit_utc": "2026-09-02T11:46:23+00:00",
+      "branch_age_minutes": 141.7,
+      "why": "no commit for 142 min; THE WORK IS ON ORIGIN — supervision has stopped, the work has not been lost"
+    },
+    {
+      "session_id": "session_01RQiedALVJzWCGdBqY6aNV7",
+      "owns_object": null,
+      "title": "MI-63 — write TRUE blocked_on edges, and create the DECISION/QUESTION objects the store has none of",
+      "branches_in_repo": [
+        "claude/mi63-true-blocked-on-edges"
+      ],
+      "branch_source": "registry_declared",
+      "recovered_branches": [],
+      "malformed_branch_entries": [],
+      "prs": [],
+      "state": "active",
+      "newest_commit_utc": "2026-09-02T13:17:51+00:00",
+      "branch_age_minutes": 50.2,
+      "why": "a commit inside the freshness window"
+    }
+  ]
+}
