@@ -130,6 +130,15 @@ jobs:
       - name: Self-test the gate before trusting its verdict
         run: python3 scripts/ops/digest_due.py --self-test
 
+      # PRINTED so the carrier is PROBEABLE from outside. The whole point of
+      # this change is that a trigger fired -- and "the workflow file says
+      # push" is not that. `probe_actions_log.py` greps this exact literal, with
+      # `work-digest: trigger=` as its positive control, so a log that is
+      # fetched but no longer contains what we think it does reads as an
+      # UNREAD rather than as a clean negative.
+      - name: Declare which event carried this run
+        run: echo "work-digest: trigger=${{ github.event_name }}"
+
       - name: Is a digest due?
         id: due
         run: python3 scripts/ops/digest_due.py --emit-github-output

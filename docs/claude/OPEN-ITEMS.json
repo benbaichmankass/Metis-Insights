@@ -980,6 +980,40 @@
     "docs/claude/work/PR-QUEUE-WATCH.json",
     "WO-20260902-MANAGER-PREFLIGHT"
    ]
+  },
+  {
+   "id": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED",
+   "kind": "monitoring",
+   "loud": true,
+   "opened": "2026-09-02",
+   "check_every_days": 1,
+   "summary": "The operator's digest was moved OFF GitHub cron and onto push:main (#10845, MI-80), because cron does not fire here: work-digest had FOUR runs in its entire life against an hourly declaration, and every other scheduled producer lands hours late or skips days (probes +4h53m and nothing on 09-02; due-list +4h07m; econ-calendar +2h14m; macro-valuation +5h22m and nothing on 09-02). [!] THE NEW TRIGGER HAS NEVER FIRED. A workflow file that parses is not a run -- the exact distinction the whole change is about -- so this is DEPLOYED, not working. [!] AND THE QUIET-WINDOW HALF IS NOT FIXED AT ALL: a push-driven digest cannot produce a heartbeat while main is quiet, which is precisely the 'operator stopped looking' window the operator complained about, and the CI guard shipped with it has the same weakness -- it only runs when someone opens a PR.",
+   "detail": "THIS IS A RECURRENCE, and that is the finding more than the missing pings. BL-20260830-SCHEDULED-WORKFLOW-LAG-WENT-FROM-1H-TO-6-12H-ON-2026-08-27 is OPEN and already said 'ANY plan whose correctness depends on a cron firing at roughly its declared time is now wrong'. Three days later the operator's ping cadence -- which F6 makes the CONDITION the autonomy grant rests on -- was put on exactly that carrier and nobody read the row. The earlier fix did not hold because it was a row nobody read, not a mechanism. MEASURED CARRIER EVIDENCE for the unfixed half: of 26 LIVE Routines (list_triggers limit=100, next_cursor None; include_completed defaults false so fired one-shots are hidden), 25 are bound to one persistent_session_id and die with it. The ONE that is not, trig_01TWdAvrwFLe6T9XFoNopTeo, is also the only one carrying an observable last_run: it fired 42s after its :56 slot into a NEW session. So a fresh-session Routine is both reliable and creator-independent, measured rather than assumed. A ~4x/day WATCHDOG Routine (not the digest itself, which would cost 24 sessions/day) is the proposal; creating it is recurring spend on the operator's account and was deliberately NOT done. A VM systemd timer was assessed and cannot carry the digest -- VM_GIT_DEPLOY_TOKEN is Contents:read-only so the VM cannot push to main -- but is a real Tier-2 candidate for the watchdog.",
+   "clears_when": "TWO PARTS, different facts -- say which you cleared rather than clearing on the easier one. (1) CARRIER: a work-digest run with event=push is OBSERVED completing AND its receipt docs/claude/work/WORK-DIGEST.json appears ON MAIN carrying trigger=\"push\" and a generated_at from that run. Read the run history and that stamp, NEVER the workflow file. (2) DETECTOR: check_digest_liveness.py is observed grading `fresh` on a PR OTHER than #10845, which is what proves it armed itself rather than merely being registered. [!] MERGING #10845 CLEARS NEITHER -- a merge is not a deploy and a deploy is not a run. [!] A GREEN SELF-TEST CLEARS NEITHER: 38 assertions pass in a harness, and a harness is exactly what cannot reach a trigger. [!] A workflow_dispatch run clears NOTHING, because the failure class being watched is a trigger that does not fire. [!] AND THE DIGEST ARRIVING WHILE SOMEONE IS WORKING DOES NOT CLEAR THIS -- that is the half that already works. The quiet-window half clears only on an OBSERVED quiet-period heartbeat, or on a RECORDED operator decision not to buy one. Deciding NOT to is legitimate and must be recorded as a decision rather than left looking like work in flight.",
+   "observation": "2026-09-02 (MI-80, PRE-DEPLOY BASELINE -- this is what the carrier looked like BEFORE the change, NOT evidence about it). SEEN: work-digest.yml run_number 4, i.e. four runs in its entire life; three scheduled, ~7h apart, one CONCLUDING FAILURE at 07:10Z; the 17:20Z and 18:20Z slots after the hourly cron went live at 16:22Z both absent. SEEN: no docs/claude/work/WORK-DIGEST.json exists on main, so check_digest_liveness.py grades `never_ran` -- correct, and deliberately NOT a receipt I hand-wrote, because a hand-made one would claim a digest the operator never received. NOT SEEN, and this is the point: any run of work-digest with event=push. The probe below reads `work-digest: trigger=push` out of the job log and is expected to FAIL until the first such run.",
+   "verified_at": "2026-09-02",
+    "probe": {
+     "cmd": [
+      "python3",
+      "scripts/ops/probe_actions_log.py",
+      "--workflow",
+      "work-digest.yml",
+      "--contains",
+      "work-digest: trigger=push",
+      "--positive-control",
+      "work-digest: trigger="
+     ],
+     "checks": "A work-digest job log contains the literal `work-digest: trigger=push`, i.e. a run of that workflow was carried by a PUSH event. That is the only thing that settles clause (1): the workflow file declaring `push` is a declaration, and this repo's whole finding is that a declared trigger is not a run. The positive control is `work-digest: trigger=` WITHOUT the event value, so a log that is fetched but no longer carries the line at all grades could_not_run rather than a clean negative -- the unstated-denominator error one level up.",
+   "is_not": "A PASS DOES NOT CLEAR THIS ROW. It establishes that a push-triggered run EXISTED; it says nothing about (a) whether that run actually queued a digest -- the gate may have graded `not_due` and skipped, which is correct behaviour and not a delivery, (b) whether the receipt docs/claude/work/WORK-DIGEST.json LANDED on main, which is the fact clause (1) actually requires and which only a read of main can show, (c) clause (2) at all, the detector arming itself on a PR other than #10845, and (d) the QUIET-WINDOW half, which is the part this change does not fix -- a push-triggered run is by definition evidence from a period when main was NOT quiet, so it is the wrong population for that question entirely. A FAIL today is the CORRECT reading, not a defect: nothing has fired yet."
+    },
+   "refs": [
+    "https://github.com/benbaichmankass/Metis-Insights/pull/10845",
+    "BL-20260902-OPERATOR-PING-CADENCE-PUT-ON-A-CRON-A-FILED-OPEN-ROW-SAID-WAS-BROKEN",
+    "BL-20260830-SCHEDULED-WORKFLOW-LAG-WENT-FROM-1H-TO-6-12H-ON-2026-08-27",
+    "scripts/ops/digest_due.py",
+    "scripts/ci/check_digest_liveness.py",
+    "docs/research/digest-cadence-carrier-2026-09-02.md"
+   ]
   }
  ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
