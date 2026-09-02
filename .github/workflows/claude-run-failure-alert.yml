@@ -46,6 +46,12 @@ on:
       # operator.
       - work-digest
       - work-decision-commit
+      # A1's readout, on the cadence the operating model always declared it
+      # had. A dead run here is invisible in the worst possible way: the
+      # CLAUDE.md session brief keeps rendering the LAST good readout with its
+      # own date attached, so a stalled cron looks exactly like a quiet work
+      # store to every session that reads it.
+      - constraint-readout
       - strategy-review-packets
       - sunset-pass
       - trainer-vm-diag

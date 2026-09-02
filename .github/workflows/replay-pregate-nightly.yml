@@ -10,17 +10,28 @@ name: replay-pregate-nightly
 # no keep-alive cron required.
 #
 # What it does (all read-only research, Tier-1):
-#   1. SSH the trainer VM, fast-forward the working tree to the requested ref.
+#   1. SSH the trainer VM, fast-forward the working tree to the requested ref,
+#      and LAUNCH the driver DETACHED (setsid+nohup -> files on the VM). The
+#      launch call returns immediately.
 #   2. Run scripts/ml/replay_pregate_fleet.py over every shadow-stage regime
 #      head, scoring each through the LIVE predict path vs the dataset's own
 #      regime_label (true market_features parity — no threshold guessing).
+#   2b. POLL for the completion sentinel with short, disposable SSH calls, then
+#      fetch stdout/stderr and THE DRIVER'S OWN exit code. ⚠️ The run no longer
+#      rides one long-lived interactive channel: a transport drop mid-run costs
+#      one retried poll instead of the whole fleet run. See "WHY THE RUN IS
+#      DETACHED" on the launch step for the measurement that forced this.
 #   3. Classify the run by the STAGE that failed (scripts/ml/pregate_stream.py),
-#      NEVER by guessing: the ssh exit code plus a line-anchored OpenSSH client
+#      NEVER by guessing: the exit code plus a line-anchored OpenSSH client
 #      signature separate a broken transport from a crashed driver from output
 #      that genuinely did not parse -- and `undetermined` stays available for
-#      "we could not tell". Run #4365 (2026-09-01) reported a PARSING error for
-#      a `client_loop: send disconnect: Broken pipe`, because this step used to
-#      end in `|| true` and threw the exit code away.
+#      "we could not tell", which is now also what a driver that never exited
+#      grades as (there is no exit code to report, and inventing 255 would
+#      assert a transport failure nobody observed). Run #4365 (2026-09-01)
+#      reported a PARSING error for a `client_loop: send disconnect: Broken
+#      pipe`, because this step used to end in `|| true` and threw the exit code
+#      away. ⚠️ THAT FIX MADE THE FAILURE REPORT CORRECTLY AND DID NOT MAKE IT
+#      STOP — it changed nothing about the run, and the nightly stayed red.
 #   4. On a COMPLETE run: write the report under runtime_logs/replay_pregate/,
 #      advance latest.json + latest.md, and commit.
 #      On a TRUNCATED run: commit the salvaged heads as <TS>.partial.json --
@@ -137,6 +148,10 @@ jobs:
           set -euo pipefail
           # MODELS is data, injected via env on the remote side — never inlined
           # into the script, so an issue body can't smuggle shell metacharacters.
+          #
+          # DETACHED, not interactive. The driver is started with setsid+nohup
+          # writing to files on the VM, and this SSH call returns immediately.
+          # See the "WHY THE RUN IS DETACHED" note on the launch step below.
           cat > /tmp/pregate_cmd.sh <<'EOS'
           set -e
           cd ~/ict-trading-bot 2>/dev/null || cd /opt/ict-trading-bot || cd "$(find ~ -maxdepth 3 -name ict-trading-bot -type d | head -1)"
@@ -146,12 +161,58 @@ jobs:
           for c in .venv/bin/python venv/bin/python ../.venv/bin/python ~/.venv/bin/python; do [ -x "$c" ] && PY="$c" && break; done
           ARGS=""
           [ -n "${PG_MODELS:-}" ] && ARGS="--models $PG_MODELS"
-          $PY scripts/ml/replay_pregate_fleet.py $ARGS --json -
+          D="/tmp/pregate.$PG_RUNID"
+          rm -rf "$D" && mkdir -p "$D"
+          # The `.rc` file is the COMPLETION SENTINEL and is written by the same
+          # subshell that runs the driver, AFTER it exits. Its presence means the
+          # driver reached an exit; its absence means it did not. Nothing else is
+          # allowed to create it, so "still running" and "finished" can never be
+          # confused by the poller.
+          setsid nohup bash -c \
+            "$PY scripts/ml/replay_pregate_fleet.py $ARGS --json - > '$D/out' 2> '$D/err'; echo \$? > '$D/rc'" \
+            </dev/null >/dev/null 2>&1 &
+          echo "launched pid=$! dir=$D"
           EOS
           echo "remote command staged"
 
-      - name: Run fleet pre-gate on trainer VM
-        id: run
+      # WHY THE RUN IS DETACHED (2026-09-02, MI-66).
+      #
+      # MEASURED, and state the population: of the 8 most recent `event=schedule`
+      # runs, 7 concluded `failure` and 1 `cancelled`. Two were read in full
+      # (#4330 2026-08-31, #4365 2026-09-01) and they are not merely similar —
+      # they are IDENTICAL: both died after ~8m55s, both at the SAME head,
+      # `(10/22) btc-regime-5m-lgbm-v2`, both with
+      # `client_loop: send disconnect: Broken pipe`, both surfacing as
+      # `no JSON object in driver output`. Heads 1-9 scored fine in both.
+      #
+      # ⚠️ SO THIS IS NOT A FLAKY NETWORK, AND THE PREVIOUS FIX AIMED AT THE
+      # WRONG HALF. The 2026-09-01 change (keep the ssh exit code, classify by
+      # STAGE via pregate_stream.py) made the failure REPORT correctly. It could
+      # not make it stop, because it changed nothing about the run. Detection was
+      # raised, disposition never happened — the exact pattern due-list.yml's own
+      # header names this workflow as the motivating example of.
+      #
+      # ⚠️ WHAT IS ESTABLISHED AND WHAT IS NOT. Established: the failure is
+      # deterministic and reproduces at one specific head. NOT established: WHY
+      # the remote end goes away there. The trainer is a 1-OCPU / 6-GB Ampere box
+      # and an OOM kill of the process group would look exactly like this, but no
+      # kernel evidence has been read, so this file does not assert it — see the
+      # evidence-capture step below, which exists to settle it on the next
+      # failure rather than leaving a fourth session to guess.
+      #
+      # WHY DETACHING IS THE RIGHT REPAIR UNDER EITHER CAUSE:
+      #   * If the transport is at fault, the run no longer depends on one
+      #     long-lived interactive channel surviving ~18 minutes. A drop costs
+      #     one short poll, which is retried.
+      #   * If the DRIVER is being killed, the run still fails — correctly — but
+      #     its stdout, stderr and exit code are already on disk on the VM, so
+      #     the failure is ATTRIBUTED to the driver instead of arriving as an
+      #     unattributable "no JSON object". An alarm that fires nightly with an
+      #     unknowable cause is the desensitized-alarm P1; that is what has been
+      #     ringing here since 2026-08-26.
+      # Either way the transport stops being a confound, which is the thing that
+      # made five consecutive red nights un-actionable.
+      - name: Launch the fleet pre-gate on the trainer VM (detached)
         env:
           TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
           TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
@@ -159,28 +220,111 @@ jobs:
           PG_MODELS: ${{ steps.params.outputs.models }}
         run: |
           set -euo pipefail
-          # KEEP THE EXIT CODE. This step used to end in `|| true`, discarding
-          # the one piece of evidence that separates a broken transport from a
-          # crashed driver from malformed output -- so the next step could only
-          # ever report "no JSON object in driver output", a PARSING label for
-          # whatever had actually happened. Run #4365 (2026-09-01) was a
-          # `client_loop: send disconnect: Broken pipe` reported as a parse
-          # failure. `rc` is now carried to the classifier as evidence.
-          rc=0
+          # A LAUNCH failure is fatal and must stay fatal: if the driver never
+          # started there is nothing to poll for, and polling anyway would burn
+          # the whole budget before reporting a failure that was known in the
+          # first ten seconds.
           ssh -i ~/.ssh/trainer_key \
               -o BatchMode=yes \
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=20 \
-              -o ServerAliveInterval=30 \
-              -o ServerAliveCountMax=10 \
-              -o SendEnv=PG_REF -o SendEnv=PG_MODELS \
               "${TRAINER_USER}@${TRAINER_IP}" \
-              "PG_REF='${PG_REF}' PG_MODELS='${PG_MODELS}' bash -s" \
-              < /tmp/pregate_cmd.sh \
-              > /tmp/pregate_out.txt 2>/tmp/pregate_err.txt || rc=$?
-          echo "ssh_exit_code=${rc}"
-          echo "=== stderr tail ==="; tail -c 4000 /tmp/pregate_err.txt || true
+              "PG_REF='${PG_REF}' PG_MODELS='${PG_MODELS}' PG_RUNID='${GITHUB_RUN_ID}' bash -s" \
+              < /tmp/pregate_cmd.sh
+
+      - name: Poll for completion, then fetch stdout/stderr/rc
+        id: run
+        env:
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+        run: |
+          set -uo pipefail
+          D="/tmp/pregate.${GITHUB_RUN_ID}"
+          SSH="ssh -i $HOME/.ssh/trainer_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20"
+          # 30 minutes of budget against a fleet that scored 9 heads in ~9
+          # minutes, i.e. a full 22-head run of roughly 20. The job timeout is
+          # 45, so the poll can never be the thing that kills the job.
+          DEADLINE=$(( SECONDS + 30*60 ))
+          done_=0
+          poll_fail=0
+          while [ $SECONDS -lt $DEADLINE ]; do
+            sleep 30
+            # A FAILED POLL IS NOT A FAILED RUN. This is the whole point of
+            # detaching: the driver keeps going while the transport is down, so
+            # a poll error is counted and retried, never treated as a verdict.
+            #
+            # THREE OUTCOMES, KEPT APART — the rc is captured into a variable
+            # rather than read from `$?` after an `if`, so the transport case
+            # can never be silently read as "not finished yet":
+            #   0   -> the sentinel exists; the driver has exited.
+            #   1   -> `test -f` said no; still running. Normal, keep waiting.
+            #   255 -> ssh itself failed; WE DID NOT LOOK. Counted, then retried.
+            prc=0
+            $SSH "${TRAINER_USER}@${TRAINER_IP}" "test -f '$D/rc'" >/dev/null 2>&1 || prc=$?
+            if [ "$prc" = "0" ]; then
+              done_=1; break
+            elif [ "$prc" != "1" ]; then
+              poll_fail=$(( poll_fail + 1 ))
+            fi
+          done
+          echo "poll_failures=${poll_fail}"
+          # Always try to fetch whatever exists — a partial `err` is the evidence
+          # pregate_stream.py salvages rows from, and it is worth strictly more
+          # than nothing even when the run did not finish.
+          : > /tmp/pregate_out.txt; : > /tmp/pregate_err.txt
+          $SSH "${TRAINER_USER}@${TRAINER_IP}" "cat '$D/out' 2>/dev/null" > /tmp/pregate_out.txt || true
+          $SSH "${TRAINER_USER}@${TRAINER_IP}" "cat '$D/err' 2>/dev/null" > /tmp/pregate_err.txt || true
+          if [ "$done_" = "1" ]; then
+            # THE DRIVER'S OWN EXIT CODE, not ssh's. This is a real improvement
+            # on top of the robustness: the old value conflated "the transport
+            # broke" with "the remote command failed", and 255 is legitimately
+            # both. Now 0 means the driver exited clean and anything else is the
+            # driver's verdict, so `remote_command_failed` finally means it.
+            rc="$($SSH "${TRAINER_USER}@${TRAINER_IP}" "cat '$D/rc' 2>/dev/null" | tr -dc '0-9')"
+            [ -n "$rc" ] || rc=""
+          else
+            # DELIBERATELY BLANK -> pregate_stream.py grades `undetermined`.
+            # The driver never exited, so there is no exit code to report, and
+            # inventing 255 would assert a transport failure nobody observed.
+            rc=""
+            echo "::warning::pre-gate driver did not finish within the poll budget."
+          fi
           echo "${rc}" > /tmp/pregate_rc.txt
+          echo "driver_exit_code='${rc}' completed=${done_}"
+          echo "completed=${done_}" >> "$GITHUB_OUTPUT"
+          echo "=== stderr tail ==="; tail -c 4000 /tmp/pregate_err.txt || true
+          # Best-effort cleanup; never fails the run.
+          $SSH "${TRAINER_USER}@${TRAINER_IP}" "rm -rf '$D'" >/dev/null 2>&1 || true
+
+      # Exists so the NEXT failure names its own cause instead of a fourth
+      # session re-deriving it from run logs. It runs ONLY on the failure path,
+      # so a healthy night costs nothing, and it is `continue-on-error` because
+      # evidence collection must never itself become the reported failure.
+      #
+      # ⚠️ It PRINTS, it does not CONCLUDE. An empty OOM grep is "we looked and
+      # the kernel log has no kill in range", which is genuinely useful — but it
+      # is not proof the driver was not killed, and nothing downstream branches
+      # on it.
+      - name: Capture kernel/memory evidence when the run did not complete
+        if: steps.run.outputs.completed != '1'
+        continue-on-error: true
+        env:
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+        run: |
+          set -uo pipefail
+          ssh -i ~/.ssh/trainer_key -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
+              "${TRAINER_USER}@${TRAINER_IP}" \
+              'echo "--- free -m ---"; free -m;
+               echo "--- oom kills (dmesg) ---";
+               (sudo dmesg -T 2>/dev/null || dmesg -T 2>/dev/null || true) \
+                 | grep -iE "out of memory|killed process|oom-kill" | tail -20;
+               echo "--- oom kills (journal, 2h) ---";
+               (journalctl --since "-2 hours" 2>/dev/null || true) \
+                 | grep -iE "out of memory|killed process|oom-kill" | tail -20;
+               echo "--- end evidence ---"' || \
+            echo "::warning::could not collect kernel evidence — this is 'we did not look', not 'no OOM occurred'."
 
       - name: Classify run outcome by failure STAGE
         id: outcome

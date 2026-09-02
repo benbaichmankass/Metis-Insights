@@ -290,6 +290,33 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # CAN THIS WORKFLOW'S PUSH TRIGGER FIRE AT ALL? A narrow, deterministic
+        # slice of the audit's own biggest blind spot: 87 of 129 workflows
+        # cannot be graded on dormancy (their history is skipped label-filter
+        # evaluations), so "is this thing dead?" had no cheap surface. This does
+        # not answer that — it answers the reachability half, which needs no run
+        # history: a `push` trigger pinned to a branch that no longer exists is
+        # unreachable by construction.
+        #
+        # It found THREE on its first run (ict-scalp-exit-sweep,
+        # m20-capture-census, m20-exit-lever-sweep); the audit had flagged one,
+        # and graded it as a CI failure to repair rather than a dead trigger.
+        #
+        # ⚠️ `when: None` so it runs on every PR, NOT diff-scoped to
+        # `.github/workflows/**`. The thing that breaks a trigger is usually a
+        # BRANCH DELETION, which touches no file in the diff — so a diff-scoped
+        # version would go quiet at exactly the moment it should speak.
+        # ⚠️ An unreadable `origin` PASSES (loudly). Failing on a network blip
+        # would red every open PR — BL-20260830.
+        "name": "workflow-trigger-reachability",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_workflow_trigger_reachability.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_workflow_trigger_reachability.py"],
+        ],
+    },
+    {
         "name": "session-brief-guard",
         "when": None,
         "steps": [
