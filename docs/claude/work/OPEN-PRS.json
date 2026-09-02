@@ -120,21 +120,6 @@
         "text": "AWAITING ONE OPERATOR OK: install a new hourly systemd timer on the live trader. The unit runs a read-only digest render plus ONE local file write into the bot's ping inbox — no order path, no strategy config, no risk cap, no broker call, no network. ⚠️ THE MANAGER DID NOT KNOW THIS PR EXISTED until 21:12Z, ~15 min after it was opened, and found it only by polling its author's session summary — which is BL-20260902-SESSIONS-REGISTRY-HAS-A-SPAWN-WRITER-AND-NO-CLOSE-WRITER-SO-EVERY-ROW-READS-WORKING demonstrating itself a second time inside one evening."
       },
       "blocker": "⚠️ DO NOT MERGE WITHOUT THE OPERATOR'S TIER-2 OK — the merge IS the install. ⚠️ AND DO NOT 'SIMPLIFY' IT by calling work_digest.py --write from the timer: that latch is DAY-granular and inert in CI (runtime_logs/ is gitignored, so a fresh runner never has the file), so it would silently cap an hourly carrier at one digest per day with no error. tests/test_work_digest_hourly_carrier.py::test_the_runner_does_not_share_work_digests_day_granular_latch is what stops that, and it is deliberately behavioural. ⚠️ work-digest.yml's schedule: block deliberately STAYS until a scheduled firing is observed — the accepted cost is ~5 duplicate digests a day, which is a KNOWN STATE, not a defect to re-file."
-    },
-    {
-      "pr": 10866,
-      "title": "manager: record #10859, correct the supervise-verb claim, re-land what #10860's merge orphaned",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-84",
-      "draft": false,
-      "tier": "1 — two register files. No order path, no strategy config, no risk caps, no VM.",
-      "state": "auto_merge_armed",
-      "operator_decision": {
-        "verdict": "not_required",
-        "decided_on": "2026-09-02",
-        "text": "Tier-1. Carries a CORRECTION to #10860's own body: 'no supervise verb and no inbound channel' was too strong. A RUNNING sub-session cannot be reached; an IDLE one CAN be woken via a session-bound Routine (verified 2026-09-02 — idle/disconnected before the fire, running/connected after, context intact). The real gap is that nothing tells the manager WHICH state a session is in. DEC-20260902-HOW-A-MANAGER-IS-HELD-TO-ITS-MANDATE should be read against that narrower statement."
-      },
-      "blocker": "None. Opened because #10860 merged ~90s before its final commit was pushed, orphaning it; a merged PR cannot be reused."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -607,8 +592,27 @@
       "terminal": "merged",
       "merged_at": "2026-09-02T21:13:44Z",
       "merged_sha": "5f30788f"
+    },
+    {
+      "pr": 10866,
+      "title": "manager: record #10859, correct the supervise-verb claim, re-land what #10860's merge orphaned",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-84",
+      "draft": false,
+      "tier": "1 — two register files. No order path, no strategy config, no risk caps, no VM.",
+      "state": "auto_merge_armed",
+      "operator_decision": {
+        "verdict": "not_required",
+        "decided_on": "2026-09-02",
+        "text": "Tier-1. Carries a CORRECTION to #10860's own body: 'no supervise verb and no inbound channel' was too strong. A RUNNING sub-session cannot be reached; an IDLE one CAN be woken via a session-bound Routine (verified 2026-09-02 — idle/disconnected before the fire, running/connected after, context intact). The real gap is that nothing tells the manager WHICH state a session is in. DEC-20260902-HOW-A-MANAGER-IS-HELD-TO-ITS-MANDATE should be read against that narrower statement."
+      },
+      "blocker": "None. Opened because #10860 merged ~90s before its final commit was pushed, orphaning it; a merged PR cannot be reused.",
+      "terminal": "merged",
+      "merge_sha": "558a3560b8f5e161f2b936406c738533478570b0",
+      "observed_at": "2026-09-02T21:26:36Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-02T21:21:00Z",
-  "last_reconciled_sha": "3d8f466bacf10d76e61cfb9dbff1cc2982f4259a"
+  "last_reconciled_at": "2026-09-02T21:26:36Z",
+  "last_reconciled_sha": "558a3560b8f5e161f2b936406c738533478570b0"
 }
