@@ -1,6 +1,6 @@
 """FastAPI app entrypoint for the dashboard backend.
 
-Serves REST endpoints consumed by the Streamlit dashboard
+Serves REST endpoints consumed by the Svelte SPA
 (benbaichmankass/ict-trader-dashboard, streamlit_app.py).
 """
 from __future__ import annotations
@@ -60,8 +60,11 @@ _origins = ["http://localhost:5173", "http://localhost:3000"]
 if _dashboard_origin:
     _origins.append(_dashboard_origin)
 # The Svelte SPA (ict-trader-dashboard/webapp) is served from GitHub Pages and
-# calls this API browser-direct, so — unlike the server-side Streamlit hop —
-# CORS IS load-bearing for it. Allow the Pages origin (origin is host-only; the
+# calls this API browser-direct, so CORS IS load-bearing for it. ⚠️ Since
+# 2026-09-01 the SPA is the ONLY live consumer (Streamlit + Android retired,
+# BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED), so a CORS
+# mistake here now breaks the entire consumer set — there is no longer a
+# server-side Streamlit hop to stay green behind it. Allow the Pages origin (origin is host-only; the
 # /ict-trader-dashboard/ path is not part of it). Additional origins (a future
 # custom domain, a Pages preview) can be supplied via WEBAPP_ORIGINS (CSV).
 _origins.append("https://benbaichmankass.github.io")

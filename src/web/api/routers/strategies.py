@@ -367,7 +367,7 @@ def get_strategies() -> Dict[str, Any]:
             # declared runs). Surfaced as a clean top-level field so consumers
             # can count the fleet by stage (live / shadow / disabled) without
             # digging into raw `config` — the authoritative source for the
-            # dashboard + Android "strategy fleet" executive summary.
+            # SPA's "strategy fleet" executive summary.
             "execution": str(cfg.get("execution", "live")).strip().lower() or "live",
             # Live-runtime truth (vs the static `enabled` flag above).
             "loaded": loaded,
