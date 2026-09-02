@@ -31378,7 +31378,7 @@
     },
     {
       "id": "BL-20260902-OPERATOR-PING-CADENCE-PUT-ON-A-CRON-A-FILED-OPEN-ROW-SAID-WAS-BROKEN",
-      "title": "RECURRENCE of BL-20260830-SCHEDULED-WORKFLOW-LAG: the operator's ping cadence was raised to an hourly GitHub cron on 2026-09-02 while an open row said crons here run 6-12h late; four hours later the operator asked why the pings stopped, and nothing in the repo could tell him a slot had been missed",
+      "title": "RECURRENCE of BL-20260830-SCHEDULED-WORKFLOW-LAG-WENT-FROM-1H-TO-6-12H-ON-2026-08-27 — the operator's ping cadence was raised to an hourly GitHub cron on 2026-09-02 while an open row said crons here run 6-12h late; four hours later the operator asked why the pings stopped, and nothing in the repo could tell him a slot had been missed",
       "severity": "high",
       "status": "open",
       "area": "observability/notification-carrier",
