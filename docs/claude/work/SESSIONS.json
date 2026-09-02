@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T05:24:18Z",
+  "updated_at": "2026-09-02T06:26:23Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -550,6 +550,32 @@
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "wave": "3",
       "basis": "operator decision 2026-09-02 (AskUserQuestion)",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01PnQLKnuezWVB4D47PtnTqR",
+      "title": "Operating layer Phase H — the control half: decisions answerable from the UI",
+      "checklist_item": "MI-08-PHASE-H",
+      "spawned_at": "2026-09-02T06:26:23Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "Metis-Insights:claude/phase-h-decision-roundtrip"
+      ],
+      "why": "RECONSTRUCTED ROW, not a spawn-time record — and the provenance matters. This session was found by the offline checklist-owner cross-check (scripts/ops/session_registry.py), which saw MANAGER-CHECKLIST.json name it as owner of MI-08 while SESSIONS.json did not carry it at all. Every field here comes from MANAGER-CHECKLIST.json plus ONE get_session poll at 2026-09-02T~06:20Z; nothing is inferred.",
+      "note": "POLLED, NOT ASSUMED: get_session returned session_status SESSION_STATUS_IDLE, status_bucket BLOCKED, parent_session_id session_011JWFxuYAaEQKCFCmG6gnHJ, branch claude/phase-h-decision-roundtrip. It carries THREE unactioned needs_action items: (1) set DASHBOARD_API_TOKEN after merge, (2) fire work-decision-commit on workflow_dispatch, (3) unblock the stalled Streamlit-retirement branch. ⚠️ IDLE IS NOT DEAD — a handoff before this row existed would have dropped live Phase-H work AND those three requests. Read last_observed as a 2026-09-02T06:20Z snapshot, never as live state.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01LqVvgvusnN87neBn5ayzhg",
+      "title": "Claude ping delivered TWICE — one bot too many drains the queue",
+      "checklist_item": "MI-18-DUPLICATE-DELIVERY-IS-REAL-I-WAS-WRONG-TO-DROP-IT",
+      "spawned_at": "2026-09-02T06:26:23Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "Metis-Insights:claude/claude-ping-double-delivery-x4mq2p"
+      ],
+      "why": "RECONSTRUCTED ROW, same route and same provenance as the Phase-H row above: named as owner of MI-18 in MANAGER-CHECKLIST.json, absent from this registry, confirmed by ONE get_session poll at 2026-09-02T~06:22Z.",
+      "note": "POLLED: session_status SESSION_STATUS_ARCHIVED, status_bucket FAILED, parent_session_id session_011JWFxuYAaEQKCFCmG6gnHJ. ⚠️ REGISTERED DESPITE BEING ARCHIVED, deliberately. An archived session cannot be orphaned, so this row is not about rescue — it is about the WORK it left standing: MI-18 is still in_flight and its PR #10694 stands. A successor that cannot see this row sees an in_flight item whose owner is a session it has no record of, which is the same dead end one step removed.",
       "state": "working"
     }
   ]

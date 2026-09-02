@@ -98,6 +98,86 @@ first real question as its own content — the Phase A precedent, *the store's
 first content is the plan to build the store*: a mechanism is exercised by real
 content from its first commit, or it is deployed and unproven.
 
+## Spawning a sub-session, and proving none was lost
+
+`SESSIONS.json` is the **only** thing a manager arriving COLD can read to pick up
+the sub-sessions its predecessor spawned. A session it does not name is, to that
+successor, a session that does not exist.
+
+⚠️ **THIS HAS FAILED TWICE, AND THE SECOND TIME WAS WORSE.**
+`MI-15-SESSIONS-REGISTRY-INCOMPLETE` recorded **3 of 6** spawned sessions absent
+on 2026-09-01 and applied the remedy *"remember to register"*. On
+**2026-09-02T05:56Z it was 6 of 9, five of them LIVE** — including all three
+sessions carrying the cycle's highest-priority work — while the MI-15 row was
+still sitting at `landed_unproven`. **The moment a manager spawns a session is
+exactly the moment it is least likely to stop and write a record**, so the
+remedy cannot be another reminder.
+
+### Spawn through the registry, not around it
+
+```bash
+python3 scripts/ops/session_registry.py register \
+    --title "..." --why "..." --spawned-by "$CLAUDE_SESSION_ID" \
+    --branch "Metis-Insights:claude/..." --checklist-item MI-nn
+# -> appends the row AND prints the spawn prompt to paste into create_session
+# -> then: ... confirm --registry-key <key> --session-id <the new id>
+```
+
+⚠️ **THIS IS A SOFT COUPLING AND SAYING SO IS THE POINT.** The repo does **not
+own the spawn** — a sub-session is created by the `create_session` MCP tool, and
+nothing here sits on that call path, so no code can make the registry write
+happen *as part of* the spawn. What `register` does instead is put the row on
+the path to **the spawn prompt**, which a manager needs anyway: the cheapest
+correct route now goes *through* the registry rather than around it. It is still
+bypassable by writing a prompt by hand, which is why the two detectors below
+exist and why the coupling alone was never going to be enough.
+
+⚠️ `--session-id` is optional because of an ordering fact that cannot be wished
+away: the platform mints the id when `create_session` **returns**, after the
+prompt was needed. A row written first carries `state: spawn_pending` and a
+`registry_key`. **A pending row is a WEAKER record** — it names the work but
+cannot be polled — so `handoff_check` refuses to grade a handoff `ready` while
+one is unconfirmed.
+
+### Two detectors, with deliberately different reach
+
+| | Reach | Where it runs |
+|---|---|---|
+| **Offline** — `session_registry.py status --strict` | the manager also writes a session id into `MANAGER-CHECKLIST.json::items[].owner`; an owner absent from the registry is a lost session, found from **two file reads** | **CI, every PR** (`session-registry-guard`) |
+| **Live** — `session_registry.py reconcile --live-sessions <list_sessions output>` | what is **actually running** | only a session holding the `list_sessions` MCP tool can produce the observation. **CI holds no MCP tools.** |
+
+⚠️ **The offline detector is PARTIAL BY CONSTRUCTION** — a session written into
+neither file is invisible to it too. It catches the *overlap* of two incomplete
+records, which is strictly more than the zero either caught alone.
+
+⚠️ **Enforcement is scoped to `in_flight` checklist items**, where losing a
+session costs LIVE work. Owners absent on other states are **censused and
+printed on every run**, so the narrow enforcement can never hide the wider
+number.
+
+### Before handing over: `handoff_check.py`
+
+```bash
+python3 scripts/ops/handoff_check.py --session-id "$CLAUDE_SESSION_ID" \
+    --live-sessions <(the list_sessions output)
+```
+
+The **lease is deliberately not a handoff** — its own docstring says takeover is
+TIME-BASED *because a session that dies cannot hand over*. That is right for a
+manager that DIED; a manager that is alive and stepping down is the other case,
+and everything the successor needs to inherit was, until now, "remember to."
+This is the check that turns it into a verdict. It refuses on: an observed live
+session absent from the registry · a checklist owner absent from it · a lease
+you do not hold · manager state that never reached `origin` · an unconfirmed
+`spawn_pending` row.
+
+**Three states, never collapsed** — `ready` · `not_ready` · **`unknown` (we
+could not look)**. ⚠️ **`ready` is UNOBTAINABLE without a live observation, and
+that is the enforcement rather than an inconvenience.** There is deliberately no
+flag that asserts the registry is fine: *asserting it is what failed twice.*
+Exit codes 0 / 3 / 4 keep the three apart, so a caller cannot treat "we could
+not look" as a pass.
+
 ## What is NOT here
 
 **Bugs to fix** still go to the three review backlogs (`docs/claude/*-review-backlog.json`),
