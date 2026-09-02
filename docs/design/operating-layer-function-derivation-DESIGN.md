@@ -8,6 +8,32 @@
 > Grades each of the 24 functions against what the repo actually contains. **Still no
 > build order** — this is the inventory a build plan would be derived from.
 
+> ⚠️ **CORRECTION 2026-09-02 — THIS DOCUMENT IS A DATED SNAPSHOT AND ITS HEADLINE IS NOW STALE
+> IN THE UNDERSTATING DIRECTION. The grades below are left exactly as measured on 2026-09-01;
+> read this note beside them rather than reasoning from the table alone.**
+>
+> **All five functions graded MISSING have since shipped**, between that pass and 2026-09-02:
+> **A3** priority propagation (`CYCLE-PRIORITY.json` rendered into `CLAUDE.md`) · **A5** WIP
+> control (`scripts/ci/check_wip_ceiling.py`, enforced in CI) · **E1** constraint diagnosis
+> (`scripts/ops/constraint_readout.py`) · **E2** as a governed function
+> (`scripts/ci/check_capability_pull.py`, advisory) · **E3** capability retirement
+> (`sunset-pass.yml` + `SUNSET-DISPOSITIONS.json`).
+>
+> **Shipped is not working, and two of the five have a measured gap:**
+> - **E1/A1 is graded here as trigger `Cadenced` / autonomy `Full`. It has NEITHER.** No workflow
+>   invokes `constraint_readout.py`; CI runs `--self-test` only, and that registration's own note
+>   reads *"the readout itself is generated on demand, not in CI"*. Its sibling
+>   `session-brief-guard` DOES run a `--check`, so the session brief cannot go stale and the
+>   readout can. `BL-20260902-CONSTRAINT-READOUT-IS-CADENCED-BY-DESIGN-AND-HAS-NO-CRON-AND-NO-FRESHNESS-CHECK`.
+> - **E3's machinery is referenced by ZERO of the 32 skills**, so no role pack sends a session to
+>   it while 10 retirement candidates sit undispositioned.
+>   `BL-20260902-E3-SUNSET-MACHINERY-IS-REFERENCED-BY-ZERO-SKILLS-SO-NO-SESSION-IS-EVER-SENT-TO-IT`.
+>
+> Also corrected: the E3 row below says *"nothing has ever retired a skill, register, workflow or
+> guard."* That is **refuted for workflows** — 35 deleted since 2026-06-13 — and **holds for
+> skills, guards and registers**, all at zero. Working:
+> [`docs/audits/operating-layer-skills-workflows-inventory-2026-09-02.md`](../audits/operating-layer-skills-workflows-inventory-2026-09-02.md).
+
 ## The finding
 
 **The mechanical layer is largely already built. What is missing is concentrated almost
