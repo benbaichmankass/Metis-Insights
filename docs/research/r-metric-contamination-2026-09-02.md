@@ -26,13 +26,48 @@
 > `guards` (local `PASS 51 · FAIL 0 · SKIP 19`, which also supersedes the body's
 > stale `PASS 50 … b8bb899`), `pytest-collect`, and `repo-inventory`.
 >
-> **Still open, and deliberately not claimed either way:** the same-directory
-> delta is `+5 failed / +62 passed`, and `5 + 62 = 67` is exactly the new-test
-> count. That arithmetic coincidence is **unexplained**. It does not reproduce
-> when the two new test files run alongside their nearest neighbours (97
-> passed), and CI's full-suite run is green — but if any of the new tests are
-> order-dependent, that is a real defect worth fixing even where CI's ordering
-> happens to pass. Not asserted as resolved.
+> **RESOLVED — and it was NOT sandbox noise.** The same-directory delta was
+> `+5 failed / +62 passed`, and `5 + 62 = 67` is exactly the new-test count.
+> That arithmetic was right and was nearly explained away on the strength of a
+> green CI. **All 5 failures were mine**, and every one used `pytest.approx`.
+>
+> Root cause, REPRODUCED in both directions rather than inferred:
+>
+> ```
+> pytest tests/test_orders.py tests/test_r_provenance.py  ->  4 failed
+> pytest tests/test_r_provenance.py                       -> 53 passed
+> ```
+>
+> ~8 test modules in this suite run `sys.modules.setdefault("numpy",
+> MagicMock())` at import time. `_pytest.python_api.is_bool` then evaluates
+> `isinstance(val, np.bool_)` against that slot; a `MagicMock` is not a type, so
+> every subsequent `pytest.approx` raises `TypeError`. `tests/conftest.py`
+> documents this exact break; its mitigation is a pre-import of the REAL numpy,
+> which is a no-op where numpy is absent.
+>
+> ⚠️ **`pytest-run` installs numpy and is therefore STRUCTURALLY BLIND to this
+> class.** Green there is not evidence about it — which is precisely the
+> reasoning error that nearly buried this. The lean `guards` job is the only CI
+> job without numpy, and it runs no tests.
+>
+> **Fixed in `5decc037`**, scoped to the two new test files: a numpy-independent
+> `_eq()` helper, zero `pytest.approx` call sites remaining. Verified by
+> re-running the full suite in the same working directory:
+>
+> | run | failed | passed | errors |
+> |---|--:|--:|--:|
+> | `origin/main` | 994 | 11,801 | 172 |
+> | branch, before fix | 999 | 11,863 | 172 |
+> | branch, **after fix** | **994** | **11,868** | **172** |
+>
+> `+67 passed / +0 failed / +0 errors` against `main` — 67 being exactly the
+> new-test count, and zero failures naming either new file.
+>
+> **NOT fixed here, and it is pre-existing and repo-wide:** **190 test files
+> carry 943 `pytest.approx` call sites** with the same exposure, including the
+> `test_over_cover_decision.py` case `conftest.py` already records as having
+> been bitten. Widening this PR to chase that would be scope creep; it is filed
+> as a backlog row in the PR body instead.
 >
 > The corrected bullet text is committed at
 > `automation/pr-requests/r-metric-contamination-20260902.json`. The **live PR
