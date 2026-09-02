@@ -394,6 +394,30 @@ the_daily_brief_MI_75:
     and never "nothing was concluded". A dead manager still produces a brief
     that says what it could not see, which is strictly better than no brief.
 
+  two_defects_found_by_CHECKING_the_flag_rather_than_trusting_it:
+    # Both are the class this module exists to prevent -- a confident answer
+    # produced by a step that never ran -- and both were found by running the
+    # flag rather than reading its docstring.
+    silent_since_became_HEAD: >-
+      `git rev-list -1 --before=<garbage> HEAD` does NOT fail. It IGNORES the
+      unparseable date and returns HEAD, rc 0 (measured). So a typo in the one
+      flag that means "when I went to bed" made the overnight window HEAD..HEAD
+      -- EMPTY -- and the brief answered the operator's question with "nothing
+      happened", confidently, with no hint the argument had been discarded.
+      That is the `curl ... || echo '{}'` shape one level up. `parse_since` now
+      REFUSES it (exit 2, nothing rendered). The test asserts GIT's behaviour
+      first, so if git ever starts rejecting a bad --before this validation is
+      flagged as dead weight rather than quietly kept.
+    shallow_claim_named_an_untested_cause: >-
+      The no-commit-that-old message asserted "the clone is shallow"
+      UNCONDITIONALLY -- UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A. True in a
+      session checkout, and WRONG for a full clone of a young repo, where it
+      sends a reader to deepen a clone that is already complete. It now
+      branches on a measured `work_digest._is_shallow()` -- imported, never
+      re-implemented, because two copies of "is this clone shallow" is how they
+      come to disagree -- and names SHALLOW or COMPLETE with the remedy that
+      actually applies.
+
   what_was_REUSED_and_what_was_genuinely_new: >-
     RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED was checked by MEASUREMENT before
     a line was written, not by assertion. REUSED, imported rather than
@@ -427,11 +451,21 @@ the_daily_brief_MI_75:
 
   what_is_TESTED_and_what_is_NOT:
     tested: >-
-      16 self-test assertions + 20 pytest tests, both run and passing on the
+      18 self-test assertions + 23 pytest tests, both run and passing on the
       live tree, with planted controls in BOTH directions -- a removed
       invariant sentence makes `--check` exit 1 (demonstrated), a clean tree
       exits 0. Measured on the live registers: `--check` renders over all 6 and
-      prints done=11 and landed_unproven=17 as SEPARATE numbers.
+      prints done and landed_unproven as SEPARATE numbers (11 and 17 when this
+      was written; 72 checklist items after the merge of main, so read the
+      command's output rather than re-quoting these).
+      [!] AND IT IS GREEN IN CI, WHICH IS THE READING THAT SETTLES THE TWO
+      FAILURES THE SANDBOX SHOWED: PR #10825 head e65bbdc ran `guards` SUCCESS
+      and `pytest-run` SUCCESS (16:50:20 -> 17:06:12Z), plus pytest-collect and
+      repo-inventory, mergeable_state `clean`. The local `layer-guard: exit
+      127` was a missing `lint-imports` BINARY and the local
+      test_work_digest failure was a missing `fastapi` -- both environmental,
+      neither a finding, and CI is where that was established rather than
+      asserted.
     NOT_tested_and_therefore_NOT_claimed: >-
       NO MANAGER HAS EVER RUN IT AT CLOSE-OUT WITH A REAL --session-notes FILE.
       The observation path is exercised only by a fixture, so the half of the
