@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-01",
+  "updated_at": "2026-09-02T01:20Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -245,6 +245,60 @@
         "at": "2026-09-01T21:45Z",
         "state": "spawned_not_yet_observed",
         "note": "SPAWNED, NOT OBSERVED at spawn time. This row proves the session EXISTS, never that it is working. Poll get_session for current state. ⚠️ It touches three branches it does not own, which is deliberate and is the one case where that is right — but it is prohibited from changing their SUBSTANCE, from weakening any guard or test to get green, and from merging or un-drafting."
+      }
+    },
+    {
+      "session_id": "session_01CKcZFmZSWNsV8qHAo38YNk",
+      "owns_object": null,
+      "title": "Merge train — serialize every open PR onto main, one at a time",
+      "spawned_at": "2026-09-02T01:12Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "Metis-Insights:(rotating — one PR head at a time)"
+      ],
+      "prs": [
+        "Metis-Insights#10707",
+        "Metis-Insights#10708",
+        "Metis-Insights#10686",
+        "Metis-Insights#10687",
+        "Metis-Insights#10705",
+        "Metis-Insights#10679"
+      ],
+      "why": "MI-20 reproduced on demand: merging #10685 at 01:11Z instantly conflicted #10707 and #10708, both fully green minutes earlier. A train that resolves ONE PR at a time and verifies main actually advanced before starting the next is the only shape that terminates.",
+      "last_observed": {
+        "at": "2026-09-02T01:16Z",
+        "state": "running",
+        "note": "Observed on `pr10707`, task_summary 'Committing merge and running guards'. ⚠️ ITS LIST OVERLAPS A LIVE AUTHOR: session_01AT7e9N was simultaneously observed resolving its OWN branch claude/phase-g-forcing-function (#10708). That race is benign — git rejects the loser's non-fast-forward push and it re-syncs — but the manager could not warn it, because a manager CANNOT message a running sub-session. Prefer the AUTHOR's resolution where one is alive."
+      }
+    },
+    {
+      "session_id": "session_01BNXj6ogjXeixSkQ4ug6gxp",
+      "owns_object": null,
+      "title": "Backlog drain #2 — ml-review backlog, class-first",
+      "spawned_at": "2026-09-02T01:18Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [],
+      "prs": [],
+      "why": "Operator standing instruction, 2026-09-01: 'finish the workplan, then start the backlog'. Scoped to EXACTLY ONE FILE (docs/claude/ml-review-backlog.json) so it cannot conflict with the sibling drains — file isolation is the mitigation for MI-20 on the drain fleet.",
+      "last_observed": {
+        "at": "2026-09-02T01:18Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Prohibited from editing OPEN-ITEMS.json (the hottest conflict file tonight) — a clearable OI row is REPORTED to the manager in the PR body instead, which is what drain #1 did correctly."
+      }
+    },
+    {
+      "session_id": "session_01JXBmVC65hkkoSQ2LcV1ETY",
+      "owns_object": null,
+      "title": "Backlog drain #3 — performance-review backlog, class-first",
+      "spawned_at": "2026-09-02T01:18Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [],
+      "prs": [],
+      "why": "Same standing instruction as drain #2, on a DIFFERENT file (docs/claude/performance-review-backlog.json) so the two cannot conflict with each other.",
+      "last_observed": {
+        "at": "2026-09-02T01:18Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Carries an extra caution its siblings do not: its rows turn on PnL numbers, where a headline figure can flip its own SIGN with the population chosen — so it must state the population and use src/runtime/provenance.py rather than re-deriving a predicate (four bespoke ones already exist, one per past incident, and they collectively still missed the general case)."
       }
     }
   ]
