@@ -241,10 +241,20 @@ jobs:
           set -uo pipefail
           D="/tmp/pregate.${GITHUB_RUN_ID}"
           SSH="ssh -i $HOME/.ssh/trainer_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20"
-          # 30 minutes of budget against a fleet that scored 9 heads in ~9
-          # minutes, i.e. a full 22-head run of roughly 20. The job timeout is
-          # 45, so the poll can never be the thing that kills the job.
-          DEADLINE=$(( SECONDS + 30*60 ))
+          # 38 minutes against a 45-minute job timeout, leaving ~6 for the
+          # steps after this one. Raised from 30 on the evidence of run #4390:
+          # the poll survived its full 30m (no transport failure at all — the
+          # detach worked) and the DRIVER still had not finished, so the budget
+          # was the binding constraint, not the network.
+          #
+          # ⚠️ 38 IS NOT EXPECTED TO BE ENOUGH EITHER, and saying so is the
+          # point. Run #4390 salvaged 10 of 22 heads in 30 minutes on a box that
+          # `free -m` showed at 5508/5909 MB used with 4 GB of swap consumed and
+          # 204 MB available. This buys headroom and does not fix the cause; the
+          # cause is memory pressure on the trainer, which is not a knob in this
+          # file. What the raise DOES buy is more salvaged heads per run and a
+          # cheaper failure.
+          DEADLINE=$(( SECONDS + 38*60 ))
           done_=0
           poll_fail=0
           while [ $SECONDS -lt $DEADLINE ]; do
@@ -374,7 +384,22 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "$DIR"
+          # `-f` IS LOAD-BEARING, NOT DEFENSIVE. `.gitignore:29` ignores
+          # `runtime_logs/`, so a plain `git add` REFUSES this path outright
+          # ("The following paths are ignored by one of your .gitignore files")
+          # and, under `set -e`, kills the step. Measured on run #4390
+          # (2026-09-02): the classifier had salvaged 10 of 22 heads and the
+          # commit step then destroyed them.
+          #
+          # ⚠️ THIS IS PRE-EXISTING AND STRUCTURAL, NOT A REGRESSION FROM THE
+          # DETACH CHANGE. `runtime_logs/replay_pregate/` has NEVER had a file
+          # on main — `git ls-tree -r origin/main -- runtime_logs/replay_pregate/`
+          # returns 0 across the repo's whole fetched history, while 72 other
+          # files under runtime_logs/ ARE tracked (force-added). So this file's
+          # own header — "commits the report back to the repo, so the result
+          # survives a dead Claude session" — has been false since it was
+          # written: the COMPLETE path fails here too, for the same reason.
+          git add -f "$DIR"
           if git diff --cached --quiet; then
             echo "no changes to commit"
           else
