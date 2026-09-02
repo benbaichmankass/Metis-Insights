@@ -1021,6 +1021,14 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                         from src.runtime.execution_diagnostics import (
                             enqueue_close_failure,
                         )
+                        # `err_str` carries the `[share_hold=...]` marker the
+                        # Alpaca close paths append on their give-up branch, and
+                        # `enqueue_close_failure` routes on it: a close that is
+                        # CONFIRMED unclearable broker-side goes to the digest,
+                        # everything else pages exactly as before. The streak
+                        # gate above is unchanged — it still decides WHETHER the
+                        # operator hears about a close failure at all; the
+                        # routing only decides WHICH CHANNEL.
                         enqueue_close_failure(
                             account=matched_trade.get("account_id"),
                             symbol=matched_trade.get("symbol"),
@@ -1042,6 +1050,12 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         # direction) so a future close isn't needlessly deferred / re-alerted.
         _PENDING_CLOSE_RETRY_COOLDOWN.pop(_close_key, None)
         _clear_close_fail_alert_state(_close_key)
+        # A standing broker-side wedge for this key is now OVER, and this is the
+        # only path that can say so with ATTRIBUTION — we watched the close
+        # confirm. Retiring it here (rather than letting the staleness sweep find
+        # it) is what keeps `cleared_confirmed` distinct from
+        # `vanished_unattributed`; the sweep can only ever produce the second.
+        _resolve_close_wedge_confirmed(matched_trade)
 
         # Exchange close ok (or dry-run skip). Capture the actual fill
         # price from Bybit before writing the DB so the trade row's
@@ -2349,6 +2363,72 @@ def _env_float_clamped(name: str, default: float, floor: float) -> float:
         return max(floor, float(raw))
     except (TypeError, ValueError):
         return default
+
+
+def _resolve_close_wedge_confirmed(matched_trade: Dict[str, Any]) -> None:
+    """A confirmed close landed — retire any standing broker-side wedge, and page.
+
+    ⚠️ **This is the ATTRIBUTED half of the wedge lifecycle, and it is the only
+    one there is.** Every other way a wedge can leave the ledger is the
+    staleness sweep, which can say nothing more than *it stopped being
+    observed*. So a resolution that does not come through here is, by
+    construction, unattributed — which is exactly what
+    ``OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED``'s
+    ``Clears when`` clause demands be recorded rather than credited.
+
+    Returns nothing and never raises: a close that really did confirm must not
+    be turned into an error by the bookkeeping that follows it.
+    """
+    try:
+        from src.runtime.close_wedge_standing import resolve_confirmed
+        from src.runtime.execution_diagnostics import (
+            enqueue_close_wedge_state_change,
+        )
+
+        decision = resolve_confirmed(
+            matched_trade.get("account_id"),
+            matched_trade.get("symbol"),
+            matched_trade.get("direction"),
+            attribution=(
+                "the monitor observed a CONFIRMED close on this "
+                "(account, symbol, direction) — the venue reported the position "
+                "flat, so the wedge is over and the resolution is attributed"
+            ),
+        )
+        if decision is not None:
+            enqueue_close_wedge_state_change(decision)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: close-wedge resolve failed account=%s symbol=%s: %s",
+            matched_trade.get("account_id"), matched_trade.get("symbol"), exc,
+        )
+
+
+def sweep_close_wedges() -> int:
+    """Retire standing wedges nothing has observed for a full window, and PAGE.
+
+    Called once per monitor pass. Returns the number retired (almost always 0).
+
+    ⚠️ **It can only ever produce ``vanished_unattributed``**, and that is by
+    design, not a limitation: a sweep watches for an ABSENCE, and an absence
+    cannot attribute anything. The sweep itself refuses to conclude anything on
+    a pass whose own last run is older than the window — *we were not looking*
+    is not *it went away* — so a trader that was down does not wake up and page
+    a flood of false disappearances. Never raises.
+    """
+    try:
+        from src.runtime.close_wedge_standing import sweep_vanished
+        from src.runtime.execution_diagnostics import (
+            enqueue_close_wedge_state_change,
+        )
+
+        decisions = sweep_vanished()
+        for d in decisions:
+            enqueue_close_wedge_state_change(d)
+        return len(decisions)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("order_monitor: close-wedge sweep failed: %s", exc)
+        return 0
 
 
 def _clear_close_fail_alert_state(key: tuple) -> None:
@@ -10949,6 +11029,27 @@ def run_reconciliation_tick(
     except Exception as exc:  # noqa: BLE001
         logger.warning("order_monitor: DB unavailable: %s", exc)
         return summaries
+
+    # Standing close-wedge staleness sweep. Belongs in the HYGIENE half for the
+    # same reason the reconcilers do: it is a self-heal over durable state, not
+    # an exit decision, and it must keep running on its own cadence even if exit
+    # evaluation is decoupled. Unconditional — a sweep behind a gate is a sweep
+    # that will be found switched off after the incident it existed for.
+    try:
+        with _phase("sweep_close_wedges"):
+            swept = sweep_close_wedges()
+        if swept:
+            # collapsed-state: vanished_unattributed — a SWEEP watches for an
+            # absence, and an absence cannot attribute anything, so this is the
+            # only transition it is capable of producing. The other four are
+            # branched on where they are actually reachable:
+            # `_resolve_close_wedge_confirmed` (cleared_confirmed) and
+            # `execution_diagnostics.enqueue_close_wedge_state_change` (all
+            # four loud ones, by headline). Making this site handle the others
+            # would be dead code claiming a capability it does not have.
+            summaries["__close_wedges__"] = {"vanished_unattributed": swept}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("run_monitor_tick: close-wedge sweep raised: %s", exc)
 
     # BUG-042: write-back reconciler. Runs unconditionally every tick
     # (the MONITOR_RECONCILE_ENABLED gate was removed 2026-06-15,

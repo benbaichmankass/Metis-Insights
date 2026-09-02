@@ -91,7 +91,12 @@ jobs:
           python-version: "3.11"
 
       - name: Self-test the digest before trusting its output
-        run: python3 scripts/ops/work_digest.py --self-test
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/work_digest.py --self-test
+          # The ledger unwrapper gates the standing-wedge section, so it is
+          # trusted on exactly the same terms as the renderer it feeds.
+          python3 scripts/ops/fetch_standing_wedges.py --self-test
 
       - name: Resolve the 24h window
         id: window
@@ -110,6 +115,62 @@ jobs:
           fi
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "work-digest: window $BASE..main"
+
+      # MI-34. A close failure CONFIRMED unclearable by any bot-side lever is
+      # downgraded out of the paging channel and carried here instead (operator
+      # decision 2026-09-02). The trader writes that ledger to
+      # runtime_logs/close_wedge_standing.json, which is .gitignore'd and lives
+      # on the VM — so on this runner the file is ABSENT unless we fetch it.
+      #
+      # ⚠️ THE FETCH IS BEST-EFFORT AND THE FAILURE DIRECTION IS THE POINT.
+      # `continue-on-error` is deliberate: a diag outage must not kill the
+      # digest, because the digest still has the rest of the day to report. What
+      # it must NOT do is render a fetch failure as a clean fleet. It cannot —
+      # work_digest.standing_wedges() reports `not_fetched` for a missing file
+      # and the renderer prints "NOT EXAMINED — this is 'we did not look', NOT
+      # 'nothing is wedged'", loudly, in the operator-visible message. A digest
+      # that quietly omitted the section on a failed fetch would put a
+      # downgraded item in NEITHER channel, which is the one outcome this whole
+      # change exists to make unreachable.
+      #
+      # ⚠️ AND IT IS NOT THE ONLY THING HOLDING THAT LINE. The trader keeps its
+      # own re-page floor (CLOSE_WEDGE_REPAGE_HOURS, default 24h) precisely
+      # because this workflow has NO track record: probes.yml and due-list.yml
+      # are both merged, enabled, correct — and have never once fired on cron
+      # (OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON).
+      # Do not remove that floor on the strength of this step existing.
+      - name: Fetch the standing close-wedge ledger from the live VM
+        continue-on-error: true
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+        run: |
+          set -uo pipefail
+          mkdir -p runtime_logs
+          if [ -z "${DIAG_READ_TOKEN:-}" ]; then
+            echo "::warning::work-digest: no DIAG_READ_TOKEN — the standing " \
+                 "close-wedge ledger will report NOT EXAMINED (we did not look)."
+            exit 0
+          fi
+          # `|| echo '{}'` is deliberately NOT used here. That idiom is what
+          # makes a failed fetch indistinguishable from an empty answer, and
+          # this repo has paid for it twice. On any failure we write NOTHING and
+          # let the absent file speak for itself.
+          if ! out="$(scripts/ops/diag_fetch.sh \
+                        'log_file?name=close_wedge_standing&lines=2000')"; then
+            echo "::warning::work-digest: diag fetch FAILED — the ledger will " \
+                 "report NOT EXAMINED. This is not 'nothing is wedged'."
+            exit 0
+          fi
+          # Unwrapping is a SCRIPT, not four lines of inline YAML, because it
+          # decides which of three operator-visible states the digest reports —
+          # and "the fetch failed" and "nothing is wedged" are two of them. Its
+          # own --self-test covers every branch including the failure ones.
+          if ! printf '%s' "$out" \
+               | python3 scripts/ops/fetch_standing_wedges.py \
+                   --out runtime_logs/close_wedge_standing.json; then
+            echo "::warning::work-digest: ledger payload unusable — the digest " \
+                 "will report NOT EXAMINED rather than guessing at a clean fleet."
+          fi
 
       - name: Render the digest
         run: |

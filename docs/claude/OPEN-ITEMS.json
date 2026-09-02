@@ -559,7 +559,7 @@
     },
   {
    "id": "OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED",
-   "probe_absent_reason": "MISSING OBSERVABLE, not missing tooling: the classifier only emits when an Alpaca close GIVES UP on held shares, which requires a live wedge. A probe cannot manufacture one, and a probe asserting the FUNCTION returns the right state for a synthetic dict would assert the unit test, not the deploy -- the rendering-is-not-reading substitution this register already guards against elsewhere. The honest observable is a real give-up row on the fleet.",
+   "probe_absent_reason": "MISSING OBSERVABLE, not missing tooling: the classifier only emits when an Alpaca close GIVES UP on held shares, which requires a live wedge. [!] PARTLY SUPERSEDED 2026-09-02 (MI-34): a probeable surface now EXISTS -- /api/diag/log_file?name=close_wedge_standing carries one entry per close failure classified broker_cancel_wedged, written by the trader when it downgrades that class out of the paging channel. A non-empty `wedges` there IS a real give-up observation on the fleet and would satisfy clause (2). No probe is wired here deliberately: this row's clearing machinery belongs to #10679, which is still awaiting its own Tier-2 approval, and a session picking that up should wire it rather than re-deriving that no surface exists. A probe cannot manufacture one, and a probe asserting the FUNCTION returns the right state for a synthetic dict would assert the unit test, not the deploy -- the rendering-is-not-reading substitution this register already guards against elsewhere. The honest observable is a real give-up row on the fleet.",
    "opened": "2026-09-01",
    "kind": "monitoring",
    "loud": true,
