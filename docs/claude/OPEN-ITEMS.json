@@ -681,7 +681,23 @@
         "BL-20260901-FORMATTER-IMPORT-FAILURE-DROPPED-THE-PING-IT-WAS-FORMATTING",
         "https://github.com/benbaichmankass/Metis-Insights/pull/10674"
      ]
-  }
+  },
+ {
+  "id": "OI-20260902-E0-LIVE-ARM-LEG-SCOPING-SHIPPED-AND-NEVER-RUN-ON-THE-TRAINER",
+  "opened": "2026-09-02",
+  "kind": "awaiting_verification",
+  "loud": false,
+  "verified_at": null,
+  "last_checked": "2026-09-02",
+  "summary": "The M20 E0 live arm now scopes to the round's own legs (`build_exit_head_dataset.py --legs`, passed by `m20_exit_head_round.py` wherever it passes `--db`), fixing defect 1 of BL-20260813-EXIT-HEAD-LIVE-ARM-DROPPED-ON-NO-CANDLES: without it the builder loaded EVERY strategy-attributed closed trade and `family_of()` bucketed same-symbol siblings into families the round never asked for. IT HAS NEVER RUN ON THE TRAINER. The session that shipped it had no `issue_write` (403), so the `trainer-vm-diag-request` relay was unreachable and no round has exercised the flag against a real journal. Shipped and exercised are different states and only the first happened.",
+  "detail": "Verified in a HARNESS, not on the fleet: tests/test_exit_head_live_arm_leg_scoping.py runs six cases against a real sqlite journal, including the positive control that the UNSCOPED load does still pull the same-symbol sibling. What a harness cannot reach here is the SECOND drop stage: the same round's build_report.json showed 701 `no_candles` skips, which this change does not touch, so a real round may STILL return live=0. That is now distinguishable rather than ambiguous -- `legs_filter_state: applied` beside a zero live count says the drop happened at the CANDLE stage and not at leg-selection -- but distinguishable is not measured.",
+  "clears_when": "A REAL ict_scalp exit-head round runs on the trainer and its build_report.json is read, showing BOTH: (a) `legs_filter_state: applied` with `legs_filter` listing exactly the round's `--legs`, and (b) a families dict containing NO family the round did not ask for -- no `donchian`/`pullback` bucket on a scalp round. A NON-ZERO LIVE COUNT IS NOT THE CRITERION and must not be treated as one: the `no_candles` stage is a separate, untouched condition, so a round can be correctly scoped and still read live=0, and reading that as this fix having failed is the exact conflation the three-state `legs_filter_state` exists to prevent. A PASSING UNIT TEST CLEARS NOTHING -- the tests already pass; that is what makes this `awaiting_verification` rather than unproven in principle.",
+  "refs": [
+   "BL-20260813-EXIT-HEAD-LIVE-ARM-DROPPED-ON-NO-CANDLES",
+   "BL-20260813-EXIT-HEAD-HARNESS-PASS-DOES-NOT-SURVIVE-THE-LIVE-BOOK",
+   "https://github.com/benbaichmankass/Metis-Insights/pull/10756"
+  ]
+ }
  ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
  "monitoring_rows_are_enforced_by_observation": "kind:'monitoring' rows carry `check_every_days`, `verified_at` and `observation`. A row past its cadence is DUE and is rendered into CLAUDE.md, so the next session sees it in context before acting. Clearing it for another cycle costs one honest look: record WHAT YOU OBSERVED and today's date. It cannot be cleared by asserting progress — `observation` must state a thing that was seen. This replaces `loud`, which was just another alarm to walk past.",

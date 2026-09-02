@@ -278,7 +278,8 @@ def _load_multipliers(path: Path) -> Dict[str, float]:
 
 
 def load_live_trades(db: Path, instruments: Path,
-                     report: Optional[dict] = None) -> List[dict]:
+                     report: Optional[dict] = None,
+                     legs: Optional[List[str]] = None) -> List[dict]:
     """Closed, non-backtest, strategy-attributed journal trades with
     resolvable entry/sl geometry (same exclusions as m20_exit_analysis:
     intent_reduce legs, adopted orphans, superseded flap rows). final_R
@@ -299,6 +300,28 @@ def load_live_trades(db: Path, instruments: Path,
     trades. `trades_in_table` makes the wrong-DB case self-evident: 0 there
     means the DB is empty, while a large count with 0 loaded means the filters
     excluded everything.
+
+    ⚠️ `legs` SCOPES THE LIVE ARM TO THE ROUND'S OWN LEGS (2026-09-02,
+    `BL-20260813-EXIT-HEAD-LIVE-ARM-DROPPED-ON-NO-CANDLES` defect 1). Without
+    it this pulls EVERY strategy-attributed closed trade in the journal and the
+    caller then buckets them with `family_of()`, which keys on the strategy
+    NAME — so a scalp round asking for `ict_scalp_xrp_15m` also inhaled
+    `xrp_pullback_2h` and friends and manufactured `donchian` / `pullback`
+    families it never asked for. MEASURED 2026-08-13 (trainer relays
+    #8854/#8855): `runtime_logs/m20_exit_head/scalp_15m/build_report.json`
+    showed `families: donchian {live: 3}, pullback {live: 6}` beside
+    `ict_scalp_xrp_15m {harness: 353}` — the graded leg's own live count was
+    ZERO while two families the round never named carried live rows. Those
+    spurious families then went to training with 0 harness rows and died on
+    `ValueError: Expected 2D array, got 1D array instead: array=[]`.
+
+    ⚠️ THE FILTER IS REPORTED, NEVER SILENT. `legs_filter_state` is three
+    values and they are not collapsed — `not_requested` (no scoping asked for)
+    is not `applied_no_match` (we scoped and the journal holds nothing for
+    these legs), and reading the second as the first is how "the live arm is
+    empty" gets blamed on data accrual again. `legs_dropped` names the strategy
+    names that were excluded and their row counts, so the pull this prevents
+    stays VISIBLE rather than merely fixed.
     """
     mult = _load_multipliers(instruments)
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
@@ -314,10 +337,32 @@ def load_live_trades(db: Path, instruments: Path,
     ).fetchall()
     total_in_table = con.execute("SELECT COUNT(*) FROM trades").fetchone()[0]
     con.close()
+    rows_matching_filters = len(rows)
+    # Applied in Python, AFTER the SELECT, so `rows_matching_filters` keeps
+    # meaning exactly what it meant before this flag existed — a reader
+    # comparing that number across rounds must not be silently handed a
+    # different population under the same key.
+    wanted = {str(x) for x in (legs or []) if str(x).strip()}
+    dropped: Dict[str, int] = {}
+    if wanted:
+        kept = []
+        for r in rows:
+            name = str(r["strategy_name"])
+            if name in wanted:
+                kept.append(r)
+            else:
+                dropped[name] = dropped.get(name, 0) + 1
+        rows = kept
     if report is not None:
         report["db"] = str(db)
         report["trades_in_table"] = total_in_table
-        report["rows_matching_filters"] = len(rows)
+        report["rows_matching_filters"] = rows_matching_filters
+        report["legs_filter"] = sorted(wanted)
+        report["legs_filter_state"] = (
+            "not_requested" if not wanted
+            else ("applied" if rows else "applied_no_match"))
+        report["rows_after_leg_filter"] = len(rows)
+        report["legs_dropped"] = dict(sorted(dropped.items()))
     out = []
     for r in rows:
         t0 = _epoch(r["timestamp"])
@@ -566,6 +611,18 @@ def main(argv: List[str]) -> int:
                    help="Harness --emit-trades JSONL (repeatable).")
     p.add_argument("--db", default=None,
                    help="trade_journal.db for live closed trades.")
+    p.add_argument("--legs", default=None, metavar="CSV",
+                   help="Restrict the LIVE arm (--db) to these strategy_name "
+                        "values. WITHOUT IT the live arm loads every "
+                        "strategy-attributed closed trade in the journal, and "
+                        "family_of() then buckets same-symbol siblings into "
+                        "families the round never asked for -- which both "
+                        "starves the graded leg's own live count and creates "
+                        "0-harness families that crash training "
+                        "(BL-20260813-EXIT-HEAD-LIVE-ARM-DROPPED-ON-NO-CANDLES). "
+                        "Reported as `legs_filter_state` in build_report.json; "
+                        "`not_requested` and `applied_no_match` are NOT the "
+                        "same answer. No effect without --db.")
     p.add_argument("--instruments", default="config/instruments.yaml",
                    help="instruments.yaml for contract_value_usd multipliers.")
     p.add_argument("--candles", action="append", default=[],
@@ -593,7 +650,9 @@ def main(argv: List[str]) -> int:
     trades = load_harness_trades([Path(t) for t in a.trades], harness_report)
     live_report: dict = {}
     if a.db:
-        live = load_live_trades(Path(a.db), Path(a.instruments), live_report)
+        live = load_live_trades(
+            Path(a.db), Path(a.instruments), live_report,
+            legs=[x.strip() for x in (a.legs or "").split(",") if x.strip()])
         trades += live
         # ALWAYS state the live-source population. The E1->E2 gate needs the
         # live set to agree in sign, so a silent 0 disables a gate arm.
