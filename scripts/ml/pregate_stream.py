@@ -75,7 +75,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 # --- the wire format -------------------------------------------------------- #

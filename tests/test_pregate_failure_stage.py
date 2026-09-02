@@ -286,7 +286,7 @@ def test_end_to_end_against_a_real_truncated_subprocess(tmp_path):
     assert "::error::pre-gate transport_failed" in cli.stdout
     assert "no JSON object" not in cli.stdout
 
-    gh = dict(l.split("=", 1) for l in gh_out.read_text().strip().splitlines())
+    gh = dict(ln.split("=", 1) for ln in gh_out.read_text().strip().splitlines())
     assert gh["state"] == "transport_failed"
     assert gh["salvaged_count"] == "9"
     assert gh["declared_count"] == "22"
@@ -314,7 +314,7 @@ def test_end_to_end_unparseable_stream_names_parsing(tmp_path):
     )
     assert "::error::pre-gate driver_output_unparseable" in cli.stdout
     assert "transport" not in cli.stdout
-    gh = dict(l.split("=", 1) for l in gh_out.read_text().strip().splitlines())
+    gh = dict(ln.split("=", 1) for ln in gh_out.read_text().strip().splitlines())
     assert gh["state"] == "driver_output_unparseable"
     assert gh["wrote_partial"] == "false", "nothing to salvage from an unparseable stream"
 
@@ -377,8 +377,8 @@ def test_driver_stream_round_trips_through_the_classifier(monkeypatch, capsys):
 
     # Now truncate that same real stream before the report line, as a broken
     # pipe would, and confirm the partial rows survive with their denominator.
-    truncated = "\n".join(l for l in stdout.splitlines()
-                          if not l.startswith(ps.REPORT))
+    truncated = "\n".join(ln for ln in stdout.splitlines()
+                          if not ln.startswith(ps.REPORT))
     partial = ps.classify(255, truncated, OBSERVED_SSH_STDERR)
     assert partial["state"] == ps.TRANSPORT_FAILED
     assert ps.partial_report(partial)["n_models"] == 3
