@@ -137,7 +137,8 @@ jobs:
       # fetched but no longer contains what we think it does reads as an
       # UNREAD rather than as a clean negative.
       - name: Declare which event carried this run
-        run: echo "work-digest: trigger=${{ github.event_name }}"
+        run: |
+          echo "work-digest: trigger=${{ github.event_name }}"
 
       - name: Is a digest due?
         id: due
