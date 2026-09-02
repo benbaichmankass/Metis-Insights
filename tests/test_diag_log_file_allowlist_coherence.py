@@ -58,10 +58,46 @@ def _declared_soak_logs() -> set:
     return names
 
 
+#: Docs a relay-bound session actually reads, in the order it would look.
+#:
+#: The row lived in ``CLAUDE.md`` until 2026-09-02, when the API reference split
+#: out to ``docs/reference/bot-api-reference.md`` (both are registered in
+#: ``check_canonical_doc_coherence.ACTIVE_DOCS``, so both are drift-guarded).
+#: The CONTRACT this file pins is *the surface is documented where a session
+#: reads* -- not *the row lives in one named file* -- so the locator follows the
+#: content instead of pinning it in place. Pinning it was what broke: the split
+#: moved the row verbatim, the surface stayed exactly as reachable, and these
+#: tests failed on the file path alone.
+_DOC_HOMES = ("CLAUDE.md", "docs/reference/bot-api-reference.md")
+
+
 def _documented_names() -> set:
-    doc = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
-    m = re.search(r"GET /api/diag/log_file\?name=\{([^}]*)\}", doc)
-    assert m, "could not locate the log_file row in CLAUDE.md"
+    hits = {}
+    for rel in _DOC_HOMES:
+        path = ROOT / rel
+        if not path.exists():
+            continue
+        m = re.search(r"GET /api/diag/log_file\?name=\{([^}]*)\}",
+                      path.read_text(encoding="utf-8"))
+        if m:
+            hits[rel] = m
+    assert hits, (
+        "could not locate the `log_file` row in any of "
+        f"{list(_DOC_HOMES)}. An allowlisted surface a session cannot find in "
+        "the docs is an unreachable one. If the row moved again, ADD its new "
+        "home to _DOC_HOMES -- never delete this assertion, which is the only "
+        "thing standing between an undocumented surface and a green suite."
+    )
+    # Exactly one home, deliberately: this is STRICTER than the single-file
+    # version it replaces. Two copies of the row can disagree, and a reader has
+    # no way to tell which is current -- the drift this repo names as
+    # `field beats comment` one level up, between two comments.
+    assert len(hits) == 1, (
+        f"the `log_file` row appears in MORE THAN ONE doc: {sorted(hits)}. "
+        "Two copies can drift and a caller cannot tell which is current. Keep "
+        "exactly one home and have the others point at it."
+    )
+    m = next(iter(hits.values()))
     # the row lives in a markdown table, so its pipes are backslash-escaped
     return set(m.group(1).replace("\\", "").split("|"))
 
@@ -70,14 +106,15 @@ def test_every_allowlisted_log_file_is_documented():
     code, doc = _code_names(), _documented_names()
     assert not (code - doc), (
         "these log_file names are reachable but UNDOCUMENTED, so a session "
-        f"reading CLAUDE.md cannot know to ask for them: {sorted(code - doc)}"
+        "reading the docs cannot know to ask for them "
+        f"(homes checked: {list(_DOC_HOMES)}): {sorted(code - doc)}"
     )
 
 
 def test_the_doc_does_not_promise_a_surface_that_does_not_exist():
     code, doc = _code_names(), _documented_names()
     assert not (doc - code), (
-        "CLAUDE.md documents log_file names the allowlist does not serve; a "
+        "the docs document log_file names the allowlist does not serve; a "
         f"caller would get a refusal for a surface the doc promised: {sorted(doc - code)}"
     )
 
@@ -142,8 +179,9 @@ def test_every_cooldown_latch_has_a_read_surface():
         f"alert latch(es) with no diag read surface: {missing}. Each SUPPRESSES "
         "an operator page and fails LOUD when unreadable, so from outside a "
         "permanently-broken latch is indistinguishable from a working one. Add "
-        "the name to _LOG_FILES in diag.py (and to the CLAUDE.md log_file row, "
-        "which test_every_allowlisted_log_file_is_documented pins)."
+        "the name to _LOG_FILES in diag.py (and to the log_file row wherever "
+        "_DOC_HOMES currently finds it, which "
+        "test_every_allowlisted_log_file_is_documented pins)."
     )
 
 

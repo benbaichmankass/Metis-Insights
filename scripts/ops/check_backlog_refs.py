@@ -53,6 +53,24 @@ REF = re.compile(r'\b(?:BL|MB|FU)-\d{8}-[A-Z0-9]+(?:-[A-Z0-9]+)*\b')
 SEARCH_DIRS = ("docs", "scripts", ".github", "config", "src")
 BACKLOG_GLOB = "docs/claude/*backlog*.json"
 
+#: Registers that are NOT ``docs/claude/*backlog*.json`` but do define ids this
+#: guard's REF pattern matches, as (path, key-holding-the-list).
+#:
+#: ``REF`` has always matched three prefixes -- BL, MB and **FU** -- while
+#: ``filed_ids`` read only the backlog glob. FU- rows do not live there; they live
+#: in ``comms/follow_ups.json``. So **every FU- citation dangled by construction**,
+#: however correctly it was filed. MEASURED 2026-09-02: 13 distinct FU- ids are
+#: cited across SEARCH_DIRS and **12 of the 13 are genuinely filed** in that
+#: register. Adding it removes 12 false findings and keeps the one real one --
+#: so this makes the guard MORE accurate, not quieter. That thirteenth id is the
+#: positive control, and it is named in ``tests/test_check_backlog_refs.py``
+#: rather than here **on purpose**: ``tests/`` is outside SEARCH_DIRS, and writing
+#: a deliberately-unresolvable id into a scanned path makes THIS guard report it,
+#: which is a real false-positive class of its own (citing an id *as an example of
+#: non-resolution* is not claiming it tracks anything). Recorded in
+#: BL-20260902-FU-IDS-CAN-NEVER-RESOLVE-IN-CHECK-BACKLOG-REFS.
+EXTRA_REGISTERS = (("comms/follow_ups.json", "follow_ups"),)
+
 
 def filed_ids(repo: pathlib.Path = REPO) -> set[str]:
     out: set[str] = set()
@@ -63,6 +81,13 @@ def filed_ids(repo: pathlib.Path = REPO) -> set[str]:
                     out.add(str(it["id"]))
         except Exception:  # noqa: BLE001 — a malformed backlog is another guard's problem
             continue
+    for rel, key in EXTRA_REGISTERS:
+        try:
+            for it in json.load(open(repo / rel, encoding="utf-8")).get(key, []):
+                if isinstance(it, dict) and it.get("id"):
+                    out.add(str(it["id"]))
+        except Exception:  # noqa: BLE001 — same reasoning as above
+            continue
     return out
 
 
@@ -71,11 +96,63 @@ def _git(args: list[str], repo: pathlib.Path) -> str:
                           capture_output=True, text=True).stdout
 
 
-def _refs_in_file_at(ref: str, path: str, repo: pathlib.Path) -> set[str]:
-    """Every tracking id cited in one file as of `ref` (empty if the file is new)."""
+def _refs_in_file_at(ref: str, path: str, repo: pathlib.Path) -> set[str] | None:
+    """Every tracking id cited in one file as of `ref`.
+
+    ``None`` means THE FILE DID NOT EXIST at `ref` — deliberately not ``set()``,
+    which means *the file existed and cited nothing*. Those are different facts
+    and collapsing them is what made a verbatim SPLIT read as an introduction
+    (see :func:`_refs_anywhere_at`), so they are kept apart per
+    ``CLAUDE-RULES-CANONICAL.md`` § "Collapsed states".
+    """
     out = subprocess.run(["git", "-C", str(repo), "show", f"{ref}:{path}"],
                          capture_output=True, text=True)
-    return set(REF.findall(out.stdout)) if out.returncode == 0 else set()
+    return set(REF.findall(out.stdout)) if out.returncode == 0 else None
+
+
+def _refs_anywhere_at(ref: str, repo: pathlib.Path) -> set[str]:
+    """Every tracking id cited ANYWHERE under SEARCH_DIRS as of `ref`.
+
+    The fallback for a file that did not exist at `ref`. The "already cited in
+    this file" exemption above exists so that re-sorting or reformatting a file
+    is not a finding — but it keys on the FILE, so **moving** existing prose into
+    a NEW file defeats it: the new file cites nothing at base by construction, so
+    every id it carries reads as introduced.
+
+    That is not hypothetical. Splitting the API reference out of ``CLAUDE.md``
+    (2026-09-02) moved the rows VERBATIM and this guard reported five dangling
+    ids as newly introduced — all five long-standing, and already attributed to
+    ``BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS``, the row the module docstring
+    names as the home for exactly this pre-existing debt. The guard's own stated
+    intent is that *"moving an existing one is not a finding"*; this makes the
+    code match it.
+
+    ⚠️ **This is narrower than it looks, and it is not a relaxation of what the
+    guard targets.** It applies ONLY to a path absent at `ref`. An id cited
+    NOWHERE in the tree at `ref` still fails, in a new file and an existing one
+    alike — which is the whole class the guard exists for (a doc saying "tracked
+    by BL-X" for a row nobody ever filed). What it stops flagging is debt that
+    demonstrably predates the diff, which the diff-scoping already excludes
+    everywhere else.
+    """
+    # `git grep -E` is POSIX ERE: no `\b`, no `\d`, no `(?:...)`. Passing REF.pattern
+    # straight in exits 128 ("Invalid preceding regular expression"), which the rc
+    # check below would then correctly refuse rather than silently read as "nothing
+    # cited at base". So grep with a deliberate SUPERSET and let the real REF regex
+    # do the exact matching on the output — the coarse filter may over-select, never
+    # under-select, which is the only direction that is safe here.
+    out = subprocess.run(
+        ["git", "-C", str(repo), "grep", "-h", "-I", "-E",
+         "(BL|MB|FU)-[0-9]{8}-", ref, "--"] + list(SEARCH_DIRS),
+        capture_output=True, text=True)
+    # rc 1 == "no matches", which is a real and clean answer; anything higher is
+    # a git failure and must not be read as "nothing was cited at base" — that
+    # would silently restore the blindness this function removes.
+    if out.returncode > 1:
+        raise RuntimeError(
+            f"git grep failed against {ref!r} (rc={out.returncode}): "
+            f"{out.stderr.strip()[:200]}")
+    return set(REF.findall(out.stdout))
 
 
 def refs_in_added_lines(base: str, repo: pathlib.Path = REPO) -> dict[str, set[str]]:
@@ -96,11 +173,18 @@ def refs_in_added_lines(base: str, repo: pathlib.Path = REPO) -> dict[str, set[s
     found: dict[str, set[str]] = {}
     current = "?"
     already: dict[str, set[str]] = {}
+    tree_at_base: set[str] | None = None   # computed lazily; only new files need it
     for line in diff.splitlines():
         if line.startswith("+++ b/"):
             current = line[6:]
             if current not in already:
-                already[current] = _refs_in_file_at(base, current, repo)
+                in_file = _refs_in_file_at(base, current, repo)
+                if in_file is None:            # the file is NEW at base
+                    if tree_at_base is None:
+                        tree_at_base = _refs_anywhere_at(base, repo)
+                    already[current] = tree_at_base
+                else:
+                    already[current] = in_file
             continue
         if not line.startswith("+") or line.startswith("+++"):
             continue

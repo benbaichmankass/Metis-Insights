@@ -137,6 +137,36 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "manager_status.tree_state",
+        # No `producer_field` is declared, and deliberately -- the same reason
+        # `research_queue.power_state` above gives. The states are named module
+        # constants (`TREE_SYNCED = "synced"`), so the literal never shares a
+        # line with the word `tree_state`; narrowing to a field here would fail
+        # for a spelling reason rather than a correctness one.
+        "producer": "src/runtime/manager_status.py",
+        "consumer_token": (r"\btree_state\b|\bTREE_STATES\b|\bTREE_SYNCED\b|"
+                           r"\bTREE_BEHIND\b|\bTREE_UNKNOWN\b"),
+        "states": ["synced", "behind_main", "unknown"],
+        "why": (
+            "The Telegram `/status` and `/decisions` commands read the LIVE "
+            "VM's WORKING TREE, which lags `main` between `ict-git-sync` runs. "
+            "Measured 2026-09-02: `/api/bot/work/decisions` graded a request "
+            "`in_transit` for minutes after its answer was already committed "
+            "to `main`, because the VM was still on the older sha. So the "
+            "state is not cosmetic -- `committed` is read from the work object "
+            "IN THE REPO, and on a `behind_main` tree a question that HAS been "
+            "answered still reads unanswered to the operator. Collapsing "
+            "`behind_main` into `synced` would let a status claim currency "
+            "nobody established, which is the dangerous direction. Collapsing "
+            "`unknown` into `synced` is worse still: `unknown` is *we could "
+            "not look* (git unreadable, or a tree carrying commits `main` does "
+            "not, so what of main it reflects cannot be established), and "
+            "reporting that as level-with-main is a confident wrong answer "
+            "over a tree nobody graded. A confident status over a stale tree "
+            "is worse than no status."
+        ),
+    },
+    {
         "name": "decision_push.delivery_state",
         "producer": "src/runtime/decision_push.py",
         "consumer_token": (r"\bdeliveryState\b|\bDELIVERY_STATES\b|"
