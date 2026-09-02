@@ -69,6 +69,27 @@
 > been bitten. Widening this PR to chase that would be scope creep; it is filed
 > as a backlog row in the PR body instead.
 >
+> **A THIRD PROCESS ERROR, recorded because it is the most transferable one.**
+> Later in the session I read `status: "in_progress"` on several `pytest-run`
+> jobs, computed their age against a "now" of ~21:00Z, concluded they had been
+> **stuck for 2.5 hours**, and posted a fleet-wide CI incident to the
+> coordination board. **No such incident existed.** `date -u` read **18:49Z**;
+> the jobs were ~15 minutes old and finished normally in 2.3–5.8 min,
+> `cancelled` by ordinary concurrency-group supersession while ~six branches
+> took a `main` merge in quick succession.
+>
+> ⚠️ **The API was NOT stale — I fabricated the clock.** My first retraction
+> blamed a cached snapshot, which was itself wrong and would have taught other
+> sessions to distrust a healthy instrument. **A duration has two operands and
+> I verified only one.** Never compute an elapsed time against an assumed
+> "now": take the instant from `date -u`, from the `current-time` on a wake
+> envelope, or from a `completed_at`/`updated_at` in the same payload.
+>
+> All three of this session's process errors share one shape — **the data was
+> fine and the instrument was not**: a baseline run in the wrong working
+> directory, a diff over truncated output, and a duration over an invented
+> clock. Each was caught by an arithmetic cross-check, never by re-reading.
+>
 > The corrected bullet text is committed at
 > `automation/pr-requests/r-metric-contamination-20260902.json`. The **live PR
 > body was left unedited on purpose**: `update_pull_request` replaces the whole
