@@ -391,6 +391,51 @@
         "state": "spawned_not_yet_observed",
         "note": "SPAWNED, NOT OBSERVED. Explicitly told to REFUTE any row asking it to harmonise pnlCoverage with totalPnlMeasured - the R4 gate depends on that asymmetry, so 'fixing' it would be a regression wearing the shape of a closure. Also told research-review-backlog was split out of this file on 2026-08-30, so a research-pipeline row here should be named rather than worked."
       }
+    },
+    {
+      "session_id": "session_019qeQsttJE4akWLhUeNbcDF",
+      "owns_object": null,
+      "title": "MI-31 — a trainer read path sub-sessions can actually use",
+      "spawned_at": "2026-09-02T03:28Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [],
+      "prs": [],
+      "why": "Capability work PULLED by a held-up stage, not self-directed tooling: two drains have now been blocked by this exact gap and both refused rows rather than inferring. The trainer has no HTTP diag API and its issue relay needs issue_write, which 403s for every sub-session — so there is no trainer path at all for them.",
+      "last_observed": {
+        "at": "2026-09-02T03:28Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Told to do the DOCUMENTATION half even if it judges the relay half unwise, and explicitly RELEASED to refuse the wide arbitrary-bash version with a reason. Warned that a well-shaped workflow is not evidence — this repo has two scheduled workflows that are merged, enabled, correct and have NEVER fired."
+      }
+    },
+    {
+      "session_id": "session_01NocraYKXWU6jPEFv2QEMv8",
+      "owns_object": null,
+      "title": "MI-27 — replay-pregate nightly: the only failing scheduled job",
+      "spawned_at": "2026-09-02T03:28Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [],
+      "prs": [],
+      "why": "The sole non-success among 30 scheduled runs, so a specific break rather than a scheduling outage. Models 1-9 graded fine, then the SSH pipe broke at model 10 and the job reported 'no JSON object in driver output' — a PARSING cause for a CONNECTION failure.",
+      "last_observed": {
+        "at": "2026-09-02T03:28Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Told the fix is to branch on the failure STAGE, not to reword the label, and that 'we could not tell' must stay expressible. Told NOT to file into ml-review-backlog.json because a drain is live on that file — report the row text instead and the manager places it."
+      }
+    },
+    {
+      "session_id": "session_01Buj7phmYPjDt6FPTyuVoYp",
+      "owns_object": null,
+      "title": "MI-36 — bybit over-cover names the wrong condition",
+      "spawned_at": "2026-09-02T03:28Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [],
+      "prs": [],
+      "why": "A live alert whose framing sends a reader to the wrong place: 2656% 'over-cover' is actually 0.92 BTC of orphaned opposite-side reduce-only legs from a closed short, while the live position is exactly 100% covered by its own two legs.",
+      "last_observed": {
+        "at": "2026-09-02T03:28Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Told to CANCEL NOTHING, and given the bounded severity as a measurement (bybit_2 mainnet checked and clean) so it does not over-report. ⚠️ First spawn attempt died on a typo'd repo URL (github.comute.com) and was archived — the init error read 'Authentication failed', itself a misleading diagnostic for a bad hostname, which is the same class the session is being sent to fix."
+      }
     }
   ]
 }
