@@ -228,8 +228,6 @@ def test_the_diag_read_surface_names_the_paths_the_writer_ACTUALLY_produces():
     import re
     from pathlib import Path
 
-    from src.utils.paths import runtime_logs_dir
-
     src = Path("src/web/api/routers/diag.py").read_text(encoding="utf-8")
     declared = dict(re.findall(
         r'"(telegram_poll_\w+)":\s*\n?\s*'
