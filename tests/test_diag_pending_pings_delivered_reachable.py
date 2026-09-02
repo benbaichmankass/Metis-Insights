@@ -93,11 +93,29 @@ def test_absence_of_the_ledger_is_not_evidence_of_non_delivery():
     "this ping was not delivered" -- and the doc row must say so, because the
     caller reading it is the one at risk of drawing the stronger conclusion.
     """
-    doc = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
-    row = next(
-        (ln for ln in doc.splitlines() if "GET /api/diag/log_file" in ln), None
+    # The row lived in `CLAUDE.md` until 2026-09-02, when the API reference
+    # split out to `docs/reference/bot-api-reference.md`. The homes list is
+    # IMPORTED from its sibling rather than restated, so the two cannot drift --
+    # a second copy is the exact failure the sibling now asserts against.
+    from tests.test_diag_log_file_allowlist_coherence import _DOC_HOMES
+
+    row = None
+    for rel in _DOC_HOMES:
+        path = ROOT / rel
+        if not path.exists():
+            continue
+        row = next(
+            (ln for ln in path.read_text(encoding="utf-8").splitlines()
+             if "GET /api/diag/log_file" in ln),
+            None,
+        )
+        if row:
+            break
+    assert row, (
+        f"could not locate the log_file row in any of {list(_DOC_HOMES)}. The "
+        "caveat below is what stops a caller reading an empty ledger as proof "
+        "of non-delivery, so an unlocatable row is a real gap, not a stale path."
     )
-    assert row, "could not locate the log_file row in CLAUDE.md"
     assert "pending_pings_delivered" in row
     lowered = row.lower()
     assert "absent" in lowered and "not that" in lowered, (
