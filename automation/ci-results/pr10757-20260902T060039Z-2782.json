@@ -1,0 +1,32 @@
+{
+  "checks": [],
+  "counts": {
+    "cancelled": 0,
+    "failing": 0,
+    "passing": 0,
+    "running": 0
+  },
+  "draft": true,
+  "generated_at": "2026-09-02T06:00:57Z",
+  "head_sha": "b9d56aa00cb22900806cde602f9108271d12c932",
+  "merge_state_note": "merge conflict with the base branch",
+  "mergeable_state": "dirty",
+  "polls": 1,
+  "pr": 10757,
+  "pr_state": "open",
+  "reason": "merge conflict with the base branch \u2014 GitHub builds pull_request runs against the merge ref, so no checks can start until it is resolved. Merge the base branch in; CI fires seconds after the push that resolves it.",
+  "request": {
+    "poll_seconds": 20,
+    "pr": 10757,
+    "timeout_minutes": 12
+  },
+  "review_threads": {
+    "read_state": "read",
+    "review_decision": null,
+    "total": 0,
+    "unresolved": 0
+  },
+  "settled": true,
+  "state": "conflict",
+  "watched_by": "ci-settled relay"
+}
