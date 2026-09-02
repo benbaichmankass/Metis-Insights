@@ -649,6 +649,19 @@
         "If sound: merge, then dispatch the restart, then VERIFY the post-state rather than assuming it.",
         "landed_unproven until a ping is observed delivered exactly once."
       ]
+    },
+    {
+      "id": "MI-53-ERROR-FEED-INTO-A-CADENCED-DUTY-PASS",
+      "title": "Wire the trader error feed into the duty pass so it is triaged, not read by accident",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01TpKSAVKKUXLHyFUFep32B1",
+      "tier": "1",
+      "operator_decision": "2026-09-02, approved: 'You can, uh, build the wiring.' Answering their question: 'can the error feed that's in the trader bot be fed directly to the manager session, so you can decide what should be resolved immediately vs. backlogged?'",
+      "what_it_is_NOT": "NOT true push. `watch_url`'s signing credential is sealed to the artifact service, so the trader VM cannot sign deliveries into a session. This is a cadenced PULL, and the cron floor is hourly — so it is TRIAGE, not immediate. Anything genuinely urgent still rides the existing Telegram path, which reaches the operator in seconds.",
+      "why_it_is_worth_it": "Measured today: `ict_scalp_avax_5m` has been a DEAD LEG on bybit_1 — 8 signals, 0 orders placed, every one exchange-rejected — across THREE backlog rows and two fixes marked `resolved`. It was caught only because the operator pasted the feed by hand. The feed is produced and not read; that is the same PRODUCE-without-DISPOSE defect the operating-model design names as the measured constraint.",
+      "⚠️_the_cadence_must_not_be_claimed": "This repo has scheduled workflows that are merged, enabled, correct and fire ~4h50m LATE or once instead of daily. The digest must carry generated_at + covers_since so a stale one is self-evidently stale rather than reading as 'nothing happened'.",
+      "done_condition": "A workflow_dispatch run whose conclusion is quoted, producing a digest in which the AVAX dead leg is visible and triage-able. CI green does NOT establish this — that lesson cost two failed fixes this morning."
     }
   ]
 }
