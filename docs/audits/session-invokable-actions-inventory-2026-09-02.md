@@ -110,9 +110,38 @@ repo ends up with machinery nothing reads.
 
 ## 4. What "proven" means for the thing that was built
 
-A workflow that looks armed and is not is worse than none. The dispatch path is
-demonstrated end to end against this PR's own CI — the run and its payload are
-recorded on the PR, not asserted here. Additionally the workflow runs
-`ci_settle.py --self-test` **before** trusting the grader, because a grader that
-silently stopped working would report `green` on a red PR, which is worse than
-reporting nothing.
+A workflow that looks armed and is not is worse than none, so the dispatch path
+was exercised end to end against this PR's own CI — **the same command a caller
+would run**, not a shape argument.
+
+**Run 1 — `state: conflict`, settled in 18s, 1 poll.** The relay's very first
+live run caught a real merge conflict on this PR. Zero check runs existed, and
+the payload said *merge conflict — GitHub builds `pull_request` runs against the
+merge ref, so no checks can start until it is resolved*, rather than `no_checks`
+or "probably still queued". That is the exact trap `CLAUDE.md` records costing
+two sessions ~10 minutes each; here it cost 18 seconds and one command. Exit 1.
+
+**Run 2 — `state: red`, 6 polls on the runner.** After the conflict was
+resolved: `guards` failing, `pytest-collect` and `repo-inventory` passing,
+`pytest-run` still in progress, `mergeable_state: blocked`, review threads read
+(0 unresolved). One payload; the equivalent by hand is a `pull_request_read` per
+poll plus a separate `get` for mergeability plus a GraphQL call for threads.
+
+**Run 2 also found a bug in the relay itself, and the state vocabulary is what
+surfaced it.** The failing check came back `log_state: "unreadable"` with an
+attached `HTTP 401` — GitHub's job-log endpoint redirects off `api.github.com`
+and urllib re-sent the bearer to the blob host. Note what did *not* happen: it
+did not return an empty `log_tail`, which would have read as *the job failed
+quietly*. Because `log_state` is its own field, "we could not look" stayed
+distinguishable from "there was nothing to see". Fixed by stripping
+`Authorization` on a cross-host redirect.
+
+Additionally the workflow runs `ci_settle.py --self-test` **before** trusting
+the grader, because a grader that silently stopped working would report `green`
+on a red PR — worse than reporting nothing.
+
+⚠️ **What is NOT yet proven at the time of writing:** a `green` settle. Runs 1
+and 2 returned `conflict` and `red`, both correct and both genuinely useful, but
+the green path has been exercised only in unit tests. The `pending`-on-timeout
+path is likewise unit-tested and not yet observed live. Stated rather than
+glossed: two of the seven states have live evidence, five have test evidence.
