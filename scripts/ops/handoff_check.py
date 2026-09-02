@@ -146,8 +146,8 @@ def check_manager_state_pushed(base: str = "origin/main") -> Dict[str, Any]:
                   f"`{base}` could not be resolved (no remote-tracking ref, or a "
                   f"shallow/detached clone), so 'has it reached origin' is "
                   f"unanswerable here. WE DID NOT LOOK.",
-                  uncommitted=[l[3:] for l in dirty.splitlines() if l.strip()])
-    unc = [l[3:] for l in dirty.splitlines() if l.strip()]
+                  uncommitted=[ln[3:] for ln in dirty.splitlines() if ln.strip()])
+    unc = [ln[3:] for ln in dirty.splitlines() if ln.strip()]
     ahead = [p for p in unpushed.splitlines() if p.strip()]
     if unc or ahead:
         return _c("manager_state_pushed", FAIL,
