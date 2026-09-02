@@ -167,6 +167,19 @@ the loop: the same one command that reported a conflict, then a red with a
 failing-check breakdown, then two honest timeouts, returns a clean green when
 there is one — and exits 0 so a caller can branch on it.
 
+**Run 6 — `green` checks, `mergeable_state: dirty`, and a bug in the exit code.**
+On a later head, all four required checks passed while the base branch had moved
+underneath: the payload said *"all checks concluded, none failing — but
+mergeable_state is 'dirty': resolve the conflict"* and the script still exited
+**0**. The prose was right and the exit code contradicted it, which is the worse
+half — a script branches on the code. Exit 0 now requires **green AND not
+dirty**; verified against both captured payloads (`green`+`clean` → 0,
+`green`+`dirty` → 1).
+
+The general lesson, and the reason it is recorded here rather than quietly
+patched: **green checks are not mergeability**, and a tool that reports both must
+not let one of them silently speak for the other.
+
 ### State ledger — what is proven LIVE, and what is not
 
 | state | evidence |
