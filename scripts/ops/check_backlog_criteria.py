@@ -384,6 +384,22 @@ def _check_kept_open_transitions(base_ref: str) -> int:
         if not path.exists():
             continue
         before = _kept_open_status_by_id(base_ref, rel)
+        if not before:
+            # The file did not exist (or held no rows) at the base. Every row in
+            # it would then read as "filed directly as kept_open", so a new
+            # backlog file — or a SPLIT that moves rows out of an existing one,
+            # which is exactly what criterion 2 of the class row asks for —
+            # would be blocked wholesale. That is the wall shape this guard is
+            # scoped to avoid, and a wall gets disabled.
+            #
+            # ANNOUNCED, never silent: a guard that quietly declines to run is
+            # the "green that checked nothing" run_guards.py has a rule about.
+            print(
+                f"kept-open-exit-condition guard: SKIPPING {rel} — absent or "
+                f"empty at {base_ref}, so a genuinely new row cannot be told "
+                f"from a moved one. Its rows are NOT checked by this run."
+            )
+            continue
         for row in _load(path):
             rid = str(row.get("id") or "")
             if not rid or str(row.get("status") or "") != "kept_open":
