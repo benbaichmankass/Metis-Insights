@@ -534,6 +534,46 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # The DAILY BRIEF — the artifact the operator is handed in the morning
+        # and pastes as the opening of the next manager's prompt (MI-75,
+        # WO-20260901-PHASE-E). The acceptance criterion is the operator's own
+        # sentence: it must say "what was done overnight and what was wrapped
+        # up after I went to bed, SO THAT I KNOW WHERE I'M STARTING OFF FROM."
+        #
+        # ⚠️ `--check` GRADES THE CODE, NOT THE DATA, and that is deliberate. An
+        # unreadable register is a real problem, but failing here on it would
+        # red every open PR for a defect none of them introduced — the lesson
+        # session-brief-guard already learned
+        # (BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH),
+        # and the same polarity as workflow-trigger-reachability's "an
+        # unreadable origin PASSES (loudly)". A broken register is printed as a
+        # ::NOTICE:: and passes; what FAILS is the renderer raising over the
+        # live registers, or an invariant SENTENCE going missing in a refactor
+        # — the brief still rendering while quietly no longer saying the thing
+        # it exists to say is the only failure a smoke test would miss.
+        #
+        # ⚠️ It is deliberately WINDOWLESS and OFFLINE: no git window (a shallow
+        # checkout is the normal state of a session's clone) and no due-list
+        # collection (it reaches api.github.com). A guard that can fail on clone
+        # depth or an API blip reds unrelated PRs.
+        #
+        # NOT A WALL — measured before wiring. At the head this shipped on,
+        # `--check` exits 0 over all 6 registers, and prints the checklist's
+        # `done` (11) and `landed_unproven` (17) as SEPARATE numbers, which is
+        # the invariant the whole artifact turns on: a merge is a deploy, not an
+        # observation, and an item reported finished whose effect was never seen
+        # actively misinforms the person starting the day.
+        "name": "daily-brief-guard",
+        "when": None,
+        "steps": [
+            # Planted controls in BOTH directions — a defect fires and a clean
+            # input stays quiet. One direction proves a check runs, never that
+            # it discriminates.
+            ["python3", "scripts/ops/render_daily_brief.py", "--self-test"],
+            ["python3", "scripts/ops/render_daily_brief.py", "--check"],
+        ],
+    },
+    {
         "name": "recurrence-ledger-guard",
         "when": None,
         "steps": [

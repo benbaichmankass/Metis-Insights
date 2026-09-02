@@ -249,6 +249,46 @@ exist: an interactive session's `list_pull_requests`, or a workflow. Pass it
 with `--open-prs`; without it, completeness grades **`not_observed`**, which is
 `unknown` and therefore never `ready`.
 
+## The morning handoff: THE DAILY BRIEF
+
+`SESSIONS.json` says which sub-sessions a successor inherits and `OPEN-PRS.json`
+says which PRs. **Neither of them, nor anything else, produced the thing a
+PERSON is handed at the day boundary** — which is what the operator's daily
+cadence assumes. Their own words are the acceptance criterion:
+
+> *"by the [brief] in the morning, I want that to include what was done
+> overnight and what was wrapped up after I went to bed, **so that I know where
+> I'm starting off from**."*
+
+[`scripts/ops/render_daily_brief.py`](../../../scripts/ops/render_daily_brief.py)
+renders it to [`comms/briefs/<UTC-date>.md`](../../../comms/briefs/). It has a
+**DELTA** half (§1, what moved overnight — `work_digest`, imported not
+re-derived) and a **STATE** half (§2, the checklist split by state, the lease,
+the open-PR conditions, the `loud` open-items). *The delta alone is a changelog,
+and a changelog does not tell anyone where they are.*
+
+⚠️ **IT IS A CLOSE-OUT DELIVERABLE THE NIGHT MANAGER RUNS, NOT A CRON — and the
+reason is a tool boundary, not a preference.** What merged is readable from git
+and the registers are readable, but **what a night session CONCLUDED lives in
+`get_session`'s `post_turn_summary`, and `mcp__*` tools are unavailable to CI
+and to Routine-fired turns.** A cron would ship, every morning, a brief
+structurally unable to answer the question it exists for. The manager passes
+what it observed with `--session-notes`.
+
+⚠️ **It still runs with none of that**, because the case this phase exists for
+is *the manager died*. An omitted observation renders **`not_observed`** — a
+declared hole — never silence and never *"nothing was concluded"*.
+
+⚠️ **`landed_unproven` is NOT `done` and the brief must never flatten them.** A
+merge is a deploy, not an observation; an item reported as finished whose effect
+was never seen actively misinforms the person starting the day. The two are
+counted and listed separately, and `daily-brief-guard` asserts it on every PR
+with planted controls in both directions.
+
+⚠️ **Every file under `comms/briefs/` is a DATED SNAPSHOT, not current state.**
+Taking over mid-day? **Re-run it** — it reads live files. Full contract:
+[`comms/briefs/README.md`](../../../comms/briefs/README.md).
+
 ## What is NOT here
 
 **Bugs to fix** still go to the three review backlogs (`docs/claude/*-review-backlog.json`),

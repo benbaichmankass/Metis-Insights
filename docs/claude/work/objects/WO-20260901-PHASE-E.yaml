@@ -351,9 +351,101 @@ the_kill_was_run_and_it_was_a_PARTIAL_loss:
        a row whose work landed under an unrecorded PR grades there too — one of
        the 7 live rows in that state landed as #10789."
 
+the_daily_brief_MI_75:
+  # The handoff artifact. Phase E is "no work is lost, and rules are verified
+  # at exit"; the reaper covers the SESSION half. This covers the KNOWLEDGE
+  # half: what a successor -- human or manager -- is handed at the boundary.
+  what_shipped: scripts/ops/render_daily_brief.py (+ --self-test, --check)
+  acceptance_is_the_operators_own_words: >-
+    "by the [brief] in the morning, I want that to include what was done
+    overnight and what was wrapped up after I went to bed, SO THAT I KNOW WHERE
+    I'M STARTING OFF FROM." A brief that renders and does not answer that
+    sentence FAILS, however well-formed it is.
+
+  the_one_artifact_or_two_question_ARGUED_not_assumed: >-
+    ONE artifact, two clearly-headed sections, regenerable -- NOT two
+    renderers. The argument that settles it is the operator's own workflow:
+    they read the brief, add notes, and PASTE IT AS THE PROMPT THAT STARTS THE
+    NEXT MANAGER. That manager IS the second consumer, so an artifact carrying
+    only the overnight delta would start a manager as under-informed as one
+    arriving cold -- the artifact is literally the successor's input. The
+    mid-day successor case is served by RE-RUNNING it (it reads live files),
+    not by a second renderer and not by re-reading a stale morning copy.
+  what_that_choice_COSTS_stated_rather_than_hidden: >-
+    The state section is the one that grows, and render_session_brief.py
+    records that failure ("a section that only grows is one more wall of text
+    to skim past"). The line is drawn by STATE, not by count: in_flight,
+    blocked and landed_unproven are enumerated IN FULL and never truncated
+    (silently dropping live work is the failure the brief exists to prevent);
+    everything else is a count.
+
+  WHO_GENERATES_IT_the_constraint_it_does_not_fake_around: >-
+    A CLOSE-OUT DELIVERABLE THE NIGHT MANAGER RUNS BEFORE IT ENDS -- NOT A
+    CRON, and the reason is a real tool boundary rather than a preference.
+    Three of the four inputs are reachable from anywhere: what MERGED (git),
+    the registers (repo files), what is DUE (render_due_list). The fourth is
+    not -- WHAT A NIGHT SESSION CONCLUDED lives in get_session's
+    post_turn_summary, and mcp__* tools are unavailable to CI and to
+    Routine-fired turns. A cron would therefore ship, every morning, a brief
+    structurally incapable of answering the operator's question.
+  and_it_STILL_runs_without_that_observation: >-
+    Because the case the whole phase exists for is THE MANAGER DIED. Omitting
+    --session-notes renders `not_observed` -- a DECLARED HOLE -- never silence
+    and never "nothing was concluded". A dead manager still produces a brief
+    that says what it could not see, which is strictly better than no brief.
+
+  what_was_REUSED_and_what_was_genuinely_new: >-
+    RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED was checked by MEASUREMENT before
+    a line was written, not by assertion. REUSED, imported rather than
+    re-derived: work_digest.build_digest/render (the overnight delta -- run
+    over a real 24h window on the live tree it reported 44 state changes across
+    6/6 registers); render_due_list.collect/build (the three-state source
+    discipline and the partial-must-name-the-source rule);
+    render_session_brief.priority_lines (the cycle priority AND its null case,
+    so the priority the operator reads and the one a session inherits cannot
+    disagree); session_registry._load_observation (the tolerant list_sessions
+    parser). GENUINELY NEW: the STATE half -- the checklist split by state, the
+    lease, the open-PR conditions, the loud open-items -- and the two-axis read
+    verdict. Nothing existed that answered "where am I starting from"; the
+    digest is a DELTA and can say "PHASE-E: ready -> in_flight" while being
+    unable to say what is on the checklist now.
+  MI_03_is_the_OTHER_half_and_is_not_touched: >-
+    MI-03-MORNING-DIGEST (blocked on MI-02-CLAUDE-CHANNEL) is the DELIVERY
+    half -- getting a morning message onto the dedicated Claude bot. This is
+    the CONTENT half. They are not the same gap and this changes no delivery
+    path.
+
+  two_verdict_axes_and_why_not_one: >-
+    registersVerdict grades the repo files; observationsVerdict grades the
+    MCP-only inputs, and they are deliberately NOT pooled. A single verdict
+    would read `partial` on every non-manager run forever, because the live
+    observation is structurally absent there -- and a permanently-degraded
+    verdict is one that gets skimmed past, which is the exact hazard CLAUDE.md
+    names for the constraint readout. Splitting them keeps "I could not read
+    OPEN-ITEMS.json TODAY" from being buried under "no manager supplied a live
+    observation".
+
+  what_is_TESTED_and_what_is_NOT:
+    tested: >-
+      16 self-test assertions + 20 pytest tests, both run and passing on the
+      live tree, with planted controls in BOTH directions -- a removed
+      invariant sentence makes `--check` exit 1 (demonstrated), a clean tree
+      exits 0. Measured on the live registers: `--check` renders over all 6 and
+      prints done=11 and landed_unproven=17 as SEPARATE numbers.
+    NOT_tested_and_therefore_NOT_claimed: >-
+      NO MANAGER HAS EVER RUN IT AT CLOSE-OUT WITH A REAL --session-notes FILE.
+      The observation path is exercised only by a fixture, so the half of the
+      artifact that answers the operator's actual question -- what a night
+      session CONCLUDED -- is DEPLOYED AND UNOBSERVED. That is the landed_unproven
+      state, and it must not be recorded as done. The brief also has never been
+      read by the operator, so "it renders" is not "it answered".
+
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md
   - scripts/ops/session_reaper.py
   - .github/workflows/session-reaper.yml
   - docs/claude/work/REAPER-OBSERVATIONS.json
+  - scripts/ops/render_daily_brief.py
+  - tests/test_render_daily_brief.py
+  - comms/briefs/README.md
 verdict: null
