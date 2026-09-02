@@ -20,6 +20,7 @@ acceptance is a documented bybit_1 (demo) verification step.
 """
 from __future__ import annotations
 
+import json
 import sqlite3
 
 import pytest
@@ -761,12 +762,37 @@ def _btc_db(tmp_path, size=0.018):
     return db
 
 
-def _run(db, client, monkeypatch, tmp_path):
+def _run(db, client, monkeypatch, tmp_path, *, mode=None, accounts=None):
+    """Run the sweep. **Defaults to the SHIPPED, UNARMED state**, deliberately.
+
+    ``BYBIT_GRADED_COVERAGE_MODE`` defaults to ``annotate`` and
+    ``BYBIT_GRADED_COVERAGE_ACCOUNTS`` ships EMPTY, which for this knob means
+    NONE — so out of the box the graded figure is measured and does not bind.
+    A helper that armed by default would make every test below read as proof of
+    live behaviour that is not, in fact, live; arming is explicit and per-test.
+
+    Both keys are cleared when not passed, so an ambient value in the runner's
+    environment can never quietly arm a test that means to assert the default.
+    """
     _patch_accounts(monkeypatch, client)
     om._TICK_ACTIVE_CLOSE_AT.clear()
     monkeypatch.setattr(om, "_alert_state_path",
                         lambda kind: tmp_path / f"{kind}_alert_state.json")
+    for key, val in (("BYBIT_GRADED_COVERAGE_MODE", mode),
+                     ("BYBIT_GRADED_COVERAGE_ACCOUNTS", accounts)):
+        if val is None:
+            monkeypatch.delenv(key, raising=False)
+        else:
+            monkeypatch.setenv(key, val)
+    monkeypatch.setattr(
+        "src.utils.paths.runtime_logs_dir", lambda: tmp_path, raising=False)
     return om._check_broker_naked_bybit_positions(db)
+
+
+#: The staged arm the operator chose (2026-09-02): mode `apply`, allowlist
+#: naming exactly the account under test. Tests that assert BINDING behaviour
+#: pass this; tests that assert the default must not.
+_ARMED = {"mode": "apply", "accounts": "bybit_2"}
 
 
 # ---- CONTROL 1: the fix FIRES -------------------------------------------
@@ -778,7 +804,7 @@ def test_naked_long_masked_by_an_other_book_leg_is_now_REARMED(
     db = _btc_db(tmp_path)
     client = _FakeBybit(positions={"BTCUSDT": dict(_LIVE_BTC_POS)},
                         stop_legs={"BTCUSDT": [dict(_OTHER_BOOK_SL)]})
-    summary = _run(db, client, monkeypatch, tmp_path)
+    summary = _run(db, client, monkeypatch, tmp_path, **_ARMED)
 
     # The side-blind sum still reads 0.46 — that is exactly what used to mask it.
     st = om._bybit_position_protection(client, "linear", "BTCUSDT")
@@ -819,7 +845,7 @@ def test_partial_gap_masked_by_an_other_book_leg_tops_up_the_REAL_hole(
 
     monkeypatch.setattr(
         "src.units.accounts.execute.modify_open_order", _fake_modify)
-    summary = _run(db, client, monkeypatch, tmp_path)
+    summary = _run(db, client, monkeypatch, tmp_path, **_ARMED)
 
     assert summary["partially_naked"] == 1 and summary["topped_up"] == 1
     assert calls["qty"] == pytest.approx(0.008)   # 0.018 - 0.010, NOT 0.018-0.470
@@ -916,7 +942,7 @@ def test_unreadable_POSITION_side_refuses_the_rearm_and_says_so(
     client = _FakeBybit(positions={"BTCUSDT": pos},
                         stop_legs={"BTCUSDT": [dict(_OTHER_BOOK_SL)]})
     with caplog.at_level("WARNING"):
-        summary = _run(db, client, monkeypatch, tmp_path)
+        summary = _run(db, client, monkeypatch, tmp_path, **_ARMED)
 
     assert summary["coverage_side_ungradeable"] == 1
     assert summary["rearmed"] == 0 and summary["topped_up"] == 0
@@ -943,7 +969,7 @@ def test_unreadable_LEG_side_refuses_the_rearm_and_says_so(
         ]},
     )
     with caplog.at_level("WARNING"):
-        summary = _run(db, client, monkeypatch, tmp_path)
+        summary = _run(db, client, monkeypatch, tmp_path, **_ARMED)
 
     assert summary["coverage_side_ungradeable"] == 1
     assert summary["rearmed"] == 0 and summary["topped_up"] == 0
@@ -957,16 +983,22 @@ def test_ungradeable_side_does_NOT_bank_the_side_blind_sum_as_coverage(
     likely to assume away: an ungraded read must not SILENTLY skip on the
     strength of the side-blind total either. `covered_qty` here is 0.46 against
     a size of 0.018, so a silent skip would be indistinguishable from a healthy
-    book. The refusal counter is what separates them."""
+    book. The refusal counter is what separates them.
+
+    ARMED, deliberately: the refusal is a property of the BINDING basis. On a
+    held-back account the sweep must keep skipping on the side-blind sum, which
+    is what `test_held_back_ungradeable_adds_no_refusal` asserts."""
     db = _btc_db(tmp_path)
     pos = dict(_LIVE_BTC_POS)
     pos["side"] = "garbage"
     client = _FakeBybit(positions={"BTCUSDT": pos},
                         stop_legs={"BTCUSDT": [dict(_OTHER_BOOK_SL)]})
-    summary = _run(db, client, monkeypatch, tmp_path)
+    summary = _run(db, client, monkeypatch, tmp_path, **_ARMED)
 
     assert summary["coverage_side_ungradeable"] == 1, (
         "an ungraded read must be REPORTED, not silently treated as covered")
+    assert summary["coverage_ungradeable_refused"] == 1, (
+        "and where the graded basis BINDS, reporting it must also refuse")
     assert summary["broker_naked"] == 0 and summary["rearmed"] == 0
 
 
@@ -974,12 +1006,15 @@ def test_full_mode_stop_is_unaffected_by_the_split(tmp_path, monkeypatch):
     """A Full-mode position stop returns BEFORE the legs are read, so there is
     no split to grade — `covered_qty == size` is the measurement and the sweep
     must skip, not refuse. Otherwise every Full-mode position on the fleet
-    would start reporting `coverage_side_ungradeable`."""
+    would start reporting `coverage_side_ungradeable`.
+
+    ARMED, so this asserts the graded basis specifically. Unarmed it would pass
+    for the uninteresting reason that the graded figure never binds at all."""
     db = _btc_db(tmp_path)
     pos = dict(_LIVE_BTC_POS)
     pos["stopLoss"] = "38698.6"
     client = _FakeBybit(positions={"BTCUSDT": pos})
-    summary = _run(db, client, monkeypatch, tmp_path)
+    summary = _run(db, client, monkeypatch, tmp_path, **_ARMED)
 
     assert summary["coverage_side_ungradeable"] == 0
     assert summary["broker_naked"] == 0 and summary["rearmed"] == 0
@@ -998,7 +1033,199 @@ def test_a_second_journal_row_on_the_same_symbol_does_not_rearm_twice(
             created_at="2026-07-01T00:00:00+00:00", status="open")
     client = _FakeBybit(positions={"BTCUSDT": dict(_LIVE_BTC_POS)},
                         stop_legs={"BTCUSDT": [dict(_OTHER_BOOK_SL)]})
-    summary = _run(db, client, monkeypatch, tmp_path)
+    summary = _run(db, client, monkeypatch, tmp_path, **_ARMED)
 
     assert summary["rearmed"] == 1, "exactly one re-arm for one exchange position"
     assert len(client.stops_set) == 1
+
+
+# =========================================================================
+# THE STAGING CONTRACT (Tier-2, operator decision 2026-09-02)
+# -------------------------------------------------------------------------
+# "Stage it on bybit_1 (demo) first" has to be a property of the system, not a
+# sentence in a doc. Every test above that asserts the graded basis passes
+# `**_ARMED`; these assert what happens when it is NOT armed — which is the
+# state the change actually SHIPS in.
+# =========================================================================
+
+def _soak_rows(tmp_path):
+    """Read the coverage soak `_run` redirected into *tmp_path*."""
+    path = tmp_path / "bybit_coverage_soak.jsonl"
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in
+            path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def test_at_the_SHIPPED_default_the_masked_naked_position_is_NOT_rearmed(
+        tmp_path, monkeypatch):
+    """⚠️ THE SHIPPED STATE. Same book as the CONTROL test at the top of this
+    file — a naked long masked by an other-book leg — but with no allowlist.
+
+    The operator chose to stage on bybit_1 and explicitly accepted that
+    bybit_2 (real money) stays exposed to this masking during the soak. So the
+    honest assertion is that NOTHING is re-armed here: landing this PR changes
+    no live behaviour anywhere until both env keys are set.
+    """
+    db = _btc_db(tmp_path)
+    client = _FakeBybit(positions={"BTCUSDT": dict(_LIVE_BTC_POS)},
+                        stop_legs={"BTCUSDT": [dict(_OTHER_BOOK_SL)]})
+    summary = _run(db, client, monkeypatch, tmp_path)
+
+    assert summary["rearmed"] == 0 and summary["topped_up"] == 0
+    assert summary["broker_naked"] == 0
+    assert client.stops_set == [], "no live order may leave the unarmed path"
+    assert summary["coverage_graded_basis_bound"] == 0
+
+
+def test_the_default_still_MEASURES_what_arming_would_have_changed(
+        tmp_path, monkeypatch):
+    """⚠️ THE ALLOWLIST SCOPES THE BINDING, NEVER THE MEASUREMENT.
+
+    This is the correction NETTING_ATTRIBUTION_ACCOUNTS needed on 2026-08-09:
+    intersecting the account set at the top of the pass made the account being
+    staged TOWARD invisible in exactly the rows a reviewer needs to widen to
+    it. Here the finding must be visible on the held-back account.
+    """
+    db = _btc_db(tmp_path)
+    client = _FakeBybit(positions={"BTCUSDT": dict(_LIVE_BTC_POS)},
+                        stop_legs={"BTCUSDT": [dict(_OTHER_BOOK_SL)]})
+    summary = _run(db, client, monkeypatch, tmp_path,
+                   mode="apply", accounts="bybit_1")  # bybit_2 is held back
+
+    assert summary["coverage_basis_would_differ"] == 1, (
+        "the reviewer's evidence must accrue on the account being staged toward")
+    rows = _soak_rows(tmp_path)
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["account_id"] == "bybit_2"
+    assert row["verdicts_differ"] is True
+    assert row["verdict_side_blind"] == "covered"
+    assert row["verdict_graded"] == "uncovered"
+    # ...and it is unmistakably a HELD-BACK row, not an applied one.
+    assert row["mode"] == "annotate"
+    assert row["global_mode"] == "apply"
+    assert row["apply_scope"] == "not_allowlisted"
+    assert row["basis"] == "side_blind"
+    assert row["binding"] is False
+
+
+@pytest.mark.parametrize("accounts", ["", "   ", "bybit_1", "bybit_portfolio"])
+def test_apply_binds_NOTHING_without_this_account_in_the_allowlist(
+        tmp_path, monkeypatch, accounts):
+    """⚠️ AN EMPTY ALLOWLIST MEANS NONE. If someone ever harmonises this toward
+    CONVICTION_SIZING_ACCOUNTS / NETTING_ATTRIBUTION_ACCOUNTS (where empty
+    means ALL), `accounts=""` places a live bracket on real-money bybit_2 here
+    and this test fails."""
+    db = _btc_db(tmp_path)
+    client = _FakeBybit(positions={"BTCUSDT": dict(_LIVE_BTC_POS)},
+                        stop_legs={"BTCUSDT": [dict(_OTHER_BOOK_SL)]})
+    summary = _run(db, client, monkeypatch, tmp_path,
+                   mode="apply", accounts=accounts)
+
+    assert summary["rearmed"] == 0
+    assert client.stops_set == []
+
+
+def test_armed_the_soak_row_says_the_graded_basis_governed(
+        tmp_path, monkeypatch):
+    db = _btc_db(tmp_path)
+    client = _FakeBybit(positions={"BTCUSDT": dict(_LIVE_BTC_POS)},
+                        stop_legs={"BTCUSDT": [dict(_OTHER_BOOK_SL)]})
+    summary = _run(db, client, monkeypatch, tmp_path, **_ARMED)
+
+    assert summary["rearmed"] == 1
+    assert summary["coverage_graded_basis_bound"] == 1
+    row = _soak_rows(tmp_path)[0]
+    assert row["mode"] == "apply"
+    assert row["apply_scope"] == "allowlisted"
+    assert row["basis"] == "graded"
+    assert row["binding"] is True
+    assert row["bound_qty"] == 0.0
+    assert row["side_blind_qty"] == 0.46
+    assert row["decision"] == "rearm_indicated"
+    # Context a reviewer needs to read the row cold.
+    assert row["other_book_qty"] == 0.46
+    assert row["other_book_state"] == "possible_hedge"
+
+
+def test_off_writes_no_soak_row_and_grades_nothing(tmp_path, monkeypatch):
+    """`off` stays byte-for-byte the pre-gate behaviour, on disk as well as in
+    the order path — the discipline stray_oca_soak / prop_ticket_risk_soak
+    follow. Note `graded_qty` is absent rather than 0.0: we did not look."""
+    db = _btc_db(tmp_path)
+    client = _FakeBybit(positions={"BTCUSDT": dict(_LIVE_BTC_POS)},
+                        stop_legs={"BTCUSDT": [dict(_OTHER_BOOK_SL)]})
+    summary = _run(db, client, monkeypatch, tmp_path,
+                   mode="off", accounts="bybit_2")
+
+    assert _soak_rows(tmp_path) == []
+    assert summary["rearmed"] == 0
+    assert summary["coverage_graded_basis_bound"] == 0
+    assert summary["coverage_side_ungradeable"] == 0, (
+        "`off` means we never looked — NOT that a read failed")
+
+
+def test_held_back_ungradeable_adds_no_refusal(tmp_path, monkeypatch):
+    """An `annotate` mode that introduced a new refusal would not be an
+    annotation. The ungradeable state is RECORDED on a held-back account and
+    changes nothing about what the sweep does."""
+    db = _btc_db(tmp_path)
+    pos = dict(_LIVE_BTC_POS)
+    pos["side"] = "garbage"
+    client = _FakeBybit(positions={"BTCUSDT": pos},
+                        stop_legs={"BTCUSDT": [dict(_OTHER_BOOK_SL)]})
+    summary = _run(db, client, monkeypatch, tmp_path)
+
+    assert summary["coverage_side_ungradeable"] == 1, "still observed"
+    assert summary["coverage_ungradeable_refused"] == 0, "but it refused nothing"
+    row = _soak_rows(tmp_path)[0]
+    assert row["graded_qty"] is None
+    assert row["coverage_state"] == "position_side_ungraded"
+    assert row["decision"] == "skip_covered"
+
+
+def test_one_soak_row_per_symbol_per_sweep_not_one_per_journal_row(
+        tmp_path, monkeypatch):
+    """A netted symbol holds MANY journal rows against ONE exchange position,
+    and after a re-arm the cache is rewritten to say "covered". Recording every
+    row would inflate the count AND persist that synthetic marker as if it were
+    a venue reading."""
+    db = _btc_db(tmp_path)
+    _insert(db, id=2, account_id="bybit_2", symbol="BTCUSDT", direction="long",
+            position_size=0.009, stop_loss=38000.0, take_profit_1=44000.0,
+            created_at="2026-07-01T00:00:00+00:00", status="open")
+    client = _FakeBybit(positions={"BTCUSDT": dict(_LIVE_BTC_POS)},
+                        stop_legs={"BTCUSDT": [dict(_OTHER_BOOK_SL)]})
+    _run(db, client, monkeypatch, tmp_path, **_ARMED)
+
+    rows = _soak_rows(tmp_path)
+    assert len(rows) == 1, "one exchange position, one coverage decision row"
+    assert rows[0]["bound_qty"] == 0.0, (
+        "and it is the FIRST decision, not the post-re-arm cache marker")
+
+
+def test_the_soak_is_reachable_on_the_diag_surface():
+    """⚠️ A soak a Tier-2 reviewer is told to read and cannot reach is the
+    BL-20260825 shape. Registered in the SAME commit as the writer."""
+    from src.runtime import bybit_coverage_soak
+    from src.web.api.routers import diag
+
+    assert "bybit_coverage_soak" in diag._LOG_FILES
+    assert (diag._LOG_FILES["bybit_coverage_soak"].name
+            == bybit_coverage_soak.SOAK_LOG_NAME)
+
+
+def test_both_env_keys_are_readable_with_get_env():
+    """A two-key arm: `apply` with an empty allowlist binds nothing, so reading
+    either key alone cannot say whether the gate is live
+    (BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE)."""
+    import importlib.util
+    import pathlib
+    spec = importlib.util.spec_from_file_location(
+        "_get_env_probe",
+        pathlib.Path(__file__).resolve().parents[1] / "scripts/ops/get_env.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert "BYBIT_GRADED_COVERAGE_MODE" in mod.ALLOWED_KEYS
+    assert "BYBIT_GRADED_COVERAGE_ACCOUNTS" in mod.ALLOWED_KEYS

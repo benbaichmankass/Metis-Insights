@@ -250,6 +250,14 @@ _TARGET_EXTENSION_SOAK_LOG = runtime_logs_dir() / "target_extension_soak.jsonl"
 # defect #8778 shipped with `exit_loop_health`.
 _PROTECTION_REASSERT_SOAK_LOG = runtime_logs_dir() / "protection_reassert_soak.jsonl"
 _STRAY_OCA_SOAK_LOG = runtime_logs_dir() / "stray_oca_soak.jsonl"
+#: The staged Bybit graded-book coverage basis (2026-09-02). Allowlisted in the
+#: SAME commit as its writer, deliberately: CLAUDE.md tells a Tier-2 reviewer to
+#: read `verdicts_differ` here before widening BYBIT_GRADED_COVERAGE_ACCOUNTS
+#: beyond bybit_1, and a soak a reviewer is told to read and cannot reach is the
+#: BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE shape
+#: (and, for a gate specifically, BL-20260831-STRAY-OCA-SWEEP-ANNOTATE-COMPUTES-
+#: A-VERDICT-AND-DISCARDS-IT).
+_BYBIT_COVERAGE_SOAK_LOG = runtime_logs_dir() / "bybit_coverage_soak.jsonl"
 _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 #: Lane P/P3 — per-account arbitration fan-out soak. Allowlisted in the SAME
 #: commit as its writer: a soak that is written and cannot be read is the
@@ -415,6 +423,7 @@ _LOG_FILES: dict[str, Path] = {
     "target_extension_soak": _TARGET_EXTENSION_SOAK_LOG,
     "protection_reassert_soak": _PROTECTION_REASSERT_SOAK_LOG,
     "stray_oca_soak": _STRAY_OCA_SOAK_LOG,
+    "bybit_coverage_soak": _BYBIT_COVERAGE_SOAK_LOG,
     # Allocator soak (M18 P0c, portfolio capital allocator): one line per tick
     # with ≥2 actionable candidates — what a capital allocator WOULD pick (the
     # top-ranked candidate of the full opportunity set) vs what the aggregator

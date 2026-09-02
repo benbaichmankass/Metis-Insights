@@ -38,10 +38,22 @@ behaviour — only what the page SAYS. That the side-blind sum can also mask a
 genuinely under-covered book is a real and separate defect; it is named in the
 PR body and is a Tier-2 change, not enacted here."* That was true of the
 diagnostic repair (#10739) and became false the moment the separate Tier-2
-change it named was made. :func:`graded_book_coverage` is now what the naked
+change it named was made. :func:`graded_book_coverage` is what the naked
 sweep's **RE-ARM DECISION** reads (``order_monitor``
-``_check_broker_naked_bybit_positions``), so a classification error here
-changes which live positions get a protective stop re-armed.
+``_check_broker_naked_bybit_positions``), so a classification error here can
+change which live positions get a protective stop re-armed.
+
+⚠️ **BUT ONLY ON AN ALLOWLISTED ACCOUNT, AND THE SHIPPED ALLOWLIST IS EMPTY.**
+The operator's Tier-2 decision (2026-09-02) was to STAGE that basis on
+``bybit_1`` (demo) first, so the binding is gated by
+``BYBIT_GRADED_COVERAGE_MODE`` + ``BYBIT_GRADED_COVERAGE_ACCOUNTS``
+(:mod:`src.runtime.bybit_coverage_basis`), where an **empty allowlist means
+NONE**. On every other account the sweep still compares the side-blind sum,
+byte-identically to before. So: this module is *capable* of deciding a re-arm,
+and whether it does on any given account is an operational fact readable with
+``get-env`` — never inferable from this docstring. ⚠️ The grading itself runs
+on **every** Bybit account regardless, because the allowlist scopes the
+BINDING, never the MEASUREMENT.
 
 The **over-cover TRIP threshold is deliberately still side-blind** and reads
 ``covered_qty``: that check is the UNION of two conditions — genuine same-book
@@ -255,9 +267,13 @@ def graded_book_coverage(split: Any):
       its qty parsed, so the float is a MEASUREMENT of how much protection acts
       on the position we graded. ``0.0`` here is a real reading (nothing
       protects this book), never *we could not look*.
-    * ``(None, <one of the four ungraded tokens>)`` — REFUSE. The caller must
-      not re-arm, and must not skip on the strength of the side-blind sum
-      either; it says so and moves on.
+    * ``(None, <one of the four ungraded tokens>)`` — REFUSE. Where this figure
+      is BINDING the caller must not re-arm, and must not skip on the strength
+      of the side-blind sum either; it says so and moves on. Where it is not
+      binding (an account outside ``BYBIT_GRADED_COVERAGE_ACCOUNTS``, or a
+      mode below ``apply``) the caller RECORDS the refusal and otherwise
+      behaves exactly as it did before this function existed — an ``annotate``
+      mode that introduced a new refusal would not be an annotation.
 
     **Why the caller needs this and not ``covered_qty``** (2026-09-02). A
     protective leg is reduce-only, so it acts on the book it can SHRINK.
