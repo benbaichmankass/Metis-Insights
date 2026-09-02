@@ -284,7 +284,13 @@ def test_docs_point_a_relay_bound_session_here():
     """A capability that exists and is unreachable from the surface its user reads
     is, for that user, identical to no capability. This repo has paid for that
     shape three times."""
-    doc = (REPO_ROOT / "docs" / "claude" / "diag-relay.md").read_text(encoding="utf-8")
+    # The path join is kept on its OWN line, with no other string literal beside
+    # it. test_pytest_run_filter's docs/ scan is line-based: it concatenates every
+    # quoted segment on the line, so a trailing `encoding="utf-8"` is folded into
+    # the path and it derives `docs/claude/diag-relay.md/utf-8` — a path that
+    # matches nothing in the filter, so the coverage check can never be satisfied.
+    doc_path = REPO_ROOT / "docs" / "claude" / "diag-relay.md"
+    doc = doc_path.read_text(encoding="utf-8")
     assert "trainer-diag-relay" in doc, (
         "docs/claude/diag-relay.md does not mention this relay — a 403-bound "
         "session reading the docs would still conclude no trainer path exists"
