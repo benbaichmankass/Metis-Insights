@@ -67,9 +67,14 @@ on:
     # A trigger that a doc edit could fire was already rejected above; a trigger
     # that MERGING MAIN can fire is the same defect with a wider blast radius,
     # because every branch merges main. Requests are `<branch-slug>.txt` only.
-    # The stale file itself is deleted in a LATER commit, deliberately: deleting
-    # it in the same push would touch this very path one last time and re-arm
-    # the thing being disarmed.
+    # ⚠️ THE STALE FILE IS DELIBERATELY LEFT ON DISK, and that is not an
+    # oversight. Removing it from THIS list is what makes it inert -- nothing
+    # reads its contents (the header above establishes that), so it is now dead
+    # weight and nothing more. Deleting it would create a merge conflict for
+    # every open branch that already modified it, which is the exact collision
+    # the per-request split was made to end; and the deleting push would itself
+    # touch this path one last time under whatever workflow version the pushed
+    # ref carries. Delete it in a quiet window, not alongside other work.
     paths:
       - ".github/pr-automerge-requests/*.txt"
 
