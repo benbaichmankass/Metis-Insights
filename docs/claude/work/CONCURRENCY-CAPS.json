@@ -1,0 +1,103 @@
+{
+  "_doc": [
+    "THE DECLARED HOME FOR THE MANAGER'S CONCURRENCY CAPS. `scripts/ops/manager_preflight.py`",
+    "reads its limits from HERE and from nowhere else -- it hardcodes no number.",
+    "",
+    "WHY A FILE RATHER THAN A CONSTANT. A cap that lives in code is changed by editing code,",
+    "which means the operator's own words about it live somewhere else and drift. Every entry",
+    "below therefore carries the operator's wording VERBATIM plus the date, so the number and",
+    "its basis cannot separate. `field beats comment` applies to this file too: if the prose",
+    "anywhere disagrees with `limit`, `limit` is what the check enforces and the prose is the",
+    "thing to fix.",
+    "",
+    "THE TWO CAPS ARE INDEPENDENT AND NEITHER IMPLIES THE OTHER. Several sessions may share",
+    "one artifact; one session may hold several. Counting one and calling it the other is the",
+    "conflation MI-64 already had to correct once.",
+    "",
+    "AND NEITHER OF THEM IS THE WIP CEILING. The operating model's ceiling of 8 counts",
+    "`in_flight` WORK OBJECTS (docs/claude/work/objects/*.yaml) and is enforced in CI by",
+    "scripts/ci/check_wip_ceiling.py. That is a THIRD register with a THIRD population.",
+    "Lowering the object ceiling to match a session cap would fail CI on the in-flight phase",
+    "objects and block the build -- MI-64's own root_cause says exactly this. Do not merge",
+    "these three numbers.",
+    "",
+    "A `contested` ENTRY IS NOT A DEFECT TO TIDY AWAY. When two sources give different limits,",
+    "the check does NOT pick one: it grades the count against BOTH bounds and returns",
+    "`unknown` only when the answer actually depends on which is right. Over every candidate",
+    "limit is still a definite FAIL; under every candidate limit is still a definite PASS. So",
+    "an unresolved contest costs nothing except in the narrow band where it genuinely matters,",
+    "and there it refuses instead of guessing."
+  ],
+  "schema_version": 1,
+  "updated_at": "2026-09-02",
+  "updated_by": "MI-68",
+  "caps": {
+    "sessions": {
+      "counts": "concurrent work sessions the manager has assigned and not yet closed out",
+      "population": "rows in docs/claude/work/SESSIONS.json whose `state` is in the enforced set, intersected with a LIVE list_sessions observation. A registry row alone is a claim, not an observation; a live row alone is not attributable to the manager.",
+      "limit": null,
+      "contested": [
+        {
+          "value": 3,
+          "source": "docs/claude/work/MANAGER-CHECKLIST.json :: MI-64-CONCURRENT-SESSION-CAP-IS-THREE-NOT-EIGHT (state in_flight, on origin/main at 9df1502b)",
+          "decided_on": "2026-09-02",
+          "text": "I think we need to limit ourselves to 3 concuurent work sessions - 8 seems like too much for to handle reliably, so lets start small and scale up based on what we actually know is feasible",
+          "note": "The only operator wording carried VERBATIM in the repo as of 2026-09-02T13:30Z. Followed by: 'LEt all the opne sessions close, but don't spawn new ones until 1 of the 3 slots is open' -- i.e. a spawn gate, not a forced stand-down."
+        },
+        {
+          "value": 4,
+          "source": "PR #10799 (OPEN, unmerged at 2026-09-02T13:30Z) 'manager: caps are 4 sessions AND 4 artifacts, independently', and the MI-68 spawn brief which states it as the operator's position",
+          "decided_on": "2026-09-02",
+          "text": "NOT RECORDED VERBATIM ANYWHERE THIS SESSION COULD READ. That is precisely why this entry is `contested` rather than authoritative.",
+          "note": "Probably the later refinement, and probably correct. `probably` is not a basis, and MI-65's lesson that same day was a session blocking work on a claim about live state it had not probed."
+        }
+      ],
+      "resolution": "MERGE #10799 (or edit this file) and set `limit` to the agreed number, moving the losing entry into `superseded`. Until then the check refuses only in the band 4 <= count <= 4 -- outside it, the contest does not matter and the verdict is definite."
+    },
+    "artifacts": {
+      "counts": "concurrent artifacts in flight",
+      "population": null,
+      "limit": 4,
+      "definition": null,
+      "⚠️_the_LIMIT_is_known_and_the_POPULATION_is_not": [
+        "The number 4 is not the missing piece. WHAT IS BEING COUNTED is, and a limit without a",
+        "population is not enforceable -- it is a number waiting to be applied to whatever",
+        "someone assumes it meant.",
+        "",
+        "Measured 2026-09-02T13:30Z, benbaichmankass/Metis-Insights, list_pull_requests(state=open),",
+        "17 open PRs. The candidate populations disagree with each other by a factor of nearly two,",
+        "and EVERY ONE of them exceeds the limit of 4, so the cap's meaning is not academic:",
+        "  17  all open PRs",
+        "  16  open PRs excluding the one labelled [RECOVERED -- DO NOT MERGE] (#10780)",
+        "  15  ... also excluding the bot-generated automation PR (#10398, open since 2026-08-29)",
+        "  11  open, non-draft only",
+        "  10  open, non-draft, excluding DO-NOT-MERGE and automation",
+        "",
+        "'open PR' overcounts: #10780 is explicitly not for merging and #10398 is machine-filed.",
+        "'in_flight work object' undercounts: an artifact can be a doc, a workflow, or a running",
+        "soak with no object of its own.",
+        "",
+        "So this is left as `null` DELIBERATELY. The manager preflight grades this cap `unknown`",
+        "and prints the candidates, which is a legitimate output; inventing a definition here so",
+        "that a check could go green would be a confident wrong count wearing enforcement's",
+        "clothes -- worse than the honest refusal, because nobody would look at it again."
+      ],
+      "resolution": "Decide the population, write it into `definition` as a machine-applicable rule, and the check starts enforcing on the next run with no code change."
+    }
+  },
+  "enforced_session_states": [
+    "working"
+  ],
+  "⚠️_enforced_session_states_is_a_LOWER_BOUND_and_that_is_load_bearing": [
+    "It scopes the cap to rows the manager itself declared live. A session absent from",
+    "SESSIONS.json is invisible to this count -- and that register has been measured incomplete",
+    "TWICE (MI-15: 3 of 6 absent; 2026-09-02: 26 of 55 unregistered, 17 of them carrying the",
+    "manager's own id as parent). So a count over this register UNDER-counts exactly when it",
+    "matters most.",
+    "",
+    "This is why the check requires a LIVE observation and grades an interval rather than a",
+    "number: the registry supplies attribution, the live read supplies existence, and neither",
+    "alone can produce a trustworthy count. `ready` is unobtainable without looking, here for",
+    "the same reason it is in handoff_check.py."
+  ]
+}
