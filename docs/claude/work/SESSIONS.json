@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T07:57:06Z",
+  "updated_at": "2026-09-02T09:28:31Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -938,6 +938,36 @@
       "last_activity": "2026-08-31T10:24:21.440283Z",
       "why": "BACK-REGISTERED by the manager 2026-09-02 after handoff_check graded live_registry=FAIL: 19 LIVE sessions appeared nowhere in this registry, of 55 graded. Source is ONE list_sessions(mine=true, limit=60) observation; every field is copied from it and nothing is inferred.",
       "note": "⚠️ `spawned_at` is the session's OWN created_at, not a registration time — that is `registered_at`. ⚠️ `checklist_item` and `branches` are null/empty because this row was reconstructed from the session LIST alone, which carries neither: they are UNKNOWN, not absent. Poll the session before treating this row as complete. ⚠️ has_more was TRUE on that observation (60 returned), so this is a PAGE, not necessarily the whole population."
+    },
+    {
+      "session_id": "session_01TpKSAVKKUXLHyFUFep32B1",
+      "title": "MI-53: wire the trader error feed into a cadenced duty pass",
+      "checklist_item": "MI-53",
+      "spawned_at": "2026-09-02T09:19:41Z",
+      "registered_at": "2026-09-02T09:19:41Z",
+      "registered_late": false,
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "Metis-Insights:claude/error-feed-duty-pass-wiring"
+      ],
+      "session_status": "SESSION_STATUS_PENDING",
+      "why": "Operator-approved 2026-09-02: 'can the error feed that's in the trader bot be fed directly to the manager session, so you can decide what should be resolved immediately vs. backlogged?' Tier-1, no bot-side change.",
+      "note": "REGISTERED IN THE SAME ACTION AS THE SPAWN — MI-15's remedy, which had failed three times (3 of 6, then 6 of 9, then 19 of 55 live sessions absent). ⚠️ SPAWNED AS A CLOUD SESSION WITH ITS OWN CONTAINER, deliberately, NOT as an in-process agent: a sub-agent would share this session's single git working tree with the live AVAX session, and they fight — the manager's own `git checkout` had already dragged that agent's uncommitted src/ edits onto an unrelated branch. Agent worktree isolation was attempted and REFUSED ('not in a git repository': session cwd is /home/user, repo is /home/user/Metis-Insights)."
+    },
+    {
+      "session_id": "session_01LNHkQQuxku3khrjoDinw91",
+      "title": "MI-55: two-way Telegram decisions — ask, answer in-chat, and prove the round-trip",
+      "checklist_item": "MI-55",
+      "spawned_at": "2026-09-02T09:28:31Z",
+      "registered_at": "2026-09-02T09:28:31Z",
+      "registered_late": false,
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "Metis-Insights:claude/two-way-telegram-decisions"
+      ],
+      "session_status": "SESSION_STATUS_PENDING",
+      "why": "Operator approved 2026-09-02: build the two-way channel AND test it live.",
+      "note": "Registered in the SAME action as the spawn (MI-15's remedy, failed 3×). Cloud session with its OWN CONTAINER, not an in-process agent — the shared working tree already has the AVAX session in it (MI-56)."
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."
