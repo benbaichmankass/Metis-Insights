@@ -304,6 +304,7 @@ _PACKAGE_LEG_COVERAGE_STATE = (
 _EXIT_INTERVAL_SOAK_LOG = runtime_logs_dir() / "exit_interval_soak.jsonl"
 _CASH_SETTLEMENT_SOAK_LOG = runtime_logs_dir() / "cash_settlement_soak.jsonl"
 _WORK_DECISION_TRANSIT_LOG = runtime_logs_dir() / "work_decision_transit.jsonl"
+_WORK_DECISION_PROMPTED_STATE = runtime_logs_dir() / "work_decision_prompted.json"
 _PROP_TICKET_RISK_SOAK_LOG = (
     runtime_logs_dir() / "prop_ticket_risk_soak.jsonl"
 )
@@ -494,6 +495,23 @@ _LOG_FILES: dict[str, Path] = {
     # never become truth -- the exit_loop_health #8778 shape, which this file
     # already records three recurrences of.
     "work_decision_transit": _WORK_DECISION_TRANSIT_LOG,
+    # The ASK half's idempotency marker (2026-09-02): which decision requests
+    # the Telegram prompt sweep has already put in front of the operator.
+    # Allowlisted in the SAME commit that ships the writer. The fourth
+    # recurrence of
+    # BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE
+    # is not one this change is going to add.
+    #
+    # ⚠️ READ IT BESIDE THE INBOX, NEVER ALONE, and read the two SILENCES
+    # apart. A request absent from `prompted` means the sweep has not asked --
+    # which is either "it has not run" or "it HELD", and those are opposite
+    # facts. The sweep holds deliberately when the API's write gate is closed
+    # (a tappable prompt whose taps would 503 is the "reads as dealt with while
+    # nothing landed" failure) or when no POLLED bot can carry the buttons; both
+    # log a WARNING naming the reason, so journalctl is where a hold is
+    # distinguished from an outage. An ABSENT file means the sweep has never
+    # prompted anything on this VM -- never that nothing is waiting.
+    "work_decision_prompted": _WORK_DECISION_PROMPTED_STATE,
     # The alert LATCH for the above, distinct from the state it grades. A
     # breach alerts once per PROCESS (max_interval_ms resets on restart, so a
     # global latch would go silent after the first breach ever) -- which is
