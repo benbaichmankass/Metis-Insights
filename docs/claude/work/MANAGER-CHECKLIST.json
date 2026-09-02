@@ -1057,8 +1057,49 @@
         "WO-20260902-MANAGER-PREFLIGHT"
       ],
       "⚠️_CORRECTION_THE_MANAGER_MADE_TO_ITSELF": "THE NIGHT HOP NEEDS NO NEW MECHANISM, and the first version of this row said it did. It read: 'the night-manager hop depends on a fresh-session-per-fire routine gated on the lease, which does not exist.' That is FALSE for the flow the operator actually described, which has the MANAGER setting the night session off directly -- 'set off the night manager session yourself' -- and `create_session` is proven to do exactly that (MI-73 was spawned with it on 2026-09-02). Overstating a blocker is not a safe error: it invites a session to build a routine nobody needs and to treat tonight's handoff as impossible when it is not.",
-      "what_ACTUALLY_needs_a_mechanism": "THE MORNING END, not the night end. Something must wake a NEW manager session with the daily brief -- and THAT is the fresh-session-per-fire shape, because by then the previous manager is gone and a self-bound routine died with it. Two candidates, neither chosen here: a cron routine with create_new_session_on_fire, gated on the lease so it stands down if a manager is somehow still live; or the operator's own morning message as the trigger, which needs no machinery at all and may be the right answer for now. ⚠️ ALSO UNSOLVED AND SEPARATE: the brief must CARRY what happened overnight, so whatever wakes the session must be able to READ the night session's record -- a wake with an empty brief satisfies the cadence's letter and defeats its stated purpose.",
-      "⚠️_the_self_bound_sweep_limit_is_still_real": "Unchanged by the correction above: the manager sweep re-armed 2026-09-02T15:20Z is SELF-BOUND and dies with its session. That is a genuine gap for a manager that DIES mid-day -- it is simply not the gap the night handoff has, because the night handoff is deliberate and the manager is alive to perform it."
+      "what_ACTUALLY_needs_a_mechanism": "⚠️ DECIDED 2026-09-02 — THE MORNING WAKE IS MANUAL, AND THIS IS AN ANSWER, NOT A GAP. Operator, verbatim: 'There's [no] new need for a timer or a trigger for the morning manager. I will do that manually. I will get the daily brief. I will read it, and then I will use it as the beginning of a prompt, which I'll also add my notes to, to set off the manager session for that day. So that doesn't need to be set off automatically. I wanna be there at the beginning.' So: NO cron routine, NO create_new_session_on_fire, NO lease-gated auto-spawn. Do not build one, and do not re-open this as an oversight -- the operator being present at the start of the day is a DELIBERATE choice, and automating it would remove the point.",
+      "⚠️_the_self_bound_sweep_limit_is_still_real": "Unchanged by the correction above: the manager sweep re-armed 2026-09-02T15:20Z is SELF-BOUND and dies with its session. That is a genuine gap for a manager that DIES mid-day -- it is simply not the gap the night handoff has, because the night handoff is deliberate and the manager is alive to perform it.",
+      "⚠️_what_the_manual_wake_does_NOT_remove": "THE BRIEF ITSELF IS STILL A DELIVERABLE AND IS STILL UNBUILT. The operator says 'I will GET the daily brief' -- they are the trigger, not the author. Something must PRODUCE a brief that carries what happened overnight, and that is precisely the half their stated reason depends on: 'so that I know where I'm starting off from.' Separating these two matters, because the wake being settled makes it easy to read the whole morning end as settled. The wake is decided; the brief is open. Most likely the NIGHT session's closing output is the brief, which would make it a night-session deliverable rather than a new mechanism -- but that is a proposal, not a decision, and nobody has built it."
+    },
+    {
+      "id": "MI-72",
+      "title": "A notifications menu per bot: choose WHICH notifications, and a CADENCE for the periodic ones",
+      "state": "deferred",
+      "priority": "DEFERRED",
+      "owner": null,
+      "tier": "2 (Telegram bridge + a stored per-chat preference; no order path, no strategy config, no risk caps)",
+      "raised_by": "operator, 2026-09-02, in conversation, EXPLICITLY for the backlog: 'a further idea, though, that I do want us to backlog as well ... so that we eventually get to it.'",
+      "observed": "Operator: 'in the menu for each of the bots for there to be an option for notifications, which would then pull up a list of the notifications, and I could choose which ones. And for the ones that are periodic, there should be some choices for cadence -- hourly, daily, weekly, maybe once, twice, three times daily, depending on what kind of thing it is.' Raised alongside making the work digest hourly, which is the manual version of exactly this control.",
+      "⚠️_HALF_OF_THIS_ALREADY_EXISTS_AND_LOST_ITS_CONSUMER": "DO NOT BUILD THE 'WHICH' HALF FROM SCRATCH -- measure it first. A per-kind subscription model is already shipped and has been since M12: `GET /api/bot/devices/event-kinds` serves the canonical taxonomy from `src.runtime.mobile_push.event_kinds` (kind/label/description/in_flight) precisely so a client need not mirror the list, and `PATCH /api/bot/devices/{id}/subscriptions` stores a per-device choice as `null|[kinds]|{kind:bool}`. It was built for the Android app's Notifications screen -- and the Android app was RETIRED from the live feed on 2026-09-01, with `device_tokens` measured EMPTY (0 registered devices). So this is a mechanism that is written, works, and now has no reader: the `provenance-consumer-guard` shape one level up, the same shape MI-70 found with the `Claude-Session:` commit trailer. The honest framing of this item is RE-POINT AN EXISTING TAXONOMY AT TELEGRAM, plus build the genuinely new half.",
+      "what_is_genuinely_new": {
+        "cadence_per_kind": "The existing model is a BOOLEAN per kind (on/off). Cadence is a third value and the taxonomy has no field for it. Note the operator's own distinction -- 'depending on what kind of thing it is' -- so cadence is not universal: an EVENT (a decision ready, an incident) is immediate-or-nothing and a cadence choice on it is meaningless, while a DIGEST (the work digest, the daily roll-up) is exactly where cadence belongs. The taxonomy therefore needs to say which kinds are cadence-BEARING, or the menu will offer 'weekly' on an alert.",
+        "per_CHAT_not_per_DEVICE": "`device_tokens` is keyed on an FCM token. Telegram has no such token; the natural key is the chat/bot pair. Whether that is a new table or a widened one is the first design question, and it is the one that decides how much of the existing model is reusable.",
+        "a_menu_is_stateful": "Same constraint as MI-71: one inline press submits one value, so a multi-select preferences screen is a TOGGLE keyboard plus an explicit Save, which means holding partial unsubmitted state. The two items share this problem and should probably share its solution -- do not solve it twice, differently."
+      },
+      "⚠️_what_must_not_become_switchable": "A preferences menu that can silence anything is a way to turn off an alarm and forget. The severity-band rule stands: a P0 (money at risk) page is NOT a preference. Whatever this ships with, the CRITICAL/unprotected-position class must remain unmutable, or this feature becomes the desensitized-alarm P1 with a UI in front of it.",
+      "why_deferred": "P1 is the handoff capability, P2 the overhaul implementation. The operator asked for it to be backlogged, not built, and the immediate need it came with -- an hourly work digest -- was satisfied directly by a cron change.",
+      "refs": [
+        "MI-71",
+        "#10793"
+      ]
+    },
+    {
+      "id": "MI-73",
+      "title": "The manager watcher is BLIND by construction — give it a sensor that can actually see",
+      "state": "in_flight",
+      "priority": "P2_OVERHAUL_IMPLEMENTATION",
+      "owner": "session_01ThkrPrGUvmomoY8uGEa148",
+      "tier": "1 (tooling/CI)",
+      "observed": "Of the three mechanisms MI-68 built to watch the manager (merged #10808), TWO WORK and the third cannot. `spawn_gate.py` was verified by the manager on BOTH controls -- out-of-priority object exits 3, in-priority exits 0. But `queue_latency.py`, the one aimed at the manager sitting on a blocked queue, reports `unknown` PERMANENTLY: its verdict needs a live `list_sessions` read, that is an mcp__* tool, and CI holds no MCP tools. It refuses to substitute SESSIONS.json's stale `last_observed`, which is correct -- that register has been measured incomplete twice.",
+      "why_it_matters": "This is the failure that cost the most on 2026-09-02: four sub-sessions sat IDLE and BLOCKED on the manager for up to 142 minutes while the manager asserted they held work. It is also the operator's core ask -- 'actual guards and mechanisms in the repo/vm themselves that watch the manager and enforce the rules on him.' A permanently-`unknown` watcher is honest but is not yet that guard.",
+      "the_hypothesis_to_TEST_not_assume": "The same failure has an MCP-FREE PROXY that GitHub Actions can see with nothing but its own GITHUB_TOKEN: a PR green/mergeable/unmerged and ageing; a `needs_action` posted with nothing since; a board `▶️ START` with no `✅ DONE`, ageing; an `in_flight` checklist item whose owner's branch has had no push for N hours. ⚠️ THE MANAGER BELIEVES THIS AND HAS NOT PROVEN IT. If the proxy is weaker than it looks, a STATED BOUNDARY is the better deliverable -- which is exactly what MI-68 delivered on queue_latency and why its work merged.",
+      "what_must_not_regress": "(a) Do NOT delete or weaken the `unknown` path -- `quiet`/`escalate`/`unknown` must never collapse, because 'we could not look' and 'nothing is waiting' are opposite facts. (b) It must NOT be invokable by the manager: MI-68's own measurement is that every mechanism the manager had to choose to run went unused, and every mechanism that stood in the way worked. (c) Never page on activity, only on a state that is actually stuck, rate-limited per class -- 202 of 376 CRITICAL rows in one measured window here were a single un-latched alarm.",
+      "⚠️_a_cron_is_not_evidence_of_a_run": "work-digest.yml's own header records a scheduled workflow in this repo firing ~4h50m LATE and once instead of daily. Whatever carries this must make its own liveness checkable.",
+      "refs": [
+        "#10808",
+        "MI-68",
+        "WO-20260902-MANAGER-PREFLIGHT"
+      ]
     },
     {
       "id": "MI-70",
@@ -1096,5 +1137,5 @@
       ]
     }
   ],
-  "as_of": "2026-09-02T15:46:00Z"
+  "as_of": "2026-09-02T15:26:00Z"
 }

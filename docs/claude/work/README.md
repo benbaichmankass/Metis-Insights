@@ -65,9 +65,55 @@ decision_requests:
         label: Do the second thing
         implication: ...
     allows_free_text: true             # an explicit `false` closes free text
+    asked_by:                          # WHO ASKED — see below. Omit if a human asked.
+      session_id: session_01PEYVqTaCY92C3HmtHwxYff
+      recorded_at: 2026-09-02T10:35:26Z
+      note: MI-60 — what the answer unblocks
     # `answer:` is written by the COMMITTER, never by hand-editing the transit
     # log. Its PRESENCE is what makes the decision true.
 ```
+
+### `asked_by` — the address the answer gets PUSHED back to (2026-09-02)
+
+**Record it whenever a SESSION asks the question.** Without it the answer has
+nowhere to go, and the session that raised the question can only learn the
+answer by polling — which is the gap the operator named on 2026-09-02:
+*"can we add … a push something on the end of that so that, when the answer
+gets to the repo, it knows to push it to the session instead of waiting for the
+session to pull?"*
+
+**How to fill it in:** call `get_session` with `session_id` **omitted** — it
+returns your own record, id included (TESTED 2026-09-02). You do not need to be
+told what your session is, and nobody could have told you: the id does not exist
+until your session is created. Then use the helper so the shape cannot drift:
+
+```python
+from src.runtime.work_decisions import render_asked_by_block
+render_asked_by_block(session_id="session_…", note="what this unblocks")
+```
+
+**Three states, never collapsed** (`askedByState` on
+`GET /api/bot/work/decisions`, and registered with `collapsed-state-guard`):
+
+| state | meaning |
+|---|---|
+| `recorded` | an asker is named and reachable — a committed answer can be pushed to it |
+| `unrecorded` | **nobody wrote one down.** Ordinary and blameless: every request written before 2026-09-02 reads this way, as does any question a human asked |
+| `malformed` | someone recorded an asker that is **not usable** — a question whose answer will silently never be delivered while its owner believes it will. A FINDING; it fails `push_decisions_back.py` |
+
+⚠️ **Do NOT back-fill `asked_by` onto an existing request.** Every request in
+the store today grades `unrecorded`, and that is the honest reading — nobody
+recorded an asker at the time, and inventing one now would assert a fact nobody
+established. `unrecorded` exists precisely so that gap does not have to be
+papered over.
+
+⚠️ **The push ADDS to the pull path; it does not replace it.** `committed` is
+still graded from this directory exactly as before. If every push fails forever,
+the system behaves exactly as it did before the push existed — which is the
+property that makes `session_gone` a survivable state rather than a lost answer.
+
+Feasibility, with every claim marked TESTED / READ / RECORDED:
+[`docs/design/decision-push-back-FEASIBILITY.md`](../../design/decision-push-back-FEASIBILITY.md).
 
 **The round-trip, and the one rule that shapes it:**
 
@@ -248,6 +294,43 @@ returns 403 at the sandbox proxy. It has to come from somewhere credentials
 exist: an interactive session's `list_pull_requests`, or a workflow. Pass it
 with `--open-prs`; without it, completeness grades **`not_observed`**, which is
 `unknown` and therefore never `ready`.
+
+## Merging these files — the driver, and what it does NOT do
+
+`MANAGER-CHECKLIST.json`, `SESSIONS.json` and `OPEN-PRS.json` are monolithic and
+re-conflict on sibling PRs. ⚠️ **The mechanism is NOT the rows.** Measured on
+`main` @`1b82ab7` over adjacent register-touching commit pairs since 2026-08-26,
+the share where BOTH sides bump the same `updated_at`/`as_of` header line:
+**MANAGER-CHECKLIST 29/39 (74%)** · OPEN-PRS 8/12 (67%) · SESSIONS 14/23 (61%).
+PR #10815's entire conflict here was that one line. Row contention is the
+minority (31% / 50% / 9%).
+
+So the remedy is `.gitattributes` + `scripts/ops/merge_json_register.py`, a
+row-aware 3-way merge — **not** one-file-per-row. ⚠️ **Sharding would not have
+fixed the majority case**: `as_of` lives in the container and would keep
+conflicting. Install it once per clone:
+
+```bash
+scripts/ops/install_merge_driver.sh   # git refuses an executable path from a tracked file
+```
+
+⚠️ **IT IS CLIENT-SIDE. GITHUB DOES NOT RUN IT.** A `mergeable_state: dirty` PR
+is still dirty on GitHub; what this removes is resolving it by hand. A clone that
+never ran the installer merges these files the old way — it degrades, it does not
+break.
+
+⚠️ **IT REFUSES RATHER THAN PICKING A WINNER.** Divergent same-id ADD, divergent
+same-id EDIT and delete-vs-edit all exit 1 with markers left. This is not
+caution for its own sake: a union-by-id resolver once reported *"no id lost, none
+resurrected"* while silently dropping an edit, because both sides had ADDED the
+same id and the divergence check only covered rows present in the merge base. A
+row deleted on one side and untouched on the other **stays deleted** — deletion
+is intent.
+
+It never reformats: rows are spliced as original byte spans, so
+`backlog_append.py::append_row`'s exact-serialisation contract holds and
+`OPEN-ITEMS.json` — which is NOT byte-reproducible — is safe. Round-trip is
+byte-identical on all five registers; `--check-round-trip` is the proof.
 
 ## The morning handoff: THE DAILY BRIEF
 
