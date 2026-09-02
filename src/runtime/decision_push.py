@@ -7,20 +7,32 @@ that so that, when the answer gets to the repo, it knows to push it to the
 session instead of waiting for the session to pull?"*
 
 Feasibility, with each claim marked TESTED / READ / RECORDED:
-``docs/design/decision-push-back-FEASIBILITY.md``. The short version, because
-these four facts are what shape every line below:
+``docs/design/decision-push-back-FEASIBILITY.md``. The DESIGN that followed the
+operator's 2026-09-02 decision, with PROVEN / NOT PROVEN per mechanism:
+``docs/design/decision-push-back-DESIGN.md``.
 
-1. **A runner cannot fire a session-bound Routine.** The Routine ``/fire`` HTTP
-   endpoint exists, but it *starts a new session* and its token is minted
-   per-routine from the web UI. What reaches an EXISTING session from CI is
-   ``claude -p "<msg>" --cloud <session-id>``, which the platform documents for
-   exactly this use.
-2. **The push must CARRY the answer, never a pointer to it.** A woken turn may
-   have no ``mcp__*`` tools (RECORDED: a session-bound Routine stores no MCP
+⚠️ **THE DELIVERY MECHANISM CHANGED ON 2026-09-02 AND THIS DOCSTRING USED TO
+DESCRIBE THE OLD ONE.** It said the runner delivers via
+``claude -p "<msg>" --cloud <session-id>``. The operator ruled that out — it
+needs a claude.ai OAuth credential with no long-lived CI form, and *"we
+definitely can't have a flow that relies on my minting new tokens every month"*.
+**Nothing is ever minted.** Delivery is now done by a Claude SESSION calling
+``create_trigger(persistent_session_id=…)`` + ``fire_trigger``, because those
+are ``mcp__*`` tools that only a session holds. This module is the pure decision
+half; ``scripts/ops/push_decisions_back.py`` is the repo half.
+
+Four facts shape every line below:
+
+1. **A RUNNER CANNOT DELIVER AT ALL.** Not by Routine ``/fire`` (it starts a NEW
+   session, and its token is minted per-routine from the web UI), not by
+   ``watch_url`` (TESTED: its credential is sealed to the artifact service), and
+   not by the CLI (no long-lived CI credential exists). The delivering party is
+   always a session.
+2. **The push must CARRY the answer, never a pointer to it.** A woken turn has
+   no ``mcp__*`` tools (RECORDED: a session-bound Routine stores no MCP
    connectors), so *"go read the PR"* strands it. The message quotes the answer.
 3. **It is ONE-WAY.** Nothing acknowledges receipt. The sender learns delivery
-   worked by observing what the woken session does — never by a reply. Nothing
-   here waits for one.
+   worked by observing what the woken session does — never by a reply.
 4. **It ADDS push; it does not replace pull.** ``/api/bot/work/decisions`` keeps
    grading ``committed`` from the repo. A push-only design loses answers exactly
    when the asking session died, which is when the answer matters most.
@@ -29,23 +41,24 @@ these four facts are what shape every line below:
 THREE DELIVERY STATES, NEVER COLLAPSED
 ────────────────────────────────────────────────────────────────────────────
 
-``pushed``        the delivery command reported success
+``pushed``        the delivering session fired the Routine and it was accepted
 ``session_gone``  the platform said this session cannot receive — **a real
                   state, not an error.** The answer stays discoverable on the
                   pull path exactly as before; nothing is lost, and the record
                   says why nobody was woken
-``unknown``       **we could not establish it.** No credential configured, a
-                  network failure, a timeout, an ``ok: false`` whose reason we
-                  do not recognise. This is the DEFAULT for anything not
-                  positively identified as one of the other two
+``unknown``       **we could not establish it.** The drain did not run, the
+                  fire failed for a reason we cannot attribute, or nobody
+                  looked. This is the DEFAULT for anything not positively
+                  identified as one of the other two
 
 ⚠️ **The pair that matters is ``session_gone`` vs ``unknown``.** Collapsing an
 unrecognised failure into ``session_gone`` would write *"that session is dead"*
-into the repo on the strength of a network blip, and — because a marker
-suppresses further attempts — would permanently strand an answer for a session
-that was alive the whole time. So only the platform's own two *cannot receive*
-signals produce ``session_gone``; everything else is ``unknown``, and
-``unknown`` writes **no marker**, so it is retried.
+into the repo on the strength of a blip, and — because a marker suppresses
+further attempts — would permanently strand an answer for a session that was
+alive the whole time. So only a positive *cannot receive*
+signal produces ``session_gone``; everything else is ``unknown``, and
+``unknown`` writes **no marker**, so it is retried. ⚠️ As of 2026-09-02
+``session_gone`` is REACHABLE BUT UNEXERCISED — see the note above `plan_push`.
 
 ⚠️ **An EXPIRED session is NOT gone.** READ: a cloud session stops after
 inactivity and its VM is reclaimed, but reopening it *"provisions a fresh VM
@@ -73,8 +86,6 @@ Observe-only from the trader's point of view: no order path, no config, no VM.
 """
 from __future__ import annotations
 
-import json
-import re
 from typing import Any
 
 # ONE owner for the asked-by vocabulary. Imported, never re-derived: two
@@ -108,98 +119,26 @@ PLAN_ACTIONS: tuple[str, ...] = (
     SKIP_ASKER_MALFORMED,
 )
 
-# The platform's own two "this session cannot receive" signals, quoted from the
-# documented error table rather than invented here. Matched case-insensitively
-# on the combined stdout+stderr.
+# ⚠️ THERE IS DELIBERATELY NO OUTCOME CLASSIFIER HERE, AND ITS ABSENCE IS A
+# STATED GAP RATHER THAN AN OVERSIGHT.
 #
-# ⚠️ These are deliberately NARROW. Every widening of this list converts some
-# other failure into a permanent `session_gone` marker that suppresses retry, so
-# a loose pattern here silently loses answers. If a new genuine gone-signal
-# appears, add it explicitly with its source — never a catch-all like "not
-# found" or "error".
-_GONE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    # "Session not found: session_01ABC…"
-    re.compile(r"\bsession not found\b", re.IGNORECASE),
-    # "cloud session <id> is archived and cannot accept new messages"
-    re.compile(r"\bis archived and cannot accept new messages\b", re.IGNORECASE),
-)
-
-
-def _gone_signal(text: str) -> str | None:
-    """The matched gone-signal, or ``None``. Returns WHICH one matched so the
-    marker records the evidence rather than a bare verdict."""
-    for pat in _GONE_PATTERNS:
-        m = pat.search(text or "")
-        if m:
-            return m.group(0)
-    return None
-
-
-def classify_delivery(
-    *,
-    returncode: int | None,
-    stdout: str,
-    stderr: str,
-    credential_present: bool = True,
-) -> tuple[str, str]:
-    """Grade one delivery attempt into ``(state, detail)``. **Pure.**
-
-    Kept a pure function on purpose: the policy that decides whether a session
-    is DEAD is then arguable in tests rather than against a live session — the
-    discipline ``stray_oca_groups.py`` and ``protection_reassert.py`` already
-    follow in this repo, after an automated remediation once cancelled the leg
-    that matched the journal.
-
-    Order is load-bearing:
-
-    * **No credential ⇒ ``unknown``, first, before anything else.** A channel
-      that is switched off has not observed anything about the session. Grading
-      it ``session_gone`` would write a death certificate for a session nobody
-      contacted; grading it ``pushed`` is obviously worse.
-    * **A gone-signal is checked before the return code**, because the CLI exits
-      non-zero on both a dead session and a network failure, so the exit code
-      alone cannot separate them.
-    * **``ok: true`` is the only thing that means delivered.** An ``ok: false``
-      whose reason we do not recognise is ``unknown``, never ``session_gone``.
-    """
-    if not credential_present:
-        return UNKNOWN, "no delivery credential configured"
-
-    combined = f"{stdout or ''}\n{stderr or ''}"
-
-    gone = _gone_signal(combined)
-    if gone is not None:
-        return SESSION_GONE, f"platform reported: {gone}"
-
-    # `--output-format json` prints one line of JSON. Parse the last JSON object
-    # we can find rather than the whole stream, since the CLI may print
-    # human-readable lines alongside it.
-    parsed = _last_json_object(stdout or "")
-    if isinstance(parsed, dict) and parsed.get("ok") is True:
-        return PUSHED, "ok: true"
-    if isinstance(parsed, dict) and parsed.get("ok") is False:
-        err = parsed.get("error")
-        # An `ok: false` we cannot attribute is NOT evidence the session is
-        # gone. Retry rather than bury it.
-        return UNKNOWN, f"delivery reported ok:false ({err!r})"
-
-    if returncode == 0:
-        # Exit 0 with nothing we can parse. Do not read silence as success.
-        return UNKNOWN, "exit 0 but no parsable {ok: …} result"
-
-    return UNKNOWN, f"delivery failed (rc={returncode})"
-
-
-def _last_json_object(text: str) -> Any:
-    for line in reversed((text or "").splitlines()):
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            return json.loads(line)
-        except ValueError:
-            continue
-    return None
+# An earlier version graded the stdout/stderr of `claude -p --cloud` into these
+# three states. That mechanism was ruled out (no long-lived CI credential), so
+# the classifier went with it rather than being left as unreachable code.
+#
+# The replacement mechanism is a Claude session calling `fire_trigger`, and
+# **nobody has yet observed what that call returns when the target session is
+# archived, expired, or gone.** Writing a mapping for failures no one has seen
+# would be inventing the evidence — precisely the error this subsystem's own
+# feasibility work refused to make about `watch_url` and the Routine `/fire`
+# endpoint. So the delivering session REPORTS one of the three states and
+# `push_decisions_back.py --record` validates it against this vocabulary;
+# `unknown` remains the default for anything not positively identified, and it
+# writes no marker, so it is retried.
+#
+# What would close this gap: one observed delivery to a session that is
+# genuinely archived, and one to a session that is genuinely live. Until then
+# the honest position is that `session_gone` is REACHABLE BUT UNEXERCISED.
 
 
 def plan_push(request: dict[str, Any]) -> dict[str, Any]:

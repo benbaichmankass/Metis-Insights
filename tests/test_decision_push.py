@@ -13,6 +13,7 @@ silently lose an answer:
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -31,7 +32,6 @@ from src.runtime.decision_push import (  # noqa: E402
     SKIP_NO_ASKER,
     SKIP_NOT_COMMITTED,
     UNKNOWN,
-    classify_delivery,
     plan_push,
     render_push_message,
     render_push_yaml_block,
@@ -45,74 +45,6 @@ from src.runtime.work_decisions import (  # noqa: E402
 )
 
 SID = "session_01PEYVqTaCY92C3HmtHwxYff"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# classify_delivery — the three states
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def test_ok_true_is_the_only_thing_that_means_pushed():
-    state, _ = classify_delivery(
-        returncode=0, stdout='{"ok": true, "session_id": "' + SID + '"}', stderr=""
-    )
-    assert state == PUSHED
-
-
-@pytest.mark.parametrize(
-    "stream",
-    [
-        f"Error: Session not found: {SID}",
-        f"Error: failed to send message to cloud session {SID}: cloud session "
-        f"{SID} is archived and cannot accept new messages",
-    ],
-)
-def test_the_two_documented_gone_signals_grade_session_gone(stream):
-    state, detail = classify_delivery(returncode=1, stdout="", stderr=stream)
-    assert state == SESSION_GONE
-    # The marker records WHICH signal matched, not a bare verdict.
-    assert detail.startswith("platform reported:")
-
-
-@pytest.mark.parametrize(
-    "rc,out,err",
-    [
-        (1, "", "Error: connect ETIMEDOUT"),
-        (1, "", "Error: 529 Overloaded"),
-        (1, "", "Error: could not resolve api.anthropic.com"),
-        # An `ok:false` whose reason we do not recognise.
-        (1, '{"ok": false, "session_id": "x", "error": "something new"}', ""),
-        # Exit 0 with nothing parsable — silence is not success.
-        (0, "", ""),
-        (0, "Sent to cloud session.", ""),
-        (None, "", "delivery timed out after 120s"),
-        (None, "", "claude CLI not found on PATH"),
-    ],
-)
-def test_everything_unrecognised_grades_unknown_never_session_gone(rc, out, err):
-    state, _ = classify_delivery(returncode=rc, stdout=out, stderr=err)
-    assert state == UNKNOWN, (
-        "an unrecognised failure must never be read as a dead session: the "
-        "marker it would write suppresses every future retry"
-    )
-
-
-def test_missing_credential_is_unknown_not_gone_and_not_pushed():
-    # Even with output that would otherwise read as success.
-    state, detail = classify_delivery(
-        returncode=0, stdout='{"ok": true}', stderr="", credential_present=False
-    )
-    assert state == UNKNOWN
-    assert "credential" in detail
-
-
-def test_a_gone_phrase_in_a_quoted_message_still_requires_the_platform_wording():
-    # The narrowness of the gone-patterns is the safety property. A message that
-    # merely contains the word "archived" must not be read as a gone-signal.
-    state, _ = classify_delivery(
-        returncode=1, stdout="", stderr="Error: the archived branch could not be fetched"
-    )
-    assert state == UNKNOWN
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -252,117 +184,6 @@ def test_marker_round_trips_through_the_reader():
     assert req["push"]["sessionId"] == SID
 
 
-def test_every_declared_state_is_reachable_from_the_classifier():
-    # A vocabulary with an unreachable member is a dead claim.
-    seen = {
-        classify_delivery(returncode=0, stdout='{"ok": true}', stderr="")[0],
-        classify_delivery(returncode=1, stdout="", stderr="Session not found: x")[0],
-        classify_delivery(returncode=1, stdout="", stderr="boom")[0],
-    }
-    assert seen == set(DELIVERY_STATES)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# The runner script, end to end over a real objects directory.
-#
-# These are the assertions that pin BEHAVIOUR rather than policy: that an
-# `unknown` leaves no marker and is therefore retried, that a settled outcome
-# does leave one and is therefore not, and that a switched-off channel contacts
-# nobody. A pure-function test cannot show any of those.
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def _seed(tmp_path, name, asked_by, answer):
-    import yaml
-    doc = {
-        "id": name,
-        "decision_requests": [
-            {
-                "id": "DEC-1",
-                "question": "Ship it?",
-                "options": [{"key": "yes", "label": "Ship", "implication": "It goes live."}],
-                **({"asked_by": asked_by} if asked_by else {}),
-                **({"answer": answer} if answer else {}),
-            }
-        ],
-    }
-    (tmp_path / f"{name}.yaml").write_text(yaml.safe_dump(doc, sort_keys=False))
-
-
-@pytest.fixture()
-def objects_dir(tmp_path, monkeypatch):
-    import scripts.ops.push_decisions_back as mod
-    monkeypatch.setattr(mod, "OBJECTS_DIR", tmp_path)
-    return tmp_path
-
-
-_A = {"chosen": "yes", "answered_at": "2026-09-02T10:16:36Z", "answered_by": "telegram"}
-_GONE_SID = "session_01DEADDEADDEADDEADbb"
-_BLIP_SID = "session_01BLIPBLIPBLIPBLIPcc"
-
-
-def _fake_deliver(calls):
-    def deliver(sid, msg):
-        calls.append(sid)
-        if "DEAD" in sid:
-            return 1, "", (f"Error: cloud session {sid} is archived and cannot "
-                           f"accept new messages")
-        if "BLIP" in sid:
-            return 1, "", "Error: connect ETIMEDOUT"
-        return 0, '{"ok": true, "session_id": "%s"}' % sid, ""
-    return deliver
-
-
-def test_channel_off_contacts_nobody_and_writes_nothing(objects_dir):
-    import scripts.ops.push_decisions_back as mod
-    _seed(objects_dir, "OBJ-OK", {"session_id": SID}, dict(_A))
-    calls = []
-    out = mod.run(apply=True, deliver=_fake_deliver(calls), has_credential=lambda: False)
-    assert out["channelState"] == "off_no_credential"
-    assert calls == [], "a switched-off channel must not contact anyone"
-    assert out["deliveryStateCounts"][UNKNOWN] == 1
-    assert out["deliveryStateCounts"][SESSION_GONE] == 0, (
-        "an unconfigured channel has observed nothing about the session"
-    )
-    assert not any(r.get("markerWritten") for r in out["results"])
-
-
-def test_unknown_leaves_no_marker_and_is_retried_while_settled_outcomes_are_not(objects_dir):
-    import scripts.ops.push_decisions_back as mod
-    _seed(objects_dir, "OBJ-OK", {"session_id": SID}, dict(_A))
-    _seed(objects_dir, "OBJ-GONE", {"session_id": _GONE_SID}, dict(_A))
-    _seed(objects_dir, "OBJ-BLIP", {"session_id": _BLIP_SID}, dict(_A))
-
-    calls = []
-    first = mod.run(apply=True, deliver=_fake_deliver(calls), has_credential=lambda: True)
-    assert sorted(calls) == sorted([SID, _GONE_SID, _BLIP_SID])
-    assert first["deliveryStateCounts"] == {PUSHED: 1, SESSION_GONE: 1, UNKNOWN: 1}
-
-    calls.clear()
-    second = mod.run(apply=True, deliver=_fake_deliver(calls), has_credential=lambda: True)
-    assert calls == [_BLIP_SID], (
-        "only the unsettled attempt may be retried; a delivered or "
-        "confirmed-gone answer must never be pushed twice"
-    )
-    assert second["actionCounts"][SKIP_ALREADY_PUSHED] == 2
-
-
-def test_dry_run_is_the_default_and_sends_nothing(objects_dir):
-    import scripts.ops.push_decisions_back as mod
-    _seed(objects_dir, "OBJ-OK", {"session_id": SID}, dict(_A))
-    calls = []
-    out = mod.run(apply=False, deliver=_fake_deliver(calls), has_credential=lambda: True)
-    assert calls == []
-    assert out["actionCounts"][DELIVER] == 1
-    assert not any(r.get("markerWritten") for r in out["results"])
-
-
-def test_an_unreadable_object_is_reported_not_skipped(objects_dir):
-    import scripts.ops.push_decisions_back as mod
-    (objects_dir / "BROKEN.yaml").write_text("decision_requests: [oops\n  : :")
-    out = mod.run(apply=False, deliver=_fake_deliver([]), has_credential=lambda: True)
-    assert out["readErrors"], "we could not read it is not the same as nothing is there"
-    assert mod.main([]) == 1, "a finding must fail the run rather than pass quietly"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -394,3 +215,214 @@ def test_the_writer_cannot_produce_a_block_the_reader_calls_malformed():
     for sid in (SID, "cse_01PEYVqTaCY92C3HmtHwxYff"):
         assert _request(asked_by=render_asked_by_block(session_id=sid))[
             "askedByState"] == ASKED_BY_RECORDED
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The DRAIN and its WATCHER.
+#
+# The operator's binding requirement for mechanism B: "B is not done when the
+# Routine exists. B is done when something WATCHES that it fired." These pin
+# that watcher, and in particular the two distinctions that make it useful —
+# `never_ran` vs `stale` (a Routine never wired up vs one that stopped), and
+# `unreadable` never passing.
+# ─────────────────────────────────────────────────────────────────────────────
+
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+import scripts.ops.check_drain_liveness as liveness  # noqa: E402
+import scripts.ops.push_decisions_back as drain  # noqa: E402
+
+_NOW = datetime(2026, 9, 2, 12, 0, tzinfo=timezone.utc)
+
+
+def _receipt(hours_ago: float) -> dict:
+    at = (_NOW - timedelta(hours=hours_ago)).isoformat().replace("+00:00", "Z")
+    return {"schema": 1, "last_run_at": at, "runs_recorded": 3, "recent": []}
+
+
+def test_absent_receipt_is_never_ran_not_stale():
+    v = liveness.grade(receipt=None, read_error=None, window_hours=6, now=_NOW)
+    assert v["state"] == liveness.NEVER_RAN, (
+        "a Routine that was created and never fired needs a different fix from "
+        "one that stopped; collapsing them sends a reader hunting a regression "
+        "that never happened"
+    )
+
+
+def test_fresh_and_stale_split_on_the_window():
+    assert liveness.grade(receipt=_receipt(1), read_error=None,
+                          window_hours=6, now=_NOW)["state"] == liveness.FRESH
+    assert liveness.grade(receipt=_receipt(30), read_error=None,
+                          window_hours=6, now=_NOW)["state"] == liveness.STALE
+
+
+def test_unreadable_is_its_own_state_and_never_passes():
+    v = liveness.grade(receipt=None, read_error="boom", window_hours=6, now=_NOW)
+    assert v["state"] == liveness.UNREADABLE
+    assert v["state"] != liveness.NEVER_RAN, "we could not look is not we looked"
+
+
+def test_an_undateable_receipt_is_unreadable_not_fresh():
+    v = liveness.grade(receipt={"last_run_at": "not-a-date", "runs_recorded": 1},
+                       read_error=None, window_hours=6, now=_NOW)
+    assert v["state"] == liveness.UNREADABLE, (
+        "a liveness record that cannot be dated cannot be shown to be fresh, "
+        "and the fail-safe reading is that it is not"
+    )
+
+
+def test_only_fresh_exits_zero():
+    for state, receipt, err in (
+        (liveness.FRESH, _receipt(1), None),
+        (liveness.STALE, _receipt(99), None),
+        (liveness.NEVER_RAN, None, None),
+        (liveness.UNREADABLE, None, "boom"),
+    ):
+        v = liveness.grade(receipt=receipt, read_error=err, window_hours=6, now=_NOW)
+        assert v["state"] == state
+    assert set(liveness.LIVENESS_STATES) == {
+        liveness.FRESH, liveness.STALE, liveness.NEVER_RAN, liveness.UNREADABLE}
+
+
+@pytest.fixture()
+def drain_dirs(tmp_path, monkeypatch):
+    objects = tmp_path / "objects"
+    objects.mkdir()
+    monkeypatch.setattr(drain, "OBJECTS_DIR", objects)
+    monkeypatch.setattr(drain, "RECEIPT_PATH", tmp_path / "DECISION-DRAIN.json")
+    return objects, tmp_path / "DECISION-DRAIN.json"
+
+
+def _seed_obj(objects, name, asked_by, answer):
+    import yaml
+    doc = {"id": name, "decision_requests": [{
+        "id": "DEC-1", "question": "Ship it?",
+        "options": [{"key": "yes", "label": "Ship", "implication": "It goes live."}],
+        **({"asked_by": asked_by} if asked_by else {}),
+        **({"answer": answer} if answer else {})}]}
+    (objects / f"{name}.yaml").write_text(yaml.safe_dump(doc, sort_keys=False))
+
+
+_ANS = {"chosen": "yes", "answered_at": "2026-09-02T10:16:36Z", "answered_by": "telegram"}
+
+
+def test_queue_carries_the_rendered_message_not_a_pointer(drain_dirs):
+    objects, _ = drain_dirs
+    _seed_obj(objects, "OBJ-OK", {"session_id": SID}, dict(_ANS))
+    q = drain.build_queue()
+    assert q["queueDepth"] == 1
+    msg = q["queue"][0]["message"]
+    # The repo renders it, so the rule is enforced rather than trusted to
+    # whoever writes the Routine prompt.
+    assert "yes" in msg and "It goes live." in msg
+    assert "one-way" in msg.lower()
+
+
+def test_recording_unknown_writes_no_marker_so_it_is_retried(drain_dirs):
+    objects, _ = drain_dirs
+    _seed_obj(objects, "OBJ-OK", {"session_id": SID}, dict(_ANS))
+    out = drain.record_outcome(object_id="OBJ-OK", request_id="DEC-1",
+                               state=UNKNOWN, detail=None, pushed_by="t")
+    assert out["markerWritten"] is False
+    assert drain.build_queue()["queueDepth"] == 1, "an unsettled push must retry"
+
+
+def test_recording_a_settled_state_stops_further_pushes(drain_dirs):
+    objects, _ = drain_dirs
+    _seed_obj(objects, "OBJ-OK", {"session_id": SID}, dict(_ANS))
+    drain.record_outcome(object_id="OBJ-OK", request_id="DEC-1",
+                         state=PUSHED, detail="trig_x", pushed_by="t")
+    assert drain.build_queue()["queueDepth"] == 0
+
+
+def test_a_push_marker_is_refused_on_an_uncommitted_answer(drain_dirs):
+    objects, _ = drain_dirs
+    _seed_obj(objects, "OBJ-OPEN", {"session_id": SID}, None)
+    with pytest.raises(ValueError):
+        drain.record_outcome(object_id="OBJ-OPEN", request_id="DEC-1",
+                             state=PUSHED, detail=None, pushed_by="t")
+
+
+def test_an_unrecognised_state_is_refused(drain_dirs):
+    objects, _ = drain_dirs
+    _seed_obj(objects, "OBJ-OK", {"session_id": SID}, dict(_ANS))
+    with pytest.raises(ValueError):
+        drain.record_outcome(object_id="OBJ-OK", request_id="DEC-1",
+                             state="delivered", detail=None, pushed_by="t")
+
+
+def test_the_empty_run_leaves_evidence(drain_dirs):
+    _, receipt_path = drain_dirs
+    drain.write_receipt(queue_depth=0, note="nothing to push")
+    doc = json.loads(receipt_path.read_text())
+    assert doc["runs_recorded"] == 1
+    v = liveness.grade(receipt=doc, read_error=None, window_hours=6)
+    assert v["state"] == liveness.FRESH, (
+        "an empty run is what separates 'nothing needed pushing' from "
+        "'the drain is dead'"
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# resume_context — design C's substrate.
+#
+# These pin the distinction the whole mechanism turns on: `partial` must not
+# grade as `stated`. The plausible failure in C is a resumer reading a
+# confident-looking block, re-deriving the wrong next action, and proceeding.
+# ─────────────────────────────────────────────────────────────────────────────
+
+from src.runtime.work_decisions import RESUME_STATES  # noqa: E402
+from src.runtime.work_decisions import (  # noqa: E402
+    RESUME_PARTIAL,
+    RESUME_STATED,
+    RESUME_UNSTATED,
+)
+
+_OPTS = [{"key": "yes", "label": "Y"}, {"key": "no", "label": "N"}]
+
+
+def _resume(rc):
+    raw = {"id": "R", "options": _OPTS}
+    if rc is not None:
+        raw["resume_context"] = rc
+    return normalise_requests({"decision_requests": [raw]}, "OBJ")[0]
+
+
+def test_absent_resume_context_is_unstated():
+    assert _resume(None)["resumeState"] == RESUME_UNSTATED
+
+
+def test_context_without_a_per_option_next_step_is_partial_not_stated():
+    r = _resume({"what_was_in_flight": "building the drain"})
+    assert r["resumeState"] == RESUME_PARTIAL, (
+        "a resumer told the direction but not the action must not grade the "
+        "same as one told both — that gap is where C fails"
+    )
+    assert r["resumeContext"]["whatWasInFlight"] == "building the drain"
+
+
+def test_full_context_is_stated():
+    r = _resume({"what_was_in_flight": "building the drain",
+                 "what_this_unblocks": "the floor",
+                 "next_step_per_option": {"yes": "ship it", "no": "revert"}})
+    assert r["resumeState"] == RESUME_STATED
+    assert r["resumeContext"]["nextStepPerOption"]["yes"] == "ship it"
+
+
+def test_next_steps_for_options_the_author_never_declared_do_not_count():
+    r = _resume({"what_was_in_flight": "x",
+                 "next_step_per_option": {"maybe": "???"}})
+    assert r["resumeState"] == RESUME_PARTIAL, (
+        "guidance keyed on an option that does not exist is not guidance a "
+        "resumer can act on"
+    )
+
+
+def test_resume_states_are_exactly_three_and_all_reachable():
+    seen = {
+        _resume(None)["resumeState"],
+        _resume({"what_was_in_flight": "x"})["resumeState"],
+        _resume({"what_was_in_flight": "x",
+                 "next_step_per_option": {"yes": "go"}})["resumeState"],
+    }
+    assert seen == set(RESUME_STATES)

@@ -119,6 +119,16 @@ ASKED_BY_RECORDED = "recorded"
 ASKED_BY_UNRECORDED = "unrecorded"
 ASKED_BY_MALFORMED = "malformed"
 
+# ── can a FRESH session pick this work up? (design C, 2026-09-02) ────────────
+# Three states, never collapsed. `partial` is the one that matters: context
+# that looks complete and omits the per-option next step is where a resumer
+# re-derives the wrong action while believing it was told.
+RESUME_STATED = "stated"
+RESUME_PARTIAL = "partial"
+RESUME_UNSTATED = "unstated"
+
+RESUME_STATES: tuple[str, ...] = (RESUME_STATED, RESUME_PARTIAL, RESUME_UNSTATED)
+
 ASKED_BY_STATES: tuple[str, ...] = (
     ASKED_BY_RECORDED,
     ASKED_BY_UNRECORDED,
@@ -279,6 +289,70 @@ def normalise_asked_by(raw: Any) -> tuple[dict[str, Any] | None, str]:
     )
 
 
+def normalise_resume_context(raw: Any, options: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, str]:
+    """What a FRESH session needs in order to pick this work up. ``(block, state)``.
+
+    This is the substrate for design **C** (operator decision, 2026-09-02): a
+    blocking question ends its session cleanly and a fresh one resumes when the
+    answer lands, **reloading context from the work object rather than holding a
+    session open**. That deletes the push requirement entirely — if nothing has
+    to reach INTO a running session, nothing needs a credential to do it.
+
+    ⚠️ **THIS MAKES RESUMPTION POSSIBLE. IT DOES NOT MAKE IT PROVEN.** The claim
+    *"killing a session mid-work loses nothing"* is `WO-20260901-PHASE-E`'s exit
+    condition and it is explicitly *"DEMONSTRATED by killing one"* — **nobody
+    has killed one.** Nothing here may be read as evidence that a resume works;
+    it is the input a resume would need, and no more.
+
+    Three states, never collapsed:
+
+    ``stated``    a resumer is told what was in flight AND what to do for the
+                  option that was chosen
+    ``partial``   context is present but no per-option next step — a resumer
+                  knows the direction and must re-derive the action, which is
+                  where a resume most plausibly goes wrong
+    ``unstated``  nobody wrote one. The ordinary state of every request written
+                  before 2026-09-02, and of any question a human asked
+
+    ⚠️ ``partial`` is deliberately NOT folded into ``stated``. The whole risk in
+    C is a resumer that reads a confident-looking block, re-derives the wrong
+    next action, and proceeds — so *"we recorded some context"* must not grade
+    the same as *"we recorded the context a resumer acts on"*.
+    """
+    if raw is None:
+        return None, RESUME_UNSTATED
+    if not isinstance(raw, dict):
+        return None, RESUME_UNSTATED
+
+    def _text(key: str) -> str | None:
+        v = raw.get(key)
+        return v.strip() if isinstance(v, str) and v.strip() else None
+
+    per_option_raw = raw.get("next_step_per_option")
+    per_option: dict[str, str] = {}
+    if isinstance(per_option_raw, dict):
+        for k, v in per_option_raw.items():
+            if isinstance(k, str) and isinstance(v, str) and v.strip():
+                per_option[k.strip()] = v.strip()
+
+    block = {
+        "whatWasInFlight": _text("what_was_in_flight"),
+        "whatThisUnblocks": _text("what_this_unblocks"),
+        "branch": _text("branch"),
+        "nextStepPerOption": per_option or None,
+    }
+    if not any(block.values()):
+        return None, RESUME_UNSTATED
+
+    # `stated` requires a next step for at least one DECLARED option — a map
+    # keyed on options the author never wrote is not guidance a resumer can use.
+    declared = {o["key"] for o in options}
+    usable = declared & set(per_option) if declared else set(per_option)
+    if usable and (block["whatWasInFlight"] or block["whatThisUnblocks"]):
+        return block, RESUME_STATED
+    return block, RESUME_PARTIAL
+
+
 def render_asked_by_block(
     *, session_id: str, note: str | None = None, recorded_at: str | None = None
 ) -> dict[str, Any]:
@@ -358,6 +432,7 @@ def normalise_requests(object_data: dict[str, Any], object_id: str) -> list[dict
         options = [o for o in (normalise_option(o) for o in raw.get("options") or []) if o]
         allows_free_text = raw.get("allows_free_text")
         asked_by, asked_by_state = normalise_asked_by(raw.get("asked_by"))
+        resume, resume_state = normalise_resume_context(raw.get("resume_context"), options)
         answer_block = normalise_answer(raw.get("answer"))
         # The push marker lives INSIDE the answer, not beside it: a push is a
         # fact about a COMMITTED answer, and hanging it off the request would
@@ -374,6 +449,11 @@ def normalise_requests(object_data: dict[str, Any], object_id: str) -> list[dict
                 "askedBy": asked_by,
                 "askedByState": asked_by_state,
                 "push": push,
+                # Design C: what a FRESH session would need to resume this
+                # work. Present as keys always — a key that vanishes makes a
+                # consumer branch on absence, and absence is not a state.
+                "resumeContext": resume,
+                "resumeState": resume_state,
                 "question": raw.get("question") if isinstance(raw.get("question"), str) else None,
                 "options": options,
                 # An explicit `false` closes free text; anything else leaves it
