@@ -214,11 +214,11 @@ def grade(
 
     if probe_state == "could_not_run":
         return v("unknown",
-                 f"the probe COULD NOT READ the soak — this says nothing about "
-                 f"whether rows exist. ⚠️ It is NOT `not_writing`: an "
-                 f"unreadable log and an empty log are opposite findings. The "
-                 f"row is currently unwatched and would not tell us if the soak "
-                 f"had died.")
+                 "the probe COULD NOT READ the soak — this says nothing about "
+                 "whether rows exist. ⚠️ It is NOT `not_writing`: an "
+                 "unreadable log and an empty log are opposite findings. The "
+                 "row is currently unwatched and would not tell us if the soak "
+                 "had died.")
 
     if probe_state == "source_empty":
         # The state that did not exist before 2026-09-02.

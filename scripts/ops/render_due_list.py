@@ -497,8 +497,13 @@ def src_probes(
     # not hold and somebody should know. For a SOAK it is exactly wrong — a
     # soak that is patiently accruing IS in the `fail` state for its entire
     # life, so this fired a loud row every single day of a healthy soak. That is
-    # the desensitised-alarm P1 (`BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-
-    # EVERY-RESTART`) sitting inside the machinery meant to prevent it.
+    # the desensitised-alarm P1 sitting inside the machinery meant to prevent
+    # it — see `BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART`,
+    # where one un-latched condition took 53.7% of the operator's ERROR+ feed.
+    # (The id is kept on ONE line deliberately: wrapping it across the hyphen
+    # truncates it, and `check_backlog_refs.py` correctly reads a truncated id
+    # as a reference that resolves to nothing — a doc saying "tracked by BL-X"
+    # where BL-X was never filed reads as tracked while being tracked by nobody.)
     #
     # `src_soaks` distinguishes accruing (quiet) from not_writing (loud), which
     # this function cannot: both were `fail` until the probe layer split them.
@@ -759,7 +764,6 @@ def _self_test() -> int:
         {"id": "OI-D", "kind": "background_awareness", "loud": True, "summary": "loud but not monitoring"},
         {"id": "OI-E", "kind": "background_awareness", "summary": "quiet"},
     ]}
-    import tempfile
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
         (root / "docs/claude").mkdir(parents=True)
@@ -781,8 +785,9 @@ def _self_test() -> int:
     # Until 2026-08-31 `src_probes` read the committed file and never read its
     # timestamp, so an overrun or failed probes run rendered yesterday's
     # verdicts as today's with no caveat. These controls plant that.
-    import tempfile
-
+    # (`tempfile` is imported at module scope — a second, local `import
+    # tempfile` here made the name function-local and so UnboundLocalError'd
+    # every earlier use in this same function.)
     _T0 = datetime(2026, 8, 31, 12, 0, tzinfo=timezone.utc)
 
     def _probe_root(generated_at, cron='"20 5 * * *"'):
