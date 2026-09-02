@@ -77,6 +77,23 @@ is to name a table that does not exist — a guard that teaches contributors to
 lie to it is worse than no guard. Naming an accessor the file never calls is
 rejected here.
 
+THE SAME APPLIES TO THE D OVERRIDE (tightened 2026-09-02):
+
+    def f(rows, cfg):  # inert: cfg — Evaluator protocol signature; nothing to configure
+
+``# inert:`` must NAME the parameter it excuses, matched on a word boundary
+against the exact name. It was a bare ``re.compile(r'#\s*inert:')`` until
+2026-09-02, i.e. presence-only — so the cheapest way to silence a real finding
+was a four-word comment naming nothing, which is precisely the failure the
+paragraph above says must not exist. This module's own test file had asserted
+the verified property in its docstring since it was written, while asserting
+the presence-only behaviour in its D test; the code won, as it always does.
+Tightening it immediately surfaced 11 markers across 4 files that named no
+parameter at all while the tree reported OK. The name is matched on a word
+boundary rather than through ``_IDENT_RE`` because that pattern needs >= 3
+characters, which would leave a parameter called ``df``, ``n`` or ``id``
+permanently unable to excuse itself.
+
 Exit 0 = clean. Exit 1 = at least one unannotated finding.
 
 Usage:
