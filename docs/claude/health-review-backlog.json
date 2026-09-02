@@ -31170,6 +31170,27 @@
         "scripts/ci/check_open_items.py",
         "docs/claude/OPEN-ITEMS.json"
       ]
+    },
+    {
+      "id": "BL-20260902-FIVE-TEST-MODULES-STUB-NUMPY-AND-BREAK-PYTEST-APPROX-WHERE-NUMPY-IS-ABSENT",
+      "title": "Five test modules still MagicMock `numpy` into sys.modules at import time, which breaks pytest.approx for the whole session on any box without numpy -- the exact defect tests/conftest.py documents as fixed",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-02",
+      "detail": "RECURRENCE, filed deliberately as its own row rather than as a duplicate: the earlier fix was applied to tests/conftest.py and the copy-pasted stubs it names were LEFT IN PLACE, so the class is closed in one file and open in five. === THE MECHANISM, and it is quoted from the repo's own docstring. tests/conftest.py::_preimport_if_available says: 'An earlier version of this fix routed these four through _stub_optional, which installs a MagicMock when the import fails. That broke pytest.approx outright in any environment WITHOUT numpy -- _pytest.python_api.is_bool does `if np := sys.modules.get(\"numpy\"): return isinstance(val, np.bool_)` so a MagicMock in that slot makes np.bool_ a MagicMock, which is not a type, and isinstance() raises TypeError.' The conftest's own remedy is a PRE-IMPORT: it makes the REAL numpy win the sys.modules slot before any test module runs its own `setdefault`. ⚠️ THAT REMEDY ONLY WORKS WHEN NUMPY IS INSTALLED. Where numpy is ABSENT the pre-import is a documented no-op, and these five modules' import-time `for _mod in (\"pandas\", \"matplotlib\", \"matplotlib.pyplot\", \"numpy\", \"scipy\", \"sklearn\", \"dotenv\"): sys.modules.setdefault(_mod, MagicMock())` then installs the MagicMock unopposed, poisoning every later pytest.approx in the same process. === THE FIVE (grep-verified 2026-09-02, by parsing the `for _mod in (...)` tuple rather than by a bare `numpy` grep): tests/test_orders.py, tests/test_outcomes_integration.py, tests/test_pipeline_news_veto.py, tests/test_pipeline_result_renderer.py, tests/test_processor_repo_root_resolution.py. Eleven further modules carry the same copy-pasted loop WITHOUT numpy in the tuple and are not implicated. === MEASURED, with a stated population. On a numpy-less sandbox, the 339 test files matching order_monitor|bybit|get_env ran 386 failed / 4610 passed; `pip install numpy` alone took that to 143 failed / 4853 passed. So 243 of those 386 failures (63.0%; denominator = the 386 failures in that run, population = the 339 files above, one sandbox, n = 1 run per arm) were this one stub, and 243 of the 4853 eventual passes were unblocked by installing numpy alone. ⚠️ IT DOES NOT PRESENT AS AN ENVIRONMENT ERROR: the failure surfaces as an ordinary-looking assertion failure on a value that is in fact CORRECT (observed: `assert qty == pytest.approx(0.018)` with qty == 0.018), and the TypeError is four frames down inside _pytest. That is what makes it expensive -- a session reads it as a logic bug in its own diff. === WHY IT MATTERS BEYOND A SANDBOX. The conftest docstring records that the ORIGINAL instance was caught by the `guards` CI job, 'which installs only ruff/import-linter/pyyaml/pytest and therefore has no numpy', while `pytest-run` stayed green because it installs the full requirements. That asymmetry is unchanged, so any test collected by a lean job after one of these five is exposed. NOT VERIFIED: whether `guards` currently collects any of the five -- establish that before deciding severity, and do not assume the sandbox reading transfers to CI (the isolation_audit module makes exactly that warning about its own baseline). === REMEDY, and note the repo has already ruled out the obvious one: tests/isolation_audit.py says 'THE REMEDY IS \"NEVER STUB\", NOT \"STUB MORE\"'. So drop `numpy` from these five tuples (the tests that genuinely need a numpy stub should stub it locally and restore it), rather than teaching the conftest to stub it earlier. Related: BL-20260827-TEST-MODULES-STUB-SKLEARN-INTO-SYS-MODULES-AT-IMPORT-TIME, BL-20260822-TEST-SUITE-CROSS-FILE-SYS-MODULES-POLLUTION -- same class, different package, and this row exists because fixing them as INSTANCES is what left numpy standing.",
+      "resolution_criteria": "`numpy` no longer appears in the import-time MagicMock tuple of any test module (assert by parsing the `for _mod in (...)` tuples, not by grepping for the word), AND a numpy-less run of a suite that collects at least one of the five followed by a pytest.approx-using test passes. ⚠️ INSTALLING NUMPY IN THE LEAN CI JOB DOES NOT RESOLVE THIS and must not be accepted as a fix: it hides the stub rather than removing it, and the next numpy-less environment re-exposes it -- which is precisely how this recurrence happened. ⚠️ A GREEN `pytest-run` IS NOT EVIDENCE either: that job installs the full requirements, so the real numpy wins the slot and the stub is inert there by construction.",
+      "refs": [
+        "tests/conftest.py::_preimport_if_available",
+        "tests/isolation_audit.py",
+        "tests/test_orders.py",
+        "tests/test_outcomes_integration.py",
+        "tests/test_pipeline_news_veto.py",
+        "tests/test_pipeline_result_renderer.py",
+        "tests/test_processor_repo_root_resolution.py",
+        "BL-20260827-TEST-MODULES-STUB-SKLEARN-INTO-SYS-MODULES-AT-IMPORT-TIME",
+        "BL-20260822-TEST-SUITE-CROSS-FILE-SYS-MODULES-POLLUTION"
+      ]
     }
   ]
 }

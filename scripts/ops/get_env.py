@@ -168,6 +168,16 @@ ALLOWED_KEYS: tuple[str, ...] = (
     # Empty is the shipped state and is CORRECT; the point is being able to
     # show that it is still empty rather than asserting it.
     "BYBIT_HEDGE_MODE_SYMBOLS",
+    # BYBIT_GRADED_COVERAGE_* decides whether the naked sweep's re-arm reads
+    # the GRADED book or the side-blind sum, and on WHICH accounts. Its empty
+    # `..._ACCOUNTS` means NONE (the PROTECTION_REASSERT_/PROTECTION_STRAY_
+    # GROUP_ polarity, inverted from CONVICTION_SIZING_/NETTING_ATTRIBUTION_),
+    # so "unset" and "armed everywhere" are opposite readings of the same
+    # blank. It is also a TWO-KEY arm: `apply` with an empty allowlist binds
+    # nothing, so reading either key alone cannot say whether the staged gate
+    # is live on bybit_1. A mode word and an account-id list are not secrets.
+    "BYBIT_GRADED_COVERAGE_MODE",
+    "BYBIT_GRADED_COVERAGE_ACCOUNTS",
     # The IB venue-session gate + probe cache. IB_SESSION_CHECK_DISABLED is a
     # kill-switch on the only thing stopping a close firing into a shut venue;
     # IB_CLOSE_OUTSIDE_RTH decides whether the order acts on the field the gate
