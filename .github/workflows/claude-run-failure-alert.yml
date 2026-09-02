@@ -37,6 +37,14 @@ name: claude-run-failure-alert
 on:
   workflow_run:
     workflows:
+      # The manager-side queue watcher. ⚠️ ITS SILENCE IS INDISTINGUISHABLE FROM
+      # A QUIET QUEUE unless something watches the run itself -- which is the
+      # whole failure class it exists for. It also FAILS DELIBERATELY when an
+      # escalation is due, so this entry is not only the death alarm, it is the
+      # escalation channel: a backed-up PR queue reaches the operator through a
+      # failed run here rather than through the manager, who is the bottleneck
+      # being reported on.
+      - pr-queue-watch
       # A cron whose run DIES notifies nobody otherwise, and this repo has a live
       # instance of that class open (probes.yml / due-list.yml, zero schedule runs
       # since landing). Watching it is the cheap half.

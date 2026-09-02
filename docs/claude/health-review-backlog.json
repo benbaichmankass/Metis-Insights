@@ -31356,6 +31356,25 @@
         "docs/claude/OPEN-ITEMS.json",
         "CLAUDE.md"
       ]
+    },
+    {
+      "id": "BL-20260902-MANAGER-CHECKLIST-IN-FLIGHT-ITEMS-NAME-NO-BRANCH-OR-PR-SO-NOTHING-CAN-JOIN-THEM-TO-THE-WORK",
+      "title": "MANAGER-CHECKLIST.json records 0 branches and 2 PR numbers across 72 items — so an item's claim to be `in_flight` cannot be checked against any artifact, and the obvious staleness detector is uncomputable",
+      "resolution_criteria": "OBSERVABLE, and deliberately about the SPAWN PATH rather than the current rows: a NEW checklist item written after this lands carries a `branch` (or a `prs` entry) naming work that exists on origin, populated at spawn time rather than backfilled — verified by reading the item and resolving the branch on origin, not by reading the spawn code. A CENSUS is the second half and is separable: `in_flight` items naming no branch, counted and reported (today 23 of 23), so the residue is visible while it drains. ⚠️ Backfilling the existing 23 does NOT close this — a branch guessed from a title is a false join that reads as a verified one, which is worse than an absent one, the same polarity as an invented `blocked_on` edge being read by the constraint computation as a real blocker. ⚠️ And a CI guard that FAILS on a missing branch must not land until the spawn path populates it, or it fails all 23 rows on day one — the '52 findings for 26 days' condition. Census first, enforce second.",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-02",
+      "source": "MI-77 (session_01PbQAQXRY2oB1ep2BFEUZeA), while testing four candidate MCP-free proxies for 'something is waiting on the manager'. Three did not survive contact with the data; this is the one that failed for a reason worth fixing rather than a reason worth accepting.",
+      "detail": "MEASURED 2026-09-02 over docs/claude/work/MANAGER-CHECKLIST.json (population: ALL 72 items; state vocabulary is the file's own `states` block). 23 items read `in_flight`. Of those 23, **0 carry a `branch` and 0 carry a `prs` entry**. Across all 72 items: 0 branches, 2 PR entries. WHY IT MATTERS BEYOND TIDINESS. `in_flight` is defined in the file itself as 'a session is actively working it'. That is a claim about the world, and with no branch and no PR on the row there is NOTHING to check it against — not from CI, not from a successor manager arriving cold, not from a session reading the register. The claim is unfalsifiable by construction. It is not hypothetical that the claim goes wrong: MI-18 reads `in_flight` while its own `owner` field says 'session_01LqVvgvusnN87neBn5ayzhg (archived; its PR #10694 stands)', and #10694's branch has had no push for 18.9h. WHAT IT COST THIS SESSION. The natural detector — 'a checklist item `in_flight` whose owner's branch has had no push for N hours' — is UNCOMPUTABLE against this file, so the watcher that shipped (scripts/ops/pr_queue_latency.py) had to be keyed on the OPEN-PR list instead. That works, and it is strictly weaker in one respect: it can only see work that reached a PR. An `in_flight` item with no PR yet is invisible to it, and the checklist is the only place such an item exists. ⚠️ THE FIX IS NOT 'BACKFILL THE 23 ROWS'. A branch guessed from a title would be worse than an absent one — a false join reads as a verified one, the same polarity as an invented `blocked_on` edge being read by the constraint computation as a real blocker. The durable fix is that the field is populated AT SPAWN, where the manager already knows it: session_registry.py's spawn path records branches on SESSIONS.json rows, and the checklist item is written in the same act. ⚠️ AND SESSIONS.json IS NOT A SUBSTITUTE. It carries branches on some rows, but it is a spawn-time record nothing updates (session_reaper.py measured 35 of 67 rows naming no branch at all), and it has no `state` field to join `in_flight` against. The two registers answer different questions and neither answers this one alone.",
+      "proposed_fix": "Record the branch on the checklist item at the moment the sub-session is spawned — the same act that already writes the SESSIONS.json row — rather than backfilling later or inferring it. Then a cheap offline detector becomes possible: an `in_flight` item whose named branch has had no push for N hours is either finished-and-unrecorded or dead, and both are the manager's to resolve. ⚠️ Do NOT add a guard that FAILS on an item missing a branch until the spawn path populates it, or it fails on all 23 rows the day it lands — the '52 findings for 26 days' condition, where a permanently-red check becomes something everyone walks past. Census first, enforce second.",
+      "refs": [
+        "docs/claude/work/MANAGER-CHECKLIST.json",
+        "docs/claude/work/SESSIONS.json",
+        "scripts/ops/session_registry.py",
+        "scripts/ops/pr_queue_latency.py",
+        "WO-20260902-MANAGER-PREFLIGHT"
+      ]
     }
   ]
 }
