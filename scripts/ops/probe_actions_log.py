@@ -189,7 +189,7 @@ class _Ordered(argparse.Action):
 
     def __call__(
         self,
-        parser,  # inert: argparse.Action's required signature; this action only appends to `ns`
+        parser,  # inert: parser — argparse.Action's required signature; this action only appends to `ns`
         ns,
         value,
         option_string=None,

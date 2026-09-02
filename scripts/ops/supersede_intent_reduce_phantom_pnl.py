@@ -180,7 +180,8 @@ def run(db_path: str, *, apply: bool, equal_only: bool,
           f"paper: {paper_pnl:.2f}")
 
     if not target:
-        print("nothing to do (already clean / idempotent no-op).")
+        print(f"nothing to do — {len(target)} candidate row(s) "
+              f"(already clean / idempotent no-op).")
         conn.close()
         return 0
 

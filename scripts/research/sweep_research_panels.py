@@ -87,7 +87,7 @@ from src.utils.paths import trade_journal_db_path  # noqa: E402
 try:
     from src.web.api._asset_class import asset_class_for_symbol  # noqa: E402
 except Exception:  # noqa: BLE001 — keep the driver importable on a minimal tree
-    def asset_class_for_symbol(symbol: Optional[str]) -> str:  # type: ignore[misc]
+    def asset_class_for_symbol(symbol: Optional[str]) -> str:  # type: ignore[misc]  # inert: symbol — import-fallback stub; "unknown" is the declared degraded value
         return "unknown"
 
 

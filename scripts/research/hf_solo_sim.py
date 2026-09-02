@@ -103,8 +103,8 @@ def gen_signals(name: str, module: str, tf: str, base5m: pd.DataFrame, *,
     return pd.DataFrame(rows, columns=["ts", "side", "entry", "sl", "tp", "confidence"])
 
 
-def simulate(signals: pd.DataFrame, clock: pd.DataFrame, *, monitor_fn=None,
-             cfg: Optional[dict] = None, signal_ttl_bars: int = 1,
+def simulate(signals: pd.DataFrame, clock: pd.DataFrame, *, monitor_fn=None,  # inert: monitor_fn — vestigial hook; this replay applies its exits inline and never calls a monitor
+             cfg: Optional[dict] = None, signal_ttl_bars: int = 1,  # inert: cfg — vestigial; every knob this replay honours is an explicit keyword above
              be_after_1r: bool = False) -> Dict[str, Any]:
     """Solo single-position replay on the clock grid (mirrors the engine).
 

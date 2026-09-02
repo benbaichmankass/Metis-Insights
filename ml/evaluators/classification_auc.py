@@ -86,6 +86,10 @@ class ClassificationAUCEvaluator(ClassificationEvaluator):
             if target_value is None:
                 continue
             label = 1 if bool(target_value) else 0
+            # A MulticlassPredictor returns max(proba) from the same call,
+            # which would rank head CONFIDENCE, not the positive class.
+            # provenance: predict — P(positive) for the BINARY head graded here
+            # (`target` is coerced to a boolean label just above).
             prob = predictor.predict(row)
             if prob < 0.0:
                 prob = 0.0

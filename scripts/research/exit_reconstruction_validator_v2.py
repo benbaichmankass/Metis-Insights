@@ -129,7 +129,7 @@ def stats(label, errs, signed, extra=""):
     n = len(errs)
     print(f"\n  --- {label}  (n={n}) {extra}")
     if n == 0:
-        print("      (no rows — vacuous, not clean)")
+        print(f"      (n={n} rows — vacuous, not clean)")
         return
     s = sorted(errs)
     print(f"      median |err| {statistics.median(s):8.2f} bps"
