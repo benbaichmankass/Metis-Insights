@@ -1315,6 +1315,37 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_tp_venue_cap_single_owner.py"]],
     },
     {
+        "name": "automerge-trigger-guard",
+        # UNGATED: `when: None`, so it runs on every PR regardless of the diff.
+        # The registry's convention for "always" is an EXPLICIT `None`, never an
+        # absent key — every one of the other 73 entries carries the key, and
+        # `run_guards` itself dereferences `g["when"]` directly in three places
+        # (the `--list` render, the diff-scoped selection, and the dirty-worktree
+        # warning). This entry shipped without it and broke all three.
+        #
+        # ⚠️ THAT IS DELIBERATE AND IS THE POINT OF THE GUARD. A diff-scoped
+        # version would only fire when someone edits the relay — and nobody was
+        # editing the relay on 2026-09-02 when it un-drafted and armed three PRs
+        # that had asked for nothing. The regression vector is a path landing on
+        # `main`, not an edit to the workflow, so a guard that waits to be
+        # triggered by an edit is a guard that would have stayed silent through
+        # the whole incident. Same reasoning as `diagnostic-provenance-guard`'s
+        # ungated `--all` step.
+        #
+        # It is cheap (two file reads, no network) and the tree passes today, so
+        # an ungated step is survivable — which is exactly the precondition that
+        # made the diagnostic-provenance one survivable too.
+        #
+        # Self-test FIRST: the guard reports a CLEAN tree, so without an
+        # exercised failure path a green here is indistinguishable from a guard
+        # that stopped matching. Declared in `guard_selftests.py`'s
+        # COVERED_BY_CHECKER, which `check_selftest_wiring.py` VERIFIES rather
+        # than takes on trust.
+        "when": None,
+        "steps": [["python3", "scripts/ci/check_automerge_trigger.py", "--self-test"],
+                  ["python3", "scripts/ci/check_automerge_trigger.py"]],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read
@@ -1546,6 +1577,65 @@ GUARDS: List[Dict[str, Any]] = [
         "notify": True,
     },
 ]
+
+
+# ---------------------------------------------------------------------------
+# the registry's own shape, asserted at import
+# ---------------------------------------------------------------------------
+#
+# WHY THIS IS HERE AND NOT IN A TEST. `automerge-trigger-guard` was added on
+# 2026-09-02 with no `when` key at all, intending "ungated" — for which this
+# registry's convention is an explicit `None`. Nothing said so at the point of
+# writing, and the omission surfaced as a bare `KeyError: 'when'` raised seven
+# tests deep inside `tests/test_guards_uncommitted_work.py`, a file whose
+# subject is uncommitted work and not registry shape. The message named neither
+# the guard nor the key.
+#
+# ⚠️ AND THE `guards` CI JOB WAS GREEN THROUGHOUT. It invokes the driver in a
+# mode that short-circuits every `g["when"]` read, so the guard runner was
+# broken on `--list` and on the ordinary diff-scoped (local / pre-commit) path
+# while its own job reported success — green over a thing it did not check.
+#
+# This is not a second definition of the registry's shape. It asserts exactly
+# the three keys THIS MODULE dereferences with `[]` — `name` (the `--only`
+# filter, the skipped-set, the failure summary), `when` (the `--list` render at
+# the scope column, the relevance filter, the dirty-worktree warning) and
+# `steps` (the executor). A key the module indexes and does not require is the
+# defect; adding a field here without adding a dereference does not make it
+# required. Per `docs/CLAUDE-RULES-CANONICAL.md` § RULE ONE, the assertion goes
+# inside the transform — that mechanism caught 3 of the 10 verification
+# failures in the ledger there, where prose caught 0.
+
+_REQUIRED_GUARD_KEYS = ("name", "when", "steps")
+
+
+def _validate_registry(guards: List[Dict[str, Any]]) -> None:
+    """Refuse a malformed registry at import, naming the entry and the key.
+
+    Raises rather than warns: every consumer of `GUARDS` reads these keys, so a
+    registry that is missing one has no correct behaviour left to degrade to.
+    """
+    problems: List[str] = []
+    for i, g in enumerate(guards):
+        missing = [k for k in _REQUIRED_GUARD_KEYS if k not in g]
+        if missing:
+            who = g.get("name") or f"<entry {i} has no name>"
+            problems.append(
+                f"  {who} (index {i}): missing {', '.join(repr(k) for k in missing)}"
+            )
+    if problems:
+        raise ValueError(
+            "run_guards.GUARDS is malformed — every entry must declare "
+            + ", ".join(repr(k) for k in _REQUIRED_GUARD_KEYS)
+            + ".\n"
+            + "\n".join(problems)
+            + "\n\nFor a guard that should always run, the value is an EXPLICIT "
+              "`\"when\": None`. An absent key is not the same thing: the driver "
+              "indexes `g[\"when\"]` directly and raises."
+        )
+
+
+_validate_registry(GUARDS)
 
 
 # ---------------------------------------------------------------------------
