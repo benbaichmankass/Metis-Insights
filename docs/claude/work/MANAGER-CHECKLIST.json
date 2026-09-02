@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T01:42Z",
+  "updated_at": "2026-09-02T01:46Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -294,6 +294,15 @@
       "pr": null,
       "blocked_on": null,
       "note": "OBSERVED ACROSS TONIGHT, recorded because it is an OPERATING-MODEL finding rather than a bug, and this cycle's priority is the steering half. MI-20 framed the queue problem as register CONFLICTS. That is real but it is the second-order effect. The first-order fact is that a sub-session can neither UN-DRAFT nor MERGE its own PR — measured tonight, every one of #10686 / #10687 / #10705 / #10679 / #10694 sat as a DRAFT while fully or nearly green, waiting on the single manager. === THE TWO COMPOUND, and that is what makes it worse than either alone: because only the manager merges, merges are SERIALIZED through one actor; and because each merge re-conflicts every other open PR on the append-mostly registers, the serialization is not merely slow, it is QUADRATIC in the number of open PRs. Four merges in ~25 minutes (01:11-01:38Z) each re-dirtied the remainder. === ⚠️ THE DRAFT GATE IS NOT THE BUG AND MUST NOT SIMPLY BE REMOVED. It is what keeps a session from landing its own Tier-2/Tier-3 work unreviewed, and #10679 (order path) and #10694 (needs a service restart) are exactly why it exists. The question worth putting to the operator is narrower: should a session be able to un-draft and merge its OWN Tier-1 PR once CI is green, leaving the draft gate for Tier-2/3? That would take the manager off the critical path for the majority of work without weakening any gate that is actually load-bearing. === Deliberately filed as `triage`, not `queued`: it is a proposal about how the system is operated, so it is the operator's to scope, not the manager's to start."
+    },
+    {
+      "id": "MI-25-FULL-TRADING-HISTORY-IS-WORLD-READABLE-UNAUTHENTICATED",
+      "title": "The Data Explorer serves the live journal to anyone on the public Caddy host",
+      "state": "blocked",
+      "owner": null,
+      "pr": "#10687 (filed the finding; NOT a fix)",
+      "blocked_on": "operator — gating a live public read route is Tier-2 and would change what the Svelte SPA can render",
+      "note": "⚠️ TOP ITEM FOR THE MORNING REPORT, ABOVE THE RETIREMENT DECISIONS. Surfaced by session_01LvzsinECH8HP in #10687 and then MEASURED INDEPENDENTLY BY THE MANAGER rather than taken on report — plain curl, no Authorization header, from outside the VM against https://ict-bot.duckdns.org : /api/bot/db/table/trades -> HTTP 200, total 5,318 · order_packages -> 200, 4,275 · balance_snapshots -> 200, 29,892. NEGATIVE CONTROL: device_tokens -> HTTP 404, so #10682's exclusion genuinely holds and the probe can distinguish a refusal from a serve. The filing session counted `signals` at 2,301,022 rows. === WHY IT HAPPENED, AND IT IS NOT A CODING ERROR: CLAUDE.md justifies the Data Explorer as Tier-1 on the premise 'no secrets in either DB' — a claim about CREDENTIALS, not about the CONFIDENTIALITY of the trading record. That judgement was made while the API sat on a firewalled IP reachable only server-side by Streamlit. Caddy was then added (2026-08-13) so the browser-direct Svelte SPA could reach the API over HTTPS, and NOBODY RE-DERIVED THE TIER DECISION AFTER THE TRANSPORT CHANGED. The route did not become less safe; the world became able to reach it. === HONEST SEVERITY, in the direction that does not overstate: this is a CONFIDENTIALITY exposure, NOT a control path. The explorer is SELECT-only on a mode=ro connection with bound values and schema-validated identifiers; nothing writes, no order can be placed, and no credential is reachable now that device_tokens is excluded. Nobody's money can be moved with it. What is exposed is the operator's complete trading record — every trade, order package and balance snapshot. === ⚠️ DELIBERATELY NOT FIXED TONIGHT, and that is a decision rather than an omission. Gating a live public read route is Tier-2, and the Data Explorer tab of the Svelte SPA reaches this route BROWSER-DIRECT, so adding a bearer would break a working operator surface. Doing that unannounced at 02:00 while the operator sleeps trades a three-week-old read exposure for a broken dashboard they wake up to. The options worth putting to them: leave it (the record is not secret), gate it behind DASHBOARD_API_TOKEN and teach the SPA to send one, or put Caddy basic-auth in front of /api/bot/db/* only."
     }
   ]
 }
