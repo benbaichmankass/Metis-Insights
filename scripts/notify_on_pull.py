@@ -25,6 +25,14 @@ Designed to be lean and bulletproof:
   pending-pings.jsonl is moved aside and a diagnostic ping is sent.
 * No imports from ``src.runtime.*`` so a broken trader doesn't break
   the ping channel.
+* **A queued row's BODY is never silently dropped.** The renderer
+  hand-maintains the transport ENVELOPE and renders everything else,
+  rather than hand-maintaining a list of content keys and discarding
+  what is not on it — see ``ENVELOPE_KEYS``. Until 2026-09-02 it did
+  the latter, and **21 of the 50 rows** then in
+  ``docs/claude/pending-pings.jsonl`` rendered to nothing but their
+  event label. A row that genuinely carries no content is delivered
+  saying so, never as a bare label.
 
 Usage on the VM (called from deploy_pull_restart.sh):
 
