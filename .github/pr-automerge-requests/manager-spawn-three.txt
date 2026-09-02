@@ -1,0 +1,1 @@
+manager: spawn MI-66, MI-70, MI-69

@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-02",
+  "as_of": "2026-09-02T11:17:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -254,6 +254,21 @@
       },
       "blocker": "None; manager-only, empty conflict surface.",
       "note": "⚠️ THE ARTIFACT CAP IS ALREADY BREACHED AND HAS NO DEFINITION: 13 open PRs against a cap of 4. But #10780 is marked DO NOT MERGE and #10398 is an automation PR open since 2026-08-29, so 'open PR' overcounts and 'in_flight work object' undercounts. Defining 'artifact' is unfinished work, stated in the row rather than silently resolved. Also carries MI-65: the manager asserted TELEGRAM_CLAUDE_BOT_SECRET was unset from a doc row dated the previous day, over the operator's own contrary sighting of a ping arriving on ClaudeBot. Its honest state is UNMEASURED — not set, not unset."
+    },
+    {
+      "pr": 10779,
+      "title": "manager: register MI-57 — the open-PR record's staleness regress, and the structural fix",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-57",
+      "draft": false,
+      "tier": "1 (coordination records)",
+      "state": "in_ci",
+      "operator_decision": {
+        "verdict": "not_required",
+        "decided_on": "2026-09-02",
+        "text": "No operator statement was sought or given. Tier-1 coordination records only (MANAGER-CHECKLIST.json + SESSIONS.json); no code, no order path, no config. Recording the ABSENCE of a decision rather than inventing one."
+      },
+      "blocker": "CI. Merges on green."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -297,19 +312,6 @@
       "pr": 10775,
       "merge_sha": "d08cac48",
       "note": "Pruned in the SAME PR that added it — it merged between the two commits. That is the structural regress this file documents, observed live rather than in the abstract: the row was correct when written and stale ~90 seconds later."
-    },
-    {
-      "pr": 10746,
-      "merge_sha": "af9af5e3",
-      "note": "Pruned 2026-09-02: merged, so handoff_check correctly grades the open row STALE. ⚠️ THE FULL operator_decision IS CARRIED BELOW RATHER THAN REDUCED TO A ONE-LINER, which is what every earlier prune in this list did. That reduction is the defect #10783 (MI-57) exists to fix: a merged PR's CONDITIONS become MORE load-bearing after the merge, not less, because the merge is when someone can act on them. A successor knowing nothing stalls and re-asks, which is safe; one knowing 'approved' without the condition could arm a gate on a real-money account.",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "Must ship scoped behind an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity (empty means NONE). Merging without the allowlist, or widening beyond bybit_1, EXCEEDS the approval given. PLUS (2026-09-02, second decision): arming is HELD pending soak evidence; merge is permitted because it arms nothing.",
-        "scope": "bybit_1 (demo) ONLY. NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug for the duration of the soak.",
-        "decided_on": "2026-09-02",
-        "text": "APPROVED WITH STAGING 2026-09-02 -- bybit_1 (demo) ONLY. ⚠️ NOT a fleet-wide flip. The operator explicitly accepted that bybit_2 (REAL MONEY) stays exposed to the side-blind coverage bug during the soak. Merging this without the account allowlist, or widening beyond bybit_1, EXCEEDS the approval given. ⚠️ SECOND OPERATOR DECISION 2026-09-02 (manager asked, operator answered 'hold it until the soak'): ARMING IS HELD. Merging is still within the approval -- the shipped default resolves MODE to `annotate` and an empty BYBIT_GRADED_COVERAGE_ACCOUNTS means NONE for every account, so the merge binds no order path. What is HELD is the separate two-key set-env (BYBIT_GRADED_COVERAGE_MODE=apply + BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1) plus the trader restart. ⚠️ MERGING IS WHAT STARTS THE SOAK, so holding the merge would make the operator's condition unsatisfiable -- the allowlist scopes the BINDING, never the MEASUREMENT (verified in the diff: every Bybit account is graded and annotated regardless), which is the exact correction NETTING_ATTRIBUTION_ACCOUNTS needed on 2026-08-09 when intersecting the account set at the top of the pass made the account being staged TOWARD invisible. Do NOT arm on a quiet soak: the criterion is a bybit_coverage_soak row carrying `verdicts_differ: true`, and the evidence behind this whole PR is n=1 and CONSTRUCTED, never a sighting -- so a demo soak may never produce one, and not seeing it is not evidence the fix is wrong."
-      },
-      "standing_condition_after_merge": "⚠️ MERGED IS NOT ARMED. BYBIT_GRADED_COVERAGE_ACCOUNTS ships EMPTY and for this knob an empty allowlist means NONE, so the gate is deployed and binding nothing — verified in the diff (account_may_apply returns False for every account on an empty allowlist; resolve_mode falls back to annotate). The operator said 'hold it until the soak' in conversation on 2026-09-02. Arming is a SEPARATE Tier-2 decision and the approval to MERGE was never an approval to ARM. Staging is bybit_1 (demo) FIRST, with real-money bybit_2 explicitly accepted as exposed during the soak. The soak threshold and its alarm live in OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK: >=20 graded rows over >=3 distinct UTC days AND at least one verdicts_differ row. Deciding NOT to arm clears that row too and must be RECORDED as a decision."
     }
   ],
   "⚠️_the_last_row_is_always_stale_and_that_is_STRUCTURAL": "A handoff can never reach open_prs=PASS at the exact moment of the final merge, and this is a PROPERTY of the design rather than a bug to chase. Every open PR must have a row; the PR that prunes the last stale row is itself an open PR and needs a row; merging it makes THAT row stale. The regress terminates only if the manager stops opening PRs. ⚠️ DO NOT 'fix' this by exempting the currently-merging PR from the completeness check — the exemption would be indistinguishable from the real failure it exists to catch (a PR nobody recorded), and a check that cannot tell those apart is worse than the transient row. The correct reading: at handoff, `open_prs` naming ONLY the PR being merged right now is materially ready; naming any OTHER pr is not. State which case you are in rather than quoting the verdict alone.",
