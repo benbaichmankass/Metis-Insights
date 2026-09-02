@@ -16,8 +16,13 @@ Priority:
 3. [`ROADMAP.md`](../../ROADMAP.md) — **single source** of every milestone/sprint, status, and dates.
 4. current sprint log under [`docs/sprint-logs/`](../sprint-logs/) — format: [`SPRINT-LOG-TEMPLATE-CANONICAL.md`](../SPRINT-LOG-TEMPLATE-CANONICAL.md).
 5. skills under [`.claude/skills/`](../../.claude/skills/).
-6. [`CLAUDE.md`](../../CLAUDE.md) — repo orientation + dashboard REST-API reference.
-7. these `docs/claude/*` notes + historical material.
+6. [`CLAUDE.md`](../../CLAUDE.md) — repo orientation.
+7. focused subsystem specs — incl. [`docs/reference/bot-api-reference.md`](../reference/bot-api-reference.md),
+   the per-endpoint API payload contract (shapes, data sources, per-field caveats),
+   split out of `CLAUDE.md` on 2026-09-02; and [`docs/api-tier-policy.md`](../api-tier-policy.md),
+   the CI-enforced **tier** inventory. Those two answer different questions — see
+   [`docs/design/boot-read-size-PROPOSAL.md`](../design/boot-read-size-PROPOSAL.md).
+8. these `docs/claude/*` notes + historical material.
 
 **Every session:** start by reading CLAUDE.md + CLAUDE-RULES-CANONICAL.md +
 the latest ROADMAP/sprint entry; end by running the **`doc-freshness`**
@@ -112,6 +117,12 @@ reasonably conclude none existed. The authoritative list is the directory itself
 
 ## Architecture & runtime reference
 
+- `../reference/bot-api-reference.md`: **the per-endpoint API payload contract** — every
+  `/api/bot/*`, `/api/pnl*` and `/api/diag/*` route with its return shape, data source
+  and per-field ⚠️ caveats, plus `BotStats` / `Position` and the CORS allow-list. Split
+  out of `CLAUDE.md` on 2026-09-02, verbatim. Open it when you touch a route; it is
+  lookup material, not boot reading. **It is not the tier authority** —
+  `../api-tier-policy.md` is, and `api-tier-policy-guard` enforces it.
 - `repo-map.md`: high-level structure, the 9-unit Coordinator, key file locations.
 - `comms-architecture.md`: Claude ↔ Telegram operator channel.
 - `trading-mode-flags.md`: the runtime mode/feature flags.
