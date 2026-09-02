@@ -1,0 +1,34 @@
+#10765 — ops(open-items): record the schedule-event measurement the review-packet row declared missing
+
+Reviewed by the manager. Tier-1: one register row plus the generated brief
+re-render, 5 insertions / 8 deletions across 2 files.
+
+Why it is sound:
+  * It records a REAL measurement — list_workflow_runs on
+    strategy-review-packets.yml filtered to event=schedule returned
+    total_count 0, twice, while the workflow has run 20 times lifetime, all
+    dispatch- or issue-driven.
+  * It REFUSES to grade that a confirmed miss, because probes.yml fired
+    4h52m late on this repo on 2026-09-01, so a late fire cannot be ruled
+    out. Recorded as "window passed, nothing yet" with an explicit re-read
+    before grading. Criteria (2) and (3) untouched; the row stays OPEN.
+  * It caught that setting verified_at drops the row out of the CLAUDE.md
+    due-list for exactly the window its own recommendation needs, and
+    tightened check_every_days 3 -> 1 with the reason written into the
+    observation rather than left as a silent tuning.
+  * Edited surgically against raw text: a JSON round-trip produced
+    624 insertions / 624 deletions (the whole-file reformat hazard CLAUDE.md
+    warns about) and was reverted.
+
+Manager verification on the CURRENT base, because its own green was from
+06:36Z and main has since moved 6 commits including #10756 (which touches
+OPEN-ITEMS.json) and #10766 (which touches CLAUDE.md) — so that green did NOT
+cover this base:
+  * merged origin/main in: clean, no conflict
+  * render_session_brief.py --check -> "OK — CLAUDE.md matches the registers"
+    (the brief did NOT go stale; the two upstream changes were consistent)
+  * check_open_items.py -> OK, 35 items, 21 monitoring, all workable
+
+Routed through this relay rather than merge_pull_request because the manager's
+GitHub write bucket is exhausted. Auto-merge still obeys branch protection and
+required checks; nothing is bypassed.
