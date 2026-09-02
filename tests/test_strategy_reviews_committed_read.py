@@ -314,3 +314,115 @@ def test_generator_and_route_agree_without_re_deriving(committed):
     assert ev["min_closed_for_action"] == MIN_CLOSED_FOR_ACTION
     assert ev["floor_state"] == "partly_gradeable"
     assert ev["below_floor"] == 1 and ev["gradeable"] == 1
+
+
+# --- the evidence HORIZON: and what would have to change -------------------
+#
+# ⚠️ These pin the second half of the same finding. `floor_state:
+# none_gradeable` says the run could not act; it does not say whether waiting
+# would ever help — and on the measured 2026-09-01 run it would not, for 34 of
+# the 52 legs. A surface that renders "52 below the floor" and stops invites
+# the one remedy that is a trap: widen the window until something passes.
+
+
+def _hz(cls, *, stage="closing", point=None, floor=20):
+    """A generator-shaped `evidence_horizon` block."""
+    return {
+        "horizon_class": cls, "funnel_stage": stage, "floor": floor,
+        "days_to_floor_point": point, "days_to_floor_optimistic": None,
+        "days_to_floor_conservative": None, "structural_reason": None,
+    }
+
+
+def _index_with(committed, rows, **extra):
+    day = committed / "2026-09-01"
+    day.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "utc_date": "2026-09-01", "graded": len(rows),
+        "actionable": 0, "no_action_verdict": "hold",
+        "min_closed_for_action": 20, "by_action": {"hold": len(rows)},
+        "rows": rows,
+    }
+    payload.update(extra)
+    (day / "INDEX.json").write_text(json.dumps(payload))
+    return day
+
+
+def test_horizon_grades_unknown_on_an_index_that_predates_the_block(committed):
+    """⚠️ The wrong answer this pins out: an empty/zeroed horizon reading as
+    "no leg has a horizon problem". The committed 2026-09-01 index predates the
+    field entirely, so the only honest verdict is *we could not look* — the
+    same discipline `floor_state` already applies."""
+    _index_with(committed, [dict(_row("a"), below_evidence_floor=True)])
+    hz = mod.get_committed_strategy_reviews()["evidence"]["horizon"]
+    assert hz["horizon_state"] == "unknown"
+    assert hz["rows_with_horizon"] == 0 and hz["rows_total"] == 1
+    assert hz["by_horizon_class"] is None
+    assert hz["structurally_ungradeable"] is None
+    assert "predates" in hz["why_unknown"]
+
+
+def test_a_fleet_no_window_reaches_is_its_own_state(committed):
+    """The measured shape, in miniature: every leg below the floor and NOT ONE
+    of them reachable by waiting. `below_floor` alone cannot say this, and it
+    is the fact that decides whether widening the window is worth anything."""
+    rows = [
+        dict(_row("shadow_a"), below_evidence_floor=True,
+             evidence_horizon=_hz("structurally_ungradeable", stage="decided_not_filled")),
+        dict(_row("silent_b"), below_evidence_floor=True,
+             evidence_horizon=_hz("unbounded_no_closes", stage="no_decisions")),
+    ]
+    _index_with(committed, rows, window_days=7)
+    out = mod.get_committed_strategy_reviews()
+    assert out["evidence"]["floor_state"] == "none_gradeable"
+    hz = out["evidence"]["horizon"]
+    assert hz["horizon_state"] == "none_reachable_by_waiting"
+    assert hz["reachable_legs"] == 0
+    assert hz["structurally_ungradeable"] == 1
+    assert hz["unbounded_no_closes"] == 1
+    assert hz["window_days"] == 7
+    assert hz["by_funnel_stage"]["no_decisions"] == 1
+
+
+def test_days_to_grade_covers_only_the_reachable_legs(committed):
+    """⚠️ The wrong answer this pins out: a "days" figure pooled over legs that
+    have no projection, which would read as a window that grades the fleet.
+    The count of what it leaves out ships beside it for exactly that reason."""
+    rows = [
+        dict(_row("fast"), evidence_horizon=_hz("reachable", point=17.5)),
+        dict(_row("slow"), evidence_horizon=_hz("reachable", point=140.0)),
+        dict(_row("never"), evidence_horizon=_hz("unbounded_no_closes", stage="no_decisions")),
+    ]
+    _index_with(committed, rows, window_days=7)
+    hz = mod.get_committed_strategy_reviews()["evidence"]["horizon"]
+    assert hz["horizon_state"] == "partly_reachable"
+    assert hz["days_to_grade_all_reachable_point"] == 140.0
+    assert hz["reachable_legs"] == 2
+    assert hz["unbounded_no_closes"] == 1
+
+
+def test_horizon_denominator_is_published_when_only_some_rows_carry_the_block(committed):
+    """A distribution over 1 of 3 rows is not a statement about the fleet."""
+    rows = [
+        dict(_row("a"), evidence_horizon=_hz("reachable", point=17.5)),
+        _row("b"), _row("c"),
+    ]
+    _index_with(committed, rows, window_days=7)
+    hz = mod.get_committed_strategy_reviews()["evidence"]["horizon"]
+    assert hz["rows_with_horizon"] == 1
+    assert hz["rows_total"] == 3
+
+
+def test_horizon_survives_the_actionable_filter_like_the_rest_of_evidence(committed):
+    """`evidence` is graded over the WHOLE index, never the filtered page —
+    otherwise `actionable_only=true` would silently redefine the denominator."""
+    rows = [
+        dict(_row("held"), evidence_horizon=_hz("unbounded_no_closes", stage="no_decisions")),
+        dict(_row("act", "kill", True), evidence_horizon=_hz("reachable", point=17.5)),
+    ]
+    _index_with(committed, rows, window_days=7)
+    filtered = mod.get_committed_strategy_reviews(actionable_only=True)
+    assert filtered["returned"] == 1
+    assert filtered["evidence"]["horizon"]["rows_total"] == 2
+    assert filtered["evidence"]["horizon"]["unbounded_no_closes"] == 1

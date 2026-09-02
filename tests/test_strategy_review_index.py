@@ -145,3 +145,76 @@ def test_empty_run_writes_an_index_saying_zero_not_nothing(tmp_path):
     assert payload["graded"] == 0
     assert payload["rows"] == []
     assert payload["by_action"] == {}
+
+
+# --- the evidence HORIZON on the index ------------------------------------
+#
+# The index published `min_closed_for_action` + `below_evidence_floor` so a
+# reader could tell "the fleet is fine" from "nothing could be graded". Neither
+# says WHAT WOULD HAVE TO CHANGE, and on the measured 2026-09-01 run the answer
+# differs by leg in kind, not degree: 18 legs a wider window reaches, 26 with no
+# measured close rate at all, 8 that cannot close a trade at any window.
+
+
+def _hz_row(name, cls, **extra):
+    row = {"strategy": name, "proposed_action": "hold", "actionable": False,
+           "evidence_horizon": {"horizon_class": cls, "funnel_stage": "closing",
+                                "days_to_floor_point": None}}
+    row.update(extra)
+    return row
+
+
+def test_index_publishes_the_window_so_the_floor_is_interpretable(tmp_path):
+    """⚠️ Without the window, `n_closed=4` is a healthy leg over 1 day and a
+    nearly-dead one over 90 — and every committed index before this field
+    carried the count with no exposure beside it, so a reader could see 52/52
+    below the floor and could NOT compute what window would clear it."""
+    path = write_index([_hz_row("a", "reachable")], tmp_path, window_days=7.0)
+    payload = json.loads(pathlib.Path(path).read_text())
+    assert payload["window_days"] == 7.0
+
+
+def test_an_unstated_window_is_null_never_a_default(tmp_path):
+    """⚠️ The wrong answer this pins out: defaulting to 7. Inventing the
+    exposure is the very error the field exists to end, committed by the
+    writer reporting it."""
+    path = write_index([_hz_row("a", "reachable")], tmp_path)
+    assert json.loads(pathlib.Path(path).read_text())["window_days"] is None
+
+
+def test_index_summary_separates_the_three_below_floor_populations(tmp_path):
+    """`below_evidence_floor: 3` is one number covering three different
+    remedies. Only one of them is a window."""
+    rows = [
+        _hz_row("fast", "reachable", below_evidence_floor=True),
+        _hz_row("silent", "unbounded_no_closes", below_evidence_floor=True),
+        _hz_row("shadow", "structurally_ungradeable", below_evidence_floor=True),
+    ]
+    payload = json.loads(pathlib.Path(write_index(rows, tmp_path, window_days=7.0)).read_text())
+    assert payload["below_evidence_floor"] == 3
+    summary = payload["evidence_horizon_summary"]
+    assert summary["n_legs"] == 3
+    by_class = summary["by_horizon_class"]
+    assert by_class["reachable"] == 1
+    assert by_class["unbounded_no_closes"] == 1
+    assert by_class["structurally_ungradeable"] == 1
+    # Every declared class ships with an explicit zero, so "no leg is
+    # gradeable_now" is distinguishable from "this summary predates the class".
+    assert by_class["gradeable_now"] == 0
+
+
+def test_summary_is_aggregated_from_the_rows_it_ships_beside(tmp_path):
+    """The summary and the rows can never disagree, because there is one
+    source. A recomputation here would be a second spelling of the rule."""
+    rows = [_hz_row(f"s{i}", "reachable") for i in range(5)]
+    payload = json.loads(pathlib.Path(write_index(rows, tmp_path, window_days=7.0)).read_text())
+    assert payload["evidence_horizon_summary"]["n_legs"] == len(payload["rows"])
+
+
+def test_rows_without_the_block_are_left_out_of_the_summary_not_miscounted(tmp_path):
+    """A row the generator could not grade must not silently become a class."""
+    rows = [_hz_row("a", "reachable"),
+            {"strategy": "b", "proposed_action": "hold", "actionable": False}]
+    payload = json.loads(pathlib.Path(write_index(rows, tmp_path, window_days=7.0)).read_text())
+    assert payload["graded"] == 2
+    assert payload["evidence_horizon_summary"]["n_legs"] == 1
