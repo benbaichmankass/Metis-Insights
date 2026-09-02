@@ -51,6 +51,26 @@ name: pr-opener
 # WHAT THIS MEANS FOR A CALLER: after a relay run leaves its results commit as
 # the branch head, **push one ordinary commit yourself** to arm CI. Do not read
 # a zero-check PR as green — it is blocked, not passing.
+#
+# ⚠️ AND THE WORKAROUND ABOVE IS NOT ENOUGH EITHER — MEASURED 2026-09-01 ON
+# PR #10683. That caller did everything the paragraph above asks: the request
+# was pushed from a DIFFERENT branch, so the results commit never touched the
+# PR's head branch, and the head was the caller's OWN commit (`b2fb88a4`,
+# pushed with the session's own credentials). `get_check_runs` still returned
+# total_count **0** and `mergeable_state: blocked`.
+#
+# The reason is that BOTH of the causes above are about the results COMMIT, and
+# neither is the binding one here. Most of this repo's required checks trigger
+# on `pull_request`, not `push` — and the PR is OPENED by `github-actions[bot]`
+# via `gh pr create` with GITHUB_TOKEN, so GitHub's recursion prevention
+# suppresses the `pull_request` event itself. The branch push that preceded it
+# could not arm those checks because no PR existed yet to attach them to.
+#
+# So the rule is stronger than "keep the results commit off the head branch":
+# **EVERY PR opened through this relay starts with zero checks, however clean
+# the head is, and needs one ordinary push AFTER the PR exists.** Pushing from
+# a separate branch is still correct — it removes one failure mode — it is just
+# not sufficient on its own.
 # A durable fix needs either a PAT/app token for the commit-back, or a
 # `workflow_run`/`pull_request_target` trigger; both are larger changes than
 # this one and neither is attempted here.

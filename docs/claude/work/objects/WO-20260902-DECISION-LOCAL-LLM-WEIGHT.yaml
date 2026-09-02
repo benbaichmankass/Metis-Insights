@@ -1,0 +1,132 @@
+# ⚠️ NOT a migrated row. Hand-authored by MI-63 on 2026-09-02 from an EXISTING
+# `kind: pending_decision` row in docs/claude/OPEN-ITEMS.json
+# (OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM). Nothing here is a new
+# measurement — both size arms were benchmarked by earlier sessions. What is new is
+# that the pending CHOICE now exists as a DECISION object.
+id: WO-20260902-DECISION-LOCAL-LLM-WEIGHT
+type: question
+parent_intent: null
+title: >-
+  Does the local LLM carry any weight, and at which size — 3B, 1.5B, or none?
+stage: DECISION
+lifecycle: ready
+owner: null
+opened_at: '2026-09-02'
+closed_at: null
+
+review_trigger: >-
+  Re-read when the operator answers DEC-20260902-LOCAL-LLM-WEIGHT. ⚠️ Do NOT re-run the
+  benchmark first: BOTH size arms are already measured, and the 3B run is a ~16-minute
+  job on the 1-core trainer under the heavy lock. The source row records a session
+  re-running it and NOT clearing the row, because a throughput comparison was never
+  what was owed.
+
+done_condition: >-
+  The operator has recorded which model (if any) the local LLM path should use, or has
+  declared that it carries no weight and the half-built path is shelved.
+
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260902-LOCAL-LLM-WEIGHT
+    since: '2026-08-31'
+    note: >-
+      ⚠️ ESTABLISHED FROM THE SOURCE ROW, NOT INFERRED. Its `clears_when` ends with the
+      literal sentence "Then the operator decides", and its summary says the question is
+      "undecided BY THE OPERATOR, not for want of evidence". Both arms reached
+      `RESULT: benchmarked` with controls passing. `since` is 2026-08-31 — the date the
+      row was opened, not today — because the hold has stood since then and dating it
+      2026-09-02 would understate how long the operator has been the blocker.
+blocked_on_basis: >-
+  ASSESSED 2026-09-02 by MI-63 from the source row's own `clears_when` and `observation`
+  fields. ⚠️ WHAT IS NOT CLAIMED: any view on WHICH option is right. MI-63 ran no
+  benchmark and read no generation sample; the options below are transcribed from the
+  row's recorded observations, not judged.
+
+decision_requests:
+  - id: DEC-20260902-LOCAL-LLM-WEIGHT
+    question: >-
+      Both size arms of the local LLM are now benchmarked on answer quality against the
+      same real repo question. Which one (if any) should carry weight?
+    urgency: routine
+    asked_on: '2026-09-02'
+    context: >-
+      1.5B (measured 2026-08-31 on the trainer, `RESULT: benchmarked`, controls passing):
+      throughput pp128 22.35, tg64 7.19 t/s, 36.4s wall, 2.86 GB peak RSS on a 5.9 GB
+      box. THE QUALITY WAS THE FINDING, NOT THE SPEED — it restated the prompt,
+      FABRICATED a causal claim (joining two unrelated facts with an invented
+      "indicating"), and MISATTRIBUTED the fault to venue liquidity when the defect was
+      our own sizer reading an empty account-level field. On a system whose canonical
+      rule is always-verify, a model that confidently invents a cause is worse than no
+      model. 3B (Qwen2.5-3B-Instruct Q4_K_M, `RESULT: benchmarked`, both controls
+      passing): better on BOTH of those specific defects — it hedges instead of
+      inventing, and keeps the fault on the internal side — but never names the
+      mechanism, at ~2.1x the latency and ~0.96 GB of headroom. ⚠️ ONE CORRECTION THE
+      ROW CARRIES: the truncation both models show is OURS (`-n 200`), not evidence
+      about either model. ⚠️ AND A THROUGHPUT COMPARISON DOES NOT ANSWER THIS — the row
+      says so in terms, after a session produced one.
+    options:
+      - key: adopt_3b
+        label: Adopt the 3B (Qwen2.5-3B-Instruct Q4_K_M)
+        implication: >-
+          Better on the two defects that actually disqualified the 1.5B (invention and
+          misattribution), at ~2.1x latency and ~0.96 GB of headroom left on a 5.9 GB
+          box. It still never names the mechanism, so it is an improvement in
+          truthfulness rather than in usefulness.
+      - key: keep_1_5b
+        label: Keep the 1.5B
+        implication: >-
+          Twice as fast with real headroom — but it is the arm measured FABRICATING a
+          causal claim and misattributing a fault. Choosing it means accepting that
+          output on a system whose first rule is always-verify.
+      - key: carries_no_weight
+        label: The local LLM carries no weight — shelve the path
+        implication: >-
+          Records the honest reading of both arms: neither named the mechanism, so
+          neither answered the question that was asked. Stops further trainer-VM time
+          going into it. This is an ANSWER, not a failure to keep benchmarking.
+    allows_free_text: true
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-02'
+      channel: telegram (ClaudeBot inline prompt), answered in free text to the manager
+      chosen: null
+      verdict: ALL_THREE_DECLARED_OPTIONS_REFUSED
+      operator_words: >-
+        "for this, i want us to keep researching better models or better ways to build
+        models"
+      what_it_rejects: >-
+        [!] `carries_no_weight` IS REFUSED -- the path is NOT shelved, so do not read
+        this as a soft version of option three and do not stop trainer time on the
+        strength of it. AND NEITHER SIZE IS ADOPTED: the operator declined to treat
+        1.5B-vs-3B as the question at all, which the evidence in `context` above
+        supports rather than contradicts -- the 3B was recorded as "an improvement in
+        truthfulness rather than in usefulness" and STILL never names the mechanism, so
+        the honest reading is that both arms fail the same bar and picking the better
+        failure is not an answer.
+      the_direction_to_TAKE: >-
+        Keep this as an ACTIVE RESEARCH LINE on two axes, and note the second is the
+        wider one: (1) BETTER MODELS -- a different checkpoint, not merely a larger one
+        from the same family; (2) BETTER WAYS TO BUILD MODELS -- the operator said
+        "ways to BUILD", which is not checkpoint shopping. That admits fine-tuning or
+        distilling on this repo's own material, retrieval so the model is not asked to
+        recall a mechanism it was never shown, or a narrower task than open-ended
+        repo-question answering. The measured failure supports that reading: both arms
+        could not NAME THE MECHANISM, which is a knowledge-and-grounding failure rather
+        than a capacity one, and scaling the checkpoint is the one lever that was
+        already tried and did not fix it.
+      what_runs_MEANWHILE: >-
+        NOTHING IS ADOPTED. No arm is wired into anything load-bearing while this is
+        researched, and that is the deliberate state rather than an omission -- adopting
+        the 3B "for now" would put a model measured as not-useful behind a real answer
+        on a system whose first rule is always-verify.
+      ⚠️_do_not_re_run_the_benchmark: >-
+        The review_trigger above already says this and the answer does not change it:
+        both size arms are measured, and a throughput comparison was never what was
+        owed. A session picking this up should design a DIFFERENT experiment, not
+        re-run the old one on a 1-core box under the heavy lock.
+
+evidence:
+  - docs/claude/OPEN-ITEMS.json#OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM
+verdict: >-
+  ANSWERED 2026-09-02 -- all three declared options refused; the path stays OPEN as a
+  research line and no arm is adopted. See decision_requests[0].answer.

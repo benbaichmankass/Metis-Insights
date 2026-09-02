@@ -46,6 +46,10 @@ import yaml
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
 
+from src.runtime.evidence_horizon import (  # noqa: E402
+    evidence_horizon,
+    summarize_horizons,
+)
 from src.utils.paths import runtime_logs_dir, trade_journal_db_path  # noqa: E402
 
 _STRATEGIES_YAML = _REPO_ROOT / "config" / "strategies.yaml"
@@ -1027,7 +1031,7 @@ def decide(
     if n == 0:
         decision.action = "hold"
         decision.reasons.append("no closed trades in window — insufficient evidence.")
-    elif n < 20:
+    elif n < MIN_CLOSED_FOR_ACTION:
         # Minimum-evidence floor (PB-20260630-004): below 20 closed trades the
         # low-n matrix below could emit a real-money KILL / DEMOTE_SHADOW off
         # 1-5 trades (win<=0.10, exp<0, a policy-OFF cell) — statistical noise,
@@ -1035,7 +1039,7 @@ def decide(
         # path is intact.
         decision.action = "hold"
         decision.reasons.append(
-            f"insufficient evidence (n_closed={n} < 20) — no KILL/DEMOTE fires at "
+            f"insufficient evidence (n_closed={n} < {MIN_CLOSED_FOR_ACTION}) — no KILL/DEMOTE fires at "
             "very low n; hold until more trades close."
         )
     elif n < 30:
@@ -1392,6 +1396,13 @@ def build_packet(
         tuning_attempted=tuning_attempt_on_record(strategy),
     )
 
+    # The window IN DAYS, derived from the window the packet was actually
+    # built over rather than from the CLI flag — a caller passing explicit
+    # datetimes must not have the horizon computed against a default it never
+    # used. Fractional, deliberately: rounding a 7.0002d window to 7 is fine,
+    # rounding a 12h window to 0 would make every rate infinite.
+    window_days = (window_end - window_start).total_seconds() / 86400.0
+
     now = datetime.now(timezone.utc).isoformat()
     sla_due = None
     if decision.action in ("demote_shadow", "kill"):
@@ -1408,6 +1419,32 @@ def build_packet(
         "regime_cells": [c.to_dict() for c in cells],
         "execution_diagnostics": diag.to_dict(),
         "backtest_anchor": load_backtest_anchor(strategy),
+        # collapsed-state: unknown — this module is a pure PRODUCER of
+        # `horizon_class` by delegation: it calls `evidence_horizon()` and
+        # publishes the block verbatim, branching on none of its five states.
+        # Its only match for the contract's vocabulary is the word "unknown",
+        # which here belongs to the UNRELATED `regime_policy_cell`
+        # ({"on","off","unknown"}) — a coincidence of English, not a collapsed
+        # branch. Branching on the horizon here would be the second, drifting
+        # copy of a rule the model owns; the CONSUMER that must keep the states
+        # apart is `src/web/api/routers/strategy_review.py::_horizon_block`,
+        # and it reads all five.
+        #
+        # HOW FAR THIS LEG IS FROM GRADEABLE, AND HOW LONG UNTIL IT WOULD BE.
+        # `reasons` already says the leg is below the floor; it cannot say what
+        # would have to change, and the candidate answers are different KINDS
+        # of fact (a wider window · no measurable rate at all · a leg no window
+        # reaches). See src/runtime/evidence_horizon.py. Published so no
+        # consumer re-derives it — the same reasoning MIN_CLOSED_FOR_ACTION is
+        # published for.
+        "evidence_horizon": evidence_horizon(
+            floor=MIN_CLOSED_FOR_ACTION,
+            n_closed=headline.n_closed,
+            window_days=window_days,
+            n_decisions=headline.n_decisions,
+            n_filled=headline.n_filled,
+            execution=execution,
+        ),
         "proposed_action": decision.action,
         "reasons": decision.reasons,
         "alternative": decision.alternative,
@@ -1489,7 +1526,26 @@ def is_actionable(action: Optional[str]) -> bool:
     return action.strip().lower() != NO_ACTION_VERDICT
 
 
-def write_index(rows: List[Dict[str, Any]], out_dir: Path) -> Path:
+# The minimum-evidence floor (PB-20260630-004). Below this many closed trades
+# the matrix is forced to HOLD, because a real-money KILL/DEMOTE off 1-5 trades
+# is statistical noise, not evidence.
+#
+# ⚠️ PUBLISHED ON THE INDEX, for the reason `no_action_verdict` is: a consumer
+# that re-derives a rule the generator owns eventually spells it differently,
+# and that is not hypothetical here — re-deriving the ACTION vocabulary in the
+# workflow is what produced the 105-file PR. The only honest alternative for a
+# consumer wanting the evidence split is pattern-matching the English in
+# `reasons`, which is sub-class A of the diagnostic-provenance defect (the
+# label naming a quantity the accessor does not return) and is exactly why
+# Phase F defers C4.
+MIN_CLOSED_FOR_ACTION = 20
+
+
+def write_index(
+    rows: List[Dict[str, Any]],
+    out_dir: Path,
+    window_days: Optional[float] = None,
+) -> Path:
     """Write the day's INDEX.json — one row per strategy GRADED, action first.
 
     ⚠️ **This is the DENOMINATOR and it is why it is always committed.** The
@@ -1508,11 +1564,41 @@ def write_index(rows: List[Dict[str, Any]], out_dir: Path) -> Path:
         "graded": len(rows),
         # Published so a consumer never re-derives (and mis-spells) the rule.
         "no_action_verdict": NO_ACTION_VERDICT,
+        # ⚠️ THE COMPANION TO `actionable`, AND IT CHANGES WHAT `actionable: 0`
+        # MEANS. Zero actionable reads as "the fleet is fine"; it can equally
+        # mean "nothing could be graded". Measured on the 2026-09-01 run —
+        # population: all 52 enabled strategies, window 7 days — `n_closed` was
+        # 0 for 34 legs and never exceeded 8, so 52/52 sat under this floor and
+        # the run COULD NOT have proposed an action whatever the PnL. Without
+        # this field that is indistinguishable from a clean bill of health.
+        "min_closed_for_action": MIN_CLOSED_FOR_ACTION,
+        # ⚠️ WITHOUT THIS THE FLOOR IS UNINTERPRETABLE AND THE INDEX COULD NOT
+        # SAY SO. `n_closed=4` is a healthy leg over 1 day and a nearly-dead
+        # one over 90, and every committed index before this field carried the
+        # count with no exposure beside it — so a reader could see 52/52 below
+        # the floor and could NOT compute what window would clear it. `None`
+        # means the run did not state its window; a consumer must grade that
+        # `unknown`, never assume 7.
+        "window_days": window_days,
+        "below_evidence_floor": sum(
+            1 for r in rows if r.get("below_evidence_floor") is True
+        ),
+        "evidence_floor_unknown": sum(
+            1 for r in rows if r.get("below_evidence_floor") is None
+        ),
         "actionable": sum(1 for r in rows if r.get("actionable")),
         "by_action": {
             a: sum(1 for r in rows if r.get("proposed_action") == a)
             for a in sorted({r.get("proposed_action") for r in rows if r.get("proposed_action")})
         },
+        # THE FLEET-LEVEL ANSWER TO "and what would have to change?".
+        # `below_evidence_floor: 52` is one number covering four different
+        # problems — see src/runtime/evidence_horizon.py — and only one of them
+        # is a window problem. Aggregated from the SAME per-row blocks below,
+        # never recomputed, so the summary and the rows cannot disagree.
+        "evidence_horizon_summary": summarize_horizons(
+            [r["evidence_horizon"] for r in rows if r.get("evidence_horizon")]
+        ),
         "rows": sorted(rows, key=lambda r: (r.get("proposed_action") or "", r.get("strategy") or "")),
     }
     path = day_dir / "INDEX.json"
@@ -1597,6 +1683,26 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             "proposed_action": action,
             "actionable": is_actionable(action),
             "n_closed": headline.get("n_closed"),
+            # A NUMERIC, generator-owned answer to "could this row have
+            # produced an action at all?". None when n_closed is itself
+            # unknown — we did not look, which is not "it had enough".
+            "below_evidence_floor": (
+                None if headline.get("n_closed") is None
+                else headline.get("n_closed") < MIN_CLOSED_FOR_ACTION
+            ),
+            # ⚠️ PUBLISHED SO THE INDEX IS SELF-SUFFICIENT FOR THE EVIDENCE
+            # DIAGNOSIS. Until now these lived ONLY in the per-strategy packet,
+            # and a reader needing them had to join index rows to packet files
+            # — which silently CROSSES A RUN BOUNDARY: measured on the
+            # committed 2026-09-01 day directory, the INDEX is from run #10656
+            # (12:51:37Z) while all 52 packets are from run #10652 (12:03:27Z),
+            # and one row already disagrees (`qqq_pullback_1h`: n_closed 1 vs
+            # 0, pnl -212.52 vs 0.0). Nothing stamped that the join crossed
+            # runs. Carrying the fields here removes the join.
+            "n_decisions": headline.get("n_decisions"),
+            "n_filled": headline.get("n_filled"),
+            "execution": packet.get("execution"),
+            "evidence_horizon": packet.get("evidence_horizon"),
             "win_rate": headline.get("win_rate"),
             "expectancy": headline.get("expectancy"),
             "pnl_total": headline.get("pnl_total"),
@@ -1605,7 +1711,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         })
         print(f"[{strategy}] action={packet['proposed_action']:<14} -> {md_path}")
 
-    index_path = write_index(index_rows, out_dir)
+    index_path = write_index(
+        index_rows, out_dir,
+        window_days=(window_end - window_start).total_seconds() / 86400.0,
+    )
     print(f"index -> {index_path} ({len(index_rows)} graded)")
     return 0
 

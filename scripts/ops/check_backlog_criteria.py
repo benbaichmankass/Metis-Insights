@@ -71,12 +71,112 @@ from typing import Any, Iterable
 # fail on an ImportError that depends on how it was invoked.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from _backlog import UnsupportedCriteriaShape, criteria_text  # noqa: E402
+from accrual_clock import (  # noqa: E402
+    ACCRUAL_LEGS_FIELD,
+    CAN_RUN,
+    accrual_legs,
+    clock_state,
+    exit_text,
+    is_accrual_shaped,
+    load_config,
+)
 
 BACKLOGS = (
     "docs/claude/health-review-backlog.json",
     "docs/claude/performance-review-backlog.json",
     "docs/claude/ml-review-backlog.json",
 )
+
+#: The four review backlogs. ``BACKLOGS`` above is the THREE the criteria check
+#: has always covered; the kept_open check below spans all four because the
+#: class it enforces was measured across all four and the number must stay
+#: comparable. research-review-backlog.json held 0 kept_open rows when this
+#: landed, so widening the set changed no count — it removes a future blind spot.
+ALL_BACKLOGS = BACKLOGS + ("docs/claude/research-review-backlog.json",)
+
+#: Every field name under which a backlog row states an EXIT CONDITION.
+#:
+#: NOT a fresh taxonomy — this is the predicate
+#: ``BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED``
+#: measured itself with, transcribed from that row's own ``detail`` so the guard
+#: and the metric cannot drift into two different questions. Until now it existed
+#: ONLY as prose in that row and was re-derived by hand on every pass (2026-08-25,
+#: then again 2026-09-01), which is why criterion 4 ("re-measure and report the
+#: count") had no mechanical way to be satisfied.
+#:
+#: POSITIVE CONTROL, and it is the reason this list is trustworthy rather than
+#: plausible: run over the corpus at 943a7192 this predicate reproduces the
+#: 2026-09-01 Phase C measurement EXACTLY — health 24 / ml 10 / performance 5 /
+#: research 0 = 39, against the 39 that row records. A list that merely looked
+#: right would not have landed on the same four numbers.
+EXIT_CONDITION_FIELDS = (
+    "resolution_criteria",
+    "close_condition",
+    "trigger_condition",
+    "what_to_check",
+    "next_action",
+    "next_step",
+    "action",
+    "remaining_work",
+    "disposition_when_verified",
+    "snoozed_until",
+    "proposed_fix",
+    "suggested_fix",
+    "recommended_fix",
+    "recommendation",
+    "suggested_next_step",
+)
+
+#: ``snoozed_until`` is the one exit condition that is a DATE, not prose, so it
+#: is graded by :data:`_ISO_DATE_RE` rather than by the length floor. A row
+#: parked behind a real date has a stated exit ("come back then"); one parked
+#: behind "soon" has not, and that is already why `_verdict` refuses it.
+_DATE_FIELDS = frozenset({"snoozed_until"})
+
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}")
+
+
+def _field_text(row: dict[str, Any], field: str) -> str:
+    """This field's prose, shape-tolerantly.
+
+    Mirrors :func:`_backlog.criteria_text` (newline-joined, never ``repr``) so a
+    list-shaped field is measured on its PROSE and not on its bracket-and-quote
+    punctuation — the accidental pass that `criteria_text` exists to prevent.
+    A dict or any other non-scalar yields "" rather than a stringified blob that
+    would clear the floor while saying nothing.
+    """
+    raw = row.get(field)
+    if raw is None:
+        return ""
+    if isinstance(raw, str):
+        return raw.strip()
+    if isinstance(raw, (int, float)):
+        return str(raw).strip()
+    if isinstance(raw, list):
+        parts = [str(x).strip() for x in raw if isinstance(x, (str, int, float))]
+        return "\n".join(p for p in parts if p)
+    return ""
+
+
+def exit_condition_fields(row: dict[str, Any]) -> list[str]:
+    """The fields under which *row* states a usable exit condition.
+
+    Empty list == this row states NO condition under which it would ever stop
+    being carried. That is the permanent-resident class, and it is a real and
+    distinct state from "the row is malformed" — hence a list, not a bool.
+    """
+    found: list[str] = []
+    for field in EXIT_CONDITION_FIELDS:
+        text = _field_text(row, field)
+        if not text or text.casefold() in _PLACEHOLDERS:
+            continue
+        if field in _DATE_FIELDS:
+            if _ISO_DATE_RE.match(text):
+                found.append(field)
+            continue
+        if len(text) >= _MIN_LEN:
+            found.append(field)
+    return found
 
 #: Values that are present but say nothing. Compared case-folded and stripped.
 _PLACEHOLDERS = {
@@ -244,6 +344,230 @@ def _check_new_rows(base_ref: str) -> int:
     return _report(bad, advisory=False)
 
 
+def _kept_open_status_by_id(ref: str, rel: str) -> dict[str, str]:
+    """``{row id: status}`` as of *ref*. A row absent at the base is simply new."""
+    return {
+        str(r.get("id")): str(r.get("status") or "")
+        for r in _load_at_ref(ref, rel)
+        if r.get("id")
+    }
+
+
+def _check_kept_open_transitions(base_ref: str) -> int:
+    """Refuse a row ENTERING ``kept_open`` with no exit condition.
+
+    CRITERION 3 of
+    ``BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED``.
+
+    WHY A SEPARATE CHECK FROM `_check_new_rows`. That one grandfathers by ID —
+    ``if rid in before: continue`` — so an EXISTING row could be flipped to
+    ``kept_open`` with nothing said about what would ever retire it, and this
+    guard said nothing. The class is 39 rows and it kept regenerating through
+    exactly that hole.
+
+    WHY IT POLICES THE TRANSITION AND NOT FILING IN GENERAL. Measured by the
+    2026-09-01 Phase C pass and reproduced here at 943a7192: widening the
+    population from ``kept_open`` to ALL carried rows (open + kept_open, 576
+    across four backlogs) leaves the count at 39 — it adds **zero**. Every
+    ``open`` row states an exit condition under some field name. So the leak is
+    not filing; it is specifically what happens when a row is moved INTO
+    ``kept_open``, which is a far narrower and more checkable thing than "the
+    backlog".
+
+    DIFF-SCOPED, for the reason in this module's header: the standing 39 are
+    grandfathered. A guard that fails on day one over a pre-existing population
+    gets switched off, and a switched-off guard is worse than none. ``--all``
+    reports the stock advisorily so it stays visible.
+
+    THE EXIT CONDITION MAY LIVE UNDER ANY OF :data:`EXIT_CONDITION_FIELDS`,
+    not just ``resolution_criteria``. Demanding that one field would fail rows
+    that legitimately state their exit under ``trigger_condition`` (361 rows in
+    the corpus) or ``what_to_check`` (96) — and would police a different
+    question from the one the class row measures, which is how a guard and its
+    metric drift apart.
+    """
+    bad: list[tuple[str, str, str]] = []
+    checked = 0
+    for rel in ALL_BACKLOGS:
+        path = pathlib.Path(rel)
+        if not path.exists():
+            continue
+        before = _kept_open_status_by_id(base_ref, rel)
+        if not before:
+            # The file did not exist (or held no rows) at the base. Every row in
+            # it would then read as "filed directly as kept_open", so a new
+            # backlog file — or a SPLIT that moves rows out of an existing one,
+            # which is exactly what criterion 2 of the class row asks for —
+            # would be blocked wholesale. That is the wall shape this guard is
+            # scoped to avoid, and a wall gets disabled.
+            #
+            # ANNOUNCED, never silent: a guard that quietly declines to run is
+            # the "green that checked nothing" run_guards.py has a rule about.
+            print(
+                f"kept-open-exit-condition guard: SKIPPING {rel} — absent or "
+                f"empty at {base_ref}, so a genuinely new row cannot be told "
+                f"from a moved one. Its rows are NOT checked by this run."
+            )
+            continue
+        for row in _load(path):
+            rid = str(row.get("id") or "")
+            if not rid or str(row.get("status") or "") != "kept_open":
+                continue
+            # Already kept_open at the base -> part of the grandfathered stock.
+            if before.get(rid) == "kept_open":
+                continue
+            checked += 1
+            if not exit_condition_fields(row):
+                prior = before.get(rid)
+                how = (
+                    "filed directly as kept_open"
+                    if prior is None
+                    else f"transitioned {prior!r} -> 'kept_open'"
+                )
+                bad.append((rel, rid, how))
+
+    if not bad:
+        print(
+            f"kept-open-exit-condition guard: OK — {checked} row(s) entered "
+            f"kept_open in this diff, every one of them states an exit condition."
+        )
+        return 0
+
+    print(
+        "::error::row(s) moved INTO kept_open stating NO condition under which "
+        "they would ever be retired. This is the permanent-resident class from "
+        "BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED: "
+        "every /system-review must triage every carried row, so a row with no "
+        "exit condition is re-read forever and can only ever be re-deferred."
+    )
+    for rel, rid, how in bad:
+        print(f"  {rel}: {rid} — {how}, with no exit condition")
+    print(
+        "\nFix: state, under ANY of "
+        f"{', '.join(EXIT_CONDITION_FIELDS)}, the OBSERVABLE condition that "
+        "retires this row — what measurement, deploy or decision. If it is "
+        "blocked on accrual, `snoozed_until` an ISO date is a valid exit "
+        "condition. If nothing would ever retire it, it is not a kept_open "
+        "backlog row: re-disposition it (resolved / wont_fix / superseded) or "
+        "move it to its real home (ROADMAP.md for a milestone PROGRAM).\n"
+        "Do NOT satisfy this with boilerplate. That row is explicit: 'a "
+        "criterion nobody would ever check is the same permanent resident "
+        "wearing a field.'"
+    )
+    return 1
+
+
+
+def _check_accrual_rows(base_ref: str) -> int:
+    """Refuse a NEW accrual-gated row whose clock cannot tick.
+
+    THE CLASS, measured 2026-09-02 over the eleven accrual-gated rows in
+    ``performance-review-backlog.json`` at trader sha ``68e73de8``:
+    **not one was in the state its own text implied.** Five had passed their
+    threshold months earlier (375 closed trades sat unread behind rows that say
+    "waiting"); four named a leg that CANNOT produce a trade —
+    ``tqqq_trend_long_1d`` and ``splg_trend_long_1d`` have zero journal rows
+    ever, ``eth_pullback_prop_2h`` and ``htf_pullback_trend_2h`` are
+    ``execution: shadow``, the declared no-order gate.
+
+    ``_check_kept_open_transitions`` above cannot see any of this: an accrual
+    threshold IS an exit condition under its predicate, so it passes. This is
+    the same permanent-resident class one level down — the field is present and
+    VACUOUS rather than absent, which is strictly harder to spot by reading.
+
+    WHAT IS ENFORCED, and it is deliberately the offline half only. Whether a
+    leg HAS accrued needs the live journal and cannot run in CI. Whether it
+    CAN accrue is a pure read of ``config/strategies.yaml`` +
+    ``config/accounts.yaml``. So an accrual-shaped row must (a) name its legs in
+    ``accrual_legs`` and (b) have every named leg resolve to ``can_run``.
+
+    WHY A STRUCTURED FIELD RATHER THAN PARSING THE PROSE. A guard that scraped
+    strategy names out of criteria text would be cheaper to fool than to satisfy
+    — rename the leg in the sentence and the guard goes quiet while the row
+    stays dead. That is the ``new-table-wiring-guard`` lesson this module's own
+    header cites. A list of keys is resolvable, and a wrong key fails LOUDLY as
+    ``absent_from_config`` rather than silently.
+
+    DIFF-SCOPED and grandfathered, for the reason in the module header: the
+    standing stock is annotated by hand, and a guard that fails on day one over
+    a pre-existing population gets switched off.
+    """
+    strategies, accounts = load_config()
+    if not strategies or not accounts:
+        # ANNOUNCED, never silent — a guard that quietly declines to run is the
+        # "green that checked nothing" failure `run_guards.py` has a rule about.
+        print(
+            "accrual-clock guard: SKIPPING — config/strategies.yaml or "
+            "config/accounts.yaml could not be read, so no leg can be resolved. "
+            "No row is checked by this run."
+        )
+        return 0
+
+    bad: list[tuple[str, str, str]] = []
+    checked = 0
+    for rel in ALL_BACKLOGS:
+        path = pathlib.Path(rel)
+        if not path.exists():
+            continue
+        before = _kept_open_status_by_id(base_ref, rel)
+        if not before:
+            print(
+                f"accrual-clock guard: SKIPPING {rel} — absent or empty at "
+                f"{base_ref}. Its rows are NOT checked by this run."
+            )
+            continue
+        for row in _load(path):
+            rid = str(row.get("id") or "")
+            status = str(row.get("status") or "")
+            if not rid or status not in {"open", "kept_open"}:
+                continue
+            # Grandfathered: already carried at the base under the same status.
+            if before.get(rid) == status:
+                continue
+            if not is_accrual_shaped(exit_text(row)):
+                continue
+            checked += 1
+            legs = accrual_legs(row)
+            if not legs:
+                bad.append((
+                    rel, rid,
+                    f"waits for trades to accrue but names no `{ACCRUAL_LEGS_FIELD}`, "
+                    f"so nothing can check whether its clock runs",
+                ))
+                continue
+            for leg in legs:
+                state = clock_state(leg, strategies, accounts)
+                if state != CAN_RUN:
+                    bad.append((rel, rid, f"waits on leg {leg!r} whose clock reads {state} — no trade will arrive"))
+
+    if not bad:
+        print(
+            f"accrual-clock guard: OK — {checked} accrual-gated row(s) entered "
+            f"or were filed in this diff, every one names legs that can trade."
+        )
+        return 0
+
+    print(
+        "::error::accrual-gated backlog row(s) whose clock CANNOT TICK. A row "
+        "waiting for trades on a leg that is shadow-gated, disabled, unrouted or "
+        "absent from config is a permanent resident wearing a field: its exit "
+        "condition is present and vacuous. Measured 2026-09-02 over the eleven "
+        "accrual rows in performance-review-backlog.json — NOT ONE was in the "
+        "state its own text implied."
+    )
+    for rel, rid, why in bad:
+        print(f"  {rel}: {rid} — {why}")
+    print(
+        f"\nFix: add `{ACCRUAL_LEGS_FIELD}: [<strategy keys from "
+        f"config/strategies.yaml>]`, and make sure each one is enabled, "
+        f"`execution: live`, and routed to a `mode: live` account. If the leg "
+        f"is deliberately shadow/unrouted, the row is NOT waiting for accrual — "
+        f"re-state its exit condition as the DECISION or MEASUREMENT it is "
+        f"really waiting on, or close it."
+    )
+    return 1
+
+
 def _census() -> int:
     bad: list[tuple[str, str, str]] = []
     total = 0
@@ -281,7 +605,40 @@ def _census() -> int:
             if why:
                 bad.append((rel, rid, why))
     print(f"backlog-criteria census: {len(bad)} of {total} OPEN row(s) lack usable criteria.")
-    return _report(bad, advisory=True)
+    rc = _report(bad, advisory=True)
+    _kept_open_census()
+    return rc
+
+
+def _kept_open_census() -> None:
+    """Re-measure the permanent-resident class, per criterion 4 of
+    ``BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED``:
+    *"Re-measure with the same predicate and report the count; the number, not a
+    claim, closes this row."*
+
+    Advisory and printed, never gating — the stock is grandfathered. What this
+    changes is that the number is now produced by the SAME predicate the guard
+    enforces, on demand, instead of being re-derived by hand on each pass (it
+    was, twice: 2026-08-25 and 2026-09-01). A metric and its guard that are two
+    separate derivations are free to disagree, and nobody would know which was
+    right.
+    """
+    print("\nkept_open no-exit-condition census "
+          "(BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED, criterion 4):")
+    total_no_exit = 0
+    for rel in ALL_BACKLOGS:
+        path = pathlib.Path(rel)
+        if not path.exists():
+            print(f"  {rel}: ABSENT — not measured (this is 'we could not look', not zero)")
+            continue
+        rows = _load(path)
+        kept = [r for r in rows if str(r.get("status") or "") == "kept_open"]
+        no_exit = [r for r in kept if not exit_condition_fields(r)]
+        total_no_exit += len(no_exit)
+        print(f"  {rel}: kept_open {len(kept):4d} -> {len(no_exit):3d} with no exit condition")
+    print(f"  TOTAL {total_no_exit}  "
+          f"(39 when last measured by hand, 2026-09-01 Phase C; "
+          f"42 on 2026-08-25 when the class was filed)")
 
 
 def _load_is_open_status():
@@ -398,7 +755,42 @@ def _self_test() -> int:
         ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
           "snoozed_until": None}, False, "snoozed_until null is fine — the field is optional"),
     ]
+    # ── the kept_open exit-condition predicate (criterion 3) ─────────────
+    # Asserted in BOTH directions. A guard is only worth its green once it has
+    # been SHOWN to go red, and the reject cases below are what stop a future
+    # edit from quietly neutering `exit_condition_fields` into a pass-through.
+    exit_cases = [
+        ({"id": "X"}, False, "no fields at all -> NO exit condition"),
+        ({"id": "X", "title": "something is broken"}, False,
+         "a title is not an exit condition"),
+        ({"id": "X", "resolution_criteria": "TBD"}, False, "placeholder"),
+        ({"id": "X", "next_action": "fix it"}, False, "under the length floor"),
+        ({"id": "X", "resolution_criteria": {"a": _GOOD_CRIT}}, False,
+         "dict shape yields no prose — must NOT stringify into a pass"),
+        ({"id": "X", "resolution_criteria": ["too short", "also short"]}, False,
+         "list whose PROSE is under the floor (repr punctuation must not count)"),
+        ({"id": "X", "snoozed_until": "soon"}, False,
+         "unparseable snooze is not an exit condition"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT}, True,
+         "resolution_criteria"),
+        ({"id": "X", "trigger_condition": _GOOD_CRIT}, True,
+         "trigger_condition — 361 corpus rows state their exit here, not in "
+         "resolution_criteria"),
+        ({"id": "X", "what_to_check": _GOOD_CRIT}, True, "what_to_check"),
+        ({"id": "X", "next_action": _GOOD_CRIT}, True, "next_action"),
+        ({"id": "X", "snoozed_until": "2026-09-30"}, True,
+         "a real ISO snooze IS an exit condition — come back then"),
+        ({"id": "X", "resolution_criteria": [_GOOD_CRIT]}, True, "list shape"),
+    ]
     failures = 0
+    for row, should_have, label in exit_cases:
+        got = bool(exit_condition_fields(row))
+        ok = got == should_have
+        print(f"  [{'PASS' if ok else 'FAIL'}] exit-condition {label}: "
+              f"expected {'stated' if should_have else 'ABSENT'}, got "
+              f"{'stated' if got else 'ABSENT'}")
+        failures += 0 if ok else 1
+
     for row, should_fail, label in cases:
         got = _verdict(row) is not None
         ok = got == should_fail
@@ -425,7 +817,14 @@ def main(argv: Iterable[str] | None = None) -> int:
     if args.all:
         return _census()
     if args.base:
-        return _check_new_rows(args.base)
+        # BOTH diff-scoped checks under one invocation, and the return codes are
+        # OR-ed rather than short-circuited so a PR sees every failing row at
+        # once instead of re-running to find the next one (the reason
+        # run_guards.py exists at all).
+        rc_new = _check_new_rows(args.base)
+        rc_kept = _check_kept_open_transitions(args.base)
+        rc_accrual = _check_accrual_rows(args.base)
+        return rc_new or rc_kept or rc_accrual
     ap.error("one of --base, --all or --self-test is required")
     return 2
 

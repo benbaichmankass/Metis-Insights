@@ -173,6 +173,34 @@ has stopped moving · decisions waiting on the operator.
 **Done when:** the cycle's priority has a computed readout behind it, and the due-list is
 **deleted** rather than left running beside it.
 
+> **STATUS 2026-09-01 — BUILT, and the diagnosis REFUSES. Read both halves.**
+> `scripts/ops/constraint_readout.py` ships E1 and A1; the four-item readout renders to
+> [`docs/claude/READOUT.md`](../claude/READOUT.md) + `CONSTRAINT.json` and its headline
+> reaches a session through the `CLAUDE.md` brief, under the priority.
+>
+> ⚠️ **IT NAMES NO STAGE, and that is the correct output rather than a shortfall.**
+> Measured over all 584 objects (0 parse failures): **6 carry an ASSESSED `blocked_on`
+> basis — 1.0%** — while 578 carry an empty list stating `NOT_ASSESSED`. Below the
+> declared 50% coverage floor the verdict is `insufficient_basis` and no stage is named.
+> **The constraint is not computable yet because the edges have not been written**, which
+> is a finding about the store, not about the machinery. A stage named over that graph
+> would be the fabricated-answer-wearing-a-computed-label class this plan warns about
+> three paragraphs above its own justification.
+>
+> ⚠️ **Two things this plan asserted that the build had to correct.**
+> (a) *"E1 walks the typed `blocked_on` edges and names the held-up stage"* assumes the
+> stage histogram is informative. It is not: the store holds `INTEGRITY` 498 ·
+> `EVIDENCE` 78 · `CAPABILITY` 8 and **zero** objects on QUESTION, DECISION, DEPLOYMENT
+> or OBSERVATION, because migration's source was three review backlogs — registers of
+> defects. A histogram over it describes the migration. `chain_coverage` publishes the
+> empty stages so a consumer cannot miss it.
+> (b) **The due-list was NOT deleted**, and the reason is measured: `render_due_list.py`
+> also draws on `PROBES.json`, monitoring cadences, the recurrence ledger, red scheduled
+> crons and unlanded automation PRs — **four source classes with no counterpart in the
+> readout**. Deleting it would drop live signals. The overlap is exactly one class
+> (operator-owed items). Retiring it needs those four carried first, or an operator
+> decision to drop them; both are recorded on `WO-20260901-PHASE-D`.
+
 ## Phase E — no work is lost, and rules are verified at exit
 
 **Builds:** F2 verified close-out + lease + reaper · F5 exit verification. **Retires:**
@@ -202,11 +230,47 @@ an answer that does not commit leaves its question *unanswered*, never "answered
 
 ⚠️ **C3 and C4 are being delivered separately, and C4 is DEFERRED with a reason.** The obvious first move for C4 — a guard comparing the changelog's execution verdict against `config/strategies.yaml` — cannot be built honestly today: the 53 changelog entries carry only `{date, ref, summary}`, so the verdict exists **only as prose**. Pattern-matching English for it is sub-class **A** of the diagnostic-provenance defect (*the label names a quantity the accessor does not return*), and a guard that is confidently wrong on the entries it misses is worse than none. The honest path is a **structured field on new entries plus a reported denominator of un-structured ones** — a design decision, not a wire. A live instance is filed meanwhile (`BL-20260901-DECISION-RECORD-SAYS-SHADOW-WHILE-CONFIG-SAYS-LIVE-SQUEEZE-BREAKOUT-4H`).
 
-**C3 is 1,518 lines that have never produced a durable artifact.**
-`strategy_review_packet.py` emits a real action badge with reasons and an SLA, and writes to
-a **gitignored path with no cron**. The repair is a cron and a committed path. This is the
-phase that acts on the measured constraint: the generator that turns evidence into a
-decision packet exists and is simply not running.
+**C3 was 1,518 lines that had never produced a durable artifact.**
+`strategy_review_packet.py` emits a real action badge with reasons and an SLA, and wrote to
+a **gitignored path with no cron**. This is the phase that acts on the measured constraint:
+the generator that turns evidence into a decision packet exists and was simply not running.
+
+⚠️ **THIS PARAGRAPH SAID THE REPAIR IS "a cron and a committed path" AND THAT IS NOW STALE
+IN THE DIRECTION THAT INVITES DUPLICATE WORK — do not re-quote it as outstanding.** Both
+shipped on 2026-09-01 (PR #10649, repaired by #10653) and were verified independently
+rather than taken from this document: `.github/workflows/strategy-review-packets.yml`
+(`cron: "40 4 * * *"` + `workflow_dispatch` + issue-driven) and
+`comms/strategy_reviews/2026-09-01/` on main. A later session reading the old wording would
+rebuild a shipped mechanism — `RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED`, whose cheap
+preventer is exactly the existence check that produced this correction.
+
+**What was left, and is the third part the original repair did not name: a READER.**
+Measured 2026-09-01 by grepping `*.py`/`*.ts`/`*.svelte`/`*.yml` for
+`comms/strategy_reviews`, the committed record had **zero consumers** — the writer and the
+docs and nothing else. A record written and never read is the shape
+`provenance-consumer-guard` exists to catch, and here it is the C3 failure one level up: the
+packet becomes durable and still reaches no decision. Closed by
+`GET /api/bot/strategy-reviews`.
+
+⚠️ **THE CRON IS DEPLOYED, NOT OBSERVED, AND THE TWO MUST NOT BE CONFLATED.** The workflow
+landed at 11:58Z on 2026-09-01 and its cron is 04:40 UTC, so **its first scheduled
+opportunity had not yet arrived** — a third state, distinct from *fired and worked* and from
+*fired and failed*. Both runs to date (#10652, #10656) were dispatch-driven.
+`OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON` is a live
+counter-example in this repo, so correct cron syntax is not evidence of firing.
+
+⚠️ **AND THE PACKET STILL PROPOSES NOTHING — the repair is necessary and is not yet
+sufficient.** Population: the committed 2026-09-01 index, all **52** enabled strategies,
+window **7 days**. `graded: 52 · actionable: 0 · by_action {"hold": 52}`. The cause is
+structural, not a fleet in good health: `n_closed` was **0 for 34 legs, 1–4 for 14, 5–19 for
+4, and never exceeded 8**, against the generator's own `MIN_CLOSED_FOR_ACTION = 20` floor
+(PB-20260630-004) — so **52/52 were under the floor and no leg could produce a KILL/DEMOTE
+whatever its PnL**, including **13 losing legs** carrying **−$35,446** of
+provenance-trusted PnL between them. At a 7-day window a leg needs ~3 closes a day to be
+gradeable while the whole fleet closed **50** trades that week, so this repeats every run
+until the window and the floor are made compatible. **That is a decision, not a wire** —
+widening the window changes what evidence a KILL badge rests on — so it is written up in the
+PR body and filed, not flipped.
 
 **C4 is one decision record instead of four forked surfaces.** `strategy_changelog.json` has
 been dead since **2026-07-28**. The cost is not tidiness: `squeeze_breakout_4h` runs live
@@ -219,6 +283,25 @@ today against a written record saying it was demoted for a 0% win rate over 60 c
 **E3** is a sunset pass with a forcing function, for machinery as much as strategies — 6
 strategy retirements ever, none in five weeks against 45 live legs, and nothing has ever
 retired a skill, register, workflow or guard. **Complexity is monotonic by construction**
+
+⚠️ **THE SENTENCE ABOVE IS REFUTED FOR WORKFLOWS, and correcting it matters because Phase G's
+done-condition depends on it.** Measured 2026-09-02 — population: files deleted on `origin/main`
+between 2026-06-13 (the oldest commit in a shallow clone's fetched history) and 2026-09-02, so
+these are **lower bounds, not lifetime totals**; positive control, 137 files were deleted across
+the tree, so the search finds deletions:
+
+| machinery | deleted | the claim |
+|---|---:|---|
+| **workflows** | **35** (30 of them one commit — the 2026-08-07 per-guard consolidation; plus `grade-order-packages.yml`, retired by operator directive 2026-06-24, and two verify-before-build probes deleted the day they answered their question) | **REFUTED** |
+| `scripts/ops/` scripts | 7 | refuted |
+| **skills** (`SKILL.md`) | **0** | **holds** |
+| **CI guards** (`scripts/ci/`) | **0** | **holds** |
+| **registers** (`docs/claude/*.json`) | **0** | **holds** |
+
+So Phase G's *"something has actually been removed"* was **already met before Phase G opened**,
+repeatedly. The forcing function is absent for **skills, guards and registers** — where the count
+is a clean zero — and present for workflows. A plan aimed at *"nothing is ever removed"* aims at
+the wrong target. Full working: [`docs/audits/operating-layer-skills-workflows-inventory-2026-09-02.md`](../audits/operating-layer-skills-workflows-inventory-2026-09-02.md) § 4.2.
 until something removes.
 
 **E2's missing half is a rule, not a mechanism.** Capability build happens constantly. What
@@ -256,7 +339,7 @@ re-learned.
 
 | Retired | Replaced by | Phase |
 |---|---|---|
-| The two dead Routines (`enabled`, no schedule, naming the pre-rename repo and dead branches) | Deleted outright — ⚠️ **OPERATOR-ONLY, attempted and refused 2026-09-01** | A |
+| The two dead Routines (`enabled`, no schedule, naming the pre-rename repo and dead branches) | ✅ **GONE as of 2026-09-02** — see the correction below. (Was: *deleted outright — OPERATOR-ONLY, attempted and refused 2026-09-01*) | A |
 | `DUE.json` / `DUE.md` as an owner-assignment list | A1 as a constraint readout | D |
 | `continue-work.yml` (validates a handoff; cannot start a session) | F2's close-out + the reaper | E |
 | The register sprawl — 13 surfaces a session is expected to read | One state of record | A, then G |
@@ -273,6 +356,17 @@ keeps two routines that read `enabled: true` and can never fire — the state th
 mechanism that looks armed and is not. ⚠️ `Health Check Routine` additionally carries a stored
 OAuth token (`sk-ant-oat01-…`, created 2026-05-10) that has never been used; deleting the
 routine retires that credential with it.
+
+⚠️ **CORRECTION 2026-09-02 — THE TWO DEAD ROUTINES ARE GONE, so stop asking the operator for
+them.** `list_triggers(enabled=true)` returns exactly **2** routines and neither is
+`Health Check Routine` nor `Sprint Continue Work`; positive control — the call did return two live
+routines, so the probe finds positives. ⚠️ **What is established is their ABSENCE from the register
+as a session can read it, NOT who removed them or when** — do not record this as "the operator
+actioned the hand-off". ⚠️ **And the shape is back:** a poke-only routine created 2026-09-02T05:35Z
+reads `enabled: true`, no `cron_expression`, `next_run_at: 0001-01-01` — byte-identical in register
+shape to the two dead ones, and deliberate. The register has no field separating *fires only when
+poked, on purpose* from *claims a cadence it can never have*, which is why those two survived four
+months in plain sight (`BL-20260902-ROUTINE-REGISTER-CANNOT-DISTINGUISH-A-DELIBERATE-POKE-ONLY-ROUTINE-FROM-A-DEAD-ONE`).
 
 ⚠️ **A retirement is done when the old thing is GONE, not when the replacement ships.** The
 failure mode is well evidenced: the new surface lands, the old one is left "for now", and a

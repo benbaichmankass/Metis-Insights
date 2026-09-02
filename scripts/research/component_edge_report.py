@@ -162,7 +162,7 @@ except Exception:  # noqa: BLE001 — keep the tool importable on a minimal tree
         except (TypeError, ValueError):
             return None
 
-    def contract_value_usd_for(symbol):  # type: ignore[misc]
+    def contract_value_usd_for(symbol):  # type: ignore[misc]  # inert: symbol — import-fallback stub; must match the real signature, and a flat 1.0 is the declared degraded value
         return 1.0
 
 
@@ -716,10 +716,17 @@ def _decay(
     rows: Sequence[TradeRow],
     component: str,
     *,
-    n_buckets: int,
-    min_bucket: int,
+    n_buckets: int,  # inert: n_buckets — this function does not bucket; see the docstring
+    min_bucket: int,  # inert: min_bucket — same; no bucketing happens here
 ) -> Dict[str, Any]:
-    """Compare bucketed edge over the recent window vs the prior window."""
+    """Compare MEAN edge over the recent window vs the prior window.
+
+    ⚠️ This line read "Compare bucketed edge ..." until 2026-09-02 and that was
+    FALSE — the body computes a plain mean R per window and never buckets, so
+    ``n_buckets`` and ``min_bucket`` are accepted and never read. They are kept
+    for signature symmetry with the bucketed edge tables elsewhere in this
+    report; do not read the output as a bucketed comparison.
+    """
     now = datetime.now(timezone.utc)
     recent_cut = now.timestamp() - DECAY_RECENT_DAYS * 86400
     prior_cut = now.timestamp() - (DECAY_RECENT_DAYS + DECAY_PRIOR_DAYS) * 86400

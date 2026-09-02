@@ -3,31 +3,87 @@ type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: "Phase D — the constraint, computed rather than judged"
 stage: CAPABILITY
-lifecycle: dormant
+lifecycle: waiting
 owner: claude
 opened_at: 2026-09-01
 closed_at: null
 review_trigger: >-
-  Re-read when the phase it depends on closes, or when the operator changes the cycle
-  priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
+  Re-read when a session writes real blocked_on edges into the store (the diagnosis
+  refuses for want of them, not for want of machinery), or when the operator changes
+  the cycle priority.
 
 done_condition: >-
-  The cycle's priority has a computed readout behind it, AND docs/claude/DUE.*
-  is deleted rather than left running beside it.
+  The cycle's priority has a computed readout behind it, AND docs/claude/DUE.* is
+  deleted rather than left running beside it.
 
 blocked_on:
-  - kind: object
-    ref: WO-20260901-PHASE-C
+  - kind: external_event
+    ref: >-
+      a session writing TRUE blocked_on edges, taking assessed coverage over the
+      declared 50% floor so E1 can name a stage instead of refusing
     since: 2026-09-01
     note: >-
-      E1 walks the typed blocked_on edges, which only exist once the carried rows
-      are migrated with their dependencies.
+      ⚠️ THE MACHINERY IS BUILT AND THE DIAGNOSIS REFUSES — those are different facts
+      and only the first is delivered. scripts/ops/constraint_readout.py computes the
+      graph, but measured over the whole store on 2026-09-01 only 6 of 584 objects
+      (1.0%) carry an ASSESSED blocked_on basis: 578 carry an empty list stating
+      NOT_ASSESSED, which is nobody having looked. So the verdict is
+      `insufficient_basis` and NO STAGE IS NAMED. That is the honest output and the
+      readout ships it, but the phase's own done_condition asks for a computed
+      readout BEHIND the priority, and a permanent refusal is a readout that will be
+      skimmed past. It clears when the assessment work is done by the sessions that
+      own those rows — not by this phase, which must not invent edges to satisfy its
+      own done-condition. A false blocker is worse than a missing one.
+  - kind: external_event
+    ref: >-
+      a demonstration that the readout supersedes docs/claude/DUE.* in full, or an
+      operator decision to keep both
+    since: 2026-09-01
+    note: >-
+      The build plan says the due-list is DELETED rather than left running beside the
+      readout. It was NOT deleted, deliberately, and the reason is measured rather
+      than cautious: render_due_list.py draws on OPEN-ITEMS.json monitoring cadences,
+      PROBES.json, the recurrence ledger, red scheduled crons and unlanded automation
+      PRs. The readout draws on the work store, the live money route and the
+      operator-owed register. Four of the due-list's source classes have NO
+      counterpart here, so deleting it would drop live signals — the opposite of the
+      phase's intent. What overlaps is exactly one class: operator-owed items.
+
+blocked_on_basis: >-
+  ASSESSED 2026-09-01 by the Phase D session, against the store as it stands. Both
+  edges are external_event rather than object edges, deliberately: what holds this is
+  an observation nobody has made, not a deliverable another object owns.
 
 note: >-
-  E1 is genuinely new — verified by search, nothing in the repo names a
-  bottleneck stage. render_due_list.py is 746 lines that say what is DUE,
-  never where the chain is stuck.
+  E1 IS genuinely new — RE-VERIFIED this session rather than taken from the plan
+  (RULE ONE). Probe: grep for `blocked_on` across *.py/*.md/*.json/*.yaml/*.ts
+  excluding the objects dir, with a POSITIVE CONTROL that the same probe finds all
+  584 objects that do carry it. Of the non-object hits, src/web/api/routers/work.py
+  normalises the edges and grades blockedOnState but names no stage;
+  scripts/ops/render_due_list.py and scripts/ops/work_digest.py do not read the field
+  at all. Nothing computed a held-up stage before this change.
+
+  ⚠️ THE EDGE THIS OBJECT USED TO CARRY WAS A FALSE BLOCKER, and finding it is a
+  Phase D result rather than an aside. It read `object -> WO-20260901-PHASE-C`, on
+  the reasoning that E1 needs migrated rows. The migration LANDED; Phase C sits at
+  `waiting` only on an unobserved cold-session read of the priority. So the graph
+  reported Phase D held by a capability that had already been delivered. The store
+  cannot currently distinguish a target that is `waiting` because it is undelivered
+  from one `waiting` on an observation, and a dependent needs the capability, not the
+  observation. constraint_readout.py publishes that as `holds_on_waiting_targets`
+  with the caveat attached rather than inventing a state nobody measured; two more
+  live edges have the same shape (PHASE-G -> PHASE-D, PHASE-H -> PHASE-B).
 
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md
-verdict: null
+  - scripts/ops/constraint_readout.py
+  - docs/claude/READOUT.md
+  - docs/claude/CONSTRAINT.json
+verdict: >-
+  DELIVERED, NOT SATISFIED — population: all 584 docs/claude/work/objects/*.yaml,
+  0 parse failures, measured 2026-09-01. E1 exists and computes; A1 renders as four
+  items and reaches a session through the CLAUDE.md brief. It NAMES NO STAGE, because
+  assessed coverage is 6/584 = 1.0% against a declared 50% floor, and naming one over
+  that graph would be the fabricated-answer-wearing-a-computed-label class this phase
+  was written to avoid. Basis MEASURED for the coverage figures; the floor itself is
+  CHOSEN with a stated argument and no distribution behind it.

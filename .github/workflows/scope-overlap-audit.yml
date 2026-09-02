@@ -37,11 +37,31 @@ name: scope-overlap-audit
 # committed script from the BASE ref — so it carries none of the usual
 # pull_request_target risk, which comes entirely from running untrusted content.
 #
-# THREE STATES, NEVER COLLAPSED: overlap / no_overlap / could_not_check.
+# THREE VERDICT STATES, NEVER COLLAPSED: overlap / no_overlap / could_not_check.
+#
+# FOUR ATTRIBUTION STATES, ALSO NEVER COLLAPSED (added 2026-09-02): mine /
+# other_active / other_landed / unattributable. The first nine live fires of this
+# detector all reported a session's OWN declaration back at it as "another
+# session declared", because whose-START-is-this was decided by grepping the
+# first backticked `claude/...` token out of the body — which, on the manager's
+# own precise START, was a DIFFERENT session's branch quoted in prose. Sessions
+# also open PRs from short-lived branches, so branch equality could never match a
+# session's board declaration. Identity is now parsed in Python from a
+# self-identification context, keyed on session id as well as branch, and graded
+# for staleness. See scripts/ci/check_scope_overlap.py.
+#
 # It comments only on `overlap` and `could_not_check` — silent on the happy
 # path, like merge-claim-audit, because a comment on every PR is noise. The
 # verdict is ALWAYS written to the job summary, so "it ran and found nothing"
 # stays distinguishable from "it did not run".
+#
+# ONE NOTE ON THE PR BODY, WHICH IS NOW AN INPUT (2026-09-02). `pr.body` is
+# author-controlled, and a body quoting another session's `claude.ai/code/…`
+# footer would make that session's START read as the author's own and be
+# suppressed. It is stated rather than hidden (see `pr_session_ids`) and is not
+# a privilege boundary: this workflow GATES NOTHING, so the only thing such a
+# body can buy is a quieter advisory comment on the author's own PR. No secret,
+# no checkout of PR code, and no order path is reachable from it either way.
 #
 # Tier-1: read-only, no VM, no order path, no secret beyond GITHUB_TOKEN.
 
@@ -119,6 +139,7 @@ jobs:
               changed = files.map(f => f.filename);
             } catch (e) { core.warning(`changed-file read failed: ${e.message}`); }
 
+            let dones = [], branchStates = {};
             try {
               const since = new Date(Date.now() - Number(process.env.LOOKBACK_HOURS) * 3600e3);
               const comments = await github.paginate(github.rest.issues.listComments, {
@@ -126,22 +147,70 @@ jobs:
                 issue_number: Number(process.env.BOARD_ISSUE),
                 since: since.toISOString(), per_page: 100,
               });
-              // A START declares scope. A QUESTION, a DONE, a merge-slot claim
-              // and an audit comment declare nothing, so they are not read.
+              // A START declares scope. A QUESTION, a merge-slot claim and an
+              // audit comment declare nothing, so they are not read. A DONE
+              // declares nothing either, but it RETIRES a START, so it is now
+              // collected separately rather than dropped.
               const isStart = b => /(?:▶️|:arrow_forward:)?\s*\*{0,2}START\*{0,2}\b/i.test((b || '').slice(0, 400));
-              // The branch is the identity comparable against a PR head ref.
-              const branchOf = b => (String(b).match(/`(claude\/[^`\s]+)`/) || [])[1] || '';
-              starts = comments.filter(c => isStart(c.body)).map(c => ({
-                branch: branchOf(c.body), body: c.body,
-                url: c.html_url, created_at: c.created_at,
-              }));
+              // ⚠️ ANCHORED to the first non-empty line, unlike isStart. A false
+              // START only over-reports; a false DONE RETIRES a live declaration
+              // and suppresses a real overlap. Mirrors `_DONE_RE` in the script,
+              // where the asymmetry is unit-tested.
+              const firstLine = b => ((b || '').split('\n').find(l => l.trim()) || '');
+              const isDone  = b => /^[\s>#*_]*(?:✅|:white_check_mark:)?\s*\*{0,2}DONE\*{0,2}\b/i.test(firstLine(b));
+              const row = c => ({ body: c.body, url: c.html_url, created_at: c.created_at });
+              // ⚠️ NO `branchOf` HERE ANY MORE, AND THAT IS THE FIX.
+              // It used to be `body.match(/`(claude\/[^`\s]+)`/)` — the first
+              // backticked branch ANYWHERE in the body. On 2026-09-02 the
+              // manager's own START named another session's branch in PROSE, to
+              // complain about it, and this line stamped that branch onto the
+              // manager's comment: a fabricated attribution to a named third
+              // party. Identity is now parsed in Python, from a
+              // self-identification context only, where it is unit-testable
+              // against the real comment (see `parse_identity`).
+              starts = comments.filter(c => isStart(c.body)).map(row);
+              dones  = comments.filter(c => !isStart(c.body) && isDone(c.body)).map(row);
             } catch (e) { core.warning(`board read failed: ${e.message}`); }
 
+            // Branch -> PR state, for the STALENESS axis. A declaration whose
+            // branch has already merged is not a live collision, and on PR
+            // #10731 ALL SEVEN declaring branches had merged — one of them 90
+            // seconds before its own START was posted.
+            //
+            // Bounded to the 200 most-recently-updated PRs: the board lookback
+            // is 24h, so a branch declared in it is all but certain to appear.
+            // A branch NOT found stays absent, and the assessor reads an absent
+            // branch as ACTIVE — unknown staleness must fail toward reporting.
+            try {
+              for (const page of [1, 2]) {
+                const rs = await github.rest.pulls.list({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  state: 'all', sort: 'updated', direction: 'desc',
+                  per_page: 100, page,
+                });
+                for (const p of rs.data) {
+                  const ref = p.head && p.head.ref;
+                  // First write wins: the list is newest-updated first, so this
+                  // keeps the most recent PR for a reused branch.
+                  if (ref && !(ref in branchStates)) {
+                    branchStates[ref] = p.merged_at ? 'merged' : p.state;
+                  }
+                }
+                if (rs.data.length < 100) break;
+              }
+            } catch (e) {
+              core.warning(`PR-state read failed: ${e.message} — every declaration `
+                           + `will be graded ACTIVE, which over-reports rather than `
+                           + `silences`);
+            }
+
             fs.writeFileSync('/tmp/overlap.json', JSON.stringify({
-              pr: pr.number, my_branch: pr.head.ref,
-              changed_files: changed, starts,
+              pr: pr.number, my_branch: pr.head.ref, my_body: pr.body || '',
+              changed_files: changed, starts, done_posts: dones,
+              branch_states: branchStates,
             }));
-            core.info(`collected ${changed.length} changed file(s), ${starts.length} START(s)`);
+            core.info(`collected ${changed.length} changed file(s), ${starts.length} START(s), `
+                      + `${dones.length} DONE(s), ${Object.keys(branchStates).length} branch state(s)`);
 
       - name: Assess and report
         if: steps.tool.outputs.present == 'true'
@@ -159,6 +228,10 @@ jobs:
               .addHeading('scope-overlap audit')
               .addRaw(`**state:** \`${v.state}\` · declared paths compared: ${v.parsed} · `
                       + `explicitly excluded: ${v.explicitly_excluded}\n\n`)
+              .addRaw(`**attribution:** ${(v.hits||[]).length} live · `
+                      + `${(v.landed_hits||[]).length} landed · `
+                      + `${(v.unattributed_hits||[]).length} unattributable · `
+                      + `${v.self_declared||0} your own (suppressed)\n\n`)
               .addRaw(v.markdown)
               .write();
 

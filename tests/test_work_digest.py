@@ -16,6 +16,8 @@ everything".
 from __future__ import annotations
 
 import json
+import json as _json
+import pathlib as _pathlib
 import subprocess
 
 from scripts.ops import work_digest as wd
@@ -47,10 +49,23 @@ def test_resolvable_window_grades_a_real_state_not_unresolved():
 
 
 def test_identical_refs_are_no_changes_which_is_a_real_observation():
+    """REWORDED 2026-09-02 — the assertion is stronger, not looser.
+
+    It read ``"No lifecycle change" in render(d)``, which was exactly the
+    sentence the digest had no business saying: it measured the work STORE and
+    reported it as though it had measured the WORK. The digest now reads six
+    registers, so the quiet-window sentence must state how many of them it
+    actually read — "nothing changed across 6 of 6" and "across 4 of 6" are
+    different claims and only the first is a clean night.
+    """
     d = wd.build_digest("HEAD", "HEAD")
     assert d["digestState"] == "no_changes"
     assert d["changes"] == []
-    assert "No lifecycle change" in wd.render(d)
+    assert d["events"] == []
+    text = wd.render(d)
+    assert "No state change" in text
+    assert "register(s) read" in text, (
+        "a quiet-window claim must carry the denominator of what was examined")
 
 
 # ── state changes only, never activity ───────────────────────────────────
@@ -264,3 +279,296 @@ def test_digest_and_route_publish_the_same_ceiling_facts():
     assert digest_wip["ceiling"] == route_wip["ceiling"] == work_facts.WIP_CEILING
     assert digest_wip["enforced"] == route_wip["enforced"] == work_facts.CEILING_ENFORCED
     assert digest_wip["state"] == route_wip["state"] == work_facts.CEILING_STATE
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# Defect 2 (2026-09-02) — it measured the work STORE and called that the WORK
+#
+# On the busiest night this system has had — 49 commits / 49 merged PRs in
+# 1bae542a..d06cd3e9, two retired backlog classes, a cleared monitoring row and
+# a closed capability gap — the digest emitted `No lifecycle change`. Every one
+# of those is a decision or a state change; not one moves a `lifecycle:` field
+# in `docs/claude/work/objects/*.yaml`. A confident report of a quiet night is
+# worse than no report, because it looks like oversight happened.
+# ═════════════════════════════════════════════════════════════════════════
+
+_ROOT = _pathlib.Path(__file__).resolve().parents[1]
+
+
+def _mini_repo(tmp_path, monkeypatch):
+    """A git repo with the register files, so the diff is real, not mocked."""
+    repo = tmp_path / "r"
+    (repo / OBJECTS_DIR).mkdir(parents=True)
+
+    def run(*a):
+        return subprocess.run(a, cwd=repo, check=True, capture_output=True)
+    run("git", "init", "-q")
+    run("git", "config", "user.email", "t@t")
+    run("git", "config", "user.name", "t")
+    monkeypatch.setattr(wd, "REPO_ROOT", repo)
+    import scripts.ops.work_phase_ping as wpp
+    monkeypatch.setattr(wpp, "REPO_ROOT", repo)
+    return repo, run
+
+
+def _write(repo, rel, items):
+    path = repo / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_json.dumps({"items": items}), encoding="utf-8")
+
+
+def _sha(repo):
+    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+# ── the sources are real files, in the real repo ─────────────────────────
+
+def test_every_declared_source_exists_on_disk():
+    """A source path that has drifted reads as `absent` forever — silently
+    correct-looking, and permanently blind. Pinned, not trusted."""
+    missing = [s.path for s in wd.SOURCES if not (_ROOT / s.path).exists()]
+    assert not missing, f"declared sources not on disk: {missing}"
+
+
+def test_sources_cover_the_registers_the_operator_actually_uses():
+    declared = {s.path for s in wd.SOURCES}
+    for required in ("docs/claude/work/MANAGER-CHECKLIST.json",
+                     "docs/claude/OPEN-ITEMS.json"):
+        assert required in declared, f"{required} is where decisions land"
+    backlogs = {p.as_posix()[len(_ROOT.as_posix()) + 1:]
+                for p in (_ROOT / "docs" / "claude").glob("*-review-backlog.json")}
+    assert backlogs <= declared, (
+        f"a review backlog exists that the digest never reads: "
+        f"{sorted(backlogs - declared)}")
+
+
+# ── a backlog verdict is an event; an edit is not ────────────────────────
+
+def test_a_backlog_row_reaching_a_terminal_disposition_is_an_event(tmp_path, monkeypatch):
+    repo, run = _mini_repo(tmp_path, monkeypatch)
+    _write(repo, "docs/claude/health-review-backlog.json",
+           [{"id": "BL-1", "title": "a defect", "status": "open"}])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "base")
+    base = _sha(repo)
+    _write(repo, "docs/claude/health-review-backlog.json",
+           [{"id": "BL-1", "title": "a defect", "status": "resolved"}])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "close")
+
+    events, reads, _ = wd.register_events(base, "HEAD")
+    assert reads["health backlog"] == "read"
+    assert [(e["id"], e["from"], e["to"]) for e in events] == \
+        [("BL-1", "open", "resolved")]
+
+
+def test_editing_a_backlog_row_without_closing_it_is_activity(tmp_path, monkeypatch):
+    """The anti-changelog filter, structurally: only the STATE FIELD is watched."""
+    repo, run = _mini_repo(tmp_path, monkeypatch)
+    _write(repo, "docs/claude/health-review-backlog.json",
+           [{"id": "BL-1", "title": "a defect", "status": "open"}])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "base")
+    base = _sha(repo)
+    _write(repo, "docs/claude/health-review-backlog.json",
+           [{"id": "BL-1", "title": "a defect", "status": "open",
+             "note": "looked at it again"}])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "edit")
+
+    events, _, _ = wd.register_events(base, "HEAD")
+    assert events == [], "an edit that closes nothing is activity, not an event"
+
+
+def test_a_filed_backlog_row_is_counted_but_not_enumerated(tmp_path, monkeypatch):
+    """A backlog gains rows constantly; the VERDICT is the event, not the filing.
+
+    Enumerating filings would rebuild the desensitized-alarm failure on a daily
+    cadence — but the count still ships, so the filing rate stays visible.
+    """
+    repo, run = _mini_repo(tmp_path, monkeypatch)
+    _write(repo, "docs/claude/health-review-backlog.json",
+           [{"id": "BL-1", "status": "open"}])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "base")
+    base = _sha(repo)
+    _write(repo, "docs/claude/health-review-backlog.json",
+           [{"id": "BL-1", "status": "open"}, {"id": "BL-2", "status": "open"}])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "file")
+
+    events, _, counts = wd.register_events(base, "HEAD")
+    assert events == []
+    assert counts["health backlog"]["added"] == 1
+
+
+# ── the register: clearing a row is the event that matters ───────────────
+
+def test_clearing_an_open_items_row_is_an_event(tmp_path, monkeypatch):
+    repo, run = _mini_repo(tmp_path, monkeypatch)
+    _write(repo, "docs/claude/OPEN-ITEMS.json",
+           [{"id": "OI-1", "summary": "watch a thing"}])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "base")
+    base = _sha(repo)
+    _write(repo, "docs/claude/OPEN-ITEMS.json", [])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "clear")
+
+    events, _, _ = wd.register_events(base, "HEAD")
+    assert [(e["id"], e["to"]) for e in events] == [("OI-1", "CLEARED")]
+    assert "OI-1" in wd.render(wd.build_digest(base, "HEAD"))
+
+
+# ── the checklist: scoping is not an event, blocking is ──────────────────
+
+def test_a_checklist_item_landing_in_queued_is_not_an_event(tmp_path, monkeypatch):
+    repo, run = _mini_repo(tmp_path, monkeypatch)
+    _write(repo, "docs/claude/work/MANAGER-CHECKLIST.json", [])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "base")
+    base = _sha(repo)
+    _write(repo, "docs/claude/work/MANAGER-CHECKLIST.json",
+           [{"id": "MI-1", "title": "scoped", "state": "queued"},
+            {"id": "MI-2", "title": "stuck", "state": "blocked"}])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "add")
+
+    events, _, _ = wd.register_events(base, "HEAD")
+    ids = {e["id"] for e in events}
+    assert ids == {"MI-2"}, "queued is scoping (activity); blocked needs a human"
+
+
+def test_queued_and_triage_are_deliberately_not_checklist_events():
+    assert "queued" not in wd.CHECKLIST_EVENTS
+    assert "triage" not in wd.CHECKLIST_EVENTS
+    # Positive control: the states that ARE decisions.
+    assert {"done", "blocked", "landed_unproven"} <= wd.CHECKLIST_EVENTS
+
+
+def test_landed_unproven_is_an_event_because_merged_is_not_observed():
+    """`done` and `landed_unproven` are different facts; collapsing them is the
+    failure this repo keeps paying for."""
+    assert "landed_unproven" in wd.CHECKLIST_EVENTS
+    assert "done" in wd.CHECKLIST_EVENTS
+
+
+# ── "could not look" vs "nothing changed", per source ────────────────────
+
+def test_an_unreadable_register_is_never_reported_as_a_quiet_one(tmp_path, monkeypatch):
+    repo, run = _mini_repo(tmp_path, monkeypatch)
+    _write(repo, "docs/claude/health-review-backlog.json",
+           [{"id": "BL-1", "status": "open"}])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "base")
+    base = _sha(repo)
+    (repo / "docs/claude/health-review-backlog.json").write_text(
+        "{ this is not json", encoding="utf-8")
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "corrupt")
+
+    d = wd.build_digest(base, "HEAD")
+    assert d["sourceReads"]["health backlog"] == "unreadable"
+    text = wd.render(d)
+    assert "UNREADABLE" in text
+    assert "could not look" in text
+    # Positive control: a readable register is not slandered as unreadable.
+    assert d["sourceReads"]["open-items register"] != "unreadable"
+
+
+def test_absent_is_an_observation_and_unreadable_is_not(tmp_path, monkeypatch):
+    """`absent` means we looked and it is not there. `unreadable` means we did
+    not look. Only the second may downgrade the digest."""
+    repo, run = _mini_repo(tmp_path, monkeypatch)
+    (repo / "x.txt").write_text("x")
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "base")
+    d = wd.build_digest(_sha(repo), "HEAD")
+    assert set(d["sourceReads"].values()) == {"absent"}
+    assert d["digestState"] == "no_changes", (
+        "every register genuinely absent is a real, quiet observation")
+
+
+def test_a_partially_read_window_says_so_rather_than_reading_as_clean(tmp_path, monkeypatch):
+    repo, run = _mini_repo(tmp_path, monkeypatch)
+    _write(repo, "docs/claude/OPEN-ITEMS.json", [{"id": "OI-1"}])
+    _write(repo, "docs/claude/health-review-backlog.json", [{"id": "BL-1", "status": "open"}])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "base")
+    base = _sha(repo)
+    (repo / "docs/claude/health-review-backlog.json").write_text("nope", encoding="utf-8")
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "corrupt")
+
+    text = wd.render(wd.build_digest(base, "HEAD"))
+    assert "not a clean night" in text
+
+
+def test_source_reads_ship_even_on_the_unresolved_envelope():
+    """A key that vanishes makes a consumer branch on absence, and absence is
+    not one of the states."""
+    d = wd.build_digest("definitely-not-a-ref-000000", "HEAD")
+    assert set(d["sourceReads"]) == {s.name for s in wd.SOURCES}
+    assert set(d["sourceReads"].values()) == {"not_attempted"}
+
+
+def test_a_register_created_inside_the_window_is_not_diffed(tmp_path, monkeypatch):
+    """Otherwise every row it has ever held reads as 'new tonight' — a loud lie."""
+    repo, run = _mini_repo(tmp_path, monkeypatch)
+    (repo / "x.txt").write_text("x")
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "base")
+    base = _sha(repo)
+    _write(repo, "docs/claude/OPEN-ITEMS.json",
+           [{"id": f"OI-{i}"} for i in range(40)])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "create")
+
+    events, _, counts = wd.register_events(base, "HEAD")
+    assert events == []
+    assert counts["open-items register"]["firstSeen"] is True
+    assert "first appeared in this window" in wd.render(wd.build_digest(base, "HEAD"))
+
+
+# ── merged PRs are attribution, never the headline ───────────────────────
+
+def test_merged_pr_count_is_never_the_headline(tmp_path, monkeypatch):
+    repo, run = _mini_repo(tmp_path, monkeypatch)
+    _write(repo, "docs/claude/OPEN-ITEMS.json", [{"id": "OI-1"}])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "base")
+    base = _sha(repo)
+    _write(repo, "docs/claude/OPEN-ITEMS.json", [])
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "clear a row (#123)")
+
+    d = wd.build_digest(base, "HEAD")
+    assert d["window"]["mergedPrs"] == 1
+    lines = wd.render(d).splitlines()
+    assert "merged PRs" not in lines[1], (
+        "the headline is what CHANGED; PR volume is activity and belongs on "
+        "the population line")
+    assert any("merged PRs" in ln for ln in lines), "…but it is still reported"
+
+
+# ── the acceptance case: the night this defect was found on ──────────────
+
+def test_the_real_night_produces_more_than_no_lifecycle_change():
+    """MEASURED against this clone's own history (source: `git log`, read
+    2026-09-02). Skips rather than lies when the window is not in the clone —
+    a shallow checkout must not turn this into a false pass or a false fail.
+    """
+    import pytest
+    base, head = "1bae542a", "d06cd3e9"
+    if wd._resolve(base) is None or wd._resolve(head) is None:
+        pytest.skip(f"{base}..{head} not in this clone (shallow)")
+    d = wd.build_digest(base, head)
+    assert d["digestState"] == "changes_observed"
+    assert len(d["events"]) >= 20, (
+        f"the busiest night on record produced {len(d['events'])} events")
+    text = wd.render(d)
+    assert "No state change" not in text
+    # It must name what needs a human, and it must not become a changelog.
+    assert "NEEDS YOU" in text
+    assert len(text.splitlines()) <= 30, "a digest that lists everything is unread"

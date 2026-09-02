@@ -130,6 +130,42 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # E3 — Phase G. The forcing function that makes the system REMOVE.
+        # UNGATED: the escalation is about candidates ACCRUING over time, which
+        # no diff can be relevant to — a candidate carried past its threshold
+        # becomes a failure on a PR that touched nothing near it, and that is
+        # the point. Costs ~0.05s: two small JSON reads.
+        "name": "sunset-disposition-guard",
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation — this guard's escalation
+            # branch is unreachable in production until three passes have
+            # accrued, so without it the teeth would be untested for a fortnight.
+            ["python3", "scripts/ci/check_sunset_dispositions.py", "--self-test"],
+            ["python3", "scripts/ci/check_sunset_dispositions.py"],
+        ],
+    },
+    {
+        # E2 — Phase G. Capability build is PULLED by a held-up stage.
+        # ⚠️ ADVISORY IN PRODUCTION TODAY, BY MEASUREMENT, NOT BY SOFTENING: the
+        # constraint readout REFUSES (1.0% assessed coverage against a 50%
+        # floor), so no stage can be named and no pull claim can be verified.
+        # The `enforcing` branch is real and is exercised by the self-test on
+        # every run, so the teeth are known to work on the day true `blocked_on`
+        # edges make them reachable. The way to switch it on is to write those
+        # edges — not to edit the guard.
+        "name": "capability-pull-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_capability_pull.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_capability_pull.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
+        ],
+    },
+    {
         "name": "workflow-catalog",
         # UNGATED (`when: None`), for the same reason api-tier-policy's
         # completeness backstop is: a diff-scoped check cannot see a row being
@@ -232,6 +268,79 @@ GUARDS: List[Dict[str, Any]] = [
         # BRIEF is the only channel that arrives in time. This guard keeps that
         # block in sync — a STALE brief is worse than none, because a session
         # would read something no longer true and act on it.
+        "name": "constraint-readout-guard",
+        # E1's whole job is to REFUSE rather than name a stage over unassessed
+        # edges, and every distinction that refusal rests on lives in one
+        # module's --self-test: `declared_none` vs `unstated`, a stale hold vs a
+        # live one, money that is `None` rather than 0.0, and the imported
+        # operator-owed vocabulary. The last of those is not hypothetical — the
+        # first run of that file re-derived it and invented five decisions for
+        # the operator. Unregistered, the assertions run only when someone
+        # remembers to type the command.
+        #
+        # `when: None` so it runs on every PR: the self-test is a few
+        # milliseconds and reads no network, and diff-scoping it to the script's
+        # own path would miss the case that actually breaks it — a change to
+        # `src/runtime/operator_owed.py`'s vocabulary or to
+        # `check_wip_ceiling.py`'s CEILING, both of which this module IMPORTS.
+        "name_note": "self-test only; the readout itself is generated on demand, not in CI",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/constraint_readout.py", "--self-test"],
+        ],
+    },
+    {
+        # `context = work object + role pack` is the operating model's anti-silo
+        # mechanism, and on 2026-09-01 its two halves were wired to DIFFERENT
+        # systems: the object half shipped and not one role pack was updated to
+        # know it exists. A prose edit alone decays back to zero on the next
+        # rewrite — this is what keeps it true.
+        #
+        # Two directions, and only the second has teeth: a situating pack must
+        # NAME a live operating-layer path, and EVERY layer path ANY pack names
+        # must exist. So renaming the store reddens the packs pointing at the
+        # old place. Deliberately NOT all 32 — most packs are domain procedure
+        # and are correctly indifferent to where work is tracked.
+        #
+        # `when: None`: the thing that breaks it is usually a path MOVING
+        # elsewhere in the repo, which touches no skill file, so a diff-scoped
+        # version would go quiet exactly when it should speak.
+        "name": "role-pack-operating-layer",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_role_pack_operating_layer.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_role_pack_operating_layer.py"],
+        ],
+    },
+    {
+        # CAN THIS WORKFLOW'S PUSH TRIGGER FIRE AT ALL? A narrow, deterministic
+        # slice of the audit's own biggest blind spot: 87 of 129 workflows
+        # cannot be graded on dormancy (their history is skipped label-filter
+        # evaluations), so "is this thing dead?" had no cheap surface. This does
+        # not answer that — it answers the reachability half, which needs no run
+        # history: a `push` trigger pinned to a branch that no longer exists is
+        # unreachable by construction.
+        #
+        # It found THREE on its first run (ict-scalp-exit-sweep,
+        # m20-capture-census, m20-exit-lever-sweep); the audit had flagged one,
+        # and graded it as a CI failure to repair rather than a dead trigger.
+        #
+        # ⚠️ `when: None` so it runs on every PR, NOT diff-scoped to
+        # `.github/workflows/**`. The thing that breaks a trigger is usually a
+        # BRANCH DELETION, which touches no file in the diff — so a diff-scoped
+        # version would go quiet at exactly the moment it should speak.
+        # ⚠️ An unreadable `origin` PASSES (loudly). Failing on a network blip
+        # would red every open PR — BL-20260830.
+        "name": "workflow-trigger-reachability",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_workflow_trigger_reachability.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_workflow_trigger_reachability.py"],
+        ],
+    },
+    {
         "name": "session-brief-guard",
         "when": None,
         "steps": [
@@ -262,6 +371,69 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # THE SUB-SESSION REGISTRY. A manager arriving COLD can only pick up the
+        # sub-sessions `docs/claude/work/SESSIONS.json` names; one it does not
+        # name is, to that successor, one that does not exist.
+        #
+        # ⚠️ THIS IS A RECURRENCE, WHICH IS WHY IT IS A GUARD AND NOT ANOTHER
+        # REMINDER. `MI-15-SESSIONS-REGISTRY-INCOMPLETE` recorded 3 of 6 spawned
+        # sessions absent on 2026-09-01 and applied the remedy "remember to
+        # register". On 2026-09-02T05:56Z it was 6 of 9, five of them LIVE, with
+        # the MI-15 row still sitting at `landed_unproven`. The moment a manager
+        # spawns a session is exactly the moment it is least likely to stop and
+        # write a record, so the remedy cannot be another reminder.
+        #
+        # ⚠️ WHAT THIS GUARD CAN AND CANNOT SEE — stated because the gap is the
+        # point. Enumerating what is actually RUNNING needs the `list_sessions`
+        # MCP tool, and CI holds no MCP tools. So the live detector is NOT here;
+        # it runs when the manager passes an observation to
+        # `scripts/ops/handoff_check.py`, which REFUSES to grade a handoff
+        # `ready` without one. What IS here is the offline half: the manager
+        # already writes a session id into `MANAGER-CHECKLIST.json::items[].owner`
+        # when it assigns work, so an owner id absent from the registry is a lost
+        # session detectable from two file reads. Partial by construction — a
+        # session in neither file is invisible to it — and strictly more than the
+        # zero either file caught alone.
+        #
+        # `when: None` for the same reason the register and ceiling guards use
+        # it: the registry is written by whichever session spawns next, so a
+        # check that only runs when someone happens to touch the work store is
+        # not a check. Two small file reads, no network.
+        #
+        # NOT A WALL — measured before wiring. At the head this shipped on,
+        # `--strict` exits 0: 32 rows all well-formed, and every owner on an
+        # `in_flight` item is registered. Enforcement is scoped to `in_flight`
+        # deliberately (that is where losing a session costs LIVE work); the 3
+        # owners still absent on `landed_unproven` items are CENSUSED and
+        # printed on every run, so the narrow enforcement can never hide the
+        # wider number.
+        "name": "session-registry-guard",
+        "when": None,
+        "steps": [
+            # Both detectors, asserted in BOTH directions — a planted defect
+            # fires, a clean input stays quiet. One direction proves a check
+            # runs, never that it discriminates.
+            ["python3", "scripts/ops/session_registry.py", "--self-test"],
+            ["python3", "scripts/ops/handoff_check.py", "--self-test"],
+            # The live tree: structural integrity + the offline cross-check.
+            ["python3", "scripts/ops/session_registry.py", "status", "--strict"],
+            # The OPEN-PR half of the same handoff (MI-43 scope extension).
+            ["python3", "scripts/ops/open_pr_record.py", "--self-test"],
+            # ⚠️ `--strict` here grades DECISIONS ONLY, deliberately. Whether
+            # every open PR has a row needs a live list from GitHub, and CI's
+            # `GITHUB_TOKEN` could fetch it — but the check would then be
+            # measuring a moving target that changes between the run and the
+            # merge, reddening PRs for a row nobody could have written yet. The
+            # decision half is a property of the FILE, so it is stable, and it
+            # is the half that carries the danger: a row recording a verdict
+            # without its condition reads as complete, which is the state that
+            # could merge a demo-only Tier-2 approval onto a real-money account.
+            # Completeness is enforced where it belongs — at the handoff, by
+            # `handoff_check.py`, which refuses `ready` without the observation.
+            ["python3", "scripts/ops/open_pr_record.py", "--strict"],
+        ],
+    },
+    {
         # A repeated mistake must produce a PREVENTION, not another row.
         # GATE 0 item G4. Operator-approved 2026-08-26 on the test "if it's
         # affecting things that are being read or filed before they're actually
@@ -272,6 +444,41 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ci/check_stated_population.py", "--self-test"],
             ["python3", "scripts/ci/check_stated_population.py", "{pr_diff}"],
+        ],
+    },
+    {
+        # THE MANAGER-SIDE GUARD. `pr-queue-watch.yml` times how long an open,
+        # unmerged PR has sat with no push -- the MCP-free half of the question
+        # `queue_latency.py` can only answer with `list_sessions`. This entry is
+        # what makes that watcher a GUARD rather than a script somebody could
+        # have run: the watcher is not invokable from a prompt, a skill or a
+        # checklist step, and its DEADNESS fails here, on every PR. Measured
+        # across this cycle -- every mechanism the manager had to CHOOSE to run
+        # went unused; every mechanism that STOOD IN THE WAY worked.
+        #
+        # ⚠️ IT GRADES THE WATCHER'S LIVENESS, NEVER THE BACKLOG'S SIZE. A
+        # contributor's PR must not go red because the manager has four others
+        # unmerged -- the same objection this file already records against
+        # fetching the live open-PR list in `open_pr_record.py --strict`
+        # ("reddening PRs for a row nobody could have written yet"). The backlog
+        # is PRINTED here and escalated by the watcher's own run.
+        #
+        # ⚠️ `never_ran` PASSES and that is correct rather than lenient: it is
+        # the accurate reading until the workflow first fires, and failing on it
+        # would red every PR on the day this merges -- which is how a guard gets
+        # disabled instead of fixed. It arms itself on the first real run.
+        #
+        # `when: None`: a watcher can die without any PR touching its files,
+        # which is precisely the case that must be caught.
+        "name": "pr-queue-watch-guard",
+        "when": None,
+        "steps": [
+            # Both directions, on both halves -- a planted defect fires and a
+            # clean input stays quiet. One direction proves a check runs, never
+            # that it discriminates.
+            ["python3", "scripts/ops/pr_queue_latency.py", "--self-test"],
+            ["python3", "scripts/ci/check_pr_queue_watch.py", "--self-test"],
+            ["python3", "scripts/ci/check_pr_queue_watch.py"],
         ],
     },
     {
@@ -362,6 +569,46 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # The DAILY BRIEF — the artifact the operator is handed in the morning
+        # and pastes as the opening of the next manager's prompt (MI-75,
+        # WO-20260901-PHASE-E). The acceptance criterion is the operator's own
+        # sentence: it must say "what was done overnight and what was wrapped
+        # up after I went to bed, SO THAT I KNOW WHERE I'M STARTING OFF FROM."
+        #
+        # ⚠️ `--check` GRADES THE CODE, NOT THE DATA, and that is deliberate. An
+        # unreadable register is a real problem, but failing here on it would
+        # red every open PR for a defect none of them introduced — the lesson
+        # session-brief-guard already learned
+        # (BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH),
+        # and the same polarity as workflow-trigger-reachability's "an
+        # unreadable origin PASSES (loudly)". A broken register is printed as a
+        # ::NOTICE:: and passes; what FAILS is the renderer raising over the
+        # live registers, or an invariant SENTENCE going missing in a refactor
+        # — the brief still rendering while quietly no longer saying the thing
+        # it exists to say is the only failure a smoke test would miss.
+        #
+        # ⚠️ It is deliberately WINDOWLESS and OFFLINE: no git window (a shallow
+        # checkout is the normal state of a session's clone) and no due-list
+        # collection (it reaches api.github.com). A guard that can fail on clone
+        # depth or an API blip reds unrelated PRs.
+        #
+        # NOT A WALL — measured before wiring. At the head this shipped on,
+        # `--check` exits 0 over all 6 registers, and prints the checklist's
+        # `done` (11) and `landed_unproven` (17) as SEPARATE numbers, which is
+        # the invariant the whole artifact turns on: a merge is a deploy, not an
+        # observation, and an item reported finished whose effect was never seen
+        # actively misinforms the person starting the day.
+        "name": "daily-brief-guard",
+        "when": None,
+        "steps": [
+            # Planted controls in BOTH directions — a defect fires and a clean
+            # input stays quiet. One direction proves a check runs, never that
+            # it discriminates.
+            ["python3", "scripts/ops/render_daily_brief.py", "--self-test"],
+            ["python3", "scripts/ops/render_daily_brief.py", "--check"],
+        ],
+    },
+    {
         "name": "recurrence-ledger-guard",
         "when": None,
         "steps": [
@@ -391,6 +638,19 @@ GUARDS: List[Dict[str, Any]] = [
             # and the signal surfaced hours later on three unrelated PRs. This job
             # never short-circuits, which is the entire reason the check lives here.
             ["python3", "scripts/ops/backlog_append.py", "--check-live"],
+            # Same shape, same reason, different file: every row in
+            # docs/claude/pending-pings.jsonl must render an operator-visible
+            # BODY, and pytest-run CANNOT check that — it short-circuits on a
+            # docs/-only diff, which is precisely what a queued ping is. The
+            # pytest version was refused by
+            # tests/test_pytest_run_filter.py::test_docs_committed_readers_are_all_covered,
+            # correctly. Widening pytest-run's filter instead was rejected: the
+            # work-digest workflow appends here every 4h via an auto-merge PR,
+            # so it would put a ~15-minute suite on a routine generated commit.
+            # Self-test first — a probe that cannot find a planted positive
+            # would make every queue look clean.
+            ["python3", "scripts/ci/check_pending_pings_render.py", "--self-test"],
+            ["python3", "scripts/ci/check_pending_pings_render.py"],
             ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
             ["python3", "scripts/ops/check_allow_degraded.py"],
             ["python3", "scripts/ops/check_research_index.py", "--list"],
@@ -474,6 +734,21 @@ GUARDS: List[Dict[str, Any]] = [
                 "allow_fail": True,
             },
             ["python3", "scripts/ops/check_backlog_criteria.py", "--self-test"],
+            # The accrual-clock module the guard above imports. Its five clock
+            # states (can_run / gated_shadow / gated_disabled / not_routed /
+            # absent_from_config) are what let a row waiting for trades be told
+            # apart from one waiting for trades THAT CANNOT ARRIVE — measured
+            # 2026-09-02, four of eleven accrual rows in the performance
+            # backlog named a leg that is shadow-gated or has zero journal rows
+            # ever. A state nothing can produce is a state nobody can rely on,
+            # so the self-test asserts every one of the five is reachable.
+            ["python3", "scripts/ops/accrual_clock.py", "--self-test"],
+            # The standing census, advisory like its sibling above so it cannot
+            # become the reason the blocking half gets switched off.
+            {
+                "argv": ["python3", "scripts/ops/accrual_clock.py", "--all"],
+                "allow_fail": True,
+            },
             {
                 "argv": ["python3", "scripts/ops/check_backlog_refs.py", "--all"],
                 "allow_fail": True,
@@ -771,6 +1046,25 @@ GUARDS: List[Dict[str, Any]] = [
                 "argv": ["python3", "scripts/check_diagnostic_provenance.py", "{pr_diff}"],
                 "when": {"regex": r"^scripts/.*\.py$"},
             },
+            # The whole-tree backstop, deliberately UNGATED — the
+            # api-tier-policy-guard pattern, for the same reason.
+            #
+            # This could not exist until 2026-09-02: `--all` reported 52
+            # grandfathered findings, so an ungated step would have failed
+            # every PR on day one and been switched off. The standing audit is
+            # now at ZERO (all 52 triaged and fixed; the `# inert:` override
+            # was tightened from presence-only to verified in the same change),
+            # so the residue can be held there instead of being re-measured by
+            # hand every few weeks and found unchanged.
+            #
+            # Why UNGATED rather than diff-scoped: the diff-scoped step above
+            # cannot see a regression it does not touch — a site becomes
+            # unprovenanced when an unrelated PR adds the probability-shaped
+            # LABEL, or removes the `print` that made an input selection
+            # visible, three lines from code it never edited. That invisibility
+            # is exactly what let the residue sit at 52 for 26 days across five
+            # review passes (BL-20260807-DIAGPROV-STANDING-AUDIT-NEVER-DRAINED).
+            ["python3", "scripts/check_diagnostic_provenance.py", "--all"],
         ],
     },
     {
@@ -1008,6 +1302,32 @@ GUARDS: List[Dict[str, Any]] = [
         # run by hand, so this is a wiring fix, not a behaviour change.
         "steps": [["python3", "scripts/ci/guard_selftests.py", "collapsed-state"],
                   ["python3", "scripts/ci/check_collapsed_states.py", "--verbose"]],
+    },
+    {
+        "name": "manifest-scope-constants",
+        # The ML manifest<->dataset contract, at COMMIT time. It was previously
+        # validated ONLY at train time, on the trainer, inside a cycle that
+        # returns rc=0 — so a manifest merged clean and then silently never
+        # trained. `mes-regime-1d-lgbm-v2` declared `hour_of_day` on a DAILY bar
+        # and sat 34.0 days untrained against a 7.0-day threshold while the
+        # cycle reported green
+        # (MB-20260829-MES-1D-DECLARES-A-FEATURE-THAT-CANNOT-VARY-AT-ITS-OWN-TIMEFRAME).
+        #
+        # The trainer files are in the trigger set because C3 mirrors an
+        # invariant that lives in `lightgbm_multiclass.py` (a categorical not in
+        # feature_columns RAISES); if that raise moves, this guard must re-grade.
+        "when": {"globs": [
+            "ml/configs/*.yaml",
+            "ml/datasets/**",
+            "ml/trainers/**",
+            "scripts/ci/check_manifest_scope_constants.py",
+        ]},
+        # Self-test FIRST, same posture as collapsed-state-guard: the guard
+        # currently reports a CLEAN fleet, so without an exercised failure path a
+        # green run here is indistinguishable from a guard that stopped matching.
+        "steps": [["python3", "scripts/ci/guard_selftests.py",
+                   "manifest-scope-constants"],
+                  ["python3", "scripts/ci/check_manifest_scope_constants.py"]],
     },
     {
         # The GENERALISATION of the fix recorded immediately above: that wiring
@@ -1566,8 +1886,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         # Never let this read as coverage. On push the diff is empty, so these
         # steps CANNOT scan anything; running them would print a green that
         # checked nothing, and their whole-tree equivalents are not
-        # drop-in (diagnostic-provenance --all exits 1 on 52 grandfathered
-        # sites). Stated plainly so the next reader does not re-derive it.
+        # drop-in. (This used to read "diagnostic-provenance --all exits 1 on
+        # 52 grandfathered sites" — no longer true as of 2026-09-02: that
+        # residue was drained to zero and the guard now CARRIES an ungated
+        # whole-tree step, so it is no longer an example of this problem. The
+        # general point stands for the guards still listed below.)
         print(f"\nNOT SCANNED on this event ({len(unscoped)}) — no PR diff to "
               f"scope by; these steps consume {{pr_diff}}, which is empty here:")
         for item in unscoped:

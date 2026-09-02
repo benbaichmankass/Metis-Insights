@@ -111,7 +111,7 @@ except Exception:  # noqa: BLE001 — keep the tool importable on a minimal tree
         except (TypeError, ValueError):
             return None
 
-    def contract_value_usd_for(symbol):  # type: ignore[misc]
+    def contract_value_usd_for(symbol):  # type: ignore[misc]  # inert: symbol — import-fallback stub; must match the real signature, and a flat 1.0 is the declared degraded value
         return 1.0
 
 
@@ -217,6 +217,16 @@ def _model_score_summary(raw: Any) -> tuple[Optional[float], Optional[float], in
     ``model_scores`` is ``{model_id: {stage, score}}`` captured at signal time
     (order_packages.model_scores). Decision-time by construction — safe as a
     feature. Non-numeric / malformed entries are skipped, not fabricated.
+
+    ⚠️ ``score`` DOES NOT MEAN THE SAME THING ACROSS HEADS, so ``mean``/``max``
+    here pool quantities that are not commensurable. Per
+    ``scripts/ml/_regime_score_semantics`` (the one module that owns this
+    answer): it is P(positive) for a binary head but ``max(proba)`` for a
+    MulticlassPredictor — hence ``>= 0.5`` by construction for a 2-class regime
+    head, and HIGH for a head that is confidently CALM. Every regime head in
+    the fleet is multiclass. Read ``ms_mean``/``ms_max`` as *aggregate head
+    confidence*, never as a probability of anything in particular, and do not
+    threshold them as if they were one.
     """
     d = _decode_json(raw)
     if not d:
@@ -225,6 +235,9 @@ def _model_score_summary(raw: Any) -> tuple[Optional[float], Optional[float], in
     for v in d.values():
         s = None
         if isinstance(v, dict):
+            # provenance: score — the raw logged predict() field, whose meaning
+            # depends on head arity (see this function's docstring). NOT a
+            # class probability.
             s = v.get("score")
         elif isinstance(v, (int, float)) and not isinstance(v, bool):
             s = v

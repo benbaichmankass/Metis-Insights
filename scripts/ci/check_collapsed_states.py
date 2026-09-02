@@ -106,6 +106,53 @@ _REGISTRY_PATH = Path(__file__).resolve()
 
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "decision_push.delivery_state",
+        "producer": "src/runtime/decision_push.py",
+        "consumer_token": (r"\bdeliveryState\b|\bDELIVERY_STATES\b|"
+                           r"\bclassify_delivery\b|\bpushBack\b"),
+        "states": ["pushed", "session_gone", "unknown"],
+        "why": (
+            "The last hop of the decision round-trip: a committed answer is "
+            "PUSHED back to the session that asked, instead of that session "
+            "polling for it. The pair that must never collapse is "
+            "`session_gone` vs `unknown`. A `session_gone` verdict WRITES A "
+            "MARKER, and the marker is what stops any further attempt — so "
+            "grading an unrecognised failure (a timeout, a 529, an unset "
+            "credential) as `session_gone` would permanently strand an answer "
+            "for a session that was alive the whole time, on the strength of a "
+            "blip. `unknown` therefore writes NOTHING and is retried, and it is "
+            "the DEFAULT for anything not positively identified. `pushed` is "
+            "reserved for the delivery command's own `ok: true` — silence, a "
+            "zero exit with no parsable result, and an `ok:false` we cannot "
+            "attribute are all `unknown`, because reading silence as success is "
+            "the forward failure this whole subsystem refuses. And "
+            "`session_gone` is a REAL STATE, not an error: the answer stays "
+            "discoverable on the pull path, which this ADDS to and never "
+            "replaced."
+        ),
+    },
+    {
+        "name": "work_decisions.asked_by_state",
+        "producer": "src/runtime/work_decisions.py",
+        "consumer_token": (r"\baskedByState\b|\bASKED_BY_STATES\b|"
+                           r"\bnormalise_asked_by\b|\bbyAskedByState\b"),
+        "states": ["recorded", "unrecorded", "malformed"],
+        "why": (
+            "Whether a decision request records WHICH SESSION ASKED IT — the "
+            "address a committed answer can be pushed back to. Measured "
+            "2026-09-02 over the whole store: ZERO requests carried any such "
+            "field, so every answer had nowhere to go. `unrecorded` is the "
+            "ordinary and blameless state of every request written before the "
+            "field existed, and of any question a human asked. `malformed` "
+            "means somebody DID record an asker and it cannot be used — a "
+            "question whose answer will silently never be delivered while its "
+            "owner believes it will, which is a FINDING and fails the run. "
+            "Collapsing the two buries the finding among the ordinary ones, "
+            "and a push-back RATE computed without splitting them is a "
+            "recording-coverage problem wearing a delivery figure's label."
+        ),
+    },
+    {
         "name": "research_queue.power_state",
         # The producer is the GATE itself: `grade_power` returns a PowerVerdict
         # whose `state` is one of these seven, and the vocabulary is defined as
@@ -503,6 +550,113 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        # ⚠️ `producer_field` is DELIBERATELY OMITTED, and the omission is
+        # argued rather than accidental. Producer integrity credits only
+        # LITERALS, and this module declares its vocabulary the way the guard's
+        # own docstring asks for — module constants (`REACHABLE = "reachable"`)
+        # — so scoping evidence to lines naming `horizon_class` would find none
+        # of them and could be satisfied only by sprinkling bare strings into a
+        # module that already does the right thing. The false negative
+        # `producer_field` exists to close (a SIBLING field standing in as
+        # evidence) is bounded here and stated: the file's other vocabulary,
+        # `funnel_stage`, shares exactly ONE token with this one — `unknown` —
+        # so that single state, and no other, could in principle be satisfied
+        # by its sibling. The other four cannot.
+        "name": "strategy_reviews.horizon_class",
+        "producer": "src/runtime/evidence_horizon.py",
+        "consumer_token": r"\bhorizon_class\b|\bevidence_horizon\b",
+        "states": [
+            "gradeable_now", "reachable", "unbounded_no_closes",
+            "structurally_ungradeable", "unknown",
+        ],
+        "why": (
+            "HOW FAR A STRATEGY LEG IS FROM GRADEABLE, and each state names a "
+            "DIFFERENT REMEDY — which is the whole reason they are not one "
+            "`below_evidence_floor` flag. Measured on the committed 2026-09-01 "
+            "run (population: all 52 enabled strategies, window 7 days): 18 "
+            "legs `reachable` (a measured close rate, so a wider window "
+            "genuinely reaches them), 26 `unbounded_no_closes` (closed "
+            "NOTHING, so no rate was measured and no finite window follows), 8 "
+            "`structurally_ungradeable` (execution: shadow with no fills — a "
+            "leg that cannot close a trade at ANY window by design), 0 "
+            "`gradeable_now`. Collapsing them reports 52 legs as one window "
+            "problem when 34 of them are not, and invites the one remedy that "
+            "is a trap: widening the window until something clears the floor "
+            "fires a KILL off an evidence base assembled to make a KILL "
+            "fireable — the same low-n hazard the floor exists to prevent, one "
+            "level up. ⚠️ `unbounded_no_closes` is NOT `unreachable` and NOT "
+            "'a rate of zero': observing zero closes bounds the rate from "
+            "above and measures nothing, so the leg may close tomorrow. "
+            "`unknown` is WE COULD NOT LOOK (an input was absent) and folding "
+            "it into `unbounded_no_closes` would turn 'we did not read "
+            "n_closed' into 'we read it and it was zero' — the dangerous "
+            "direction, since that state routes a leg toward retirement. "
+            "OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-"
+            "EVIDENCE-BLOCK-IS-UNEXERCISED; "
+            "docs/design/evidence-floor-horizon-PROPOSAL.md."
+        ),
+    },
+    {
+        "name": "strategy_reviews.read_state",
+        "producer": "src/web/api/routers/strategy_review.py",
+        "producer_field": "read_state",
+        # Deliberately NARROW — `read_state` alone fires on the diag order-read
+        # routes, whose identically-named field carries DIFFERENT states.
+        # Coincidence-firing is what produces a routinely-overridden alarm,
+        # the failure this guard's own ib_venue_session contract records.
+        "consumer_token": r"\bstrategy-reviews\b|\bget_committed_strategy_reviews\b|\bstrategy_reviews_committed\b",
+        "states": ["index_read", "absent", "unreadable"],
+        "why": (
+            "index_read = we read the committed INDEX and the counts are real; "
+            "absent = no record has ever been committed for that day; "
+            "unreadable = WE COULD NOT LOOK (the file is there and will not "
+            "parse). The collapse to avoid is the last into a zeroed first: a "
+            "corrupt index answered as `graded: 0, rows: []` reads exactly like "
+            "'the fleet was graded and proposed nothing' — a confident clean "
+            "negative over a population nobody looked at, which is sub-class C "
+            "of the diagnostic-provenance defect and the CONSUMER side of "
+            "silent-empty-guard. It matters more here than on a soak surface "
+            "because this record exists to be read BEFORE a Tier-3 decision: "
+            "'no strategy needs attention' and 'we could not tell' are opposite "
+            "inputs to that decision. Counts are therefore None, never 0, "
+            "whenever the state is not index_read — 0 graded is a REAL reading "
+            "(a run that graded nothing) and must stay distinguishable. "
+            "COVERAGE CAVEAT, stated rather than papered over: this route is "
+            "NEW and its only consumer today is the test suite, so the state "
+            "coverage above is satisfied by tests. It is registered now anyway "
+            "— the states exist and the guard's job is to stop a later change "
+            "quietly folding them together."
+        ),
+    },
+    {
+        "name": "strategy_reviews.freshness",
+        "producer": "src/web/api/routers/strategy_review.py",
+        "producer_field": "freshness",
+        # Deliberately NARROW for the same reason, and this one was MEASURED: a
+        # first cut using a bare `\bfreshness\b` fired on
+        # src/prop/standard_account_size.py, scripts/ops/manager_lease.py and
+        # tests/test_news_layer.py — three unrelated freshness notions that
+        # merely share the word.
+        "consumer_token": r"\bstrategy-reviews\b|\b_grade_freshness\b|\bget_committed_strategy_reviews\b",
+        "states": ["fresh", "stale", "undateable", "absent"],
+        "why": (
+            "fresh = inside the daily cadence's tolerance; stale = older than "
+            "it; undateable = a timestamp we could not parse, so the record "
+            "cannot be SHOWN to be current; absent = no record at all. This is "
+            "the same defect /api/bot/prop/status grew `status_freshness` for, "
+            "one level up: a decision packet's whole purpose is to be read "
+            "BEFORE deciding, and a three-week-old packet rendered beside a "
+            "confident KILL/PROMOTE badge is indistinguishable from a current "
+            "one. `undateable` must fail SAFE to not-fresh rather than "
+            "optimistically passing, matching prop_balance's refusal on an "
+            "undateable row — a record whose age is unknown is not a record "
+            "shown to be fresh. `age_hours` is None for BOTH `absent` and "
+            "`undateable`, so the VERDICT is the field to read and the null "
+            "cannot separate them. COVERAGE CAVEAT: as above, the consumer "
+            "today is the test suite."
+        ),
+    },
+    {
         "name": "ib_venue_session.state",
         "producer": "src/runtime/ib_trading_hours.py",
         # Deliberately NARROW. The first cut used `\bvenue_session\b|
@@ -598,6 +752,200 @@ CONTRACTS: List[Dict[str, object]] = [
             "single out and cancelled the one that MATCHED trades.stop_loss, "
             "leaving a 15-lot MES position protected 69 ticks low ($1,289.73). "
             "BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG."
+        ),
+    },
+    {
+        "name": "work_decisions.answer_state",
+        "producer": "src/runtime/work_decisions.py",
+        "consumer_token": (r"\banswer_state\b|\banswerState\b|\bANSWER_STATES\b|"
+                           r"\bgrade_answer_state\b"),
+        "states": ["not_submitted", "in_transit", "committed", "unreadable"],
+        "why": (
+            "Phase H's decision round-trip, and the states carry the transit "
+            "contract the schema design states outright: THREE NEVER "
+            "COLLAPSED, and transit FAILS BACK, NEVER FORWARD. `committed` is "
+            "the ONLY one that means decided, and it is graded from the "
+            "`answer` block on the work object IN THE REPO — never from the "
+            "transit log — so an answer that does not commit leaves its "
+            "question unanswered rather than ambiguous. A question wrongly "
+            "shown as answered is a decision nobody made. `in_transit` is an "
+            "OPEN WINDOW: submitted, not landed, and enumerable with its age "
+            "so it closes observably. And `unreadable` is WE COULD NOT LOOK — "
+            "collapsing it into `not_submitted` would report a broken transit "
+            "channel as 'the operator has not answered', putting a question "
+            "back on the operator that they may already have answered and "
+            "making a broken channel indistinguishable from a quiet one. That "
+            "is exit_anchor.py's deferred/no_anchor distinction applied to a "
+            "write path."
+        ),
+    },
+    {
+        "name": "bybit_leg_sides.leg_side_class",
+        "producer": "src/runtime/bybit_leg_sides.py",
+        "consumer_token": (r"\bbybit_leg_sides\b|\bleg_side_split\b|"
+                           r"\bLEG_SIDE_STATES\b"),
+        "states": ["reduces_graded_book", "reduces_other_book",
+                   "leg_side_unreadable", "position_side_unreadable"],
+        "why": (
+            "A resting Bybit protective leg is reduce-only, so it acts on the "
+            "book it can SHRINK -- and `_bybit_position_protection` summed "
+            "every leg on the symbol into ONE side-blind `covered_qty` that "
+            "the over-cover page then described as coverage OF THE GRADED "
+            "POSITION. MEASURED on bybit_1/BTCUSDT (/api/diag/"
+            "bybit_open_orders, read 2026-09-02T03:30:33Z, trader git_sha "
+            "68e73de8): position Buy 0.018 positionIdx=1 covered EXACTLY 1.00x "
+            "by its own Sell 0.018 leg, paged as '2656%' because a Buy 0.46 "
+            "leg acting on a short book landed in the same sum. Collapsing "
+            "`reduces_other_book` into `reduces_graded_book` is that page. "
+            "`leg_side_unreadable` and `position_side_unreadable` are both WE "
+            "DID NOT LOOK and are deliberately separate from each other: the "
+            "first leaves the sums a LOWER BOUND, the second means NOTHING on "
+            "the symbol is gradeable, and reporting the second as the first "
+            "would point a reader at the wrong half of the read."
+        ),
+    },
+    {
+        "name": "bybit_leg_sides.other_book_state",
+        "producer": "src/runtime/bybit_leg_sides.py",
+        "consumer_token": r"\bother_book_state\b|\bOTHER_BOOK_STATES\b",
+        "states": ["impossible_one_way", "possible_hedge", "unknown"],
+        "why": (
+            "Whether a leg acting on the OPPOSITE book is stranded depends on "
+            "whether such a book can exist. Under one-way netting "
+            "(positionIdx 0) it cannot, so the leg is stranded by "
+            "construction; under HEDGE mode -- armed on bybit_1 and bybit_2 "
+            "since 2026-08-30 -- it may be a LIVE sibling's protection, and a "
+            "page that called it orphaned would invite cancelling a live "
+            "position's stop. `unknown` is WE COULD NOT LOOK and must never "
+            "default to `impossible_one_way`: CLAUDE.md names that exact "
+            "hazard for this same venue field -- 'defaulting an unread mode "
+            "to the netting value is precisely the reading that would make a "
+            "hedge account look safe to treat as netted'."
+        ),
+    },
+    {
+        "name": "share_hold.state",
+        "producer": "src/units/accounts/alpaca_client.py",
+        # No `producer_field`: the states are emitted as bare tuple returns
+        # (`return ("residual_unreadable", "could not read ...")`) and as members
+        # of the module constant SHARE_HOLD_STATES, so no literal shares a line
+        # with the word "state". Narrowing here would fail for a spelling reason
+        # rather than a correctness one — the `research_queue.power_state`
+        # reasoning, same shape.
+        "consumer_token": (r"\bshare_hold\b|\bSHARE_HOLD_STATES\b|"
+                           r"\bclassify_share_hold\b|\bparse_share_hold\b|"
+                           r"\bUNCLEARABLE_HOLD_STATE\b"),
+        "states": ["residual_unreadable", "no_residual_orders",
+                   "broker_cancel_wedged", "orders_still_resting"],
+        "why": (
+            "WILL RETRYING HELP? Both Alpaca close paths produce a "
+            "BYTE-IDENTICAL failure for a transient cancel race and for an order "
+            "wedged in `pending_cancel` forever — same retMsg ('insufficient qty "
+            "available'), same ERROR, same 'won't flatten' page, every tick, "
+            "indefinitely. The four states are the answer, and as of 2026-09-02 "
+            "one of them BUYS SILENCE: `broker_cancel_wedged` is the sole "
+            "trigger that downgrades a close-failure page out of the paging "
+            "channel into the daily digest (src/runtime/close_wedge_standing.py, "
+            "operator decision on OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-"
+            "SHIPPED-NOT-YET-OBSERVED). That is exactly why this contract had to "
+            "be registered rather than left as a log string: a state that gates "
+            "an alarm must be enforced as a state. "
+            "`residual_unreadable` is the one that must never collapse into "
+            "`no_residual_orders` — 'we could not read the open orders' and 'we "
+            "read them and nothing rests' are opposite claims, and the second "
+            "would let a broker we could not reach look like a clean book. "
+            "`no_residual_orders` is deliberately distinct from "
+            "`orders_still_resting` because only the second says a retry may "
+            "work; the first means the shares are held by something this "
+            "classifier does not model, which is a different operator action. "
+            "A FIFTH reading, `not_classified` (SHARE_HOLD_NOT_CLASSIFIED), is "
+            "deliberately NOT a declared state here: it means NOBODY CLASSIFIED "
+            "the failure — a non-Alpaca venue, or a path that never reached the "
+            "give-up branch — which is a fact about our own coverage, not "
+            "something the classifier observed. Registering it would claim "
+            "producer integrity for a value the producer cannot emit, the "
+            "`trainer_disk_unknown` reasoning in "
+            "src/web/api/routers/notifications.py. It is enforced instead by "
+            "parse_share_hold's own contract (an unknown token reads as "
+            "not_classified, never as one of the four) and by "
+            "tests/test_close_wedge_downgrade.py. "
+            "The consumer that branches on all four is "
+            "execution_diagnostics._share_hold_guidance, which turns each into "
+            "the operator action it implies — before it existed every page said "
+            "'investigate the venue/connection' regardless, which is the "
+            "collapse in miniature: a field written and never read."
+        ),
+    },
+    {
+        "name": "close_wedge.transition",
+        "producer": "src/runtime/close_wedge_standing.py",
+        "consumer_token": (r"\bclose_wedge\b|\bclose_wedge_standing\b|"
+                           r"\bTRANSITIONS\b|\bLOUD_TRANSITIONS\b|"
+                           r"\bsweep_close_wedges\b|\bwedge_transition\b|"
+                           r"\benqueue_close_wedge_state_change\b"),
+        "states": ["newly_wedged", "still_standing", "evidence_changed",
+                   "cleared_confirmed", "vanished_unattributed"],
+        "why": (
+            "This contract decides WHETHER THE OPERATOR IS PAGED about a "
+            "position that will not flatten, so a collapse here is silence about "
+            "a stuck position — the failure the close-failure pager was built to "
+            "end, reintroduced through its own de-noising. Exactly ONE state is "
+            "quiet (`still_standing`, and even it is floored by "
+            "CLOSE_WEDGE_REPAGE_HOURS); LOUD_TRANSITIONS is computed as the "
+            "COMPLEMENT of that one so a state added later is loud by default "
+            "rather than inheriting silence. "
+            "`vanished_unattributed` is the state this repo has already paid for "
+            "losing: it means the wedge stopped being observed with NO confirmed "
+            "close, and folding it into `cleared_confirmed` would bank a repair "
+            "nobody can name. CLAUDE.md's PROTECTION_REASSERT_MODE row is the "
+            "precedent — a gate at `annotate` with an empty allowlist got read as "
+            "having fixed a divergence it could not have touched — and "
+            "OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED "
+            "names the same trap for this exact GLD wedge in its `Clears when`. "
+            "`cleared_confirmed` is reachable ONLY from the monitor's "
+            "confirmed-close path (order_monitor._resolve_close_wedge_confirmed), "
+            "because that is the only place with attribution; the staleness "
+            "sweep can produce nothing but `vanished_unattributed`, by "
+            "construction. "
+            "`evidence_changed` must not collapse into `still_standing`: it means "
+            "the same (account, symbol, side) is now wedged on DIFFERENT orders "
+            "or a different hold state — a second, unexamined fault, which would "
+            "otherwise inherit the first one's suppression budget. "
+            "`newly_wedged` is loud on purpose: downgrading the ARRIVAL of a "
+            "wedge would hide the condition rather than de-noise it."
+        ),
+    },
+    {
+        "name": "telegram_poll.poll_state",
+        # The producer is the resolver itself: `poll_state()` returns a
+        # PollEvidence whose `state` is one of these three, and the vocabulary
+        # is defined as module constants here and nowhere else.
+        "producer": "src/runtime/telegram_poll_registry.py",
+        # ⚠️ Scoped to the READING vocabulary, deliberately NOT to the module
+        # name. `src/bot/telegram_query_bot.py` imports this module to RECORD a
+        # claim (`record_poll`) and never reads a state back — a module-name
+        # token matched it anyway and then found the word "unknown" in an
+        # unrelated heartbeat label ("label": "unknown") and two VM-resource
+        # strings, reporting a registrant as a consumer that collapses two
+        # states. That is the coincidental-English false positive this guard's
+        # own header warns about, and the fix is a token that names the read
+        # surface rather than an override annotation asserting a file
+        # "legitimately sees only one state" when it sees none.
+        "consumer_token": r"\bpoll_state\b|\bPollEvidence\b|\bPOLL_STATES\b",
+        "states": ["polled_with_handler", "token_only_not_polled", "unknown"],
+        "why": (
+            "polled_with_handler = a live process claims it polls this token AND "
+            "handles this callback prefix, so a tap is received; "
+            "token_only_not_polled = we LOOKED and a tap would NOT be received; "
+            "unknown = we could NOT look. Collapsing unknown into "
+            "polled_with_handler ships an inline keyboard whose taps nobody "
+            "collects — a prompt that arrives, renders, highlights on tap and "
+            "does nothing, with no error on any surface. Collapsing it into "
+            "token_only_not_polled instead condemns a working channel on the "
+            "strength of an unreadable file and silently reroutes every operator "
+            "decision to the wrong chat. The two errors are opposite, which is "
+            "why the third value has to exist rather than be inferred from a "
+            "boolean."
         ),
     },
     {

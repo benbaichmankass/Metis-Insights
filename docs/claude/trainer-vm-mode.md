@@ -285,7 +285,12 @@ read or diagnostic command, or inspect any artifact.
 > "to know status, an operator…" /
 > "could you SSH in and paste…".
 > See root `CLAUDE.md` banner for the full list. The relay below is the
-> remedy in every case.
+> remedy in every case — **but there are TWO relays, and if your GitHub MCP
+> returns `403 Resource not accessible by integration` on `issue_write` you
+> cannot use the issue-driven one in § 9.a.** That 403 is a write-scope
+> boundary, not the transient MCP drop, and retrying never clears it. Use the
+> push-triggered `trainer-diag-relay` in § 9.a2 instead. Do not conclude from a
+> failed `issue_write` that you have no trainer access.
 
 ### 9.a The `trainer-vm-diag` workflow
 
@@ -309,6 +314,31 @@ cmd: |
   tail -n 500 runtime_logs/trainer/dataset_builds.jsonl
   systemctl status ict-trainer.timer
 ```
+
+### 9.a2 The `trainer-diag-relay` workflow (no GitHub API needed)
+
+`.github/workflows/trainer-diag-relay.yml` is the same SSH relay driven by a
+**git push** instead of an issue, for a session whose `issue_write` 403s (only
+`git push` is needed — the git proxy is independent of the GitHub MCP).
+
+```
+1. Write the bash script to automation/trainer-diag-requests/<fresh-name>.sh
+   The ENTIRE FILE is the script — no `cmd:` key, no YAML around it.
+2. Push it (prefer a SCRATCH branch — the results commit disarms PR CI).
+3. git fetch origin <branch>
+   git show origin/<branch>:automation/trainer-diag-results/<fresh-name>.txt
+```
+
+The result header carries a never-collapsed `state`
+(`ran` / `unreachable` / `refused_empty` / `refused_scope`) and a real
+`remote_exit`. **`unreachable` means SSH never confirmed the script ran, so the
+body is a transport error and not a trainer answer** — a distinction § 9.a's
+relay cannot make, because it runs its ssh under `|| true` and reports no exit
+code. Use a **fresh filename per request**: the result file is the idempotency
+key, so a reused name is a silent no-op.
+
+Full contract, and what the mirror can answer without any relay at all:
+[`docs/claude/diag-relay.md`](diag-relay.md) § "Transport C".
 
 The command is sent via SSH stdin — it is never interpolated in the
 shell invocation, so it is safe to include paths, flags, and pipes.

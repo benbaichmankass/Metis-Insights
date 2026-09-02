@@ -22,10 +22,20 @@ import pathlib
 import pytest
 
 from scripts.ops.backlog_append import (
+    LIVE_BACKLOGS,
     FormatNotReproducible,
     append_row,
     detect_format,
 )
+
+REPO = pathlib.Path(__file__).resolve().parents[1]
+
+#: The glob that DEFINES what a live review backlog is. `LIVE_BACKLOGS` stays a
+#: hand-enumerated tuple for the reason its own comment gives — the reader this
+#: protects interpolates a loop variable, which no static scan can resolve — so
+#: the tuple cannot simply BECOME this glob. What it can do is be pinned equal
+#: to it, which is what `test_live_backlogs_covers_every_review_backlog` does.
+REVIEW_BACKLOG_GLOB = "docs/claude/*-review-backlog.json"
 
 # A real em-dash and a real umlaut: the characters `ensure_ascii=True` mangles.
 _DOC = {
@@ -199,3 +209,56 @@ def test_the_precheck_never_blocks_when_it_cannot_run(tmp_path, monkeypatch):
     monkeypatch.setattr(bs, "search", _boom)
     p = _seed_backlog(tmp_path, [_EXISTING])
     assert append_row(p, dict(_EXISTING, id="BL-20260826-NEAR-IDENTICAL")) == 2
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COVERAGE OF THE GUARD ITSELF — the hand-enumerated tuple must not fall behind.
+#
+# WHY A SET-EQUALITY PIN AND NOT "ADD THE MISSING PATH". Until 2026-09-02
+# `LIVE_BACKLOGS` named three paths while four review backlogs existed on disk:
+# `research-review-backlog.json` was split out of the performance backlog on
+# 2026-08-30 and nothing added it. Adding a fourth entry alone would leave the
+# same hand-maintained list one entry longer, and the NEXT backlog created would
+# reproduce the gap in exactly the same silence — the guard's success line
+# ("3 live backlog(s) reproduce byte-for-byte") is a coverage statement nobody
+# reads as one.
+#
+# ⚠️ THE FAILURE THIS CATCHES IS A GUARD THAT LOOKS COMPLETE FROM CI. A partial
+# round-trip guard is indistinguishable from a total one in its output, and the
+# uncovered file is precisely where a break reaches `main` green — the backlogs
+# are excluded from `pytest-run`'s relevance filter as a class
+# (`tests/test_pytest_run_filter.py::DELIBERATELY_EXCLUDED`), so nothing else
+# would have looked.
+# ─────────────────────────────────────────────────────────────────────────────
+def test_live_backlogs_covers_every_review_backlog():
+    """`LIVE_BACKLOGS` == every review backlog on disk. FAILS when one is added.
+
+    This is the pin that makes the hand-enumeration safe. Verified to fail
+    against the pre-2026-09-02 three-entry tuple, which is the whole point: a
+    test that has only ever been green over a list nobody changed proves
+    nothing about what happens when somebody changes it.
+    """
+    on_disk = {
+        p.relative_to(REPO).as_posix()
+        for p in REPO.glob(REVIEW_BACKLOG_GLOB)
+    }
+    # ⚠️ NON-VACUITY. An empty glob would make the equality below trivially
+    # satisfiable by an empty tuple, i.e. a guard covering nothing passing
+    # cleanly — the exact shape this test exists to refuse.
+    assert len(on_disk) >= 3, (
+        f"only {len(on_disk)} review backlog(s) matched {REVIEW_BACKLOG_GLOB!r} — "
+        "the equality below would not be meaningful; check the glob before "
+        "trusting a green here")
+    assert set(LIVE_BACKLOGS) == on_disk, (
+        f"LIVE_BACKLOGS and the review backlogs on disk have diverged.\n"
+        f"  guarded but absent from disk: {sorted(set(LIVE_BACKLOGS) - on_disk)}\n"
+        f"  ON DISK BUT UNGUARDED:        {sorted(on_disk - set(LIVE_BACKLOGS))}\n"
+        "An unguarded backlog is not 'not yet guarded' — a serialisation break "
+        "in it reaches main green, because the backlogs are excluded from "
+        "pytest-run's relevance filter and check_live_backlogs will not look at "
+        "it. Add it to LIVE_BACKLOGS in scripts/ops/backlog_append.py.")
+
+
+def test_live_backlogs_has_no_duplicate_entries():
+    """A repeated path would inflate the guard's own coverage count."""
+    assert len(LIVE_BACKLOGS) == len(set(LIVE_BACKLOGS)), LIVE_BACKLOGS

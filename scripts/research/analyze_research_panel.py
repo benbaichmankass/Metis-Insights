@@ -70,7 +70,7 @@ try:
 except Exception:  # noqa: BLE001 — keep the tool importable on a minimal tree
     _SPLITTERS_OK = False
 
-    def iter_folds(rows, config):  # type: ignore[misc]
+    def iter_folds(rows, config):  # type: ignore[misc]  # inert: rows, config — import-fallback stub that only raises; the signature must match ml.experiments.splitters.iter_folds
         raise RuntimeError("ml.experiments.splitters unavailable")
 
 

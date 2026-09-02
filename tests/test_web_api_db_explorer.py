@@ -7,6 +7,8 @@ Pins the safety + shape contract of /api/bot/db/tables and
   * per-column filter (parameterized) + ordering
   * unknown table → 404; unknown filter/order column ignored
   * the connection is read-only (writes rejected)
+  * the exposure contract: table allowlist (default-deny) + column redaction
+    (BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN)
 """
 from __future__ import annotations
 
@@ -27,7 +29,19 @@ def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
             "INSERT INTO trades (symbol, pnl) VALUES (?, ?)",
             [("BTCUSDT", 1.0), ("BTCUSDT", -2.0), ("MES", 3.0)],
         )
+        # `notes` is NOT in `_TABLE_ALLOWLIST`. It stands in for "a table
+        # someone added to the schema and forgot to admit deliberately" —
+        # the inversion the exposure contract exists to enforce.
         conn.execute("CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)")
+        # A table that really does hold a secret, with the real column name.
+        conn.execute(
+            "CREATE TABLE device_tokens (id INTEGER PRIMARY KEY, token TEXT, "
+            "platform TEXT, label TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO device_tokens (token, platform, label) "
+            "VALUES ('SECRET-FCM-TOKEN-VALUE', 'android', 'pixel')"
+        )
         conn.commit()
     finally:
         conn.close()
@@ -44,7 +58,10 @@ class TestTables:
         body = client.get("/api/bot/db/tables").json()
         assert body["present"] is True
         tbl = {t["name"]: t for t in body["tables"]}
-        assert set(tbl) == {"trades", "notes"}
+        # Only the allowlisted table is listed. `notes` and `device_tokens`
+        # exist in the schema and are deliberately absent — see
+        # TestExposureContract for the assertions that pin why.
+        assert set(tbl) == {"trades"}
         assert tbl["trades"]["rows"] == 3
         colnames = {c["name"] for c in tbl["trades"]["columns"]}
         assert colnames == {"id", "symbol", "pnl"}
@@ -236,3 +253,150 @@ class TestFilterStateIsDeclared:
         assert good["order_state"] == "applied"
         assert bad["order_state"] == "ignored_unknown_column"
         assert none["order_state"] == "not_requested"
+
+
+# ---------------------------------------------------------------------------
+# Exposure contract — BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-
+# TOKENS-RAW-TOKEN-COLUMN.
+#
+# The row's `done_condition` names two things, and the SECOND is the one that
+# actually holds the line over time: (a) device_tokens is unreachable, and
+# (b) "a table added to the schema WITHOUT being added to the allowlist is
+# unreachable, which is the inversion that matters". (b) is what stops the
+# next table from repeating this; (a) alone would be a one-off patch.
+# ---------------------------------------------------------------------------
+class TestExposureContract:
+    # --- (a) the filed exposure is closed ---------------------------------
+
+    def test_device_tokens_table_is_404(self, client):
+        """The row's primary condition, stated as the route sees it."""
+        resp = client.get("/api/bot/db/table/device_tokens")
+        assert resp.status_code == 404
+
+    def test_device_tokens_not_in_listing(self, client):
+        """404 on the read is not enough — the LISTING is what an attacker
+        reads first, and it is where the column names leaked. Before this
+        change /db/tables returned device_tokens' full column list including
+        `token`, on the live host, unauthenticated."""
+        body = client.get("/api/bot/db/tables").json()
+        names = {t["name"] for t in body["tables"]}
+        assert "device_tokens" not in names
+        # And no table's advertised schema mentions the token column at all.
+        for t in body["tables"]:
+            assert "token" not in {c["name"] for c in t["columns"]}
+
+    def test_raw_token_value_appears_in_no_response(self, client):
+        """The value-level assertion, deliberately separate from the
+        structural ones: grep the actual response bodies for the secret the
+        fixture planted. A schema assertion can pass while a value still
+        leaks through some other field."""
+        for url in (
+            "/api/bot/db/tables",
+            "/api/bot/db/table/device_tokens",
+            "/api/bot/db/table/trades",
+        ):
+            assert "SECRET-FCM-TOKEN-VALUE" not in client.get(url).text
+
+    # --- (b) the inversion: unlisted means unreachable ---------------------
+
+    def test_table_absent_from_allowlist_is_unreachable(self, client):
+        """`notes` exists in the schema and was never allowlisted. It must be
+        invisible in BOTH surfaces — this is the general rule, and
+        device_tokens is only its most urgent instance."""
+        body = client.get("/api/bot/db/tables").json()
+        assert "notes" not in {t["name"] for t in body["tables"]}
+        assert client.get("/api/bot/db/table/notes").status_code == 404
+
+    def test_allowlist_is_default_deny_not_a_blocklist(self, client, monkeypatch):
+        """The property that survives someone adding a table tomorrow.
+
+        A blocklist would let a brand-new table through; an allowlist must
+        not. Asserted by inventing a table name that cannot be in the
+        allowlist and confirming it is refused rather than served."""
+        from src.web.api.routers import db_explorer as dbx
+
+        assert "brand_new_table_nobody_admitted" not in dbx._TABLE_ALLOWLIST
+        assert client.get(
+            "/api/bot/db/table/brand_new_table_nobody_admitted"
+        ).status_code == 404
+
+    # --- column redaction, behind the allowlist ---------------------------
+
+    def test_redaction_holds_even_if_the_table_is_allowlisted(
+        self, client, monkeypatch
+    ):
+        """Defence in depth. If a future session allowlists `device_tokens`
+        without reading the comment telling them not to, `token` must still
+        not leave the process — the row is served, the secret column is not."""
+        from src.web.api.routers import db_explorer as dbx
+
+        monkeypatch.setattr(
+            dbx, "_TABLE_ALLOWLIST", dbx._TABLE_ALLOWLIST | {"device_tokens"}
+        )
+        resp = client.get("/api/bot/db/table/device_tokens")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 1                      # the row IS served
+        assert "token" not in {c["name"] for c in body["columns"]}
+        assert "token" not in body["rows"][0]
+        assert body["rows"][0]["platform"] == "android"  # non-secret cols intact
+        assert "SECRET-FCM-TOKEN-VALUE" not in resp.text
+
+    def test_redacted_column_is_not_a_filter_oracle(self, client, monkeypatch):
+        """The subtle one, and the reason redaction routes through `_columns`.
+
+        `filter_state` + `total` would otherwise let an attacker brute-force a
+        redacted secret one LIKE-prefix at a time WITHOUT ever being shown the
+        row: filter on `token LIKE 'a'`, read `total`, keep the prefixes that
+        return 1. Redacting the column from the validator's view makes the
+        filter resolve to `ignored_unknown_column`, so `total` stays the
+        unfiltered count and carries no information about the secret."""
+        from src.web.api.routers import db_explorer as dbx
+
+        monkeypatch.setattr(
+            dbx, "_TABLE_ALLOWLIST", dbx._TABLE_ALLOWLIST | {"device_tokens"}
+        )
+        hit = client.get(
+            "/api/bot/db/table/device_tokens"
+            "?filter_col=token&filter_op=like&filter_val=SECRET"
+        ).json()
+        miss = client.get(
+            "/api/bot/db/table/device_tokens"
+            "?filter_col=token&filter_op=like&filter_val=ZZZZZZ"
+        ).json()
+        assert hit["filter_state"] == "ignored_unknown_column"
+        assert miss["filter_state"] == "ignored_unknown_column"
+        # Indistinguishable: no oracle. This is the assertion that matters —
+        # equal totals mean a correct guess looks exactly like a wrong one.
+        assert hit["total"] == miss["total"] == 1
+
+    def test_ordering_by_a_redacted_column_is_also_refused(
+        self, client, monkeypatch
+    ):
+        """ORDER BY is the second oracle: sorting by a hidden column leaks its
+        ordering across pages even when the column is never displayed."""
+        from src.web.api.routers import db_explorer as dbx
+
+        monkeypatch.setattr(
+            dbx, "_TABLE_ALLOWLIST", dbx._TABLE_ALLOWLIST | {"device_tokens"}
+        )
+        body = client.get(
+            "/api/bot/db/table/device_tokens?order_by=token&order_dir=asc"
+        ).json()
+        assert body["order_state"] == "ignored_unknown_column"
+
+    # --- the allowlist matches the live schema ----------------------------
+
+    def test_allowlist_contains_no_table_holding_a_redacted_column(self):
+        """Guards the one mistake that would silently undo this: adding a
+        table to the allowlist that has an entry in the redaction map is
+        allowed (redaction still applies), but it must be a DELIBERATE act.
+        Today the intersection is empty and this test says so out loud."""
+        from src.web.api.routers import db_explorer as dbx
+
+        overlap = set(dbx._REDACTED_COLUMNS) & set(dbx._TABLE_ALLOWLIST)
+        assert overlap == set(), (
+            f"{overlap} is both allowlisted and carries redacted columns. "
+            "That is permitted but never accidental — confirm it is intended "
+            "and update this test with the reason."
+        )

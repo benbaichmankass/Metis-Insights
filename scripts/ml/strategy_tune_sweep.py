@@ -577,7 +577,7 @@ def build_invocation(
     value: Optional[float],
     data: Optional[str],
     fee_bps: float,
-    window_days: Optional[int],
+    window_days: Optional[int],  # inert: window_days — the argv carries the resolved `window` (start, end) tuple instead; the caller records window_days in the recipe, this builder does not consume it
     fixed_args: Optional[list[str]] = None,
     window: Optional[tuple[Optional[str], Optional[str]]] = None,
 ) -> list[str]:

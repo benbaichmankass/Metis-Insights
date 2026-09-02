@@ -34,6 +34,7 @@ import argparse
 import json
 import math
 import sqlite3
+import sys
 from bisect import bisect_right
 from pathlib import Path
 from typing import Any, Optional
@@ -71,7 +72,13 @@ def _epoch(ts: Any) -> Optional[float]:
 
 def _newest_data_jsonl(root: Path) -> Optional[Path]:
     cands = sorted(root.glob("*/data.jsonl"))
-    return cands[-1] if cands else None
+    if not cands:
+        return None
+    # DISCOVERED, not declared: print the resolved version and the candidate
+    # count so a silent fall-back to an older build is never invisible.
+    print(f"[input] {root}: {cands[-1]}  (alphabetically last of "
+          f"{len(cands)} candidate(s))", file=sys.stderr)
+    return cands[-1]
 
 
 def _load_forecasts(sym: str, ds_root: Path) -> tuple[list[float], list[dict]]:

@@ -299,14 +299,67 @@ def test_D_ignores_abstract_and_stub_bodies():
             if f.check.startswith("D")] == []
 
 
-def test_D_respects_a_deliberate_inert_marker():
+def test_D_respects_a_deliberate_inert_marker_that_NAMES_the_parameter():
     src = '\n'.join([
         'def label(forward_vol, *, vol_threshold,',
-        '          trend_threshold):  # inert: kept for back-compat, 2-class collapse',
+        '          trend_threshold):  # inert: trend_threshold — back-compat, 2-class collapse',
         '    return "volatile" if forward_vol > vol_threshold else "range"',
     ])
     assert not [f for f in _scan(src, "ml/datasets/families/x.py")
                 if f.check.startswith("D") and "trend_threshold" in f.detail]
+
+
+def test_D_inert_override_is_VERIFIED_not_presence_only():
+    """A bare ``# inert:`` naming nothing must NOT silence the finding.
+
+    This module's own docstring has always said the override must be verified
+    rather than presence-only, citing ``new-table-wiring-guard``, whose
+    presence-only marker made the cheapest way to silence a real finding a
+    comment naming a table that does not exist. The ``# inert:`` marker was
+    nonetheless matched by a bare ``re.compile(r'#\\s*inert:')`` until
+    2026-09-02, so the docstring and the code disagreed and the code won.
+
+    Measured when the check was tightened: 11 markers across 4 real files
+    (dukascopy_span_probe, e2_feature_information, probe_actions_log,
+    render_due_list) named no parameter at all, and the tree still reported
+    OK. Every one carried a genuine reason — the point is not that they were
+    dishonest, it is that nothing could tell them from a marker that was.
+    """
+    bare = '\n'.join([
+        'def label(forward_vol, *, vol_threshold,',
+        '          trend_threshold):  # inert: kept for back-compat',
+        '    return "volatile" if forward_vol > vol_threshold else "range"',
+    ])
+    flagged = [f for f in _scan(bare, "ml/datasets/families/x.py")
+               if f.check.startswith("D") and "trend_threshold" in f.detail]
+    assert flagged, "a `# inert:` naming no parameter must not silence the finding"
+    assert "does not name" in flagged[0].detail
+
+    # And a marker naming the WRONG parameter must not launder the right one:
+    # otherwise one annotation could be copy-pasted across a whole signature.
+    wrong = '\n'.join([
+        'def label(forward_vol, *, vol_threshold,',
+        '          trend_threshold):  # inert: vol_threshold — wrong parameter',
+        '    return "volatile" if forward_vol > vol_threshold else "range"',
+    ])
+    assert [f for f in _scan(wrong, "ml/datasets/families/x.py")
+            if f.check.startswith("D") and "trend_threshold" in f.detail]
+
+
+def test_D_inert_override_accepts_a_SHORT_parameter_name():
+    """A 1-2 character parameter must still be able to excuse itself.
+
+    The first cut of the verified override reused ``_IDENT_RE``, which requires
+    >= 3 characters — so a parameter called ``df``, ``n`` or ``id`` could never
+    satisfy its own override however honestly it was annotated, leaving rename
+    or an underscore prefix as the only escape. Caught by trying it.
+    """
+    src = '\n'.join([
+        'def f(rows, df):  # inert: df — the frame is taken from the caller',
+        '    return len(rows)',
+    ])
+    assert not [x for x in _scan(src, "scripts/research/p.py")
+                if x.check.startswith("D") and "`df`" in x.detail]
 
 
 def test_E_flags_an_interpretation_printed_unconditionally():

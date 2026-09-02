@@ -413,28 +413,35 @@ diag surface (`src/web/api/routers/diag.py`) expose status, halt and
 resume actions, and pending requests. **Two** frontends live in the
 `ict-trader-dashboard` repo, and they consume the same unauthenticated Tier-1
 endpoints (documented in [`api-tier-policy.md`](api-tier-policy.md)) over
-**two different transports** — plus the native Android app:
+**one transport** since the other two consumers were retired (2026-09-01):
 
-| frontend | host | transport to `:8001` |
-|---|---|---|
-| Streamlit dashboard (`streamlit_app.py`) | Streamlit Community Cloud | **server-side plain HTTP** direct to `http://141.145.193.91:8001`. No tunnel, no proxy. CORS not load-bearing. |
-| Svelte SPA (`webapp/`) | GitHub Pages | **browser-direct HTTPS via Caddy** on the live VM — `https://ict-bot.duckdns.org` → `reverse_proxy localhost:8001`, Let's Encrypt cert auto-provisioned for the DuckDNS hostname. `/ws/market` upgrades to **WSS** through the same proxy. CORS **is** load-bearing. |
-| Android app | device | plain HTTP to the same `:8001` default (`AppPrefs.DEFAULT_BOT_URL`), cleartext-allowlisted per-host. |
+| frontend | host | transport to `:8001` | status |
+|---|---|---|---|
+| Svelte SPA (`webapp/`) | GitHub Pages | **browser-direct HTTPS via Caddy** on the live VM — `https://ict-bot.duckdns.org` → `reverse_proxy localhost:8001`, Let's Encrypt cert auto-provisioned for the DuckDNS hostname. `/ws/market` upgrades to **WSS** through the same proxy. CORS **is** load-bearing. | ✅ **LIVE — the only consumer** |
+| Streamlit dashboard (`streamlit_app.py`) | Streamlit Community Cloud | was **server-side plain HTTP** direct to `http://141.145.193.91:8001`. No tunnel, no proxy. CORS not load-bearing. | 🗄️ **RETIRED 2026-09-01** |
+| Android app | device | was plain HTTP to the same `:8001` default (`AppPrefs.DEFAULT_BOT_URL`), cleartext-allowlisted per-host. | 🗄️ **RETIRED 2026-09-01** |
+
+⚠️ **The retired rows are kept for transport archaeology only** — they are not
+a consumer set. Operator decision 2026-09-01
+(`BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED`): the SPA is
+the only live consumer, which is the precondition for gating the read surface
+in Phase H.
 
 The SPA path is Caddy-fronted because a mixed-content plain-HTTP fetch from an
 HTTPS page is hard-blocked by the browser. Server side:
 `deploy/caddy/Caddyfile`, `scripts/ops/install_caddy.sh`, the
 `vm-caddy-deploy` workflow. **The React+Vercel stack retired 2026-05-12 is a
 different thing entirely** — do not read "the Vercel/CF stack was retired" as
-"there is no proxy"; that is true of Streamlit and false of the SPA.
+"there is no proxy"; that was true of the retired Streamlit path and is false
+of the SPA, which is now the only path there is.
 
 **Observability caveat:** `caddy.service` is not an `ict-*` unit and ships no
 `deploy/` unit file (it comes from the Caddy apt package), so it falls outside
 `scripts/check_diag_unit_allowlist.py`'s `deploy/*.{service,timer}` glob and no
 guard cross-checks it. It is listed in diag's `_CANONICAL_UNITS` **by hand** so
 a Caddy outage shows on `/api/diag/services`. A Caddy failure takes the SPA and
-the WSS market stream down **while Streamlit stays green** — the two frontends
-do not share a failure mode. Cert expiry and the DuckDNS record are still
+the WSS market stream down — and since 2026-09-01 that is **the entire
+consumer set**, where it used to leave Streamlit green. Cert expiry and the DuckDNS record are still
 unwatched (`BL-20260813-CADDY-HTTPS-TRANSPORT-UNDOCUMENTED-AND-UNWATCHED`).
 
 ## Research and Validation Pipeline
@@ -513,6 +520,7 @@ final pre-expiry alert (M1 P1-B) prevent silent expiry.
 | Hourly snapshot | `deploy/ict-hourly-snapshot.{service,timer}` |
 | Smoke once | `deploy/ict-smoke-once.service` |
 | Claude bridge | `deploy/ict-claude-bridge.service` |
+| Claude decision bot | `deploy/ict-claude-decision-bot.service` — POLLS the DEDICATED Claude bot (`TELEGRAM_CLAUDE_BOT_SECRET`) and registers the `wdec` `CallbackQueryHandler`, which is what makes a work-decision BUTTON answerable rather than merely delivered. ⚠️ **NOT the same bot as `ict-claude-bridge` above**, whose name is historical — that one polls the **PROP** token (and `TELEGRAM_CLAUDE_BOT_TOKEN` drives the prop bot despite its name). Its own unit rather than a second `Application` inside `ict-telegram-bot` because `run_polling()` owns an event loop and two do not compose, and one process is one event loop — a stall in the decision channel would otherwise become a stall in the operator's kill switch. A missing token exits `EX_CONFIG` (78) and `RestartPreventExitStatus` stops it in a visible `failed` state instead of crash-looping. |
 | Env-check | `deploy/ict-env-check.service` |
 | Web API watchdog | `deploy/ict-web-api-watchdog.{service,timer}` — restarts `ict-web-api.service` when the FastAPI surface is unreachable |
 | IB Gateway (isolated VM) | `deploy/ict-ib-gateway-reset.{service,timer}` — headless IB Gateway (Docker + socat) now runs on its **own dedicated Ampere VM** (`ict-ib-gateway`, `10.0.0.251`), off the live trader's micro (gateway-isolation, Plan B, 2026-06-10). Recovery is one deterministic daily `docker restart` (**06:05 UTC**, retimed 2026-07-02 from 05:30 — the earlier time was inside IBKR's own ~03:45–05:45 UTC reset window and raced the outage it existed to fix, BL-20260623-002; gated to the gateway VM by `ConditionPathExists=/etc/ict/ib-gateway-docker.env`), **plus** the reactive ~5-min `ict-ib-gateway-watchdog.{service,timer}` (re-armed 2026-06-22, catches a mid-day wedge the daily reset alone would miss; carries `--suppress-window-utc 03:45-05:45` so it never restarts inside IBKR's own reset window either). The trader-side connect breaker (`IB_PROBE_TIMEOUT_S`/`IB_BREAKER_COOLDOWN_S`) keeps a gateway/network blip off the BTCUSDT loop. Runbook: `docs/runbooks/ib-integration.md` § "Gateway isolation redesign" |
@@ -968,6 +976,7 @@ filtered to architecture-level deltas only.
 | 2026-08-27 | R3 offload transport — **a model trained off-box now has a durable path home, and it is not armed** | `.github/workflows/trainer-offload-train.yml` gains an **opt-in `publish` job** (default `false`, so the existing path is byte-for-byte unchanged) that commits the trained run into a NEW tracked artifact, `ml/offload-inbox/` (`index.jsonl` + `<model_id>/<run_id>/{model_state,metrics,manifest}.json`). The trainer's existing 15-min `trainer_git_sync.sh` force-checkout delivers it; a NEW trainer unit `ict-offload-drain.{service,timer}` consumes it. ⚠️ **The drain carries NO registry entry across machines — it RE-REGISTERS on the trainer**, so `model_state_path.resolve()` is trainer-local by construction. That is the fix for Blocker 1 (`ml/experiments/runner.py:422` records the training machine's absolute path; a copied entry would read `/home/runner/work/...`). It is the same shape `scripts/ml/gpu_burst/ingest_bundle.py` already uses for a rented GPU pod. ⚠️ **UNARMED ON BOTH AXES**: the timer is enabled by no installer or cloud-init, and `OFFLOAD_DRAIN_APPLY` must be exactly `1`. Once armed it registers under a NAMESPACED id (`<model_id>-offload`) at a FORCED `candidate` stage — which `ml.shadow.factory` refuses — because a fresh registration defaults to `shadow`, which auto-wires onto every strategy's predictor list. It refuses to refresh an id an operator has advanced past candidate. **No stage-ladder, registry-contract, mirror or order-path change.** | `.github/workflows/trainer-offload-train.yml`, `scripts/ml/offload/{emit_bundle,drain_inbox}.py`, `scripts/ops/run_offload_drain.sh`, `deploy/trainer/ict-offload-drain.{service,timer}`, `ml/offload-inbox/`, `scripts/ci/run_guards.py`, `tests/scripts/test_offload_transport.py` | **None until deliberately armed.** Publishing is per-run opt-in; the drain writes nothing by default. ⚠️ The moment a runner-trained model first joins the live shadow fleet is **TIER-2** and needs an explicit operator OK — it is not part of this plumbing. ⚠️ Nothing here has run outside a sandbox: see `OI-20260827-OFFLOAD-TRANSPORT-HAS-NEVER-CARRIED-A-MODEL`. The first real dispatch on `main` is EXPECTED to report `pending_merge` (exit 1) because the push retargets off a protected branch. |
 
 ---
+| 2026-09-02 | — | **Decision prompts move to the dedicated Claude bot, and that bot becomes POLLED.** New `ict-claude-decision-bot.service` + `src/bot/claude_decision_bot.py` poll `TELEGRAM_CLAUDE_BOT_SECRET` and dispatch `wdec` taps into the SAME `telegram_decisions.handle_decision_callback` (imported, not forked; the API route stays the one owner of every refusal). New cross-process contract `src/runtime/telegram_poll_registry.py`: a heartbeat-backed, three-state answer to *is a tap on this bot received?* — `polled_with_handler` / `token_only_not_polled` (we looked) / `unknown` (we could not look), registered with `collapsed-state-guard`. `answerable_route()` prefers the Claude bot ONLY on positive evidence and otherwise falls back to the trader bot loudly, so the wrong chat is never traded for an outage. **Delivery and answerability are different properties**: a token suffices to SEND, but an inline button is inert unless some process polls that bot — a tap then yields a `callback_query` nobody collects, with no error on any surface. | `src/bot/claude_decision_bot.py`, `deploy/ict-claude-decision-bot.service`, `src/runtime/telegram_poll_registry.py`, `src/runtime/telegram_decisions.py`, `src/bot/telegram_query_bot.py`, `src/web/api/routers/diag.py`, `scripts/install_systemd_units.sh` | **A new unit must be installed + enabled on the live VM, and `TELEGRAM_CLAUDE_BOT_SECRET` must be in its `.env`** — an operator action. Until then decision prompts keep arriving on the trader bot (reported, not silent). UNPROVEN on the fleet: no tap has been made on ClaudeBot. |
 
 ## Known gaps
 

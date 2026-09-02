@@ -30,6 +30,16 @@
     "#10286 get-env scoping proof"
    ],
    "note": "REGISTERED RETROSPECTIVELY AT SESSION END, and that is itself the lapse worth recording. The live board (#6927) carried every START / 🔒 CLAIM / 🔓 RELEASE / DONE in real time, so no other session was ever uninformed and no merge raced — but this durable mirror went untouched across all three merges. That is the exact shape of BL-20260720-MERGE-PROTOCOL-LAPSE with the polarity reversed: there the JSON was treated AS the claim and the board was skipped; here the board was done properly and the JSON was skipped. merge_slot is left all-null because it IS free — writing a retrospective claim into it would be fabricating a record of a lock that is not held."
+  },
+  {
+   "session": "session_01NeR2kREiXrXQcYYuRHvzRa",
+   "branch": "claude/session-invokable-actions-ci-settled",
+   "repo": "Metis-Insights",
+   "started_at": "2026-09-02T05:55:00+00:00",
+   "status": "active",
+   "intent": "Session-invokable actions: measured inventory + build the ci-settled relay (PR #10757).",
+   "scope": ".github/workflows/ci-settled.yml, scripts/ops/ci_settle.py, scripts/ops/ci_settled.sh, tests/test_ci_settle.py, docs/github-actions-workflows.md, docs/audits/session-invokable-actions-inventory-2026-09-02.md, docs/claude/health-review-backlog.json, automation/ci-{watch,results}/**",
+   "note": "Sub-session; the MANAGER merges. Touches no src/, no config/, no unit file, neither VM. merge_slot deliberately NOT claimed -- this session does not merge."
   }
  ],
  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
@@ -39,5 +49,5 @@
  "_pruned_2026-08-21-close": "Pruned the wave0-8g7443 entry at that session's own request on the live board (issuecomment-5373565199): it closed after merging #10110 (0649418) and flagged that this file was still asserting it was live -- a small false record it chose to hand over rather than spend a CI cycle on. active_sessions is left EMPTY rather than re-registering spsxq6, because spsxq6 closes with the work-plan rewrite in this same PR; registering a session that ends on merge would recreate the exact staleness being pruned. Merge_slot is null and correct. Note for the next session: 'one session at a time' is now policy (operator directive 2026-08-21), so a single entry here should be the normal steady state, not a list.",
  "_pruned_2026-08-21": "Pruned the 2026-08-10 api-tier-policy-guard-npihz7 entry -- >24h stale per the schema's own rule, and `git ls-remote --heads origin claude/api-tier-policy-guard-npihz7` returns nothing, so the branch is gone (merged-and-deleted or abandoned). Verified rather than inferred from the date alone. NOTE: the detector-scheduling session (2026-08-21, PRs #10086/#10090/#10091) registered no active_sessions entry -- it coordinated via the live #6927 board comments (START / heads-up / claim / release / DONE) and its merge_slot claims were mirrored there, not here. Recording that omission rather than back-filling an entry for a session that is already finished; merge_slot is null and correct.",
  "_pruned_2026-08-22": "Pruned the wave0-8g7443 entry at its own session close (2026-08-22). That session ran T.1 + Phase 0 + the restored Phase 2 items and merged 11 PRs (#10114, #10115, #10117-#10125) plus this close-out; log: docs/sprint-logs/S-WORKPLAN-PHASE0-20260822.md. VERIFIED rather than inferred from the date: `git ls-remote --heads origin claude/2026-08-21-review-8g7443` returns nothing, so the registered branch is gone. merge_slot was already null and correct -- no stale claim to release. active_sessions is now EMPTY, which is the accurate state under the operator's one-session-at-a-time directive: this was the sole running session and it is closing.",
- "updated_at": "2026-08-25T17:05:00+00:00"
+ "updated_at": "2026-09-02T06:20:00+00:00"
 }

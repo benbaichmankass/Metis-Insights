@@ -1,5 +1,71 @@
 # PM-side VM diag relay
 
+> ## ⚠️ START HERE IF YOUR GitHub MCP IS READ-ONLY (a 403 on `issue_write`)
+>
+> *Added 2026-09-02. Everything below this box assumes you can open a labelled
+> issue. **A session that cannot open one had, until this box existed, no
+> documented trainer path at all** — the doc confidently named a relay it could
+> not use, which for that reader is identical to no relay.*
+>
+> **First, tell the two 403s apart. They need opposite responses.**
+>
+> | what you see | which one | what to do |
+> |---|---|---|
+> | `MCP server "github" requires re-authorization (token expired)` | the **transient drop** `CLAUDE.md` documents | retry with backoff (2s/4s/8s/16s); it self-heals in seconds |
+> | `403 Resource not accessible by integration`, while `issue_read` on the **same** object still succeeds | a **write-scope boundary** | retrying NEVER clears it. `curl` to `api.github.com` also returns 403 (at the sandbox proxy), and there is no `gh` CLI. Use a file-drop relay. |
+>
+> **The four file-drop relays.** Each is triggered by pushing a file (the git
+> proxy is independent of the GitHub MCP), and each writes its answer back into
+> the repo for you to `git fetch` and read:
+>
+> | you need to | drop | read back | workflow |
+> |---|---|---|---|
+> | run a command on the **TRAINER VM** | `automation/trainer-diag-requests/<fresh>.sh` | `automation/trainer-diag-results/<fresh>.txt` | `trainer-diag-relay.yml` |
+> | post to the **coordination board** (#6927) | `automation/board-posts/<fresh>.md` | `automation/board-results/<fresh>.txt` | `board-post.yml` |
+> | **open a PR** | `automation/pr-requests/<fresh>.json` | `automation/pr-results/<fresh>.txt` | `pr-opener.yml` |
+> | **merge** a PR on green | touch `.github/pr-automerge-request` on a `claude/**` branch | the PR itself | `claude-pr-automerge.yml` |
+>
+> ⚠️ **`board-post` is NOT optional under a 403.** The coordination-board START
+> is mandatory in `docs/CLAUDE-RULES-CANONICAL.md`; a write 403 is a reason to
+> use the relay, never a reason to skip the board.
+>
+> ⚠️ **Use a FRESH filename every time.** The RESULT file is the idempotency key
+> in all of these — reusing a name that already has a result is a **silent
+> no-op**, logged and skipped.
+>
+> ⚠️ **Every one of these disarms PR CI when its results commit lands on your
+> PR's head branch.** The commit is pushed by `github-actions[bot]` with
+> `GITHUB_TOKEN`, and GitHub does not trigger workflows for `GITHUB_TOKEN`
+> pushes. The PR then shows **zero check runs**, which is `blocked`, not green.
+> Push relay requests on a **scratch branch**, and if a results commit does land
+> on a PR head, push one ordinary commit of your own to arm CI. Read
+> `mergeable_state` to tell the two zero-check causes apart: `blocked` = no
+> checks fired (this); `dirty` = merge conflict.
+>
+> ⚠️ **This box does not claim your session IS 403-bound.** Measured 2026-09-02:
+> one capability sub-session found `add_issue_comment` **and** `issue_write`
+> (create) both working, and drove `trainer-vm-diag` end to end; two backlog
+> drains on 2026-09-01 hit the boundary. **It varies by session — test yours,
+> do not assume either way**, and do not read a working call in one session as
+> evidence about another.
+>
+> ### And check the plain-HTTPS surfaces FIRST — they need no relay at all
+>
+> Measured 2026-09-02 from a default-`Trusted` web session:
+>
+> | probe | result |
+> |---|---|
+> | `https://ict-bot.duckdns.org/api/bot/ml/registry` (**no token**) | **200**, 4.83 MB, 96 rows, `mirror_age_seconds` 32.0 |
+> | `https://ict-bot.duckdns.org/api/diag/version` + bearer, via `scripts/ops/diag_fetch.sh` | **200**, `served by https://ict-bot.duckdns.org` |
+> | negative controls `api/bot/ml/models`, `api/bot/models`, `api/bot/ml/nonexistent-xyz` | **404** each — so the 200 is a real route, not a catch-all |
+> | `http://141.145.193.91:8001/api/health` (raw IP) | **000** — dropped, as documented below |
+>
+> So the **live** VM's read surface is usually reachable with no GitHub call at
+> all, and `DIAG_READ_TOKEN` was present in that session's env even though
+> `DIAG_BASE_URL` was the unreachable plain-http form. **Try Transport A before
+> reaching for any relay.** See § "Trainer evidence WITHOUT a relay" for what the
+> `/api/bot/ml/*` family can and — importantly — cannot answer.
+
 There are two transports for the read-only `/api/diag/*` surface, and
 they return identical JSON. **Prefer direct; fall back to the relay.**
 
@@ -240,6 +306,145 @@ Two habits: **grep the payload for `truncated` before using it**, and prefer
 summary rows, rather than returning raw rows and summarising locally. The
 second is what makes the cap a non-issue instead of a trap.
 
+## Transport C — the TRAINER VM (it has no HTTP diag API at all)
+
+*Added 2026-09-02.* The `/api/diag/*` surface covers the **live** VM only. The
+trainer VM (`158.178.209.121`) serves no HTTP API, so Transport A cannot reach
+it. There are exactly three ways to learn anything about the trainer, and they
+answer different questions:
+
+| | what it is | needs | answers |
+|---|---|---|---|
+| **C1** `/api/bot/ml/*` | a read of what the trainer **published into the mirror** on the live VM | nothing — plain HTTPS, no token | the seven mirrored artifacts, below |
+| **C2** `trainer-vm-diag` issue relay | arbitrary bash on the trainer | `issue_write` (403s in some sessions) | anything on the box |
+| **C3** `trainer-diag-relay` push relay | arbitrary bash on the trainer | `git push` only | anything on the box |
+
+### C1 — trainer evidence WITHOUT a relay
+
+Seven `/api/bot/ml/*` routes exist (verified against
+`src/web/api/routers/training_center.py`, 2026-09-02):
+
+| route | serves |
+|---|---|
+| `/api/bot/ml/status` | the trainer's own `trainer_status.json` self-report |
+| `/api/bot/ml/cycle?limit=N` | `training_cycle.jsonl`, newest-first |
+| `/api/bot/ml/registry` | the **full** model registry (uncapped, enriched) |
+| `/api/bot/ml/sessions?limit=N` | per-manifest training sessions (a re-shape of `training_cycle.jsonl`) |
+| `/api/bot/ml/builds?limit=N` | `trainer/dataset_builds.jsonl` |
+| `/api/bot/ml/db_pulls?limit=N` | `trainer/db_pulls.jsonl` |
+| `/api/bot/ml/runs/{model_id}/{run_id}` | one run's `metrics.json` + `manifest.json` |
+
+⚠️ **`mirror_age_seconds` rides on every one of them and is LOAD-BEARING.** These
+read a MIRROR; they never SSH the trainer. A stale mirror returns **the last good
+snapshot rather than failing**, so an un-aged read cannot distinguish *"the
+trainer is healthy"* from *"the trainer has been down since Tuesday."* The
+publisher runs every ~2 min, so a healthy read is tens of seconds old (measured
+2026-09-02: 32.0 s). Read the age beside the payload, or you are quoting a number
+whose freshness you never established. `trainer_down` on
+`/api/bot/notifications` is the alerting half of the same fact.
+
+⚠️ **WHAT THE MIRROR CANNOT ANSWER — and this is the part that costs sessions.**
+`scripts/ops/publish_trainer_mirror.sh` pushes files **BY NAME**, not by
+directory. It names exactly seven (verified 2026-09-02 by reading the script on
+the trainer itself, trainer-diag issue #10730):
+
+```
+trainer_status.json · training_cycle.jsonl · registry.jsonl
+trainer/dataset_builds.jsonl · trainer/db_pulls.jsonl
+calibration/calibrators.json · calibration/report.json
+```
+
+plus four filtered recursive trees (`models/*.json`, `experiments-runs/`
+metrics+manifest+model_state, `backtests/` SUMMARY+metrics+stdout, and the
+`forecast_live/` rows). **Everything else on the trainer is invisible to
+`/api/bot/ml/*`.** The one that keeps biting:
+
+> **`runtime_logs/trainer/dataset_audit.jsonl` is NOT mirrored.** It exists and is
+> substantial — **4147 rows**, measured on the trainer 2026-09-02 — and it is the
+> file `run_training_cycle.sh` tells you to read when a manifest is skipped
+> (`manifest_audit_skipped_enforced`, `stale_expected_optional`). It is reachable
+> **only** through C2/C3. A 2026-09-01 backlog drain needed exactly this file,
+> could not reach it, and correctly refused its rows rather than infer — which is
+> the right call, and is what the gap costs.
+
+So: `training_cycle.jsonl` **is** reachable with no relay (`/api/bot/ml/cycle`);
+`dataset_audit.jsonl` is **not**, by any HTTP surface. Check this list before
+assuming you need a relay, and before assuming you do not.
+
+### C3 — `trainer-diag-relay` (push-triggered, needs no GitHub API)
+
+For a session whose `issue_write` 403s. Full contract in the workflow header
+(`.github/workflows/trainer-diag-relay.yml`).
+
+```
+1. Write the bash script to automation/trainer-diag-requests/<fresh-name>.sh
+   The ENTIRE FILE is the script. There is no `cmd:` key, no YAML around it,
+   and no base64 hop is needed for a multi-line script.
+
+2. Push it (any branch — prefer a SCRATCH branch, see the CI caveat above).
+
+3. Wait ~1 min, then:
+     git fetch origin <branch>
+     git show origin/<branch>:automation/trainer-diag-results/<fresh-name>.txt
+```
+
+The result opens with a header you must read before the output:
+
+```
+=== trainer-diag-relay result ===
+request: <name>
+state: ran | unreachable | refused_empty | refused_scope
+remote_exit: <n> | unknown | n/a
+run: <actions run url>
+=================================
+```
+
+⚠️ **`state` and `remote_exit` are the two fields that stop you misreading the
+body**, and neither exists on the issue relay:
+
+- **`ran` with a non-zero `remote_exit`** — the script reached the trainer and
+  the command failed. The output is a real trainer answer.
+- **`unreachable`** — SSH never confirmed the script ran. **The text is a
+  transport error, not a trainer answer**, and says nothing about what is on the
+  box. `trainer-vm-diag.yml` runs its ssh under `|| true` and reports no exit
+  code, so there this case and a clean run render identically.
+- **`remote_exit: unknown`** — we did not learn the code (the caller installed
+  its own `EXIT` trap, overriding the relay's sentinel). It is never defaulted
+  to `0`.
+- **`refused_scope`** — the script named a live-trader / IB-gateway host. This is
+  an **accident guard, not a security boundary**: anyone who can trigger the
+  workflow can push, and push access already permits editing the workflow. What
+  it stops is an unintended hop — real, because the trainer holds credentials for
+  its read-only DB pull *from* the live VM. **Known false positive:** a command
+  that merely greps for one of those strings is refused too. The refusal names
+  the token; rephrase and re-push under a **new** name.
+
+⚠️ Output is capped at **200,000 bytes** with a marker naming the full size.
+Prefer aggregating **on** the trainer and returning summary rows.
+
+⚠️ **C3 does not serialize the 1-OCPU trainer**, and cannot — GitHub keeps at most
+one *pending* run per concurrency group, so a true FIFO is impossible at that
+layer (keying coarsely would silently DROP a burst, which is why C3 keys on the
+commit sha). Heavy work is serialized by the **VM-lane FIFO on the coordination
+board**, an application-level convention: `docs/claude/vm-resource-management.md`.
+
+### Which trainer relay should I use?
+
+Use **C2 (`trainer-vm-diag`)** when `issue_write` works: the answer comes back as
+an issue comment in ~30-60 s with no repo commit, and it is the path every
+existing doc and skill names.
+
+Use **C3** when it does not. Two other reasons to prefer C3 even when C2 works:
+its result carries an explicit `state` + `remote_exit`, and **the file is the
+script** — C2 must extract yours from an issue body with an awk parser that has
+produced five separate documented truncation bugs, every one of which truncates
+the script while the prefix still runs and returns plausible output at exit 0
+(`BL-20260607-002`, `BL-20260720-TRAINERDIAG-FENCE`,
+`BL-20260731-TRAINERDIAG-TRAILING-PROSE`, the #9400 recurrence, and
+`BL-20260807-TRAINERDIAG-COLUMN0-PYTHON-KEYWORD-TRUNCATES-CMD`). If you do use
+C2 for anything non-trivial, base64 the script as § "Any non-trivial `cmd:`
+script MUST be base64'd" instructs.
+
 ## TL;DR — fetching diag data from a sandbox session
 
 **Default pattern — batch every path you'll need into ONE issue** (added
@@ -335,21 +540,33 @@ I (Claude on the web sandbox) have GitHub MCP tools that are good at:
 
 I have **no** MCP tool for:
 
-- `workflow_dispatch` (firing a workflow programmatically)
 - listing or downloading workflow run artifacts
 - streaming run logs
 
-So the relay can't be driven by `workflow_dispatch`. The cleanest
-trigger I can drive is `issues.opened` filtered by label, and the
-cleanest result channel is an issue comment from
+So the cleanest trigger I can drive is `issues.opened` filtered by
+label, and the cleanest result channel is an issue comment from
 `github-actions[bot]`. Both are first-class objects in the GitHub
 MCP I already have.
 
-If/when a richer GitHub MCP becomes available (the official
-`github/github-mcp-server` has an `actions` toolset that exposes
-`run_workflow` + `download_workflow_run_artifact`), this relay can
-collapse back to a single `workflow_dispatch` call from the session.
-Until then, the issue-driven loop is the contract.
+> ⚠️ **This section used to open its second list with `workflow_dispatch`
+> (firing a workflow programmatically) and conclude "the relay can't be driven
+> by `workflow_dispatch`". That is STALE — corrected 2026-09-02.** The 2026-08
+> MCP added `actions_run_trigger`; `CLAUDE.md` § "PM-side session capabilities"
+> records it re-verified working on 2026-08-06 (HTTP 204, run queued) after
+> 403ing when checked on 2026-06-11. `CLAUDE.md` outranks this file — read the
+> capability there, not here. The stale text was load-bearing in the wrong
+> direction: it told a session that the ONLY way to fire a workflow was to open
+> an issue, which is precisely the capability a write-403 session does not have,
+> so a reader hitting the 403 would conclude no path existed.
+>
+> The issue-driven loop remains the DEFAULT (it needs no run-log polling and
+> returns its answer as a comment), and `actions_run_trigger` is the second
+> option. Neither helps a write-403 session, which is what the file-drop relays
+> in the box at the top of this file are for.
+>
+> The *artifact* half of the old paragraph is still true: there is no MCP tool
+> to list or download run artifacts, so a relay must write its answer somewhere
+> readable — an issue comment (B/C2) or a committed result file (C3).
 
 ## Trust boundary
 

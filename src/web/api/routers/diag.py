@@ -36,7 +36,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from src.runtime.exit_loop_health import (
     STATE_FILE_NAME as EXIT_LOOP_HEALTH_STATE_FILE,
 )
-from src.utils.paths import runtime_logs_dir, trade_journal_db_path
+from src.utils.paths import repo_root, runtime_logs_dir, trade_journal_db_path
 from src.web.api._account_read_executor import run_account_read
 from src.web.runtime_status import _resolve_git_sha
 
@@ -95,7 +95,7 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # caddy.service is outside the guard's scan entirely -- it is neither
     # flagged as uncovered nor flagged as stale if this line is deleted.
     # That invisibility is exactly why it went unwatched: a Caddy outage
-    # takes the SPA + WSS down while Streamlit (which calls the API
+    # takes the SPA + WSS down; it used to leave Streamlit (which called the API
     # server-side over plain HTTP) stays green, so nothing else reports it.
     # Do not remove without giving the SPA transport another liveness
     # surface first.
@@ -152,6 +152,17 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # ict-claude-bridge.service` tail its journal (the unit now logs to
     # journald — see deploy/ict-claude-bridge.service).
     "ict-claude-bridge.service",
+    # 2026-09-02 — the DEDICATED Claude bot's polling half, which is what makes
+    # a work-decision button ANSWERABLE rather than merely delivered (a tap on
+    # an unpolled bot produces a callback_query nobody collects, with no error
+    # anywhere). Registered in the SAME change that ships the unit, because the
+    # failure this service exists to prevent is precisely a SILENT one: if it is
+    # not running, prompts fall back to the trader bot and the only way to see
+    # that from outside is `/api/diag/services` + this unit's journal, whose
+    # startup banner names which token is polled and which prefixes are handled.
+    # ⚠️ Despite the adjacent name, this is NOT ict-claude-bridge.service — that
+    # one polls the PROP token.
+    "ict-claude-decision-bot.service",
     # 2026-05-29 — M13 AI-analyst generator (fast tier every 15 min) + its
     # per-strategy slow tier (every 60 min) and their driving timers. These
     # are the SOLE writers of the insights cache + insights_history/usage
@@ -257,6 +268,14 @@ _TARGET_EXTENSION_SOAK_LOG = runtime_logs_dir() / "target_extension_soak.jsonl"
 # defect #8778 shipped with `exit_loop_health`.
 _PROTECTION_REASSERT_SOAK_LOG = runtime_logs_dir() / "protection_reassert_soak.jsonl"
 _STRAY_OCA_SOAK_LOG = runtime_logs_dir() / "stray_oca_soak.jsonl"
+#: The staged Bybit graded-book coverage basis (2026-09-02). Allowlisted in the
+#: SAME commit as its writer, deliberately: CLAUDE.md tells a Tier-2 reviewer to
+#: read `verdicts_differ` here before widening BYBIT_GRADED_COVERAGE_ACCOUNTS
+#: beyond bybit_1, and a soak a reviewer is told to read and cannot reach is the
+#: BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE shape
+#: (and, for a gate specifically, the stray-OCA row filed the same day:
+#: BL-20260831-STRAY-OCA-SWEEP-ANNOTATE-COMPUTES-A-VERDICT-AND-DISCARDS-IT).
+_BYBIT_COVERAGE_SOAK_LOG = runtime_logs_dir() / "bybit_coverage_soak.jsonl"
 _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 #: Lane P/P3 — per-account arbitration fan-out soak. Allowlisted in the SAME
 #: commit as its writer: a soak that is written and cannot be read is the
@@ -310,6 +329,8 @@ _PACKAGE_LEG_COVERAGE_STATE = (
 )
 _EXIT_INTERVAL_SOAK_LOG = runtime_logs_dir() / "exit_interval_soak.jsonl"
 _CASH_SETTLEMENT_SOAK_LOG = runtime_logs_dir() / "cash_settlement_soak.jsonl"
+_WORK_DECISION_TRANSIT_LOG = runtime_logs_dir() / "work_decision_transit.jsonl"
+_WORK_DECISION_PROMPTED_STATE = runtime_logs_dir() / "work_decision_prompted.json"
 _PROP_TICKET_RISK_SOAK_LOG = (
     runtime_logs_dir() / "prop_ticket_risk_soak.jsonl"
 )
@@ -328,6 +349,29 @@ _EXIT_LOOP_HEALTH_ALERT_STATE = (
 _PROP_MONITOR_PULSE_STATE = runtime_logs_dir() / "prop_monitor_pulse.json"
 _PROP_SL_TP_ALERT_STATE = runtime_logs_dir() / "prop_sl_tp_alert.json"
 _PROP_STATUS_REQUEST_STATE = runtime_logs_dir() / "prop_status_request.json"
+
+# The Claude/operator ping DELIVERY ledger (2026-09-02). One sha256 per
+# docs/claude/pending-pings.jsonl line that scripts/notify_on_pull.py has
+# successfully enqueued; the drain skips any line whose hash is already here,
+# which is what stops old rows re-firing on every subsequent pull.
+#
+# ⚠️ ANCHORED TO repo_root(), NOT runtime_logs_dir() — deliberately, and the
+# difference is the whole point of the entry.
+#
+# `notify_on_pull.py` hardcodes its own `REPO_ROOT / "runtime_logs"` and never
+# calls the path helpers, so it writes to
+# /home/ubuntu/ict-trading-bot/runtime_logs/. It runs from
+# ict-git-sync.service, which carries no data-dir drop-in. This reader lives in
+# ict-web-api.service, which DOES carry deploy/dropins/data-dir.conf, so
+# runtime_logs_dir() here resolves to /data/bot-data/runtime_logs (verified
+# live: log_file?name=exit_loop_health reports that prefix). Resolving this
+# entry through the helper would therefore point the read surface at a path
+# NOTHING WRITES, and it would report an eternally-absent file — the
+# writer/reader path split that hid the ict-hourly-snapshot balance stall for
+# ~3 weeks (BL-20260611-M15-2). The reader must name the writer's real path.
+_PENDING_PINGS_DELIVERED = (
+    Path(repo_root()) / "runtime_logs" / "pending_pings_delivered.txt"
+)
 
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
@@ -398,6 +442,7 @@ _LOG_FILES: dict[str, Path] = {
     "target_extension_soak": _TARGET_EXTENSION_SOAK_LOG,
     "protection_reassert_soak": _PROTECTION_REASSERT_SOAK_LOG,
     "stray_oca_soak": _STRAY_OCA_SOAK_LOG,
+    "bybit_coverage_soak": _BYBIT_COVERAGE_SOAK_LOG,
     # Allocator soak (M18 P0c, portfolio capital allocator): one line per tick
     # with ≥2 actionable candidates — what a capital allocator WOULD pick (the
     # top-ranked candidate of the full opportunity set) vs what the aggregator
@@ -459,6 +504,67 @@ _LOG_FILES: dict[str, Path] = {
     # different fact from an interval of zero and is what makes the process
     # boundary visible instead of being mistaken for a real interval.
     "exit_interval_soak": _EXIT_INTERVAL_SOAK_LOG,
+    # PHASE H — the operator DECISION transit log. Truth IN TRANSIT and nothing
+    # else: one row per answer submitted from the SPA that has not yet been
+    # committed into the work object in the repo.
+    #
+    # ⚠️ READ IT BESIDE THE STORE, NEVER ALONE. A row here is NOT a decision --
+    # `committed` is graded from the `answer` block on the work object in the
+    # repo, deliberately, so an answer that never commits leaves its question
+    # UNANSWERED (transit fails BACK, never forward). A row still here whose
+    # object carries no answer is an OPEN WINDOW, which is a reportable
+    # condition, not a decision.
+    #
+    # Allowlisted in the SAME commit that ships the writer. A committer has to
+    # pull this log off the VM to close the round-trip
+    # (`scripts/ops/commit_work_decisions.py --transit <file>`), so a transit
+    # log with no read surface would mean an answer the operator gave could
+    # never become truth -- the exit_loop_health #8778 shape, which this file
+    # already records three recurrences of.
+    "work_decision_transit": _WORK_DECISION_TRANSIT_LOG,
+    # The ASK half's idempotency marker (2026-09-02): which decision requests
+    # the Telegram prompt sweep has already put in front of the operator.
+    # Allowlisted in the SAME commit that ships the writer. The fourth
+    # recurrence of
+    # BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE
+    # is not one this change is going to add.
+    #
+    # ⚠️ READ IT BESIDE THE INBOX, NEVER ALONE, and read the two SILENCES
+    # apart. A request absent from `prompted` means the sweep has not asked --
+    # which is either "it has not run" or "it HELD", and those are opposite
+    # facts. The sweep holds deliberately when the API's write gate is closed
+    # (a tappable prompt whose taps would 503 is the "reads as dealt with while
+    # nothing landed" failure) or when no POLLED bot can carry the buttons; both
+    # log a WARNING naming the reason, so journalctl is where a hold is
+    # distinguished from an outage. An ABSENT file means the sweep has never
+    # prompted anything on this VM -- never that nothing is waiting.
+    "work_decision_prompted": _WORK_DECISION_PROMPTED_STATE,
+    # 2026-09-02 — the POLL CLAIMS behind the decision channel's destination:
+    # which token variable a live process says it polls, and which callback
+    # prefixes it handles. One file per token VARIABLE (never a shared file, so
+    # two pollers cannot race each other's writes and a corrupt entry condemns
+    # only its own bot). Allowlisted in the SAME commit that ships the writer —
+    # the FIFTH recurrence of
+    # BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE is
+    # not one this change is going to add either.
+    #
+    # ⚠️ THIS IS THE FILE THAT DECIDES WHETHER A BUTTON IS DEAD, so it is the
+    # one a session needs when the operator says a tap did nothing. A prompt
+    # sent to a bot nobody polls ARRIVES, RENDERS and HIGHLIGHTS ON TAP while
+    # doing nothing — there is no error anywhere else to read.
+    #
+    # ⚠️ AN ABSENT FILE IS NOT "NOT POLLED" — it is the state the resolver
+    # grades `token_only_not_polled` ONLY when the registry root is reachable;
+    # if it is not, the verdict is `unknown` (we could not look) and the two
+    # must not be read as the same thing. Read the trader's journal
+    # (`journalctl -u ict-claude-decision-bot` / `-u ict-telegram-bot`) for the
+    # startup banner naming which token each process actually polls.
+    #
+    # ⚠️ The entry names the token VARIABLE, never a token value.
+    "telegram_poll_claude":
+        runtime_logs_dir() / "telegram_pollers" / "TELEGRAM_CLAUDE_BOT_SECRET.json",
+    "telegram_poll_trader":
+        runtime_logs_dir() / "telegram_pollers" / "TELEGRAM_BOT_TOKEN.json",
     # The alert LATCH for the above, distinct from the state it grades. A
     # breach alerts once per PROCESS (max_interval_ms resets on restart, so a
     # global latch would go silent after the first breach ever) -- which is
@@ -531,6 +637,51 @@ _LOG_FILES: dict[str, Path] = {
     "liveness_watchdog_state":
         runtime_logs_dir() / "liveness_watchdog_state.json",
     "daily_cap_alert_state": _DAILY_CAP_ALERT_STATE,
+    # THE OPERATOR-ALERT RING (BL-20260901-OPERATOR-ALERTS-HAS-NO-READ-SURFACE).
+    # `execution_diagnostics._append_operator_alert` writes every alert that
+    # reaches the `/api/bot/notifications` banner feed here -- close_failure,
+    # orphan, stuck-package-sweep, and siblings. It is bounded but NOT to a fixed
+    # 300: `_OPERATOR_ALERTS_KEEP` is 300, yet the trim only fires past 2x that,
+    # so the file holds 300-600 rows and the age of its oldest row is not a
+    # constant. State the `ts` span you actually got before quoting any rate.
+    # It had NO read surface, which is the recurring shape
+    # BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE
+    # names: the file that decides whether an operator gets pinged is the one
+    # nobody can inspect.
+    #
+    # It is the ONLY place a page RATE is recoverable. `/api/bot/notifications`
+    # renders the CURRENT banner and nothing else, and these alerts deliberately
+    # do NOT ride `outcomes.jsonl`, so `/api/bot/logs?level=error` returns zero
+    # of them -- a silence that reads exactly like "it never fired". Measured
+    # 2026-09-01: a live, hours-long `close_failure` condition on alpaca_paper/GLD
+    # was rendering on the banner while the 1000-row ERROR/WARN feed held zero
+    # matching rows. Without this entry a session cannot grade whether an alarm
+    # backoff (here: the exponential one shipped in #10666) is actually working
+    # -- which is precisely the desensitised-alarm question CLAUDE.md calls a P1.
+    "operator_alerts": runtime_logs_dir() / "operator_alerts.jsonl",
+    # STANDING CLOSE WEDGES -- the set of close failures established as
+    # unclearable by any bot-side lever, which are DOWNGRADED out of the paging
+    # channel and carried in the rolled-up digest instead (operator decision
+    # 2026-09-02, MI-34). A single small JSON OBJECT, not JSONL: it is the set of
+    # conditions standing RIGHT NOW, and a tail of appends cannot answer that
+    # without replaying it (the `exit_loop_health` shape).
+    #
+    # [!] ALLOWLISTED IN THE SAME COMMIT AS ITS WRITER, and that is load-bearing
+    # rather than tidy. This file is how the wedge reaches the operator once the
+    # pager has been told to stand down, and `.github/workflows/work-digest.yml`
+    # fetches THIS ROUTE to render it -- the digest runs on a GitHub runner from
+    # a fresh checkout, and `runtime_logs/` is .gitignore'd and lives on the
+    # trader VM, so without this entry the downgraded item would be readable from
+    # nowhere at all. That is the exact
+    # BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE shape
+    # (the `exit_loop_health` #8778 recurrence), and here it would not merely
+    # hide a state -- it would convert an operator-approved downgrade into
+    # silence.
+    #
+    # [!] READ `readState` BEFORE `wedges`. An ABSENT file on the trader means no
+    # wedge has ever been recorded; an absent file anywhere else means it was
+    # never fetched. Those are opposite claims and only one of them is good news.
+    "close_wedge_standing": runtime_logs_dir() / "close_wedge_standing.json",
     # PROP CADENCE STATE. The prop bridge is manual, so these three files are
     # the only evidence that the bot is still doing its half of it:
     #   prop_status_request -- when each account was last asked for a balance.
@@ -617,6 +768,24 @@ _LOG_FILES: dict[str, Path] = {
     # health-review backlog so every orphan is tracked for reconciliation. Absent
     # until the first orphan row is created.
     "orphan_events": _ORPHAN_EVENTS_LOG,
+    # Ping DELIVERY ledger — the sha256 of every pending-pings.jsonl line
+    # scripts/notify_on_pull.py has enqueued to the Telegram bridge. Not a
+    # .jsonl: one bare hex digest per line, appended after a successful
+    # enqueue. This is the ONLY surface on which a session can tell a
+    # DELIVERED operator ping from one the drain never ran for — from outside,
+    # a silent channel and a working-but-quiet one look identical, which is
+    # the BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE
+    # shape. To check one line, sha256 the RAW STRIPPED jsonl line (that is
+    # what notify_on_pull._line_hash hashes — not the parsed payload) and look
+    # for the digest here.
+    #
+    # ABSENT when the drain has never successfully enqueued anything ON THIS
+    # VM. Absence is NOT evidence that a given ping went undelivered: the file
+    # is .gitignore'd and VM-local, so a re-provision, a repo re-clone, or a
+    # move of the checkout resets it to nothing while the pings it recorded
+    # were still sent. A reader may conclude a hash PRESENT here was enqueued;
+    # a reader may NOT conclude that a hash missing here was not.
+    "pending_pings_delivered": _PENDING_PINGS_DELIVERED,
 }
 
 _DEFAULT_LIMIT = 100

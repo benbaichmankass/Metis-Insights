@@ -19,6 +19,7 @@ shadow_last) is visible. Read-only; trainer-side. No args.
 """
 import glob
 import json
+import sys
 from pathlib import Path
 
 # (symbol, tf) pairs to probe — the heads we care about for multi-symbol A.
@@ -54,6 +55,9 @@ def _ts_str(v):
 
 def _candle_range(sym, tf):
     cands = sorted(glob.glob(f"datasets-out/market_raw/{sym}/{tf}/*/data.jsonl"))
+    # DISCOVERED, not declared — say which version answered, and out of how many.
+    print(f"[input] {sym}/{tf}: {cands[-1] if cands else '(none)'} "
+          f"(alphabetically last of {len(cands)})", file=sys.stderr)
     if not cands:
         return None, None, None
     path = cands[-1]

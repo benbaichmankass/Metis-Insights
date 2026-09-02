@@ -39,6 +39,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 # Reuse the single-model harness's scoring + live-path plumbing (RG1/RG2).
 from scripts.ml.replay_pregate import _score_block  # noqa: E402
+from scripts.ml import pregate_stream  # noqa: E402
 from ml.registry.model_registry import ModelRegistry  # noqa: E402
 from ml.shadow import factory as _factory  # noqa: E402
 from ml.shadow.factory import (  # noqa: E402
@@ -225,6 +226,12 @@ def run(model_ids: List[str], *, window_n: int, folds: int,
                 continue
     print(f"[fleet] scoring {len(model_ids)} head(s): {', '.join(model_ids)}",
           file=sys.stderr, flush=True)
+    # The DENOMINATOR goes out first, on stdout, so a stream truncated mid-run
+    # can still say "9 of 22" rather than "9". A salvaged count with no
+    # population is not a claim (CLAUDE-RULES-CANONICAL, "Always state the
+    # population").
+    print(pregate_stream.frame(pregate_stream.BEGIN, {"model_ids": model_ids}),
+          flush=True)
     results: List[Dict[str, Any]] = []
     errors: List[Dict[str, Any]] = []
     for n, mid in enumerate(model_ids, 1):
@@ -233,11 +240,17 @@ def run(model_ids: List[str], *, window_n: int, folds: int,
             r = score_model(mid, reg, window_n=window_n, folds=folds,
                             positive_class=positive_class, max_bars=max_bars)
             results.append(r)
+            # Emit the STRUCTURED row now, not at the end. Run #4365 lost nine
+            # graded heads because the report was printed only after all 22
+            # finished: stdout was byte-empty when the pipe broke.
+            print(pregate_stream.frame(pregate_stream.RESULT, r), flush=True)
             ov = r.get("overall") or {}
             print(f"[fleet]   -> {r.get('auc_verdict')} auc={ov.get('auc')} "
                   f"n={r.get('n_scored')}", file=sys.stderr, flush=True)
         except Exception as exc:  # noqa: BLE001
-            errors.append({"model_id": mid, "error": str(exc)})
+            err_row = {"model_id": mid, "error": str(exc)}
+            errors.append(err_row)
+            print(pregate_stream.frame(pregate_stream.ERROR, err_row), flush=True)
             print(f"[fleet]   -> ERROR {exc}", file=sys.stderr, flush=True)
     results.sort(key=lambda r: (r.get("overall") or {}).get("auc") or 0.0,
                  reverse=True)
@@ -270,10 +283,13 @@ def main() -> int:
     report = run(ids, window_n=a.window_n, folds=a.folds,
                  positive_class=a.positive_class,
                  max_bars=(a.max_bars if a.max_bars and a.max_bars > 0 else None))
-    out = json.dumps(report, indent=1)
     if a.json_out and a.json_out != "-":
-        Path(a.json_out).write_text(out, encoding="utf-8")
-    print(out)
+        # File payload unchanged: `fleet_scorecard.sh`, `train_and_rg3_*.sh` and
+        # `_rg3_print.py` all read the FILE and send stdout to /dev/null, so the
+        # framing below reaches only the workflow, which is the sole stdout
+        # consumer (verified 2026-09-02 across all callers).
+        Path(a.json_out).write_text(json.dumps(report, indent=1), encoding="utf-8")
+    print(pregate_stream.frame(pregate_stream.REPORT, report), flush=True)
     return 0
 
 

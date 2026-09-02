@@ -149,7 +149,8 @@ def run(db_path: str, *, apply: bool, account_id: str,
           f"{total_pnl:.2f}")
 
     if not rows:
-        print("nothing to do (already clean / idempotent no-op).")
+        print(f"nothing to do — {len(rows)} candidate row(s) "
+              f"(already clean / idempotent no-op).")
         return 0
 
     if not apply:

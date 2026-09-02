@@ -501,4 +501,31 @@ if [ "$_VM_ROLE" != "gateway" ] && [ -f deploy/ict-claude-bridge.service ]; then
     fi
 fi
 
+# ict-claude-decision-bot is the DEDICATED Claude bot's polling half, and it is
+# the thing that makes a work-decision BUTTON answerable rather than merely
+# delivered. Enabled here for the same reason ict-claude-bridge is: a core
+# always-on service that nobody enables at provisioning stays dark silently —
+# and this one's silence is worse than the bridge's was, because the decision
+# sweep keeps working by falling back to the TRADER bot, so the operator sees
+# prompts arriving in the wrong chat rather than nothing at all.
+#
+# Tolerant of a failed start by design: without TELEGRAM_CLAUDE_BOT_SECRET the
+# service exits EX_CONFIG (78) and RestartPreventExitStatus stops it in a
+# visible `failed` state. That is an operator action to resolve, not a deploy
+# failure, so it must never hard-fail the deploy. The gateway-prune block above
+# keeps it off the gateway VM.
+if [ "$_VM_ROLE" != "gateway" ] && [ -f deploy/ict-claude-decision-bot.service ]; then
+    heal_devnull || true  # re-heal before the is-enabled check (same 2>/dev/null)
+    if "${SUDO[@]}" systemctl is-enabled ict-claude-decision-bot.service >/dev/null 2>&1 \
+        && "${SUDO[@]}" systemctl is-active ict-claude-decision-bot.service >/dev/null 2>&1; then
+        :  # already enabled + running — nothing to do
+    else
+        echo ">>> install_systemd_units: enable --now ict-claude-decision-bot.service (core always-on)"
+        if ! "${SUDO[@]}" systemctl enable --now ict-claude-decision-bot.service 2>&1; then
+            echo ">>> install_systemd_units: WARN could not enable ict-claude-decision-bot.service (no systemd? TELEGRAM_CLAUDE_BOT_SECRET unset?)"
+        fi
+        changed=1
+    fi
+fi
+
 exit 0

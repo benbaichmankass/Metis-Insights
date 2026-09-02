@@ -1,7 +1,7 @@
 """System notifications banner (operator-requested 2026-07-08).
 
 `GET /api/bot/notifications` — one Tier-1, read-only, connection-free surface
-the dashboard and Android app poll to render a **banner at the top of the
+the SPA polls to render a **banner at the top of the
 Overview page** for the important, can't-miss conditions (not routine pings):
 
   * **trainer_down** (severity ``alert``) — the trainer VM's 2-min mirror

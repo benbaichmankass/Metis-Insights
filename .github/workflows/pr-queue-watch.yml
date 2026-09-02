@@ -1,0 +1,163 @@
+name: pr-queue-watch
+
+# THE CLOCK THE MANAGER DOES NOT OWN.
+#
+# Operator directive 2026-09-02: "I want actual guards and mechanisms in the
+# repo/vm themselves that watch the manager and enforce the rules on him."
+#
+# WHY IT IS A WORKFLOW AND NOT SOMETHING A SESSION RUNS.
+#   A check invoked by the actor it checks cannot catch that actor failing.
+#   `manager_preflight.py` is a preflight and therefore has the exact failure it
+#   was built to fix: a manager that skipped step 3 of its sweep will skip the
+#   preflight too. Measured across this cycle -- every mechanism the manager had
+#   to CHOOSE to run went unused; every mechanism that STOOD IN THE WAY worked.
+#   So this is not reachable from a prompt, a skill, or a checklist step.
+#
+# WHY IT IS NOT THE MCP WATCHER.
+#   `scripts/ops/queue_latency.py` asks the same question about SESSIONS and
+#   answers it from `list_sessions` -- an mcp__* tool CI does not hold. It
+#   reports `unknown` permanently and refuses, correctly, to substitute a stale
+#   registry snapshot. This is the narrower question GITHUB_TOKEN alone can
+#   answer, and the two are complements, not substitutes.
+#
+# ⚠️ A CRON IS NOT EVIDENCE OF A RUN, AND THIS ONE IS UNPROVEN UNTIL OBSERVED.
+#   `probes.yml`'s first-ever scheduled run fired ~4h50m LATE and once instead
+#   of daily. `session-reaper.yml` failed five times before its first success.
+#   So the cadence is not trusted: every run writes a dated receipt
+#   (`docs/claude/work/PR-QUEUE-WATCH.json`) and
+#   `scripts/ci/check_pr_queue_watch.py` grades that receipt's AGE in
+#   `run_guards.py` on every PR. A watcher that stops therefore announces itself
+#   in everybody's CI instead of going quiet. Read `generated_at`, never the cron.
+#
+# ⚠️ NO `push:` TRIGGER, DELIBERATELY. This workflow COMMITS its receipt to
+#   `main`; a push trigger would retrigger it, which would stamp again -- the
+#   unbounded loop `reconcile-open-prs.yml` documents closing in exactly one hop.
+#   `workflow_dispatch` is here so a run can be FORCED rather than waited for.
+#
+# BLAST RADIUS. Reads the open-PR list and `origin`'s branch tips; writes ONE
+# generated JSON file under docs/claude/work/. It NEVER merges, closes,
+# un-drafts, comments on, or otherwise touches a pull request -- which is what
+# makes it safe to grade on branch quiescence, a PROXY for hand-back that it
+# cannot verify. Tier-1: no order path, no strategy config, no risk caps, no VM.
+
+on:
+  schedule:
+    # Every 6 hours, offset off the hour so it does not pile into the :00 rush.
+    # CHOSEN against the watcher's own 6h escalation threshold: a cadence slower
+    # than the threshold would let a PR cross it and sit a full extra period
+    # before anything looked. NOT tuned -- see the threshold's own basis note in
+    # scripts/ops/pr_queue_latency.py.
+    - cron: '41 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      threshold_hours:
+        description: 'Hours of branch quiescence before a PR counts as waiting'
+        required: false
+        default: '6'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  # One watcher at a time. Two concurrent runs would race the same receipt and
+  # the loser's assessment would be silently overwritten.
+  group: pr-queue-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # ⚠️ MUST be the PAT, not GITHUB_TOKEN: `commit-to-main` pushes its
+          # branch with whatever credential the checkout configured, and a PR
+          # opened by GITHUB_TOKEN does NOT trigger the on:pull_request required
+          # checks -- so it would stall auto-merge forever.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          # ⚠️ LOAD-BEARING. Branch quiescence is read from `origin`'s commit
+          # times. On a shallow clone every head would fail to resolve and the
+          # watcher would grade `undateable` -- which it reports honestly, but
+          # the run would then measure nothing at all.
+          fetch-depth: 0
+
+      - name: Fetch every origin branch
+        run: git fetch --quiet origin '+refs/heads/*:refs/remotes/origin/*'
+
+      - name: Self-test the grading policy before trusting a live run
+        # The policy is a pure function precisely so it is arguable here rather
+        # than against a live queue. A watcher whose grading is broken must fail
+        # loudly, not write a confident receipt.
+        run: |
+          python3 scripts/ops/pr_queue_latency.py --self-test
+          python3 scripts/ci/check_pr_queue_watch.py --self-test
+
+      - name: Read the open-PR list
+        # ⚠️ ON FAILURE THIS WRITES NOTHING AND THE WATCHER GRADES
+        # `no_observation`. It deliberately does NOT fall back to an empty list:
+        # "we could not look" and "no PR is open" are opposite facts, and the
+        # `curl ... || echo '{}'` idiom that collapses them is a named failure
+        # class in this repo (a 403 read as `0 checks`).
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" \
+            > /tmp/open-prs.json
+          echo "read $(jq 'length' /tmp/open-prs.json) open PR(s)"
+
+      - name: Assess the queue
+        id: assess
+        # Exit 3 (escalate) and 4 (unknown) are NOT step failures here -- the
+        # receipt must land before the job reports, or a backed-up queue would
+        # also lose the record of itself. The job fails at the end instead.
+        run: |
+          set +e
+          python3 scripts/ops/pr_queue_latency.py \
+            --open-prs /tmp/open-prs.json \
+            --threshold-hours "${{ github.event.inputs.threshold_hours || '6' }}" \
+            --write-state | tee /tmp/digest.txt
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Land the receipt on main (auto-merge PR)
+        # `main` is protected and rejects a direct workflow push (GH006). The
+        # action no-ops cleanly when the receipt is unchanged, which is the
+        # ordinary outcome of a quiet run inside the refresh floor.
+        # `verify-merged: true` because exiting 0 the moment a PR is OPENED
+        # would make a green run mean "a PR exists", never "the receipt is on
+        # main" -- and this repo carried five stranded automation branches from
+        # exactly that.
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/work/PR-QUEUE-WATCH.json
+          message: 'chore(ops): PR-queue watcher receipt (auto)'
+          pr-title: 'chore(ops): PR-queue watcher receipt (auto)'
+          pr-body: |
+            Generated by `.github/workflows/pr-queue-watch.yml`.
+
+            This is the dated liveness receipt `scripts/ci/check_pr_queue_watch.py`
+            grades on every PR. Read `generated_at`, never the cron expression.
+          verify-merged: 'true'
+
+      - name: Report the verdict
+        # ⚠️ FAILING THE JOB IS THE ESCALATION CHANNEL. A cron'd run that dies or
+        # fails is picked up by `claude-run-failure-alert.yml` and reaches the
+        # operator -- deliberately the OPERATOR and not the manager, because when
+        # the manager IS the bottleneck a notification routed to the manager is
+        # one more thing the failing component has to notice.
+        #
+        # ⚠️ AND IT ONLY FAILS WHEN THE PAGE IS DUE. The watcher's band/cooldown
+        # latch decides that, so a standing backlog does not fail every 6h --
+        # 202 of 376 CRITICALs in one measured window here were a single
+        # un-latched alarm, and that trained the operator past the channel.
+        run: |
+          cat /tmp/digest.txt
+          case "${{ steps.assess.outputs.code }}" in
+            0) echo "::notice::PR queue is quiet." ;;
+            3) echo "::error::PR-QUEUE ESCALATION -- open PRs are waiting on a merge decision past the threshold. See the digest above and docs/claude/work/PR-QUEUE-WATCH.json."; exit 1 ;;
+            4) echo "::error::PR-QUEUE WATCHER COULD NOT LOOK -- the open-PR list was unreadable. This is NOT an empty queue; the sensor is blind and that is a defect."; exit 1 ;;
+            *) echo "::error::unexpected exit code from pr_queue_latency.py"; exit 1 ;;
+          esac

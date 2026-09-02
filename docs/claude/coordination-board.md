@@ -185,6 +185,86 @@ Shipped: <PR # / what merged> — area now clear.
   Fall back to the live open-PR list (`list_pull_requests state=open`) as the
   real-time truth.
 
+### ⚠️ THERE IS NO DIRECT SESSION-TO-SESSION CHANNEL, IN EITHER DIRECTION
+
+**This is why the board is mandatory rather than merely encouraged**, and it is the
+one thing a session most often assumes it can route around.
+
+`SendMessage` between a manager and a sub-session **fails both ways**:
+
+| direction | result | measured |
+|---|---|---|
+| manager → sub-session | `{"success": false, "No agent named ... is reachable"}` | 2026-09-01, `WO-20260901-PHASE-E` |
+| **sub-session → its own manager** | **the same error**, on its own `parent_session_id` | **2026-09-02, MI-70** |
+
+⚠️ **The downward half was recorded first and was read as the whole constraint.**
+That phrasing — *"a manager cannot message a sub-session"* — invites the reading
+that a sub-session can at least **report upward**. It cannot. `ListAgents` shows no
+reachable cloud peers in either direction, and there is no `send_message` or
+`list_events` tool in either surface.
+
+What follows, and it is not a detail:
+
+- **A sub-session with a finding, a blocker, or a question has exactly two channels
+  to its manager: THIS BOARD, and its PR.** Nothing else reaches. A sub-session that
+  "tells the manager" in its final message is talking to a transcript nobody polls.
+- **A spawn prompt must therefore carry every rule the sub-session will need**, and
+  must direct upward-bound information to the board or the PR rather than to the
+  manager. A rule remembered after the spawn cannot be delivered.
+- **A manager must not wait for a sub-session to report.** It polls `get_session`
+  and reads the board and the branch; there is no inbox on either side.
+
+**The handoff is cheap precisely because of this.** There is no live connection to
+transfer, so taking over is purely a KNOWLEDGE problem — and knowledge goes in
+files: `SESSIONS.json`, `MANAGER-CHECKLIST.json`, `OPEN-PRS.json`, and this board.
+
+### If `add_issue_comment` returns 403 — USE THE RELAY, don't skip the board
+
+A PM-side session's MCP can be **read-only for issues and PRs**:
+`add_issue_comment` returns `403 Resource not accessible by integration` while
+`issue_read` on the same issue succeeds. That is a **write-scope boundary, not**
+the transient hosted-MCP drop this repo also documents (which a cheap retry
+clears in seconds) — so retrying with backoff will not fix it, and neither will
+`gh` (not installed in the sandbox) or `curl` to `api.github.com` (403 at the
+proxy).
+
+**There is a relay for exactly this, and you do not have to skip the board:**
+
+```
+automation/board-posts/<name>.md     →  .github/workflows/board-post.yml
+```
+
+Write your comment as that file's **entire contents**, push it on a `claude/**`
+branch, and the runner posts it to #6927 with its own `GITHUB_TOKEN`. Read the
+outcome back:
+
+```
+git fetch origin <branch>
+git show origin/<branch>:automation/board-results/<name>.txt
+```
+
+An empty body is **refused**, and a failed post **fails the run** — deliberately
+louder than its `pr-opener` sibling, because a session that believes it claimed
+the board and did not is invisible to every other session *and to itself*.
+
+The two siblings, for the same 403: `automation/pr-requests/<name>.json` →
+`pr-opener.yml` opens a PR (fresh filename per PR — a reused one is a silent
+no-op), and `.github/pr-automerge-requests/<branch>.txt` →
+`claude-pr-automerge.yml` enables auto-merge.
+
+⚠️ **This paragraph exists because the relay was undiscoverable from the
+documents a session actually reads.** `board-post.yml` shipped 2026-08-20
+specifically so a 403-scoped session could comply with a binding rule — and the
+strings `board-post` and `pr-opener` appeared **zero times** in this file,
+`CLAUDE.md`, `docs/CLAUDE-RULES-CANONICAL.md` and the `session-coordination`
+skill (measured 2026-09-01, positive control: `claude-pr-automerge` appears 3×
+in `CLAUDE.md`). A session hit the 403 on 2026-09-01, read the docs, correctly
+concluded no board path existed, and found both relays only by reading
+`.github/workflows/` after the documented paths had failed. A capability that is
+built but unreachable from the surface its user reads is, for that user,
+identical to no capability at all
+(`BL-20260901-COORDINATION-BOARD-WRITES-403-FROM-THIS-SESSION-WHILE-READS-SUCCEED`).
+
 ## The VM-lane queue (scarce-VM FIFO — running is never preempted)
 
 The trainer VM is a **single core** shared by every session; concurrent heavy jobs

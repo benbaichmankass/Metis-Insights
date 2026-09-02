@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-01T21:47Z",
+  "updated_at": "2026-09-02T09:36:00Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -60,12 +60,14 @@
         10669,
         10671
       ],
-      "note": "Merged and CI-green. NOT observed: no ping in this format has been seen arriving anywhere. The operator's own read is the evidence that matters and it has not happened."
+      "note": "Merged and CI-green. NOT observed: no ping in this format has been seen arriving anywhere. The operator's own read is the evidence that matters and it has not happened.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
     },
     {
       "id": "MI-02-CLAUDE-CHANNEL",
       "title": "Claude pings reach the DEDICATED bot @ict_cluade_bot, not the trader chat",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01J16qHJHbnvqDyRWWAvdiRD",
       "prs": [
         10674
@@ -84,7 +86,9 @@
           "what": "token is in Actions, not yet on the VM; needs service: ict-claude-bridge.service (the suffix is required)"
         }
       ],
-      "note": "Root cause: #10664 built the router and converted cloud_notifier, leaving claude_bridge's drain hardcoding the trader token. The bot was configured, resolvable and INERT. A 20:58:49Z ping WAS delivered -- to the trader chat."
+      "note": "#10674 merged and the VM deploy landed (set-env #10688, 22:08:26Z, bridge restarted, route flipped to token=TELEGRAM_CLAUDE_BOT_SECRET[dedicated] isolated=True). OPERATOR-CONFIRMED delivery in @ict_cluade_bot. ⚠️ BUT SEPARATION IS NOT ACHIEVED — see MI-18. isolated=True is true at the BRIDGE and insufficient, because a second drainer delivers the same payload via the trader bot. #10685 records exactly this and is correct.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
     },
     {
       "id": "MI-03-MORNING-DIGEST",
@@ -99,29 +103,33 @@
           "what": "there is no separated channel to deliver into yet"
         }
       ],
-      "note": "Cadence raised daily -> every 4h in #10669, keeping the 06:20 slot because it lands after probes (05:20) and due-list (05:50). WARNING: scheduled workflows in this repo have NEVER fired on cron (OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON), so correct cron syntax is not evidence it will run."
+      "note": "Cadence raised daily -> every 4h in #10669, keeping the 06:20 slot because it lands after probes (05:20) and due-list (05:50). WARNING: scheduled workflows in this repo have NEVER fired on cron (OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON), so correct cron syntax is not evidence it will run.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
     },
     {
       "id": "MI-04-PHASE-F",
       "title": "Phase F / C3 decision preparation -- the one phase touching the measured constraint",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01MDjxAnncsh71UiRAWtYHkH",
-      "note": "PR #10681 IS OPEN. The manager has NOT read its diff and must before merging. Tier-1, so the merge is the manager's alone once CI is green.",
-      "pr": "#10681"
+      "note": "MERGED 23:18Z as bc19d0f4 — the conflict from #10680 landing first was resolved by session_01GmjT7SLhVQNJtWnY1asEEb and all six checks came back green. landed_unproven: C3 has not been observed producing a decision packet on the fleet.",
+      "pr": "#10681",
+      "priority": "P2_OVERHAUL"
     },
     {
       "id": "MI-05-PHASE-D",
       "title": "Phase D / E1 constraint diagnosis -- the constraint computed rather than judged",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01Eb2CgctP8MGHD2Pnh8gpqF",
-      "note": "PR #10680 IS OPEN. Manager has NOT read its diff. ⚠️ THIS ONE GATES A SPAWN: MI-06 unblocks on this PR's MERGE, not on Phase D being observed working — a false-hold shape the board flagged.",
-      "pr": "#10680"
+      "note": "MERGED 22:52Z as 7e472e6c. ⚠️ landed_unproven, NOT done — a merge is a deploy, not an observation, and E1 has not been seen producing a readout on the fleet. ⚠️ READ WHAT IT SHIPPED before building on it: the diagnosis REFUSES where the edges do not support an answer, because ~583 migrated objects carry blocked_on: [] with basis NOT_ASSESSED. A consumer reading that refusal as 'nothing is held up' has the failure inverted.",
+      "pr": "#10680",
+      "priority": "P2_OVERHAUL"
     },
     {
       "id": "MI-06-PHASE-G",
       "title": "Phase G -- the forcing function: retirement, and the capability pull rule",
-      "state": "blocked",
-      "owner": null,
+      "state": "landed_unproven",
+      "owner": "session_01AT7e9N9FMbrLPRbzzueexL",
       "blocked_on": [
         {
           "kind": "item",
@@ -130,21 +138,24 @@
           "what": "the pull rule is only enforceable once E1 can name the held-up stage"
         }
       ],
-      "note": "Unblocks on #10680 MERGING, not on Phase D being proven. Spawn immediately on that merge; holding it until Phase D is 'observed working' is the false-hold the board named."
+      "note": "MERGED 2026-09-02T01:47Z as 7e54089e. Tier-1 throughout (24 files; no config/, no order path) — verified by the manager against the file list before merging, not taken from the PR body. ⚠️ THE SESSION REPORTED ITS OWN DONE-CONDITION AS **HALF MET** AND REFUSED TO PAD IT: 'something has actually been REMOVED' is NOT satisfied, because every candidate is either Tier-3 (the 10 strategy legs — retiring one edits config/strategies.yaml) or Tier-1 where the right disposition is not deletion. It examined both 'unwired' tools rather than counting them and dispositioned one `wire`, one `keep`. Deleting something safe-but-arbitrary to satisfy the done-condition would be the cosmetic retirement the phase exists to end; that refusal is the correct output, not a miss. === ⚠️ IT ALSO REFUTED THE BUILD PLAN'S STATED CAUSE, with a measurement. The plan says the M7 kill packet cannot fire because 'Override 5 converts every kill to tune'. Measured over ALL 52 enabled strategies (comms/strategy_reviews/2026-09-01, window 08-25->09-01): Override 5 fired on 0 of 52 — IT IS NEVER REACHED. The matrix short-circuits on insufficient evidence first: 35 legs had ZERO closes in window, 17 were below the floor, and the highest n_closed in the fleet was 8 against a KILL/DEMOTE floor of 20. The real blocker is that the gate's 7-day window is shorter than the sample its own floor demands — no leg closes 20 trades in a week and the best is 2.5x short. Filed as BL-20260901-M7-GATE-WINDOW-IS-SHORTER-THAN-ITS-OWN-EVIDENCE-FLOOR; widening the window changes the decision gate itself and is the operator's call.",
+      "pr": "#10708",
+      "priority": "P2_OVERHAUL"
     },
     {
       "id": "MI-07-PHASE-H-PRECONDITIONS",
       "title": "Phase H preconditions: retire Android+Streamlit from the live feed; narrow the DB explorer",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01LvzsinECH8HPCyauVJZBZw",
-      "note": "PR #10682 OPEN, READ BY THE MANAGER, operator-approved. Default-deny table allowlist + column redaction on the db explorer. ⚠️ SEVERITY, honestly: device_tokens is EMPTY on the live host (rows=0), so this closed a PATH and not a realised leak — do not restate it as a leak. The bigger surface is the OTHER 21 tables (signals 2.3M rows, trades 5,313) still world-readable unauthenticated; filed separately, and it is Phase H's actual job. ⚠️ Its live verification (a) needs the narrowed route DEPLOYED and is NOT satisfied by the merge — this lands as landed_unproven, never done.",
-      "pr": "#10682"
+      "note": "MERGED 22:53Z as 0e90202f. ⚠️ It closed a PATH, not a realised leak — device_tokens measured EMPTY on the live host. ⚠️ AND ITS OWN VERIFICATION IS UNMET: it needs the narrowed route DEPLOYED and read back; a merge is not a deploy. The larger surface — the other ~21 unauthenticated tables, signals at 2,301,022 rows — is still open and is Phase H's job.",
+      "pr": "#10682",
+      "priority": "P2_OVERHAUL"
     },
     {
       "id": "MI-08-PHASE-H",
       "title": "Phase H -- the control half: decisions answerable from the UI, and the read gate",
-      "state": "queued",
-      "owner": null,
+      "state": "in_flight",
+      "owner": "session_01PnQLKnuezWVB4D47PtnTqR",
       "blocked_on": [
         {
           "kind": "item",
@@ -152,62 +163,997 @@
           "since": "2026-09-01T21:22Z",
           "what": "attaching require_session is only tractable once the other consumers are archived"
         }
-      ]
+      ],
+      "note": "PR #10705 OPEN (claude/phase-h-decision-roundtrip). Manager has NOT read the diff. ⚠️ Read the write-gate polarity before merging: a decision-WRITE on a public API must copy prop/report's FAIL-CLOSED token gate (503 when DASHBOARD_API_TOKEN is unset), never the permissive devices shape or the deliberately-open learning/progress one. === STILL THE LAST OPEN WORKPLAN ITEM at 02:12Z: #10705 is a DRAFT and adds a WRITE route, so it is the one remaining PR needing a real manager review rather than a green tick.",
+      "pr": "#10705",
+      "priority": "P2_OVERHAUL"
     },
     {
       "id": "MI-09-GLD-CLOSE",
       "title": "alpaca_paper GLD will not flatten -- 397 consecutive close failures",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01Hd8opmCBcNQRchwdasWpvL",
-      "note": "PR #10679 OPEN, READ BY THE MANAGER, operator-approved. ⚠️ THE MANAGER'S HYPOTHESIS IS REFUTED, not merely 'different': #10666 already ported the qty_available fix at 16:23Z, it IS deployed, and the REGULAR-hours path fails identically inside RTH — so there was no working sibling to port from and porting would have fixed nothing. Cause is broker-side: Alpaca accepted our cancel, left OCO parent 2e843e04 in pending_cancel since 2026-08-27, 39 shares stay held_for_orders. Recurrence of BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL. ⚠️ MERGING THIS DOES NOT CLEAR THE WEDGE — that needs OPERATOR/venue action (relayed). alpaca_live shares this code and trades GLD, so the exposure is structural; measured FLAT at 21:23Z, so nothing real is stranded now.",
-      "pr": "#10679"
+      "note": "PR #10679 MERGED (839247cc) after THREE resolves, two of which I caused myself by merging siblings out from under it — that is what MI-35 exists to stop. ⚠️ landed_unproven and NOT done, for two separate reasons that must not be collapsed: (a) the live GLD wedge is UNCLEARED — no bot-side lever releases an Alpaca pending_cancel, so order 2e843e04 still holds 39 shares and needs operator/venue action; the PR is explicit that it does not claim otherwise. (b) the paging RATE is still UNMEASURED — #10666's backoff is deployed but /api/bot/notifications renders only the current banner, and these alerts do NOT ride outcomes.jsonl, so the whole 1000-row ERROR/WARN feed showed ZERO close-failure rows WHILE the banner was actively rendering one. This PR adds the operator_alerts diag allowlist entry so the rate becomes readable; grading the backoff needs a live read AFTER deploy. What DID land: classify_share_hold() names the four never-collapsed states so a transient cancel race stops being byte-identical to a permanent broker wedge, and _cancel_open_orders_detailed now counts cancels ACCEPTED rather than ISSUED.",
+      "pr": "#10679",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
     },
     {
       "id": "MI-10-PROP-FILLS",
       "title": "breakout_1 prop journal missing terminal trades since 2026-08-30",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01Xj5Puf96WC1YGKdZT4TikJ",
-      "note": "PR #10678 OPEN, READ BY THE MANAGER, operator-approved. It proved the banner a FALSE POSITIVE and wrote no fill — the no-fabrication prohibition held. reported_at is overwritten by insert_fill's UPDATE branch, so membership now takes `any` of created_at/reported_at/closed_at. Re-graded 18 pairs: exactly one verdict flips and the genuine −$111.86 gap still grades `unreported`, which is the check that it did not silence the detector. BLOCKED ON CI — see MI-14.",
-      "pr": "#10678"
+      "note": "MERGED 22:11Z as 8b53aa4d. It proved the banner a FALSE POSITIVE and wrote no fill — the no-fabrication prohibition held. ⚠️ landed_unproven: the banner clears only after the trader restarts on the merged sha AND one PROP_FILLS_STALENESS_CHECK_SECONDS window elapses. Do NOT hand-clear the latch — the corrected predicate emptying `findings` by itself IS the evidence.",
+      "pr": "#10678",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
     },
     {
       "id": "MI-11-MANAGER-LEASE",
       "title": "Hold and heartbeat the manager lease",
       "state": "in_flight",
       "owner": "manager",
-      "note": "Heartbeat 2026-09-01T21:45:38Z, expires 23:15:38Z. A heartbeat that is not PUSHED protects nothing — this one ships in the same PR as the write."
+      "note": "Heartbeated 01:12:20Z, on main at de61ead9, expires 02:42:20Z. ⚠️ PROTOCOL CHANGE, recorded here because it is not obvious from the diff: the heartbeat now ships in a LEASE-ONLY PR (#10712 was the first). Carrying it inside an ordinary work PR couples the manager's own liveness to the merge queue — and tonight that queue is exactly what stalls (see MI-20). MANAGER-LEASE.json is written by the manager and nobody else, so a lease-only PR has an EMPTY CONFLICT SURFACE with every sub-session branch and can land at any point in a train without disturbing it. It is also nearly free to verify: #10712 went 5/5 green in 76 seconds, because a one-file JSON change falls out of every relevance filter. An unpushed heartbeat protects nothing — another session reads origin, not a working tree. Second lease-only PR #10713 extended the pattern from the lease alone to ALL THREE manager-written files (MANAGER-LEASE, MANAGER-CHECKLIST, SESSIONS). ⚠️ THE CLAIM WAS VERIFIED, NOT ASSUMED: all five open train branches were diffed against main and none touches any of the three. #10713 then merged while #10707 was open and #10707 stayed clean — the pattern held under a live test.",
+      "priority": "P1_HANDOFF"
     },
     {
       "id": "MI-12-STALE-AUTOMATION-PR",
       "title": "#10398 econ-calendar PIT snapshots (auto) -- open since 2026-08-29",
-      "state": "triage",
+      "state": "queued",
       "owner": null,
-      "note": "An automation PR three days old. Nobody has disposed of it. Merge, close, or find why it stalled -- an auto-PR nobody lands is the shape of a mechanism that has quietly stopped working."
+      "note": "DISPOSITION SETTLED 2026-09-02T01:32Z — MERGE IT, DO NOT CLOSE IT, and the manager's first hypothesis was WRONG. It looked redundant because a sibling econ-calendar auto-PR (#10711) merged tonight, so 'superseded, close it' was the obvious read. Measured instead: #10398 changes 3 files, and exactly one of them is a POINT-IN-TIME capture — comms/macro/econ_calendar_captures/US-20260829T034952Z.fxstreet.json — which is ABSENT from main. The capture series on main runs 08-27, 08-28, [GAP], 08-30, 08-31, 09-01, 09-02 (36 captures total), and this PR is the only copy of the missing day. ⚠️ A PIT CAPTURE CANNOT BE REGENERATED: it records what the calendar SAID at that instant, which is the whole reason it exists (avoiding look-ahead bias in backtests). Closing this PR makes the 08-29 hole permanent. === RESOLUTION RULE, because the three files want THREE different treatments and 'take both sides' is wrong for one of them: (1) the capture file is NEW — take it, no conflict; (2) econ_calendar_snapshots.jsonl is APPEND-ONLY — union both sides, the standard register rule; (3) econ_calendar_upcoming.json is REGENERATED and forward-looking — take MAIN's, because an 'upcoming events' file from four days ago is strictly worse than today's, and preserving the stale side here would be the register rule misapplied. === Open since 2026-08-29, mergeable_state dirty, 62,524 additions / 143 deletions across those 3 files. Data-only; it does NOT touch config/economic_calendar.yaml (operator-gated) — the PR body says so and the file list confirms it.",
+      "pr": "#10398",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
     },
     {
       "id": "MI-13-BACKLOG-DRAIN",
       "title": "Drain the review backlogs (1,072 rows in health-review alone)",
-      "state": "queued",
-      "owner": null,
-      "note": "A dedicated /backlog-drain skill exists for this. Reviews FILE and one skill CLOSES; the measured filed-vs-closed ratio is the disease the operating layer exists to treat."
+      "state": "blocked",
+      "owner": "drains #1-#3 merged; #4 (session_012zFXi2) + #5 (session_01HMfmAi) running",
+      "note": "DEPRIORITISED 2026-09-02 by operator directive: backlog drain was started ahead of implementing the operating-model plan itself, which is the wrong order. The one dispatched drain finishes; no further drain until MI-41 A-D are dispatched.",
+      "pr": "#10707",
+      "blocked_on": {
+        "kind": "object",
+        "ref": "MI-41-IMPLEMENT-THE-OPERATING-MODEL-PLAN-WAS-NEVER-SCHEDULED-AND-SLIPPED",
+        "since": "2026-09-02T05:45:26Z"
+      },
+      "unblock_condition_DECIDED": "OPERATOR DECISION 2026-09-02: the backlog drain unblocks WHEN MI-41-B MERGES — not before, and not on my judgement. A (#10757) and C/D (#10760, #10765) are merged; B is the 330KB CLAUDE.md split, currently conflicted and with its author (session_01Ryr6K2VXGojZbqjFgQ2PrN, PR #10764). ⚠️ Do NOT restart a drain because three of four look done — the operator's sequencing rule was 'the plan before the drain', and B IS the plan's core piece: the 403k-token instruction surface no session can read.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
     },
     {
       "id": "MI-14-CI-GREEN-THE-THREE-DRAFTS",
       "title": "Get the three approved drafts to green CI so the manager can merge them",
-      "state": "in_flight",
+      "state": "done",
       "owner": "session_012633idhLGncZaWVMVSuXJM",
       "pr": null,
       "blocked_on": null,
-      "note": "THE UNFORESEEN BLOCKER THAT HOLDS THE THREE APPROVED MERGES, added as its own item per the operator's rule that an adaptation is a first-class edit. #10678's guards job FAILED on exactly one guard — session-brief-guard (render_session_brief.py --check --base origin/main, exit 1), because the PR touches the registers the CLAUDE.md SESSION BRIEF is rendered from. #10679 and #10682 showed ZERO check runs when read, which is UNKNOWN and not green — and in this repo a zero usually means a merge conflict, so the session is told to read mergeable_state first. Delegated rather than taken: the manager owns the MERGE, not the fix. ⚠️ The session is prohibited from weakening any guard or test to get green; a guard failing correctly is a legitimate outcome it must report rather than route around."
+      "note": "DONE. #10678, #10683, #10680, #10682 all reached green and merged. ⚠️ TWO OF THE THREE SPAWNS UNDER THIS ITEM WERE UNNECESSARY and that is the lesson worth keeping: session_01K6noqH was sent at #10680's ruff failure whose AUTHOR was alive and had already landed the fix, and session_01RQdSgw was sent at #10683 which had been green since 21:43. Both times I spawned off a stale read instead of re-checking. Poll before spawning.",
+      "priority": "done"
     },
     {
       "id": "MI-15-SESSIONS-REGISTRY-INCOMPLETE",
       "title": "The sub-session registry was missing 3 of the 6 sessions this manager spawned",
-      "state": "landed_unproven",
+      "state": "blocked",
       "owner": "manager",
       "pr": null,
+      "blocked_on": {
+        "kind": "object",
+        "ref": "MI-41-IMPLEMENT-THE-OPERATING-MODEL-PLAN-WAS-NEVER-SCHEDULED-AND-SLIPPED",
+        "since": "2026-09-02T06:13:08Z"
+      },
+      "note": "FOUND WHILE REFRESHING THE CHECKLIST, and it is the exact failure SESSIONS.json exists to prevent: the Claude-channel, Phase-H-preconditions and prop-fills sessions existed ONLY in this manager's context. Had this session died, three live sub-sessions — two of them holding operator-approved PRs — would have been silently orphaned. All four (those three plus the new CI-green session) are registered in this PR. ⚠️ landed_unproven, NOT done: the registry is only proven when a manager arriving COLD actually resumes from it, and no such takeover has happened. Registering is a deploy, not an observation.",
+      "recurrence": "RECURRED 2026-09-02, WORSE THAN THE ORIGINAL, and this row was sitting at landed_unproven while it happened. Measured during a handoff-readiness check: 6 of the 9 sub-sessions this manager spawned were ABSENT from SESSIONS.json, 5 of them LIVE -- including all three MI-41 sessions carrying the cycle's highest-priority work. The original was 3 of 6. Registry brought current by hand the same minute, and the six carry registered_late:true so their spawned_at is not misread as a spawn time. ⚠️ THE FIX THAT WAS APPLIED LAST TIME WAS 'REMEMBER TO REGISTER', AND IT HAS NOW FAILED TWICE. A manager spawning a session is exactly when it is least likely to stop and write a record. This must become MECHANICAL -- registration as a side effect of spawning, or a check that refuses/flags an unregistered live session -- and it is a first-class MI-41-A candidate: an action the manager INVOKES that both spawns and registers, so the two cannot diverge. ⚠️ WHY IT MATTERS MORE THAN IT LOOKS: SESSIONS.json is the ONLY thing that lets a cold manager pick up running sub-sessions. The lease does not carry it, a dead session cannot report it, and the operator asked about switching managers WHILE the registry was 67% incomplete -- the handoff would have silently dropped five live sessions.",
+      "priority": "P1_HANDOFF"
+    },
+    {
+      "id": "MI-16-SEND-PING-CLASSES-REACHABLE",
+      "title": "The three ping classes were unreachable from the only dispatchable path",
+      "state": "landed_unproven",
+      "owner": "session_01J16qHJHbnvqDyRWWAvdiRD",
+      "pr": "#10683",
       "blocked_on": null,
-      "note": "FOUND WHILE REFRESHING THE CHECKLIST, and it is the exact failure SESSIONS.json exists to prevent: the Claude-channel, Phase-H-preconditions and prop-fills sessions existed ONLY in this manager's context. Had this session died, three live sub-sessions — two of them holding operator-approved PRs — would have been silently orphaned. All four (those three plus the new CI-green session) are registered in this PR. ⚠️ landed_unproven, NOT done: the registry is only proven when a manager arriving COLD actually resumes from it, and no such takeover has happened. Registering is a deploy, not an observation."
+      "note": "MERGED 22:26Z as 970fe13c. send_ping_action.sh passed no --kind, so decision/state_change/lifecycle were implemented, documented and unreachable from the only path a session can dispatch — the same configured-resolvable-and-inert shape as #10674. ⚠️ It had been fully green since 21:43 and my zero-check-runs read was STALE; I spawned a CI-fixer that was not needed. landed_unproven until each class has actually fired (MI-17).",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-17-PING-TEST-MATRIX",
+      "title": "Operator-requested: exercise every ping class and gate end to end",
+      "state": "landed_unproven",
+      "owner": "session_01P6QyGg3ZJrXcNaEUBTj2ei",
+      "pr": "#10695",
+      "blocked_on": null,
+      "note": "MERGED 23:19Z as aef7944b. EVERY RULE HELD EXCEPT ONE, and that one is fixed in the same PR: send_ping.py accepted --why/--unproven with NO --kind, discarded them, and reported success — while the MIRROR case (--kind without --why) has always been a hard error. One direction refused loudly, the opposite was silent. === WHAT PASSED: decision fired twice back-to-back and BOTH sent; state_change rendered Format B as two lines with `unproven` APPENDED to the why-line, not a third line; lifecycle's second ping inside 300s came back `withheld: rate-limited: 71s since last (< 300s)` carrying the limiter's own reason — which matters because send_ping.py exits 0 either way; all three malformed-input cases were hard errors, never a fallback to passthrough. === ⚠️ UNVERIFIED AND STATED AS SUCH: only 2 of 6 claude-targeted pings have a positive `ok=True status_code=200` send line, because the two drainers have DIFFERENT observability — cloud_notifier's path logs nothing either way, so whether a ping is traceable is decided by the same race as MI-18. Filed as BL-20260901-TWO-DRAINERS-RACE-ONE-CLAUDE-PING-INBOX-AND-ONLY-ONE-OF-THEM-LOGS-A-DELIVERY. Rendered prefixes and Telegram's own two-line rendering remain operator-only observations.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-18-DUPLICATE-DELIVERY-IS-REAL-I-WAS-WRONG-TO-DROP-IT",
+      "title": "The ping duplicate IS real and measured; I archived the session fixing it and told the board it was not",
+      "state": "in_flight",
+      "owner": "session_01LqVvgvusnN87neBn5ayzhg (archived; its PR #10694 stands)",
+      "pr": "#10694",
+      "blocked_on": null,
+      "note": "⚠️ THIS ROW PREVIOUSLY READ `dropped` WITH 'THE DEFECT WAS NEVER DEMONSTRATED'. THAT WAS WRONG AND IS RETRACTED. The session had already measured it from the live journals: 22:10:19.934 bridge drain tick STARTS, 22:10:21 trader-bot tick reads the SAME file and delivers it, 22:10:23.212 bridge POST returns and unlinks. Both drainers do read -> send -> unlink, so the file survives the whole POST; the bridge's POST took 3.28s against ~1ms on every other tick that day. The copies went to different BOTS because ict-telegram-bot started at 21:37:37Z, before the secret was set at 22:08:26Z, and _resolve_claude_bot() caches once per process. === WHERE MY REASONING FAILED: I read the operator's later 'nothing showed up in both feeds' as REFUTING the earlier 'sent to both channels'. It does not. The mechanism is INTERMITTENT BY CONSTRUCTION — a duplicate needs the winning drainer's POST to exceed the ~2s phase gap between two 5s ticks. Absence on later pings is what the mechanism PREDICTS. === AND THE DUPLICATE IS THE LESS SERIOUS HALF: when the race is won outright one copy is sent, but WHICH CHAT it lands in is decided by scheduler phase, and an operator cannot learn where to look for a channel picked at random. === #10695 reached the same mechanism independently and called it correctly ('predicts intermittent duplication rather than reliable doubling'). Two sessions, same finding, while I had told the board it was not real. === STATUS: #10694 is Tier-2 and stays DRAFT — it changes a live service's drain behaviour and needs ict-telegram-bot.service restarted after merge, which is an operator OK I do not have overnight. FIRST ITEM ON THE MORNING REPORT.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-19-SYSTEM-ACTION-CANCELLED-RUNS-ARE-SILENT",
+      "title": "A superseded pending system-action run is cancelled with NO comment posted back",
+      "state": "queued",
+      "owner": null,
+      "pr": null,
+      "blocked_on": null,
+      "note": "Found by the ping test (#10695) when P1b vanished. Three send-ping actions dispatched inside 15s and the MIDDLE run was cancelled: issue left open, zero comments, nothing anywhere saying the action never ran. `cancel-in-progress: false` protects a RUNNING job, but GitHub keeps only one PENDING run per concurrency group, so a third queued run cancels the second. ⚠️ THE ISSUE COMMENT IS THE ONLY RESULT SURFACE A PM-SIDE SESSION HAS, so 'silently dropped' is indistinguishable from 'still queued' — a session can wait forever on a run that is already dead. The test session's workaround was to dispatch strictly one at a time, which is exactly the sort of unwritten discipline that decays. Filed as BL-20260901-SYSTEM-ACTIONS-CANCELS-A-SUPERSEDED-PENDING-RUN-AND-COMMENTS-NOTHING-BACK-SO-A-DISPATCHED-ACTION-IS-SILENTLY-LOST.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-20-REGISTER-PRS-SERIALIZE-BADLY-UNDER-A-FAST-MERGE-QUEUE",
+      "title": "Nine merges in three hours left four PRs conflicted on the same append-mostly register files",
+      "state": "landed_unproven",
+      "owner": "session_014RAYKspW1gtBsjuHA1XzKJ",
+      "pr": null,
+      "blocked_on": null,
+      "note": "Resolved in practice by the manager-only PR pattern, now confirmed a SECOND time under live test: a PR touching only MANAGER-LEASE.json / MANAGER-CHECKLIST.json / SESSIONS.json has an empty conflict surface (all three are manager-written), so it never serializes against a sibling. #10728 merged mid-queue with #10679 open and #10679 stayed clean; verified again by diffing every open train branch. It is also nearly free to verify — 5/5 green in 76s. landed_unproven, not done: this holds only while I am the sole writer of those three files. A second concurrent manager would break the premise, which is exactly what the lease exists to prevent.",
+      "priority": "P1_HANDOFF"
+    },
+    {
+      "id": "MI-21-MERGE-TRAIN",
+      "title": "Serialize the six conflicted PRs onto main, one at a time",
+      "state": "done",
+      "owner": "session_01CKcZFmZSWNsV8qHAo38YNk",
+      "pr": null,
+      "blocked_on": null,
+      "note": "DONE at 2026-09-02T03:14Z — the queue is fully drained. 36 PRs merged tonight; the last four (#10728 manager-state, #10679 Tier-2 alpaca order path, #10724 health drain, #10725 research drain) went in back-to-back under MI-35 with ZERO re-conflicts, which is the live proof of that protocol. Exactly two PRs remain open and BOTH are correctly held, not stalled: #10694 (Tier-2, needs ict-telegram-bot.service restarted — operator's, on the morning report) and #10398 (the only copy of the 2026-08-29 PIT capture, held under MI-12's three-way resolution rule).",
+      "priority": "done"
+    },
+    {
+      "id": "MI-22-TWO-OPEN-ITEMS-ROWS-NOW-LOOK-CLEARABLE",
+      "title": "Drain #1 produced the evidence for two OPEN-ITEMS rows and correctly cleared neither",
+      "state": "done",
+      "owner": null,
+      "pr": null,
+      "blocked_on": "MI-21 — OPEN-ITEMS.json is the hottest conflict file tonight; editing it mid-train adds a ninth conflicting PR",
+      "note": "DONE 2026-09-02T03:25Z — both rows CLEARED on observations I made this session, not second-hand off #10707's body, which is what this item insisted on. PR #10731. Brief 13 due -> 11. PROP-FILLS: all four clauses evidenced separately, the load-bearing one being that the detector emptied `findings` on its OWN run at 02:52:53Z — no state-file surgery, which the row forbids. The banner absence was read against a NON-EMPTY denominator (5 other banners rendering), so it is a confirmed absence and not a dead endpoint. HEDGE-MODE: the clearing row is the 03:02:16Z BNBUSDT/BTCUSDT open, and criterion (1) was NOT taken on our own send record — the row warns leg_placement.position_idx is what we SENT, so I ran the venue cross-check it names and /api/diag/bybit_open_orders returned BTCUSDT Buy 0.018 idx=1 and BNBUSDT Sell 3.12 idx=2, matching both legs. 4 of 12 open-family rows qualify, so not one lucky observation. ⚠️ TWO PROCESS ERRORS CAUGHT BEFORE THEY LANDED, both worth keeping: (a) I first added `status: cleared` to each row — check_open_items.py has NO concept of that field and went green anyway, so both rows would have stayed loud and due FOREVER carrying a confident clearing note. Written-and-never-read, in the register whose entire job is to be read. Clearing means REMOVAL; the file says so itself. (b) OPEN-ITEMS.json has MIXED escaping (most non-ASCII literal, some \\u-escaped) so no json.dumps round-trips it — a naive rewrite produced 642 insertions / 693 deletions for a two-row removal. Redone as a surgical brace-matched text edit: 1 insertion / 52 deletions. That is the backlog_append.py hazard one file over, and OPEN-ITEMS has no equivalent safe writer.",
+      "priority": "done"
+    },
+    {
+      "id": "MI-23-PHASE-G-ASKS-THE-OPERATOR-FOR-THREE-RETIREMENT-DECISIONS",
+      "title": "The first sunset pass produced evidenced candidates; three need an operator call",
+      "state": "in_flight",
+      "owner": "session_01CU2izDKoWpfyACrMdR43Mu",
+      "pr": "#10708 (merged)",
+      "blocked_on": "operator — two of the three are Tier-3 (they edit config/strategies.yaml)",
+      "note": "FIRST ITEM SET FOR THE MORNING REPORT. From comms/sunset/2026-09-01/ — 10 retirement candidates over 52 legs (watch 39, not_assessed 3). (1) `turtle_soup` is `enabled: true` in config/strategies.yaml and appears in the `strategies:` list of ZERO accounts — it cannot reach the order path at all, and has 0 lifetime trades. Either the routing is the bug or the leg is dead; the session deliberately did not presume which. ROUTE IT OR RETIRE IT. (2) Nine `never_closed_lifetime` legs, mostly `*_trend_long_1d` on alpaca_paper — retire, or accept on the record that they are long-horizon. (3) `scripts/validate_registry_vm.py`, the S-007 pre-flight over strategies.yaml, is genuinely unwired — wire it into the deploy path or retire it; it was dispositioned `keep` with a review_by rather than deleted at Tier-1 on a reference count alone, which was right. === ⚠️ THE PROP CAVEAT IS NOT A DETAIL — 3 of the 12 legs reading 'never closed a trade' are breakout_1 PROP legs, and they read zero because prop fills live in `prop_fills`, isolated from `trades` BY DESIGN. A naive pass would have proposed 3 actively-trading legs for retirement. They are `not_assessed` with the reason on the row, pinned by a test. === ⚠️ THE NUMBER THAT MATTERS MOST FOR THE OPERATOR'S ACTUAL GOAL: joined to lifetime closes, 12 of 52 enabled legs have NEVER closed a trade, and only 11 of 52 would EVER be gradeable at the n>=20 floor over their entire history. MEDIAN LIFETIME n IS 6. The fleet is largely untested by its own gate — a stronger statement than 'nothing gets retired', and the same root cause.",
+      "operator_decision": "2026-09-02: NO RETIREMENT IS ENACTED. Asked to rule on the three Tier-3 candidates, the operator chose 'fix the evidence floor first', accepting explicitly that this defers the forcing function again and that at current fleet scale the evidence may never arrive on its own. The 2026-09-01 run graded 52/52 legs UNGRADEABLE (n_closed 0 for 34 legs, never above 8, against MIN_CLOSED_FOR_ACTION=20 at a 7-day window). Dispatched to session_01CU2izDKoWpfyACrMdR43Mu to establish per-leg reachability and PROPOSE a window/floor pair. WARNING for whoever picks this up: widening the window until something becomes gradeable is the same low-n hazard the floor exists to prevent, one level up. The operator has not approved any retirement.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-24-DRAFT-STATUS-IS-THE-REAL-QUEUE-BOTTLENECK-NOT-THE-CONFLICTS",
+      "title": "Sub-sessions cannot un-draft or merge, so every PR waits on the one manager",
+      "state": "done",
+      "owner": null,
+      "pr": null,
+      "blocked_on": null,
+      "note": "Confirmed and cleared. The diagnosis held: draft status, not conflicts, was the real bottleneck — every wave-1 drain opened as a draft by instruction, and once reviewed and un-drafted they merged on CI alone. Keeping it: sub-sessions SHOULD keep opening drafts (the manager owns the merge, and that is what let me catch #10724's misread and #10725's population claims before they landed). The fix is that the manager must review and un-draft PROMPTLY, not that sub-sessions should self-merge.",
+      "priority": "done"
+    },
+    {
+      "id": "MI-25-FULL-TRADING-HISTORY-IS-WORLD-READABLE-UNAUTHENTICATED",
+      "title": "The Data Explorer serves the live journal to anyone on the public Caddy host",
+      "state": "done",
+      "owner": null,
+      "pr": "#10687 (filed the finding; NOT a fix)",
+      "note": "⚠️ TOP ITEM FOR THE MORNING REPORT, ABOVE THE RETIREMENT DECISIONS. Surfaced by session_01LvzsinECH8HP in #10687 and then MEASURED INDEPENDENTLY BY THE MANAGER rather than taken on report — plain curl, no Authorization header, from outside the VM against https://ict-bot.duckdns.org : /api/bot/db/table/trades -> HTTP 200, total 5,318 · order_packages -> 200, 4,275 · balance_snapshots -> 200, 29,892. NEGATIVE CONTROL: device_tokens -> HTTP 404, so #10682's exclusion genuinely holds and the probe can distinguish a refusal from a serve. The filing session counted `signals` at 2,301,022 rows. === WHY IT HAPPENED, AND IT IS NOT A CODING ERROR: CLAUDE.md justifies the Data Explorer as Tier-1 on the premise 'no secrets in either DB' — a claim about CREDENTIALS, not about the CONFIDENTIALITY of the trading record. That judgement was made while the API sat on a firewalled IP reachable only server-side by Streamlit. Caddy was then added (2026-08-13) so the browser-direct Svelte SPA could reach the API over HTTPS, and NOBODY RE-DERIVED THE TIER DECISION AFTER THE TRANSPORT CHANGED. The route did not become less safe; the world became able to reach it. === HONEST SEVERITY, in the direction that does not overstate: this is a CONFIDENTIALITY exposure, NOT a control path. The explorer is SELECT-only on a mode=ro connection with bound values and schema-validated identifiers; nothing writes, no order can be placed, and no credential is reachable now that device_tokens is excluded. Nobody's money can be moved with it. What is exposed is the operator's complete trading record — every trade, order package and balance snapshot. === ⚠️ DELIBERATELY NOT FIXED TONIGHT, and that is a decision rather than an omission. Gating a live public read route is Tier-2, and the Data Explorer tab of the Svelte SPA reaches this route BROWSER-DIRECT, so adding a bearer would break a working operator surface. Doing that unannounced at 02:00 while the operator sleeps trades a three-week-old read exposure for a broken dashboard they wake up to. The options worth putting to them: leave it (the record is not secret), gate it behind DASHBOARD_API_TOKEN and teach the SPA to send one, or put Caddy basic-auth in front of /api/bot/db/* only. === ⚠️ THE BLAST RADIUS IS NOW BOUNDED BY MEASUREMENT, NOT BY REASONING — the manager probed the same public host unauthenticated for anything WRITEABLE or PRIVILEGED and every gate refused: POST /api/bot/prop/report (the one route that writes the journal) -> HTTP 401 'missing authorization', confirming its documented FAIL-CLOSED behaviour; GET /api/pnl -> 401 and GET /api/status -> 401, so require_session is genuinely enforced on both session-gated routes; GET /api/diag/version -> 401 without a bearer. SO: NO UNAUTHENTICATED WRITE EXISTS ANYWHERE on the public surface, and no privileged read. The exposure is exactly and only the Tier-1 READ surface. That is what makes 'confidentiality, not control' a measured statement rather than a hedge, and it is why this can wait for the operator rather than being fixed unilaterally overnight. === Incidental confirmation worth keeping: this independently verifies CLAUDE.md's 2026-08-13 correction that require_session enforcement IS live on /api/pnl and /api/status — an earlier version of that row said 'issuance only', which was stale in the dangerous direction. Field now matches comment.",
+      "disposition": "wont_fix — accepted risk, operator decision 2026-09-02",
+      "operator_decision": "2026-09-02, via MI-50: the read gate will NEVER be flipped. That is the mechanism this row was blocked on, so the exposure is ACCEPTED rather than pending. Closing it as `wont_fix` is the honest state: a row left `open` on a decision already made is the 'looks like progress is pending' failure this repo keeps paying for.",
+      "⚠️_what_reopens_it": "This decision rests on the route being READ-ONLY and CREDENTIAL-FREE. If /api/bot/db/* or any other ungated route ever gains a WRITE capability, or begins serving a secret, the premise is gone and this must go back to the operator rather than being assumed to carry over. Same reopening clause as the diag-token decision.",
+      "priority": "done"
+    },
+    {
+      "id": "MI-26-CRON-DOES-FIRE-IN-THIS-REPO-BUT-HOURS-LATE",
+      "title": "The standing 'scheduled workflows here never fire' assumption is FALSE, and the truth is worse-shaped",
+      "state": "queued",
+      "owner": null,
+      "pr": null,
+      "blocked_on": null,
+      "note": "⚠️ THIS CONTRADICTS A STANDING ASSUMPTION THAT IS QUOTED IN AT LEAST THREE PLACES — OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON, the header comment of .github/workflows/work-digest.yml, and MI-03's own note — all of which tell a session that a correct cron here is not evidence it will run. MEASURED BY THE MANAGER 2026-09-02T01:50Z, repo-wide, event=schedule, n=30 completed runs: FIFTEEN DISTINCT WORKFLOWS FIRED ON CRON, 29 of 30 successful. Among them are probes AND due-list — the exact two the OI row says have never fired. === THE OI ROW'S OWN CLEARING CRITERION IS MET, and I ran the precise probe it specifies rather than a proxy: `actions_list` on probes.yml filtered to event=schedule returns total_count=1 — run #34, event `schedule` (NOT workflow_dispatch, which that row explicitly says does not count), conclusion success, created 2026-09-01T10:12:17Z on main. === ⚠️ BUT DO NOT SIMPLY CLEAR IT AND MOVE ON, BECAUSE THE REAL FINDING IS THE TIMING AND IT IS THE PART THAT AFFECTS THE OPERATOR. probes.yml declares `20 5 * * *` and fired at 10:12 — FOUR HOURS FIFTY-TWO MINUTES LATE. work-digest declares `20 2,6,10,14,18,22` (raised from `20 6`) and fired at 00:19, matching no slot. So the honest statement is NOT 'cron never fires' and NOT 'cron works' — it is CRON FIRES, HOURS LATE AND AT AN UNPREDICTABLE OFFSET. That is a THIRD state both existing claims collapse, and it is the one that matters for the 06:20 morning digest: the operator may get it mid-morning rather than on waking. === n=2 offsets is not a delay distribution and must not be quoted as one; what is established is that the offset is large and nonzero, not its size. ROUTE TO: session_01TASYv35o6XciFnMC9wmnHi, which is already investigating exactly this question and should own both the OI clearing and the corrected wording — clearing a monitoring row is an observation its clearer must have made, and that session will have the fuller picture including the 02:20Z slot.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-27-REPLAY-PREGATE-NIGHTLY-FAILS-AND-BLAMES-THE-WRONG-THING",
+      "title": "The nightly fleet replay dies on a dropped SSH pipe and reports it as a JSON parse error",
+      "state": "landed_unproven",
+      "owner": null,
+      "pr": null,
+      "blocked_on": null,
+      "note": "MERGED as afe518b9 (#10734). Branches on the failure STAGE rather than rewording the label, with the discriminator that matters: test_a_remote_traceback_naming_a_network_word_is_not_a_transport_failure — a naive keyword scan for 'broken pipe' would false-positive there. Also carries test_old_blind_scan_would_have_said_parsing_on_this_input as the regression control, and test_every_state_is_reachable_from_some_input so no state ships dead. It ANSWERED the partial-credit question I posed rather than deferring it: salvages 9 of 22 models WITH the denominator stated, and test_salvage_never_parses_the_human_readable_progress_text stops it reading prose. ⚠️ landed_unproven, NOT done: the fix has never run on a real SCHEDULED firing. The next 09:14 UTC run is the observation; until then this is a deploy. Its backlog row text sits in the PR body — I held it out of ml-review-backlog.json because a drain was live on that file, and the ml drain has since merged, so it can be placed now.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-28-SCOPE-OVERLAP-AUDIT-CANNOT-TELL-SELF-DECLARATION-FROM-A-REAL-OVERLAP",
+      "title": "Following the board protocol makes the audit louder, which inverts the incentive",
+      "state": "done",
+      "owner": null,
+      "pr": null,
+      "blocked_on": null,
+      "note": "MERGED as 695e2597 (#10738), 671 lines of check_scope_overlap.py plus 264 of tests. It established WHOSE declaration matched — and it also built the SECOND AXIS I flagged as unverified rather than taking my word for it: branch liveness, so a finished session's START stops generating overlap reports (test_a_done_retires_a_start_only_if_it_came_after, and test_the_word_done_in_prose_is_not_a_done_header so the header is parsed rather than the prose). The direction that matters is pinned: test_a_genuine_cross_session_overlap_is_still_headlined, plus test_a_session_merely_named_in_our_pr_body_is_still_foreign and test_a_mentioned_pr_number_cannot_suppress_a_self_declared_branch, so it cannot over-suppress. The reporting bias survives (test_unattributable_is_preserved_and_still_reported, test_could_not_check_is_never_a_clean_pass, test_lower_bound_caveat_survives_on_every_reporting_render). ⚠️ landed_unproven with an UNUSUALLY CHEAP observation available: this manager opens a manager-only PR every sweep, and ten of those were flagged against my own branch. The very next one either stops reporting a self-match or does not. Watch the audit comment on the NEXT manager PR and record which. === ✅ OBSERVED WORKING 2026-09-02T04:20:17Z, one sweep after merge, on THIS PR (#10742) — the cheap observation predicted above, taken rather than deferred. BEFORE (#10733): '⚠️ scope-overlap audit — PR #10733 touches files ANOTHER SESSION declared … 2 attributed to another session', both of them self-matches against my own branch. AFTER (#10742): '🟡 … No LIVE session's declaration matched this PR', and the accounting line reads '0 from a live session, 0 from a landed branch, 1 unattributable, 1 MATCHED YOUR OWN DECLARATION AND WERE NOT REPORTED'. So the self-match is identified and suppressed, the severity dropped from ⚠️ to 🟡, and the headline no longer asserts another session. THE STALENESS AXIS IS LIVE TOO — 'from a landed branch' is a new category that did not exist before, so the second axis I flagged as unverified is not merely built but running. AND THE REPORTING BIAS SURVIVED, which is the half that mattered most: the one unattributable declaration is STILL reported, carrying its own 'Resolved toward reporting, not toward silence: suppressing a real overlap is the worse error', and the LOWER BOUND caveat still names scripts/ops/diag_fetch.sh. ⚠️ ONE RESIDUAL, stated rather than glossed: the other direction — that a GENUINE cross-session overlap is still headlined — is proven by test (test_a_genuine_cross_session_overlap_is_still_headlined) and NOT yet observed live, because no sibling session has touched a file of mine since the merge. That is the safe direction to be unproven in, and the live unattributable row above is partial evidence the reporting path still fires, but it is not the same claim.",
+      "priority": "done"
+    },
+    {
+      "id": "MI-29-LEGS-ARE-STARVED-BY-SIBLINGS-ON-ONE-NETTED-SYMBOL",
+      "title": "A better explanation for the never-traded legs than 'long-horizon'",
+      "state": "blocked",
+      "owner": null,
+      "pr": "#10717",
+      "blocked_on": "operator — the remedy is a Tier-3 disposition or a netted-symbol arbitration policy",
+      "note": "⚠️ MORNING REPORT. Found by backlog drain #3 (session_01JXBmVC) and it LANDS ON A NUMBER PHASE G MEASURED HOURS EARLIER AND COULD NOT EXPLAIN. Phase G: 12 of 52 enabled legs have never closed a trade, only 11 of 52 would EVER be gradeable at the n>=20 floor; its candidate explanation was 'retire them, or accept they are long-horizon'. Drain #3 supplies a third and better one. === MEASURED, population stated: over a 30.9-day overlap window (2026-08-02T02:27:21Z -> 2026-09-02T00:40:22Z, 805 order packages / 508 closed trades — the window where BOTH diag tables are complete under their 1000-row cap), there were 352 unfilled decisions, ALL attributed, ZERO residual. 163 were `all_accounts_noop`, of which 106 `flip_suppressed_hold_policy` and 56 `hold_to_bracket_reduce_non_derivative` — both DELIBERATE POLICY. Then the deciding test: 141 of 163 (86.5%) were raised while a position in that (account_id, symbol) was ALREADY OPEN, and in every named pairing THE HOLDER IS A DIFFERENT STRATEGY LEG. So a low fill rate on these legs is not lost opportunity — it is a second leg correctly denied a symbol another leg already owns. === THE SHARPEST CASE, filed as PB-20260902-MGC-TREND-1H-IS-LIVE-AND-STRUCTURALLY-CANNOT-TRADE: `mgc_trend_1h` is execution:live and enabled:true with 95 decisions, ZERO fills, ZERO closed trades since 2026-07-26. 55 of 55 of its suppressions were raised while MGC was already open on ib_paper, held ALWAYS by a sibling (ict_scalp_mgc_15m 48, mgc_pullback_1d 7) and NEVER by itself, because it has never held a position. Union-of-intervals occupancy of (ib_paper, MGC) is 73.3%. Three legs share one netted position on one account WITH NO ARBITRATION BEYOND FIRST-COME — which leg trades MGC is decided by arrival order rather than any policy anyone chose. === WHY IT MATTERS MORE THAN A DEAD LEG: a leg cannot accrue the evidence its own kill-gate demands if a sibling owns the symbol 73% of the time. The M7 gate is therefore not merely under-powered (MI-06) — it is grading legs that were never given the chance to trade. === ⚠️ TWO LIMITS I AM NOT CROSSING. (a) This is a DIFFERENT AXIS from ARBITRATION_FANOUT_MODE, which arbitrates one symbol across ACCOUNTS; this is contention among legs on the SAME account and symbol. Do not conflate them when fixing. (b) 'Structurally cannot trade' is established for mgc_trend_1h on 95 decisions with zero residual; whether it GENERALISES to the other 11 never-closed legs is UNMEASURED and must not be carried as if it were.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-30-R-METRICS-ARE-CONTAMINATED-AND-FEED-PROMOTION-GATES",
+      "title": "17.2% of closed rows store a stop on the wrong side of entry; expectancyR reaches +206.9",
+      "state": "queued",
+      "owner": null,
+      "pr": "#10717 (refused there, correctly)",
+      "blocked_on": null,
+      "note": "⚠️ MORNING REPORT. PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN was REFUSED by drain #3 rather than closed, and the refusal is the right call — its criteria split, the real-money limb PASSES (n=28, +$18.40, +44.840R, rCoverage 1.000) and the plausible-bound limb FAILS HARD. Closing on the limb that passed would be exactly the sign-flip-by-choice-of-population failure this repo has already paid for. === THE ROW GOT WORSE, and its mechanism is now proven rather than inferred: it reasoned from ONE trade (4824) that trades.stop_loss holds the CURRENT TRAILED stop rather than the initial one. Direct test over closed rows with pnl NOT NULL (n=477): 82 carry a stored stop on the WRONG SIDE OF ENTRY — impossible for an initial stop — i.e. 17.2%, against the row's n=1. Sign disagreement has spread from 2 of 31 strategy x account_class rows to 7 of 40. Worst: ict_scalp_sol_15m paper n=18, totalPnl -$2,064.01 against totalR +3,724.567. New worst expectancyR +206.920, 59x the one on file, from a SINGLE trade at R = +3,672.32. === WHY IT IS A PRIORITY RATHER THAN A TIDY-UP: it contaminates every totalR / expectancyR consumer, INCLUDING R-BASED PROMOTION GATES. A gate reading expectancyR on this data is reading a number that can exceed its true value by two orders of magnitude. === Needs its own session and the fix is Tier-3 — it changes what a promotion gate reads, which is why a drain session correctly would not write it. === Context worth carrying beside any dollar figure from this fleet: measured fleet pnlCoverage (MEASURED-only via classify_pnl) is 0.126 — 64 of 508 closed trades in that 30.9d window. 87% of the fleet's PnL is not a measurement.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-31-SUB-SESSIONS-HAVE-NO-DIAG-PATH-TO-THE-TRAINER-AT-ALL",
+      "title": "The trainer relay is issue-driven, and a sub-session's issue_write is 403",
+      "state": "done",
+      "owner": null,
+      "pr": "#10718 (reported it; not its to fix)",
+      "blocked_on": null,
+      "note": "MERGED as 7b95451c (#10736) — .github/workflows/trainer-diag-relay.yml, the third push-triggered relay beside pr-opener and board-post. I reviewed the WORKFLOW rather than its description, since it opens an SSH path. Findings: the SSH target is vars.TRAINER_VM_IP defaulting to the trainer's hardcoded IP and is NOT caller-controlled (the request file is the SCRIPT, not the host); permissions are contents:write only; push does not fire from forks so it is gated to accounts that could already edit any workflow and use any secret. It REJECTS the `cmd:` parser shape by citing FIVE documented truncation bugs in the existing issue relay — including one where the truncated prefix STILL RAN and returned plausible output at exit 0 — and a file has no ambient YAML, so that whole class is unreachable. Concurrency is keyed on github.sha so no request is ever dropped, citing the bug where a coarser key silently discarded a burst; that is MI-19's shape avoided by construction. ⚠️ And it describes its own scope tripwire HONESTLY as an accident guard and NOT a security boundary — 'anyone who can trigger this workflow can push, and push access already permits editing this file' — which is the framing that made me willing to merge it. ⚠️ landed_unproven: the relay has never been exercised end to end. The observation is a sub-session dropping a request and reading a result back. === ⚠️ CORRECTION TO MY OWN NOTE ABOVE, AND I PROPAGATED THE ERROR TWICE. I wrote 'the relay has never been exercised end to end' into this row AND into the sweep-8 prompt. THAT WAS FALSE WHEN WRITTEN. The author had already exercised it before I merged: trainer-diag-relay runs #2 and #3 on claude/trainer-relay-demo-scratch at 03:29:33Z and 03:30:36Z demonstrate all four states (ran / nonzero-exit / refused_empty / refused_scope) plus the name-reuse silent no-op — which is exactly what the brief demanded ('show it working, do not assert it'). I did not check the workflow's run history before declaring it unproven, which is the same not-looking this whole row is about. A successor acting on my note would have re-proved a proven thing. === ✅ AND IT IS NOW ALSO CONFIRMED FROM MAIN, POST-MERGE, BY THE MANAGER (run #5, 2026-09-02T04:25:35Z, scratch/trainer-relay-probe-0431). Result file reads state: ran · remote_exit: 0 · host ict-trainer-vm as user ubuntu. It read /home/ubuntu/ict-trading-bot/runtime_logs/trainer/dataset_audit.jsonl — 9,352,282 bytes, 4,147 lines — which is the exact file two backlog drains were blocked on and which no /api/bot/ml/* route can serve, because publish_trainer_mirror.sh names seven files and omits it. The 4,147 INDEPENDENTLY CORROBORATES the author's own figure, arrived at separately. My probe carried a negative control (a path that should not exist) and it fired: 'No such file or directory' — so the probe discriminates rather than reporting success regardless. THE CAPABILITY GAP IS CLOSED and the next drain that needs the trainer has a path.",
+      "priority": "done"
+    },
+    {
+      "id": "MI-32-AN-IDLE-SUB-SESSION-SAYING-STAYING-AVAILABLE-IS-UNREACHABLE",
+      "title": "A sub-session's 'I'll stay available' is a hand-off nothing can act on",
+      "state": "done",
+      "owner": null,
+      "pr": null,
+      "blocked_on": null,
+      "note": "MEASURED TWICE TONIGHT, and the second time it cost a real hand-off. The merge-train sub-session (session_01CKcZFm) ended its turn IDLE at 01:46:45Z with post_turn_summary 'staying available to re-resolve as manager merges' — an explicit offer to be re-invoked. When two of its PRs needed exactly that re-resolve, the manager tried `SendMessage` to it and got: **'No agent named session_01CKcZFm... is reachable. Use ListAgents to see everyone you can message.'** `ListAgents` lists only in-process agents and local sessions; a CCR cloud sub-session appears in NEITHER direction. === SO 'STAYING AVAILABLE' IS A DEAD END THAT READS AS A HAND-OFF. That session was holding full context on two conflicted PRs — which files, which resolution rule, what it had already tried — and NONE of it was reachable. The manager had to spawn a fresh session (session_015oCrkh) and re-supply everything it already knew. It worked, but the duplicated context is the cost, and the operator has said that cost is acceptable — which is not the same as it being invisible. === ⚠️ THIS IS THE COORDINATION LIMIT THE OPERATING-MODEL DESIGN ALREADY NAMES, observed live: 'a session that dies cannot run its own close-out', so state must be written to the WORK OBJECT as work happens rather than held in a session that expects to be woken. An IDLE session is the same case as a dead one for this purpose — the design's three mechanisms (incremental progress, a lease per session, a reaper) are the answer, and none of them is 'message it again'. === TWO THINGS A FUTURE MANAGER SHOULD DO DIFFERENTLY: (1) never write a spawn prompt that invites a session to idle and await follow-up — tell it to finish, write its state down, and stop; (2) do not read `post_turn_summary: staying available` as an owner. It is not one. The row is `queued` rather than filed to a backlog because the fix is a change to how sessions are SPAWNED and how hand-off state is RECORDED, which is operating-model work, not a bug in a file. === RE-TESTED 2026-09-02T04:15Z AND IT HOLDS, with a sharper statement. Every running sub-session's CCR record advertises `cross_session_inbound: \"available\"`, which reads as a capability. ListAgents from this manager returns 'No reachable agents — no other Claude session is running on this machine right now'. So the field describes a CCR-side inbound path, not this session's peer graph, and a manager reading it would conclude it can message a sub-session when it cannot. That is the same unprovenanced-output shape MI-27 and MI-36 are about, one layer up in the tooling. Practical consequence, hit tonight: #10739 needed a fix, its author was ALIVE and self-reported review_ready, and I could not tell it — I had to post a PR comment and hope it reads it.",
+      "correction": "2026-09-02: MI-32'S CONCLUSION WAS WRONG AND IS CORRECTED HERE. It recorded that an idle cloud sub-session is unreachable, and that was true of the mechanisms it TESTED (SendMessage / ListAgents, which do not enumerate or address cloud sessions from this manager). It generalised from those two to 'unreachable', and that generalisation cost a full archive-and-respawn cycle on MI-37 and nearly cost another here. A SESSION-BOUND ROUTINE IS A WORKING CHANNEL. create_trigger with persistent_session_id (no cron, no run_once_at -- a poke-only Routine) followed by fire_trigger delivers a prompt into a specific existing session. MEASURED 2026-09-02T05:35Z on session_01PcirVtpMXJGiKm2548nkrR (the MI-39 fix session, which had gone idle mid-task without pushing): immediately before the fire it read session_status=SESSION_STATUS_IDLE / connection_status=disconnected; immediately after, SESSION_STATUS_RUNNING / connected, same session id, context intact. Trigger trig_01NcP7PmwUeFPCbRN4G61VQX. ⚠️ ONE REAL LIMIT, DO NOT OMIT IT WHEN USING THIS: the tool warns that a Routine created this way stores no MCP connectors, so THE FIRED TURN RUNS WITHOUT mcp__* TOOLS. A poked session keeps Bash/git/file tools and therefore keeps the pr-opener and board-post relays, but loses mcp__github__* outright. That is fine for a sub-session that already 403s on GitHub writes and works through the relays; it is NOT fine for one that needs the GitHub MCP to finish. ⚠️ AND THIS IS NOT A REPLY CHANNEL: the poked session cannot answer back. It is a one-way wake, so the manager still learns the outcome from the branch, the PR, or get_session -- never from a message. THE MANAGER LESSON: an idle sub-session is a RESUMABLE session, not a dead one. Poke it before archiving; a respawn duplicates context and loses whatever the idle session already worked out.",
+      "verified_at": "2026-09-02",
+      "priority": "done"
+    },
+    {
+      "id": "MI-33-THE-CLOSE-FAILURE-ALARM-IS-INVISIBLE-ON-THE-FEED-REVIEWS-READ",
+      "title": "A live alarm reads as 'never fired in 11 days' on the surface a reviewer would grade it from",
+      "state": "queued",
+      "owner": null,
+      "pr": "#10679 (filed it; adds the read surface)",
+      "blocked_on": null,
+      "note": "⚠️ MORNING REPORT — A MEASUREMENT TRAP THAT WOULD MISLEAD ANY FUTURE REVIEW, and the session nearly fell in it before catching itself. Alpaca close-failure pages do NOT ride outcomes.jsonl, so /api/bot/logs?level=error,warn shows ZERO close-failure rows. Measured over the FULL 1000-row ERROR/WARN feed spanning 2026-08-21T23:36Z -> 2026-09-01T20:47Z — **zero — WHILE /api/bot/notifications was rendering an ACTIVE close_failure banner for GLD at that same moment.** So a reviewer grading this alarm's health from the documented ERROR feed would conclude it has never fired in eleven days, while it was firing as they looked. === ROOT CAUSE IS THE FAMILIAR ONE: the page ring runtime_logs/operator_alerts.jsonl was on NO read surface (HTTP 400 from a relay-bound session), and /api/bot/notifications renders only the CURRENT banner — no history, no rate. The session self-describes this as the 4th instance of the no-read-surface shape; by my count tonight it is at least the 6th (exit_loop_health #8778, the five cadence/latch files, pending_pings_delivered, operator_alerts). #10679 adds the allowlist entry, so the rate becomes measurable — but ⚠️ THE BACKOFF IS STILL UNGRADED: #10666's exponential backoff is deployed and the session could not show it works, and reported that as UNMEASURED rather than as fine. Grading it needs a live read after the deploy. === SEPARATELY MEASURED IN THE SAME READ AND IT IS THE BIGGER NUMBER: 839 of those 1000 ERROR/WARN rows — 83.9% — are strategy_builder no-candle exceptions across six legs. That is the alarm-fatigue condition BL-20260825-TRANSIENT-CLASSIFIER-MISSES-THE-VARIANT-FAMILIES already owns, still live and WORSE than when filed.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-34-SHOULD-A-CONFIRMED-VENUE-WEDGE-KEEP-PAGING-FOREVER",
+      "title": "Operator decision requested on #10679: page severity for an unclearable broker wedge",
+      "state": "in_flight",
+      "owner": "session_01XbigCVRcy2bnVpm1tKNPno",
+      "pr": "#10679",
+      "blocked_on": "operator — an alerting-policy call, not a code fix",
+      "note": "MORNING REPORT, and it is a small decision with a real desensitisation cost either way. #10679 now NAMES the GLD wedge as `broker_cancel_wedged` — a state no app-level retry can EVER clear, distinct from `orders_still_resting` where a retry may work. Today a confirmed wedge keeps riding the ORDINARY close-failure page at full severity, forever, on a condition nobody can fix from this system. The session asks whether it should instead escalate to a distinct 'needs venue action' alert. ⚠️ THE STATUS QUO IS THE DESENSITISATION RISK the repo has already paid for once (202 of 376 CRITICALs in one window were a single un-latched alarm). But the opposite error is real too: an unclearable wedge that goes QUIET is a stranded position nobody is looking at. This is an alerting-POLICY call and therefore the operator's, not a code fix to be chosen unilaterally at 02:45. === CONTEXT FOR THE DECISION, measured: alpaca_live is STRUCTURALLY exposed to the same wedge (same client code, mode: live, account_class real_money, trades GLD, roster overlaps alpaca_paper on 11 symbols) but NOT REALISED — measured 2026-09-01T21:23Z it is FLAT, zero positions and zero resting orders. So no real money is stranded right now; the exposure is the next real-money equity close that meets a wedged order.",
+      "operator_decision": "2026-09-02: DOWNGRADE TO THE DAILY DIGEST. The alpaca_paper GLD wedge (OCO parent 2e843e04 at pending_cancel since 2026-08-27, unclearable by any bot-side lever) leaves the paging channel and is carried in the rolled-up daily summary until it clears. The operator named the tradeoff: it stays visible every day without competing with a live emergency, but it bets on a channel with NO TRACK RECORD -- the digest renderer was dropping 21 of 50 queued bodies until #10747. Dispatched to session_01XbigCVRcy2bnVpm1tKNPno. The downgrade must key on CONFIRMED-UNCLEARABLE, never on a failure merely repeating, and must page again on any state change. This does NOT approve #10679, which is a separate draft awaiting its own Tier-2 call.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-35-BATCH-RESOLVE-THEN-BATCH-MERGE-CANNOT-CONVERGE",
+      "title": "The merge-ordering protocol, learned by getting it wrong three times in one night",
+      "state": "landed_unproven",
+      "owner": null,
+      "pr": null,
+      "blocked_on": null,
+      "note": "Written into #10728 and then PROVEN under live test the same hour. The rule: resolve one → merge it → resolve the next against the NEW main. Batch-resolve-then-batch-merge cannot converge, because each merge invalidates every sibling resolve not yet landed — measured cost tonight was two wasted resolves on #10679. Under the protocol, four PRs merged in sequence with zero re-conflicts. TWO refinements learned in the doing and worth keeping: (1) a manager-only PR is the standing EXCEPTION — its conflict surface is empty, so it merges at any point in the queue without disturbing an in-flight sibling (#10728 merged while #10679 was open and #10679 stayed clean). (2) GitHub returns mergeable_state:'unknown' for up to a minute after each merge; `git merge-tree --write-tree origin/main origin/<branch>` answers immediately and authoritatively, so do not idle on the API. ⚠️ landed_unproven rather than done: it has survived one queue. It has not yet been tested against a queue containing two PRs that genuinely touch the same file.",
+      "priority": "P1_HANDOFF"
+    },
+    {
+      "id": "MI-36-BYBIT-OVER-COVER-NAMES-THE-WRONG-CONDITION",
+      "state": "landed_unproven",
+      "owner": "session_01Buj7phmYPjDt6FPTyuVoYp",
+      "note": "PR #10739 — HELD BY ME, re-drafted, on a REAL CI failure I caught by checking rather than trusting. The PR reported 'PASS 50 · FAIL 0'; CI ran guards RED. Diagnosed and posted on the PR: collapsed-state-guard exits 0 with an empty FINDINGS section on origin/main and exits 1 with two findings on the branch, so the branch CAUSED it — its order_monitor.py additions now read to the guard as a db_explorer.filter_state consumer branching on ['applied'] alone. Its own two new contracts are FINE ('3 consumer(s), all states read'); the failure is a side effect. Arithmetic on the discrepancy: I get PASS 46 · FAIL 4 · SKIP 20 — the SAME skip count, so the same selection — and three of my four are my sandbox (pytest, lint-imports) which the author had installed, so the author's own run should have read PASS 49 · FAIL 1, never 50/0. Most likely the guard run predates the final commits: the run-guards-AFTER-committing trap one step along. === THE WORK ITSELF IS THE BEST OF THE BATCH and I verified its core independently: its venue reads match mine exactly, and it went further than I could — settling ownership from the journal (trade 5308, both leg ids matching, closed reconciler_filled 03:05:33Z with legs STILL RESTING 36 min later, so the legs were TRACKED not NULL), and answering my accumulation question as BOTH with the right caveat that 23 alert rows are EMISSIONS under a 6h latch and not a time series. ETHUSDT hit 20 OF 20 COMBINED LEGS on 2026-08-26 — zero headroom, the exact state where set_trading_stop refuses silently — so this is NOT cosmetic. I also checked its scope claim rather than taking it: the order_monitor.py diff REMOVES no line matching covered_qty, '>= size' or the re-arm branch; every match is an addition. === MERGED as 2c7ae605 after the author fixed its own CI failure. ⚠️ AND THE CAUSALITY IS NOT WHAT MY PR COMMENT IMPLIES — worth recording because I nearly took credit for it. The fix (5c3bf46a, 'keep the Data Explorer path out of the docstring prose') was pushed at 04:12 and its guards run went green at 04:13:56; my diagnosis comment landed at ~04:16. The session caught itself; my review was CORROBORATING, not causal. It also chose the BETTER of the two remedies I had named — it removed the prose being misread as a consumer branch rather than annotating the guard into ignoring it, which leaves the guard's detection intact instead of teaching it to skip a real pattern. I verified the fix independently rather than taking the green tick: collapsed-state-guard exits 0 on the branch. ⚠️ landed_unproven, NOT done: the per-book split has NEVER RENDERED ON THE FLEET. The observation is a bybit_over_cover row on /api/bot/logs?level=error carrying graded_book_qty and other_book_state, which needs the trader to restart on the merged sha AND the condition to recur. Merging is a deploy.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-37-COVERED-QTY-IS-SIDE-BLIND-SO-AN-OTHER-BOOK-LEG-CAN-MASK-A-NAKED-POSITION",
+      "state": "in_flight",
+      "owner": "session_01RT889wBPYj1dVEqQnkzj7h",
+      "note": "MONEY-AT-RISK, Tier-2, surfaced by #10739 and deliberately NOT fixed there — correctly, because it changes which positions get re-armed and must not ride in on a diagnostic repair. THE DEFECT: the Bybit naked-sweep's re-arm decision reads a SIDE-BLIND covered_qty. Since hedge mode was armed on bybit_1/bybit_2 on 2026-08-30, one symbol can carry legs for two books and they land in one sum — so an OTHER-BOOK leg can push covered_qty past `size` on a position whose OWN stop is gone, and `if covered + eps >= size: continue` then skips it as FULLY COVERED. Constructed on the live 2026-09-02 BTC data: had the Sell 0.018 leg been lost, covered would still read 0.46 >= 0.018 and the sweep would NOT have re-armed a naked long. ⚠️ n=1 CONSTRUCTED — no live instance of the masking has been observed, and that distinction must survive into whatever fixes it. THE FIX is to point the coverage comparison at reduces_graded_book_qty (which #10739 computes). ⚠️ DO NOT also narrow the TRIP threshold: the side-blind sum is the UNION of both conditions, so narrowing it would make the other-book case go SILENT, which is strictly worse than mislabelling it. Blocked on #10739 landing, since it supplies the per-book figure. === UNBLOCKED 2026-09-02T04:33Z: #10739 merged (2c7ae605), so reduces_graded_book_qty now exists and the fix has its input. Ready to dispatch.",
+      "operator_decision": "2026-09-02: Tier-2 APPROVED WITH STAGING. The operator chose 'stage it on bybit_1 (demo) first' over an immediate fleet-wide merge, explicitly accepting that bybit_2 (real money) stays exposed to the masking bug during the soak and that demo may never produce the hedge+directional collision that triggers it. #10746 must therefore gain an account allowlist with PROTECTION_REASSERT_ACCOUNTS polarity -- EMPTY MEANS NONE -- scoping the BINDING and never the MEASUREMENT. Dispatched to session_01RT889wBPYj1dVEqQnkzj7h. NOT approved for a fleet-wide flip; widening is a separate decision.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-38-DECLARED-LIVE-AND-STRUCTURALLY-CANNOT-TRADE-IS-NOW-A-CLASS",
+      "state": "queued",
+      "owner": "manager",
+      "note": "TWO INSTANCES IN ONE WEEK, DIFFERENT MECHANISMS — which is what makes it a class rather than two bugs. (a) mgc_trend_1h: 95 decisions / 0 fills because a SIBLING holds MGC 73% of the time (MI-29). (b) splg_trend_long_1d, found by the performance drain (#10737): enabled, execution: live, routed, and unable to signal for 41 days — 3,660 of its 4,736 signals read 'need at least 46 candles for the donchian(30)/atr(14) windows; got 18', onset 2026-07-23T13:30:34Z, and a FLEET-WIDE sweep of the whole signals table for that message returns 3,660 rows of which EVERY ONE is that leg (run fleet-wide precisely so the negative has a denominator). === WHY IT MATTERS BEYOND THE TWO LEGS: nothing on any config surface or /api/bot/strategies distinguishes such a leg from one that simply sees no setups. So the kill-gate is grading legs that never got to trade, and a 'no trades' reading means at least three different things — starved by a sibling, starved of candles, or genuinely no setups. ⚠️ Related but NOT the same as the accrual-clock class #10737 retired: that one is about backlog ROWS whose exit condition is vacuous; this is about STRATEGY LEGS that read live and cannot trade. The accrual guard catches the row, not the leg. Filed as PB-20260902-SPLG-TREND-LONG-1D-IS-CANDLE-STARVED-AND-CANNOT-SIGNAL.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-39-THE-WORK-DIGEST-FIRES-EMPTY-AND-MEASURES-THE-WRONG-THING",
+      "state": "in_flight",
+      "owner": "session_01JMWwopaYAQgNS8uJ2pAj5E",
+      "note": "OPERATOR-REPORTED on waking 2026-09-02, and it is the most consequential defect found tonight because it is the OVERSIGHT mechanism itself. The last message their ClaudeBot channel received was at 03:24 and read, entire: 'work_digest'. No body. === DEFECT 1, DELIVERY: work_digest.py queues its text under the key 'message'; notify_on_pull.py::_render_ping_message composes the operator-visible body from a FIXED key list that does not contain it, so the label rendered and the content was dropped. The function's own docstring promises 'nothing is silently dropped' — true of the label, false of the body, which is how the next reader stops looking. === DEFECT 2, CONTENT, AND IT IS WORSE: I ran the generator myself on the night's range and it emits 'No lifecycle change in a9444bc6..34f2beb5 (population: 584 work objects)'. That is after 52 merged PRs, the ml backlog becoming the first to clear the no-exit census, the performance drain retiring the unmeasured accrual clock, two OPEN-ITEMS rows cleared on first-hand observation, and the trainer capability gap closed. NONE of it moved a work-object `lifecycle` field, so the digest correctly reports its own metric and tells the operator nothing true. IT MEASURES THE WORK STORE, NOT THE WORK. === WHY IT RANKS ABOVE the other open items despite being small: F6 is the condition the autonomy grant rests on. A digest that fires empty is ANTI-enforcement — the operator sees a message arrive and infers they were told. Fixing delivery alone would be the worse outcome of the two available, because it would deliver a confident 'nothing happened' every night. === Dispatched with both traps named: no PR-counter (CLAUDE.md's contract is state-changes-and-decisions, NEVER activity), and 'nothing changed' must become distinguishable from 'we could not look', which today it is not.",
+      "priority": "P2_OVERHAUL"
+    },
+    {
+      "id": "MI-40-STALE-PING-ROWS-WILL-REFIRE-WITH-BODIES-ONCE-THE-RENDERER-IS-FIXED",
+      "title": "21 stale queue rows will re-fire WITH bodies once #10747 lands and the VM is re-provisioned",
+      "state": "ready",
+      "detail": "docs/claude/pending-pings.jsonl holds 21 rows that render today as bare event labels. #10747 makes the renderer emit real bodies. The dedupe ledger that suppresses re-sends (runtime_logs/pending_pings_delivered) is VM-LOCAL and gitignored, so a re-provision would replay all 21 -- this time with content -- as one burst on the channel we just made trustworthy.",
+      "operator_decision": "2026-09-02: MARK THEM DELIVERED, KEEP THE ROWS. The operator chose the record-preserving option over pruning, on the grounds that these 21 rows ARE the evidence base for the 42%-bare-label finding and pruning them would destroy the proof of the bug just as it is fixed. The stamp must say WHICH state it is asserting: they were delivered EMPTY, and stamping a bare 'delivered' would be a false claim.",
+      "blocked_on": {
+        "kind": "object",
+        "ref": "PR #10747",
+        "since": "2026-09-02T05:24:18Z"
+      },
+      "note": "Dispatch AFTER #10747 merges -- it touches scripts/notify_on_pull.py and would conflict.",
+      "owner": null,
+      "⚠️_I_MARKED_THIS_OWNED_BEFORE_IT_WAS": "CORRECTED 2026-09-02T09:20Z. I set state=in_flight and owner='subagent:stale-ping-delivered-stamp' in the same edit that unblocked it, and then DID NOT SPAWN. For ~5 minutes the checklist asserted an owner that did not exist. ⚠️ That is the same class as MI-15 (the registry claiming sessions it did not have) and it is worse in this direction: a row reading in_flight WITH AN OWNER is one a successor skips, so a false owner does not just lose information, it actively diverts attention away from real work. State is `ready` — unblocked, decided, nobody on it.",
+      "why_not_spawned_yet": "Two sub-sessions cannot share one git working tree: they would fight over checkouts and `git add -A` from either can sweep the other's uncommitted files into the wrong branch — a hazard that already nearly bit this session, whose `git status` surfaced the AVAX agent's in-progress test file on an unrelated workflow branch. Agent worktree isolation was ATTEMPTED and REFUSED here: 'Cannot create agent worktree: not in a git repository' — the session's cwd is /home/user while the repo is /home/user/Metis-Insights. So this waits for the AVAX sub-session to finish, or goes to a cloud session with its own container (create_session), which must be REGISTERED IN SESSIONS.json in the same action.",
+      "risk_is_real_but_not_imminent": "Firing requires the VM-local gitignored ledger to be LOST (re-provision / re-clone / fresh data dir). It is not on a timer. So deferring is defensible; leaving a false owner on it was not.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-41-IMPLEMENT-THE-OPERATING-MODEL-PLAN-WAS-NEVER-SCHEDULED-AND-SLIPPED",
+      "title": "The docs/skills/workflow restructure was diagnosed, never put in a plan, and quietly did not happen",
+      "state": "in_flight",
+      "priority": "P2_OVERHAUL",
+      "detail": "MEASURED 2026-09-02. The operating-model design diagnosed a 403k-token instruction surface as a root cause and the eight-phase build plan (A-H) contained NO phase for reducing it. So it was never scheduled and never happened. Re-measured today it is WORSE, not better: CLAUDE.md 430,453 bytes (~119k tok, was ~105k -- +13% in ONE DAY), ROADMAP.md 648,407 (~180k), ARCHITECTURE-CANONICAL 168,495 (~46k), CLAUDE-RULES-CANONICAL 99,222 (~27k), OPEN-ITEMS.json 191,955 (~53k, was ~42k, +26%). Total mandatory ~425k tokens against ~403k at diagnosis. The API + env-var + diag reference tables are 330,333 of CLAUDE.md's 430,453 bytes -- 77% -- and are lookup material, not boot reading. 32 skills, none split or retired; nothing owns DISPOSE, which is the MEASURED CONSTRAINT. 129 workflows, 21 with a schedule. OPERATOR DIRECTIVE 2026-09-02, verbatim intent: 'our work plan needs to include completely implementing the plan that we made for the workflows. This is exactly how things are falling through the cracks unacceptable... We shouldn't have gotten to backlog [drain] before we did this much more basic part of implementing the plan.' AND the clarification that corrects a misreading of mine: the ask is NOT for actions that INVOKE Claude -- it is for ACTIONS CLAUDE CAN INVOKE TO SAVE TOKENS, e.g. pulling data. I answered the wrong question by measuring 'does any workflow invoke claude-code-action' (zero, true but irrelevant).",
+      "sub_items": [
+        "A. TOKEN-SAVING ACTIONS CLAUDE INVOKES (the operator's actual ask, highest value) -- enumerate the recurring things a session does by hand that a workflow could return in one call, and build them. Known concrete cost measured THIS session: PR-CI polling. api.github.com is 403 from the sandbox so a session cannot write a bash poller, and this manager spent dozens of MCP pull_request_read calls waiting on suites. Others to enumerate, not assume: batched diag pulls, one-call PR state (mergeable_state + checks + threads), journal/DB reads that currently cost several relay round trips.",
+        "B. SPLIT THE INSTRUCTION SURFACE -- move the 330KB of API/env/diag reference out of CLAUDE.md behind an index a session reads on demand. CLAUDE.md is the ONLY surface that reaches a session before it acts (hooks do not run on Claude Code on the web), so what stays must be what changes behaviour, not what answers a lookup.",
+        "C. SKILLS vs THE FIVE SESSION TYPES -- map the 32 skills onto CYCLE/PRODUCE/DISPOSE/BUILD/OPERATE. Nothing owns DISPOSE today and that is the measured constraint; PRODUCE-without-DISPOSE is the 256-of-370-unread defect.",
+        "D. WORKFLOW INVENTORY -- 129 workflows: which are retained, retired, or created. Includes the dead-Routine cleanup (routines that look armed and are not)."
+      ],
+      "blocked_on": [],
+      "note": "SEQUENCING, per the operator: this goes AHEAD of backlog drain. The one drain already dispatched (session_012Nk5tVpHfSHvYfRyN7BC5S, exit-head class) is allowed to FINISH -- a half-landed change is worse than either state -- but NO further drain is spawned until A-D are dispatched.",
+      "added": "2026-09-02T05:45:26Z"
+    },
+    {
+      "id": "MI-42-MANAGER-ANSWERED-THE-WRONG-AUTOMATION-QUESTION",
+      "title": "I measured 'do workflows invoke Claude' when the ask was 'what can Claude invoke to save tokens'",
+      "state": "done",
+      "detail": "Recorded as a lesson rather than dropped. Asked how much recurring work could be automated so as not to waste tokens, I measured whether any workflow INVOKES Claude (zero -- true, and irrelevant to the question). The operator corrected it: the ask is for actions CLAUDE CAN INVOKE, e.g. pulling data. The two are near-opposites in what they imply for the build. The transferable error: I answered the question my measurement could reach rather than the one that was asked, and the measurement being CORRECT is what made it convincing.",
+      "added": "2026-09-02T05:45:26Z",
+      "priority": "done"
+    },
+    {
+      "id": "MI-44-MANAGER-SPAWNS-ITS-OWN-SUCCESSOR-AT-ITS-DISCRETION",
+      "title": "A manager spawns its own handoff manager, which pings the operator that it has taken over, with a link to itself",
+      "state": "queued",
+      "added": "2026-09-02T06:22:20Z",
+      "operator_ask": "Operator, 2026-09-02: 'the possibility of the manager spawning its own handoff manager session at its own discretion - this requires that we be certain about continuity robustness, and the new session needs to send a ping that it has taken over with a link to itself.'",
+      "verified_today": [
+        "SELF-IDENTIFICATION WORKS. get_session with session_id OMITTED returns the CALLING session's own record, id included (verified 2026-09-02T06:21Z from this manager: returned session_011JWFxuYAaEQKCFCmG6gnHJ). So a successor can build https://claude.ai/code/<its own id> without being told what it is -- which the spawning manager CANNOT pass in the prompt anyway, since the id does not exist until create_session returns.",
+        "THE PING CAN CARRY THE LINK TODAY. Read on main 2026-09-02: notify_on_pull._render_ping_message emits `title`, `summary` and `chat_url` from its recognised-key list. A takeover ping using those keys renders with its link. ⚠️ BUT `message` IS NOT IN THAT LIST -- a ping built with it renders as a BARE EVENT LABEL, which is exactly the empty 03:24 digest the operator screenshotted. The takeover ping MUST use recognised keys, or it announces nothing.",
+        "SPAWNING WORKS: 11 sub-sessions created this session via create_session with explicit source_url + source_revision.",
+        "THE LEASE ALREADY HAS THE HANDOVER PRIMITIVES: manager_lease.py has release + claim, and CLAIMABLE = {expired, released, absent}. A HELD lease REFUSES a claim, so the successor cannot simply take it -- the outgoing manager must release first, or the successor must --force with a reason."
+      ],
+      "proposed_protocol": [
+        "1. Outgoing SPAWNS the successor (create_session, explicit source_url+revision) and REGISTERS it in SESSIONS.json in the same action.",
+        "2. Outgoing RELEASES the lease and PUSHES it. An unpushed release protects nothing -- the successor reads origin.",
+        "3. Successor CLAIMS the lease, pushes, and PINGS with `title`+`summary`+`chat_url` naming itself.",
+        "4. ⚠️ OUTGOING DOES NOT EXIT YET. It polls the LEASE FROM ORIGIN -- the lease is the only shared state both sides can see, and there is NO back-channel (a woken session cannot reply; cross-session inbound does not reach back). When holder == successor, the handover is CONFIRMED and the outgoing stands down.",
+        "5. If nobody has claimed within a bounded window, the outgoing RE-CLAIMS (released is claimable by anyone, including the original) and reports a FAILED handoff. This step is the robustness the operator asked for: the outgoing must not disappear on the ASSUMPTION its successor is alive."
+      ],
+      "risks_named": [
+        "⚠️ THE GAP WINDOW IS THE REAL HAZARD. Between release and claim, NOBODY holds the lease while sub-sessions keep running -- the lease's own doc is explicit that sub-sessions do not depend on it and what pauses is SUPERVISION. If the successor dies at spawn (which happened TWICE tonight on MI-37, both times on repo provisioning), the system is left with running sub-sessions, no manager, and nobody aware. Step 5 exists for exactly this and is the part that must be proven, not assumed.",
+        "⚠️ A SUCCESSOR THAT CLAIMS AND THEN DIES IS WORSE THAN ONE THAT NEVER CLAIMED: the lease reads `held` for its full 90-minute TTL, so the time-based takeover that protects against death is precisely what delays discovery.",
+        "⚠️ CONTINUITY IS NOT PROVEN UNTIL MI-43 LANDS. 'Certain about continuity robustness' is the operator's own precondition, and today both handoff records (SESSIONS.json, OPEN-PRS.json) are maintained by REMEMBERING -- the mechanism that failed twice tonight at 3-of-6 and 6-of-9.",
+        "COST, as an independent argument FOR bounded manager sessions: this manager session has cost $885.84 with 1.31 BILLION cache-read tokens (read from its own get_session record, 2026-09-02T06:21Z). A manager that never hands over accumulates this indefinitely."
+      ],
+      "blocked_on": {
+        "kind": "object",
+        "ref": "MI-43",
+        "since": "2026-09-02T06:23:01Z",
+        "note": "Still ordered behind MI-43 -- the readiness check should gate the handoff it is being tested with. If MI-43 is not landed when the handoff is due, run the handoff anyway and record WHICH criteria went unverified rather than claiming a clean pass."
+      },
+      "note": "QUEUED, NOT STARTED, and deliberately blocked behind MI-43. Building self-handoff before the readiness check exists would let a manager hand over a state nothing has verified -- which is the failure mode the operator's own precondition names.",
+      "operator_decision": "2026-09-02: THIS HANDOFF IS THE ACCEPTANCE TEST. Operator: 'we'll obviously test it on this handoff, so we can verify before closing here.' So MI-44 is no longer a deferred design -- it is exercised at THIS session's close, and the outgoing manager stays alive to observe it. That is the only way the protocol gets proven rather than asserted, and it matches the repo's own standard that a deploy is not an observation.",
+      "acceptance_criteria": [
+        "1. The successor CLAIMS the lease: docs/claude/work/MANAGER-LEASE.json on ORIGIN reads state=held with holder=<successor id>. Read from origin, never from a local tree.",
+        "2. The operator RECEIVES a takeover ping that RENDERS -- carrying a link to the successor. ⚠️ A ping that arrives as a bare event label is a FAILURE of this criterion, not a partial pass: that is the exact defect #10747 exists to fix, and `message` is not a recognised renderer key.",
+        "3. The successor demonstrates it can READ the handoff state it inherited -- naming the live sub-sessions from SESSIONS.json and the open PRs with their CONDITIONS from OPEN-PRS.json. ⚠️ Inheriting the files is not the test; USING them is. A successor that claims the lease and cannot say what #10746's staging condition is has failed, because that is the case where a half-informed manager is more dangerous than an ignorant one.",
+        "4. Only after 1-3 are OBSERVED does the outgoing manager stand down. If any fails, it RE-CLAIMS and reports the failed handoff rather than leaving the system unmanaged."
+      ],
+      "criterion_2_PROVEN": "VERIFIED 2026-09-02T06:24Z, ahead of the test rather than during it. Ran the REAL renderer (scripts/notify_on_pull.py::_render_event_body, on main) over two candidate takeover payloads:\n  • title+summary+chat_url -> 3 lines, link PRESENT:\n      'manager_takeover — Manager handover complete\\n<summary>\\nhttps://claude.ai/code/session_XXXX'\n  • the same information under `message` -> 1 line, link ABSENT: 'manager_takeover'\nCONCLUSION: the takeover ping WORKS TODAY on unfixed main and is NOT blocked on #10747 -- PROVIDED it is built with the recognised keys. Built with `message` it announces nothing, which would look like a successful silent handoff. This is a HARD REQUIREMENT for the successor's spawn prompt.\n⚠️ METHOD NOTE, because the first attempt nearly produced a false finding: I initially guarded the call on a function name that does not exist, so BOTH arms returned None and read as 'the ping path is broken'. That is the `curl || echo '{}'` shape this repo files against its own diagnostics -- a probe that cannot find a positive reporting a confident negative. Caught only because both arms failing identically is implausible. A negative needs a positive control.",
+      "priority": "P1_HANDOFF",
+      "⚠️_state_corrected": "Read `in_flight` with owner: null, which is a FALSE state -- nothing was working it. Corrected to `queued` on 2026-09-02. ⚠️ AND ITS SCOPE IS NOW PARTLY SUPERSEDED: the operator decided the same day that BOTH hops are MANUAL -- the manager sets off the night session itself (create_session, proven), and the operator sets off the morning one because they want to be there at the beginning. What survives of this item is NOT the spawn machinery but the BRIEF the successor is handed. See MI-74."
+    },
+    {
+      "id": "MI-48-STREAMLIT-AND-ANDROID-ARE-ON-ICE-AND-MUST-STOP-CONSUMING",
+      "title": "Operator decision 2026-09-02: Streamlit + Android OFF the feed, on ice, not deleted. GitHub Pages SPA is the only UI.",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "operator_decision": "VERBATIM INTENT, 2026-09-02: 'both the Streamlit app and the Android app should not be consuming right now. They should be turned off. We don't need to delete them, but they're just on ice in the meantime, and they shouldn't be consuming anything because that's just unnecessary risk. The only UI that we're using is the Git pages website.'",
+      "why_this_row_exists": "It resolves a premise I was about to put to the operator as an open question. The Phase-H decision inbox asks how to sequence the read gate and states that Streamlit 'is still a live consumer'. CLAUDE.md on main already ASSERTS the retirement (line 225, 'the Svelte SPA is the ONLY live consumer', operator decision 2026-09-01). Both cannot be right, and the field says the docs are ahead of reality.",
+      "measured_2026_09_02": [
+        "Branch origin/claude/phase-h-preconditions-retire-consumers is NOT merged into origin/main (git merge-base --is-ancestor -> false). It is doc/reference corrections plus small router touches; it retires nothing operationally.",
+        "ict-trader-dashboard: streamlit_app.py still present (438,022 bytes, mtime 2026-08-28); origin/main carries no retirement commit.",
+        "The Streamlit Cloud app still EXISTS: https://ict-trader-dashboard-...streamlit.app/ returns 303 -> share.streamlit.io/-/auth/app (a sign-in wall), NOT a 404/deleted page.",
+        "⚠️ WE DID NOT ESTABLISH whether it is RUNNING. An auth redirect is consistent with both 'running but private' and 'exists but paused'. Do not collapse those."
+      ],
+      "so_the_state_is": "The retirement is DECLARED, not OBSERVED. CLAUDE.md asserts a state nobody measured — the field-beats-comment failure this repo's RULE ONE is about, in the dangerous direction: a session reading CLAUDE.md concludes the consumers are gone and reasons about a gate it is therefore safe to flip.",
+      "what_this_unblocks": "Phase H's read gate. The inbox question DEC-20260901-READ-GATE-SEQUENCING offered four options; the operator has now chosen the substance of option 1 (retire the consumers, then flip). It is no longer an open question and should NOT be relayed as one.",
+      "next": [
+        "Land origin/claude/phase-h-preconditions-retire-consumers so the docs and the code stop disagreeing.",
+        "TURN THE STREAMLIT CLOUD APP OFF. ⚠️ This is a Streamlit Cloud console action and is the ONE step no session can take — it is not in either repo. Operator-only; say so plainly rather than filing it as work.",
+        "Android: device_tokens is EMPTY on the live host (0 registered devices), so the Android side is already non-consuming in fact. Record that as measured, not assumed.",
+        "Only then answer DEC-20260901-READ-GATE-SEQUENCING with the operator's choice recorded as the decision."
+      ],
+      "note": "'On ice, not deleted' is explicit: do NOT propose deleting streamlit_app.py or the Android app. The ask is that they stop CONSUMING.",
+      "⚠️_CORRECTED_2026_09_02_SAME_DAY": "The operator REFINED this within the hour and the earlier reading is now WRONG: 'oh, don't wait for me to turn off streamlit - it can stay alive, I just don't want us doing any work on it for now.' SO 'ON ICE' MEANS **NO DEVELOPMENT EFFORT**, NOT 'TURNED OFF'. The earlier verbatim ('They should be turned off ... they shouldn't be consuming anything') is superseded on the TURNED-OFF half and stands on the NO-WORK half. ⚠️ Do NOT file, schedule or propose work to retire, stop or delete the Streamlit app, and do NOT block anything on it being stopped.",
+      "what_this_means_operationally": [
+        "Streamlit STAYS DEPLOYED and stays a reachable consumer of the read surface.",
+        "Android is separately non-consuming IN FACT (device_tokens empty on the live host) — that is measured, and unaffected by this correction.",
+        "No dashboard/Streamlit work is scheduled. The repo's Streamlit files stay untouched.",
+        "The CLAUDE.md claim that Streamlit is 'retired from the live feed' is STILL not observed — and now will not be. It should be softened to what is true: retired from DEVELOPMENT, still deployed."
+      ],
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-45-PING-RENDERER-DROPS-THE-MESSAGE-KEY",
+      "title": "pending-pings renders a fixed key list and ignores `message` — 42% of queued pings delivered as one word",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "subagent:fix-ping-renderer-drops-message",
+      "finding": "scripts/notify_on_pull.py::_render_event_body emits ONLY: head=EVENT_LABELS.get(event,event) + sprint/title; details cp_id,next_cp,phase,strategy,model,result,grade,question,summary; urls pr_url,commit_url,chat_url,summary_url. `message` is on NO list, and `message` is the key almost every real queued ping uses. Those pings deliver as the bare event name and nothing else.",
+      "measured": "Population: all 50 rows in docs/claude/pending-pings.jsonl at 2026-09-02. 21 rows carry `message`; 21 of 50 (42.0%) carry NO recognised key at all. They render as: 6x 'health-review', 6x 'performance-review', 5x 'ml-review', 2x 'ping', 1x 'session-wrap', 1x 'work_digest'. Earliest affected 2026-07-10T15:45Z.",
+      "operator_confirmed": "Operator screenshot 2026-09-02 10:10 shows the work-digest ping delivered as the bare token 'work-digest'.",
+      "why_undetected": "tests/test_notify_on_pull.py has 5 drain tests and every one uses the RECOGNISED keys. They asserted the definition as written rather than the population that exists — the same shape as the pairs tests that passed against a fictional order_packages schema.",
+      "no_replay_risk": "Delivery dedupe is by _line_hash into runtime_logs/pending_pings_delivered, so fixing the renderer does NOT re-fire the 21 stale rows. Sub-session instructed to verify and to STOP if that is not true.",
+      "note": "Three mandatory review-session ping types (health/performance/ml) have been content-free for ~8 weeks.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-46-SYSTEM-ACTIONS-SSH-FAILED-SO-THE-STATUS-PING-NEVER-SENT",
+      "title": "system-actions run 33604747877 failed at SSH — ~/.ssh/id_rsa absent on the runner",
+      "state": "done",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "finding": "Run 33604747877 (send-ping, target=claude) concluded FAILURE. Log: 'Identity file /home/runner/.ssh/id_rsa not accessible: No such file or directory' then 'ubuntu@141.145.193.91: Permission denied (publickey)' then 'notify_run.sh failed; transparency ping not delivered'. The post-action diag fetch failed the same way. EXIT_CODE and NOTIFY_EXIT_CODE were both EMPTY, which the workflow's own comment says means the action step never produced an exit code (pre-flight failure).",
+      "ruled_out": [
+        "The SSH-key step is UNCHANGED: git log -L on lines 1082-1096 shows no edit since it was written.",
+        "VM_SSH_KEY is not obviously unset: the step exits 1 with an explicit ::error:: when it is, and that error is absent from the log.",
+        "Not input injection: DISPATCH_MESSAGE rides through `env`, not inline ${{ }} interpolation, so backticks/newlines in the body are safe.",
+        "Not a workflow regression from overnight: only #10683 touched system-actions.yml since the last good run, and it only added the ping classes."
+      ],
+      "still_unknown": "WHICH earlier step failed. Only the last 200 of 674 log lines were read; the failing step is in the unread head. This is 'we did not look', NOT 'there was no cause'.",
+      "blast_radius": "If SSH from Actions to the live VM is broken generally, EVERY VM-touching system-action is down: send-ping, set-env, get-env, pull-and-deploy, restart-bot-service, and sync-vm-secrets.yml.",
+      "note": "I reported the first ping as 'queued'. Queued is not delivered, and it was not delivered. Re-dispatched with a short single-line body as the discriminating test.",
+      "PROVEN_2026_09_02T09_34Z": "⚠️ PROVEN BY OBSERVATION, not by test — and it is the FIRST thing today to earn that word. Run 33614797065, event=workflow_dispatch, head de3f0a19, conclusion=SUCCESS. AND the operator CONFIRMED RECEIPT of the ping it sent, with a screenshot. Both halves matter and neither alone would do: a `success` conclusion proves the workflow ran, and only the operator seeing the message proves it DELIVERED.",
+      "why_no_test_could_have_established_this": "CI never dispatches this workflow, so the defect is unreachable from every required check. #10768 was GREEN on all four, reproduced its failure and its fix in both directions, and was still wrong. That is the whole lesson: a green suite over a path the suite does not exercise is not evidence about that path.",
+      "the_transferable_error": "I read the failing step's TAIL, saw the lines around it already using ${x:-}, and fixed the one site the log pointed at. Sampling the visible evidence and treating it as the POPULATION. Seven bare refs sat in one contiguous block and each would have aborted the step IN TURN — fixing them one failure at a time would have cost seven dispatch cycles. ⚠️ It took a FAILED PROOF RUN to make me enumerate. The first fix's own verification (reproduced both directions, exact error matched) is precisely what made it convincing.",
+      "priority": "done"
+    },
+    {
+      "id": "MI-47-CLAUDE-CHANNEL-SEPARATION-CLAIM-WAS-STALE",
+      "title": "I treated the Claude/trader channel split as unset; the operator says pings do arrive on the Claude bot",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "finding": "I was about to dispatch sync-vm-secrets to propagate TELEGRAM_CLAUDE_BOT_SECRET on the strength of OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN, which says the secret is unset on the VM. The operator states messages DO reach the Claude channel. Supporting evidence I already held and had not used: system-actions runs 'PING TEST P1c (low/claude)' and P2a-P2e all concluded SUCCESS at 22:25-22:36Z on 2026-09-01.",
+      "correction": "What the operator saw on the Trader bot at 10:41 was the [RUN failure] transparency notice for my own failed run, not a mis-routed status ping. Routing and my run's failure are two different things and I conflated them.",
+      "recurrence_of": "MI-42 / the DASHBOARD_API_TOKEN error — relaying a register row's claim without measuring it. Second occurrence in one session.",
+      "next": "Re-measure the OI row against the live VM before anyone acts on it; it is stale in the direction that costs operator time.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-49-BYBIT-GRADED-COVERAGE-ARM-AND-CONDITIONAL-WIDENING",
+      "title": "Operator: arm the graded-coverage gate on bybit_1, and widen to the others IF it proves itself",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "tier": "2 (order path env flip) / 3 to widen",
+      "operator_decision": "2026-09-02, verbatim: 'yes, and if its proves itself on bybit 1, then apply to bybits 2 and 3 as well'. Approves ARMING BYBIT_GRADED_COVERAGE_MODE=apply + BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1 after #10746 merges, and approves a LATER widening CONDITIONAL on the gate proving itself.",
+      "⚠️_what_PROVES_ITSELF_must_mean": "The operator did not define it and a vague criterion is how a demo-only approval leaks to real money. I will NOT widen on any of: time elapsed, a quiet soak, or a green test suite. THE BAR: (a) the arm is read back off /proc/<MainPID>/environ via get-env, never the .env; AND (b) at least one bybit_coverage_soak row on bybit_1 carries verdicts_differ: true -- i.e. the graded and side-blind bases actually reached OPPOSITE verdicts, so arming demonstrably changed an outcome; AND (c) a re-arm actually occurred on a position whose side-blind coverage exceeded its size, which is the defect itself. ⚠️ THE DEFECT IS n=1 AND CONSTRUCTED -- no live instance has ever been observed -- so (b) and (c) MAY NEVER OCCUR ON DEMO. If they do not, the honest report is 'unproven, not proven-good', and widening to real money on an unexercised gate is NOT what the operator approved. Put that back to them rather than letting a quiet soak read as a pass.",
+      "next": [
+        "Merge #10746 (queued on green).",
+        "Arm bybit_1 via set-env, both keys, then restart, then read back off /proc/<pid>/environ.",
+        "Watch bybit_coverage_soak for verdicts_differ: true. Report what is observed, not elapsed time.",
+        "Before ANY widening: confirm with the operator which accounts 'bybit 3' meant."
+      ],
+      "account_identity_CONFIRMED_BY_OPERATOR": "2026-09-02, operator confirmed on being asked: 'bybit portfolio is bybit3'. So the widening target set is bybit_2 + bybit_portfolio, CONFIRMED, no longer an assumption. ⚠️ There is NO account literally named `bybit_3` in config/accounts.yaml — measured, `grep -c '^  bybit_3:'` returns 0 — so 'bybit 3' is the operator's shorthand for `bybit_portfolio` and any code, env value or allowlist must use the REAL id. An allowlist naming `bybit_3` would silently match nothing and read as armed. ⚠️ NOTE THE ASYMMETRY IN THE TARGET SET, because it is the whole risk: bybit_portfolio is account_class PAPER (paper_role: portfolio), while bybit_2 is account_class REAL_MONEY on Bybit mainnet. Widening reaches real money.",
+      "widening_order": "DECIDED BY THE OPERATOR 2026-09-02: bybit_portfolio FIRST, then bybit_2. The paper mirror gets the gate before real money does, so bybit_2 inherits a precedent instead of a first exposure. ⚠️ bybit_portfolio is not a quiet account — it runs a continuous ~2.0x book (measured 2026-08-25: equity $98,618.60 at 2.0057x), so it is a genuine exercise of the gate, not a formality.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-50-PHASE-H-READ-GATE-WAITS-ON-STREAMLIT-BEING-OFF",
+      "title": "Operator: do not flip the Phase-H read gate until Streamlit is confirmed off",
+      "state": "done",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "operator_decision": "2026-09-02: WAIT until Streamlit is confirmed off. Chosen over flipping now and over gating only the routes no live consumer calls.",
+      "why": "The gate attaches require_session to the read surface. Measured 2026-09-02: the Streamlit Cloud app still EXISTS (303 -> share.streamlit.io/-/auth/app, a sign-in wall, NOT a 404), and ⚠️ WHETHER IT IS RUNNING WAS NOT ESTABLISHED -- an auth redirect is identical for 'running but private' and 'exists but paused'. So flipping now could break a live consumer.",
+      "note": "This CLOSES DEC-20260901-READ-GATE-SEQUENCING. That inbox question must no longer be relayed as open, and its premise ('Streamlit is still a live consumer') is now confirmed TRUE in the sense that matters -- it is still deployed and reachable -- while CLAUDE.md has asserted the retirement since 2026-09-01. Declared, not observed.",
+      "⚠️_ITS_BLOCKER_IS_GONE_AND_SO_IS_ITS_PATH": "The operator's correction REMOVES the precondition this row was waiting on — Streamlit is NOT going to be turned off. That does not unblock the gate; it removes the route the decision chose. ⚠️ 'WAIT UNTIL STREAMLIT IS CONFIRMED OFF' IS NOW AN INDEFINITE BLOCK ON A CONDITION THAT WILL NEVER ARRIVE, which is strictly worse than a live blocker because it looks like progress is pending. Do not leave it stated that way.",
+      "the_three_remaining_routes": [
+        "(a) NEVER FLIP IT — accept the read surface stays unauthenticated. Legitimate, but it must be RECORDED as a decision rather than left looking pending, and MI-25 (full trading history world-readable) then stays open permanently and should say so.",
+        "(b) FLIP AND BREAK STREAMLIT — consistent with 'no work on it': if nobody is developing it, nobody is hurt by it breaking. But the operator said it 'can stay alive', which reads as wanting it usable, so this needs their explicit word.",
+        "(c) GATE ONLY WHAT STREAMLIT DOES NOT CALL — the middle path, and the only one that needs no further operator input to START. Cost: it is a measurement job (establish Streamlit's actual call set) and it leaves the job half-done by construction."
+      ],
+      "recommendation": "(c), and say so rather than asking again. It is the only route that reduces the unauthenticated surface without needing the operator to choose between two things they have already implied they want (Streamlit usable AND the gate closed). ⚠️ But it is NOT free and not silent: establishing Streamlit's call set is real work on a codebase the operator just said not to work on — so the measurement is READ-ONLY (grep the SPA and streamlit_app.py for endpoint strings), never a change to it.",
+      "operator_decision_FINAL": "2026-09-02: NEVER FLIP IT — recorded as a DECISION, not left pending. The Phase-H read gate will not be attached to the read surface. Chosen over gating only the routes no live consumer calls, and over flipping and letting Streamlit break.",
+      "what_this_ACCEPTS": "⚠️ THE FULL TRADING JOURNAL STAYS WORLD-READABLE ON THE PUBLIC CADDY HOST. This is the accepted consequence and must not be softened. MEASURED by the manager independently — plain curl, no Authorization header, from outside the VM against https://ict-bot.duckdns.org : /api/bot/db/table/trades -> HTTP 200, 5,318 rows · order_packages -> 200, 4,275 · balance_snapshots -> 200, 29,892 · signals counted at 2,301,022. NEGATIVE CONTROL: device_tokens -> HTTP 404, so the probe can distinguish a refusal from a serve and #10682's exclusion genuinely holds.",
+      "severity_stated_honestly": "CONFIDENTIALITY exposure, NOT a control path. The Data Explorer is SELECT-only on a mode=ro connection with bound values and schema-validated identifiers: nothing writes, no order can be placed, no credential is served. The risk is that the trading record — strategies, sizes, timings, PnL — is public to anyone who has the hostname.",
+      "ONE_NARROWER_OPTION_THAT_EXISTS_stated_once_not_re_asked": "The operator was offered 'gate only what Streamlit does not call' and declined it. A NARROWER option was not on that ballot and is recorded here once, for a future decision rather than a re-ask: gate ONLY the Data Explorer DB routes (/api/bot/db/*), which are what serve raw journal rows, leaving every other read route open. ⚠️ THE COST IS CONCRETE — the Svelte SPA has a Data Explorer tab that calls exactly those routes, so gating them breaks that tab for the one consumer we have. That is why it is a real trade and not a free win.",
+      "closes": "DEC-20260901-READ-GATE-SEQUENCING — decided. Never relay it as an open question again.",
+      "priority": "done"
+    },
+    {
+      "id": "MI-51-MANAGER-HANDOFF-DEFERRED-BY-OPERATOR",
+      "title": "Operator: keep this manager session for now; do not hand off yet",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "operator_decision": "2026-09-02: KEEP THIS SESSION. Chosen over handing off now as the MI-44 test, and over handing off once the ping channel is proven.",
+      "note": "⚠️ MI-44's acceptance criteria are NOT withdrawn -- the handoff is DEFERRED, not cancelled, and the operator has said they want it exercised before this session closes. Keep the lease heartbeated (TTL 90 min; it EXPIRED for 101 min earlier today, so this is not a formality) and keep handoff_check at 6/7 or better so the handoff stays cheap when it is called.",
+      "priority": "P1_HANDOFF"
+    },
+    {
+      "id": "MI-52-PING-DRAIN-OWNERSHIP-LAND-AND-RESTART",
+      "title": "Operator: review and land #10694 (one owner for the ping drain), restart included",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "tier": "2 (service restart)",
+      "operator_decision": "2026-09-02: 'Review and land it, restart included.' This IS the Tier-2 approval for restarting ict-telegram-bot.service after merge -- recorded so a successor does not re-ask.",
+      "why_now": "Today proved the ping path is fragile in the SILENCE direction (two independent bugs: the renderer dropping 21 of 50 bodies, and workflow_dispatch dead on every action). #10694 addresses the DUPLICATION direction. Different failure mode, same fragile channel.",
+      "next": [
+        "Review #10694 on its merits; do not merge on the operator's prioritisation alone.",
+        "If sound: merge, then dispatch the restart, then VERIFY the post-state rather than assuming it.",
+        "landed_unproven until a ping is observed delivered exactly once."
+      ],
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-53-ERROR-FEED-INTO-A-CADENCED-DUTY-PASS",
+      "title": "Wire the trader error feed into the duty pass so it is triaged, not read by accident",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01TpKSAVKKUXLHyFUFep32B1",
+      "tier": "1",
+      "operator_decision": "2026-09-02, approved: 'You can, uh, build the wiring.' Answering their question: 'can the error feed that's in the trader bot be fed directly to the manager session, so you can decide what should be resolved immediately vs. backlogged?'",
+      "what_it_is_NOT": "NOT true push. `watch_url`'s signing credential is sealed to the artifact service, so the trader VM cannot sign deliveries into a session. This is a cadenced PULL, and the cron floor is hourly — so it is TRIAGE, not immediate. Anything genuinely urgent still rides the existing Telegram path, which reaches the operator in seconds.",
+      "why_it_is_worth_it": "Measured today: `ict_scalp_avax_5m` has been a DEAD LEG on bybit_1 — 8 signals, 0 orders placed, every one exchange-rejected — across THREE backlog rows and two fixes marked `resolved`. It was caught only because the operator pasted the feed by hand. The feed is produced and not read; that is the same PRODUCE-without-DISPOSE defect the operating-model design names as the measured constraint.",
+      "⚠️_the_cadence_must_not_be_claimed": "This repo has scheduled workflows that are merged, enabled, correct and fire ~4h50m LATE or once instead of daily. The digest must carry generated_at + covers_since so a stale one is self-evidently stale rather than reading as 'nothing happened'.",
+      "done_condition": "A workflow_dispatch run whose conclusion is quoted, producing a digest in which the AVAX dead leg is visible and triage-able. CI green does NOT establish this — that lesson cost two failed fixes this morning.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-54-DECISIONS-WERE-PUT-TO-THE-OPERATOR-WITH-NO-PING",
+      "title": "I asked seven decisions today as in-session popups and sent zero pings",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "operator_observation": "2026-09-02: 'I'm supposed to get a ping when there's a decision waiting for me, and I didn't get any pings about decisions waiting for me.' Correct.",
+      "measured": "SEVEN decisions were put to the operator via in-session popups across this session (bybit arming · widening order · Phase-H route · handoff timing · #10694 restart · drain unblock · build the wiring). ZERO pings were sent announcing any of them.",
+      "why_it_matters_more_than_politeness": "F6 — 'the operator is told, by Telegram, whenever something is done without them' — is the CONDITION ON WHICH THE AUTONOMY GRANT WAS MADE. A decision waiting is a checkpoint, and a checkpoint that only exists inside a session the operator is not looking at is not a checkpoint. ⚠️ It also compounds: the operator cannot answer what they cannot see, so an unpinged decision silently becomes a BLOCKED work item that looks like it is merely pending.",
+      "⚠️_the_channel_was_also_broken_but_that_is_NOT_the_excuse": "Both ping paths were down for part of today (renderer dropping bodies until #10747; workflow_dispatch dead until #10772, still unmerged). But the ISSUE-driven path worked THROUGHOUT and I used it for status pings — so I could have pinged the decisions and did not. Do not let the channel outage absorb this.",
+      "remedy": [
+        "IMMEDIATE, behavioural: every AskUserQuestion is followed by a ping naming the decisions and carrying the session link. Done for today's seven (issue #10774).",
+        "DURABLE: the mechanism belongs with MI-55 — a decision in the work store should ping on its own, not depend on the manager remembering."
+      ],
+      "priority": "P2_OVERHAUL"
+    },
+    {
+      "id": "MI-55-TWO-WAY-TELEGRAM-DECISIONS-ANSWERABLE-FROM-THE-CHAT",
+      "title": "Operator ask: deliver decisions as Telegram popups and accept the answer from there",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01LNHkQQuxku3khrjoDinw91",
+      "tier": "2 (telegram bridge + service restart)",
+      "operator_ask": "2026-09-02, verbatim: 'is it possible for the telegram channel to become 2A [two-way] channel like through the replay or something so that if there's decisions that are pop-ups they can be given to me as pop-ups in the telegram chat? I can answer them there and send them back from there instead of having to see the ping and then open the session ... if not, then maybe like a link or something so that I can easily get to where I need to answer the questions and not get lost in the middle'",
+      "VERIFIED_FEASIBLE_every_piece_already_exists": [
+        "GET /api/bot/work/decisions + POST /api/bot/work/decision are ON MAIN (src/web/api/routers/work.py, 3 matches for work/decision). The inbox already models options.",
+        "src/bot/claude_bridge.py ALREADY imports InlineKeyboardButton + InlineKeyboardMarkup and handles callback_query in on_callback.",
+        "src/prop/prop_expiry_prompt.py is a LIVE WORKING PRECEDENT: a Yes/No inline keyboard with callback_data 'propexp:<y|n>:<ticket_id>', parsed by handle_expiry_callback.",
+        "DASHBOARD_API_TOKEN IS SET — measured this session, writeGate reads state=open / acceptsWrites=true. The write route is fail-closed without it, so this was the gating unknown and it is resolved."
+      ],
+      "design": "Generalise 'propexp:<y|n>:<id>' to 'decide:<request_id>:<option_idx>'. A decision_request's options become inline buttons; the callback POSTs to /api/bot/work/decision.",
+      "⚠️_two_real_constraints": [
+        "Telegram callback_data is capped at 64 BYTES, so a button must carry an INDEX, not the option text. prop_expiry_prompt.py's docstring already notes this — follow it rather than rediscovering it.",
+        "Free-text answers cannot be buttons. They need the reply-flow the prop bridge already uses for pasting a fill. Multiple-choice works today; free-text is a second step."
+      ],
+      "⚠️_it_would_be_the_FIRST_real_exercise_of_the_round_trip": "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP is open: not one decision has gone submit -> in_transit -> committed end to end. That is an ARGUMENT FOR building this, not against — the channel has no user, and this gives it one. But it means the done-condition is the ROUND TRIP observed, never a green test: an answer submitted from Telegram must appear on /api/bot/work/decisions as in_transit and then read `committed` with the answer block visible in the work object on main.",
+      "the_fallback_the_operator_offered": "'or maybe like a link so I can easily get to where I need to answer'. That half is FREE and is already done as of today: every decision ping now carries the session link. Ship that regardless of whether the two-way build is approved — it is the cheap 80%.",
+      "next": "Tier-2, needs its own operator OK and its own ict-telegram-bot.service restart. PROPOSE, do not build unasked.",
+      "operator_APPROVED_build_and_test": "2026-09-02, verbatim: 'once we have the mechanism ready for the two way channel, then let's test it also. Right? Just, like, somebody being asking me if I see the question, and then I'll answer, and then you'll tell me if you see the answer that I sent you.' That approves BUILDING and LIVE-TESTING it. The ict-telegram-bot.service restart is still a Tier-2 dispatch and is the MANAGER'S to run, not the sub-session's.",
+      "DONE_CONDITION_is_the_operators_own_test": "⚠️ NOT a test suite. The operator defined it: a real question reaches them in Telegram, they answer THERE, and the manager confirms it received the answer. Three parties, one loop. A green harness clears NONE of it — tests/test_work_decisions.py already exercises submit→commit→committed in a harness and the round-trip has still never happened on the fleet.",
+      "⚠️_this_would_CLEAR_a_row_that_has_never_cleared": "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP is open and has never once completed submit → in_transit → committed. This build would be its FIRST real exercise. Its clears_when is explicit that a merge is not a deploy, a green harness is not the fleet, and a workflow_dispatch of the committer clears only ONE stage — so say which stages were cleared rather than clearing it on the easiest.",
+      "manager_owns_the_live_test": "The sub-session is told NOT to message the operator. The manager runs the live test, because the operator's own formulation requires the manager to be the one confirming receipt.",
+      "operator_signal_2026_09_02": "On receiving the proof ping the operator remarked: 'Just got this, not a question though.' They are distinguishing a STATUS ping from an ANSWERABLE decision — which is exactly the gap MI-55 closes. Prose is fine for status; a DECISION needs buttons. Carry this: the value of the two-way channel is not notification (that works now), it is ANSWERABILITY.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-56-THE-STOP-HOOK-CANNOT-TELL-MY-WORK-FROM-A-CONCURRENT-AGENTS",
+      "title": "stop-hook-git-check pressures the manager to commit a running sub-agent's in-flight source changes",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": null,
+      "tier": "1",
+      "observed": "2026-09-02, FOUR times in ~20 minutes. `~/.claude/stop-hook-git-check.sh` fires 'There are uncommitted changes ... Please commit and push' whenever the working tree is dirty. It has no notion of WHOSE changes those are. Every firing today was on a live sub-agent's work, not mine — my branch was in sync with origin each time.",
+      "what_complying_would_have_done": "⚠️ NOT a tidiness issue. The dirty paths were config/instruments.yaml, src/units/accounts/execute.py, src/units/accounts/qty_legalize.py, precision.py, instrument_profile.py, profile_loader.py and two test files — a live, unreviewed, ORDER-PATH-ADJACENT change. Committing them would have (a) put unreviewed order-path code into a PR about recording operator decisions, and (b) taken the work out from under a running agent that had not finished or tested it.",
+      "root_cause": "One git working tree, two writers. The hook assumes a single writer per checkout. It is correct for that case and actively harmful for this one. The manager's own `git checkout` compounds it: it does not move an agent's uncommitted files aside, it DRAGS them onto whatever branch the manager lands on.",
+      "what_actually_prevents_it": [
+        "Sub-sessions in their OWN CONTAINER (create_session) rather than in-process agents — used for MI-53 today, and the reason it was used.",
+        "Agent worktree isolation — ATTEMPTED today and REFUSED: 'Cannot create agent worktree: not in a git repository', because the session cwd is /home/user while the repo is /home/user/Metis-Insights. Spawning with the repo as cwd would likely fix it; UNVERIFIED, do not assert it.",
+        "NEVER `git add -A` while any agent shares the tree. Explicit paths only. This is the discipline that saved it today after the first near-miss."
+      ],
+      "the_honest_residual": "⚠️ The hook is not wrong to fire — it cannot know. So this is not 'fix the hook to be quiet'; a hook that learned to ignore dirty trees would stop catching the case it exists for. The fix is on the SPAWN side: agents should not share a tree. Recorded so the next manager does not resolve four hook warnings by committing someone else's work.",
+      "priority": "P2_OVERHAUL"
+    },
+    {
+      "id": "MI-57-OPEN-PR-RECORD-HAS-A-NON-TERMINATING-STALENESS-REGRESS",
+      "title": "The open-PR handoff record can never read clean, because the PR that maintains it is itself an open PR",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01T8iWSepqAuBU7sgbs8GPHu",
+      "tier": "1 (tooling + CI)",
+      "observed": "handoff_check's open_prs check FAILS in both directions by construction. Every open PR must have a row (recorded - observed_open -> stale_row; observed_open - recorded -> unrecorded). The PR that maintains the rows is itself an open PR, so it needs a row, and merging it makes that row stale. MEASURED LIVE 2026-09-02: #10775 merged (d08cac48) about NINETY SECONDS after a branch recorded a row for it -- the row was correct when written and stale before the PR carrying it could open. The manager then pruned it and opened #10777, whose own row went stale on merge (cd8554fa). Two full iterations of the loop, observed, not argued.",
+      "what_complying_would_have_done": "Nothing. There is no compliant sequence: the gate cannot read `ready` on the merge that closes it. Restating the regress in each PR body -- which is what happened twice -- documents the trap without removing it, and the operator correctly named that as the failure: a structural fix was needed, not a better description.",
+      "root_cause": "TWO, and only the second is the terminator. (1) TWO POPULATIONS CONFLATED UNDER ONE KEY: open_prs[] holds both an in-flight CLAIM (this PR is open, here is its owner and blocker) and the durable DECISION RECORD (what the operator actually said, verbatim). Only the first should be graded against the live open list; the second is HISTORY and is MORE load-bearing after the merge than before -- #10746's conditional Tier-2 approval (bybit_1 demo only, real-money bybit_2 accepted as exposed) is precisely what a successor must not lose. So 'pruning a stale row' DELETES decision knowledge in order to satisfy a freshness rule: the same shape as the OPEN-ITEMS cap that instructed a session to EVICT a valid row, which CLAUDE.md already records as a failure. (2) A COMMIT CANNOT RECORD ITS OWN MERGE. Whatever writes a row's terminal state must run OUTSIDE the commit being merged, and nothing did.",
+      "what_actually_prevents_it": "Four parts, spawned as MI-57. (A) SPLIT THE FILE: open_prs[] graded against live, settled_prs[] never compared -- pruning becomes a MOVE, so knowledge is preserved and the freshness check keeps its teeth. (B) A POST-MERGE RECONCILER on push:main that moves a row whose PR is no longer open into settled_prs[] stamped with terminal/merge_sha/observed_at. Running outside the merging commit is what terminates the regress. (C) grade_completeness reads only open_prs[]; a NEW finding fails a settled_prs[] row with terminal=closed_unmerged and no disposition, because an abandoned PR with no stated reason IS real lost knowledge. (D) A DEAD RECONCILER MUST BE VISIBLE: if a stale row exists AND last_reconciled_sha != current main sha, the message says the RECONCILER has not run -- a different finding from a session forgetting, never collapsed into stale_row. (E) MEASURED CONSTRAINT ON (B), recorded here AND relayed. ⚠️ THIS ROW SAID 'a manager CANNOT message a running sub-session' AND THAT WAS WRONG -- do not re-quote it. The true statement is narrower: SendMessage/ListAgents do not ADDRESS cloud sessions from a manager container (measured -- SendMessage to the session id returned 'No agent named ... is reachable'), and the manager generalised from those two tools to the capability. A session-bound Routine DOES reach it: create_trigger with persistent_session_id set and BOTH cron_expression and run_once_at omitted, then fire_trigger. Two limits travel with it -- the fired turn runs WITHOUT mcp__* tools (so never tell it to pull a job log; quote the log INTO the prompt), and it is ONE-WAY, so the outcome is read from the branch/PR/get_session and never as a reply. The constraint below is therefore BOTH a relayed instruction and a review criterion on the draft PR: `main` is branch-protected and a direct push is REJECTED -- I tried one for this very commit and got `GH006 ... 3 of 3 required status checks are expected`. The repo already solved this: `.github/actions/commit-to-main` lands a change via a PAT-authored auto-merge PR with `verify-merged: true`, whose own comment records BL-20260706-GPU-BURST-LEDGER-PUSH-RACE (a direct push rejected, rows SILENTLY dropped, the $10 spend gate defeated). ⚠️ THAT CREATES THE REGRESS FROM THE OTHER SIDE: the reconciler's own landing PR is an open PR and would itself need a row. The resolution is a TYPED exclusion -- bot author AND `automation/` head-branch prefix, BOTH, never either -- which is categorically different from the rejected exemption: an automation landing PR carries no owner session, no intent and no operator decision, i.e. none of the three things this record exists to carry, so its absence cannot hide a forgotten human decision. A bare 'skip bots' is WRONG and must fail a test: a Claude-opened PR is bot-authored in the API sense and must still require a row.",
+      "the_honest_residual": "The fix depends on a workflow actually firing, and this repo has a documented history of machinery that looks armed and is not -- probes.yml and due-list.yml at zero scheduled runs, two Claude Routines enabled:true with next_run_at 0001-01-01. That is exactly why (D) exists: the failure mode is not 'the reconciler is wrong' but 'the reconciler silently stopped and stale rows read as a session's negligence'. Separately, the REJECTED fix must stay rejected: exempting the in-flight PR from the completeness check is byte-indistinguishable from the real failure the check exists to catch (a PR nobody recorded), and open_pr_record.py's own docstring says so. And the residual open_pr_record.py already names is untouched -- an author writing verdict:approved where conditions were in fact given is undetectable from inside the repo, because this file IS the record. AND the manager initially believed (E) could not be relayed at all, which was FALSE and is corrected above -- the wrong belief came from generalising two tools' addressing limits into a capability claim, which is the same unprovenanced-inference shape this repo keeps filing. It was relayed by a session-bound Routine. What remains genuinely one-way is the RETURN path: the sub-session cannot answer, so a relayed constraint is a broadcast and the manager still learns whether it landed only by reading the branch. A constraint that must be ACKNOWLEDGED still has no channel.",
+      "priority": "P1_HANDOFF"
+    },
+    {
+      "id": "MI-58-DECISION-PROMPTS-LAND-ON-THE-TRADER-BOT-NOT-CLAUDEBOT",
+      "title": "Work-decision prompts are answerable only on the trader bot, because nothing polls the dedicated Claude bot",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01XH17FTCCjiwHcMLAVeDLQZ",
+      "tier": "2 (a live service gains a polling loop; no order path)",
+      "observed": "Operator direction 2026-09-02, on seeing the first live prompt: 'that's supposed to be showing up in Cloudbot. Right? Not on the trader one, the decisions.' Correct. #10778 (merged 133587f1) routes prompts to the TRADER bot via telegram_decisions.answerable_route(), deliberately NOT claude_route(). Measured in that PR: the trader token is polled by ict-telegram-bot.service with a CallbackQueryHandler; the prop token is polled by ict-claude-bridge.service despite its name; TELEGRAM_CLAUDE_BOT_SECRET is polled by NOTHING. The operator DOES receive pings on ClaudeBot (an OPS deploy ping landed there at 10:11Z and they screenshotted it), which is exactly the distinction: sending needs only a token, a BUTTON needs a polling process to collect the callback_query.",
+      "what_complying_would_have_done": "Nothing was violated. The build's choice was correct given what exists -- pointing prompts at ClaudeBot today would have shipped DEAD BUTTONS THAT LOOK HEALTHY, which is strictly worse than the wrong-channel state, and the PR said so explicitly rather than picking claude_route() because the name matched. The gap is that only half the capability exists, not that the wrong half was built.",
+      "root_cause": "DELIVERY AND ANSWERABILITY ARE DIFFERENT PROPERTIES and only the first was ever built for the Claude bot. OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN tracks the delivery half; nothing tracked the second, because until a button existed nobody needed the Claude bot to be polled. A channel that can be written to but not answered on reads as a working two-way channel from the operator's side right up until the first tap.",
+      "what_actually_prevents_it": "MI-58 builds BOTH halves in one PR, in order: (1) make the Claude bot genuinely polled with a CallbackQueryHandler wired to the SAME handle_decision_callback -- not a fork, one owner, so the route stays the single owner of every refusal; (2) only THEN point answerable_route() at it. Plus the state that makes a regression visible: a startup line naming which token is polled and whether a handler is attached, and a sweep HOLD with a WARNING when the answerable bot is not confirmed polled -- three states, never collapsed (polled_with_handler / token_only_not_polled / unknown), because 'the button rendered' and 'the button works' are otherwise indistinguishable from the operator's side.",
+      "the_honest_residual": "A green harness cannot prove this: the done-condition is a real tap on ClaudeBot producing a work_decision_transit.jsonl row, which needs the operator. The trader-bot round-trip IS already proven end to end (2026-09-02T10:16:36Z, chosen=accept_ungated, submitted_by=telegram), so MI-58 changes WHERE it happens and must not be read as re-proving WHETHER it works. And if the VM's .env lacks TELEGRAM_CLAUDE_BOT_SECRET the build stops at a manager/operator action -- it must NOT be worked around, and must NOT reuse TELEGRAM_CLAUDE_BOT_TOKEN, which drives the PROP bot.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-59-STATUS-AND-DECISIONS-COMMANDS-ON-THE-CLAUDE-CHANNEL",
+      "title": "/status and /decisions — pull the status update and every waiting decision on demand, instead of only receiving them as they fire",
+      "state": "blocked",
+      "added": "2026-09-02",
+      "owner": "session_01272CQFvWA5F9tS9nNRpJtK",
+      "tier": "2 (a live service gains command handlers; no order path)",
+      "observed": "Operator ask 2026-09-02, immediately after the first decision round-trip closed: a /status command returning the status update 'with the checklist and everything', and a /decisions command so every still-unanswered decision 'can all pop up at once, in case I don't get them as they come in'. The second names a real gap the push channel cannot close by itself: a prompt that fires while the operator is away is not re-offered, and the periodic sweep deliberately asks ONCE per request (a per-process re-ask is BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART, which put 202 CRITICALs on the operator's channel). PULL is the correct complement to PUSH here, not a duplicate of it.",
+      "what_complying_would_have_done": "Nothing was violated; this is new capability. Worth recording is the SEQUENCING constraint the ask does not mention: a /command reaches only a bot some process is POLLING, exactly like a button, so on ClaudeBot these arrive WITH MI-58 and not before it. Building them against a hardcoded token would have created a second migration the moment MI-58 lands.",
+      "root_cause": "n/a — a feature request. The dependency is structural: DELIVERY needs only a token, but a COMMAND and a BUTTON both need a polling process. MI-58 is what makes ClaudeBot satisfy that; MI-59 must not duplicate the decision.",
+      "what_actually_prevents_it": "Both commands register on telegram_decisions.answerable_route() -- the SAME resolver the prompts use -- so they work today on whatever bot is genuinely polled and follow MI-58 to ClaudeBot automatically, with no second migration and no operator decision required. /decisions reuses the sweep's own prompt/keyboard builder rather than a second copy, because two copies of the callback_data construction is how the 64-byte budget and the key-digest scheme drift apart. /status prints in the operator's required order (checklist -> recently done -> next) and STAMPS the sha it read plus whether the VM tree is behind main, three states never collapsed (synced / behind_main / unknown) -- measured today, the decisions route read `in_transit` for minutes after the answer was already committed to main, purely because the VM had not synced, so a confident status over a stale tree is a live failure mode and not a hypothetical. A truncated checklist must state how many items it omitted; a /decisions with nothing waiting must say so explicitly, because silence is indistinguishable from a broken command.",
+      "the_honest_residual": "A green harness proves none of it: the done-condition is the operator typing each command and getting a correct reply, which needs them. Authorization is the sharper risk -- the repo is PUBLIC and the bot username is discoverable, so both commands expose internal state to anyone who finds the bot unless they answer only the operator's own chat; the spec requires reusing the existing handlers' auth notion rather than inventing a second one, and that is the thing to check hardest at review. And /status reads the MANAGER's checklist, which is only as honest as the manager keeping it -- a stale as_of will render as confidently as a fresh one, which the sha stamp mitigates but does not solve.",
+      "blocked_on": [
+        {
+          "kind": "object",
+          "ref": "MI-58-DECISION-PROMPTS-LAND-ON-THE-TRADER-BOT-NOT-CLAUDEBOT",
+          "since": "2026-09-02",
+          "note": "OPERATOR DIRECTIVE 2026-09-02, verbatim: 'don't add those commands to the trader bot, thats definitely not what i asked for - i asked for them in cluade bot.' The commands resolve answerable_route(), i.e. whatever bot is actually POLLED, and today that is ict-telegram-bot.service polling TELEGRAM_BOT_TOKEN -- the TRADER bot. So merging and restarting would put them exactly where the operator said not to. #10793 is therefore HELD as a DRAFT with auto-merge removed; the hold is on the DEPLOY DESTINATION, not on the code, which is complete and guard-clean."
+        }
+      ],
+      "blocked_on_basis": "ASSESSED 2026-09-02 by the manager, against the measured polling fleet rather than inferred from the code.",
+      "note": " || HELD 2026-09-02 BY OPERATOR DIRECTIVE. The work is DONE (#10793: +2,552 lines, 146 tests, guards 49/0) and must NOT deploy until ClaudeBot is the polled bot. [!] MERGING ALONE IS ENOUGH TO BREAK THIS: once the code is on main, the NEXT restart of ict-telegram-bot.service for ANY reason registers /status and /decisions on the TRADER bot, because install_operator_commands resolves whatever process is polling. So the PR is held as a DRAFT rather than merged-and-not-restarted -- 'we won't restart it' is a promise, and a draft is a mechanism. [!] DO NOT 'FIX' THIS BY GATING REGISTRATION ON THE BOT IDENTITY. operator_commands deliberately registers in ALL THREE route states because a silently absent command is indistinguishable from a broken one; adding a 'only register on ClaudeBot' branch would reintroduce exactly that. The right unblock is MI-58. CI was ALSO never running on #10793 and that was invisible: its head commit was a board-post relay commit authored by github-actions[bot], which triggers no workflows, so total_count read 0 and looked like 'not started'. The manager merged origin/main in (the branch was behind anyway) to arm it.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-60-A-COMMITTED-DECISION-IS-NEVER-PUSHED-BACK-TO-THE-SESSION-THAT-ASKED",
+      "title": "The decision round-trip ends in the repo and stops — the session that asked learns the answer only by polling",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01PEYVqTaCY92C3HmtHwxYff",
+      "tier": "1 for the investigation; the build depends on what it touches. No order path either way.",
+      "observed": "Operator ask on watching the first round-trip close: 'can we add a push on the end of that so that when the answer gets to the repo, it knows to push it to the session instead of waiting for the session to pull'. MEASURED against the machinery that shipped today: a decision request carries object_id, request_id, options, urgency and context -- and NOTHING identifying the session that asked. So there is currently no address to push to, whatever the transport turns out to be.",
+      "what_complying_would_have_done": "n/a -- a feature request, and a well-aimed one. Phase H's own design says visibility is the enforcement mechanism this system has never had; a channel that carries a question outward and cannot carry the answer back to the asker is half of that.",
+      "root_cause": "The round-trip was designed to make truth land in the REPO, which it does correctly. Delivery back to the ASKER was never in scope, so the asking session's identity was never recorded. That is a gap in the object schema before it is a gap in transport.",
+      "what_actually_prevents_it": "MI-60, and its FIRST deliverable is deliberately not code: a feasibility doc stating per claim what was TESTED versus READ FROM DOCUMENTATION. ⚠️ The manager made exactly this error today -- declared 'a manager cannot message a running sub-session' off ONE failed SendMessage, wrote it into a merged PR body and a checklist row, and it was FALSE. A session-bound Routine (create_trigger with persistent_session_id, no cron, no run_once_at, then fire_trigger) IS verified to wake a running session, observed 2026-09-02T10:12Z. The genuine unknown is whether an Actions runner can fire one -- it holds no mcp__* tools -- and the watch_url alternative has two limits that shape the design rather than decorate it: the watch dies with the session, and THIS REPO IS PUBLIC so a webhook URL committed to it is a published endpoint. Design constraints that hold whichever transport wins: record the asking session (smallest change, gates everything); the push must CARRY the answer because a fired turn cannot go fetch it; one-way, so nothing waits for an ack; three states never collapsed (pushed / session_gone / unknown); and PUSH ADDS TO PULL rather than replacing it.",
+      "the_honest_residual": "session_gone is not an edge case -- a long question is exactly the kind whose asking session dies before the answer lands, so the fallback is the common path and the push is the optimisation. A push-only design would silently lose answers precisely when they matter most. And a green test proves nothing here: the done-condition is an OBSERVED wake -- a session idle before and running after, doing something attributable to the push.",
+      "note": " || OPERATOR DECISION 2026-09-02, dispatched to the session and recorded here because a decision that lives only in a transcript is the failure this build exists to end. THE 30-DAY CLAUDE_CODE_OAUTH_REFRESH_TOKEN IS RULED OUT -- operator verbatim: 'we definitely can't have a flow that relies on my minting new tokens every month - but we also need to the 2 way flow here.' The REQUIREMENT STANDS; only that mechanism is dead, and the objection is to a human re-minting anything on a schedule, so a longer-lived token or a PAT is the same answer and is also ruled out. APPROVED SHAPE: C as the design (a blocking question ENDS the session and a fresh one is re-fired when the answer lands, so nothing must reach into a live session and nothing needs a credential to do it) - B as the mechanism (a standing cron Routine, fresh session per fire, hourly, draining committed decisions off /api/bot/work/decisions) - A as the fast path (session-bound Routine wake, PROVEN, used four times today). [!] C IS RIGHT AND NOT YET EARNED: it depends on the work object being resumable, which is Phase E, whose exit condition is 'killing a session mid-work loses nothing, DEMONSTRATED by killing one' and nobody has killed one. B is therefore the floor. [!] B IS THE SHAPE THAT HAS GONE INERT TWICE ON THIS ACCOUNT (Health Check Routine and Sprint Continue Work: enabled true, next_run_at 0001-01-01, never fired, still naming the pre-July repo name), so B IS NOT DONE WHEN THE ROUTINE EXISTS -- it is done when something WATCHES that it fired, via list_triggers.last_run. RULED OUT ON MEASUREMENT, not inference: watch_url mints a per-session inbound webhook at api.anthropic.com with no standing secret -- exactly the right shape -- and an unsigned POST returns 401; its sealed_secret is encrypted to the artifact service, so no GitHub workflow can ever sign a delivery. Probe created, POSTed, 401, unwatched.",
+      "priority": "DEFERRED",
+      "deferred_reason": "Not tied to P1 (handoff) or P2 (overhaul implementation). Keeps its state and evidence; not worked until the priorities are done. A P0 incident overrides this immediately."
+    },
+    {
+      "id": "MI-62-AUTOMATION-COMMITS-PUSHES-THEN-FAILS-TO-LAND-AND-NOTHING-NOTICES",
+      "title": "17 of 17 automation/* branches are unreachable from main — committed, pushed, never landed, over ten weeks",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01Jc8yFVG4XP7nJ841byyt1L",
+      "tier": "1 (investigation); any fix depends on what it touches",
+      "observed": "POPULATION: all 17 `automation/*` branches on origin (git ls-remote --heads), each tested with `git merge-base --is-ancestor <sha> origin/main`. RESULT: 0 landed, 17 unreachable. Span 2026-06-23 to 2026-09-02: 8 ciwatch-pr10757 result branches (today 06:00-07:20), work-digest (today 07:10), probes (today 09:44), econ-calendar (2026-08-29, which DOES have an open PR #10398), 2 research-queue stamps (2026-08-30), valuation-snapshots (2026-07-23), and 3 grade-order-packages carrying 1049 + 18 + 6 order-package decision grades (2026-06-23). Found while checking whether work-digest.yml had ever fired on cron for Phase B -- it HAS, twice: run #1 SUCCESS (00:19:37Z), run #2 FAILURE (07:10:05Z) which nobody had looked at four hours later.",
+      "what_complying_would_have_done": "Nothing available would have caught it. The gap is that no check compares automation output against main. `claude-run-failure-alert` covers run failures, and whether it fired here is unestablished -- that is part of MI-62's brief and must be answered with a POSITIVE CONTROL, since 'it did not fire' and 'we could not show it can fire' are different findings.",
+      "root_cause": "TWO CONFIRMED for today, the rest UNKNOWN and deliberately not generalised. CONFIRMED: work-digest run 33602234950 and work-decision-commit run 33618689721 each committed and pushed SUCCESSFULLY, then died at `gh pr create` on `GraphQL: API rate limit already exceeded for user ID 119055177` -- so the work exists on a branch and no PR was ever opened. The manager opened the second by hand (#10785, merged); the first is still stranded. NOT THE SAME CAUSE: #10398 has an OPEN PR, so its failure is a non-completing auto-merge; and the June/July branches predate today entirely. Asserting one cause for all 17 would be the unstated-population error this repo keeps paying for.",
+      "what_actually_prevents_it": "MI-62, and its first job is a DISPOSITION PER BRANCH -- `superseded` (the content is on main by another route) / `lost` (it is not, and nothing regenerates it) / `unknown` (could not establish) -- checked against CONTENT, never the branch name. A stranded valuation snapshot may have been regenerated the next day; the 1049 grades may already be in comms/claude_strategy_scores.jsonl. The deeper deliverable is that a landing failure becomes VISIBLE: a retry on rate limit is a plaster, and the property that failed is Phase E's declared 'no work is lost'.",
+      "the_honest_residual": "⚠️ THIS BEARS ON A DECISION THE MANAGER ALREADY MADE. `.github/actions/commit-to-main` was approved this morning as the landing route for MI-57's post-merge reconciler (#10783) -- BEFORE this measurement existed. If that route strands work on a rate limit, the reconciler inherits it, and a reconciler that silently fails to land is WORSE than none because the record would then read as maintained while going stale. MI-62 must report on that specifically; it may reverse the approval. Also: the manager must not mass-merge or delete these branches to tidy up -- an unreachable branch is the only surviving copy of its work, and several are months old and may conflict or be wrong to re-land now.",
+      "priority": "P1_HANDOFF"
+    },
+    {
+      "id": "MI-64-CONCURRENT-SESSION-CAP-IS-THREE-NOT-EIGHT",
+      "title": "Operator cap: at most 3 concurrent work sessions, scale up only on measured feasibility",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "tier": "1 (process/governance; no code, no order path)",
+      "observed": "OPERATOR DIRECTIVE 2026-09-02, verbatim: 'I think we need to limit ourselves to 3 concuurent work sessions - 8 seems like too much for to handle reliably, so lets start small and scale up based on what we actually know is feasible', followed by 'LEt all the opne sessions close, but don't spawn new ones until 1 of the 3 slots is open'. So: no forced stand-downs, a spawn gate, and the number is provisional pending evidence.",
+      "what_complying_would_have_done": "Nothing was violated -- this is a new constraint. What it corrects is a manager habit: this session spawned freely because the declared ceiling was 8, and the binding constraint was never the ceiling. It is the OPERATOR'S capacity to follow what is in flight, which no register measured.",
+      "root_cause": "THE CAP IN THE DESIGN COUNTS A DIFFERENT THING FROM WHAT THE OPERATOR CAPPED, and conflating them would silently break CI. The operating model's WIP ceiling of 8 counts in_flight WORK OBJECTS (docs/claude/work/objects/*.yaml) and is enforced by scripts/ci/check_wip_ceiling.py. The operator capped concurrent WORK SESSIONS. These are different registers with different populations: measured 2026-09-02 there are 4 in_flight objects and 2 RUNNING sessions. Lowering the OBJECT ceiling to 3 would fail CI immediately on the 4 in_flight phase objects, which is not what was asked and would block the build. The session cap is therefore applied to SESSIONS, and the object ceiling is left at 8 pending an explicit operator call.",
+      "what_actually_prevents_it": "The manager does not spawn while the count is at or above 3. [!] THE COUNT IS ASSIGNED-AND-UNFINISHED WORK, NOT `SESSION_STATUS_RUNNING`. An idle session that still owes a PR is a thing the operator is tracking, and counting only RUNNING would have read 2 today while four sessions held open work -- the permissive reading, and the one that reproduces the condition the cap exists to end. [!] AND A list_sessions PAGE IS NOT A POPULATION: the read that established today's number returned 40 rows with has_more true, so a count taken from one page must say so.",
+      "the_honest_residual": "NOTHING ENFORCES THIS YET -- it is a manager discipline, and the register that would make it checkable (SESSIONS.json) is the same one measured INCOMPLETE twice: MI-15 found 3 of 6 absent, and a later census found 26 of 55 sessions unregistered with 17 carrying this manager's own id as parent. So a cap counted over that register would under-count exactly when it matters. Making it enforceable is real work and is not done here. [!] THE NUMBER IS PROVISIONAL BY THE OPERATOR'S OWN WORDING -- 'scale up based on what we actually know is feasible' -- so raising it needs evidence about handling capacity, not a busy week.",
+      "priority": "P1_HANDOFF"
+    },
+    {
+      "id": "MI-65-MANAGER-ASSERTED-A-SECRET-WAS-UNSET-WITHOUT-MEASURING-IT",
+      "title": "Claimed TELEGRAM_CLAUDE_BOT_SECRET was unset from a doc row, over the operator's own contrary observation",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "tier": "1 (process; no code)",
+      "observed": "Operator, 2026-09-02: 'I really can't believe we're going back to this again, we already established that the channel works!!!! JUST WIRE THE PR TO RIGHT BOT!!!' They were right. The manager told them TWICE that TELEGRAM_CLAUDE_BOT_SECRET was unset, and gated the ClaudeBot work on it, having never measured it. The claim came from OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN (dated the PREVIOUS day) and from #10789's body saying its author could not read the VM. Neither is a measurement.",
+      "root_cause": "FIELD BEATS COMMENT, INVERTED. The operator had ALREADY shown a ping arriving on ClaudeBot earlier the same day and said 'got this'. That is a direct observation of the channel working, and it was weighed BELOW a dated doc row. This repo's first rule is that a doc is a CLAIM about the field and the field wins; an operator's own sighting is field evidence, not opinion.",
+      "what_actually_prevents_it": "The blocker was asserted, not measured, so it was never a blocker to remove -- it was a claim to check. The correct action is the one the operator gave: wire and merge, and let the DEPLOY be the measurement. The new unit exits EX_CONFIG into a visible `failed` state if the var really is missing, so one deploy settles it at less cost than two rounds of argument.",
+      "the_honest_residual": "IT IS STILL NOT MEASURED. get-env's ALLOWED_KEYS admits a key only when its VALUE is safe to publish, so a bot token is not readable that way, and presence-vs-value is a distinction that path does not expose. The honest state is UNMEASURED -- not 'set', and not 'unset'. Do not close this row on the argument being over; close it on the deploy.",
+      "refs": [
+        "#10789",
+        "#10793",
+        "OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN"
+      ]
+    },
+    {
+      "id": "MI-66-ENACT-THE-OPERATING-LAYER-INVENTORY-QUEUED-FOR-THE-NEXT-FREE-SLOT",
+      "title": "Enact the skills/workflow inventory: wire the role packs to the operating layer, and repair the 4 named workflows",
+      "state": "landed_unproven",
+      "added": "2026-09-02",
+      "owner": "session_019vcX5ZTD8C7wNAEtfPUdFQ",
+      "tier": "1 for the skills + workflow repairs; a RETIRE is Tier-3 and is proposed, never enacted",
+      "spawn_when": "THE NEXT FREE SESSION SLOT. Operator-directed 2026-09-02: \"queue that up for the next free slot\". The caps are 4 sessions AND 4 artifacts, independently (MI-64), and both were at or over cap when this was queued. The expected first opening is MI-58 (#10789) completing.",
+      "observed": "docs/audits/operating-layer-skills-workflows-inventory-2026-09-02.md (730 lines) DELIVERED the mapping MI-41 asked for -- the skill/session-type map, the 129-workflow census, and verdicts. Its own closing section says: 'It enacted nothing. No skill, workflow, register or Routine was created, edited or deleted. The only file added is this one.' So MI-41's diagnosis is DONE and its enactment has not started, and MI-41 carries owner: None.",
+      "root_cause": "THE STRUCTURAL FINDING, and the reason the operating layer keeps not being used: it shipped its OBJECT half on 2026-09-01 -- store, intents, WIP ceiling, constraint readout, lease, checklist, cycle priority, sunset pass -- and NOT ONE ROLE PACK was updated to know it exists. Measured across all 32 SKILL.md files, case-insensitively: docs/claude/work 0 hits, 'work object' 0, WIP 0, blocked_on 0, CYCLE-PRIORITY 0, READOUT 0, PRODUCE/DISPOSE 0, SUNSET-DISPOSITIONS 0. The model's anti-silo mechanism is context = work object + role pack, and its two halves are wired to DIFFERENT SYSTEMS. A session handed a work object opens a role pack describing the pre-2026-09-01 world of three backlogs and DUE.md.",
+      "scope": "IN: (a) wire the handful of role packs that govern how a session SITUATES itself -- the audit's 4.2 names them -- to the work store, the readout and the caps. (b) The 4 REPAIR workflows the audit evidences: replay-pregate-nightly (5 of 5 most recent runs FAILED, and it is now correctly alarmed, so it is generating a nightly page nobody acts on -- a desensitized alarm forming in real time), probes + due-list (reliability, distinct from the already-cleared 'has it ever fired'), strategy-review-packets (20 lifetime runs, 0 on cron -- RE-READ before grading, a late fire is possible), ict-scalp-exit-sweep (red since 2026-08-10, 23 days). (c) The audit's single CREATE item, which it calls the highest-leverage in the document. [!] NOT IN SCOPE: editing all 32 skills. The audit is explicit that most role packs are domain procedure (how to wire a broker, how to run a sweep) and are CORRECTLY indifferent to where work is tracked. A 32-file sweep would be the wrong shape and would bury the handful that matter.",
+      "what_actually_prevents_it": "Nothing technical -- it is unowned, and it was queued behind a session cap rather than behind a blocker. That distinction matters: this is not waiting on evidence or a decision.",
+      "the_honest_residual": "[!] 87 OF THE 129 WORKFLOWS CANNOT BE GRADED ON DORMANCY AT ALL, and the audit says so rather than guessing. They are issue-label-driven and their run history is dominated by skipped label evaluations whose most recent entry is always today; no cheap surface answers 'has this ever done work, and when last'. That is why the RETIRE list is short -- an honest audit cannot retire what it could not measure. Do not let an enacting session 'finish the job' by retiring on a dormancy signal that does not exist. [!] AND THE AUDIT ITSELF CORRECTED THE DESIGN DOCS IN BOTH DIRECTIONS: 5 functions the derivation lists as MISSING have all since shipped, and A1's readout is declared Cadenced while having NO cadence and no freshness check -- stale in the dangerous direction. An enacting session must read the audit, not the derivation, and must not re-derive from build-plan text that the audit already superseded.",
+      "refs": [
+        "MI-41",
+        "docs/audits/operating-layer-skills-workflows-inventory-2026-09-02.md",
+        "#10764",
+        "#10811"
+      ],
+      "landed_unproven_because": "#10811 MERGED 2026-09-02 (f6740744): the constraint-readout cron, three workflow REPAIRs, and two new guards (role-pack operating-layer coverage, workflow-trigger reachability). NOT `done`: no guard has been OBSERVED firing on a real violation, and the owner's own closing note is `pre-gate still red (OOM ruled out)` -- the replay-pregate job it repaired the failure-STAGE detection for is still failing for a cause nobody has named."
+    },
+    {
+      "id": "MI-67-HANDOFF-BAR-IS-VERIFIED-NOT-MERGED",
+      "title": "No manager handoff until the requisite flows are built, implemented AND verified working",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "tier": "1 (process)",
+      "observed": "Operator-directed 2026-09-02: \"I don't want to handoff before we are at least 200% certain that the requisite flows and merchanisms are built, implmented, and verified working correctly\". Also, earlier the same hour: \"i don't want to hand off before we're ready - that's why I keep asking you instead of telling you.\" So handoff readiness is the OPERATOR'S call and handoff_check's readiness=ready is NECESSARY AND NOT SUFFICIENT.",
+      "root_cause": "handoff_check grades whether a SUCCESSOR CAN SEE the state -- registry, lease, checklist, open-PR rows. It says nothing about whether the MECHANISMS WORK. Those are different questions and this repo's whole vocabulary exists to keep them apart: landed_unproven is not done, a merge is not a deploy, and a deploy is not an observation.",
+      "what_actually_prevents_it": "THE BAR, STATED AS OBSERVATIONS SO IT IS CHECKABLE RATHER THAN A FEELING. Each names what would settle it, and a green test settles NONE of them: (1) DECISION ROUND-TRIP ON CLAUDEBOT -- a tap on ClaudeBot producing a work_decision_transit row, then that same request grading `committed` on /api/bot/work/decisions with the answer block on main. Already PROVEN on the TRADER bot (10:11:42Z prompt, 10:16:36Z tap, submitted_by telegram); the ClaudeBot leg is not. [!] CORRECTED 2026-09-02 BY MI-58, AND THE MANAGER'S PREMISE WAS FALSE. The manager told MI-58 that 'once TELEGRAM_CLAUDE_BOT_SECRET is set, the fallback can never fire' and used that to argue for KEEPING the trader-bot fallback rather than making it fail-closed. WRONG: answerable_route() requires a live HEARTBEAT, not merely a token, so if ict-claude-decision-bot.service dies or is masked, decisions land on the trader bot again WITH THE SECRET SET. The fallback is PERMANENT, not a pre-secret window. The decision to keep it may still be right on its own merits -- a wrong chat is a noise complaint, holding every prompt is an outage -- but the reason given for it was not. [!] SO SETTING THE SECRET IS NOT THE POST-DEPLOY CHECK. Read /api/diag/log_file?name=telegram_poll_claude and `destination` in the sweep stats. 'Decisions still arrive' is NOT evidence the move happened -- that is precisely what the fallback produces. (2) /status AND /decisions -- the operator types each and gets a correct reply, ON CLAUDEBOT. #10793 is held as a draft precisely so this cannot be satisfied on the wrong bot. (3) PUSH-BACK TO THE ASKING SESSION (MI-60, #10788) -- a committed decision reaching the session that asked, without a minted token. B is not done when the Routine EXISTS; it is done when something WATCHES that it FIRED (list_triggers.last_run), because two Routines on this account were enabled and never once fired. (4) THE WORK STORE -- a COLD session, not pointed there by its prompt, acting on the readout or the cycle priority and citing where it read it. (5) NO WORK IS LOST (Phase E) -- demonstrated BY KILLING A SESSION MID-WORK, not asserted from a test. Nobody has killed one. (6) THE DAILY DIGEST -- one run with event=schedule. A workflow_dispatch run is not a cron run.",
+      "the_honest_residual": "[!] THE MANAGER IS THE WRONG JUDGE OF (4) AND CANNOT CLEAR IT. A cold observation is by definition made by a session that was not told, and this manager built or dispatched most of these. Record WHICH session made each observation. [!] AND DO NOT LET THIS ROW BECOME A REASON NEVER TO HAND OFF. It is a bar, not a veto: if a mechanism turns out to be unverifiable rather than merely unverified, that is a finding to report to the operator, not a condition to wait out forever.",
+      "refs": [
+        "#10789",
+        "#10793",
+        "#10788",
+        "MI-64",
+        "MI-65"
+      ]
+    },
+    {
+      "id": "MI-68-THE-MANAGER-ROLE-HAS-NO-ROLE-PACK-AND-NO-EXECUTABLE-PREFLIGHT",
+      "title": "The most privileged role in the system has no skill, so every manager re-derives the job from prose and repeats the same mistakes",
+      "state": "landed_unproven",
+      "added": "2026-09-02",
+      "owner": "session_013ANr63vsQ9TjU4sh51vxny",
+      "tier": "1 (a skill + checks; no order path)",
+      "spawn_when": "After MI-66, or in the same session if scope allows. Both are enactment of the operating-layer inventory.",
+      "observed": "Operator, 2026-09-02: 'how do we ensure that you future manager session don't make the same mistake?' MEASURED in answering it: 32 skills exist and NOT ONE is a manager role pack. The role that merges, deploys, spawns sessions, holds the lease and answers to the operator is the only significant role with no pack. Everything a manager knows arrives as prose -- CLAUDE.md, a sweep-trigger prompt, and whatever the previous manager wrote in a checklist note.",
+      "root_cause": "DOCUMENTATION HAS ALREADY BEEN TRIED AND MEASURABLY FAILED, and that is the whole argument for this row. The CI-never-fired trap is stated VERBATIM in CLAUDE.md ('if such a commit lands last your PR shows ZERO checks and is blocked, not green -- push an ordinary commit after, to arm CI'). The manager session of 2026-09-02 had read that line and hit the trap THREE TIMES the same afternoon (#10793, #10795, #10789). Restating a rule that is known and still broken is not a fix; this repo's own F4 says a repeated mistake becomes an executable check or it is not a lesson.",
+      "scope": "A `manager` skill carrying (a) the loop -- lease heartbeat, read the registers, merge one at a time re-verifying between, review before un-drafting, spawn through the registry -- and (b) an EXECUTABLE PREFLIGHT rather than a list of reminders. The preflight must include, at minimum, the four failures measured on 2026-09-02: 1. BEFORE trusting `total_count: 0`, read mergeable_state AND the head commit's AUTHOR -- a bot-authored head means CI never fired (BL-20260902-BOARD-POST-RELAY-SILENTLY-KILLS-CI-ON-THE-PR-OF-ANY-SESSION-THAT-FOLLOWS-THE-PROTOCOL...). 2. BEFORE landing a register-touching manager PR, check what sibling PRs it will re-conflict; the manager is the highest-frequency writer to those files (BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE...). 3. BEFORE blocking work on a claim about live state, PROBE it. The 2026-09-02 manager blocked the ClaudeBot work on 'TELEGRAM_CLAUDE_BOT_SECRET is unset', asserted from a doc row dated the previous day, against the operator's own contrary sighting (MI-65). 4. BEFORE a read-append-write on any register, confirm the file round-trips; OPEN-ITEMS.json does not (BL-20260902-OPEN-ITEMS-IS-THE-ONE-REGISTER-NO-APPEND-HELPER-PROTECTS). 5. F6 -- REFUSE TO PROCEED when the count of unnotified autonomous actions since the last ping exceeds a stated threshold. This is the fifth item and arguably the first in importance: F6 is the CONDITION the autonomy grant rests on, and on 2026-09-02 a manager merged 5 PRs, dispatched 4 sessions, held a PR to block a deploy and made a fallback design call across ~8 hours while sending ZERO pings -- the operator noticed before the manager did. The class of action most worth reporting is exactly the class that is silent, because merge_pull_request / update_pull_request / create_session / fire_trigger are MCP calls with no notification hop, while the narrow VM system-actions DO carry one. BL-20260902-THE-MANAGERS-HIGH-IMPACT-ACTIONS-BYPASS-EVERY-PATH-THAT-NOTIFIES.",
+      "what_actually_prevents_it": "An executable preflight the manager RUNS, not a section it reads -- the `handoff_check.py` shape, which already refuses `ready` rather than grading a soft pass, and which is the one manager mechanism that has worked reliably today. Every item above is checkable from a script.",
+      "the_honest_residual": "[!] A SKILL IS STILL PROSE UNTIL THE CHECKS EXIST. Writing a `manager` SKILL.md and stopping there would reproduce exactly the failure this row documents -- and would be harder to see, because the role pack would LOOK like the fix. The deliverable is the checks; the skill is where they are invoked from. [!] AND IT INHERITS MI-66's FINDING: no role pack references the operating layer at all, so a new manager pack must point at the work store, the readout and the caps rather than the pre-2026-09-01 world of three backlogs and DUE.md. Writing it against the old world would add a 33rd skill with the same gap.",
+      "refs": [
+        "MI-66",
+        "MI-65",
+        "MI-20",
+        "MI-28",
+        "BL-20260902-BOARD-POST-RELAY-SILENTLY-KILLS-CI-ON-THE-PR-OF-ANY-SESSION-THAT-FOLLOWS-THE-PROTOCOL",
+        "BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE",
+        "BL-20260902-OPEN-ITEMS-IS-THE-ONE-REGISTER-NO-APPEND-HELPER-PROTECTS",
+        "#10808"
+      ],
+      "landed_unproven_because": "#10808 MERGED 2026-09-02 (67cfb8be). ⚠️ TWO OF THE THREE MECHANISMS WORK AND THE THIRD CANNOT. The manager VERIFIED spawn_gate.py on both controls itself -- out-of-priority exits 3, in-priority exits 0. But queue_latency.py grades `unknown` PERMANENTLY: its verdict needs a live list_sessions read and CI holds no mcp__* tools. Honest, and not yet a guard. MI-73 owns closing that."
+    },
+    {
+      "id": "MI-69-A-REBASE-CAN-ARM-AUTOMERGE-WITHOUT-ANYONE-ASKING",
+      "title": "A rebase or merge of main arms auto-merge on a claude/** branch, because the push diff includes everything main changed",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "session_01XrwTGRY819PCzBnppCTLbi",
+      "tier": "1 (CI/workflow)",
+      "observed": "Found and filed by MI-58. claude-pr-automerge.yml still carries the LEGACY shared marker `.github/pr-automerge-request` in its paths: filter and that file is still in the tree, so any claude/** branch that merges or rebases main touches the path and is UN-DRAFTED AND ARMED having asked for nothing. [!] THIS EXPLAINS AN OBSERVATION THE MANAGER MADE AND COULD NOT ACCOUNT FOR: on #10795 the manager noted that github-actions[bot] un-drafted the PR and enabled auto-merge 'without a marker file in my diff' and flagged it as odd. This is the cause. The manager had the symptom; MI-58 had the mechanism.",
+      "what_actually_prevents_it": "Remove the legacy shared path from the workflow's paths: filter so ONLY the per-request .github/pr-automerge-requests/<slug>.txt opt-in arms it. That per-request path is already the documented convention and its README records why the shared marker was wrong.",
+      "the_honest_residual": "[!] DELETING A HOLD FILE IS NOT THE FIX. A test-file hold WAS deleted on 2026-09-02 (correctly, for an unrelated reason) and could be mistaken for remediation. The mechanism is untouched.",
+      "refs": [
+        "#10789",
+        "#10795",
+        "#10810"
+      ],
+      "note": "#10810 reviewed by the manager and ARMED 2026-09-02, not yet merged. Its central finding is that removing the legacy shared marker FIXES NOTHING ON ITS OWN -- measured across the three misfires, that path appears in ZERO of them; what matched is the GLOB, because any branch merging main drags other branches' request files into its push diff. The real fix is a REQUEST GATE proving THIS branch asked, plus never un-drafting a PR the workflow did not create."
+    },
+    {
+      "id": "MI-71",
+      "title": "Decision PRESENTATION on ClaudeBot: options as a readable list, and real multiple choice",
+      "state": "deferred",
+      "priority": "DEFERRED",
+      "owner": null,
+      "tier": "2 (touches the Telegram bridge; no order path, no strategy config, no risk caps)",
+      "raised_by": "operator, 2026-09-02, in conversation, EXPLICITLY not urgent: 'Also not urgent, but something that I do want us to have ... somewhere in our work plan.'",
+      "observed": "Operator, on the live decision prompt: 'the point with the buttons is that it's very shortened, a little cut off ... maybe there's more of a list and I can click the options, maybe some would be multiple choice. I think that button is a good first step, but probably not the end of where this design needs to go.' So the ASK half of the decision round-trip works and its PRESENTATION is the limit.",
+      "⚠️_the_truncation_is_the_LABEL_not_the_callback_data": "DO NOT go looking for a callback_data size bug -- it is already solved and re-solving it would waste the session. `callback_data` is 26 bytes FIXED (`wdec:<12 hex>:<8 hex>`) against Telegram's 64-byte cap, and it carries a DIGEST of the option KEY, deliberately never a positional index. What the operator sees cut off is the BUTTON LABEL, which Telegram renders narrow and elides. Those are different layers.",
+      "the_shape_to_build": {
+        "1_options_as_a_numbered_list_in_the_MESSAGE_BODY": "Put the full option text in the message body as a numbered list -- where there is room for it -- and reduce each button to its number. The body is not width-constrained the way a button is, so the option a person is choosing between becomes readable without touching the callback contract at all. This is the cheap half and it is probably most of the win.",
+        "2_multiple_choice_is_NOT_one_press": "[!] A single inline keyboard press submits ONE value, so multi-select is not a formatting change -- it needs a TOGGLE keyboard: each tap flips an option's mark and re-renders the keyboard, and an explicit Submit sends the set. That means holding PARTIAL, UNSUBMITTED state between taps, which the current design deliberately does not have. Decide where that state lives BEFORE building it; a half-submitted answer that looks submitted is the forward-failure the transit contract exists to refuse.",
+        "3_free_text_is_still_a_separate_step": "Unchanged and deliberately not half-built: inline buttons cannot carry arbitrary text. A request declaring no options is still SENT (so a blocking question is never invisible) and says plainly that it needs an answer on the SPA or in the repo."
+      },
+      "what_must_not_regress": "The four never-collapsed answer states (`not_submitted`/`in_transit`/`committed`/`unreadable`); the option token staying a KEY DIGEST rather than an index (an index silently records a different answer if the object is reordered between send and tap); the fail-closed write gate; and the confirmation continuing to read 'Submitted -- NOT yet decided'.",
+      "why_deferred": "P1 is the handoff capability and P2 is the overhaul implementation. This is a UX improvement to a channel that already works end-to-end -- the round-trip was observed complete on 2026-09-02. The operator said not urgent and this records that as a decision, not as an oversight.",
+      "refs": [
+        "#10793",
+        "WO-20260901-PHASE-H",
+        "MI-59"
+      ]
+    },
+    {
+      "id": "MI-74",
+      "title": "The daily manager cadence: day session → declared wrap → night manager → morning brief",
+      "state": "queued",
+      "priority": "P1_HANDOFF_CAPABILITY",
+      "owner": null,
+      "tier": "1 (scheduling, registers, ping cadence)",
+      "raised_by": "operator, 2026-09-02, in conversation, as the shape the handoff should take",
+      "⚠️_THIS_SUPERSEDES_THE_MANAGERS_OWN_FRAMING": "The manager reported that `open_prs` completeness is POINT-IN-TIME and concluded 'a handoff has to be taken in a QUIET WINDOW, or the check needs a bounded tolerance.' That framing is PASSIVE -- it waits for a quiet moment that a busy repo never reliably offers. The operator's answer is ACTIVE and is better: you do not wait for a quiet window, you CREATE one, by declaring per thread which PR is the LAST one before the manager moves on. Do not re-derive the tolerance idea from the old framing; the boundary is declared, not awaited.",
+      "the_cycle": {
+        "1_morning": "The day STARTS WITH A PING — a daily brief into a NEW manager session. ⚠️ The brief must carry WHAT WAS DONE OVERNIGHT and what was wrapped up after the operator went to bed. Operator: 'by the [brief] in the morning, I want that to include what was done overnight and what was wrapped up after I went to bed, so that I know where I'm starting off from.' A brief that only describes the new day's plan fails its purpose.",
+        "2_day": "ONE manager session per day.",
+        "3_wrap": "The operator SAYS when they are going to bed. That is the trigger, not a clock. The manager then produces a RAPID WRAP PLAN: (a) the LAST PR for each thread; (b) confirmation that NO Tier-3 decision is left dangling -- and any that is gets LOGGED FOR THE NEXT DAY rather than carried in a session's head; (c) close everything down.",
+        "4_night": "The manager SETS OFF THE NIGHT SESSION ITSELF, scoped by HOW MUCH TIME IT HAS until the morning brief. Night work is deliberately the low-operator-dependency kind: backlog items and UI, 'things that are less important and need less of me, and very easy to run without me.' ⚠️ NOTHING TIER-3 AND NOTHING NEEDING A DECISION goes to the night session -- it cannot get an answer."
+      },
+      "the_last_PR_per_thread_rule": "⚠️ READ WHAT THE OPERATOR RULED OUT, not just what they asked for. They explicitly did NOT ask that entire MILESTONES be finished before a handoff: 'it just means that for each thread of workflow, we need to decide what the last PR for each manager is gonna be before we move on, and that needs to be documented clearly so that we can make sure that we're sticking to that.' So the unit is a DECLARED TERMINAL PR PER THREAD, documented in advance and held to -- not milestone completion, which would block every handoff indefinitely.",
+      "what_this_needs_built": "Not yet designed, and deliberately not designed here: where the per-thread terminal PR is DECLARED (OPEN-PRS.json rows already carry a thread via checklist_item, so this may be a field rather than a new register); how the morning brief is GENERATED from the overnight record rather than written by hand; and whether the night session's scope is bounded by a stated deadline it can read. Operator also raised timers/pings for start-and-finish awareness -- worth a design pass, not a guess.",
+      "⚠️_honest_precondition": "The operator's own read: 'it sounds like we still have a lot of [work] here to get [addressed] so that we're able to do an actual reliable handoff.' This item does NOT claim the cadence is achievable today. handoff_check.py still reads not_ready more often than ready on a busy repo.",
+      "refs": [
+        "MI-67",
+        "MI-73",
+        "WO-20260902-MANAGER-PREFLIGHT"
+      ],
+      "⚠️_CORRECTION_THE_MANAGER_MADE_TO_ITSELF": "THE NIGHT HOP NEEDS NO NEW MECHANISM, and the first version of this row said it did. It read: 'the night-manager hop depends on a fresh-session-per-fire routine gated on the lease, which does not exist.' That is FALSE for the flow the operator actually described, which has the MANAGER setting the night session off directly -- 'set off the night manager session yourself' -- and `create_session` is proven to do exactly that (MI-73 was spawned with it on 2026-09-02). Overstating a blocker is not a safe error: it invites a session to build a routine nobody needs and to treat tonight's handoff as impossible when it is not.",
+      "what_ACTUALLY_needs_a_mechanism": "⚠️ DECIDED 2026-09-02 — THE MORNING WAKE IS MANUAL, AND THIS IS AN ANSWER, NOT A GAP. Operator, verbatim: 'There's [no] new need for a timer or a trigger for the morning manager. I will do that manually. I will get the daily brief. I will read it, and then I will use it as the beginning of a prompt, which I'll also add my notes to, to set off the manager session for that day. So that doesn't need to be set off automatically. I wanna be there at the beginning.' So: NO cron routine, NO create_new_session_on_fire, NO lease-gated auto-spawn. Do not build one, and do not re-open this as an oversight -- the operator being present at the start of the day is a DELIBERATE choice, and automating it would remove the point.",
+      "⚠️_the_self_bound_sweep_limit_is_still_real": "Unchanged by the correction above: the manager sweep re-armed 2026-09-02T15:20Z is SELF-BOUND and dies with its session. That is a genuine gap for a manager that DIES mid-day -- it is simply not the gap the night handoff has, because the night handoff is deliberate and the manager is alive to perform it.",
+      "⚠️_what_the_manual_wake_does_NOT_remove": "THE BRIEF ITSELF IS STILL A DELIVERABLE AND IS STILL UNBUILT. The operator says 'I will GET the daily brief' -- they are the trigger, not the author. Something must PRODUCE a brief that carries what happened overnight, and that is precisely the half their stated reason depends on: 'so that I know where I'm starting off from.' Separating these two matters, because the wake being settled makes it easy to read the whole morning end as settled. The wake is decided; the brief is open. Most likely the NIGHT session's closing output is the brief, which would make it a night-session deliverable rather than a new mechanism -- but that is a proposal, not a decision, and nobody has built it."
+    },
+    {
+      "id": "MI-72",
+      "title": "A notifications menu per bot: choose WHICH notifications, and a CADENCE for the periodic ones",
+      "state": "deferred",
+      "priority": "DEFERRED",
+      "owner": null,
+      "tier": "2 (Telegram bridge + a stored per-chat preference; no order path, no strategy config, no risk caps)",
+      "raised_by": "operator, 2026-09-02, in conversation, EXPLICITLY for the backlog: 'a further idea, though, that I do want us to backlog as well ... so that we eventually get to it.'",
+      "observed": "Operator: 'in the menu for each of the bots for there to be an option for notifications, which would then pull up a list of the notifications, and I could choose which ones. And for the ones that are periodic, there should be some choices for cadence -- hourly, daily, weekly, maybe once, twice, three times daily, depending on what kind of thing it is.' Raised alongside making the work digest hourly, which is the manual version of exactly this control.",
+      "⚠️_HALF_OF_THIS_ALREADY_EXISTS_AND_LOST_ITS_CONSUMER": "DO NOT BUILD THE 'WHICH' HALF FROM SCRATCH -- measure it first. A per-kind subscription model is already shipped and has been since M12: `GET /api/bot/devices/event-kinds` serves the canonical taxonomy from `src.runtime.mobile_push.event_kinds` (kind/label/description/in_flight) precisely so a client need not mirror the list, and `PATCH /api/bot/devices/{id}/subscriptions` stores a per-device choice as `null|[kinds]|{kind:bool}`. It was built for the Android app's Notifications screen -- and the Android app was RETIRED from the live feed on 2026-09-01, with `device_tokens` measured EMPTY (0 registered devices). So this is a mechanism that is written, works, and now has no reader: the `provenance-consumer-guard` shape one level up, the same shape MI-70 found with the `Claude-Session:` commit trailer. The honest framing of this item is RE-POINT AN EXISTING TAXONOMY AT TELEGRAM, plus build the genuinely new half.",
+      "what_is_genuinely_new": {
+        "cadence_per_kind": "The existing model is a BOOLEAN per kind (on/off). Cadence is a third value and the taxonomy has no field for it. Note the operator's own distinction -- 'depending on what kind of thing it is' -- so cadence is not universal: an EVENT (a decision ready, an incident) is immediate-or-nothing and a cadence choice on it is meaningless, while a DIGEST (the work digest, the daily roll-up) is exactly where cadence belongs. The taxonomy therefore needs to say which kinds are cadence-BEARING, or the menu will offer 'weekly' on an alert.",
+        "per_CHAT_not_per_DEVICE": "`device_tokens` is keyed on an FCM token. Telegram has no such token; the natural key is the chat/bot pair. Whether that is a new table or a widened one is the first design question, and it is the one that decides how much of the existing model is reusable.",
+        "a_menu_is_stateful": "Same constraint as MI-71: one inline press submits one value, so a multi-select preferences screen is a TOGGLE keyboard plus an explicit Save, which means holding partial unsubmitted state. The two items share this problem and should probably share its solution -- do not solve it twice, differently."
+      },
+      "⚠️_what_must_not_become_switchable": "A preferences menu that can silence anything is a way to turn off an alarm and forget. The severity-band rule stands: a P0 (money at risk) page is NOT a preference. Whatever this ships with, the CRITICAL/unprotected-position class must remain unmutable, or this feature becomes the desensitized-alarm P1 with a UI in front of it.",
+      "why_deferred": "P1 is the handoff capability, P2 the overhaul implementation. The operator asked for it to be backlogged, not built, and the immediate need it came with -- an hourly work digest -- was satisfied directly by a cron change.",
+      "refs": [
+        "MI-71",
+        "#10793"
+      ]
+    },
+    {
+      "id": "MI-73",
+      "title": "The manager watcher is BLIND by construction — give it a sensor that can actually see",
+      "state": "blocked",
+      "priority": "P2_OVERHAUL_IMPLEMENTATION",
+      "owner": "session_01ThkrPrGUvmomoY8uGEa148",
+      "tier": "1 (tooling/CI)",
+      "observed": "Of the three mechanisms MI-68 built to watch the manager (merged #10808), TWO WORK and the third cannot. `spawn_gate.py` was verified by the manager on BOTH controls -- out-of-priority object exits 3, in-priority exits 0. But `queue_latency.py`, the one aimed at the manager sitting on a blocked queue, reports `unknown` PERMANENTLY: its verdict needs a live `list_sessions` read, that is an mcp__* tool, and CI holds no MCP tools. It refuses to substitute SESSIONS.json's stale `last_observed`, which is correct -- that register has been measured incomplete twice.",
+      "why_it_matters": "This is the failure that cost the most on 2026-09-02: four sub-sessions sat IDLE and BLOCKED on the manager for up to 142 minutes while the manager asserted they held work. It is also the operator's core ask -- 'actual guards and mechanisms in the repo/vm themselves that watch the manager and enforce the rules on him.' A permanently-`unknown` watcher is honest but is not yet that guard.",
+      "the_hypothesis_to_TEST_not_assume": "The same failure has an MCP-FREE PROXY that GitHub Actions can see with nothing but its own GITHUB_TOKEN: a PR green/mergeable/unmerged and ageing; a `needs_action` posted with nothing since; a board `▶️ START` with no `✅ DONE`, ageing; an `in_flight` checklist item whose owner's branch has had no push for N hours. ⚠️ THE MANAGER BELIEVES THIS AND HAS NOT PROVEN IT. If the proxy is weaker than it looks, a STATED BOUNDARY is the better deliverable -- which is exactly what MI-68 delivered on queue_latency and why its work merged.",
+      "what_must_not_regress": "(a) Do NOT delete or weaken the `unknown` path -- `quiet`/`escalate`/`unknown` must never collapse, because 'we could not look' and 'nothing is waiting' are opposite facts. (b) It must NOT be invokable by the manager: MI-68's own measurement is that every mechanism the manager had to choose to run went unused, and every mechanism that stood in the way worked. (c) Never page on activity, only on a state that is actually stuck, rate-limited per class -- 202 of 376 CRITICAL rows in one measured window here were a single un-latched alarm.",
+      "⚠️_a_cron_is_not_evidence_of_a_run": "work-digest.yml's own header records a scheduled workflow in this repo firing ~4h50m LATE and once instead of daily. Whatever carries this must make its own liveness checkable.",
+      "refs": [
+        "#10808",
+        "MI-68",
+        "WO-20260902-MANAGER-PREFLIGHT"
+      ],
+      "⚠️_outcome": "DIED BLOCKED, WORK LOST. post_turn_summary: 'blocked on permission classifier; auto-mode denied add_repo x2 and git push x3'. It never pushed a branch, so ~$10 of work is unrecoverable -- exactly the loss MI-70 demonstrated by killing a session. Two manager wake attempts did not clear it: the denial is its session's permission classifier, which the manager cannot change from outside. SUPERSEDED BY MI-77, respawned with an explicit source_url (which this session's context lacked) and instructed to push within its first minutes. [!] THE MANAGER'S FIRST DIAGNOSIS WAS WRONG AND IS RECORDED AS SUCH: it told MI-73 the cause was an omitted source_url, then found MI-75 had a source it never passed and MI-76 acquired one late -- sources attach ASYNCHRONOUSLY, so 'no sources' reads as a defect when it is often just a timing artifact."
+    },
+    {
+      "id": "MI-70",
+      "title": "Phase E: prove no work is lost by actually killing a session mid-work",
+      "state": "landed_unproven",
+      "priority": "P1_HANDOFF_CAPABILITY",
+      "owner": "session_01NkekPZw73VYuynYhSdWLWm",
+      "tier": "1 (tooling/CI)",
+      "landed_unproven_because": "#10812 and #10820 both MERGED 2026-09-02. ⚠️ THE REAPER HAS STILL NEVER BEEN OBSERVED RUNNING TO COMPLETION, and #10820 is why that matters: the version merged in #10812 pushed straight to PROTECTED main (GH006), so every scheduled run would have reaped correctly and RECORDED NOTHING -- a frozen ledger reading exactly like a quiet week. The owner found that itself, after merge, and fixed it via .github/actions/commit-to-main with verify-merged: true.",
+      "the_ruling_it_carries": "⚠️ PHASE E DOES NOT CLOSE ON THIS. The kill was RUN and demonstrated a PARTIAL loss -- 'killing a session loses everything it had not pushed, and nothing it had' -- which CONTRADICTS the object's done-condition ('loses nothing'). Manager ruled 2026-09-02: do NOT amend the condition to match the result (that fits the bar to the outcome) and do NOT leave 'loses nothing' standing (unachievable -- the loss is in a dead container no reaper can reach). BOUND it instead, and keep Phase E open until a successor object exists for PUSH CADENCE, which is the only lever that moves the number.",
+      "⚠️_do_not_merge": "`claude/mi70-kill-subject` must NEVER be merged. It is the EVIDENCE for the kill demonstration and holds a throwaway notes file.",
+      "refs": [
+        "#10812",
+        "#10820",
+        "WO-20260901-PHASE-E",
+        "OI-20260902-REAPER-SHIPPED-AND-THE-KILL-PROVED-A-PARTIAL-LOSS-NOT-A-CLEAN-ONE"
+      ]
+    },
+    {
+      "id": "MI-75",
+      "title": "The HANDOFF BRIEF — what a successor manager and the operator are handed, generated not written",
+      "state": "in_flight",
+      "priority": "P1_HANDOFF_CAPABILITY",
+      "owner": "session_017CSW7fZsqsbgGSDN6Atijj",
+      "tier": "1 (docs/tooling)",
+      "why_this_is_the_last_P1_gap": "The operator set the daily cadence and then decided BOTH hops are MANUAL -- the manager spawns the night session (create_session, proven), and the operator starts the morning one because 'I wanna be there at the beginning.' That CLOSED the wake question and left exactly one thing open: they say they will GET the daily brief. They are the TRIGGER, not the author, and NOTHING PRODUCES ONE.",
+      "acceptance_is_the_operators_own_words": "'by the [brief] in the morning, I want that to include what was done overnight and what was wrapped up after I went to bed, SO THAT I KNOW WHERE I'M STARTING OFF FROM.' A brief that renders but does not answer that fails, however well-formed it is.",
+      "two_consumers_and_it_is_an_open_question_whether_that_is_one_artifact": "(1) THE OPERATOR IN THE MORNING -- readable prose they paste as the opening of the next manager's prompt, carrying what happened overnight. (2) A SUCCESSOR MANAGER MID-DAY -- live state: checklist, in-flight sessions, open PRs with their operator decisions AND conditions, loud open-items, the lease, what is blocked and on what. The owner was told to ARGUE the choice rather than assume it.",
+      "⚠️_the_real_constraint_it_must_not_fake_around": "What MERGED is readable from git and the registers are readable, but WHAT A NIGHT SESSION CONCLUDED lives in get_session's post_turn_summary -- and mcp__* tools are unavailable to CI and to routine-fired turns. So the brief is probably a CLOSE-OUT DELIVERABLE the night manager runs before it ends, not a cron. The owner must decide that honestly and say which.",
+      "what_must_not_regress": "GENERATED never hand-written (a hand-written brief dies with its session, which is the failure Phase E exists for); it must DECLARE what it could not read rather than silently omitting a register; and it must not flatten `landed_unproven` into `done` -- saying an item is finished when its effect was never observed actively misinforms the person starting the day.",
+      "refs": [
+        "WO-20260901-PHASE-E",
+        "MI-44",
+        "MI-74"
+      ]
+    },
+    {
+      "id": "MI-77",
+      "title": "The manager watcher that can actually see (MI-73 respawn)",
+      "state": "in_flight",
+      "priority": "P2_OVERHAUL_IMPLEMENTATION",
+      "owner": "session_01PbQAQXRY2oB1ep2BFEUZeA",
+      "tier": "1 (tooling/CI)",
+      "why": "Of MI-68's three manager-watching mechanisms, TWO WORK (spawn_gate verified by the manager on both controls) and queue_latency.py grades `unknown` PERMANENTLY because its verdict needs a live list_sessions read and CI holds no mcp__* tools. Honest, and not yet the guard the operator asked for.",
+      "the_hypothesis_to_TEST": "An MCP-free proxy visible to Actions with only GITHUB_TOKEN: a green/mergeable/UNMERGED PR ageing; a needs_action with nothing since; a board START with no DONE; an in_flight item whose owner's branch has had no push for N hours. ⚠️ THE MANAGER BELIEVES THIS AND HAS NOT PROVEN IT -- a stated boundary is the better deliverable if the proxy is weaker than it looks.",
+      "what_must_not_regress": "Do not collapse quiet/escalate/unknown. Must NOT be manager-invokable (every mechanism the manager had to choose to run went unused; every one that stood in the way worked). Never page on activity. And a cron is not evidence of a run -- session-reaper.yml had FIVE failing runs before its first success because it pushed to protected main, so this must land through .github/actions/commit-to-main with verify-merged: true.",
+      "refs": [
+        "MI-73",
+        "MI-68",
+        "#10808",
+        "WO-20260902-MANAGER-PREFLIGHT"
+      ]
     }
-  ]
+  ],
+  "as_of": "2026-09-02T17:20:00Z"
 }

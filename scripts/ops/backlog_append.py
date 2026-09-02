@@ -226,15 +226,30 @@ def _self_test() -> int:
     return 0 if ok == len(checks) else 1
 
 
-#: The three live review backlogs, in the order the session-end routine names
-#: them. Kept here rather than re-derived, because the reader this protects
+#: The live review backlogs, in the order the session-end routine names them.
+#: Kept here rather than re-derived, because the reader this protects
 #: (``tests/test_backlog_append.py``) builds its paths by interpolating a loop
 #: variable, which no static scan can resolve — the blind spot that let a broken
 #: file reach ``main`` on 2026-09-01.
+#:
+#: ⚠️ THIS TUPLE WAS THE THREE HEALTH/PERFORMANCE/ML BACKLOGS UNTIL 2026-09-02,
+#: AND ``docs/claude/research-review-backlog.json`` WAS THE UNGUARDED FOURTH.
+#: The research backlog was split out of the performance one on 2026-08-30 and
+#: nothing added it here — so it inherited the exact exposure this guard exists
+#: to close, and inherited it silently. It is not covered by ``pytest-run``
+#: either: ``tests/test_pytest_run_filter.py::DELIBERATELY_EXCLUDED`` excludes
+#: the backlogs as a class, so a serialisation break in it reached ``main``
+#: green by the same route measured on 2026-09-01.
+#:
+#: The lesson is the membership rule, not the one file: **splitting a backlog is
+#: not complete until the new file is named here.** A backlog absent from this
+#: tuple is not "not yet guarded" — it is unguarded in a way no CI signal
+#: reports.
 LIVE_BACKLOGS = (
     "docs/claude/health-review-backlog.json",
     "docs/claude/performance-review-backlog.json",
     "docs/claude/ml-review-backlog.json",
+    "docs/claude/research-review-backlog.json",
 )
 
 
