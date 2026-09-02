@@ -117,12 +117,27 @@ _DECISION_REASONS = {
 # `trail_decay` emits no close verdict (it retightens the trail), so it cannot
 # be discovered by scanning for close reasons. Detect it the way
 # exit_mechanism_coverage does — by the cfg keys the module reads.
-_KEYED_MECHANISMS: Dict[str, Tuple[str, ...]] = {
-    "trail_decay": ("trail_decay_tight_mult", "trail_decay_arm_r"),
-    "stale_stop": ("stale_exit_bars",),
-    "giveback_stop": ("giveback_r", "giveback_min_mfe_r"),
-    "exit_head": ("exit_head", "exit_head_threshold"),
-}
+#
+# ⚠️ IMPORTED, NOT RESTATED (2026-09-02). This file carried its OWN copy of that
+# table, and the copy was stale in the same way the original was: it tested
+# `declared` against `("exit_head", "exit_head_threshold")` — a key no leg
+# declares and an OPTIONAL modifier — while `exit_head_action`, the key that
+# actually arms the head, was in neither. Two hand-maintained copies of one
+# property of the code is how the second one goes stale silently, so the owner
+# (`exit_mechanism_coverage`) now derives the surface from the implementations
+# and both readers take it from there.
+#
+# The two tables answer DIFFERENT questions and are deliberately not merged:
+# `_IMPLEMENT_KEYS` proves a module can RUN the lever, `_DECLARE_KEYS` is the
+# full surface a leg may DECLARE it with. Testing a declare against the narrow
+# table is what made the orphan verdict partial.
+import exit_mechanism_coverage as _emc  # noqa: E402  (needs the sys.path above)
+
+_IMPLEMENT_KEYS: Dict[str, Tuple[str, ...]] = dict(_emc.MECHANISMS)
+_DECLARE_KEYS: Dict[str, Tuple[str, ...]] = dict(_emc.DECLARE_KEYS)
+#: Back-compat alias for the implementation probe, which is what the surviving
+#: call sites used this name for.
+_KEYED_MECHANISMS: Dict[str, Tuple[str, ...]] = _IMPLEMENT_KEYS
 
 _CLOSE_A = re.compile(
     r'"action"\s*:\s*"close"\s*,\s*"reason"\s*:\s*"([a-z0-9_]+)"')
@@ -470,14 +485,16 @@ def assess_trade(trade: dict, *, units: Dict[str, str], cfg: Dict[str, Any],
     lcfg = cfg.get(strat) or {}
 
     # (a) mechanisms discovered by the cfg keys their module reads
-    for mech, keys in _KEYED_MECHANISMS.items():
+    for mech, keys in _IMPLEMENT_KEYS.items():
         if not usrc:
             row["decision_paths"][mech] = {"state": UNKNOWN, "why": "unit_unresolved"}
             continue
         if not module_reads(usrc, keys):
             row["decision_paths"][mech] = {"state": NA, "why": "not_implemented"}
             continue
-        if not any(lcfg.get(k) is not None for k in keys):
+        # DECLARED is tested against the FULL surface, not the implementation
+        # probe's narrow tuple — see the table comment above.
+        if not any(lcfg.get(k) is not None for k in _DECLARE_KEYS[mech]):
             row["decision_paths"][mech] = {"state": ABSENT, "why": "undeclared"}
             continue
         verdict = (reach.get(strat) or {}).get("verdict")
