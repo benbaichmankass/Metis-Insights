@@ -1,0 +1,9 @@
+=== trainer-diag-relay result ===
+request: demo-20260902-nonzero-exit
+state: ran
+remote_exit: 42
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/33587233848
+=================================
+this ran on the trainer, then exited 42 deliberately
+ict-trainer-vm
+

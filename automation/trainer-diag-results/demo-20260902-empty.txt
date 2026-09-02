@@ -1,0 +1,7 @@
+=== trainer-diag-relay result ===
+request: demo-20260902-empty
+state: refused_empty
+remote_exit: n/a
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/33587233848
+=================================
+The request file was empty or whitespace-only. Nothing ran on the trainer.

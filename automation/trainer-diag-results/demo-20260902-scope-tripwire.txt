@@ -1,0 +1,12 @@
+=== trainer-diag-relay result ===
+request: demo-20260902-scope-tripwire
+state: refused_scope
+remote_exit: n/a
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/33587233848
+=================================
+The script names '141.145.193.91', which belongs to the LIVE TRADER / IB-GATEWAY hosts.
+This relay reaches the TRAINER VM only; the live VM is a different trust contract
+(docs/claude/vm-operator-mode.md) and its reads go through vm-diag-snapshot.
+
+If you only meant to GREP for that string, this is the documented false positive:
+rephrase the pattern (e.g. split it) and re-push under a NEW request name.

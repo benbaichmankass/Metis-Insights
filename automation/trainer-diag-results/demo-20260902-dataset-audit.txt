@@ -1,0 +1,18 @@
+=== trainer-diag-relay result ===
+request: demo-20260902-dataset-audit
+state: ran
+remote_exit: 0
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/33587233848
+=================================
+=== dataset_audit.jsonl — the file the mirror does NOT carry ===
+4147 runtime_logs/trainer/dataset_audit.jsonl
+
+=== newest 3 rows, one summary line each (aggregate ON the box) ===
+parsed rows: 4147
+  manifest=sol-regime-15m-lgbm-v1 ok=True n_rows=171048 features=7 flagged=[]
+  manifest=sol-regime-5m-lgbm-v1 ok=True n_rows=513192 features=7 flagged=[]
+  manifest=trade-outcome-lgbm-v1 ok=True n_rows=1886 features=9 flagged=[]
+
+distinct manifests: 91 | top 5: [('execution-quality-baseline-v0', 58), ('prop-mission-policy-baseline-v0', 58), ('regime-classifier-baseline-v0', 58), ('setup-quality-audit-baseline-v0', 58), ('setup-quality-baseline-v0', 58)]
+rows with ok=false: 623
+
