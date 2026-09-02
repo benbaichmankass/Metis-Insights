@@ -566,6 +566,28 @@ _LOG_FILES: dict[str, Path] = {
     "liveness_watchdog_state":
         runtime_logs_dir() / "liveness_watchdog_state.json",
     "daily_cap_alert_state": _DAILY_CAP_ALERT_STATE,
+    # THE OPERATOR-ALERT RING (BL-20260901-OPERATOR-ALERTS-HAS-NO-READ-SURFACE).
+    # `execution_diagnostics._append_operator_alert` writes every alert that
+    # reaches the `/api/bot/notifications` banner feed here -- close_failure,
+    # orphan, stuck-package-sweep, and siblings. It is bounded but NOT to a fixed
+    # 300: `_OPERATOR_ALERTS_KEEP` is 300, yet the trim only fires past 2x that,
+    # so the file holds 300-600 rows and the age of its oldest row is not a
+    # constant. State the `ts` span you actually got before quoting any rate.
+    # It had NO read surface, which is the recurring shape
+    # BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE
+    # names: the file that decides whether an operator gets pinged is the one
+    # nobody can inspect.
+    #
+    # It is the ONLY place a page RATE is recoverable. `/api/bot/notifications`
+    # renders the CURRENT banner and nothing else, and these alerts deliberately
+    # do NOT ride `outcomes.jsonl`, so `/api/bot/logs?level=error` returns zero
+    # of them -- a silence that reads exactly like "it never fired". Measured
+    # 2026-09-01: a live, hours-long `close_failure` condition on alpaca_paper/GLD
+    # was rendering on the banner while the 1000-row ERROR/WARN feed held zero
+    # matching rows. Without this entry a session cannot grade whether an alarm
+    # backoff (here: the exponential one shipped in #10666) is actually working
+    # -- which is precisely the desensitised-alarm question CLAUDE.md calls a P1.
+    "operator_alerts": runtime_logs_dir() / "operator_alerts.jsonl",
     # PROP CADENCE STATE. The prop bridge is manual, so these three files are
     # the only evidence that the bot is still doing its half of it:
     #   prop_status_request -- when each account was last asked for a balance.

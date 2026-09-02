@@ -1062,3 +1062,185 @@ def test_ext_hours_close_single_shot_when_retry_disabled(monkeypatch):
     out = cli.close("GLD")
     assert out["retCode"] == 1
     assert len(posts) == 1
+
+
+# ---------------------------------------------------------------------------
+# Share-hold classification + honest cancel accounting
+# (BL-20260901-ALPACA-CANCEL-WEDGE-UNNAMED)
+#
+# These pin the distinction the live alpaca_paper/GLD wedge showed was missing:
+# a transient cancel race and an Alpaca order stuck in `pending_cancel` forever
+# produced a byte-identical failure, so nothing could say whether retrying would
+# ever work.
+# ---------------------------------------------------------------------------
+from src.units.accounts.alpaca_client import (  # noqa: E402
+    CancelOutcome,
+    classify_share_hold,
+)
+
+
+def _order(oid, status, **kw):
+    d = {"id": oid, "symbol": "GLD", "status": status}
+    d.update(kw)
+    return d
+
+
+def test_classify_share_hold_read_failure_is_not_no_orders():
+    """`None` (we could not look) must never read as "nothing rests"."""
+    state, detail = classify_share_hold(None)
+    assert state == "residual_unreadable"
+    assert state != "no_residual_orders"
+    assert "could not read" in detail
+
+
+def test_classify_share_hold_empty_list_is_its_own_state():
+    state, _ = classify_share_hold([])
+    assert state == "no_residual_orders"
+
+
+def test_classify_share_hold_names_the_live_gld_wedge():
+    """The exact residual measured on the live wedge, 2026-09-01.
+
+    OCO parent 2e843e04 sat at `pending_cancel` with `canceled_at: null` since
+    2026-08-27, holding all 39 shares; the `held` child leg is normal for an
+    Alpaca OCO and must NOT by itself be graded a wedge.
+    """
+    residual = [
+        _order("2e843e04-5487-470c-a702-70e796fbd05e", "pending_cancel",
+               canceled_at=None, order_type="limit"),
+        _order("891ddff0-b24d-4039-9322-8492bcd51e66", "held",
+               canceled_at=None, order_type="stop"),
+    ]
+    state, detail = classify_share_hold(residual)
+    assert state == "broker_cancel_wedged"
+    assert "2e843e04-5487-470c-a702-70e796fbd05e" in detail
+    # The operator's actual question: will a retry ever work?
+    assert "operator/venue action" in detail
+
+
+def test_classify_share_hold_ordinary_orders_are_retryable():
+    """A normal resting bracket is NOT a wedge — retrying is the right advice."""
+    residual = [_order("aaa", "new"), _order("bbb", "held")]
+    state, detail = classify_share_hold(residual)
+    assert state == "orders_still_resting"
+    assert "retry may clear it" in detail
+
+
+def test_classify_share_hold_pending_replace_counts_as_wedged():
+    state, _ = classify_share_hold([_order("ccc", "pending_replace")])
+    assert state == "broker_cancel_wedged"
+
+
+def test_share_hold_states_never_leak_a_defer_phrase():
+    """A close retMsg carrying these strings must not be read as a DEFER.
+
+    `order_monitor._apply_update` detects a defer by STRING-MATCHING the
+    message, so a failure message that accidentally contains one of these
+    phrases would be booked as "venue merely shut" instead of a real failure —
+    the trap CLAUDE.md documents for the IB venue-session gate.
+    """
+    residuals = [None, [], [_order("a", "pending_cancel")], [_order("b", "new")]]
+    for r in residuals:
+        _, detail = classify_share_hold(r)
+        low = detail.lower()
+        for phrase in ("exit deferred", "deferring", "market closed"):
+            assert phrase not in low, (r, phrase, detail)
+
+
+class _FakeCancelClient:
+    """Minimal stand-in exercising the real cancel accounting."""
+
+    def __init__(self, legs, responses):
+        self._legs = legs
+        self._responses = responses
+        self.deleted = []
+
+    def _open_orders_for_symbol(self, symbol):
+        return self._legs
+
+    def _request(self, method, path, json_body=None):
+        assert method == "DELETE"
+        oid = path.rsplit("/", 1)[-1]
+        self.deleted.append(oid)
+        return self._responses[oid]
+
+
+def _run_cancel(legs, responses):
+    from src.units.accounts.alpaca_client import AlpacaClient
+    fake = _FakeCancelClient(legs, responses)
+    return AlpacaClient._cancel_open_orders_detailed(fake, "GLD")
+
+
+def test_cancel_counts_broker_acceptance_not_calls_issued():
+    """A REFUSED cancel must not count. `_request` never raises on HTTP, so the
+    old `except Exception` caught nothing and the count was cancels ISSUED."""
+    legs = [_order("a", "new"), _order("b", "new")]
+    out = _run_cancel(legs, {
+        "a": {"retCode": 0, "result": {}},
+        "b": {"retCode": 422, "retMsg": "order is not cancelable"},
+    })
+    assert out.read_state == "orders_read"
+    assert out.accepted == 1          # NOT 2 — one was refused
+    assert out.already_gone == 0
+    assert [r[0] for r in out.refused] == ["b"]
+    assert "not cancelable" in out.describe()
+
+
+def test_cancel_404_is_already_gone_not_a_refusal():
+    out = _run_cancel([_order("a", "new")], {"a": {"retCode": 404, "retMsg": "not found"}})
+    assert out.accepted == 0
+    assert out.already_gone == 1
+    assert out.refused == []
+
+
+def test_cancel_read_failure_is_distinguishable_from_no_orders():
+    """`None` legs (read failed) vs `[]` (nothing rests) — opposite claims."""
+    fail = _run_cancel(None, {})
+    assert fail.read_state == "could_not_look"
+    none_resting = _run_cancel([], {})
+    assert none_resting.read_state == "orders_read"
+    assert fail.accepted == none_resting.accepted == 0
+    assert fail.read_state != none_resting.read_state
+
+
+def test_cancel_outcome_describe_is_honest_when_unread():
+    out = CancelOutcome("could_not_look", 0, 0, [])
+    assert "could not read" in out.describe()
+
+
+def test_ext_hours_give_up_retmsg_names_the_wedge(monkeypatch, caplog):
+    """The close-failure PAGE must say whether a retry can ever work.
+
+    Before this, a transient cancel race and an Alpaca order wedged in
+    `pending_cancel` forever produced the identical retMsg ("insufficient qty
+    available for order (requested: 39, available: 0)"), so the operator could
+    not tell "wait" from "this needs venue action" — and the alarm retried
+    indefinitely on something no retry clears.
+    """
+    cli = _ext_hours_client(monkeypatch, [0], place_retry_s="0.5")
+    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *a: 1)
+    monkeypatch.setattr(
+        cli, "_open_orders_for_symbol",
+        lambda *a: [{"id": "2e843e04", "side": "sell", "qty": "39",
+                     "status": "pending_cancel", "canceled_at": None}])
+
+    def fake_request(method, path, json_body=None):
+        if method == "POST" and path == "/v2/orders":
+            return {"retCode": 422, "retMsg": (
+                "insufficient qty available for order "
+                "(requested: 39, available: 0)")}
+        return {"retCode": 0, "result": {}}
+
+    monkeypatch.setattr(cli, "_request", fake_request)
+    with caplog.at_level("WARNING"):
+        out = cli.close("GLD")
+
+    msg = str(out.get("retMsg") or "")
+    assert out["retCode"] == 1                      # still a REAL failure
+    assert "insufficient qty" in msg.lower()        # broker's own text preserved
+    assert "share_hold=broker_cancel_wedged" in msg
+    assert "2e843e04" in msg
+    # ...and it must NOT be mistakable for a defer by order_monitor's string match
+    low = msg.lower()
+    assert "exit deferred" not in low and "market closed" not in low
+    assert "share_hold=broker_cancel_wedged" in caplog.text
