@@ -17,6 +17,7 @@ def send_telegram_direct(
     parse_mode: Optional[str] = "HTML",
     mirror_to_fcm: bool = True,
     bot_token: Optional[str] = None,
+    chat_id: Optional[str] = None,
     reply_markup: Optional[dict] = None,
 ) -> bool:
     """
@@ -88,7 +89,14 @@ def send_telegram_direct(
     # bot) instead of the default operator/trader bot; default None keeps the
     # historical TELEGRAM_BOT_TOKEN behaviour.
     token = bot_token or os.environ.get("TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    # ``chat_id`` lets a caller target a SPECIFIC conversation, the companion of
+    # the ``bot_token`` override above. Without it a route could name its own
+    # chat and never reach it — src/bot/telegram_routes.py resolves a per-route
+    # chat id (TELEGRAM_CLAUDE_CHAT_ID / TELEGRAM_PROP_CHAT_ID) and, until this
+    # parameter existed, that half of every Route was decorative: the token
+    # picked the BOT and the environment silently picked the CHAT.
+    # Default None keeps the historical TELEGRAM_CHAT_ID behaviour exactly.
+    chat_id = chat_id or os.environ.get("TELEGRAM_CHAT_ID")
     if not token or not chat_id:
         logger.warning(
             "Telegram credentials missing (bot token or "

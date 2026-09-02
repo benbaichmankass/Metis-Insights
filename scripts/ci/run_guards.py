@@ -232,6 +232,28 @@ GUARDS: List[Dict[str, Any]] = [
         # BRIEF is the only channel that arrives in time. This guard keeps that
         # block in sync — a STALE brief is worse than none, because a session
         # would read something no longer true and act on it.
+        "name": "constraint-readout-guard",
+        # E1's whole job is to REFUSE rather than name a stage over unassessed
+        # edges, and every distinction that refusal rests on lives in one
+        # module's --self-test: `declared_none` vs `unstated`, a stale hold vs a
+        # live one, money that is `None` rather than 0.0, and the imported
+        # operator-owed vocabulary. The last of those is not hypothetical — the
+        # first run of that file re-derived it and invented five decisions for
+        # the operator. Unregistered, the assertions run only when someone
+        # remembers to type the command.
+        #
+        # `when: None` so it runs on every PR: the self-test is a few
+        # milliseconds and reads no network, and diff-scoping it to the script's
+        # own path would miss the case that actually breaks it — a change to
+        # `src/runtime/operator_owed.py`'s vocabulary or to
+        # `check_wip_ceiling.py`'s CEILING, both of which this module IMPORTS.
+        "name_note": "self-test only; the readout itself is generated on demand, not in CI",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/constraint_readout.py", "--self-test"],
+        ],
+    },
+    {
         "name": "session-brief-guard",
         "when": None,
         "steps": [
