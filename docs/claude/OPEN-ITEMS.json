@@ -1014,6 +1014,27 @@
     "scripts/ci/check_digest_liveness.py",
     "docs/research/digest-cadence-carrier-2026-09-02.md"
    ]
+  },
+  {
+   "id": "OI-20260902-PER-MERGE-PING-SHIPPED-AND-NO-MERGE-HAS-BEEN-SEEN-PINGING",
+   "opened": "2026-09-02",
+   "kind": "monitoring",
+   "loud": true,
+   "verified_at": null,
+   "last_checked": "2026-09-02",
+   "check_every_days": 2,
+   "probe_absent_reason": "The observable is a Telegram message arriving in the operator's Claude channel, which nothing in this repo can read. The nearest machine-checkable proxy — the ict-git-sync journal showing notify_on_pull enqueuing a merge body — is reachable only via /api/diag/journalctl and is evidence of an ENQUEUE, not of a delivery; declaring it as the probe would invite a green that means 'the queue accepted it'. The clearing observation is a human confirming what they received.",
+   "summary": "The operator's per-merge ping is BUILT and has never been observed arriving. scripts/notify_on_pull.py gains Source 4: every PR that landed on main inside the pulled commit range, rolled up into ONE message naming each merge individually, on the existing ict-git-sync (~5 min) carrier. Until 2026-09-02 NOTHING implemented this ask — work_phase_ping.py pings on a work object's `lifecycle` and has no concept of a PR at all, which is why it logged `No pingable events in 90b541a9..2156e8a6` across a range that landed four PRs. This was a MISSING CAPABILITY, not a bug.",
+   "detail": "MEASURED so it is not re-derived: every landing on main is a squash commit ending `(#NNNN)` — 500 of the last 500 commits on origin/main, 0 true merge commits, 0 unmatched. Verified against the real failing range (`--pre 90b541a9 --post 2156e8a6`), which now emits all four merges by number and title. RATE LIMIT, decided rather than defaulted: ONE rolled-up message per pull. It bounds MESSAGES (at most one per ~5 min), never MERGES reported — a window containing one merge produces a message about that one merge, which is the per-merge ping that was asked for. Automation `(auto)` merges are INCLUDED and counted separately in the header rather than filtered, so suppressing them stays the operator's decision, made against a number. It writes nothing to the repo, which is what makes the shape safe: a workflow that committed a ping row to main would itself be a merge to main and would ping about its own ping.",
+   "clears_when": "A REAL merge to main is OBSERVED producing a message in the operator's Claude channel — the operator, or a session reading the ict-git-sync journal, confirming a '🔀 N PR(s) merged to main' body that names a specific PR number. Record WHICH merge. ⚠️ MERGING #10857 CLEARS NOTHING: a merge is not a deploy (ict-git-sync must pull it) and a deploy is not a delivery — the distinction that keeps OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION open. ⚠️ NEITHER DOES A GREEN TEST: 14 cases pass in a harness and a harness cannot reach the Telegram bridge. ⚠️ AND A DRY-RUN IS NOT A SEND — the `--dry-run` proof in the PR body renders the body and posts nothing. ⚠️ IF THE OPERATOR DECIDES the roll-up is too noisy, or that automation merges should be filtered out, this row does NOT clear — it CHANGES: that is a legitimate decision and must be RECORDED as one rather than left looking like a channel about to work.",
+   "observation": "2026-09-02: NOT YET OBSERVED — verified_at is deliberately null, because no observation has been made and dating it today would be a claim of one. Shipped as draft PR #10857 (Tier-1, observability; no order path, no repo write, no DB write). What IS established: the code path runs end to end in the sandbox against real history, and the emitter it supplements provably had no PR concept — PING_WORTHY is a set of work-object lifecycle values, read at scripts/ops/work_phase_ping.py:47.",
+   "refs": [
+    "https://github.com/benbaichmankass/Metis-Insights/pull/10857",
+    "scripts/notify_on_pull.py",
+    "tests/test_notify_merge_pings.py",
+    "scripts/ops/work_phase_ping.py",
+    "WO-20260902-THE-OPERATOR-GETS-NO-PER-MERGE-PING"
+   ]
   }
  ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
