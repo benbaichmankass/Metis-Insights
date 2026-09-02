@@ -1026,7 +1026,31 @@
         "WO-20260901-PHASE-H",
         "MI-59"
       ]
+    },
+    {
+      "id": "MI-74",
+      "title": "The daily manager cadence: day session → declared wrap → night manager → morning brief",
+      "state": "queued",
+      "priority": "P1_HANDOFF_CAPABILITY",
+      "owner": null,
+      "tier": "1 (scheduling, registers, ping cadence)",
+      "raised_by": "operator, 2026-09-02, in conversation, as the shape the handoff should take",
+      "⚠️_THIS_SUPERSEDES_THE_MANAGERS_OWN_FRAMING": "The manager reported that `open_prs` completeness is POINT-IN-TIME and concluded 'a handoff has to be taken in a QUIET WINDOW, or the check needs a bounded tolerance.' That framing is PASSIVE -- it waits for a quiet moment that a busy repo never reliably offers. The operator's answer is ACTIVE and is better: you do not wait for a quiet window, you CREATE one, by declaring per thread which PR is the LAST one before the manager moves on. Do not re-derive the tolerance idea from the old framing; the boundary is declared, not awaited.",
+      "the_cycle": {
+        "1_morning": "The day STARTS WITH A PING — a daily brief into a NEW manager session. ⚠️ The brief must carry WHAT WAS DONE OVERNIGHT and what was wrapped up after the operator went to bed. Operator: 'by the [brief] in the morning, I want that to include what was done overnight and what was wrapped up after I went to bed, so that I know where I'm starting off from.' A brief that only describes the new day's plan fails its purpose.",
+        "2_day": "ONE manager session per day.",
+        "3_wrap": "The operator SAYS when they are going to bed. That is the trigger, not a clock. The manager then produces a RAPID WRAP PLAN: (a) the LAST PR for each thread; (b) confirmation that NO Tier-3 decision is left dangling -- and any that is gets LOGGED FOR THE NEXT DAY rather than carried in a session's head; (c) close everything down.",
+        "4_night": "The manager SETS OFF THE NIGHT SESSION ITSELF, scoped by HOW MUCH TIME IT HAS until the morning brief. Night work is deliberately the low-operator-dependency kind: backlog items and UI, 'things that are less important and need less of me, and very easy to run without me.' ⚠️ NOTHING TIER-3 AND NOTHING NEEDING A DECISION goes to the night session -- it cannot get an answer."
+      },
+      "the_last_PR_per_thread_rule": "⚠️ READ WHAT THE OPERATOR RULED OUT, not just what they asked for. They explicitly did NOT ask that entire MILESTONES be finished before a handoff: 'it just means that for each thread of workflow, we need to decide what the last PR for each manager is gonna be before we move on, and that needs to be documented clearly so that we can make sure that we're sticking to that.' So the unit is a DECLARED TERMINAL PR PER THREAD, documented in advance and held to -- not milestone completion, which would block every handoff indefinitely.",
+      "what_this_needs_built": "Not yet designed, and deliberately not designed here: where the per-thread terminal PR is DECLARED (OPEN-PRS.json rows already carry a thread via checklist_item, so this may be a field rather than a new register); how the morning brief is GENERATED from the overnight record rather than written by hand; and whether the night session's scope is bounded by a stated deadline it can read. Operator also raised timers/pings for start-and-finish awareness -- worth a design pass, not a guess.",
+      "⚠️_honest_precondition": "The operator's own read: 'it sounds like we still have a lot of [work] here to get [addressed] so that we're able to do an actual reliable handoff.' This item does NOT claim the cadence is achievable today. handoff_check.py still reads not_ready more often than ready on a busy repo, and the night-manager hop depends on a fresh-session-per-fire routine gated on the lease, which does not exist -- the current manager sweep is SELF-BOUND and dies with its session.",
+      "refs": [
+        "MI-67",
+        "MI-73",
+        "WO-20260902-MANAGER-PREFLIGHT"
+      ]
     }
   ],
-  "as_of": "2026-09-02T11:22:00Z"
+  "as_of": "2026-09-02T15:22:00Z"
 }
