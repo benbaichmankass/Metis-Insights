@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T15:06:31Z",
+  "updated_at": "2026-09-02T15:45:46Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -1117,6 +1117,17 @@
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "queue_latency.py (merged in #10808) reports `unknown` PERMANENTLY: its verdict needs a live `list_sessions` read and CI holds no mcp__* tools. Honest, and not yet the guard the operator asked for. MI-73 tests whether an MCP-free proxy visible to Actions (green-unmerged PR ageing, START with no DONE, needs_action unanswered) can see the same failure — four sub-sessions IDLE and BLOCKED on the manager for up to 142 min.",
       "note": "Spawn gate consulted BEFORE spawning and PERMITTED (exit 0). Both gate controls verified independently by the manager: refuse=exit 3, permit=exit 0.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_017CSW7fZsqsbgGSDN6Atijj",
+      "title": "MI-75 — the HANDOFF BRIEF: what a successor manager and the operator are handed, generated not written",
+      "owns_object": "WO-20260901-PHASE-E",
+      "checklist_item": "MI-75",
+      "spawned_at": "2026-09-02T15:45:46Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "why": "The operator set the daily cadence and decided BOTH hops are manual (manager spawns the night session; operator starts the morning one). That closed the wake question and left exactly one gap: they say they will GET the daily brief -- they are the TRIGGER, not the author, and NOTHING produces one. Their stated reason is the acceptance criterion: it must carry what was done overnight 'so that I know where I'm starting off from'.",
+      "note": "Spawn gate consulted BEFORE spawning and PERMITTED (exit 0). Prompt names the existing renderers to read first, because RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED recurred TODAY (MI-70 hand-rolled a push to protected main that .github/actions/commit-to-main already absorbed).",
       "state": "working"
     }
   ],

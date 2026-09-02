@@ -1076,7 +1076,25 @@
         "WO-20260901-PHASE-E",
         "OI-20260902-REAPER-SHIPPED-AND-THE-KILL-PROVED-A-PARTIAL-LOSS-NOT-A-CLEAN-ONE"
       ]
+    },
+    {
+      "id": "MI-75",
+      "title": "The HANDOFF BRIEF — what a successor manager and the operator are handed, generated not written",
+      "state": "in_flight",
+      "priority": "P1_HANDOFF_CAPABILITY",
+      "owner": "session_017CSW7fZsqsbgGSDN6Atijj",
+      "tier": "1 (docs/tooling)",
+      "why_this_is_the_last_P1_gap": "The operator set the daily cadence and then decided BOTH hops are MANUAL -- the manager spawns the night session (create_session, proven), and the operator starts the morning one because 'I wanna be there at the beginning.' That CLOSED the wake question and left exactly one thing open: they say they will GET the daily brief. They are the TRIGGER, not the author, and NOTHING PRODUCES ONE.",
+      "acceptance_is_the_operators_own_words": "'by the [brief] in the morning, I want that to include what was done overnight and what was wrapped up after I went to bed, SO THAT I KNOW WHERE I'M STARTING OFF FROM.' A brief that renders but does not answer that fails, however well-formed it is.",
+      "two_consumers_and_it_is_an_open_question_whether_that_is_one_artifact": "(1) THE OPERATOR IN THE MORNING -- readable prose they paste as the opening of the next manager's prompt, carrying what happened overnight. (2) A SUCCESSOR MANAGER MID-DAY -- live state: checklist, in-flight sessions, open PRs with their operator decisions AND conditions, loud open-items, the lease, what is blocked and on what. The owner was told to ARGUE the choice rather than assume it.",
+      "⚠️_the_real_constraint_it_must_not_fake_around": "What MERGED is readable from git and the registers are readable, but WHAT A NIGHT SESSION CONCLUDED lives in get_session's post_turn_summary -- and mcp__* tools are unavailable to CI and to routine-fired turns. So the brief is probably a CLOSE-OUT DELIVERABLE the night manager runs before it ends, not a cron. The owner must decide that honestly and say which.",
+      "what_must_not_regress": "GENERATED never hand-written (a hand-written brief dies with its session, which is the failure Phase E exists for); it must DECLARE what it could not read rather than silently omitting a register; and it must not flatten `landed_unproven` into `done` -- saying an item is finished when its effect was never observed actively misinforms the person starting the day.",
+      "refs": [
+        "WO-20260901-PHASE-E",
+        "MI-44",
+        "MI-74"
+      ]
     }
   ],
-  "as_of": "2026-09-02T15:40:00Z"
+  "as_of": "2026-09-02T15:46:00Z"
 }
