@@ -31228,6 +31228,24 @@
         "docs/claude/work/README.md",
         "#10783"
       ]
+    },
+    {
+      "id": "BL-20260902-THE-MANAGERS-HIGH-IMPACT-ACTIONS-BYPASS-EVERY-PATH-THAT-NOTIFIES",
+      "opened": "2026-09-02",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "area": "observability",
+      "title": "F6 is the condition the autonomy grant rests on, and a manager can merge, spawn, hold and decide all day without any of it touching a notifying path",
+      "detail": "MEASURED 2026-09-02: docs/claude/pending-pings.jsonl was last written at 03:14 and the manager session that ran from ~05:00 to ~13:00 queued NOTHING, while in that window it merged 5 PRs, dispatched 4 sub-sessions, converted a PR to draft to block a deploy, made a judgement call on a fallback design, and corrected itself three times. The operator noticed before the manager did and said so: 'I'm still not getting any pings from you either, which is also a serious lapse here.' MECHANISM, and it is structural rather than forgetfulness: the actions that DO notify are the narrow VM system-actions, which carry a transparency notify (scripts/ops/notify_run.sh). The manager's highest-impact actions do not go through that path at all -- merge_pull_request, update_pull_request (draft/undraft), create_session, create_trigger/fire_trigger and enable_pr_auto_merge are all MCP calls with no notification hop. So the class of action MOST worth telling the operator about is precisely the class that is silent, and the manager must remember to narrate it by hand. [!] F6 IS NOT A NICE-TO-HAVE: the operating-model design names 'autonomous-action notification' as THE CONDITION ON WHICH THE AUTONOMY GRANT WAS MADE. An unnotified autonomous action is not merely undocumented; it is outside the terms the operator agreed to. [!] AND FILING HAS ALREADY FAILED ONCE. MI-54 ('I asked seven decisions today as in-session popups and sent zero pings') was filed EARLIER THE SAME DAY, is still state in_flight, and the manager reproduced the lapse for the following eight hours. A row that records a behaviour does not change it.",
+      "evidence": "pending-pings.jsonl mtime 2026-09-02 03:14, 50 rows, none from this session. send-ping exists as a Tier-1 system-action and was not dispatched until the operator complained (issue #10804). MI-54 in MANAGER-CHECKLIST.json, state in_flight, filed the same day. grep of the system-actions notify path shows it covers the allowlisted VM actions only.",
+      "resolution_criteria": "A manager's autonomous action produces a notification WITHOUT the manager choosing to send one. Acceptable shapes: (a) a repo-side hook on the events that are already observable -- a merge to main authored by a manager session, a new SESSIONS.json row, a PR draft-state flip -- rendering a rolled-up ping on the digest cadence; or (b) the manager preflight of MI-68 REFUSING to proceed when the count of unnotified autonomous actions since the last ping exceeds a stated threshold, in the handoff_check shape that grades `unknown` rather than passing softly. [!] A ROLLED-UP DIGEST IS THE TARGET, NOT A PING PER ACTION. The design is explicit that F6 pings on STATE CHANGES AND DECISIONS and never on ACTIVITY, and this repo has already measured what the other choice costs: 202 of 376 CRITICAL rows in one window were a single un-latched alarm that trained the operator past the one channel reserved for an unprotected position. [!] DO NOT CLOSE THIS BY ADDING A REMINDER TO A PROMPT OR A SKILL. MI-54 is that fix and it did not hold for eight hours.",
+      "refs": [
+        "MI-54",
+        "MI-68",
+        "#10804",
+        "docs/design/operating-model-DESIGN.md"
+      ]
     }
   ]
 }
