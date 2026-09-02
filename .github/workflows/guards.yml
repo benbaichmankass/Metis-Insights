@@ -96,23 +96,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
           pip install "pyyaml>=6.0" pytest
-          # ⚠️ CORRECTED 2026-09-02: this comment first read "`requests` is a
-          # RUNTIME dep (requirements.txt), not a dev one". THAT IS FALSE, and
-          # false in the direction this repo calls "prose asserting what the
-          # field does not say". MEASURED over the four requirements files:
-          # `requests>=2.31.0` appears in requirements-backtest.txt ONLY -- it
-          # is absent from requirements.txt, requirements-dev.txt and
-          # requirements-test.txt. It is satisfied on the live VM only
-          # TRANSITIVELY (anthropic / ccxt / huggingface_hub), which is the
-          # same shape as the `pybit` note in requirements.txt that the
-          # 2026-06-14 Ampere migration caught the hard way -- and it is not
-          # only the ping path: src/units/accounts/{alpaca,oanda}_client.py
-          # import it too. Found by session_01PcirVtpMXJGiKm2548nkrR on the
-          # coordination board and verified here rather than taken on trust;
-          # the one-line fix in requirements.txt is THEIRS, not this PR's.
+          # ⚠️ THIS COMMENT HAS BEEN WRONG TWICE IN ONE DAY, WHICH IS THE POINT.
+          # It first asserted "`requests` is a RUNTIME dep (requirements.txt)"
+          # when it was declared in NO requirements file at all -- present only
+          # TRANSITIVELY via anthropic / ccxt / huggingface_hub, the same shape
+          # as the `pybit` note in requirements.txt that the 2026-06-14 Ampere
+          # migration caught the hard way, and load-bearing well beyond the ping
+          # path (src/units/accounts/{alpaca,oanda}_client.py import it at
+          # module scope). Found by session_01PcirVtpMXJGiKm2548nkrR and
+          # verified rather than taken on trust. It is declared as of f48d1db on
+          # this branch, so the original claim is true NOW -- by being fixed,
+          # not by having been right.
           #
-          # This line is still needed regardless: pending-pings-render imports
-          # scripts/notify_on_pull.py
+          # This line is still needed regardless, because this job installs
+          # requirements-dev.txt and NOT requirements.txt: pending-pings-render
+          # imports scripts/notify_on_pull.py
           # to ask it whether a queued ping renders a body — the emptiness
           # predicate has ONE owner and the guard imports it rather than
           # re-deriving it. notify_on_pull imports requests at module scope for

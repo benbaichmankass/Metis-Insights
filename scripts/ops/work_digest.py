@@ -26,12 +26,21 @@ digest is truth in transit between the commit and the send, and it fails BACK:
 an un-committed row is a digest that never happened, never one wrongly shown as
 delivered.
 
-⚠️ **UNSCHEDULED AS SHIPPED.** There is no cron behind this. It is a plain script
-so an existing daily job can call it; wiring the trigger is a
-``.github/workflows/`` change owned by another session. **A digest that has never
-fired has not been observed to work** — and that is not hypothetical here:
-``probes.yml`` and ``due-list.yml`` were both merged, enabled, and have never
-fired on cron (``OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON``).
+⚠️ **SCHEDULED, AND NOT YET OBSERVED FIRING — two different facts.** This block
+read *"UNSCHEDULED AS SHIPPED. There is no cron behind this"* until 2026-09-02,
+and that was false: ``.github/workflows/work-digest.yml`` ships
+``cron: "20 2,6,10,14,18,22 * * *"`` (every 4h) and opens an auto-merge PR
+against ``docs/claude/pending-pings.jsonl``. **Field beats comment**, and the
+stale half was the dangerous one — it told a reader this producer was inert
+while it was writing to the operator's channel six times a day.
+
+What remains true is the caution, and it is the more important half: **a digest
+that has never been observed firing has not been observed to work.**
+``probes.yml`` and ``due-list.yml`` are both merged, enabled, carry correct cron
+syntax, and have never once fired
+(``OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON``), so a
+correct schedule here is not evidence either. A ``workflow_dispatch`` run is not
+a cron run and must not be read as one.
 
 Usage::
 
@@ -39,11 +48,12 @@ Usage::
     python3 scripts/ops/work_digest.py --base <ref> --head HEAD --write
     python3 scripts/ops/work_digest.py --self-test
 """
-# wiring: manual-only - no cron ships with this. The trigger is a
-# `.github/workflows/` concern declared by another session, so this ships as a
-# callable script with a pure `build_digest()` rather than guessing at a
-# scheduler. Claiming a cadence the repo does not have would be the same
-# "a green run is not an observation" error the module docstring warns about.
+# wiring: .github/workflows/work-digest.yml (cron "20 2,6,10,14,18,22 * * *" +
+# workflow_dispatch) -> `--base <24h ago> --head main --write`, then
+# commit-to-main with verify-merged. CORRECTED 2026-09-02: this marker read
+# "manual-only - no cron ships with this", which stopped being true when
+# work-digest.yml landed and left the one line a reader greps for pointing at
+# the wrong answer.
 
 from __future__ import annotations
 
