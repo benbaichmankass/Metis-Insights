@@ -1,0 +1,298 @@
+name: trainer-capture-watch
+
+# THE ALARM ON THE FORWARD-ONLY ORDER-FLOW CAPTURE.
+#
+# WHY IT EXISTS (OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED)
+#   The operator DECIDED on 2026-08-29 to keep the trainer VM for the L2
+#   order-flow capture. That turned the box from a retirement candidate into a
+#   STATED DEPENDENCY for a stream nothing can re-derive -- and NOTHING watched
+#   it. The row is `loud: true`, renders in the CLAUDE.md session brief, and
+#   still went four days past its three-day cadence unobserved.
+#
+# ⚠️ IT GRADES THE DATA'S FRESHNESS, NEVER THE UNIT'S ActiveState.
+#   That is the entire design constraint, not a detail. Measured on the trainer:
+#   the capture catches its own poll errors and continues, so `active (running)`
+#   is reachable while it writes nothing; `journalctl -u ict-orderflow-capture`
+#   reads `-- No entries --` for a healthy service and a wedged one alike; and
+#   `ict-trainer-publish.timer`'s mirror mtime advances normally with the capture
+#   dead. Every cheap signal on that box is GREEN THROUGH THE EXACT FAILURE THIS
+#   WATCHES. So the observable is the mtime of the capture's own output file:
+#     /home/ubuntu/ict-trading-bot/datasets-out/market_microstructure/BTCUSDT/5m/v001/data.jsonl
+#   That path is not guessed. It is confirmed three ways (trainer relay #10837):
+#   the unit's own `--out` argument, an `ls` of the file, and the newest rows
+#   carrying 5m bar timestamps. Guessing it has already cost a false alarm --
+#   probe #10422 looked in `runtime_logs/orderflow/`, which does not exist, and
+#   an empty result there is byte-identical to a dead capture.
+#
+# ⚠️ THE ALARM PROVES IT CAN FIRE, ON EVERY RUN, AGAINST PLANTED STALENESS.
+#   `clears_when` on the open item demands the alarm be SHOWN TO FIRE, not merely
+#   deployed -- so every run plants TWO control files on the trainer and grades
+#   them through the SAME transport and the SAME grader as the real capture:
+#     * `control_stale` -- backdated well past the threshold, MUST grade `stale`
+#     * `control_fresh` -- just touched, MUST grade `fresh`
+#   If either control misgrades, the run FAILS and NO receipt is written: a
+#   grader that has silently stopped firing (a threshold typo, a units mix-up, a
+#   refactor that made every path read `fresh`) passes a deployment check and
+#   fails this one. The fresh control is not redundant -- without it an alarm
+#   that screams at everything would satisfy the stale control while being
+#   useless, which is the desensitized-alarm P1 this repo has paid for twice.
+#   ⚠️ THE CONTROLS ARE PLANTED IN /tmp AND THE LIVE CAPTURE IS NEVER TOUCHED.
+#   Planting staleness on the real stream would mean interfering with the very
+#   thing this protects.
+#
+# ⚠️ A CRON IS NOT EVIDENCE OF A RUN. `probes.yml`'s first-ever scheduled run
+#   fired ~4h50m LATE and once instead of daily; `session-reaper.yml` failed five
+#   times before its first success. So the cadence is not trusted: every run
+#   writes a dated receipt (`docs/claude/work/TRAINER-CAPTURE-WATCH.json`) and
+#   `scripts/ci/check_trainer_capture_watch.py` grades that receipt's AGE in
+#   `run_guards.py` on every PR. A watcher that stops therefore announces itself
+#   in everybody's CI instead of going quiet. Read `generated_at`, never the cron.
+#
+# ⚠️ KNOWN BOUND, STATED RATHER THAN HIDDEN: at a 6-hourly cadence a stall is
+#   detected up to ~6h after it starts, and this stream is forward-only, so those
+#   minutes are gone. 6h is CHOSEN to match `pr-queue-watch.yml`'s established
+#   receipt cadence, because every run's receipt costs an auto-merge PR through
+#   full required checks and an hourly watcher would open 24 of them a day.
+#   Tightening it is a ONE-LINE cron change trading PR volume for detection
+#   latency -- an operator call, deliberately not made unilaterally here.
+#
+# ⚠️ NO `push:` TRIGGER, DELIBERATELY. This workflow COMMITS its receipt to
+#   `main`; a push trigger would retrigger it, which would stamp again -- the
+#   unbounded loop `reconcile-open-prs.yml` documents closing in exactly one hop.
+#
+# BLAST RADIUS. Tier-1. It SSHes the trainer to run `stat`, `touch` two files
+# under /tmp, and `rm` them; it writes ONE generated JSON file under
+# docs/claude/work/. No order path, no strategy config, no risk caps, no live VM,
+# and nothing here writes to, restarts, or reconfigures the capture.
+
+on:
+  schedule:
+    # 23 past, every 6 hours — offset off the hour so it does not pile into the
+    # :00 rush. See the KNOWN BOUND note above for why 6h and not hourly.
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: trainer-capture-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'trainer-capture-watch-now'))
+    runs-on: ubuntu-latest
+    # Above commit-to-main's 30-minute verify-merged budget, or the job dies
+    # mid-wait and the receipt never lands (the reason research-queue dispatch
+    # carries 35).
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # ⚠️ MUST be the PAT, not GITHUB_TOKEN: `commit-to-main` pushes its
+          # branch with whatever credential the checkout configured, and a PR
+          # opened by GITHUB_TOKEN does NOT trigger the on:pull_request required
+          # checks -- so it would stall auto-merge forever.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Self-test the grading policy before trusting a live run
+        # The policy is a pure function precisely so it is arguable here rather
+        # than against a live capture. A watcher whose grading is broken must
+        # fail loudly, not write a confident receipt.
+        run: |
+          python3 -m pytest tests/test_orderflow_capture_freshness.py -q
+          python3 scripts/ci/check_trainer_capture_watch.py --self-test
+
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key
+          chmod 600 ~/.ssh/trainer_key
+          ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Observe the capture on the trainer (and plant the controls)
+        # continue-on-error: an SSH failure must reach the GRADER as
+        # `unreadable`, not abort the run before anything is graded. "We could
+        # not look" is a state this alarm reports under its own name; a dead step
+        # here would instead render as nothing at all.
+        id: observe
+        continue-on-error: true
+        env:
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+        run: |
+          set -uo pipefail
+          # The remote script is sent over stdin and interpolates nothing from
+          # the event, so no issue body can inject shell metacharacters.
+          ssh -i ~/.ssh/trainer_key \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=30 \
+              -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+              "${TRAINER_USER}@${TRAINER_IP}" 'bash -s' \
+              > observation.json <<'REMOTE'
+          set -uo pipefail
+          CAPTURE=/home/ubuntu/ict-trading-bot/datasets-out/market_microstructure/BTCUSDT/5m/v001/data.jsonl
+          STALE=/tmp/mi81_control_stale.jsonl
+          FRESH=/tmp/mi81_control_fresh.jsonl
+
+          # PLANT. The stale control is backdated 3h — comfortably past the
+          # 1800s threshold, so the assertion does not sit on the boundary.
+          : > "$STALE";  touch -d '3 hours ago' "$STALE"
+          : > "$FRESH";  touch "$FRESH"
+
+          emit_target () {
+            # $1=name $2=role $3=path
+            if [ -e "$3" ]; then
+              m=$(stat -c %Y "$3" 2>/dev/null)
+              s=$(stat -c %s "$3" 2>/dev/null)
+              if [ -n "${m:-}" ]; then
+                printf '{"name":"%s","role":"%s","path":"%s","read_state":"read","mtime_epoch":%s,"size_bytes":%s}' \
+                  "$1" "$2" "$3" "$m" "${s:-0}"
+              else
+                # It exists and stat failed: we could not look. NOT "absent".
+                printf '{"name":"%s","role":"%s","path":"%s","read_state":"error"}' "$1" "$2" "$3"
+              fi
+            else
+              printf '{"name":"%s","role":"%s","path":"%s","read_state":"absent"}' "$1" "$2" "$3"
+            fi
+          }
+
+          printf '{"now_epoch":%s,"host":"%s","targets":[' "$(date -u +%s)" "$(hostname)"
+          emit_target capture       watched "$CAPTURE"; printf ','
+          emit_target control_stale control "$STALE";   printf ','
+          emit_target control_fresh control "$FRESH"
+          printf ']}\n'
+
+          # Clean up the plants. Leaving a backdated file behind would be litter
+          # on a box whose disk is the thing under pressure.
+          rm -f "$STALE" "$FRESH"
+          REMOTE
+          rc=$?
+          echo "ssh_rc=${rc}" >> "$GITHUB_OUTPUT"
+          echo "--- observation.json ---"
+          cat observation.json || true
+
+      - name: Grade freshness
+        id: grade
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          python3 scripts/ops/orderflow_capture_freshness.py \
+            --observations observation.json --require-controls | tee /tmp/grade.txt
+          rc=${PIPESTATUS[0]}
+          python3 scripts/ops/orderflow_capture_freshness.py \
+            --observations observation.json --require-controls --json > /tmp/grade.json || true
+          echo "rc=${rc}" >> "$GITHUB_OUTPUT"
+          # rc 0 = capture fresh AND controls proved the alarm fires
+          # rc 1 = the capture is stale/absent/unreadable  -> PAGE
+          # rc 2 = the CONTROLS misgraded                  -> the alarm is not
+          #        trustworthy this run; page about the ALARM, not the capture.
+          if [ "${rc}" = "2" ]; then echo "controls_broken=true" >> "$GITHUB_OUTPUT"; fi
+          if [ "${rc}" = "1" ]; then echo "capture_bad=true" >> "$GITHUB_OUTPUT"; fi
+          # The grader already prints its own one-line summary; lift it rather
+          # than recomputing it here, so the page and the log cannot disagree.
+          summary=$(sed -n 's/^summary: //p' /tmp/grade.txt | head -1)
+          if [ -z "${summary}" ]; then
+            summary="capture verdict unavailable (the grader produced no summary)"
+          fi
+          {
+            echo "summary<<__S__"
+            echo "$summary"
+            echo "__S__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Telegram alert — the CAPTURE is not healthy
+        if: steps.grade.outputs.capture_bad == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GRADE_SUMMARY: ${{ steps.grade.outputs.summary }}
+        run: |
+          set +e
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PYTHONPATH=. python scripts/notify_session.py alert \
+            --summary "🚨 Trainer ORDER-FLOW CAPTURE not healthy — ${GRADE_SUMMARY}. Forward-only stream: minutes lost are unrecoverable." \
+            --link "${RUN_URL}" \
+            || echo "::warning::telegram notify failed (non-fatal)"
+
+      - name: Telegram alert — the ALARM ITSELF is not trustworthy
+        # A DIFFERENT failure from a stale capture, and it must not wear the same
+        # message: this one says the watcher's verdict cannot be believed, so the
+        # capture's state this run is UNKNOWN rather than good.
+        if: steps.grade.outputs.controls_broken == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set +e
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PYTHONPATH=. python scripts/notify_session.py alert \
+            --summary "🚨 trainer-capture-watch: the ALARM failed its own planted-staleness controls. The capture's state is UNKNOWN this run, not good." \
+            --link "${RUN_URL}" \
+            || echo "::warning::telegram notify failed (non-fatal)"
+
+      - name: Write the receipt
+        # ⚠️ WRITTEN ON EVERY GRADED RUN, healthy or not. The receipt proves the
+        # WATCHER ran; suppressing it on a finding would make a watcher that dies
+        # during an outage indistinguishable from one that never had anything to
+        # report.
+        run: |
+          set -uo pipefail
+          python3 scripts/ci/check_trainer_capture_watch.py \
+            --write-receipt \
+            --grade-json /tmp/grade.json \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          cat docs/claude/work/TRAINER-CAPTURE-WATCH.json
+
+      - name: Commit the receipt to main
+        # `verify-merged: true` because exiting 0 the moment a PR is OPENED would
+        # make a green run mean "a PR exists", never "the receipt is on main" --
+        # and this repo carried five stranded automation branches from exactly
+        # that.
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/work/TRAINER-CAPTURE-WATCH.json
+          message: 'chore(ops): trainer capture-watch receipt (auto)'
+          pr-title: 'chore(ops): trainer capture-watch receipt (auto)'
+          pr-body: |
+            Generated by `.github/workflows/trainer-capture-watch.yml`.
+
+            The dated liveness receipt `scripts/ci/check_trainer_capture_watch.py`
+            grades on every PR. Read `generated_at`, never the cron expression.
+          verify-merged: 'true'
+
+      - name: Report the verdict
+        # ⚠️ FAILING THE JOB IS THE SECOND ESCALATION CHANNEL. A cron'd run that
+        # dies or fails is picked up by `claude-run-failure-alert.yml`, so a
+        # Telegram outage does not silence the finding.
+        run: |
+          set -uo pipefail
+          cat /tmp/grade.txt || echo "no grade output"
+          if [ "${{ steps.grade.outputs.controls_broken }}" = "true" ]; then
+            echo "::error::The alarm failed its own planted-staleness controls — its verdict on the capture cannot be trusted this run."
+            exit 1
+          fi
+          if [ "${{ steps.grade.outputs.capture_bad }}" = "true" ]; then
+            echo "::error::The trainer order-flow capture is stale/absent/unreadable."
+            exit 1
+          fi
+          echo "capture fresh; alarm proved it fires against planted staleness this run."
