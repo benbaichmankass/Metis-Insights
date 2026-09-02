@@ -195,6 +195,59 @@ def test_the_window_states_how_it_was_chosen():
     assert "before" in how or "could NOT be established" in how
 
 
+def test_an_unparseable_since_is_refused_never_resolved_to_head():
+    """git does NOT fail on a garbage `--before` — it returns HEAD, rc 0.
+
+    That would make the overnight window `HEAD..HEAD`, i.e. EMPTY, and the
+    brief would report a quiet night for a window nobody chose. This asserts
+    the behaviour of git itself (so the test fails loudly if git ever starts
+    rejecting it and this validation becomes dead weight) and then asserts we
+    refuse first.
+    """
+    # The premise, measured rather than assumed.
+    out = subprocess.run(["git", "rev-list", "-1", "--before=not-a-timestamp", "HEAD"],
+                         cwd=REPO_ROOT, capture_output=True, text=True)
+    assert out.returncode == 0 and out.stdout.strip(), (
+        "git no longer ignores a bad --before; re-argue parse_since")
+
+    for bad in ("not-a-timestamp", "2026-13-45", "yesterday", ""):
+        try:
+            rdb.parse_since(bad)
+        except rdb.BadSince:
+            continue
+        raise AssertionError(f"{bad!r} was accepted")
+
+    # …and the control: valid forms pass and are read correctly.
+    assert rdb.parse_since("2026-09-02T22:00Z").hour == 22
+    assert rdb.parse_since("2026-09-02").day == 2
+    assert rdb.parse_since("2026-09-02 22:00").hour == 22
+
+
+def test_the_cli_refuses_a_bad_since_rather_than_rendering():
+    r = subprocess.run(
+        [sys.executable, "scripts/ops/render_daily_brief.py", "--since", "oops"],
+        cwd=REPO_ROOT, capture_output=True, text=True)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "REFUSED" in r.stderr
+    assert "quiet night for a window nobody chose" in r.stderr
+    assert "# DAILY BRIEF" not in r.stdout, "it rendered anyway"
+
+
+def test_the_no_commit_that_old_message_names_a_measured_cause():
+    """A failure message naming a cause no code path tested is
+    UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A. This line used to assert
+    'the clone is shallow' unconditionally — true here, and wrong for a full
+    clone of a young repo, where it would send a reader to deepen a clone that
+    is already complete."""
+    from scripts.ops import work_digest
+    _, how = rdb.resolve_since("1999-01-01T00:00:00Z", now=NOW, root=REPO_ROOT)
+    assert "could NOT be established" in how
+    if work_digest._is_shallow():
+        assert "SHALLOW" in how and "COMPLETE" not in how
+    else:
+        assert "COMPLETE" in how and "SHALLOW" not in how
+
+
 # ── the lease ─────────────────────────────────────────────────────────────
 
 def test_an_unreadable_lease_is_not_an_unheld_one():

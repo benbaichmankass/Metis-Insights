@@ -249,14 +249,68 @@ def observations_verdict(states: dict[str, str]) -> str:
 
 # ── the overnight window ──────────────────────────────────────────────────
 
+#: Accepted `--since` forms. Kept narrow on purpose: this is a human typing
+#: "when I went to bed", and every accepted form must be one git ALSO parses
+#: the same way, or the validation would pass a string git then reads
+#: differently.
+_SINCE_FORMATS = ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%MZ",
+                  "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M",
+                  "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d")
+
+
+class BadSince(ValueError):
+    """A `--since` string this cannot vouch for. REFUSED, never guessed."""
+
+
+def parse_since(since: str) -> datetime:
+    """Validate `--since` OURSELVES, because git will not.
+
+    ⚠️ **THIS IS THE WHOLE POINT AND IT IS NOT DEFENSIVE PROGRAMMING.**
+    `git rev-list -1 --before=<garbage> HEAD` does NOT fail — it **ignores the
+    unparseable date and returns HEAD**, exit 0. Measured:
+
+        $ git rev-list -1 --before="not-a-timestamp" HEAD
+        b37b15ff…            # ← HEAD. rc=0.
+
+    Handed to `resolve_since` that produces a base of HEAD, so the overnight
+    window is `HEAD..HEAD` — **EMPTY** — and the brief then reports a quiet
+    night for a window nobody chose, with total confidence and no hint that the
+    argument was thrown away. A typo in the one flag that means *"when I went to
+    bed"* would silently answer the operator's question with "nothing
+    happened".
+
+    That is the `curl … || echo '{}'` shape one level up: a confident negative
+    produced by a step that never ran. So an unparseable value is **REFUSED**,
+    loudly, rather than resolved into a lie.
+    """
+    s = since.strip()
+    for fmt in _SINCE_FORMATS:
+        try:
+            dt = datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+        return dt.replace(tzinfo=dt.tzinfo or timezone.utc)
+    raise BadSince(
+        f"--since {since!r} is not a timestamp this can vouch for. "
+        f"git would IGNORE it and silently use HEAD, making the overnight "
+        f"window empty and the brief report a quiet night for a window nobody "
+        f"chose. Accepted: {', '.join(_SINCE_FORMATS)} "
+        f"(e.g. '2026-09-02T22:00Z')."
+    )
+
+
 def resolve_since(since: str | None, *, now: datetime, root: Path | None = None) -> tuple[str, str]:
     """Resolve the overnight window's base ref, and SAY how it was chosen.
 
     Returns ``(ref, how)``. ``how`` is rendered, because "the window you asked
     for" and "the window we could actually resolve" are different claims and
     only the first is what the operator meant by *after I went to bed*.
+
+    Raises `BadSince` on a value git would silently ignore — see `parse_since`.
     """
     cwd = root or REPO_ROOT
+    if since is not None:
+        parse_since(since)  # refuse before git gets a chance to ignore it
     when = since or (now - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
         out = subprocess.run(
@@ -266,10 +320,22 @@ def resolve_since(since: str | None, *, now: datetime, root: Path | None = None)
     except (subprocess.CalledProcessError, OSError) as exc:
         return "", f"could not resolve a base ref for {when} ({type(exc).__name__})"
     if not out:
-        # ⚠️ NOT "nothing happened". A shallow clone simply has no commit that
-        # old, which is the normal state of a session checkout.
-        return "", (f"no commit in this clone older than {when} — the clone is "
-                    f"shallow, so the window could NOT be established")
+        # ⚠️ NOT "nothing happened" — no commit is that old HERE.
+        # ⚠️ AND THE CAUSE IS MEASURED, NOT ASSUMED. This line used to assert
+        # "the clone is shallow" unconditionally, which is UNPROVENANCED
+        # DIAGNOSTIC OUTPUT sub-class A: a failure message naming a cause no
+        # code path tested. A full clone of a young repo hits this too, and a
+        # reader told "shallow" would go and deepen a clone that is already
+        # complete. `_is_shallow` is imported from work_digest rather than
+        # re-implemented — two copies of "is this clone shallow" is how they
+        # would come to disagree.
+        why = ("this clone is SHALLOW, so older history is simply absent — "
+               "deepen it (`git fetch --depth=N`) and re-run"
+               if _digest._is_shallow() else
+               "this clone is COMPLETE, so no commit is genuinely that old — "
+               "the window predates the repo, or the timestamp is wrong")
+        return "", (f"no commit at or before {when} in this clone: {why}. "
+                    f"The window could NOT be established")
     return out, f"first commit at or before {when}"
 
 
@@ -893,6 +959,28 @@ def _self_test() -> int:
           "COULD NOT BE ESTABLISHED" in render(b4)
           and "not** a quiet night" in render(b4))
 
+    # 12b — a `--since` git would SILENTLY IGNORE is REFUSED, not resolved.
+    #       git returns HEAD (rc 0) for an unparseable --before, which would
+    #       make the window empty and the brief report a quiet night for a
+    #       window nobody chose. Both directions: garbage refuses, valid passes.
+    refused = True
+    try:
+        parse_since("not-a-timestamp")
+        refused = False
+    except BadSince:
+        pass
+    check("an unparseable --since is REFUSED, never resolved to HEAD",
+          refused and parse_since("2026-09-02T22:00Z").hour == 22
+          and parse_since("2026-09-02").day == 2)
+
+    # 12c — the shallow claim is MEASURED, not asserted. A failure message
+    #       naming a cause no code path tested is diagnostic-provenance
+    #       sub-class A, and this line used to assert "shallow" unconditionally.
+    _, how_old = resolve_since("1999-01-01T00:00:00Z", now=now)
+    check("the no-commit-that-old message names a MEASURED cause",
+          ("SHALLOW" in how_old) is _digest._is_shallow()
+          and ("COMPLETE" in how_old) is not _digest._is_shallow())
+
     # 13 — every declared input appears in §4, so there is always a denominator.
     md5 = render(b)
     check("§4 lists every declared input, read or not",
@@ -1026,8 +1114,16 @@ def main(argv: list[str] | None = None) -> int:
     if a.check:
         return _check()
 
-    b = build(since=a.since, session_notes_path=a.session_notes,
-              live_sessions_path=a.live_sessions, open_prs_path=a.open_prs)
+    try:
+        b = build(since=a.since, session_notes_path=a.session_notes,
+                  live_sessions_path=a.live_sessions, open_prs_path=a.open_prs)
+    except BadSince as exc:
+        # Refuse rather than render. A brief built on a window the operator did
+        # not choose is worse than no brief: it answers their question with
+        # "nothing happened" and gives them no way to see that it was asked
+        # wrong.
+        print(f"daily-brief: REFUSED — {exc}", file=sys.stderr)
+        return 2
     text = json.dumps(b, indent=2, default=str) if a.json else render(b)
 
     if a.write:
