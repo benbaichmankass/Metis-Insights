@@ -46,6 +46,16 @@ Tier-1: reads YAML, writes a nested ``push:`` mapping under an
 already-committed answer plus a bounded receipt file. No order path, no config,
 no VM, no credential.
 """
+# wiring: manual-only - run by the hourly decision-drain Routine's fresh
+# session, which is created from the web UI or `/schedule` and CANNOT be created
+# from this repo (a Routine is not a repo artifact). Deliberately NOT wired to a
+# workflow: a GitHub runner has no `mcp__*` tools, so it cannot perform the
+# `create_trigger` + `fire_trigger` delivery this script prepares the queue for
+# — a workflow caller would run the queue and then be unable to deliver any of
+# it. That the Routine does not yet exist is tracked, loudly, as
+# OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED,
+# whose probe (`scripts/ops/check_drain_liveness.py`) grades `never_ran` until
+# it does. See docs/design/decision-push-back-DESIGN.md § 5.
 from __future__ import annotations
 
 import argparse

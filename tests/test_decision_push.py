@@ -24,7 +24,6 @@ sys.path.insert(0, str(REPO))
 
 from src.runtime.decision_push import (  # noqa: E402
     DELIVER,
-    DELIVERY_STATES,
     PUSHED,
     SESSION_GONE,
     SKIP_ALREADY_PUSHED,
