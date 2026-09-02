@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T01:20Z",
+  "updated_at": "2026-09-02T02:12Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -299,6 +299,55 @@
         "at": "2026-09-02T01:18Z",
         "state": "spawned_not_yet_observed",
         "note": "SPAWNED, NOT OBSERVED. Carries an extra caution its siblings do not: its rows turn on PnL numbers, where a headline figure can flip its own SIGN with the population chosen — so it must state the population and use src/runtime/provenance.py rather than re-deriving a predicate (four bespoke ones already exist, one per past incident, and they collectively still missed the general case)."
+      }
+    },
+    {
+      "session_id": "session_01TASYv35o6XciFnMC9wmnHi",
+      "owns_object": null,
+      "title": "Morning report — prove the 06:20 digest REACHES the operator",
+      "spawned_at": "2026-09-02T01:27Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "Metis-Insights:diag-pending-pings-delivered-read-surface"
+      ],
+      "prs": [
+        "Metis-Insights#10719"
+      ],
+      "why": "The ping delivery ledger (runtime_logs/pending_pings_delivered.txt) was on NO read surface, so 'the digest was delivered' and 'the drain never ran' were indistinguishable from outside.",
+      "last_observed": {
+        "at": "2026-09-02T02:00Z",
+        "state": "pr_merged",
+        "note": "#10719 MERGED. ⚠️ IT CORRECTED THE MANAGER TWICE AND WAS RIGHT BOTH TIMES: the manager cited git_sha_on_disk as evidence the VM had pulled (that is the DISK sha; git_sha is the running one, and the endpoint exists precisely because disk cannot answer that), and it held that work-digest firing on cron does not refute an OI row whose population is probes.yml/due-list.yml. It also anchored the allowlist entry to repo_root() rather than runtime_logs_dir() — the naive form would have pointed the reader at a path NOTHING writes, serving a permanently-absent file that reads as 'nothing was ever delivered'. ⚠️ MERGING DOES NOT MAKE IT USABLE: restart_pending is true, so the delivery answer stays could_not_look until the web-api restarts."
+      }
+    },
+    {
+      "session_id": "session_012zFXi272Uywe4vzXsr7Jfi",
+      "owns_object": null,
+      "title": "Backlog drain #4 — research-review backlog",
+      "spawned_at": "2026-09-02T02:11Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [],
+      "prs": [],
+      "why": "Drains #2 and #3 both finished and merged, leaving ZERO running against the operator's 'then start the backlog'. research-review-backlog.json is the one backlog never yet drained, and drain #1 filed that it is also the one NOT covered by the round-trip guard.",
+      "last_observed": {
+        "at": "2026-09-02T02:11Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Scoped to one file; forbidden from OPEN-ITEMS.json; told it has no diag path to the trainer and must refuse rather than infer if a row needs trainer logs."
+      }
+    },
+    {
+      "session_id": "session_01HMfmAi3sPv4TtZ67SP2utB",
+      "owns_object": null,
+      "title": "Backlog drain #5 — health-review backlog, second pass",
+      "spawned_at": "2026-09-02T02:11Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [],
+      "prs": [],
+      "why": "Second pass on the largest file (~1091 rows). Given drain #1's five refusals up front so it does not redo blocked work, and explicitly RELEASED to take the one real class drain #1 judged out of scope — the diff-scoped guard on the transition INTO kept_open.",
+      "last_observed": {
+        "at": "2026-09-02T02:11Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. ⚠️ Told the guard must be SHOWN TO FAIL on a planted violation AND must not fail the ~55 existing rows — a wall gets disabled, which would be worse than no guard."
       }
     }
   ]
