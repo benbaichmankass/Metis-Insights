@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T13:23:03Z",
+  "updated_at": "2026-09-02T13:34:56Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -1068,6 +1068,45 @@
       ],
       "why": "Documentation-as-control failed measurably on 2026-09-02: the CI trap is in CLAUDE.md verbatim and was hit 3x, F6 was filed as MI-54 in the morning and reproduced for 8 hours, and SESSIONS.json needs_action is step 3 of every sweep prompt and was skipped every pass. Every control that DID hold was an executable refusal, not a document.",
       "confirmed_at": "2026-09-02T13:23:03Z"
+    },
+    {
+      "session_id": "session_019vcX5ZTD8C7wNAEtfPUdFQ",
+      "registry_key": "pending-20260902T133456Z",
+      "state": "working",
+      "title": "MI-66 — Enact the operating-layer inventory: wire the role packs, repair the 4 named workflows",
+      "checklist_item": "MI-66",
+      "spawned_at": "2026-09-02T13:34:56Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/mi66-enact-inventory"
+      ],
+      "why": "The 730-line inventory delivered the map and enacted NOTHING. Zero of 32 role packs reference the operating layer, and 4 workflows are evidenced-red including replay-pregate-nightly at 5 of 5 nights."
+    },
+    {
+      "session_id": "session_01NkekPZw73VYuynYhSdWLWm",
+      "registry_key": "pending-20260902T133456Z",
+      "state": "working",
+      "title": "MI-70 — Phase E: prove no work is lost by KILLING a session mid-work",
+      "checklist_item": "MI-70",
+      "spawned_at": "2026-09-02T13:34:56Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/mi70-kill-test"
+      ],
+      "why": "Phase E exit condition is 'killing a session mid-work loses nothing, DEMONSTRATED by killing one'. Nobody has killed one. This is handoff-bar observation 5 and it is unowned."
+    },
+    {
+      "session_id": "session_01XrwTGRY819PCzBnppCTLbi",
+      "registry_key": "pending-20260902T133456Z",
+      "state": "working",
+      "title": "MI-69 — A rebase arms auto-merge without anyone asking",
+      "checklist_item": "MI-69",
+      "spawned_at": "2026-09-02T13:34:56Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/mi69-automerge-misfire"
+      ],
+      "why": "Observed LIVE at 13:19Z: merging main into three sub-session branches armed auto-merge on all three PRs, because the legacy shared marker is still in the workflow paths filter."
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."
