@@ -64,6 +64,7 @@ from src.utils.json_notes import dump_capped  # noqa: E402
 from src.utils.json_notes import load_notes as _load_notes  # noqa: E402
 from src.utils.closed_at import normalize_closed_at_value  # noqa: E402
 from src.runtime import alert_cooldown as _alert_cooldown  # noqa: E402
+from src.runtime import bybit_leg_sides as _bybit_leg_sides  # noqa: E402
 from src.runtime.monitor_verdict import (  # noqa: E402
     KIND_MODIFY, KIND_PARTIAL_CLOSE, MEANINGFUL_MODIFY_REL_TOL,
     interpret_verdict,
@@ -6891,6 +6892,144 @@ _STALE_LEG_SELECTOR_BACKLOG_ID = (
 _BYBIT_LEG_CAP = 20
 
 
+def _bybit_over_cover_condition(
+    *,
+    size: float,
+    covered: float,
+    leg_side_split: Optional[Dict[str, Any]],
+) -> Tuple[str, Dict[str, Any]]:
+    """Name WHICH condition tripped the over-cover check, and carry its numbers.
+
+    Returns ``(prose, structured_fields)``. This is the branch the 2026-09-02
+    fix exists to add: the side-blind sum that trips the check is the UNION of
+    two conditions with DIFFERENT remedies, and the page used to describe only
+    one of them.
+
+    * legs that REDUCE THE GRADED BOOK exceeding the position → same-side stale
+      legs have piled up. That is the original ``over_covered`` condition and
+      the one ``cancel-stale-tpsl-legs`` is for.
+    * legs that reduce the OTHER book → protection acting on a book we did not
+      grade. Whether that book exists is :func:`bybit_leg_sides.other_book_state`'s
+      question, not this one's, and the prose says which of its three answers
+      applies rather than asserting "orphaned".
+
+    Both can hold at once; both are then reported. ⚠️ NEITHER may be reported
+    as absent when we could not look: an unreadable leg side or an unreadable
+    POSITION side is stated outright, because a sum over a population we could
+    only partly classify is a lower bound and reads exactly like a clean one.
+    """
+    if not leg_side_split:
+        # `_bybit_position_protection` returns None here only on the Full-mode
+        # branch, which never reaches this page. Say WE DID NOT LOOK rather
+        # than render a clean-looking zero split.
+        return (
+            "The per-book split of the resting legs was NOT computed, so which "
+            "book they act on is UNKNOWN — this is not a finding that they all "
+            "protect the graded position.",
+            {"leg_side_split_state": "not_computed"},
+        )
+
+    graded_q = float(leg_side_split.get(
+        f"{_bybit_leg_sides.LEG_REDUCES_GRADED_BOOK}_qty") or 0.0)
+    graded_n = int(leg_side_split.get(
+        f"{_bybit_leg_sides.LEG_REDUCES_GRADED_BOOK}_legs") or 0)
+    other_q = float(leg_side_split.get(
+        f"{_bybit_leg_sides.LEG_REDUCES_OTHER_BOOK}_qty") or 0.0)
+    other_n = int(leg_side_split.get(
+        f"{_bybit_leg_sides.LEG_REDUCES_OTHER_BOOK}_legs") or 0)
+    leg_unread_n = int(leg_side_split.get(
+        f"{_bybit_leg_sides.LEG_SIDE_UNREADABLE}_legs") or 0)
+    pos_unread_n = int(leg_side_split.get(
+        f"{_bybit_leg_sides.POSITION_SIDE_UNREADABLE}_legs") or 0)
+    qty_unread_n = int(leg_side_split.get("qty_unreadable_legs") or 0)
+    book_state = str(leg_side_split.get("other_book_state") or
+                     _bybit_leg_sides.OTHER_BOOK_UNKNOWN)
+
+    parts: List[str] = []
+
+    # --- the graded book -----------------------------------------------------
+    if pos_unread_n:
+        # POSITION_SIDE_UNREADABLE: no leg could be classified at all.
+        parts.append(
+            f"The position's own SIDE was unreadable, so NONE of the "
+            f"{pos_unread_n} resting leg(s) could be attributed to a book. We "
+            "could not look — do not read this as over-protection of the live "
+            "position."
+        )
+    else:
+        graded_pct = (100.0 * graded_q / size) if size else None
+        over_same_book = graded_q > size * _BYBIT_OVERCOVER_FACTOR
+        if over_same_book:
+            parts.append(
+                f"SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS "
+                f"position total {graded_q} across {graded_n} leg(s)"
+                + (f" ({graded_pct:.0f}% of the position)"
+                   if graded_pct is not None else "")
+                + " — stale same-side legs have piled up; a trip would "
+                "over-close and strand the rest."
+            )
+        else:
+            parts.append(
+                f"THIS position is NOT over-protected: legs that reduce it "
+                f"total {graded_q} across {graded_n} leg(s)"
+                + (f" ({graded_pct:.0f}% of the position)"
+                   if graded_pct is not None else "")
+                + "."
+            )
+
+    # --- the other book ------------------------------------------------------
+    if other_n:
+        if book_state == _bybit_leg_sides.OTHER_BOOK_IMPOSSIBLE_ONE_WAY:
+            tail = (
+                "The venue reports positionIdx=0 (ONE-WAY netting), so no "
+                "opposite book can exist: these are STRANDED legs of a "
+                "position that is gone."
+            )
+        elif book_state == _bybit_leg_sides.OTHER_BOOK_POSSIBLE_HEDGE:
+            tail = (
+                "The venue reports a HEDGE book (positionIdx 1/2), so these "
+                "MAY be a LIVE sibling position's protection — read "
+                "/api/diag/bybit_open_orders and the journal before treating "
+                "them as stranded. DO NOT cancel them on this page alone."
+            )
+        else:
+            tail = (
+                "The venue did not report a readable positionIdx, so whether "
+                "an opposite book exists is UNKNOWN — we could not look, which "
+                "is NOT 'the book is flat'."
+            )
+        parts.append(
+            f"SEPARATELY, {other_n} leg(s) totalling {other_q} rest on the "
+            f"side that reduces the OPPOSITE book — they cannot protect this "
+            f"position at all. {tail}"
+        )
+
+    # --- what we could not grade --------------------------------------------
+    if leg_unread_n:
+        parts.append(
+            f"{leg_unread_n} leg(s) carried no readable side and are in "
+            "NEITHER figure above — both are lower bounds."
+        )
+    if qty_unread_n:
+        parts.append(
+            f"{qty_unread_n} leg(s) carried no readable qty and contribute 0 "
+            "to the sums above, which are therefore lower bounds."
+        )
+
+    fields = {
+        "leg_side_split_state": "computed",
+        "graded_book_qty": graded_q,
+        "graded_book_legs": graded_n,
+        "other_book_qty": other_q,
+        "other_book_legs": other_n,
+        "leg_side_unreadable_legs": leg_unread_n,
+        "position_side_unreadable_legs": pos_unread_n,
+        "leg_qty_unreadable_legs": qty_unread_n,
+        "other_book_state": book_state,
+    }
+    return " ".join(parts), fields
+
+
 def _emit_bybit_over_cover_alert(
     *,
     account_id: str,
@@ -6899,6 +7038,7 @@ def _emit_bybit_over_cover_alert(
     covered: float,
     leg_count: int,
     protective_leg_count: Optional[int] = None,
+    leg_side_split: Optional[Dict[str, Any]] = None,
 ) -> bool:
     """Page the operator that resting Bybit SL legs EXCEED the position.
     Rate-limited per (account, symbol). Returns whether it alerted.
@@ -6937,6 +7077,34 @@ def _emit_bybit_over_cover_alert(
     2. **A dead trade's leg cutting a live position.** Reduce-only legs owned by
        CLOSED rows still trigger, so a live position gets cut at a level chosen
        by a trade that no longer exists.
+
+    ⚠️ **THE HEADLINE USED TO NAME A CAUSE NO CODE PATH TESTED** (fixed
+    2026-09-02). It read "position 0.018 but resting SL legs total 0.478
+    (2656%)", built from a SIDE-BLIND sum, which invites the reader to
+    investigate why the LIVE position is over-protected. MEASURED on
+    ``bybit_1``/BTCUSDT (``/api/diag/bybit_open_orders``, read
+    2026-09-02T03:30:33Z, trader ``git_sha 68e73de8``): the live position was
+    ``Buy 0.018 positionIdx=1`` and its own legs were ``Sell 0.018`` SL +
+    ``Sell 0.018`` TP — an exact 1.00x match, NOT over-protected. The whole
+    excess was ``Buy 0.46`` SL + ``Buy 0.46`` TP, reduce-only orders that can
+    only reduce a SHORT. Different condition, different remedy. That is
+    UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A (``CLAUDE.md`` § "Diagnostic
+    provenance"), and the fix is to BRANCH ON THE ACTUAL CONDITION rather than
+    reword the label — hence ``leg_side_split``
+    (:mod:`src.runtime.bybit_leg_sides`).
+
+    ⚠️ **THE TRIGGER STAYS SIDE-BLIND, DELIBERATELY.** The caller still trips on
+    the side-blind sum, because that sum is the UNION of both conditions:
+    narrowing the trigger to same-book coverage would make the orphan case go
+    SILENT, which is strictly worse than mislabelling it. What changed is only
+    what the page SAYS once it has fired.
+
+    ⚠️ **AND THE PAGE STILL DOES NOT ASSERT "ORPHANED".** Under one-way netting
+    an other-book leg is stranded by construction; under HEDGE mode — armed on
+    this account since 2026-08-30 — it may be a LIVE sibling's protection.
+    ``other_book_state`` carries which, including ``unknown`` for *we could not
+    look*. Saying "orphaned" without establishing the sibling book is empty
+    would re-commit the exact error being fixed.
 
     LEVEL IS `ERROR`, NOT `CRITICAL`, and that is a judgement worth stating.
     Both reach Telegram (`outcomes._TELEGRAM_LEVELS` = {ERROR, CRITICAL}), so
@@ -7003,18 +7171,22 @@ def _emit_bybit_over_cover_alert(
                 "`set_trading_stop` refuses (ErrCode 110061) and a genuine "
                 "protective tightening fails SILENTLY."
             )
+        which, split_fields = _bybit_over_cover_condition(
+            size=size, covered=covered, leg_side_split=leg_side_split,
+        )
         report(
             "bybit_over_cover",
             "detected",
             level=Level.ERROR,
             reason=(
-                f"{account_id}/{symbol}: position {size} but resting SL legs "
-                f"total {covered}"
-                + (f" ({pct:.0f}%)" if pct is not None else "")
-                + f" across {leg_count} leg(s)." + cap_note
+                f"{account_id}/{symbol}: position {size}. " + which
+                + f" (side-blind SL total across all books: {covered}"
+                + (f", {pct:.0f}% of the position" if pct is not None else "")
+                + f", {leg_count} leg(s) — this is the figure that TRIPPED the "
+                "check, not a claim about the graded book.)" + cap_note
                 + " The legs are reduceOnly, so this is NOT a naked-reverse "
                 "hazard (that is the IB/OCA shape) — the harm is the cap above "
-                "and a leg owned by a CLOSED trade cutting this live position "
+                "and a leg owned by a CLOSED trade cutting a live position "
                 "at a dead trade's level. Remedy: `cancel-stale-tpsl-legs`, "
                 "DRY-RUN first, and CHECK ITS PLAN AGAINST THE JOURNAL. Its "
                 "selector was ownership-based only from 2026-08-26; before that "
@@ -7024,6 +7196,11 @@ def _emit_bybit_over_cover_alert(
             account_id=account_id,
             symbol=symbol,
             size=size,
+            # ⚠️ UNCHANGED MEANING, deliberately: `covered_qty`/`over_cover_pct`
+            # are still the SIDE-BLIND totals a pre-2026-09-02 consumer would
+            # read. Re-pointing an existing key at a new population is how two
+            # surfaces come to disagree while both look right; the per-book
+            # figures ship as NEW keys below instead.
             covered_qty=covered,
             over_cover_pct=pct,
             # Structured beside the prose so a consumer can branch without
@@ -7034,6 +7211,7 @@ def _emit_bybit_over_cover_alert(
             # None, never a number, when the targets were not counted — a
             # fabricated headroom is the whole defect this replaced.
             leg_cap_headroom=headroom,
+            **split_fields,
         )
     except Exception:  # noqa: BLE001 — an alert failure must never abort the sweep
         logger.exception(
@@ -8258,6 +8436,31 @@ def _bybit_position_protection(client, category: str, symbol: str):
     A Full-mode position-level ``stopLoss`` genuinely covers the whole net
     position, so that path reports ``covered_qty == size``.
     BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT + the 2026-07-30 coverage fix.
+
+    ⚠️ **``covered_qty`` IS SIDE-BLIND, AND IS LEFT THAT WAY DELIBERATELY.**
+    It sums EVERY resting SL leg on the symbol regardless of which book the
+    leg can actually reduce. Under one-way netting that was harmless (one
+    book); since HEDGE mode was armed on this account (2026-08-30,
+    ``BYBIT_HEDGE_MODE_SYMBOLS``) a symbol can carry legs for two books and
+    they land in one sum. MEASURED on ``bybit_1``/BTCUSDT
+    (``/api/diag/bybit_open_orders``, read 2026-09-02T03:30:33Z, trader
+    ``git_sha 68e73de8``): position ``Buy 0.018 positionIdx=1`` with legs
+    ``Sell 0.018`` (its own) and ``Buy 0.46`` (acting on a short book) —
+    ``covered_qty`` 0.478 against a size of 0.018.
+
+    ``leg_side_split`` (:mod:`src.runtime.bybit_leg_sides`) carries the
+    per-book breakdown ADDITIVELY, and **only the over-cover PAGE reads it**.
+    The re-arm decision in :func:`_check_broker_naked_bybit_positions` still
+    reads ``covered_qty``, byte-identically to before this field existed, so
+    nothing about which positions get re-armed changed here.
+
+    ⚠️ That the side-blind sum can therefore ALSO mask a genuinely
+    under-covered book — an other-book leg can push ``covered_qty`` past
+    ``size`` on a position whose own stop is gone, and the sweep then skips it
+    as "fully covered" — is a REAL and SEPARATE defect. It is a Tier-2 change
+    to the re-arm path and is deliberately NOT made here; it is named in the
+    PR that added this field so it is fixed with its own review and its own
+    both-direction tests, not as a side effect of a diagnostic repair.
     """
     try:
         pos_resp = client.get_positions(category=category, symbol=symbol)
@@ -8281,6 +8484,11 @@ def _bybit_position_protection(client, category: str, symbol: str):
     if size <= 0:
         return _flat
     side = _norm_position_side(pos.get("side"))
+    # THE VENUE'S POSITION MODE, carried so the leg-side split can say whether
+    # an OPPOSITE book could exist at all (0 = one-way netting ⇒ it cannot;
+    # 1/2 = hedge ⇒ it may be a live sibling). Never defaulted to 0 — see
+    # `bybit_leg_sides.other_book_state`.
+    pos_idx = pos.get("positionIdx")
     # (a) Full-mode position-level stop lives on the position row itself and
     #     genuinely covers the WHOLE net position.
     pos_sl = str(pos.get("stopLoss") or "").strip()
@@ -8305,6 +8513,12 @@ def _bybit_position_protection(client, category: str, symbol: str):
             "source": "full_position_stop",
             "sl_leg_ids": set(), "unknown_qty_sl_legs": 0,
             "stop_prices": [_px] if (_px is not None and _px > 0) else [],
+            # ⚠️ None, NOT an empty split. This branch returns BEFORE
+            # `get_open_orders` is called, so we did not read the resting legs
+            # at all — an empty split would assert "no leg acts on the other
+            # book", which is a measurement nobody took. The over-cover branch
+            # fires only on `partial_sl_legs`, so no consumer reaches this.
+            "leg_side_split": None,
         }
     # (b) Partial-mode SL legs are separate resting conditional orders, each
     #     covering only its own qty — so SUM them and compare against size.
@@ -8321,6 +8535,10 @@ def _bybit_position_protection(client, category: str, symbol: str):
     leg_prices: List[float] = []
     leg_ids = set()
     unknown = 0
+    # The SL legs themselves, kept so the side split below reads the SAME
+    # population the side-blind `covered` sum was built from — a second pass
+    # over `legs` would be free to disagree with it.
+    sl_legs_seen: List[dict] = []
     # ⚠️ TWO DIFFERENT QUANTITIES, NEVER COLLAPSED (2026-08-26).
     # `covered_qty`/`sl_leg_ids` answer a STOP-COVERAGE question and are
     # deliberately SL-only. `protective_leg_count` answers a CAP-PROXIMITY
@@ -8342,6 +8560,7 @@ def _bybit_position_protection(client, category: str, symbol: str):
             protective_legs += 1
         if _kind not in _SL_LEG_TYPES_MON:
             continue
+        sl_legs_seen.append(o)
         oid = o.get("orderId")
         if oid:
             leg_ids.add(str(oid))
@@ -8359,6 +8578,16 @@ def _bybit_position_protection(client, category: str, symbol: str):
         "sl_leg_ids": leg_ids, "unknown_qty_sl_legs": unknown,
         # Combined TP+SL, for the 20-leg cap only. NOT a coverage figure.
         "protective_leg_count": protective_legs,
+        # WHICH BOOK each SL leg acts on (2026-09-02). ⚠️ `covered_qty` above
+        # is DELIBERATELY LEFT SIDE-BLIND so the re-arm decision below is
+        # byte-identical to before this field existed — this split is read by
+        # the over-cover PAGE only, never by an order path. That the
+        # side-blind sum can also mask a genuinely under-covered book is a
+        # separate, real defect and a Tier-2 change; it is named, not enacted.
+        "leg_side_split": _bybit_leg_sides.split_legs_by_side(
+            pos.get("side"), sl_legs_seen,
+            qty_of=_bybit_sl_leg_qty, position_idx=pos_idx,
+        ),
         # A Partial-mode SL leg is a conditional order, so its level is the
         # TRIGGER price, not the limit — the same distinction IB's STP LMT
         # forces. Sorted for a stable read; empty means no leg carried a
@@ -9012,7 +9241,14 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
         # Detect-only anomalies found live by bybit-bracket-audit 2026-07-30:
         # resting legs summing far over the position (accumulation), and open
         # journal qty exceeding the netted exchange size (phantom rows).
-        "over_covered": 0, "over_cover_alerted": 0, "journal_qty_divergent": 0,
+        "over_covered": 0, "over_cover_alerted": 0,
+        # Split OUT of `over_covered`, never folded into it: an over-cover trip
+        # whose excess sits on the OTHER book is a different condition with a
+        # different remedy, and pooling the two is what the 2026-09-02 fix
+        # exists to stop. `over_cover_split_ungraded` is *we could not tell
+        # which* — emphatically not a third finding, and not a clean read.
+        "over_cover_other_book": 0, "over_cover_split_ungraded": 0,
+        "journal_qty_divergent": 0,
         "journal_qty_divergent_pairs": 0,
     }
     try:
@@ -9234,16 +9470,31 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                     and covered > size * _BYBIT_OVERCOVER_FACTOR
                 ):
                     summary["over_covered"] += 1
+                    # ⚠️ The TRIP is side-blind (see below); the DESCRIPTION is
+                    # not. Before 2026-09-02 this line said "resting SL legs
+                    # total X" over a sum that mixes both hedge books, so a
+                    # position covered EXACTLY 1.00x by its own legs was
+                    # reported as 2656% over-protected.
+                    _split = state.get("leg_side_split")
+                    _which, _split_fields = _bybit_over_cover_condition(
+                        size=size, covered=covered, leg_side_split=_split,
+                    )
+                    if _split_fields.get("other_book_legs"):
+                        summary["over_cover_other_book"] = (
+                            summary.get("over_cover_other_book", 0) + 1)
+                    if _split_fields.get("leg_side_split_state") != "computed":
+                        summary["over_cover_split_ungraded"] = (
+                            summary.get("over_cover_split_ungraded", 0) + 1)
                     logger.error(
-                        "_check_broker_naked_bybit_positions: LEG OVER-ACCUMULATION "
-                        "%s/%s — position size=%s but resting SL legs total %s "
-                        "(%.0f%%) across %d leg(s). Legs have piled up; a trip "
-                        "would over-close and strand the rest. Remedy: "
-                        "cancel-stale-tpsl-legs, DRY-RUN first and check its "
-                        "plan against the journal.",
-                        account_id, symbol, size, covered,
+                        "_check_broker_naked_bybit_positions: OVER-COVER TRIP "
+                        "%s/%s — position size=%s side=%s; side-blind SL total "
+                        "%s (%.0f%%) across %d leg(s) is what tripped the "
+                        "check. %s Remedy: cancel-stale-tpsl-legs, DRY-RUN "
+                        "first and check its plan against the journal.",
+                        account_id, symbol, size, exch_side or "unreadable",
+                        covered,
                         (100.0 * covered / size) if size else 0.0,
-                        len(state["sl_leg_ids"]),
+                        len(state["sl_leg_ids"]), _which,
                     )
                     # ...and PAGE the operator. The logger.error above reaches
                     # the systemd journal and nothing else, so this condition
@@ -9257,6 +9508,7 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                         covered=covered,
                         leg_count=len(state["sl_leg_ids"]),
                         protective_leg_count=state.get("protective_leg_count"),
+                        leg_side_split=_split,
                     ):
                         summary["over_cover_alerted"] = (
                             summary.get("over_cover_alerted", 0) + 1)
