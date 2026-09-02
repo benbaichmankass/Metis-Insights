@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T07:55:00Z",
+  "updated_at": "2026-09-02T08:12:00Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -509,6 +509,30 @@
         "4. Only after 1-3 are OBSERVED does the outgoing manager stand down. If any fails, it RE-CLAIMS and reports the failed handoff rather than leaving the system unmanaged."
       ],
       "criterion_2_PROVEN": "VERIFIED 2026-09-02T06:24Z, ahead of the test rather than during it. Ran the REAL renderer (scripts/notify_on_pull.py::_render_event_body, on main) over two candidate takeover payloads:\n  • title+summary+chat_url -> 3 lines, link PRESENT:\n      'manager_takeover — Manager handover complete\\n<summary>\\nhttps://claude.ai/code/session_XXXX'\n  • the same information under `message` -> 1 line, link ABSENT: 'manager_takeover'\nCONCLUSION: the takeover ping WORKS TODAY on unfixed main and is NOT blocked on #10747 -- PROVIDED it is built with the recognised keys. Built with `message` it announces nothing, which would look like a successful silent handoff. This is a HARD REQUIREMENT for the successor's spawn prompt.\n⚠️ METHOD NOTE, because the first attempt nearly produced a false finding: I initially guarded the call on a function name that does not exist, so BOTH arms returned None and read as 'the ping path is broken'. That is the `curl || echo '{}'` shape this repo files against its own diagnostics -- a probe that cannot find a positive reporting a confident negative. Caught only because both arms failing identically is implausible. A negative needs a positive control."
+    },
+    {
+      "id": "MI-48-STREAMLIT-AND-ANDROID-ARE-ON-ICE-AND-MUST-STOP-CONSUMING",
+      "title": "Operator decision 2026-09-02: Streamlit + Android OFF the feed, on ice, not deleted. GitHub Pages SPA is the only UI.",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "operator_decision": "VERBATIM INTENT, 2026-09-02: 'both the Streamlit app and the Android app should not be consuming right now. They should be turned off. We don't need to delete them, but they're just on ice in the meantime, and they shouldn't be consuming anything because that's just unnecessary risk. The only UI that we're using is the Git pages website.'",
+      "why_this_row_exists": "It resolves a premise I was about to put to the operator as an open question. The Phase-H decision inbox asks how to sequence the read gate and states that Streamlit 'is still a live consumer'. CLAUDE.md on main already ASSERTS the retirement (line 225, 'the Svelte SPA is the ONLY live consumer', operator decision 2026-09-01). Both cannot be right, and the field says the docs are ahead of reality.",
+      "measured_2026_09_02": [
+        "Branch origin/claude/phase-h-preconditions-retire-consumers is NOT merged into origin/main (git merge-base --is-ancestor -> false). It is doc/reference corrections plus small router touches; it retires nothing operationally.",
+        "ict-trader-dashboard: streamlit_app.py still present (438,022 bytes, mtime 2026-08-28); origin/main carries no retirement commit.",
+        "The Streamlit Cloud app still EXISTS: https://ict-trader-dashboard-...streamlit.app/ returns 303 -> share.streamlit.io/-/auth/app (a sign-in wall), NOT a 404/deleted page.",
+        "⚠️ WE DID NOT ESTABLISH whether it is RUNNING. An auth redirect is consistent with both 'running but private' and 'exists but paused'. Do not collapse those."
+      ],
+      "so_the_state_is": "The retirement is DECLARED, not OBSERVED. CLAUDE.md asserts a state nobody measured — the field-beats-comment failure this repo's RULE ONE is about, in the dangerous direction: a session reading CLAUDE.md concludes the consumers are gone and reasons about a gate it is therefore safe to flip.",
+      "what_this_unblocks": "Phase H's read gate. The inbox question DEC-20260901-READ-GATE-SEQUENCING offered four options; the operator has now chosen the substance of option 1 (retire the consumers, then flip). It is no longer an open question and should NOT be relayed as one.",
+      "next": [
+        "Land origin/claude/phase-h-preconditions-retire-consumers so the docs and the code stop disagreeing.",
+        "TURN THE STREAMLIT CLOUD APP OFF. ⚠️ This is a Streamlit Cloud console action and is the ONE step no session can take — it is not in either repo. Operator-only; say so plainly rather than filing it as work.",
+        "Android: device_tokens is EMPTY on the live host (0 registered devices), so the Android side is already non-consuming in fact. Record that as measured, not assumed.",
+        "Only then answer DEC-20260901-READ-GATE-SEQUENCING with the operator's choice recorded as the decision."
+      ],
+      "note": "'On ice, not deleted' is explicit: do NOT propose deleting streamlit_app.py or the Android app. The ask is that they stop CONSUMING."
     },
     {
       "id": "MI-45-PING-RENDERER-DROPS-THE-MESSAGE-KEY",
