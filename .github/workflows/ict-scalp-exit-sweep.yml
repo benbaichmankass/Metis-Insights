@@ -22,9 +22,16 @@ name: ict-scalp-exit-sweep
 
 on:
   push:
+    # 2026-09-02 (MI-66): was pinned to literal branch(es) that have since been
+    # DELETED from origin, so this push trigger could not fire at all — the
+    # workflow was reachable only by `workflow_dispatch`. Generalised to the
+    # `claude/**` namespace rather than dropped, because the `paths:` sentinel
+    # below is the real trigger (the branch list was only ever a convenience)
+    # and the header's documented "re-trigger by committing a new value to that
+    # sentinel" had been silently untrue since those branches went away.
+    # Enforced by scripts/ci/check_workflow_trigger_reachability.py.
     branches:
-      - 'claude/wire-ict-scalp-mgc-15m-j8i7i4'
-      - 'claude/m20-trend-harness-workstream-ipa3ce'
+      - 'claude/**'
     paths:
       - '.github/exit-sweep-request'
   workflow_dispatch:
