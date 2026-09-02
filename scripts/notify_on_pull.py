@@ -384,22 +384,18 @@ def _render_unknown_value(key: str, value: object) -> Optional[str]:
     return f"{key}: {blob}"
 
 
-def _render_event_body(event: str, entry: dict) -> str:
-    """Render one pending-pings.jsonl entry into a clean operator message.
+def render_event_parts(event: str, entry: dict) -> tuple[list[str], int]:
+    """``(lines, content_count)`` for one entry — the ONE owner of "is this row
+    empty?".
 
-    A title line (label — sprint — title), then the curated detail fields, then
-    **every content key this module does not recognise**, then any URLs.
-
-    ⚠️ **NOTHING IS SILENTLY DROPPED — neither the label nor the body.** The old
-    docstring asserted exactly that guarantee (*"Unknown events fall back to the
-    raw event name as the label so nothing is silently dropped"*) while
-    providing only half of it: the LABEL was preserved and the BODY was
-    discarded. A comment that promises a property the code does not have is how
-    the next reader stops looking, so it is corrected rather than softened.
-
-    A row that renders to nothing but its label is a **producer defect**, and it
-    says so out loud in the operator's channel rather than arriving as a
-    plausible empty ping — see ``_EMPTY_BODY_NOTE``.
+    Split out from ``_render_event_body`` so the CI guard
+    (``scripts/ci/check_pending_pings_render.py``) can ask that question by
+    IMPORTING the answer rather than re-deriving it from the rendered text. The
+    guard's first draft did re-derive it — testing whether the body equalled the
+    bare label — and that predicate was already stale against this module's own
+    empty-ping notice, so it reported a planted defect as clean. Two copies of a
+    predicate is exactly how they drift; this is the same reasoning that makes
+    ``work_digest`` import ``PING_WORTHY`` instead of restating it.
     """
     head = [EVENT_LABELS.get(event, event)]
     content = 0
@@ -435,6 +431,27 @@ def _render_event_body(event: str, entry: dict) -> str:
         if v:
             lines.append(str(v))
             content += 1
+    return lines, content
+
+
+def _render_event_body(event: str, entry: dict) -> str:
+    """Render one pending-pings.jsonl entry into a clean operator message.
+
+    A title line (label — sprint — title), then the curated detail fields, then
+    **every content key this module does not recognise**, then any URLs.
+
+    ⚠️ **NOTHING IS SILENTLY DROPPED — neither the label nor the body.** The old
+    docstring asserted exactly that guarantee (*"Unknown events fall back to the
+    raw event name as the label so nothing is silently dropped"*) while
+    providing only half of it: the LABEL was preserved and the BODY was
+    discarded. A comment that promises a property the code does not have is how
+    the next reader stops looking, so it is corrected rather than softened.
+
+    A row that renders to nothing but its label is a **producer defect**, and it
+    says so out loud in the operator's channel rather than arriving as a
+    plausible empty ping — see ``_EMPTY_BODY_NOTE``.
+    """
+    lines, content = render_event_parts(event, entry)
     if content == 0:
         logger.error(
             "pending-pings: row for event=%r rendered NO body; keys=%s. "

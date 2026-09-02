@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import importlib.util
 import inspect
-import json
 import pathlib
 import sys
 
@@ -36,18 +35,11 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import notify_on_pull as nop  # noqa: E402
 
-PENDING = REPO_ROOT / "docs" / "claude" / "pending-pings.jsonl"
-
-
-def _live_rows() -> list[dict]:
-    if not PENDING.exists():
-        return []
-    out = []
-    for line in PENDING.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line:
-            out.append(json.loads(line))
-    return out
+# ⚠️ NO MODULE-LEVEL PATH INTO docs/ HERE, DELIBERATELY. Reading the committed
+# queue from a test is what `test_docs_committed_readers_are_all_covered`
+# refuses, and it is right to: `pytest-run` short-circuits on a docs/-only diff,
+# so such a test could not fire on the PR that broke it. That check is the
+# guard, `scripts/ci/check_pending_pings_render.py` — see the section below.
 
 
 def _render(row: dict) -> str:
@@ -88,43 +80,47 @@ def test_the_old_renderer_really_did_drop_it_positive_control():
     assert "the body that vanished" in _render(row)
 
 
-# ── the pin: nothing in the live queue may render to a bare label ────────
+# ── the pin lives in a GUARD, not here — and this asserts it still does ──
+#
+# The natural place for "every row in the live queue renders a body" is a test
+# over `docs/claude/pending-pings.jsonl`. It CANNOT live here: `pytest-run`
+# short-circuits on a docs/-only diff, and a queued ping IS a docs/-only diff —
+# so the check would be skipped on exactly the PR that introduced a bad row.
+# `tests/test_pytest_run_filter.py::test_docs_committed_readers_are_all_covered`
+# refuses it for that reason, and it refused MY first draft, which is the fourth
+# recurrence of that class being caught by a mechanism rather than an incident.
+#
+# It is `scripts/ci/check_pending_pings_render.py`, registered in
+# `artifact-validity-guard` next to `backlog_append --check-live`, which is a
+# guard for the identical reason. These two tests read only .py files, so they
+# are safe here — and they stop the pin being silently dropped.
 
-def test_no_live_queue_row_renders_to_a_bare_label():
-    """Pinned against the committed queue, not against a constant.
+def test_the_live_queue_pin_exists_as_a_guard_script():
+    guard = REPO_ROOT / "scripts" / "ci" / "check_pending_pings_render.py"
+    assert guard.exists(), (
+        "the live-queue pin is gone; a coverage claim nothing checks is worse "
+        "than no claim")
 
-    FAILS when a producer appends a row this renderer cannot say anything
-    about — which is the condition, not a formatting nit.
+
+def test_the_guard_is_registered_in_run_guards():
+    """An unregistered guard is a file, not a gate."""
+    text = (REPO_ROOT / "scripts" / "ci" / "run_guards.py").read_text()
+    assert "scripts/ci/check_pending_pings_render.py" in text
+    assert '"--self-test"' in text, "the positive control must run too"
+
+
+def test_the_guards_emptiness_predicate_is_imported_not_redefined():
+    """One owner for "is this row empty?" — the guard asks the renderer.
+
+    Its first draft re-derived it (body == bare label) and was already stale
+    against the empty-ping notice, so a planted defect read as clean.
     """
-    rows = _live_rows()
-    assert rows, "positive control: the queue file must be readable and non-empty"
-    bare = []
-    for row in rows:
-        event = str(row.get("event") or "ping")
-        body = _render(row)
-        if body.strip() == event.strip():
-            bare.append(row)
-    assert not bare, (
-        f"{len(bare)} of {len(rows)} queued pings render to nothing but their "
-        f"event label. Offending rows: {[sorted(r) for r in bare[:3]]}\n"
-        "A row is either content (and must render) or a producer defect (and "
-        "must say so). It is never a silent bare label."
-    )
-
-
-def test_every_live_queue_key_is_either_envelope_or_rendered():
-    """The coverage claim, checked rather than asserted."""
-    keys = {k for row in _live_rows() for k in row}
-    assert keys, "positive control: rows carry keys"
-    unaccounted = sorted(
-        k for k in keys
-        if k not in nop.ENVELOPE_KEYS and k not in nop.CURATED_KEYS
-        # An unrecognised key is FINE — it renders. This asserts the renderer
-        # actually reaches it, which is the property that was missing.
-        and nop._render_unknown_value(k, "probe") is None
-    )
-    assert not unaccounted, (
-        f"keys neither envelope, curated, nor renderable: {unaccounted}")
+    guard = (REPO_ROOT / "scripts" / "ci" / "check_pending_pings_render.py").read_text()
+    assert "render_event_parts" in guard
+    lines, content = nop.render_event_parts("ping", {"event": "ping"})
+    assert content == 0
+    lines, content = nop.render_event_parts("ping", {"event": "ping", "message": "x"})
+    assert content == 1
 
 
 # ── the envelope may not quietly grow to swallow content ─────────────────
