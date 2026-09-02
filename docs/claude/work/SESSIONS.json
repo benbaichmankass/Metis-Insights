@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T06:12:45Z",
+  "updated_at": "2026-09-02T06:14:39Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -617,6 +617,16 @@
       "note": "AUDIT producing a proposal + safe repairs. Must NOT mass-delete skills or workflows. Told to grade a workflow by its run history, never by its YAML.",
       "registered_late": true,
       "registered_late_reason": "Registered retroactively 2026-09-02 when a handoff readiness check found 6 of 9 spawned sessions absent. spawned_at is the REGISTRATION time, not the spawn time -- do not read it as when the session started."
+    },
+    {
+      "session_id": "session_019udKqceYPBqp4kzBYNZ6Sp",
+      "title": "MI-43: handoff-readiness check + make spawn-and-register one action",
+      "checklist_item": "MI-43",
+      "spawned_at": "2026-09-02T06:14:39Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "state": "working",
+      "note": "Registered in the SAME action that spawned it -- deliberately, because this session's own subject is that spawn and register keep diverging (MI-15, recurred 6-of-9 the same hour). Building the coupling by hand each time is the interim; its deliverable is to make the coupling mechanical so no manager has to.",
+      "registered_late": false
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."
