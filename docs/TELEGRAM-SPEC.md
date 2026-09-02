@@ -29,9 +29,13 @@ the **Claude channel** (operator decision 2026-05-24).
 ## 2. Trader bot — design principles
 
 1. **Menu-driven, not command-driven.** The operator opens one menu and
-   taps. The only slash commands are the menu openers (`/start`,
-   `/menu`). The Telegram hamburger command list (`set_my_commands`) is
-   trimmed to just those — no wall of stale commands.
+   taps. The slash commands are the two menu openers (`/start`, `/menu`)
+   plus the two operator **pulls** added 2026-09-02 — `/status` (the
+   manager checklist → recently done → next) and `/decisions` (every
+   decision still waiting on the operator). The Telegram hamburger list
+   (`set_my_commands`) carries exactly those four — no wall of stale
+   commands. ⚠️ A pull is not a view: it answers a question the operator
+   asked *now*, which a menu tap cannot do when the ping never arrived.
 2. **Dynamic.** Every view reads live state (accounts.yaml,
    strategies.yaml, the journal DB, exchange balances, runtime_status).
    Adding an account or strategy needs **no bot code change**.

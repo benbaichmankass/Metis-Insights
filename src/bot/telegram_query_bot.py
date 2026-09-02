@@ -6,7 +6,9 @@ The 2026-05 overhaul (see ``docs/TELEGRAM-SPEC.md``) replaced the old
     🛑 Kill switch · 🩺 System update · 💼 Accounts · 📈 Strategies ·
     🚨 Close all positions
 
-``/start`` and ``/menu`` are the only slash commands. Every view reads
+``/start`` and ``/menu`` are the menu openers; ``/status`` and
+``/decisions`` (added 2026-09-02, see ``src.bot.operator_commands``)
+are the two operator pulls. Every view reads
 live state (accounts.yaml, strategies.yaml, the journal, runtime_status,
 systemd) so adding an account or strategy needs no bot code change.
 
@@ -46,6 +48,7 @@ from src.bot.cloud_notifier import (
     get_service_status,
 )
 from src.bot.comms_handler import install_comms_handlers
+from src.bot.operator_commands import OPERATOR_COMMANDS, install_operator_commands
 from src.bot.strategy_execution_writer import (
     StrategyExecutionWriteError,
     set_strategy_execution,
@@ -135,11 +138,13 @@ def is_halted() -> bool:
     return _is_halted()
 
 
-# ── Operator command surface (just the menu openers) ────────────────────────
+# ── Operator command surface (the menu openers + the two operator pulls) ────
 #
 # BOT_COMMANDS is the flat list handed to ``set_my_commands`` — it IS the
-# hamburger menu Telegram shows in the composer. Per the overhaul it
-# carries only the two menu openers; there is no stale command wall.
+# hamburger menu Telegram shows in the composer. Per the overhaul it carries
+# the two menu openers and nothing stale; the two operator PULLS added
+# 2026-09-02 (``/status``, ``/decisions``) join it because a command absent
+# from this list is one the operator has to know exists in order to use.
 
 # (name, description) — the only operator-facing slash commands. Kept as
 # plain tuples (not telegram.BotCommand) so the surface is assertable even
@@ -148,8 +153,14 @@ _MENU_OPENERS: list[tuple[str, str]] = [
     ("start", "Open the menu"),
     ("menu", "Open the menu"),
 ]
+#: The full operator-facing slash surface: the menu openers PLUS the two
+#: operator pulls added 2026-09-02. Kept as its own constant so
+#: ``_MENU_OPENERS`` keeps meaning exactly what its name says — the openers —
+#: and the existing "no stale command wall" assertion still tests that claim
+#: rather than being widened to accommodate the new entries.
+_COMMAND_SURFACE: list[tuple[str, str]] = [*_MENU_OPENERS, *OPERATOR_COMMANDS]
 BOT_COMMAND_SPECS: list[BotCommand] = [
-    BotCommand(name, desc) for name, desc in _MENU_OPENERS
+    BotCommand(name, desc) for name, desc in _COMMAND_SURFACE
 ]
 BOT_COMMANDS = BOT_COMMAND_SPECS
 
@@ -768,6 +779,18 @@ def main():
 
     application.add_handler(CommandHandler("start", cmd_start))
     application.add_handler(CommandHandler("menu", cmd_menu))
+
+    # The two operator PULLS (2026-09-02). Registered BEFORE the generic
+    # CallbackQueryHandler for the same reason install_comms_handlers is:
+    # handler order decides who wins. They resolve their destination through
+    # telegram_decisions.answerable_route() rather than a hardcoded token, so
+    # they follow whichever bot is genuinely polled.
+    install_operator_commands(
+        application,
+        is_authorised=is_authorised,
+        polled_token=TELEGRAM_BOT_TOKEN,
+    )
+
     application.add_handler(CallbackQueryHandler(callback_handler))
 
     # ── declare what THIS process polls, now that the handlers are attached ───
