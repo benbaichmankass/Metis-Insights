@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-09-01",
+  "updated_at": "2026-09-02T00:00:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -11079,9 +11079,9 @@
       "opened_at": "2026-07-30T21:30:00+00:00",
       "opened_by": "claude (diagnostic-output-defect-class session, diagnostic-output-defects-wtsxg2)",
       "trigger_condition": "n/a",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-09-02T00:00:00+00:00",
       "updates": [
         {
           "at": "2026-07-30T22:35:00+00:00",
@@ -11115,6 +11115,13 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated: the guard SHIPPED and passes (diagnostic-provenance clean in this session's CI run and locally). The residual grandfathered sites are the open half, tracked at BL-20260807-DIAGPROV-STANDING-AUDIT-NEVER-DRAINED. Keep as the class row."
+        },
+        {
+          "at": "2026-09-02T00:00:00+00:00",
+          "by": "claude (health-backlog-drain pass 3, 2026-09-02)",
+          "disposition": "resolved",
+          "evidence_based": true,
+          "note": "CLOSED ON THE NUMBER THE COMMAND PRINTS, not on a code citation. `python3 scripts/check_diagnostic_provenance.py --all` reports `diagnostic-provenance: OK — every scanned diagnostic states what it computed.` (0 findings), from 52 at the start of this session. POPULATION: the guard's own declared scope — scripts/{ml,research,ops,macro,reports}/ plus ml/ and the guard scripts — measured in-sandbox on branch claude/drain-health-backlog-pass3 at commit 0dcfcd1e. This is a REPO measurement, not a fleet one; the finding is about static code, so the repo is the ground truth for it.\n\nALL 52 WERE TRIAGED PER SITE, NOT MASS-ANNOTATED (this row's own ASK). Split at the start: D/inert-parameter 26 · B/implicit-input-selection 13 · C/unquantified-universal-claim 8 · A/semantic-substitution 5.\n  A (5) — the two binary evaluators and the M23 gate now state that predict() is P(positive) for the binary head they grade and that a MulticlassPredictor's max(proba) is not a valid input; build_research_panel's pooled ms_mean/ms_max now say outright that `score` is not commensurable across heads; render_system_report labels the field 'logged score = predict()' instead of rendering it as a bare probability.\n  B (13) — every sorted(glob(...))[-1] site now prints the resolved path AND the candidate count, on stderr where stdout is a data channel.\n  C (8) — the denominator now rides in the claim itself. The sharp one was scripts/check_writer_conformance.py, a CI guard printing 'clean' with no count: a diff with nothing scannable rendered byte-identical to one fully scanned and clean. It now reads 'clean over N added line(s)' — observed live in this session's guards run as 'clean over 243 added line(s)'.\n  D (26) — import-fallback stubs and protocol-conformance methods marked inert with the specific reason; two docstrings corrected that claimed an effect the code does not have (_label_regime said it maps (forward_log_return, forward_vol) when the 2-class rule reads forward_vol ALONE; _decay said 'compare bucketed edge' when it computes a plain window mean and never buckets); and THREE ADVERTISED KNOBS THAT SILENTLY DID NOTHING now refuse a non-default instead of ignoring it (hf_vectorized.replay's signal_ttl_bars, _forward_label_map's positive_class, run_c4's --n-bins). Every call site uses the default — verified by grep — so current behaviour is unchanged.\n\nPOSITIVE CONTROL, because a green that cannot go red proves nothing: a planted file carrying one defect per class was caught on ALL FOUR (A, B, C, D), and the tree returned to OK once removed.\n\nTHE OVERRIDE WAS CHEAPER TO LIE TO THAN TO SATISFY, AND IS NOT NOW. `# inert:` was a bare presence-only regex, so the cheapest way to silence a real finding was a comment naming nothing — the new-table-wiring-guard failure this repo has already paid for, and one this guard's own test-module docstring already said must not exist. It must now NAME the parameter it excuses. Tightening it immediately exposed 11 markers across 4 files (dukascopy_span_probe, e2_feature_information, probe_actions_log, render_due_list) that named no parameter while the tree reported OK. All 11 carried genuine reasons — the point is not that they were dishonest, it is that nothing could tell them from a marker that was. A regression test fails on the reverted guard and passes on the restored one.\n\nThis row's criteria had TWO clauses and BOTH are met. (a) 'the --all residue is driven to zero' — done, above. (b) 'Guard is a required check' — diagnostic-provenance-guard is registered in scripts/ci/run_guards.py and rides the `guards` context, which branch-protection-sync.yml lists in REQUIRED_CONTEXTS [\"pytest-collect\",\"pytest-run\",\"guards\"]; read from the workflow, not assumed.\n\nAND THE ZERO IS NOW HELD RATHER THAN JUST REACHED. The guard was diff-scoped, so a site can regress when an unrelated PR adds the probability-shaped LABEL or deletes the print that made an input selection visible, three lines from code it never edited — which is why the residue sat at exactly 52 for 26 days across five review passes. It now carries an UNGATED whole-tree `--all` step (the api-tier-policy-guard pattern that run_guards.py already names as the remedy). That step could not have existed before today: it would have failed every PR on day one."
         }
       ],
       "id": "BL-20260730-DIAGNOSTIC-PROVENANCE-CLASS",
@@ -11131,7 +11138,8 @@
         "scripts/ml/_regime_score_semantics.py",
         "docs/CLAUDE-RULES-CANONICAL.md"
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-09-02T00:00:00+00:00",
+      "resolved_by": "claude (health-backlog-drain pass 3, 2026-09-02)"
     },
     {
       "opened_at": "2026-07-30T21:30:00+00:00",
@@ -12688,7 +12696,7 @@
       "opened_at": "2026-08-07T13:00:00+00:00",
       "opened_by": "claude (metis-ml2-cell-audit-cont 6ewta2)",
       "severity": "medium",
-      "status": "kept_open",
+      "status": "resolved",
       "source": "`python3 scripts/check_diagnostic_provenance.py --all`, run 2026-08-07 on main @ 038574c.",
       "title": "[research][Tier-1] The diagnostic-provenance STANDING audit reports 52 findings and has never been drained — the guard is diff-scoped in CI, so all 52 are grandfathered and invisible",
       "description": "POPULATION: `scripts/check_diagnostic_provenance.py --all` over scripts/{ml,research,ops,macro,reports}/ + ml/, on main @ 038574c, 2026-08-07. **52 findings**, by class:\n  27 D/inert-parameter\n  13 B/implicit-input-selection\n   8 C/unquantified-universal-claim\n   4 A/semantic-substitution\n\nCLAUDE.md documents `--all` as 'the standing audit' while CI runs the guard DIFF-SCOPED, so every pre-existing site is grandfathered. Nothing schedules the standing run and no backlog row tracks its output, so the 52 are invisible in practice. That is the normalization pattern the 2026-07-19 'if you see something, say something' directive names: an audit that exists, reports, and is never read.\n\nCONTEXT — this is the quantified form of an operator hypothesis. The 2026-08-07 session observed three defects sharing the shape 'computed correctly, then dropped or mislabelled at the OUTPUT boundary' and suggested the research tooling's output layer is under-reviewed relative to its compute layer. Two more were found on 2026-08-07 (the v520 pointer substitution, class B; and the walk-forward gate's missing sample floor, class C — fixed in PR #8576), making five. The 52-item standing backlog is the measurement behind the hypothesis.\n\nNOTE the 13 B/implicit-input-selection sites specifically: that is the same class as the v520 substitution that cost this session a wrong 'the dataset needs rebuilding' conclusion. Several are the literal `sorted(glob(...))[-1]` newest-file idiom (e.g. scripts/research/m20_exit_analysis.py:106-107, ws_a_s3_significance.py:65-66).\n\nASK: schedule the standing `--all` run (or drain a fixed quota per /health-review, consistent with the backlog-quota meta-item in WORKPLAN-2026-08-05 section 3). Triage, do not mass-annotate — the override is verified, and a guard cheaper to lie to than to satisfy is worse than no guard.",
@@ -12721,10 +12729,19 @@
           "at": "2026-09-02T02:30:00+00:00",
           "by": "claude (backlog-drain session #2, 2026-09-02)",
           "note": "RE-MEASURED 2026-09-02 AND THE NUMBER HAS NOT MOVED AT ALL — still EXACTLY 52, twenty-six days after this row was filed. Ran in-sandbox at 943a7192: `python3 scripts/check_diagnostic_provenance.py --all` -> 52 DIAGNOSTIC_PROVENANCE_GUARD lines.\n\nSUB-CLASS SPLIT, which this row never carried and which is what makes the 52 actionable rather than a lump: D/inert-parameter 26 · B/implicit-input-selection 13 · C/unquantified-universal-claim 8 · A/semantic-substitution 5. The A group is the one that misleads a reader most directly (a label naming a quantity the code did not compute) and is only 5 rows, so the highest-severity half of this backlog item is small and drainable in one sitting.\n\nPOPULATION: scripts/{ml,research,ops,macro,reports}/ plus the guard scripts, per the guard's own declared scope. This is a REPO measurement, not a fleet one — the finding is about static code, so the repo is the ground truth for it, and I am labelling it rather than dressing it as fleet evidence.\n\nAN EXIT CONDITION IS AUTHORED BELOW, derived from this measurement rather than invented: this row previously stated none, which is why it sat in the permanent-resident class (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED)."
+        },
+        {
+          "at": "2026-09-02T00:00:00+00:00",
+          "by": "claude (health-backlog-drain pass 3, 2026-09-02)",
+          "disposition": "resolved",
+          "evidence_based": true,
+          "note": "CLOSED ON THE NUMBER THE COMMAND PRINTS, not on a code citation. `python3 scripts/check_diagnostic_provenance.py --all` reports `diagnostic-provenance: OK — every scanned diagnostic states what it computed.` (0 findings), from 52 at the start of this session. POPULATION: the guard's own declared scope — scripts/{ml,research,ops,macro,reports}/ plus ml/ and the guard scripts — measured in-sandbox on branch claude/drain-health-backlog-pass3 at commit 0dcfcd1e. This is a REPO measurement, not a fleet one; the finding is about static code, so the repo is the ground truth for it.\n\nALL 52 WERE TRIAGED PER SITE, NOT MASS-ANNOTATED (this row's own ASK). Split at the start: D/inert-parameter 26 · B/implicit-input-selection 13 · C/unquantified-universal-claim 8 · A/semantic-substitution 5.\n  A (5) — the two binary evaluators and the M23 gate now state that predict() is P(positive) for the binary head they grade and that a MulticlassPredictor's max(proba) is not a valid input; build_research_panel's pooled ms_mean/ms_max now say outright that `score` is not commensurable across heads; render_system_report labels the field 'logged score = predict()' instead of rendering it as a bare probability.\n  B (13) — every sorted(glob(...))[-1] site now prints the resolved path AND the candidate count, on stderr where stdout is a data channel.\n  C (8) — the denominator now rides in the claim itself. The sharp one was scripts/check_writer_conformance.py, a CI guard printing 'clean' with no count: a diff with nothing scannable rendered byte-identical to one fully scanned and clean. It now reads 'clean over N added line(s)' — observed live in this session's guards run as 'clean over 243 added line(s)'.\n  D (26) — import-fallback stubs and protocol-conformance methods marked inert with the specific reason; two docstrings corrected that claimed an effect the code does not have (_label_regime said it maps (forward_log_return, forward_vol) when the 2-class rule reads forward_vol ALONE; _decay said 'compare bucketed edge' when it computes a plain window mean and never buckets); and THREE ADVERTISED KNOBS THAT SILENTLY DID NOTHING now refuse a non-default instead of ignoring it (hf_vectorized.replay's signal_ttl_bars, _forward_label_map's positive_class, run_c4's --n-bins). Every call site uses the default — verified by grep — so current behaviour is unchanged.\n\nPOSITIVE CONTROL, because a green that cannot go red proves nothing: a planted file carrying one defect per class was caught on ALL FOUR (A, B, C, D), and the tree returned to OK once removed.\n\nTHE OVERRIDE WAS CHEAPER TO LIE TO THAN TO SATISFY, AND IS NOT NOW. `# inert:` was a bare presence-only regex, so the cheapest way to silence a real finding was a comment naming nothing — the new-table-wiring-guard failure this repo has already paid for, and one this guard's own test-module docstring already said must not exist. It must now NAME the parameter it excuses. Tightening it immediately exposed 11 markers across 4 files (dukascopy_span_probe, e2_feature_information, probe_actions_log, render_due_list) that named no parameter while the tree reported OK. All 11 carried genuine reasons — the point is not that they were dishonest, it is that nothing could tell them from a marker that was. A regression test fails on the reverted guard and passes on the restored one.\n\nThis row's criteria asked for ZERO from `--all`. That is what the command prints."
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00",
-      "resolution_criteria": "RESOLVED when `python3 scripts/check_diagnostic_provenance.py --all` reports ZERO findings, or when every remaining finding carries a `# provenance: <accessor> — <meaning>` override that the guard's own verified (not presence-only) check accepts. Measured 2026-09-02 at 943a7192: 52 findings — D/inert-parameter 26, B/implicit-input-selection 13, C/unquantified-universal-claim 8, A/semantic-substitution 5. PARTIAL PROGRESS IS REPORTABLE AGAINST THAT SPLIT: draining the 5 A/semantic-substitution findings alone is a defensible interim close-out of the highest-severity half, provided the re-run count and split are quoted. A code citation does not close this — the number the command prints does."
+      "updated_at": "2026-09-02T00:00:00+00:00",
+      "resolution_criteria": "RESOLVED when `python3 scripts/check_diagnostic_provenance.py --all` reports ZERO findings, or when every remaining finding carries a `# provenance: <accessor> — <meaning>` override that the guard's own verified (not presence-only) check accepts. Measured 2026-09-02 at 943a7192: 52 findings — D/inert-parameter 26, B/implicit-input-selection 13, C/unquantified-universal-claim 8, A/semantic-substitution 5. PARTIAL PROGRESS IS REPORTABLE AGAINST THAT SPLIT: draining the 5 A/semantic-substitution findings alone is a defensible interim close-out of the highest-severity half, provided the re-run count and split are quoted. A code citation does not close this — the number the command prints does.",
+      "resolved_at": "2026-09-02T00:00:00+00:00",
+      "resolved_by": "claude (health-backlog-drain pass 3, 2026-09-02)"
     },
     {
       "id": "BL-20260807-TRAINERDIAG-COLUMN0-PYTHON-KEYWORD-TRUNCATES-CMD",
@@ -30879,6 +30896,36 @@
         "BL-20260720-GH-ACTIONS-PUSH-EVENTS-DEAD",
         "https://github.com/benbaichmankass/Metis-Insights/pull/10679"
       ]
+    },
+    {
+      "id": "BL-20260902-TWO-SIBLING-HF-HARNESSES-DISAGREE-ON-SIGNAL-TTL-SEMANTICS",
+      "opened_at": "2026-09-02T00:00:00+00:00",
+      "opened_by": "claude (health-backlog-drain pass 3, 2026-09-02)",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "area": "research",
+      "source": "Found while draining the diagnostic-provenance standing audit (D/inert-parameter) on 2026-09-02; the guard flagged the unread parameter, the divergence was found by reading the sibling.",
+      "title": "[research] hf_vectorized.replay and hf_solo_sim.simulate take the SAME `signal_ttl_bars` parameter and implement DIFFERENT semantics — the vectorized one hardcodes a 1-bar TTL and ignored the argument entirely",
+      "detail": "MEASURED by reading both files at commit 0dcfcd1e.\n\n`scripts/research/hf_solo_sim.py::simulate` implements a real expiry: it acts on a pending signal while `i - latest_idx >= signal_ttl_bars`.\n`scripts/research/hf_vectorized.py::replay` accepted `signal_ttl_bars=1`, NEVER READ IT, and acts on a signal only on the exact bar it arrives (`i == pend_idx`) — an effective TTL hardcoded to 1.\n\nPOPULATION / BLAST RADIUS TODAY: all four call sites of `replay` inside hf_vectorized.py (lines 423, 433, 471, 498) use the default, and the default (1) HAPPENS TO MATCH the hardcoded behaviour. So no result produced so far is wrong because of this. That is luck, not design.\n\nWHAT WAS DONE IN THIS SESSION, AND WHAT WAS NOT. `replay` now RAISES NotImplementedError on a non-default `signal_ttl_bars` instead of silently ignoring it, so a future sweep can no longer get a ttl=1 run wearing a ttl=N label. That removes the silent-wrong-answer hazard. It does NOT reconcile the two harnesses, and reconciling them was deliberately left alone: implementing the expiry in the vectorized replay would change every number it has ever produced, which is a research-semantics decision and not a backlog drain's call.\n\nWHY IT STILL MATTERS: the two harnesses exist to be compared. A comparison between a 1-bar-TTL engine and a configurable-TTL engine is not apples-to-apples, and nothing in either file says so.",
+      "resolution_criteria": "RESOLVED when either (a) hf_vectorized.replay implements the same `i - latest_idx >= signal_ttl_bars` expiry as hf_solo_sim.simulate, demonstrated by a test that plants a signal and asserts it is still actionable at ttl-1 bars later and not at ttl bars later — AND the change is reported as invalidating prior vectorized results; or (b) an operator/research decision RECORDS that the vectorized engine is 1-bar-TTL by design, at which point the parameter is removed from its signature rather than left raising. Reading the diff is not enough for (a): the test must fail on the current code.",
+      "updates": [],
+      "updated_at": "2026-09-02T00:00:00+00:00"
+    },
+    {
+      "id": "BL-20260902-RECOMBINATION-SWEEP-LABEL-OMITS-ENTRY-KEY-SO-TWO-ENTRY-VARIANTS-SHARING-A-FAMILY-COLLIDE",
+      "opened_at": "2026-09-02T00:00:00+00:00",
+      "opened_by": "claude (health-backlog-drain pass 3, 2026-09-02)",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "area": "research",
+      "source": "Found while draining the diagnostic-provenance standing audit (D/inert-parameter) on 2026-09-02.",
+      "title": "[research] recombination_sweep._build_label accepts `entry_key` and never puts it in the label — two entry variants sharing a family produce the SAME label for different sweep cells",
+      "detail": "MEASURED by reading scripts/ops/recombination_sweep.py at commit 0dcfcd1e.\n\n`_build_label(entry_key, family, symbol, tf, regime, exit_, sel)` builds `<family>_<symbol>_<tf>_<regime>_<trail>_<conf>` and never reads `entry_key`. The caller loops `for entry_key, ent in entries.items()` and takes `family = ent['family']`, so the label is unique per cell ONLY IF family is 1:1 with entry_key. Two entry variants in the same family (e.g. two `trend` entries) would produce identical labels for genuinely different sweep cells.\n\n⚠️ NOT ESTABLISHED, AND DELIBERATELY NOT ASSERTED: whether the live pool config actually contains two entry variants sharing a family. That is data this session did not read — the entries come from a pool file, not from the code. So this is a HAZARD with a named precondition, not an observed collision. Anyone picking it up should check the pool first; if no family is shared, the correct disposition may be to document the invariant rather than change the label.\n\nWHY IT WAS NOT FIXED HERE: adding entry_key to the label rewrites the label of every existing sweep artifact, which is an artifact-compatibility decision. The parameter is marked `# inert:` naming the hazard so the next reader sees it at the call site.",
+      "resolution_criteria": "RESOLVED when EITHER (a) the pool config is read and shown to contain no two entry keys sharing a `family` — state the pool path and the entry->family mapping you measured — and that invariant is asserted in code or a test, so it cannot silently stop holding; OR (b) the label includes entry_key, with the artifact-renaming consequence stated. A code citation does not close this: the entry->family mapping is DATA and must be read.",
+      "updates": [],
+      "updated_at": "2026-09-02T00:00:00+00:00"
     }
   ]
 }
