@@ -919,7 +919,30 @@
       "what_actually_prevents_it": "The manager does not spawn while the count is at or above 3. [!] THE COUNT IS ASSIGNED-AND-UNFINISHED WORK, NOT `SESSION_STATUS_RUNNING`. An idle session that still owes a PR is a thing the operator is tracking, and counting only RUNNING would have read 2 today while four sessions held open work -- the permissive reading, and the one that reproduces the condition the cap exists to end. [!] AND A list_sessions PAGE IS NOT A POPULATION: the read that established today's number returned 40 rows with has_more true, so a count taken from one page must say so.",
       "the_honest_residual": "NOTHING ENFORCES THIS YET -- it is a manager discipline, and the register that would make it checkable (SESSIONS.json) is the same one measured INCOMPLETE twice: MI-15 found 3 of 6 absent, and a later census found 26 of 55 sessions unregistered with 17 carrying this manager's own id as parent. So a cap counted over that register would under-count exactly when it matters. Making it enforceable is real work and is not done here. [!] THE NUMBER IS PROVISIONAL BY THE OPERATOR'S OWN WORDING -- 'scale up based on what we actually know is feasible' -- so raising it needs evidence about handling capacity, not a busy week.",
       "priority": "P1_HANDOFF"
+    },
+    {
+      "id": "MI-71",
+      "title": "Decision PRESENTATION on ClaudeBot: options as a readable list, and real multiple choice",
+      "state": "deferred",
+      "priority": "DEFERRED",
+      "owner": null,
+      "tier": "2 (touches the Telegram bridge; no order path, no strategy config, no risk caps)",
+      "raised_by": "operator, 2026-09-02, in conversation, EXPLICITLY not urgent: 'Also not urgent, but something that I do want us to have ... somewhere in our work plan.'",
+      "observed": "Operator, on the live decision prompt: 'the point with the buttons is that it's very shortened, a little cut off ... maybe there's more of a list and I can click the options, maybe some would be multiple choice. I think that button is a good first step, but probably not the end of where this design needs to go.' So the ASK half of the decision round-trip works and its PRESENTATION is the limit.",
+      "⚠️_the_truncation_is_the_LABEL_not_the_callback_data": "DO NOT go looking for a callback_data size bug -- it is already solved and re-solving it would waste the session. `callback_data` is 26 bytes FIXED (`wdec:<12 hex>:<8 hex>`) against Telegram's 64-byte cap, and it carries a DIGEST of the option KEY, deliberately never a positional index. What the operator sees cut off is the BUTTON LABEL, which Telegram renders narrow and elides. Those are different layers.",
+      "the_shape_to_build": {
+        "1_options_as_a_numbered_list_in_the_MESSAGE_BODY": "Put the full option text in the message body as a numbered list -- where there is room for it -- and reduce each button to its number. The body is not width-constrained the way a button is, so the option a person is choosing between becomes readable without touching the callback contract at all. This is the cheap half and it is probably most of the win.",
+        "2_multiple_choice_is_NOT_one_press": "[!] A single inline keyboard press submits ONE value, so multi-select is not a formatting change -- it needs a TOGGLE keyboard: each tap flips an option's mark and re-renders the keyboard, and an explicit Submit sends the set. That means holding PARTIAL, UNSUBMITTED state between taps, which the current design deliberately does not have. Decide where that state lives BEFORE building it; a half-submitted answer that looks submitted is the forward-failure the transit contract exists to refuse.",
+        "3_free_text_is_still_a_separate_step": "Unchanged and deliberately not half-built: inline buttons cannot carry arbitrary text. A request declaring no options is still SENT (so a blocking question is never invisible) and says plainly that it needs an answer on the SPA or in the repo."
+      },
+      "what_must_not_regress": "The four never-collapsed answer states (`not_submitted`/`in_transit`/`committed`/`unreadable`); the option token staying a KEY DIGEST rather than an index (an index silently records a different answer if the object is reordered between send and tap); the fail-closed write gate; and the confirmation continuing to read 'Submitted -- NOT yet decided'.",
+      "why_deferred": "P1 is the handoff capability and P2 is the overhaul implementation. This is a UX improvement to a channel that already works end-to-end -- the round-trip was observed complete on 2026-09-02. The operator said not urgent and this records that as a decision, not as an oversight.",
+      "refs": [
+        "#10793",
+        "WO-20260901-PHASE-H",
+        "MI-59"
+      ]
     }
   ],
-  "as_of": "2026-09-02"
+  "as_of": "2026-09-02T14:42:00Z"
 }
