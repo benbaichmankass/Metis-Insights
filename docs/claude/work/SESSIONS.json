@@ -1067,7 +1067,8 @@
         "claude/mi68-manager-preflight"
       ],
       "why": "Documentation-as-control failed measurably on 2026-09-02: the CI trap is in CLAUDE.md verbatim and was hit 3x, F6 was filed as MI-54 in the morning and reproduced for 8 hours, and SESSIONS.json needs_action is step 3 of every sweep prompt and was skipped every pass. Every control that DID hold was an executable refusal, not a document.",
-      "confirmed_at": "2026-09-02T13:23:03Z"
+      "confirmed_at": "2026-09-02T13:23:03Z",
+      "owns_object": "WO-20260902-MANAGER-PREFLIGHT"
     },
     {
       "session_id": "session_019vcX5ZTD8C7wNAEtfPUdFQ",
