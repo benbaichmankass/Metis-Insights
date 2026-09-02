@@ -1,0 +1,65 @@
+{
+  "checks": [
+    {
+      "bucket": "passing",
+      "conclusion": "success",
+      "id": 100153644216,
+      "name": "guards",
+      "status": "completed",
+      "url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33600738392/job/100153644216"
+    },
+    {
+      "bucket": "passing",
+      "conclusion": "success",
+      "id": 100153644371,
+      "name": "pytest-collect",
+      "status": "completed",
+      "url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33600738503/job/100153644371"
+    },
+    {
+      "bucket": "passing",
+      "conclusion": "success",
+      "id": 100153644441,
+      "name": "pytest-run",
+      "status": "completed",
+      "url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33600738411/job/100153644441"
+    },
+    {
+      "bucket": "passing",
+      "conclusion": "success",
+      "id": 100153644305,
+      "name": "repo-inventory",
+      "status": "completed",
+      "url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33600738383/job/100153644305"
+    }
+  ],
+  "counts": {
+    "cancelled": 0,
+    "failing": 0,
+    "passing": 4,
+    "running": 0
+  },
+  "draft": true,
+  "generated_at": "2026-09-02T07:06:01Z",
+  "head_sha": "803282c4227e36fd25e6ba0220becff13cdf16c2",
+  "merge_state_note": "merge conflict with the base branch",
+  "mergeable_state": "dirty",
+  "polls": 33,
+  "pr": 10757,
+  "pr_state": "open",
+  "reason": "all checks concluded, none failing \u2014 but mergeable_state is 'dirty': resolve the conflict.",
+  "request": {
+    "poll_seconds": 20,
+    "pr": 10757,
+    "timeout_minutes": 30
+  },
+  "review_threads": {
+    "read_state": "read",
+    "review_decision": null,
+    "total": 0,
+    "unresolved": 0
+  },
+  "settled": true,
+  "state": "green",
+  "watched_by": "ci-settled relay"
+}
