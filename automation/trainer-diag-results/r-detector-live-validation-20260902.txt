@@ -1,0 +1,97 @@
+=== trainer-diag-relay result ===
+request: r-detector-live-validation-20260902
+state: ran
+remote_exit: 0
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/33591937229
+=================================
+module sha256: fd40d801c4a3ffdacf2ab71ba656765ed9440528bcc11eb77ab91a43e5755210
+module bytes:  16039
+loaded states: ('contaminated', 'confirmed_initial', 'unverified', 'no_basis') bar: 2.0
+DB_PATH: /home/ubuntu/ict-trading-bot/data/trade_journal.db
+DB_MTIME_UTC: 2026-09-02T04:28:35.692023Z
+max_created_at: 2026-09-02T04:11:21.348745+00:00
+
+=== POPULATION: closed, pnl NOT NULL, non-backtest — n=1346 ===
+(NOTE: this is WIDER than /performance's, which also excludes reconciler /
+ superseded / reset-flat rows. Stated so the number is not read as that route's.)
+
+summarize(): {
+  "graded": 1346,
+  "counts": {
+    "contaminated": 118,
+    "confirmed_initial": 156,
+    "unverified": 1051,
+    "no_basis": 21
+  },
+  "declared_risk_records": 682,
+  "tightened_vs_declared": 103,
+  "disagreement_ratio_bar": 2.0
+}
+
+PARTITION CHECK: sum(counts)=1346 vs graded=1346 -> OK
+PARTITION CHECK: sum(counts)=1346 vs rows=1346 -> OK
+
+=== BY (state, reason) ===
+    643  unverified         no_declared_initial_risk_record
+    300  unverified         disagrees_with_declared_initial_risk
+    156  confirmed_initial  matches_declared_initial_risk
+    118  contaminated       wrong_side_of_entry
+    108  unverified         bracket_mirrored_vs_direction
+     21  no_basis           risk_inputs_missing
+
+=== MIRRORED-BRACKET rows: are they ALL setup_type='intent_reduce'? ===
+  n=108 setup_type histogram: {'intent_reduce': 108}
+  (if a setup_type OTHER than intent_reduce appears, the mirrored-bracket
+   population is wider than the resolved anomaly and needs its own look)
+
+=== PER-STRATEGY (n>=5), most CONTAMINATED first ===
+strategy                       acct           n  contam  confirm  unverif  nobasis
+mgc_trend_1h                   paper         19      18        1        0        0
+ict_scalp_sol_5m               paper         29      13        7        9        0
+ict_scalp_avax_5m              paper         30      11        7       12        0
+ict_scalp_5m                   paper         47       9        4       34        0
+ict_scalp_5m                   real_money    33       9        5       19        0
+ict_scalp_sol_15m              paper         22       8        3       11        0
+ict_scalp_xrp_5m               paper         21       8        1       12        0
+ict_scalp_xrp_15m              paper         17       6        4        7        0
+ict_scalp_eth_15m              paper         18       5       11        2        0
+spy_pullback_1h                paper         12       4        6        2        0
+uso_trend_1h                   paper         11       4        7        0        0
+ict_scalp_mgc_15m              paper          6       4        2        0        0
+trend_donchian_eth_4h          paper         16       3        2       11        0
+slv_trend_1h                   paper         23       2       18        3        0
+ada_pullback_2h                paper         22       2        2       18        0
+trend_donchian_sol_4h          paper         14       2        3        9        0
+trend_donchian_eth_4h          real_money     8       2        2        4        0
+eth_pullback_2h                paper         32       1        2       29        0
+sol_pullback_2h                paper         22       1        0       21        0
+trend_donchian_avax_4h         paper         15       1        2       12        0
+trend_donchian                 real_money    13       1        5        7        0
+qqq_pullback_1h                paper         13       1        8        4        0
+eth_pullback_2h                real_money    13       1        3        9        0
+tlt_pullback_1h                paper          9       1        8        0        0
+xrp_pullback_2h                real_money     8       1        2        5        0
+vwap                           real_money   318       0        0      318        0
+pairs_sol_eth_a                paper         86       0        0       86        0
+pairs_sol_eth_b                paper         85       0        0       85        0
+pairs_bnb_btc_b                paper         57       0        0       57        0
+pairs_bnb_btc_a                paper         55       0        0       55        0
+htf_pullback_trend_2h          paper         48       0        0       48        0
+vwap                           paper         30       0        0       30        0
+trend_donchian_ada_4h          paper         24       0        3       21        0
+trend_donchian                 paper         23       0        3       20        0
+avax_pullback_2h               paper         18       0        0       18        0
+orphan_adopt                   real_money    17       0        0        0       17
+xrp_pullback_2h                paper         17       0        3       14        0
+gld_pullback_1h                paper         13       0        6        7        0
+trend_donchian_xrp_4h          paper         10       0        2        8        0
+fade_breakout_4h               real_money     9       0        1        8        0
+htf_pullback_trend_2h          real_money     8       0        3        5        0
+fade_breakout_4h               paper          7       0        0        7        0
+ada_pullback_2h                real_money     6       0        2        4        0
+squeeze_breakout_4h            paper          5       0        0        5        0
+orphan_adopt                   paper          5       0        0        1        4
+trend_donchian_xrp_4h          real_money     5       0        3        2        0
+
+=== END ===
+

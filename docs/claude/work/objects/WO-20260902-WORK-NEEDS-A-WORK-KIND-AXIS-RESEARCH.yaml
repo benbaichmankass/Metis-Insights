@@ -1,0 +1,89 @@
+id: WO-20260902-WORK-NEEDS-A-WORK-KIND-AXIS-RESEARCH
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Work needs a WORK-KIND axis (research / engineering / ops / admin / UI) that drives priority and when it may run unattended
+stage: DECISION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A work object carries a work_kind, the vocabulary is CLOSED and written down, every spawn prompt states its session's kind, and the kind is READ by something -- at minimum by whatever decides what a night session may pick up. A taxonomy nothing branches on is a label, not a mechanism, which is the written-and-never-read shape this repo already has a guard for.
+
+why: >-
+  Operator, 2026-09-02: 'we need to have the defined threads of work, and every session needs to know what kind of session it is -- if it's research, if it's ops, if it's admin ... to help with dividing the work and doing the prioritization. And then we can have another category for, like, UI.' Two uses were named explicitly: PRIORITY (admin 'would definitely make it a priority') and UNATTENDED SUITABILITY (UI 'can probably mostly run on its own, at night, along with things like backlog work'). The operator also raised, without settling it, whether ENGINEERING should split from RESEARCH -- 'the building versus the strategizing' -- and said 'maybe there are other categories that I'm seeing here'. Captured, not built: this is an idea to locate in the workplan, per the operator's own standing rule that an idea is not an instruction to preempt.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
+
+# ---------------------------------------------------------------------------
+# SPEC AS FAR AS THE OPERATOR TOOK IT — recorded so the next session argues
+# with a proposal rather than starting from the transcript.
+# ---------------------------------------------------------------------------
+operator_words: >-
+  "we need to have, like, the defined threads of work, and every session needs
+  to either know what kind of session it is -- if it's research, if it's ops,
+  if it's admin, which, like, this would be -- to help with dividing the work
+  and doing the prioritization. And then we can have another category for, like,
+  UI ... maybe there are other categories that I'm seeing here ... this would go
+  under admin, and that would definitely, like, make it a priority, as opposed
+  to, like, UI, which is something that can probably mostly run on its own, at
+  night, along with things like backlog work. Even though backlog work, I mean,
+  each item is its own item, but in general, I would call that sort of, like,
+  ops, I guess. And maybe we need, like, engineering tasks also separated out
+  from the research, like, the building versus the strategizing."
+
+candidate_vocabulary:
+  admin: >-
+    Coordination, the operating layer, manager work. The operator named THIS
+    session as the example and said it "would definitely make it a priority".
+  ops: >-
+    Running the system: health, incidents, duty passes. The operator put BACKLOG
+    WORK here, with a caveat worth keeping -- "each item is its own item", i.e.
+    a backlog row's own kind may differ from the pass that drains it.
+  research: The strategizing half. Evidence production and disposition.
+  engineering: >-
+    The building half. RAISED BUT NOT SETTLED -- "maybe we need, like,
+    engineering tasks also separated out from the research". Do not treat the
+    split as decided.
+  ui: >-
+    The dashboard and operator surfaces. Named as the clearest case of work that
+    "can probably mostly run on its own, at night".
+
+the_two_uses_the_operator_named:
+  - PRIORITY -- which kinds outrank which when the queue is contended.
+  - UNATTENDED_SUITABILITY -- which kinds a night session may pick up with no
+    operator reachable. UI and backlog were named as suitable; admin was not.
+
+# ⚠️ THE DESIGN ALREADY HAS A SESSION TAXONOMY AND IT IS A DIFFERENT AXIS.
+# operating-model-DESIGN.md defines SIX session types -- CYCLE, PRODUCE,
+# DISPOSE, DECIDE, BUILD, OPERATE -- which classify a session by WHICH STAGE OF
+# THE VALUE CHAIN it serves. The operator's five classify work by WHAT KIND OF
+# WORK IT IS, for scheduling and priority. These are orthogonal: a BUILD session
+# can be engineering or ui; an OPERATE session is ops.
+#   RESOLVING THIS IS PART OF THE WORK, and collapsing them silently is the
+#   failure mode. Two overlapping taxonomies where one was intended is worse
+#   than either alone -- a session would have to know which one a given
+#   instruction meant.
+open_questions:
+  - Is engineering genuinely distinct from research, or is the real axis
+    "produces evidence" vs "produces a change"? The operator left this open.
+  - Does work_kind live on the OBJECT, the STEP, or the SESSION? The operator
+    said "every session needs to know what kind of session it is", which points
+    at the session -- but priority is a property of the work, which points at
+    the object. They may need both, and if so the relationship must be stated.
+  - What reads it? A taxonomy nothing branches on is a label. The night-session
+    scope is the obvious first consumer and is the one the operator named.

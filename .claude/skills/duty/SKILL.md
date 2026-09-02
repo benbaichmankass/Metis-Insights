@@ -70,6 +70,32 @@ renders as an empty section is a confident wrong answer.
 If you need the GitHub-backed sources, run the workflow instead of guessing:
 open an issue labelled `due-list-now`.
 
+### The `error_feed` source — the trader's live error feed
+
+Operator ask, 2026-09-02: *"can the error feed that's in the trader bot be fed
+directly to the manager session, so you can decide what should be resolved
+immediately vs. backlogged?"* **That decision is this pass's disposition**, so
+the feed renders into the same list rather than a surface of its own.
+`error-feed-digest.yml` (hourly, best-effort) runs
+`scripts/ops/error_feed_digest.py` over `runtime_logs/operator_alerts.jsonl`
+and `/api/bot/logs?level=error,warn`, groups by digit-normalised cause, and
+commits `docs/claude/ERROR-FEED-DIGEST.json`. Three rules for reading it:
+
+- **The list is CAPPED at the 10 largest error-level groups.**
+  `ERROR-FEED-SUMMARY` states how many were left out and every warn group is
+  omitted — a capped render is never the whole feed. Open the digest for the
+  rest before concluding a condition is absent.
+- **`ERROR-FEED-UNREACHABLE-*` and `ERROR-FEED-DIGEST-STALE` are `loud` rows
+  and mean WE COULD NOT LOOK.** Neither is "the feed went quiet"; both make
+  every group beside them a lower bound.
+- **A big group is not a big problem.** Counts are volume, not severity: one
+  un-latched alarm has been 202 of 376 CRITICALs in a window here. The
+  disposition on a flood is usually *fix the alarm*, and that is itself a row.
+
+⚠️ **The cadence is best-effort and unproven.** This repo has scheduled
+workflows that fire ~4h50m late and once instead of daily (`probes.yml`, run
+\#34). Read `generated_at` on the digest, not the declared hourly cron.
+
 ### The `sunset` rows — E3's retirement candidates (added 2026-09-02)
 
 The list now carries a `sunset` source: every `retire_candidate` from the newest
