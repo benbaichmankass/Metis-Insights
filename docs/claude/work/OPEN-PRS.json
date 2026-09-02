@@ -77,21 +77,6 @@
       "blocker": "Needs a live session to take ownership and verify the resolution path against a real venue read, then re-open as a normal Tier-gated PR. Until then this branch is a BACKUP, not a proposal."
     },
     {
-      "pr": 10843,
-      "title": "MI-81: an alarm on the trainer's forward-only capture, keyed on the DATA",
-      "owner_session": "session_017TRSSpkQ2NZHHxCp8MNXbg",
-      "checklist_item": "MI-81",
-      "draft": false,
-      "tier": "1 (read-only observability; no order path, no strategy config, no live VM)",
-      "state": "auto_merge_armed",
-      "operator_decision": {
-        "verdict": "not_required",
-        "decided_on": "2026-09-02",
-        "text": "Tier-1. Armed for auto-merge by the manager 2026-09-02T20:44Z; guards, pytest-collect, repo-inventory, diag, open, post all green, pytest-run in flight. No operator decision is required for Tier-1 observability and none was sought."
-      },
-      "blocker": "None. ⚠️ Clause (a) of OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY stays OPEN after this merges: the alarm has run only in a harness, and workflow_dispatch cannot exercise it until the file is on main. Do not read the merge as the observation."
-    },
-    {
       "pr": 10857,
       "title": "notify: ping the operator when a PR merges to main (MI-83)",
       "owner_session": "session_018ruZdgEkPZ1XceWzLwuYUU",
@@ -611,8 +596,27 @@
       "merge_sha": "558a3560b8f5e161f2b936406c738533478570b0",
       "observed_at": "2026-09-02T21:26:36Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10843,
+      "title": "MI-81: an alarm on the trainer's forward-only capture, keyed on the DATA",
+      "owner_session": "session_017TRSSpkQ2NZHHxCp8MNXbg",
+      "checklist_item": "MI-81",
+      "draft": false,
+      "tier": "1 (read-only observability; no order path, no strategy config, no live VM)",
+      "state": "auto_merge_armed",
+      "operator_decision": {
+        "verdict": "not_required",
+        "decided_on": "2026-09-02",
+        "text": "Tier-1. Armed for auto-merge by the manager 2026-09-02T20:44Z; guards, pytest-collect, repo-inventory, diag, open, post all green, pytest-run in flight. No operator decision is required for Tier-1 observability and none was sought."
+      },
+      "blocker": "None. ⚠️ Clause (a) of OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY stays OPEN after this merges: the alarm has run only in a harness, and workflow_dispatch cannot exercise it until the file is on main. Do not read the merge as the observation.",
+      "terminal": "merged",
+      "merge_sha": "5d95739840f8e504fdfae0d6152f9b3c4cf6b420",
+      "observed_at": "2026-09-02T21:35:34Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-02T21:26:36Z",
-  "last_reconciled_sha": "558a3560b8f5e161f2b936406c738533478570b0"
+  "last_reconciled_at": "2026-09-02T21:35:34Z",
+  "last_reconciled_sha": "5d95739840f8e504fdfae0d6152f9b3c4cf6b420"
 }
