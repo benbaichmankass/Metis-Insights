@@ -62,23 +62,6 @@
       "blocker": "Open since 2026-08-29, automation-generated, no owning session. Held under MI-12; do not merge without establishing what it does."
     },
     {
-      "pr": 10694,
-      "title": "claude pings: one OWNER for pending_claude_pings, grace-gated failover",
-      "owner_session": null,
-      "checklist_item": "MI-18",
-      "draft": true,
-      "tier": "2 (service)",
-      "state": "needs_operator_action",
-      "operator_decision": {
-        "verdict": "pending",
-        "condition": "Requires the operator to restart `ict-telegram-bot.service` AFTER merge. Merging alone does not complete it.",
-        "scope": null,
-        "decided_on": null,
-        "text": "Pending -- requires the operator to restart `ict-telegram-bot.service` after merge."
-      },
-      "blocker": "OPERATOR ACTION, not a code blocker."
-    },
-    {
       "pr": 10748,
       "title": "R-metric contamination: detector + Tier-3 proposal",
       "owner_session": "session_01EihsgewHt7BZv43YcC7caV",
@@ -491,8 +474,29 @@
       "merge_sha": "2816698ac4c6d39742b2aada495d78dfbeaf0b62",
       "observed_at": "2026-09-02T18:49:55Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10694,
+      "title": "claude pings: one OWNER for pending_claude_pings, grace-gated failover",
+      "owner_session": null,
+      "checklist_item": "MI-18",
+      "draft": true,
+      "tier": "2 (service)",
+      "state": "needs_operator_action",
+      "operator_decision": {
+        "verdict": "pending",
+        "condition": "Requires the operator to restart `ict-telegram-bot.service` AFTER merge. Merging alone does not complete it.",
+        "scope": null,
+        "decided_on": null,
+        "text": "Pending -- requires the operator to restart `ict-telegram-bot.service` after merge."
+      },
+      "blocker": "OPERATOR ACTION, not a code blocker.",
+      "terminal": "merged",
+      "merge_sha": "0cbcba5fd2fb483dfe21aafb69be73ff8a07526f",
+      "observed_at": "2026-09-02T18:53:03Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-02T18:49:55Z",
-  "last_reconciled_sha": "2816698ac4c6d39742b2aada495d78dfbeaf0b62"
+  "last_reconciled_at": "2026-09-02T18:53:03Z",
+  "last_reconciled_sha": "d10385a9336b3c00fd45e92ab4bb22b2ebac9b21"
 }
