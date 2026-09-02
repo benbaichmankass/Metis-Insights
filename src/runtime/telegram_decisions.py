@@ -80,22 +80,51 @@ are counted separately in the sweep stats and never pooled.
 WHICH BOT, AND WHY IT MATTERS MORE THAN IT LOOKS
 ────────────────────────────────────────────────────────────────────────────
 
-A button only works in a bot some process is POLLING. Measured 2026-09-02:
+A button only works in a bot some process is POLLING. **Delivery and
+answerability are different properties**, and that distinction is the whole
+reason this section exists: a ``sendMessage`` needs only a token, while an
+inline-keyboard button is inert unless a process polls that bot AND has a
+``CallbackQueryHandler`` registered — the tap emits a ``callback_query`` update
+that nobody collects. Nothing errors. The prompt arrives, renders, highlights
+on tap, and does nothing.
+
+Measured 2026-09-02, when this module first shipped:
 
 * ``ict-telegram-bot.service`` polls ``TELEGRAM_BOT_TOKEN`` (the trader bot) and
   already has a ``CallbackQueryHandler``.
 * ``ict-claude-bridge.service`` polls the **prop** token, despite its name.
-* ``TELEGRAM_CLAUDE_BOT_SECRET`` — the dedicated Claude bot — **is polled by
+* ``TELEGRAM_CLAUDE_BOT_SECRET`` — the dedicated Claude bot — **was polled by
   nothing.** A prompt sent on that token would render buttons that go nowhere.
 
-So this module resolves its destination through
-:func:`answerable_route`, which returns only a route whose bot is actually
-polled, and states plainly when it cannot. That is deliberately NOT
-``telegram_routes.claude_route()``: that route is correct for a one-way ping and
-wrong for a two-way control, and using it because the name matches would ship
-dead buttons that look healthy. (Recorded for
+So the first cut sent decision prompts to the TRADER bot: the only destination
+whose taps this repo could receive. The operator's response to seeing them there
+— *"that's supposed to be showing up in Cloudbot. Right? Not on the trader one,
+the decisions."* — is what this module now answers, and the answer was NOT to
+re-point the route. Re-pointing alone would have shipped dead buttons that look
+healthy, which is strictly worse than arriving in the wrong chat: a wrong
+channel is visible, an unreceived tap is not.
+
+⚠️ WHAT CHANGED, AND WHAT DID NOT. ``src/bot/claude_decision_bot.py`` +
+``deploy/ict-claude-decision-bot.service`` now POLL the dedicated bot and
+register the same ``wdec`` handler, so the Claude bot became answerable before
+anything was routed to it. :func:`answerable_route` still refuses to trust a
+NAME: it asks ``telegram_poll_registry.poll_state()`` whether a live process
+actually claims that token, and prefers the Claude bot **only on positive
+evidence**. It is still deliberately NOT ``telegram_routes.claude_route()`` —
+that router reasons only about delivery, and a route that is deliverable is not
+thereby answerable. (Recorded for
 ``OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN``: separating the
 ping channel does not by itself make it answerable.)
+
+⚠️ AND IT DEGRADES RATHER THAN GOING SILENT. If the dedicated bot is not
+confirmed polled, prompts fall back to the trader bot — the wrong chat, LOUDLY
+and countably (``route.poll`` carries why, the sweep logs a WARNING, and the
+banner at bot start names which token is polled). That direction is chosen on
+purpose: the wrong-channel state is a noise complaint, while holding every
+decision prompt would be an outage, and this module already carries the
+``telegram_query_bot`` lesson that fold-in was written to end — *separation is a
+nice-to-have; delivery is not*. When NEITHER bot is confirmed polled there is no
+answerable destination at all, and then it does hold.
 
 ────────────────────────────────────────────────────────────────────────────
 KNOBS
@@ -157,6 +186,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
+from src.runtime import telegram_poll_registry as poll_registry
+from src.runtime.telegram_poll_registry import PollEvidence, poll_state
 from src.utils.paths import runtime_logs_dir
 
 logger = logging.getLogger(__name__)
@@ -779,15 +810,30 @@ def run_decision_prompt_sweep(
       ``prompted_choice``       questions sent WITH tappable options
       ``prompted_free_text``    questions sent as text only (no options declared)
       ``held_write_gate``       not sent because the API refuses writes right now
-      ``held_route``            not sent because no POLLED bot could carry it
+      ``held_route``            no destination resolved AT ALL (no token / no chat)
+      ``held_not_polled``       a destination resolved, but nothing is CONFIRMED to
+                                poll it — so its buttons would be inert. Kept
+                                SEPARATE from ``held_route`` because "there is
+                                nowhere to send" and "there is somewhere to send
+                                and a tap would go nowhere" are different faults
+                                with different fixes (set a token vs start a
+                                poller), and pooling them hides which one you have.
       ``failed``                send attempted and not confirmed
+
+    ``poll_state`` / ``destination`` record WHY, and are never collapsed: read
+    ``poll_state`` for ``token_only_not_polled`` (we looked, nothing polls it)
+    vs ``unknown`` (we could not look).
     """
     stats: dict[str, Any] = {
         "checked": False, "reason": None, "candidates": 0,
         "prompted_choice": 0, "prompted_free_text": 0,
-        "held_write_gate": 0, "held_route": 0, "failed": 0, "paused": False,
+        "held_write_gate": 0, "held_route": 0, "held_not_polled": 0,
+        "failed": 0, "paused": False,
         "prompt_state_read": None,
+        "destination": None, "poll_state": None,
     }
+    from src.bot.telegram_routes import claude_route
+
     try:
         if prompt_interval_seconds() <= 0:
             stats["paused"] = True
@@ -816,10 +862,78 @@ def run_decision_prompt_sweep(
 
         write_open = bool(((inbox.get("writeGate") or {}).get("acceptsWrites")))
         route = answerable_route()
+        stats["destination"] = route.destination
+        stats["poll_state"] = (
+            route.poll.state if route.poll else poll_registry.UNKNOWN)
         ref = now or _now()
 
+        # ⚠️ The poll gate applies ONLY to the DEFAULT sender, because only the
+        # default sender sends on ``route.token``. An injected sender delivers
+        # somewhere this function cannot see, so gating it on this route's poll
+        # evidence would be a claim about a destination we do not know — the
+        # unprovenanced-diagnostic shape. Tests exercise the real gate by
+        # patching ``_default_sender`` and passing ``sender=None``.
+        gate_on_route = sender is None
         if sender is None:
             sender = _default_sender
+
+        # ⚠️ THE FALLBACK MUST BE LOUD, NOT MERELY COUNTED. Measured 2026-09-02:
+        # with TELEGRAM_CLAUDE_BOT_SECRET SET but nothing polling it, this sweep
+        # sent to the trader bot and emitted ZERO warnings, while
+        # ``stats["poll_state"]`` read ``polled_with_handler`` — because that
+        # field describes the SELECTED route, and the trader bot genuinely IS
+        # polled. A surface reading healthy while the operator's decisions are
+        # in the wrong chat is the very shape this module exists to end, one
+        # level up. `destination` alone is not enough: nobody greps stats.
+        #
+        # ⚠️ IT WARNS ONLY WHEN THE OPERATOR HAS ASKED FOR THE CLAUDE BOT, i.e.
+        # the dedicated token RESOLVES. Before that, trader delivery is the
+        # declared and correct state, and a WARNING every cadence for a
+        # condition nobody intends to change is the desensitised-alarm failure
+        # this repo files as a P1 in its own right. Set the secret and the line
+        # goes away by itself — it is self-clearing, which is what makes it
+        # worth emitting at all.
+        if gate_on_route and route.destination == "trader_fallback":
+            _claude = claude_route()
+            if _claude.isolated:
+                logger.warning(
+                    "telegram_decisions: the dedicated Claude bot is configured "
+                    "(%s) but NOT confirmed polled, so decision prompts are going "
+                    "to the TRADER bot instead — the operator asked for them on "
+                    "ClaudeBot. Enable ict-claude-decision-bot.service on this VM. "
+                    "%s", _claude.token_from, route.note,
+                )
+
+        if gate_on_route and route.deliverable and not route.answerable:
+            # ⚠️ THE TWO NON-ANSWERABLE STATES TAKE DIFFERENT OPERATOR ACTIONS,
+            # so they are branched rather than pooled behind one message. This
+            # is the point of the third state: "nothing polls this bot" is
+            # fixed by STARTING A SERVICE, while "we could not read the
+            # registry" is fixed by looking at the VM's disk — and a session
+            # told only "not answerable" would chase the wrong one. A state
+            # nothing branches on is already collapsed.
+            if stats["poll_state"] == poll_registry.TOKEN_ONLY_NOT_POLLED:
+                remedy = ("no process is polling it — enable "
+                          "ict-claude-decision-bot.service on the VM (and "
+                          "confirm TELEGRAM_CLAUDE_BOT_SECRET is in its .env)")
+            elif stats["poll_state"] == poll_registry.UNKNOWN:
+                # NOT the same as "nothing polls it". A poller may be perfectly
+                # alive behind an unreadable registry, so this says we could not
+                # look rather than asserting an outage nobody observed.
+                remedy = ("the poll registry could NOT be read, so we do not "
+                          "know whether it is polled — check runtime_logs/ on "
+                          "the VM; this is not evidence that nothing polls it")
+            else:  # pragma: no cover — POLLED_WITH_HANDLER cannot reach here
+                remedy = "unexpected poll state on a non-answerable route"
+            # Log ONCE per sweep, not once per request: the condition is a
+            # property of the bot, and one line per pending decision every
+            # cadence is the desensitised-alarm failure this repo files as P1.
+            logger.warning(
+                "telegram_decisions: the answerable bot is NOT confirmed polled "
+                "[%s] — holding every decision prompt this sweep. %s | %s",
+                stats["poll_state"], remedy,
+                route.poll.note if route.poll else route.note,
+            )
 
         for req in requests:
             # Only a question NOBODY has answered. `in_transit` has an open
@@ -849,6 +963,14 @@ def run_decision_prompt_sweep(
                     "telegram_decisions: holding prompt for %s — %s",
                     key, route.note,
                 )
+                continue
+            if gate_on_route and not route.answerable:
+                # A prompt whose buttons nobody collects is the dead-button
+                # failure: it ARRIVES, it RENDERS, it highlights on tap, and
+                # nothing happens — indistinguishable from healthy from the
+                # outside. Holding keeps the question askable once a poller
+                # exists; sending would silently consume it.
+                stats["held_not_polled"] += 1
                 continue
 
             try:
@@ -894,42 +1016,125 @@ class AnswerableRoute:
     chat_id: Optional[str]
     chat_from: Optional[str]
     note: str
+    #: Why we believe a tap on this bot is (or is not) received. Never None in
+    #: practice; defaulted only so a test may build a route by hand.
+    poll: Optional[PollEvidence] = None
+    #: Did the DEDICATED Claude bot carry this, or did we fall back? Three
+    #: values, and the middle one is the whole point of the field.
+    #:   "claude"       — the dedicated bot, confirmed polled
+    #:   "trader_fallback" — the wrong chat, on purpose, because Claude was not
+    #:                       confirmed polled. Working, in the wrong place.
+    #:   "none"         — no answerable destination at all
+    destination: str = "none"
 
     @property
     def deliverable(self) -> bool:
+        """Can this route SEND at all? A token with no chat cannot.
+
+        ⚠️ Deliberately unchanged, and deliberately NOT the same question as
+        :attr:`answerable`. Keeping delivery separate from answerability is the
+        distinction this whole module is built on; folding the poll evidence in
+        here would erase it at the one place it is most load-bearing.
+        """
         return bool(self.token) and bool(self.chat_id)
 
+    @property
+    def answerable(self) -> bool:
+        """Would a TAP on this route actually reach a handler?
+
+        Requires positive poll evidence. Absent evidence (``unknown``) reads as
+        NOT answerable — fail-closed — while staying a distinct value in
+        ``poll.state`` for whoever reads the log line.
+        """
+        return self.deliverable and self.poll is not None and self.poll.answerable
+
     def describe(self) -> str:
+        """Names the VARIABLES that answered, never their values."""
         return (f"answerable: token={self.token_from or '(none)'} "
                 f"chat={self.chat_from or '(none)'} "
-                f"deliverable={self.deliverable}")
+                f"deliverable={self.deliverable} "
+                f"destination={self.destination} "
+                f"poll={self.poll.state if self.poll else 'unknown'}")
 
 
 def answerable_route() -> AnswerableRoute:
     """The bot a decision prompt may be sent on, because a process POLLS it.
 
     ⚠️ This is NOT ``telegram_routes.claude_route()`` and the difference is the
-    whole point. That route resolves ``TELEGRAM_CLAUDE_BOT_SECRET`` when set —
-    a bot **no process polls**, so a prompt sent there would render buttons that
-    silently go nowhere. Delivery and answerability are different properties,
-    and the existing router only reasons about the first.
+    whole point. That router resolves a token and stops; it reasons about
+    DELIVERY. A route that is deliverable is not thereby **answerable** — a
+    button is inert unless a process polls that bot and has a
+    ``CallbackQueryHandler`` for the ``wdec`` prefix, and a tap that lands
+    nowhere produces no error, no bounce, and no way to notice.
 
-    ``TELEGRAM_BOT_TOKEN`` is the trader bot, which
-    ``ict-telegram-bot.service`` polls with a ``CallbackQueryHandler`` — the
-    only destination whose taps this repo can currently receive.
+    So this asks ``telegram_poll_registry.poll_state()`` for EVIDENCE — a
+    heartbeat a live poller refreshes — rather than trusting a variable's name
+    or a comment about which unit polls what. The preference order:
+
+    1. **The dedicated Claude bot** (``TELEGRAM_CLAUDE_BOT_SECRET``, via
+       ``claude_route()``), and ONLY on ``polled_with_handler``. This is where
+       the operator asked for decisions to land.
+    2. **The trader bot** (``TELEGRAM_BOT_TOKEN``), polled by
+       ``ict-telegram-bot.service``. The wrong chat, taken deliberately over
+       silence, and reported as ``trader_fallback`` rather than passed off as
+       success.
+    3. **Nothing**, when neither is confirmed — and then the sweep holds.
+
+    ⚠️ Step 1 requires ``claude_route().isolated``, i.e. the route's OWN
+    variable answered. A ``fallback`` there is the TRADER token wearing the
+    Claude route's name; treating that as "the Claude bot" would report the
+    separation as done while both channels sat on one token.
     """
-    token = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip() or None
-    chat = (os.environ.get("TELEGRAM_CHAT_ID") or "").strip() or None
-    if token and chat:
-        note = "trader bot (TELEGRAM_BOT_TOKEN) — polled by ict-telegram-bot.service"
-    elif not token:
+    from src.bot.telegram_routes import claude_route
+
+    trader_token = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip() or None
+    trader_chat = (os.environ.get("TELEGRAM_CHAT_ID") or "").strip() or None
+
+    # ── 1. the dedicated bot, on positive evidence only ──────────────────────
+    claude = claude_route()
+    claude_poll: Optional[PollEvidence] = None
+    if claude.isolated and claude.token and claude.chat_id:
+        claude_poll = poll_state(claude.token_from, prefix=CB_PREFIX)
+        if claude_poll.answerable:
+            return AnswerableRoute(
+                token=claude.token, token_from=claude.token_from,
+                chat_id=claude.chat_id, chat_from=claude.chat_from,
+                poll=claude_poll, destination="claude",
+                note=(f"dedicated Claude bot ({claude.token_from}) — "
+                      f"{claude_poll.note}"),
+            )
+
+    # ── 2. the trader bot: the wrong chat, LOUDLY, over silence ──────────────
+    if trader_token and trader_chat:
+        trader_poll = poll_state("TELEGRAM_BOT_TOKEN", prefix=CB_PREFIX)
+        if claude_poll is not None:
+            why = (f"the dedicated Claude bot is not confirmed polled "
+                   f"[{claude_poll.state}]: {claude_poll.note}")
+        elif claude.token and not claude.isolated:
+            why = ("no dedicated Claude bot — TELEGRAM_CLAUDE_BOT_SECRET is unset "
+                   "and claude_route() fell back to the shared trader token")
+        elif claude.token and not claude.chat_id:
+            why = "the Claude route has a token but no chat id to send to"
+        else:
+            why = "TELEGRAM_CLAUDE_BOT_SECRET is unset"
+        return AnswerableRoute(
+            token=trader_token, token_from="TELEGRAM_BOT_TOKEN",
+            chat_id=trader_chat, chat_from="TELEGRAM_CHAT_ID",
+            poll=trader_poll, destination="trader_fallback",
+            note=(f"trader bot (TELEGRAM_BOT_TOKEN) — polled by "
+                  f"ict-telegram-bot.service. FALLBACK, because {why}"),
+        )
+
+    # ── 3. nowhere ───────────────────────────────────────────────────────────
+    if not trader_token:
         note = ("no TELEGRAM_BOT_TOKEN: the only POLLED bot has no token, so a "
                 "prompt would have no answerable destination")
     else:
         note = "no TELEGRAM_CHAT_ID: nowhere to send"
     return AnswerableRoute(
-        token=token, token_from="TELEGRAM_BOT_TOKEN" if token else None,
-        chat_id=chat, chat_from="TELEGRAM_CHAT_ID" if chat else None, note=note,
+        token=trader_token, token_from="TELEGRAM_BOT_TOKEN" if trader_token else None,
+        chat_id=trader_chat, chat_from="TELEGRAM_CHAT_ID" if trader_chat else None,
+        poll=None, destination="none", note=note,
     )
 
 

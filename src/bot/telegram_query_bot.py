@@ -769,6 +769,58 @@ def main():
     )
 
     application.add_handler(CallbackQueryHandler(callback_handler))
+
+    # ── declare what THIS process polls, now that the handlers are attached ───
+    # Registered here and not earlier, deliberately: a claim made before
+    # `add_handler` would be true of the intent rather than of the process, and
+    # the state this registry exists to catch is precisely a bot that is polled
+    # with no handler for the prefix — a tap that produces a `callback_query`
+    # nobody collects, with no error anywhere.
+    #
+    # The trader bot is the FALLBACK destination for work-decision prompts (the
+    # dedicated Claude bot is preferred once ict-claude-decision-bot.service is
+    # confirmed polling it), so `telegram_decisions.answerable_route()` needs
+    # positive evidence that a tap here is received before it will send buttons.
+    # CB_PREFIX rather than a literal "wdec", so the claim tracks the prefix
+    # `telegram_decisions` actually encodes into callback_data.
+    # ⚠️ `callback_handler`'s own branch above still tests the LITERAL "wdec",
+    # so a rename of CB_PREFIX would move this claim and the encoder together
+    # while leaving that branch behind — the claim would then name a prefix the
+    # dispatcher no longer routes. Left as-is rather than fixed here because a
+    # concurrent session (claude/claude-ping-double-delivery-x4mq2p) has declared
+    # this file; filed instead so it is not lost.
+    from src.runtime.telegram_decisions import CB_PREFIX
+    from src.runtime.telegram_poll_registry import (
+        heartbeat_interval_seconds,
+        log_poll_banner,
+        record_poll,
+    )
+
+    _polled_prefixes = (CB_PREFIX, "propexp")
+
+    async def _register_poll(_ctx) -> None:
+        await asyncio.to_thread(
+            record_poll, "TELEGRAM_BOT_TOKEN", _polled_prefixes,
+            service="ict-telegram-bot",
+        )
+
+    # In-process first, so the sweep that runs in THIS process has its answer
+    # without waiting a heartbeat interval or touching the filesystem.
+    record_poll("TELEGRAM_BOT_TOKEN", _polled_prefixes, service="ict-telegram-bot")
+    if application.job_queue is not None:
+        # A HEARTBEAT, so the claim EXPIRES on its own if this process dies —
+        # a claim written once and never refreshed outlives the thing it asserts.
+        application.job_queue.run_repeating(
+            _register_poll,
+            interval=heartbeat_interval_seconds(),
+            first=heartbeat_interval_seconds(),
+            name="telegram_poll_heartbeat",
+        )
+    log_poll_banner(
+        "TELEGRAM_BOT_TOKEN", _polled_prefixes, service="ict-telegram-bot",
+        log=logger,
+    )
+
     application.run_polling()
 
 

@@ -1,0 +1,57 @@
+# ============================================
+# ICT CLAUDE DECISION BOT SYSTEMD SERVICE
+# Polls the DEDICATED Claude bot (TELEGRAM_CLAUDE_BOT_SECRET) so work-decision
+# buttons sent there are actually ANSWERABLE.
+# Save to: /etc/systemd/system/ict-claude-decision-bot.service
+# ============================================
+#
+# WHY A SEPARATE UNIT rather than a second Application inside
+# ict-telegram-bot.service (which already polls a bot):
+#
+#   1. `Application.run_polling()` owns an event loop, installs signal handlers
+#      and blocks. Two do not compose. Hosting a second bot there means
+#      hand-rolling the lifecycle of the process that owns the operator's KILL
+#      SWITCH and account-mode UI, for a feature unrelated to either.
+#   2. One process is one event loop, so a stall in the decision channel would
+#      become a stall in the kill switch. `Restart=always` per unit keeps a
+#      crash-looping decision bot from taking the trader UI down with it.
+#   3. Its journal is separately readable (`journalctl -u ict-claude-decision-bot`)
+#      — the same reasoning already written into ict-claude-bridge.service, whose
+#      delivery failures were invisible while its logs went to a repo-path file.
+#
+# ⚠️ NOT the same bot as ict-claude-bridge.service, whose name is historical:
+# that one polls the PROP token. This one polls TELEGRAM_CLAUDE_BOT_SECRET.
+# TELEGRAM_CLAUDE_BOT_TOKEN drives the PROP bot and must NOT be used here.
+#
+# ⚠️ If TELEGRAM_CLAUDE_BOT_SECRET is absent from the VM .env this service
+# exits immediately with a secret-free message naming the variable. That is
+# an operator action, not a bug to work around — and the decision sweep keeps
+# working meanwhile by falling back to the trader bot, loudly.
+
+[Unit]
+Description=ICT Trading Bot - Claude decision channel (two-way)
+After=network.target ict-web-api.service
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+ExecStart=/usr/bin/python3 -u -B -m src.bot.claude_decision_bot
+Restart=always
+RestartSec=15
+# A CONFIG error (exit 78 = EX_CONFIG: no TELEGRAM_CLAUDE_BOT_SECRET, or no
+# TELEGRAM_CHAT_ID) is NOT restartable — restarting cannot set an env var. Stop
+# in a visible `failed` state, which /api/diag/services reports, instead of
+# crash-looping a log line every 15s forever (5,760/day is the desensitised-alarm
+# P1 this repo files in its own right). A genuine crash still restarts.
+RestartPreventExitStatus=78
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
+
+# Memory cap so a runaway bot can't OOM the trader (the ict-claude-bridge shape).
+MemoryMax=200M
+MemoryHigh=150M
+
+[Install]
+WantedBy=multi-user.target

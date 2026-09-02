@@ -1,0 +1,9 @@
+manager: hold /status+/decisions off the trader bot, cap concurrent sessions at 3 (#10798)
+
+Relay used because mcp update_pull_request hit "API rate limit already exceeded
+for user ID 119055177" -- the SAME GraphQL limit that stranded the decision
+committer PR earlier today, now its second hit. The relay authors as
+github-actions[bot] with the workflow GITHUB_TOKEN, a different budget.
+
+All four checks green on d0d2b69e: guards, pytest-run, pytest-collect,
+repo-inventory. Manager-only PR, empty conflict surface.

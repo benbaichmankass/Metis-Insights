@@ -44,8 +44,20 @@ name: work-digest
 
 on:
   schedule:
-    # Every 4h at :20 — operator-directed 2026-09-01 ("events live + a digest
-    # every few hours"), raised from the daily 06:20 this shipped with.
+    # HOURLY at :20 — operator-directed 2026-09-02, verbatim: "I realize that's
+    # a lot of noise, but that's how I want it for now until we get a little
+    # more settled in." Raised from every-4h (2026-09-01), itself raised from
+    # the daily 06:20 this shipped with.
+    #
+    # [!] THE WINDOW MOVED WITH THE CADENCE AND HAD TO. This was described as
+    # "changing one little number" and the cron genuinely is one number -- but
+    # the window below was pinned at 24h, so hourly firing alone would have
+    # re-reported THE SAME DAY twenty-four times over. That is not more
+    # frequent reporting, it is the same report louder, and it is the fastest
+    # way to train a reader to ignore the channel (the desensitized-alarm P1
+    # this repo has already paid for once: 202 of 376 CRITICAL rows in one
+    # window were a single un-latched alarm). Cadence and window are ONE
+    # decision; if a future change moves either, it moves both.
     #
     # WHY :20 AND WHY 06 IS IN THE SET. The 06:20 slot is load-bearing and was
     # not chosen for looks: it lands after probes (05:20) and due-list (05:50),
@@ -57,7 +69,7 @@ on:
     # that only fires when something interesting happened is indistinguishable
     # from one that has broken — the empty run IS the evidence the cadence is
     # alive. It will feel like noise before it feels like reassurance.
-    - cron: "20 2,6,10,14,18,22 * * *"
+    - cron: "20 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -102,19 +114,21 @@ jobs:
           # trusted on exactly the same terms as the renderer it feeds.
           python3 scripts/ops/fetch_standing_wedges.py --self-test
 
-      - name: Resolve the 24h window
+      - name: Resolve the 1h window
         id: window
         run: |
           set -euo pipefail
-          # The window is the last 24h of main, resolved to a REAL commit rather
+          # The window is the last 1h of main -- it TRACKS THE CRON above, so each
+          # digest reports what happened since the previous one rather than
+          # re-reporting the same day every hour. Resolved to a REAL commit rather
           # than a date expression, so the digest reports over a range that
           # exists. `--before` returns nothing when the repo was quiet for a day;
           # fall back to the root commit, which yields a digest over everything
           # since — a loud over-report is recoverable, a silent empty one is not.
-          BASE="$(git rev-list -1 --before='24 hours ago' main || true)"
+          BASE="$(git rev-list -1 --before='1 hour ago' main || true)"
           if [ -z "$BASE" ]; then
             BASE="$(git rev-list --max-parents=0 main | tail -1)"
-            echo "::warning::work-digest: no commit older than 24h on main; " \
+            echo "::warning::work-digest: no commit older than 1h on main; " \
                  "falling back to the root commit, so this digest covers ALL history."
           fi
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
