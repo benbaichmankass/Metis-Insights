@@ -35,17 +35,23 @@ LOCAL_DEADLINE=$(( $(date +%s) + (TIMEOUT_MIN * 60) + 300 ))
 cleanup() { [ -n "${TMPIDX:-}" ] && rm -f "$TMPIDX"; }
 trap cleanup EXIT
 
-git fetch -q origin main || { echo '{"state":"unreadable","reason":"could not fetch origin/main"}'; exit 2; }
+# The request commit is based on a ref that CONTAINS .github/workflows/ci-settled.yml.
+# Normally that is origin/main. The override exists so the relay can be proven
+# end to end on the branch that introduces it -- a workflow that has never
+# actually run is exactly the "looks armed and is not" state this repo has been
+# bitten by (probes.yml fired ~4h50m late, once rather than daily).
+BASE_REF="${CI_SETTLED_BASE:-origin/main}"
+git fetch -q origin "${BASE_REF#origin/}" || { echo "{\"state\":\"unreadable\",\"reason\":\"could not fetch ${BASE_REF}\"}"; exit 2; }
 
 REQ="$(printf '{"pr": %s, "timeout_minutes": %s, "poll_seconds": 20, "review_threads": true}\n' "$PR" "$TIMEOUT_MIN")"
 BLOB="$(printf '%s' "$REQ" | git hash-object -w --stdin)" || exit 2
 
 TMPIDX="$(mktemp)"
-GIT_INDEX_FILE="$TMPIDX" git read-tree origin/main || exit 2
+GIT_INDEX_FILE="$TMPIDX" git read-tree "$BASE_REF" || exit 2
 GIT_INDEX_FILE="$TMPIDX" git update-index --add \
   --cacheinfo "100644,${BLOB},automation/ci-watch/${NAME}.json" || exit 2
 TREE="$(GIT_INDEX_FILE="$TMPIDX" git write-tree)" || exit 2
-COMMIT="$(git commit-tree "$TREE" -p "$(git rev-parse origin/main)" \
+COMMIT="$(git commit-tree "$TREE" -p "$(git rev-parse "$BASE_REF")" \
   -m "ci-watch: PR #${PR}")" || exit 2
 
 git push -q origin "${COMMIT}:refs/heads/${BRANCH}" || {
