@@ -1,0 +1,67 @@
+{
+  "checks": [
+    {
+      "bucket": "failing",
+      "conclusion": "failure",
+      "id": 100142629778,
+      "log_error": "HTTP Error 401: Server failed to authenticate the request. Please refer to the information in the www-authenticate header.",
+      "log_state": "unreadable",
+      "name": "guards",
+      "status": "completed",
+      "url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33597091929/job/100142629778"
+    },
+    {
+      "bucket": "passing",
+      "conclusion": "success",
+      "id": 100142629045,
+      "name": "pytest-collect",
+      "status": "completed",
+      "url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33597091889/job/100142629045"
+    },
+    {
+      "bucket": "running",
+      "conclusion": null,
+      "id": 100142629541,
+      "name": "pytest-run",
+      "status": "in_progress",
+      "url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33597091910/job/100142629541"
+    },
+    {
+      "bucket": "passing",
+      "conclusion": "success",
+      "id": 100142629343,
+      "name": "repo-inventory",
+      "status": "completed",
+      "url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33597091884/job/100142629343"
+    }
+  ],
+  "counts": {
+    "cancelled": 0,
+    "failing": 1,
+    "passing": 2,
+    "running": 1
+  },
+  "draft": true,
+  "generated_at": "2026-09-02T06:04:01Z",
+  "head_sha": "f709d0a6567e349fdd35c3548bc497d57c4e6812",
+  "merge_state_note": "a required check is missing or failing, or a review is required",
+  "mergeable_state": "blocked",
+  "polls": 6,
+  "pr": 10757,
+  "pr_state": "open",
+  "reason": "1 check(s) failed",
+  "request": {
+    "poll_seconds": 20,
+    "pr": 10757,
+    "timeout_minutes": 18
+  },
+  "review_threads": {
+    "read_state": "read",
+    "review_decision": null,
+    "total": 0,
+    "unresolved": 0
+  },
+  "settled": true,
+  "state": "red",
+  "watched_by": "ci-settled relay"
+}
