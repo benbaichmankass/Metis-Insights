@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T15:45:46Z",
+  "updated_at": "2026-09-02T16:00:13Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -1128,6 +1128,17 @@
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "The operator set the daily cadence and decided BOTH hops are manual (manager spawns the night session; operator starts the morning one). That closed the wake question and left exactly one gap: they say they will GET the daily brief -- they are the TRIGGER, not the author, and NOTHING produces one. Their stated reason is the acceptance criterion: it must carry what was done overnight 'so that I know where I'm starting off from'.",
       "note": "Spawn gate consulted BEFORE spawning and PERMITTED (exit 0). Prompt names the existing renderers to read first, because RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED recurred TODAY (MI-70 hand-rolled a push to protected main that .github/actions/commit-to-main already absorbed).",
+      "state": "working"
+    },
+    {
+      "session_id": "session_015r4U4QhowTzXAmr5KQ6f8L",
+      "title": "MI-76 — the monolithic registers re-conflict every sibling PR; the work store already solved this",
+      "owns_object": "WO-20260901-PHASE-C",
+      "checklist_item": "MI-76",
+      "spawned_at": "2026-09-02T16:00:13Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "why": "MEASURED 2026-09-02 on origin/main, 12h window: 52 commits touched a register file. Six PRs sat armed with auto-merge for 15 minutes doing nothing because four were mergeable_state dirty -- auto-merge does not resolve conflicts. The manager re-resolved the same registers across seven PRs, several twice, because merging any one re-dirtied the rest. docs/claude/work/objects/ holds 584 rows as one-file-per-object and has produced ZERO of these conflicts.",
+      "note": "Spawn gate PERMITTED (exit 0). Deliberately NOT told to shard: a .gitattributes merge driver may win and saying so is a fine outcome. Prompt carries the manager's own resolver defect -- it reported 'no id lost' while silently dropping an edit both sides had added -- so any merge driver must REFUSE divergent same-id edits rather than pick a winner. ⚠️ Registered on the SECOND attempt: the first was written onto a branch that predated MI-75's row, which would have dropped it -- the exact hazard this item exists to end.",
       "state": "working"
     }
   ],
