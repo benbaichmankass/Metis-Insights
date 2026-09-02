@@ -140,8 +140,30 @@ Additionally the workflow runs `ci_settle.py --self-test` **before** trusting
 the grader, because a grader that silently stopped working would report `green`
 on a red PR — worse than reporting nothing.
 
-⚠️ **What is NOT yet proven at the time of writing:** a `green` settle. Runs 1
-and 2 returned `conflict` and `red`, both correct and both genuinely useful, but
-the green path has been exercised only in unit tests. The `pending`-on-timeout
-path is likewise unit-tested and not yet observed live. Stated rather than
-glossed: two of the seven states have live evidence, five have test evidence.
+**Run 3 — `state: pending`, `timed_out_waiting: true`, and 51 polls.** This is
+the run that carries the headline number. The watcher polled **51 times on the
+runner** across its 18-minute window and reported `pending` — correctly refusing
+to call it green even though `guards`, `pytest-collect` and `repo-inventory` had
+all gone passing, because `pytest-run` was still in flight. *We* stopped waiting;
+CI did not.
+
+**Run 4 — `pending` again, 72 polls over 25 minutes.** `pytest-run` was still
+in flight ~39 minutes after it was queued. That is not a defect in the relay;
+it is the premise. This PR touches Python, so the *relevant changed files* gate
+does not short-circuit and the full suite runs — and a session watching it by
+hand would have been paying for a fat PR read every few minutes across those 40
+minutes to be told *still running*, which is precisely the cost this exists to
+remove.
+
+**The cost claim, stated precisely.** A session would not have polled 51 times —
+it would have polled perhaps a dozen, each buying a full PR payload. The real
+change is the shape, not a ratio: the session's cost is now **two tool calls,
+constant, however long CI takes**, where before it scaled with the duration of
+the run. 51 is what the *runner* absorbed on one watch.
+
+⚠️ **What is NOT proven at the time of writing.** Live evidence exists for
+`conflict`, `red` and `pending` — three of seven states. `green`, `cancelled`
+and `no_checks` have unit evidence only. `unreadable` has live evidence at the
+*log* level (the 401 above) but not at the PR-read level. That is a real gap in
+the ledger and is recorded rather than glossed: a state that has only ever been
+exercised in a test is a state whose live behaviour nobody has seen.
