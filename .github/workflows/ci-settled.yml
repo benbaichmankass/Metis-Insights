@@ -1,6 +1,27 @@
 name: ci-settled
 
-# THE SESSION-INVOKABLE CI WAITER — "Claude calls the action; the action waits."
+# THE SESSION-INVOKABLE CI READER — "Claude calls the action; the action grades."
+#
+# ⚠️ READ THIS FIRST: THE WAITING IS USUALLY ALREADY SOLVED, THE GRADING IS NOT.
+# `mcp__github__subscribe_pr_activity` wakes a session on `check_suite.completed`
+# at zero polling cost. For a subscribed PR that beats any poll loop, and a
+# second waiter would be RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED. The wait
+# mode below is a FALLBACK for an unsubscribed PR or a session that cannot end
+# its turn.
+#
+# WHAT THE WAKE CANNOT TELL YOU is whether the PR is actually green.
+# BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR is OPEN at severity
+# HIGH: this repo's four required checks (guards, pytest-run, pytest-collect,
+# repo-inventory) live in FOUR SEPARATE check suites, so a success event means
+# ONE suite finished -- never that the PR is green. Observed twice on two PRs
+# within an hour, and a third time as this relay's own run 3 on PR #10757
+# (three checks passing, pytest-run still in flight). Acting on the event there
+# merges on a partial required set. The event's footer says to verify overall
+# state first; THIS is the thing that verifies it.
+#
+# So: the wake is the TRIGGER, this is the READER. Send
+# `{"pr": N, "timeout_minutes": 0}` (or `ci_settled.sh <PR> once`) when the wake
+# arrives -- one observation over the whole head, no waiting.
 #
 # WHY (measured, 2026-09-02). `api.github.com` returns HTTP 403 from inside a
 # Claude Code sandbox; the platform proxy intercepts it. Re-confirmed live this

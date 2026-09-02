@@ -47,7 +47,46 @@ git push as working without qualification.
 The relay therefore sweeps its own spent `automation/ciwatch-*` branches (age
 > 6h, well beyond the 45-minute watch cap) rather than asking the caller to.
 
-## 1. PR-CI polling — the anchor case (BUILT)
+## 1. PR-CI polling — the anchor case, and a mid-flight correction
+
+⚠️ **THE BRIEF I WAS GIVEN WAS CORRECTED WHILE I WAS BUILDING, AND THE
+CORRECTION WAS RIGHT.** A CI-settled *wake already exists*:
+`mcp__github__subscribe_pr_activity` delivers `check_suite.completed` into a
+subscribed session's turn, at zero polling cost. For a subscribed PR that is
+strictly better than any poll loop, and building a second waiter would be
+`RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED`. **The waiting mode here is
+therefore a fallback, not the headline** — for a PR nobody subscribed to, or a
+session that cannot end its turn and be woken.
+
+**But the correction is incomplete in the direction that matters, and the repo
+already knew it.** `BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR` is
+**OPEN at severity HIGH**. This repo's four required checks — `guards`,
+`pytest-run`, `pytest-collect`, `repo-inventory` — come from **four separate
+check suites**, so a `check_suite.completed` success says *one suite finished*,
+never that the PR is green. It was observed twice on two PRs within one hour,
+and the event's own footer tells the reader to verify overall state first.
+
+**Run 3 of this relay is a third, independent instance.** On PR #10757,
+`guards`, `pytest-collect` and `repo-inventory` were all passing while
+`pytest-run` was still in flight — measured, not reconstructed. A session acting
+on a success event arriving in that window would have merged on a partial
+required set.
+
+So the honest division of labour, and what this PR is actually for:
+
+> **The wake is the TRIGGER. This is the READER.**
+
+`ci_settled.sh <PR> once` grades the *whole head* in a single observation with
+no waiting — the mode meant to run **when the wake arrives**. It is what turns
+"a suite finished" into "the PR is green, and mergeable, and here is the failing
+check if not".
+
+That reframing is the deliverable. What follows is the cost evidence that stands
+either way.
+
+### The polling cost itself (the part the correction narrows)
+
+
 
 **Population: the manager session's own report of tonight's work, plus the
 mechanism, which is checkable independently of the count.** The manager reports
@@ -93,6 +132,30 @@ request, read one compact result — so both are cheap follow-ons. I did not bui
 them because I have not measured how often a session needs workflow-run history
 or a board tail, and a workflow built on an unmeasured frequency is how this
 repo ends up with machinery nothing reads.
+
+## 2b. The wake's coverage is UNMEASURED, and that is its own finding
+
+The event footer names four exclusions verbatim — cancelled suites, **suites
+with no runs**, the App's own suites, legacy commit statuses. None has been
+tested, by me or by anyone.
+
+Two of them are not academic here:
+
+- **"Suites with no runs"** is exactly the zero-check-runs state, whose usual
+  causes are a merge conflict or a bot-pushed head. In those cases **no wake
+  arrives at all** — and silence from a push mechanism is indistinguishable from
+  *not finished yet*. A session waiting on a wake for a conflicted PR waits
+  forever with no signal that this is what is happening. `ci_settled.sh <PR>
+  once` returns `conflict` in ~18 seconds instead (run 1).
+- **"Cancelled suites"** — this repo runs `cancel-in-progress: true` on its
+  required checks, so a superseded push routinely produces exactly the state the
+  footer says is not covered.
+
+⚠️ **I did not observe a wake at all this session.** The observation is the
+manager's, relayed. I tested none of the exclusions and measured no firing rate.
+The claim here is that the coverage is **unknown**, not that it is bad — filed
+as `BL-20260902-THE-PR-ACTIVITY-WAKE-IS-RELIED-ON-AND-ITS-COVERAGE-HAS-NEVER-BEEN-MEASURED`
+with a test per exclusion.
 
 ## 3. Deliberately NOT built
 

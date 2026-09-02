@@ -31122,6 +31122,35 @@
       "refs": [
         "BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-VM"
       ]
+    },
+    {
+      "id": "BL-20260902-THE-PER-SUITE-CHECK-EVENT-NOW-HAS-A-READER-AND-THE-MERGE-PROTOCOL-DOES-NOT-POINT-AT-IT",
+      "title": "BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR now has a one-command reader (ci-settled), and the merge protocol every session reads still does not name it",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-02",
+      "source": "session_01NeR2kREiXrXQcYYuRHvzRa, while building the ci-settled relay after its brief was corrected",
+      "detail": "THIRD INDEPENDENT OBSERVATION of BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR (open, severity high, two prior observations on #10105 and #10106 within one hour). MEASURED 2026-09-02, population = one watch on PR #10757: run 3 of the ci-settled relay recorded guards=passing, pytest-collect=passing, repo-inventory=passing and pytest-run=running, on one head sha. Those are three of the four required contexts, from three different suites. Any check_suite.completed success arriving in that window is a true statement about one suite and a false go-signal for the PR. WHAT IS NEW, and why this is filed rather than folded into the 2026-08-21 row: that row's resolution criteria ask for the rule to be STATED where sessions read it, and until now the only available advice was 'be careful, read get_check_runs and check each required context by name' -- i.e. do several MCP calls, by hand, correctly, under time pressure. There is now a one-command reader that does exactly that and returns a single graded verdict: `scripts/ops/ci_settled.sh <PR> once` (PR #10757). So the rule can change from a caution into an instruction, which is a materially different thing to ask of a session. ⚠️ I DELIBERATELY DID NOT MAKE THAT EDIT MYSELF. It lands in .claude/skills/session-coordination/SKILL.md's merge protocol and in the PreToolUse merge-guard deny message -- the binding path every session takes before merging -- and I am a sub-session whose declared scope on the coordination board did not include it. Unilaterally rewriting the merge protocol from a side branch is the kind of change that should be made by whoever owns the protocol, not smuggled in beside a tooling PR. ⚠️ NOR DOES THE READER EXISTING CLOSE THE 2026-08-21 ROW. A tool nobody is told to run is not a rule anybody follows, which is the whole shape of that row's own complaint.",
+      "resolution_criteria": "BOTH, and the second does not follow from the first: (1) .claude/skills/session-coordination/SKILL.md's merge-protocol step names the reader explicitly -- 'run scripts/ops/ci_settled.sh <PR> once and require state==green with mergeable_state not dirty; a check_suite.completed success is NEVER sufficient' -- and the PreToolUse merge-guard deny message carries the same line; AND (2) a session REPORTS having followed it against a live PR where one suite completed green while another required check was still running, naming the PR and quoting the verdict it got. ⚠️ (2) is the half that cannot be satisfied by editing a doc, and it is the half that matters: the 2026-08-21 row records two sessions that avoided the trap by accident rather than by design. ⚠️ AND MERGING PR #10757 DOES NOT COUNT AS EITHER. A relay that is merged and never pointed at is the written-and-never-read defect this repo files under provenance-consumer-guard, one level up.",
+      "refs": [
+        "BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR"
+      ]
+    },
+    {
+      "id": "BL-20260902-THE-PR-ACTIVITY-WAKE-IS-RELIED-ON-AND-ITS-COVERAGE-HAS-NEVER-BEEN-MEASURED",
+      "title": "subscribe_pr_activity is now the recommended CI trigger and nobody has measured what it misses — its own footer names four exclusions and none has been tested",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-02",
+      "source": "session_01NeR2kREiXrXQcYYuRHvzRa; the exclusions are quoted from the event footer relayed by the manager session",
+      "detail": "The check_suite.completed wake delivered by subscribe_pr_activity is the mechanism this repo now leans on instead of polling, and its coverage is UNMEASURED. The event's own footer states four exclusions verbatim: it does not cover cancelled suites, suites with NO RUNS, the App's own suites, or legacy commit statuses. ⚠️ 'SUITES WITH NO RUNS' IS THE DANGEROUS ONE. That is precisely the zero-check-runs state CLAUDE.md records two sessions losing ~10 minutes each to, whose usual causes are a merge conflict (the merge ref cannot be built, so pull_request runs are skipped by construction) or a head pushed by github-actions[bot] (GitHub suppresses workflow triggers for GITHUB_TOKEN pushes). In exactly those cases NO WAKE ARRIVES AT ALL -- and silence from a push mechanism is indistinguishable from 'not finished yet'. A session waiting on a wake for a conflicted PR waits forever and has no signal that this is what is happening. ⚠️ 'CANCELLED SUITES' IS THE SECOND. This repo runs cancel-in-progress: true on its required checks, so a superseded push routinely leaves cancelled suites -- a state that by the footer's own words produces no wake. WHAT I DID NOT MEASURE, stated so this is not read as wider than it is: I did not observe a wake at all this session (the observation is the manager's, relayed), I did not test any of the four exclusions, I did not measure how reliably the wake fires, and I did not test its behaviour on a re-push mid-suite. So this row asserts that the coverage is UNKNOWN, not that it is bad. 'We did not look' is the finding.",
+      "resolution_criteria": "Each exclusion tested against a deliberately constructed condition and the OBSERVATION recorded -- not the footer re-quoted: (a) a PR with a merge conflict (mergeable_state dirty, zero check runs) -- record whether any wake arrives and after how long; (b) a superseded push producing cancelled suites -- same; (c) a re-push mid-suite -- record whether the wake refers to the OLD head sha, which would be a settled verdict for code that is no longer the head; (d) a PR that was never subscribed -- confirm the silence is total. THEN state, in docs/claude/coordination-board.md or the session-coordination skill, which conditions a session must NOT wait on a wake for, and what to run instead (scripts/ops/ci_settled.sh <PR> once covers (a), (b) and (d) by grading the head directly). ⚠️ A PASSING WAKE ON A NORMAL PR CLOSES NOTHING -- that path already works and is not what is in question. The whole row is about the four cases where it is documented NOT to fire. ⚠️ AND 'no session has complained' is not evidence: a wake that never arrives produces silence, which is exactly what waiting looks like.",
+      "refs": [
+        "BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR",
+        "BL-20260902-THE-PER-SUITE-CHECK-EVENT-NOW-HAS-A-READER-AND-THE-MERGE-PROTOCOL-DOES-NOT-POINT-AT-IT"
+      ]
     }
   ]
 }
