@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-02T09:39:02Z",
+  "as_of": "2026-09-02T09:40:55Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -129,22 +129,6 @@
       "blocker": "pytest-run ran exactly TWICE on this branch: run 9814 (author's merge) CANCELLED, run 9819 (manager's merge commit 0890fc02) FAILURE. ⚠️ THERE IS NO GREEN BASELINE, so neither 'already broken' nor 'I broke it' is supported by the evidence. Handed back to its author. Do not assert a cause."
     },
     {
-      "pr": 10775,
-      "title": "MI-46 PROVEN: workflow_dispatch delivers — observed on the fleet, not tested",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-46",
-      "draft": false,
-      "tier": "1 (two checklist rows; no code)",
-      "state": "ready_awaiting_ci",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "text": "NO OPERATOR STATEMENT NEEDED — Tier-1, records an observation. But note the operator DID supply the evidence: they confirmed receipt of the proof ping with a screenshot, which is the half no run status could establish."
-      },
-      "blocker": "None. CI running."
-    },
-    {
       "pr": 10776,
       "title": "ops: feed the trader's error feed to the duty pass, grouped for triage",
       "owner_session": "session_01TpKSAVKKUXLHyFUFep32B1",
@@ -197,6 +181,11 @@
       "pr": 10758,
       "merge_sha": null,
       "note": "Pruned 2026-09-02 — no longer open. handoff_check graded it a stale row; the record's own _doc says this file goes stale the moment a PR merges."
+    },
+    {
+      "pr": 10775,
+      "merge_sha": "d08cac48",
+      "note": "Pruned in the SAME PR that added it — it merged between the two commits. That is the structural regress this file documents, observed live rather than in the abstract: the row was correct when written and stale ~90 seconds later."
     }
   ],
   "⚠️_the_last_row_is_always_stale_and_that_is_STRUCTURAL": "A handoff can never reach open_prs=PASS at the exact moment of the final merge, and this is a PROPERTY of the design rather than a bug to chase. Every open PR must have a row; the PR that prunes the last stale row is itself an open PR and needs a row; merging it makes THAT row stale. The regress terminates only if the manager stops opening PRs. ⚠️ DO NOT 'fix' this by exempting the currently-merging PR from the completeness check — the exemption would be indistinguishable from the real failure it exists to catch (a PR nobody recorded), and a check that cannot tell those apart is worse than the transient row. The correct reading: at handoff, `open_prs` naming ONLY the PR being merged right now is materially ready; naming any OTHER pr is not. State which case you are in rather than quoting the verdict alone.",
