@@ -27,12 +27,20 @@ name: session-reaper
 # reaper is actually reaping. Until a scheduled run is OBSERVED, treat the cadence
 # as UNPROVEN rather than as working.
 #
-# BLAST RADIUS. It runs one read-only Python script over `origin` and commits
+# BLAST RADIUS. It runs one read-only Python script over `origin` and lands
 # ONE generated file (`docs/claude/work/REAPER-OBSERVATIONS.json`). ⚠️ IT NEVER
 # KILLS, ARCHIVES, DELETES, CLOSES OR MERGES ANYTHING — which is exactly what
 # makes it safe to grade on branch quiescence, a PROXY for death that it cannot
 # verify. A reaper that ACTED on that proxy would have to be right about whether
 # a session is alive, and CI holds no tool that can answer that.
+#
+# ⚠️ THE ONE THING IT MERGES IS ITS OWN LEDGER, AND ONLY THROUGH THE SHARED
+# LANDING PATH. `main` is protected and rejects a direct workflow push (GH006),
+# so the ledger lands via `.github/actions/commit-to-main` as a PAT-authenticated
+# auto-merge PR — the same route `due-list.yml` uses for the same reason. That
+# is NOT an exception to the paragraph above: the auto-merge is this workflow's
+# own generated artifact, never a session's branch, never a session's PR, and
+# never anything a session is working on.
 
 on:
   schedule:
