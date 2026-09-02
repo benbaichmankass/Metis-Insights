@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T08:40:00Z",
+  "updated_at": "2026-09-02T09:06:00Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -583,14 +583,15 @@
       "owner": "manager",
       "tier": "2 (order path env flip) / 3 to widen",
       "operator_decision": "2026-09-02, verbatim: 'yes, and if its proves itself on bybit 1, then apply to bybits 2 and 3 as well'. Approves ARMING BYBIT_GRADED_COVERAGE_MODE=apply + BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1 after #10746 merges, and approves a LATER widening CONDITIONAL on the gate proving itself.",
-      "⚠️_bybit_3_DOES_NOT_EXIST": "MEASURED against config/accounts.yaml: the bybit accounts are bybit_1 (account_class paper, Bybit demo), bybit_2 (account_class REAL_MONEY, Bybit mainnet) and bybit_portfolio (paper, paper_role portfolio). `grep -c '^  bybit_3:'` returns 0. I read 'bybits 2 and 3' as bybit_2 + bybit_portfolio, but that is an ASSUMPTION and is recorded as one. ⚠️ DO NOT ACT ON IT WITHOUT CONFIRMING: one of the two accounts it would reach is real money, and inferring a real-money widening from a name that does not exist is exactly the half-informed state OPEN-PRS.json warns about.",
       "⚠️_what_PROVES_ITSELF_must_mean": "The operator did not define it and a vague criterion is how a demo-only approval leaks to real money. I will NOT widen on any of: time elapsed, a quiet soak, or a green test suite. THE BAR: (a) the arm is read back off /proc/<MainPID>/environ via get-env, never the .env; AND (b) at least one bybit_coverage_soak row on bybit_1 carries verdicts_differ: true -- i.e. the graded and side-blind bases actually reached OPPOSITE verdicts, so arming demonstrably changed an outcome; AND (c) a re-arm actually occurred on a position whose side-blind coverage exceeded its size, which is the defect itself. ⚠️ THE DEFECT IS n=1 AND CONSTRUCTED -- no live instance has ever been observed -- so (b) and (c) MAY NEVER OCCUR ON DEMO. If they do not, the honest report is 'unproven, not proven-good', and widening to real money on an unexercised gate is NOT what the operator approved. Put that back to them rather than letting a quiet soak read as a pass.",
       "next": [
         "Merge #10746 (queued on green).",
         "Arm bybit_1 via set-env, both keys, then restart, then read back off /proc/<pid>/environ.",
         "Watch bybit_coverage_soak for verdicts_differ: true. Report what is observed, not elapsed time.",
         "Before ANY widening: confirm with the operator which accounts 'bybit 3' meant."
-      ]
+      ],
+      "account_identity_CONFIRMED_BY_OPERATOR": "2026-09-02, operator confirmed on being asked: 'bybit portfolio is bybit3'. So the widening target set is bybit_2 + bybit_portfolio, CONFIRMED, no longer an assumption. ⚠️ There is NO account literally named `bybit_3` in config/accounts.yaml — measured, `grep -c '^  bybit_3:'` returns 0 — so 'bybit 3' is the operator's shorthand for `bybit_portfolio` and any code, env value or allowlist must use the REAL id. An allowlist naming `bybit_3` would silently match nothing and read as armed. ⚠️ NOTE THE ASYMMETRY IN THE TARGET SET, because it is the whole risk: bybit_portfolio is account_class PAPER (paper_role: portfolio), while bybit_2 is account_class REAL_MONEY on Bybit mainnet. Widening reaches real money.",
+      "widening_order": "When the bar in this row is met, widen to bybit_portfolio (paper) BEFORE bybit_2 (real money) unless the operator says otherwise. The operator named them together and did not order them; taking the paper one first costs one step and is the only ordering that gets real money a precedent rather than a first exposure. Flag it rather than assume it."
     },
     {
       "id": "MI-50-PHASE-H-READ-GATE-WAITS-ON-STREAMLIT-BEING-OFF",
