@@ -869,6 +869,39 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "telegram_poll.poll_state",
+        # The producer is the resolver itself: `poll_state()` returns a
+        # PollEvidence whose `state` is one of these three, and the vocabulary
+        # is defined as module constants here and nowhere else.
+        "producer": "src/runtime/telegram_poll_registry.py",
+        # ⚠️ Scoped to the READING vocabulary, deliberately NOT to the module
+        # name. `src/bot/telegram_query_bot.py` imports this module to RECORD a
+        # claim (`record_poll`) and never reads a state back — a module-name
+        # token matched it anyway and then found the word "unknown" in an
+        # unrelated heartbeat label ("label": "unknown") and two VM-resource
+        # strings, reporting a registrant as a consumer that collapses two
+        # states. That is the coincidental-English false positive this guard's
+        # own header warns about, and the fix is a token that names the read
+        # surface rather than an override annotation asserting a file
+        # "legitimately sees only one state" when it sees none.
+        "consumer_token": r"\bpoll_state\b|\bPollEvidence\b|\bPOLL_STATES\b",
+        "states": ["polled_with_handler", "token_only_not_polled", "unknown"],
+        "why": (
+            "polled_with_handler = a live process claims it polls this token AND "
+            "handles this callback prefix, so a tap is received; "
+            "token_only_not_polled = we LOOKED and a tap would NOT be received; "
+            "unknown = we could NOT look. Collapsing unknown into "
+            "polled_with_handler ships an inline keyboard whose taps nobody "
+            "collects — a prompt that arrives, renders, highlights on tap and "
+            "does nothing, with no error on any surface. Collapsing it into "
+            "token_only_not_polled instead condemns a working channel on the "
+            "strength of an unreadable file and silently reroutes every operator "
+            "decision to the wrong chat. The two errors are opposite, which is "
+            "why the third value has to exist rather than be inferred from a "
+            "boolean."
+        ),
+    },
+    {
         "name": "netting_attribution.anchor_status",
         "producer": "src/runtime/order_monitor.py",
         "consumer_token": r"\banchor_status\b|\bnetting_anchor_basis\b",

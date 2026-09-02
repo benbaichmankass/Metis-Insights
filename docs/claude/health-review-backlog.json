@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-09-02T00:00:00+00:00",
+  "updated_at": "2026-09-02",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -31190,6 +31190,43 @@
         "tests/test_processor_repo_root_resolution.py",
         "BL-20260827-TEST-MODULES-STUB-SKLEARN-INTO-SYS-MODULES-AT-IMPORT-TIME",
         "BL-20260822-TEST-SUITE-CROSS-FILE-SYS-MODULES-POLLUTION"
+      ]
+    },
+    {
+      "id": "BL-20260902-WDEC-DISPATCH-BRANCH-TESTS-A-LITERAL-WHILE-ENCODER-AND-POLL-CLAIM-USE-THE-CONSTANT",
+      "title": "callback_handler's wdec branch matches the LITERAL \"wdec\" while the encoder and the poll claim both resolve CB_PREFIX — a rename moves two of three and silently strands the dispatcher",
+      "severity": "low",
+      "tier": 2,
+      "status": "open",
+      "opened": "2026-09-02",
+      "source": "session_011JWFxuYAaEQKCFCmG6gnHJ, while wiring the decision channel onto the dedicated Claude bot (PR #10789). Noticed rather than hunted: I wrote a comment asserting the claim named the same constant the dispatcher resolves, then checked and it did not.",
+      "detail": "THREE SITES MUST AGREE ON THE CALLBACK PREFIX AND ONLY TWO READ THE SAME SOURCE. `src/runtime/telegram_decisions.CB_PREFIX = \"wdec\"` is what `encode_callback` writes into `callback_data` and what `answerable_route`/the poll claim ask the registry about; `src/bot/claude_decision_bot.py` registers its handler with `pattern=rf\"^{CB_PREFIX}:\"` and declares `HANDLED_PREFIXES = (CB_PREFIX,)`. But `src/bot/telegram_query_bot.callback_handler` dispatches on the BARE LITERAL: `elif action == \"wdec\":`. So renaming CB_PREFIX moves the encoder, the Claude bot's handler AND the poll claim together while leaving the trader bot's branch matching a prefix nothing emits any more. ⚠️ THE FAILURE IS SILENT AND SHAPED EXACTLY LIKE THE ONE THE POLL REGISTRY EXISTS TO CATCH. The trader bot is the FALLBACK destination for decision prompts, so after such a rename its poll claim would still read `polled_with_handler` (the claim is built from CB_PREFIX, which moved) while a real tap fell through `callback_handler`'s if/elif chain to the 'unknown callback data is ignored' tail. The operator taps; the message is not edited; nothing errors; the registry reports the bot as answerable. That is a dead button that reads healthy on every surface, one layer below where PR #10789 fixed it. NOT CURRENTLY BROKEN, and stated as such: `CB_PREFIX` is \"wdec\" today, so all three agree and every test passes. This is a latent coupling, which is why it is `low` and not higher — it needs a rename to fire. WHY IT WAS NOT FIXED IN #10789: `src/bot/telegram_query_bot.py` was declared by a concurrent live session (`claude/claude-ping-double-delivery-x4mq2p`), flagged on the coordination board by PR #10778's own DONE comment as the branch most likely to touch the same regions. Edits there were deliberately held to a poll registration plus one log line to avoid racing it. Filed rather than fixed so the observation is not lost — it is a two-line change for whoever owns that file next.",
+      "resolution_criteria": "`src/bot/telegram_query_bot.callback_handler` dispatches the decision callback on the imported `telegram_decisions.CB_PREFIX` rather than the literal \"wdec\" (e.g. `elif action == CB_PREFIX:` with a module-level import), AND a test pins the agreement so it cannot silently re-diverge — the cheapest honest form is asserting that the prefix the dispatcher branches on equals the prefix `encode_callback` actually emits, rather than asserting both equal the string \"wdec\" (which would re-hardcode the coupling in the test and pass through the very rename it is meant to catch). ⚠️ Closing this by changing CB_PREFIX's VALUE to match the literal is not a fix — it leaves three sites and two sources.",
+      "refs": [
+        "src/bot/telegram_query_bot.py",
+        "src/runtime/telegram_decisions.py",
+        "src/bot/claude_decision_bot.py",
+        "src/runtime/telegram_poll_registry.py",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/10789",
+        "OI-20260902-DECISION-PROMPTS-MOVED-TO-CLAUDEBOT-AND-NO-TAP-HAS-LANDED-THERE"
+      ]
+    },
+    {
+      "id": "BL-20260902-A-REBASE-ARMS-AUTOMERGE-BECAUSE-A-PUSH-DIFF-INCLUDES-EVERYTHING-MAIN-CHANGED",
+      "title": "claude-pr-automerge fires on a REBASE that touched none of its trigger paths — a push's changed-file set is the pre-push-head→new-head diff, so rebasing onto a moved main drags main's paths in and un-drafts + auto-merges a PR that requested neither",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-02",
+      "source": "session_011JWFxuYAaEQKCFCmG6gnHJ — observed LIVE on PR #10789 at 2026-09-02T11:34Z, not reasoned about. The PR was opened draft:true and came back draft:false with auto-merge armed.",
+      "detail": "MEASURED, ON A REAL PR. #10789 was opened as a DRAFT (`draft: true`, verified on the API right after `pr-opener` created it) and explicitly must not merge — Tier-2 on a live trading system whose done-condition no CI run can perform. A force-push at 11:34Z rebasing the branch onto a moved `main` (133587f..af9af5e) triggered `.github/workflows/claude-pr-automerge.yml`, which ran `markPullRequestReadyForReview` and `enablePullRequestAutoMerge(SQUASH)`. Re-read immediately after: `draft: false`. **The branch never touched any trigger path.** THE MECHANISM. That workflow is `on: push: branches: [claude/**]` with a `paths:` filter that still includes the LEGACY shared file `.github/pr-automerge-request` — deliberately retained, per its own comment, 'for a transition window so an in-flight branch that already wrote it still fires', with 'Remove it once no open PR carries that file.' That file is present in the TREE (written by an earlier PR and merged to main at 133587f). GitHub computes a push event's changed-file set as the diff from the PRE-PUSH head to the new head — so a REBASE, which replays the branch over everything that landed on main in between, drags every path main changed into that set. If any of those commits touched a trigger path, the filter matches and the workflow fires. ⚠️ SO THE ARMING IS NOT OPT-IN, AND THAT IS THE WHOLE FINDING. The relay's design intent is a per-request file — you ASK for auto-merge by writing one. A rebase asks for nothing, and the repo's own merge protocol actively encourages syncing to main. The condition therefore fires most readily on exactly the branches doing the right thing. ⚠️ IT UN-DRAFTS, WHICH DEFEATS THE ONE SIGNAL A DRAFT EXISTS TO SEND. Every convention in this repo for 'prepared but not approved' — Tier-2 and Tier-3 both — is 'open it as a draft and ping the operator'. A workflow that converts drafts to ready on a push silently removes the marker the tier gate depends on, and the PR then merges on green with no human in the loop. Branch protection does not help: it gates on CHECKS, and the checks were green. ⚠️ RECOVERY WAS NOT AVAILABLE BY THE OBVIOUS ROUTE. Converting the PR back to draft (which also disables auto-merge) needs the GitHub API, and every attempt returned `API rate limit already exceeded for user ID 119055177` while READS kept working — so the session could watch the PR march toward a merge it could not stop. The only lever left was a deliberately failing required check (`tests/test_zz_automerge_hold.py`), which is a workaround, not a fix.",
+      "resolution_criteria": "EITHER (a) the legacy `.github/pr-automerge-request` path is removed from the workflow's `paths:` filter — its own comment already says to, once no open PR carries it — AND the file is deleted from the tree, so the only way to arm auto-merge is writing a per-request file; OR (b) the workflow refuses to act on a push whose changed-file set includes a trigger path only incidentally — e.g. it requires the request file to have been ADDED or MODIFIED by a commit authored on this branch, not merely to appear in the push diff. AND, independently of which is chosen: the workflow MUST NOT `markPullRequestReadyForReview` on a PR that is already open as a draft. Opening a PR ready is a legitimate default for one this workflow CREATES; silently un-drafting one somebody else deliberately opened as a draft is not, because the draft flag is what this repo's Tier-2/Tier-3 conventions use to mean 'prepared, not approved'. ⚠️ Closing this by deleting `tests/test_zz_automerge_hold.py` is NOT a fix — that file is the symptom's workaround, and removing it while the trigger stands just re-arms the PR it is holding.",
+      "refs": [
+        ".github/workflows/claude-pr-automerge.yml",
+        ".github/pr-automerge-request",
+        "BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/10789",
+        "tests/test_zz_automerge_hold.py"
       ]
     }
   ]
