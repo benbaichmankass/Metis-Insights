@@ -453,6 +453,23 @@
         "state": "spawned_not_yet_observed",
         "note": "SPAWNED, NOT OBSERVED. Told explicitly NOT to try to drain this file — retire a class or close a handful, then stop. Warned about the trap in lead 3: the fanout SHARE fell 85% -> 68.5% while the ABSOLUTE count rose 85 -> 87, and the blast radius of one issue is the absolute count, so reading the share as improvement inverts the finding."
       }
+    },
+    {
+      "session_id": "session_01NdcSVsQtCzUqYLvzdjNPG9",
+      "owns_object": null,
+      "title": "MI-28 — the scope-overlap audit flags a session against its own declaration",
+      "spawned_at": "2026-09-02T03:34Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/scope-overlap-self-attribution"
+      ],
+      "prs": [],
+      "why": "Promoted from queued to dispatched because it reproduced THREE more times tonight, on #10729, #10731 and #10732 — nine firings total. #10729 and #10732 were 100% self-matches against the manager's own designated branch. Nine benign firings on the one surface meant to stop two sessions colliding is the desensitised-alarm P1 the repo has already paid for once, and the incentive it creates is backwards: declaring scope precisely makes the alarm louder, so the cheapest route to a quiet audit is to declare nothing.",
+      "last_observed": {
+        "at": "2026-09-02T03:34Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Given a SECOND axis the existing backlog note does not carry, and told to verify it rather than take it on trust: #10731's eight matches were genuinely other sessions but ALL of their PRs had already MERGED, so the audit cannot tell a live declaration from a stale one either. A fix handling only self-attribution leaves that half firing. Told explicitly NOT to make the audit quieter in general — suppressing a real overlap is the strictly worse error — and to keep the four states apart rather than collapsing them into 'another session declared'."
+      }
     }
   ]
 }
