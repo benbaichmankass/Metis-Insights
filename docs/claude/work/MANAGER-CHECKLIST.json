@@ -1086,7 +1086,7 @@
     {
       "id": "MI-73",
       "title": "The manager watcher is BLIND by construction — give it a sensor that can actually see",
-      "state": "in_flight",
+      "state": "blocked",
       "priority": "P2_OVERHAUL_IMPLEMENTATION",
       "owner": "session_01ThkrPrGUvmomoY8uGEa148",
       "tier": "1 (tooling/CI)",
@@ -1099,7 +1099,8 @@
         "#10808",
         "MI-68",
         "WO-20260902-MANAGER-PREFLIGHT"
-      ]
+      ],
+      "⚠️_outcome": "DIED BLOCKED, WORK LOST. post_turn_summary: 'blocked on permission classifier; auto-mode denied add_repo x2 and git push x3'. It never pushed a branch, so ~$10 of work is unrecoverable -- exactly the loss MI-70 demonstrated by killing a session. Two manager wake attempts did not clear it: the denial is its session's permission classifier, which the manager cannot change from outside. SUPERSEDED BY MI-77, respawned with an explicit source_url (which this session's context lacked) and instructed to push within its first minutes. [!] THE MANAGER'S FIRST DIAGNOSIS WAS WRONG AND IS RECORDED AS SUCH: it told MI-73 the cause was an omitted source_url, then found MI-75 had a source it never passed and MI-76 acquired one late -- sources attach ASYNCHRONOUSLY, so 'no sources' reads as a defect when it is often just a timing artifact."
     },
     {
       "id": "MI-70",
@@ -1135,7 +1136,24 @@
         "MI-44",
         "MI-74"
       ]
+    },
+    {
+      "id": "MI-77",
+      "title": "The manager watcher that can actually see (MI-73 respawn)",
+      "state": "in_flight",
+      "priority": "P2_OVERHAUL_IMPLEMENTATION",
+      "owner": "session_01PbQAQXRY2oB1ep2BFEUZeA",
+      "tier": "1 (tooling/CI)",
+      "why": "Of MI-68's three manager-watching mechanisms, TWO WORK (spawn_gate verified by the manager on both controls) and queue_latency.py grades `unknown` PERMANENTLY because its verdict needs a live list_sessions read and CI holds no mcp__* tools. Honest, and not yet the guard the operator asked for.",
+      "the_hypothesis_to_TEST": "An MCP-free proxy visible to Actions with only GITHUB_TOKEN: a green/mergeable/UNMERGED PR ageing; a needs_action with nothing since; a board START with no DONE; an in_flight item whose owner's branch has had no push for N hours. ⚠️ THE MANAGER BELIEVES THIS AND HAS NOT PROVEN IT -- a stated boundary is the better deliverable if the proxy is weaker than it looks.",
+      "what_must_not_regress": "Do not collapse quiet/escalate/unknown. Must NOT be manager-invokable (every mechanism the manager had to choose to run went unused; every one that stood in the way worked). Never page on activity. And a cron is not evidence of a run -- session-reaper.yml had FIVE failing runs before its first success because it pushed to protected main, so this must land through .github/actions/commit-to-main with verify-merged: true.",
+      "refs": [
+        "MI-73",
+        "MI-68",
+        "#10808",
+        "WO-20260902-MANAGER-PREFLIGHT"
+      ]
     }
   ],
-  "as_of": "2026-09-02T15:26:00Z"
+  "as_of": "2026-09-02T17:20:00Z"
 }
