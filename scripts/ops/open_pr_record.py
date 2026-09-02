@@ -212,6 +212,35 @@ def grade_completeness(doc: Optional[Any], readable: bool,
               unrecorded=[], stale_rows=[], population=pop)
 
 
+def grade_structural(doc: Optional[Any], readable: bool) -> Dict[str, Any]:
+    """Cheap offline integrity of the record itself.
+
+    Small, but it guards the KEY every other check joins on: a duplicate or
+    non-integer `pr` makes the completeness comparison silently wrong rather
+    than loud — two rows for one PR let a successor read whichever it hits
+    first, and the two can carry different operator decisions.
+    """
+    if not readable:
+        return _v("unreadable", "OPEN-PRS.json could not be parsed.", findings=[])
+    findings, seen = [], {}
+    for i, r in enumerate(rows(doc)):
+        pr = r.get("pr")
+        if not isinstance(pr, int) or isinstance(pr, bool) or pr <= 0:
+            findings.append({"row": i, "why": f"`pr` is {pr!r}, not a positive int — "
+                                              f"every other check joins on this key"})
+            continue
+        if pr in seen:
+            findings.append({"row": i, "why": f"duplicate pr #{pr} (first at row "
+                                              f"{seen[pr]}); the two rows may carry "
+                                              f"different operator decisions and a "
+                                              f"reader gets whichever it hits first"})
+        seen.setdefault(pr, i)
+    return _v("malformed" if findings else "well_formed",
+              f"{len(findings)} structural finding(s) over {len(rows(doc))} row(s)."
+              if findings else f"{len(rows(doc))} row(s), all well-formed.",
+              findings=findings)
+
+
 def grade_decisions(doc: Optional[Any], readable: bool) -> Dict[str, Any]:
     if not readable:
         return _v("unreadable",
@@ -329,6 +358,17 @@ def _self_test() -> int:
                           True)["state"], "verdict_without_condition")
 
     # --- the observation parser --------------------------------------------
+    check("a duplicate pr number is a structural finding",
+          grade_structural({"open_prs": [{"pr": 1}, {"pr": 1}]}, True)["state"],
+          "malformed")
+    check("a non-integer pr is a structural finding",
+          grade_structural({"open_prs": [{"pr": "10746"}]}, True)["state"], "malformed")
+    check("a clean record is well_formed",
+          grade_structural({"open_prs": [{"pr": 1}, {"pr": 2}]}, True)["state"],
+          "well_formed")
+    check("an unreadable record is `unreadable`, not `well_formed`",
+          grade_structural(None, False)["state"], "unreadable")
+
     check("a list of ints is understood", normalise_open_prs([1, 2]), [1, 2])
     check("list_pull_requests dicts are understood",
           normalise_open_prs([{"number": 7}, {"number": 3}]), [3, 7])
@@ -375,19 +415,25 @@ def main(argv=None) -> int:
         return _self_test()
 
     doc, ok = read_record()
+    st = grade_structural(doc, ok)
     comp = grade_completeness(doc, ok, normalise_open_prs(_load(a.open_prs))
                               if a.open_prs else None)
     dec = grade_decisions(doc, ok)
+    print(f"open-pr-record: structural={st['state']} — {st['message']}")
+    for f in st.get("findings", []):
+        print(f"  ::structural:: row {f['row']}: {f['why']}")
     print(f"open-pr-record: completeness={comp['state']} — {comp['message']}")
     print(f"open-pr-record: decisions={dec['state']} — {dec['message']}")
     for f in dec.get("findings", []):
         print(f"  ::FINDING:: #{f['pr']}: {f['why']}")
     if a.json:
-        print(json.dumps({"completeness": comp, "decisions": dec}, indent=2,
+        print(json.dumps({"structural": st, "completeness": comp,
+                          "decisions": dec}, indent=2,
                          ensure_ascii=False))
     if not a.strict:
         return 0
-    bad = dec["state"] in {"verdict_without_condition", "unreadable"}
+    bad = (dec["state"] in {"verdict_without_condition", "unreadable"}
+           or st["state"] != "well_formed")
     if bad:
         print("::error::open-pr-record: REFUSED. A row recording a verdict without "
               "its condition reads as complete, which is the half-informed state "
