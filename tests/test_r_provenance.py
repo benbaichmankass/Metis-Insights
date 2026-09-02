@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import pytest
 
+
 from src.runtime.r_provenance import (
     CONFIRM_REL_TOL,
     DISAGREEMENT_RATIO_BAR,
@@ -31,6 +32,33 @@ from src.runtime.r_provenance import (
     stop_is_wrong_side,
     summarize,
 )
+
+
+def _eq(got, want, rel=1e-9):
+    """Float compare WITHOUT ``pytest.approx``, deliberately.
+
+    ⚠️ `pytest.approx` is unusable in a numpy-less environment once any test
+    module has stubbed numpy into `sys.modules` as a `MagicMock`, which ~8
+    modules in this suite do at import time. `_pytest.python_api.is_bool` runs
+    `isinstance(val, np.bool_)` against whatever sits in that slot, and a
+    MagicMock is not a type, so the call raises
+    `TypeError: isinstance() arg 2 must be a type`.
+
+    This is not hypothetical and it is not new: `tests/conftest.py` documents
+    the same break taking down
+    `test_over_cover_decision.py::test_reproduces_the_2026_08_20_failure` in the
+    lean `guards` CI job. REPRODUCED for this suite 2026-09-02 --
+    `pytest tests/test_orders.py tests/test_r_provenance.py` fails 4 of these
+    tests with that TypeError, while this file alone passes 53/53. The full
+    `pytest-run` job installs numpy and stays green, so the exposure is
+    invisible there.
+
+    Every comparison in this file is over exactly-representable arithmetic, so
+    the tolerance is belt-and-braces rather than load-bearing.
+    """
+    if want == 0:
+        return abs(got) <= rel
+    return abs(got - want) <= rel * abs(want)
 
 
 # ───────────────────────── stop_is_wrong_side ──────────────────────────────
@@ -72,7 +100,7 @@ class TestStopIsWrongSide:
 # ─────────────────────── declared_initial_risk ─────────────────────────────
 class TestDeclaredInitialRisk:
     def test_reads_risk_per_unit_from_json_string_and_from_mapping(self):
-        assert declared_initial_risk('{"risk_per_unit": 18.947142857143263}') == pytest.approx(18.947142857143263)
+        assert _eq(declared_initial_risk('{"risk_per_unit": 18.947142857143263}'), 18.947142857143263)
         assert declared_initial_risk({"risk_per_unit": 2.5}) == 2.5
 
     def test_real_live_meta_blob_is_parsed(self):
@@ -81,7 +109,7 @@ class TestDeclaredInitialRisk:
         blob = ('{"donchian_hi": 4400.0, "atr": 6.3, "tp_r": 2.0, '
                 '"risk_per_unit": 18.947142857143263, "entry_time": '
                 '"2026-08-30T10:00:00+00:00", "timeframe": "15m"}')
-        assert declared_initial_risk(blob) == pytest.approx(18.947142857143263)
+        assert _eq(declared_initial_risk(blob), 18.947142857143263)
 
     @pytest.mark.parametrize("blob", [
         None, "", "not json", "[]", "{}", '{"risk_per_unit": null}',
@@ -103,13 +131,13 @@ class TestDisagreementRatio:
     def test_ratio_above_one_means_stored_stop_is_tighter_than_declared(self):
         # declared 2.0, stored distance 1.0 -> the stop has been pulled in 2x,
         # so R is INFLATED 2x. Sign convention is load-bearing; assert it.
-        assert disagreement_ratio(100.0, 99.0, '{"risk_per_unit": 2.0}') == pytest.approx(2.0)
+        assert _eq(disagreement_ratio(100.0, 99.0, '{"risk_per_unit": 2.0}'), 2.0)
 
     def test_ratio_below_one_means_stored_is_wider_and_is_returned_honestly(self):
         # Trailing cannot produce this. It is NOT clamped to 1.0 — 24.3% of
         # correct-side live rows read below 0.99 and hiding that would hide the
         # evidence that the ~1.0 mass is two-sided noise, not a trail.
-        assert disagreement_ratio(100.0, 98.0, '{"risk_per_unit": 1.0}') == pytest.approx(0.5)
+        assert _eq(disagreement_ratio(100.0, 98.0, '{"risk_per_unit": 1.0}'), 0.5)
 
     def test_none_when_either_side_is_unavailable(self):
         assert disagreement_ratio(100.0, 99.0, None) is None

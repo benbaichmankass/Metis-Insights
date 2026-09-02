@@ -26,9 +26,18 @@ from __future__ import annotations
 import json
 import sqlite3
 
-import pytest
-
 from src.web.api.routers.performance import _aggregate, _empty, _query
+
+
+def _eq(got, want, rel=1e-9):
+    """Float compare WITHOUT ``pytest.approx`` -- see the same helper's
+    docstring in `tests/test_r_provenance.py`. Short version: `pytest.approx`
+    raises `TypeError` in a numpy-less environment once any of the ~8 test
+    modules that stub numpy as a `MagicMock` at import time has been imported,
+    and this suite is run that way. REPRODUCED 2026-09-02."""
+    if want == 0:
+        return abs(got) <= rel
+    return abs(got - want) <= rel * abs(want)
 
 _SCHEMA = """
 CREATE TABLE trades (
@@ -199,7 +208,7 @@ def test_totalR_and_rCoverage_are_UNCHANGED_by_the_detector(tmp_path):
     assert agg["totalTrades"] == 2
     assert agg["rTradeCount"] == 2, "the contaminated row is STILL in the R count"
     assert agg["rCoverage"] == 1.0
-    assert agg["totalR"] == pytest.approx(10.0), "its R is STILL in the sum"
+    assert _eq(agg["totalR"], 10.0), "its R is STILL in the sum"
     assert agg["rProvenance"]["contaminated"] == 1, "...and it is REPORTED"
 
 
