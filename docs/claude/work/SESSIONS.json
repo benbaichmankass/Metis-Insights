@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T10:36:20Z",
+  "updated_at": "2026-09-02T11:07:55Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -1015,6 +1015,18 @@
         "claude/decision-push-back"
       ],
       "why": "Operator ask 2026-09-02: when the answer reaches the repo, push it to the asking session instead of the session polling for it. Feasibility FIRST -- a session-bound Routine is verified to wake a running session from a session that holds MCP, but whether a GitHub Actions runner can fire one is UNKNOWN and must be established, not assumed. Nothing today records WHICH session asked a decision, so there is currently no address to push to; that recording is the smallest change and gates everything else.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01NfzmaV7FxP4bAZtKbXYVb9",
+      "title": "MI-61: a soak must alarm — threshold + timer + a dead-soak state",
+      "checklist_item": "MI-61",
+      "spawned_at": "2026-09-02T11:07:55Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/soak-alarm-threshold"
+      ],
+      "why": "STANDING operator directive 2026-09-02: 'anything soaking needs to be logged with an alarm that has either a timer or a soak threshold, so that we know to get back to it when the soak is ready.' MEASURED gap: OPEN-ITEMS rows carry check_every_days (a TIMER) and render_due_list reads them, but across all 36 rows there is NO threshold field -- nothing can express 'come back when the soak has N rows'. A timer alone is the weaker half and produces the desensitized-alarm P1. And #10746's soak has NO register row at all, so it would accrue and surface to nobody.",
       "state": "working"
     }
   ],
