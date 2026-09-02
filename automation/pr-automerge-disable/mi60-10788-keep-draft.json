@@ -1,0 +1,6 @@
+{
+  "pr": 10788,
+  "head_sha": "cfd332496c39d2b055de4f611795577438833100",
+  "draft": true,
+  "reason": "Opened DRAFT on an explicit operator instruction. A merge of origin/main touched the legacy shared trigger file and armed squash auto-merge; this restores the requested state."
+}
