@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T10:33:14Z",
+  "updated_at": "2026-09-02T10:36:20Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -1003,6 +1003,18 @@
         "claude/telegram-status-decisions-commands"
       ],
       "why": "Operator ask 2026-09-02: a /status command returning the manager status update in the operator's own required order (checklist -> recently done -> next), and a /decisions command that pops every still-unanswered decision at once 'in case I don't get them as they come in'. Both are an on-demand surface over machinery already proven end to end today; neither rebuilds it.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01PEYVqTaCY92C3HmtHwxYff",
+      "title": "MI-60: push a committed decision back to the session that asked it",
+      "checklist_item": "MI-60",
+      "spawned_at": "2026-09-02T10:36:20Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/decision-push-back"
+      ],
+      "why": "Operator ask 2026-09-02: when the answer reaches the repo, push it to the asking session instead of the session polling for it. Feasibility FIRST -- a session-bound Routine is verified to wake a running session from a session that holds MCP, but whether a GitHub Actions runner can fire one is UNKNOWN and must be established, not assumed. Nothing today records WHICH session asked a decision, so there is currently no address to push to; that recording is the smallest change and gates everything else.",
       "state": "working"
     }
   ],
