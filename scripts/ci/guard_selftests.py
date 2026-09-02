@@ -578,6 +578,103 @@ def selftest_workflow_catalog() -> None:
           "non-workflow file is not mistaken for a phantom")
 
 
+def selftest_manifest_scope_constants() -> None:
+    """Plant each of the three defects `manifest-scope-constants` claims to catch.
+
+    THE PLANT FOR C1 IS THE REAL HISTORICAL DEFECT, not a synthetic stand-in:
+    `hour_of_day` declared on a `1d` bar is exactly what `mes-regime-1d-lgbm-v2`
+    carried while it sat 34.0 days untrained under a green rc=0 cycle
+    (MB-20260829-MES-1D-DECLARES-A-FEATURE-THAT-CANNOT-VARY-AT-ITS-OWN-TIMEFRAME).
+    If this planted manifest does not fail the guard, the guard would not have
+    caught the incident it was written for.
+
+    THE NEGATIVE CONTROL IS THE ONE THAT MATTERS. The obvious over-broad
+    implementation of C1 flags `hour_of_day` wherever it appears — and 54 of the
+    55 manifests that declare it are on 5m/15m/1h/all bars where the hour genuinely
+    varies. Such a guard passes every positive test above and then fails the whole
+    fleet. So a 15m manifest declaring the same column must PASS, and that is
+    asserted here, not assumed.
+    """
+    script = "scripts/ci/check_manifest_scope_constants.py"
+    cfg = REPO / "ml" / "configs"
+
+    def _manifest(model_id, timeframe, feats, cats=(), symbol="MES",
+                  family="market_features"):
+        feat_yaml = "\n".join(f"  - {c}" for c in feats)
+        cat_yaml = "\n".join(f"  - {c}" for c in cats)
+        return (
+            f"manifest_version: v1\n"
+            f"model_id: {model_id}\n"
+            f"model_family: classification_lightgbm\n"
+            f"trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer\n"
+            f"trainer_config:\n"
+            f"  target_column: regime_label\n"
+            f"  feature_columns:\n{feat_yaml}\n"
+            + (f"  categorical_columns:\n{cat_yaml}\n" if cats else "")
+            + f"dataset:\n"
+            f"  family: {family}\n"
+            f"  symbol_scope: {symbol}\n"
+            f"  timeframe: {timeframe}\n"
+            f"  version: v001\n"
+        )
+
+    base = ["vol_bucket", "rolling_log_return_vol", "log_return"]
+
+    # --- C1: the real mes-regime-1d defect --------------------------------
+    plant = cfg / "_selftest_scope_c1.yaml"
+    with _planted(plant, _manifest("_selftest-c1", "1d", base + ["hour_of_day"])):
+        rc, out = _rc_out(["python3", script])
+    if rc == 0:
+        raise SystemExit(
+            "manifest-scope-constants self-test FAILED: `hour_of_day` on a 1d bar "
+            "(the real mes-regime-1d-lgbm-v2 defect) did not fail the guard"
+        )
+    if "scope_constant" not in out or "_selftest-c1" not in out:
+        raise SystemExit(
+            "manifest-scope-constants self-test FAILED: the guard returned non-zero "
+            "but not ON THE PLANT — no scope_constant finding for _selftest-c1.\n"
+            + out
+        )
+
+    # --- C2: a column no builder emits ------------------------------------
+    plant = cfg / "_selftest_scope_c2.yaml"
+    with _planted(plant, _manifest("_selftest-c2", "15m",
+                                   base + ["__NOT_A_REAL_COLUMN__"])):
+        rc, out = _rc_out(["python3", script])
+    if rc == 0 or "absent_from_builder" not in out or "_selftest-c2" not in out:
+        raise SystemExit(
+            "manifest-scope-constants self-test FAILED: a feature absent from the "
+            "family builder's schema was not reported.\n" + out
+        )
+
+    # --- C3: a categorical the trainer would raise on ---------------------
+    plant = cfg / "_selftest_scope_c3.yaml"
+    with _planted(plant, _manifest("_selftest-c3", "15m", base,
+                                   cats=["vol_bucket", "dayofweek"])):
+        rc, out = _rc_out(["python3", script])
+    if rc == 0 or "categorical_orphan" not in out or "_selftest-c3" not in out:
+        raise SystemExit(
+            "manifest-scope-constants self-test FAILED: a categorical_columns entry "
+            "absent from feature_columns was not reported — that is a hard train-time "
+            "raise (lightgbm_multiclass.py:119-123), strictly worse than a skip.\n"
+            + out
+        )
+
+    # --- NEGATIVE CONTROL: the same column where it genuinely varies ------
+    plant = cfg / "_selftest_scope_ok.yaml"
+    with _planted(plant, _manifest("_selftest-ok", "15m",
+                                   base + ["hour_of_day", "dayofweek"],
+                                   cats=["vol_bucket", "hour_of_day"])):
+        rc, out = _rc_out(["python3", script])
+    if rc != 0:
+        raise SystemExit(
+            "manifest-scope-constants self-test FAILED (NEGATIVE CONTROL): a 15m "
+            "manifest declaring hour_of_day/dayofweek is CORRECT and must pass. An "
+            "over-broad C1 would fail 54 of the 55 manifests that declare "
+            "hour_of_day.\n" + out
+        )
+
+
 SELFTESTS: Dict[str, Callable[[], None]] = {
     "api-tier-policy": selftest_api_tier_policy,
     # REDUNDANT-BY-DESIGN, and the comment is load-bearing: `run_guards.py` does
@@ -603,6 +700,7 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     "diagnostic-provenance": selftest_diagnostic_provenance,
     "harness-lever-coupling": selftest_harness_lever_coupling,
     "timestamp-comparison": selftest_timestamp_comparison,
+    "manifest-scope-constants": selftest_manifest_scope_constants,
 }
 
 # The SECOND covering path. A name here is one whose controls reach CI via the

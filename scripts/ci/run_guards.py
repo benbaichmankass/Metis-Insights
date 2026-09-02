@@ -1032,6 +1032,32 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_collapsed_states.py", "--verbose"]],
     },
     {
+        "name": "manifest-scope-constants",
+        # The ML manifest<->dataset contract, at COMMIT time. It was previously
+        # validated ONLY at train time, on the trainer, inside a cycle that
+        # returns rc=0 — so a manifest merged clean and then silently never
+        # trained. `mes-regime-1d-lgbm-v2` declared `hour_of_day` on a DAILY bar
+        # and sat 34.0 days untrained against a 7.0-day threshold while the
+        # cycle reported green
+        # (MB-20260829-MES-1D-DECLARES-A-FEATURE-THAT-CANNOT-VARY-AT-ITS-OWN-TIMEFRAME).
+        #
+        # The trainer files are in the trigger set because C3 mirrors an
+        # invariant that lives in `lightgbm_multiclass.py` (a categorical not in
+        # feature_columns RAISES); if that raise moves, this guard must re-grade.
+        "when": {"globs": [
+            "ml/configs/*.yaml",
+            "ml/datasets/**",
+            "ml/trainers/**",
+            "scripts/ci/check_manifest_scope_constants.py",
+        ]},
+        # Self-test FIRST, same posture as collapsed-state-guard: the guard
+        # currently reports a CLEAN fleet, so without an exercised failure path a
+        # green run here is indistinguishable from a guard that stopped matching.
+        "steps": [["python3", "scripts/ci/guard_selftests.py",
+                   "manifest-scope-constants"],
+                  ["python3", "scripts/ci/check_manifest_scope_constants.py"]],
+    },
+    {
         # The GENERALISATION of the fix recorded immediately above: that wiring
         # gap was found by hand, and nothing would have found the next one.
         # This resolves every registered self-test to a covering path —
