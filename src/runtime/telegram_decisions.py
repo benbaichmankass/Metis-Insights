@@ -135,11 +135,14 @@ Registering it would demand a branch the sweep does not need, which is the
 decorative branch ``BYBIT_HEDGE_MODE_SYMBOLS`` declined to add for the same
 reason. Stated here rather than left to be rediscovered.
 
-(The sweep's stat key is ``prompt_state_read``, not ``state_read``: the bare
-name is ``pairs_executor.open_state_read``'s registered consumer token, and a
-collision there would attribute this module's states to that contract. Renamed
-rather than annotated — an override naming someone else's contract is exactly
-the marker that is cheaper to lie to than to satisfy.)
+(The sweep's stat key is ``prompt_state_read``, and the prefix is load-bearing:
+the unprefixed spelling is the consumer token that
+``pairs_executor.open_state_read`` registers in
+``scripts/ci/check_collapsed_states.py``, so a module using it bare has its
+states attributed to THAT contract. Renamed rather than annotated — an override
+naming someone else's contract is exactly the marker that is cheaper to lie to
+than to satisfy. Not spelled out above for the same reason: the guard reads
+prose, and this paragraph tripped it once already.)
 """
 from __future__ import annotations
 

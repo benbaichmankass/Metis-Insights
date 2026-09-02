@@ -497,9 +497,10 @@ _LOG_FILES: dict[str, Path] = {
     "work_decision_transit": _WORK_DECISION_TRANSIT_LOG,
     # The ASK half's idempotency marker (2026-09-02): which decision requests
     # the Telegram prompt sweep has already put in front of the operator.
-    # Allowlisted in the SAME commit that ships the writer -- the fourth
-    # recurrence of BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-
-    # READ-SURFACE is not one this change is going to add.
+    # Allowlisted in the SAME commit that ships the writer. The fourth
+    # recurrence of
+    # BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE
+    # is not one this change is going to add.
     #
     # ⚠️ READ IT BESIDE THE INBOX, NEVER ALONE, and read the two SILENCES
     # apart. A request absent from `prompted` means the sweep has not asked --
