@@ -8,6 +8,14 @@
  {
   "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
   "opened": "2026-09-02",
+  "soak": {
+   "log": "bybit_coverage_soak",
+   "declared_at": "2026-09-02",
+   "ready_when": "verdicts_differ=true",
+   "min_matching": 1,
+   "why_a_timer_cannot_express_this": "MI-49's bar for the operator's conditional widening is explicit that time and quiet DO NOT COUNT: 'at least one bybit_coverage_soak row on bybit_1 carries verdicts_differ: true -- i.e. the graded and side-blind bases actually reached OPPOSITE verdicts, so arming demonstrably changed an outcome'. check_every_days says how often a session must LOOK; this says what it is looking FOR. ⚠️ AND THE THIRD STATE IS THE ONE THIS BLOCK EXISTS FOR: once the gate is armed, an empty log stops meaning 'not yet' and starts meaning the writer is DEAD -- which a timer can never distinguish from patience, and which would otherwise leave the operator waiting indefinitely on evidence that was never coming.",
+   "not_writing_is_EXPECTED_until_the_arm_is_read_back": "⚠️ DO NOT ACT ON A not_writing VERDICT BEFORE THE ARM IS CONFIRMED. Arming is HELD by operator sequencing (MI-49), and at BYBIT_GRADED_COVERAGE_MODE=off the writer returns before writing by design, so zero rows is the CORRECT state today and says nothing about the writer's health. The verdict only becomes a finding after BYBIT_GRADED_COVERAGE_MODE=apply and BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1 are read back off /proc/<MainPID>/environ -- never off the .env, which says only what the NEXT restart will pick up. Until then this row grades `unknown` (no probe is declared), which is the honest answer."
+  },
   "kind": "monitoring",
   "loud": true,
   "check_every_days": 3,
