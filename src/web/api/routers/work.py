@@ -1,14 +1,23 @@
 """Tier-1 read endpoints exposing the work store (``docs/claude/work/``).
 
 Backs the SPA's **Work** section — what is in flight, under which intent, and
-what each object is waiting on. This is the READ half of the operating layer's
-visibility phase (Phase B); the control half (answering decisions from the UI,
-the read gate) is Phase H and is deliberately not here.
+what each object is waiting on — plus, since Phase H, the CONTROL half:
+decisions the operator can answer from the UI.
+
+⚠️ The read gate (attaching ``require_session`` to the read surface) is the OTHER
+half of Phase H and is deliberately NOT here. It is not a property of this
+router, and its precondition — the Android app and the Streamlit dashboard off
+the live feed — was not met when this landed.
 
 - ``GET /api/bot/work`` — the whole store: intents, objects, steps, a lifecycle
   roll-up, the WIP-ceiling reading, and a ``coverage`` block stating what the
   store does **not** cover.
 - ``GET /api/bot/work/object/{object_id}`` — one object, in full.
+- ``GET /api/bot/work/decisions`` — **Phase H.** Every decision waiting on the
+  operator, with a four-state answer grade and every open transit window.
+- ``POST /api/bot/work/decision`` — **Phase H, Tier 2.** Submit one answer.
+  Token-gated and FAIL-CLOSED, and it writes NO truth: see
+  ``src/runtime/work_decisions.py`` for the transit contract.
 
 Modelled directly on ``roadmap.py``: file-backed from committed YAML (the VM's
 ``ict-git-sync`` mirrors ``main``), read-only, no DB, no secrets — so it adds no
@@ -39,21 +48,44 @@ defect this repo has a guard family for:
 ⚠️ **The store is NOT a complete picture of the system's work**, and this route
 says so on every response rather than leaving the consumer to infer it. It holds
 the operating-layer build's own phases PLUS the carried backlog rows, which
-migrated in on 2026-09-01 (Phase
-C together with the WIP ceiling. ``coverage.complete`` is ``false`` and the
+migrated in on 2026-09-01 (Phase C) together with the WIP ceiling. ``coverage.complete`` is ``false`` and the
 renderer is expected to show it.
 """
 from __future__ import annotations
 
+import asyncio
+import hmac
 import logging
+import os
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import yaml
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 
+# Phase H — the decision round-trip. ONE owner for the transit contract and the
+# four answer states; this router never re-derives either (two copies of "what
+# counts as committed" is how a committed answer stops grading as committed).
+from src.runtime.work_decisions import (
+    ANSWER_STATES,
+    COMMITTED,
+    IN_TRANSIT,
+    MAX_FREE_TEXT_CHARS,
+    NOT_SUBMITTED,
+    STALE_TRANSIT_SECONDS,
+    TRANSIT_UNREADABLE,
+    UNREADABLE,
+    append_submission,
+    grade_answer_state,
+    latest_submissions,
+    malformed_request_count,
+    normalise_requests,
+    read_transit,
+    transit_log_path,
+    transit_window,
+)
 from src.utils.paths import repo_root
 # ONE owner for the ceiling + migration facts — imported, never re-derived.
 # They had two homes and Phase C updated neither; see the module docstring.
@@ -572,3 +604,376 @@ def get_work_object(object_id: str) -> dict[str, Any]:
             return {"present": False, "id": object_id, "error": err}
         return {"present": True, "id": object_id, "object": _object_row(data, resolved)}
     return {"present": False, "id": object_id}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# PHASE H — the control half. Decisions, answerable from the UI.
+# ═════════════════════════════════════════════════════════════════════════════
+#
+# The operating model puts "anything waiting on the operator" at the TOP of the
+# dashboard, and requires decisions to be answerable from the UI *"so the
+# operator is not the bottleneck on their own decisions."* The measured
+# constraint is DECISION, so this is the one route pair in the operating layer
+# that acts on it directly.
+#
+# ⚠️ THE REPO STAYS THE SOURCE OF TRUTH. The write route below appends a
+# SUBMISSION to the live layer and nothing else; `committed` is read back off
+# the object YAML in the repo. See `src/runtime/work_decisions.py` for why that
+# is the whole transit contract rather than an implementation detail.
+
+
+def _decision_inbox() -> dict[str, Any]:
+    """Every operator decision the store is waiting on, with its answer state.
+
+    Two sources of a pending decision, and they are counted separately because
+    they are different facts:
+
+      * a ``decision_requests[]`` entry — an ANSWERABLE question, with options
+      * a ``blocked_on`` edge of ``kind: operator_decision`` — a declared
+        dependency on the operator that carries NO answerable request
+
+    The second is the one worth surfacing loudly: it is a question the operator
+    is blocking on that they cannot answer from the UI, because nobody wrote it
+    down as a request. Folding the two together would hide exactly that gap.
+    """
+    index = _get_index()
+    rows, transit_state, transit_error = read_transit()
+    latest = latest_submissions(rows)
+    now = datetime.now(timezone.utc)
+
+    requests: list[dict[str, Any]] = []
+    unanswerable: list[dict[str, Any]] = []
+    malformed = 0
+
+    for obj in index.get("objects", []):
+        object_id = obj.get("id")
+        raw_extra = obj.get("extra") or {}
+        # `decision_requests` is a free-form key, so `_object_row` preserves it
+        # under `extra` verbatim. Read it from there rather than adding a second
+        # parse of the file — one reader, one shape.
+        source = {"decision_requests": raw_extra.get("decision_requests")}
+        malformed += malformed_request_count(source)
+        for req in normalise_requests(source, str(object_id)):
+            submission = latest.get((str(object_id), req["id"]))
+            state = grade_answer_state(req, submission, transit_state)
+            requests.append(
+                {
+                    **req,
+                    "objectTitle": obj.get("title"),
+                    "objectLifecycle": obj.get("lifecycle"),
+                    "parentIntent": obj.get("parentIntent"),
+                    "answerState": state,
+                    "transit": transit_window(
+                        submission if state == IN_TRANSIT else None, now=now
+                    ),
+                }
+            )
+        for edge in obj.get("blockedOn", []):
+            if edge.get("kind") != "operator_decision":
+                continue
+            ref = edge.get("ref")
+            # An edge whose `ref` names a request we already surfaced is that
+            # request's dependency edge, not a separate gap.
+            if isinstance(ref, str) and any(
+                r["objectId"] == object_id and r["id"] == ref for r in requests
+            ):
+                continue
+            unanswerable.append(
+                {
+                    "objectId": object_id,
+                    "objectTitle": obj.get("title"),
+                    "objectLifecycle": obj.get("lifecycle"),
+                    "ref": ref,
+                    "since": edge.get("since"),
+                    "note": edge.get("note"),
+                }
+            )
+
+    by_state = {state: 0 for state in ANSWER_STATES}
+    for req in requests:
+        by_state[req["answerState"]] += 1
+
+    # Attention order: what the operator can act on NOW comes first. An answered
+    # question is not a task.
+    order = {NOT_SUBMITTED: 0, UNREADABLE: 1, IN_TRANSIT: 2, COMMITTED: 3}
+    urgency_order = {"blocking": 0, "routine": 1}
+    requests.sort(
+        key=lambda r: (
+            order.get(r["answerState"], 9),
+            urgency_order.get(r.get("urgency"), 9),
+            str(r.get("askedOn") or ""),
+            r["id"],
+        )
+    )
+
+    stale_open = sum(
+        1 for r in requests if r["answerState"] == IN_TRANSIT and r["transit"].get("stale")
+    )
+
+    return {
+        "present": index.get("present", False),
+        # Explicitly None on the healthy envelope, matching `/api/bot/work`.
+        # A key that VANISHES makes a consumer branch on absence, and absence is
+        # not one of the states — the SPA's api-contract checker caught exactly
+        # this when the field existed only on the degraded shape.
+        "reason": None,
+        "requests": requests,
+        "unanswerableOperatorEdges": unanswerable,
+        "summary": {
+            # ⚠️ `awaitingOperator` counts what the operator can ACT on — a
+            # question with no answer submitted, plus one we could not grade.
+            # An `in_transit` question is also unanswered, but it is waiting on
+            # a COMMITTER, not on the operator, and pooling them would put work
+            # on the operator's plate that is not theirs.
+            "awaitingOperator": by_state[NOT_SUBMITTED] + by_state[UNREADABLE],
+            "awaitingCommit": by_state[IN_TRANSIT],
+            "decided": by_state[COMMITTED],
+            "byAnswerState": by_state,
+            "requestCount": len(requests),
+            # Reported, never swallowed: a question the operator can SEE and
+            # cannot ANSWER is worse than one that was never asked.
+            "malformedRequestsDropped": malformed,
+            "unanswerableOperatorEdgeCount": len(unanswerable),
+            "staleOpenWindows": stale_open,
+            "staleAfterSeconds": STALE_TRANSIT_SECONDS,
+        },
+        "transit": {
+            # ⚠️ `absent` and `unreadable` are NOT the same. An append-only log
+            # that has never been written genuinely holds nothing; one we could
+            # not open is *we did not look*, and every request it would have
+            # covered grades `unreadable` rather than `not_submitted`.
+            "state": transit_state,
+            "error": transit_error,
+            "path": str(transit_log_path()),
+            "rowsRead": len(rows),
+        },
+        "writeGate": _write_gate_reading(),
+        "note": (
+            "The repo is the source of truth. This route reports `committed` "
+            "ONLY from an `answer` block on the work object in the repo — never "
+            "from the transit log — so an answer that does not commit leaves "
+            "its question UNANSWERED. Transit fails BACK, never forward."
+        ),
+    }
+
+
+def _write_gate_reading() -> dict[str, Any]:
+    """Whether the write route can accept anything right now, and why.
+
+    Published on the READ route deliberately: the SPA must be able to tell the
+    operator *"answering is closed because the server holds no write token"*
+    rather than rendering a submit button that will 503. Three states, never
+    collapsed — `open` (a token is configured) · `closed_no_token` (fail-closed,
+    the deliberate posture, NOT an outage) · `unknown` (we could not read the
+    environment at all).
+
+    ⚠️ The token's VALUE is never echoed, only whether one is set.
+    """
+    try:
+        configured = bool(os.environ.get("DASHBOARD_API_TOKEN", "").strip())
+    except Exception:  # noqa: BLE001  # allow-silent: an environment read that raises is `unknown`, which is reported to the caller, not swallowed — the whole point of the third state.
+        return {"state": "unknown", "acceptsWrites": None,
+                "note": "could not read the server environment"}
+    if configured:
+        return {"state": "open", "acceptsWrites": True,
+                "note": "DASHBOARD_API_TOKEN is set; the write route accepts a bearer."}
+    return {
+        "state": "closed_no_token",
+        "acceptsWrites": False,
+        "note": (
+            "DASHBOARD_API_TOKEN is UNSET, so POST /api/bot/work/decision "
+            "refuses with 503. This is FAIL-CLOSED and deliberate (the "
+            "prop.py polarity), not an outage: a dropped .env value closes "
+            "writes rather than reopening an anonymous write hole."
+        ),
+    }
+
+
+@router.get("/decisions")
+def get_work_decisions() -> dict[str, Any]:
+    """Decisions waiting on the operator, plus every open transit window."""
+    try:
+        return _decision_inbox()
+    except Exception as exc:  # noqa: BLE001  # allow-silent: not silent — logged WITH a stack and surfaced as present:false + reason. A Tier-1 read surface must not 5xx (roadmap.py's contract), and a decision inbox that 500s is invisible rather than empty.
+        logger.warning("work: decision inbox failed: %s", exc, exc_info=True)
+        return {
+            "present": False,
+            "reason": f"decision inbox failed: {exc}",
+            "requests": [],
+            "unanswerableOperatorEdges": [],
+            "summary": {
+                "awaitingOperator": 0,
+                "awaitingCommit": 0,
+                "decided": 0,
+                "byAnswerState": {state: 0 for state in ANSWER_STATES},
+                "requestCount": 0,
+                "malformedRequestsDropped": 0,
+                "unanswerableOperatorEdgeCount": 0,
+                "staleOpenWindows": 0,
+                "staleAfterSeconds": STALE_TRANSIT_SECONDS,
+            },
+            # ⚠️ `unreadable`, never `absent`. We did not establish that the
+            # channel is empty — we failed before reaching it.
+            "transit": {"state": TRANSIT_UNREADABLE, "error": str(exc),
+                        "path": None, "rowsRead": 0},
+            "writeGate": {"state": "unknown", "acceptsWrites": None,
+                          "note": "inbox build failed before the gate was read"},
+        }
+
+
+def _require_decision_write_token(authorization: str | None) -> None:
+    """Fail-closed bearer gate. Copied POLARITY from ``prop.py``, deliberately.
+
+    Two operator-write routes already exist on this API and they take OPPOSITE
+    postures. ``POST /api/bot/learning/progress`` is unauthenticated because it
+    carries no secret and has no trading impact. ``POST /api/bot/prop/report``
+    is token-gated and **fail-closed — 503 when ``DASHBOARD_API_TOKEN`` is
+    unset** rather than accepting an anonymous write, so a dropped ``.env``
+    value can never reopen a write hole (BL-20260705-DASHBOARD-API-TOKEN-UNSET).
+
+    **A decision write is the second kind.** It records what the operator
+    decided; an anonymous one would let anyone on the internet answer a question
+    in the operator's name on a public, browser-reachable host. So: 503 when the
+    token is unset, 401 on missing / wrong-scheme / wrong bearer.
+    """
+    expected = os.environ.get("DASHBOARD_API_TOKEN", "").strip()
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="decision endpoint is not configured to accept writes",
+        )
+    if not authorization:
+        raise HTTPException(status_code=401, detail="missing authorization")
+    if not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="bearer scheme required")
+    if not hmac.compare_digest(authorization[7:].strip(), expected):
+        raise HTTPException(status_code=401, detail="bad token")
+
+
+def _find_request(object_id: str, request_id: str) -> tuple[dict[str, Any] | None, str]:
+    """Locate one declared request. Returns ``(request, reason)``."""
+    if not _OBJECT_ID_RE.match(object_id) or ".." in object_id:
+        return None, "invalid object id"
+    found = get_work_object(object_id)
+    if not found.get("present"):
+        # ⚠️ Two different failures, kept apart: the file exists and could not be
+        # parsed (`error` set), versus no such object. Accepting a submission
+        # against an object we could not read would strand the answer.
+        if found.get("error"):
+            return None, f"object could not be read: {found['error']}"
+        return None, "no such work object"
+    extra = (found.get("object") or {}).get("extra") or {}
+    for req in normalise_requests({"decision_requests": extra.get("decision_requests")}, object_id):
+        if req["id"] == request_id:
+            return req, ""
+    return None, "no such decision request on that object"
+
+
+@router.post("/decision")
+async def post_work_decision(
+    request: Request,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Submit an answer to one decision request. **Tier 2** (operator write).
+
+    Body: ``{object_id, request_id, chosen?, free_text?}``.
+
+    ⚠️ **This does not decide anything.** It appends ONE submission to the live
+    layer's transit log. The question stays ``unanswered`` until a committer
+    writes the answer into the work object in the repo — which is the only place
+    a decision is truth. The response says so in ``answerState``: it comes back
+    ``in_transit``, never ``committed``.
+    """
+    _require_decision_write_token(authorization)
+    try:
+        body = await request.json()
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail="invalid JSON") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="body must be a JSON object")
+
+    object_id = body.get("object_id")
+    request_id = body.get("request_id")
+    if not isinstance(object_id, str) or not isinstance(request_id, str):
+        raise HTTPException(status_code=400, detail="object_id and request_id are required")
+
+    req, reason = _find_request(object_id.strip(), request_id.strip())
+    if req is None:
+        raise HTTPException(status_code=404 if "no such" in reason else 400, detail=reason)
+
+    # Already truth in the repo. Refuse rather than accept-and-supersede: a
+    # committed decision is changed by editing the repo, and silently queueing a
+    # second answer behind one that already landed would leave the operator
+    # unsure which of the two the system holds.
+    if req.get("answer"):
+        raise HTTPException(
+            status_code=409,
+            detail="this decision is already recorded in the repo; change it there",
+        )
+
+    chosen = body.get("chosen")
+    free_text = body.get("free_text")
+    if chosen is not None and not isinstance(chosen, str):
+        raise HTTPException(status_code=400, detail="chosen must be a string")
+    if free_text is not None and not isinstance(free_text, str):
+        raise HTTPException(status_code=400, detail="free_text must be a string")
+    chosen = chosen.strip() if isinstance(chosen, str) and chosen.strip() else None
+    free_text = free_text.strip() if isinstance(free_text, str) and free_text.strip() else None
+
+    option_keys = {o["key"] for o in req["options"]}
+    if chosen is not None and option_keys and chosen not in option_keys:
+        # A submission naming an option the author never wrote is not an answer
+        # to THIS question.
+        raise HTTPException(
+            status_code=400,
+            detail=f"chosen must be one of {sorted(option_keys)}",
+        )
+    if free_text is not None and not req["allowsFreeText"]:
+        raise HTTPException(
+            status_code=400, detail="this request does not accept free text"
+        )
+    if free_text is not None and len(free_text) > MAX_FREE_TEXT_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"free_text exceeds {MAX_FREE_TEXT_CHARS} characters",
+        )
+    if chosen is None and free_text is None:
+        # Refusing the empty submission is the same rule `board-post.yml`
+        # applies to a blank comment: a vacuous answer that reads as compliance
+        # is worse than no answer.
+        raise HTTPException(status_code=400, detail="an answer needs `chosen` or `free_text`")
+
+    submitted_by = body.get("submitted_by")
+    try:
+        row = await asyncio.to_thread(
+            append_submission,
+            object_id=object_id.strip(),
+            request_id=request_id.strip(),
+            chosen=chosen,
+            free_text=free_text,
+            submitted_by=submitted_by if isinstance(submitted_by, str) else None,
+        )
+    except OSError as exc:
+        # NOT swallowed into a 200. A submission the operator believes landed
+        # and did not is the forward failure this contract exists to refuse.
+        logger.error("work: decision submission failed to persist: %s", exc)
+        raise HTTPException(
+            status_code=503, detail=f"submission did not persist: {exc}"
+        ) from exc
+
+    return {
+        "accepted": True,
+        "submissionId": row["submission_id"],
+        "objectId": object_id.strip(),
+        "requestId": request_id.strip(),
+        "submittedAt": row["submitted_at"],
+        # Deliberately NOT `committed`. The answer is in transit; the question
+        # is still unanswered until it reaches the repo.
+        "answerState": IN_TRANSIT,
+        "note": (
+            "Submitted, NOT decided. This answer is truth in transit: it becomes "
+            "the decision only when a committer writes it into "
+            f"docs/claude/work/objects/{object_id.strip()}.yaml. Until then the "
+            "question reads UNANSWERED — transit fails back, never forward."
+        ),
+    }
