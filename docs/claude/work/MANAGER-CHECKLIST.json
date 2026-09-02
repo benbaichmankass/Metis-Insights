@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T09:28:31Z",
+  "updated_at": "2026-09-02T09:36:00Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -564,7 +564,7 @@
     {
       "id": "MI-46-SYSTEM-ACTIONS-SSH-FAILED-SO-THE-STATUS-PING-NEVER-SENT",
       "title": "system-actions run 33604747877 failed at SSH — ~/.ssh/id_rsa absent on the runner",
-      "state": "in_flight",
+      "state": "done",
       "added": "2026-09-02",
       "owner": "manager",
       "finding": "Run 33604747877 (send-ping, target=claude) concluded FAILURE. Log: 'Identity file /home/runner/.ssh/id_rsa not accessible: No such file or directory' then 'ubuntu@141.145.193.91: Permission denied (publickey)' then 'notify_run.sh failed; transparency ping not delivered'. The post-action diag fetch failed the same way. EXIT_CODE and NOTIFY_EXIT_CODE were both EMPTY, which the workflow's own comment says means the action step never produced an exit code (pre-flight failure).",
@@ -576,7 +576,10 @@
       ],
       "still_unknown": "WHICH earlier step failed. Only the last 200 of 674 log lines were read; the failing step is in the unread head. This is 'we did not look', NOT 'there was no cause'.",
       "blast_radius": "If SSH from Actions to the live VM is broken generally, EVERY VM-touching system-action is down: send-ping, set-env, get-env, pull-and-deploy, restart-bot-service, and sync-vm-secrets.yml.",
-      "note": "I reported the first ping as 'queued'. Queued is not delivered, and it was not delivered. Re-dispatched with a short single-line body as the discriminating test."
+      "note": "I reported the first ping as 'queued'. Queued is not delivered, and it was not delivered. Re-dispatched with a short single-line body as the discriminating test.",
+      "PROVEN_2026_09_02T09_34Z": "⚠️ PROVEN BY OBSERVATION, not by test — and it is the FIRST thing today to earn that word. Run 33614797065, event=workflow_dispatch, head de3f0a19, conclusion=SUCCESS. AND the operator CONFIRMED RECEIPT of the ping it sent, with a screenshot. Both halves matter and neither alone would do: a `success` conclusion proves the workflow ran, and only the operator seeing the message proves it DELIVERED.",
+      "why_no_test_could_have_established_this": "CI never dispatches this workflow, so the defect is unreachable from every required check. #10768 was GREEN on all four, reproduced its failure and its fix in both directions, and was still wrong. That is the whole lesson: a green suite over a path the suite does not exercise is not evidence about that path.",
+      "the_transferable_error": "I read the failing step's TAIL, saw the lines around it already using ${x:-}, and fixed the one site the log pointed at. Sampling the visible evidence and treating it as the POPULATION. Seven bare refs sat in one contiguous block and each would have aborted the step IN TURN — fixing them one failure at a time would have cost seven dispatch cycles. ⚠️ It took a FAILED PROOF RUN to make me enumerate. The first fix's own verification (reproduced both directions, exact error matched) is precisely what made it convincing."
     },
     {
       "id": "MI-47-CLAUDE-CHANNEL-SEPARATION-CLAIM-WAS-STALE",
@@ -706,7 +709,8 @@
       "operator_APPROVED_build_and_test": "2026-09-02, verbatim: 'once we have the mechanism ready for the two way channel, then let's test it also. Right? Just, like, somebody being asking me if I see the question, and then I'll answer, and then you'll tell me if you see the answer that I sent you.' That approves BUILDING and LIVE-TESTING it. The ict-telegram-bot.service restart is still a Tier-2 dispatch and is the MANAGER'S to run, not the sub-session's.",
       "DONE_CONDITION_is_the_operators_own_test": "⚠️ NOT a test suite. The operator defined it: a real question reaches them in Telegram, they answer THERE, and the manager confirms it received the answer. Three parties, one loop. A green harness clears NONE of it — tests/test_work_decisions.py already exercises submit→commit→committed in a harness and the round-trip has still never happened on the fleet.",
       "⚠️_this_would_CLEAR_a_row_that_has_never_cleared": "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP is open and has never once completed submit → in_transit → committed. This build would be its FIRST real exercise. Its clears_when is explicit that a merge is not a deploy, a green harness is not the fleet, and a workflow_dispatch of the committer clears only ONE stage — so say which stages were cleared rather than clearing it on the easiest.",
-      "manager_owns_the_live_test": "The sub-session is told NOT to message the operator. The manager runs the live test, because the operator's own formulation requires the manager to be the one confirming receipt."
+      "manager_owns_the_live_test": "The sub-session is told NOT to message the operator. The manager runs the live test, because the operator's own formulation requires the manager to be the one confirming receipt.",
+      "operator_signal_2026_09_02": "On receiving the proof ping the operator remarked: 'Just got this, not a question though.' They are distinguishing a STATUS ping from an ANSWERABLE decision — which is exactly the gap MI-55 closes. Prose is fine for status; a DECISION needs buttons. Carry this: the value of the two-way channel is not notification (that works now), it is ANSWERABILITY."
     },
     {
       "id": "MI-56-THE-STOP-HOOK-CANNOT-TELL-MY-WORK-FROM-A-CONCURRENT-AGENTS",
