@@ -113,6 +113,39 @@ decision_requests:
       different population entirely and this session's five candidates are all wrong. Say what it
       is and the file takes it.
   allows_free_text: true
+  answer:
+    chosen: open_non_draft_excluding_both
+    free_text: >-
+      OPERATOR, VERBATIM: "let's go with your recommendation for c, and I understand this will
+      bite the next manager, but that is, like you said, exactly the point, so that's fine."
+
+      An ARTIFACT is therefore an OPEN, NON-DRAFT pull request, EXCLUDING DO-NOT-MERGE and
+      bot-filed automation PRs. Reasoning accepted: a DRAFT PR is work in progress, not a thing
+      competing for the operator's attention; #10780 is explicitly marked DO-NOT-MERGE and
+      #10398 is a bot artifact open since 2026-08-29. Option C counts the things that actually
+      need a decision.
+
+      ⚠️ THE CAP IS 4 AND THE COUNT AT THE MOMENT OF DECIDING WAS 10, SO THE SYSTEM IS OVER THE
+      CAP ON DAY ONE. That is NOT a sign the definition is wrong, and it must never be used to
+      argue for widening it: the honest reading is that the manager has a MERGE BACKLOG. A
+      population chosen to make the number pass would be the fabricated-comfort failure this
+      whole effort exists to end — the cap would then measure nothing, exactly as
+      `capture_idea.py` would have made the priority gate vacuous by defaulting `--intent` to
+      the cycle's own value.
+
+      ⚠️ THE OPERATOR EXPLICITLY ACCEPTED THAT THIS WILL BITE THE NEXT MANAGER. That is the
+      ACCEPTANCE CRITERION, not a caveat to soften. A cap nobody ever hits is a cap that is not
+      doing anything.
+
+      Populations measured 2026-09-02T13:30Z over all 17 open PRs, recorded so the alternatives
+      are on the record rather than re-derived: all_open_prs=17 · excluding_do_not_merge=16 ·
+      excluding_do_not_merge_and_automation=15 · open_non_draft=11 ·
+      open_non_draft_excluding_both=10. EVERY candidate exceeded 4, so the choice decided HOW
+      FAR over the cap the system is, never WHETHER it is over.
+    answered_at: '2026-09-02'
+    answered_by: operator
+    committed_by: MI-68 (session_013ANr63vsQ9TjU4sh51vxny)
+    submission_id: relayed-by-manager-not-via-transit-log
 
 residual_stated_rather_than_hidden:
 - >-
