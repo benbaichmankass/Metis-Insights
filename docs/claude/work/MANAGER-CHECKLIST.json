@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-01T23:20Z",
+  "updated_at": "2026-09-02T01:32Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -84,7 +84,7 @@
           "what": "token is in Actions, not yet on the VM; needs service: ict-claude-bridge.service (the suffix is required)"
         }
       ],
-      "note": "#10674 merged AND the VM deploy landed: set-env #10688 wrote TELEGRAM_CLAUDE_BOT_SECRET at 22:08:26Z and the bridge restarted active, flipping its route line from token=TELEGRAM_BOT_TOKEN[fallback] isolated=False to token=TELEGRAM_CLAUDE_BOT_SECRET[dedicated] isolated=True. OPERATOR-CONFIRMED delivery in @ict_cluade_bot. ⚠️ landed_unproven not done: the VM can prove which TOKEN it resolved, never which CONVERSATION a message surfaced in (chat_id is the operator's own id for every bot), so separation rests on the operator's eyes."
+      "note": "#10674 merged and the VM deploy landed (set-env #10688, 22:08:26Z, bridge restarted, route flipped to token=TELEGRAM_CLAUDE_BOT_SECRET[dedicated] isolated=True). OPERATOR-CONFIRMED delivery in @ict_cluade_bot. ⚠️ BUT SEPARATION IS NOT ACHIEVED — see MI-18. isolated=True is true at the BRIDGE and insufficient, because a second drainer delivers the same payload via the trader bot. #10685 records exactly this and is correct."
     },
     {
       "id": "MI-03-MORNING-DIGEST",
@@ -130,7 +130,8 @@
           "what": "the pull rule is only enforceable once E1 can name the held-up stage"
         }
       ],
-      "note": "UNBLOCKED and SPAWNED at 22:52Z on #10680's MERGE — not on Phase D being observed, which is the false-hold shape Phase D itself named. Scope is the forcing function: 6 retirements ever against 45 live legs, the M7 kill packet writing to a gitignored path with no cron, and Override 5 converting every kill to `tune`. ⚠️ Told explicitly NOT to build a second retirement mechanism — establish why the existing one cannot fire first."
+      "note": "PR #10708 OPEN (claude/phase-g-forcing-function). Manager has NOT read the diff. Spawned 22:52Z on #10680's merge. ⚠️ Its brief told it NOT to build a second retirement mechanism — the M7 kill packet already exists and is inert (gitignored path, no cron, Override 5 converting every kill to `tune`), so establishing WHY the existing one cannot fire was the first task, not writing a new one.",
+      "pr": "#10708"
     },
     {
       "id": "MI-07-PHASE-H-PRECONDITIONS",
@@ -153,7 +154,8 @@
           "what": "attaching require_session is only tractable once the other consumers are archived"
         }
       ],
-      "note": "SPAWNED 22:53Z on #10682's merge. The control half: anything waiting on the operator at the top, decisions answerable from the SPA. ⚠️ A decision-WRITE is a new write surface on a public API and must copy prop/report's FAIL-CLOSED token gate, never the permissive devices shape or the deliberately-open learning/progress one."
+      "note": "PR #10705 OPEN (claude/phase-h-decision-roundtrip). Manager has NOT read the diff. ⚠️ Read the write-gate polarity before merging: a decision-WRITE on a public API must copy prop/report's FAIL-CLOSED token gate (503 when DASHBOARD_API_TOKEN is unset), never the permissive devices shape or the deliberately-open learning/progress one.",
+      "pr": "#10705"
     },
     {
       "id": "MI-09-GLD-CLOSE",
@@ -176,21 +178,23 @@
       "title": "Hold and heartbeat the manager lease",
       "state": "in_flight",
       "owner": "manager",
-      "note": "Heartbeat 2026-09-01T23:20Z. Landed in this PR — an unpushed heartbeat protects nothing."
+      "note": "Heartbeated 01:12:20Z, on main at de61ead9, expires 02:42:20Z. ⚠️ PROTOCOL CHANGE, recorded here because it is not obvious from the diff: the heartbeat now ships in a LEASE-ONLY PR (#10712 was the first). Carrying it inside an ordinary work PR couples the manager's own liveness to the merge queue — and tonight that queue is exactly what stalls (see MI-20). MANAGER-LEASE.json is written by the manager and nobody else, so a lease-only PR has an EMPTY CONFLICT SURFACE with every sub-session branch and can land at any point in a train without disturbing it. It is also nearly free to verify: #10712 went 5/5 green in 76 seconds, because a one-file JSON change falls out of every relevance filter. An unpushed heartbeat protects nothing — another session reads origin, not a working tree. Second lease-only PR #10713 extended the pattern from the lease alone to ALL THREE manager-written files (MANAGER-LEASE, MANAGER-CHECKLIST, SESSIONS). ⚠️ THE CLAIM WAS VERIFIED, NOT ASSUMED: all five open train branches were diffed against main and none touches any of the three. #10713 then merged while #10707 was open and #10707 stayed clean — the pattern held under a live test."
     },
     {
       "id": "MI-12-STALE-AUTOMATION-PR",
       "title": "#10398 econ-calendar PIT snapshots (auto) -- open since 2026-08-29",
-      "state": "triage",
+      "state": "queued",
       "owner": null,
-      "note": "An automation PR three days old. Nobody has disposed of it. Merge, close, or find why it stalled -- an auto-PR nobody lands is the shape of a mechanism that has quietly stopped working."
+      "note": "DISPOSITION SETTLED 2026-09-02T01:32Z — MERGE IT, DO NOT CLOSE IT, and the manager's first hypothesis was WRONG. It looked redundant because a sibling econ-calendar auto-PR (#10711) merged tonight, so 'superseded, close it' was the obvious read. Measured instead: #10398 changes 3 files, and exactly one of them is a POINT-IN-TIME capture — comms/macro/econ_calendar_captures/US-20260829T034952Z.fxstreet.json — which is ABSENT from main. The capture series on main runs 08-27, 08-28, [GAP], 08-30, 08-31, 09-01, 09-02 (36 captures total), and this PR is the only copy of the missing day. ⚠️ A PIT CAPTURE CANNOT BE REGENERATED: it records what the calendar SAID at that instant, which is the whole reason it exists (avoiding look-ahead bias in backtests). Closing this PR makes the 08-29 hole permanent. === RESOLUTION RULE, because the three files want THREE different treatments and 'take both sides' is wrong for one of them: (1) the capture file is NEW — take it, no conflict; (2) econ_calendar_snapshots.jsonl is APPEND-ONLY — union both sides, the standard register rule; (3) econ_calendar_upcoming.json is REGENERATED and forward-looking — take MAIN's, because an 'upcoming events' file from four days ago is strictly worse than today's, and preserving the stale side here would be the register rule misapplied. === Open since 2026-08-29, mergeable_state dirty, 62,524 additions / 143 deletions across those 3 files. Data-only; it does NOT touch config/economic_calendar.yaml (operator-gated) — the PR body says so and the file list confirms it.",
+      "pr": "#10398"
     },
     {
       "id": "MI-13-BACKLOG-DRAIN",
       "title": "Drain the review backlogs (1,072 rows in health-review alone)",
       "state": "in_flight",
-      "owner": "session_01FYEGu7tBoA6u4N1xyCdHDS",
-      "note": "STARTED 23:00Z against health-review-backlog.json (1,072 rows), class-first per the backlog-drain skill. The operator's trigger was that the workplan items are SPAWNED, not finished. Deliverable includes the rows it REFUSED to close with reasons — those are what stop the next drain re-examining the same rows."
+      "owner": "session_01FYEGu7 (drain #1, idle) + session_01BNXj6o (drain #2) + session_01JXBmVC (drain #3)",
+      "note": "Operator standing instruction 2026-09-01: 'finish the workplan, then start the backlog' — backlog starts once workplan items are SPAWNED, not once they are finished. Drain #1 (health-review) is complete and its PR #10707 is in the merge train: population 508 unresolved of 1,077 rows, 14 examined, 7 CLOSED on live fleet evidence or by making a guard actually fail, 5 REFUSED with the measurement recorded, 2 FILED — net −5. ⚠️ THE REFUSALS ARE AS VALUABLE AS THE CLOSURES and the session was right to record them rather than stretch the evidence. Drains #2 (ml-review) and #3 (performance-review) spawned 01:18Z. ⚠️ EACH DRAIN IS SCOPED TO EXACTLY ONE BACKLOG FILE and forbidden from touching OPEN-ITEMS.json — file isolation is what stops the drain fleet from reproducing MI-20 among themselves, and drain #1 proved the OI-reporting convention works.",
+      "pr": "#10707"
     },
     {
       "id": "MI-14-CI-GREEN-THE-THREE-DRAFTS",
@@ -245,6 +249,33 @@
       "pr": null,
       "blocked_on": null,
       "note": "Found by the ping test (#10695) when P1b vanished. Three send-ping actions dispatched inside 15s and the MIDDLE run was cancelled: issue left open, zero comments, nothing anywhere saying the action never ran. `cancel-in-progress: false` protects a RUNNING job, but GitHub keeps only one PENDING run per concurrency group, so a third queued run cancels the second. ⚠️ THE ISSUE COMMENT IS THE ONLY RESULT SURFACE A PM-SIDE SESSION HAS, so 'silently dropped' is indistinguishable from 'still queued' — a session can wait forever on a run that is already dead. The test session's workaround was to dispatch strictly one at a time, which is exactly the sort of unwritten discipline that decays. Filed as BL-20260901-SYSTEM-ACTIONS-CANCELS-A-SUPERSEDED-PENDING-RUN-AND-COMMENTS-NOTHING-BACK-SO-A-DISPATCHED-ACTION-IS-SILENTLY-LOST."
+    },
+    {
+      "id": "MI-20-REGISTER-PRS-SERIALIZE-BADLY-UNDER-A-FAST-MERGE-QUEUE",
+      "title": "Nine merges in three hours left four PRs conflicted on the same append-mostly register files",
+      "state": "in_flight",
+      "owner": "session_014RAYKspW1gtBsjuHA1XzKJ",
+      "pr": null,
+      "blocked_on": null,
+      "note": "#10685 was FULLY GREEN at 23:06Z and its merge was REFUSED at 00:15Z with 405 conflicts; #10686, #10687 and #10679 all show ZERO check runs, which here almost always means a conflict rather than 'CI has not started' — the merge ref cannot be built, so the workflows are silently skipped. Cause is simply that main took nine merges tonight and these PRs edit the same append-mostly registers (OPEN-ITEMS.json, the *-backlog.json files, docs/claude/work/*). ⚠️ THE RESOLUTION RULE MATTERS MORE THAN THE RESOLUTION: on an append-mostly register BOTH sides are usually additive and BOTH must survive — dropping the other side's row to clear the conflict deletes the record that something was filed, which is the failure the registers exist to prevent. ⚠️ WORTH A STRUCTURAL FIX RATHER THAN REPEATED CLEANUP: a fast merge queue against hand-edited JSON registers will keep producing this. The manager is absorbing it session-by-session tonight; someone should decide whether these files want an append-only merge driver or a different shape. \n\n⚠️ UPDATE 2026-09-02T01:11Z — REPRODUCED ON DEMAND, so this is now measured rather than inferred: merging #10685 caused #10707 and #10708 to go `dirty` WITHIN THE SAME MINUTE, both having been fully green minutes earlier. That is the mechanism demonstrated, not merely suspected. Two responses are in flight and they are different in kind: (a) a MITIGATION — the manager's own lease heartbeat moved to a lease-only PR (MI-11), which removes the manager from the blast radius but fixes nothing for anyone else; (b) a DRAIN — the merge train (MI-21) serializing the existing pile. NEITHER IS THE STRUCTURAL FIX. A fast merge queue against hand-edited JSON registers will keep producing this, and the decision between an append-only merge driver, a JSONL shape, or a different store is still unmade and still belongs to the operator."
+    },
+    {
+      "id": "MI-21-MERGE-TRAIN",
+      "title": "Serialize the six conflicted PRs onto main, one at a time",
+      "state": "in_flight",
+      "owner": "session_01CKcZFmZSWNsV8qHAo38YNk",
+      "pr": null,
+      "blocked_on": null,
+      "note": "Order, lowest risk first: #10707 (backlog drain) · #10708 (Phase G) · #10686 · #10687 · #10705 (Phase H) · #10679 (⚠️ Tier-2, ORDER PATH, operator-approved). Verify main has ACTUALLY ADVANCED before starting the next — resolving several against a stale base just re-creates the pile. ⚠️ THE RESOLUTION RULE IS THE POINT: on an append-mostly register BOTH sides are usually additive and BOTH must survive; use scripts/ops/backlog_union_merge.py, never a hand resolve (BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION). ⚠️ #10694 IS DELIBERATELY EXCLUDED — Tier-2, needs ict-telegram-bot.service restarted after merge, parked for an operator OK. ⚠️ AND ITS LIST OVERLAPS A LIVE AUTHOR: session_01AT7e9N was resolving #10708's branch itself at the same moment. Benign (git rejects the loser's push) but unwarnable — a manager CANNOT message a running sub-session, which is a real limit of the coordination layer and not a one-off. \n\n⚠️ SECOND-ORDER LESSON, recorded because it has now cost this session TWICE in one night: the manager cited this rule with a TRUNCATED backlog id and artifact-validity-guard rejected the PR. Both times the id was copied out of a PR BODY, where a long id renders wrapped — and a PR body is not guard-checked, so the truncation survives there and only fails when it reaches a checked file. The real id is …-SIX-ITEMS-INCLUDING-A-RESOLUTION. THE RULE: never copy a BL/MB/FU id from prose; grep it out of the backlog JSON. This is the 'precedents are not authoritative' rule in its cheapest possible form, and the guard is doing exactly its job — a doc saying 'tracked by BL-X' where BL-X was never filed reads as tracked while being tracked by nobody. ⚠️ THE SAME TRUNCATION WAS PASSED INTO THE DRAIN #2 AND #3 SPAWN PROMPTS and cannot be corrected there, because a manager cannot message a running sub-session — so if either cites it, that is the manager's error propagating, not the session's."
+    },
+    {
+      "id": "MI-22-TWO-OPEN-ITEMS-ROWS-NOW-LOOK-CLEARABLE",
+      "title": "Drain #1 produced the evidence for two OPEN-ITEMS rows and correctly cleared neither",
+      "state": "queued",
+      "owner": null,
+      "pr": null,
+      "blocked_on": "MI-21 — OPEN-ITEMS.json is the hottest conflict file tonight; editing it mid-train adds a ninth conflicting PR",
+      "note": "Surfaced by session_01FYEGu7 in #10707's body under FOR THE MANAGER. (1) OI-20260901-PROP-FILLS-STALE-BANNER-IS-A-KNOWN-FALSE-POSITIVE-UNTIL-THE-FIX-MERGES — its clears_when asks for merge, restart on the merged sha, one cadence window, then banner ABSENT; the session evidenced all four, including that the latch cleared ITSELF with no state-file surgery, which that row explicitly forbids. (2) OI-20260830-BYBIT-HEDGE-MODE-ARMED-BUT-UNEXERCISED — all three criteria read off a single live pairs_soak open row, including the directional_open clause that row calls 'the whole criterion'. ⚠️ THE SESSION WAS RIGHT NOT TO CLEAR THEM: OPEN-ITEMS.json was outside its declared scope with siblings live, and clearing a monitoring row is an OBSERVATION the clearer must have made — which is exactly why it must not be done second-hand off a PR body either. Whoever takes this RE-READS the live surfaces and writes what THEY saw into `observation`; if the state has moved, that is the finding."
     }
   ]
 }

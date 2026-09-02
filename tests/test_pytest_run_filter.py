@@ -108,6 +108,21 @@ COVERED = {
         "the LIVE doc has no drift — and the only other check of that property is "
         "the WEEKLY doc-audit-weekly.yml, so without this a docs-only PR can break "
         "it and merge green. Costly (this doc is edited often) and included anyway",
+    "docs/claude/SUNSET-DISPOSITIONS.json":
+        "test_phase_g_sunset_and_pull::test_the_live_register_and_the_live_pass_agree "
+        "runs check_sunset_dispositions.audit over the REAL register. A row claiming "
+        "`retired` for a file that still exists is a DOCS-ONLY diff, so without this "
+        "the retirement register could assert a removal that never happened and merge "
+        "on a green tick — the exact shape of PR #9208, in the mechanism built to stop "
+        "things being left behind",
+    "docs/claude/CONSTRAINT.json":
+        "test_phase_g_sunset_and_pull::test_the_live_constraint_is_the_one_the_guard_"
+        "grades reads the REAL readout, which check_capability_pull BRANCHES on "
+        "(enforcing / advisory / unknown). It is GENERATED, so it moves whenever the "
+        "work store does — a real CI cost, accepted because the alternative is a shape "
+        "change breaking the enforcement grading behind a green tick. ⚠️ If it proves "
+        "noisy the honest move is DELIBERATELY_EXCLUDED with the `guards owns it` "
+        "reason (guards runs the reader unconditionally), never deleting the check",
     "docs/research/m20-exit-head-rounds.jsonl":
         "test_exit_head_round_emits_evidence::test_the_emitted_schema_matches_the_"
         "committed_evidence_file reads THE REAL evidence file, so a change to it "

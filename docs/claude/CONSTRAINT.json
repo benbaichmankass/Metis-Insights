@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-01T21:49:49+00:00",
+  "generated_at": "2026-09-01T23:15:16+00:00",
   "generator": "scripts/ops/constraint_readout.py",
   "cycle_priority": {
     "cycle_id": "CY-20260901-OPERATING-LAYER",
@@ -33,9 +33,9 @@
       "(unstated)": 0
     },
     "lifecycle_counts": {
-      "dormant": 578,
+      "dormant": 577,
       "waiting": 4,
-      "in_flight": 2
+      "in_flight": 3
     },
     "chain_stages_with_no_objects": [
       "QUESTION",
@@ -48,21 +48,17 @@
     },
     "holds_on_waiting_targets": [
       {
-        "object_id": "WO-20260901-PHASE-G",
-        "ref": "WO-20260901-PHASE-D"
-      },
-      {
         "object_id": "WO-20260901-PHASE-H",
         "ref": "WO-20260901-PHASE-B"
       }
     ],
     "edge_kinds": {
-      "external_event": 6,
-      "object": 4
+      "external_event": 7,
+      "object": 3
     },
     "hold_states": {
-      "unverifiable_outside_store": 6,
-      "holding": 4
+      "unverifiable_outside_store": 7,
+      "holding": 3
     },
     "blocked_objects": [
       {
@@ -148,16 +144,16 @@
       {
         "id": "WO-20260901-PHASE-G",
         "stage": "CAPABILITY",
-        "lifecycle": "dormant",
+        "lifecycle": "in_flight",
         "title": "Phase G — the forcing function — retirement, and the E2 pull rule",
         "edges": [
           {
-            "kind": "object",
-            "ref": "WO-20260901-PHASE-D",
+            "kind": "external_event",
+            "ref": "assessed `blocked_on` coverage crossing the readout's declared 50% floor, so E1 can NAME a held-up stage instead of refusing",
             "since": "2026-09-01",
-            "ref_state": "resolved",
-            "target_lifecycle": "waiting",
-            "hold_state": "holding"
+            "ref_state": "not_in_store_by_design",
+            "target_lifecycle": null,
+            "hold_state": "unverifiable_outside_store"
           }
         ]
       },
@@ -223,10 +219,11 @@
   "flight": {
     "ceiling": 8,
     "ceiling_source": "scripts/ci/check_wip_ceiling.py::CEILING (imported, not restated)",
-    "in_flight": 2,
+    "in_flight": 3,
     "in_flight_ids": [
       "WO-20260901-PHASE-E",
-      "WO-20260901-PHASE-F"
+      "WO-20260901-PHASE-F",
+      "WO-20260901-PHASE-G"
     ],
     "waiting": 4,
     "waiting_ids": [
@@ -235,7 +232,7 @@
       "WO-20260901-PHASE-C",
       "WO-20260901-PHASE-D"
     ],
-    "headroom": 6,
+    "headroom": 5,
     "stalled_days_threshold": 14,
     "stalled_basis": "declared_dates_only",
     "stalled_basis_note": "Computed from `opened_at` and each edge's `since`. NOT a filesystem or git observation of when the object last changed.",
