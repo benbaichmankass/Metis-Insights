@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T02:12Z",
+  "updated_at": "2026-09-02T05:24:18Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -521,6 +521,36 @@
         "state": "spawned_not_yet_observed",
         "note": "SPAWNED, NOT OBSERVED. Two defects, and the SECOND is the worse one. (1) DELIVERY: work_digest.py queues its text under the key 'message'; notify_on_pull.py::_render_ping_message builds the body from a FIXED key list (cp_id/next_cp/phase/strategy/model/result/grade/question/summary + URL keys) that does not include it, so the label rendered and the body vanished. Its docstring asserts 'nothing is silently dropped', which is true of the LABEL and false of the BODY. Told explicitly NOT to fix it by adding 'message' to the list — that is the same hand-maintained list one entry longer and the next producer picking a different key fails identically, which is the call this repo already made on LIVE_BACKLOGS in #10725. (2) CONTENT: I ran the generator on last night's range and it emits 'No lifecycle change in a9444bc6..34f2beb5' after 52 merged PRs, two retired backlog classes, two cleared register rows and a closed capability gap — because none of that moves a work-object `lifecycle` field. It measures the work STORE, not the WORK. Two traps handed over: do NOT turn it into a PR counter (CLAUDE.md's own contract says ping on state changes and decisions, NEVER on activity, and the 202-of-376 un-latched-alarm record is why), and 'nothing changed' must become distinguishable from 'we could not look', which today it is not. Told to establish its own tier rather than assume Tier-1, since notify_on_pull.py executes on the live VM via deploy_pull_restart.sh."
       }
+    },
+    {
+      "session_id": "session_01RT889wBPYj1dVEqQnkzj7h",
+      "title": "MI-37: stage the book-aware Bybit coverage grade on bybit_1",
+      "checklist_item": "MI-37",
+      "spawned_at": "2026-09-02T05:24:18Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "wave": "3",
+      "basis": "operator decision 2026-09-02 (AskUserQuestion)",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01CU2izDKoWpfyACrMdR43Mu",
+      "title": "Phase G: make the strategy-review evidence floor reachable",
+      "checklist_item": "MI-23",
+      "spawned_at": "2026-09-02T05:24:18Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "wave": "3",
+      "basis": "operator decision 2026-09-02 (AskUserQuestion)",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01XbigCVRcy2bnVpm1tKNPno",
+      "title": "MI-34: unclearable GLD wedge moves from paging to the daily digest",
+      "checklist_item": "MI-34",
+      "spawned_at": "2026-09-02T05:24:18Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "wave": "3",
+      "basis": "operator decision 2026-09-02 (AskUserQuestion)",
+      "state": "working"
     }
   ]
 }
