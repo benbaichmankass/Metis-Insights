@@ -92,7 +92,7 @@ don't route around it.
 
 ### ⚠️ SESSION BRIEF — what is DUE right now (generated; read before your first tool call)
 
-This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CONSTRAINT.json` + `docs/claude/OPEN-ITEMS.json` + `docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** because `CLAUDE.md` is the only surface that reaches a session before it acts — project **hooks do not run on Claude Code on the web** (verified 2026-08-26: the SessionStart contract's output was absent from the session context), and CI guards fire at merge, which is after the wrong work is already built. It lists only what is DUE or UNPREVENTED, so it shrinks as work lands.
+This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CONSTRAINT.json` + `comms/sunset/` + `docs/claude/OPEN-ITEMS.json` + `docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** because `CLAUDE.md` is the only surface that reaches a session before it acts — project **hooks do not run on Claude Code on the web** (verified 2026-08-26: the SessionStart contract's output was absent from the session context), and CI guards fire at merge, which is after the wrong work is already built. It lists only what is DUE or UNPREVENTED, so it shrinks as work lands.
 
 **🎯 THIS CYCLE'S PRIORITY — CY-20260901-OPERATING-LAYER**
 
@@ -105,8 +105,11 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CON
 
 - **No stage is named — verdict `insufficient_basis`.** Only 6 of 584 objects (1.0%) have an ASSESSED `blocked_on` basis, below the 50.0% floor. **578 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them** — it is nobody having looked. Do not read this as *nothing is blocked*.
 - ⚠️ **Chain coverage is partial:** `QUESTION`, `DECISION`, `DEPLOYMENT`, `OBSERVATION` hold **zero** objects, so the store cannot locate a hold-up there. A stage histogram over it describes what got migrated, not the chain.
-- **2 in flight** against a ceiling of 8 · 4 waiting · 0 stopped moving (≥14d, declared dates only).
+- **3 in flight** against a ceiling of 8 · 4 waiting · 0 stopped moving (≥14d, declared dates only).
 - **If you are about to write a real `blocked_on` edge, that is the single highest-value thing you can do to this store** — the diagnosis is refusing for want of assessed edges, not for want of machinery.
+
+**🗑️ SUNSET (E3, 2026-09-01): 10 retirement candidate(s)** over 52 strategy legs (lifetime read `read`, 1 packet date(s)) · machinery probe `measured`, 115 findings carried.
+- Candidates: `gdx_pullback_1d`, `gld_pullback_1d`, `iaum_pullback_1d`, `mes_trend_long_1d`, `scha_trend_long_1d`, `splg_trend_long_1d`, `spy_trend_long_1d`, `tqqq_trend_long_1d`, `trend_donchian_sol`, `turtle_soup`. Retiring a leg is **Tier-3** — propose, never enact. Disposition them in `docs/claude/SUNSET-DISPOSITIONS.json`.
 
 **11 monitoring item(s) DUE — check and record what you OBSERVED:**
 
