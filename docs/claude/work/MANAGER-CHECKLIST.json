@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T08:12:00Z",
+  "updated_at": "2026-09-02T08:40:00Z",
   "cycle": "CY-20260901-OPERATING-LAYER",
   "states": {
     "done": "merged AND its effect observed",
@@ -574,6 +574,62 @@
       "correction": "What the operator saw on the Trader bot at 10:41 was the [RUN failure] transparency notice for my own failed run, not a mis-routed status ping. Routing and my run's failure are two different things and I conflated them.",
       "recurrence_of": "MI-42 / the DASHBOARD_API_TOKEN error — relaying a register row's claim without measuring it. Second occurrence in one session.",
       "next": "Re-measure the OI row against the live VM before anyone acts on it; it is stale in the direction that costs operator time."
+    },
+    {
+      "id": "MI-49-BYBIT-GRADED-COVERAGE-ARM-AND-CONDITIONAL-WIDENING",
+      "title": "Operator: arm the graded-coverage gate on bybit_1, and widen to the others IF it proves itself",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "tier": "2 (order path env flip) / 3 to widen",
+      "operator_decision": "2026-09-02, verbatim: 'yes, and if its proves itself on bybit 1, then apply to bybits 2 and 3 as well'. Approves ARMING BYBIT_GRADED_COVERAGE_MODE=apply + BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1 after #10746 merges, and approves a LATER widening CONDITIONAL on the gate proving itself.",
+      "⚠️_bybit_3_DOES_NOT_EXIST": "MEASURED against config/accounts.yaml: the bybit accounts are bybit_1 (account_class paper, Bybit demo), bybit_2 (account_class REAL_MONEY, Bybit mainnet) and bybit_portfolio (paper, paper_role portfolio). `grep -c '^  bybit_3:'` returns 0. I read 'bybits 2 and 3' as bybit_2 + bybit_portfolio, but that is an ASSUMPTION and is recorded as one. ⚠️ DO NOT ACT ON IT WITHOUT CONFIRMING: one of the two accounts it would reach is real money, and inferring a real-money widening from a name that does not exist is exactly the half-informed state OPEN-PRS.json warns about.",
+      "⚠️_what_PROVES_ITSELF_must_mean": "The operator did not define it and a vague criterion is how a demo-only approval leaks to real money. I will NOT widen on any of: time elapsed, a quiet soak, or a green test suite. THE BAR: (a) the arm is read back off /proc/<MainPID>/environ via get-env, never the .env; AND (b) at least one bybit_coverage_soak row on bybit_1 carries verdicts_differ: true -- i.e. the graded and side-blind bases actually reached OPPOSITE verdicts, so arming demonstrably changed an outcome; AND (c) a re-arm actually occurred on a position whose side-blind coverage exceeded its size, which is the defect itself. ⚠️ THE DEFECT IS n=1 AND CONSTRUCTED -- no live instance has ever been observed -- so (b) and (c) MAY NEVER OCCUR ON DEMO. If they do not, the honest report is 'unproven, not proven-good', and widening to real money on an unexercised gate is NOT what the operator approved. Put that back to them rather than letting a quiet soak read as a pass.",
+      "next": [
+        "Merge #10746 (queued on green).",
+        "Arm bybit_1 via set-env, both keys, then restart, then read back off /proc/<pid>/environ.",
+        "Watch bybit_coverage_soak for verdicts_differ: true. Report what is observed, not elapsed time.",
+        "Before ANY widening: confirm with the operator which accounts 'bybit 3' meant."
+      ]
+    },
+    {
+      "id": "MI-50-PHASE-H-READ-GATE-WAITS-ON-STREAMLIT-BEING-OFF",
+      "title": "Operator: do not flip the Phase-H read gate until Streamlit is confirmed off",
+      "state": "blocked",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "operator_decision": "2026-09-02: WAIT until Streamlit is confirmed off. Chosen over flipping now and over gating only the routes no live consumer calls.",
+      "blocked_on": {
+        "kind": "external_event",
+        "ref": "operator stops the Streamlit Community Cloud app in its console",
+        "since": "2026-09-02"
+      },
+      "why": "The gate attaches require_session to the read surface. Measured 2026-09-02: the Streamlit Cloud app still EXISTS (303 -> share.streamlit.io/-/auth/app, a sign-in wall, NOT a 404), and ⚠️ WHETHER IT IS RUNNING WAS NOT ESTABLISHED -- an auth redirect is identical for 'running but private' and 'exists but paused'. So flipping now could break a live consumer.",
+      "note": "This CLOSES DEC-20260901-READ-GATE-SEQUENCING. That inbox question must no longer be relayed as open, and its premise ('Streamlit is still a live consumer') is now confirmed TRUE in the sense that matters -- it is still deployed and reachable -- while CLAUDE.md has asserted the retirement since 2026-09-01. Declared, not observed."
+    },
+    {
+      "id": "MI-51-MANAGER-HANDOFF-DEFERRED-BY-OPERATOR",
+      "title": "Operator: keep this manager session for now; do not hand off yet",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "operator_decision": "2026-09-02: KEEP THIS SESSION. Chosen over handing off now as the MI-44 test, and over handing off once the ping channel is proven.",
+      "note": "⚠️ MI-44's acceptance criteria are NOT withdrawn -- the handoff is DEFERRED, not cancelled, and the operator has said they want it exercised before this session closes. Keep the lease heartbeated (TTL 90 min; it EXPIRED for 101 min earlier today, so this is not a formality) and keep handoff_check at 6/7 or better so the handoff stays cheap when it is called."
+    },
+    {
+      "id": "MI-52-PING-DRAIN-OWNERSHIP-LAND-AND-RESTART",
+      "title": "Operator: review and land #10694 (one owner for the ping drain), restart included",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "tier": "2 (service restart)",
+      "operator_decision": "2026-09-02: 'Review and land it, restart included.' This IS the Tier-2 approval for restarting ict-telegram-bot.service after merge -- recorded so a successor does not re-ask.",
+      "why_now": "Today proved the ping path is fragile in the SILENCE direction (two independent bugs: the renderer dropping 21 of 50 bodies, and workflow_dispatch dead on every action). #10694 addresses the DUPLICATION direction. Different failure mode, same fragile channel.",
+      "next": [
+        "Review #10694 on its merits; do not merge on the operator's prioritisation alone.",
+        "If sound: merge, then dispatch the restart, then VERIFY the post-state rather than assuming it.",
+        "landed_unproven until a ping is observed delivered exactly once."
+      ]
     }
   ]
 }
