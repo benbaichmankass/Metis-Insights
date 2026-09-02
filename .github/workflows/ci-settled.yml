@@ -1,0 +1,182 @@
+name: ci-settled
+
+# THE SESSION-INVOKABLE CI WAITER — "Claude calls the action; the action waits."
+#
+# WHY (measured, 2026-09-02). `api.github.com` returns HTTP 403 from inside a
+# Claude Code sandbox; the platform proxy intercepts it. Re-confirmed live this
+# session: `curl -o /dev/null -w '%{http_code}' https://api.github.com/repos/...`
+# -> 403, while `https://ict-bot.duckdns.org/api/health` from the same shell ->
+# 200. So the block is specific to the GitHub API, not to egress in general.
+#
+# The consequence is the cost this workflow removes: a session cannot script a
+# CI poller, so the only way to learn "has my PR's suite finished" is to call
+# `mcp__github__pull_request_read` again, and again, and again. Every one of
+# those calls spends context to be told *still running*.
+#
+# This moves the polling to a runner, where the API is reachable and wall-clock
+# is free (public repo). The session pushes one request file and reads back one
+# compact result file. Two tool calls instead of dozens, and the result already
+# carries what would otherwise be three MORE calls: mergeable_state, the check
+# roll-up, unresolved review threads, and -- when red -- a BOUNDED excerpt of
+# the failing job log, so a red verdict does not then cost a `get_job_logs`.
+#
+# DISPATCH SHAPE, and why it is push-and-not-issue. `issue_write` 403s for
+# exactly the sessions that need this, so the label-driven relay shape
+# (`vm-diag-snapshot.yml`) is unavailable to them. This copies the shape that is
+# already PROVEN for those sessions -- push a request file, read a result file
+# (`pr-opener.yml`, `board-post.yml`).
+#
+# ⚠️ THE REQUEST IS PUSHED TO ITS OWN THROWAWAY BRANCH, NOT TO THE PR's BRANCH,
+# AND THAT IS LOAD-BEARING RATHER THAN TIDINESS. A request committed onto the
+# branch being watched would add a commit to the PR head -- which re-triggers
+# the very CI run being waited on, and moves the head out from under the answer.
+# `scripts/ops/ci_settled.sh` builds the request as a commit on top of
+# `origin/main` and pushes it to `automation/ciwatch-<name>`, so the watched PR
+# is never touched. The result is committed back to that same throwaway branch.
+#
+# ⚠️ IT REPORTS; IT DECIDES NOTHING. This workflow cannot merge, cannot push to
+# `main`, cannot open or close anything, and never reaches `src/`, `config/`, a
+# unit file, or either VM. Its only write is a result file on a branch whose
+# name it was handed. Zero check runs is graded `no_checks`, NEVER green -- see
+# `scripts/ops/ci_settle.py` for the seven-state vocabulary and why none of the
+# states may be collapsed into another.
+#
+# Contract:
+#   * Drop `automation/ci-watch/<name>.json` and push it:
+#       {"pr": 10754,               # required
+#        "timeout_minutes": 20,     # optional, 1..45, default 20
+#        "poll_seconds": 20,        # optional, 5..120, default 20
+#        "review_threads": true}    # optional, default true
+#   * Read `automation/ci-results/<name>.json` back off the same branch.
+#   * The request file is LEFT IN PLACE; the RESULT file is the idempotency key
+#     (the `pr-opener.yml` lesson -- deleting the request makes the results
+#     commit touch this workflow's own trigger path). Use a FRESH name per watch.
+
+on:
+  push:
+    paths: ['automation/ci-watch/**']
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "PR number to watch"
+        required: true
+      timeout_minutes:
+        description: "Give up waiting after this many minutes (1-45)"
+        required: false
+        default: "20"
+
+permissions:
+  contents: write
+  pull-requests: read
+  checks: read
+  actions: read
+
+concurrency:
+  # Per-ref, never cancel. A cancelled watch is indistinguishable from a watch
+  # that found nothing -- the exact collapse this relay is built to avoid --
+  # and `vm-diag-snapshot.yml`'s header records bursts being silently dropped
+  # by a single shared group.
+  group: ci-settled-${{ github.ref }}-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    # Must exceed the 45-minute cap `ci_settle.py` clamps `timeout_minutes` to,
+    # or a long watch would be killed mid-poll and write nothing at all.
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Self-test the grader before trusting it
+        # A grader that silently stopped working would report `green` on a red
+        # PR, which is worse than reporting nothing. Cheap, so it runs first.
+        run: python3 scripts/ops/ci_settle.py --self-test
+
+      - name: Watch (dispatch input)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p automation/ci-watch automation/ci-results
+          name="dispatch-${{ github.run_id }}"
+          printf '{"pr": %s, "timeout_minutes": %s}\n' \
+            "$(printf '%d' "${{ inputs.pr }}")" \
+            "$(printf '%d' "${{ inputs.timeout_minutes }}")" \
+            > "automation/ci-watch/${name}.json"
+          python3 scripts/ops/ci_settle.py \
+            --request "automation/ci-watch/${name}.json" \
+            --out "automation/ci-results/${name}.json"
+          echo '--- result ---'
+          cat "automation/ci-results/${name}.json"
+
+      - name: Watch (pushed requests)
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          mkdir -p automation/ci-results
+          shopt -s nullglob
+          found=0
+          failed=0
+          for req in automation/ci-watch/*.json; do
+            base="$(basename "$req" .json)"
+            out="automation/ci-results/${base}.json"
+            if [ -f "$out" ]; then
+              echo "::notice::${base} already has a result — skipping (idempotency is the RESULT file, not deletion of the request)."
+              continue
+            fi
+            found=1
+            echo "::group::watching ${base}"
+            # A malformed request must produce a READABLE refusal, not a silent
+            # skip: a session waiting on a result file that never appears cannot
+            # tell a bad request from a dead relay. ci_settle.py writes an `unreadable` refusal for a malformed
+            # request rather than exiting non-zero, so the caller always gets a
+            # readable answer instead of waiting out its timeout on a file that
+            # never appears. A non-zero exit here is a genuine crash.
+            python3 scripts/ops/ci_settle.py --request "$req" --out "$out" || {
+              echo "::error::ci_settle.py crashed on ${base}"
+              failed=1
+            }
+            echo "::endgroup::"
+          done
+          if [ "$found" = "0" ]; then
+            echo "::notice::no pending ci-watch requests."
+          fi
+          # Fail the RUN on a crash so claude-run-failure-alert.yml pings the
+          # operator. A relay that dies quietly is the failure mode a session
+          # cannot distinguish from a slow one.
+          exit "$failed"
+
+      - name: Commit results back
+        # ALWAYS. If the watcher crashed partway, the results it did write are
+        # exactly what a caller needs to see; withholding them would leave the
+        # caller blocking on a file that will never arrive.
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add automation/ci-results || true
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          # No [skip ci]: it suppresses EVERY workflow for the commit, and this
+          # branch is a relay lane, not a PR head. Nothing here is a trigger
+          # path for the required checks anyway.
+          git commit -q -m "ci-settled: results"
+          for attempt in 1 2 3; do
+            git push origin "HEAD:${{ github.ref_name }}" && exit 0
+            git pull --rebase --quiet origin "${{ github.ref_name }}" || true
+            sleep $((attempt * 3))
+          done
+          echo "::error::could not push the ci-settled result back"
+          exit 1
