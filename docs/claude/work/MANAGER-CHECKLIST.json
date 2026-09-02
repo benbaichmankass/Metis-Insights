@@ -1157,7 +1157,7 @@
     {
       "id": "MI-78",
       "title": "Two open non-draft PRs are RED on pytest-run and nothing is driving them",
-      "state": "in_flight",
+      "state": "done",
       "priority": "P2_OVERHAUL_IMPLEMENTATION",
       "owner": "session_01Ue52itfxGxsbZrJJtswtCg",
       "tier": "1 (tests/CI)",
@@ -1166,7 +1166,7 @@
       "done_when": "Both PRs show pytest-run success on their pushed head and are merged, OR a comment on each names exactly what is failing and why it is not being fixed. Neither test is weakened, skipped or deleted to reach that state, and #10764's verbatim-split claim survives -- the four names' descriptive prose comes across, not just the enum tokens.",
       "owns_object": "WO-20260902-TWO-OPEN-NON-DRAFT-PRS-ARE-RED",
       "spawned_at": "2026-09-02T18:16:25Z",
-      "note": "MANAGER ORDERING SLIP, recorded rather than tidied away: I spawned this session BEFORE registering it, and spawn_gate.py duly REFUSED the registration for naming no parent object. That is the gate working -- and it caught me, the manager, which is what it is for. The object was created after the fact via capture_idea.py and the row is correct now, but the spawn was un-gated at the moment it happened. The gate cannot refuse a create_session call it never sees; MI-77 is the watcher for exactly this class."
+      "note": "MANAGER ORDERING SLIP, recorded rather than tidied away: I spawned this session BEFORE registering it, and spawn_gate.py duly REFUSED the registration for naming no parent object. That is the gate working -- and it caught me, the manager, which is what it is for. The object was created after the fact via capture_idea.py and the row is correct now, but the spawn was un-gated at the moment it happened. The gate cannot refuse a create_session call it never sees; MI-77 is the watcher for exactly this class. || CLOSED 2026-09-02T19:00Z: both PRs green and MERGED (#10764 the CLAUDE.md split restored its 6 lost blocks; #10810 the automerge gate). Graded `done` rather than `landed_unproven` because the OUTCOME was observed, not just the merge -- #10810's gate is the reason #10776 and #10748 could be disarmed and re-drafted rather than merging themselves, and the session's diagnosis of #10810 CORRECTED the manager's: I said the entry omitted `when`, which was right; it also found the dispatched diagnosis of the ROOT cause (the legacy shared path) was wrong and that removing it 'would have left the defect fully intact while looking like a fix'."
     },
     {
       "id": "MI-79",
@@ -1209,6 +1209,20 @@
       "owns_object": "WO-20260902-A-DUE-MONITORING-ROW-ON-AN-UNMONITORED",
       "spawned_at": "2026-09-02T18:39:52Z",
       "note": "MANAGER PRIORITY CALL, stated so it can be argued with. This is INTEGRITY work and the cycle priority is the operating layer's STEERING half, so it is not obviously in-priority. I spawned it anyway on two grounds: a forward-only capture that cannot be re-derived sitting on a 92%-full disk with no alarm is a live risk to an operator-DECIDED dependency; and the fact that a loud, rendered, four-days-overdue row went unacted-on IS a steering failure, which is the cycle's subject. It used the last of the four concurrent session slots and nothing else was queued for it."
+    },
+    {
+      "id": "MI-82",
+      "title": "Measure the unauthorised-merge population, and assess the blast radius of each",
+      "state": "in_flight",
+      "priority": "P2_OVERHAUL_IMPLEMENTATION",
+      "owner": "session_01R9EwEtP2JPYqxUH1tjSa5Q",
+      "tier": "1 (measurement and assessment only; explicitly forbidden from reverting or merging)",
+      "why": "PRs whose own bodies say do-not-merge have been merging themselves. TWO CONFIRMED by direct read, both merged_by github-actions[bot] with no human decision: #10788 at 16:12:21Z ('Draft. Not for merge -- it carries an operator decision') and #10793 at 18:53:42Z (the operator's HELD constraint is in its title). BOTH WERE FOUND BY ACCIDENT while investigating something else, which is the reason to measure rather than spot-check.",
+      "the_hypothesis_to_TEST": "#10810 landed the auto-merge gate at 18:49:29Z, four minutes BEFORE #10793 merged itself -- consistent rather than contradictory, because that PR states in its own text that it 'cannot retract auto-merge already enabled'. So the residual is an unknown number of PRs ARMED BEFORE 18:49Z that merge themselves the moment their CI goes green. ⚠️ A count of bot-merges is NOT the finding: the relay legitimately merges the chore(ops) automation PRs. The number that matters is bot-merges of PRs that DECLARED THEMSELVES HELD. #10746 is the control -- a held-looking Tier-2 order-path PR whose merge CLAUDE.md records as operator-permitted; a method that flags it as unauthorised is wrong.",
+      "done_when": "Both counts stated with their population; blast radius per unauthorised merge naming what landed, whether it is DEPLOYED (a merge is not a deploy here) and WHAT WOULD ACTIVATE IT; and the still-armed set read back from the API rather than trusted. A conclusion that something needs reverting is REPORTED and stopped on -- that is the operator's call.",
+      "owns_object": "WO-20260902-PRS-WHOSE-OWN-BODIES-SAY-DO-NOT",
+      "spawned_at": "2026-09-02T19:01:08Z",
+      "note": "MANAGER MISS, recorded because I reported the wrong thing. My earlier status listed #10788 among PRs I had merged. I did not merge it -- github-actions[bot] did, at 16:12:21Z. I recorded an unauthorised auto-merge as a merge I had made, which is exactly how this class stays invisible: the manager's own record absorbs it. Also handed over: list_pull_requests with a `fields` selection SILENTLY DROPPED merged_by and returned merged:false on PRs whose merged_at was populated in the same row -- so the listing endpoint cannot answer this question and MI-82 is told to establish its instrument with a positive control first."
     }
   ],
   "as_of": "2026-09-02T17:20:00Z"
