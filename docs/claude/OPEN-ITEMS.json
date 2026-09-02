@@ -736,7 +736,8 @@
    ".github/workflows/work-decision-commit.yml",
    "tests/test_decision_push.py",
    "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP",
-   "OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE"
+   "OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE",
+   "https://github.com/benbaichmankass/Metis-Insights/pull/10788"
   ]
  }
  ],
