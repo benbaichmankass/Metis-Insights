@@ -1146,6 +1146,12 @@ def test_armed_the_soak_row_says_the_graded_basis_governed(
     assert row["decision"] == "rearm_indicated"
     # Context a reviewer needs to read the row cold.
     assert row["other_book_qty"] == 0.46
+    # collapsed-state: possible_hedge — this asserts the soak row CARRIES the
+    # field, not the three-state vocabulary itself. `other_book_state`'s full
+    # partition (impossible_one_way / possible_hedge / unknown, where `unknown`
+    # is *we could not look*) is owned and exercised by
+    # tests/test_bybit_leg_sides.py; re-deriving it here would be a second copy
+    # of that contract, free to drift from the one that governs.
     assert row["other_book_state"] == "possible_hedge"
 
 

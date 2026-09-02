@@ -255,8 +255,8 @@ _STRAY_OCA_SOAK_LOG = runtime_logs_dir() / "stray_oca_soak.jsonl"
 #: read `verdicts_differ` here before widening BYBIT_GRADED_COVERAGE_ACCOUNTS
 #: beyond bybit_1, and a soak a reviewer is told to read and cannot reach is the
 #: BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE shape
-#: (and, for a gate specifically, BL-20260831-STRAY-OCA-SWEEP-ANNOTATE-COMPUTES-
-#: A-VERDICT-AND-DISCARDS-IT).
+#: (and, for a gate specifically, the stray-OCA row filed the same day:
+#: BL-20260831-STRAY-OCA-SWEEP-ANNOTATE-COMPUTES-A-VERDICT-AND-DISCARDS-IT).
 _BYBIT_COVERAGE_SOAK_LOG = runtime_logs_dir() / "bybit_coverage_soak.jsonl"
 _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 #: Lane P/P3 — per-account arbitration fan-out soak. Allowlisted in the SAME
