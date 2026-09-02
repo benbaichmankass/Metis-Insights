@@ -49,7 +49,7 @@ exist at all.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, Optional, Sequence
 
 __all__ = [
     "LEG_REDUCES_GRADED_BOOK",
