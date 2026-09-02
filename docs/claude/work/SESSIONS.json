@@ -504,6 +504,23 @@
         "state": "spawned_not_yet_observed",
         "note": "SPAWNED, NOT OBSERVED. Framed as ANALYSE + a Tier-1 DETECTOR + a Tier-3 PROPOSAL NOT ENACTED, since the fix changes what a promotion gate reads. Told to EXTEND the existing measurement rather than re-derive it (82 of 477 closed rows carry a stop on the WRONG SIDE OF ENTRY — impossible for an initial stop, so the mechanism is proven rather than inferred). Two traps named: do NOT silently exclude contaminated rows from the aggregate, which converts a visible-wrong number into an invisible-wrong one over an unstated population; and do NOT collapse 'stop provably wrong-side' with 'stop plausible but unverifiable as initial' — the latter is most rows and is emphatically NOT clean. Also handed the filter_state trap (the DB explorer silently ignores an unknown filter column and returns the WHOLE table; the column is strategy_name, not strategy) because a drain hit exactly that tonight, and the fleet pnlCoverage 0.126 context so it cannot present an R conclusion as firmer than the PnL underneath it."
       }
+    },
+    {
+      "session_id": "session_01JMWwopaYAQgNS8uJ2pAj5E",
+      "owns_object": null,
+      "title": "MI-39 — the work digest fired empty, and would have said nothing true even if it hadn't",
+      "spawned_at": "2026-09-02T04:43Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "branches": [
+        "claude/work-digest-empty-body"
+      ],
+      "prs": [],
+      "why": "Reported first-hand by the operator on waking: the last message their ClaudeBot channel received was at 03:24 and read, in its entirety, 'work_digest' — no body — while the night had produced 52 merged PRs and two retired backlog classes. This is F6, the notification function the whole autonomy grant is conditioned on. A digest that fires and says nothing is WORSE than one that does not fire, because it looks like oversight happened.",
+      "last_observed": {
+        "at": "2026-09-02T04:43Z",
+        "state": "spawned_not_yet_observed",
+        "note": "SPAWNED, NOT OBSERVED. Two defects, and the SECOND is the worse one. (1) DELIVERY: work_digest.py queues its text under the key 'message'; notify_on_pull.py::_render_ping_message builds the body from a FIXED key list (cp_id/next_cp/phase/strategy/model/result/grade/question/summary + URL keys) that does not include it, so the label rendered and the body vanished. Its docstring asserts 'nothing is silently dropped', which is true of the LABEL and false of the BODY. Told explicitly NOT to fix it by adding 'message' to the list — that is the same hand-maintained list one entry longer and the next producer picking a different key fails identically, which is the call this repo already made on LIVE_BACKLOGS in #10725. (2) CONTENT: I ran the generator on last night's range and it emits 'No lifecycle change in a9444bc6..34f2beb5' after 52 merged PRs, two retired backlog classes, two cleared register rows and a closed capability gap — because none of that moves a work-object `lifecycle` field. It measures the work STORE, not the WORK. Two traps handed over: do NOT turn it into a PR counter (CLAUDE.md's own contract says ping on state changes and decisions, NEVER on activity, and the 202-of-376 un-latched-alarm record is why), and 'nothing changed' must become distinguishable from 'we could not look', which today it is not. Told to establish its own tier rather than assume Tier-1, since notify_on_pull.py executes on the live VM via deploy_pull_restart.sh."
+      }
     }
   ]
 }
