@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-09-02T00:00:00+00:00",
+  "updated_at": "2026-09-02",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -31171,6 +31171,25 @@
         "tests/test_processor_repo_root_resolution.py",
         "BL-20260827-TEST-MODULES-STUB-SKLEARN-INTO-SYS-MODULES-AT-IMPORT-TIME",
         "BL-20260822-TEST-SUITE-CROSS-FILE-SYS-MODULES-POLLUTION"
+      ]
+    },
+    {
+      "id": "BL-20260902-WDEC-DISPATCH-BRANCH-TESTS-A-LITERAL-WHILE-ENCODER-AND-POLL-CLAIM-USE-THE-CONSTANT",
+      "title": "callback_handler's wdec branch matches the LITERAL \"wdec\" while the encoder and the poll claim both resolve CB_PREFIX — a rename moves two of three and silently strands the dispatcher",
+      "severity": "low",
+      "tier": 2,
+      "status": "open",
+      "opened": "2026-09-02",
+      "source": "session_011JWFxuYAaEQKCFCmG6gnHJ, while wiring the decision channel onto the dedicated Claude bot (PR #10789). Noticed rather than hunted: I wrote a comment asserting the claim named the same constant the dispatcher resolves, then checked and it did not.",
+      "detail": "THREE SITES MUST AGREE ON THE CALLBACK PREFIX AND ONLY TWO READ THE SAME SOURCE. `src/runtime/telegram_decisions.CB_PREFIX = \"wdec\"` is what `encode_callback` writes into `callback_data` and what `answerable_route`/the poll claim ask the registry about; `src/bot/claude_decision_bot.py` registers its handler with `pattern=rf\"^{CB_PREFIX}:\"` and declares `HANDLED_PREFIXES = (CB_PREFIX,)`. But `src/bot/telegram_query_bot.callback_handler` dispatches on the BARE LITERAL: `elif action == \"wdec\":`. So renaming CB_PREFIX moves the encoder, the Claude bot's handler AND the poll claim together while leaving the trader bot's branch matching a prefix nothing emits any more. ⚠️ THE FAILURE IS SILENT AND SHAPED EXACTLY LIKE THE ONE THE POLL REGISTRY EXISTS TO CATCH. The trader bot is the FALLBACK destination for decision prompts, so after such a rename its poll claim would still read `polled_with_handler` (the claim is built from CB_PREFIX, which moved) while a real tap fell through `callback_handler`'s if/elif chain to the 'unknown callback data is ignored' tail. The operator taps; the message is not edited; nothing errors; the registry reports the bot as answerable. That is a dead button that reads healthy on every surface, one layer below where PR #10789 fixed it. NOT CURRENTLY BROKEN, and stated as such: `CB_PREFIX` is \"wdec\" today, so all three agree and every test passes. This is a latent coupling, which is why it is `low` and not higher — it needs a rename to fire. WHY IT WAS NOT FIXED IN #10789: `src/bot/telegram_query_bot.py` was declared by a concurrent live session (`claude/claude-ping-double-delivery-x4mq2p`), flagged on the coordination board by PR #10778's own DONE comment as the branch most likely to touch the same regions. Edits there were deliberately held to a poll registration plus one log line to avoid racing it. Filed rather than fixed so the observation is not lost — it is a two-line change for whoever owns that file next.",
+      "resolution_criteria": "`src/bot/telegram_query_bot.callback_handler` dispatches the decision callback on the imported `telegram_decisions.CB_PREFIX` rather than the literal \"wdec\" (e.g. `elif action == CB_PREFIX:` with a module-level import), AND a test pins the agreement so it cannot silently re-diverge — the cheapest honest form is asserting that the prefix the dispatcher branches on equals the prefix `encode_callback` actually emits, rather than asserting both equal the string \"wdec\" (which would re-hardcode the coupling in the test and pass through the very rename it is meant to catch). ⚠️ Closing this by changing CB_PREFIX's VALUE to match the literal is not a fix — it leaves three sites and two sources.",
+      "refs": [
+        "src/bot/telegram_query_bot.py",
+        "src/runtime/telegram_decisions.py",
+        "src/bot/claude_decision_bot.py",
+        "src/runtime/telegram_poll_registry.py",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/10789",
+        "OI-20260902-DECISION-PROMPTS-MOVED-TO-CLAUDEBOT-AND-NO-TAP-HAS-LANDED-THERE"
       ]
     }
   ]
