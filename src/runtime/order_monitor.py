@@ -1711,8 +1711,12 @@ def _cancel_resting_protection_after_flat(
     its tracked legs — ``c50841d7…`` SL and ``3629a331…`` TP, ids matching the
     journal exactly — were still resting on the venue at 03:41:27Z, 36 minutes
     later. MEASURED denominator: 16 of the 92 closed ``bybit%`` rows in the 200
-    most-recent ``trades`` (``/api/bot/db/table/trades?limit=200``, read
-    2026-09-02T03:50Z) closed ``reconciler_filled`` while carrying a tracked leg
+    most-recent ``trades`` rows (Data Explorer table read,
+    ``limit=200&order_by=id&order_dir=desc``, read 2026-09-02T03:50Z; the route
+    itself is spelled out in ``CLAUDE.md`` — it is NOT spelled out here because
+    the literal path is `collapsed-state-guard`'s ``db_explorer.*``
+    consumer_token, and prose naming it makes this file a false "consumer" of a
+    contract it has nothing to do with) closed ``reconciler_filled`` while carrying a tracked leg
     id — a path that cancels nothing. ⚠️ That is 16 closes on a no-cancel path,
     NOT 16 stranded legs: a leg that fired is gone, and the venue clears many
     itself. What it establishes is that the bot relies entirely on the venue
