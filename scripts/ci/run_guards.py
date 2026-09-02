@@ -290,6 +290,30 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # `context = work object + role pack` is the operating model's anti-silo
+        # mechanism, and on 2026-09-01 its two halves were wired to DIFFERENT
+        # systems: the object half shipped and not one role pack was updated to
+        # know it exists. A prose edit alone decays back to zero on the next
+        # rewrite — this is what keeps it true.
+        #
+        # Two directions, and only the second has teeth: a situating pack must
+        # NAME a live operating-layer path, and EVERY layer path ANY pack names
+        # must exist. So renaming the store reddens the packs pointing at the
+        # old place. Deliberately NOT all 32 — most packs are domain procedure
+        # and are correctly indifferent to where work is tracked.
+        #
+        # `when: None`: the thing that breaks it is usually a path MOVING
+        # elsewhere in the repo, which touches no skill file, so a diff-scoped
+        # version would go quiet exactly when it should speak.
+        "name": "role-pack-operating-layer",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_role_pack_operating_layer.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_role_pack_operating_layer.py"],
+        ],
+    },
+    {
         # CAN THIS WORKFLOW'S PUSH TRIGGER FIRE AT ALL? A narrow, deterministic
         # slice of the audit's own biggest blind spot: 87 of 129 workflows
         # cannot be graded on dormancy (their history is skipped label-filter

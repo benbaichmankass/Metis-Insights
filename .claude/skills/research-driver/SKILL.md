@@ -40,7 +40,24 @@ to prevent.
 Ranked, in order:
 
 1. **Explicit operator directive** — always wins outright.
-2. **The "Next — prioritized work plan"** active-build queue in `ROADMAP.md`.
+2. **THIS CYCLE'S PRIORITY — `docs/claude/CYCLE-PRIORITY.json`**, rendered into
+   the `CLAUDE.md` session brief. It is the operator's standing answer to
+   "what kind of work matters now", so it outranks every queue below it: a
+   target pulled from `ROADMAP.md` that runs against the cycle priority is the
+   thing to re-argue before starting, not after. Read
+   **`docs/claude/READOUT.md`** (the computed constraint) beside it — and read
+   its `verdict` first, because `insufficient_basis` means *no stage was named*,
+   never *nothing is blocked*.
+3. **The work store — `docs/claude/work/`** — for what is already IN FLIGHT
+   under which intent. ⚠️ **Read the `lifecycle`, not the count**: the store
+   holds hundreds of objects and nearly all are `dormant`/`ready`/`waiting`,
+   i.e. carried, not queued. ⚠️ **And `blocked_on: []` with
+   `blocked_on_basis: NOT_ASSESSED` is NOT a claim that nothing blocks the
+   object** — it is nobody having looked, so do not read an empty edge list as
+   a green light. Starting new work also has a cap: `scripts/ci/check_wip_ceiling.py`
+   FAILS CI on a ninth `in_flight` object, so if the ceiling is full the
+   highest-value move is finishing something, not sourcing another target.
+4. **The "Next — prioritized work plan"** active-build queue in `ROADMAP.md`.
 3. **A phased-proposal milestone's next unblocked/gated phase** (the
    `📋 PROPOSED` / `🔄 IN PROGRESS` milestone subsections — check the
    `Phase | Scope | Tier | Gate` table for the next ungated row).
