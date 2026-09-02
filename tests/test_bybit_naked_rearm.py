@@ -911,7 +911,8 @@ def test_same_book_pile_up_still_trips_it_too(tmp_path, monkeypatch):
 def test_unreadable_POSITION_side_refuses_the_rearm_and_says_so(
         tmp_path, monkeypatch, caplog):
     db = _btc_db(tmp_path)
-    pos = dict(_LIVE_BTC_POS); pos.pop("side")
+    pos = dict(_LIVE_BTC_POS)
+    pos.pop("side")
     client = _FakeBybit(positions={"BTCUSDT": pos},
                         stop_legs={"BTCUSDT": [dict(_OTHER_BOOK_SL)]})
     with caplog.at_level("WARNING"):
@@ -958,7 +959,8 @@ def test_ungradeable_side_does_NOT_bank_the_side_blind_sum_as_coverage(
     a size of 0.018, so a silent skip would be indistinguishable from a healthy
     book. The refusal counter is what separates them."""
     db = _btc_db(tmp_path)
-    pos = dict(_LIVE_BTC_POS); pos["side"] = "garbage"
+    pos = dict(_LIVE_BTC_POS)
+    pos["side"] = "garbage"
     client = _FakeBybit(positions={"BTCUSDT": pos},
                         stop_legs={"BTCUSDT": [dict(_OTHER_BOOK_SL)]})
     summary = _run(db, client, monkeypatch, tmp_path)
@@ -974,7 +976,8 @@ def test_full_mode_stop_is_unaffected_by_the_split(tmp_path, monkeypatch):
     must skip, not refuse. Otherwise every Full-mode position on the fleet
     would start reporting `coverage_side_ungradeable`."""
     db = _btc_db(tmp_path)
-    pos = dict(_LIVE_BTC_POS); pos["stopLoss"] = "38698.6"
+    pos = dict(_LIVE_BTC_POS)
+    pos["stopLoss"] = "38698.6"
     client = _FakeBybit(positions={"BTCUSDT": pos})
     summary = _run(db, client, monkeypatch, tmp_path)
 
