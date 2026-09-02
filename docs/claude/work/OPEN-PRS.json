@@ -92,21 +92,6 @@
       "blocker": "None. ⚠️ Clause (a) of OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY stays OPEN after this merges: the alarm has run only in a harness, and workflow_dispatch cannot exercise it until the file is on main. Do not read the merge as the observation."
     },
     {
-      "pr": 10845,
-      "title": "MI-80: the operator's ping cadence rides a carrier this repo measured to work",
-      "owner_session": "session_01R4tWq3YJZnDUY3EhAYZ9En",
-      "checklist_item": "MI-80",
-      "draft": false,
-      "tier": "1 (workflow trigger + a committed receipt; no order path, no VM mutation)",
-      "state": "auto_merge_armed",
-      "operator_decision": {
-        "verdict": "not_required",
-        "decided_on": "2026-09-02",
-        "text": "Tier-1. Undrafted and armed by the manager 2026-09-02T20:54Z after merging 15 commits of main into a branch that had sat 15 behind with ZERO check runs fired — established as NOT a conflict (merge-tree clean both with and without the client-side register driver), so the cause of the missing checks is unexplained and the merge is what re-armed CI."
-      },
-      "blocker": "None to merge. ⚠️ IT DOES NOT FIX THE OPERATOR'S MISSING PINGS and a successor must not read it as doing so: work-digest.yml run #5 fired on event:schedule at 19:47:22Z with conclusion success and the operator still received nothing. The delivery-marking defect is BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE-SO-DELIVERED-IS-NOT-EVIDENCE — enqueue() writes a local JSON file and returns, so a 'delivered' hash attests a FILE WRITE, not a Telegram send."
-    },
-    {
       "pr": 10857,
       "title": "notify: ping the operator when a PR merges to main (MI-83)",
       "owner_session": "session_018ruZdgEkPZ1XceWzLwuYUU",
@@ -556,8 +541,27 @@
       "merge_sha": "d8ece725292b5a6ae1a4fba392ffb9e83f5d168b",
       "observed_at": "2026-09-02T20:17:34Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10845,
+      "title": "MI-80: the operator's ping cadence rides a carrier this repo measured to work",
+      "owner_session": "session_01R4tWq3YJZnDUY3EhAYZ9En",
+      "checklist_item": "MI-80",
+      "draft": false,
+      "tier": "1 (workflow trigger + a committed receipt; no order path, no VM mutation)",
+      "state": "auto_merge_armed",
+      "operator_decision": {
+        "verdict": "not_required",
+        "decided_on": "2026-09-02",
+        "text": "Tier-1. Undrafted and armed by the manager 2026-09-02T20:54Z after merging 15 commits of main into a branch that had sat 15 behind with ZERO check runs fired — established as NOT a conflict (merge-tree clean both with and without the client-side register driver), so the cause of the missing checks is unexplained and the merge is what re-armed CI."
+      },
+      "blocker": "None to merge. ⚠️ IT DOES NOT FIX THE OPERATOR'S MISSING PINGS and a successor must not read it as doing so: work-digest.yml run #5 fired on event:schedule at 19:47:22Z with conclusion success and the operator still received nothing. The delivery-marking defect is BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE-SO-DELIVERED-IS-NOT-EVIDENCE — enqueue() writes a local JSON file and returns, so a 'delivered' hash attests a FILE WRITE, not a Telegram send.",
+      "terminal": "merged",
+      "merge_sha": "b855e6e950f63d17b0e0a1ea49df95d9a7cb1f04",
+      "observed_at": "2026-09-02T21:13:59Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-02T20:59:00Z",
-  "last_reconciled_sha": "3d8f466bacf10d76e61cfb9dbff1cc2982f4259a"
+  "last_reconciled_at": "2026-09-02T21:13:59Z",
+  "last_reconciled_sha": "5f30788f96169593659ac6546cbb234a8b0caf96"
 }
