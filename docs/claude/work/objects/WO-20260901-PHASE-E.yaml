@@ -16,8 +16,44 @@ review_trigger: >-
   priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
 
 done_condition: >-
-  Killing a session mid-work loses nothing, DEMONSTRATED by killing one. Not
-  asserted from a test.
+  Killing a session mid-work loses at most the work not yet pushed, and NOTHING
+  that was pushed — DEMONSTRATED by killing one, with the survivor recovered by
+  a mechanism that does not depend on `SESSIONS.json`. Not asserted from a test.
+
+done_condition_was_amended_under_measurement_2026_09_02:
+  # ⚠️ RECORDED, NOT QUIETLY EDITED. A reader must be able to see that this
+  # condition CHANGED because it was measured against, rather than believe it
+  # was always this — which is the whole difference between a bar that was
+  # cleared and a bar that was moved.
+  original: >-
+    "Killing a session mid-work loses nothing, DEMONSTRATED by killing one. Not
+    asserted from a test."
+  who: manager ruling on MI-70's report, 2026-09-02
+  why: >-
+    THE KILL WAS RUN (see `the_kill_was_run_and_it_was_a_PARTIAL_loss` below)
+    and the original condition is UNACHIEVABLE, not merely unmet: there is
+    always a window between the last push and the death, and the loss lives in
+    a container nothing outside it can reach. A condition that can never be met
+    keeps a phase open forever, which is its own dishonesty.
+  why_not_the_obvious_amendment: >-
+    ⚠️ The tempting amendment — "loses everything it had not pushed" — was
+    REJECTED, and the reason matters more than the wording. It fits the
+    condition to the result, converting a measured gap into a definition that
+    can no longer FAIL; and mechanically it is a DESCRIPTION rather than a
+    CONDITION, since a done-condition has to be something that passes or fails
+    and a restatement of the failure is neither.
+  what_the_amendment_adds: >-
+    A BOUND rather than a deletion, plus a second clause the original did not
+    have: the survivor must be recovered WITHOUT `SESSIONS.json`. That clause is
+    not decoration — the registry has been measured incomplete twice, so a
+    demonstration that leaned on it would have proved recovery only in the case
+    that was never the problem.
+  the_residual_is_not_absorbed_by_this: >-
+    ⚠️ The unpushed loss is REAL and does not disappear because the condition
+    now bounds it. It has its own successor object —
+    `WO-20260902-PUSH-CADENCE-IS-THE-ONLY-LEVER-ON-THE-UNPUSHED-WINDOW` — and
+    THIS PHASE MUST NOT BE CLOSED UNTIL THAT OBJECT EXISTS, precisely so the
+    residual is not dropped at the moment the phase goes green.
 
 # ⚠️ CORRECTED 2026-09-01, and the correction is the point. This edge read
 # `object: WO-20260901-PHASE-A`, which was WRONG in the direction that matters:
@@ -65,6 +101,18 @@ lease_design:
   # returned `{"success": false, "No agent named ... is reachable"}`, and
   # ListAgents shows no reachable cloud peers. There is no send_message or
   # list_events tool in the manager's surface.
+  #
+  # ⚠️ AND IT IS SYMMETRIC — measured 2026-09-02 (MI-70), which this row did NOT
+  # say and which changes what follows from it. A SUB-SESSION CANNOT MESSAGE ITS
+  # MANAGER EITHER: SendMessage from a sub-session to its own `parent_session_id`
+  # returns the SAME "No agent named ... is reachable". The one-directional
+  # phrasing above invited the reading that a sub-session could at least REPORT
+  # UPWARD — it cannot, so a sub-session with a finding, a blocker or a question
+  # has NO channel to its manager except the coordination board and its PR. That
+  # is why MI-70's ruling-relevant findings went to #6927 rather than to the
+  # manager directly, and it is why the spawn prompt must tell a sub-session to
+  # write upward-bound information into the board or the PR rather than "tell the
+  # manager".
   #
   # THIS IS WHY THE HANDOFF IS CHEAP. There is no live connection to transfer —
   # "taking over" is purely a KNOWLEDGE problem, and knowledge goes in files.
