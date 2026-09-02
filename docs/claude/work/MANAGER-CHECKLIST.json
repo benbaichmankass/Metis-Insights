@@ -807,16 +807,16 @@
     },
     {
       "id": "MI-64-CONCURRENT-SESSION-CAP-IS-THREE-NOT-EIGHT",
-      "title": "Operator caps: at most 4 concurrent sessions AND at most 4 artifacts, respected INDEPENDENTLY",
+      "title": "Operator cap: at most 3 concurrent work sessions, scale up only on measured feasibility",
       "state": "in_flight",
       "added": "2026-09-02",
       "owner": "manager",
       "tier": "1 (process/governance; no code, no order path)",
-      "observed": "OPERATOR DIRECTIVE 2026-09-02, verbatim: 'I think we need to limit ourselves to 3 concuurent work sessions - 8 seems like too much for to handle reliably, so lets start small and scale up based on what we actually know is feasible', followed by 'LEt all the opne sessions close, but don't spawn new ones until 1 of the 3 slots is open'. So: no forced stand-downs, a spawn gate, and the number is provisional pending evidence. || REVISED BY THE OPERATOR THE SAME HOUR, and the revision is not simply a bigger number: 'we can pair 4 sessions and 4 artifacts (if less then 4 artifacts then we can have more then one session per artifact, we jsut need both caps to be respected independently)'. So it is TWO caps, not one, and the pairing is NOT 1:1 -- several sessions may work one artifact. The 3-session number this row first recorded is SUPERSEDED.",
+      "observed": "OPERATOR DIRECTIVE 2026-09-02, verbatim: 'I think we need to limit ourselves to 3 concuurent work sessions - 8 seems like too much for to handle reliably, so lets start small and scale up based on what we actually know is feasible', followed by 'LEt all the opne sessions close, but don't spawn new ones until 1 of the 3 slots is open'. So: no forced stand-downs, a spawn gate, and the number is provisional pending evidence.",
       "what_complying_would_have_done": "Nothing was violated -- this is a new constraint. What it corrects is a manager habit: this session spawned freely because the declared ceiling was 8, and the binding constraint was never the ceiling. It is the OPERATOR'S capacity to follow what is in flight, which no register measured.",
       "root_cause": "THE CAP IN THE DESIGN COUNTS A DIFFERENT THING FROM WHAT THE OPERATOR CAPPED, and conflating them would silently break CI. The operating model's WIP ceiling of 8 counts in_flight WORK OBJECTS (docs/claude/work/objects/*.yaml) and is enforced by scripts/ci/check_wip_ceiling.py. The operator capped concurrent WORK SESSIONS. These are different registers with different populations: measured 2026-09-02 there are 4 in_flight objects and 2 RUNNING sessions. Lowering the OBJECT ceiling to 3 would fail CI immediately on the 4 in_flight phase objects, which is not what was asked and would block the build. The session cap is therefore applied to SESSIONS, and the object ceiling is left at 8 pending an explicit operator call.",
-      "what_actually_prevents_it": "TWO INDEPENDENT CAPS, both at 4: at most 4 concurrent SESSIONS, and at most 4 concurrent ARTIFACTS. Neither implies the other, and the binding one is whichever is reached first. [!] SEVERAL SESSIONS MAY SHARE ONE ARTIFACT -- the operator said so explicitly -- so a session count is NOT derivable from an artifact count, and a manager must check BOTH before spawning. [!] THE COUNT IS ASSIGNED-AND-UNFINISHED WORK, NOT `SESSION_STATUS_RUNNING`. An idle session that still owes a PR is a thing the operator is tracking; counting only RUNNING read 2 today while four sessions held open work. [!] A list_sessions PAGE IS NOT A POPULATION: today's read returned 40 rows with has_more true. [!] MEASURED 2026-09-02: THE ARTIFACT CAP IS THE BINDING ONE AND IT IS BREACHED -- 4 sessions (at cap) against 13 OPEN PRs. Most are not live workstreams (#10780 is marked DO NOT MERGE; #10398 is an automation PR open since 2026-08-29), so the honest reading is that 'artifact' needs a DEFINITION before the cap can be enforced rather than merely quoted.",
-      "the_honest_residual": "NOTHING ENFORCES THIS YET -- it is a manager discipline, and the register that would make it checkable (SESSIONS.json) is the same one measured INCOMPLETE twice: MI-15 found 3 of 6 absent, and a later census found 26 of 55 sessions unregistered with 17 carrying this manager's own id as parent. So a cap counted over that register would under-count exactly when it matters. Making it enforceable is real work and is not done here. [!] THE NUMBER IS PROVISIONAL BY THE OPERATOR'S OWN WORDING -- 'scale up based on what we actually know is feasible' -- so raising it needs evidence about handling capacity, not a busy week. || AND THE ARTIFACT HALF HAS NO DEFINITION YET. 'Open PR' overcounts -- a DO-NOT-MERGE recovery PR and a stale automation PR are not workstreams. 'in_flight work object' undercounts and is a different register again. Picking one silently would make the cap look enforced while measuring the wrong population, which is the exact defect this system keeps filing against its own diagnostics. Stated rather than resolved."
+      "what_actually_prevents_it": "The manager does not spawn while the count is at or above 3. [!] THE COUNT IS ASSIGNED-AND-UNFINISHED WORK, NOT `SESSION_STATUS_RUNNING`. An idle session that still owes a PR is a thing the operator is tracking, and counting only RUNNING would have read 2 today while four sessions held open work -- the permissive reading, and the one that reproduces the condition the cap exists to end. [!] AND A list_sessions PAGE IS NOT A POPULATION: the read that established today's number returned 40 rows with has_more true, so a count taken from one page must say so.",
+      "the_honest_residual": "NOTHING ENFORCES THIS YET -- it is a manager discipline, and the register that would make it checkable (SESSIONS.json) is the same one measured INCOMPLETE twice: MI-15 found 3 of 6 absent, and a later census found 26 of 55 sessions unregistered with 17 carrying this manager's own id as parent. So a cap counted over that register would under-count exactly when it matters. Making it enforceable is real work and is not done here. [!] THE NUMBER IS PROVISIONAL BY THE OPERATOR'S OWN WORDING -- 'scale up based on what we actually know is feasible' -- so raising it needs evidence about handling capacity, not a busy week."
     },
     {
       "id": "MI-65-MANAGER-ASSERTED-A-SECRET-WAS-UNSET-WITHOUT-MEASURING-IT",
@@ -833,6 +833,83 @@
         "#10789",
         "#10793",
         "OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN"
+      ]
+    },
+    {
+      "id": "MI-66-ENACT-THE-OPERATING-LAYER-INVENTORY-QUEUED-FOR-THE-NEXT-FREE-SLOT",
+      "title": "Enact the skills/workflow inventory: wire the role packs to the operating layer, and repair the 4 named workflows",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": null,
+      "tier": "1 for the skills + workflow repairs; a RETIRE is Tier-3 and is proposed, never enacted",
+      "spawn_when": "THE NEXT FREE SESSION SLOT. Operator-directed 2026-09-02: \"queue that up for the next free slot\". The caps are 4 sessions AND 4 artifacts, independently (MI-64), and both were at or over cap when this was queued. The expected first opening is MI-58 (#10789) completing.",
+      "observed": "docs/audits/operating-layer-skills-workflows-inventory-2026-09-02.md (730 lines) DELIVERED the mapping MI-41 asked for -- the skill/session-type map, the 129-workflow census, and verdicts. Its own closing section says: 'It enacted nothing. No skill, workflow, register or Routine was created, edited or deleted. The only file added is this one.' So MI-41's diagnosis is DONE and its enactment has not started, and MI-41 carries owner: None.",
+      "root_cause": "THE STRUCTURAL FINDING, and the reason the operating layer keeps not being used: it shipped its OBJECT half on 2026-09-01 -- store, intents, WIP ceiling, constraint readout, lease, checklist, cycle priority, sunset pass -- and NOT ONE ROLE PACK was updated to know it exists. Measured across all 32 SKILL.md files, case-insensitively: docs/claude/work 0 hits, 'work object' 0, WIP 0, blocked_on 0, CYCLE-PRIORITY 0, READOUT 0, PRODUCE/DISPOSE 0, SUNSET-DISPOSITIONS 0. The model's anti-silo mechanism is context = work object + role pack, and its two halves are wired to DIFFERENT SYSTEMS. A session handed a work object opens a role pack describing the pre-2026-09-01 world of three backlogs and DUE.md.",
+      "scope": "IN: (a) wire the handful of role packs that govern how a session SITUATES itself -- the audit's 4.2 names them -- to the work store, the readout and the caps. (b) The 4 REPAIR workflows the audit evidences: replay-pregate-nightly (5 of 5 most recent runs FAILED, and it is now correctly alarmed, so it is generating a nightly page nobody acts on -- a desensitized alarm forming in real time), probes + due-list (reliability, distinct from the already-cleared 'has it ever fired'), strategy-review-packets (20 lifetime runs, 0 on cron -- RE-READ before grading, a late fire is possible), ict-scalp-exit-sweep (red since 2026-08-10, 23 days). (c) The audit's single CREATE item, which it calls the highest-leverage in the document. [!] NOT IN SCOPE: editing all 32 skills. The audit is explicit that most role packs are domain procedure (how to wire a broker, how to run a sweep) and are CORRECTLY indifferent to where work is tracked. A 32-file sweep would be the wrong shape and would bury the handful that matter.",
+      "what_actually_prevents_it": "Nothing technical -- it is unowned, and it was queued behind a session cap rather than behind a blocker. That distinction matters: this is not waiting on evidence or a decision.",
+      "the_honest_residual": "[!] 87 OF THE 129 WORKFLOWS CANNOT BE GRADED ON DORMANCY AT ALL, and the audit says so rather than guessing. They are issue-label-driven and their run history is dominated by skipped label evaluations whose most recent entry is always today; no cheap surface answers 'has this ever done work, and when last'. That is why the RETIRE list is short -- an honest audit cannot retire what it could not measure. Do not let an enacting session 'finish the job' by retiring on a dormancy signal that does not exist. [!] AND THE AUDIT ITSELF CORRECTED THE DESIGN DOCS IN BOTH DIRECTIONS: 5 functions the derivation lists as MISSING have all since shipped, and A1's readout is declared Cadenced while having NO cadence and no freshness check -- stale in the dangerous direction. An enacting session must read the audit, not the derivation, and must not re-derive from build-plan text that the audit already superseded.",
+      "refs": [
+        "MI-41",
+        "docs/audits/operating-layer-skills-workflows-inventory-2026-09-02.md",
+        "#10764"
+      ]
+    },
+    {
+      "id": "MI-67-HANDOFF-BAR-IS-VERIFIED-NOT-MERGED",
+      "title": "No manager handoff until the requisite flows are built, implemented AND verified working",
+      "state": "in_flight",
+      "added": "2026-09-02",
+      "owner": "manager",
+      "tier": "1 (process)",
+      "observed": "Operator-directed 2026-09-02: \"I don't want to handoff before we are at least 200% certain that the requisite flows and merchanisms are built, implmented, and verified working correctly\". Also, earlier the same hour: \"i don't want to hand off before we're ready - that's why I keep asking you instead of telling you.\" So handoff readiness is the OPERATOR'S call and handoff_check's readiness=ready is NECESSARY AND NOT SUFFICIENT.",
+      "root_cause": "handoff_check grades whether a SUCCESSOR CAN SEE the state -- registry, lease, checklist, open-PR rows. It says nothing about whether the MECHANISMS WORK. Those are different questions and this repo's whole vocabulary exists to keep them apart: landed_unproven is not done, a merge is not a deploy, and a deploy is not an observation.",
+      "what_actually_prevents_it": "THE BAR, STATED AS OBSERVATIONS SO IT IS CHECKABLE RATHER THAN A FEELING. Each names what would settle it, and a green test settles NONE of them: (1) DECISION ROUND-TRIP ON CLAUDEBOT -- a tap on ClaudeBot producing a work_decision_transit row, then that same request grading `committed` on /api/bot/work/decisions with the answer block on main. Already PROVEN on the TRADER bot (10:11:42Z prompt, 10:16:36Z tap, submitted_by telegram); the ClaudeBot leg is not. [!] CORRECTED 2026-09-02 BY MI-58, AND THE MANAGER'S PREMISE WAS FALSE. The manager told MI-58 that 'once TELEGRAM_CLAUDE_BOT_SECRET is set, the fallback can never fire' and used that to argue for KEEPING the trader-bot fallback rather than making it fail-closed. WRONG: answerable_route() requires a live HEARTBEAT, not merely a token, so if ict-claude-decision-bot.service dies or is masked, decisions land on the trader bot again WITH THE SECRET SET. The fallback is PERMANENT, not a pre-secret window. The decision to keep it may still be right on its own merits -- a wrong chat is a noise complaint, holding every prompt is an outage -- but the reason given for it was not. [!] SO SETTING THE SECRET IS NOT THE POST-DEPLOY CHECK. Read /api/diag/log_file?name=telegram_poll_claude and `destination` in the sweep stats. 'Decisions still arrive' is NOT evidence the move happened -- that is precisely what the fallback produces. (2) /status AND /decisions -- the operator types each and gets a correct reply, ON CLAUDEBOT. #10793 is held as a draft precisely so this cannot be satisfied on the wrong bot. (3) PUSH-BACK TO THE ASKING SESSION (MI-60, #10788) -- a committed decision reaching the session that asked, without a minted token. B is not done when the Routine EXISTS; it is done when something WATCHES that it FIRED (list_triggers.last_run), because two Routines on this account were enabled and never once fired. (4) THE WORK STORE -- a COLD session, not pointed there by its prompt, acting on the readout or the cycle priority and citing where it read it. (5) NO WORK IS LOST (Phase E) -- demonstrated BY KILLING A SESSION MID-WORK, not asserted from a test. Nobody has killed one. (6) THE DAILY DIGEST -- one run with event=schedule. A workflow_dispatch run is not a cron run.",
+      "the_honest_residual": "[!] THE MANAGER IS THE WRONG JUDGE OF (4) AND CANNOT CLEAR IT. A cold observation is by definition made by a session that was not told, and this manager built or dispatched most of these. Record WHICH session made each observation. [!] AND DO NOT LET THIS ROW BECOME A REASON NEVER TO HAND OFF. It is a bar, not a veto: if a mechanism turns out to be unverifiable rather than merely unverified, that is a finding to report to the operator, not a condition to wait out forever.",
+      "refs": [
+        "#10789",
+        "#10793",
+        "#10788",
+        "MI-64",
+        "MI-65"
+      ]
+    },
+    {
+      "id": "MI-68-THE-MANAGER-ROLE-HAS-NO-ROLE-PACK-AND-NO-EXECUTABLE-PREFLIGHT",
+      "title": "The most privileged role in the system has no skill, so every manager re-derives the job from prose and repeats the same mistakes",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": null,
+      "tier": "1 (a skill + checks; no order path)",
+      "spawn_when": "After MI-66, or in the same session if scope allows. Both are enactment of the operating-layer inventory.",
+      "observed": "Operator, 2026-09-02: 'how do we ensure that you future manager session don't make the same mistake?' MEASURED in answering it: 32 skills exist and NOT ONE is a manager role pack. The role that merges, deploys, spawns sessions, holds the lease and answers to the operator is the only significant role with no pack. Everything a manager knows arrives as prose -- CLAUDE.md, a sweep-trigger prompt, and whatever the previous manager wrote in a checklist note.",
+      "root_cause": "DOCUMENTATION HAS ALREADY BEEN TRIED AND MEASURABLY FAILED, and that is the whole argument for this row. The CI-never-fired trap is stated VERBATIM in CLAUDE.md ('if such a commit lands last your PR shows ZERO checks and is blocked, not green -- push an ordinary commit after, to arm CI'). The manager session of 2026-09-02 had read that line and hit the trap THREE TIMES the same afternoon (#10793, #10795, #10789). Restating a rule that is known and still broken is not a fix; this repo's own F4 says a repeated mistake becomes an executable check or it is not a lesson.",
+      "scope": "A `manager` skill carrying (a) the loop -- lease heartbeat, read the registers, merge one at a time re-verifying between, review before un-drafting, spawn through the registry -- and (b) an EXECUTABLE PREFLIGHT rather than a list of reminders. The preflight must include, at minimum, the four failures measured on 2026-09-02: 1. BEFORE trusting `total_count: 0`, read mergeable_state AND the head commit's AUTHOR -- a bot-authored head means CI never fired (BL-20260902-BOARD-POST-RELAY-SILENTLY-KILLS-CI...). 2. BEFORE landing a register-touching manager PR, check what sibling PRs it will re-conflict; the manager is the highest-frequency writer to those files (BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS...). 3. BEFORE blocking work on a claim about live state, PROBE it. The 2026-09-02 manager blocked the ClaudeBot work on 'TELEGRAM_CLAUDE_BOT_SECRET is unset', asserted from a doc row dated the previous day, against the operator's own contrary sighting (MI-65). 4. BEFORE a read-append-write on any register, confirm the file round-trips; OPEN-ITEMS.json does not (BL-20260902-OPEN-ITEMS-IS-THE-ONE-REGISTER-NO-APPEND-HELPER-PROTECTS).",
+      "what_actually_prevents_it": "An executable preflight the manager RUNS, not a section it reads -- the `handoff_check.py` shape, which already refuses `ready` rather than grading a soft pass, and which is the one manager mechanism that has worked reliably today. Every item above is checkable from a script.",
+      "the_honest_residual": "[!] A SKILL IS STILL PROSE UNTIL THE CHECKS EXIST. Writing a `manager` SKILL.md and stopping there would reproduce exactly the failure this row documents -- and would be harder to see, because the role pack would LOOK like the fix. The deliverable is the checks; the skill is where they are invoked from. [!] AND IT INHERITS MI-66's FINDING: no role pack references the operating layer at all, so a new manager pack must point at the work store, the readout and the caps rather than the pre-2026-09-01 world of three backlogs and DUE.md. Writing it against the old world would add a 33rd skill with the same gap.",
+      "refs": [
+        "MI-66",
+        "MI-65",
+        "MI-20",
+        "MI-28",
+        "BL-20260902-BOARD-POST-RELAY-SILENTLY-KILLS-CI-ON-THE-PR-OF-ANY-SESSION-THAT-FOLLOWS-THE-PROTOCOL",
+        "BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE",
+        "BL-20260902-OPEN-ITEMS-IS-THE-ONE-REGISTER-NO-APPEND-HELPER-PROTECTS"
+      ]
+    },
+    {
+      "id": "MI-69-A-REBASE-CAN-ARM-AUTOMERGE-WITHOUT-ANYONE-ASKING",
+      "title": "A rebase or merge of main arms auto-merge on a claude/** branch, because the push diff includes everything main changed",
+      "state": "queued",
+      "added": "2026-09-02",
+      "owner": null,
+      "tier": "1 (CI/workflow)",
+      "observed": "Found and filed by MI-58. claude-pr-automerge.yml still carries the LEGACY shared marker `.github/pr-automerge-request` in its paths: filter and that file is still in the tree, so any claude/** branch that merges or rebases main touches the path and is UN-DRAFTED AND ARMED having asked for nothing. [!] THIS EXPLAINS AN OBSERVATION THE MANAGER MADE AND COULD NOT ACCOUNT FOR: on #10795 the manager noted that github-actions[bot] un-drafted the PR and enabled auto-merge 'without a marker file in my diff' and flagged it as odd. This is the cause. The manager had the symptom; MI-58 had the mechanism.",
+      "what_actually_prevents_it": "Remove the legacy shared path from the workflow's paths: filter so ONLY the per-request .github/pr-automerge-requests/<slug>.txt opt-in arms it. That per-request path is already the documented convention and its README records why the shared marker was wrong.",
+      "the_honest_residual": "[!] DELETING A HOLD FILE IS NOT THE FIX. A test-file hold WAS deleted on 2026-09-02 (correctly, for an unrelated reason) and could be mistaken for remediation. The mechanism is untouched.",
+      "refs": [
+        "#10789",
+        "#10795",
+        "BL-20260902-A-REBASE-ARMS-AUTOMERGE-BECAUSE-A-PUSH-DIFF-INCLUDES-EVERYTHING-MAIN-CHANGED"
       ]
     }
   ],
