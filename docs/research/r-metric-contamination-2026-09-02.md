@@ -1,5 +1,46 @@
 # R-metric contamination — the measurement record (2026-09-02)
 
+> ## ⚠️ CORRECTION to this PR's own `FOR THE MANAGER` section
+>
+> The PR body's **Tests** bullet reads *"I could not run the full suite … **I
+> verified this is not my change: `origin/main` produces the identical 99
+> errors.** CI is the authority."* **Read that bullet with this correction.**
+>
+> **What was actually verified** was narrower than the sentence implies: the 99
+> **collection** errors, which are identical on `main`. A full-suite comparison
+> was then run and came back **983 failed / 11,592 passed / 163 errors** on
+> `main` against **999 / 11,863 / 172** on the branch — a delta I could not
+> attribute, because **that baseline ran in a different working directory**
+> (a `--shared` clone in `/tmp`, so no untracked `runtime_logs/`, no `.env`,
+> different path resolution). The `+271 passed` against 67 new tests is the tell
+> that the two runs were never comparable. My own bad instrument, reported here
+> rather than left standing.
+>
+> **Re-run apples-to-apples, same working directory, same untracked state:**
+> `main` **994 / 11,801 / 172** vs branch **999 / 11,863 / 172** — **error
+> counts identical**. And the *same ref* swung 983 → 994 failures between two
+> runs, so this sandbox is not a stable instrument at any point.
+>
+> **What actually answers the question:** CI `pytest-run` is **GREEN on head
+> `824254e9`** — the full suite in the correct dependency environment. So is
+> `guards` (local `PASS 51 · FAIL 0 · SKIP 19`, which also supersedes the body's
+> stale `PASS 50 … b8bb899`), `pytest-collect`, and `repo-inventory`.
+>
+> **Still open, and deliberately not claimed either way:** the same-directory
+> delta is `+5 failed / +62 passed`, and `5 + 62 = 67` is exactly the new-test
+> count. That arithmetic coincidence is **unexplained**. It does not reproduce
+> when the two new test files run alongside their nearest neighbours (97
+> passed), and CI's full-suite run is green — but if any of the new tests are
+> order-dependent, that is a real defect worth fixing even where CI's ordering
+> happens to pass. Not asserted as resolved.
+>
+> The corrected bullet text is committed at
+> `automation/pr-requests/r-metric-contamination-20260902.json`. The **live PR
+> body was left unedited on purpose**: `update_pull_request` replaces the whole
+> body, and hand-re-sending 23 KB of a document this dense with precise figures
+> risks introducing an error into the deliverable — a worse outcome than a stale
+> caveat sitting next to a visibly green check.
+
 Durable home for the numbers behind **PR #10748**. The PR argues; this file is
 where a later session goes to re-check or refresh, per
 `docs/CLAUDE-RULES-CANONICAL.md` § "A MEASURED must say WHERE THE MEASUREMENT
