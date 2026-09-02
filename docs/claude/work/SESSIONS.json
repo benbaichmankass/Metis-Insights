@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T19:01:33Z",
+  "updated_at": "2026-09-02T20:39:21Z",
   "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
   "sessions": [
     {
@@ -1205,6 +1205,17 @@
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "Two confirmed by direct read (#10788, #10793), both merged by github-actions[bot], both declaring themselves not-for-merge. Both found by accident. #10810's fix stops NEW mis-arming and says in its own text it cannot retract arming already enabled.",
       "confirmed_at": "2026-09-02T19:01:33Z"
+    },
+    {
+      "session_id": "session_018ruZdgEkPZ1XceWzLwuYUU",
+      "registry_key": "pending-20260902T203841Z",
+      "state": "working",
+      "title": "MI-83 — per-merge pings, and a clock that survives the session",
+      "owns_object": "WO-20260902-THE-OPERATOR-GETS-NO-PER-MERGE-PING",
+      "spawned_at": "2026-09-02T20:38:41Z",
+      "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "why": "Operator directive, twice. PING_WORTHY watches work-object lifecycle transitions, not merges. And the hourly clock has no durable carrier: GitHub cron does not honour schedules, and a Claude Routine is REFUSED because it dies with the session.",
+      "confirmed_at": "2026-09-02T20:39:21Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."
