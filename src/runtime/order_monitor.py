@@ -1688,9 +1688,41 @@ def _cancel_resting_protection_after_flat(
     sent — and so they never cancelled the symbol's resting GTC OCA legs. On IB
     those stale stops sit on a now-flat position and can later fire, SELLING into
     a reverse position → a fresh orphan (the MHG long→short flip,
-    BL-20260624-MHG-FLIP). This sweeps them. IB-only: Bybit/Alpaca/OANDA closes
-    are atomic / position-attached, so there are no stranded resting legs to
-    cancel (the client simply has no ``cancel_resting_protection`` and we no-op).
+    BL-20260624-MHG-FLIP). This sweeps them.
+
+    ⚠️ **IT IS IB-ONLY, AND THE REASON THIS DOCSTRING GAVE FOR THAT IS FALSE FOR
+    BYBIT** (corrected 2026-09-02, comment only — no behaviour changed here). It
+    read: *"IB-only: Bybit/Alpaca/OANDA closes are atomic / position-attached, so
+    there are no stranded resting legs to cancel."* Under
+    ``BYBIT_TPSL_MODE=partial`` — **the live value** — a Bybit protective leg is a
+    SEPARATE resting conditional order, which :func:`_bybit_position_protection`'s
+    own docstring says outright two thousand lines down. **Field beats comment.**
+
+    Only ``IBClient`` implements ``cancel_resting_protection`` (grep, whole tree),
+    so this is a no-op on Bybit — and, separately, it is wired ONLY into
+    :func:`_reconcile_orphan_exchange_positions`, **not** into the
+    ``reconciler_filled`` close path in :func:`_reconcile_open_trades`. So a Bybit
+    row whose position went flat at the venue is finalised with NOTHING cancelling
+    its tracked ``trades.sl_order_id`` / ``tp_order_id`` legs: the active-close
+    path's cancel lives in ``close_open_position``, which that path never calls.
+
+    OBSERVED 2026-09-02 (trader ``git_sha 68e73de8``): ``bybit_1`` trade 5308
+    (short 0.424, BTCUSDT) closed ``reconciler_filled`` at 03:05:33Z, and both of
+    its tracked legs — ``c50841d7…`` SL and ``3629a331…`` TP, ids matching the
+    journal exactly — were still resting on the venue at 03:41:27Z, 36 minutes
+    later. MEASURED denominator: 16 of the 92 closed ``bybit%`` rows in the 200
+    most-recent ``trades`` (``/api/bot/db/table/trades?limit=200``, read
+    2026-09-02T03:50Z) closed ``reconciler_filled`` while carrying a tracked leg
+    id — a path that cancels nothing. ⚠️ That is 16 closes on a no-cancel path,
+    NOT 16 stranded legs: a leg that fired is gone, and the venue clears many
+    itself. What it establishes is that the bot relies entirely on the venue
+    there, and that at least one close demonstrably left its legs resting.
+
+    Wiring a Bybit ``cancel_resting_protection`` (or extending the tracked-leg
+    cancel to the reconciler path) is a **Tier-2** order-path change and is
+    deliberately NOT made here — it is proposed in the PR that corrected this
+    docstring, so it lands with its own review and its own tests.
+
     Never raises into the reconcile sweep.
     """
     if not account_id or not symbol:
