@@ -758,3 +758,52 @@ def test_the_write_gate_hold_still_wins_over_the_poll_hold(tmp_path, monkeypatch
     _default_sender_spy(monkeypatch, [])
     stats = td.run_decision_prompt_sweep(state_path=tmp_path / "p.json")
     assert stats["held_write_gate"] == 1 and stats["held_not_polled"] == 0
+
+
+# ── the fallback must be LOUD, not merely counted ───────────────────────────
+
+def test_falling_back_with_the_secret_SET_warns_because_the_operator_asked(
+        tmp_path, monkeypatch, caplog):
+    """The manager's own criterion for keeping the fallback is that it is loud.
+
+    Measured 2026-09-02 before this existed: with TELEGRAM_CLAUDE_BOT_SECRET set
+    but nothing polling it, the sweep sent to the trader bot and emitted ZERO
+    warnings, while `poll_state` read `polled_with_handler` — that field
+    describes the SELECTED route, and the trader bot genuinely is polled. A
+    surface reading healthy while the operator's decisions sit in the wrong chat
+    is the shape this module exists to end.
+    """
+    monkeypatch.setenv("TELEGRAM_CLAUDE_BOT_SECRET", "dedicated-and-SET")
+    _trader_is_polled()                     # ...but the Claude bot is NOT
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([_request()]), None))
+    sent = []
+    _default_sender_spy(monkeypatch, sent)
+    with caplog.at_level("WARNING"):
+        stats = td.run_decision_prompt_sweep(state_path=tmp_path / "p.json")
+
+    assert stats["destination"] == "trader_fallback"
+    assert len(sent) == 1                   # still DELIVERED, never held
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert any("NOT confirmed polled" in m for m in warnings)
+    assert any("ict-claude-decision-bot.service" in m for m in warnings)
+    # names the VARIABLE, never the value
+    assert not any("dedicated-and-SET" in m for m in warnings)
+
+
+def test_falling_back_with_NO_secret_stays_quiet(tmp_path, monkeypatch, caplog):
+    """Before the operator sets the secret, trader delivery IS the declared state.
+
+    A WARNING every cadence for a condition nobody intends to change is the
+    desensitised-alarm failure this repo files as a P1 in its own right — so the
+    line is gated on the dedicated token actually resolving, and disappears by
+    itself once the service is polling.
+    """
+    monkeypatch.delenv("TELEGRAM_CLAUDE_BOT_SECRET", raising=False)
+    _trader_is_polled()
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([_request()]), None))
+    _default_sender_spy(monkeypatch, [])
+    with caplog.at_level("WARNING"):
+        stats = td.run_decision_prompt_sweep(state_path=tmp_path / "p.json")
+
+    assert stats["destination"] == "trader_fallback"
+    assert not [r for r in caplog.records if r.levelname == "WARNING"]

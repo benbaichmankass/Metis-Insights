@@ -832,6 +832,8 @@ def run_decision_prompt_sweep(
         "prompt_state_read": None,
         "destination": None, "poll_state": None,
     }
+    from src.bot.telegram_routes import claude_route
+
     try:
         if prompt_interval_seconds() <= 0:
             stats["paused"] = True
@@ -874,6 +876,33 @@ def run_decision_prompt_sweep(
         gate_on_route = sender is None
         if sender is None:
             sender = _default_sender
+
+        # ⚠️ THE FALLBACK MUST BE LOUD, NOT MERELY COUNTED. Measured 2026-09-02:
+        # with TELEGRAM_CLAUDE_BOT_SECRET SET but nothing polling it, this sweep
+        # sent to the trader bot and emitted ZERO warnings, while
+        # ``stats["poll_state"]`` read ``polled_with_handler`` — because that
+        # field describes the SELECTED route, and the trader bot genuinely IS
+        # polled. A surface reading healthy while the operator's decisions are
+        # in the wrong chat is the very shape this module exists to end, one
+        # level up. `destination` alone is not enough: nobody greps stats.
+        #
+        # ⚠️ IT WARNS ONLY WHEN THE OPERATOR HAS ASKED FOR THE CLAUDE BOT, i.e.
+        # the dedicated token RESOLVES. Before that, trader delivery is the
+        # declared and correct state, and a WARNING every cadence for a
+        # condition nobody intends to change is the desensitised-alarm failure
+        # this repo files as a P1 in its own right. Set the secret and the line
+        # goes away by itself — it is self-clearing, which is what makes it
+        # worth emitting at all.
+        if gate_on_route and route.destination == "trader_fallback":
+            _claude = claude_route()
+            if _claude.isolated:
+                logger.warning(
+                    "telegram_decisions: the dedicated Claude bot is configured "
+                    "(%s) but NOT confirmed polled, so decision prompts are going "
+                    "to the TRADER bot instead — the operator asked for them on "
+                    "ClaudeBot. Enable ict-claude-decision-bot.service on this VM. "
+                    "%s", _claude.token_from, route.note,
+                )
 
         if gate_on_route and route.deliverable and not route.answerable:
             # ⚠️ THE TWO NON-ANSWERABLE STATES TAKE DIFFERENT OPERATOR ACTIONS,
