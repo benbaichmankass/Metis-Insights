@@ -993,7 +993,6 @@ def _plural(n: int, one: str, many: Optional[str] = None) -> str:
 def render_decisions_summary(
     inbox: dict[str, Any],
     *,
-    sendable: int,
     withheld_cap: int = 0,
     route: Optional[AnswerableRoute] = None,
     tree: Optional[Any] = None,
@@ -1182,7 +1181,7 @@ def build_on_demand_decisions(
 
         out: list[tuple[str, Optional[dict[str, Any]]]] = [(
             render_decisions_summary(
-                inbox, sendable=len(send), withheld_cap=len(withheld),
+                inbox, withheld_cap=len(withheld),
                 route=resolved, tree=tree,
             ),
             None,

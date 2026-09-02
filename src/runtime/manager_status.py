@@ -483,8 +483,8 @@ def build_sections(
     blocked = pick(_BLOCKED)
     grades: dict[str, int] = {}
     for i in in_flight + blocked:
-        grades[grade_owner(i.get("owner"), registered)[1]] = grades.get(
-            grade_owner(i.get("owner"), registered)[1], 0) + 1
+        grade = grade_owner(i.get("owner"), registered)[1]
+        grades[grade] = grades.get(grade, 0) + 1
     owner_line = "owners (in_flight+blocked): " + (
         " · ".join(f"{k} {v}" for k, v in sorted(grades.items())) or "none")
 
