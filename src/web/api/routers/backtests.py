@@ -90,7 +90,7 @@ def _row_to_wire(row: sqlite3.Row) -> Dict[str, Any]:
         # one hardcoded ICT engine regardless of the strategy named, and
         # stamped four fabricated 0.0 metrics). The ROUTE survives so the
         # existing historical rows stay readable and the two consumers
-        # that call it (the Streamlit Backtesting tab and Android
+        # that call it (the SPA's Backtesting tab; the Streamlit tab and Android
         # BotApi.kt:1903) keep working; a 404 here would give the
         # dashboard a permanent warning banner and make Retrofit raise.
         # Real backtests come through /api/bot/backtests/sweeps.

@@ -1,9 +1,9 @@
-"""Learning-center router — /api/bot/learning/* (dashboard + Android Learning tab).
+"""Learning-center router — /api/bot/learning/* (the SPA's Learning tab).
 
 Serves the committed curriculum content (``comms/learning/curriculum.json``),
 the **interactive courses** (audio + quiz modules under
 ``comms/learning/courses/*.json``), and a small per-resource progress store
-(``trade_journal.db::learning_progress``) so BOTH the dashboard and the Android
+(``trade_journal.db::learning_progress``) so the SPA and the (now-retired) Android
 app render the same syllabus + courses from one source AND let the operator
 mark resources done — durable and cross-device (unlike browser-local state).
 Course audio can be committed in-repo, Google-Drive-hosted (``drive_id`` — the
@@ -14,7 +14,7 @@ Tier 1: observability read + a tiny operator-only progress write (no trading
 impact, no order path, no notification). The write is an **unauthenticated
 client self-service** POST — the same shape as ``POST /devices/register`` (a
 client records state without holding the shared ``DASHBOARD_API_TOKEN``) — so
-BOTH the dashboard and the Android app can mark progress. The store holds no
+the SPA can mark progress. The store holds no
 secret, so open write is acceptable here (unlike the fail-closed prop-money
 POST). The content read is best-effort (``present:false`` on missing/garbled
 file).
@@ -86,7 +86,7 @@ def _get_curriculum() -> dict[str, Any]:
 # standard for large files — the shared learning Drive folder is the content
 # store), or any hosted URL (audio_url); an episode with only a script is read
 # by the client's built-in TTS. Serving these from the bot means BOTH the
-# dashboard and the Android app render the same courses from one source.
+# SPA renders the courses from one source.
 
 _COURSE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
@@ -254,7 +254,7 @@ async def post_progress(request: Request) -> dict[str, Any]:
     """Upsert one resource's progress. Body:
     ``{resource_id, status ∈ {not_started,in_progress,done}, note?}``.
     Unauthenticated client self-service write (like ``POST /devices/register``)
-    so both the dashboard and the Android app can record progress. Tier 1
+    so the SPA can record progress. Tier 1
     (operator observability; no trading impact, no order path, no notification).
     """
     try:

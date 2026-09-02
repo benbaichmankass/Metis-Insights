@@ -1,6 +1,6 @@
 """Device-token registration endpoints (M12 S1).
 
-Tier-1 surface used by the Android companion app to register its FCM
+Tier-1 surface built for the Android companion app (retired from the live feed 2026-09-01) to register its FCM
 token with the bot so the ``mobile_push`` notifier can fan out
 push notifications to the operator's phone(s).
 
@@ -259,7 +259,7 @@ async def register_device(request: Request) -> dict[str, Any]:
 def get_event_kinds() -> dict[str, Any]:
     """Return the canonical event-kind taxonomy.
 
-    Used by the Android Notifications screen to populate per-kind toggles
+    Was used by the Android Notifications screen to populate per-kind toggles
     so the app and the bot stay in sync (the app doesn't have to mirror
     the list, just iterate this response). Each entry carries the
     canonical kind string, a display label, and a one-line description.

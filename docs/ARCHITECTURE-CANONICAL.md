@@ -413,28 +413,35 @@ diag surface (`src/web/api/routers/diag.py`) expose status, halt and
 resume actions, and pending requests. **Two** frontends live in the
 `ict-trader-dashboard` repo, and they consume the same unauthenticated Tier-1
 endpoints (documented in [`api-tier-policy.md`](api-tier-policy.md)) over
-**two different transports** — plus the native Android app:
+**one transport** since the other two consumers were retired (2026-09-01):
 
-| frontend | host | transport to `:8001` |
-|---|---|---|
-| Streamlit dashboard (`streamlit_app.py`) | Streamlit Community Cloud | **server-side plain HTTP** direct to `http://141.145.193.91:8001`. No tunnel, no proxy. CORS not load-bearing. |
-| Svelte SPA (`webapp/`) | GitHub Pages | **browser-direct HTTPS via Caddy** on the live VM — `https://ict-bot.duckdns.org` → `reverse_proxy localhost:8001`, Let's Encrypt cert auto-provisioned for the DuckDNS hostname. `/ws/market` upgrades to **WSS** through the same proxy. CORS **is** load-bearing. |
-| Android app | device | plain HTTP to the same `:8001` default (`AppPrefs.DEFAULT_BOT_URL`), cleartext-allowlisted per-host. |
+| frontend | host | transport to `:8001` | status |
+|---|---|---|---|
+| Svelte SPA (`webapp/`) | GitHub Pages | **browser-direct HTTPS via Caddy** on the live VM — `https://ict-bot.duckdns.org` → `reverse_proxy localhost:8001`, Let's Encrypt cert auto-provisioned for the DuckDNS hostname. `/ws/market` upgrades to **WSS** through the same proxy. CORS **is** load-bearing. | ✅ **LIVE — the only consumer** |
+| Streamlit dashboard (`streamlit_app.py`) | Streamlit Community Cloud | was **server-side plain HTTP** direct to `http://141.145.193.91:8001`. No tunnel, no proxy. CORS not load-bearing. | 🗄️ **RETIRED 2026-09-01** |
+| Android app | device | was plain HTTP to the same `:8001` default (`AppPrefs.DEFAULT_BOT_URL`), cleartext-allowlisted per-host. | 🗄️ **RETIRED 2026-09-01** |
+
+⚠️ **The retired rows are kept for transport archaeology only** — they are not
+a consumer set. Operator decision 2026-09-01
+(`BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED`): the SPA is
+the only live consumer, which is the precondition for gating the read surface
+in Phase H.
 
 The SPA path is Caddy-fronted because a mixed-content plain-HTTP fetch from an
 HTTPS page is hard-blocked by the browser. Server side:
 `deploy/caddy/Caddyfile`, `scripts/ops/install_caddy.sh`, the
 `vm-caddy-deploy` workflow. **The React+Vercel stack retired 2026-05-12 is a
 different thing entirely** — do not read "the Vercel/CF stack was retired" as
-"there is no proxy"; that is true of Streamlit and false of the SPA.
+"there is no proxy"; that was true of the retired Streamlit path and is false
+of the SPA, which is now the only path there is.
 
 **Observability caveat:** `caddy.service` is not an `ict-*` unit and ships no
 `deploy/` unit file (it comes from the Caddy apt package), so it falls outside
 `scripts/check_diag_unit_allowlist.py`'s `deploy/*.{service,timer}` glob and no
 guard cross-checks it. It is listed in diag's `_CANONICAL_UNITS` **by hand** so
 a Caddy outage shows on `/api/diag/services`. A Caddy failure takes the SPA and
-the WSS market stream down **while Streamlit stays green** — the two frontends
-do not share a failure mode. Cert expiry and the DuckDNS record are still
+the WSS market stream down — and since 2026-09-01 that is **the entire
+consumer set**, where it used to leave Streamlit green. Cert expiry and the DuckDNS record are still
 unwatched (`BL-20260813-CADDY-HTTPS-TRANSPORT-UNDOCUMENTED-AND-UNWATCHED`).
 
 ## Research and Validation Pipeline

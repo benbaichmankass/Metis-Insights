@@ -24,7 +24,7 @@ class SignalPackage:
     stop_loss: float | None
     take_profit: float | None
     timestamp_utc: str
-    # Original strategy-specific signal dict for audit / Streamlit transparency
+    # Original strategy-specific signal dict for audit / dashboard transparency
     raw: dict = field(default_factory=dict)
     # Additional context (regime, ML advisory, etc.) for allocator decisions
     source_context: dict = field(default_factory=dict)
