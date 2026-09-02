@@ -19,9 +19,21 @@
 # would add a commit to the PR head, re-trigger the very run being waited on,
 # and move the head out from under the answer.
 #
-# Exit codes:  0 settled green | 1 settled not-green | 2 we could not look
-# The last is deliberately distinct: "CI failed" and "we never got an answer"
+# Exit codes:
+#   0  green AND not conflicted -- safe to act on
+#   1  settled but not actionable (red / cancelled / conflict / green-but-dirty)
+#   2  we could not look (unreadable, or no result landed)
+#
+# ⚠️ 2 IS DELIBERATELY DISTINCT FROM 1. "CI failed" and "we never got an answer"
 # are different facts and a caller must be able to branch on which it got.
+#
+# ⚠️ GREEN CHECKS DO NOT MEAN MERGEABLE, so exit 0 requires BOTH. Observed live
+# 2026-09-02 on this relay's own PR: all four required checks passing while
+# `mergeable_state` read `dirty` because the base branch had moved. The payload
+# said so in its `reason` and the exit code said 0 -- a caller branching on the
+# code would have read "mergeable" while the prose said the opposite. Fixed
+# here rather than left to the reader, because the exit code is the half a
+# script acts on.
 set -uo pipefail
 
 PR="${1:-}"
@@ -68,14 +80,17 @@ while :; do
   if git fetch -q origin "$BRANCH" 2>/dev/null && \
      git cat-file -e "FETCH_HEAD:${RESULT_PATH}" 2>/dev/null; then
     git cat-file -p "FETCH_HEAD:${RESULT_PATH}"
-    STATE="$(git cat-file -p "FETCH_HEAD:${RESULT_PATH}" \
-      | python3 -c 'import json,sys; print(json.load(sys.stdin).get("state",""))')"
+    read -r STATE MERGE <<EOF
+$(git cat-file -p "FETCH_HEAD:${RESULT_PATH}" | python3 -c 'import json,sys
+d = json.load(sys.stdin)
+print(d.get("state") or "?", d.get("mergeable_state") or "?")')
+EOF
     # NO CLEANUP HERE, DELIBERATELY. Deleting a remote branch is HTTP 403 at
     # this sandbox's git proxy (measured 2026-09-02) even though CREATING one
     # succeeds, so a caller cannot remove its own watch branch. The relay
     # sweeps `automation/ciwatch-*` branches older than 6h on its next run.
     case "$STATE" in
-      green)      exit 0 ;;
+      green)      [ "$MERGE" = "dirty" ] && exit 1; exit 0 ;;
       unreadable) exit 2 ;;
       *)          exit 1 ;;
     esac

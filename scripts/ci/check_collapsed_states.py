@@ -503,6 +503,53 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        # ⚠️ `producer_field` is DELIBERATELY OMITTED, and the omission is
+        # argued rather than accidental. Producer integrity credits only
+        # LITERALS, and this module declares its vocabulary the way the guard's
+        # own docstring asks for — module constants (`REACHABLE = "reachable"`)
+        # — so scoping evidence to lines naming `horizon_class` would find none
+        # of them and could be satisfied only by sprinkling bare strings into a
+        # module that already does the right thing. The false negative
+        # `producer_field` exists to close (a SIBLING field standing in as
+        # evidence) is bounded here and stated: the file's other vocabulary,
+        # `funnel_stage`, shares exactly ONE token with this one — `unknown` —
+        # so that single state, and no other, could in principle be satisfied
+        # by its sibling. The other four cannot.
+        "name": "strategy_reviews.horizon_class",
+        "producer": "src/runtime/evidence_horizon.py",
+        "consumer_token": r"\bhorizon_class\b|\bevidence_horizon\b",
+        "states": [
+            "gradeable_now", "reachable", "unbounded_no_closes",
+            "structurally_ungradeable", "unknown",
+        ],
+        "why": (
+            "HOW FAR A STRATEGY LEG IS FROM GRADEABLE, and each state names a "
+            "DIFFERENT REMEDY — which is the whole reason they are not one "
+            "`below_evidence_floor` flag. Measured on the committed 2026-09-01 "
+            "run (population: all 52 enabled strategies, window 7 days): 18 "
+            "legs `reachable` (a measured close rate, so a wider window "
+            "genuinely reaches them), 26 `unbounded_no_closes` (closed "
+            "NOTHING, so no rate was measured and no finite window follows), 8 "
+            "`structurally_ungradeable` (execution: shadow with no fills — a "
+            "leg that cannot close a trade at ANY window by design), 0 "
+            "`gradeable_now`. Collapsing them reports 52 legs as one window "
+            "problem when 34 of them are not, and invites the one remedy that "
+            "is a trap: widening the window until something clears the floor "
+            "fires a KILL off an evidence base assembled to make a KILL "
+            "fireable — the same low-n hazard the floor exists to prevent, one "
+            "level up. ⚠️ `unbounded_no_closes` is NOT `unreachable` and NOT "
+            "'a rate of zero': observing zero closes bounds the rate from "
+            "above and measures nothing, so the leg may close tomorrow. "
+            "`unknown` is WE COULD NOT LOOK (an input was absent) and folding "
+            "it into `unbounded_no_closes` would turn 'we did not read "
+            "n_closed' into 'we read it and it was zero' — the dangerous "
+            "direction, since that state routes a leg toward retirement. "
+            "OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-"
+            "EVIDENCE-BLOCK-IS-UNEXERCISED; "
+            "docs/design/evidence-floor-horizon-PROPOSAL.md."
+        ),
+    },
+    {
         "name": "strategy_reviews.read_state",
         "producer": "src/web/api/routers/strategy_review.py",
         "producer_field": "read_state",
