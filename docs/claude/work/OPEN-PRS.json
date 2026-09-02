@@ -62,23 +62,6 @@
       "blocker": "Open since 2026-08-29, automation-generated, no owning session. Held under MI-12; do not merge without establishing what it does."
     },
     {
-      "pr": 10748,
-      "title": "R-metric contamination: detector + Tier-3 proposal",
-      "owner_session": "session_01EihsgewHt7BZv43YcC7caV",
-      "checklist_item": "MI-30",
-      "draft": true,
-      "tier": "1 shipped; the FIX it proposes is Tier-3 and is NOT in the diff",
-      "state": "awaiting_manager_review",
-      "operator_decision": {
-        "verdict": "pending",
-        "condition": "§5 carries a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it.",
-        "scope": null,
-        "decided_on": null,
-        "text": "None yet. §5 contains a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it."
-      },
-      "blocker": "Manager review not complete. ⚠️ Carry its CORRECTION to the brief: neither automated gate (M7 packet, R4 results gate) reads R -- the contamination reaches decisions through human/Claude review, which is a different severity than originally stated."
-    },
-    {
       "pr": 10776,
       "title": "ops: feed the trader's error feed to the duty pass, grouped for triage",
       "owner_session": "session_01TpKSAVKKUXLHyFUFep32B1",
@@ -503,8 +486,29 @@
       "merge_sha": "f10f29142ea3c0421d1f00527b645589b034fb3b",
       "observed_at": "2026-09-02T19:39:54Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10748,
+      "title": "R-metric contamination: detector + Tier-3 proposal",
+      "owner_session": "session_01EihsgewHt7BZv43YcC7caV",
+      "checklist_item": "MI-30",
+      "draft": true,
+      "tier": "1 shipped; the FIX it proposes is Tier-3 and is NOT in the diff",
+      "state": "awaiting_manager_review",
+      "operator_decision": {
+        "verdict": "pending",
+        "condition": "§5 carries a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it.",
+        "scope": null,
+        "decided_on": null,
+        "text": "None yet. §5 contains a 5-step Tier-3 proposal the operator must rule on; the PR deliberately does not implement it."
+      },
+      "blocker": "Manager review not complete. ⚠️ Carry its CORRECTION to the brief: neither automated gate (M7 packet, R4 results gate) reads R -- the contamination reaches decisions through human/Claude review, which is a different severity than originally stated.",
+      "terminal": "merged",
+      "merge_sha": "90b541a9b5604623045789018635168c904eecbf",
+      "observed_at": "2026-09-02T20:15:11Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-02T19:39:54Z",
-  "last_reconciled_sha": "cb9f0bbbf56ad969f2927a7735f413305a0acd01"
+  "last_reconciled_at": "2026-09-02T20:15:11Z",
+  "last_reconciled_sha": "90b541a9b5604623045789018635168c904eecbf"
 }
