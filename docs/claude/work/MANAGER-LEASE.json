@@ -19,12 +19,16 @@
     "reads to pick them up. Design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml"
   ],
   "schema_version": 1,
-  "state": "released",
-  "holder": null,
-  "released_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "released_at": "2026-09-02T21:38:05Z",
-  "previous_holder": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+  "state": "held",
+  "holder": "session_01Nopk1HcpvWBSEbZxEmALkd",
+  "claimed_at": "2026-09-03T05:38:03Z",
+  "heartbeat_at": "2026-09-03T06:35:44Z",
+  "expires_at": "2026-09-03T08:05:44Z",
+  "ttl_minutes": 90,
+  "heartbeat_target_minutes": 30,
+  "claimed_over_state": "released",
   "forced": false,
   "force_reason": null,
-  "note": "Day shift standing down 2026-09-02T21:38Z; night manager session_01AYPxs3aDHwv3XBLRF4oK15 spawned and registered. Released deliberately rather than left to the 90-min TTL so takeover is immediate."
+  "previous_holder": null,
+  "note": "Day manager 2026-09-03. Operator-directed scope: finish the workflow overhaul (P1), landing-route fix + manager view, one R&D lane."
 }

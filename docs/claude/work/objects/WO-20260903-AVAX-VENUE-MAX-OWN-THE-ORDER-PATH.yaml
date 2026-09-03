@@ -1,0 +1,30 @@
+id: WO-20260903-AVAX-VENUE-MAX-OWN-THE-ORDER-PATH
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  AVAX venue-max: own the order-path work orphaned by a dead session, or record why not
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The recovered diff reaches EITHER a normal Tier-gated PR whose venue-max RESOLUTION path is verified against a real venue read, OR a recorded decision not to pursue it with the AVAX dead-leg recurrence re-filed. PR #10780 is closed either way -- a preservation branch is not a disposition.
+
+why: >-
+  PR #10780 holds ~320 lines touching execute.py, qty_legalize.py and precision.py, recovered by a manager from a dead session's uncommitted working tree -- no branch carried them, no remote had them, one git checkout -f from loss. Unreviewed and untiered. Operator decision 2026-09-03: assign a session to own it properly rather than park or discard it.
+
+source: >-
+  operator decision 2026-09-03; manager triage of the open-PR queue
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
