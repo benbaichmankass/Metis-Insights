@@ -31852,6 +31852,19 @@
       "resolution_criteria": "The summary line must not read as a pass when the runner knows the run was incomplete. EITHER the headline carries the count inline (e.g. `PASS 47 · FAIL 0 · SKIP 38 · 17 NOT GRADED (uncommitted)`), OR a run with any not-selected-for-uncommitted guard prints a distinct non-pass state -- the `not_a_pr` / `unattributed` shape this repo already uses for 'nothing was graded here, and that is not a pass'. ⚠️ NOT resolved by exiting non-zero on uncommitted work: local iteration on a dirty tree is the normal way to use this script, and failing it would train people to ignore the runner. The fix is to stop the SUMMARY from claiming more than the run established. Add a self-test asserting the incomplete-run summary is distinguishable from a complete one.",
       "found_by": "session_017DxuurbMW5ex5Q1f7xATqW (MI-102)",
       "basis": "MEASURED"
+    },
+    {
+      "id": "BL-20260903-RELAY-OPENED-PRS-START-WITH-ZERO-CHECKS-AND-NEED-A-HAND-MADE-COMMIT",
+      "opened": "2026-09-03",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ci/landing-route",
+      "summary": "Every PR opened through .github/workflows/pr-opener.yml starts with ZERO check runs and stays ungradeable until a human-credentialled actor pushes an extra commit. MEASURED 2026-09-03 on three separate PRs from one session -- #10918, #10923 and #10933 -- each returning `get_check_runs total_count: 0` after the relay opened it, and each needing a hand-made EMPTY commit to become gradeable. POPULATION: 3 of 3 relay-opened PRs this session; 3 of 3 needed the workaround. The cause is documented in pr-opener.yml's own header: the PR is opened by github-actions[bot] under GITHUB_TOKEN, which fires no `pull_request` event, and the bot's own results commit fires no `push` event either.",
+      "why_it_matters": "This is the SAME SHAPE as the draft defect MI-98 fixed hours earlier, and it survived that fix: the relay leaves a PR in a state only a second actor can clear. A PR with zero checks is not merely slow -- auto-merge merges on GREEN, so a PR with no checks waits forever while LOOKING ready, and the spawn template already has to warn sessions about it in prose. Every session that opens a PR through the relay pays the same tax and must know the same folklore, which is the definition of a workflow defect rather than an incident. ⚠️ AND THE WORKAROUND IS ITSELF A HAZARD: the fix is an EMPTY commit, so a session that forgets it has a PR that looks fine and is ungradeable, while a session that remembers pollutes the history with no-op commits -- three of them on main's branches today.",
+      "resolution_criteria": "A PR opened by the relay must arrive gradeable, with no follow-up commit from anyone. Options, to be weighed rather than assumed: open the PR with a PAT rather than GITHUB_TOKEN (the same asymmetry .github/actions/commit-to-main already relies on, whose header states a PAT-opened PR DOES trigger the required checks -- so the precedent exists in this repo and works); OR have the relay itself push the arming commit as its last step, which keeps the no-op commits but removes the folklore; OR give guards.yml a workflow_run trigger so it fires on the relay's own workflow completing. ⚠️ Resolution is OBSERVED: a relay-opened PR showing a non-zero check-run count with no human commit after it. NOT resolved by documenting the workaround better -- the spawn template already documents it, and this session, which had read that documentation, still hit it three times.",
+      "found_by": "session_017DxuurbMW5ex5Q1f7xATqW (MI-102)",
+      "basis": "MEASURED"
     }
   ]
 }
