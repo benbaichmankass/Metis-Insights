@@ -60,21 +60,6 @@
         "text": "None recorded."
       },
       "blocker": "Open since 2026-08-29, automation-generated, no owning session. Held under MI-12; do not merge without establishing what it does."
-    },
-    {
-      "pr": 10780,
-      "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-56",
-      "draft": true,
-      "tier": "2/3 (order path) — UNREVIEWED",
-      "state": "preserved_do_not_merge",
-      "operator_decision": {
-        "verdict": "pending",
-        "decided_on": "2026-09-02",
-        "text": "No operator statement exists. ⚠️ THE ROW MATTERS MORE THAN THE PR: this branch preserves ~320 lines of UNREVIEWED order-path work (execute.py, qty_legalize.py, precision.py) recovered from a DEAD session's uncommitted working tree. It must NOT be merged on green CI — its existing venue-max tests monkeypatch _resolve_venue_lot_rule to return vmax=22_000, so they exercise the CLAMP and never the RESOLUTION, i.e. they pass for the wrong reason, which is how the AVAX leg reached a third recurrence. A successor reading 'draft, CI green' without this row could land unreviewed order-path code on a real-money client."
-      },
-      "blocker": "Needs a live session to take ownership and verify the resolution path against a real venue read, then re-open as a normal Tier-gated PR. Until then this branch is a BACKUP, not a proposal."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -623,8 +608,27 @@
       "merge_sha": "8d64afe3edda2280c4ac2441d9d52e4e14c19448",
       "observed_at": "2026-09-03T06:31:46Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10780,
+      "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-56",
+      "draft": true,
+      "tier": "2/3 (order path) — UNREVIEWED",
+      "state": "preserved_do_not_merge",
+      "operator_decision": {
+        "verdict": "pending",
+        "decided_on": "2026-09-02",
+        "text": "No operator statement exists. ⚠️ THE ROW MATTERS MORE THAN THE PR: this branch preserves ~320 lines of UNREVIEWED order-path work (execute.py, qty_legalize.py, precision.py) recovered from a DEAD session's uncommitted working tree. It must NOT be merged on green CI — its existing venue-max tests monkeypatch _resolve_venue_lot_rule to return vmax=22_000, so they exercise the CLAMP and never the RESOLUTION, i.e. they pass for the wrong reason, which is how the AVAX leg reached a third recurrence. A successor reading 'draft, CI green' without this row could land unreviewed order-path code on a real-money client."
+      },
+      "blocker": "Needs a live session to take ownership and verify the resolution path against a real venue read, then re-open as a normal Tier-gated PR. Until then this branch is a BACKUP, not a proposal.",
+      "terminal": "closed_unmerged",
+      "merge_sha": null,
+      "observed_at": "2026-09-03T07:43:10Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-03T06:31:46Z",
-  "last_reconciled_sha": "8d64afe3edda2280c4ac2441d9d52e4e14c19448"
+  "last_reconciled_at": "2026-09-03T07:43:10Z",
+  "last_reconciled_sha": "855397f6033647e76d3f6ef3fb8d676b1b4e5b75"
 }
