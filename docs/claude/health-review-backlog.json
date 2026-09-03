@@ -31839,6 +31839,19 @@
       "resolution_criteria": "A watcher that grades TIME-SINCE-GREEN-AND-MERGEABLE in MINUTES, not hours-since-last-commit, and samples often enough to see it -- a 6-hourly cron cannot observe a 10-minute event at any threshold, so the cadence must change with the metric. Resolution is OBSERVED, not shipped: a real PR going green and the alarm firing before a human notices, with the run recorded. ⚠️ IT MUST NOT LIVE IN PER-PR CI. `check_pr_queue_watch.py` already records why: 'a contributor's PR must never go red because the MANAGER has four other PRs unmerged' -- that punishes the one actor not at fault and trains everyone to ignore the guard. This belongs in the scheduled watcher that already owns the escalation policy. ⚠️ AND THE HARDER HALF, WHICH THIS ROW DOES NOT SOLVE: the 11:04Z sweep was ARMED and silently did not fire, so any fix whose liveness depends on a trigger firing inherits the same hole. Whatever is built must be gradeable from a RECEIPT it writes, the way check_pr_queue_watch.py grades the existing watcher's deadness, rather than from the scheduler's own claim that it is enabled.",
       "found_by": "session_017DxuurbMW5ex5Q1f7xATqW (MI-102)",
       "basis": "MEASURED"
+    },
+    {
+      "id": "BL-20260903-RUN-GUARDS-PRINTS-FAIL-0-ON-A-RUN-IT-KNOWS-WAS-INCOMPLETE",
+      "opened": "2026-09-03",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ci/guards",
+      "summary": "scripts/ci/run_guards.py computes guard relevance from a COMMIT RANGE, so a run started with uncommitted work silently drops every guard whose relevance depends on the diff. It DOES detect and report this -- 'NOT SELECTED because the work is UNCOMMITTED (17)' -- but it prints that note BELOW the headline summary, and the headline reads `PASS 47 · FAIL 0 · SKIP 38`. MEASURED 2026-09-03 on the MI-102 branch, same tree, back to back: uncommitted run = PASS 47 / FAIL 0 / 17 not selected; committed run = PASS 64 / FAIL 0 / 0 not selected. SEVENTEEN guards did not run, including canonical-doc-coherence, ruff-lint, collapsed-state-guard, new-table-wiring-guard and writer-conformance-guard -- precisely the ones with something to say about the CLAUDE.md edit and the new register file that run was supposed to grade.",
+      "why_it_matters": "`FAIL 0` is the string every reader and every session scans for, and here it is printed about a run the runner ITSELF knows was not a valid grading of the tree. This session nearly reported that 47/0 as a green result and caught it only by reading past the summary. It is the same defect class this repo files under collapsed states -- 'we did not look' rendered identically to 'nothing was wrong' -- and the runner is the single place every guard's verdict is summarised, so a misleading headline there mis-states every guard at once. ⚠️ NOTE THE ASYMMETRY THAT MAKES IT DANGEROUS: the incomplete run can only ever UNDER-report failures, never over-report them, so it always looks like good news.",
+      "resolution_criteria": "The summary line must not read as a pass when the runner knows the run was incomplete. EITHER the headline carries the count inline (e.g. `PASS 47 · FAIL 0 · SKIP 38 · 17 NOT GRADED (uncommitted)`), OR a run with any not-selected-for-uncommitted guard prints a distinct non-pass state -- the `not_a_pr` / `unattributed` shape this repo already uses for 'nothing was graded here, and that is not a pass'. ⚠️ NOT resolved by exiting non-zero on uncommitted work: local iteration on a dirty tree is the normal way to use this script, and failing it would train people to ignore the runner. The fix is to stop the SUMMARY from claiming more than the run established. Add a self-test asserting the incomplete-run summary is distinguishable from a complete one.",
+      "found_by": "session_017DxuurbMW5ex5Q1f7xATqW (MI-102)",
+      "basis": "MEASURED"
     }
   ]
 }
