@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register observation only. The diff is docs/claude/OPEN-ITEMS.json (one row, one field) plus the generated SESSION BRIEF block in CLAUDE.md that render_session_brief.py derives from it — both on the Tier-1 allowlist (docs). No runtime, no order path, no strategy config, no risk caps, no live-VM file, no test or CI logic. It records what was OBSERVED on the fleet after #10859 merged: ict-work-digest.timer active, a SCHEDULED firing at 07:01:46Z that sent with zero ict-git-sync activity in that minute, and the hour latch suppressing the deploy-coincident run at 07:07. It authorises nothing — clause (3) (removing work-digest.yml's redundant schedule:) is deliberately a separate PR, so nothing here can land a change on the strength of its own observation."
+}
