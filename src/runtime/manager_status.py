@@ -788,7 +788,6 @@ def render_expandable_message(
     #: full | compact, per section key.
     form: dict[str, str] = {s.key: "full" for s in sections}
     chosen: dict[str, list[str]] = {s.key: list(s.lines) for s in sections}
-    by_key = {s.key: s for s in sections}
 
     def block(sec: Section, lines: list[str]) -> list[str]:
         out = ["", f"<b>{_esc(sec.heading)}</b>"]
