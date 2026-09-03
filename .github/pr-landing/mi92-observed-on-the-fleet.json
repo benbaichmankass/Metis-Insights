@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Registers only: the OPEN-ITEMS row for MI-92 updated with the LIVE observation that #10904's two routing halves are now confirmed on the fleet, one new health-review-backlog row, and the CLAUDE.md SESSION-BRIEF re-rendered from those registers by scripts/ops/render_session_brief.py. No src/, no tests, no runtime, no order path, no strategy config, no risk caps, no live-VM unit file. Tier-1 by the canonical doc's own Tier-1 examples (docs + repo hygiene). The Tier-2 code change this records was #10904, which the operator approved and which is already merged and deployed."
+}

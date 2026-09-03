@@ -1,0 +1,4 @@
+MI-92 follow-up — registers only (OPEN-ITEMS observation + one backlog row + the
+re-rendered CLAUDE.md SESSION-BRIEF). Tier-1 by every path in the diff. The
+Tier-2 code change these records is #10904, already operator-approved, merged
+(0cc217ad) and deployed.
