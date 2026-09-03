@@ -1155,10 +1155,43 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
     check("A FAR-FUTURE CUTOFF COUNTS ZERO COMMITS — git's --since would return ALL",
           count_autonomous_actions(_parse_ts("2999-01-01T00:00:00+00:00"), None,
                                    "HEAD")[0], 0)
-    check("...while a 2020 cutoff still counts this repo's whole history, so the "
-          "assertion above is not vacuously zero",
+    # ⚠️ THE DENOMINATOR IS MEASURED FROM THIS CLONE, NEVER ASSUMED — and the
+    # repair is the point of the case rather than a tidy-up.
+    #
+    # This pair used to end `... [0] > 100`, which is a claim about CLONE DEPTH,
+    # an environmental property, and NOT about the behaviour under test. It took
+    # the whole preflight down on 2026-09-03: the manager reported
+    # `manager_preflight.py --self-test` refusing to grade, with
+    #     "a 2020 cutoff still counts this repo's whole history, so the assertion
+    #      above is not vacuously zero: got False want True"
+    # Reproduced verbatim (population: two clones of `main` @ bdbf090c taken the
+    # same hour) — a FULL clone passes at 4043 commits reachable, and a
+    # `git clone --depth=50` clone FAILS at 50, because 50 is not > 100.
+    #
+    # THE TOOL WAS RIGHT AND THE TEST WAS WRONG. Measured in that same shallow
+    # clone, `count_autonomous_actions` returned 50 for the 2020 cutoff (all 50
+    # reachable) and 0 for the far-future cutoff — i.e. it did exactly what the
+    # pair exists to pin, while the assertion about it failed.
+    #
+    # So the threshold is replaced by an EQUALITY against the count git itself
+    # reports. That is strictly STRONGER than `> 100` — it pins the exact number
+    # instead of a floor — and it is depth-independent, so it grades the same in
+    # a shallow CI checkout, a depth-50 container clone and a full clone.
+    # It is NOT weakened to pass: `> 100` never once ruled out an over-count.
+    reachable = _git(["rev-list", "--count", "HEAD"])
+    reachable_n = int(reachable.strip()) if reachable and reachable.strip().isdigit() else None
+    # ⚠️ FIRST, PROVE THE PROBE CAN FIND A POSITIVE (RULE ONE: a negative result
+    # needs a denominator). If git could not be run, or this clone has no
+    # reachable commits, the far-future zero above is VACUOUS — and that must
+    # fail LOUDLY here rather than pass quietly, which is what a bare equality
+    # would do when both sides are `None`.
+    check("the probe can find a POSITIVE at all — without this the far-future "
+          "zero above is vacuous, and `we could not count` is not a pass",
+          (reachable_n or 0) > 0, True)
+    check("...so a 2020 cutoff counts EVERY commit reachable in THIS clone "
+          "(measured denominator, not a depth assumption)",
           count_autonomous_actions(_parse_ts("2020-01-01T00:00:00+00:00"), None,
-                                   "HEAD")[0] > 100, True)
+                                   "HEAD")[0], reachable_n)
 
     # 5 · subsession_queue
     reg1 = {"sessions": [{"session_id": "s1", "state": "working"}]}
