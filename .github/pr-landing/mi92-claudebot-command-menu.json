@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Touches src/bot/claude_decision_bot.py and takes effect only on a restart of ict-claude-decision-bot.service. Tier-2 by docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers ('Telegram bot writeback behaviour (src/bot/)') and by the service-unit path. Needs ONE operator OK in chat plus that restart; the manager relays. This session prepared and validated only and merges nothing. NOTE the done-condition is not a green check: it is the operator SEEING /status and /decisions in the ClaudeBot composer's Menu button, which only they can confirm.",
+  "why": "Adds setChatMenuButton(MenuButtonCommands) and an all_private_chats command scope so the ClaudeBot composer's Menu button actually offers the commands, and makes the startup read the result BACK from Telegram so the journal can distinguish set / already-right / failed. No order path, no strategy config, no risk caps, no live-VM unit file content. The trader bot is untouched: MI-92's constraint stands and is verified honoured on the fleet."
+}
