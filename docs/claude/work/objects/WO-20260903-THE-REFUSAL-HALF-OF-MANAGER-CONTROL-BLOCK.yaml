@@ -1,0 +1,30 @@
+id: WO-20260903-THE-REFUSAL-HALF-OF-MANAGER-CONTROL-BLOCK
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The refusal half of manager control: block a manager action on a PR whose author session is still live
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A manager action on a PR whose author session is OBSERVED live is REFUSED by a mechanism, and the refusal is seen firing on a real attempt -- not asserted from a test. The refusal must read a LIVE observation, never a stored registry state.
+
+why: >-
+  Operator decision DEC-20260902-HOW-A-MANAGER-IS-HELD-TO-ITS-MANDATE = 'both', answered 2026-09-03. MI-89 (#10896) already delivers the derived READ half; only the refusal remains. Aimed at a measured event: on 2026-09-02 the manager un-drafted and armed #10857 while its author was still RUNNING, because there was no way to ask and nothing objected.
+
+source: >-
+  operator decision 2026-09-03
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
