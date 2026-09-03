@@ -235,6 +235,33 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # ID UNIQUENESS + IDENTITY across the shared registers — the half of
+        # the register-collision problem `merge_json_register.py` CANNOT do.
+        # That driver resolves the TEXTUAL collision (and only client-side);
+        # this catches the SEMANTIC one, where a branch files new work under an
+        # id `main` has already given to something else. To git that is one
+        # changed value at one key, so the merge deletes the existing row and
+        # reports success. It happened on 2026-09-03 (MI-86) and was caught by
+        # a human reading a three-way diff, which is not a mechanism.
+        #
+        # `when: None` — every diff, for the same reason as open-items-guard
+        # above: the registers are written by many concurrent sessions, and the
+        # colliding write is by definition made by someone who did not know the
+        # id was taken. A guard that only fires when someone happens to touch a
+        # register would be checking the one case that needs no checking.
+        #
+        # ⚠️ `--base` is what makes R2/R3 diff-scoped. WITHOUT it the script
+        # runs R1 only and SAYS SO in its report rather than printing a clean
+        # verdict it did not earn.
+        "name": "register-id-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_register_ids.py", "--self-test"],
+            ["python3", "scripts/ci/check_register_ids.py",
+             "--base", "origin/{base_ref}"],
+        ],
+    },
+    {
         # A5 — the WIP ceiling of 8 work objects IN FLIGHT (operating-layer
         # Phase C). ⚠️ THIS IS A DIFFERENT POPULATION FROM open-items-guard
         # ABOVE, and the distinction is load-bearing: the REGISTER is uncapped

@@ -866,6 +866,72 @@ def check_register_edits(base: str, open_prs: Optional[List[Dict[str, Any]]]
 
 
 # --------------------------------------------------------------------------
+# 7b · merge_driver — is the register merge driver actually ARMED in this clone?
+# --------------------------------------------------------------------------
+def merge_driver_installed() -> Optional[bool]:
+    """True/False if we could read this clone's git config; None if we could not."""
+    try:
+        out = subprocess.run(["git", "config", "--get", "merge.jsonregister.driver"],
+                             capture_output=True, text=True, timeout=30,
+                             cwd=str(REPO_ROOT))
+    except (OSError, subprocess.SubprocessError):
+        return None
+    # rc 1 with empty output is git's "not set", which is an ANSWER, not a failure.
+    if out.returncode not in (0, 1):
+        return None
+    return bool(out.stdout.strip())
+
+
+def check_merge_driver() -> Dict[str, Any]:
+    """The register merge driver is CLIENT-SIDE, and a fresh clone does not have it.
+
+    ⚠️ **THIS IS THE GAP BETWEEN A REMEDY SHIPPING AND A REMEDY WORKING.**
+    MI-76 landed `.gitattributes` + `scripts/ops/merge_json_register.py` and
+    proved it resolves real register conflicts. But `git` deliberately refuses
+    to take a merge-driver executable path from a tracked file — cloning a repo
+    would otherwise run its code — so **every clone must opt in once**, and
+    nothing in `SessionStart`, in any skill, or in CI does it.
+
+    Measured 2026-09-03 on a fresh clone of `main` @`855397f6`, two sibling
+    branches each appending one row to the same register:
+
+        driver NOT installed   OPEN-ITEMS / MANAGER-CHECKLIST / SESSIONS /
+                               health-review-backlog -> 4 of 4 CONFLICT
+        driver installed       MANAGER-CHECKLIST / SESSIONS /
+                               health-review-backlog -> 3 of 3 CLEAN
+
+    So an un-armed clone reproduces exactly the four hand-resolutions the
+    manager paid for on the morning of 2026-09-03. This check is a `FAIL`
+    rather than a note because the cost of missing it is paid silently, by
+    whoever merges next, in manual three-way resolution.
+
+    ⚠️ It does NOT claim GitHub will auto-merge those PRs. A custom merge driver
+    is client-side only; a `mergeable_state: dirty` PR is still dirty on GitHub.
+    What the driver removes is the cost of resolving it BY HAND, locally.
+    """
+    state = merge_driver_installed()
+    if state is None:
+        return _c("merge_driver", UNKNOWN,
+                  "`git config --get merge.jsonregister.driver` could not be run, so "
+                  "whether this clone can merge the registers row-aware is "
+                  "unestablished. WE DID NOT LOOK.")
+    if not state:
+        return _c("merge_driver", FAIL,
+                  "the register merge driver is NOT armed in this clone. "
+                  "`.gitattributes` names it but git will not take an executable "
+                  "path from a tracked file, so every clone must opt in once and "
+                  "this one has not. Measured on a fresh clone: sibling appends "
+                  "conflict in 4 of 4 registers without it and 0 of 3 with it. "
+                  "Run `scripts/ops/install_merge_driver.sh` — it is idempotent, "
+                  "takes a second, and only edits THIS clone's git config.",
+                  remedy="scripts/ops/install_merge_driver.sh")
+    return _c("merge_driver", PASS,
+              "the register merge driver is armed in this clone, so a sibling "
+              "register append merges row-aware instead of by line. (Client-side "
+              "only — GitHub still reports a conflicted PR as dirty.)")
+
+
+# --------------------------------------------------------------------------
 # 8 · blocked_claims
 # --------------------------------------------------------------------------
 #: Edge kinds that name something INSIDE the repo, whose state a reader can go
@@ -1000,6 +1066,7 @@ def run(observation: Optional[Any] = None, manager_session_id: Optional[str] = N
         check_subsession_queue(obs, reg, reg_ok, enforced),
         check_bot_authored_head(base),
         check_register_edits(base, open_prs),
+        check_merge_driver(),
         check_blocked_claims(ck, ck_ok),
         check_lease(lease, lease_ok, manager_session_id),
     ]
@@ -1282,6 +1349,28 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
           check_lease(None, False, "S1")["state"], UNKNOWN)
     check("no --session-id cannot establish that YOU hold it -> UNKNOWN",
           check_lease(mine, True, None)["state"], UNKNOWN)
+
+    # --- merge_driver (MI-94) -------------------------------------------------
+    # Driven through the module-level reader so the three states are exercised
+    # without touching the real git config. The UNKNOWN case is the one worth
+    # planting: `git config --get` exits 1 for "not set", so a naive
+    # implementation that treats any non-zero rc as a failure would report
+    # "we could not look" for the single most common real state — an un-armed
+    # clone — and the FAIL that costs a hand-resolution would never be seen.
+    _real = globals()["merge_driver_installed"]
+    try:
+        for planted, want, label in (
+            (True, PASS, "an ARMED clone passes"),
+            (False, FAIL, "an UN-ARMED clone FAILS (this is the 4-of-4 conflict case)"),
+            (None, UNKNOWN, "an unreadable git config is UNKNOWN, never a pass"),
+        ):
+            globals()["merge_driver_installed"] = lambda p=planted: p
+            check(f"merge_driver: {label}", check_merge_driver()["state"], want)
+    finally:
+        globals()["merge_driver_installed"] = _real
+    check("merge_driver: the real reader returns a definite answer, not None, "
+          "in a normal clone",
+          merge_driver_installed() is not None, True)
 
     if not quiet:
         print("manager-preflight self-test:", "PASS" if not failures else "FAIL")

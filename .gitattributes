@@ -16,6 +16,21 @@
 #
 # The driver REFUSES (exit 1, markers left) on divergent same-id adds or edits and
 # on delete-vs-edit. It never picks a winner. See scripts/ops/merge_json_register.py.
+#
+# ⚠️ SHIPPING IT IS NOT ARMING IT, AND FOR THE FIRST DAY NOBODY WAS ARMED. Measured
+# 2026-09-03 (MI-94): `git config --get merge.jsonregister.driver` was EMPTY in a
+# fresh clone, and nothing in the SessionStart hook, any skill, or CI ran the
+# installer — so every session container merged these files the old way. Two
+# sibling branches each appending one row conflicted in 4 of 4 registers un-armed
+# and 0 of 3 armed. `scripts/ops/manager_preflight.py`'s `merge_driver` check now
+# FAILS an un-armed clone and names the one-line remedy, so the gap is visible at
+# the moment it costs something rather than after.
+#
+# ⚠️ AND THE DRIVER IS ONLY HALF THE PROBLEM. It resolves the TEXTUAL collision; it
+# cannot see a SEMANTIC one — a branch filing new work under an id `main` already
+# gave to something else is, to git, one changed value at one key, so the merge
+# DELETES the existing row and reports success. `scripts/ci/check_register_ids.py`
+# (`register-id-guard`) is that half, and it runs on every PR.
 
 docs/claude/health-review-backlog.json      merge=jsonregister
 docs/claude/OPEN-ITEMS.json                 merge=jsonregister
