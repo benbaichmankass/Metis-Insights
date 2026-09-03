@@ -1329,20 +1329,20 @@
     {
       "id": "MI-93",
       "title": "The refusal half of manager control: block a manager action while the author session is still live",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01A38DipTvNyB843X4gnmA23",
-      "note": "Implements the operator's DEC-20260902-HOW-A-MANAGER-IS-HELD-TO-ITS-MANDATE = `both` (answered 2026-09-03). MI-89 already shipped the derived READ half, so only the refusal remains. Aimed at a measured event: on 2026-09-02 the manager un-drafted and armed #10857 while its author was still RUNNING, because there was no way to ask and nothing objected.",
+      "note": "MERGED. The refusal half of manager control -- blocks a manager action while the PR author session is still live.",
       "priority": "P1_CYCLE_MANAGER_CONTROL",
       "prs": "#10905"
     },
     {
       "id": "MI-94",
       "title": "Split the monolithic registers so sibling PRs stop colliding",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_0174hCi1hhGzUKbtmL4jb8Rc",
-      "note": "MEASURED 2026-09-03: the manager hit register merge conflicts FOUR times in one morning (OPEN-ITEMS, MANAGER-CHECKLIST, SESSIONS, health-review-backlog), each a manual three-way resolution. One CONCEALED AN ID COLLISION git cannot see -- a branch reused MI-86 for a different item, and merging as written would have silently deleted the existing row. This is MI-76, and it is the largest recurring tax on manager throughput.",
+      "note": "MERGED 09:4xZ (9e4f21b2). Register-id guard + the session-key CHECK + the JSON merge driver. ⚠️ LANDED, NOT PROVEN: the driver is armed PER CLONE and was armed in ZERO of them; manager_preflight now FAILS an un-armed clone. Its own body states the driver is CLIENT-SIDE -- it removes the hand-resolution and never the GitHub-side dirty state, which today confirmed: with main moving on register commits every ~20 min, no client-side tool can help.",
       "priority": "P1_CYCLE_MANAGER_CONTROL",
-      "prs": ""
+      "prs": "#10910"
     },
     {
       "id": "MI-96",
@@ -1365,11 +1365,11 @@
     {
       "id": "MI-98",
       "title": "pr-landing-guard R11 red-locks the ENTIRE automation PR lane -- self-inflicted, same day",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_017DxuurbMW5ex5Q1f7xATqW",
-      "note": "MEASURED on #10914 guards job 100580495407 at 08:35:45Z: PASS 45 / FAIL 1 / SKIP 37, sole failure `pr-landing-guard FAILED (state=undeclared)` -> `R11 no landing declaration at .github/pr-landing/automation-work-digest-33730997742-1.json`. scripts/ci/check_pr_landing.py contains ZERO occurrences of automation/exempt/bot[ -- it has no concept of a machine-authored PR, and a generating workflow cannot be told by the branch it creates to write a declaration. POPULATION 09:10Z: 8 open automation PRs, with work-digest and reconcile-open-prs each STACKED THREE DEEP because nothing can merge. ⚠️ NOT COSMETIC: (a) reconcile-open-prs keeps OPEN-PRS.json honest and that is the OPEN-PR half of the handoff contract -- the register that tracks PR staleness is now itself the thing that cannot land; (b) work-digest is the carrier OI-20260902-DIGEST-MOVED-OFF-A-CRON is watching, and a receipt PR that can never merge cannot satisfy its clause (1) -- so this guard can make an open monitoring row read as an unproven carrier when the real cause is downstream of it. MANAGER RULED (do not re-litigate): the generators WRITE their own declaration; exempting automation/** would create an unguarded lane on the guard's first day, the 'cheaper to lie to than to satisfy' failure. ⚠️ SECOND FINDING TO CHECK: #10398 was cut 2026-08-29, BEFORE the guard; if it fails R11 too then the 'could the branch have known' test does not do what its docstring claims, which is worse than the lockout. Routed to MI-95's idle session (guard-system context, costs no slot). Filed as BL-20260903-PR-LANDING-GUARD-RED-LOCKS-EVERY-AUTOMATION-PR. DONE = an automation PR OBSERVED merging green, then the duplicates drained.",
+      "note": "MERGED 11:11Z (8e9db148). Automation workflows now write their own landing declaration via commit-to-main; pr-opener default flips draft->false; the spawn template holds via the declaration, not the draft flag. ⚠️ LANDED, NOT PROVEN, AND THE GAP IS MEASURED: the fix is FORWARD-LOOKING ONLY. Branches cut before it merged carry no declaration of their own (verified on two), so the 12 already-open automation PRs STILL fail R11. The body claims it \"unlocks 7 of the 7 currently-locked PRs\" -- true of the MECHANISM, false of those PR objects. Disposition recorded in MERGE-QUEUE.json: close the stale regenerating ones and let the next cadence produce compliant replacements; #10398 (point-in-time data) and any work-digest carrying a queued ping are named exceptions.",
       "priority": "P1_CYCLE_MANAGER_CONTROL",
-      "prs": ""
+      "prs": "#10923"
     },
     {
       "id": "MI-99",
@@ -1383,9 +1383,9 @@
     {
       "id": "MI-100",
       "title": "Operator approval only where it is actually needed (Tier 2/3), and only in Telegram -- never in GitHub",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_017DxuurbMW5ex5Q1f7xATqW",
-      "note": "⚠️ THIS ROW WAS REWRITTEN 2026-09-03T09:5xZ AND ITS EARLIER TEXT IS WRONG IN THE DANGEROUS DIRECTION -- do not re-quote it. It proposed a GITHUB PR REVIEW APPROVAL from the repo owner as the mechanism. THE OPERATOR VETOED THAT, twice and emphatically: \"I don't want to approve every PR - only tier 2 and 3 ... and to be able to approve from the channel for items that need me. Going into github to marke drafts ready is not something we can include in the workflow\", then \"It's just going to be too many steps and slow down the work too much if i have to approve every pr manually in github, we need to keep my approval to where its actually needed, and in telegram, so that I don't become the operational bottleneck here.\" A LATER SESSION THAT REVIVES THE GITHUB-REVIEW MECHANISM IS RE-INTRODUCING A REJECTED DESIGN. THE RULE NOW: (a) approval is required for TIER 2 AND 3 ONLY, read from the tier the landing declaration already carries -- no second taxonomy; (b) the interface is the TELEGRAM channel, never GitHub; (c) every merge produces an informational ping in the channel (already built and live: notify_on_pull.py Source 4, observed queueing 1 ping at 09:31:21Z on #10917's merge -- but 'queued' is a LOCAL FILE WRITE and is not evidence of delivery, per BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE); (d) DRAFTS ARE NOT A HOLD MECHANISM -- a PR is held by its landing declaration, which is machine-readable, never by the draft flag, which only a human can clear. ⚠️ THE HONEST COST OF (b), STATED RATHER THAN HIDDEN: the GitHub-review mechanism was chosen precisely because a session does not hold that credential. A Telegram approval lands as a repo write and a session with push access can write the same bytes, so the guarantee drops from 'a session CANNOT forge this' to 'a session cannot forge this UNDETECTABLY'. The design must SAY that rather than claim an independence it does not have -- a false independence claim is worse than an honest weaker one. MEASURED ANSWER TO THE BOTTLENECK FEAR (population: all 9 landing declarations on origin/main since the guard shipped this morning): 7 Tier-1, 2 Tier-2/3. So the rule would have asked the operator TWICE today, not nine times. And the 3 Tier-1 holds are each justified by their declared reason (1 changes_landing_machinery, 2 operator_asked_to_hold) -- NOT sessions defaulting to hold, which was the alarming reading and the measurement refutes it.",
+      "note": "MERGED 11:35Z (1822a30f) as part of the manager-scope guard. Operator approval is TIER 2/3 ONLY and lives in TELEGRAM, never GitHub -- the GitHub-review mechanism was proposed by the manager and VETOED TWICE. ⚠️ THE HONEST COST IS ON RECORD: a Telegram approval lands as a repo write a session could reproduce, so the guarantee drops from cannot-forge to cannot-forge-UNDETECTABLY, and the design must say so rather than claim independence it lacks. MEASURED against the bottleneck fear over all 9 landing declarations: 7 Tier-1, 2 Tier-2/3 -- the rule would have asked the operator TWICE today, not nine times.",
       "priority": "P1_CYCLE_MANAGER_CONTROL",
       "prs": "#10918"
     },
@@ -1408,5 +1408,5 @@
       "prs": ""
     }
   ],
-  "as_of": "2026-09-03T10:55:00Z"
+  "as_of": "2026-09-03T11:40:00Z"
 }
