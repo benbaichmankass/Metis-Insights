@@ -126,8 +126,13 @@ def build_handlers(
             readout.tree.state, readout.checklist_read,
             len(readout.messages), len(readout.omissions),
         )
+        # ⚠️ THE PARSE MODE COMES FROM THE READOUT, never a literal here. The
+        # expandable render is HTML and is escaped for it; the plain-text
+        # packer's bodies are NOT escaped and would be mangled — or 400 the
+        # whole reply — if sent as HTML. Carrying the mode with the text is
+        # what makes it impossible to send one under the other's rules.
         for body in readout.messages:
-            await update.message.reply_text(body)
+            await update.message.reply_text(body, parse_mode=readout.parse_mode)
 
     async def cmd_decisions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not is_authorised(update):
