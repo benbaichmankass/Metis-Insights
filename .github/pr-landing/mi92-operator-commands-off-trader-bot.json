@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Touches src/bot/ (telegram_query_bot.py, claude_decision_bot.py, operator_commands.py) and takes effect only on a restart of BOTH ict-telegram-bot.service and ict-claude-decision-bot.service. Tier-2 by two independent paths in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers: 'Telegram bot writeback behaviour (src/bot/)' and service units the live VM does not consume on the order path. Needs ONE operator OK in chat, plus the two restarts. This session prepared and validated only and merges nothing.",
+  "why": "Ends #10793's live violation of its own stated constraint ('HELD, must not reach the trader bot') by MOVING /status and /decisions from the trader bot to the dedicated Claude bot, which is where the operator asked for them. No order path, no strategy config, no risk caps, no live-VM unit file content changed."
+}

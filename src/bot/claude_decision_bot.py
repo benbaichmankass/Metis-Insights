@@ -61,7 +61,7 @@ import os
 from typing import Optional
 
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import BotCommand, Update
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -69,6 +69,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
+from src.bot.operator_commands import OPERATOR_COMMANDS, install_operator_commands
 from src.bot.telegram_routes import claude_route
 from src.runtime.telegram_decisions import CB_PREFIX, handle_decision_callback
 from src.runtime.telegram_poll_registry import (
@@ -93,7 +94,22 @@ EX_CONFIG = 78
 #: The prefixes a tap on THIS bot will actually reach a handler for. Declared
 #: once and used for BOTH the handler pattern and the poll claim, so the claim
 #: can never say more than the handlers deliver.
+#:
+#: ⚠️ CALLBACK prefixes only — NOT slash commands. `/status` and `/decisions`
+#: are `CommandHandler`s, which are not `callback_query` traffic, so adding
+#: them below does not widen this tuple. Widening it would make the poll claim
+#: assert a tap this bot does not handle, which is the exact failure the
+#: registry exists to catch.
 HANDLED_PREFIXES: tuple[str, ...] = (CB_PREFIX,)
+
+#: This bot's operator-facing slash surface: `/start` plus the two operator
+#: PULLS. A command absent from `set_my_commands` is one the operator has to
+#: already know exists in order to use it, which is why the menu moved here
+#: together with the handlers rather than being left behind on the trader bot.
+_COMMAND_SURFACE: list[tuple[str, str]] = [
+    ("start", "What this channel is"),
+    *OPERATOR_COMMANDS,
+]
 
 
 def _allowed_chat_id() -> Optional[str]:
@@ -198,9 +214,38 @@ def main() -> None:
 
     app = Application.builder().token(route.token).build()
     app.add_handler(CommandHandler("start", start_cmd))
+
+    # ── the two operator PULLS: `/status` and `/decisions` ───────────────────
+    # They live HERE, not on the trader bot. PR #10793 registered them in
+    # `telegram_query_bot.py` against its own title ("HELD, must not reach the
+    # trader bot") and its own WARNING (`route_state=answerable_elsewhere`);
+    # the operator asked for "Cloudbot … not the trader one".
+    #
+    # This is also simply where they belong. `answerable_route()` resolves to
+    # TELEGRAM_CLAUDE_BOT_SECRET — the token THIS process polls — so the route
+    # state here is `answerable_here`, and a decision button `/decisions`
+    # renders is received by `on_callback` below, in this same process. On the
+    # trader bot the same button was a cross-bot tap the code had to warn about.
+    #
+    # Registered BEFORE the CallbackQueryHandler for the same reason the trader
+    # bot orders `install_comms_handlers` first: handler order decides who wins.
+    install_operator_commands(
+        app,
+        is_authorised=_is_authorised,
+        polled_token=route.token,
+    )
+
     # Pattern-scoped: this bot claims the `wdec` prefix and nothing else, so the
     # poll claim it registers below is true of exactly what it handles.
     app.add_handler(CallbackQueryHandler(on_callback, pattern=rf"^{CB_PREFIX}:"))
+
+    async def _post_init(a: Application) -> None:
+        # The hamburger menu Telegram shows in this bot's composer.
+        await a.bot.set_my_commands(
+            [BotCommand(name, desc) for name, desc in _COMMAND_SURFACE]
+        )
+
+    app.post_init = _post_init
 
     # ── the poll claim ───────────────────────────────────────────────────────
     # Registered AFTER the handlers are on the Application, never before: a
