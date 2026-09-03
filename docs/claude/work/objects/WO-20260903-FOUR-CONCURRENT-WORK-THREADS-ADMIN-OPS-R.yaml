@@ -1,0 +1,30 @@
+id: WO-20260903-FOUR-CONCURRENT-WORK-THREADS-ADMIN-OPS-R
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Four concurrent work THREADS (Admin / Ops / R&D / Eng) instead of one work-type per day
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The operator and the manager have AGREED the thread model in writing -- what the four threads are, how a thread relates to an intent, how the cycle priority works when four threads run at once, what daily cadence each thread owes, and how a starved thread is DETECTED -- and it is recorded as an operator decision, not a session's proposal. ⚠️ AGREEING IT IS THE DONE-CONDITION; BUILDING IT IS DOWNSTREAM WORK and must not be started before the agreement exists.
+
+why: >-
+  Operator idea, 2026-09-03: 'I want us to have defined threads of work that run concurrently, separated and managed cleanly - this way we can make progress on different avenues of work, instead of dedicating each day to only one work type. This also limits the number of concurrent sessions working on the same thing.' PROPOSED THREADS: Admin (how we do our work -- the cornerstone of system integrity; not daily, but takes priority) · Ops (live trading + research pipelines, comms, system review, trade grading, ML review, backlog triage+drain -- daily) · R&D (build and test new strategies/MLs -- daily, the driver of the roadmap and the actual trading edge) · Eng (infra supporting the others -- ad-hoc, prioritized when it BLOCKS another thread or resolves a serious bug). ⚠️ THE PROBLEM IS MEASURED: 2026-09-03 spent ALL THREE session slots on Admin; the trading side got one slot only because the manager asked for an exception. August ran 45 governance/hardening sprints against 2 deployments. 21 of 32 milestones are simultaneously active.
+
+source: >-
+  operator idea 2026-09-03, raised as 'an idea for us to work on together, not a specific plan'
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
