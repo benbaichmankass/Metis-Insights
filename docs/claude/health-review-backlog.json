@@ -31716,6 +31716,7 @@
     {
       "id": "BL-20260903-INSTALLING-A-DEP-CI-STUBS-MAKES-LOCAL-GREEN-AND-CI-RED",
       "date": "2026-09-03",
+      "opened": "2026-09-03",
       "severity": "medium",
       "tier": 1,
       "area": "ci/test-environment",
