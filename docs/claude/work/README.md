@@ -388,8 +388,10 @@ file byte-for-byte (the closest, `indent=2, ensure_ascii=False`, differs on 236
 lines; `indent=1` differs on 236 too — the file indents array *elements* one
 level shallower than `json.dumps` does at any setting). The refusal is correct
 and is the helper working as designed — but it means the register with the
-**highest measured row contention (35%)** is the one register a session cannot
-append to safely with a tool. Filed as
+**highest measured row contention — 23 of 65 adjacent register-touching commit
+pairs (35%), against 8 of 91 (9%) for `health-review-backlog.json`, measured by
+MI-76 on `main` @`1b82ab7`** — is the one register a session cannot append to
+safely with a tool. Filed as
 `BL-20260903-OPEN-ITEMS-HAS-NO-APPEND-HELPER-AND-BACKLOG-APPEND-REFUSES-IT`.
 
 ## The half a merge driver CANNOT do: id collision
