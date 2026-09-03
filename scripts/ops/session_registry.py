@@ -489,9 +489,28 @@ the manager owns that file.
     gives a ready green PR that waits for a human click — that IS the failure.
     The request file alone against a DRAFT PR is REFUSED by `claude-pr-automerge`,
     correctly and by design; do not try to defeat that refusal.
-  - **Tier-2 / Tier-3** — STAY A DRAFT. Declare `"landing": "hold"` with a
-    `hold_reason` from the closed vocabulary in that README. A draft means
-    *prepared, not approved*, and that convention is load-bearing.
+  - **Tier-2 / Tier-3** — OPEN IT READY (`"draft": false`) and declare
+    `"landing": "hold"` with a `hold_reason` from the closed vocabulary in that
+    README. ⚠️ THIS LINE USED TO SAY "STAY A DRAFT" AND THE OPERATOR RULED THAT
+    OUT on 2026-09-03: *"Going into github to marke drafts ready is not
+    something we can include in the workflow"*. A PR is held by its LANDING
+    DECLARATION, never by the draft flag. The declaration is a machine-readable
+    state a guard reads; the draft flag is a UI state only a human-credentialled
+    actor can clear, and sub-sessions 403 on `update_pull_request` — so a draft
+    is a hold that its own author cannot lift. Measured that morning: 4 of 15
+    open PRs were drafts waiting on a hand-clear, and the day manager
+    hand-un-drafted three of them.
+    ⚠️ THE HOLD IS REAL WITHOUT THE DRAFT FLAG — verified, not assumed. Nothing
+    auto-merges a PR that has not armed the route: `claude-pr-automerge.yml`
+    triggers only on `.github/pr-automerge-requests/*.txt`, and its own header
+    says the file's CONTENTS are never read, its PATH is the signal. A `hold`
+    PR writes no such file. And if one were armed anyway, `check_pr_landing`
+    R10 FAILS the PR — it is a required check, and auto-merge merges only on
+    green.
+    ⚠️ WHAT THE DRAFT FLAG *DID* BUY, stated because removing it is a real
+    trade: GitHub disables the merge button on a draft, so it also guarded
+    against a HUMAN clicking Merge early. That guard is gone; the declaration
+    and the reviewer's eye replace it.
   - If you cannot un-draft your own PR (`update_pull_request` 403s), open it
     ready in the first place rather than opening a draft and asking to be rescued.
   - ⚠️ A PR opened through `pr-opener` starts with ZERO checks (GitHub fires no

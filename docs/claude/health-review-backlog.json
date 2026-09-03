@@ -31725,6 +31725,32 @@
       "evidence": "guards job 100580495407 (PR #10914): 'pr-landing-guard FAILED (state=undeclared)' + 'R11 no landing declaration at .github/pr-landing/automation-work-digest-33730997742-1.json'. grep -n 'automation|EXEMPT|exempt|dependabot|bot\\[' scripts/ci/check_pr_landing.py returns nothing. list_pull_requests(state=open) at 2026-09-03T09:10Z shows the 8 rows above.",
       "resolution_criteria": "An automation PR is OBSERVED merging green -- not the guard passing in a self-test, and not a hand-written declaration dropped onto one branch. The two candidate fixes are NOT equivalent and the choice must be recorded: (a) make each generating workflow WRITE its own .github/pr-landing/<slug>.json (tier 1, landing self) as part of the commit it already makes -- keeps the invariant that no PR lands undeclared, and is the recommended route; or (b) exempt automation/** in the guard -- cheaper, and it creates an UNGUARDED LANE on the guard's first day, which is the failure this repo names as 'a guard cheaper to lie to than to satisfy is worse than no guard'. If (b) is chosen anyway, the exemption must be NARROW (a named branch-prefix allowlist, never a bot-author test) and must be recorded as a deliberate decision rather than a fix. ALSO REQUIRED EITHER WAY: the stacked duplicates must be drained, and #10398 checked separately -- it was cut 2026-08-29, BEFORE the guard, so if it fails R11 too then the 'branch could have known' test is not doing what its docstring claims and that is a SECOND, worse finding.",
       "notes": "SELF-INFLICTED, SAME DAY. The guard shipped this morning as MI-88 (the landing route) and this is its first contact with the machine-authored population, which nobody enumerated before landing it. Filed by the manager session as a routing disposition, not fixed here."
+    },
+    {
+      "id": "BL-20260903-CHECK-PR-LANDING-ARMED-TEST-MISSES-THE-GH-PR-MERGE-AUTO-ROUTE",
+      "opened": "2026-09-03",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ci/landing-route",
+      "summary": "check_pr_landing.py decides whether a PR is ARMED for auto-merge by one test only -- `_added_or_modified(.github/pr-automerge-requests/<slug>.txt)`. That is the route session PRs use. It is NOT the only route: .github/actions/commit-to-main/action.yml:196 arms GitHub native auto-merge directly with `gh pr merge --auto --squash`, and every machine-generated data PR lands that way. MEASURED 2026-09-03 by reading both files; population: the 2 arming routes in the repo, 1 of which the guard can see.",
+      "why_it_matters": "R10 -- the guard's bite -- fires only when `armed` is true AND the declaration says `landing: hold`. A PR armed through the gh-CLI route reads as NOT armed, so R10 cannot fire on it: such a PR could declare `hold`, be graded `declared_hold`, pass the required check, and then be merged anyway by the auto-merge its own generator enabled. The declaration and reality would disagree in the dangerous direction, silently. This is not currently exploited -- commit-to-main now declares `landing: self`, which is the true statement -- but the guard's blindness is what makes the safe declaration a matter of the author's good faith rather than something checked.",
+      "resolution_criteria": "EITHER the guard learns the second route -- e.g. it treats a diff that adds/modifies a workflow or composite action containing `gh pr merge --auto` as arming, or it reads the PR's `auto_merge` field where the API is available -- with a planted-defect self-test proving a `hold` declaration plus gh-CLI arming FAILS; OR the docstring states the limit explicitly, in the same way it already argues why `.github/pr-automerge-requests/**` is excluded from LANDING_MACHINERY, so a reader knows `armed` means 'armed by the request file' and not 'armed'. ⚠️ NOT resolved by assuming no caller will do this: commit-to-main already does, on every automation PR.",
+      "found_by": "session_017DxuurbMW5ex5Q1f7xATqW (MI-98)",
+      "basis": "MEASURED"
+    },
+    {
+      "id": "BL-20260903-TWO-AUTOMATION-FAMILIES-WRITE-PATHS-OUTSIDE-THE-TIER-1-SURFACE-AND-WILL-RELOCK",
+      "opened": "2026-09-03",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ci/landing-route",
+      "summary": "MI-98 makes .github/actions/commit-to-main write its own landing declaration (tier 1, landing self), which unlocks the automation PR lane. R5 then grades the diff against check_pr_landing.py's TIER1_SURFACE. MEASURED across all 35 remote automation/* branches, by family: reconcile-open-prs (8), work-digest (4) and strategy-reviews (1) -- the three families currently red-locked -- touch ZERO paths outside the Tier-1 surface, so they pass. TWO families do not: ciwatch (8 branches, writes automation/board-results/**) and research-queue-stamp (2 branches, writes research/queue/*.yaml). Neither `automation/**` nor `research/queue/**` is in TIER1_SURFACE.",
+      "why_it_matters": "Those two families grandfather today -- their open branches were cut before the guard existed -- so they are not part of the current lockout and nothing is broken right now. But their NEXT run cuts from a current main, writes a `landing: self` declaration, and fails R5 instead of R11. That would trade one lockout for a narrower one, and it would look like a regression introduced by the fix rather than a known gap. Naming it now so the next occurrence is recognised rather than re-diagnosed.",
+      "resolution_criteria": "AN EXPLICIT DECISION, not a silent widening. EITHER add `automation/**` and `research/queue/**` to TIER1_SURFACE -- arguable: they are relay bookkeeping and research-queue stamps, no runtime, no config, no order path, and `.github/pr-automerge-requests/**` (which literally arms merges) is already Tier-1 via `.github/**` -- with the argument written into the docstring beside the existing polarity reasoning and a self-test covering the new entries; OR give commit-to-main a per-caller tier/landing input so a family whose paths are not Tier-1 declares something else, and say what that something else is given those PRs DO auto-merge. ⚠️ Widening TIER1_SURFACE widens what can self-land onto main with no human read, which is why this is filed for a decision rather than done. Resolution is OBSERVED: a ciwatch or research-queue-stamp PR merging green after the change.",
+      "found_by": "session_017DxuurbMW5ex5Q1f7xATqW (MI-98)",
+      "basis": "MEASURED"
     }
   ]
 }
