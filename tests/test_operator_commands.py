@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -449,6 +450,30 @@ def test_the_commands_appear_in_the_hamburger_menu():
 # ═════════════════════════════════════════════════════════════════════════════
 
 
+@pytest.fixture
+def real_tg_types(monkeypatch):
+    """Give the module Telegram types with REAL `.type` / `.command` values.
+
+    ⚠️ `tests/conftest.py` deliberately stubs `telegram` with a bare
+    `MagicMock` and `requirements-test.txt` does not install
+    python-telegram-bot, so in CI `MenuButtonCommands().type` is a Mock, not
+    the string "commands". A test asserting on the real library's behaviour
+    therefore passes only on a box where someone happened to install it — which
+    is exactly how this suite went green locally and RED in CI.
+
+    These stand-ins make the assertions about OUR code (which object we hand to
+    which API) rather than about PTB's constructors, so they hold either way.
+    """
+    cb = _claudebot()
+    monkeypatch.setattr(cb, "BotCommand",
+                        lambda name, desc: SimpleNamespace(command=name, description=desc))
+    monkeypatch.setattr(cb, "MenuButtonCommands",
+                        lambda: SimpleNamespace(type="commands"))
+    monkeypatch.setattr(cb, "BotCommandScopeAllPrivateChats",
+                        lambda: SimpleNamespace(type="all_private_chats"))
+    return cb
+
+
 class _FakeBot:
     """Records the calls `publish_command_surface` makes and what it read back.
 
@@ -473,26 +498,15 @@ class _FakeBot:
     async def get_my_commands(self, scope=None, **kw):
         if self.fail_commands:
             raise RuntimeError("telegram said no")
-        from telegram import BotCommand
-        return [BotCommand(n, d) for n, d in _claudebot()._COMMAND_SURFACE]
+        return [SimpleNamespace(command=n)
+                for n, _d in _claudebot()._COMMAND_SURFACE]
 
     async def get_chat_menu_button(self, chat_id=None, **kw):
         if self.fail_menu:
             raise RuntimeError("telegram said no")
-        from telegram import (
-            MenuButtonCommands,
-            MenuButtonDefault,
-            MenuButtonWebApp,
-            WebAppInfo,
-        )
-        if self._menu_type == "commands":
-            return MenuButtonCommands()
-        if self._menu_type == "web_app":
-            # The state that ACTUALLY hides the command list, and the reason
-            # the `before` read exists: a BotFather setting no code overrode.
-            return MenuButtonWebApp(
-                text="open", web_app=WebAppInfo(url="https://example.invalid"))
-        return MenuButtonDefault()
+        # `web_app` is the state that ACTUALLY hides the command list, and the
+        # reason the `before` read exists: a BotFather setting no code overrode.
+        return SimpleNamespace(type=self._menu_type)
 
     async def set_chat_menu_button(self, chat_id=None, menu_button=None, **kw):
         if self.fail_menu:
@@ -506,7 +520,7 @@ def _claudebot():
     return bot
 
 
-def test_the_menu_button_is_set_to_commands_not_left_to_a_default():
+def test_the_menu_button_is_set_to_commands_not_left_to_a_default(real_tg_types):
     """The operator's actual complaint: the button did not OFFER the commands.
 
     Publishing a command list and making the composer's Menu button show it are
@@ -514,7 +528,7 @@ def test_the_menu_button_is_set_to_commands_not_left_to_a_default():
     `setChatMenuButton`, so the button was whatever BotFather left it as — and a
     `web_app` button lists no commands however correctly they are published.
     """
-    bot = _claudebot()
+    bot = real_tg_types
     fake = _FakeBot()
     out = _run(bot.publish_command_surface(fake))
 
@@ -527,14 +541,14 @@ def test_the_menu_button_is_set_to_commands_not_left_to_a_default():
     assert out["menu_state"] == "set"
 
 
-def test_commands_are_published_to_all_private_chats_not_only_the_default_scope():
+def test_commands_are_published_to_all_private_chats_not_only_the_default_scope(real_tg_types):
     """Telegram resolves a private chat most-specific-first.
 
     `all_private_chats` is MORE specific than the default scope, and an empty
     specific scope does not fall back — it wins. Publishing only to the default
     scope is therefore not equivalent.
     """
-    bot = _claudebot()
+    bot = real_tg_types
     fake = _FakeBot()
     _run(bot.publish_command_surface(fake))
 
@@ -546,13 +560,13 @@ def test_commands_are_published_to_all_private_chats_not_only_the_default_scope(
         assert set(cmds) == {"start", "status", "decisions"}
 
 
-def test_the_outcome_is_read_BACK_from_telegram_never_asserted():
+def test_the_outcome_is_read_BACK_from_telegram_never_asserted(real_tg_types):
     """The defect that made this un-diagnosable was silence on the success path.
 
     A startup that never ran the call and one that ran it perfectly rendered
     IDENTICALLY in the journal. The `before` read is what names the cause.
     """
-    bot = _claudebot()
+    bot = real_tg_types
     fake = _FakeBot(menu_type="web_app")
     out = _run(bot.publish_command_surface(fake))
 
@@ -570,7 +584,7 @@ def test_the_outcome_is_read_BACK_from_telegram_never_asserted():
     ],
 )
 def test_one_call_failing_never_takes_down_the_other_or_the_bot(
-    kwargs, failed_key, intact_key, caplog
+    kwargs, failed_key, intact_key, caplog, real_tg_types
 ):
     """⚠️ THE SAFETY PROPERTY. `post_init` runs inside `run_polling`.
 
@@ -579,7 +593,7 @@ def test_one_call_failing_never_takes_down_the_other_or_the_bot(
     operator's DECISIONS. So a failure is logged at ERROR and swallowed — and
     the two calls are independently wrapped so one cannot suppress the other.
     """
-    bot = _claudebot()
+    bot = real_tg_types
     fake = _FakeBot(**kwargs)
     with caplog.at_level(logging.ERROR):
         out = _run(bot.publish_command_surface(fake))   # must not raise
@@ -600,10 +614,16 @@ def test_post_init_is_actually_reachable_and_calls_the_published_surface():
     import ast
     import inspect
 
-    from telegram.ext import Application
+    import telegram.ext as tgext
 
-    assert not isinstance(getattr(Application, "post_init", None), property), (
-        "a property without a setter would make the assignment silently useless")
+    if not isinstance(getattr(tgext, "__spec__", None), type(None)) and \
+            type(tgext).__name__ != "MagicMock":
+        # Only meaningful against the REAL library; conftest stubs `telegram`
+        # with a MagicMock, where this assertion would pass vacuously and
+        # therefore assert nothing.
+        assert not isinstance(
+            getattr(tgext.Application, "post_init", None), property), (
+            "a property without a setter would make the assignment useless")
 
     bot = _claudebot()
     tree = ast.parse(inspect.getsource(bot))
@@ -616,7 +636,7 @@ def test_post_init_is_actually_reachable_and_calls_the_published_surface():
         "second copy of the logic")
 
 
-def test_both_command_scopes_are_read_BEFORE_writing_so_a_shadow_is_visible():
+def test_both_command_scopes_are_read_BEFORE_writing_so_a_shadow_is_visible(real_tg_types):
     """Which scope was already populated is the thing that names the cause.
 
     Telegram resolves a private chat most-specific-first and takes the first
@@ -625,7 +645,7 @@ def test_both_command_scopes_are_read_BEFORE_writing_so_a_shadow_is_visible():
     process that is invisible until it is read. Reading both before writing is
     what turns "the menu is empty" into a diagnosis instead of a guess.
     """
-    bot = _claudebot()
+    bot = real_tg_types
     fake = _FakeBot()
     out = _run(bot.publish_command_surface(fake))
 
