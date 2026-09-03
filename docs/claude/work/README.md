@@ -361,6 +361,87 @@ is still dirty on GitHub; what this removes is resolving it by hand. A clone tha
 never ran the installer merges these files the old way — it degrades, it does not
 break.
 
+⚠️ **AND UNTIL 2026-09-03, NO CLONE HAD EVER RUN IT.** The remedy shipped and was
+never *armed*: `git config --get merge.jsonregister.driver` is empty in a fresh
+clone, and nothing in the `SessionStart` hook, in any skill, or in CI ran the
+installer — the only two references to it in the whole repo were a comment in
+`.gitattributes` and the code block above. So every session container merged
+these files the old way, which is the most likely direct cause of the four
+hand-resolutions the manager paid for on the morning of 2026-09-03.
+
+MEASURED that morning on a fresh clone of `main` @`855397f6` — two sibling
+branches each appending ONE row to the same register, then merged:
+
+| | OPEN-ITEMS | MANAGER-CHECKLIST | SESSIONS | health-review-backlog |
+|---|---|---|---|---|
+| driver **not** armed | CONFLICT | CONFLICT | CONFLICT | CONFLICT |
+| driver armed | *(n/a — see below)* | **CLEAN** | **CLEAN** | **CLEAN** |
+
+`manager_preflight.py`'s **`merge_driver` check** now FAILS an un-armed clone and
+names the one-line remedy, so the gap is visible at the moment it costs something
+rather than after.
+
+⚠️ **`OPEN-ITEMS.json` HAS NO APPEND HELPER AT ALL**, and that is why it has no
+"driver armed" cell above. `backlog_append.py::append_row` **refuses** it:
+measured 2026-09-03, none of its five candidate serialisations reproduces the
+file byte-for-byte (the closest, `indent=2, ensure_ascii=False`, differs on 236
+lines; `indent=1` differs on 236 too — the file indents array *elements* one
+level shallower than `json.dumps` does at any setting). The refusal is correct
+and is the helper working as designed — but it means the register with the
+**highest measured row contention (35%)** is the one register a session cannot
+append to safely with a tool. Filed as
+`BL-20260903-OPEN-ITEMS-HAS-NO-APPEND-HELPER-AND-BACKLOG-APPEND-REFUSES-IT`.
+
+## The half a merge driver CANNOT do: id collision
+
+**A row-aware merge fixes the TEXTUAL collision. It cannot see a SEMANTIC one.**
+On 2026-09-03 a branch filed a new item as `MI-86` while `MI-86` already existed
+as a different row that `main` had since given real content. To git that is one
+changed value at one key — indistinguishable from *"we both edited this row"* —
+so merging as written would have **silently deleted** the existing item. A human
+reading the three-way diff caught it, which is not a mechanism.
+
+`scripts/ci/check_register_ids.py` (**`register-id-guard`**, every PR) is that
+mechanism. Three rules, because the collision has three spellings:
+
+| | catches | coverage |
+|---|---|---|
+| **R1** uniqueness | the branch **appended** a second `MI-86` | every row, every register |
+| **R2a** creation-fact moved *and* headline moved | a dated row re-filed under a live id | only rows that record a creation date — **31%** on MANAGER-CHECKLIST |
+| **R2b** headline moved *and* <25% of fields survived | the branch **replaced** `main`'s `MI-86` | every shared id — no date needed |
+
+⚠️ **R2b is not redundant with R2a and the incident proves it**: `main`'s real
+`MI-86` carries no creation date, so R2a grades it `unassessable` and the
+replacement walks straight through. Planted against the actual row, R1 caught the
+append spelling and R2a missed the replace spelling until R2b was added.
+
+The 25% floor is **MEASURED, not chosen by feel**: over 126,278 same-id row-pairs
+across adjacent commits (OPEN-ITEMS 2,074/84 commits · MANAGER-CHECKLIST 2,528/53
+· health-review-backlog 121,676/120), exactly **16 changed a row's headline at
+all**, and the lowest field-retention among those real edits is **0.33**. A
+wholesale replacement retains ~0. The band between is wide and empty, so the
+exact value is not load-bearing.
+
+⚠️ **R2a's coverage is PRINTED PER REGISTER AND NEVER COLLAPSED** — a row that
+records no creation date grades `unassessable` (*we did not look*), never
+`passed`. **R3** is what makes that number climb: a row ADDED from now on must
+carry a creation date, with the past grandfathered.
+
+### The `registry_key` collision was live, not hypothetical
+
+MEASURED on `main` @`855397f6`: of the 85 rows in `SESSIONS.json`, 14 carried a
+`registry_key` and only **12 were distinct** — `pending-20260902T133456Z` was
+shared by **three** rows (MI-66, MI-69, MI-70, all spawned in the same second).
+`session_registry.py::confirm()` took the **first** match, so confirming any one
+of the three would have written that session's id onto a **different session's
+row** — a silent mis-bind in the registry whose entire purpose is proving no
+sub-session was lost. `confirm()` now **refuses** an ambiguous key instead, and
+`register` mints against the existing set.
+
+⚠️ **A FINER CLOCK IS NOT THE FIX.** Microsecond precision narrows the window
+without closing it, and makes the failure rarer and just as silent. Uniqueness is
+a property of the set, so it is checked against the set.
+
 ⚠️ **IT REFUSES RATHER THAN PICKING A WINNER.** Divergent same-id ADD, divergent
 same-id EDIT and delete-vs-edit all exit 1 with markers left. This is not
 caution for its own sake: a union-by-id resolver once reported *"no id lost, none

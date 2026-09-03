@@ -1,0 +1,1 @@
+arming auto-merge for claude/mi94-register-id-uniqueness (Tier-1 self-land)
