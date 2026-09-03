@@ -1,0 +1,111 @@
+id: WO-20260903-SUNSET-DISPOSITIONS-OWED
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Ten evidenced retirement candidates have sat undispositioned since 2026-09-01, and retiring a leg is Tier-3 so only the operator can move them
+stage: QUESTION
+lifecycle: waiting
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+
+why: >-
+  Phase G's sunset pass (E3, 2026-09-01) produced TEN evidenced retirement
+  candidates over 52 strategy legs, and they are rendered in the CLAUDE.md
+  session brief every day: gdx_pullback_1d, gld_pullback_1d, iaum_pullback_1d,
+  mes_trend_long_1d, scha_trend_long_1d, splg_trend_long_1d, spy_trend_long_1d,
+  tqqq_trend_long_1d, trend_donchian_sol, turtle_soup. Retiring a leg is Tier-3,
+  so a session may PROPOSE and never ENACT. Nothing has moved for two days.
+  ⚠️ PHASE G IS THE FORCING FUNCTION OF THE OPERATING MODEL — its whole point is
+  that something actually gets RETIRED — and it cannot clear while every
+  candidate waits on a call nobody has been asked to make in a channel they can
+  answer. The manager has been reporting this in chat instead of putting it in
+  the decision inbox, which is MI-54's exact failure repeated.
+
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260903-SUNSET-DISPOSITION-POLICY
+    since: '2026-09-01'
+    note: >-
+      ESTABLISHED FROM THE SOURCE, NOT INFERRED. CLAUDE.md's own session brief says
+      "Retiring a leg is Tier-3 — propose, never enact. Disposition them in
+      docs/claude/SUNSET-DISPOSITIONS.json." So the hold is the operator by
+      construction, not by anyone's judgement. `since` is 2026-09-01, the date the
+      candidates were produced, not today — dating it today would understate how long
+      the operator has been the blocker.
+blocked_on_basis: >-
+  ASSESSED. The edge above was written from the sunset packet and the canonical
+  Tier-3 rule, both read directly, rather than assumed.
+
+decision_requests:
+  - id: DEC-20260903-SUNSET-DISPOSITION-POLICY
+    question: >-
+      Ten strategy legs are evidenced retirement candidates and have waited two days.
+      How do you want them handled — as a batch policy, rather than ten separate asks?
+    urgency: routine
+    asked_on: '2026-09-03'
+    context: >-
+      THE ASK IS DELIBERATELY A POLICY, NOT TEN QUESTIONS. You said "we need to keep my
+      approval to where its actually needed ... so that I don't become the operational
+      bottleneck here", and ten inline prompts for one sunset pass is the bottleneck
+      shape. ⚠️ WHAT IS AND IS NOT ESTABLISHED: the candidates come from the E3 sunset
+      pass over 52 legs with a lifetime read and 115 carried findings, and the machinery
+      probe grades `measured`. What has NOT been done is a per-leg re-read of each one's
+      current performance — so "retire all ten" would be acting on the pass, not on ten
+      individual verdicts. That is why option `retire_all` is stated with that cost
+      attached rather than offered as the clean choice. ⚠️ NOTE ONE CANDIDATE IS
+      ALREADY ENTANGLED: trend_donchian_sol is the leg OI-20260831-PER-ACCOUNT-
+      ARBITRATION names as its tiebreak test subject — it won 0 of 60 SOLUSDT buy-side
+      ticks and has written ZERO journal rows on bybit_1 since 2026-07-07. Retiring it
+      would remove the evidence that row is waiting on, so it may want a different
+      answer from the other nine.
+    options:
+      - key: retire_all_ten
+        label: Retire all ten — accept the sunset pass as sufficient evidence
+        implication: >-
+          Fastest, and Phase G's forcing function finally fires. The cost, stated: this
+          acts on the batch pass rather than on ten individual verdicts, and it removes
+          trend_donchian_sol, which is the live tiebreak evidence another open row is
+          waiting on.
+      - key: retire_nine_hold_sol
+        label: Retire the nine, HOLD trend_donchian_sol for the arbitration test
+        implication: >-
+          Same forcing effect on nine legs while preserving the one leg an open
+          monitoring row needs as evidence. Costs nothing except that the sol leg keeps
+          not trading, which is already true.
+      - key: per_leg_packet_first
+        label: None yet — build a per-leg evidence packet first, then ask again
+        implication: >-
+          The most rigorous, and it is the option that keeps Phase G stalled. It also
+          costs a session's work to produce ten packets over legs the pass already
+          graded. Choose it if the batch evidence genuinely is not enough for you.
+      - key: retire_none_and_close
+        label: Retire none — record the sunset pass as reviewed and rejected
+        implication: >-
+          A legitimate ANSWER rather than a failure to decide, and it CLOSES the row
+          instead of leaving it looking like work in flight. Records that the candidates
+          were seen and kept.
+    allows_free_text: true
+
+done_condition: >-
+  The operator answers DEC-20260903-SUNSET-DISPOSITION-POLICY and the answer is
+  COMMITTED into this object on main. ⚠️ Whatever the answer, it must then be
+  reflected in docs/claude/SUNSET-DISPOSITIONS.json, because that file is what a
+  future sunset pass reads — an answer that lands only here would leave the next
+  pass re-proposing the same ten legs.
+
+review_trigger: >-
+  If unanswered after the next cycle, re-ask ONCE and then record that the
+  channel was used and the question was not answered — which is a different and
+  more useful finding than silence.
+
+ci_arming_note: >-
+  This line exists to ARM CI, and saying so is cheaper than leaving a mystery commit.
+  PR #10941 was opened by `claude-pr-automerge` using GITHUB_TOKEN, and GitHub fires no
+  workflows for a GITHUB_TOKEN push — so the PR sat with exactly ONE check
+  (`open-and-automerge`) and none of guards / pytest-run / pytest-collect /
+  repo-inventory. Auto-merge merges on GREEN, so it would have waited forever for
+  checks that were never going to start. CLAUDE.md documents this trap and the remedy
+  verbatim: push one ordinary commit AFTER the PR exists. That is this commit.
+  ⚠️ Read `mergeable_state` to tell the two zero-check causes apart — `blocked` is this
+  (no checks fired) and `dirty` is a merge conflict, and both render as total_count: 0.
