@@ -4,8 +4,8 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   A due monitoring row on an unmonitored, un-re-derivable data stream has gone unobserved for 4 days
 stage: OBSERVATION
-lifecycle: dormant
-owner: null
+lifecycle: waiting
+owner: claude
 opened_at: 2026-09-02
 closed_at: null
 review_trigger: >-
@@ -20,11 +20,59 @@ why: >-
 source: >-
   operator (conversational)
 
-blocked_on: []
+blocked_on:
+  - kind: external_event
+    ref: "benbaichmankass/Metis-Insights#10893 — merged by the manager"
+    since: 2026-09-03
 blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+  ASSESSED 2026-09-03 by MI-81, and this is a TRUE edge rather than a migrated
+  placeholder. The work is DELIVERED — the register edit is written, pushed and
+  open as draft PR #10893 — and the one remaining step is a merge this session
+  is instructed not to perform (sub-sessions open drafts; the manager merges).
+  So what holds the object is an act by another party, which is `external_event`
+  and not `operator_decision`: no operator ruling is pending and there is no
+  matching `decision_requests` entry, so typing it as a decision would put a
+  phantom question in the operator's inbox. ⚠️ When #10893 merges this edge is
+  SATISFIED, not merely stale — clear it rather than re-dating it.
 
 captured_by: scripts/ops/capture_idea.py
+
+verdict: >-
+  DONE_CONDITION MET, on both of its halves, and the object's own row CLEARED on
+  the strength of it. (1) OBSERVE: the trainer's capture was read and what was
+  SEEN is written into the row's `observation` — the watched path graded `fresh`
+  at age=60s against a 1800s threshold. (2) ALARM: it was buildable after all,
+  and was built and SHOWN to fire. The done_condition's escape hatch (“if it
+  cannot, say why and leave the row open”) was not needed — the row's
+  `probe_absent_reason` argued against the `probes.py` framework, which does not
+  bind a WORKFLOW; a workflow can SSH the trainer exactly as `trainer-vm-diag.yml`
+  does. So `OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED`
+  clears on its clause (a). ⚠️ WHAT IS NOT ESTABLISHED, carried forward as
+  `OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED`
+  rather than dropped with the cleared row: the proof came from a
+  `workflow_dispatch`, the SCHEDULE has never produced a successful run (one
+  attempt, 4.34h late, failed), and neither Telegram alert step has ever executed
+  on any run. An alarm that runs only when a human presses a button monitors
+  nothing, and that is a different fact from “the alarm works”.
+
+evidence: >-
+  POPULATION: every run of `.github/workflows/trainer-capture-watch.yml` in its
+  life to date — three, read from the run history, not sampled. BASIS: MEASURED.
+  Run 33719856283 (`workflow_dispatch`, success, 05:40:34Z→05:43:10Z) printed, in
+  its `Grade freshness` step: `threshold_seconds=1800`, `controls_ok=True`,
+  `[watched] capture: fresh age=60s`, `[control] control_stale: stale age=10800s`,
+  `[control] control_fresh: fresh age=0s`. Quoted from the log — NOT inferred from
+  step conclusions, which is a distinction this session got wrong once already and
+  corrected. The controls are planted on the real trainer over the real SSH hop and
+  graded by the same function that grades the watched path, so a green harness is
+  not what this rests on. The receipt reached `main` at `generated_at`
+  2026-09-03T05:41:00Z via commit-to-main's own PR #10892, exercising the SSH hop,
+  the plant, the grader and commit-to-main for the FIRST time; all four worked.
+  `scripts/ci/check_trainer_capture_watch.py` now grades `fresh` where it graded
+  `never_ran`, so the guard armed itself. AGAINST: run 33716069132
+  (`event: schedule`) fired 04:43:09Z against a first eligible slot of 00:23Z under
+  cron `23 */6 * * *` — 4h20m09s late — and FAILED at the pre-fix missing-pytest
+  step; its head_sha 42b8dbfc predates PR #10875 (merged 05:40:12Z), so it is
+  evidence about the CADENCE and says nothing about the fix. Run 33686720280 (#1,
+  dispatch, 2026-09-02T21:43:53Z) died at the same step. n=3 is the whole population, and one of the
+  three was scheduled.
