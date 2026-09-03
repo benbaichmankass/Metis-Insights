@@ -4,10 +4,10 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   A due monitoring row on an unmonitored, un-re-derivable data stream has gone unobserved for 4 days
 stage: OBSERVATION
-lifecycle: waiting
+lifecycle: done
 owner: claude
 opened_at: 2026-09-02
-closed_at: null
+closed_at: 2026-09-03
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
@@ -20,23 +20,17 @@ why: >-
 source: >-
   operator (conversational)
 
-blocked_on:
-  - kind: external_event
-    ref: "benbaichmankass/Metis-Insights#10893 — merged by the manager"
-    since: 2026-09-03
+blocked_on: []
 blocked_on_basis: >-
-  ASSESSED 2026-09-03 by MI-81, and this is a TRUE edge rather than a migrated
-  placeholder. The work is DELIVERED — the register edit is written, pushed and
-  open as draft PR #10893 — and the one remaining step is a merge this session
-  is instructed not to perform (sub-sessions open drafts; the manager merges).
-  So what holds the object is an act by another party, which is `external_event`
-  and not `operator_decision`: no operator ruling is pending and there is no
-  matching `decision_requests` entry, so typing it as a decision would put a
-  phantom question in the operator's inbox. ⚠️ When #10893 merges this edge is
-  SATISFIED, not merely stale — clear it rather than re-dating it.
-
-captured_by: scripts/ops/capture_idea.py
-
+  ASSESSED 2026-09-03. NOTHING BLOCKS THIS — the empty list is a CLAIM, made on
+  evidence, not the migrated placeholder it started as. The one edge this object
+  ever carried (external_event: PR #10893 merged by the manager) is SATISFIED,
+  not stale: #10893 MERGED 2026-09-03T07:46Z and the rows were verified present
+  on origin/main afterwards. Its own basis said "when #10893 merges this edge is
+  SATISFIED, not merely stale — clear it rather than re-dating it", so it is
+  cleared rather than carried. A satisfied edge left in place is read by the
+  constraint computation as a live blocker, and a false blocker is worse than a
+  missing one.
 verdict: >-
   DONE_CONDITION MET, on both of its halves, and the object's own row CLEARED on
   the strength of it. (1) OBSERVE: the trainer's capture was read and what was
