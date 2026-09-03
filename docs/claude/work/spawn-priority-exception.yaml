@@ -1,0 +1,45 @@
+# SPAWN PRIORITY EXCEPTION
+#
+# The spawn gate refuses work that displaces the cycle priority. That refusal is
+# the mechanism working, not an obstacle: the priority was consulted ZERO times in
+# the day the gate was built, at a measured 12:1 spend against it.
+#
+# This file makes a displacement VISIBLE and ARGUED rather than silent. Filing it
+# is not approval — `decision: pending` still refuses. Only an operator saying yes,
+# with their name and the date on it, permits the spawn.
+
+decision: approved
+approved_by: operator (ben.baichmankass) — in conversation, via decision pop-up
+approved_at: 2026-09-03
+
+covers:
+  - WO-20260903-AVAX-VENUE-MAX-OWN-THE-ORDER-PATH
+
+reason: >-
+  Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
+  options offered (park it as a backup / assign a session to own it properly /
+  close it and re-file the bug). The operator chose "Assign a session to own it
+  properly". In the same exchange they approved authoring
+  IN-20260903-TRADING-SYSTEM-HEALTH so the trading side has a parent intent at all,
+  having said earlier the same morning: "if we have three sessions, then maybe we
+  can dedicate one of them to research and development and engineering things, at
+  least making sure that things aren't falling through the cracks on that side".
+
+  WHY IT GENUINELY DISPLACES RATHER THAN WAITS: PR #10780 holds ~320 lines touching
+  the ORDER PATH (execute.py, qty_legalize.py, precision.py), recovered by a manager
+  from a dead session's uncommitted working tree. No branch carried them, no remote
+  had them; one `git checkout -f` or one container reclaim and they were gone. The
+  work exists today only because a stop hook flagged a dirty tree six times. It is
+  unreviewed, unowned, and untiered, and every day it sits is a day it can be lost
+  again — which is the specific failure the operating-layer rebuild exists to end,
+  arriving on the trading side while the rebuild is still being built.
+
+  SCOPE OF THE DISPLACEMENT — deliberately ONE object, not a lane. This exception
+  names exactly one work object. The duty pass over the due monitoring rows is
+  QUEUED and NOT covered here; it waits for the cycle priority or its own exception.
+  A blanket exception naming nothing is a permanent priority-suspension wearing an
+  exception's clothes, which is what the `covers` check exists to refuse.
+
+  ⚠️ THIS IS NOT A STANDING GRANT. It expires with this object. The cycle priority
+  remains CY-20260903-MANAGER-CONTROL, and the other two live sessions (MI-88, MI-89)
+  both serve it.
