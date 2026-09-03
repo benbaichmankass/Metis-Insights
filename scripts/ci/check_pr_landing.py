@@ -477,7 +477,7 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
                       "excuse free for everybody, which is the presence-only "
                       "marker `new-table-wiring-guard` was bitten by.)")
             else:
-                notes.append(f"R8 verified — landing machinery in the diff: "
+                notes.append("R8 verified — landing machinery in the diff: "
                              + ", ".join(sorted(machinery)[:5]))
         # R9
         if reason == "depends_on_unmerged_pr" and not re.search(r"#\d+", text):
