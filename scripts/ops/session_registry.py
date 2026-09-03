@@ -491,8 +491,8 @@ the manager owns that file.
     correctly and by design; do not try to defeat that refusal.
   - **Tier-2 / Tier-3** — OPEN IT READY (`"draft": false`) and declare
     `"landing": "hold"` with a `hold_reason` from the closed vocabulary in that
-    README. ⚠️ THIS LINE USED TO SAY "STAY A DRAFT" AND THE OPERATOR RULED THAT
-    OUT on 2026-09-03: *"Going into github to marke drafts ready is not
+    README. ⚠️ THIS LINE USED TO TELL YOU TO REMAIN A DRAFT, AND THE OPERATOR
+    RULED THAT OUT on 2026-09-03: *"Going into github to marke drafts ready is not
     something we can include in the workflow"*. A PR is held by its LANDING
     DECLARATION, never by the draft flag. The declaration is a machine-readable
     state a guard reads; the draft flag is a UI state only a human-credentialled
@@ -927,8 +927,19 @@ def _self_test() -> int:
           '"landing": "self"' in p, True)
     check("the spawn prompt names the landing declaration file",
           ".github/pr-landing/" in p, True)
-    check("the spawn prompt still holds Tier-2/3 as a draft",
-          "STAY A DRAFT" in p and '"landing": "hold"' in p, True)
+    # ⚠️ AND THE SAME TRAP CAUGHT ME, ONE RULE LATER. This assertion read
+    # `"STAY A DRAFT" in p and '"landing": "hold"' in p` — pinning the draft
+    # instruction the operator struck out on 2026-09-03. When MI-98 rewrote the
+    # prompt, the check went on PASSING, because the replacement prose QUOTED
+    # the old phrase while explaining why it was gone. A test satisfied by a
+    # quotation of the rule it is meant to enforce is measuring nothing, and the
+    # comment four lines above had already recorded this exact failure once.
+    # So: assert the rule that now holds, and assert the struck one is ABSENT —
+    # which is only meaningful because the prose was reworded not to quote it.
+    check("the spawn prompt tells Tier-2/3 to open READY and hold by declaration",
+          "OPEN IT READY" in p and '"landing": "hold"' in p, True)
+    check("the spawn prompt no longer tells anyone to remain a draft",
+          "STAY A DRAFT" in p, False)
     # Both halves of the Tier-1 route, because either alone lands nothing.
     check("the spawn prompt names the auto-merge request file",
           ".github/pr-automerge-requests/" in p, True)
