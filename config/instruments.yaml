@@ -184,6 +184,22 @@ instruments:
     # ⚠️ Populate this ONLY from a venue-published value. A guessed ceiling is
     # a fabricated constraint on the live order path; leaving it absent grades
     # `could_not_look`, which is the honest state.
+    #
+    # ⚠️ PROVENANCE OF THE 22000, stated so a later reader can judge its reach
+    # (verified 2026-09-03, MI-90). POPULATION: one rejection, `bybit_1`,
+    # AVAXUSDT, 2026-09-02T09:06:11Z, read from the live VM's
+    # `ict-trader-live.service` journal. The wire target in that same log line
+    # is `https://api-demo.bybit.com/v5/order/create`, and `config/accounts.yaml`
+    # confirms `bybit_1` carries `demo: true`. SO THIS CEILING IS MEASURED ON
+    # BYBIT'S DEMO VENUE, NOT PRODUCTION.
+    #
+    # That is correctly scoped TODAY and only today: AVAXUSDT is traded by
+    # `bybit_1` and by no other account (`bybit_2`, the sole non-demo Bybit
+    # account, lists BTCUSDT/ETHUSDT/XRPUSDT/ADAUSDT). But `max_qty` here is
+    # SYMBOL-scoped, so the day AVAXUSDT is added to `bybit_2`, this
+    # demo-measured number silently becomes a production fallback ceiling that
+    # was never measured on production. Re-measure before that happens; do not
+    # let this comment's existence substitute for the measurement.
     max_qty: 22000
     contract_value_usd: 1.0
     max_leverage: 100

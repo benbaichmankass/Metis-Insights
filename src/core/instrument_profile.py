@@ -48,8 +48,24 @@ class InstrumentProfile:
     # rejection text, or instruments-info). A guessed ceiling is a fabricated
     # constraint on the live order path. It is a FALLBACK for when the live
     # lot-rule lookup misses -- `prefer_live=True` keeps the venue
-    # authoritative -- and a stale value can only ever under-size (clamping
-    # lower than the current cap), never place an illegal order.
+    # authoritative.
+    #
+    # ⚠️ A STALE VALUE IS NOT HARMLESS, and an earlier draft of this comment
+    # claimed it was ("can only ever under-size ... never place an illegal
+    # order"). That is FALSE and is corrected here rather than left standing,
+    # because an over-confident comment on the order path is the same failure
+    # mode as the collapsed state below it. Both directions are reachable:
+    #   * venue RAISES its cap  -> we clamp low  -> under-size (benign)
+    #   * venue LOWERS its cap  -> we clamp to a ceiling the venue no longer
+    #                              honours -> THE ORDER IS STILL REJECTED
+    # The second is no worse than placing unclamped (today's behaviour), but it
+    # is not "never illegal". A stale ceiling narrows the bug; it does not
+    # close it. Re-measure from the venue rather than trusting age.
+    #
+    # ⚠️ THIS FIELD IS SYMBOL-SCOPED, NOT ACCOUNT-SCOPED. One value serves every
+    # account that trades the symbol, and Bybit's demo and production venues
+    # need not publish the same ceiling. See the AVAXUSDT note in
+    # `config/instruments.yaml` for the concrete case.
     max_qty: Optional[float] = None
 
     # ------------------------------------------------------------------

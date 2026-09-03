@@ -164,3 +164,60 @@ def test_clamp_still_never_increases_a_quantity():
         )
         if r.ok:
             assert r.qty <= qty + 1e-9, f"{qty} -> {r.qty} INCREASED"
+
+
+# --- precedence: which source WINS the ceiling (added 2026-09-03, MI-90) ----
+# The recovered suite covered each source in isolation but never asserted the
+# AUTHORITY ORDER between them, which is the rule the whole fix turns on:
+# `prefer_live=True` means a source that ACTUALLY READ the venue outranks the
+# offline profile, in BOTH directions. Untested precedence is how a "fix" that
+# reads correctly in isolation still ships the wrong ceiling.
+
+class _LowerCeilingClient:
+    """A live read that publishes a ceiling LOWER than the offline profile's."""
+
+    def get_instruments_info(self, **_kw):
+        return {"result": {"list": [
+            {"lotSizeFilter": {"qtyStep": "0.1", "minOrderQty": "0.1",
+                               "maxOrderQty": "9000"}},
+        ]}}
+
+
+def test_live_published_ceiling_outranks_the_profile():
+    """Live says 9000, the profile says 22000 -> the VENUE wins.
+
+    The profile is a fallback for a MISSED lookup, never an override of a read
+    that succeeded. Were this backwards, a stale profile ceiling would quietly
+    replace the venue's own current answer on every order.
+    """
+    r = legalize_qty(
+        REJECTED_QTY, account_cfg=BYBIT_1, symbol="AVAXUSDT",
+        client=_LowerCeilingClient(), prefer_live=True,
+    )
+    assert r.venue_max_state == "published"
+    assert r.venue_max == 9000.0, (
+        f"profile ceiling {AVAX_VENUE_MAX} overrode a live read of 9000 — "
+        "the offline fallback outranked the venue"
+    )
+    assert r.qty == 9000.0 and r.clamped is True
+    assert r.source == "live_lot_rule"
+
+
+def test_a_live_absent_ceiling_is_not_overridden_by_the_profile():
+    """The direction that actually bites.
+
+    Live read SUCCEEDS and says the venue has NO ceiling; the profile still
+    carries 22000. `absent` is a real answer from the authoritative source, so
+    it must NOT be cross-consulted away — the ceiling-only cross-consult in
+    `_resolve_venue_lot_rule` fires on `could_not_look` ONLY. If it ever
+    widened to `absent`, a stale profile would start clamping orders the venue
+    would have accepted, which is the new-refusal blast radius the fix's own
+    comments promise never to open.
+    """
+    r = legalize_qty(
+        REJECTED_QTY, account_cfg=BYBIT_1, symbol="AVAXUSDT",
+        client=_NoCeilingClient(), prefer_live=True,
+    )
+    assert r.venue_max_state == "absent"
+    assert r.venue_max is None
+    assert r.clamped is False and r.qty == pytest.approx(REJECTED_QTY)
