@@ -125,6 +125,74 @@ which would unlock these.
 
 ---
 
+## The landing route — how a PR gets from pushed to merged
+
+Full contract: [`.github/pr-landing/README.md`](../.github/pr-landing/README.md).
+Enforced on every PR by `pr-landing-guard`
+([`scripts/ci/check_pr_landing.py`](../scripts/ci/check_pr_landing.py)).
+
+**Every PR writes `.github/pr-landing/<branch-slug>.json`** declaring its tier
+and how it means to land. The guard checks that declaration **against the diff**
+— it is not satisfied by the file merely existing.
+
+### The two mechanisms are not alternatives
+
+`docs/CLAUDE-RULES-CANONICAL.md` § Permission Tiers says Tier-1 work needs **no
+human OK to merge**. Two separate things must both be true for that to actually
+happen, and either alone leaves the work sitting:
+
+| | decides | on its own |
+|---|---|---|
+| `"draft": false` (in `automation/pr-requests/<name>.json`, or `create_pull_request`) | **readiness** — approved to land | a ready, green PR waiting for a human click |
+| `.github/pr-automerge-requests/<slug>.txt` | **landing** — `claude-pr-automerge` enables native auto-merge; GitHub merges only on green | against a **draft** PR it is **refused**, by design |
+
+So **Tier-1 = both**; **Tier-2/Tier-3 = neither**, and the PR stays a draft with
+a typed `hold_reason`. That draft refusal in `claude-pr-automerge.yml` is a
+correct safety property — do not weaken it, and do not try to route around it.
+
+### Why this exists
+
+Measured 2026-09-03: seven of the night shift's PRs sat open, green and
+unlanded, waiting on the manager for work that needed no approval.
+`scripts/ops/session_registry.py`'s spawn prompt ended, unconditionally and at
+every tier, with *"Open the PR as a DRAFT; the manager merges."* That blanket
+line was the cause and is now tier-aware.
+
+⚠️ **Three of those PR bodies blamed `pr-opener.yml` for "creating every PR as a
+draft regardless of `draft:false`". That claim is FALSE — do not repeat it.**
+`pr-opener.yml`'s draft line is
+`[ "$(jq -r '.draft // true' "$req")" = "true" ] && draft_flag="--draft"`:
+`draft:false` **is** honoured, `true` is merely the default, and the request
+files those sessions wrote asked for `"draft": true`.
+
+### The teeth, and why they can bite
+
+`pr-landing-guard` is a required check and auto-merge merges only on green, so a
+branch that arms auto-merge while under-declaring its tier **holds itself out of
+`main` by failing its own guard**. The bite is the merge gate the branch already
+asked to be judged by, not an alarm somebody has to read.
+
+- **R10** — arming with no valid Tier-1 self-land declaration fails, and is
+  **not** grandfathered for old branches. Age excuses not knowing the rule; it
+  does not excuse asking to merge without approval.
+- **R5** — the Tier-1 surface is an **allowlist**. A path the guard does not
+  recognise is not thereby dangerous; it is one it cannot vouch for, so
+  self-landing is refused on it rather than granted by default.
+- **R12** — a PR that changes the landing machinery may not land itself by it.
+- **R8** — `changes_landing_machinery` is verified against the diff, with the
+  branch's own declaration excluded from the evidence.
+
+Branches cut before the guard existed report `undeclared_predates_guard` — a
+**pass on age**, printed loudly. The guard arms itself as they drain; there is
+no flag to unset.
+
+⚠️ **A PR opened through `pr-opener` starts with ZERO checks** (GitHub fires no
+workflows for `GITHUB_TOKEN` pushes) and auto-merge merges on **green**, so it
+waits forever until checks exist. Push one ordinary commit **after** the PR
+exists to arm CI, and read CI with `get_check_runs`, never `get_status`.
+
+---
+
 ## Quick-reference cheat sheet
 
 | Workflow | Autonomy | Trigger pattern | Label / sentinel |

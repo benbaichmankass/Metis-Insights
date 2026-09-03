@@ -1,0 +1,27 @@
+# ============================================
+# ICT WORK DIGEST SYSTEMD TIMER (MI-83)
+# Triggers ict-work-digest.service once per hour.
+# Save to: /etc/systemd/system/ict-work-digest.timer
+# ============================================
+
+[Unit]
+Description=Trigger ict-work-digest every hour
+Requires=ict-work-digest.service
+
+[Timer]
+# Hourly, matching the operator's stated cadence (2026-09-02, verbatim: "I
+# realize that's a lot of noise, but that's how I want it for now until we get
+# a little more settled in").
+OnCalendar=hourly
+# Spreads the send off the top of the hour, where ict-hourly-snapshot already
+# fires, so the two do not hit the Telegram bridge in the same second.
+RandomizedDelaySec=120
+# Persistent=true replays a tick missed while the box was down. The runner's
+# own HOUR-granular latch is what stops a replay double-sending: a replayed
+# firing inside an hour that already sent is a no-op, and one in a NEW hour is
+# a digest the operator genuinely has not seen.
+Persistent=true
+Unit=ict-work-digest.service
+
+[Install]
+WantedBy=timers.target

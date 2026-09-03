@@ -144,3 +144,18 @@ decision_requests:
           sub-sessions at what one manager can track by hand, rather than
           building machinery to manage more. COST: throughput. BENEFIT: it
           is available tonight and needs nothing built.
+    answer:
+      chosen: both
+      free_text: null
+      answered_at: '2026-09-03T07:07:08Z'
+      answered_by: operator
+      committed_by: manager session_01Nopk1HcpvWBSEbZxEmALkd (decision pop-up, relayed)
+      submission_id: 8b046ab975a625f6cf762010fd0e7ced
+      note: >-
+        Operator, 2026-09-03, decision pop-up. Both halves: the derived read AND the refusal that uses 
+        it. ⚠️ HALF IS ALREADY DELIVERED -- MI-89 (#10896, merged 2026-09-03) ships scripts/ops/manager
+        _view.py, the derived read that stores nothing and grades the registry's claim against a live o
+        bservation. So the REMAINING cost is the refusal only: block a manager action on a PR whose aut
+        hor session is still live. That is aimed at a measured event, not a hypothetical -- on 2026-09-
+        02 the manager un-drafted and armed #10857 while its author was still RUNNING, because there wa
+        s no way to ask and nothing objected.

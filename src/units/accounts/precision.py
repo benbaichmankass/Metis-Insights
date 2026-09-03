@@ -218,43 +218,92 @@ def get_lot_rule(
     return (step, min_qty)
 
 
-def get_lot_bounds(
+# The three answers a lot-rule source can give about a per-order CEILING.
+# Kept apart because only ONE of them justifies placing an unclamped order
+# (2026-09-02, BL-20260902-AVAX-VENUE-MAX-CLAMP-INERT-WHEN-THE-LIVE-LOOKUP-MISSES).
+MAX_STATE_PUBLISHED = "published"        # the venue named a ceiling
+MAX_STATE_ABSENT = "absent"              # we read the venue's filter; it has none
+MAX_STATE_COULD_NOT_LOOK = "could_not_look"  # no source that can speak to one answered
+
+
+def get_lot_bounds_stated(
     client: Any, symbol: str, category: str,
-) -> Optional[Tuple[Decimal, Decimal, Optional[Decimal]]]:
-    """Resolve ``(qtyStep, minOrderQty, maxOrderQty|None)`` for ``symbol``.
+) -> Optional[Tuple[Decimal, Decimal, Optional[Decimal], str]]:
+    """``(qtyStep, minOrderQty, maxOrderQty|None, max_state)`` for ``symbol``.
 
-    The superset of :func:`get_lot_rule`, which now delegates here so the two
-    can never disagree about the step/min — one resolution, one cache, two
-    views of it.
+    The stated superset of :func:`get_lot_bounds`, which delegates here and
+    drops the state — one resolution, one cache, three views of it.
 
-    The third element is the venue's per-order CEILING, or ``None`` for "the
-    venue published no maximum" (including every entry resolved from the static
-    fallback map, which carries step/min only). ``None`` and ``0`` are
-    deliberately different answers: a caller must clamp on a real ceiling and
-    do nothing on an absent one.
+    ⚠️ THE FOURTH ELEMENT IS THE POINT. ``maxOrderQty`` of ``None`` was
+    produced by two structurally different conditions and the caller could not
+    tell them apart: the venue's ``lotSizeFilter`` genuinely carrying no
+    ceiling (:data:`MAX_STATE_ABSENT`), and the STATIC FALLBACK MAP answering,
+    which stores step/min only and so cannot speak to a ceiling at all
+    (:data:`MAX_STATE_COULD_NOT_LOOK`). ``get_lot_bounds``'s own docstring
+    called both "the venue published no maximum", which is a claim the static
+    map is in no position to make. Downstream that ``None`` disabled the
+    venue-max clamp, so an oversized order went to the exchange and was
+    bounced — three times (BL-20260810 → BL-20260821 → this).
+
+    ``None`` (no rule at all) is the caller's ``could_not_look`` too, but it is
+    returned as ``None`` rather than a state so the existing "rule unknown →
+    passthrough" contract is untouched.
 
     Same cache (2-hour TTL) → live → static → ``None`` resolution as before.
+    Only the LIVE path populates the cache, so a cache hit is by construction a
+    replayed live read and is graded exactly as that read was.
     """
     key = (symbol.upper(), category.lower())
     now = time.monotonic()
+
+    def _stated(step: str, min_qty: str, max_qty: Optional[str]):
+        return (
+            Decimal(step), Decimal(min_qty),
+            Decimal(max_qty) if max_qty is not None else None,
+            MAX_STATE_PUBLISHED if max_qty is not None else MAX_STATE_ABSENT,
+        )
+
     entry = _LOT_CACHE.get(key)
     if entry is not None:
         rule, cached_at = entry
         if now - cached_at < _CACHE_TTL_SECONDS:
-            return (Decimal(rule[0]), Decimal(rule[1]),
-                    Decimal(rule[2]) if rule[2] is not None else None)
+            return _stated(rule[0], rule[1], rule[2])
         del _LOT_CACHE[key]
     if client is not None:
         live = _live_lot_rule(client, key[0], key[1])
         if live:
             _LOT_CACHE[key] = (live, now)
-            return (Decimal(live[0]), Decimal(live[1]),
-                    Decimal(live[2]) if live[2] is not None else None)
+            return _stated(live[0], live[1], live[2])
     static = _STATIC_LOT_RULE.get(key)
     if static:
-        # The static map is a step/min fallback only — it asserts no ceiling.
-        return (Decimal(static[0]), Decimal(static[1]), None)
+        # The static map carries step/min ONLY. It does not assert that the
+        # venue has no ceiling — it cannot see one. Grading this `absent`
+        # (as the pre-2026-09-02 code did, implicitly) is the collapse.
+        return (Decimal(static[0]), Decimal(static[1]), None,
+                MAX_STATE_COULD_NOT_LOOK)
     return None
+
+
+def get_lot_bounds(
+    client: Any, symbol: str, category: str,
+) -> Optional[Tuple[Decimal, Decimal, Optional[Decimal]]]:
+    """Resolve ``(qtyStep, minOrderQty, maxOrderQty|None)`` for ``symbol``.
+
+    The superset of :func:`get_lot_rule` and the state-dropping view of
+    :func:`get_lot_bounds_stated`, so the three can never disagree about the
+    step/min — one resolution, one cache.
+
+    ⚠️ The third element's ``None`` is AMBIGUOUS here by construction (it is
+    both "the venue published none" and "the source could not speak to one").
+    A caller that DECIDES on a ceiling must use :func:`get_lot_bounds_stated`;
+    this signature is kept for callers that only need step/min. ``None`` and
+    ``0`` remain deliberately different answers.
+    """
+    stated = get_lot_bounds_stated(client, symbol, category)
+    if stated is None:
+        return None
+    step, min_qty, max_qty, _state = stated
+    return (step, min_qty, max_qty)
 
 
 def quantize_qty(value: float, step: Decimal) -> Decimal:
