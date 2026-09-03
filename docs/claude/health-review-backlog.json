@@ -31675,6 +31675,19 @@
       "resolution_criteria": "backlog_append.py REFUSES a row whose `severity` is outside critical|high|medium|low or whose `status` is missing/outside the enum, naming the offending field and the allowed values -- asserted by a test that feeds it a 'P2' severity and a status-less row and requires a non-zero exit. ⚠️ The enum must be IMPORTED from the guards (scripts/ops/check_backlog_criteria.py and scripts/check_claim_basis.py) rather than re-declared, or the two copies drift and this recurs one level down.",
       "evidence": "CI run 33728581769 (guards, PR #10906): artifact-validity-guard and claim-basis-guard both exited 1 on the single row appended by backlog_append.py minutes earlier, which had reported 'appended ... 1148 item(s)'.",
       "found_by": "manager session_01Nopk1HcpvWBSEbZxEmALkd, by having its own filed row rejected"
+    },
+    {
+      "id": "BL-20260903-NEEDS-ACTION-NEVER-CLEARS-SO-A-SATISFIED-ASK-READS-AS-BLOCKED-FOREVER",
+      "opened": "2026-09-03",
+      "status": "open",
+      "severity": "high",
+      "tier": 1,
+      "area": "ops/manager-control",
+      "summary": "A sub-session's post_turn_summary.needs_action is written by the session and NEVER cleared by anything. Once the manager satisfies the ask, the session is already idle and cannot rewrite its own summary, so the row reads BLOCKED forever. Measured 2026-09-03: MI-89 (needs_action 'add MI-89 to session_registry.py and update Routine prompt with --write-receipt flag') and MI-90 ('operator decision on Tier-3 merge gate') both still read status_bucket BLOCKED with those exact strings AFTER both asks were fully satisfied -- MI-89's registry row was already on main and the Routine was updated at 07:29Z; MI-90's decision was taken and #10900 was merged at 07:36Z.",
+      "why_it_matters": "This is a desensitized-alarm generator aimed directly at the one mechanism built to catch a manager doing nothing. The Manager Queue Watch (trig_01TWdAvrwFLe6T9XFoNopTeo) was armed at 07:29Z to report every session in BLOCKED with a non-empty needs_action. On its first armed firing it would have reported two sessions as blocked on the manager whose asks were already done -- so the watch cries wolf on day one, and the operator learns to ignore precisely the channel that exists because they had to catch the manager by hand. CLAUDE.md names this class as its own P1: an alarm that fires constantly and is routinely walked past IS the bug.",
+      "resolution_criteria": "The queue watch distinguishes an OPEN ask from a SATISFIED one without the dead session's cooperation, and is shown doing it on a real pair -- one genuinely-blocked session reported, one satisfied-and-archived session NOT reported, in the same run. ⚠️ ARCHIVING IS THE MANAGER'S CURRENT WORKAROUND, NOT THE FIX: it works (archived sessions leave the BLOCKED bucket, verified on all three today) but it requires the manager to remember, which is the same 'remember to do it' remedy that has already failed twice on the sub-session registry. The durable shape is either the manager recording resolution where the watch reads it, or the watch deriving satisfaction from an observable -- the PR merged, the decision answered -- rather than from the session's own stale claim.",
+      "evidence": "Live list_sessions read 2026-09-03T07:47Z: session_01Kyq3Zpgh6DoujFGAMkyJ9o and session_01Q1HYBVoThQdKTWSYQHpm6Y both SESSION_STATUS_IDLE / SESSION_STATUS_BUCKET_BLOCKED carrying satisfied needs_action strings. Both archived by the manager at 07:48Z, after which both read SESSION_STATUS_BUCKET_COMPLETED.",
+      "found_by": "manager session_01Nopk1HcpvWBSEbZxEmALkd, checking the queue before the watch's first armed firing"
     }
   ]
 }
