@@ -585,7 +585,8 @@ def derive(reg_doc: Optional[Any], reg_readable: bool,
            checks: Optional[Dict[int, str]] = None,
            now: Optional[datetime] = None,
            only_active: bool = True,
-           repo: str = DEFAULT_REPO) -> Dict[str, Any]:
+           repo: str = DEFAULT_REPO,
+           manager_session_id: Optional[str] = None) -> Dict[str, Any]:
     """The whole table, plus the verdict and the population behind it."""
     now = now or datetime.now(timezone.utc)
     live_idx = _live_index(observation)
@@ -605,10 +606,28 @@ def derive(reg_doc: Optional[Any], reg_readable: bool,
     # be absent FROM, so every live session would read "unregistered" and the
     # tool would report a fleet-wide loss whose real cause is a parse error. That
     # is `we did not look` wearing a finding's clothes, so it stays None.
+    #
+    # ⚠️ SELF AND OTHER-MANAGER SESSIONS ARE EXCLUDED, mirroring
+    # `session_registry.reconcile` rather than re-deriving the policy. Without
+    # this the FIRST live run reported the reading session itself and its own
+    # manager as lost sub-sessions -- an alarm wrong on its own author is one
+    # nobody reads. ⚠️ PARENTAGE FILTERS ONE WAY: a session whose parent is a
+    # DIFFERENT manager is not ours, but a session with parent UNKNOWN is KEPT,
+    # because an unattributable running session is precisely the dangerous one.
     known = sr.registry_ids(reg_rows)
-    unregistered = ([e["session_id"] for e in observation
-                     if not sr.id_known(e.get("session_id", ""), known)]
-                    if (observation is not None and reg_readable) else None)
+    unregistered: Optional[List[str]] = None
+    if observation is not None and reg_readable:
+        unregistered = []
+        for e in observation:
+            sid = e.get("session_id", "")
+            if manager_session_id and sid == manager_session_id:
+                continue
+            parent = e.get("parent_session_id")
+            if (manager_session_id and isinstance(parent, str) and parent
+                    and parent != manager_session_id):
+                continue
+            if not sr.id_known(sid, known):
+                unregistered.append(sid)
 
     missing = [n for n, v in (("live-sessions", observation), ("open-prs", prs),
                               ("check-runs", checks)) if v is None]
@@ -965,6 +984,28 @@ def _self_test() -> int:
     check("a garbage check payload is None, never an empty map",
           normalise_checks("nope"), None)
 
+    # --- self / other-manager exclusion (the first live run reported ITSELF) ---
+    MGR, MINE, THEIRS = "session_01MMMMMMMMMMMMMMMMMMMM", SID, "session_01TTTTTTTTTTTTTTTTTTTT"
+    obs = [{"session_id": MINE, "status": "idle"},
+           {"session_id": MGR, "status": "running"},
+           {"session_id": THEIRS, "status": "running",
+            "parent_session_id": "session_01OTHERMANAGERxxxxxx"},
+           {"session_id": "session_01UUUUUUUUUUUUUUUUUUUU", "status": "running"}]
+    check("without a manager id, EVERY unregistered live session is reported, "
+          "the manager and another manager's children included -- the pre-fix "
+          "behaviour, which reported this tool's own session on its first run",
+          len(derive(reg, True, ck, True, obs, prs, None, now)["unregistered_live"]),
+          3)
+    got = derive(reg, True, ck, True, obs, prs, None, now,
+                 manager_session_id=MGR)["unregistered_live"]
+    check("with a manager id, the MANAGER ITSELF is excluded", MGR in got, False)
+    check("...and a session parented by a DIFFERENT manager is excluded",
+          THEIRS in got, False)
+    check("...while a session with an UNKNOWN parent is KEPT — an unattributable "
+          "running session is the dangerous one, so parentage filters ONE WAY",
+          "session_01UUUUUUUUUUUUUUUUUUUU" in got, True)
+    check("...leaving exactly the one genuine finding", len(got), 1)
+
     # --- the timestamp harvest, which the first live run needed -------------
     raw = {"ccr": {"data": [{"id": SID, "session_status": "SESSION_STATUS_IDLE",
                              "updated_at": "2026-09-03T03:00:00Z",
@@ -1024,6 +1065,13 @@ def main(argv=None) -> int:
                     help="repo that bare PR numbers belong to (default: "
                          f"{DEFAULT_REPO}). Refs qualified with another repo are "
                          "reported `other_repo`, never compared.")
+    ap.add_argument("--manager-session-id", default=None,
+                    help="YOUR session id (get_session with session_id omitted "
+                         "returns it). Excludes YOURSELF and any session parented "
+                         "by a DIFFERENT manager from the unregistered-session "
+                         "census. ⚠️ Parentage filters ONE WAY: a session whose "
+                         "parent is unknown is KEPT, because an unattributable "
+                         "running session is the dangerous one.")
     ap.add_argument("--all", action="store_true",
                     help="show every registry row, not only those asserting live work")
     ap.add_argument("--json", action="store_true")
@@ -1055,7 +1103,8 @@ def main(argv=None) -> int:
     checks = normalise_checks(_load(a.check_runs)) if a.check_runs else None
 
     res = derive(reg, reg_ok, ck, ck_ok, observation, prs, checks,
-                 only_active=not a.all, repo=a.repo)
+                 only_active=not a.all, repo=a.repo,
+                 manager_session_id=a.manager_session_id)
     print(render(res))
     if a.json:
         print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
