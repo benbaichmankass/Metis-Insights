@@ -42,7 +42,10 @@ Takeover is time-based; you do not need my cooperation.
 1. **The ping chain as ONE cluster** (MI-01, MI-02, MI-16, MI-17, MI-80, MI-83) —
    six rows, one subsystem, one pass. `VERIFICATION-PLAN.json` says start from the
    per-merge ping the operator confirmed rather than from zero. **It needs several
-   diag reads; I stopped rather than start it at 83%.**
+   diag reads; I stopped rather than start it at ~83% of this session's context
+   window (population: ~830k of the 1,000,000-token budget reported by
+   `list_sessions`), because the operator's rule is to stop starting new work at
+   ~85% and a six-row cluster is new work.**
 2. **MI-101's remaining half** — the digest reads a repo-relative path instead of
    `$DATA_DIR`. The ledger now EXISTS, so this is the half that would still hide a
    wedge. Two sessions have died on this work; a third needs the ruling in its
