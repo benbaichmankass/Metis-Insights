@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "R12 applies: this PR modifies scripts/ci/run_guards.py and scripts/ci/guard_selftests.py, both on the LANDING_MACHINERY list that check_pr_landing.py's R8 verifies against the diff. A change to the machinery may not land itself -- the change and its own approval would be the same act, and a mistake in it disarms the check that would have caught the mistake. Beyond that generic reason there is a specific one here: this PR ships a NEW required guard that can REFUSE a manager's PR, so an over-broad implementation would not merely nag, it would block the manager from managing -- the opposite of what the operator asked for. That wants one human read before it becomes a gate, and the blocked/permitted list in the PR body is written to be exactly what gets read.",
+  "why": "Tier-1 by the canonical doc's own list (CI scripts, docs). The diff is one new guard (scripts/ci/check_manager_scope.py) with a 13-case planted-defect self-test, its registration in run_guards.py + guard_selftests.py, a pending-by-default exception template under docs/claude/work/, and one paragraph in CLAUDE.md pointing the existing rule at the new mechanism. No src/, no tests/ of the runtime, no order path, no strategy config, no risk caps, no deploy/, no live-VM runtime file. Merging it adds one CI check and changes no runtime behaviour."
+}
