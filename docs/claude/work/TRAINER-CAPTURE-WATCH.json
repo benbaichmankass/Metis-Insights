@@ -1,0 +1,9 @@
+{
+  "_doc": "Dated liveness receipt for .github/workflows/trainer-capture-watch.yml, graded by scripts/ci/check_trainer_capture_watch.py in run_guards.py on every PR. READ `generated_at`, NEVER the cron expression. `capture_state` is a DATED SNAPSHOT of the trainer order-flow capture at the moment the watcher last ran \u2014 not a live read. `controls_ok` is whether the alarm PROVED it fires against planted staleness on that run; false means the capture's state was UNKNOWN, not good.",
+  "capture_state": "fresh",
+  "controls_ok": true,
+  "freshness_threshold_seconds": 1800,
+  "generated_at": "2026-09-03T05:41:00Z",
+  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33719856283",
+  "summary": "capture [fresh] age=60s path=/home/ubuntu/ict-trading-bot/datasets-out/market_microstructure/BTCUSDT/5m/v001/data.jsonl"
+}
