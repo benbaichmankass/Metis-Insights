@@ -77,21 +77,6 @@
       "blocker": "Needs a live session to take ownership and verify the resolution path against a real venue read, then re-open as a normal Tier-gated PR. Until then this branch is a BACKUP, not a proposal."
     },
     {
-      "pr": 10857,
-      "title": "notify: ping the operator when a PR merges to main (MI-83)",
-      "owner_session": "session_018ruZdgEkPZ1XceWzLwuYUU",
-      "checklist_item": "MI-83",
-      "draft": false,
-      "tier": "1 (observability read path; writes nothing to the repo or the DB)",
-      "state": "auto_merge_armed",
-      "operator_decision": {
-        "verdict": "not_required",
-        "decided_on": "2026-09-02",
-        "text": "Tier-1, and it is the capability the operator asked for three times today. Undrafted and armed BY THE MANAGER at 20:54Z rather than by its own session, which was still RUNNING — a manager cannot message a running sub-session (verified; work/README.md), so arming it is what makes the work survive the session instead of depending on it finishing."
-      },
-      "blocker": "None. ⚠️ SHIPPED IS NOT OBSERVED: no merge ping has been seen arriving on the fleet. That needs this merged, pulled by ict-git-sync (5min), and a subsequent merge. Its own OPEN-ITEMS row carries the gap."
-    },
-    {
       "pr": 10859,
       "title": "⛔ TIER-2, HELD: move the hourly work digest onto the VM's own clock (MI-83)",
       "owner_session": "session_018ruZdgEkPZ1XceWzLwuYUU",
@@ -615,8 +600,27 @@
       "merge_sha": "5d95739840f8e504fdfae0d6152f9b3c4cf6b420",
       "observed_at": "2026-09-02T21:35:34Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10857,
+      "title": "notify: ping the operator when a PR merges to main (MI-83)",
+      "owner_session": "session_018ruZdgEkPZ1XceWzLwuYUU",
+      "checklist_item": "MI-83",
+      "draft": false,
+      "tier": "1 (observability read path; writes nothing to the repo or the DB)",
+      "state": "auto_merge_armed",
+      "operator_decision": {
+        "verdict": "not_required",
+        "decided_on": "2026-09-02",
+        "text": "Tier-1, and it is the capability the operator asked for three times today. Undrafted and armed BY THE MANAGER at 20:54Z rather than by its own session, which was still RUNNING — a manager cannot message a running sub-session (verified; work/README.md), so arming it is what makes the work survive the session instead of depending on it finishing."
+      },
+      "blocker": "None. ⚠️ SHIPPED IS NOT OBSERVED: no merge ping has been seen arriving on the fleet. That needs this merged, pulled by ict-git-sync (5min), and a subsequent merge. Its own OPEN-ITEMS row carries the gap.",
+      "terminal": "merged",
+      "merge_sha": "5fa572b15703ff7bd8ce6e4f4e3ee26ecec19441",
+      "observed_at": "2026-09-02T21:59:41Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-02T21:35:34Z",
-  "last_reconciled_sha": "5d95739840f8e504fdfae0d6152f9b3c4cf6b420"
+  "last_reconciled_at": "2026-09-02T21:59:41Z",
+  "last_reconciled_sha": "5fa572b15703ff7bd8ce6e4f4e3ee26ecec19441"
 }

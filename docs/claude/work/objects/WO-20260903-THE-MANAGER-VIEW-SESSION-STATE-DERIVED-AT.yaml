@@ -1,0 +1,30 @@
+id: WO-20260903-THE-MANAGER-VIEW-SESSION-STATE-DERIVED-AT
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The manager view: session state DERIVED at read time, and a watch that is repo-anchored wherever it can be
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  One command prints session -> live status -> its PR -> CI -> its checklist item from supplied live reads, and a manager is OBSERVED using it instead of reconciling five sources by hand; manager_preflight.py's self-test passes so the preflight can grade again; and the Manager Queue Watch leaves a receipt so its SILENCE is detectable from CI.
+
+why: >-
+  Cycle priority CY-20260903-MANAGER-CONTROL. Measured: 25 checklist items read in_flight and 17 are owned by sessions that are all IDLE; SESSIONS.json says working for sessions stopped hours ago (17 of 17 inherited rows wrong). manager_preflight.py currently REFUSES to grade at all because its own planted-failure self-test fails. Operator 2026-09-03: prefer repo/VM-anchored mechanism over one that depends on a Routine session staying alive.
+
+source: >-
+  operator direction 2026-09-03
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

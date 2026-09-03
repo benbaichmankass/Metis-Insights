@@ -24,8 +24,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02T21:38:05Z",
-  "updated_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+  "updated_at": "2026-09-03T05:43:29Z",
+  "updated_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -1262,6 +1262,30 @@
       "spawned_by": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "why": "Operator said goodnight 21:40Z. Day manager standing down and releasing the lease. Scope deliberately narrow: no new spawns, no Tier-2/3, no trader, no Claude Routine.",
       "confirmed_at": "2026-09-02T21:38:05Z"
+    },
+    {
+      "session_id": "session_01HGmBBgMUzjtoGkkBDLaHE6",
+      "registry_key": "pending-20260903T054155Z",
+      "state": "working",
+      "title": "MI-88 — the landing route: Tier-1 work lands itself, and a guard that bites",
+      "owns_object": "WO-20260903-THE-LANDING-ROUTE-TIER-1-SUB-SESSION",
+      "checklist_item": "MI-88",
+      "spawned_at": "2026-09-03T05:41:55Z",
+      "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
+      "why": "7 night-shift PRs sat as open drafts; every PR regardless of tier funnels through the manager.",
+      "confirmed_at": "2026-09-03T05:42:39Z"
+    },
+    {
+      "session_id": "session_01Kyq3Zpgh6DoujFGAMkyJ9o",
+      "registry_key": "pending-20260903T054243Z",
+      "state": "working",
+      "title": "MI-89 — the manager view: derived session state, a preflight that can grade again, and a watch that survives",
+      "owns_object": "WO-20260903-THE-MANAGER-VIEW-SESSION-STATE-DERIVED-AT",
+      "checklist_item": "MI-89",
+      "spawned_at": "2026-09-03T05:42:43Z",
+      "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
+      "why": "Cycle priority CY-20260903-MANAGER-CONTROL: the manager cannot SEE its own sessions.",
+      "confirmed_at": "2026-09-03T05:43:29Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."

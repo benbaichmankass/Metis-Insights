@@ -1,16 +1,16 @@
 {
   "_doc": "RECEIPT of the PR-queue watcher (scripts/ops/pr_queue_latency.py, fired by .github/workflows/pr-queue-watch.yml). ⚠️ READ `generated_at`, NEVER THE CRON EXPRESSION -- a merged, enabled, syntactically correct scheduled workflow in this repo is NOT evidence that it fires (probes.yml's first scheduled run was ~4h50m late and fired once instead of daily). `scripts/ci/check_pr_queue_watch.py` grades this file's age in run_guards.py on every PR, so a dead watcher announces itself in everybody's CI instead of going quiet. ⚠️ An ABSENT file means the watcher has NEVER run, which is a different fact from STALE and needs a different fix.",
   "schema_version": 1,
-  "generated_at": "2026-09-02T21:16:40Z",
+  "generated_at": "2026-09-03T05:02:39Z",
   "read_state": "measured",
-  "population": "ALL 6 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
-  "waiting": 1,
-  "worst_hours": 113.4,
+  "population": "ALL 10 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
+  "waiting": 8,
+  "worst_hours": 121.2,
   "threshold_hours": 6.0,
   "by_state": {
-    "active": 4,
-    "held_declared": 1,
-    "waiting": 1
+    "active": 1,
+    "waiting": 8,
+    "held_declared": 1
   },
   "rows": [
     {
@@ -18,60 +18,100 @@
       "title": "chore(m1): economic-calendar PIT snapshots (auto)",
       "head_ref": "automation/econ-calendar-33232352515-1",
       "draft": false,
-      "quiet_hours": 113.4,
+      "quiet_hours": 121.2,
       "state": "waiting",
-      "why": "open and unmerged with no push for 113.4h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 121.2h (threshold 6.0h).",
       "last_push_utc": "2026-08-29T03:49:54Z"
     },
     {
-      "pr": 10780,
-      "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
-      "head_ref": "claude/mi56-avax-venue-max-recovered",
+      "pr": 10865,
+      "title": "MI-80: both clauses MET on the first real test — and the row stays open",
+      "head_ref": "claude/mi80-clause-observation",
       "draft": true,
-      "quiet_hours": 11.3,
-      "state": "held_declared",
-      "why": "the PR's own title declares it must not be merged, so it is not waiting on a merge decision. Counted and printed, never hidden.",
-      "last_push_utc": "2026-09-02T10:00:04Z"
-    },
-    {
-      "pr": 10843,
-      "title": "MI-81: an alarm on the trainer's forward-only capture, keyed on the DATA",
-      "head_ref": "claude/mi81-trainer-capture-monitoring",
-      "draft": false,
-      "quiet_hours": 0.2,
-      "state": "active",
-      "why": "a push landed 0.2h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-02T21:03:09Z"
-    },
-    {
-      "pr": 10857,
-      "title": "notify: ping the operator when a PR merges to main (MI-83, the ask nobody built)",
-      "head_ref": "claude/mi83-per-merge-ping",
-      "draft": false,
-      "quiet_hours": 0.3,
-      "state": "active",
-      "why": "a push landed 0.3h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-02T20:56:09Z"
+      "quiet_hours": 7.8,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 7.8h (threshold 6.0h).",
+      "last_push_utc": "2026-09-02T21:16:56Z"
     },
     {
       "pr": 10859,
       "title": "⛔ TIER-2, HELD: move the hourly work digest onto the VM's own clock (MI-83)",
       "head_ref": "claude/mi83-hourly-digest-carrier",
       "draft": true,
-      "quiet_hours": 0.2,
-      "state": "active",
-      "why": "a push landed 0.2h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-02T21:05:13Z"
+      "quiet_hours": 7.6,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 7.6h (threshold 6.0h).",
+      "last_push_utc": "2026-09-02T21:28:29Z"
     },
     {
-      "pr": 10863,
-      "title": "chore(ops): session-reaper observations (auto)",
-      "head_ref": "automation/session-reaper-33683947014-1",
-      "draft": false,
-      "quiet_hours": 0.0,
+      "pr": 10873,
+      "title": "manager-lease: night shift claims it; and the unpushed-RELEASE window that stranded the successor for 16 minutes",
+      "head_ref": "claude/night-manager-lease-claim-and-correction",
+      "draft": true,
+      "quiet_hours": 7.1,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 7.1h (threshold 6.0h).",
+      "last_push_utc": "2026-09-02T21:58:20Z"
+    },
+    {
+      "pr": 10871,
+      "title": "night manager: stood down — the lease was held, not released; the preflight refused and it was right",
+      "head_ref": "claude/night-manager-stood-down-lease-held",
+      "draft": true,
+      "quiet_hours": 7.1,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 7.1h (threshold 6.0h).",
+      "last_push_utc": "2026-09-02T21:56:31Z"
+    },
+    {
+      "pr": 10875,
+      "title": "MI-81 follow-up: capture-watch run #1 died on a missing pytest — and what it DID prove",
+      "head_ref": "claude/mi81-capture-watch-needs-pytest",
+      "draft": true,
+      "quiet_hours": 7.0,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 7.0h (threshold 6.0h).",
+      "last_push_utc": "2026-09-02T22:01:41Z"
+    },
+    {
+      "pr": 10877,
+      "title": "daily brief for the operator's morning, rendered with every live observation supplied",
+      "head_ref": "claude/night-brief",
+      "draft": true,
+      "quiet_hours": 6.8,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 6.8h (threshold 6.0h).",
+      "last_push_utc": "2026-09-02T22:14:19Z"
+    },
+    {
+      "pr": 10876,
+      "title": "MI-84 re-measured (17 of 17 inherited rows wrong), MI-85 diagnosed (do NOT close it), MI-86 filed",
+      "head_ref": "claude/night-mi84-mi85-and-the-release-window",
+      "draft": true,
+      "quiet_hours": 6.8,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 6.8h (threshold 6.0h).",
+      "last_push_utc": "2026-09-02T22:17:02Z"
+    },
+    {
+      "pr": 10780,
+      "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
+      "head_ref": "claude/mi56-avax-venue-max-recovered",
+      "draft": true,
+      "quiet_hours": 19.0,
+      "state": "held_declared",
+      "why": "the PR's own title declares it must not be merged, so it is not waiting on a merge decision. Counted and printed, never hidden.",
+      "last_push_utc": "2026-09-02T10:00:04Z"
+    },
+    {
+      "pr": 10888,
+      "title": "queue the night-shift summary to the Telegram bot (and what the trace says about the delivery defect)",
+      "head_ref": "claude/night-shift-telegram-ping",
+      "draft": true,
+      "quiet_hours": 0.3,
       "state": "active",
-      "why": "a push landed 0.0h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-02T21:14:16Z"
+      "why": "a push landed 0.3h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-03T04:45:33Z"
     }
   ],
   "runs": [
@@ -88,6 +128,13 @@
       "waiting": 1,
       "worst_hours": 113.4,
       "escalated": true
+    },
+    {
+      "at": "2026-09-03T05:02:39Z",
+      "read_state": "measured",
+      "waiting": 8,
+      "worst_hours": 121.2,
+      "escalated": false
     }
   ],
   "last_paged_at": "2026-09-02T21:16:40Z",
