@@ -430,6 +430,52 @@ abort every merge of these files with `fatal: custom merge driver jsonregister
 lacks command line` — worse than not having it. Removing it means
 `git config --remove-section merge.jsonregister`, and there is no uninstall script.
 
+### THIRD LIVE EXERCISE — the driver resolved a HEADER SCALAR too, so it is not a tail fix
+
+The exercise above was row contention, which left an open question worth stating
+plainly: *if the driver handles the ROWS but leaves the shared `as_of`, then the
+dominant conflict class is untouched and this is only a tail fix.* Measured on the
+next collision (2026-09-03, `main` @`17ea45e1`), the answer is **no — it resolves
+both**, and this time the header scalar genuinely diverged:
+
+| register | field | merge base | `main` | branch | **merged** | |
+|---|---|---|---|---|---|---|
+| `MANAGER-CHECKLIST.json` | `as_of` | `08:25:00Z` | `09:25:00Z` | `08:25:00Z` | **`09:25:00Z`** | **DIVERGED — driver took the newer** |
+| `health-review-backlog.json` | rows | — | +1 row | +2 rows | **union** | row contention |
+
+Without the driver that same merge conflicts on `health-review-backlog.json`
+(1 hunk, both sides appending a `BL-20260903-…` row at the array tail). With it
+armed: 14 commits rebased clean, **zero unmerged paths, zero conflict markers**,
+and every register an exact union — health-review-backlog 1155+1157→**1158**,
+MANAGER-CHECKLIST 93+90→**93**, SESSIONS 89+89→**89**, OPEN-ITEMS 51+51→**51**.
+
+So across the two live exercises the driver has now resolved **the row class and
+the header-scalar class**, which are the two mechanisms the original measurement
+separated. Neither exercise produced a residue of any kind.
+
+### ⚠️ THE REGISTERS ARE NEVER QUIET BETWEEN MERGES — do not design as if they are
+
+Stated by the manager on 2026-09-03 and worth writing down, because it is a
+property of the system rather than an accident of one morning:
+
+> *"I have pushed three commits to `MANAGER-CHECKLIST.json` this morning (08:55Z,
+> 09:25Z, 09:58Z) as items were routed … the cadence is real and it will not
+> stop, because the checklist is the manager's state of record and updating it
+> IS the job."*
+
+**A manager that is managing writes to the registers continuously**, so any
+sibling PR open for more than a few minutes will find them moved underneath it.
+That is the ordinary case, not the exceptional one. Two consequences:
+
+- **A branch will need re-merging repeatedly, not once.** PR #10910 hit this
+  three times in one morning. The cost per occurrence is what matters, and armed
+  it is one `git rebase`; un-armed it is a hand-resolution each time.
+- ⚠️ **AND THE COST IS PAID BY EVERY SIBLING, NOT JUST THE SLOW ONE.** On
+  2026-09-03 two green PRs — #10910 and #10918 — sat `mergeable_state: dirty`
+  simultaneously on register collisions, on the morning the register-collision
+  work was itself what could not land. A design that assumes a quiet window
+  between merges has no such window to rely on.
+
 ⚠️ **`OPEN-ITEMS.json` HAS NO APPEND HELPER AT ALL**, and that is why it has no
 "driver armed" cell above. `backlog_append.py::append_row` **refuses** it:
 measured 2026-09-03, none of its five candidate serialisations reproduces the
