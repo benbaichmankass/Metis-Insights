@@ -58,10 +58,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Optional
+from typing import Any, Optional
 
 from dotenv import load_dotenv
-from telegram import BotCommand, Update
+from telegram import (
+    BotCommand,
+    BotCommandScopeAllPrivateChats,
+    MenuButtonCommands,
+    Update,
+)
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -166,6 +171,129 @@ async def on_callback(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await query.edit_message_text(result["reply"])
 
 
+async def publish_command_surface(bot: Any) -> dict[str, Any]:
+    """Publish the slash surface AND make the composer's Menu button show it.
+
+    Operator, 2026-09-03: *"I want the menu to open up on the menu button in
+    the chat, not just by typing. I should be able to click to open the menu
+    and then choose the command I want."* `/status` already ANSWERED at that
+    point — the handlers were fine and the discoverable surface was not.
+
+    ⚠️ **PUBLISHING COMMANDS AND SHOWING A MENU BUTTON ARE TWO DIFFERENT
+    API CALLS WITH TWO DIFFERENT FAILURES**, which is why they get their own
+    `try` each. `setMyCommands` fills the list; `setChatMenuButton` decides
+    whether the composer's button OFFERS that list. A bot can have every
+    command correctly set and still show no menu — that is exactly the state
+    this function was written to end.
+
+    ⚠️ **IT LOGS WHAT TELEGRAM RETURNS, NOT WHAT WE ASKED FOR** — read BEFORE
+    and AFTER, so the journal distinguishes *we set them* from *they were
+    already right* from *the call failed*. The previous version logged
+    nothing on success, so a startup that never ran this and a startup that
+    ran it perfectly rendered IDENTICALLY in the journal: the manager could
+    not tell them apart on 2026-09-03, and that ambiguity is a defect in its
+    own right (the same class MI-83 fixed for merge-pings — the branch
+    nobody logs is the branch nobody can verify). The `before` read is what
+    names the CAUSE: a `web_app`/custom button here is a BotFather setting no
+    code had ever overridden.
+
+    ⚠️ **A FAILURE IS LOGGED AT ERROR AND NEVER RAISED.** `post_init` runs
+    inside `run_polling`, so raising would abort startup — and under
+    `Restart=always` that turns a cosmetic menu problem into a crash-loop on
+    the channel that carries the operator's DECISIONS. Answering `/status` matters
+    more than showing it in a menu. This is a deliberate exception to the
+    repo's usual distaste for a broad `except`: it is loud, it is scoped to
+    two cosmetic calls, and it cannot mask a handler fault.
+    """
+    cmds = [BotCommand(name, desc) for name, desc in _COMMAND_SURFACE]
+    names = ", ".join(f"/{n}" for n, _ in _COMMAND_SURFACE)
+    #: Never collapsed: `published`/`publish_failed` and `set`/`set_failed` are
+    #: four different facts, and `menu_before` is the one that names the CAUSE.
+    result: dict[str, Any] = {
+        "commands_state": "not_attempted",
+        "commands_before": None,
+        "commands_live": None,
+        "menu_state": "not_attempted",
+        "menu_before": None,
+        "menu_after": None,
+    }
+
+    # ── 1. the command LIST ────────────────────────────────────────────
+    # Telegram resolves a private chat's list most-specific-first
+    # (chat -> all_private_chats -> default) and takes the first NON-EMPTY
+    # one, so an EMPTY all_private_chats falls back to default correctly.
+    #
+    # ⚠️ AN EARLIER DRAFT OF THIS COMMENT SAID THE OPPOSITE -- "an empty
+    # specific scope does not fall back, it wins" -- and used that to justify
+    # this write. That is FALSE per the Bot API's documented resolution, and
+    # it would have been a fabricated cause standing in for a measured one.
+    # The write is kept for a DIFFERENT and true reason: we cannot see from
+    # here whether that scope is empty. If anything ever set a NON-empty
+    # all_private_chats list (BotFather, an older build), it SHADOWS default
+    # and the default-only write we have always done would be invisible.
+    # Setting both removes that ambiguity and cannot be wrong; it is
+    # defensive, not a diagnosis.
+    try:
+        before_cmds = {
+            "default": [c.command for c in await bot.get_my_commands()],
+            "all_private_chats": [
+                c.command for c in await bot.get_my_commands(
+                    scope=BotCommandScopeAllPrivateChats())
+            ],
+        }
+        result["commands_before"] = before_cmds
+        await bot.set_my_commands(cmds, scope=BotCommandScopeAllPrivateChats())
+        await bot.set_my_commands(cmds)
+        live = await bot.get_my_commands(scope=BotCommandScopeAllPrivateChats())
+        result["commands_state"] = "published"
+        result["commands_live"] = [c.command for c in live]
+        logger.info(
+            "%s: published %s; BEFORE default=%s all_private_chats=%s; "
+            "telegram now returns %s for all_private_chats",
+            SERVICE_NAME, names,
+            before_cmds["default"] or "EMPTY",
+            before_cmds["all_private_chats"] or "EMPTY",
+            [f"/{c.command}" for c in live] or "NOTHING",
+        )
+    except Exception as exc:  # noqa: BLE001 -- see docstring
+        result["commands_state"] = "publish_failed"
+        logger.error(
+            "%s: could NOT publish the command list (%s) — the commands still "
+            "ANSWER when typed, but they will not be offered anywhere: %s",
+            SERVICE_NAME, names, exc,
+        )
+
+    # ── 2. the composer's MENU BUTTON ──────────────────────────────────
+    # Nothing in this repo had ever called setChatMenuButton, so this bot's
+    # button was whatever BotFather left it as. `default` behaves as
+    # `commands`, but a `web_app` button does NOT -- and the difference is
+    # invisible from our side until it is read.
+    try:
+        before = await bot.get_chat_menu_button()
+        await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+        after = await bot.get_chat_menu_button()
+        result["menu_state"] = "set"
+        # `str()` because PTB returns a MenuButtonType enum; the dict is a
+        # diagnostic others may serialise, and an enum is not JSON.
+        result["menu_before"] = str(before.type)
+        result["menu_after"] = str(after.type)
+        logger.info(
+            "%s: menu button was %r, now %r%s",
+            SERVICE_NAME, before.type, after.type,
+            "" if before.type != "web_app" else
+            " — a web_app button was the reason the menu never listed commands",
+        )
+    except Exception as exc:  # noqa: BLE001 -- see docstring
+        result["menu_state"] = "set_failed"
+        logger.error(
+            "%s: could NOT set the composer menu button to `commands` — the "
+            "commands are published but the Menu button may not offer them: %s",
+            SERVICE_NAME, exc,
+        )
+
+    return result
+
+
 def main() -> None:
     logging.basicConfig(
         level=os.environ.get("LOG_LEVEL", "INFO"),
@@ -240,10 +368,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(on_callback, pattern=rf"^{CB_PREFIX}:"))
 
     async def _post_init(a: Application) -> None:
-        # The hamburger menu Telegram shows in this bot's composer.
-        await a.bot.set_my_commands(
-            [BotCommand(name, desc) for name, desc in _COMMAND_SURFACE]
-        )
+        await publish_command_surface(a.bot)
 
     app.post_init = _post_init
 

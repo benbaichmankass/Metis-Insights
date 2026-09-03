@@ -1,0 +1,56 @@
+# MANAGER-SCOPE EXCEPTIONS — the escape hatch for `check_manager_scope.py`.
+#
+# THE MANAGER SESSION ONLY MANAGES. `CLAUDE.md`, operator 2026-09-01:
+#   "the manager session only manages and does not take even small items,
+#    because that means they're not focused on what they're actually supposed
+#    to be doing."
+#
+# ⚠️ A REAL EMERGENCY IS NOT "AN ITEM". An incident on the live trading system
+# at 3am, with no session up and money at risk, is management — and a rule that
+# forced the manager to spawn a session first would be a rule that costs money
+# to obey. That is what this file is for, and it is the ONLY way past the guard:
+# there is no bypass flag and no environment variable, deliberately.
+#
+# HOW IT IS DIFFERENT FROM A FLAG. Every field below is VERIFIED, not merely
+# present — the lesson of `new-table-wiring-guard`, whose presence-only marker
+# made the cheapest way to silence a real finding *naming a table that does not
+# exist*. A guard cheaper to lie to than to satisfy is worse than no guard, so:
+#
+#   * `status` must be exactly `active`. **`pending` REFUSES** — an unfilled
+#     template grants nothing, which is why the template below is `pending`.
+#   * `paths` must be a non-empty list of globs, and it is SCOPED: an entry
+#     naming `src/runtime/orders.py` does not excuse touching `config/`.
+#   * `reason` must be real text (>= 30 chars). A one-word reason is refused.
+#   * `expires` must be a real YYYY-MM-DD, and an EXPIRED entry grants nothing.
+#     There is no "permanent" value. If you still need it next week, you are
+#     not handling an incident — you are doing an item, and it wants a session.
+#
+# Every one of those refusals has a planted-defect case in
+# `check_manager_scope.py --self-test`, so an entry that would silence the guard
+# without meeting the bar cannot pass unnoticed.
+#
+# THIS FILE IS THE AUDIT TRAIL. An exception is meant to be READ afterwards —
+# by the operator, and by the next manager. Write the `reason` for that reader:
+# what was on fire, why no session could take it, and what you did.
+#
+# Pattern copied from `docs/claude/work/spawn-priority-exception.yaml`.
+
+schema_version: 1
+
+exceptions:
+  # ------------------------------------------------------------------------
+  # TEMPLATE — `status: pending`, so it grants NOTHING as written. Copy it,
+  # fill it in, and set `status: active` only for work that is genuinely an
+  # incident rather than an item.
+  # ------------------------------------------------------------------------
+  - id: EXC-YYYYMMDD-SHORT-SLUG
+    status: pending
+    paths:
+      - src/runtime/example.py
+    reason: >-
+      What was on fire, why it could not wait for a session to be spawned, and
+      what you actually changed. Written for the operator reading it later.
+    expires: 2026-01-01
+    # Optional, and worth filling in: the incident or work object this belongs
+    # to, so the exception can be joined back to the record of what happened.
+    ref: null
