@@ -482,6 +482,71 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # THE ALARM ON THE TRAINER'S FORWARD-ONLY ORDER-FLOW CAPTURE.
+        # `trainer-capture-watch.yml` grades the mtime of the capture's own
+        # output file. This entry is what makes that watcher a GUARD rather than
+        # a cron somebody hopes is firing: a watcher that quietly stopped would
+        # leave the capture in exactly the unmonitored state
+        # OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED was
+        # filed for, while everything looked fine.
+        #
+        # ⚠️ IT GRADES THE WATCHER'S LIVENESS, NEVER THE CAPTURE'S HEALTH. A
+        # contributor's PR must not go red because the trainer's capture stalled
+        # -- same objection as the pr-queue-watch entry above. The capture's own
+        # verdict is escalated by the watcher's own run (which fails, and pages).
+        #
+        # ⚠️ `never_ran` PASSES and that is correct rather than lenient: it is
+        # the accurate reading until the workflow first fires, and failing on it
+        # would red every PR on the day this merges. It arms itself on the first
+        # real run.
+        #
+        # `when: None`: a watcher can die without any PR touching its files,
+        # which is precisely the case that must be caught.
+        "name": "trainer-capture-watch-guard",
+        "when": None,
+        "steps": [
+            # Both directions, on both halves -- a planted defect fires and a
+            # clean input stays quiet. One direction proves a check runs, never
+            # that it discriminates.
+            ["python3", "-m", "pytest",
+             "tests/test_orderflow_capture_freshness.py", "-q"],
+            ["python3", "scripts/ci/check_trainer_capture_watch.py", "--self-test"],
+            ["python3", "scripts/ci/check_trainer_capture_watch.py"],
+        ],
+    },
+    {
+        # IS THE OPERATOR'S DIGEST STILL ARRIVING? On 2026-09-02 the operator
+        # asked "no pings for 3 hours?" -- it was four -- and nothing in the
+        # repo knew. F6 makes operator notification the CONDITION the autonomy
+        # grant rests on, so that precondition had been unmet all day unnoticed.
+        #
+        # `src_red_crons` cannot cover this: it grades the latest scheduled
+        # run's CONCLUSION, so a cron that never fires leaves a stale-but-green
+        # latest run and reads clean -- a missed slot and a quiet hour are
+        # indistinguishable from it. Worse, it rides `due-list.yml`, itself a
+        # cron, itself measured landing 4h07m late; a cron watchdog for crons
+        # cannot report its own carrier dying.
+        #
+        # `when: None`: the digest can stop without any PR touching its files,
+        # which is precisely the case that must be caught. And `pull_request`
+        # is an event this repo has measured firing within seconds.
+        #
+        # It PASSES on `never_ran` and arms itself on the first landed receipt,
+        # for the reason the pr-queue-watch guard above records: failing on it
+        # would red every PR the day this merges, which is how a guard gets
+        # disabled instead of fixed.
+        "name": "digest-liveness-guard",
+        "when": None,
+        "steps": [
+            # Both directions, on both halves -- a planted defect fires and a
+            # clean input stays quiet. One direction proves a check runs, never
+            # that it discriminates.
+            ["python3", "scripts/ops/digest_due.py", "--self-test"],
+            ["python3", "scripts/ci/check_digest_liveness.py", "--self-test"],
+            ["python3", "scripts/ci/check_digest_liveness.py"],
+        ],
+    },
+    {
         # The hand-maintained cron watch list in claude-run-failure-alert.yml
         # has been asserted-complete and been false TWICE (2026-08-21 count
         # said 12 and "ALL 12 are now listed"; measured 2026-08-31 there were

@@ -28,3 +28,52 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+
+decision_requests:
+- id: DEC-20260902-REVERT-THE-UNAUTHORISED-MERGES
+  question: >-
+    Ten PRs whose own bodies declared them held were merged today by the auto-merge relay with no
+    human decision, and all ten are in the RUNNING tree. What should happen to them?
+  urgency: routine
+  asked_on: 2026-09-02
+  asked_by: session_011JWFxuYAaEQKCFCmG6gnHJ
+  context: >-
+    MEASURED over ALL 124 PRs merged to main on 2026-09-02 — population established twice
+    independently (git log = 124, GitHub search total_count = 124) and every one read individually:
+    23 merged by github-actions[bot], 33 self-declared held, 11 both, less #10746 (documented
+    operator-permitted) = 10 UNAUTHORISED. The fix that stops NEW mis-arming (#10810) merged at
+    18:49:29Z and its own text says it cannot retract arming already enabled.
+    ⚠️ SHARPEST ITEM: #10793 carried the constraint "must not reach the trader bot" and went LIVE on
+    the trader bot at 18:59:03Z, with the code's own WARNING naming the violation as it did it.
+    ⚠️ MERGE→RESTART WAS 2 SECONDS, so "a merge is not a deploy" buys far less here than it sounds:
+    /api/diag/version reads git_sha == git_sha_on_disk, restart_pending false. #10758's +101 lines in
+    src/runtime/order_monitor.py are in the running tree.
+    ⚠️ NOT ALL TEN ARE EQUAL: #10758's CHANGE has an operator decision behind it (the MI-34
+    downgrade) and only its MERGE bypassed the manager. Per-PR blast radius:
+    docs/audit/held-pr-automerge-2026-09-02.md.
+  options:
+  - key: revert_all_ten
+    label: Revert all ten
+    implication: >-
+      Safest against the process failure and the most disruptive. It would also revert changes with
+      genuine operator decisions behind them (#10758) and work that is functioning; some reverts will
+      conflict with everything merged after them.
+  - key: revert_10793_only
+    label: Revert only #10793, the one that violates a stated constraint
+    implication: >-
+      Targets the single case where a constraint you set was actually breached and is LIVE. Leaves
+      the other nine, accepting the process failure while fixing the outcome. Cheapest action that
+      addresses the real harm.
+  - key: keep_all_review_individually
+    label: Keep all ten; review each on its merits, not on how it merged
+    implication: >-
+      Treats the merge process as the defect (already fixed by #10810) and the code as separately
+      judgeable. Requires each of the ten to actually get reviewed, or this becomes "keep all ten" by
+      default.
+  - key: keep_but_gate_10793
+    label: Keep all ten, but disarm #10793's live effect without reverting code
+    implication: >-
+      /status and /decisions register on whatever bot the process polls. Setting
+      TELEGRAM_CLAUDE_BOT_SECRET moves them to ClaudeBot and satisfies the constraint with no revert.
+      Tier-2 set-env plus a service restart.
+  allows_free_text: true

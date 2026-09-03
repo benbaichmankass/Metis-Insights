@@ -20,15 +20,15 @@
   ],
   "schema_version": 1,
   "state": "held",
-  "holder": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "claimed_at": "2026-09-02T07:55:46Z",
-  "heartbeat_at": "2026-09-02T20:12:31Z",
-  "expires_at": "2026-09-02T21:42:31Z",
+  "holder": "session_01Nopk1HcpvWBSEbZxEmALkd",
+  "claimed_at": "2026-09-03T05:38:03Z",
+  "heartbeat_at": "2026-09-03T05:38:03Z",
+  "expires_at": "2026-09-03T07:08:03Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
-  "claimed_over_state": "expired",
+  "claimed_over_state": "released",
   "forced": false,
   "force_reason": null,
-  "previous_holder": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "note": null
+  "previous_holder": null,
+  "note": "Day manager 2026-09-03. Operator-directed scope: finish the workflow overhaul (P1), landing-route fix + manager view, one R&D lane."
 }

@@ -45,6 +45,15 @@ on:
       # failed run here rather than through the manager, who is the bottleneck
       # being reported on.
       - pr-queue-watch
+      # The alarm on the trainer's FORWARD-ONLY order-flow capture. Its silence
+      # is indistinguishable from a healthy capture -- which is the entire
+      # failure class it exists for, one level up: the capture's own
+      # `ActiveState` is green while it writes nothing, so if the watcher dies
+      # too there is no signal anywhere. It also FAILS DELIBERATELY when the
+      # capture is stale or when the alarm flunks its own planted controls, so
+      # this entry is both the death alarm and the second escalation channel --
+      # a Telegram outage does not silence the finding.
+      - trainer-capture-watch
       # A cron whose run DIES notifies nobody otherwise, and this repo has a live
       # instance of that class open (probes.yml / due-list.yml, zero schedule runs
       # since landing). Watching it is the cheap half.
