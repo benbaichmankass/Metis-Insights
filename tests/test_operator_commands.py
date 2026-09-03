@@ -96,17 +96,20 @@ def test_the_auth_predicate_is_the_callers_and_is_not_re_derived():
 
 
 def test_the_bots_own_is_authorised_is_what_gets_wired():
-    """`main()` passes `telegram_query_bot.is_authorised`, not a second copy.
+    """`main()` passes `claude_decision_bot._is_authorised`, not a second copy.
 
     Checked at the CALL SITE by AST rather than by calling `main()` (which
     would start polling). An independently-written auth predicate here is the
-    drift this asserts against: `callback_handler` already gates on
-    `is_authorised`, and these commands must gate on the same one.
+    drift this asserts against: `on_callback` already gates on
+    `_is_authorised`, and these commands must gate on the same one.
+
+    ⚠️ The call site is the CLAUDE bot, not the trader bot — see
+    `test_the_trader_bot_does_not_register_the_operator_commands`.
     """
     import ast
     import inspect
 
-    from src.bot import telegram_query_bot as bot
+    from src.bot import claude_decision_bot as bot
 
     tree = ast.parse(inspect.getsource(bot))
     calls = [
@@ -118,10 +121,112 @@ def test_the_bots_own_is_authorised_is_what_gets_wired():
     assert len(calls) == 1, "wired exactly once"
     kwargs = {kw.arg: kw.value for kw in calls[0].keywords}
     assert isinstance(kwargs["is_authorised"], ast.Name)
-    assert kwargs["is_authorised"].id == "is_authorised", (
+    assert kwargs["is_authorised"].id == "_is_authorised", (
         "the commands must gate on the bot's existing predicate")
-    # And it is the same object `callback_handler` uses.
-    assert callable(bot.is_authorised)
+    # And it is the same object `on_callback` uses.
+    assert callable(bot._is_authorised)
+
+
+def test_the_commands_ride_the_token_this_process_actually_polls():
+    """`polled_token` must be the token passed to `Application.builder()`.
+
+    The whole `answerable_here` / `answerable_elsewhere` distinction is only
+    as true as this argument. A `polled_token` naming some OTHER token would
+    make the module report a route state that is not this process's, which is
+    precisely how #10793 shipped a WARNING nobody acted on.
+    """
+    import ast
+    import inspect
+
+    from src.bot import claude_decision_bot as bot
+
+    tree = ast.parse(inspect.getsource(bot))
+    call = next(
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "install_operator_commands"
+    )
+    polled = {kw.arg: kw.value for kw in call.keywords}["polled_token"]
+    # `route.token` — the same expression handed to Application.builder().token(...)
+    assert isinstance(polled, ast.Attribute) and polled.attr == "token"
+    assert isinstance(polled.value, ast.Name) and polled.value.id == "route"
+
+    builder_tokens = [
+        node.args[0] for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "token"
+        and node.args
+    ]
+    assert any(
+        isinstance(a, ast.Attribute) and a.attr == "token"
+        and isinstance(a.value, ast.Name) and a.value.id == "route"
+        for a in builder_tokens
+    ), "the polled token and the built token must be the same expression"
+
+
+def test_the_trader_bot_does_not_register_the_operator_commands():
+    """⚠️ THE CONSTRAINT (MI-92). #10793: "HELD, must not reach the trader bot."
+
+    PR #10793 registered `/status` and `/decisions` on the trader bot and was
+    auto-merged with no human decision. The handlers went live on the trader
+    bot at 2026-09-02T18:59:03Z — this module's own `answerable_elsewhere`
+    WARNING naming the violation as it did it — and were re-observed still
+    live at 2026-09-03T07:07:08Z. The operator: *"that's supposed to be
+    showing up in Cloudbot. Right? Not on the trader one, the decisions."*
+
+    Asserted by AST over the trader bot's source, so it fails on the IMPORT
+    too: a module that imports the installer is one line from calling it, and
+    the next session to add "just one command" should meet this test rather
+    than the live bot. Deleting this test to re-add the call is the shape this
+    guards against — the constraint is the operator's, and only a recorded
+    operator decision withdraws it.
+    """
+    import ast
+    import inspect
+
+    from src.bot import telegram_query_bot as trader
+
+    tree = ast.parse(inspect.getsource(trader))
+
+    called = {
+        node.func.id for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    assert "install_operator_commands" not in called, (
+        "the trader bot must NOT register /status or /decisions — #10793's own "
+        "title says so"
+    )
+
+    imported = {
+        alias.name for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) for alias in node.names
+    }
+    assert "install_operator_commands" not in imported
+    assert "OPERATOR_COMMANDS" not in imported
+
+    # …and the commands are absent from the surface the operator is SHOWN.
+    assert {name for name, _ in trader._COMMAND_SURFACE} == {"start", "menu"}
+
+
+def test_the_trader_bot_still_handles_the_decision_tap():
+    """The `wdec` FALLBACK is deliberately untouched — do not "finish the job".
+
+    #10793's violation was the COMMAND registration. The trader bot remains
+    the declared fallback destination for decision prompts when the Claude bot
+    is not confirmed polling, and `telegram_decisions.answerable_route()`
+    needs positive evidence a tap here is received before it will send buttons
+    there. Removing this branch would ship dead buttons that look healthy —
+    strictly worse than the wrong chat, per `claude_decision_bot`'s docstring.
+    """
+    import inspect
+
+    from src.bot import telegram_query_bot as trader
+
+    src = inspect.getsource(trader)
+    assert 'elif action == "wdec":' in src
+    assert "propexp" in src
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -320,10 +425,16 @@ def test_registration_never_hardcodes_a_token_or_uses_claude_route():
 
 def test_the_commands_appear_in_the_hamburger_menu():
     """A command absent from `set_my_commands` is one the operator must already
-    know exists in order to use."""
-    from src.bot import telegram_query_bot as bot
+    know exists in order to use.
+
+    On the CLAUDE bot — the menu moved with the handlers. Leaving the menu
+    entry on the trader bot would advertise a command that is no longer there,
+    which is the same "silently broken" state this whole change exists to
+    avoid, just pointed the other way.
+    """
+    from src.bot import claude_decision_bot as bot
 
     names = {name for name, _ in bot._COMMAND_SURFACE}
-    assert names == {"start", "menu", "status", "decisions"}
-    # `_MENU_OPENERS` keeps meaning exactly what its name says.
-    assert {name for name, _ in bot._MENU_OPENERS} == {"start", "menu"}
+    assert names == {"start", "status", "decisions"}
+    for _name, desc in bot._COMMAND_SURFACE:
+        assert 1 <= len(desc) <= 80, "Telegram's set_my_commands limit"
