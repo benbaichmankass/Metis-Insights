@@ -224,6 +224,48 @@ flag that asserts the registry is fine: *asserting it is what failed twice.*
 Exit codes 0 / 3 / 4 keep the three apart, so a caller cannot treat "we could
 not look" as a pass.
 
+### Before acting on someone else's PR: `pr_action_gate.py`
+
+```bash
+python3 scripts/ops/pr_action_gate.py --pr 10857 --action undraft \
+    --live-sessions <(the list_sessions output) \
+    --open-prs      <(the list_pull_requests output)
+```
+
+`handoff_check` above asks *may this manager hand over?*; this asks **may it
+un-draft, arm, merge or close THIS PR right now?** It refuses exactly one
+condition: **the PR's author session is observed LIVE and has not handed the
+work back.**
+
+It exists because that refusal did not, and the cost is measured —
+`docs/claude/CYCLE-PRIORITY.json :: current.why` clause (3): a manager
+*"undrafted and armed #10857 while its author was still RUNNING, because there
+was no way to ask -- and nothing objected."*
+
+⚠️ **LIVENESS COMES ONLY FROM THE LIVE OBSERVATION, NEVER FROM
+`SESSIONS.json::state`.** MI-84 measured 17 of 17 inherited `working` rows
+wrong. A refusal keyed on stored state would refuse on stale data and be
+switched off within a day. The register is consulted **only** to answer *who
+authored this branch* — an immutable historical fact — and the PR body's own
+`claude.ai/code/session_{id}` footer outranks even that, because the author
+wrote it and it cannot go stale.
+
+**It does not stall finished work.** A `review_ready` / `needs_action` status
+PERMITS immediately — the author has already answered the question the gate
+asks — and so does an idle author, because **an idle session can be woken**.
+
+**Three states, never collapsed** — `permitted` · `refused` · **`unknown` (we
+could not look)**, exit 0 / 3 / 4. ⚠️ `unknown` is neither a soft pass nor a
+hard refusal, and the docstring argues why: a gate that hard-failed on it would
+be bypassed within a day, while every `unknown` here names the one input that
+clears it and the manager holds that input.
+
+**The escape hatch is a file, not a flag** —
+`docs/claude/work/pr-action-exception.yaml`, graded by the SAME
+`spawn_gate.exception_covers` so the two cannot drift. `decision: pending`
+still refuses. **There is deliberately no `--force`**: a bypass flag is cheaper
+to lie to than to satisfy.
+
 ## The other half of a handoff: OPEN PRS
 
 `SESSIONS.json` says which sub-sessions a successor inherits. **`OPEN-PRS.json`
