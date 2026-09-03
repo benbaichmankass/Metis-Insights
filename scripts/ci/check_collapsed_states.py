@@ -106,6 +106,53 @@ _REGISTRY_PATH = Path(__file__).resolve()
 
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "qty_legalize.venue_max_state",
+        # The producer OWNS the vocabulary: the three states are module
+        # constants in qty_legalize and nowhere else.
+        #
+        # No `producer_field` is declared, deliberately, for the reason the
+        # research_queue entry below gives: the states are named constants
+        # (`MAX_STATE_ABSENT = "absent"`), so the literal never shares a line
+        # with the word `venue_max_state`, and narrowing here would fail for a
+        # spelling reason rather than a correctness one.
+        "producer": "src/units/accounts/qty_legalize.py",
+        # Scoped to this contract's OWN tokens. NOT the bare state words:
+        # "absent" and "published" are ordinary English that appear across
+        # dozens of unrelated modules, and matching on them would bind this
+        # contract to files that have never heard of a venue ceiling (the
+        # coincidence-matching failure the package_leg_coverage entry records).
+        "consumer_token": (r"\bvenue_max_state\b|\bMAX_STATE_PUBLISHED\b|"
+                           r"\bMAX_STATE_ABSENT\b|\bMAX_STATE_COULD_NOT_LOOK\b"),
+        "states": ["published", "absent", "could_not_look"],
+        "why": (
+            "THIS IS THE THIRD OCCURRENCE OF ONE LIVE DEFECT, and it is "
+            "registered here because the first two fixes shipped with no "
+            "detector. BL-20260810 added the venue-max clamp and was marked "
+            "`resolved`; BL-20260821 recorded ict_scalp_avax_5m rejecting "
+            "again at ~34,000 against a 22,000 cap; on 2026-09-02 the same leg "
+            "sent qty 22995.1 eight times and placed zero orders. THE CLAMP "
+            "WAS CORRECT EVERY TIME -- what failed is that `venue_max=None` "
+            "was produced by three structurally different conditions and the "
+            "clamp treated all three as 'no ceiling exists, send it'. "
+            "`published` is the venue naming a cap. `absent` is a source that "
+            "CAN speak to ceilings telling us there is none -- the only state "
+            "that licenses sending unclamped, and the common path (a WARN "
+            "there would be the desensitised-alarm P1). `could_not_look` is "
+            "the live lookup failing, or the static map answering (step/min "
+            "only), or an InstrumentProfile with no max_qty -- absence of "
+            "evidence, and reading it as `absent` is the defect. It "
+            "deliberately does NOT refuse: the clamp's safety argument is that "
+            "it cannot alter an order the venue would have accepted, and "
+            "refusing on an unresolved ceiling would block orders that are "
+            "legal today -- a far larger blast radius than the bug. It places, "
+            "and is now LEGIBLE rather than silent, which is what lets a "
+            "fourth occurrence be seen. Note the tests that passed throughout "
+            "all three occurrences monkeypatched the resolver to return a rule "
+            "with the ceiling ALREADY present, so they exercised the clamp and "
+            "never the resolution -- which is where the None is born."
+        ),
+    },
+    {
         "name": "r_provenance.r_state",
         # The producer is `classify_r`, which returns the state; the vocabulary
         # is module constants (`R_CONTAMINATED = "contaminated"`), so no
