@@ -1268,55 +1268,74 @@
     {
       "session_id": "session_01HGmBBgMUzjtoGkkBDLaHE6",
       "registry_key": "pending-20260903T054155Z",
-      "state": "working",
+      "state": "archived",
       "title": "MI-88 — the landing route: Tier-1 work lands itself, and a guard that bites",
       "owns_object": "WO-20260903-THE-LANDING-ROUTE-TIER-1-SUB-SESSION",
       "checklist_item": "MI-88",
       "spawned_at": "2026-09-03T05:41:55Z",
       "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
       "why": "7 night-shift PRs sat as open drafts; every PR regardless of tier funnels through the manager.",
-      "confirmed_at": "2026-09-03T05:42:39Z"
+      "confirmed_at": "2026-09-03T05:42:39Z",
+      "status_bucket": "completed",
+      "last_observed_at": "2026-09-03T12:52Z",
+      "observed_by": "session_01Nopk1HcpvWBSEbZxEmALkd via list_sessions(mine=true, limit=25) 2026-09-03T12:52Z",
+      "observation": "ARCHIVED. Last summary: 'pytest-run in progress (~20min); guards/pytest-collect/repo-inventory green' at 06:32Z."
     },
     {
       "session_id": "session_01Kyq3Zpgh6DoujFGAMkyJ9o",
       "registry_key": "pending-20260903T054243Z",
-      "state": "working",
+      "state": "archived",
       "title": "MI-89 — the manager view: derived session state, a preflight that can grade again, and a watch that survives",
       "owns_object": "WO-20260903-THE-MANAGER-VIEW-SESSION-STATE-DERIVED-AT",
       "checklist_item": "MI-89",
       "spawned_at": "2026-09-03T05:42:43Z",
       "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
       "why": "Cycle priority CY-20260903-MANAGER-CONTROL: the manager cannot SEE its own sessions.",
-      "confirmed_at": "2026-09-03T05:43:29Z"
+      "confirmed_at": "2026-09-03T05:43:29Z",
+      "status_bucket": "completed",
+      "last_observed_at": "2026-09-03T12:52Z",
+      "observed_by": "session_01Nopk1HcpvWBSEbZxEmALkd via list_sessions(mine=true, limit=25) 2026-09-03T12:52Z",
+      "needs_action": "add MI-89 to session_registry.py and update the Routine prompt with --write-receipt",
+      "observation": "ARCHIVED WITH AN UNANSWERED needs_action -- the session is gone and the ask survives it, which is exactly the loss SESSIONS.json exists to prevent."
     },
     {
       "session_id": "session_01Q1HYBVoThQdKTWSYQHpm6Y",
       "registry_key": "pending-20260903T061749Z",
-      "state": "working",
+      "state": "archived",
       "title": "MI-90 — AVAX venue-max: own the orphaned order-path work, or record why not",
       "owns_object": "WO-20260903-AVAX-VENUE-MAX-OWN-THE-ORDER-PATH",
       "checklist_item": "MI-90",
       "spawned_at": "2026-09-03T06:17:49Z",
       "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
       "why": "PR #10780: ~320 lines of order-path work recovered from a dead session, unreviewed and unowned. Operator decision 2026-09-03.",
-      "confirmed_at": "2026-09-03T06:18:30Z"
+      "confirmed_at": "2026-09-03T06:18:30Z",
+      "status_bucket": "completed",
+      "last_observed_at": "2026-09-03T12:52Z",
+      "observed_by": "session_01Nopk1HcpvWBSEbZxEmALkd via list_sessions(mine=true, limit=25) 2026-09-03T12:52Z",
+      "needs_action": "operator decision on the Tier-3 merge gate for #10900, and whether lotSizeFilter.maxOrderQty must be read first",
+      "observation": "ARCHIVED WITH AN UNANSWERED needs_action. Tier-3 (order path) -- the manager cannot clear it; it is an operator decision."
     },
     {
       "session_id": "session_01RYoQ5e8i6B4SCn9kMm2gpB",
       "registry_key": "pending-20260903T070814Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-92 — review #10793 on its merits: the live constraint violation",
       "owns_object": "WO-20260903-REVIEW-10793-ON-ITS-MERITS-THE-ONE",
       "checklist_item": "MI-92",
       "spawned_at": "2026-09-03T07:08:14Z",
       "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
       "why": "operator decision 2026-09-03",
-      "confirmed_at": "2026-09-03T07:10:18Z"
+      "confirmed_at": "2026-09-03T07:10:18Z",
+      "status_bucket": "blocked",
+      "last_observed_at": "2026-09-03T12:52Z",
+      "observed_by": "session_01Nopk1HcpvWBSEbZxEmALkd via list_sessions(mine=true, limit=25) 2026-09-03T12:52Z",
+      "needs_action": "merge PR #10920, restart ict-claude-decision-bot.service, then an operator verification pass",
+      "observation": "BLOCKED ON THE MANAGER. Took #10920 to all-8-green at 12:04Z, went idle, and main then moved twice (#10935 12:27Z, #10937 12:31Z) and dirtied it. The manager merged main into the branch at 12:58Z (73f3d049) because an idle cloud session cannot be messaged -- the conflict was register-only and needs a clone with the merge driver."
     },
     {
       "session_id": "session_01A38DipTvNyB843X4gnmA23",
       "registry_key": "pending-20260903T070814Z-b",
-      "state": "working",
+      "state": "archived",
       "title": "MI-93 — the refusal half of manager control",
       "owns_object": "WO-20260903-THE-REFUSAL-HALF-OF-MANAGER-CONTROL-BLOCK",
       "checklist_item": "MI-93",
@@ -1324,36 +1343,48 @@
       "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
       "why": "operator decision 2026-09-03",
       "registry_key_note": "⚠️ DISAMBIGUATED BY THE MANAGER, 2026-09-03. session_registry.py mints the key from a SECOND-granular UTC timestamp, so two spawns registered inside the same second collide. It happened here (MI-92 and MI-93) and it had already happened on 2026-09-02 (pending-20260902T133456Z, duplicated and unnoticed). A colliding key is not cosmetic: `confirm --registry-key` matches by key, so it can bind a live session id to the WRONG row -- silently mis-attributing a session, which is the exact failure this registry exists to prevent. Filed as its own defect; the key derivation needs a uniqueness check, not a finer clock.",
-      "confirmed_at": "2026-09-03T07:10:19Z"
+      "confirmed_at": "2026-09-03T07:10:19Z",
+      "status_bucket": "completed",
+      "last_observed_at": "2026-09-03T12:52Z",
+      "observed_by": "session_01Nopk1HcpvWBSEbZxEmALkd via list_sessions(mine=true, limit=25) 2026-09-03T12:52Z",
+      "observation": "ARCHIVED, work landed: #10905 merged 08:31Z."
     },
     {
       "session_id": "session_0174hCi1hhGzUKbtmL4jb8Rc",
       "registry_key": "pending-20260903T073110Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-94 — split the monolithic registers so sibling PRs stop colliding",
       "owns_object": "WO-20260903-THE-MONOLITHIC-REGISTERS-COLLIDE-ON-EVERY-SIBLING",
       "checklist_item": "MI-94",
       "spawned_at": "2026-09-03T07:31:10Z",
       "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
       "why": "Four register conflicts in one morning; one concealed an id collision git cannot see.",
-      "confirmed_at": "2026-09-03T07:31:50Z"
+      "confirmed_at": "2026-09-03T07:31:50Z",
+      "status_bucket": "review_ready",
+      "last_observed_at": "2026-09-03T12:52Z",
+      "observed_by": "session_01Nopk1HcpvWBSEbZxEmALkd via list_sessions(mine=true, limit=25) 2026-09-03T12:52Z",
+      "observation": "IDLE, work landed: #10910 merged 10:08Z. Its register-id-guard has since caught two real defects -- a triple registry_key collision on the manager branch, and undated new rows."
     },
     {
       "session_id": "session_017DxuurbMW5ex5Q1f7xATqW",
       "registry_key": "pending-20260903T083712Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-95 — canonize the manager/worker division as a mechanism that bites",
       "owns_object": "WO-20260903-CANONIZE-THE-MANAGER-WORKER-DIVISION-AS-A",
       "checklist_item": "MI-95",
       "spawned_at": "2026-09-03T08:37:12Z",
       "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
       "why": "Operator directive 2026-09-03: the manager manages, does not take items. The prose exists and was violated the same day it was read.",
-      "confirmed_at": "2026-09-03T08:38:06Z"
+      "confirmed_at": "2026-09-03T08:38:06Z",
+      "status_bucket": "review_ready",
+      "last_observed_at": "2026-09-03T12:52Z",
+      "observed_by": "session_01Nopk1HcpvWBSEbZxEmALkd via list_sessions(mine=true, limit=25) 2026-09-03T12:52Z",
+      "observation": "IDLE, watching: 'I'll report if #10933's CI goes red.' #10933 (MI-102) is open at base 19dd32fc and is stale against main."
     },
     {
       "session_id": "session_01NeCvVmymnWwg2ttRFZVyiC",
       "registry_key": "pending-20260903T114343Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-101 — the standing close-wedge ledger does not exist, and the digest reads the wrong path",
       "owns_object": "WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT",
       "checklist_item": "MI-101",
@@ -1363,7 +1394,12 @@
         "claude/mi101-close-wedge-ledger"
       ],
       "why": "broker_cancel_wedged close failures were deliberately downgraded out of the pager INTO the work digest (MI-34, operator decision 2026-09-02). That downgrade is only safe if the digest carries them. It does not: /api/diag/log_file?name=close_wedge_standing returns present:false at /data/bot-data/runtime_logs/close_wedge_standing.json, AND the digest looks for it at a repo-relative path. So such a failure is in NEITHER channel, on a real-money close path.",
-      "confirmed_at": "2026-09-03T11:44:46Z"
+      "confirmed_at": "2026-09-03T11:44:46Z",
+      "status_bucket": "blocked",
+      "last_observed_at": "2026-09-03T12:52Z",
+      "observed_by": "session_01Nopk1HcpvWBSEbZxEmALkd via list_sessions(mine=true, limit=25) 2026-09-03T12:52Z",
+      "needs_action": "land the two-part staleness fix, or file it as a separate finding?",
+      "observation": "BLOCKED ON THE MANAGER since ~11:50Z. Found a ledger staleness defect while working MI-101 (the close-wedge ledger is absent and the digest reads a non-canonical path)."
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."
