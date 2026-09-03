@@ -31714,6 +31714,18 @@
       "found_by": "the operator, by running /status -- not by any mechanism"
     },
     {
+      "id": "BL-20260903-INSTALLING-A-DEP-CI-STUBS-MAKES-LOCAL-GREEN-AND-CI-RED",
+      "date": "2026-09-03",
+      "opened": "2026-09-03",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ci/test-environment",
+      "status": "open",
+      "title": "A session that pip-installs a dependency conftest deliberately STUBS turns local-green into CI-red, and the divergence is invisible until CI says so",
+      "detail": "FILED BY MI-92 from its own CI failure, as an out-of-scope observation. requirements-test.txt does NOT install python-telegram-bot -- tests/conftest.py stubs `telegram` (and .ext/.error/.constants) with a bare MagicMock, and the file says so explicitly. A session working on src/bot/ cannot run the suite at all without SOME telegram module, so the natural move is `pip install python-telegram-bot`, which is what this session did. From that moment the local environment DIVERGES FROM CI IN THE DANGEROUS DIRECTION: assertions that touch the real library's behaviour pass locally and fail in CI. MEASURED HERE: three new tests asserting MenuButtonCommands().type == 'commands' and MenuButtonWebApp(...).type == 'web_app' passed locally and took pytest-run RED on PR #10916 head 5170fd4d, while guards / pytest-collect / repo-inventory all went green -- so the green checks gave no hint. Reproduced deliberately rather than reasoned about: uninstalling python-telegram-bot recreated the CI condition exactly, the pushed state then failed precisely those three tests, and the fix took it to 217 passed / 4 skipped under the same stub. NOTE the bare-MagicMock stub makes `from telegram import AnythingAtAll` SUCCEED, so the failure never surfaces as an ImportError at collection -- it surfaces only as an assertion on a Mock, deep in a test, which is why it reads as a logic bug rather than an environment one. ⚠️ THIS IS THE OPPOSITE DIRECTION TO BL-20260826-SANDBOX-FULL-SUITE-CARRIES-32-FAILURES-CI-DOES-NOT-AND-5-ARE-ORDER-DEPENDENT (local carries failures CI lacks, so the local run is PESSIMISTIC and merely noisy). This one is OPTIMISTIC: the local run is cleaner than CI, which is the direction that ships. The two must not be folded together.",
+      "resolution_criteria": "Either (a) a test-side convention makes this class unreachable -- e.g. a conftest assertion that fails loudly when a module listed in its stub set is importable for real, so a session with the library installed is TOLD its environment differs rather than discovering it from CI; or (b) requirements-test.txt / the contributing notes state the trap at the point of use, i.e. where a session decides to install the library. NOT sufficient: this backlog row alone -- it is the same 'documented in a place nobody reads mid-task' shape that this repo has already paid for twice (BL-20260720-GH-ACTIONS-PUSH-EVENTS-DEAD -> BL-20260830-ZERO-CHECK-RUNS-READ-AS-CI-NOT-STARTED-NOT-AS-MERGE-CONFLICT). NOT sufficient either: telling sessions not to install it, since the suite cannot be run on src/bot/ without something in that slot."
+    },
+    {
       "id": "BL-20260903-OPEN-ITEMS-HAS-NO-APPEND-HELPER-AND-BACKLOG-APPEND-REFUSES-IT",
       "opened_at": "2026-09-03",
       "opened_by": "session_0174hCi1hhGzUKbtmL4jb8Rc (MI-94)",
