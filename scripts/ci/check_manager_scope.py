@@ -104,10 +104,19 @@ block passes; one that touches prose outside it does not. (The 2026-09-02
 manager touched `CLAUDE.md` in 29 commits, which is why this cannot be a plain
 allow.)
 
-**3. FILING A BACKLOG ROW IS MANAGEMENT AND STAYS PERMITTED. This is the
-genuinely contested one and it is decided, not defaulted.**
+**3. FILING A BACKLOG ROW IS MANAGEMENT AND STAYS PERMITTED.**
 `docs/claude/health-review-backlog.json` is on the surface — unconditionally,
 with no row cap.
+
+⚠️ **THIS IS AN OPERATOR DECISION (2026-09-03), NOT A SESSION'S JUDGEMENT CALL.
+DO NOT REOPEN IT AS AN OPEN QUESTION.** It was argued here first as a session's
+contested call; the 2026-09-03 day manager then put the case AGAINST it to the
+operator directly — naming that it had filed four detailed rows that morning and
+that those were hours not spent supervising — and offered both a row CAP and a
+disclose-the-count middle option. **The operator chose this version, as
+written.** So the reasoning below is the recorded basis of a decision, not a
+proposal. The only thing that reopens it is the revisit condition at the end of
+this section, and that needs evidence nobody has yet.
 
     FOR: the repo's "if you see something, say something" rule *requires* the
     manager to file what it notices, and a backlog row is the artifact that
