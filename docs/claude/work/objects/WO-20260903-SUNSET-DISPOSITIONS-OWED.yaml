@@ -4,7 +4,7 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   Ten evidenced retirement candidates have sat undispositioned since 2026-09-01, and retiring a leg is Tier-3 so only the operator can move them
 stage: QUESTION
-lifecycle: waiting
+lifecycle: in_flight
 owner: null
 opened_at: 2026-09-03
 closed_at: null
@@ -99,13 +99,44 @@ review_trigger: >-
   channel was used and the question was not answered — which is a different and
   more useful finding than silence.
 
-ci_arming_note: >-
-  This line exists to ARM CI, and saying so is cheaper than leaving a mystery commit.
-  PR #10941 was opened by `claude-pr-automerge` using GITHUB_TOKEN, and GitHub fires no
-  workflows for a GITHUB_TOKEN push — so the PR sat with exactly ONE check
-  (`open-and-automerge`) and none of guards / pytest-run / pytest-collect /
-  repo-inventory. Auto-merge merges on GREEN, so it would have waited forever for
-  checks that were never going to start. CLAUDE.md documents this trap and the remedy
-  verbatim: push one ordinary commit AFTER the PR exists. That is this commit.
-  ⚠️ Read `mergeable_state` to tell the two zero-check causes apart — `blocked` is this
-  (no checks fired) and `dirty` is a merge conflict, and both render as total_count: 0.
+answer:
+  answered_by: operator
+  answered_on: '2026-09-03'
+  answered_via: >-
+    Asked directly in the Claude Code session after the operator reported the
+    Telegram prompt never arrived. Recorded here because the repo is the source
+    of truth; the delivery defect is filed separately and does NOT invalidate
+    the answer.
+  verdict: none_of_the_above
+  verbatim: >-
+    "I don't want to retire anything yet - we need a flow for downgrading to
+    shadow and tuning, not just turning things off out right"
+  reading: >-
+    ⚠️ THIS REJECTS ALL FOUR OPTIONS, AND THE QUESTION WAS MIS-FRAMED. Every
+    option I offered was a point on a retire / do-not-retire axis
+    (retire_all_ten, retire_nine_hold_sol, per_leg_packet_first,
+    retire_none_and_close). The operator is not choosing a point on that axis —
+    they are rejecting the AXIS. What they want is a THIRD PATH that does not
+    exist yet: demote a leg to `shadow` and TUNE it, rather than kill it.
+  what_this_means_concretely: >-
+    NOTHING IS RETIRED. No leg moves. `docs/claude/SUNSET-DISPOSITIONS.json` is
+    NOT to be filled in with retirements on this pass. The ten candidates stay
+    live and stay candidates. ⚠️ AND THIS IS NOT A DEFERRAL DRESSED AS A
+    DECISION: it is a real answer that redirects the work, and the row must not
+    be left reading as though the operator failed to respond.
+  the_capability_gap_this_exposes: >-
+    Phase G's sunset machinery has exactly ONE terminal move — retire. The
+    execution gates already support the intermediate state the operator is
+    asking for (`config/strategies.yaml::execution: live | shadow`, a declared,
+    default-permissive switch that runs the strategy and logs order packages
+    everywhere while never sending a live order), so a leg CAN be demoted to
+    shadow today. What does not exist is the FLOW: no criteria for when a sunset
+    candidate is demoted rather than retired, no tuning loop attached to the
+    demotion, and no exit condition that returns a demoted leg to `live` or
+    finally retires it. A demote with no exit condition is how a leg becomes
+    permanently half-off and unowned —
+    `BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED` is
+    that failure already recorded for backlog rows.
+  followup: >-
+    Filed as MI-107. The sunset pass keeps producing candidates in the meantime;
+    what changes is what happens to one.
