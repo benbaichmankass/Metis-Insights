@@ -92,6 +92,11 @@ jobs:
         run: |
           python3 scripts/ops/pr_queue_latency.py --self-test
           python3 scripts/ci/check_pr_queue_watch.py --self-test
+          # The manager-state half and the Routine's liveness guard, same rule:
+          # a watcher whose grading is broken must fail loudly, not write a
+          # confident receipt.
+          python3 scripts/ops/manager_state_watch.py --self-test
+          python3 scripts/ci/check_manager_queue_watch.py --self-test
 
       - name: Read the open-PR list
         # ⚠️ ON FAILURE THIS WRITES NOTHING AND THE WATCHER GRADES
@@ -155,6 +160,52 @@ jobs:
             This is the dated liveness receipt `scripts/ci/check_pr_queue_watch.py`
             grades on every PR. Read `generated_at`, never the cron expression.
           verify-merged: 'true'
+
+      - name: Watch the MANAGER STATE that needs no MCP
+        # THE REPO-ANCHORED HALF OF THE MANAGER QUEUE WATCH.
+        #
+        # Operator direction 2026-09-03: "I don't think it's a good idea for that
+        # mechanism to rely on having another routine session running. It would be
+        # better if we can hard code that into the repo or the VM instead."
+        #
+        # ⚠️ PART OF IT CAN MOVE HERE AND PART OF IT PROVABLY CANNOT, and the
+        # split is stated rather than engineered around. Session LIVENESS needs
+        # `list_sessions`, an mcp__* tool CI does not hold -- `queue_latency.py`
+        # reports `unknown` permanently for exactly that reason. What DOES move is
+        # everything answerable from committed files: a lease held but no longer
+        # heartbeated, and registry rows asserting live work long past their spawn.
+        # Those now run on a clock nothing can forget, beside the PR-quiescence
+        # half this workflow already owned.
+        #
+        # ⚠️ IT REPORTS AND DOES NOT FAIL THE JOB, DELIBERATELY. The escalation
+        # channel here is latched (band + cooldown) precisely because 202 of 376
+        # CRITICALs in one measured window were a single un-latched alarm. Adding a
+        # SECOND, un-latched failure path would page on a standing condition every
+        # 6h and train the operator past the channel -- the exact defect this
+        # workflow's own header warns about. Its findings are printed in the run and
+        # annotated; wiring them into the latched channel is deliberately left as a
+        # separate decision rather than smuggled in here.
+        continue-on-error: true
+        run: |
+          set +e
+          # ⚠️ THIS STEP DELIBERATELY DOES NOT SPELL THE ASSESS STEP'S CAPTURE
+          # TOKEN, and neither does this comment.
+          # `check_pr_queue_watch.py` asserts that token appears EXACTLY ONCE in
+          # this file, so the assess step's not-a-pipeline capture cannot be
+          # diluted by a second match. It is a SUBSTRING test, so a merely
+          # different PREFIX still collides (a first attempt here used one and
+          # broke the guard, which caught it). `_rc` shares no substring with it,
+          # and naming the token even inside a comment would break it again.
+          # The invariant is kept intact rather than loosened.
+          python3 scripts/ops/manager_state_watch.py > /tmp/manager-state.txt 2>&1
+          mstate_rc=$?
+          cat /tmp/manager-state.txt
+          case "$mstate_rc" in
+            0) echo "::notice::Manager state is clean on every repo-answerable check." ;;
+            3) echo "::warning::MANAGER-STATE FINDINGS -- see the output above. REPORTED, not escalated: adding a second un-latched paging path is how 202 of 376 CRITICALs became one ignored alarm." ;;
+            4) echo "::warning::MANAGER-STATE UNKNOWN -- a register could not be read. This is NOT a clean manager state." ;;
+            *) echo "::warning::unexpected exit code $mstate_rc from manager_state_watch.py" ;;
+          esac
 
       - name: Report the verdict
         # ⚠️ FAILING THE JOB IS THE ESCALATION CHANNEL. A cron'd run that dies or

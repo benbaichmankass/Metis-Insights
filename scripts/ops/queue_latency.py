@@ -108,6 +108,26 @@ import session_registry as sr  # noqa: E402
 REPO_ROOT = sr.REPO_ROOT
 STATE_PATH = REPO_ROOT / "docs" / "claude" / "work" / "QUEUE-WATCH-STATE.json"
 
+#: THE RECEIPT — a different artifact from the LATCH above, and the distinction
+#: is the whole point of it.
+#:
+#: `STATE_PATH` is written ONLY when a page or an unknown-report actually fires,
+#: which is correct for suppression and useless for liveness: on a quiet queue it
+#: is never written, so its absence cannot tell "the Routine has never run" from
+#: "the Routine ran hourly and had nothing to say". Those are opposite facts and
+#: the latch collapses them — so today, if `trig_01TWdAvrwFLe6T9XFoNopTeo`
+#: stopped firing, NOTHING in this repo would notice.
+#:
+#: This file is written on EVERY run, whatever the verdict, so the Routine's
+#: SILENCE becomes gradeable by `scripts/ci/check_manager_queue_watch.py` on
+#: every PR. It attests that the watcher RAN and what it saw — never that the
+#: queue is healthy, and never that a page was delivered.
+RECEIPT_PATH = REPO_ROOT / "docs" / "claude" / "work" / "MANAGER-QUEUE-WATCH.json"
+
+#: How many prior runs the receipt keeps. Bounded so the file cannot grow without
+#: limit in a register directory that is merged by a row-aware 3-way driver.
+RECEIPT_RUNS_KEPT = 12
+
 MEASURED, NO_OBSERVATION, UNDATEABLE = "measured", "no_observation", "undateable"
 
 #: Buckets that mean the session is handing something BACK. `COMPLETED` and
@@ -408,6 +428,67 @@ def render_digest(verdict: Dict[str, Any], top: int = 5) -> str:
     return "\n".join(lines)
 
 
+def write_receipt(verdict: Dict[str, Any], now: datetime, escalated: bool,
+                  manager_id: Optional[str], path: Path = RECEIPT_PATH) -> None:
+    """Attest that the watcher RAN. Written on EVERY run, whatever the verdict.
+
+    ⚠️ IT ATTESTS A RUN, NEVER A HEALTHY QUEUE AND NEVER A DELIVERED PAGE. The
+    watcher can run, grade `unknown` because no observation was supplied, and
+    still write this file — that is the point: the guard downstream asks "is the
+    Routine still firing?", which is a different question from "is the queue
+    clear?" and must not be answered by the same field.
+
+    ⚠️ AND IT IS NOT THE LATCH. `write_state` suppresses repeat pages and is
+    written only when one fires; conflating the two would either make a quiet
+    watcher look dead or make a dead watcher look quiet.
+    """
+    prior, prior_ok = read_state(path)
+    runs: List[Dict[str, Any]] = []
+    if prior_ok and isinstance(prior, dict) and isinstance(prior.get("runs"), list):
+        runs = [r for r in prior["runs"] if isinstance(r, dict)]
+    runs.append({
+        "at": now.isoformat(),
+        "read_state": verdict.get("state"),
+        "waiting": verdict.get("waiting"),
+        "worst_min": verdict.get("worst_min"),
+        "escalated": bool(escalated),
+    })
+    payload = {
+        "_doc": [
+            "RECEIPT of the MANAGER-QUEUE watcher (scripts/ops/queue_latency.py,",
+            "fired by the Claude Routine 'Manager queue watch'). Written on EVERY",
+            "run, whatever the verdict.",
+            "",
+            "WHY IT IS SEPARATE FROM QUEUE-WATCH-STATE.json: that file is a page",
+            "LATCH and is written only when a page fires, so on a quiet queue it is",
+            "never written and its absence cannot distinguish 'the Routine never",
+            "ran' from 'the Routine ran and had nothing to say'. This file makes the",
+            "Routine's SILENCE gradeable -- scripts/ci/check_manager_queue_watch.py",
+            "reads its age in run_guards.py on every PR, so a Routine that stops",
+            "firing announces itself in everybody's CI instead of going quiet.",
+            "",
+            "READ `generated_at`, NEVER THE CRON EXPRESSION. A scheduled thing in",
+            "this repo is not evidence that it fires: probes.yml's first scheduled",
+            "run was ~4h50m late and fired once instead of daily.",
+            "",
+            "IT ATTESTS A RUN, NOT A HEALTHY QUEUE AND NOT A DELIVERED PAGE.",
+            "An ABSENT file means the watcher has NEVER run, which is a different",
+            "fact from STALE and needs a different fix.",
+        ],
+        "schema_version": 1,
+        "generated_at": now.isoformat(),
+        "read_state": verdict.get("state"),
+        "manager_id": manager_id,
+        "waiting": verdict.get("waiting"),
+        "worst_min": verdict.get("worst_min"),
+        "escalated": bool(escalated),
+        "population": verdict.get("population"),
+        "runs": runs[-RECEIPT_RUNS_KEPT:],
+    }
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8")
+
+
 def write_state(verdict: Dict[str, Any], now: datetime, reason: str,
                 path: Path = STATE_PATH) -> None:
     payload = {
@@ -568,6 +649,41 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
           len(dig.splitlines()) <= 10, True)
     check("...and it says how many it rolled up", "and 15 more" in dig, True)
 
+    # --- THE RECEIPT IS NOT THE LATCH -------------------------------------
+    # ⚠️ The whole reason the receipt exists is that the latch cannot answer
+    # "did the Routine fire?" — so these assert the two are genuinely different
+    # artifacts and that the receipt survives the QUIET run, which is exactly
+    # the run whose absence must be detectable.
+    check("the receipt and the page latch are DIFFERENT files — one more would be "
+          "a second latch, not a liveness record",
+          RECEIPT_PATH != STATE_PATH, True)
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        rp = Path(td) / "receipt.json"
+        quiet_verdict = {"state": MEASURED, "waiting": 0, "worst_min": 0,
+                         "population": "population: 0 rows"}
+        write_receipt(quiet_verdict, now, False, "M", rp)
+        check("A QUIET RUN STILL WRITES THE RECEIPT — the run whose absence must "
+              "be detectable is precisely the boring one",
+              rp.is_file(), True)
+        doc = json.loads(rp.read_text())
+        check("...and it dates itself, which is what the guard grades",
+              doc["generated_at"], now.isoformat())
+        check("...and records that NOTHING was escalated, distinctly from not "
+              "having run", doc["escalated"], False)
+        check("an UNKNOWN verdict is receipted too — a blind watcher is still a "
+              "watcher that FIRED, and the two questions must not share a field",
+              (write_receipt({"state": NO_OBSERVATION, "waiting": None,
+                              "worst_min": None, "population": "p"},
+                             now, False, None, rp),
+               json.loads(rp.read_text())["read_state"])[1], NO_OBSERVATION)
+        check("...and the run history accumulates rather than being overwritten",
+              len(json.loads(rp.read_text())["runs"]), 2)
+        for _ in range(RECEIPT_RUNS_KEPT + 5):
+            write_receipt(quiet_verdict, now, False, "M", rp)
+        check("...but is BOUNDED, so a register file cannot grow without limit",
+              len(json.loads(rp.read_text())["runs"]), RECEIPT_RUNS_KEPT)
+
     if not quiet:
         print("queue-latency self-test:", "PASS" if not failures else "FAIL")
     return (not failures), failures
@@ -597,6 +713,12 @@ def main(argv=None) -> int:
                     help="who the digest is FOR. Defaults to `operator` because when "
                          "the manager is the bottleneck, paging the manager is one "
                          "more thing the failing component must notice.")
+    ap.add_argument("--write-receipt", action="store_true",
+                    help="record that this run HAPPENED, in the durable receipt "
+                         "(docs/claude/work/MANAGER-QUEUE-WATCH.json). ⚠️ Pass this "
+                         "on EVERY firing, including quiet ones — it is what makes "
+                         "the Routine's SILENCE gradeable by CI. It attests a RUN, "
+                         "never a healthy queue and never a delivered page.")
     ap.add_argument("--write-state", action="store_true",
                     help="record the page in the durable latch (only meaningful when "
                          "a page actually fires, and only after you have SENT it)")
@@ -649,6 +771,14 @@ def main(argv=None) -> int:
         # the board, on the same durable cooldown, so it neither pages the operator
         # nor becomes an hourly comment nobody reads.
         print(f"queue-latency: report_unknown={report_due} — {report_why}")
+    # ⚠️ UNCONDITIONAL, and deliberately ahead of the latch. A receipt written
+    # only on the interesting runs would be a second latch, and the thing this
+    # exists to detect is precisely the boring run failing to happen at all.
+    if a.write_receipt:
+        write_receipt(verdict, now, due, manager_id)
+        print(f"queue-latency: receipt written to "
+              f"{RECEIPT_PATH.relative_to(REPO_ROOT)} (attests this RUN, not a "
+              f"healthy queue)")
     if (due or (verdict["state"] != MEASURED and report_due)) and a.write_state:
         write_state(verdict, now, why if due else report_why)
         print(f"queue-latency: latch written to {STATE_PATH.relative_to(REPO_ROOT)}")

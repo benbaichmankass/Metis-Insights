@@ -1035,6 +1035,28 @@
     "scripts/ops/work_phase_ping.py",
     "WO-20260902-THE-OPERATOR-GETS-NO-PER-MERGE-PING"
    ]
+  },
+  {
+   "id": "OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK",
+   "opened": "2026-09-02",
+   "kind": "monitoring",
+   "loud": true,
+   "verified_at": null,
+   "last_checked": "2026-09-02",
+   "check_every_days": 2,
+   "probe_absent_reason": "The thing to observe is a systemd timer FIRING on the live VM, and the unit is not installed yet — it is held on a Tier-2 operator OK. A probe run from CI or a sandbox can only report that the unit files exist in deploy/, which is a fact about the repo and says nothing about the cadence. Once the units are installed the probe is `/api/diag/log_file?name=work_digest_receipt` graded on the receipt's age; writing that probe now would give a green that means 'we did not look'.",
+   "summary": "The hourly work digest has NO durable carrier, and the replacement is PREPARED BUT NOT APPLIED, held on a Tier-2 operator OK. .github/workflows/work-digest.yml declares `20 * * * *`; measured over its COMPLETE run history it fired 5 times in a day, at :19, :10, :33 and :47 — never on its declared minute. deploy/ict-work-digest.{service,timer} moves it onto the VM's own clock (OnCalendar=hourly), which is what demonstrably fires here — ict-git-sync pulls every ~5 min.",
+   "detail": "⚠️ A CLOUD ROUTINE IS REFUSED AND MUST NOT BE PROPOSED IN ANY FORM, including a fresh-session-per-fire variant — operator, 2026-09-02, verbatim: 'no cloud routine. We can't have anything that's gonna die at the end of the session… You cannot create a Band Aid that's gonna get lost as soon as the session is over.' One was created earlier that day and has been deleted. ⚠️ A TRAP FOUND WHILE BUILDING IT, and the reason the carrier is a NEW runner rather than a call to the existing one: `work_digest.py --write` latches DAY-granular on runtime_logs/work_digest_state.json. That latch is INERT in CI — runtime_logs/ is gitignored, so a fresh runner never has the file, which is why 3 digests landed on 2026-09-02 despite it — and it would be LIVE on the VM, silently capping an hourly carrier at ONE digest per day with no error and no sign anything was suppressed. scripts/ops/work_digest_now.py keeps its own HOUR-granular latch in its own receipt and never reads or writes the workflow's, asserted BEHAVIOURALLY (plant a day latch, require a send) rather than by a source grep. It also reads the standing close-wedge ledger LOCALLY rather than over diag, so no token and no diag outage can degrade that section.",
+   "clears_when": "THREE PARTS, and they are different facts — say which you cleared rather than clearing the row on the easiest. (1) The operator gives the Tier-2 OK and PR #10858 merges, at which point install_systemd_units.sh's deploy/*.timer glob installs and enables the units on the next deploy. ⚠️ MERGING IS THE VM MUTATION HERE — there is no separate install step — which is exactly why it is Tier-2 and must not be merged on a session's own judgement. (2) The timer is OBSERVED firing: /api/diag/services shows ict-work-digest.timer enabled AND runtime_logs/work_digest_receipt.json carries `outcome: sent` from a SCHEDULED firing. Read /api/diag/log_file?name=work_digest_receipt, never the OnCalendar= line — a manual run writes an identical receipt, and the failure class being watched is a cadence that does not fire. (3) The now-redundant `schedule:` block is removed from work-digest.yml, leaving workflow_dispatch. ⚠️ (3) IS DELIBERATELY NOT IN THE SAME PR, so that a timer which fails to install cannot take the digest to ZERO. Until it lands BOTH carriers run and the operator sees ~5 duplicate digests a day — that is the accepted cost of not risking a silent outage, and it is a KNOWN state, not a defect to re-file. ⚠️ IF THE OPERATOR DECLINES the timer, this row does NOT clear — it CHANGES: the digest is then carried by an Actions cron measured at 5 firings a day against 24 declared, which is a legitimate decision and must be RECORDED as one with that consequence stated.",
+   "observation": "2026-09-02: PREPARED, NOT APPLIED — and verified_at is deliberately null, because no observation has been made and dating it today would be a claim of one. Branch claude/mi83-hourly-digest-carrier, draft PR #10858, explicitly held for the operator OK. What IS established, in the sandbox only: --self-test PASSes 4/4; --dry-run renders a real digest over a real 1h window (base 91121bc9, digestState changes_observed) and stamps a receipt; 12 tests pass; check_diag_unit_allowlist.py accepts both units (47 deploy units scanned, 40 allowlisted, 0 failures). None of that is a firing on the VM.",
+   "refs": [
+    "deploy/ict-work-digest.service",
+    "deploy/ict-work-digest.timer",
+    "scripts/ops/work_digest_now.py",
+    "tests/test_work_digest_hourly_carrier.py",
+    ".github/workflows/work-digest.yml",
+    "WO-20260902-THE-OPERATOR-GETS-NO-PER-MERGE-PING"
+   ]
   }
  ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
