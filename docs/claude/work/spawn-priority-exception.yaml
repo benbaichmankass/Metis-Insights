@@ -43,3 +43,32 @@ reason: >-
   ⚠️ THIS IS NOT A STANDING GRANT. It expires with this object. The cycle priority
   remains CY-20260903-MANAGER-CONTROL, and the other two live sessions (MI-88, MI-89)
   both serve it.
+
+# ── RE-AFFIRMED AFTER THE SEQUENCING DIRECTIVE, 2026-09-03 ──
+#
+# Minutes after this exception was granted, the operator set a three-phase
+# ordering (recorded in docs/claude/CYCLE-PRIORITY.json ::
+# current.operator_sequencing_2026_09_03): finish the workflow build → review the
+# roadmap TOGETHER → only then start actual work. Trading work is phase 3, and
+# this object is trading work, so the manager put the conflict back to the
+# operator rather than letting it run unremarked.
+#
+# ⚠️ THE MANAGER RECOMMENDED STANDING IT DOWN. The operator OVERRULED that and
+# chose to let it finish, on the ground that its done-condition is a DISPOSITION
+# ("reach a Tier-gated PR OR record a decision not to pursue") rather than new
+# trading development — triage of work that was one `git checkout -f` from being
+# lost, not a new build.
+#
+# Recorded because the recommendation and the decision differed. A successor
+# reading only the outcome would see trading work running during a build phase
+# and reasonably conclude the sequencing was ignored. It was not: it was raised,
+# argued, and decided by the operator.
+#
+# ⚠️ THIS DOES NOT WIDEN THE EXCEPTION. It still names ONE object. The duty pass
+# and every other trading-side unit remain QUEUED behind phase 3.
+sequencing_conflict:
+  raised_by: manager (session_01Nopk1HcpvWBSEbZxEmALkd)
+  raised_at: 2026-09-03
+  manager_recommendation: stand it down and free the slot for workflow build
+  operator_decision: let it finish — disposition, not development
+  decided_at: 2026-09-03
