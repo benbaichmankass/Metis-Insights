@@ -98,3 +98,14 @@ review_trigger: >-
   If unanswered after the next cycle, re-ask ONCE and then record that the
   channel was used and the question was not answered — which is a different and
   more useful finding than silence.
+
+ci_arming_note: >-
+  This line exists to ARM CI, and saying so is cheaper than leaving a mystery commit.
+  PR #10941 was opened by `claude-pr-automerge` using GITHUB_TOKEN, and GitHub fires no
+  workflows for a GITHUB_TOKEN push — so the PR sat with exactly ONE check
+  (`open-and-automerge`) and none of guards / pytest-run / pytest-collect /
+  repo-inventory. Auto-merge merges on GREEN, so it would have waited forever for
+  checks that were never going to start. CLAUDE.md documents this trap and the remedy
+  verbatim: push one ordinary commit AFTER the PR exists. That is this commit.
+  ⚠️ Read `mergeable_state` to tell the two zero-check causes apart — `blocked` is this
+  (no checks fired) and `dirty` is a merge conflict, and both render as total_count: 0.
