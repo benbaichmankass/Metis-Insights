@@ -31712,6 +31712,19 @@
       "resolution_criteria": "/status REFUSES to present a checklist older than a declared threshold as current -- it must render a distinct STALE verdict naming the age, not merely print `as_of` beside the content. AND a guard fails a manager PR whose branch spawns a session or merges a PR without the checklist's `as_of`/`manager_session`/`cycle` advancing, so drift is caught at merge time rather than by the operator. ⚠️ A REMINDER IS NOT THE FIX -- 'remember to update the checklist' is the same remedy that has already failed twice on the sub-session registry (MI-15, measured 3-of-6 then 6-of-9 absent). ⚠️ AND THE THRESHOLD MUST NOT BE SO LOOSE THAT A FULL SHIFT PASSES INSIDE IT: 15.1h drifted across an entire day of work.",
       "evidence": "Operator's /status output on ClaudeBot at 2026-09-03T08:23:05Z, quoted verbatim in-session; confirmed by reading docs/claude/work/MANAGER-CHECKLIST.json at that time (as_of 2026-09-02T17:20:00Z, cycle CY-20260901-OPERATING-LAYER, manager_session session_011JWFxuYAaEQKCFCmG6gnHJ, MI-88/89/90/92/93/94 all absent).",
       "found_by": "the operator, by running /status -- not by any mechanism"
+    },
+    {
+      "id": "BL-20260903-RUN-GUARDS-PY-IS-LANDING-MACHINERY-AND-CHECK-PR-LANDING-DOES-NOT-KNOW-IT",
+      "opened": "2026-09-03",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ci/landing-route",
+      "summary": "check_pr_landing.py's LANDING_MACHINERY list (the set R8 verifies a `changes_landing_machinery` hold against, and that R12 uses to refuse self-landing) names 7 paths and does NOT include scripts/ci/run_guards.py or scripts/ci/guard_selftests.py. Found 2026-09-03 while declaring MI-95's landing: a PR that registers a new guard in run_guards.py was REFUSED the `changes_landing_machinery` hold reason, correctly by the list as written. But run_guards.py is invoked by .github/workflows/guards.yml, which is a required check: a malformed entry there breaks the gate that decides whether ANYTHING merges. By any functional definition that is landing machinery. POPULATION: read from LANDING_MACHINERY in scripts/ci/check_pr_landing.py at commit b596d4bc -- 7 entries, enumerated, neither of these among them.",
+      "why_it_matters": "Two directions, and both are live. (1) A guard-registration PR that genuinely wants a human read cannot say so in the closed vocabulary, so it either self-lands or reaches for a token that is not true -- and the vocabulary exists precisely to stop the second. (2) R12 exists so that a change to the landing route cannot approve itself; a PR that edits the guard RUNNER can today self-land while a PR that edits check_pr_landing.py cannot, and the runner is the thing that decides whether the check runs at all.",
+      "resolution_criteria": "EITHER scripts/ci/run_guards.py (and guard_selftests.py) are added to LANDING_MACHINERY, with check_pr_landing.py's own self-test extended to prove R8 verifies the new entries and R12 refuses a self-land that touches them; OR the omission is argued as DELIBERATE in the module docstring, in the same explicit way `.github/pr-automerge-requests/**` is already argued as excluded, naming why the runner is different from the route. NOT resolved by adding the paths silently: the docstring already reasons at length about which paths belong and why, and an unexplained addition would decay to a list nobody can audit. ⚠️ Widening the list hands the `changes_landing_machinery` excuse to every guard PR -- weigh that against the pr-automerge-requests precedent, where an excuse every branch could satisfy was judged to excuse nothing.",
+      "found_by": "session_017DxuurbMW5ex5Q1f7xATqW (MI-95)",
+      "basis": "MEASURED"
     }
   ]
 }

@@ -1576,8 +1576,9 @@ GUARDS: List[Dict[str, Any]] = [
         # 2026-09-01; the 2026-09-03 day manager read it at session start and
         # was caught doing items the same morning. Adding emphasis to a rule
         # that was read and disobeyed is the non-fix this repo has paid for
-        # three times (MI-15 twice, BL-20260903-MANAGER-CHECKLIST-GOES-STALE-
-        # SILENTLY). So: a manager COMMIT touching a worker path fails, named.
+        # three times (MI-15 twice, and
+        # BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY-AND-STATUS-REPORTS-IT-AS-CURRENT).
+        # So: a manager COMMIT touching a worker path fails, named.
         #
         # WHO IS THE MANAGER IS DERIVED, NOT DECLARED — from the git history of
         # MANAGER-LEASE.json (3 sessions across 59 revisions) joined to each

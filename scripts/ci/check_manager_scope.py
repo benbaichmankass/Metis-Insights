@@ -13,7 +13,7 @@ The 2026-09-03 day manager read that line at session start and the operator
 caught it doing items the same morning. So the prose is not the missing piece.
 Adding emphasis to a rule that was read and disobeyed is the non-fix this repo
 has now paid for three times — MI-15 twice on the sub-session registry, and
-`BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY`. A reminder is not a
+`BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY-AND-STATUS-REPORTS-IT-AS-CURRENT`. A reminder is not a
 mechanism. This is the mechanism.
 
 WHO IS "THE MANAGER" — DERIVED, NEVER DECLARED
