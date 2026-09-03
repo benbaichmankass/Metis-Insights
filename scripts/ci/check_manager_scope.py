@@ -199,6 +199,48 @@ variable, because the lesson of `new-table-wiring-guard` is that a guard cheaper
 to lie to than to satisfy is worse than no guard: the cheapest way to silence
 this one must be to route the work to a session, which is the behaviour wanted.
 
+DUTY 3 — FEEDBACK BECOMES CANON. **NOT MECHANIZED HERE, AND THAT IS THE
+FINDING RATHER THAN A GAP I RAN OUT OF TIME ON.**
+--------------------------------------------------------------------------
+The operator's 2026-09-03 ruling names three manager duties. Two of them are
+above: R8 is the merge queue, R7 is the check-in cadence. The third — *"we need
+to make sure that these types of feedbacks are turning into actual rules when
+applicable"* — is deliberately NOT a check, and the manager who commissioned it
+pre-authorised this answer: *"Refusing to mechanize it is a legitimate outcome;
+pretending to is not."*
+
+WHY IT CANNOT BE A CHECK. CI cannot read a conversation, so it cannot know that
+feedback was ever given. Every design that survives contact with that fact needs
+the graded party to first WRITE DOWN that it received something — a field, a
+marker, a row. And **omitting that write is free**. So the check would grade
+exactly the subset of cases where the manager already did the right thing, and
+would be structurally blind to the case that matters: feedback received and
+never recorded. That is the `new-table-wiring-guard` presence-only failure with
+an extra step, and this repo has paid for it once already.
+
+⚠️ IT IS WEAKER THAN IT LOOKS, EVEN COMPARED TO THIS REPO'S OTHER PARTIAL
+CHECKS. `session-registry-guard` is also partial, but it joins TWO
+independently-written records (the checklist's `owner` and the registry), so it
+catches the overlap of two incomplete sets. Operator feedback in chat has NO
+second record anywhere — the decision round-trip covers operator DECISIONS, not
+operator REMARKS — so there is nothing to join against and no denominator.
+
+WHERE IT GOES INSTEAD: the session-end `doc-freshness` discipline, which already
+owns *"this session's material decisions actually landed in every durable
+surface they belong in"*. That is the same question one step earlier, it already
+runs at the right moment, and it is performed by a reader rather than a grep.
+
+⚠️ AND THE ONE THING THAT *IS* CHECKABLE IS ALREADY CHECKED ELSEWHERE, WHICH IS
+WHY NOTHING NEW IS ADDED: the last mile of duty 3 is *"a rule lands as canon
+WITH a mechanism"*, and a canon change naming a mechanism that does not exist is
+exactly what `scripts/ops/check_backlog_refs.py` catches for tracking ids and
+what R8's absence-report catches for the queue. **That is not hypothetical: this
+guard's own R8 exists because `docs/claude/work/MERGE-QUEUE.json` was cited to a
+sub-session as "the state of record … created today" and a search of every
+branch and every commit found it nowhere.** The mechanism was named and did not
+exist. Grading the NAME against the filesystem is the honest half of duty 3, and
+it needs no new marker anybody could set.
+
 STATES, NEVER COLLAPSED
 -----------------------
   ``not_a_pr``               — no base ref to diff against. Nothing was graded.
@@ -213,6 +255,13 @@ STATES, NEVER COLLAPSED
                                loudly on every run and never silently passed.
   ``clean``                  — manager commits found, all inside the surface.
   ``violation``              — a manager commit touched a worker path. FAILS.
+
+THE RULES
+---------
+  R2  a manager commit touching a worker path
+  R6  a heartbeat whose supervision RECORD is staler than the lease TTL
+  R7  a heartbeat more than one TTL after the manager's previous one
+  R8  the merge queue's one invariant: at most one entry `rebasing`
 
 Run standalone with ``--base origin/main``, or ``--self-test`` to plant each
 defect in a throwaway repo and prove the guard fails on it.
@@ -527,6 +576,166 @@ def supervision_gap(root: Path, sha: str) -> tuple[Optional[int], Optional[int],
 
 
 # --------------------------------------------------------------------------
+# R7 — the CHECK-IN CADENCE as a duty, graded on what HAPPENED
+# --------------------------------------------------------------------------
+#: A gap longer than this between one manager heartbeat and the next FAILS.
+#:
+#: CHOSEN FROM THE MEASURED DISTRIBUTION, and anchored, not tuned. Population:
+#: **51 distinct heartbeat instants across every revision of MANAGER-LEASE.json,
+#: yielding 48 consecutive SAME-HOLDER gaps** (a holder change is a handover,
+#: not a lapse, and is excluded):
+#:
+#:     min 3 · p25 22 · MEDIAN 30 · p75 57 · p90 65 · max 215   (minutes)
+#:     > 30min: 24 of 48 (50%)   > 45min: 18 of 48 (38%)
+#:     > 60min:  8 of 48 (17%)   > 90min:  2 of 48 (4%)
+#:
+#: 30 is the MEDIAN, so a 30-minute rule fails half of everything this repo has
+#: ever done and would be deleted rather than fixed — the same reasoning R6
+#: records, and the reason `heartbeat_target_minutes: 30` is a TARGET and not
+#: this threshold. 90 fails 4%, and it has an independent anchor that does not
+#: come from the data at all: **the lease TTL is 90 minutes and takeover is
+#: time-based**, so a manager silent for longer than one TTL has gone quiet for
+#: longer than the window in which another session may seize the lease from it.
+#: The threshold is read from `ttl_minutes` in the file, never hard-coded here.
+#:
+#: ⚠️⚠️ AND THE HONEST PART, WHICH MUST NOT BE BURIED: **R7 WOULD NOT HAVE
+#: CAUGHT THE FAILURE THAT MOTIVATED IT.** The 2026-09-03 manager asked for this
+#: after its 11:04Z sweep silently never fired and #10923 sat green and mergeable
+#: from 11:01:05Z to 11:11Z — ten minutes — with the OPERATOR noticing before the
+#: mechanism did. Measured over that same day: **10 same-holder gaps, every one
+#: between 15 and 35 minutes**, only 1 above 30. The heartbeat cadence that day
+#: was FINE. R7 grades whether the manager touched its lease, which is NOT the
+#: same fact as whether the manager acted on what was waiting, and reporting the
+#: first as though it covered the second would be precisely the collapsed state
+#: this repo files findings about.
+#:
+#: What R7 does catch is real and separate: the 2 gaps of 90+ minutes, one of
+#: them 215 minutes — a manager that stopped managing and did not stand down.
+#: The 10-minute case needs `scripts/ops/pr_queue_latency.py`, and see
+#: BL-20260903-THE-PR-QUEUE-WATCHER-CANNOT-SEE-A-TEN-MINUTE-STALL for why that
+#: watcher cannot see it either as currently configured.
+def heartbeat_cadence_gap(root: Path, sha: str) -> tuple[Optional[int], Optional[int], list[str]]:
+    """(gap_minutes_since_previous_heartbeat, ttl_minutes, notes).
+
+    Graded only on a commit that ADVANCES `heartbeat_at`, and only against a
+    previous heartbeat by the SAME holder — a handover is not a lapse, and
+    grading one would fail the incoming manager for the outgoing one's silence.
+    """
+    rc, blob = _git(root, "show", f"{sha}:{LEASE_REL}")
+    if rc != 0:
+        return None, None, []
+    try:
+        lease = json.loads(blob)
+    except Exception:
+        return None, None, []
+    if lease.get("state") != "held":
+        return None, None, []
+
+    rc, prev_blob = _git(root, "show", f"{sha}~1:{LEASE_REL}")
+    if rc != 0:
+        return None, None, []                    # no predecessor to compare to
+    try:
+        prev = json.loads(prev_blob)
+    except Exception:
+        return None, None, [f"{LEASE_REL} unreadable at {sha[:8]}~1 — cadence "
+                            f"NOT graded here (we could not look)"]
+
+    now_hb = _parse_ts(lease.get("heartbeat_at"))
+    was_hb = _parse_ts(prev.get("heartbeat_at"))
+    ttl = lease.get("ttl_minutes")
+    if now_hb is None or was_hb is None or not isinstance(ttl, int):
+        return None, None, []
+    if now_hb == was_hb:
+        return None, None, []                    # heartbeat not advanced here
+    if lease.get("holder") != prev.get("holder"):
+        return None, None, [f"{sha[:8]} is a HANDOVER (holder changed) — cadence "
+                            f"not graded; a handover is not a lapse"]
+    return int((now_hb - was_hb).total_seconds() // 60), ttl, []
+
+
+# --------------------------------------------------------------------------
+# R8 — THE MERGE QUEUE'S ONE INVARIANT
+# --------------------------------------------------------------------------
+QUEUE_REL = "docs/claude/work/MERGE-QUEUE.json"
+QUEUE_STATES = {"waiting", "rebasing", "green", "merged", "blocked"}
+
+
+def queue_findings(root: Path) -> tuple[list[str], list[str]]:
+    """(failures, notes) for the merge queue's structural invariant.
+
+    ⚠️ ONE INVARIANT, NOT A SCHEMA POLICE. **At most one entry may be
+    `rebasing`.** Two sessions rebasing against the same moving `main` is the
+    thundering herd the queue exists to prevent, and it is a state that looks
+    fine to each session individually — which is exactly why it needs a check
+    rather than a convention.
+
+    ⚠️ AN ABSENT FILE IS NOT GRADED, AND THAT IS DELIBERATE. This guard runs on
+    every PR in a repo where the queue is the manager's instrument; failing a
+    contributor's PR because the manager has not written a queue row would
+    punish the one actor who cannot fix it — the reasoning
+    `check_pr_queue_watch.py` records for refusing to fail PRs on backlog size.
+    The file's ABSENCE is reported loudly on every run instead, which is how
+    this file came to exist at all: it was cited as "the state of record …
+    created today" while existing on no branch and in no commit.
+    """
+    fails: list[str] = []
+    notes: list[str] = []
+    p = root / QUEUE_REL
+    if not p.exists():
+        notes.append(
+            f"⚠️ {QUEUE_REL} is ABSENT. The merge queue has no state of record, "
+            f"so it lives in whichever session is running it and dies with that "
+            f"session. NOT graded (and not failed) — reported.")
+        return fails, notes
+    try:
+        doc = json.loads(p.read_text(encoding="utf-8"))
+    except Exception as exc:
+        fails.append(
+            f"R8 {QUEUE_REL} is unreadable ({exc}). An unparseable queue is "
+            f"worse than none: a session reading it gets no order and cannot "
+            f"tell that it got none.")
+        return fails, notes
+
+    entries = doc.get("entries")
+    if not isinstance(entries, list):
+        fails.append(f"R8 {QUEUE_REL}: `entries` must be a list.")
+        return fails, notes
+
+    rebasing = []
+    for i, e in enumerate(entries):
+        if not isinstance(e, dict):
+            fails.append(f"R8 {QUEUE_REL}: entries[{i}] is not a mapping.")
+            continue
+        st = e.get("state")
+        if st not in QUEUE_STATES:
+            fails.append(
+                f"R8 {QUEUE_REL}: entries[{i}] (pr={e.get('pr')}) has state "
+                f"{st!r}; must be one of {', '.join(sorted(QUEUE_STATES))}. A "
+                f"closed vocabulary, so 'not my turn' (waiting) and 'cannot go' "
+                f"(blocked) stay different facts.")
+        if st == "blocked" and not str(e.get("blocked_on") or "").strip():
+            fails.append(
+                f"R8 {QUEUE_REL}: entries[{i}] (pr={e.get('pr')}) is `blocked` "
+                f"with an empty `blocked_on`. A blocker nobody named is a row "
+                f"that stalls silently.")
+        if st == "rebasing":
+            rebasing.append(e.get("pr"))
+
+    if len(rebasing) > 1:
+        fails.append(
+            f"R8 {QUEUE_REL}: {len(rebasing)} entries are `rebasing` at once "
+            f"(PRs {', '.join(str(x) for x in rebasing)}). AT MOST ONE. Two "
+            f"sessions rebasing against the same moving `main` re-conflict each "
+            f"other by construction — measured 2026-09-03: 26 merges to main, "
+            f"19 of them touching a shared register, #10918 dirtied three times "
+            f"and ~16-minute CI runs voided before they finished.")
+    else:
+        notes.append(f"R8 ok: {len(entries)} queue entrie(s), "
+                     f"{len(rebasing)} rebasing (at most one permitted)")
+    return fails, notes
+
+
+# --------------------------------------------------------------------------
 def guard_existed_at_merge_base(root: Path, base: str) -> Optional[bool]:
     rc, mb = _git(root, "merge-base", base, "HEAD")
     if rc != 0 or not mb:
@@ -625,6 +834,29 @@ def check(root: Path, base: str, today: Optional[str] = None):
             else:
                 notes.append(f"R6 ok: {sha[:8]} registry {gap}min before "
                              f"heartbeat (ttl {ttl})")
+
+        cad, cttl, cnotes = heartbeat_cadence_gap(root, sha)
+        notes.extend(cnotes)
+        if cad is not None and cttl is not None:
+            if cad > cttl:
+                fails.append(
+                    f"R7 {short}\n"
+                    f"      -> {cad} minutes since this manager's previous "
+                    f"heartbeat, longer than the lease's own ttl_minutes "
+                    f"({cttl}). Takeover is TIME-BASED, so a manager silent for "
+                    f"longer than one TTL has been quiet for longer than the "
+                    f"window in which another session may seize the lease from "
+                    f"it. The check-in cadence is a DUTY, not a tuning knob. "
+                    f"NOTE this grades whether the manager CHECKED IN, never "
+                    f"whether it ACTED on what was waiting — see the R7 note in "
+                    f"this module for the failure it does not cover.")
+            else:
+                notes.append(f"R7 ok: {sha[:8]} {cad}min since the previous "
+                             f"heartbeat (ttl {cttl})")
+
+    qfails, qnotes = queue_findings(root)
+    fails.extend(qfails)
+    notes.extend(qnotes)
 
     if untrailered:
         notes.append(
@@ -815,6 +1047,52 @@ def self_test() -> int:
         assert st == "clean", (st, fails)
         cases.append(("heartbeat with a fresh registry -> clean", st, ""))
 
+        # -- 8b. PLANTED (R7): the manager went QUIET for longer than the TTL.
+        #    The fixture's base lease heartbeats at 08:00; this one at 11:30 is
+        #    210 minutes later, past the 90-minute TTL. The registry is kept
+        #    FRESH deliberately so R6 cannot fire and only R7 can — a plant that
+        #    trips two rules proves neither.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "plant-cadence")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T11:30:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T11:25:00Z"))
+        _commit(root, "manager: lease heartbeat after a long silence", MANAGER)
+        st, fails, _ = check(root, "main")
+        assert st == "violation", (st, fails)
+        joined = "\n".join(fails)
+        assert "R7" in joined, fails
+        assert "R6" not in joined, ("R6 fired too — the plant is not isolated", fails)
+        cases.append(("210min since the previous heartbeat -> violation (R7 only)",
+                      st, joined))
+
+        # -- 8c. CONTROL: an ON-CADENCE heartbeat. Must PASS. -----------------
+        #    30 minutes — the repo's measured MEDIAN gap. If this ever fails,
+        #    the threshold has drifted onto ordinary behaviour.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "control-cadence")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T08:30:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T08:25:00Z"))
+        _commit(root, "manager: lease heartbeat, on cadence", MANAGER)
+        st, fails, _ = check(root, "main")
+        assert st == "clean", (st, fails)
+        cases.append(("30min cadence (the measured median) -> clean", st, ""))
+
+        # -- 8d. CONTROL: a HANDOVER is not a lapse. Must PASS. ---------------
+        #    A new holder inheriting a long-silent lease must not be failed for
+        #    its predecessor's silence.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "control-handover")
+        _write(root, LEASE_REL, _lease(WORKER, "2026-09-03T11:30:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T11:25:00Z"))
+        _commit(root, "manager: a new holder claims the lease", MANAGER)
+        st, fails, _ = check(root, "main")
+        assert st == "clean", (st, fails)
+        cases.append(("handover after a long silence -> clean (not a lapse)",
+                      st, ""))
+
         # -- 9. PLANTED: a `pending` exception must GRANT NOTHING. ------------
         shutil.rmtree(root)
         root = _fixture(tmp)
@@ -887,6 +1165,44 @@ def self_test() -> int:
         st, fails, _ = check(root, "main")
         assert st == "clean", (st, fails)
         cases.append(("complete, dated, scoped exception -> clean", st, ""))
+
+        # -- 12b. PLANTED (R8): two entries `rebasing` at once. --------------
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "plant-queue-herd")
+        _write(root, QUEUE_REL, json.dumps({"schema_version": 1, "entries": [
+            {"pr": 1, "state": "rebasing"}, {"pr": 2, "state": "rebasing"}]}))
+        _commit(root, "manager: two rebasers", MANAGER)
+        st, fails, _ = check(root, "main")
+        assert st == "violation", (st, fails)
+        assert "AT MOST ONE" in "\n".join(fails), fails
+        cases.append(("two entries rebasing at once -> violation", st,
+                      "\n".join(fails)))
+
+        # -- 12c. PLANTED (R8): `blocked` with no `blocked_on`. --------------
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "plant-queue-blocked")
+        _write(root, QUEUE_REL, json.dumps({"schema_version": 1, "entries": [
+            {"pr": 1, "state": "blocked", "blocked_on": ""}]}))
+        _commit(root, "manager: a nameless blocker", MANAGER)
+        st, fails, _ = check(root, "main")
+        assert st == "violation", (st, fails)
+        cases.append(("`blocked` with no blocked_on -> violation", st,
+                      "\n".join(fails)))
+
+        # -- 12d. CONTROL: exactly one rebaser is the WORKING state. ---------
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "control-queue")
+        _write(root, QUEUE_REL, json.dumps({"schema_version": 1, "entries": [
+            {"pr": 1, "state": "rebasing"}, {"pr": 2, "state": "waiting"},
+            {"pr": 3, "state": "blocked", "blocked_on": "depends on #1"},
+            {"pr": 4, "state": "merged"}]}))
+        _commit(root, "manager: a healthy queue", MANAGER)
+        st, fails, _ = check(root, "main")
+        assert st == "clean", (st, fails)
+        cases.append(("one rebaser, mixed states -> clean", st, ""))
 
         # -- 13. PLANTED: an UNTRAILERED commit is never 'compliant'. --------
         shutil.rmtree(root)
