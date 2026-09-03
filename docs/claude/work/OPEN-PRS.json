@@ -40,10 +40,46 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-03T23:00:06Z",
+  "as_of": "2026-09-03T23:04:18Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
+    {
+      "pr": 10961,
+      "opened_at": "2026-09-03T23:03:36Z",
+      "title": "wind-down (final): settle #10944, record why MI-109 blocked, refute my own MI-112 theory",
+      "owner_session": "session_01Nopk1HcpvWBSEbZxEmALkd",
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "self_landing",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None required — Tier-1, manager registers only."
+      },
+      "blocker": "The day manager's own last register update. Declared `self` and armed; lands on green."
+    },
+    {
+      "pr": 10957,
+      "opened_at": "2026-09-03T21:19:44Z",
+      "title": "chore(ops): PR-queue watcher receipt (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION. ⚠️ POSSIBLY MORE THAN ROUTINE, AND NOT VERIFIED HERE: it is the dated liveness receipt from .github/workflows/pr-queue-watch.yml, whose OPEN-ITEMS row OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED is waiting on exactly this artifact. ⚠️ THAT ROW CLEARS ONLY ON A RUN WHOSE EVENT IS `schedule`, NEVER ON THE FILE EXISTING — a workflow_dispatch run writes a byte-identical receipt and clears the WORKFLOW half only. The day manager did NOT read the run's event and is not claiming it fired on cron. Read the run history and the receipt's `generated_at`; do not clear the row on this row."
+    },
     {
       "pr": 10927,
       "opened_at": "2026-09-03T11:13:24Z",
