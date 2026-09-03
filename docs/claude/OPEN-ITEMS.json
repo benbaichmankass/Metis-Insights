@@ -3,7 +3,7 @@
  "what_this_is": "The SHORT list every session reads at START — and its live contents are RENDERED INTO CLAUDE.md by scripts/ops/render_session_brief.py, because CLAUDE.md is the only channel that reliably reaches a session before its first tool call. Hooks do NOT run on Claude Code on the web (verified 2026-08-26: the SessionStart contract's output was absent from the session context; 1,379 consecutive 'Found 0 total hooks in registry' log lines on 2026-08-20), and CI guards fire at MERGE, which is far too late to make the work correct in the first place.",
  "every_row_declares_how_it_leaves": "`clears_when` names the OBSERVABLE condition that removes the row. 'the fix works' is not one; 'the mechanism is seen acting on a named trade' is. A row nobody can tell is finished never gets cleared.",
  "loud_means_report_it_every_session": "A row with `loud: true` must be REPORTED ON in the session's closing summary — checked and stated, not silently carried. Operator directive 2026-08-26: 'keep a LOUD backlog item for EVERY SESSION to check and report on it till it's implemented correctly and the mechanism has been verified.'",
- "updated_at": "2026-09-02",
+ "updated_at": "2026-09-03",
  "items": [
  {
   "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
@@ -1056,6 +1056,31 @@
     "tests/test_work_digest_hourly_carrier.py",
     ".github/workflows/work-digest.yml",
     "WO-20260902-THE-OPERATOR-GETS-NO-PER-MERGE-PING"
+   ]
+  },
+ {
+   "id": "OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD",
+   "opened": "2026-09-03",
+   "kind": "monitoring",
+   "loud": true,
+   "verified_at": null,
+   "last_checked": "2026-09-03",
+   "check_every_days": 2,
+   "probe_absent_reason": "What must be observed is a WARNING STOPPING on one live unit and an INFO line STARTING on another, both only after a Tier-2 restart that has not happened. A probe runnable from CI or a sandbox can only assert that telegram_query_bot no longer calls install_operator_commands and that claude_decision_bot does — which tests/test_operator_commands.py already asserts by AST, and which is a fact about the REPO that says nothing about either running process. Once the units are restarted the probe is /api/diag/journalctl on both, graded on the presence/absence of the two operator_commands lines; writing it now would give a green that means 'we did not look'.",
+   "summary": "PR #10793 registered /status and /decisions on the TRADER bot against its own title (\"HELD, must not reach the trader bot\") after being auto-merged with no human decision on 2026-09-02. The fix that ends the violation while KEEPING the feature — moving the single install_operator_commands call site onto src/bot/claude_decision_bot.py (ClaudeBot), the bot the operator asked for and the one that already owns the wdec tap — is PREPARED AND HELD on a Tier-2 operator OK as draft PR #10904. ⚠️ THE VIOLATION IS LIVE, NOT HISTORICAL: re-read 2026-09-03 at 07:11Z, ict-telegram-bot.service last restarted 07:07:08Z and emitted the answerable_elsewhere WARNING plus 'registered /status, /decisions' at that restart. Population: 400 journal lines spanning 07:03:38Z-07:11:08Z, containing exactly 1 restart and exactly 2 operator_commands lines. VM at git_sha 053b8d45, restart_pending false.",
+   "detail": "⚠️ THE MERGE IS NOT THE END OF IT — THIS NEEDS TWO UNITS RESTARTED, NOT ONE, AND THEY ARE NOT GUARANTEED TO BOUNCE TOGETHER. ict-telegram-bot.service must restart to STOP registering the commands and ict-claude-decision-bot.service must restart to START. Between those two restarts the commands exist on NEITHER bot. On this system a merge is very nearly a deploy (#10793 merged at 18:53:42Z and ict-telegram-bot.service restarted 2 seconds later), so the window is likely short — but 'likely short' is not 'observed', and that gap is the one cost of this change. ⚠️ THE TRADER BOT'S wdec CALLBACK BRANCH IS DELIBERATELY UNTOUCHED AND MUST NOT BE 'FINISHED OFF': it is the declared FALLBACK destination for decision prompts while ClaudeBot is not confirmed polling, and removing it would ship dead buttons that look healthy — which claude_decision_bot's own docstring calls strictly worse than arriving in the wrong chat. What #10793 violated was the COMMAND REGISTRATION, not the tap; tests/test_operator_commands.py pins both halves. ⚠️ THE ALTERNATIVE DISPOSITION IS LEGITIMATE AND WOULD ALSO CLOSE THIS: the operator may WITHDRAW the constraint and record that the commands are wanted on the trader bot after all. That must be RECORDED as a decision rather than left standing as a violated constraint — an un-withdrawn constraint nobody enforces is exactly the state this row exists to prevent. ⚠️ DO NOT READ THIS ROW AS COVERING THE OTHER NINE unauthorised merges in docs/audit/held-pr-automerge-2026-09-02.md; it is scoped to #10793 alone.",
+   "clears_when": "BOTH halves are OBSERVED on the live fleet after the Tier-2 merge and the two restarts, and they are DIFFERENT facts — say which you cleared rather than clearing on the easier one. (a) STOPPED: /api/diag/journalctl?unit=ict-telegram-bot.service shows a restart AFTER the deploy with NO operator_commands line at it — read a restart that demonstrably happened after the merge, never merely the line's absence from some window, which is the same 'we did not look' the probe_absent_reason names. (b) STARTED: /api/diag/journalctl?unit=ict-claude-decision-bot.service carries 'registered /status, /decisions (route_state=answerable_here)' — and answerable_here rather than answerable_elsewhere is the half proving the move fixed the ROUTING rather than merely relocating the problem. ⚠️ MERGING #10904 CLEARS NOTHING: a merge is not a deploy and a deploy is not an observation. ⚠️ A GREEN HARNESS CLEARS NOTHING EITHER — 20 assertions pass in tests/test_operator_commands.py, and a harness is exactly what cannot reach a running systemd unit or a Telegram chat. ⚠️ AND (a)+(b) DO NOT PROVE THE COMMANDS ANSWER: the operator typing /status and /decisions in the ClaudeBot chat and getting a correct reply is #10793's own stated done-condition and is still owed — record it here when it happens. ⚠️ IF THE OPERATOR WITHDRAWS THE CONSTRAINT INSTEAD, this row does NOT clear — it CHANGES: record the decision and its consequence (the commands stay on the trader bot by choice) rather than leaving it looking like a fix in flight.",
+   "observation": "2026-09-03T07:11Z, read directly via scripts/ops/diag_fetch.sh (stderr 'served by https://ict-bot.duckdns.org', i.e. the direct path, not the issue relay): THE VIOLATION IS CURRENT, not a re-quote of the 2026-09-02 audit. /api/diag/services shows ict-telegram-bot.service active AND ict-claude-decision-bot.service active. Population for the journal claim: 400 lines for ict-telegram-bot.service spanning 07:03:38Z-07:11:08Z, within which exactly 1 service restart (07:07:08Z) and exactly 2 operator_commands lines, both at that restart — the answerable_elsewhere WARNING naming the violation, and 'registered /status, /decisions (route_state=answerable_elsewhere)'. /api/diag/version: git_sha = git_sha_on_disk = 053b8d45, restart_pending false. NOT YET OBSERVED, which is the whole point of this row: nothing has been seen stopping on the trader bot or starting on ClaudeBot, because the Tier-2 merge and the two restarts have not happened.",
+   "refs": [
+    "#10904",
+    "#10793",
+    "docs/audit/held-pr-automerge-2026-09-02.md",
+    "src/bot/operator_commands.py",
+    "src/bot/claude_decision_bot.py",
+    "src/bot/telegram_query_bot.py",
+    "tests/test_operator_commands.py",
+    "WO-20260903-REVIEW-10793-ON-ITS-MERITS-THE-ONE",
+    "DEC-20260902-REVERT-THE-UNAUTHORISED-MERGES"
    ]
   }
  ],
