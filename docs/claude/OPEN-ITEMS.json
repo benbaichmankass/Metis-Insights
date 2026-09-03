@@ -1106,7 +1106,26 @@
     "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP",
     "WO-20260903-REVIEW-10793-ON-ITS-MERITS-THE-ONE"
    ]
-  }
+  },
+    {
+      "id": "OI-20260903-CLOSE-WEDGE-LEDGER-MERGED-AND-HAS-NEVER-BEEN-OBSERVED-PRESENT-ON-THE-FLEET",
+      "opened": "2026-09-03",
+      "kind": "awaiting_verification",
+      "loud": true,
+      "verified_at": null,
+      "last_checked": "2026-09-03",
+      "check_every_days": 2,
+      "probe_absent_reason": "No probe is declared because the observation needs the live diag surface AND a trader restart that has not happened yet; a probe run before the restart would report `absent` every time and train a reader to skip it. Declare one once a restart has occurred.",
+      "summary": "#10944 MERGED (squash 717f00eb, Tier-2, operator-approved 2026-09-03) makes the trader's monitor sweep heartbeat an empty-but-PRESENT close-wedge ledger, and stops the reader synthesising a clean fleet from `present: false`. ⚠️ THE LEDGER HAS NEVER BEEN OBSERVED PRESENT ON THE FLEET. Merged, deployed and proven are three facts and only the first is established. verified_at is deliberately null: no observation has been made, and dating it today would be a claim of one.",
+      "detail": "WHAT IT REPLACED, measured before the merge: all 12 work-digest rows in docs/claude/pending-pings.jsonl read `Standing close wedges: none (ledger read, 0 entries) — a real observation, not an absence of one.` Every word of that was false. The trader had NEVER written the ledger (`sweep_vanished` returned before touching disk whenever no wedge was carried, which is the overwhelmingly common case), diag answered `present: false`, and `fetch_standing_wedges` converted that into a SYNTHESISED empty ledger — the `curl … || echo '{}'` idiom, in Python, inside the function written to prevent it, shipped with a self-test asserting the defect as correct. ⚠️ EXPECT A VISIBLE AND CORRECT REGRESSION IN THE OPERATOR CHANNEL FIRST: until the trader restarts with the heartbeat the digest reports NOT EXAMINED instead of the false clean bill. That is the honest state of a ledger nothing writes, it is strictly more informative, and it self-resolves on the next deploy — DO NOT roll it back and do not file it as a regression. ⚠️ ONE INCIDENTAL OBSERVATION THE PR FLAGGED AND DID NOT ACT ON, still owed to somebody: CLAUDE.md records Alpaca GLD OCO parent 2e843e04 as `pending_cancel` since 2026-08-27, and /api/diag/alpaca_open_orders read it as `new` on 2026-09-03 while the position is open and the close is still failing (155 consecutive). The wedge's CLASSIFICATION has moved away from what that row expects. PAPER, not real money.",
+      "clears_when": "BOTH, and they are different facts — say which you cleared rather than clearing on the easier one. (1) After the trader has restarted under this code, /api/diag/log_file?name=close_wedge_standing reads `present: true` with an `updated_at` FRESH against the artifact's own declared budget — read the stamp, never the file's existence, because a dead trader leaves a ledger that still parses and still reports zero wedges, which is the exact failure this change exists to end. (2) A work-digest run NAMES the resolved path in its own output and that path is under /data/bot-data/, proving the DATA_DIR resolution on the VM rather than the repo-relative agreement that holds only on a GitHub runner. ⚠️ A GREEN CI CLEARS NEITHER: 92 pytest, run_guards PASS 66/FAIL 0 and three self-test suites all passed BEFORE the merge and are a harness — a harness is exactly what cannot reach a trader restart. ⚠️ THE MERGE CLEARS NOTHING EITHER, and neither does the deploy: that distinction is why OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION is still open. ⚠️ AND A DIGEST STILL SAYING `NOT EXAMINED` IS NOT A FAILURE OF THIS ROW — it is the accurate reading until the restart, and the row must not be re-filed as broken on the strength of it.",
+      "observation": "",
+      "refs": [
+        "#10944",
+        "MI-101",
+        "docs/claude/work/objects/WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT.yaml"
+      ]
+    }
  ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
  "monitoring_rows_are_enforced_by_observation": "kind:'monitoring' rows carry `check_every_days`, `verified_at` and `observation`. A row past its cadence is DUE and is rendered into CLAUDE.md, so the next session sees it in context before acting. Clearing it for another cycle costs one honest look: record WHAT YOU OBSERVED and today's date. It cannot be cleared by asserting progress — `observation` must state a thing that was seen. This replaces `loud`, which was just another alarm to walk past.",
