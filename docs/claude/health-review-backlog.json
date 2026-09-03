@@ -31714,6 +31714,30 @@
       "found_by": "the operator, by running /status -- not by any mechanism"
     },
     {
+      "id": "BL-20260903-OPEN-ITEMS-HAS-NO-APPEND-HELPER-AND-BACKLOG-APPEND-REFUSES-IT",
+      "opened_at": "2026-09-03",
+      "opened_by": "session_0174hCi1hhGzUKbtmL4jb8Rc (MI-94)",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1",
+      "area": "registers/tooling",
+      "title": "OPEN-ITEMS.json — the register with the HIGHEST row contention — has no append helper, and backlog_append refuses it",
+      "detail": "MEASURED 2026-09-03 on main @855397f6. `scripts/ops/backlog_append.py::append_row` raises FormatNotReproducible on docs/claude/OPEN-ITEMS.json: none of its five candidate serialisations reproduces the file byte-for-byte. The file indents array ELEMENTS one level shallower than json.dumps does at any indent setting, so the closest candidates (indent=2 and indent=1, ensure_ascii=False) each differ on 236 of 1,065 lines. The refusal is CORRECT — it is the helper working as designed, and a naive round-trip would rewrite 2,082 lines and re-attribute all 50 pre-existing rows to whoever appended. But the consequence is that the ONE register a session cannot safely append to with any tool is also the one MI-76 measured as having the HIGHEST row contention: 23 of 65 adjacent commit pairs (35%) row-contested, versus 9% for health-review-backlog. Every append to it today is a hand edit. POPULATION: the 5 registers named in .gitattributes; OPEN-ITEMS.json is the only one append_row cannot write. Not fixed here because MI-94's scope is the id-uniqueness guard and the session-key check; writing a serialiser for this file is a separate, riskier change that must round-trip byte-for-byte before it writes anything.",
+      "resolution_criteria": "Either (a) `backlog_append.append_row` writes docs/claude/OPEN-ITEMS.json with `--check-round-trip`-style byte-identical proof on the untouched file, or (b) OPEN-ITEMS.json is re-serialised ONCE to a shape append_row already reproduces, in a PR whose diff is that reformat ALONE and nothing else. Verified by appending a probe row and observing a diff of <15 lines, then deleting it."
+    },
+    {
+      "id": "BL-20260903-OPEN-PRS-ROWS-CARRY-NO-CREATION-DATE-SO-IDENTITY-CANNOT-BE-CHECKED",
+      "opened_at": "2026-09-03",
+      "opened_by": "session_0174hCi1hhGzUKbtmL4jb8Rc (MI-94)",
+      "status": "open",
+      "severity": "low",
+      "tier": "1",
+      "area": "registers/work-store",
+      "title": "OPEN-PRS.json rows record no creation date, so register-id-guard's R2a covers 0% of them",
+      "detail": "MEASURED 2026-09-03 by `scripts/ci/check_register_ids.py --base origin/main` on main @855397f6: OPEN-PRS.json::open_prs 0 of 2 shared ids assessable (0%) and ::settled_prs 0 of 25 (0%) — no row carries `opened_at` or any other creation-time field, so the R2a identity rule (creation fact moved AND headline moved) can never grade one. R1 (uniqueness) and R2b (wholesale replacement) still cover these rows in full, so the register is NOT unguarded — but the tightest of the three rules is inert on it. This is the same shape as MANAGER-CHECKLIST at 31%, and R3 fixes it only for rows added from now on. POPULATION: 27 rows across the two arrays in OPEN-PRS.json. Not fixed here: back-filling a creation date onto 27 existing rows would assert a fact nobody recorded, which the work-store README explicitly forbids for `asked_by` for the same reason.",
+      "resolution_criteria": "Rows ADDED to OPEN-PRS.json carry a creation-time field (R3 already requires one of `opened_at`/`as_of`/`settled_at`), and `check_register_ids.py --base origin/main` reports R2a coverage above 0% for both arrays. Existing rows stay ungraded rather than back-filled."
+    },
+    {
       "id": "BL-20260903-PR-LANDING-GUARD-RED-LOCKS-EVERY-AUTOMATION-PR",
       "title": "pr-landing-guard R11 red-locks the entire automation PR lane, because a generating workflow cannot know to write a landing declaration",
       "severity": "high",
@@ -31725,6 +31749,18 @@
       "evidence": "guards job 100580495407 (PR #10914): 'pr-landing-guard FAILED (state=undeclared)' + 'R11 no landing declaration at .github/pr-landing/automation-work-digest-33730997742-1.json'. grep -n 'automation|EXEMPT|exempt|dependabot|bot\\[' scripts/ci/check_pr_landing.py returns nothing. list_pull_requests(state=open) at 2026-09-03T09:10Z shows the 8 rows above.",
       "resolution_criteria": "An automation PR is OBSERVED merging green -- not the guard passing in a self-test, and not a hand-written declaration dropped onto one branch. The two candidate fixes are NOT equivalent and the choice must be recorded: (a) make each generating workflow WRITE its own .github/pr-landing/<slug>.json (tier 1, landing self) as part of the commit it already makes -- keeps the invariant that no PR lands undeclared, and is the recommended route; or (b) exempt automation/** in the guard -- cheaper, and it creates an UNGUARDED LANE on the guard's first day, which is the failure this repo names as 'a guard cheaper to lie to than to satisfy is worse than no guard'. If (b) is chosen anyway, the exemption must be NARROW (a named branch-prefix allowlist, never a bot-author test) and must be recorded as a deliberate decision rather than a fix. ALSO REQUIRED EITHER WAY: the stacked duplicates must be drained, and #10398 checked separately -- it was cut 2026-08-29, BEFORE the guard, so if it fails R11 too then the 'branch could have known' test is not doing what its docstring claims and that is a SECOND, worse finding.",
       "notes": "SELF-INFLICTED, SAME DAY. The guard shipped this morning as MI-88 (the landing route) and this is its first contact with the machine-authored population, which nobody enumerated before landing it. Filed by the manager session as a routing disposition, not fixed here."
+    },
+    {
+      "id": "BL-20260903-PR-OPENER-CANNOT-HONOUR-DRAFT-FALSE-BECAUSE-JQ-ALTERNATIVE-TREATS-FALSE-AS-EMPTY",
+      "opened_at": "2026-09-03",
+      "opened_by": "session_0174hCi1hhGzUKbtmL4jb8Rc (MI-94)",
+      "status": "open",
+      "severity": "high",
+      "tier": "1",
+      "area": "ci/pr-landing",
+      "title": "pr-opener.yml opens EVERY PR as a draft: `jq -r '.draft // true'` returns true for `false`, so `draft:false` is unreachable — and .github/pr-landing/README.md asserts the opposite",
+      "detail": "MEASURED 2026-09-03. `.github/workflows/pr-opener.yml:123` reads `[ \"$(jq -r '.draft // true' \"$req\")\" = \"true\" ] && draft_flag=\"--draft\"`. jq's `//` is the ALTERNATIVE operator and treats BOTH `null` AND `false` as empty, so `.draft // true` evaluates to `true` for every possible input. Tested directly, all 4 cases of the input domain: draft=true -> true; draft=false -> true; draft=null -> true; draft absent -> true. 4 of 4 yield `--draft`. The correct form is `jq -r 'if has(\"draft\") then .draft else true end'`, verified to return false for draft=false and true for draft=true. LIVE PROOF: PR #10910 was opened through this relay from automation/pr-requests/mi94-register-id-uniqueness-open.json carrying `\"draft\": false`, and GitHub reports `draft: true`. THIS IS LOAD-BEARING, NOT COSMETIC: `claude-pr-automerge` refuses to arm auto-merge against a draft BY DESIGN (a correct safety property that must not be weakened), so every PR opened via this relay is structurally unable to self-land, however green it goes and however correctly it declares `landing: \"self\"`. That is precisely the failure `.github/pr-landing/` was built on 2026-09-03 to end. WARNING, AND THIS IS THE PART THAT NEEDS A HUMAN: `.github/pr-landing/README.md` currently states -- 'Three of those PR bodies blamed pr-opener.yml for \"creating every PR as a draft regardless of draft:false\". That is false and should not be repeated. pr-opener.yml honours draft:false; true is only the default, and those sessions' request files asked for \"draft\": true.' The first half of that correction is itself WRONG on the measurement above: the relay does NOT honour draft:false and cannot. Those three sessions may have mis-stated the CAUSE while reporting a real SYMPTOM, and the standing correction now instructs future sessions not to report the true observation. A doc that forbids repeating a true finding is worse than a silent bug. Whether those specific three request files asked for `true` is a separate claim this row does not adjudicate -- it was not re-read. POPULATION: 1 workflow file, 1 line; the jq behaviour was tested over the complete 4-case input domain; 1 live PR (#10910) confirms end to end. NOT FIXED HERE because MI-94's scope is register storage and the id-uniqueness guard, and because pr-landing-guard R12 exists precisely to stop a PR that already edits landing machinery from also editing the landing route it would then be merged by.",
+      "resolution_criteria": "`.github/workflows/pr-opener.yml` uses a form that distinguishes an absent key from an explicit `false` (e.g. `jq -r 'if has(\"draft\") then .draft else true end'`), AND a request file carrying `\"draft\": false` is observed opening a NON-draft PR -- read `draft` off the GitHub API on that PR, never off the workflow file or the run log. Separately and independently: the paragraph in .github/pr-landing/README.md that calls the draft-false claim 'false and should not be repeated' is corrected, so the doc no longer instructs sessions to suppress a true observation. Both halves are needed; fixing the code while leaving the doc standing leaves the next session told not to look."
     }
   ]
 }
