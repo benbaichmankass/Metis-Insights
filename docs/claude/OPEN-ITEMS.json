@@ -226,7 +226,23 @@
     "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33719856283",
     "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33716069132",
     "OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED (cleared 2026-09-03)"
-   ]
+   ],
+   "probe": {
+    "cmd": [
+     "python3",
+     "scripts/ops/probe_actions_log.py",
+     "--workflow",
+     "trainer-capture-watch.yml",
+     "--contains",
+     "Trainer ORDER-FLOW CAPTURE not healthy",
+     "--positive-control",
+     "controls_ok=",
+     "--runs",
+     "20"
+    ],
+    "checks": "CLAUSE (2) ONLY — that the capture-stale PAGE has actually EXECUTED. It looks for the literal the `Telegram alert — the CAPTURE is not healthy` step emits, in the job logs of trainer-capture-watch.yml. That step is gated on `steps.grade.outputs.capture_bad == 'true'`, a condition that has never been true, so the string cannot appear unless the page really fired. The positive control is `controls_ok=`, which the `Grade freshness` step prints on every run that reaches it: if THAT is missing the reader is proven blind and the verdict is `could_not_look` rather than a confident negative — which matters here, because 2 of the workflow's first 3 runs died before the grader ever ran.",
+    "is_not": "⚠️ A PASS HERE DOES NOT CLEAR THIS ROW, AND A FAIL IS THE EXPECTED READING TODAY. It covers clause (2) and says NOTHING about clause (1), the cadence — which is the half the row primarily exists for. Nothing this probe can reach distinguishes a SCHEDULED run from a `workflow_dispatch` one: `probe_actions_log.py` has no `--event` filter, and the receipt docs/claude/work/TRAINER-CAPTURE-WATCH.json records capture_state, controls_ok, generated_at and run_url but NOT the triggering event. ⚠️ THE ONE-LINE CHANGE THAT WOULD MAKE CLAUSE (1) PROBEABLE is to have the workflow write `github.event_name` into that receipt; until then clause (1) is settled by READING THE RUN HISTORY BY HAND, and this row must not be cleared on a green probe. ⚠️ Nor does a pass mean the operator RECEIVED the page: the step emits the literal before `notify_session.py` reports anything, and the send is explicitly non-fatal (`|| echo ::warning::telegram notify failed`), so the string proves the step RAN, not that a message landed."
+   }
   },
   {
    "id": "OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL",
