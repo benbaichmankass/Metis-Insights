@@ -85,6 +85,7 @@ sys.path.insert(0, str(REPO_ROOT))
 # ONE owner for the ceiling + migration facts — imported, never re-derived.
 # This file restating them is precisely how the SPA and the digest came to
 # disagree after Phase C; see src/utils/work_facts.py.
+from src.utils.paths import runtime_logs_dir  # noqa: E402
 from src.utils.work_facts import WIP_CEILING as _WIP_CEILING  # noqa: E402
 from src.utils.work_facts import (  # noqa: E402
     CARRIED_ROWS_MIGRATED_IN,
@@ -112,7 +113,21 @@ STATE = REPO_ROOT / "runtime_logs" / "work_digest_state.json"
 # the channel an operator-approved downgrade was routed INTO, so a missing
 # ledger rendering as a clean bill of health is the precise failure this whole
 # section exists to prevent: the item falling quietly out of BOTH channels.
-STANDING_WEDGES = REPO_ROOT / "runtime_logs" / "close_wedge_standing.json"
+#
+# ⚠️ RESOLVED THROUGH THE CANONICAL `$DATA_DIR` RESOLVER, NEVER `REPO_ROOT`.
+# This read `REPO_ROOT / "runtime_logs" / ...` until MI-101. On a GitHub runner
+# that happens to agree — no `DATA_DIR` is set, so `runtime_logs_dir()` returns
+# `repo_root()/runtime_logs`, the same directory the workflow fetches into — but
+# anywhere `DATA_DIR` IS set the two diverge silently, and the live VM is
+# exactly that case: the trader writes `/data/bot-data/runtime_logs/` while this
+# constant pointed at `/home/ubuntu/ict-trading-bot/runtime_logs/`. A digest run
+# on the VM therefore reported NOT EXAMINED for a ledger sitting on the same
+# box. That is the CWD/repo-relative-fallback class `canonical-db-resolver`
+# forbids for the journal DB, reappearing for a `runtime_logs` artifact — so it
+# is fixed the same way, by asking the one resolver rather than rebuilding the
+# path. The digest names the resolved path in its own output, so which one it
+# read is checkable from the message rather than from this comment.
+STANDING_WEDGES = runtime_logs_dir() / "close_wedge_standing.json"
 
 # Mirrors src/web/api/routers/work.py. Kept in the same order as the design.
 LIFECYCLE_STATES: tuple[str, ...] = (
@@ -190,7 +205,9 @@ def standing_state(ref: str = "HEAD") -> dict[str, Any]:
     }
 
 
-def standing_wedges(path: Path | None = None) -> dict[str, Any]:
+def standing_wedges(
+    path: Path | None = None, now: datetime | None = None,
+) -> dict[str, Any]:
     """The close failures DOWNGRADED into this digest, and whether we could see them.
 
     ``wedgeState`` is three states and they are never collapsed — the same
@@ -211,6 +228,7 @@ def standing_wedges(path: Path | None = None) -> dict[str, Any]:
     operator-visible text.
     """
     p = path or STANDING_WEDGES
+    now = now or datetime.now(timezone.utc)
     try:
         raw = json.loads(p.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -228,14 +246,79 @@ def standing_wedges(path: Path | None = None) -> dict[str, Any]:
         dict(v, key=k) for k, v in sorted((wedges or {}).items())
         if isinstance(v, dict)
     ]
+    freshness, age_s, allowed_s = _grade_freshness(raw, now)
     return {
-        "wedgeState": "read",
+        "wedgeState": "stale" if freshness == "stale" else "read",
+        "freshness": freshness,
+        "ageSeconds": age_s,
+        "allowedAgeSeconds": allowed_s,
         "wedges": rows,
         "count": len(rows),
         "schema": raw.get("schema"),
         "updatedAt": raw.get("updated_at"),
         "source": str(p),
     }
+
+
+#: Fallback freshness budget when the ledger does not declare its own, in
+#: seconds. Only reachable for a ledger written before the writer started
+#: publishing `heartbeat_interval_s` — and a reader that fell back SAYS SO
+#: (`freshness == "undeclared"`) rather than quietly grading against a number
+#: the writer never agreed to.
+_FALLBACK_MAX_AGE_S = 3 * 15 * 60
+
+
+def _grade_freshness(
+    raw: dict[str, Any], now: datetime,
+) -> tuple[str, float | None, float | None]:
+    """Is this ledger still being REFRESHED? -> (state, age_s, allowed_s).
+
+    ⚠️ **A PRESENT LEDGER IS NOT AUTOMATICALLY A CURRENT ONE, AND THIS IS THE
+    HALF THAT MAKES `wedges: []` MEAN ANYTHING.** The writer re-stamps an empty
+    ledger on a floor (`close_wedge_standing.heartbeat_minutes`), so `updated_at`
+    is a claim that something looked THEN. If the trader dies, the file it last
+    wrote stays on disk, keeps parsing, and keeps reporting zero wedges — so
+    without this grade a dead writer reads exactly like a clean fleet, which is
+    the *"we did not look"* → *"we looked and found none"* collapse this whole
+    row exists to close, moved one layer up.
+
+    Four states, never collapsed:
+
+      * ``fresh``      — stamped inside the budget the ledger itself declares.
+      * ``stale``      — a real timestamp, and it is too old. **The writer is not
+        running.** This is NOT "nothing is wedged".
+      * ``undeclared`` — the ledger carries no ``heartbeat_interval_s``, so it
+        predates the heartbeat. Graded against a fallback and SAID to be, since
+        a budget the writer never published is our assumption, not its promise.
+      * ``unknown``    — no parseable ``updated_at``. **We could not look at the
+        freshness**, which is not the same as looking and finding it current.
+    """
+    ts = raw.get("updated_at")
+    try:
+        dt = datetime.fromisoformat(str(ts))
+    except (TypeError, ValueError):
+        return ("unknown", None, None)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    age = (now - dt).total_seconds()
+
+    interval = raw.get("heartbeat_interval_s")
+    multiple = raw.get("stale_after_intervals")
+    declared = None
+    try:
+        if interval is not None:
+            declared = float(interval) * float(multiple if multiple else 3.0)
+    except (TypeError, ValueError):
+        declared = None
+
+    allowed = declared if declared and declared > 0 else float(_FALLBACK_MAX_AGE_S)
+    if age > allowed:
+        return ("stale", age, allowed)
+    # A clock-skewed FUTURE stamp is not evidence of freshness, but it is also
+    # not evidence of staleness — we cannot date the observation at all.
+    if age < 0:
+        return ("unknown", age, allowed)
+    return ("fresh" if declared else "undeclared", age, allowed)
 
 
 def _age_days(first_seen: object, now: datetime) -> str:
@@ -249,14 +332,44 @@ def _age_days(first_seen: object, now: datetime) -> str:
     return f"{(now - dt).total_seconds() / 86400.0:.1f}d"
 
 
+def _age_words(seconds: object) -> str:
+    """A duration in words, or an explicit refusal to guess."""
+    try:
+        s = float(seconds)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return "an unknown time"
+    if s < 90:
+        return f"{s:.0f}s"
+    if s < 5400:
+        return f"{s / 60.0:.0f}m"
+    if s < 172800:
+        return f"{s / 3600.0:.1f}h"
+    return f"{s / 86400.0:.1f}d"
+
+
 def render_standing_wedges(sw: dict[str, Any], now: datetime) -> list[str]:
     """The standing-wedge block. **It is never empty** — every state prints a line.
 
     A section that renders nothing when it has nothing to say is
     indistinguishable from a section that has broken, and this one carries items
-    the pager was deliberately told to stop carrying. So all three states speak.
+    the pager was deliberately told to stop carrying. So all four states speak.
     """
     state = sw.get("wedgeState")
+    if state == "stale":
+        age = sw.get("ageSeconds")
+        allowed = sw.get("allowedAgeSeconds")
+        return [
+            "⚠️ STANDING CLOSE WEDGES: ledger present but STALE — last refreshed "
+            f"{_age_words(age)} ago at {sw.get('source')}, against a "
+            f"{_age_words(allowed)} budget the ledger declares for itself. "
+            "The trader re-stamps this file even when nothing is wedged, so a "
+            "stale one means THE WRITER IS NOT RUNNING — we did not look. It is "
+            "NOT 'nothing is wedged', and its contents are last-known, not "
+            "current. Close failures confirmed unclearable broker-side are "
+            "DOWNGRADED out of the pager into this digest, so while this is "
+            "stale such an item is in NEITHER channel. Check "
+            "ict-trader-live.service."
+        ]
     if state == "not_fetched":
         return [
             "⚠️ STANDING CLOSE WEDGES: NOT EXAMINED — no ledger at "
@@ -274,9 +387,33 @@ def render_standing_wedges(sw: dict[str, Any], now: datetime) -> list[str]:
         ]
     rows = sw.get("wedges") or []
     if not rows:
+        # ⚠️ THE "REAL OBSERVATION" CLAIM IS EARNED BY THE FRESHNESS GRADE, NEVER
+        # ASSERTED. This line said it unconditionally until MI-101, and on
+        # 2026-09-03 it was FALSE: the trader had never written the ledger, diag
+        # answered `present: false`, the fetch step manufactured an empty one,
+        # and twelve consecutive digests reported a clean fleet in exactly these
+        # words. A confident wrong answer here is worse than NOT EXAMINED,
+        # because NOT EXAMINED sends someone to look.
+        freshness = sw.get("freshness")
+        if freshness == "fresh":
+            return [
+                "Standing close wedges: none (ledger read, 0 entries, refreshed "
+                f"{_age_words(sw.get('ageSeconds'))} ago) — a real observation, "
+                "not an absence of one."
+            ]
+        if freshness == "undeclared":
+            return [
+                "Standing close wedges: none (ledger read, 0 entries, stamped "
+                f"{_age_words(sw.get('ageSeconds'))} ago) — but the ledger "
+                "declares NO refresh cadence, so it predates the writer "
+                "heartbeat and was graded against this reader's fallback. Treat "
+                "as probably-current, not as confirmed-current."
+            ]
         return [
-            "Standing close wedges: none (ledger read, 0 entries) — a real "
-            "observation, not an absence of one."
+            "⚠️ Standing close wedges: none (ledger read, 0 entries) — but its "
+            "`updated_at` is MISSING OR UNDATEABLE, so we cannot tell a fresh "
+            "look from a stale file. This is NOT a confirmed 'nothing is "
+            "wedged'."
         ]
     out = [
         f"🧱 STANDING CLOSE WEDGES: {len(rows)} — confirmed unclearable by any "
@@ -951,17 +1088,69 @@ def _self_test() -> int:
               and txt_empty.strip() != "",
               f"{g['count']} / {txt13[:60]!r} / {txt_empty[:60]!r}")
 
-    # 14: THE ONE THAT MATTERS. No reachable state of the wedge block is silent
-    # — an item downgraded out of the pager falling out of the digest too is the
+        # ── MI-101: a PRESENT ledger is not automatically a CURRENT one ──
+        # The writer re-stamps an empty ledger on a floor, so `updated_at` is a
+        # claim that something looked THEN. A dead trader leaves its last file
+        # behind, still parsing and still reporting zero wedges — so without a
+        # freshness grade a stopped writer reads exactly like a clean fleet.
+        now_t = datetime(2026, 9, 3, 12, 0, tzinfo=timezone.utc)
+
+        def _ledger(name: str, **over: Any) -> dict[str, Any]:
+            body = {"schema": 1, "wedges": {},
+                    "heartbeat_interval_s": 900, "stale_after_intervals": 3}
+            body.update(over)
+            f = tmp / name
+            f.write_text(json.dumps(body), encoding="utf-8")
+            return standing_wedges(f, now=now_t)
+
+        fresh = _ledger("fresh.json", updated_at="2026-09-03T11:55:00+00:00")
+        check(17, "a ledger stamped inside its declared budget is FRESH",
+              fresh["wedgeState"] == "read" and fresh["freshness"] == "fresh",
+              f"{fresh['wedgeState']} / {fresh.get('freshness')}")
+
+        # THE PLANTED POSITIVE. Same file, same zero wedges, only the timestamp
+        # moved — so this is the control proving the grade reads the stamp and
+        # not something incidental about the payload.
+        stale = _ledger("stale.json", updated_at="2026-09-03T06:00:00+00:00")
+        check(18, "the SAME empty ledger, stamped past the budget, is STALE",
+              stale["wedgeState"] == "stale", str(stale["wedgeState"]))
+
+        txt_stale = "\n".join(render_standing_wedges(stale, now_t))
+        check(19, "and it says the WRITER is not running, not 'nothing is wedged'",
+              "STALE" in txt_stale and "WRITER IS NOT RUNNING" in txt_stale
+              and "NEITHER channel" in txt_stale, txt_stale[:120])
+
+        undated = _ledger("undated.json")
+        check(20, "no parseable updated_at -> unknown, never fresh",
+              undated["freshness"] == "unknown", str(undated["freshness"]))
+
+        # ⚠️ THE REGRESSION CONTROL FOR THE 2026-09-03 FALSE CLEAN BILL. The
+        # confident phrase may be reachable ONLY from a graded-fresh ledger.
+        claim = "a real observation"
+        txt_fresh = "\n".join(render_standing_wedges(fresh, now_t))
+        txt_unknown = "\n".join(render_standing_wedges(undated, now_t))
+        check(21, "the 'real observation' claim is EARNED by freshness, never asserted",
+              claim in txt_fresh and claim not in txt_stale
+              and claim not in txt_unknown,
+              f"{claim in txt_fresh}/{claim in txt_stale}/{claim in txt_unknown}")
+
+        # The path the digest actually read is NAMED in its own output, so which
+        # resolver won is checkable from the message rather than from the code.
+        check(22, "the resolved ledger path is operator-visible",
+              str(tmp) in "\n".join(render_standing_wedges(missing, now_t)),
+              str(missing.get("source")))
+
+    # THE ONE THAT MATTERS. No reachable state of the wedge block is silent — an
+    # item downgraded out of the pager falling out of the digest too is the
     # whole risk of the operator's decision, and it must be structurally
     # impossible, not merely unobserved.
     silent = [
-        st for st in ("not_fetched", "unreadable", "read")
+        st for st in ("not_fetched", "unreadable", "read", "stale")
         if not "".join(render_standing_wedges(
             {"wedgeState": st, "wedges": [], "count": 0}, datetime.now(timezone.utc)
         )).strip()
     ]
-    check(17, "NO wedge state renders silence", not silent, str(silent))
+    check(23, "NO wedge state renders silence", not silent, str(silent))
 
     print("work-digest self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1

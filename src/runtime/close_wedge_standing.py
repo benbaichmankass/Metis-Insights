@@ -194,6 +194,32 @@ _DEFAULT_REPAGE_HOURS = 24.0
 #: moved. GLD, the instrument this was built for, is a US equity ETF.
 _DEFAULT_VANISH_AFTER_HOURS = 72.0
 
+#: How often the sweep re-stamps an EMPTY ledger to prove it is still looking.
+#:
+#: ⚠️ **THIS IS WHAT MAKES ``wedges: {}`` MEAN ANYTHING.** Before it, the store
+#: was written only when a wedge was actually recorded, so a fleet that had
+#: never wedged left NO FILE AT ALL — and a missing file cannot distinguish
+#: *"the trader looked and nothing is wedged"* from *"the trader is not running,
+#: or crashed, or was never deployed"*. Those are opposite findings and the
+#: second is the dangerous one, because this ledger is the ONLY channel a
+#: downgraded wedge appears in (MI-34). Measured 2026-09-03: the file had never
+#: existed on the live VM, `/api/diag/log_file?name=close_wedge_standing`
+#: answered `present: false`, and the digest rendered that as a clean fleet.
+#:
+#: 15 minutes is chosen against the READER's cadence, not the monitor's: the
+#: work digest runs hourly, so a floor well inside that window means every
+#: digest reads a ledger stamped since the previous one. It is a floor, not a
+#: timer — the sweep still only writes when it runs.
+_DEFAULT_HEARTBEAT_MINUTES = 15.0
+
+#: How many heartbeat intervals may pass before a reader must call the ledger
+#: STALE. Three, so a single missed sweep (a restart, one slow pass) is not
+#: reported as a dead writer, while a genuinely stopped writer surfaces inside
+#: an hour. Published INTO the artifact by :func:`_save` so the reader grades
+#: against the writer's own declared cadence instead of a second copy of this
+#: number that can drift away from it.
+STALE_AFTER_INTERVALS = 3.0
+
 
 def _env_float(name: str, default: float, floor: float = 0.0) -> float:
     """Read *name* as a float at call time; fall back to *default*, clamp >= *floor*.
@@ -217,6 +243,13 @@ def repage_hours() -> float:
 
 def vanish_after_hours() -> float:
     return _env_float("CLOSE_WEDGE_VANISH_AFTER_HOURS", _DEFAULT_VANISH_AFTER_HOURS)
+
+
+def heartbeat_minutes() -> float:
+    """Minutes between empty-ledger re-stamps. Floored at 1 to bound disk churn."""
+    return _env_float(
+        "CLOSE_WEDGE_HEARTBEAT_MINUTES", _DEFAULT_HEARTBEAT_MINUTES, floor=1.0,
+    )
 
 
 def wedge_key(account: object, symbol: object, side: object) -> str:
@@ -347,18 +380,28 @@ def _load(path: Optional[Path] = None) -> Dict[str, Any]:
             "schema": raw.get("schema"),
             "wedges": wedges if isinstance(wedges, dict) else {},
             "last_sweep_at": raw.get("last_sweep_at"),
+            "updated_at": raw.get("updated_at"),
             "read_state": "read",
         }
     except FileNotFoundError:
-        # No file yet is a real, knowable state: the trader has never recorded a
-        # wedge. Distinct from a file we could not parse.
+        # ⚠️ NO FILE IS *NOT* "THE TRADER HAS NEVER RECORDED A WEDGE" — that is
+        # what this comment used to claim, and the claim was wrong in the
+        # direction that loses signal. Since the heartbeat below, a running
+        # trader ALWAYS leaves a file; so an absent one now means the writer is
+        # not running, has never deployed, or cannot write its data dir. The
+        # `read_state` is kept as `absent` (distinct from `read` with no wedges,
+        # and from `unreadable`) precisely so no caller can collapse them.
         return {"schema": SCHEMA, "wedges": {}, "read_state": "absent"}
     except (OSError, ValueError) as exc:
         logger.warning("close_wedge_standing: store unreadable (%s)", exc)
         return {"schema": None, "wedges": {}, "read_state": "unreadable"}
 
 
-def _save(store: Dict[str, Any], path: Optional[Path] = None) -> bool:
+def _save(
+    store: Dict[str, Any],
+    path: Optional[Path] = None,
+    now: Optional[datetime] = None,
+) -> bool:
     """Atomically persist the store. Returns False on any failure.
 
     ⚠️ **The return value is load-bearing and must not be discarded.** The page
@@ -366,6 +409,13 @@ def _save(store: Dict[str, Any], path: Optional[Path] = None) -> bool:
     write means it is not carried, and :func:`observe` pages instead. A
     best-effort write whose failure is swallowed would convert the downgrade
     into exactly the silence this whole module exists to prevent.
+
+    ``now`` stamps ``updated_at``. It is a parameter rather than a bare
+    ``datetime.now()`` because that stamp is now GRADED downstream — the digest
+    calls a ledger stale from it — and a clock a test cannot set is a freshness
+    rule nobody can write a failing test for. Callers pass the same ``now`` they
+    reason with, so the file's own timestamp cannot disagree with the decision
+    that produced it.
     """
     p = path or STANDING_LOG
     try:
@@ -373,7 +423,16 @@ def _save(store: Dict[str, Any], path: Optional[Path] = None) -> bool:
         tmp = p.with_suffix(".json.tmp")
         payload = {
             "schema": SCHEMA,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": (now or datetime.now(timezone.utc)).isoformat(),
+            # THE ARTIFACT DECLARES ITS OWN FRESHNESS CONTRACT. A reader grading
+            # `updated_at` needs to know how often this file is SUPPOSED to move,
+            # and the only way for reader and writer to be unable to disagree
+            # about that is for the writer to state it here. A second copy of the
+            # cadence living in the reader is the drift this repo keeps paying
+            # for; a reader that finds these absent must fall back and SAY it is
+            # falling back, never assume fresh.
+            "heartbeat_interval_s": int(heartbeat_minutes() * 60.0),
+            "stale_after_intervals": STALE_AFTER_INTERVALS,
             # Carried, not recomputed: the sweep's own liveness is what lets it
             # tell "nothing vanished" from "nobody was watching".
             "last_sweep_at": store.get("last_sweep_at"),
@@ -384,6 +443,46 @@ def _save(store: Dict[str, Any], path: Optional[Path] = None) -> bool:
         return True
     except OSError as exc:
         logger.warning("close_wedge_standing: store write FAILED (%s) — will page", exc)
+        return False
+
+
+def _heartbeat(
+    store: Dict[str, Any],
+    now: datetime,
+    path: Optional[Path] = None,
+) -> bool:
+    """Re-stamp an EMPTY ledger so ``wedges: {}`` means WE LOOKED. True if written.
+
+    ⚠️ **THIS IS THE HALF THAT MAKES THE OTHER HALF READABLE.** The digest can
+    only report "nothing is wedged" honestly if a *present* ledger is evidence
+    that something looked. Without this the only evidence available was the
+    file's ABSENCE, which is equally consistent with the trader being dead.
+
+    ⚠️ **``last_sweep_at`` IS DELIBERATELY NOT ADVANCED HERE.** That field means
+    *"a sweep ran while wedges were being carried"* and it gates the re-arm in
+    :func:`sweep_vanished` that refuses to retire a wedge across a period nobody
+    watched. A heartbeat proves the trader is alive; it does NOT prove any wedge
+    was under observation, because there were none. Advancing it would let the
+    first sweep after a wedge appears believe it had continuous observation it
+    never had, and retire that wedge as ``vanished_unattributed`` — inventing a
+    disappearance, which is precisely the failure the re-arm exists to prevent.
+    Liveness and observation-continuity are different facts and this function
+    only ever asserts the first.
+
+    Never raises: a heartbeat failure must not break the sweep. It is reported
+    by the file simply not moving, which is exactly what a reader grades.
+    """
+    try:
+        last = _parse_ts(store.get("updated_at"))
+        if last is not None:
+            due_after = timedelta(minutes=heartbeat_minutes())
+            if now - last < due_after:
+                return False
+        # A store that was `absent` has no `updated_at`, so it falls through and
+        # writes immediately — the first heartbeat creates the file.
+        return _save(store, path, now=now)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("close_wedge_standing: heartbeat failed (%s)", exc)
         return False
 
 
@@ -459,7 +558,7 @@ def observe(
         reason = f"{reason}; {entry['pages_suppressed']} page(s) suppressed so far"
 
     wedges[key] = entry
-    if not _save(store, path):
+    if not _save(store, path, now=now):
         # The carry failed. The condition is NOT being held anywhere, so the
         # only honest routing left is the pager.
         return Decision(
@@ -494,7 +593,7 @@ def resolve_confirmed(
     entry["resolved_at"] = now.isoformat()
     entry["resolution"] = "cleared_confirmed"
     entry["attribution"] = attribution
-    _save(store, path)
+    _save(store, path, now=now)
     return Decision("cleared_confirmed", True, attribution, entry)
 
 
@@ -516,21 +615,32 @@ def sweep_vanished(
     """
     now = now or datetime.now(timezone.utc)
     store = _load(path)
-    if store["read_state"] != "read":
+    # ⚠️ `absent` REACHES THE HEARTBEAT, everything else still returns. A missing
+    # file is the exact state the heartbeat exists to end, so it must not be
+    # filtered out here — that ordering bug would leave the first write forever
+    # waiting on a file that only the first write can create. `unreadable` still
+    # returns untouched: we could not see the store, and overwriting a store we
+    # failed to parse would destroy standing wedges to make a tidier file.
+    if store["read_state"] == "unreadable":
         return []
     wedges: Dict[str, Any] = store["wedges"]
     window = vanish_after_hours()
 
-    # Nothing carried → nothing to retire, and no clock worth advancing. Return
-    # before touching disk so a fleet with no standing wedge (the overwhelmingly
-    # common case) does not rewrite this file on every monitor pass.
+    # Nothing carried → nothing to retire, and no clock worth advancing.
     #
-    # The consequence is deliberate and is the SAFE direction: after a quiet
-    # spell the clock is stale, so the first sweep once a wedge appears re-arms
-    # and retires nothing. That delays the earliest possible vanish detection by
-    # one window. Erring the other way — concluding "it disappeared" from a
-    # period we were not watching — is the failure this guard exists for.
+    # ⚠️ BUT THE FILE STILL GETS STAMPED, and that reversal is the point of
+    # MI-101. This branch used to `return []` before touching disk, so the
+    # overwhelmingly common case — a fleet with no standing wedge — wrote
+    # NOTHING, EVER. The file therefore did not exist on the live VM at all, and
+    # `present: false` was read downstream as a clean fleet. Since a wedge here
+    # has been DOWNGRADED OUT OF THE PAGER, "no file" and "no wedges" rendering
+    # alike means a real wedge would appear in NEITHER channel.
+    #
+    # The original comment's concern is still honoured: the write is FLOORED at
+    # `heartbeat_minutes()`, so this costs one small atomic write per interval,
+    # not one per monitor pass.
     if not any(isinstance(v, dict) for v in wedges.values()):
+        _heartbeat(store, now, path)
         return []
 
     # ⚠️ WERE *WE* LOOKING? A gap in OUR observation is not a disappearance.
@@ -553,7 +663,7 @@ def sweep_vanished(
         for v in wedges.values():
             if isinstance(v, dict):
                 v["observation_gap_at"] = now.isoformat()
-        _save(store, path)
+        _save(store, path, now=now)
         logger.info(
             "close_wedge_standing: sweep re-armed (no continuous observation for "
             "the last %.0fh) — retiring nothing this pass", window,
@@ -588,7 +698,7 @@ def sweep_vanished(
     # the retirement logic still passed. The clock IS the evidence that we were
     # watching; discarding it on the passes where we saw nothing is discarding
     # exactly the observation it is supposed to record.
-    _save(store, path)
+    _save(store, path, now=now)
     return out
 
 
