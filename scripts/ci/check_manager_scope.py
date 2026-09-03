@@ -151,6 +151,19 @@ a guard that gets deleted rather than fixed (`check_pr_queue_watch.py` records
 that exact reasoning). At the TTL it fails **2 of 50**. Those two are the real
 signal: a manager holding a lease longer than its own supervision record.
 
+⚠️ A LEASE **CLAIM** IS GRADED TOO, AND THAT IS A DECISION, NOT AN OVERSIGHT.
+A claim sets `heartbeat_at` fresh, so it advances and R6 runs. The objection is
+real — an incoming manager inherits whatever staleness the outgoing one left,
+and failing it for someone else's gap blames the wrong session. It is graded
+anyway, because the cold start is exactly when the registry matters: a successor
+can only pick up the sessions the file names, which is the whole reason it lives
+in the repo rather than in a session's context. Requiring the incoming manager
+to sweep the registry BEFORE its claim lands makes "read your sessions" a
+precondition of taking the lease rather than a good intention. It is cheap to
+satisfy — one `session_registry.py` run — and this is the single R6 fire on the
+2026-09-03 day manager (its claim `f550f833` sat 479 minutes after the registry
+was last touched).
+
 ⚠️ WHAT R6 MEASURES IS THE RECORD OF SUPERVISION, NOT SUPERVISION. A manager
 who unblocked three sessions over Telegram and wrote nothing down grades stale,
 and that reading is deliberate — the registry rule already requires the writing,
@@ -200,11 +213,9 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
-import os
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
