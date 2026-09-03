@@ -1,0 +1,74 @@
+id: WO-20260903-DECISION-DELIVERY-UNATTRIBUTED
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The work-decision sweep reports a CONFIRMED SEND and records nowhere that it went, so a prompt delivered to the wrong bot is permanently consumed and unattributable
+stage: DEPLOYMENT
+lifecycle: ready
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+
+why: >-
+  Operator-raised TWICE in two hours: "I'm still not seeing decisions in the bot
+  ... we need to fix that." ⚠️ THE CHANNEL IS NOT DOWN, and that was checked
+  before assuming: GET /api/bot/work/decisions returns 8 requests with the new
+  DEC-20260903-SUNSET-DISPOSITION-POLICY present and `not_submitted`, writeGate
+  reads `open`, apscheduler runs `sweep_work_decisions` every 300s and logs
+  "executed successfully", and the ClaudeBot poller heartbeats (pid 440663,
+  prefix `wdec`). AND THE MARKER SAYS IT WAS SENT: work_decision_prompted
+  carries the sunset key at 2026-09-03T14:05:48.798642Z, and
+  `run_decision_prompt_sweep` writes that marker ONLY after `sent` is truthy
+  ("flip only on a confirmed send"). So a send reported SUCCESS and the operator
+  received nothing. On a channel that gates real-money decisions, the failure
+  reads as working, which is the worst available shape.
+
+two_defects_do_not_collapse_them: >-
+  (1) THE MARKER RECORDS NO DESTINATION. Its entry is
+  {prompted_at, object_id, request_id, kind} — nothing says WHICH BOT received
+  it. `answerable_route()` may legitimately fall back to the TRADER bot when
+  ClaudeBot is not confirmed polled, and CLAUDE.md documents that fallback as
+  deliberate ("a wrong chat is a noise complaint; holding every decision prompt
+  is an outage"). But the marker is ONCE-ONLY and is pruned only when the
+  request leaves the inbox, so a prompt that went to the wrong chat is
+  PERMANENTLY CONSUMED — the sweep never re-sends it and nothing durable says
+  where it went.
+  (2) THE ONE LINE NAMING THE DESTINATION EVAPORATES. The caller DOES log it —
+  `telegram_query_bot.py::_sweep_work_decisions` emits
+  `logger.info("work-decision prompts: %s", stats)` and `stats` carries
+  `destination` and `poll_state` — but only to the systemd journal. MEASURED: a
+  1500-line journal pull spans 2026-09-03T14:23:34 → 14:53:46, THIRTY MINUTES.
+  The 14:05:48 send was already unreachable 45 minutes later.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED — nothing blocks the work itself. Both defects are in code this repo
+  owns and the diagnosis is already measured. The only gate is that ARMING the
+  fix needs an `ict-telegram-bot.service` restart, which is Tier-2 and needs one
+  operator OK; that is a step, not a blocker.
+
+done_condition: >-
+  BOTH halves, and say which you cleared. (a) The `prompted` marker entry
+  RECORDS THE DESTINATION — the token VARIABLE name and the resolved
+  `poll_state`, never a token value — so a prompt can be attributed afterwards
+  AND a prompt sent to a non-preferred destination can be RE-SENT once routing
+  is fixed, instead of being permanently consumed. (b) The sweep's per-run stats
+  land on a DURABLE surface with a diag allowlist entry, following the
+  `work_digest_receipt.json` / `prop_fills_staleness_state.json` pattern.
+  ⚠️ NOT SUFFICIENT: more journal logging — that is the surface that already
+  evaporated. ⚠️ NOT SUFFICIENT: making the sweep re-send unconditionally — that
+  spams a question the operator may already have answered, and the once-only
+  marker exists for a real reason.
+
+do_not: >-
+  ⚠️ DO NOT make `/decisions` read the marker. It deliberately neither reads nor
+  writes it, which is exactly why the operator's on-demand pull could re-surface
+  questions the sweep had already consumed. That command is the working escape
+  hatch and is the only reason this was recoverable.
+  ⚠️ DO NOT change `answerable_route()`'s fallback policy. Whether a wrong-chat
+  send is preferable to holding is a decision already taken and recorded; this
+  object is about being able to SEE which happened, not about changing it.
+
+review_trigger: >-
+  If the operator reports a third missed decision before this lands, it stops
+  being an attribution gap and becomes an outage — re-grade it.

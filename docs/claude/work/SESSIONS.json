@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-03T13:18:44Z",
+  "updated_at": "2026-09-03T15:37:26Z",
   "updated_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
   "sessions": [
     {
@@ -1416,6 +1416,22 @@
       "why": "MI-34 downgraded broker_cancel_wedged close failures OUT of the pager and INTO the work digest on 2026-09-02. That downgrade is only safe if the digest carries them, and it does not: /api/diag/log_file?name=close_wedge_standing reads present:false at the canonical path, AND the digest reads a different, repo-relative path. So such a failure is currently in NEITHER channel, on a real-money close path. The first MI-101 session found this, went idle at 11:50Z asking a scoping question, and pushed nothing.",
       "note": "Manager ruling 13:2xZ: land the staleness fix as part of this, do not split it — done_condition (b) already requires a timestamp, and a timestamp nothing grades is the written-and-never-read defect.",
       "confirmed_at": "2026-09-03T13:18:44Z"
+    },
+    {
+      "session_id": "session_011J1VB7UsXW1LZb5bCFixRD",
+      "registry_key": "pending-20260903T153631Z",
+      "state": "working",
+      "title": "MI-109 — the decision sweep reports a confirmed send and records nowhere that it went",
+      "owns_object": "WO-20260903-DECISION-DELIVERY-UNATTRIBUTED",
+      "checklist_item": "MI-109",
+      "spawned_at": "2026-09-03T15:36:31Z",
+      "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
+      "branches": [
+        "claude/mi109-decision-delivery-attribution"
+      ],
+      "why": "Operator raised it twice in two hours. The channel is NOT down — the inbox returns the question, writeGate is open, the sweep fires every 300s, ClaudeBot heartbeats, and the prompted marker says it was SENT at 14:05:48.798642Z, which the code writes only after a confirmed send. So a send reported success and the operator received nothing, and nothing durable records where it went.",
+      "note": "Manager did NOT fix this despite it being small — operator's standing rule is the manager manages and does not take items.",
+      "confirmed_at": "2026-09-03T15:37:26Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."
