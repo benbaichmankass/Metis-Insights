@@ -1434,6 +1434,53 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_automerge_trigger.py"]],
     },
     {
+        "name": "pr-landing-guard",
+        # Every PR declares its TIER and how it means to LAND, and the
+        # declaration is checked against the diff rather than taken on trust.
+        #
+        # WHY IT IS UNGATED. The condition is a property of the PR — did this
+        # branch declare, and does the declaration match what it changed — not
+        # of any particular file it touched. A diff-scoped version would fire
+        # only when someone edits the landing machinery, which is exactly the
+        # PR least in need of it and never the ordinary PR that quietly asks to
+        # merge without declaring. Same reasoning as `automerge-trigger-guard`
+        # directly above.
+        #
+        # WHY IT IS SURVIVABLE ON DAY ONE. Requiring a declaration on every PR
+        # would otherwise red every branch already open when this merges — 6 of
+        # them (population: every open PR from `list_pull_requests` state=open,
+        # 2026-09-03), whose authoring sessions are mostly dead and cannot add
+        # the file. Failing them is how a guard gets disabled instead of fixed
+        # (`check_pr_queue_watch.py` records that reasoning). So the checker
+        # asks whether ITSELF existed at the branch's merge-base: a branch cut
+        # before the rule passes `undeclared_predates_guard`, loudly and
+        # counted. It arms itself as those branches drain and there is no flag
+        # to unset. ⚠️ The DANGEROUS direction is NOT grandfathered — arming
+        # auto-merge with no valid declaration fails at any age.
+        #
+        # THE TEETH ARE THE MERGE GATE, NOT AN ALARM. Auto-merge merges only on
+        # green and this is a required check, so a branch that arms while
+        # under-declaring its tier holds itself out of `main` by failing its
+        # own guard.
+        #
+        # Self-test FIRST, and it carries POSITIVE controls as well as plants:
+        # the failure paths here refuse work, so a guard that started refusing
+        # correct PRs would be worse than the problem it fixes.
+        #
+        # The real check is `pr_only` — a push/`--all` run has no branch to
+        # grade, and the checker reports `not_a_pr` rather than a pass.
+        # Costs ~2s: a few `git` plumbing calls plus one small JSON read.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_pr_landing.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_pr_landing.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
+        ],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read
