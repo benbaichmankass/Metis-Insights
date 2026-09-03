@@ -42,7 +42,7 @@ Takeover is time-based; you do not need my cooperation.
 1. **The ping chain as ONE cluster** (MI-01, MI-02, MI-16, MI-17, MI-80, MI-83) —
    six rows, one subsystem, one pass. `VERIFICATION-PLAN.json` says start from the
    per-merge ping the operator confirmed rather than from zero. **It needs several
-   diag reads; I stopped rather than start it because the session was at ~830k of its 1,000,000-token context budget as reported by `list_sessions` (~83%), against the operator's rule to stop starting new work at ~85% of that same budget — and a six-row cluster is new work.**
+   diag reads; I stopped rather than start it at 83% of this session's 1,000,000-token context budget (the denominator is the budget, not a share of any work).**
 2. **MI-101's remaining half** — the digest reads a repo-relative path instead of
    `$DATA_DIR`. The ledger now EXISTS, so this is the half that would still hide a
    wedge. Two sessions have died on this work; a third needs the ruling in its
@@ -87,7 +87,3 @@ the operator" once it is a `decision_requests[]` block on a work object **ON
 MAIN**. Reporting it in chat reaches nobody, and an object on an unmerged branch
 reaches nobody either — the route reads `main`. The operator caught me doing this
 all day.
-
----
-
-_CI-arming note: this line exists because PR #10942 was opened by `claude-pr-automerge` under `GITHUB_TOKEN`, and GitHub fires no workflows for a `GITHUB_TOKEN` push — so the PR sat with exactly one check (`open-and-automerge`) while auto-merge waited on a green that could never arrive. The documented remedy is one ordinary commit after the PR exists. This is it, and it is the SECOND time today this trap bit — the first was #10941. Filed thought: the trap is documented in CLAUDE.md and still cost two PRs, which is the "documented somewhere other than the point of use" pattern._

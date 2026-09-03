@@ -1,0 +1,72 @@
+id: WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The standing close-wedge ledger does not exist, and the digest that replaced the pager reads a non-canonical path for it -- so a downgraded wedge is in NEITHER channel
+stage: DEPLOYMENT
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+
+why: >-
+  On 2026-09-02 (MI-34) the operator DELIBERATELY downgraded close failures whose
+  `share_hold` reads `broker_cancel_wedged` OUT of the paging channel and INTO the
+  work digest, on the sound reasoning that a wedge no bot-side lever can clear
+  should not page repeatedly. ⚠️ THAT DOWNGRADE IS ONLY SAFE IF THE DIGEST
+  ACTUALLY CARRIES THEM, AND IT DOES NOT. Measured 2026-09-03 via
+  `/api/diag/log_file?name=close_wedge_standing`:
+  `{"path": "/data/bot-data/runtime_logs/close_wedge_standing.json", "present": false, "lines": []}`.
+  So a `broker_cancel_wedged` close failure is currently carried by NEITHER
+  channel, on a REAL-MONEY close path. The 2026-09-03 work digest says so in its
+  own words -- "an un-fetched ledger means such an item is currently in NEITHER
+  channel" -- and that warning is what surfaced this.
+
+two_defects_do_not_collapse_them: >-
+  (1) THE READER USES THE WRONG PATH. The digest reported the ledger absent at
+  `/home/ubuntu/ict-trading-bot/runtime_logs/close_wedge_standing.json` -- a
+  repo-relative path -- while diag resolves it under `$DATA_DIR` at
+  `/data/bot-data/runtime_logs/`. That is the CWD-relative-fallback class
+  `canonical-db-resolver` exists to forbid for the journal DB, reappearing for a
+  runtime_logs artifact. Even a working writer would keep reporting NOT EXAMINED.
+  (2) THE LEDGER IS ABSENT AT THE CANONICAL PATH TOO, so the writer has never
+  written it. These are different failures with different fixes and fixing one
+  does not fix the other.
+
+done_condition: >-
+  BOTH halves, and say which you cleared. (a) The digest and every other reader
+  resolve this artifact through the canonical `$DATA_DIR`-based resolver -- verified
+  by the digest NAMING `/data/bot-data/...` in its own output, not by reading the
+  code. (b) The absence is DISAMBIGUATED: the writer emits an empty-but-present
+  ledger with a timestamp, so `wedges: []` means WE LOOKED AND FOUND NONE, distinct
+  from a missing file meaning WE DID NOT LOOK. ⚠️ NOT SUFFICIENT: creating the file
+  by hand -- the WRITER must produce it.
+
+also_required: >-
+  ⚠️ ESTABLISH WHETHER THIS HAS ALREADY COST SOMETHING. While (b) is unresolved,
+  determine whether ANY `broker_cancel_wedged` close failure has occurred since
+  MI-34 shipped on 2026-09-02. If one has, it was silently in neither channel and
+  that is an INCIDENT, not a gap -- report it as such rather than folding it into
+  the fix. Related standing item: the alpaca_paper GLD wedge in
+  `OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED`, whose OCO
+  parent has sat at `pending_cancel` since 2026-08-27.
+
+scope_limits: >-
+  Ops / live-system observability ONLY. Do NOT touch the order path, strategy
+  config, risk caps, or any Tier-3 surface. The classifier and the close paths are
+  NOT in scope -- only whether their output reaches a channel a human reads.
+  ⚠️ DO NOT "fix" this by re-arming the pager: the operator chose the downgrade
+  deliberately and it is recorded; the job is to make the channel they chose work.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-03 by the manager. Nothing blocks it: the diag read that
+  measures it is available, both defects are in reader/writer code, and the
+  operator has confirmed live-system work is not gated by the workflow-build
+  sequencing.
+
+review_trigger: >-
+  Re-read at the next Ops pass if not closed.
+
+refs:
+  - BL-20260903-CLOSE-WEDGE-LEDGER-IS-ABSENT-SO-DOWNGRADED-WEDGES-ARE-IN-NEITHER-CHANNEL

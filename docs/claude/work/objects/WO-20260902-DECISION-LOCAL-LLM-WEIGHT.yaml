@@ -130,3 +130,47 @@ evidence:
 verdict: >-
   ANSWERED 2026-09-02 -- all three declared options refused; the path stays OPEN as a
   research line and no arm is adopted. See decision_requests[0].answer.
+
+answer:
+  answered_by: operator
+  answered_on: '2026-09-03'
+  answered_via: >-
+    Asked directly in the Claude Code session. The Telegram prompt for this one
+    HAD been delivered (2026-09-02T13:40:53Z, and the operator's own /decisions
+    screenshot shows it rendering); it simply had not been answered until now.
+  verdict: none_of_the_above
+  verbatim: >-
+    "We need to backlog this for further research - there's no point in wasting
+    resources on a bad model, but we have to continue finding/building a
+    production worthy llm"
+  reading: >-
+    ⚠️ THIS IS NOT `carries_no_weight`, AND THE DIFFERENCE MATTERS. My third
+    option said "shelve the path" — stop the work. The operator is splitting
+    that in two: STOP SPENDING ON THESE TWO ARMS (neither is production-worthy,
+    so further trainer-VM time on them is waste), and KEEP THE GOAL ALIVE as
+    research. Recording it as `carries_no_weight` would have closed a direction
+    the operator explicitly wants continued, which is the more expensive error.
+  what_this_means_concretely: >-
+    NEITHER the 1.5B NOR the 3B carries weight. Nothing is adopted, nothing
+    influences any decision path, and no further benchmarking of these two arms
+    is scheduled. The 1.5B stays disqualified on the measured defect that
+    disqualified it (it FABRICATED a causal claim, joining two unrelated facts
+    with an invented "indicating", and misattributed a fault to venue liquidity
+    when the defect was our own sizer reading an empty account-level field).
+    The 3B is better on exactly those two defects and still never names the
+    mechanism, so it is an improvement in truthfulness rather than in
+    usefulness — not a reason to adopt it.
+  and_the_half_that_stays_open: >-
+    The QUESTION "can a local LLM do useful work here" is NOT closed. What is
+    closed is "do either of these two arms carry weight" — no. A successor must
+    not read this row as the local-LLM path being abandoned.
+  followup: >-
+    Filed as MI-108 and routed to the ml-review backlog, which is where AI
+    experiment follow-ups and new-manifest ideas live — not the health backlog.
+    ⚠️ THE OPEN QUESTION IS NOT "WHICH SIZE" — both size arms have now been
+    measured and both failed on ANSWER QUALITY, not on throughput, so a third
+    size is the obvious wrong next experiment. What has never been varied is
+    the TASK FRAMING and the RETRIEVAL: both arms were asked an open repo
+    question with no grounded context, which is the setup most likely to
+    produce invention. The next experiment should change that variable, not the
+    parameter count.

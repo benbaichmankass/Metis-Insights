@@ -1,0 +1,68 @@
+id: WO-20260903-EVERY-PR-APPROVAL-REACHES-THE-OPERATOR-AS-AN
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Every PR awaiting operator approval reaches them as an ANSWERABLE Telegram prompt, not as a PR sitting silently in a queue
+stage: DECISION
+lifecycle: ready
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+
+why: >-
+  Operator directive, 2026-09-03, verbatim: "every PR approval needs to be a
+  telegram message, those shouldn't be waiting for me in chat without a ping that
+  i can answer". MEASURED TODAY, which is why this is not a preference: #10900
+  (Tier-3 AVAX venue-max) sat awaiting an operator merge gate with the decision
+  visible only inside a sub-session's post_turn_summary; #10746's arming is held
+  on an operator OK that lives in a work object; #10858 (the hourly digest timer)
+  is held on a Tier-2 OK. In every case the PR is BLOCKED ON A PERSON WHO WAS
+  NEVER TOLD. The repo's own record already names this class -- OPEN-PRS.json's
+  hazard is "a forgotten CONDITION", and the decision-round-trip design says
+  outright that visibility is the enforcement mechanism this system has never had.
+
+done_condition: >-
+  A REAL PR needing operator approval is OBSERVED producing an ANSWERABLE prompt
+  in the Claude bot, the operator taps it, and the answer is READ BACK from a
+  durable surface -- and then the PR is actually merged or held on the strength of
+  that answer. ⚠️ NOT SUFFICIENT: a passing test (a harness cannot reach Telegram);
+  a message that DELIVERS but whose buttons nobody polls (delivery and
+  ANSWERABILITY are different properties -- see telegram_poll_registry.py, whose
+  whole existence is that distinction); or a prompt for a synthetic PR. Record
+  WHICH PR and WHO answered.
+
+design_constraints: >-
+  ⚠️ REUSE THE DECISION CHANNEL, DO NOT BUILD A SECOND ONE. A PR approval IS a
+  decision, and the round-trip already exists: `decision_requests[]` on a work
+  object, GET /api/bot/work/decisions as the inbox, POST /api/bot/work/decision to
+  submit, commit_work_decisions.py to land it, and src/runtime/telegram_decisions.py
+  to render an inline-keyboard prompt. A parallel PR-only channel would be a second
+  taxonomy that drifts, and would re-implement every refusal the route already owns
+  (unknown option 400, empty 400, already-answered 409, fail-closed write gate 503).
+  ⚠️ THE TRIGGER SOURCE ALREADY EXISTS TOO: .github/pr-landing/<slug>.json declares
+  the tier and the landing intent, so a PR declaring `landing: needs_approval` (or
+  tier 2/3) IS the enumerable population -- do not invent a new marker for a fact
+  the repo already records.
+  ⚠️ A TAP MUST NOT MERGE. It RECORDS the approval; the manager merges on the
+  strength of it. A one-tap merge to main on a Tier-3 order-path PR is a live-money
+  action behind a phone button with no second look, and the transit contract already
+  says the honest reply is "Submitted -- NOT yet decided".
+  ⚠️ IT MUST DEGRADE LOUDLY, NEVER SILENTLY. If the answerable route is unknown,
+  say so and count it -- the failure being fixed here is a decision nobody was told
+  about, so a prompt that silently fails to send reproduces the defect one level up.
+  ⚠️ IDEMPOTENT: one prompt per PR per approval-request, not one per sweep. The
+  work_decision_prompted marker is the existing shape; do not re-derive it.
+
+blocked_on:
+  - kind: work_object
+    ref: WO-20260903-THE-REFUSAL-HALF-OF-MANAGER-CONTROL-BLOCK
+    since: 2026-09-03
+blocked_on_basis: >-
+  ASSESSED 2026-09-03 by the manager. The Telegram decision channel is the carrier
+  this rides on and it is itself not yet proven end-to-end on the fleet
+  (OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP
+  is open, and no tap has been observed on ClaudeBot). Building PR approvals onto an
+  unproven carrier would make ONE failure look like two.
+
+review_trigger: >-
+  Re-read when the decision round-trip is observed completing once end to end.

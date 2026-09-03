@@ -1,0 +1,1 @@
+manager wind-down 2026-09-03: land the day's manager state to main so a successor reads it from origin, not from an abandoned branch.
