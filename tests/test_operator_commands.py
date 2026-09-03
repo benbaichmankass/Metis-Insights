@@ -438,3 +438,196 @@ def test_the_commands_appear_in_the_hamburger_menu():
     assert names == {"start", "status", "decisions"}
     for _name, desc in bot._COMMAND_SURFACE:
         assert 1 <= len(desc) <= 80, "Telegram's set_my_commands limit"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# The ClaudeBot command MENU (MI-92 follow-up, 2026-09-03)
+#
+# Operator: "I want the menu to open up on the menu button in the chat, not just
+# by typing." `/status` ANSWERED at that point — the handlers were fine and the
+# discoverable surface was not.
+# ═════════════════════════════════════════════════════════════════════════════
+
+
+class _FakeBot:
+    """Records the calls `publish_command_surface` makes and what it read back.
+
+    Deliberately NOT a MagicMock: the whole point of these tests is WHICH api
+    was called with WHICH scope, and an auto-speccing mock answers every
+    attribute, so a typo'd method name would pass silently.
+    """
+
+    def __init__(self, menu_type="default", fail_commands=False, fail_menu=False):
+        self.fail_commands = fail_commands
+        self.fail_menu = fail_menu
+        self._menu_type = menu_type
+        self.set_calls = []          # (commands, scope-type-or-None)
+        self.menu_set_calls = []
+
+    async def set_my_commands(self, commands, scope=None, **kw):
+        if self.fail_commands:
+            raise RuntimeError("telegram said no")
+        self.set_calls.append(
+            ([c.command for c in commands], getattr(scope, "type", None)))
+
+    async def get_my_commands(self, scope=None, **kw):
+        if self.fail_commands:
+            raise RuntimeError("telegram said no")
+        from telegram import BotCommand
+        return [BotCommand(n, d) for n, d in _claudebot()._COMMAND_SURFACE]
+
+    async def get_chat_menu_button(self, chat_id=None, **kw):
+        if self.fail_menu:
+            raise RuntimeError("telegram said no")
+        from telegram import (
+            MenuButtonCommands,
+            MenuButtonDefault,
+            MenuButtonWebApp,
+            WebAppInfo,
+        )
+        if self._menu_type == "commands":
+            return MenuButtonCommands()
+        if self._menu_type == "web_app":
+            # The state that ACTUALLY hides the command list, and the reason
+            # the `before` read exists: a BotFather setting no code overrode.
+            return MenuButtonWebApp(
+                text="open", web_app=WebAppInfo(url="https://example.invalid"))
+        return MenuButtonDefault()
+
+    async def set_chat_menu_button(self, chat_id=None, menu_button=None, **kw):
+        if self.fail_menu:
+            raise RuntimeError("telegram said no")
+        self.menu_set_calls.append((chat_id, getattr(menu_button, "type", None)))
+        self._menu_type = getattr(menu_button, "type", None)
+
+
+def _claudebot():
+    from src.bot import claude_decision_bot as bot
+    return bot
+
+
+def test_the_menu_button_is_set_to_commands_not_left_to_a_default():
+    """The operator's actual complaint: the button did not OFFER the commands.
+
+    Publishing a command list and making the composer's Menu button show it are
+    two different Bot-API calls. Nothing in this repo had ever called
+    `setChatMenuButton`, so the button was whatever BotFather left it as — and a
+    `web_app` button lists no commands however correctly they are published.
+    """
+    bot = _claudebot()
+    fake = _FakeBot()
+    out = _run(bot.publish_command_surface(fake))
+
+    assert fake.menu_set_calls, "setChatMenuButton was never called"
+    chat_id, button_type = fake.menu_set_calls[-1]
+    assert button_type == "commands"
+    assert chat_id is None, (
+        "omitting chat_id sets the DEFAULT button for every private chat; "
+        "passing one would fix a single chat and leave the default untouched")
+    assert out["menu_state"] == "set"
+
+
+def test_commands_are_published_to_all_private_chats_not_only_the_default_scope():
+    """Telegram resolves a private chat most-specific-first.
+
+    `all_private_chats` is MORE specific than the default scope, and an empty
+    specific scope does not fall back — it wins. Publishing only to the default
+    scope is therefore not equivalent.
+    """
+    bot = _claudebot()
+    fake = _FakeBot()
+    _run(bot.publish_command_surface(fake))
+
+    scopes = {scope for _cmds, scope in fake.set_calls}
+    assert "all_private_chats" in scopes, (
+        "the operator's DM is governed by all_private_chats when it is set")
+    assert None in scopes, "the default scope is still set, for non-DM surfaces"
+    for cmds, _scope in fake.set_calls:
+        assert set(cmds) == {"start", "status", "decisions"}
+
+
+def test_the_outcome_is_read_BACK_from_telegram_never_asserted():
+    """The defect that made this un-diagnosable was silence on the success path.
+
+    A startup that never ran the call and one that ran it perfectly rendered
+    IDENTICALLY in the journal. The `before` read is what names the cause.
+    """
+    bot = _claudebot()
+    fake = _FakeBot(menu_type="web_app")
+    out = _run(bot.publish_command_surface(fake))
+
+    assert out["commands_live"] == ["start", "status", "decisions"], (
+        "commands_live must come from get_my_commands, not from what we sent")
+    assert out["menu_before"] == "web_app"
+    assert out["menu_after"] == "commands"
+
+
+@pytest.mark.parametrize(
+    "kwargs,failed_key,intact_key",
+    [
+        ({"fail_menu": True}, "menu_state", "commands_state"),
+        ({"fail_commands": True}, "commands_state", "menu_state"),
+    ],
+)
+def test_one_call_failing_never_takes_down_the_other_or_the_bot(
+    kwargs, failed_key, intact_key, caplog
+):
+    """⚠️ THE SAFETY PROPERTY. `post_init` runs inside `run_polling`.
+
+    Raising there aborts startup, and under `Restart=always` that turns a
+    COSMETIC menu problem into a crash-loop on the channel carrying the
+    operator's DECISIONS. So a failure is logged at ERROR and swallowed — and
+    the two calls are independently wrapped so one cannot suppress the other.
+    """
+    bot = _claudebot()
+    fake = _FakeBot(**kwargs)
+    with caplog.at_level(logging.ERROR):
+        out = _run(bot.publish_command_surface(fake))   # must not raise
+
+    assert out[failed_key].endswith("_failed")
+    assert not out[intact_key].endswith("_failed"), (
+        "the two API calls must be wrapped independently")
+    assert caplog.records, "a swallowed failure must still be LOUD"
+
+
+def test_post_init_is_actually_reachable_and_calls_the_published_surface():
+    """`app.post_init = ...` after `.build()` must really be honoured.
+
+    This was the branch that could not be told apart from a silent success, so
+    it is pinned rather than assumed: `post_init` is a plain slot attribute on
+    `Application` (not a read-only property), and `run_polling` awaits it.
+    """
+    import ast
+    import inspect
+
+    from telegram.ext import Application
+
+    assert not isinstance(getattr(Application, "post_init", None), property), (
+        "a property without a setter would make the assignment silently useless")
+
+    bot = _claudebot()
+    tree = ast.parse(inspect.getsource(bot))
+    called = {
+        n.func.id for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+    }
+    assert "publish_command_surface" in called, (
+        "main()'s post_init must delegate to the tested function, not inline a "
+        "second copy of the logic")
+
+
+def test_both_command_scopes_are_read_BEFORE_writing_so_a_shadow_is_visible():
+    """Which scope was already populated is the thing that names the cause.
+
+    Telegram resolves a private chat most-specific-first and takes the first
+    NON-EMPTY list, so an empty `all_private_chats` falls back to default
+    correctly — but a NON-empty one SHADOWS default, and from inside this
+    process that is invisible until it is read. Reading both before writing is
+    what turns "the menu is empty" into a diagnosis instead of a guess.
+    """
+    bot = _claudebot()
+    fake = _FakeBot()
+    out = _run(bot.publish_command_surface(fake))
+
+    assert set(out["commands_before"]) == {"default", "all_private_chats"}, (
+        "both scopes in the private-chat resolution chain must be recorded")
