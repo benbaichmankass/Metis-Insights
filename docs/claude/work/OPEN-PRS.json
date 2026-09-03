@@ -45,24 +45,6 @@
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
     {
-      "pr": 10944,
-      "opened_at": "2026-09-03T15:59:41Z",
-      "title": "MI-101: make the close-wedge ledger's ABSENCE unreadable as a clean fleet",
-      "owner_session": "session_01PYkDGej394sSF3zWBpy16j",
-      "checklist_item": "MI-101",
-      "draft": false,
-      "tier": "2",
-      "state": "awaiting_operator_tier2_approval",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded. The PR's own landing declaration is tier 2 / hold / tier_2_3_needs_approval, so it is HELD BY DECLARATION and not by anyone forgetting it."
-      },
-      "blocker": "⚠️ NEEDS THE OPERATOR'S ONE TIER-2 OK. It makes src/runtime/close_wedge_standing.py's monitor sweep WRITE where it previously returned early. ⚠️ AND IT HAS A VISIBLE OPERATOR-CHANNEL CONSEQUENCE THE SUCCESSOR MUST NOT BE SURPRISED BY: until the trader restarts with the heartbeat, the work digest will report NOT EXAMINED instead of today's false clean bill. That is the honest state of a ledger nothing writes, it is strictly more informative, and it self-resolves on the next deploy — it is NOT a regression to roll back. Opened ready, not draft; the declaration holds it, not the draft flag."
-    },
-    {
       "pr": 10927,
       "opened_at": "2026-09-03T11:13:24Z",
       "title": "chore(ops): session-reaper observations (auto)",
@@ -863,8 +845,30 @@
       "disposition": "superseded",
       "disposition_basis": "ESTABLISHED FROM PRIMARY SOURCES 2026-09-03T13:5xZ, NOT INFERRED, and NOT INVENTED to satisfy a guard. THREE independent readings agree: (1) the PR's own TITLE is '[RECOVERED — DO NOT MERGE]' and its body calls itself 'a preservation commit, not a proposal' — it was a backup of ~320 lines that existed only as uncommitted working-tree changes in a dead session's container, and its Test plan reads 'Not run. Deliberately. Running CI on this would invite reading green as approval.' It was never intended to merge. (2) Its own Disposition section asked for 'a live session to take ownership ... and re-open as a normal Tier-gated PR'. (3) That happened: MI-90 records the work re-opened as #10900 and MERGED on the operator's Tier-2/3 OK, after the recovered diff was read adversarially — 6 recovered tests fail on main and pass on the branch, and the ceiling was confirmed as the venue's own (Bybit named max_qty 22000, bracketed by an accepted fill at 21657.1 and a rejection at 22995.1). So the content LANDED by another route and the backup was closed. ⚠️ WHY THIS ROW MATTERED FAR BEYOND ITSELF: its missing `disposition` was the single fact jamming `open_pr_record.py --strict`, which is what fails every `reconcile-open-prs` automation PR — 7 open as of 13:45Z, with a new one generated on EVERY merge to main. Measured directly by running the failing guard against #10938's own OPEN-PRS.json: one finding, this row. See MI-103. ⚠️ AND THE GUARD WAS RIGHT TO REFUSE. 'superseded', 'the operator refused it' and 'the author gave up' are opposite next actions, and only the first is true here — reading it as either of the others would have sent someone to re-litigate a Tier-3 order-path change the operator already approved.",
       "settled_at": "2026-09-03T06:46:40Z"
+    },
+    {
+      "pr": 10944,
+      "opened_at": "2026-09-03T15:59:41Z",
+      "title": "MI-101: make the close-wedge ledger's ABSENCE unreadable as a clean fleet",
+      "owner_session": "session_01PYkDGej394sSF3zWBpy16j",
+      "checklist_item": "MI-101",
+      "draft": false,
+      "tier": "2",
+      "state": "awaiting_operator_tier2_approval",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. The PR's own landing declaration is tier 2 / hold / tier_2_3_needs_approval, so it is HELD BY DECLARATION and not by anyone forgetting it."
+      },
+      "blocker": "⚠️ NEEDS THE OPERATOR'S ONE TIER-2 OK. It makes src/runtime/close_wedge_standing.py's monitor sweep WRITE where it previously returned early. ⚠️ AND IT HAS A VISIBLE OPERATOR-CHANNEL CONSEQUENCE THE SUCCESSOR MUST NOT BE SURPRISED BY: until the trader restarts with the heartbeat, the work digest will report NOT EXAMINED instead of today's false clean bill. That is the honest state of a ledger nothing writes, it is strictly more informative, and it self-resolves on the next deploy — it is NOT a regression to roll back. Opened ready, not draft; the declaration holds it, not the draft flag.",
+      "terminal": "merged",
+      "merge_sha": "717f00eb75df7f9f5cc810f9b60db67f46f4c0b9",
+      "observed_at": "2026-09-03T22:59:47Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-03T06:31:46Z",
-  "last_reconciled_sha": "8d64afe3edda2280c4ac2441d9d52e4e14c19448"
+  "last_reconciled_at": "2026-09-03T22:59:47Z",
+  "last_reconciled_sha": "717f00eb75df7f9f5cc810f9b60db67f46f4c0b9"
 }
