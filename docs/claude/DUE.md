@@ -1,9 +1,9 @@
 # What is due right now
 
-_Generated 2026-09-03T06:27:54+00:00 · verdict **partial**_
+_Generated 2026-09-03T10:06:25+00:00 · verdict **all_sources_read**_
 
-> ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
-
+- 🔔 **#10398** (unlanded_automation · 5d) — producer output opened a PR that has not landed
+  - chore(m1): economic-calendar PIT snapshots (auto)
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 3d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
 - 🔔 **OI-20260829-E35-REVERSED-LEGS-ARE-A-TIER-3-PROPOSAL-SET-NOT-APPLIED** (open_items · 3d) — loud row — must be reported on every session
@@ -46,8 +46,6 @@ _Generated 2026-09-03T06:27:54+00:00 · verdict **partial**_
   - The operating-model redesign (operator-directed, 2026-09-01) is DESIGNED and its build has begun. Phase A of 8 is in flight. ⚠️ THE DESIGN IS FOUR DOCUMENTS UNDER docs/design/ THAT NOTHING ELSE POINTS
 - 🔔 **OI-20260901-SUNSET-PASS-SHIPPED-AND-NOTHING-HAS-BEEN-RETIRED** (open_items · 2d) — loud row — must be reported on every session
   - E3 shipped (Phase G): scripts/ops/sunset_pass.py grades retirement candidates weekly, docs/claude/SUNSET-DISPOSITIONS.json records answers, and check_sunset_dispositions.py escalates an unanswered one
-- 🔔 **OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED** (open_items · 1d) — loud row — must be reported on every session
-  - The operator DECIDED (2026-08-29) to keep the trainer VM for the L2 order-flow capture. That converts the box from 'a candidate for retirement' into a STATED DEPENDENCY for a forward-only stream nothi
 - 🔔 **OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED** (open_items · 1d) — monitoring row 1d since last observation (cadence 1d)
   - Phase F/C3 is now COMPLETE AS PLUMBING — cron (#10649), committed path, and a reader (GET /api/bot/strategy-reviews, PR #10681) — and the decision surface STILL PROPOSES NOTHING. Population: the commi
 - 🔔 **OI-20260902-API-REFERENCE-SPLIT-OUT-OF-CLAUDE-MD-AND-NOT-YET-FOUND-AT-USE** (open_items · 1d) — loud row — must be reported on every session
@@ -75,17 +73,47 @@ _Generated 2026-09-03T06:27:54+00:00 · verdict **partial**_
 - 🔔 **OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE** (open_items · 1d) — loud row — must be reported on every session
   - The TELEGRAM half of the decision round-trip is built (src/runtime/telegram_decisions.py + a `wdec:*` branch in telegram_query_bot.callback_handler + a job-queue sweep): an unanswered `decision_reques
 - 🔔 **PROBE-REPORT-STALE** (probes · 1d) — EVERY probe verdict below was observed at 2026-09-01T10:13:20.626767+00:00, NOT today. The probes job did not land a fresh report, so treat its rows as a record of that run and check the workflow.
-  - probe report is 44.2h old — expected daily (cron 20 5 * * *)
-- 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-01T10:13:20.626767+00:00, 44.2h ago]
+  - probe report is 47.9h old — expected daily (cron 20 5 * * *)
+- 🔔 **#10901** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#10902** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#10907** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#10908** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#10913** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#10914** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#10919** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(m7): strategy review packets (auto)
+- 🔔 **#10921** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): refresh probe results (auto)
+- 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-01T10:13:20.626767+00:00, 47.9h ago]
   - A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.
-- 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-01T10:13:20.626767+00:00, 44.2h ago]
+- 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-01T10:13:20.626767+00:00, 47.9h ago]
   - Reads all three committed research corpora and looks for any row stamped research_power_state=infeasible — the R4 grade this row's id says nothing has ever produced. The POSITIVE CONTROL is research_p
 - 🔔 **OI-20260831-TRADE-PRIORITISATION-IS-LIVE-BUT-UNPROVEN-AND-ITS-AB-HARNESS-DOES-NOT-EXIST** (open_items) — loud row — must be reported on every session
   - CONFIDENCE IS NOW THE LIVE PRIMARY RANKING KEY for competing trades (2026-08-31, PR #10544) and it has NEVER been shown to pick the better-performing trade. It went live on a CORRECTNESS argument -- i
 - 🔔 **OI-20260901-CONSTRAINT-READOUT-SHIPPED-AND-IT-REFUSES-NOBODY-HAS-ACTED-ON-THE-REFUSAL** (open_items) — monitoring row has NEVER been observed
   - E1/A1 shipped (operating-layer Phase D, PR #10680): scripts/ops/constraint_readout.py computes the constraint over the work store's typed blocked_on edges and renders the four-item readout to docs/cla
+- 🔔 **OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK** (open_items · 0d) — loud row — must be reported on every session
+  - The hourly work digest has NO durable carrier, and the replacement is PREPARED BUT NOT APPLIED, held on a Tier-2 operator OK. .github/workflows/work-digest.yml declares `20 * * * *`; measured over its
 - 🔔 **OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL** (open_items) — loud row — must be reported on every session
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
+- 🔔 **OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED** (open_items · 0d) — loud row — must be reported on every session
+  - SUCCESSOR to OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED, which CLEARED 2026-09-03 on its clause (a): trainer-capture-watch.yml run 33719856283 graded the trainer's order-flow c
+- 🔔 **OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD** (open_items · 0d) — loud row — must be reported on every session
+  - ⚠️ THE TWO ROUTING HALVES ARE NOW OBSERVED AND THIS ROW IS NARROWED, NOT CLEARED — do not re-quote its PREPARED-AND-HELD framing, which was true only until 08:00Z. #10904 was approved by the operator 
+- 🔔 **macro-valuation-snapshot** (red_crons) — latest scheduled run concluded 'failure'
+  - macro-valuation-snapshot
+- 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
+  - replay-pregate-nightly
+- 🔔 **strategy-review-packets** (red_crons) — latest scheduled run concluded 'failure'
+  - strategy-review-packets
+- 🔔 **trainer-capture-watch** (red_crons) — latest scheduled run concluded 'failure'
+  - trainer-capture-watch
 - **ERRFEED-3dedafaf** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 17 rows 2026-08-22T15:40:42 → 2026-08-23T13:54:32 · accounts=ib_paper — decide: fix now, or file to a backlog
   - [error] x17 ib_target_naked detected: ib_paper/MES: position N has N of take-profit coverage against a declared TP of N — the position can only stop out
 - **ERRFEED-9fd2fc82** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 163 rows 2026-08-22T15:37:39 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
@@ -132,11 +160,11 @@ _Generated 2026-09-03T06:27:54+00:00 · verdict **partial**_
   - [error] NEW x1 bybit_over_cover detected: bybit_N/XRPUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg
 - **ERROR-FEED-SUMMARY** (error_feed) — 51 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-03T01:14:55.389379+00:00`.
   - 87 cause groups over 1463 rows (61 error-level, 26 warn-level, 2 new since the last digest)
-- **OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-01T10:13:20.626767+00:00, 44.2h ago]
+- **OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-01T10:13:20.626767+00:00, 47.9h ago]
   - probe could not run (exit_2)
-- **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-01T10:13:20.626767+00:00, 44.2h ago]
+- **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-01T10:13:20.626767+00:00, 47.9h ago]
   - probe could not run (exit_2)
-- **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-01T10:13:20.626767+00:00, 44.2h ago]
+- **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-01T10:13:20.626767+00:00, 47.9h ago]
   - probe could not run (exit_2)
 - **RQ-20260827-001** (research_queue) — research job still queued
   - Re-grade every account against the Lane P compat-matrix standard arm
