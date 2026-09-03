@@ -1598,6 +1598,50 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # THE MANAGER SESSION ONLY MANAGES — as a check, not a paragraph.
+        # `CLAUDE.md` has carried the operator's rule verbatim since
+        # 2026-09-01; the 2026-09-03 day manager read it at session start and
+        # was caught doing items the same morning. Adding emphasis to a rule
+        # that was read and disobeyed is the non-fix this repo has paid for
+        # three times (MI-15 twice, and
+        # BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY-AND-STATUS-REPORTS-IT-AS-CURRENT).
+        # So: a manager COMMIT touching a worker path fails, named.
+        #
+        # WHO IS THE MANAGER IS DERIVED, NOT DECLARED — from the git history of
+        # MANAGER-LEASE.json (3 sessions across 59 revisions) joined to each
+        # commit's `Claude-Session:` trailer. Branch name was measured and
+        # REJECTED: `claude/risk-manager-backstop` is a worker branch and
+        # `claude/openprs-prune-merged-rows` is a manager one.
+        #
+        # ⚠️ PER-COMMIT, NOT PER-BRANCH-DIFF, and that is the whole point. The
+        # accused acts — resolving conflicts on OTHER sessions' PRs — never
+        # appear in the manager's own PR. A branch-diff check would be blind to
+        # exactly the failure it exists for.
+        #
+        # NOT A WALL — measured before wiring. Replayed over commits on
+        # origin/main since 2026-09-01: the 2026-09-02 manager grades 75 clean
+        # / 31 failing; the night manager 2 / 0; the 2026-09-03 manager
+        # (the one the directive is about) 5 / 0. It bites where the building
+        # actually happened.
+        #
+        # `when: None` for check_pr_landing's reason: what trips this is a
+        # COMMIT, which may touch no file the predicate would match. Costs a few
+        # `git` plumbing calls over the branch's own commits only.
+        "name": "manager-scope-guard",
+        "when": None,
+        "steps": [
+            # Self-test FIRST, with plants AND controls: this guard REFUSES
+            # work, so one that started failing correct PRs would be worse than
+            # the problem it fixes.
+            ["python3", "scripts/ci/check_manager_scope.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_manager_scope.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
+        ],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read
