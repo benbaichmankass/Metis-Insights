@@ -102,3 +102,14 @@ words, and a human reads it on every PR that does not self-land.
 They report `undeclared_predates_guard`: a **pass on age**, printed loudly and
 never silently. The guard arms itself as those branches drain — there is no flag
 to set and none to unset. Merge `main` and declare.
+
+## ⚠️ Quoting these paths in an issue or PR body
+
+GitHub strips `<…>` as HTML in **issue and PR bodies**, *even inside code
+fences* — the same trap `docs/claude/coordination-board.md` records for the
+coordination board. Writing ``.github/pr-landing/<slug>.json`` in a PR body
+renders as `.github/pr-landing/.json`, which reads as a real path and is not
+one. **Measured on PR #10894**, this feature's own PR, which hit it twice.
+
+Use `{slug}` in an issue or PR body. Inside a repository `.md` file — like this
+one — the angle brackets are safe.
