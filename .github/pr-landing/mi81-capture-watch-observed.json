@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "manager_merges",
+  "hold_text": "Register/observation content for OI-20260829 plus its successor row. The manager merges after reading the observation; nothing here needs an operator OK.",
+  "why": "Tier-1: docs/claude register rows and a work object only. No runtime, order path, strategy config, risk caps or live-VM file."
+}
