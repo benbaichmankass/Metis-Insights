@@ -1,0 +1,2 @@
+Manager lease claim + day-shift checklist opening, 2026-09-03.
+Manager-only surface (MANAGER-LEASE.json) — empty conflict surface by design.
