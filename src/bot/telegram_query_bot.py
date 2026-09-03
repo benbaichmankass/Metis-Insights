@@ -6,9 +6,10 @@ The 2026-05 overhaul (see ``docs/TELEGRAM-SPEC.md``) replaced the old
     🛑 Kill switch · 🩺 System update · 💼 Accounts · 📈 Strategies ·
     🚨 Close all positions
 
-``/start`` and ``/menu`` are the menu openers; ``/status`` and
-``/decisions`` (added 2026-09-02, see ``src.bot.operator_commands``)
-are the two operator pulls. Every view reads
+``/start`` and ``/menu`` are the menu openers, and they are the WHOLE slash
+surface of this bot. ``/status`` and ``/decisions`` live on the dedicated
+Claude bot (``src.bot.claude_decision_bot``) and are deliberately **not**
+registered here — see the note above ``_MENU_OPENERS``. Every view reads
 live state (accounts.yaml, strategies.yaml, the journal, runtime_status,
 systemd) so adding an account or strategy needs no bot code change.
 
@@ -48,7 +49,6 @@ from src.bot.cloud_notifier import (
     get_service_status,
 )
 from src.bot.comms_handler import install_comms_handlers
-from src.bot.operator_commands import OPERATOR_COMMANDS, install_operator_commands
 from src.bot.strategy_execution_writer import (
     StrategyExecutionWriteError,
     set_strategy_execution,
@@ -138,13 +138,34 @@ def is_halted() -> bool:
     return _is_halted()
 
 
-# ── Operator command surface (the menu openers + the two operator pulls) ────
+# ── Operator command surface (the menu openers, and ONLY those) ─────────────
 #
 # BOT_COMMANDS is the flat list handed to ``set_my_commands`` — it IS the
 # hamburger menu Telegram shows in the composer. Per the overhaul it carries
-# the two menu openers and nothing stale; the two operator PULLS added
-# 2026-09-02 (``/status``, ``/decisions``) join it because a command absent
-# from this list is one the operator has to know exists in order to use.
+# the two menu openers and nothing stale.
+#
+# ⚠️ ``/status`` and ``/decisions`` ARE NOT REGISTERED ON THIS BOT, and that
+# is a constraint, not an oversight. PR #10793 shipped them here on
+# 2026-09-02 under its own title *"HELD, must not reach the trader bot"*; it
+# was auto-merged with no human decision, and the handlers went live on this
+# bot at 18:59:03Z that day — the code logging a WARNING naming its own
+# violation (``route_state=answerable_elsewhere``) as it registered them.
+# Re-observed still live at 2026-09-03T07:07:08Z. The operator's words:
+#
+#     "that's supposed to be showing up in Cloudbot. Right? Not on the trader
+#      one, the decisions."
+#
+# The two commands were not removed — they were MOVED to the bot that was
+# asked for, ``src.bot.claude_decision_bot`` (``ict-claude-decision-bot.service``),
+# which polls ``TELEGRAM_CLAUDE_BOT_SECRET`` and already owns the ``wdec``
+# tap. Registering them here again would re-violate the constraint, so
+# ``tests/test_operator_commands.py`` asserts by AST that this module neither
+# imports nor calls ``install_operator_commands``.
+#
+# ⚠️ THIS BOT STILL HANDLES THE ``wdec`` TAP (see ``callback_handler``), and
+# that is deliberate and unchanged: it is the declared FALLBACK destination
+# for decision prompts when the Claude bot is not confirmed polling. Removing
+# it would ship dead buttons. What ended here is the COMMAND registration.
 
 # (name, description) — the only operator-facing slash commands. Kept as
 # plain tuples (not telegram.BotCommand) so the surface is assertable even
@@ -153,12 +174,11 @@ _MENU_OPENERS: list[tuple[str, str]] = [
     ("start", "Open the menu"),
     ("menu", "Open the menu"),
 ]
-#: The full operator-facing slash surface: the menu openers PLUS the two
-#: operator pulls added 2026-09-02. Kept as its own constant so
-#: ``_MENU_OPENERS`` keeps meaning exactly what its name says — the openers —
-#: and the existing "no stale command wall" assertion still tests that claim
-#: rather than being widened to accommodate the new entries.
-_COMMAND_SURFACE: list[tuple[str, str]] = [*_MENU_OPENERS, *OPERATOR_COMMANDS]
+#: This bot's full operator-facing slash surface. It is exactly
+#: ``_MENU_OPENERS`` — kept as its own name so the distinction between "the
+#: openers" and "the whole surface" survives, and so a future addition has an
+#: obvious place to go without silently widening what ``_MENU_OPENERS`` means.
+_COMMAND_SURFACE: list[tuple[str, str]] = [*_MENU_OPENERS]
 BOT_COMMAND_SPECS: list[BotCommand] = [
     BotCommand(name, desc) for name, desc in _COMMAND_SURFACE
 ]
@@ -780,16 +800,11 @@ def main():
     application.add_handler(CommandHandler("start", cmd_start))
     application.add_handler(CommandHandler("menu", cmd_menu))
 
-    # The two operator PULLS (2026-09-02). Registered BEFORE the generic
-    # CallbackQueryHandler for the same reason install_comms_handlers is:
-    # handler order decides who wins. They resolve their destination through
-    # telegram_decisions.answerable_route() rather than a hardcoded token, so
-    # they follow whichever bot is genuinely polled.
-    install_operator_commands(
-        application,
-        is_authorised=is_authorised,
-        polled_token=TELEGRAM_BOT_TOKEN,
-    )
+    # ⚠️ NO install_operator_commands(...) HERE — see the note above
+    # `_MENU_OPENERS`. `/status` and `/decisions` are registered on
+    # `src.bot.claude_decision_bot` instead, which is the bot the operator
+    # asked for and the one `answerable_route()` resolves to. This absence is
+    # asserted by test; do not re-add it without withdrawing the constraint.
 
     application.add_handler(CallbackQueryHandler(callback_handler))
 
