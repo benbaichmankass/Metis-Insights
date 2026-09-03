@@ -149,3 +149,45 @@ to a failing test, so three of its five red lines said nothing about the code.
 Run `handoff_check.py` **at the start** of the wind-down, not after writing the
 handoff. It takes one command and two live observations, and everything it found
 today would otherwise have been discovered by the successor, from the wrong side.
+
+---
+
+## Final state at hand-off (2026-09-03, after the operator's approval)
+
+**#10944 merged** — squash `717f00eb`, on the operator's Tier-2 approval, unconditional.
+MI-101 is **`landed_unproven`, not `done`**: the close-wedge ledger has never been
+observed present on the fleet, and the done-condition is a post-restart
+`/api/diag/log_file?name=close_wedge_standing` reading `present: true` with a fresh
+stamp, plus a digest run naming `/data/bot-data/...` in its own output. **Expect the
+digest to report `NOT EXAMINED` until that restart** — that is the honest state of a
+ledger nothing writes, and it replaces a false clean bill that had been printed on 12
+rows. Do not roll it back.
+
+### One question only the operator can answer
+
+MI-109's session needs to know **which Telegram bot the operator actually has open** —
+`@ict_claude_bot`, `@claude_ict_comms_bot`, or the trader bot. Nothing in the repo can
+establish that, and the decision-delivery fix cannot be verified without it.
+
+### MI-109 is blocked, and the cause was the manager's
+
+`session_011J1VB7UsXW1LZb5bCFixRD` went `need_input` **six minutes after spawn** with
+*"work object WO-20260903-DECISION-DELIVERY-UNATTRIBUTED.yaml unreachable"* — because
+that object existed only on the manager's branch. **That is the same defect the
+wind-down landing was opened to fix, and it had already cost a live sub-session two
+hours before anyone noticed.** The object is on `main` now (`2b2508be`), so the blocker
+is cleared at the source; the session cannot be told, because a manager cannot message
+a running cloud sub-session. Respawn it against `main`.
+
+If nothing else survives this document, let it be that one: **"pushed" and "on `main`"
+are different facts, and only the second is one another session can act on.**
+
+### A hypothesis I formed and refuted — MI-112
+
+Both sub-sessions checked record `the-lizardking/ict-trading-bot` as their only source —
+the legacy owner *and* the legacy repo name — while this manager carries all three
+correct `benbaichmankass/...` sources. I was about to report that as the cause of the
+refused push and as something that would break every spawned session. **It is not.**
+The MI-101 respawn shipped a 9-file, 6-commit PR with green CI on `Metis-Insights`
+while carrying the same stale source. Real record defect, filed as MI-112; **not** a
+push blocker, and worth not re-deriving.
