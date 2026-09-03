@@ -77,3 +77,25 @@ decision_requests:
       TELEGRAM_CLAUDE_BOT_SECRET moves them to ClaudeBot and satisfies the constraint with no revert.
       Tier-2 set-env plus a service restart.
   allows_free_text: true
+  answer:
+    chosen: keep_all_review_individually
+    free_text: null
+    answered_at: '2026-09-03T07:07:08Z'
+    answered_by: operator
+    committed_by: manager session_01Nopk1HcpvWBSEbZxEmALkd (decision pop-up, relayed)
+    submission_id: 61907f54dbf65f821dde088694250927
+    note: >-
+      Operator, 2026-09-03, asked as a decision pop-up by the day manager with the blast-radius audit
+       (docs/audit/held-pr-automerge-2026-09-02.md) summarised in the options. ⚠️ THE MANAGER RECOMME
+      NDED keep_but_gate_10793 AND WAS OVERRULED -- recorded because the recommendation and the decis
+      ion differ, and a successor reading only the outcome would not know the trade-off was seen. THE
+       CONSEQUENCE, STATED: #10793's constraint ("must not reach the trader bot") stays VIOLATED unti
+      l its individual review happens. /status and /decisions have been live on the TRADER bot since 
+      2026-09-02T18:59:03Z, the taps are functional (telegram_query_bot.py:539 carries an `elif actio
+      n == "wdec"` branch), and the code logged a WARNING naming the violation as it registered them.
+       The manager is therefore ORDERING the ten reviews BY RISK rather than arbitrarily -- #10793 fi
+      rst, then #10758 (src/runtime/order_monitor.py +101, live on the trader), then the rest -- whic
+      h is consistent with 'review each on merits' and is not a re-litigation of the choice. ⚠️ THE M
+      ECHANISM IS ALREADY FIXED and this decision does not reopen it: MI-88's R10 (merged 2026-09-03,
+       #10894) FAILS any branch that arms auto-merge without a landing declaration, and is deliberate
+      ly NOT grandfathered.

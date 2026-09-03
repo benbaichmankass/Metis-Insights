@@ -1,0 +1,41 @@
+id: IN-20260903-TRADING-SYSTEM-HEALTH
+title: The live trading system stays healthy and its research pipeline keeps moving
+status: live
+opened_at: 2026-09-03
+review_cadence: weekly
+set_by: operator
+
+why: >-
+  Authored on operator decision, 2026-09-03, because the intent layer held exactly ONE
+  intent (IN-20260901-OPERATING-LAYER) and the spawn gate refuses any work that names no
+  parent intent. The practical effect, measured the same morning: every trading, research
+  and ML task in the system was unattributable and could not be spawned at all — the gate
+  correctly refused `IN-TRADING-SYSTEM-HEALTH` with "free text is not an intent".
+
+  That refusal was the mechanism reporting something true rather than a formatting problem:
+  the repo had committed, in writing, only to rebuilding its own operating layer, while a
+  live trading system carrying real money ran underneath with no declared commitment to
+  keeping it healthy. This intent closes that gap. It does not compete with the
+  operating-layer rebuild — that remains the cycle priority — it names the standing
+  obligation the rebuild is being done ON TOP OF.
+
+  ⚠️ THIS INTENT IS NOT A LICENCE TO WIDEN SCOPE. It exists so trading-side work has a
+  parent, not so a session may drift into it from an operating-layer task. A session
+  working one intent that finds something belonging to the other FILES it; it does not
+  cross over.
+
+done_looks_like: >-
+  Not a terminal state — this is a STANDING intent and closing it would mean the trading
+  system no longer needs looking after. Health is instead read on its cadence: no detected
+  signal sits without an owner past its declared check interval; no research artifact is
+  produced and never read; no strategy leg degrades unobserved; and work recovered from a
+  dead session reaches either a Tier-gated PR or a recorded decision not to pursue it.
+  ⚠️ A quiet register is NOT evidence of health — it is equally the signature of nobody
+  looking. Read the observation, never the silence.
+
+first_units:
+  - "WO-20260903-AVAX-VENUE-MAX-ORPHANED-ORDER-PATH-WORK — ~320 lines recovered from a
+     session that died before committing (PR #10780), one `git checkout -f` from being lost.
+     Operator-directed 2026-09-03 to be owned properly rather than parked or discarded."
+  - "The duty pass over the due monitoring rows — QUEUED, not started; the concurrency cap
+     is 3 and all three slots are taken."
