@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Touches src/runtime/close_wedge_standing.py, which runs on the live trader's monitor sweep: this PR makes that sweep WRITE where it previously returned before touching disk. Needs one operator OK in chat before merge. The knob to review is CLOSE_WEDGE_HEARTBEAT_MINUTES (default 15), which is what bounds the added disk cost to one small atomic write per interval rather than one per monitor pass.",
+  "why": "Tier-2 by path and by effect, and I am not claiming the observability-only scope makes it Tier-1. Three things a reviewer should weigh. (1) It adds a periodic write to the live trader's tick path; the original code deliberately returned early there, and that comment's concern is honoured by the floor rather than dismissed. (2) It changes what the operator's digest ASSERTS: until the trader restarts with the heartbeat, the standing-wedge block reports NOT EXAMINED instead of the clean bill it reports today. That is the honest state of a ledger nothing is writing and it self-resolves on the next deploy, but it is a visible change to an operator channel and should not arrive unannounced. (3) It is on a real-money close path's reporting chain, which is the whole reason MI-101 is P1. NOT touched, deliberately and per the work order's scope limits: the close paths, classify_share_hold, and MI-34's routing decision. No order is placed, cancelled or modified; no config, no risk cap, no strategy, no deploy unit."
+}
