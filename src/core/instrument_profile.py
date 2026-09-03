@@ -11,7 +11,7 @@ No live runtime dependency — pure data type, safe to import anywhere.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Optional
 
 InstrumentCategory = Literal["linear", "inverse", "spot", "futures", "unknown"]
 SettlementCurrency = Literal["USDT", "USD", "BTC", "ETH", "unknown"]
@@ -36,6 +36,37 @@ class InstrumentProfile:
     max_leverage: int = 0
     # Friendly label for UI / logs
     display_name: str = ""
+    # The venue's per-order CEILING, or None for "this profile does not state
+    # one" (2026-09-02, BL-20260902-AVAX-VENUE-MAX-CLAMP-INERT-WHEN-THE-LIVE-LOOKUP-MISSES).
+    #
+    # ⚠️ None here is "THIS SOURCE CANNOT SPEAK TO A CEILING", never "the venue
+    # has no ceiling". Reading the first as the second is precisely what made
+    # the venue-max clamp a silent no-op three times; `qty_legalize` grades it
+    # as `could_not_look`, not as `absent`.
+    #
+    # Only populate a value that a VENUE actually published (Bybit's own
+    # rejection text, or instruments-info). A guessed ceiling is a fabricated
+    # constraint on the live order path. It is a FALLBACK for when the live
+    # lot-rule lookup misses -- `prefer_live=True` keeps the venue
+    # authoritative.
+    #
+    # ⚠️ A STALE VALUE IS NOT HARMLESS, and an earlier draft of this comment
+    # claimed it was ("can only ever under-size ... never place an illegal
+    # order"). That is FALSE and is corrected here rather than left standing,
+    # because an over-confident comment on the order path is the same failure
+    # mode as the collapsed state below it. Both directions are reachable:
+    #   * venue RAISES its cap  -> we clamp low  -> under-size (benign)
+    #   * venue LOWERS its cap  -> we clamp to a ceiling the venue no longer
+    #                              honours -> THE ORDER IS STILL REJECTED
+    # The second is no worse than placing unclamped (today's behaviour), but it
+    # is not "never illegal". A stale ceiling narrows the bug; it does not
+    # close it. Re-measure from the venue rather than trusting age.
+    #
+    # ⚠️ THIS FIELD IS SYMBOL-SCOPED, NOT ACCOUNT-SCOPED. One value serves every
+    # account that trades the symbol, and Bybit's demo and production venues
+    # need not publish the same ceiling. See the AVAXUSDT note in
+    # `config/instruments.yaml` for the concrete case.
+    max_qty: Optional[float] = None
 
     # ------------------------------------------------------------------
     # Pre-built factory methods
