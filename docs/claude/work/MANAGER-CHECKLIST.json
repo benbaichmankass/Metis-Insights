@@ -1343,7 +1343,34 @@
       "note": "MEASURED 2026-09-03: the manager hit register merge conflicts FOUR times in one morning (OPEN-ITEMS, MANAGER-CHECKLIST, SESSIONS, health-review-backlog), each a manual three-way resolution. One CONCEALED AN ID COLLISION git cannot see -- a branch reused MI-86 for a different item, and merging as written would have silently deleted the existing row. This is MI-76, and it is the largest recurring tax on manager throughput.",
       "priority": "P1_CYCLE_MANAGER_CONTROL",
       "prs": ""
+    },
+    {
+      "id": "MI-96",
+      "title": "/status must be ONE message with expandable sections, and the ClaudeBot command MENU must populate",
+      "state": "in_flight",
+      "owner": "session_01RYoQ5e8i6B4SCn9kMm2gpB",
+      "note": "TWO OPERATOR REQUIREMENTS ON THE SAME SURFACE, both given directly and both verifiable only by the operator's own eyes. (1) MENU: the command menu button in the chat must list the commands so they can be tapped, not only typed -- routed 07:5xZ. (2) FORMAT, given 2026-09-03T08:53Z, VERBATIM: \"the 'status' message in the claude bot needs to be reformatted - only 1 message each time, with drop-down sections so that i can see the whole summary upfront and decide what sections to dive into\". Telegram's mechanism is the EXPANDABLE BLOCKQUOTE (HTML <blockquote expandable>, or MarkdownV2 **>). ⚠️ THE SUMMARY MUST STAY UNCOLLAPSED -- the operator's words are 'see the whole summary upfront and decide what sections to dive into', so the roll-up is visible and only the per-section DETAIL collapses; collapsing the summary satisfies the letter and defeats the ask. ⚠️ Today /status sends SEVERAL messages; if that is 4096-char chunking, the chunking is what gets replaced, not preserved. If one message still will not fit with everything collapsed, TRUNCATE the lowest-value section and SAY SO -- a silent drop is the collapsed-state failure this repo files bugs about. Both halves fold into #10793 rather than a sibling PR, because a second PR on the same file would collide. DONE-CONDITION for BOTH: the OPERATOR SEES it working in the Claude bot -- not a passing test, not a rendered string in a log. Manager owes the merge + the ict-claude-decision-bot.service restart once CI is green.",
+      "priority": "P1_CYCLE_MANAGER_CONTROL",
+      "prs": "#10793"
+    },
+    {
+      "id": "MI-97",
+      "title": "Four concurrent work threads (Admin / Ops / R&D / Eng) -- agree the model with the operator before anything is built",
+      "state": "waiting",
+      "owner": "operator+manager",
+      "note": "Operator idea, 2026-09-03T08:4xZ, framed explicitly as 'an idea for us to work on together, not a specific plan' and asked to be 'speced and qued'. Captured as WO-20260903-FOUR-CONCURRENT-WORK-THREADS-ADMIN-OPS-R (stage QUESTION, lifecycle dormant). ⚠️ THE DONE-CONDITION IS A WRITTEN AGREEMENT BETWEEN OPERATOR AND MANAGER, NOT A BUILD -- spawning a session to implement threads before the model is agreed is the failure this row exists to prevent. Manager has delivered its read; the open tensions are (a) threads vs intents -- one taxonomy or two, and two will drift; (b) the cycle priority admits exactly ONE priority and the spawn gate refuses displacement, so four daily threads would need an exception every day and the gate degrades into a formality; (c) at a concurrency cap of 3, Ops-daily + R&D-daily commits 2 slots and Admin+Eng share the third; (d) backlog items span threads, which the operator noted; (e) nothing detects a STARVED thread, and that starvation is already happening unlabelled. Folds into the phase-2 joint roadmap review the operator sequenced.",
+      "priority": "P2_OPERATING_MODEL",
+      "prs": ""
+    },
+    {
+      "id": "MI-98",
+      "title": "pr-landing-guard R11 red-locks the ENTIRE automation PR lane -- self-inflicted, same day",
+      "state": "in_flight",
+      "owner": "session_017DxuurbMW5ex5Q1f7xATqW",
+      "note": "MEASURED on #10914 guards job 100580495407 at 08:35:45Z: PASS 45 / FAIL 1 / SKIP 37, sole failure `pr-landing-guard FAILED (state=undeclared)` -> `R11 no landing declaration at .github/pr-landing/automation-work-digest-33730997742-1.json`. scripts/ci/check_pr_landing.py contains ZERO occurrences of automation/exempt/bot[ -- it has no concept of a machine-authored PR, and a generating workflow cannot be told by the branch it creates to write a declaration. POPULATION 09:10Z: 8 open automation PRs, with work-digest and reconcile-open-prs each STACKED THREE DEEP because nothing can merge. ⚠️ NOT COSMETIC: (a) reconcile-open-prs keeps OPEN-PRS.json honest and that is the OPEN-PR half of the handoff contract -- the register that tracks PR staleness is now itself the thing that cannot land; (b) work-digest is the carrier OI-20260902-DIGEST-MOVED-OFF-A-CRON is watching, and a receipt PR that can never merge cannot satisfy its clause (1) -- so this guard can make an open monitoring row read as an unproven carrier when the real cause is downstream of it. MANAGER RULED (do not re-litigate): the generators WRITE their own declaration; exempting automation/** would create an unguarded lane on the guard's first day, the 'cheaper to lie to than to satisfy' failure. ⚠️ SECOND FINDING TO CHECK: #10398 was cut 2026-08-29, BEFORE the guard; if it fails R11 too then the 'could the branch have known' test does not do what its docstring claims, which is worse than the lockout. Routed to MI-95's idle session (guard-system context, costs no slot). Filed as BL-20260903-PR-LANDING-GUARD-RED-LOCKS-EVERY-AUTOMATION-PR. DONE = an automation PR OBSERVED merging green, then the duplicates drained.",
+      "priority": "P1_CYCLE_MANAGER_CONTROL",
+      "prs": ""
     }
   ],
-  "as_of": "2026-09-03T08:25:00Z"
+  "as_of": "2026-09-03T09:25:00Z"
 }
