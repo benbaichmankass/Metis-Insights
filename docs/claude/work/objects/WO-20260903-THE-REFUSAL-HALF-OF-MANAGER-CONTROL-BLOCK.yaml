@@ -1,0 +1,86 @@
+id: WO-20260903-THE-REFUSAL-HALF-OF-MANAGER-CONTROL-BLOCK
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The refusal half of manager control: block a manager action on a PR whose author session is still LIVE
+stage: CAPABILITY
+lifecycle: waiting
+owner: session_01A38DipTvNyB843X4gnmA23
+opened_at: 2026-09-03
+closed_at: null
+
+# ⚠️ THIS FILE WAS AUTHORED BY THE SUB-SESSION, NOT BY ITS MANAGER, AND THAT IS
+# ITSELF THE FINDING. MI-93 was dispatched naming this object as its parent and
+# NO FILE EXISTED — measured 2026-09-03 against `docs/claude/work/objects/`,
+# where the three sibling units of the same wave (MI-88, MI-89, MI-90) all had
+# one. `spawn_gate.grade` rule 2 REFUSES a spawn whose object id names no file
+# ("a parent that does not exist is not a parent"), so this spawn would have
+# been refused had it gone through the gate — which is the measured hole
+# `spawn_gate.py`'s own docstring names: it binds only spawns that go through
+# `register`, ~92% of them, and is routed around by writing a `create_session`
+# prompt by hand.
+#
+# Authored here so the work is not an orphan the constraint readout cannot see.
+# ⚠️ A MANAGER SHOULD CHECK THE `why`/`source` BELOW AGAINST WHAT IT ACTUALLY
+# INTENDED: they are reconstructed from the dispatch brief and from
+# CYCLE-PRIORITY.json, not from the manager's own words.
+
+review_trigger: >-
+  When PR #10905 merges or is closed. If it merges, the object moves to
+  `landed_unproven` territory rather than `done` — see `done_condition`.
+
+done_condition: >-
+  A manager is OBSERVED running `scripts/ops/pr_action_gate.py` against a real
+  action it was about to take, and either acting on a `permitted` or standing
+  down on a `refused`. ⚠️ MERGING #10905 DOES NOT SATISFY THIS. The gate is
+  manual-only and binds nobody until invoked; a merge is a deploy, and a deploy
+  is not an observation. ⚠️ NEITHER DOES A GREEN SELF-TEST: 46 planted-failure
+  cases pass in a harness, and the harness is precisely what cannot reach a
+  manager's decision. ⚠️ AND IF A MANAGER RUNS IT AND ROUTES AROUND THE REFUSAL,
+  that does NOT close this object either — it is a more useful finding than a
+  clean pass, and belongs in the record rather than being scored as success.
+
+why: >-
+  Implements DEC-20260902-HOW-A-MANAGER-IS-HELD-TO-ITS-MANDATE -> `both`: the
+  derived read AND the refusal that uses it. MI-89 (#10896) shipped the read.
+  MEASURED, from docs/claude/CYCLE-PRIORITY.json :: current.why clause (3),
+  operator-set 2026-09-02 — a manager "undrafted and armed #10857 while its
+  author was still RUNNING, because there was no way to ask -- and nothing
+  objected", and "a RUNNING session cannot be reached, an IDLE one CAN be woken,
+  and nothing tells the manager which it is". Verified against the PR itself:
+  #10857 (claude/mi83-per-merge-ping) created 2026-09-02T20:46:36Z, merged
+  21:59:16Z.
+
+source: >-
+  Cycle priority CY-20260903-MANAGER-CONTROL, operator-directed 2026-09-02T21:50Z.
+  Reconstructed by the sub-session from its dispatch brief; see the note above.
+
+blocked_on:
+  - kind: external_event
+    ref: "PR #10905 merging, and then a manager actually invoking the gate"
+    since: 2026-09-03
+    note: >-
+      MEASURED and INFERRED are separated here deliberately.
+      MEASURED: the gate discriminates on live data. Population — all 8 open PRs
+      on benbaichmankass/Metis-Insights plus a 100-row `list_sessions(mine=true)`
+      page (91 idle, 6 archived, 3 running), read 2026-09-03T~07:2xZ. It REFUSED
+      #10895, whose author session_018ruZdgEkPZ1XceWzLwuYUU was genuinely
+      RUNNING, and PERMITTED the other 7 (two of them `no_author` automation
+      PRs). `run_guards.py --base main` PASS 83 / FAIL 0 / SKIP 0 after
+      committing; 46 self-test cases; 38 pytest cases.
+      NOT MEASURED: that any manager will run it. That is what this edge names,
+      and it is the whole risk — a refusal nobody invokes is indistinguishable
+      from no refusal at all, which is the same shape as
+      OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT.
+      ⚠️ THE GATE IS DELIBERATELY NOT WIRED INTO CI, so nothing forces its use:
+      CI holds no `mcp__*` tools and could only ever grade the liveness input
+      `unknown`, and a permanently-amber check is one everyone learns to walk
+      past. That trade is argued in the module docstring rather than assumed.
+
+blocked_on_basis: >-
+  ASSESSED 2026-09-03 by session_01A38DipTvNyB843X4gnmA23. The edge above is a
+  TRUE blocker, written from a live read rather than inherited: the work is
+  complete and pushed, and the only thing between it and `done` is an event
+  outside this session's reach.
+
+authored_by: session_01A38DipTvNyB843X4gnmA23 (the sub-session; see the note above)
