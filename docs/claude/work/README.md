@@ -381,6 +381,53 @@ branches each appending ONE row to the same register, then merged:
 names the one-line remedy, so the gap is visible at the moment it costs something
 rather than after.
 
+### FIRST LIVE EXERCISE — 2026-09-03, on a real conflict rather than a constructed one
+
+The table above was a *constructed* pair of sibling branches. This is the driver
+resolving a conflict that actually blocked a merge: PR #10910's own, after six
+PRs landed on `main` behind it and GitHub refused the merge with
+`405 Pull Request has merge conflicts`.
+
+**Without the driver** (all three `merge.jsonregister.*` keys unset, i.e. a fresh
+clone), merging `origin/main` produced **one** conflict:
+
+| file | plain git |
+|---|---|
+| `docs/claude/health-review-backlog.json` | **CONFLICT** — 1 hunk |
+| `docs/claude/work/SESSIONS.json` | clean |
+| `docs/claude/work/README.md` | clean |
+| `scripts/ci/run_guards.py` | clean |
+
+**With the driver armed**, the same rebase completed across 12 commits with no
+conflict, and the result was verified BY ID rather than by eye:
+
+| register | `main` | branch | merged | union | verdict |
+|---|--:|--:|--:|--:|---|
+| `health-review-backlog.json` | 1154 | 1156 | **1157** | 1157 | exact union |
+| `SESSIONS.json` | 89 | 88 | **89** | 89 | exact union |
+| `MANAGER-CHECKLIST.json` | 90 | 84 | **90** | 90 | exact union |
+| `OPEN-ITEMS.json` | 51 | 51 | **51** | 51 | exact union |
+
+**Zero ids lost, zero invented, all four files valid JSON**, and
+`register-id-guard` passes on the merged tree. `OPEN-ITEMS.json` — which is not
+byte-reproducible — came through untouched, which is what splicing original byte
+spans is for.
+
+⚠️ **THIS INSTANCE WAS ROW CONTENTION, NOT THE HEADER SCALAR, AND THAT QUALIFIES
+THE 74%/67%/61% FRAMING ABOVE.** Those shares were measured on MANAGER-CHECKLIST,
+OPEN-PRS and SESSIONS. `health-review-backlog.json` was measured at **8 of 91
+pairs (9%) row-contested and 1 of 91 (1%) header-contested**, and this conflict is
+one of that 9% — a new row appended at the array tail against rows `main` appended
+at the same tail. So the driver is **not** only a header-scalar device: it resolved
+the row-contention case here, on the register where row contention is the whole
+story. Do not read either measurement as covering the other.
+
+⚠️ **A PARTIAL UNINSTALL IS FATAL, NOT DEGRADED.** Clearing only
+`merge.jsonregister.driver` while leaving `merge.jsonregister.name` set makes git
+abort every merge of these files with `fatal: custom merge driver jsonregister
+lacks command line` — worse than not having it. Removing it means
+`git config --remove-section merge.jsonregister`, and there is no uninstall script.
+
 ⚠️ **`OPEN-ITEMS.json` HAS NO APPEND HELPER AT ALL**, and that is why it has no
 "driver armed" cell above. `backlog_append.py::append_row` **refuses** it:
 measured 2026-09-03, none of its five candidate serialisations reproduces the
