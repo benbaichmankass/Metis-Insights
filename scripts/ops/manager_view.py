@@ -618,7 +618,7 @@ def derive(reg_doc: Optional[Any], reg_readable: bool,
         missing.append("MANAGER-CHECKLIST.json (unreadable)")
 
     contradicted = [r for r in shown if r["agreement"] == "contradicted"]
-    verdict = grade(shown, missing, contradicted, unregistered)
+    verdict = grade(missing, contradicted, unregistered)
 
     pop = {
         "registry_rows": len(reg_rows),
@@ -637,8 +637,7 @@ def derive(reg_doc: Optional[Any], reg_readable: bool,
             "population": pop}
 
 
-def grade(rows: Sequence[Dict[str, Any]], missing: Sequence[str],
-          contradicted: Sequence[Dict[str, Any]],
+def grade(missing: Sequence[str], contradicted: Sequence[Dict[str, Any]],
           unregistered: Optional[Sequence[str]]) -> str:
     """PURE. FAIL-shaped findings dominate UNKNOWN because a known divergence is
     definite; UNKNOWN dominates CLEAR because "we could not look" is never a
@@ -771,14 +770,14 @@ def _self_test() -> int:
     prs = [{"number": 10877, "head_ref": "claude/x", "title": "t", "draft": True}]
 
     # --- the verdict register mirrors handoff_check, and UNKNOWN is not a pass -
-    check("all inputs, nothing divergent -> clear", grade([], [], [], []), CLEAR)
-    check("a contradiction -> attention", grade([], [], [{"x": 1}], []), ATTENTION)
+    check("all inputs, nothing divergent -> clear", grade([], [], []), CLEAR)
+    check("a contradiction -> attention", grade([], [{"x": 1}], []), ATTENTION)
     check("a missing input with no finding -> unknown, NEVER clear",
-          grade([], ["open-prs"], [], []), UNKNOWN)
+          grade(["open-prs"], [], []), UNKNOWN)
     check("a FINDING dominates a missing input (a known divergence is definite)",
-          grade([], ["open-prs"], [{"x": 1}], []), ATTENTION)
+          grade(["open-prs"], [{"x": 1}], []), ATTENTION)
     check("an unregistered LIVE session is itself a finding",
-          grade([], [], [], ["session_01ZZ"]), ATTENTION)
+          grade([], [], ["session_01ZZ"]), ATTENTION)
 
     # --- THE HEADLINE DISEASE: a register saying `working` over an idle read ---
     live_idle = [{"session_id": SID, "status": "idle"}]

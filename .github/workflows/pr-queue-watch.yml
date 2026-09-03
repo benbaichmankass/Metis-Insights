@@ -188,14 +188,23 @@ jobs:
         continue-on-error: true
         run: |
           set +e
+          # ⚠️ THIS STEP DELIBERATELY DOES NOT SPELL THE ASSESS STEP'S CAPTURE
+          # TOKEN, and neither does this comment.
+          # `check_pr_queue_watch.py` asserts that token appears EXACTLY ONCE in
+          # this file, so the assess step's not-a-pipeline capture cannot be
+          # diluted by a second match. It is a SUBSTRING test, so a merely
+          # different PREFIX still collides (a first attempt here used one and
+          # broke the guard, which caught it). `_rc` shares no substring with it,
+          # and naming the token even inside a comment would break it again.
+          # The invariant is kept intact rather than loosened.
           python3 scripts/ops/manager_state_watch.py > /tmp/manager-state.txt 2>&1
-          code=$?
+          mstate_rc=$?
           cat /tmp/manager-state.txt
-          case "$code" in
+          case "$mstate_rc" in
             0) echo "::notice::Manager state is clean on every repo-answerable check." ;;
             3) echo "::warning::MANAGER-STATE FINDINGS -- see the output above. REPORTED, not escalated: adding a second un-latched paging path is how 202 of 376 CRITICALs became one ignored alarm." ;;
             4) echo "::warning::MANAGER-STATE UNKNOWN -- a register could not be read. This is NOT a clean manager state." ;;
-            *) echo "::warning::unexpected exit code $code from manager_state_watch.py" ;;
+            *) echo "::warning::unexpected exit code $mstate_rc from manager_state_watch.py" ;;
           esac
 
       - name: Report the verdict
