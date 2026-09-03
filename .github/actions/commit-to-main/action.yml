@@ -154,6 +154,92 @@ runs:
           exit 0
         fi
         BR="${BRANCH_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        # THE LANDING DECLARATION, WRITTEN BY THE GENERATOR — because nothing
+        # else can write it. `check_pr_landing.py`'s R11 asks whether the guard
+        # existed at the branch's merge-base; every branch this action cuts from
+        # a current `main` answers YES and therefore MUST declare. The branch is
+        # created HERE, seconds before the PR, by a workflow — there is no
+        # session to add the file and no human in the loop, so an automation PR
+        # cut after 2026-09-03 fails R11 permanently and cannot merge.
+        # MEASURED at 09:10Z that day: 7 open automation PRs red-locked on
+        # exactly this (3 reconcile-open-prs, 3 work-digest, 1 strategy-reviews),
+        # stacking up because each family re-fires on its cadence while nothing
+        # can land. `reconcile-open-prs` keeps `docs/claude/work/OPEN-PRS.json`
+        # honest, so the register that tracks PR staleness was itself the thing
+        # that could not land.
+        #
+        # ⚠️ NOT AN EXEMPTION FOR `automation/**` IN THE GUARD. That was the
+        # cheap route and it would have created an unguarded lane on the guard's
+        # first day — the "cheaper to lie to than to satisfy" failure this repo
+        # already paid for with `new-table-wiring-guard`'s presence-only marker.
+        # These PRs now make the same declaration every other PR makes, and are
+        # graded by the same rules.
+        #
+        # ⚠️ `landing: "self"` IS THE TRUE STATEMENT HERE, NOT THE CONVENIENT
+        # ONE. This action arms auto-merge itself, four lines below, with
+        # `gh pr merge --auto --squash`. So these PRs DO self-land, and
+        # declaring `hold` would be a lie the action's own next step contradicts.
+        # ⚠️ Note that route is INVISIBLE to the guard's `armed` test, which
+        # looks only for `.github/pr-automerge-requests/<slug>.txt` — filed as
+        # BL-20260903-CHECK-PR-LANDING-ARMED-TEST-MISSES-THE-GH-PR-MERGE-AUTO-ROUTE.
+        #
+        # The slug derivation is `check_pr_landing.branch_slug()`: strip a
+        # leading `claude/`, then `/` -> `-`. These branches carry no `claude/`
+        # prefix, so `automation/work-digest-123-1` -> `automation-work-digest-123-1`.
+        SLUG="$(printf '%s' "${BR#claude/}" | tr '/' '-')"
+        mkdir -p .github/pr-landing
+        python3 - "$SLUG" "$BR" <<'PYDECL'
+        import json, os, sys
+        slug, branch = sys.argv[1], sys.argv[2]
+        wf = os.environ.get("GITHUB_WORKFLOW", "unknown workflow")
+        run = os.environ.get("GITHUB_RUN_ID", "unknown run")
+        repo = os.environ.get("GITHUB_REPOSITORY", "")
+        decl = {
+            "tier": 1,
+            "landing": "self",
+            "why": (
+                f"Machine-generated data commit, opened by the {wf!r} workflow "
+                f"(run {run}) through .github/actions/commit-to-main on branch "
+                f"{branch}. Tier-1 by the canonical doc's own list: the diff is "
+                f"generated register/report content on the Tier-1 surface, with "
+                f"no order path, no strategy config, no risk caps, no src/, no "
+                f"deploy/ and no live-VM runtime file. It self-lands because "
+                f"this same action arms auto-merge with `gh pr merge --auto "
+                f"--squash`, so `self` is what actually happens; GitHub still "
+                f"merges only on green, and R5 still grades the diff against "
+                f"the Tier-1 surface rather than taking this declaration on "
+                f"trust. Written by the generator because no session or human "
+                f"is in the loop to write it."
+            ),
+        }
+        with open(f".github/pr-landing/{slug}.json", "w", encoding="utf-8") as fh:
+            json.dump(decl, fh, indent=2, ensure_ascii=False)
+            fh.write("\n")
+        print(f"landing declaration written for {slug}")
+        PYDECL
+        # AND THE ARMING HALF, because R6 requires BOTH and is right to.
+        # `check_pr_landing.py` R6: a `landing: "self"` declaration with no
+        # `.github/pr-automerge-requests/<slug>.txt` FAILS — "a readiness
+        # declaration lands nothing on its own — that is precisely how 7 green
+        # PRs sat unmerged on 2026-09-03". Verified by running the guard against
+        # a real locked branch with only the declaration added: it moved the
+        # failure from R11 to R6 rather than passing.
+        #
+        # ⚠️ SAY WHAT THIS FILE DOES AND DOES NOT DO HERE, so a later reader is
+        # not misled. `claude-pr-automerge.yml` triggers on
+        # `branches: ["claude/**"]`, and these branches are `automation/**` — so
+        # this file does NOT fire that workflow and is NOT what merges the PR.
+        # What merges it is `gh pr merge --auto --squash` two steps below.
+        # The file is the repo's declared-intent record, which R6 checks, and
+        # the intent it records is TRUE: this PR does auto-merge on green.
+        # It is written INERT deliberately; do not "fix" it by widening that
+        # workflow's branch filter, which would give every automation branch a
+        # second, live arming path nobody asked for.
+        mkdir -p .github/pr-automerge-requests
+        printf 'armed by .github/actions/commit-to-main for %s (run %s)\n' \
+          "${BR}" "${GITHUB_RUN_ID}" > ".github/pr-automerge-requests/${SLUG}.txt"
+        git add -- ".github/pr-landing/${SLUG}.json" \
+                   ".github/pr-automerge-requests/${SLUG}.txt"
         git commit -m "${MESSAGE}"
         # Push the throwaway branch. The calling job checked out with the PAT, so
         # `origin` is PAT-authenticated → the PR opened below triggers the required

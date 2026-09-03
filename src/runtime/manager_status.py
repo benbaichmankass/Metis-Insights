@@ -38,6 +38,7 @@ No order path, no write, nothing that can refuse a trade.
 """
 from __future__ import annotations
 
+import html
 import json
 import logging
 import re
@@ -540,6 +541,12 @@ class StatusReadout:
     #: item is still represented -- distinct from `omissions`, where rows are
     #: genuinely missing.
     compacted: list[str] = field(default_factory=list)
+    #: Telegram parse mode for `messages`. "HTML" for the expandable
+    #: one-message render; None for the plain-text packer, whose bodies are
+    #: NOT escaped and would be mangled (or 400) if sent as HTML.
+    #: ⚠️ Carried on the readout rather than hardcoded at the send site so the
+    #: two renderers can never be sent under each other's mode.
+    parse_mode: Optional[str] = None
 
     @property
     def complete(self) -> bool:
@@ -694,6 +701,218 @@ def pack_messages(
     return messages or [""], omissions, compacted
 
 
+
+# ═════════════════════════════════════════════════════════════════════════════
+# ONE message with expandable sections (operator, 2026-09-03)
+# ═════════════════════════════════════════════════════════════════════════════
+#
+# Operator, verbatim: *"the 'status' message in the claude bot needs to be
+# reformatted - only 1 message each time, with drop-down sections so that i can
+# see the whole summary upfront and decide what sections to dive into"*.
+#
+# ⚠️ THIS REPLACES THE CHUNKING, IT DOES NOT WRAP IT. `pack_messages` spends the
+# 4096 budget on DETAIL and spills what will not fit across up to three
+# messages; collapsing the detail is what makes one message sufficient, so the
+# two are alternatives rather than layers. `pack_messages` is kept — it is the
+# honest fallback if the HTML render ever fails, and its degradation ladder is
+# still the thing that decides what to drop.
+#
+# ⚠️ THE SUMMARY IS DELIBERATELY *OUTSIDE* THE BLOCKQUOTES. The ask is to "see
+# the whole summary upfront and decide what sections to dive into", so every
+# section HEADING (which carries its own count) and the counts/owner roll-up
+# stay uncollapsed; only the per-item rows go inside. Collapsing the summary
+# would satisfy the letter and defeat the ask.
+
+#: Telegram's expandable blockquote. Bot API 7.0+, HTML parse mode.
+_EXPANDABLE_OPEN = "<blockquote expandable>"
+_EXPANDABLE_CLOSE = "</blockquote>"
+
+#: Sections whose DETAIL is collapsed. `counts` is the roll-up itself, so it is
+#: never collapsed -- it IS the summary.
+_NEVER_COLLAPSED = ("counts",)
+
+#: Narrowest a clipped row may get before rows are dropped instead. An id is
+#: ~24 characters and is the part that lets the operator go and look the item
+#: up, so clipping below this would keep a row that identifies nothing.
+_CLIP_FLOOR = 46
+
+
+def _clip_line(line: str, width: int) -> str:
+    """Clip one rendered row, marking that it was clipped.
+
+    ⚠️ The ellipsis is what stops a clipped title from reading as the whole
+    title -- the same reason `_clip` exists for field values.
+    """
+    if width <= 0 or len(line) <= width:
+        return line
+    return line[: max(1, width - 1)].rstrip() + "…"
+
+
+def _esc(text: Any) -> str:
+    """HTML-escape one line for Telegram's HTML parse mode.
+
+    ⚠️ EVERY data-derived string must go through this. Checklist titles are
+    free prose written by other sessions, so an unescaped `<` or `&` would
+    either break the parse (Telegram rejects the whole message with 400) or
+    silently swallow text as a tag. A status command that 400s is strictly
+    worse than an ugly one.
+    """
+    return html.escape(str(text), quote=False)
+
+
+def render_expandable_message(
+    header: list[str],
+    sections: list[Section],
+    *,
+    total_items: int,
+    limit: int = TELEGRAM_MESSAGE_LIMIT,
+) -> tuple[str, list[Omission], list[str]]:
+    """Render ONE HTML message: summary uncollapsed, detail in drop-downs.
+
+    Returns ``(text, omissions, compacted_section_keys)``.
+
+    ⚠️ THE BUDGET COUNTS THE TAGS. Telegram caps the raw string it receives, so
+    `<blockquote expandable>` (24 chars) and `</blockquote>` (13) are spent from
+    the same 4096 as the content. Measuring the rendered string rather than the
+    visible text is the difference between fitting and a 400.
+
+    ⚠️ TRUNCATION IS STATED, NEVER SILENT. If everything still does not fit with
+    every section collapsed, rows are dropped from the LOWEST-value section
+    first -- reverse display order, so the checklist is last to suffer -- and
+    the count is reported in the footer. A silent drop is the collapsed-state
+    failure this repo files bugs about, and a SECOND message would contradict
+    the operator's instruction.
+    """
+    omissions: list[Omission] = []
+    compacted: list[str] = []
+    #: full | compact, per section key.
+    form: dict[str, str] = {s.key: "full" for s in sections}
+    chosen: dict[str, list[str]] = {s.key: list(s.lines) for s in sections}
+
+    def block(sec: Section, lines: list[str]) -> list[str]:
+        out = ["", f"<b>{_esc(sec.heading)}</b>"]
+        if sec.caveat:
+            out.append(f"<i>({_esc(sec.caveat)})</i>")
+        if form[sec.key] == "compact":
+            out.append("<i>(compacted to ids — the full form did not fit)</i>")
+        if not lines:
+            return out
+        if sec.key in _NEVER_COLLAPSED:
+            out.extend(_esc(x) for x in lines)
+            return out
+        body = "\n".join(_esc(x) for x in lines)
+        out.append(f"{_EXPANDABLE_OPEN}{body}{_EXPANDABLE_CLOSE}")
+        return out
+
+    def assemble() -> str:
+        parts = [f"<b>{_esc(header[0])}</b>"] + [_esc(h) for h in header[1:]]
+        for sec in sections:
+            parts.extend(block(sec, chosen[sec.key]))
+        return "\n".join(parts) + _esc(
+            _render_omission_footer(omissions, compacted, total_items))
+
+    text = assemble()
+    if len(text) <= limit:
+        return text, omissions, compacted
+
+    # ── (1) COMPACT the optional sections, lowest value first ───────────────
+    # The same ladder `pack_messages` uses, and for the same measured reason:
+    # rendering the optional sections in FULL dropped BOTH of them entirely,
+    # so the operator got the checklist and neither of the other two parts
+    # they asked for. Ids cost ~7 characters and carry the answer, so a
+    # compacted section beats an absent one.
+    for sec in reversed(sections):
+        if len(text) <= limit:
+            break
+        if sec.key in _NEVER_COLLAPSED or not sec.compact_lines:
+            continue
+        form[sec.key] = "compact"
+        chosen[sec.key] = list(sec.compact_lines)
+        compacted.append(sec.key)
+        text = assemble()
+
+    # ── (1b) CLIP long rows before losing any ───────────────────────────────
+    # `in_flight` and `blocked` are MANDATORY and carry no `compact_lines`, so
+    # without this the ladder jumps straight from full detail to dropping rows
+    # -- measured against the real 90-item checklist, that emptied `blocked`
+    # (0 of 7) while `in_flight` kept 19 of 26. A blocked item the operator
+    # cannot see is the worst row to lose, and the id plus a clipped title is
+    # what identifies it. Every row survives clipping; none survives a drop, so
+    # this is tried first. The floor is deliberately wide enough to keep an id.
+    if len(text) > limit:
+        # ⚠️ A COMPACTED SECTION IS NEVER CLIPPED. Its lines are already
+        # id-lists, so clipping one silently drops IDS -- and the footer's
+        # central claim for a compacted section is "all ids present". Clipping
+        # there would make that claim FALSE, which is worse than the section
+        # being shorter. Full-form rows are safe to clip: what the ellipsis
+        # removes is the TITLE, and the id survives at the front of the line.
+        clippable = [s for s in sections
+                     if s.key not in _NEVER_COLLAPSED
+                     and form[s.key] != "compact"
+                     and chosen[s.key]]
+        widest = max((max((len(x) for x in chosen[s.key]), default=0)
+                      for s in clippable), default=0)
+        lo, hi = _CLIP_FLOOR, max(_CLIP_FLOOR, widest)
+        best: Optional[int] = None
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            for sec in clippable:
+                chosen[sec.key] = [_clip_line(x, mid) for x in sec.lines]
+            if len(assemble()) <= limit:
+                best = mid
+                lo = mid + 1
+            else:
+                hi = mid - 1
+        for sec in clippable:
+            src_lines = sec.lines
+            chosen[sec.key] = ([_clip_line(x, best) for x in src_lines]
+                               if best is not None
+                               else [_clip_line(x, _CLIP_FLOOR) for x in src_lines])
+        text = assemble()
+
+    # ── (2) only NOW drop rows, still lowest value first ────────────────────
+    for sec in reversed(sections):
+        if len(text) <= limit:
+            break
+        if sec.key in _NEVER_COLLAPSED or not chosen[sec.key]:
+            continue
+        lines = list(chosen[sec.key])
+        # `total` is the section's REAL population, never the compacted line
+        # count -- an omission reported against a compacted denominator would
+        # understate what is missing.
+        total = len(sec.lines)
+        lo, hi = 0, len(lines)
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            chosen[sec.key] = lines[:mid]
+            omissions = [o for o in omissions if o.section != sec.key]
+            if form[sec.key] == "compact" or mid < len(lines):
+                omissions.append(Omission(sec.key, mid, total))
+            if len(assemble()) <= limit:
+                lo = mid
+            else:
+                hi = mid - 1
+        chosen[sec.key] = lines[:lo]
+        omissions = [o for o in omissions if o.section != sec.key]
+        if lo < len(lines) or form[sec.key] == "compact":
+            omissions.append(Omission(sec.key, lo, total))
+        text = assemble()
+
+    # ── (3) the FLOOR: header + headings + footer are irreducible ────────────
+    # Sections can be emptied but the summary cannot, so a small enough budget
+    # leaves a message that still exceeds it. At the real 4096 cap this cannot
+    # arise (the floor measures ~1.1k), but "cannot arise" is exactly the kind
+    # of claim this repo distrusts -- and returning an over-length string means
+    # Telegram 400s the WHOLE reply and the operator gets NO status at all.
+    # So it is cut, and the cut is STATED where the operator will see it.
+    if len(text) > limit:
+        marker = "\n…[CUT: over Telegram's cap even with every section empty]"
+        keep = max(0, limit - len(marker))
+        text = text[:keep] + marker
+
+    return text, omissions, compacted
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # The public entry point
 # ═════════════════════════════════════════════════════════════════════════════
@@ -706,8 +925,16 @@ def build_status(
     now: Optional[datetime] = None,
     limit: int = TELEGRAM_MESSAGE_LIMIT,
     max_messages: int = MAX_MESSAGES,
+    expandable: bool = True,
 ) -> StatusReadout:
-    """Render the manager status. Never raises -- a bot command must always reply."""
+    """Render the manager status. Never raises -- a bot command must always reply.
+
+    ``expandable`` (default) renders ONE HTML message whose per-section detail
+    sits in drop-downs, per the operator's 2026-09-03 ask. Passing False keeps
+    the original plain-text multi-message packer, which is what the tests of
+    the degradation ladder exercise and what a caller with no HTML surface
+    would want.
+    """
     repo = Path(repo_dir) if repo_dir else Path(_repo_root())
     ref = now or datetime.now(timezone.utc)
 
@@ -760,6 +987,14 @@ def build_status(
                       f"were dropped before grading.")
 
     sections = build_sections(items, registered)
+
+    if expandable:
+        text, omissions, truncated = render_expandable_message(
+            header, sections, total_items=len(items), limit=limit,
+        )
+        return StatusReadout([text], omissions, tree, checklist.state,
+                             sessions.state, truncated, parse_mode="HTML")
+
     messages, omissions, compacted = pack_messages(
         header, sections, limit=limit, max_messages=max_messages,
     )
@@ -795,6 +1030,7 @@ __all__ = [
     "TreeProvenance",
     "build_sections",
     "build_status",
+    "render_expandable_message",
     "grade_owner",
     "pack_messages",
     "read_json_file",

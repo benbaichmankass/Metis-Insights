@@ -214,7 +214,12 @@ def test_optional_sections_are_compacted_before_anything_is_dropped(tmp_path):
     Compaction keeps every id at reduced detail instead.
     """
     repo = _write_repo(tmp_path, _big_checklist(), sessions={"sessions": []})
-    out = ms.build_status(repo_dir=repo, git=_synced_git(), now=NOW)
+    # `expandable=False` selects the PLAIN-TEXT PACKER, which is what this test
+    # is about. build_status defaults to the one-message expandable render
+    # (operator, 2026-09-03); the packer's degradation ladder is unchanged,
+    # still the fallback, and still asserted here.
+    out = ms.build_status(repo_dir=repo, git=_synced_git(), now=NOW,
+                          expandable=False)
 
     assert out.compacted, "the optional sections should compact, not vanish"
     # NO row is missing -- compaction loses detail, never items.
@@ -234,7 +239,12 @@ def test_optional_sections_are_compacted_before_anything_is_dropped(tmp_path):
 def test_compaction_keeps_done_and_landed_unproven_apart(tmp_path):
     """A compact rendering is not a licence to blur two different facts."""
     repo = _write_repo(tmp_path, _big_checklist(), sessions={"sessions": []})
-    out = ms.build_status(repo_dir=repo, git=_synced_git(), now=NOW)
+    # `expandable=False` selects the PLAIN-TEXT PACKER, which is what this
+    # test is about. build_status defaults to the one-message expandable
+    # render (operator, 2026-09-03); the packer's degradation ladder is
+    # unchanged, still the fallback, and still asserted here.
+    out = ms.build_status(repo_dir=repo, git=_synced_git(), now=NOW,
+                          expandable=False)
     body = "\n".join(out.messages)
     assert "recently_done" in out.compacted
     assert "done (11):" in body
@@ -296,8 +306,12 @@ def test_a_small_checklist_reports_itself_complete(tmp_path):
 def test_chunking_stays_within_the_message_cap_and_is_numbered(tmp_path):
     """A budget too small for one message spills, and each chunk still fits."""
     repo = _write_repo(tmp_path, _big_checklist(), sessions={"sessions": []})
+    # `expandable=False` selects the PLAIN-TEXT PACKER, which is what this
+    # test is about. build_status defaults to the one-message expandable
+    # render (operator, 2026-09-03); the packer's degradation ladder is
+    # unchanged, still the fallback, and still asserted here.
     out = ms.build_status(repo_dir=repo, git=_synced_git(), now=NOW,
-                          limit=1200, max_messages=3)
+                          limit=1200, max_messages=3, expandable=False)
     assert len(out.messages) > 1
     for body in out.messages:
         assert len(body) <= 1200 + len("📋 MANAGER STATUS (continued 2/3)\n")
@@ -445,3 +459,145 @@ def test_a_free_prose_owner_is_never_counted_as_a_missing_registration():
     """`manager` is not an unregistered session — it is not a session at all."""
     _, grade = ms.grade_owner("manager (SHOULD HAVE BEEN DELEGATED)", set())
     assert grade == "not_a_session"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# ONE message with expandable sections (operator, 2026-09-03)
+#
+# "the 'status' message in the claude bot needs to be reformatted - only 1
+#  message each time, with drop-down sections so that i can see the whole
+#  summary upfront and decide what sections to dive into"
+# ═════════════════════════════════════════════════════════════════════════════
+
+
+def _uncollapsed(text: str) -> str:
+    """Everything OUTSIDE the expandable blockquotes — what is visible upfront."""
+    out, rest = [], text
+    while ms._EXPANDABLE_OPEN in rest:
+        head, rest = rest.split(ms._EXPANDABLE_OPEN, 1)
+        out.append(head)
+        _hidden, rest = rest.split(ms._EXPANDABLE_CLOSE, 1)
+    out.append(rest)
+    return "".join(out)
+
+
+def test_status_is_ONE_message_in_html_with_expandable_sections(tmp_path):
+    """The operator asked for one message with drop-downs. Both halves pinned."""
+    repo = _write_repo(tmp_path, _big_checklist(), sessions={"sessions": []})
+    out = ms.build_status(repo_dir=repo, git=_synced_git(), now=NOW)
+
+    assert len(out.messages) == 1, "one message each time — not a chunked spill"
+    assert out.parse_mode == "HTML", (
+        "expandable blockquotes are an HTML-parse-mode construct; sending this "
+        "as plain text would show the raw tags")
+    assert ms._EXPANDABLE_OPEN in out.messages[0]
+    assert len(out.messages[0]) <= ms.TELEGRAM_MESSAGE_LIMIT
+
+
+def test_the_summary_is_visible_UPFRONT_not_inside_a_drop_down(tmp_path):
+    """"see the whole summary upfront and decide what sections to dive into".
+
+    Collapsing the summary would satisfy the letter of "drop-down sections" and
+    defeat the ask, so every section HEADING (which carries its own count) and
+    the counts/owner roll-up must sit OUTSIDE the blockquotes.
+    """
+    repo = _write_repo(tmp_path, _big_checklist(), sessions={"sessions": []})
+    out = ms.build_status(repo_dir=repo, git=_synced_git(), now=NOW)
+    visible = _uncollapsed(out.messages[0])
+
+    assert "MANAGER STATUS" in visible
+    assert "checklist as_of" in visible, "staleness is part of the summary"
+    assert "in_flight" in visible, "the lifecycle counts are the roll-up itself"
+    assert "owners (in_flight+blocked)" in visible
+    for heading_fragment in ("IN FLIGHT", "BLOCKED", "RECENTLY DONE", "NEXT"):
+        assert heading_fragment in visible, (
+            f"{heading_fragment} heading must be visible so the operator can "
+            f"choose whether to dive in")
+
+
+def test_item_DETAIL_is_inside_the_drop_downs_not_upfront(tmp_path):
+    """The counterpart: rows go in the blockquote, or nothing was collapsed."""
+    repo = _write_repo(tmp_path, _big_checklist(), sessions={"sessions": []})
+    out = ms.build_status(repo_dir=repo, git=_synced_git(), now=NOW)
+    visible = _uncollapsed(out.messages[0])
+
+    assert "MI-00-A-REASONABLY-LONG" not in visible, (
+        "per-item rows belong inside the expandable section")
+    assert "MI-00-A-REASONABLY-LONG" in out.messages[0], (
+        "…but they are still in the message")
+
+
+def test_free_prose_from_the_checklist_is_html_escaped(tmp_path):
+    """⚠️ Titles are prose written by other sessions.
+
+    An unescaped `<` or `&` either breaks Telegram's parse (400 on the WHOLE
+    message) or silently swallows text as a tag. A /status that 400s is
+    strictly worse than an ugly one.
+    """
+    checklist = {
+        "as_of": "2026-09-02T00:00:00Z",
+        "items": [{"id": "ITEM-X", "state": "in_flight",
+                   "title": "fix <b>bold</b> & the A&B thing", "owner": "manager"}],
+    }
+    repo = _write_repo(tmp_path, checklist, sessions={"sessions": []})
+    out = ms.build_status(repo_dir=repo, git=_synced_git(), now=NOW)
+    body = out.messages[0]
+
+    assert "&lt;b&gt;bold&lt;/b&gt;" in body
+    assert "A&amp;B" in body
+    assert "<b>bold</b>" not in body, "a raw tag from DATA would be parsed as markup"
+
+
+def test_a_compacted_section_is_never_clipped_so_all_ids_present_stays_true(tmp_path):
+    """The footer promises "all ids present" for a compacted section.
+
+    A compacted line is already an id-list, so clipping one drops IDS and makes
+    that promise false. Clipping is for full-form rows, where the ellipsis
+    removes a TITLE and the id survives at the front of the line.
+    """
+    repo = _write_repo(tmp_path, _big_checklist(), sessions={"sessions": []})
+    out = ms.build_status(repo_dir=repo, git=_synced_git(), now=NOW)
+    if not out.compacted:
+        pytest.skip("this fixture did not need compaction")
+
+    body = out.messages[0]
+    assert "COMPACTED (all ids present, titles omitted)" in body
+    for line in body.splitlines():
+        if line.lstrip().startswith(("done (", "landed_unproven (", "queued (",
+                                     "ready (")):
+            assert not line.rstrip().endswith("…"), (
+                "a clipped id-list would make the 'all ids present' claim false")
+
+
+def test_a_squeeze_that_still_does_not_fit_STATES_what_was_dropped(tmp_path):
+    """A silent drop is the collapsed-state failure this repo files bugs about.
+
+    And a SECOND message would contradict the operator's instruction, so the
+    only honest option left is to drop and SAY SO.
+    """
+    repo = _write_repo(tmp_path, _big_checklist(), sessions={"sessions": []})
+    # Above the irreducible floor (header + headings + footer), so the drop
+    # path is what is exercised rather than the cut of last resort below.
+    out = ms.build_status(repo_dir=repo, git=_synced_git(), now=NOW, limit=1500)
+
+    assert len(out.messages) == 1, "still ONE message, even under a hard squeeze"
+    assert len(out.messages[0]) <= 1500
+    assert out.omissions, "rows were dropped at this budget"
+    assert "OMITTED" in out.messages[0], "…and the message says so"
+
+
+def test_a_budget_below_the_irreducible_floor_is_CUT_and_says_so(tmp_path):
+    """The summary itself cannot shrink, so a tiny budget still overflows.
+
+    Returning an over-length string would make Telegram 400 the WHOLE reply and
+    the operator would get NO status. Cutting is the lesser harm — and the cut
+    is stated in the message rather than left to look like the end of a short
+    but complete readout.
+    """
+    repo = _write_repo(tmp_path, _big_checklist(), sessions={"sessions": []})
+    out = ms.build_status(repo_dir=repo, git=_synced_git(), now=NOW, limit=400)
+
+    assert len(out.messages) == 1
+    assert len(out.messages[0]) <= 400, (
+        "the contract is that the message never exceeds the cap")
+    assert "[CUT:" in out.messages[0], "a silent cut would read as complete"

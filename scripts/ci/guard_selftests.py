@@ -722,6 +722,37 @@ def selftest_manifest_scope_constants() -> None:
         )
 
 
+def selftest_manager_scope() -> None:
+    """Alias for `check_manager_scope.py --self-test` (see COVERED_BY_CHECKER).
+
+    That checker owns its own suite for the same reason `pr-landing` does: the
+    plants have to build REAL git repositories. This guard's whole subject is
+    WHO AUTHORED A COMMIT — derived from `Claude-Session:` trailers joined to
+    the lease's own history — and a fixture that faked commits and trailers
+    would be testing the fake. Its merge-commit case has to produce a genuine
+    conflict and resolve it, which is not something a stub can stand in for.
+
+    ⚠️ AND ITS POSITIVE CONTROLS MATTER AS MUCH AS ITS PLANTS. This guard
+    REFUSES a manager's work, so an over-broad implementation does not merely
+    nag — it would block the manager from managing, which is the opposite of
+    what the operator asked for. The controls establish that the good shapes
+    still pass: the identical diff from a WORKER session, the manager writing
+    its own registers (backlog row included), a re-render of the CLAUDE.md
+    SESSION-BRIEF block, a heartbeat with a fresh registry, and a complete
+    dated scoped exception actually granting what it names.
+    """
+    rc = _rc([sys.executable, "scripts/ci/check_manager_scope.py", "--self-test"])
+    if rc != 0:
+        raise SystemExit(
+            "::error::self-test FAILED — check_manager_scope's planted-defect "
+            f"suite exited {rc}. Either its failure paths are broken (a green "
+            "means nothing) or its POSITIVE controls broke, which would mean "
+            "the guard is now blocking the manager from managing.")
+    print("self-test OK — the manager-scope guard lets management through and "
+          "every planted worker item fails it")
+
+
+
 SELFTESTS: Dict[str, Callable[[], None]] = {
     "api-tier-policy": selftest_api_tier_policy,
     # REDUNDANT-BY-DESIGN, and the comment is load-bearing: `run_guards.py` does
@@ -750,6 +781,7 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     "manifest-scope-constants": selftest_manifest_scope_constants,
     "automerge-trigger": selftest_automerge_trigger,
     "pr-landing": selftest_pr_landing,
+    "manager-scope": selftest_manager_scope,
 }
 
 # The SECOND covering path. A name here is one whose controls reach CI via the
@@ -768,6 +800,7 @@ COVERED_BY_CHECKER: Dict[str, str] = {
     "workflow-catalog": "scripts/ci/check_workflow_catalog.py",
     "automerge-trigger": "scripts/ci/check_automerge_trigger.py",
     "pr-landing": "scripts/ci/check_pr_landing.py",
+    "manager-scope": "scripts/ci/check_manager_scope.py",
 }
 
 
