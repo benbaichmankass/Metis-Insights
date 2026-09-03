@@ -1,28 +1,20 @@
 {
   "_doc": "THE MANAGER RUNS THE MERGE QUEUE. This file is the order, and it is manager state of record -- a cold successor reads it to know who is at the front and who is holding. Operator directive 2026-09-03, verbatim: 'your job is to manage the PR so that they're not competing with each other. You make the queue. You tell the one to rebase. You tell them when to do CI and merge.' ⚠️ THE RULE THAT MAKES A QUEUE A QUEUE: ONLY POSITION 1 REBASES. Everyone else HOLDS -- no rebase, no CI run, no merge attempt. A session that rebases while not at the front burns a ~16-minute pytest-run against a target that is about to move, and its result is void the moment position 1 lands. On 2026-09-03 every session rebased simultaneously against a main that moved 26 times, 19 of them on shared registers; #10918 was conflicted three times and #10923 the instant it went green.",
-  "as_of": "2026-09-03T11:26:00Z",
+  "as_of": "2026-09-03T11:36:00Z",
   "manager_session": "session_01Nopk1HcpvWBSEbZxEmALkd",
   "main_is_held_still": true,
   "main_hold_note": "The manager branch's auto-merge is DISARMED (.github/pr-automerge-requests/workflow-overhaul-scope-z4sjm3.txt deleted). Manager state is still committed and pushed every sweep; it batches instead of landing. ⚠️ DO NOT RE-ARM while this queue is non-empty -- re-arming is what kept main moving under every sibling.",
   "queue": [
     {
       "position": 1,
-      "pr": 10918,
-      "title": "MI-95: the manager session only manages -- a check that names the commit",
-      "owner_session": "session_017DxuurbMW5ex5Q1f7xATqW",
-      "state": "REBASE_NOW",
-      "note": "Same owner as position 1, so it is sequential for that session anyway. Expect it to go dirty when #10923 lands -- that is arithmetic, not a new defect. Line placement already REVIEWED AND APPROVED by the manager; the operator was told the manager is the constrained party approving its own constraint."
-    },
-    {
-      "position": 2,
       "pr": 10916,
       "title": "MI-92 follow-up: ClaudeBot command MENU + /status as ONE message with expandable sections",
       "owner_session": "session_01RYoQ5e8i6B4SCn9kMm2gpB",
-      "state": "HOLD",
+      "state": "REBASE_NOW",
       "note": "Un-drafted by the manager 10:31Z. Owner reports green. ⚠️ DO NOT REBASE OR RE-RUN CI until promoted -- that is the whole point of the queue. Its done-condition is the OPERATOR SEEING both the menu and the one-message format in the Claude bot, so a merge is followed by an ict-claude-decision-bot.service restart and an operator check."
     },
     {
-      "position": 3,
+      "position": 2,
       "pr": 10920,
       "title": "board-post.yml: header claimed it removes the request file; the code deliberately does not",
       "owner_session": "session_01RYoQ5e8i6B4SCn9kMm2gpB",
@@ -30,7 +22,7 @@
       "note": "Un-drafted by the manager 10:44Z."
     },
     {
-      "position": 4,
+      "position": 3,
       "pr": null,
       "title": "THE AUTOMATION BATCH -- #10919, #10921, #10922, #10924, #10925, #10926, and the older stack #10914 / #10913 / #10908 / #10907 / #10902 / #10901",
       "owner_session": "manager",
@@ -38,7 +30,7 @@
       "note": "These are machine-authored and cannot rebase themselves. They are red on pr-landing R11 until #10923 lands. ⚠️ THEY ARE STACKED DUPLICATES -- three work-digest and three reconcile-open-prs at least. Merge the NEWEST of each family and CLOSE the superseded ones with a one-line reason; merging all of them replays the same content."
     },
     {
-      "position": 5,
+      "position": 4,
       "pr": null,
       "title": "THE TAIL -- #10888, #10877, #10895 (draft), #10398",
       "owner_session": "manager",
@@ -60,6 +52,12 @@
       "sha": "8e9db148",
       "merged_at": "2026-09-03T11:11Z",
       "note": "MI-98 -- automation PRs declare their own landing; drafts stop being the hold. Unlocks the 7 red-locked automation PRs."
+    },
+    {
+      "pr": 10918,
+      "sha": "1822a30f",
+      "merged_at": "2026-09-03T11:35Z",
+      "note": "MI-95 -- the manager-scope guard. Derives the manager from the LEASE, grades COMMITS not the branch diff, and discloses that it fails 0 of this manager's 24 commits while failing 31 of the previous manager's 75. pytest-run 16m15s, top of normal, clean."
     }
   ],
   "cadence_incident": "⚠️ 2026-09-03T11:04Z: the manager's sweep timer (trig_016Tn8Kt9sDtQHhxG9NKQabT) stayed `enabled` with `next_run_at` in the PAST and NEVER FIRED. #10923 was green and mergeable from 11:01:05Z and sat until 11:11Z; the OPERATOR surfaced it, not the mechanism. MITIGATION: sweeps are now a REDUNDANT PAIR (~4 min and ~7 min) so one miss opens no gap. ⚠️ THAT IS REDUNDANCY, NOT A DETECTOR -- a send_later that does not deliver raises no error and changes no state the session can see, so a miss is indistinguishable from a manager choosing to do nothing. Filed as BL-20260903-MANAGER-CADENCE-RIDES-A-SINGLE-UNMONITORED-TIMER-THAT-SILENTLY-DID-NOT-FIRE and routed to MI-102 as the worked example for its duty-2 check: measure OBSERVED gaps between manager ACTIONS, never scheduled ones.",
