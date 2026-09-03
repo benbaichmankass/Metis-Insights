@@ -902,11 +902,12 @@
       "terminal": "merged",
       "merge_sha": "717f00eb75df7f9f5cc810f9b60db67f46f4c0b9",
       "settled_at": "2026-09-03T23:00:06Z",
-      "settled_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
+      "settled_by": "session_01Nopk1HcpvWBSEbZxEmALkd (reconciler also stamped it: reconciler)",
       "disposition": "Merged squash 717f00eb on the operator's Tier-2 approval.",
-      "disposition_basis": "⚠️ MERGED IS NOT PROVEN AND THIS ROW MUST NOT BE READ AS A DONE-CONDITION. The close-wedge ledger has NEVER been observed present on the fleet; everything verified so far is a harness. What the merge owes, and what a green CI is NOT: (1) after the trader restarts, /api/diag/log_file?name=close_wedge_standing reads present:true with a fresh updated_at; (2) a work-digest run NAMES /data/bot-data/... in its own output. Carried on MI-101 as landed_unproven."
+      "disposition_basis": "⚠️ MERGED IS NOT PROVEN AND THIS ROW MUST NOT BE READ AS A DONE-CONDITION. The close-wedge ledger has NEVER been observed present on the fleet; everything verified so far is a harness. What the merge owes, and what a green CI is NOT: (1) after the trader restarts, /api/diag/log_file?name=close_wedge_standing reads present:true with a fresh updated_at; (2) a work-digest run NAMES /data/bot-data/... in its own output. Carried on MI-101 as landed_unproven.",
+      "observed_at": "2026-09-03T22:59:47Z"
     }
   ],
-  "last_reconciled_at": "2026-09-03T06:31:46Z",
-  "last_reconciled_sha": "8d64afe3edda2280c4ac2441d9d52e4e14c19448"
+  "last_reconciled_at": "2026-09-03T22:59:47Z",
+  "last_reconciled_sha": "717f00eb75df7f9f5cc810f9b60db67f46f4c0b9"
 }
