@@ -72,3 +72,20 @@ decision_requests:
       justify a money-DB migration and a backfill — and the finding that no automated gate reads R is
       the argument for it. Must be RECORDED as a decision rather than drifted into.
   allows_free_text: true
+  answer:
+    chosen: return_none
+    free_text: null
+    answered_at: '2026-09-03T07:07:08Z'
+    answered_by: operator
+    committed_by: manager session_01Nopk1HcpvWBSEbZxEmALkd (decision pop-up, relayed)
+    submission_id: bdd225d7e4b5688d8d3f003c7d7c5464
+    note: >-
+      Operator, 2026-09-03, decision pop-up. r_multiple returns None where there is no trustworthy in
+      itial-stop basis, rather than falling back to the trailed stop_loss. Consistent with the repo's
+       own doctrine that 'we did not look' must never be collapsed into a measured value (CLAUDE-RULE
+      S-CANONICAL § Collapsed states). ⚠️ THE COST IS ACCEPTED AND STATED: R coverage falls and some 
+      surfaces render an em-dash instead of a number. That is the honest reading. The alternative man
+      ufactures an R that reads as measured, and R feeds PROMOTION GATES -- so a fabricated R can pro
+      mote a strategy. ⚠️ THE WORK IS PHASE 3 under the operator's 2026-09-03 sequencing (finish the 
+      workflow build -> review the roadmap together -> then actual work). This answer UNBLOCKS it; it
+       does not schedule it.
