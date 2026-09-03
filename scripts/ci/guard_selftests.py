@@ -596,6 +596,33 @@ def selftest_automerge_trigger() -> None:
     print("self-test OK — all six planted trigger defects fail the guard")
 
 
+def selftest_pr_landing() -> None:
+    """Alias for `check_pr_landing.py --self-test` (see COVERED_BY_CHECKER).
+
+    That checker owns its own suite because the plants have to build REAL git
+    repositories — the guard's `predates_guard` escape hatch is a `merge-base`
+    question, and a fixture that faked it would be testing the fake.
+
+    ⚠️ THAT SUITE CARRIES POSITIVE CONTROLS AS WELL AS PLANTS, and here they
+    matter more than usual. Every other guard in this family fails work that is
+    WRONG; this one REFUSES TO LET WORK LAND, so an over-broad implementation
+    does not merely nag — it reinstates the exact stall it was written to end,
+    while reading green. The three positive controls (an armed Tier-1 docs-only
+    self-land, a Tier-3 diff correctly held, and a VERIFIED
+    `changes_landing_machinery` hold) are what establish that the guard still
+    lets the good shapes through.
+    """
+    rc = _rc([sys.executable, "scripts/ci/check_pr_landing.py", "--self-test"])
+    if rc != 0:
+        raise SystemExit(
+            "::error::self-test FAILED — check_pr_landing's planted-defect suite "
+            f"exited {rc}. Either its failure paths are broken (a green means "
+            "nothing) or its POSITIVE controls broke, which would mean the guard "
+            "is now blocking correct Tier-1 work from landing.")
+    print("self-test OK — the landing guard lets the good shapes through and "
+          "every planted defect fails it")
+
+
 def selftest_manifest_scope_constants() -> None:
     """Plant each of the three defects `manifest-scope-constants` claims to catch.
 
@@ -722,6 +749,7 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     "timestamp-comparison": selftest_timestamp_comparison,
     "manifest-scope-constants": selftest_manifest_scope_constants,
     "automerge-trigger": selftest_automerge_trigger,
+    "pr-landing": selftest_pr_landing,
 }
 
 # The SECOND covering path. A name here is one whose controls reach CI via the
@@ -739,6 +767,7 @@ COVERED_BY_CHECKER: Dict[str, str] = {
     "matrix-corpus-agreement": "scripts/ci/check_matrix_corpus_agreement.py",
     "workflow-catalog": "scripts/ci/check_workflow_catalog.py",
     "automerge-trigger": "scripts/ci/check_automerge_trigger.py",
+    "pr-landing": "scripts/ci/check_pr_landing.py",
 }
 
 

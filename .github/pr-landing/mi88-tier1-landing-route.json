@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "This PR builds the landing route and the guard that enforces it, editing scripts/ci/check_pr_landing.py and scripts/ops/session_registry.py. Per R12 a change to the machinery may not be merged by that machinery unread: the change and its own approval would be the same act. The manager reads it once and merges.",
+  "why": "Tier-1 by every path in the diff (docs, CI scripts, .github, ops tooling) and by the canonical doc's own Tier-1 examples -- no runtime, no order path, no strategy config, no risk caps, no live-VM file. It is held on R12, not on tier."
+}

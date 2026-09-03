@@ -466,7 +466,38 @@ the manager owns that file.
   for `GITHUB_TOKEN` pushes, so if such a commit lands LAST your PR shows ZERO
   checks and reads as blocked, not green. Put board posts on a SEPARATE branch,
   or push an ordinary commit after, to arm CI.
-- Open the PR as a DRAFT; the manager merges.
+- DECLARE YOUR TIER AND LAND YOUR OWN TIER-1 WORK. Write
+  `.github/pr-landing/<branch-slug>.json` (slug = your branch with `claude/`
+  stripped and `/`→`-`); `.github/pr-landing/README.md` has the four-line file
+  and `pr-landing-guard` checks it against your diff on every PR.
+  ⚠️ This line read `Open the PR as a DRAFT; the manager merges.` — unconditionally,
+  at every tier — until 2026-09-03, and it was the bug. On 2026-09-03 SEVEN of the
+  night shift's PRs sat open, green and unlanded, waiting on a manager for work
+  that `docs/CLAUDE-RULES-CANONICAL.md` § Permission Tiers says needs NO human OK.
+  Three of those PR bodies blamed `pr-opener.yml` for "creating every PR as a draft
+  regardless of `draft:false`". THAT IS FALSE — do not repeat it. `pr-opener.yml`
+  honours `draft:false`; `true` is merely the default, and those request files
+  asked for `"draft": true`. The blanket instruction was the cause, not the relay.
+  - **Tier-1** (docs, tests, CI, tooling, observability, read paths) — LAND IT
+    YOURSELF. Declare `{{"tier": 1, "landing": "self", "why": "..."}}`, open the PR
+    **not** as a draft (`"draft": false` in your `pr-requests` JSON, or
+    `create_pull_request` directly), and add `.github/pr-automerge-requests/<slug>.txt`
+    (any contents — its PATH is the signal). `claude-pr-automerge` then enables
+    native auto-merge and GitHub merges **when the required checks pass**. No
+    manager, and CI is never bypassed.
+    ⚠️ BOTH HALVES ARE REQUIRED AND NEITHER IS SUFFICIENT. `draft:false` alone
+    gives a ready green PR that waits for a human click — that IS the failure.
+    The request file alone against a DRAFT PR is REFUSED by `claude-pr-automerge`,
+    correctly and by design; do not try to defeat that refusal.
+  - **Tier-2 / Tier-3** — STAY A DRAFT. Declare `"landing": "hold"` with a
+    `hold_reason` from the closed vocabulary in that README. A draft means
+    *prepared, not approved*, and that convention is load-bearing.
+  - If you cannot un-draft your own PR (`update_pull_request` 403s), open it
+    ready in the first place rather than opening a draft and asking to be rescued.
+  - ⚠️ A PR opened through `pr-opener` starts with ZERO checks (GitHub fires no
+    workflows for `GITHUB_TOKEN` pushes), and auto-merge merges on GREEN — so it
+    will wait forever until checks exist. Push one ordinary commit AFTER the PR
+    exists to arm CI. Read CI with `get_check_runs`, never `get_status`.
 {scope}"""
 
 
@@ -786,7 +817,24 @@ def _self_test() -> int:
     p = spawn_prompt("T", "W", "session_01AAAAAAAA")
     check("the spawn prompt names the registry reference",
           "session_01AAAAAAAA" in p, True)
-    check("the spawn prompt carries the DRAFT-PR rule", "DRAFT" in p, True)
+    # ⚠️ This assertion used to be `"DRAFT" in p`, pinning the blanket
+    # `Open the PR as a DRAFT; the manager merges.` line — so the template's own
+    # defect was held in place by a passing test. The rule the prompt must carry
+    # is TIER-AWARENESS, not drafting: Tier-1 lands itself, Tier-2/3 holds.
+    check("the spawn prompt tells Tier-1 to land itself",
+          '"landing": "self"' in p, True)
+    check("the spawn prompt names the landing declaration file",
+          ".github/pr-landing/" in p, True)
+    check("the spawn prompt still holds Tier-2/3 as a draft",
+          "STAY A DRAFT" in p and '"landing": "hold"' in p, True)
+    # Both halves of the Tier-1 route, because either alone lands nothing.
+    check("the spawn prompt names the auto-merge request file",
+          ".github/pr-automerge-requests/" in p, True)
+    check("the spawn prompt says to open Tier-1 not-as-a-draft",
+          "draft:false" in p or '"draft": false' in p, True)
+    # The correction, so the false pr-opener claim cannot quietly return.
+    check("the spawn prompt refutes the `pr-opener drafts everything` claim",
+          "THAT IS FALSE" in p, True)
 
     print("session-registry self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
