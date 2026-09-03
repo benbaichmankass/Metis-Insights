@@ -373,6 +373,26 @@ def _merge_pings(pre_sha: str, post_sha: str) -> List[tuple[str, str]]:
             f"— the compare link below has all {len(merges)}."
         )
     lines.append(GITHUB_COMPARE_URL.format(pre=pre_sha, post=post_sha))
+
+    # ⚠️ THE SUCCESS PATH MUST LOG TOO, AND SHIPPING WITHOUT THIS WAS A REAL
+    # GAP — found 2026-09-03 trying to verify the mechanism on the fleet.
+    #
+    # The two branches above log when the range is UNREADABLE and when it holds
+    # NO merges, and `main()` logs only `Queued N ping(s)` with no source. So on
+    # a healthy run — the one anybody wants to confirm — the journal said
+    # nothing about which source produced the ping, and zero "merge-ping" lines
+    # was indistinguishable between *it found merges every time* and *it never
+    # ran at all*. Measured on the live VM over 5h13m of `ict-git-sync` journal
+    # (1500 lines, 00:54:47Z-06:07:32Z on 2026-09-03): 5 notify runs, 5 queued
+    # pings, and **0 lines mentioning merge-ping in either direction**. The
+    # mechanism had to be reconstructed by replaying the five pulled ranges
+    # through the deployed code instead of read off the box.
+    #
+    # A reconstruction is not an observation, which is the whole distinction
+    # this repo keeps paying for. One line closes it.
+    logger.info("merge-ping: %d merge(s) in %s..%s -> %s", len(merges),
+                pre_sha[:8], post_sha[:8],
+                ", ".join(f"#{pr}" for _sha, pr, _t in merges))
     return [("normal", "\n".join(lines))]
 
 
