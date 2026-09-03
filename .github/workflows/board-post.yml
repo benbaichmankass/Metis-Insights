@@ -19,11 +19,35 @@ name: board-post
 #   * Drop a markdown file at `automation/board-posts/<name>.md` and push it to a
 #     `claude/**` branch. Its ENTIRE contents become one comment on issue #6927.
 #   * The runner posts it, writes the resulting comment URL (or the error) to
-#     `automation/board-results/<name>.txt`, removes the request, and commits the
-#     result back with [skip ci] (no re-trigger loop).
+#     `automation/board-results/<name>.txt`, and commits that result back with
+#     [skip ci] (no re-trigger loop).
 #   * Read the result back with:
 #       git fetch origin <branch>
 #       git show origin/<branch>:automation/board-results/<name>.txt
+#
+#   ⚠️ THE REQUEST FILE IS DELIBERATELY LEFT IN PLACE, AND ITS SURVIVAL IS NOT
+#   EVIDENCE OF A FAILED POST. This header read "removes the request" until
+#   2026-09-03, contradicting the code nine lines below it -- see the block at
+#   "An earlier version `git rm`'d each request once posted", which records why
+#   removing it was taken OUT: the removal made the results commit touch
+#   `automation/board-posts/**`, this workflow's own trigger path.
+#
+#   That stale sentence had a cost, which is why this note replaces it rather
+#   than just deleting it. A session reaches this relay ONLY because its MCP
+#   `add_issue_comment` 403'd, so it cannot read the board back through the MCP
+#   and must verify from the branch -- following the old contract, it tests
+#   "is the request file gone?" and reads STILL PRESENT as "my post failed".
+#   Measured 2026-09-03: request present, result file holding a bare comment URL,
+#   run exited 0 -- a SUCCESSFUL post that the documented check graded a failure.
+#   The consequence runs the wrong way for a relay whose whole premise is that a
+#   failed post must be loud: the session either re-posts (duplicating on #6927)
+#   or reports its own successful claim as failed.
+#
+#   VERIFY A POST LIKE THIS, never by the request file:
+#     * SUCCESS -> `automation/board-results/<name>.txt` holds a bare comment URL
+#       and the run exits 0.
+#     * FAILURE -> that same file starts with `FAILED:` and the run exits 1.
+#   Filed as BL-20260903-BOARD-POST-HEADER-CLAIMS-IT-REMOVES-THE-REQUEST-AND-THE-CODE-DELIBERATELY-DOES-NOT.
 #
 # DELIBERATELY STRICTER THAN `pr-opener.yml`, WHICH IT IS OTHERWISE MODELLED ON:
 #   1. An EMPTY or whitespace-only body is REFUSED, not posted. A blank board
