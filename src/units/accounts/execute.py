@@ -1380,7 +1380,11 @@ def _submit_order(client: Any, order: dict, account_cfg: dict,
             # (submit unmodified), exactly the pre-seam behaviour. The
             # smoke-test path (_submit_test_order) is a different function and
             # never reaches here, so its deliberately sub-min qty is untouched.
-            from src.units.accounts.qty_legalize import legalize_qty
+            from src.units.accounts.qty_legalize import (
+                MAX_STATE_ABSENT,
+                MAX_STATE_COULD_NOT_LOOK,
+                legalize_qty,
+            )
             _legal = legalize_qty(
                 order["qty"], account_cfg=account_cfg, symbol=order["symbol"],
                 client=client, prefer_live=True,
@@ -1410,6 +1414,35 @@ def _submit_order(client: Any, order: dict, account_cfg: dict,
                     f"the exchange lot minimum after step-alignment "
                     f"(qtyStep={_legal.step}, minOrderQty={_legal.venue_min}) — "
                     "refusing pre-flight."
+                )
+            # --- the venue CEILING's own three states (2026-09-02) ---------
+            # BL-20260902-AVAX-VENUE-MAX-CLAMP-INERT-WHEN-THE-LIVE-LOOKUP-MISSES.
+            # `venue_max=None` used to mean three different things and this path
+            # treated all of them as "no ceiling — send it", which is why an
+            # oversized AVAX order reached Bybit three separate times. Branch on
+            # the STATE, not on the null:
+            #   published      -> the clamp below has a real cap to work with
+            #   absent         -> the venue has no ceiling; sending unclamped is
+            #                     CORRECT and must stay silent (this is the
+            #                     common path — a WARN here would be the
+            #                     desensitised-alarm P1)
+            #   could_not_look -> we are about to send an order whose legality
+            #                     we could not establish. Still SENT (refusing
+            #                     would block orders that are legal today, a far
+            #                     larger blast radius than the bug), but never
+            #                     SILENTLY: this is the state that was invisible.
+            if _legal.venue_max_state == MAX_STATE_COULD_NOT_LOOK:
+                logger.warning(
+                    "_submit_order: %s venue maxOrderQty UNRESOLVED (source=%s) "
+                    "— submitting qty %s unclamped; a ceiling breach here is "
+                    "indistinguishable from a venue that has none "
+                    "(BL-20260902)",
+                    order["symbol"], _legal.source, _legal.qty_str,
+                )
+            elif _legal.venue_max_state == MAX_STATE_ABSENT:
+                logger.debug(
+                    "_submit_order: %s venue publishes no maxOrderQty — "
+                    "no ceiling to apply", order["symbol"],
                 )
             if float(_legal.qty) != float(order["qty"]):
                 # Captured BEFORE the write-back below, which overwrites

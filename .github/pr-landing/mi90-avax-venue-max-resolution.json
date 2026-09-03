@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Explicit operator approval, in chat, before merge. The diff changes the live order path -- src/units/accounts/execute.py, qty_legalize.py and precision.py -- which docs/CLAUDE-RULES-CANONICAL.md names under Tier-3 examples ('The live order path') and hard-blocks from a self-merge per the VM authority split. The behaviour change is real and is stated in the PR body: an order that previously went out UNCLAMPED on a could_not_look resolution is now CLAMPED when the other source publishes a ceiling. Today that is AVAXUSDT only (the sole symbol carrying max_qty in config/instruments.yaml), and AVAXUSDT routes only to bybit_1, which is demo. No new refusals are added. One evidence gap is deliberately left open for the operator to weigh: the 22,000 ceiling is the venue's own rejection text plus an accepted-fill bracket, NOT a direct read of lotSizeFilter.maxOrderQty -- Bybit's public API is geo-blocked from this sandbox and no /api/diag/* route exposes lot bounds. If a direct venue read is wanted before merge, that gate is not cleared.",
+  "why": "Tier-3 by path and by merge gate. Prepared and validated as Tier-2 work (223 passed / 10 pre-existing failures identical on main; guards PASS 53 FAIL 0 before this merge), but the MERGE is Tier-3 -- the classification is set by the merge gate, not the prep. This session is a sub-session under an approved spawn-priority exception scoped to ONE object; it proposes and does not enact."
+}
