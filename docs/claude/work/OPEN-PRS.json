@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-02T21:21:00Z",
+  "as_of": "2026-09-03T13:55:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -60,21 +60,6 @@
         "text": "None recorded."
       },
       "blocker": "Open since 2026-08-29, automation-generated, no owning session. Held under MI-12; do not merge without establishing what it does."
-    },
-    {
-      "pr": 10780,
-      "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-56",
-      "draft": true,
-      "tier": "2/3 (order path) — UNREVIEWED",
-      "state": "preserved_do_not_merge",
-      "operator_decision": {
-        "verdict": "pending",
-        "decided_on": "2026-09-02",
-        "text": "No operator statement exists. ⚠️ THE ROW MATTERS MORE THAN THE PR: this branch preserves ~320 lines of UNREVIEWED order-path work (execute.py, qty_legalize.py, precision.py) recovered from a DEAD session's uncommitted working tree. It must NOT be merged on green CI — its existing venue-max tests monkeypatch _resolve_venue_lot_rule to return vmax=22_000, so they exercise the CLAMP and never the RESOLUTION, i.e. they pass for the wrong reason, which is how the AVAX leg reached a third recurrence. A successor reading 'draft, CI green' without this row could land unreviewed order-path code on a real-money client."
-      },
-      "blocker": "Needs a live session to take ownership and verify the resolution path against a real venue read, then re-open as a normal Tier-gated PR. Until then this branch is a BACKUP, not a proposal."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -623,6 +608,25 @@
       "merge_sha": "8d64afe3edda2280c4ac2441d9d52e4e14c19448",
       "observed_at": "2026-09-03T06:31:46Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10780,
+      "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-56",
+      "draft": true,
+      "tier": "2/3 (order path) — UNREVIEWED",
+      "state": "preserved_do_not_merge",
+      "operator_decision": {
+        "verdict": "pending",
+        "decided_on": "2026-09-02",
+        "text": "No operator statement exists. ⚠️ THE ROW MATTERS MORE THAN THE PR: this branch preserves ~320 lines of UNREVIEWED order-path work (execute.py, qty_legalize.py, precision.py) recovered from a DEAD session's uncommitted working tree. It must NOT be merged on green CI — its existing venue-max tests monkeypatch _resolve_venue_lot_rule to return vmax=22_000, so they exercise the CLAMP and never the RESOLUTION, i.e. they pass for the wrong reason, which is how the AVAX leg reached a third recurrence. A successor reading 'draft, CI green' without this row could land unreviewed order-path code on a real-money client."
+      },
+      "blocker": "Needs a live session to take ownership and verify the resolution path against a real venue read, then re-open as a normal Tier-gated PR. Until then this branch is a BACKUP, not a proposal.",
+      "terminal": "closed_unmerged",
+      "closed_at": "2026-09-03T06:46:40Z",
+      "disposition": "superseded",
+      "disposition_basis": "ESTABLISHED FROM PRIMARY SOURCES 2026-09-03T13:5xZ, NOT INFERRED, and NOT INVENTED to satisfy a guard. THREE independent readings agree: (1) the PR's own TITLE is '[RECOVERED — DO NOT MERGE]' and its body calls itself 'a preservation commit, not a proposal' — it was a backup of ~320 lines that existed only as uncommitted working-tree changes in a dead session's container, and its Test plan reads 'Not run. Deliberately. Running CI on this would invite reading green as approval.' It was never intended to merge. (2) Its own Disposition section asked for 'a live session to take ownership ... and re-open as a normal Tier-gated PR'. (3) That happened: MI-90 records the work re-opened as #10900 and MERGED on the operator's Tier-2/3 OK, after the recovered diff was read adversarially — 6 recovered tests fail on main and pass on the branch, and the ceiling was confirmed as the venue's own (Bybit named max_qty 22000, bracketed by an accepted fill at 21657.1 and a rejection at 22995.1). So the content LANDED by another route and the backup was closed. ⚠️ WHY THIS ROW MATTERED FAR BEYOND ITSELF: its missing `disposition` was the single fact jamming `open_pr_record.py --strict`, which is what fails every `reconcile-open-prs` automation PR — 7 open as of 13:45Z, with a new one generated on EVERY merge to main. Measured directly by running the failing guard against #10938's own OPEN-PRS.json: one finding, this row. See MI-103. ⚠️ AND THE GUARD WAS RIGHT TO REFUSE. 'superseded', 'the operator refused it' and 'the author gave up' are opposite next actions, and only the first is true here — reading it as either of the others would have sent someone to re-litigate a Tier-3 order-path change the operator already approved."
     }
   ],
   "last_reconciled_at": "2026-09-03T06:31:46Z",
