@@ -536,6 +536,68 @@ def _dump_registry(doc: Dict[str, Any], path: Path) -> None:
     path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def _existing_registry_keys(doc: Dict[str, Any]) -> set:
+    return {str(r.get("registry_key")) for r in registry_rows(doc)
+            if r.get("registry_key")}
+
+
+def _mint_registry_key(doc: Dict[str, Any], ts: str,
+                       supplied: Optional[str] = None) -> str:
+    """Return a registry key that is not already in use.
+
+    ⚠️ **A FINER CLOCK IS NOT THE FIX, AND THAT IS WHY THIS IS A CHECK.** The
+    key was minted from a second-granular timestamp with nothing looking at what
+    was already there, so two spawns in the same second produced the same key.
+    Going to microseconds would only narrow the window: two `register` calls can
+    always land in whatever resolution the clock has, and the registry would
+    then fail *more rarely and just as silently*, which is worse than failing
+    often. Uniqueness is a property of the SET, so it is checked against the set.
+
+    Measured on `main` @`855397f6`, before this existed: of the 14 rows in
+    `SESSIONS.json` carrying a `registry_key`, only **12 were distinct** —
+    `pending-20260902T133456Z` was shared by THREE rows (MI-66, MI-69, MI-70).
+    `confirm()` matched the first of them, so confirming any one of the three
+    would have written that session's id onto a DIFFERENT session's row.
+
+    A caller-SUPPLIED key that is already taken is refused outright rather than
+    silently renamed: the caller named a specific row, and quietly giving them a
+    different key would hand back a reference that does not mean what they asked
+    for. A key we mint ourselves is disambiguated with a `-2`, `-3` … suffix,
+    matching the repair applied to the three rows above.
+    """
+    taken = _existing_registry_keys(doc)
+    if supplied:
+        if supplied in taken:
+            raise SystemExit(
+                f"session-registry: registry_key {supplied!r} is already in use. "
+                f"Nothing was written. Pick another, or omit --registry-key and "
+                f"let one be minted.")
+        return supplied
+    stem = f"pending-{ts.replace(':', '').replace('-', '')}"
+    if stem not in taken:
+        return stem
+    n = 2
+    while f"{stem}-{n}" in taken:
+        n += 1
+    return f"{stem}-{n}"
+
+
+def _refuse_duplicate_session_id(doc: Dict[str, Any], session_id: str) -> None:
+    """A session id identifies exactly one row, or the registry cannot be polled.
+
+    Registering the same id twice makes `status`/`reconcile` report a session
+    that is simultaneously two pieces of work, and there is no rule for picking
+    between them. Refuse at the point of writing, where the caller can still fix
+    it, rather than leaving it for whoever next reads the file.
+    """
+    for row in registry_rows(doc):
+        if row.get("session_id") and str(row["session_id"]) == str(session_id):
+            raise SystemExit(
+                f"session-registry: session_id {session_id!r} is already "
+                f"registered (title: {row.get('title')!r}). Nothing was written. "
+                f"Use `confirm` to bind a pending row, or correct the id.")
+
+
 def register(path: Path, *, title: str, why: str, spawned_by: str,
              session_id: Optional[str] = None, branches: Optional[List[str]] = None,
              owns_object: Optional[str] = None, checklist_item: Optional[str] = None,
@@ -562,10 +624,11 @@ def register(path: Path, *, title: str, why: str, spawned_by: str,
     ts = now or _now_iso()
     row: Dict[str, Any] = {}
     if session_id:
+        _refuse_duplicate_session_id(doc, session_id)
         row["session_id"] = session_id
     else:
         row["session_id"] = None
-        row["registry_key"] = registry_key or f"pending-{ts.replace(':', '').replace('-', '')}"
+        row["registry_key"] = _mint_registry_key(doc, ts, registry_key)
         row["state"] = "spawn_pending"
     row["title"] = title
     if owns_object:
@@ -595,16 +658,36 @@ def confirm(path: Path, *, registry_key: str, session_id: str,
     doc, readable = read_json(path)
     if not readable or not isinstance(doc, dict):
         raise SystemExit("session-registry: SESSIONS.json is unparseable.")
-    for row in registry_rows(doc):
-        if row.get("registry_key") == registry_key:
-            row["session_id"] = session_id
-            row["state"] = "working"
-            row["confirmed_at"] = now or _now_iso()
-            doc["updated_at"] = row["confirmed_at"]
-            _dump_registry(doc, path)
-            return row
-    raise SystemExit(f"session-registry: no pending row with registry_key "
-                     f"{registry_key!r}. Nothing was written.")
+
+    matches = [r for r in registry_rows(doc)
+               if r.get("registry_key") == registry_key]
+    if not matches:
+        raise SystemExit(f"session-registry: no pending row with registry_key "
+                         f"{registry_key!r}. Nothing was written.")
+    if len(matches) > 1:
+        # ⚠️ THE OLD CODE TOOK THE FIRST MATCH AND WROTE TO IT. That is a
+        # SILENT MIS-BIND: the session id lands on whichever colliding row
+        # happens to come first in the file, so one session is recorded as
+        # another's work and the remaining rows stay pending forever. In the
+        # registry whose stated purpose is proving no sub-session was lost,
+        # answering ambiguously is strictly worse than refusing — a wrong
+        # binding reads as a complete record. Measured live on `main`
+        # @`855397f6`: three rows shared `pending-20260902T133456Z`.
+        titles = ", ".join(repr(r.get("title")) for r in matches)
+        raise SystemExit(
+            f"session-registry: registry_key {registry_key!r} matches "
+            f"{len(matches)} rows ({titles}). REFUSING to guess which one you "
+            f"meant — writing to the first would bind this session id to a "
+            f"different session's work. Nothing was written. Disambiguate the "
+            f"keys in SESSIONS.json first (see `register-id-guard`).")
+
+    row = matches[0]
+    row["session_id"] = session_id
+    row["state"] = "working"
+    row["confirmed_at"] = now or _now_iso()
+    doc["updated_at"] = row["confirmed_at"]
+    _dump_registry(doc, path)
+    return row
 
 
 # --------------------------------------------------------------------------- #
@@ -854,6 +937,73 @@ def _self_test() -> int:
     # The correction, so the false pr-opener claim cannot quietly return.
     check("the spawn prompt refutes the `pr-opener drafts everything` claim",
           "THAT IS FALSE" in p, True)
+
+    # --- key uniqueness: a CHECK, not a finer clock (MI-94) ------------------
+    # Every case below pins the SAME timestamp deliberately. A test that varied
+    # the clock would pass against the broken code too, which is exactly how
+    # the second-granular mint survived: nothing ever asked it to mint twice in
+    # one second.
+    same_ts = "2026-09-02T13:34:56Z"
+    empty: Dict[str, Any] = {"sessions": []}
+    k1 = _mint_registry_key(empty, same_ts)
+    check("a key is minted from the timestamp when nothing collides",
+          k1, "pending-20260902T133456Z")
+    one = {"sessions": [{"registry_key": k1}]}
+    k2 = _mint_registry_key(one, same_ts)
+    check("a SECOND mint in the same second does NOT reuse the key", k2 != k1, True)
+    two = {"sessions": [{"registry_key": k1}, {"registry_key": k2}]}
+    k3 = _mint_registry_key(two, same_ts)
+    check("a THIRD mint in the same second is distinct from both",
+          len({k1, k2, k3}), 3)
+    check("the mint preserves the original second in the key, so provenance survives",
+          all(x.startswith("pending-20260902T133456Z") for x in (k1, k2, k3)), True)
+
+    def raises(fn) -> bool:
+        try:
+            fn()
+        except SystemExit:
+            return True
+        return False
+
+    check("a caller-SUPPLIED key that is taken is REFUSED, not silently renamed",
+          raises(lambda: _mint_registry_key(one, same_ts, supplied=k1)), True)
+    check("...but a free supplied key is honoured",
+          _mint_registry_key(one, same_ts, supplied="pending-mine"), "pending-mine")
+    check("registering an already-registered session_id is refused",
+          raises(lambda: _refuse_duplicate_session_id(
+              {"sessions": [{"session_id": "session_01AAAAAAAA"}]},
+              "session_01AAAAAAAA")), True)
+    check("...and a fresh session_id is not",
+          raises(lambda: _refuse_duplicate_session_id(
+              {"sessions": [{"session_id": "session_01AAAAAAAA"}]},
+              "session_01BBBBBBBB")), False)
+
+    # --- confirm() must REFUSE an ambiguous key, never bind the first match --
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as _d:
+        def _reg(rows):
+            q = Path(_d) / "S.json"
+            q.write_text(json.dumps({"sessions": rows}, indent=2,
+                                    ensure_ascii=False) + "\n", encoding="utf-8")
+            return q
+
+        dup = _reg([{"session_id": None, "registry_key": "pending-K", "title": "MI-66"},
+                    {"session_id": None, "registry_key": "pending-K", "title": "MI-70"}])
+        check("confirm() REFUSES a key matching two rows rather than binding the first",
+              raises(lambda: confirm(dup, registry_key="pending-K",
+                                     session_id="session_01NEW")), True)
+        # and it must write NOTHING when it refuses
+        check("...and it wrote nothing when it refused",
+              all(r["session_id"] is None
+                  for r in json.loads(dup.read_text())["sessions"]), True)
+        uniq = _reg([{"session_id": None, "registry_key": "pending-K", "title": "MI-66"},
+                     {"session_id": None, "registry_key": "pending-J", "title": "MI-70"}])
+        confirm(uniq, registry_key="pending-J", session_id="session_01NEW")
+        rows_after = json.loads(uniq.read_text())["sessions"]
+        check("an UNAMBIGUOUS key still confirms the right row",
+              rows_after[1]["session_id"], "session_01NEW")
+        check("...and leaves the other row untouched",
+              rows_after[0]["session_id"], None)
 
     print("session-registry self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1

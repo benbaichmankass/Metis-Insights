@@ -1090,7 +1090,7 @@
     },
     {
       "session_id": "session_01NkekPZw73VYuynYhSdWLWm",
-      "registry_key": "pending-20260902T133456Z",
+      "registry_key": "pending-20260902T133456Z-2",
       "state": "idle",
       "title": "MI-70 — Phase E: prove no work is lost by KILLING a session mid-work",
       "checklist_item": "MI-70",
@@ -1101,11 +1101,12 @@
       ],
       "why": "Phase E exit condition is 'killing a session mid-work loses nothing, DEMONSTRATED by killing one'. Nobody has killed one. This is handoff-bar observation 5 and it is unowned.",
       "last_observed_at": "2026-09-02T15:31:40Z",
-      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z",
+      "registry_key_repaired": "minted second-granular and collided with 1 other row(s) on pending-20260902T133456Z; disambiguated 2026-09-03 by MI-94. The original mint second is preserved in the prefix and in spawned_at."
     },
     {
       "session_id": "session_01XrwTGRY819PCzBnppCTLbi",
-      "registry_key": "pending-20260902T133456Z",
+      "registry_key": "pending-20260902T133456Z-3",
       "state": "idle",
       "title": "MI-69 — A rebase arms auto-merge without anyone asking",
       "checklist_item": "MI-69",
@@ -1116,7 +1117,8 @@
       ],
       "why": "Observed LIVE at 13:19Z: merging main into three sub-session branches armed auto-merge on all three PRs, because the legacy shared marker is still in the workflow paths filter.",
       "last_observed_at": "2026-09-02T14:22:32Z",
-      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z",
+      "registry_key_repaired": "minted second-granular and collided with 2 other row(s) on pending-20260902T133456Z; disambiguated 2026-09-03 by MI-94. The original mint second is preserved in the prefix and in spawned_at."
     },
     {
       "session_id": "session_01ThkrPrGUvmomoY8uGEa148",

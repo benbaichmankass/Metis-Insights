@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "This PR edits scripts/ops/session_registry.py, which pr-landing-guard R12 counts as landing machinery: it generates the spawn prompt that tells every sub-session how to declare its tier and arm auto-merge. The edits are register-side (mint a unique registry_key; make confirm() refuse an ambiguous one) and touch no line of the spawn prompt, but R12's reasoning holds regardless — a change to the rules by which PRs land must not be merged by those rules unread. One read by the manager is all this needs; the tier is not the objection.",
+  "why": "Tier-1 by content: a CI guard (scripts/ci/check_register_ids.py + its run_guards registration), ops tooling (session_registry key uniqueness, manager_preflight merge-driver check), docs, two backlog rows, and a 6/4-line data repair to docs/claude/work/SESSIONS.json. No runtime, no order path, no strategy config, no risk caps, no live-VM file, no deploy unit."
+}
