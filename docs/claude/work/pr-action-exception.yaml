@@ -1,0 +1,55 @@
+# PR ACTION EXCEPTION
+#
+# `scripts/ops/pr_action_gate.py` refuses a manager action on a PR whose AUTHOR
+# SESSION is observed LIVE and has not handed the work back. That refusal is the
+# mechanism working, not an obstacle: on 2026-09-02 a manager un-drafted and
+# armed #10857 while its author was still RUNNING — "because there was no way to
+# ask -- and nothing objected" (docs/claude/CYCLE-PRIORITY.json :: current.why).
+#
+# This file makes an override VISIBLE and ARGUED rather than silent. Filing it is
+# not approval — `decision: pending` still refuses. Only an operator saying yes,
+# with their name and the date on it, permits the action.
+#
+# ⚠️ THERE IS NO `--force` FLAG, AND THAT IS THE POINT. A flag is cheaper to lie
+# to than to satisfy (the `new-table-wiring-guard` lesson: a guard cheaper to lie
+# to than to satisfy is worse than no guard). Overriding this costs a committed,
+# dated file naming the specific PR — readable by every later session.
+#
+# ⚠️ BEFORE YOU FILE ONE, CHECK YOU ACTUALLY NEED IT. The gate already PERMITS
+# three ways, none of which needs an exception:
+#   * the author's own status says `review_ready` / `needs_action` / `blocked` /
+#     `awaiting` — it has handed the PR back, so act freely;
+#   * the author is idle or terminal — an idle session CAN be woken, which is the
+#     remedy rather than the blocker;
+#   * the PR has no author session at all (an `automation/**` branch).
+# The cheapest path is almost always to MESSAGE THE SESSION and let it answer.
+# An exception is for when that is impossible, not when it is inconvenient.
+#
+# GRADED BY `spawn_gate.exception_covers` — THE SAME FUNCTION, imported rather
+# than re-implemented, so this file and `spawn-priority-exception.yaml` cannot
+# drift on what an approval means. Its rules:
+#   * `decision:` must be exactly `approved` (pending / refused / anything else
+#     refuses);
+#   * `covers:` must NAME each PR number as a string. A blanket exception naming
+#     nothing is a permanent bypass wearing an exception's clothes;
+#   * `approved_by` AND `approved_at` must both be present — an approval with
+#     nobody's name on it is a session approving itself.
+
+decision: pending
+
+# PR numbers this exception covers, as strings — e.g. ["10857"]. One entry per
+# PR. Deliberately NOT a branch pattern or a session id: the unit of the refusal
+# is one action on one PR, and a pattern would cover PRs nobody has looked at.
+covers: []
+
+# approved_by: operator (name) — how and where they said yes
+# approved_at: YYYY-MM-DD
+
+reason: >-
+  UNUSED — no override is in force. This file exists so that the escape hatch is
+  a known, reviewable place rather than something invented under pressure, and so
+  that `decision: pending` is what a half-finished override grades as.
+
+  When you fill it in, say WHY THE AUTHOR COULD NOT SIMPLY BE ASKED. That is the
+  only question this exception answers, and "it was faster" is not an answer to
+  it — the measured cost of not asking is #10857.

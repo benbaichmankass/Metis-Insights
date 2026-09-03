@@ -38,9 +38,9 @@
     "deploy, a lease heartbeat, a spawn), never a build."
   ],
   "schema_version": 1,
-  "manager_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-  "updated_at": "2026-09-02T22:16:00Z",
-  "cycle": "CY-20260901-OPERATING-LAYER",
+  "manager_session": "session_01Nopk1HcpvWBSEbZxEmALkd",
+  "updated_at": "2026-09-03T08:25:00Z",
+  "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
     "landed_unproven": "merged; effect NOT yet observed on the fleet",
@@ -1200,7 +1200,7 @@
     {
       "id": "MI-81",
       "title": "The overdue trainer row — observe it, and build the data-freshness alarm if one can be built",
-      "state": "landed_unproven",
+      "state": "done",
       "priority": "P2_OVERHAUL_IMPLEMENTATION",
       "owner": "session_017TRSSpkQ2NZHHxCp8MNXbg",
       "tier": "1 (trainer read; trainer VM is autonomous territory)",
@@ -1209,7 +1209,7 @@
       "done_when": "The row's observation carries what was SEEN (verbatim, with the command) and verified_at is re-dated. The row clears only if the freshness alarm exists AND was shown to fire against planted staleness; otherwise it stays open with the reason. Disk headroom recovering on its own does NOT clear it -- the gap is the missing alarm, not the free space.",
       "owns_object": "WO-20260902-A-DUE-MONITORING-ROW-ON-AN-UNMONITORED",
       "spawned_at": "2026-09-02T18:39:52Z",
-      "note": "#10843 armed for auto-merge 20:44Z; guards/collect/inventory/diag green, pytest-run in flight. Ships the trainer capture alarm keyed on the DATA's mtime, never ActiveState. OBSERVED and worth carrying: the capture has stalled before, unobserved -- 52 of 25,590 row-pairs are not 300s, worst 9600s = 31 bars LOST on a forward-only stream. Clause (a) of OI-20260829-TRAINER stays OPEN: the alarm has run only in a harness, and workflow_dispatch needs the file on main first."
+      "note": "DONE_WHEN MET on both halves, 2026-09-03 (MI-81). ⚠️ STATE WAS `landed_unproven` AND THAT IS NOW WRONG IN THE UNDERSTATING DIRECTION — `landed_unproven` means the effect has NOT been seen on the fleet, and it HAS been. OBSERVE: the trainer's capture was read and the watched path graded `fresh` age=60s against a 1800s threshold. ALARM: BUILT AND SHOWN TO FIRE — run 33719856283 printed `controls_ok=True`, `control_stale: stale age=10800s`, `control_fresh: fresh age=0s`, with the controls planted on the REAL trainer over the real SSH hop and graded by the same function that grades the watched path; quoted from the log, not inferred from step conclusions. Receipt on main at generated_at 2026-09-03T05:41:00Z via commit-to-main's own PR #10892, so the SSH hop, the plant, the grader and commit-to-main were ALL exercised for the first time and all four worked; `scripts/ci/check_trainer_capture_watch.py` now grades `fresh` where it graded `never_ran`, so the guard armed itself. OI-20260829 therefore CLEARS on its clause (a) — its wording asks for exactly this, and tightening a criterion as it is about to be met is not verification. ⚠️ THE ALARM IS PROVEN; ITS CADENCE IS NOT, and that is carried forward as OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED rather than dropped with the cleared row: the proof came from a workflow_dispatch, the SCHEDULE has never produced a successful run (its one attempt, run 33716069132, fired 4.34h after its first eligible slot and failed at the pre-fix pytest step), and NEITHER Telegram alert step has ever executed on any of the workflow's 3 runs. An alarm that runs only when a human presses a button monitors nothing. #10893 MERGED 2026-09-03T07:46Z and the rows were VERIFIED on origin/main afterwards (OPEN-ITEMS 50 rows, OI-20260829 absent, successor present with verified_at 2026-09-03 and its probe declared). `done` here means MERGED AND OBSERVED and both halves hold: the code merged in #10843/#10875, its effect was observed on the fleet in run 33719856283, and the register edit is now on main. [!] THE ALARM'S CADENCE IS STILL UNPROVEN and is NOT part of this item -- it is carried by OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED, which is due 2026-09-06. Closing MI-81 is not a claim that the trainer capture is monitored on a schedule."
     },
     {
       "id": "MI-82",
@@ -1243,21 +1243,23 @@
       "id": "MI-84",
       "title": "SESSIONS.json says 'working' for every session forever — read it as UNRELIABLE until a close-writer exists",
       "state": "in_flight",
-      "owner": "session_01AYPxs3aDHwv3XBLRF4oK15",
+      "owner": "night-manager (session_01AYPxs3aDHwv3XBLRF4oK15)",
       "prs": [],
       "priority": "P1 — read this BEFORE trusting the sub-session registry",
-      "note": "MEASURED 2026-09-02T20:52Z: all 15 sub-sessions the day manager spawned read state='working' while list_sessions reported 14 IDLE / 1 RUNNING. The DATA was corrected by hand in the wrap PR; the WRITER was not built, so the rows go stale again the moment a session goes idle. ⚠️ DO NOT TRUST state IN THIS FILE. Grade a session against a live list_sessions read, and say which. ⚠️ AND DO NOT READ A GREEN session-registry-guard AS COVER: it checks COMPLETENESS (is the row there?) and passed throughout the entire window in which all 15 rows were wrong. Completeness and currency are different properties and only the first has a guard. Full row: BL-20260902-SESSIONS-REGISTRY-HAS-A-SPAWN-WRITER-AND-NO-CLOSE-WRITER-SO-EVERY-ROW-READS-WORKING. The load-bearing half of any fix is a REAPER, not a close verb: a session that dies cannot close itself."
+      "note": "CARRIED FORWARD TO THE MORNING MANAGER. ⚠️ DO NOT TRUST `state` IN SESSIONS.json. RE-MEASURED 2026-09-02T22:00Z by the night manager, and the defect is WORSE than the 20:52Z reading, not better. POPULATION, both sides stated: registry = all 82 rows in SESSIONS.json at origin/main (state distribution: 48 null, 18 `working`, 14 `idle`, 1 `running`, 1 `archived`); live = a `list_sessions(mine=true, limit=100)` read returning 100 sessions (2 WORKING, 74 REVIEW_READY, 19 BLOCKED, 4 COMPLETED, 1 FAILED). RESULT: of the 18 rows the registry calls `working`, live agrees on 1 and DISAGREES on 17. ⚠️ THE ONE IT AGREES ON IS THE NIGHT MANAGER'S OWN ROW — i.e. the only accurate `working` row is the one written minutes ago. Every inherited one is wrong: 17 of 17. The disagreements are not all benign idleness either — they include 1 FAILED (session_01LqVvgvusnN87neBn5ayzhg, the session MI-18 records as archived while its item still reads in_flight) and 9 BLOCKED. A manager reading this file sees 18 sessions working for it; 17 are not, and at least 9 are stuck. ⚠️ STATED LIMIT ON THE LIVE READ: `has_more` was TRUE, so 100 is a CAP, not the full fleet. This does NOT weaken the finding — all 18 registry `working` rows were present in the 100 read (0 absent), so the cross-check is COMPLETE for every row graded. It only means the live fleet is larger than 100. ⚠️ AND DO NOT READ A GREEN session-registry-guard AS COVER: it checks COMPLETENESS (is the row there?), not CURRENCY (is the state true?), and passed throughout the entire window in which every row was wrong. GRADED AGAINST: the live list_sessions read, NOT the file — as the rule requires. Backlog row: BL-20260902-SESSIONS-REGISTRY-HAS-A-SPAWN-WRITER-AND-NO-CLOSE-WRITER-SO-EVERY-ROW-READS-WORKING. The load-bearing half of any fix is a REAPER, not a close verb: a session that dies cannot close itself."
     },
     {
       "id": "MI-85",
       "title": "#10398 has been RED and stalled for 113 hours — the queue watcher's first real catch",
-      "state": "in_flight",
-      "owner": "session_01AYPxs3aDHwv3XBLRF4oK15",
+      "state": "blocked",
+      "owner": "night-manager (session_01AYPxs3aDHwv3XBLRF4oK15)",
       "prs": [
         10398
       ],
-      "priority": "P2 — data-only, but it is 4.7 days of an unattended red PR nobody noticed",
-      "note": "FOUND BY THE MECHANISM, NOT BY A PERSON. pr-queue-watch.yml's cron fired for the FIRST TIME EVER at 2026-09-02T21:16:26Z (run #3, event=schedule) and exited 1 — which is the ESCALATION path working, not a broken workflow. It graded all 6 open PRs and named #10398 at 113.4h. MEASURED: #10398 (chore(m1) econ-calendar PIT snapshots, data-only, auto-merge) has `guards` FAILURE and `pytest-run` FAILURE from 2026-08-29T03:50Z. It has sat red for 4.7 days with nothing driving it. ⚠️ ITS CI RESULT IS MEANINGLESS AS A VERDICT ON THE CHANGE — it ran against a main that is 4.7 days and several hundred commits old, so the red may be entirely inherited. Merge main in and let CI re-run BEFORE concluding anything about the diff. ⚠️ AND DO NOT AUTO-MERGE IT ON GREEN WITHOUT READING IT: it commits economic-calendar point-in-time snapshots captured 2026-08-29, so landing it now writes 4-day-old PIT data. The PR states config/economic_calendar.yaml (live path) is NOT touched — verify that against the diff rather than the description. NOT ACTED ON DELIBERATELY at 21:20Z: the operator's instruction was 'review on their merits, don't race work', and this is an unfamiliar automation PR surfacing during a wind-down. Another 8 hours after 113 costs nothing."
+      "priority": "P2 — DIAGNOSED. The disposition is a judgement call, deliberately not taken.",
+      "note": "DIAGNOSED AGAINST FRESH MAIN — and the diagnosis INVERTS the obvious call. Do not close this PR as stale. (1) THE RED WAS NEVER THE BLOCKER. `mergeable_state` is **dirty** — #10398 has a MERGE CONFLICT, which is also why it shows the total_count-0 check signature. Probed locally by merging fresh origin/main into the PR head: conflicts in exactly 2 files, comms/macro/econ_calendar_snapshots.jsonl and comms/macro/econ_calendar_upcoming.json. Both are DERIVED files that main has regenerated 4 times since (most recently #10711 on 2026-09-02), so main's copies are newer and correct. (2) THE LIVE-PATH CLAIM IS TRUE — verified against the diff rather than the description, as this row asked. `git diff --name-status origin/main...pr10398`, COMPLETE changed-file set n=3: A comms/macro/econ_calendar_captures/US-20260829T034952Z.fxstreet.json, M econ_calendar_snapshots.jsonl, M econ_calendar_upcoming.json. NO path under config/ is touched; config/economic_calendar.yaml is absent from the diff. Data-only under comms/macro/. (3) ⚠️ THE REASON NOT TO CLOSE IT: the capture it carries is a GAP-FILLER, not superseded data. main holds 36 captures running 08-27, 08-28, then 08-30, 08-31, 09-01, 09-02 — 2026-08-29 IS MISSING, and #10398 holds the only copy. main's snapshots.jsonl contains 0 rows mentioning 20260829. So the naive reading ('4-day-old PIT data, close it') would PERMANENTLY LOSE a day from the point-in-time series. (4) THE DISPOSITION IS A JUDGEMENT CALL AND THE NIGHT MANAGER DELIBERATELY DID NOT TAKE IT, per this row's own instruction. The shape of a correct fix is: keep the capture file (new, unique, additive, unconflicted), take MAIN's side of both derived files, then RE-RUN THE PRODUCER so the 08-29 capture is reflected in the series — scripts/macro/econ_calendar_snapshot_backfill.py exists for exactly this. ⚠️ Hand-resolving a conflict in generated point-in-time data would FABRICATE a snapshot no capture produced, which is the one thing PIT data must never contain. That is why this is a decision and not a merge. NOT DONE: CI was not re-run against fresh main, because the branch does not merge cleanly and pushing a hand-made resolution is the very thing being avoided.",
+      "blocked_on": "DEC-20260903-WHAT-TO-DO-WITH-THE-2026-08-29-ECON-CALENDAR-GAP (operator/morning-manager decision)",
+      "blocked_on_basis": "MEASURED 2026-09-02T22:00Z against a FRESHLY FETCHED origin/main, not inferred, and not from the PR's 4.7-day-old CI. This is a real blocker with a dated observation behind it, not a bare-string claim."
     },
     {
       "id": "MI-86",
@@ -1267,7 +1269,108 @@
       "prs": [],
       "priority": "P1 — the handoff itself",
       "note": "Operator said goodnight 2026-09-02T21:40Z. Day manager (session_011JWFxuYAaEQKCFCmG6gnHJ) spawned session_01AYPxs3aDHwv3XBLRF4oK15 against WO-20260902-NIGHT-SHIFT-2026-09-02-03-FINISH, registered it BEFORE the spawn through the gate (capture_idea -> register -> create_session -> confirm), and RELEASED the lease rather than leaving it to the 90-minute TTL, so takeover is immediate. ⚠️ SCOPE IS DELIBERATELY NARROW AND THE NARROWNESS IS THE FINDING: no new spawns, no Tier-2/3, no trader, no Claude Routine, do not merge #10859 (Tier-2, held), do not act on the unauthorised merges (open operator decision). The night manager DOES its own items — an explicit recorded exception to 'the manager does not build', taken because tonight established that a manager cannot see the sessions it spawns. ⚠️ LAST ACT IS THE 05:00Z BRIEF (08:00 Israel, operator-stated). render_daily_brief.py exists and its self-test PASSES (verified 21:30Z); it must be passed --live-sessions and --open-prs or it correctly grades not_observed. ⚠️ CORRECTED 2026-09-02T21:50Z BY THE OPERATOR — 'no Claude Routine' above was an OVER-GENERALISATION and must not be read as a standing rule. Verbatim: \"when I said no cloud routines that wasn't 'don't use that tool', it was don't use that as a Band-Aid for something that needs to be an actual routine. You CAN spawn off cloud routines, especially if that's gonna give you better control over the session.\" What was refused is a session-bound Routine standing in for durable infra (the hourly digest, whose right answer is the VM systemd timer in #10859). Routines ARE allowed, and are explicitly in scope for MANAGER CONTROL over sub-sessions — which is tomorrow's named cycle priority, CY-20260903-MANAGER-CONTROL. ⚠️ HANDOFF DEFECT FOUND AT 22:12Z, 35 MIN AFTER STANDING DOWN: the outgoing manager's two hourly sweep Routines (cron '26 * * * *' and '10 * * * *') kept firing and instructing it to heartbeat the lease, merge and spawn — i.e. to resume managing after it had released. The lease would NOT have caught it: a released lease is legitimately claimable by anyone, the outgoing manager included, so the claim would have SUCCEEDED and produced two concurrent managers. Both deleted manually at 22:14Z. BL-20260902-A-HANDOFF-DOES-NOT-STOP-THE-OUTGOING-MANAGERS-SWEEP-TRIGGERS-SO-IT-KEEPS-BEING-TOLD-TO-MANAGE. ⚠️ ALSO VERIFIED, and it REFINES the documented limit: a session-bound Routine fire reaches a session that is RUNNING, not only an IDLE one. The night manager was SESSION_STATUS_RUNNING when the correction was fired at 21:56:37Z and its task_summary had moved to 'verified routine_scope_correction; brief structurally sound; committing + proceeding' by 22:13Z. Every prompt saying a Routine wakes an *idle* session understates it."
+    },
+    {
+      "id": "MI-87",
+      "title": "The routine_scope_correction did not reach the spawn prompt it was correcting — the night manager acted on the uncorrected text",
+      "state": "queued",
+      "owner": null,
+      "prs": [],
+      "priority": "P1 — a correction that does not reach the artifact carrying the error has not been made",
+      "note": "MEASURED 2026-09-02T22:10Z, and this is the FIFTH instance of the over-generalisation, observed live. docs/claude/CYCLE-PRIORITY.json::routine_scope_correction records the operator correcting the day manager at 21:50Z, verbatim: \"when I said no cloud routines that wasn't 'don't use that tool', it was don't use that as a Band-Aid for something that needs to be an actual routine. You CAN spawn off cloud routines, especially if that's gonna give you better control over the session. That was for that specific thing, not a general rule. I don't want it written into the rules as a general rule.\" That row itself names the four places the hardened version was written — 'a spawn prompt, a checklist row, a work object and a merged PR body'. ⚠️ THE SPAWN PROMPT IT NAMES IS THE NIGHT MANAGER'S, AND THE NIGHT MANAGER WAS SPAWNED AT 21:37:58Z CARRYING THE UNCORRECTED TEXT: 'NO CLAUDE ROUTINE, in any form.' The correction was written at 21:50Z — 12 minutes AFTER the prompt was issued — and nothing propagated it into the prompt, because a prompt is a frozen copy, not a reference. WHAT IT COST, MEASURED, NOT HYPOTHETICAL: the night manager concluded and stated that it could not schedule the operator's 05:00Z brief because Routines were prohibited. That conclusion was FALSE, and the brief — the operator's own stated 08:00-Israel deliverable and this shift's done_condition — was nearly not delivered because of it. It was caught only because the rendered brief happened to surface routine_scope_correction by name and the session followed the reference instead of trusting its prompt. That is luck, not a mechanism. RESOLVED IN-SESSION once caught: Routine trig_01EWqusjwUZtGEZAjz8tekyW created for 2026-09-03T05:00Z. ⚠️ AND IT IS NOT CLEAN — the trigger stores NO MCP connectors, so the fired session may have no list_sessions, no GitHub tools and no add_repo, which means it may be unable to supply live observations OR to push. Its prompt was rewritten to declare a DEGRADED LANE that reports `not_observed` honestly and prints the brief inline rather than faking `all_observed`. TREAT THE 05:00Z BRIEF AS AT RISK, NOT ASSURED. THE GENERAL DEFECT: a correction landed in a register while the error stayed live in a frozen prompt already in flight. Same shape as MI-86 one level up — MI-86 is a stale READ of a store, this is a stale COPY of an instruction, and neither has a mechanism that closes it. A prompt cannot be corrected after issue, so the fix belongs at spawn time: a spawn-time check that reads the live corrections register, or prompts that REFERENCE the register rather than restating it."
+    },
+    {
+      "id": "MI-91",
+      "title": "An unpushed RELEASE strands the successor — the lease handover is most fragile exactly when it happens",
+      "state": "queued",
+      "owner": null,
+      "prs": [
+        10873
+      ],
+      "priority": "P2 — cost is bounded and measured (16 min), but it recurs at EVERY handover",
+      "note": "⚠️ RE-HOMED FROM MI-86 BY THE MANAGER, 2026-09-03, BECAUSE THE ID WAS ALREADY TAKEN. The night manager filed this finding as MI-86 while MI-86 already existed on main as the night-shift handoff row -- so merging the branch as written would have SILENTLY DELETED that row, along with the finding main had since added to it (that a session-bound Routine fire reaches a RUNNING session, not only an IDLE one). Both rows survive: the handoff stays MI-86, this finding becomes MI-91. Nothing in the repo enforces id uniqueness across concurrent branches, and git cannot see the collision because to git it is just a changed value at the same key -- filed as its own defect.\n\nFOUND BY LIVING IT, 2026-09-02. The night manager was spawned at 21:37:58Z and refused to manage for 16 minutes because origin said the lease was held. It was not: the day manager released it at 21:38:05Z, deliberately, with a note naming the incoming session. THE RELEASE REACHED origin ONLY AT 21:41:54Z (f19fd014, #10869). The successor fetched at 21:39:37Z — 2m17s inside that window — read 14f101eb, the last commit still showing state=held, and correctly stood down. ⚠️ THE GUARD WAS RIGHT AND SHOULD NOT BE WEAKENED. manager_preflight.py graded exactly what origin showed; a session must not manage on a lease it observes as held. The bug is the FRESHNESS OF THE FILE, never the strictness of the check. WHY IT IS STRUCTURAL, not bad luck: MANAGER-LEASE.json's own _doc warns about the unpushed window in the CLAIM direction ('a claim you never pushed protects nothing'). This is the SAME window in the RELEASE direction, where the cost is different — an unpushed release STRANDS THE SUCCESSOR. And it lands in the worst possible place: the outgoing manager releases and spawns its successor in the same breath, so the successor's very first read falls inside the window BY CONSTRUCTION. MEASURED COST: 16 minutes of night shift, plus a false accusation ('the spawn prompt lied') published to board #6927 and PR #10871 before the session re-read at 21:54Z and retracted it. The secondary lesson is the session's own: a NEGATIVE EXISTENCE CLAIM ('no release commit exists') from a single read of a store with a known unpushed window is not a measurement. CANDIDATE FIXES, NOT BUILT: (a) make `release --commit` push, or push the release BEFORE spawning the successor — the ordering is the whole bug and this is the cheap sufficient fix; (b) have manager_preflight.py re-fetch once on a held_fresh refusal and report 'held on origin as of <sha> at <time>' instead of bare 'held', so a stale read is VISIBLY stale — it currently reports state with no provenance for the read. NOT A FIX: telling sessions to trust the spawn prompt over the file. ⚠️ SECOND, INDEPENDENT WAY TO MISREAD THE SAME FILE, contributed by the outgoing day manager at 21:56Z and worth as much as the first: `manager_lease.py status` READS THE WORKING TREE, so running it while checked out on a FEATURE BRANCH reports that branch's copy of MANAGER-LEASE.json, not main's. The day manager reports this made IT briefly misreport the lease as HELD too. So there are now TWO distinct stale-read paths into the same wrong answer — a stale FETCH (this session's, the 2m17s window) and a stale CHECKOUT (any session standing on a branch). Both produce a confident, unqualified `held`. That strengthens fix (b) rather than replacing it: the tool should report WHERE and WHEN it read — 'held per <ref> at <sha>, read <time>' — because a reading with no provenance cannot be checked by the person it misleads. ⚠️ ALSO MEASURED: the day manager's correction was queued at 21:56:42Z and DELIVERED to this session at ~22:17Z — a ~20 MINUTE LAG, during which this session had already independently re-read the lease, claimed it, created the 05:00Z Routine and diagnosed MI-85. Cross-session correction is therefore NOT a reliable channel for unblocking a live session; the repo was the faster and more trustworthy one. That is an argument for putting corrections in the REGISTERS, which is where this session actually found them, rather than in messages."
+    },
+    {
+      "id": "MI-88",
+      "title": "The landing route: Tier-1 work lands itself, and a guard that bites",
+      "state": "done",
+      "owner": "session_01HGmBBgMUzjtoGkkBDLaHE6 (archived, COMPLETED)",
+      "note": "MERGED AND OBSERVED. 12 rules, each with a planted-defect self-test proving the guard FAILS on that defect. Its effect was observed within the hour on the MANAGER'S OWN push: R6 refused a request file named `...-z4sjm3-2.txt` because the relay keys on the exact branch slug, so that PR would have gone green and sat unlanded -- the precise failure the route exists to end. ⚠️ THE DIAGNOSIS THAT PRODUCED IT CORRECTED A FALSE CLAIM repeated in three night-shift PR bodies: pr-opener.yml does NOT ignore `draft:false` (line 123 honours it; the step runs `set -uo pipefail`, no -e) -- the request files themselves asked for drafts. The cause was a blanket instruction in the spawn template plus a permissions asymmetry.",
+      "priority": "P1_CYCLE_MANAGER_CONTROL",
+      "prs": "#10894"
+    },
+    {
+      "id": "MI-89",
+      "title": "The manager view: derived session state, a preflight that grades again, a watch that survives",
+      "state": "landed_unproven",
+      "owner": "session_01Kyq3Zpgh6DoujFGAMkyJ9o (archived, COMPLETED)",
+      "note": "MERGED; the manager has NOT yet run manager_view.py in anger, so `done` would overstate it. What IS measured is its finding, reproduced independently: of 82 SESSIONS.json rows, 24 assert live work and 24 of 24 are CONTRADICTED by a live list_sessions read; 5 live sessions appear in no row at all; only 34 of 82 carry a `state` field. That is the argument for DERIVING state rather than storing it. The queue-watch receipt half is armed (Routine prompt updated 07:29Z) but no receipt has been read back yet.",
+      "priority": "P1_CYCLE_MANAGER_CONTROL",
+      "prs": "#10896"
+    },
+    {
+      "id": "MI-90",
+      "title": "AVAX venue-max: own the order-path work orphaned by a dead session",
+      "state": "landed_unproven",
+      "owner": "session_01Q1HYBVoThQdKTWSYQHpm6Y (archived, COMPLETED)",
+      "note": "MERGED on the operator's Tier-2/3 OK. Read the recovered diff adversarially EXPECTING to discard it and found it correct: the 6 recovered tests FAIL on main and pass on the branch, and the ceiling is the venue's own -- Bybit's rejection named max_qty 2200000000000 (=22000), bracketed by an accepted fill at 21657.1 and a rejection at 22995.1. It also corrected a FALSE claim the dead session left on the order path ('can only ever under-size, never place an illegal order' -- both directions are reachable). ⚠️ NOT OBSERVED ON THE FLEET: no AVAX order has been placed under the clamp yet, and no direct lotSizeFilter.maxOrderQty read was possible (Bybit public API geo-blocked from the sandbox). The operator accepted the venue-rejection evidence as sufficient.",
+      "priority": "P1_CYCLE_MANAGER_CONTROL",
+      "prs": "#10900; #10780 closed"
+    },
+    {
+      "id": "MI-92",
+      "title": "Review #10793 on its merits -- the one unauthorised merge whose stated constraint was violated live",
+      "state": "done",
+      "owner": "session_01RYoQ5e8i6B4SCn9kMm2gpB",
+      "note": "MERGED AND OBSERVED ON THE FLEET. #10793 registered /status + /decisions on the TRADER bot under its own title 'HELD, must not reach the trader bot'. Verified live at 08:07Z after the deploy (git_sha == git_sha_on_disk == 0cc217ad, restart_pending false): ClaudeBot restarted 08:00:46Z and logged `registered /status, /decisions (route_state=answerable_here)`; the trader unit restarted 08:01:16Z (PID 311543->322839) with ZERO operator_commands lines across a window of 07:44:46->08:08:30 that DEMONSTRABLY CONTAINS the restart -- the first read used a 5-minute window that did not contain it, and that absence would have proved nothing. ⚠️ THE FEARED GAP DID NOT OCCUR: ClaudeBot registered 29s BEFORE the trader dropped them, so the commands were never absent from both. ✅ OPERATOR CONFIRMED /status ANSWERS IN THE CLAUDEBOT CHAT, 2026-09-03T08:23:05Z -- the last hop no repo surface can read.",
+      "priority": "P1_CYCLE_MANAGER_CONTROL",
+      "prs": "#10904"
+    },
+    {
+      "id": "MI-93",
+      "title": "The refusal half of manager control: block a manager action while the author session is still live",
+      "state": "in_flight",
+      "owner": "session_01A38DipTvNyB843X4gnmA23",
+      "note": "Implements the operator's DEC-20260902-HOW-A-MANAGER-IS-HELD-TO-ITS-MANDATE = `both` (answered 2026-09-03). MI-89 already shipped the derived READ half, so only the refusal remains. Aimed at a measured event: on 2026-09-02 the manager un-drafted and armed #10857 while its author was still RUNNING, because there was no way to ask and nothing objected.",
+      "priority": "P1_CYCLE_MANAGER_CONTROL",
+      "prs": "#10905"
+    },
+    {
+      "id": "MI-94",
+      "title": "Split the monolithic registers so sibling PRs stop colliding",
+      "state": "in_flight",
+      "owner": "session_0174hCi1hhGzUKbtmL4jb8Rc",
+      "note": "MEASURED 2026-09-03: the manager hit register merge conflicts FOUR times in one morning (OPEN-ITEMS, MANAGER-CHECKLIST, SESSIONS, health-review-backlog), each a manual three-way resolution. One CONCEALED AN ID COLLISION git cannot see -- a branch reused MI-86 for a different item, and merging as written would have silently deleted the existing row. This is MI-76, and it is the largest recurring tax on manager throughput.",
+      "priority": "P1_CYCLE_MANAGER_CONTROL",
+      "prs": ""
+    },
+    {
+      "id": "MI-96",
+      "title": "/status must be ONE message with expandable sections, and the ClaudeBot command MENU must populate",
+      "state": "in_flight",
+      "owner": "session_01RYoQ5e8i6B4SCn9kMm2gpB",
+      "note": "TWO OPERATOR REQUIREMENTS ON THE SAME SURFACE, both given directly and both verifiable only by the operator's own eyes. (1) MENU: the command menu button in the chat must list the commands so they can be tapped, not only typed -- routed 07:5xZ. (2) FORMAT, given 2026-09-03T08:53Z, VERBATIM: \"the 'status' message in the claude bot needs to be reformatted - only 1 message each time, with drop-down sections so that i can see the whole summary upfront and decide what sections to dive into\". Telegram's mechanism is the EXPANDABLE BLOCKQUOTE (HTML <blockquote expandable>, or MarkdownV2 **>). ⚠️ THE SUMMARY MUST STAY UNCOLLAPSED -- the operator's words are 'see the whole summary upfront and decide what sections to dive into', so the roll-up is visible and only the per-section DETAIL collapses; collapsing the summary satisfies the letter and defeats the ask. ⚠️ Today /status sends SEVERAL messages; if that is 4096-char chunking, the chunking is what gets replaced, not preserved. If one message still will not fit with everything collapsed, TRUNCATE the lowest-value section and SAY SO -- a silent drop is the collapsed-state failure this repo files bugs about. Both halves fold into #10793 rather than a sibling PR, because a second PR on the same file would collide. DONE-CONDITION for BOTH: the OPERATOR SEES it working in the Claude bot -- not a passing test, not a rendered string in a log. Manager owes the merge + the ict-claude-decision-bot.service restart once CI is green.",
+      "priority": "P1_CYCLE_MANAGER_CONTROL",
+      "prs": "#10793"
+    },
+    {
+      "id": "MI-97",
+      "title": "Four concurrent work threads (Admin / Ops / R&D / Eng) -- agree the model with the operator before anything is built",
+      "state": "waiting",
+      "owner": "operator+manager",
+      "note": "Operator idea, 2026-09-03T08:4xZ, framed explicitly as 'an idea for us to work on together, not a specific plan' and asked to be 'speced and qued'. Captured as WO-20260903-FOUR-CONCURRENT-WORK-THREADS-ADMIN-OPS-R (stage QUESTION, lifecycle dormant). ⚠️ THE DONE-CONDITION IS A WRITTEN AGREEMENT BETWEEN OPERATOR AND MANAGER, NOT A BUILD -- spawning a session to implement threads before the model is agreed is the failure this row exists to prevent. Manager has delivered its read; the open tensions are (a) threads vs intents -- one taxonomy or two, and two will drift; (b) the cycle priority admits exactly ONE priority and the spawn gate refuses displacement, so four daily threads would need an exception every day and the gate degrades into a formality; (c) at a concurrency cap of 3, Ops-daily + R&D-daily commits 2 slots and Admin+Eng share the third; (d) backlog items span threads, which the operator noted; (e) nothing detects a STARVED thread, and that starvation is already happening unlabelled. Folds into the phase-2 joint roadmap review the operator sequenced.",
+      "priority": "P2_OPERATING_MODEL",
+      "prs": ""
+    },
+    {
+      "id": "MI-98",
+      "title": "pr-landing-guard R11 red-locks the ENTIRE automation PR lane -- self-inflicted, same day",
+      "state": "in_flight",
+      "owner": "session_017DxuurbMW5ex5Q1f7xATqW",
+      "note": "MEASURED on #10914 guards job 100580495407 at 08:35:45Z: PASS 45 / FAIL 1 / SKIP 37, sole failure `pr-landing-guard FAILED (state=undeclared)` -> `R11 no landing declaration at .github/pr-landing/automation-work-digest-33730997742-1.json`. scripts/ci/check_pr_landing.py contains ZERO occurrences of automation/exempt/bot[ -- it has no concept of a machine-authored PR, and a generating workflow cannot be told by the branch it creates to write a declaration. POPULATION 09:10Z: 8 open automation PRs, with work-digest and reconcile-open-prs each STACKED THREE DEEP because nothing can merge. ⚠️ NOT COSMETIC: (a) reconcile-open-prs keeps OPEN-PRS.json honest and that is the OPEN-PR half of the handoff contract -- the register that tracks PR staleness is now itself the thing that cannot land; (b) work-digest is the carrier OI-20260902-DIGEST-MOVED-OFF-A-CRON is watching, and a receipt PR that can never merge cannot satisfy its clause (1) -- so this guard can make an open monitoring row read as an unproven carrier when the real cause is downstream of it. MANAGER RULED (do not re-litigate): the generators WRITE their own declaration; exempting automation/** would create an unguarded lane on the guard's first day, the 'cheaper to lie to than to satisfy' failure. ⚠️ SECOND FINDING TO CHECK: #10398 was cut 2026-08-29, BEFORE the guard; if it fails R11 too then the 'could the branch have known' test does not do what its docstring claims, which is worse than the lockout. Routed to MI-95's idle session (guard-system context, costs no slot). Filed as BL-20260903-PR-LANDING-GUARD-RED-LOCKS-EVERY-AUTOMATION-PR. DONE = an automation PR OBSERVED merging green, then the duplicates drained.",
+      "priority": "P1_CYCLE_MANAGER_CONTROL",
+      "prs": ""
     }
   ],
-  "as_of": "2026-09-02T17:20:00Z"
+  "as_of": "2026-09-03T09:25:00Z"
 }

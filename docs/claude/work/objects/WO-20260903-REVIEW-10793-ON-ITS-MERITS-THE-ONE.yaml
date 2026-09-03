@@ -1,0 +1,30 @@
+id: WO-20260903-REVIEW-10793-ON-ITS-MERITS-THE-ONE
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Review #10793 on its merits -- the one unauthorised merge whose stated constraint is violated live
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  #10793 is reviewed on its merits and the review REACHES A DISPOSITION: either the trader-bot registration is ended (constraint honoured) or the operator records that the constraint is withdrawn. ⚠️ A review that concludes 'it works fine' without addressing the stated constraint is NOT a disposition.
+
+why: >-
+  Operator chose keep_all_review_individually for the ten unauthorised merges (2026-09-03). #10793 is first by risk: its own title said 'HELD, must not reach the trader bot', it auto-merged 2026-09-02T18:53:42Z, the service restarted 2s later, and /status + /decisions have been live ON THE TRADER BOT since 18:59:03Z -- with the code logging a WARNING naming the violation as it registered them. The taps are functional, not cosmetic (telegram_query_bot.py:539 carries an elif action == 'wdec' branch).
+
+source: >-
+  operator decision 2026-09-03; docs/audit/held-pr-automerge-2026-09-02.md
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

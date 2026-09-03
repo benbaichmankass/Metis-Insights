@@ -235,6 +235,33 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # ID UNIQUENESS + IDENTITY across the shared registers — the half of
+        # the register-collision problem `merge_json_register.py` CANNOT do.
+        # That driver resolves the TEXTUAL collision (and only client-side);
+        # this catches the SEMANTIC one, where a branch files new work under an
+        # id `main` has already given to something else. To git that is one
+        # changed value at one key, so the merge deletes the existing row and
+        # reports success. It happened on 2026-09-03 (MI-86) and was caught by
+        # a human reading a three-way diff, which is not a mechanism.
+        #
+        # `when: None` — every diff, for the same reason as open-items-guard
+        # above: the registers are written by many concurrent sessions, and the
+        # colliding write is by definition made by someone who did not know the
+        # id was taken. A guard that only fires when someone happens to touch a
+        # register would be checking the one case that needs no checking.
+        #
+        # ⚠️ `--base` is what makes R2/R3 diff-scoped. WITHOUT it the script
+        # runs R1 only and SAYS SO in its report rather than printing a clean
+        # verdict it did not earn.
+        "name": "register-id-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_register_ids.py", "--self-test"],
+            ["python3", "scripts/ci/check_register_ids.py",
+             "--base", "origin/{base_ref}"],
+        ],
+    },
+    {
         # A5 — the WIP ceiling of 8 work objects IN FLIGHT (operating-layer
         # Phase C). ⚠️ THIS IS A DIFFERENT POPULATION FROM open-items-guard
         # ABOVE, and the distinction is load-bearing: the REGISTER is uncapped
@@ -479,6 +506,96 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ops/pr_queue_latency.py", "--self-test"],
             ["python3", "scripts/ci/check_pr_queue_watch.py", "--self-test"],
             ["python3", "scripts/ci/check_pr_queue_watch.py"],
+        ],
+    },
+    {
+        # THE MANAGER'S OWN TOOLING MUST BE ABLE TO GRADE.
+        #
+        # ⚠️ THIS ENTRY EXISTS BECAUSE ITS ABSENCE WAS MEASURED, not on principle.
+        # On the morning of 2026-09-03 `manager_preflight.py --self-test` refused
+        # to grade -- the manager's own gate was unusable -- and NOTHING in CI
+        # noticed, because no guard ran it. The cause was environmental: an
+        # assertion read `count_autonomous_actions(2020) > 100`, a claim about
+        # CLONE DEPTH rather than about the behaviour under test, so it passed on
+        # a full clone (4043 commits) and failed on a `--depth=50` one (50). The
+        # assertion is now an equality against the count git itself reports, which
+        # is both stronger and depth-independent -- verified passing at depth 1,
+        # depth 50 and full.
+        #
+        # ⚠️ DEPTH-INDEPENDENCE IS WHAT MAKES THIS SAFE TO WIRE. A guard that
+        # assumed full history would fail under `actions/checkout`'s default
+        # `fetch-depth: 1`, i.e. it would red every PR for an environmental
+        # reason -- exactly the shape that gets a guard deleted instead of fixed.
+        #
+        # ⚠️ IT GRADES THE TOOLING, NEVER THE MANAGER. A contributor's PR does not
+        # go red because a preflight CHECK fails on live state -- only the bare
+        # `--self-test` runs here, which is a pure planted-failure suite over pure
+        # functions. The preflight's live verdict stays the manager's to run.
+        #
+        # `when: None`: this tooling can break from a change to anything it
+        # imports (`session_registry`, `manager_lease`), not only from a diff that
+        # touches its own file.
+        "name": "manager-tooling-selftests",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/manager_preflight.py", "--self-test"],
+            ["python3", "scripts/ops/manager_view.py", "--self-test"],
+            ["python3", "scripts/ops/handoff_check.py", "--self-test"],
+            # The REFUSAL half of the same pair (MI-93). Its suite is pure —
+            # planted inputs through pure functions, no clone depth, no network,
+            # no MCP — so it is depth-independent for the same reason the three
+            # above are, and cannot red a PR for an environmental reason.
+            #
+            # ⚠️ ONLY THE `--self-test` RUNS HERE, NEVER THE GATE. The gate needs
+            # a live `list_sessions` read that CI cannot make, so wiring the gate
+            # itself would grade every PR `unknown` forever — a permanently amber
+            # check is one everyone learns to walk past, which is the
+            # desensitised-alarm failure its own docstring argues against.
+            ["python3", "scripts/ops/pr_action_gate.py", "--self-test"],
+        ],
+    },
+    {
+        # DOES ANYTHING NOTICE IF THE MANAGER QUEUE WATCH ROUTINE DIES?
+        # `trig_01TWdAvrwFLe6T9XFoNopTeo` (cron `56 * * * *`) spawns a FRESH
+        # session hourly to check whether the manager is sitting on blocked
+        # sub-sessions -- a check NOT invoked by the actor it checks, which is
+        # why it works. Measured 2026-09-03 over all 25 Routines `list_triggers`
+        # returned for this account, it is the ONLY cron-driven one; the other 24
+        # are one-shot pokes at `next_run_at: 0001-01-01`. So there was exactly
+        # one recurring watcher and nothing watching IT.
+        #
+        # ⚠️ THE EXISTING LATCH COULD NOT HAVE ANSWERED THIS, which is why a new
+        # receipt exists rather than a new read of an old file.
+        # `QUEUE-WATCH-STATE.json` is written only when a page FIRES, so on a
+        # quiet queue it is never written and its absence collapses "the Routine
+        # never ran" into "the Routine ran and had nothing to say" -- opposite
+        # facts, one value. `queue_latency.py --write-receipt` now writes
+        # `MANAGER-QUEUE-WATCH.json` on EVERY run, and this grades its age.
+        #
+        # ⚠️ IT GRADES THE ROUTINE'S LIVENESS, NEVER THE QUEUE'S DEPTH. A
+        # contributor's PR must not go red because the manager is sitting on
+        # blocked sub-sessions -- the same objection this file already records
+        # against the pr-queue-watch and trainer-capture entries. The depth is
+        # PRINTED here and escalated by the Routine's own run.
+        #
+        # ⚠️ `never_ran` PASSES and that is correct rather than lenient: it is the
+        # accurate reading until the Routine next fires with `--write-receipt`,
+        # and failing on it would red every PR on the day this merges -- which is
+        # how a guard gets disabled instead of fixed. It arms itself on the first
+        # receipt.
+        #
+        # `when: None`: a Routine can die without any PR touching its files,
+        # which is precisely the case that must be caught.
+        "name": "manager-queue-watch-guard",
+        "when": None,
+        "steps": [
+            # Both directions, on both halves -- a planted defect fires and a
+            # clean input stays quiet. One direction proves a check runs, never
+            # that it discriminates.
+            ["python3", "scripts/ops/queue_latency.py", "--self-test"],
+            ["python3", "scripts/ops/manager_state_watch.py", "--self-test"],
+            ["python3", "scripts/ci/check_manager_queue_watch.py", "--self-test"],
+            ["python3", "scripts/ci/check_manager_queue_watch.py"],
         ],
     },
     {
@@ -1432,6 +1549,97 @@ GUARDS: List[Dict[str, Any]] = [
         "when": None,
         "steps": [["python3", "scripts/ci/check_automerge_trigger.py", "--self-test"],
                   ["python3", "scripts/ci/check_automerge_trigger.py"]],
+    },
+    {
+        "name": "pr-landing-guard",
+        # Every PR declares its TIER and how it means to LAND, and the
+        # declaration is checked against the diff rather than taken on trust.
+        #
+        # WHY IT IS UNGATED. The condition is a property of the PR — did this
+        # branch declare, and does the declaration match what it changed — not
+        # of any particular file it touched. A diff-scoped version would fire
+        # only when someone edits the landing machinery, which is exactly the
+        # PR least in need of it and never the ordinary PR that quietly asks to
+        # merge without declaring. Same reasoning as `automerge-trigger-guard`
+        # directly above.
+        #
+        # WHY IT IS SURVIVABLE ON DAY ONE. Requiring a declaration on every PR
+        # would otherwise red every branch already open when this merges — 6 of
+        # them (population: every open PR from `list_pull_requests` state=open,
+        # 2026-09-03), whose authoring sessions are mostly dead and cannot add
+        # the file. Failing them is how a guard gets disabled instead of fixed
+        # (`check_pr_queue_watch.py` records that reasoning). So the checker
+        # asks whether ITSELF existed at the branch's merge-base: a branch cut
+        # before the rule passes `undeclared_predates_guard`, loudly and
+        # counted. It arms itself as those branches drain and there is no flag
+        # to unset. ⚠️ The DANGEROUS direction is NOT grandfathered — arming
+        # auto-merge with no valid declaration fails at any age.
+        #
+        # THE TEETH ARE THE MERGE GATE, NOT AN ALARM. Auto-merge merges only on
+        # green and this is a required check, so a branch that arms while
+        # under-declaring its tier holds itself out of `main` by failing its
+        # own guard.
+        #
+        # Self-test FIRST, and it carries POSITIVE controls as well as plants:
+        # the failure paths here refuse work, so a guard that started refusing
+        # correct PRs would be worse than the problem it fixes.
+        #
+        # The real check is `pr_only` — a push/`--all` run has no branch to
+        # grade, and the checker reports `not_a_pr` rather than a pass.
+        # Costs ~2s: a few `git` plumbing calls plus one small JSON read.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_pr_landing.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_pr_landing.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
+        ],
+    },
+    {
+        # THE MANAGER SESSION ONLY MANAGES — as a check, not a paragraph.
+        # `CLAUDE.md` has carried the operator's rule verbatim since
+        # 2026-09-01; the 2026-09-03 day manager read it at session start and
+        # was caught doing items the same morning. Adding emphasis to a rule
+        # that was read and disobeyed is the non-fix this repo has paid for
+        # three times (MI-15 twice, and
+        # BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY-AND-STATUS-REPORTS-IT-AS-CURRENT).
+        # So: a manager COMMIT touching a worker path fails, named.
+        #
+        # WHO IS THE MANAGER IS DERIVED, NOT DECLARED — from the git history of
+        # MANAGER-LEASE.json (3 sessions across 59 revisions) joined to each
+        # commit's `Claude-Session:` trailer. Branch name was measured and
+        # REJECTED: `claude/risk-manager-backstop` is a worker branch and
+        # `claude/openprs-prune-merged-rows` is a manager one.
+        #
+        # ⚠️ PER-COMMIT, NOT PER-BRANCH-DIFF, and that is the whole point. The
+        # accused acts — resolving conflicts on OTHER sessions' PRs — never
+        # appear in the manager's own PR. A branch-diff check would be blind to
+        # exactly the failure it exists for.
+        #
+        # NOT A WALL — measured before wiring. Replayed over commits on
+        # origin/main since 2026-09-01: the 2026-09-02 manager grades 75 clean
+        # / 31 failing; the night manager 2 / 0; the 2026-09-03 manager
+        # (the one the directive is about) 5 / 0. It bites where the building
+        # actually happened.
+        #
+        # `when: None` for check_pr_landing's reason: what trips this is a
+        # COMMIT, which may touch no file the predicate would match. Costs a few
+        # `git` plumbing calls over the branch's own commits only.
+        "name": "manager-scope-guard",
+        "when": None,
+        "steps": [
+            # Self-test FIRST, with plants AND controls: this guard REFUSES
+            # work, so one that started failing correct PRs would be worse than
+            # the problem it fixes.
+            ["python3", "scripts/ci/check_manager_scope.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_manager_scope.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
+        ],
     },
     {
         "name": "collapsed-state-guard",

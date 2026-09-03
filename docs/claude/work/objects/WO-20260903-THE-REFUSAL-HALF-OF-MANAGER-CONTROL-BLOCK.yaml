@@ -1,0 +1,76 @@
+id: WO-20260903-THE-REFUSAL-HALF-OF-MANAGER-CONTROL-BLOCK
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The refusal half of manager control: block a manager action on a PR whose author session is still live
+stage: CAPABILITY
+lifecycle: waiting
+owner: session_01A38DipTvNyB843X4gnmA23
+opened_at: 2026-09-03
+closed_at: null
+review_trigger: >-
+  When PR #10905 merges or is closed.
+done_condition: >-
+  A manager action on a PR whose author session is OBSERVED live is REFUSED by a mechanism, and the refusal is seen firing on a real attempt -- not asserted from a test. The refusal must read a LIVE observation, never a stored registry state.
+
+why: >-
+  Operator decision DEC-20260902-HOW-A-MANAGER-IS-HELD-TO-ITS-MANDATE = 'both', answered 2026-09-03. MI-89 (#10896) already delivers the derived READ half; only the refusal remains. Aimed at a measured event: on 2026-09-02 the manager un-drafted and armed #10857 while its author was still RUNNING, because there was no way to ask and nothing objected.
+
+source: >-
+  operator decision 2026-09-03
+
+blocked_on:
+  - kind: external_event
+    ref: "PR #10905 merging, and then a manager actually INVOKING the gate"
+    since: 2026-09-03
+    note: >-
+      ⚠️ MEASURED and NOT-MEASURED are separated here deliberately, because the
+      done_condition above turns on exactly that line.
+
+      MEASURED — the gate discriminates on LIVE data. Population: all 8 open PRs
+      on benbaichmankass/Metis-Insights plus a 100-row `list_sessions(mine=true)`
+      page (91 idle, 6 archived, 3 running), read 2026-09-03T~07:2xZ. It REFUSED
+      #10895, whose author session_018ruZdgEkPZ1XceWzLwuYUU was genuinely
+      RUNNING, and PERMITTED the other 7 (two of them `no_author` automation
+      PRs). `run_guards.py --base main` PASS 83 / FAIL 0 / SKIP 0 after
+      committing; 46 planted-failure self-test cases; 38 pytest cases.
+
+      NOT MEASURED — that any manager will RUN it. That is what this edge names,
+      and it is the whole residual risk: the done_condition asks for the refusal
+      "seen firing on a real attempt -- not asserted from a test", and a live
+      run against 8 real PRs is still not a manager standing down from an action
+      it meant to take. A refusal nobody invokes is indistinguishable from no
+      refusal, which is the shape of
+      OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT.
+
+      ⚠️ AND THE GATE IS DELIBERATELY NOT WIRED INTO CI, so nothing forces its
+      use. CI holds no `mcp__*` tools and could only ever grade the liveness
+      input `unknown`, and a permanently-amber check is one everyone learns to
+      walk past. That trade is argued in the module docstring rather than
+      assumed, and it is why this edge exists instead of a claim of completion.
+
+blocked_on_basis: >-
+  ASSESSED 2026-09-03 by session_01A38DipTvNyB843X4gnmA23, from a live read
+  rather than inherited. The work is built and pushed; the only thing between it
+  and `done` is an event outside this session's reach.
+
+captured_by: scripts/ops/capture_idea.py
+
+# ⚠️ THIS FILE IS THE MANAGER'S. The sub-session changed only `lifecycle`,
+# `owner`, `review_trigger` and `blocked_on`; `why`, `source`, `title`, `type`,
+# `stage` and especially `done_condition` are the manager's, kept VERBATIM.
+# Theirs is authoritative on intent, and their done_condition ("seen firing on a
+# real attempt -- not asserted from a test") is stronger than the reconstruction
+# the sub-session had written from its dispatch brief before this file appeared.
+#
+# ⚠️ DATED OBSERVATION, recorded because the gap is real and NOT because it is
+# still true: when MI-93 was dispatched at ~07:08Z naming this object as its
+# parent, NO FILE EXISTED — checked against `docs/claude/work/objects/`, where
+# the three sibling units of the same wave (MI-88, MI-89, MI-90) all had one.
+# The manager authored it later the same morning. It is worth keeping because
+# `spawn_gate.grade` rule 2 REFUSES a spawn whose object id names no file ("a
+# parent that does not exist is not a parent"), so this spawn would have been
+# refused had it gone through the gate — the measured hole `spawn_gate.py`'s own
+# docstring names: it binds only spawns that go through `register`, and is
+# routed around by writing a `create_session` prompt by hand.
+observed_by: session_01A38DipTvNyB843X4gnmA23

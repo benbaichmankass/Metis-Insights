@@ -866,6 +866,72 @@ def check_register_edits(base: str, open_prs: Optional[List[Dict[str, Any]]]
 
 
 # --------------------------------------------------------------------------
+# 7b · merge_driver — is the register merge driver actually ARMED in this clone?
+# --------------------------------------------------------------------------
+def merge_driver_installed() -> Optional[bool]:
+    """True/False if we could read this clone's git config; None if we could not."""
+    try:
+        out = subprocess.run(["git", "config", "--get", "merge.jsonregister.driver"],
+                             capture_output=True, text=True, timeout=30,
+                             cwd=str(REPO_ROOT))
+    except (OSError, subprocess.SubprocessError):
+        return None
+    # rc 1 with empty output is git's "not set", which is an ANSWER, not a failure.
+    if out.returncode not in (0, 1):
+        return None
+    return bool(out.stdout.strip())
+
+
+def check_merge_driver() -> Dict[str, Any]:
+    """The register merge driver is CLIENT-SIDE, and a fresh clone does not have it.
+
+    ⚠️ **THIS IS THE GAP BETWEEN A REMEDY SHIPPING AND A REMEDY WORKING.**
+    MI-76 landed `.gitattributes` + `scripts/ops/merge_json_register.py` and
+    proved it resolves real register conflicts. But `git` deliberately refuses
+    to take a merge-driver executable path from a tracked file — cloning a repo
+    would otherwise run its code — so **every clone must opt in once**, and
+    nothing in `SessionStart`, in any skill, or in CI does it.
+
+    Measured 2026-09-03 on a fresh clone of `main` @`855397f6`, two sibling
+    branches each appending one row to the same register:
+
+        driver NOT installed   OPEN-ITEMS / MANAGER-CHECKLIST / SESSIONS /
+                               health-review-backlog -> 4 of 4 CONFLICT
+        driver installed       MANAGER-CHECKLIST / SESSIONS /
+                               health-review-backlog -> 3 of 3 CLEAN
+
+    So an un-armed clone reproduces exactly the four hand-resolutions the
+    manager paid for on the morning of 2026-09-03. This check is a `FAIL`
+    rather than a note because the cost of missing it is paid silently, by
+    whoever merges next, in manual three-way resolution.
+
+    ⚠️ It does NOT claim GitHub will auto-merge those PRs. A custom merge driver
+    is client-side only; a `mergeable_state: dirty` PR is still dirty on GitHub.
+    What the driver removes is the cost of resolving it BY HAND, locally.
+    """
+    state = merge_driver_installed()
+    if state is None:
+        return _c("merge_driver", UNKNOWN,
+                  "`git config --get merge.jsonregister.driver` could not be run, so "
+                  "whether this clone can merge the registers row-aware is "
+                  "unestablished. WE DID NOT LOOK.")
+    if not state:
+        return _c("merge_driver", FAIL,
+                  "the register merge driver is NOT armed in this clone. "
+                  "`.gitattributes` names it but git will not take an executable "
+                  "path from a tracked file, so every clone must opt in once and "
+                  "this one has not. Measured on a fresh clone: sibling appends "
+                  "conflict in 4 of 4 registers without it and 0 of 3 with it. "
+                  "Run `scripts/ops/install_merge_driver.sh` — it is idempotent, "
+                  "takes a second, and only edits THIS clone's git config.",
+                  remedy="scripts/ops/install_merge_driver.sh")
+    return _c("merge_driver", PASS,
+              "the register merge driver is armed in this clone, so a sibling "
+              "register append merges row-aware instead of by line. (Client-side "
+              "only — GitHub still reports a conflicted PR as dirty.)")
+
+
+# --------------------------------------------------------------------------
 # 8 · blocked_claims
 # --------------------------------------------------------------------------
 #: Edge kinds that name something INSIDE the repo, whose state a reader can go
@@ -1000,6 +1066,7 @@ def run(observation: Optional[Any] = None, manager_session_id: Optional[str] = N
         check_subsession_queue(obs, reg, reg_ok, enforced),
         check_bot_authored_head(base),
         check_register_edits(base, open_prs),
+        check_merge_driver(),
         check_blocked_claims(ck, ck_ok),
         check_lease(lease, lease_ok, manager_session_id),
     ]
@@ -1155,10 +1222,43 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
     check("A FAR-FUTURE CUTOFF COUNTS ZERO COMMITS — git's --since would return ALL",
           count_autonomous_actions(_parse_ts("2999-01-01T00:00:00+00:00"), None,
                                    "HEAD")[0], 0)
-    check("...while a 2020 cutoff still counts this repo's whole history, so the "
-          "assertion above is not vacuously zero",
+    # ⚠️ THE DENOMINATOR IS MEASURED FROM THIS CLONE, NEVER ASSUMED — and the
+    # repair is the point of the case rather than a tidy-up.
+    #
+    # This pair used to end `... [0] > 100`, which is a claim about CLONE DEPTH,
+    # an environmental property, and NOT about the behaviour under test. It took
+    # the whole preflight down on 2026-09-03: the manager reported
+    # `manager_preflight.py --self-test` refusing to grade, with
+    #     "a 2020 cutoff still counts this repo's whole history, so the assertion
+    #      above is not vacuously zero: got False want True"
+    # Reproduced verbatim (population: two clones of `main` @ bdbf090c taken the
+    # same hour) — a FULL clone passes at 4043 commits reachable, and a
+    # `git clone --depth=50` clone FAILS at 50, because 50 is not > 100.
+    #
+    # THE TOOL WAS RIGHT AND THE TEST WAS WRONG. Measured in that same shallow
+    # clone, `count_autonomous_actions` returned 50 for the 2020 cutoff (all 50
+    # reachable) and 0 for the far-future cutoff — i.e. it did exactly what the
+    # pair exists to pin, while the assertion about it failed.
+    #
+    # So the threshold is replaced by an EQUALITY against the count git itself
+    # reports. That is strictly STRONGER than `> 100` — it pins the exact number
+    # instead of a floor — and it is depth-independent, so it grades the same in
+    # a shallow CI checkout, a depth-50 container clone and a full clone.
+    # It is NOT weakened to pass: `> 100` never once ruled out an over-count.
+    reachable = _git(["rev-list", "--count", "HEAD"])
+    reachable_n = int(reachable.strip()) if reachable and reachable.strip().isdigit() else None
+    # ⚠️ FIRST, PROVE THE PROBE CAN FIND A POSITIVE (RULE ONE: a negative result
+    # needs a denominator). If git could not be run, or this clone has no
+    # reachable commits, the far-future zero above is VACUOUS — and that must
+    # fail LOUDLY here rather than pass quietly, which is what a bare equality
+    # would do when both sides are `None`.
+    check("the probe can find a POSITIVE at all — without this the far-future "
+          "zero above is vacuous, and `we could not count` is not a pass",
+          (reachable_n or 0) > 0, True)
+    check("...so a 2020 cutoff counts EVERY commit reachable in THIS clone "
+          "(measured denominator, not a depth assumption)",
           count_autonomous_actions(_parse_ts("2020-01-01T00:00:00+00:00"), None,
-                                   "HEAD")[0] > 100, True)
+                                   "HEAD")[0], reachable_n)
 
     # 5 · subsession_queue
     reg1 = {"sessions": [{"session_id": "s1", "state": "working"}]}
@@ -1249,6 +1349,28 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
           check_lease(None, False, "S1")["state"], UNKNOWN)
     check("no --session-id cannot establish that YOU hold it -> UNKNOWN",
           check_lease(mine, True, None)["state"], UNKNOWN)
+
+    # --- merge_driver (MI-94) -------------------------------------------------
+    # Driven through the module-level reader so the three states are exercised
+    # without touching the real git config. The UNKNOWN case is the one worth
+    # planting: `git config --get` exits 1 for "not set", so a naive
+    # implementation that treats any non-zero rc as a failure would report
+    # "we could not look" for the single most common real state — an un-armed
+    # clone — and the FAIL that costs a hand-resolution would never be seen.
+    _real = globals()["merge_driver_installed"]
+    try:
+        for planted, want, label in (
+            (True, PASS, "an ARMED clone passes"),
+            (False, FAIL, "an UN-ARMED clone FAILS (this is the 4-of-4 conflict case)"),
+            (None, UNKNOWN, "an unreadable git config is UNKNOWN, never a pass"),
+        ):
+            globals()["merge_driver_installed"] = lambda p=planted: p
+            check(f"merge_driver: {label}", check_merge_driver()["state"], want)
+    finally:
+        globals()["merge_driver_installed"] = _real
+    check("merge_driver: the real reader returns a definite answer, not None, "
+          "in a normal clone",
+          merge_driver_installed() is not None, True)
 
     if not quiet:
         print("manager-preflight self-test:", "PASS" if not failures else "FAIL")

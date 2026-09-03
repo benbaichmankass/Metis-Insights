@@ -1,0 +1,30 @@
+id: WO-20260903-CANONIZE-THE-MANAGER-WORKER-DIVISION-AS-A
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Canonize the manager/worker division as a mechanism that bites, not a paragraph
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A manager PR that carries a WORKER item FAILS a check that names the offending path, OBSERVED firing on a real manager branch -- not asserted from a test. AND the manager surface is DERIVED from measurement of what managers actually touched, not asserted by whoever writes the guard.
+
+why: >-
+  CLAUDE.md already says verbatim 'the manager session only manages and does not take even small items, because that means they're not focused on what they're actually supposed to be doing.' The 2026-09-03 day manager READ that line at session start and violated it repeatedly anyway: it hand-resolved 4 register merge conflicts, fixed guard failures on branches, diagnosed the ClaudeBot menu by reading source and journals, and authored 4 backlog rows. Operator, 2026-09-03: 'you shouldn't be solving things on your own. That should be canonized in how manager sessions work. If you're doing items, that means you're not focused on the management part.' ⚠️ THE PROSE IS NOT THE GAP -- it exists and was read. Nothing bites.
+
+source: >-
+  operator directive 2026-09-03
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

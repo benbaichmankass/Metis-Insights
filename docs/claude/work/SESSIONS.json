@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-03T05:43:29Z",
+  "updated_at": "2026-09-03T08:38:06Z",
   "updated_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
   "sessions": [
     {
@@ -1090,7 +1090,7 @@
     },
     {
       "session_id": "session_01NkekPZw73VYuynYhSdWLWm",
-      "registry_key": "pending-20260902T133456Z",
+      "registry_key": "pending-20260902T133456Z-2",
       "state": "idle",
       "title": "MI-70 — Phase E: prove no work is lost by KILLING a session mid-work",
       "checklist_item": "MI-70",
@@ -1101,11 +1101,12 @@
       ],
       "why": "Phase E exit condition is 'killing a session mid-work loses nothing, DEMONSTRATED by killing one'. Nobody has killed one. This is handoff-bar observation 5 and it is unowned.",
       "last_observed_at": "2026-09-02T15:31:40Z",
-      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z",
+      "registry_key_repaired": "minted second-granular and collided with 1 other row(s) on pending-20260902T133456Z; disambiguated 2026-09-03 by MI-94. The original mint second is preserved in the prefix and in spawned_at."
     },
     {
       "session_id": "session_01XrwTGRY819PCzBnppCTLbi",
-      "registry_key": "pending-20260902T133456Z",
+      "registry_key": "pending-20260902T133456Z-3",
       "state": "idle",
       "title": "MI-69 — A rebase arms auto-merge without anyone asking",
       "checklist_item": "MI-69",
@@ -1116,7 +1117,8 @@
       ],
       "why": "Observed LIVE at 13:19Z: merging main into three sub-session branches armed auto-merge on all three PRs, because the legacy shared marker is still in the workflow paths filter.",
       "last_observed_at": "2026-09-02T14:22:32Z",
-      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z"
+      "observed_by": "session_011JWFxuYAaEQKCFCmG6gnHJ via list_sessions 2026-09-02T20:52Z",
+      "registry_key_repaired": "minted second-granular and collided with 2 other row(s) on pending-20260902T133456Z; disambiguated 2026-09-03 by MI-94. The original mint second is preserved in the prefix and in spawned_at."
     },
     {
       "session_id": "session_01ThkrPrGUvmomoY8uGEa148",
@@ -1286,6 +1288,67 @@
       "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
       "why": "Cycle priority CY-20260903-MANAGER-CONTROL: the manager cannot SEE its own sessions.",
       "confirmed_at": "2026-09-03T05:43:29Z"
+    },
+    {
+      "session_id": "session_01Q1HYBVoThQdKTWSYQHpm6Y",
+      "registry_key": "pending-20260903T061749Z",
+      "state": "working",
+      "title": "MI-90 — AVAX venue-max: own the orphaned order-path work, or record why not",
+      "owns_object": "WO-20260903-AVAX-VENUE-MAX-OWN-THE-ORDER-PATH",
+      "checklist_item": "MI-90",
+      "spawned_at": "2026-09-03T06:17:49Z",
+      "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
+      "why": "PR #10780: ~320 lines of order-path work recovered from a dead session, unreviewed and unowned. Operator decision 2026-09-03.",
+      "confirmed_at": "2026-09-03T06:18:30Z"
+    },
+    {
+      "session_id": "session_01RYoQ5e8i6B4SCn9kMm2gpB",
+      "registry_key": "pending-20260903T070814Z",
+      "state": "working",
+      "title": "MI-92 — review #10793 on its merits: the live constraint violation",
+      "owns_object": "WO-20260903-REVIEW-10793-ON-ITS-MERITS-THE-ONE",
+      "checklist_item": "MI-92",
+      "spawned_at": "2026-09-03T07:08:14Z",
+      "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
+      "why": "operator decision 2026-09-03",
+      "confirmed_at": "2026-09-03T07:10:18Z"
+    },
+    {
+      "session_id": "session_01A38DipTvNyB843X4gnmA23",
+      "registry_key": "pending-20260903T070814Z-b",
+      "state": "working",
+      "title": "MI-93 — the refusal half of manager control",
+      "owns_object": "WO-20260903-THE-REFUSAL-HALF-OF-MANAGER-CONTROL-BLOCK",
+      "checklist_item": "MI-93",
+      "spawned_at": "2026-09-03T07:08:14Z",
+      "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
+      "why": "operator decision 2026-09-03",
+      "registry_key_note": "⚠️ DISAMBIGUATED BY THE MANAGER, 2026-09-03. session_registry.py mints the key from a SECOND-granular UTC timestamp, so two spawns registered inside the same second collide. It happened here (MI-92 and MI-93) and it had already happened on 2026-09-02 (pending-20260902T133456Z, duplicated and unnoticed). A colliding key is not cosmetic: `confirm --registry-key` matches by key, so it can bind a live session id to the WRONG row -- silently mis-attributing a session, which is the exact failure this registry exists to prevent. Filed as its own defect; the key derivation needs a uniqueness check, not a finer clock.",
+      "confirmed_at": "2026-09-03T07:10:19Z"
+    },
+    {
+      "session_id": "session_0174hCi1hhGzUKbtmL4jb8Rc",
+      "registry_key": "pending-20260903T073110Z",
+      "state": "working",
+      "title": "MI-94 — split the monolithic registers so sibling PRs stop colliding",
+      "owns_object": "WO-20260903-THE-MONOLITHIC-REGISTERS-COLLIDE-ON-EVERY-SIBLING",
+      "checklist_item": "MI-94",
+      "spawned_at": "2026-09-03T07:31:10Z",
+      "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
+      "why": "Four register conflicts in one morning; one concealed an id collision git cannot see.",
+      "confirmed_at": "2026-09-03T07:31:50Z"
+    },
+    {
+      "session_id": "session_017DxuurbMW5ex5Q1f7xATqW",
+      "registry_key": "pending-20260903T083712Z",
+      "state": "working",
+      "title": "MI-95 — canonize the manager/worker division as a mechanism that bites",
+      "owns_object": "WO-20260903-CANONIZE-THE-MANAGER-WORKER-DIVISION-AS-A",
+      "checklist_item": "MI-95",
+      "spawned_at": "2026-09-03T08:37:12Z",
+      "spawned_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
+      "why": "Operator directive 2026-09-03: the manager manages, does not take items. The prose exists and was violated the same day it was read.",
+      "confirmed_at": "2026-09-03T08:38:06Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it."

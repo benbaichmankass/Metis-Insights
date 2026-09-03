@@ -1,0 +1,2 @@
+MI-93 — the refusal half of manager control (pr_action_gate.py).
+Tier-1 manager tooling; the PATH of this file is the signal.

@@ -224,6 +224,48 @@ flag that asserts the registry is fine: *asserting it is what failed twice.*
 Exit codes 0 / 3 / 4 keep the three apart, so a caller cannot treat "we could
 not look" as a pass.
 
+### Before acting on someone else's PR: `pr_action_gate.py`
+
+```bash
+python3 scripts/ops/pr_action_gate.py --pr 10857 --action undraft \
+    --live-sessions <(the list_sessions output) \
+    --open-prs      <(the list_pull_requests output)
+```
+
+`handoff_check` above asks *may this manager hand over?*; this asks **may it
+un-draft, arm, merge or close THIS PR right now?** It refuses exactly one
+condition: **the PR's author session is observed LIVE and has not handed the
+work back.**
+
+It exists because that refusal did not, and the cost is measured —
+`docs/claude/CYCLE-PRIORITY.json :: current.why` clause (3): a manager
+*"undrafted and armed #10857 while its author was still RUNNING, because there
+was no way to ask -- and nothing objected."*
+
+⚠️ **LIVENESS COMES ONLY FROM THE LIVE OBSERVATION, NEVER FROM
+`SESSIONS.json::state`.** MI-84 measured 17 of 17 inherited `working` rows
+wrong. A refusal keyed on stored state would refuse on stale data and be
+switched off within a day. The register is consulted **only** to answer *who
+authored this branch* — an immutable historical fact — and the PR body's own
+`claude.ai/code/session_{id}` footer outranks even that, because the author
+wrote it and it cannot go stale.
+
+**It does not stall finished work.** A `review_ready` / `needs_action` status
+PERMITS immediately — the author has already answered the question the gate
+asks — and so does an idle author, because **an idle session can be woken**.
+
+**Three states, never collapsed** — `permitted` · `refused` · **`unknown` (we
+could not look)**, exit 0 / 3 / 4. ⚠️ `unknown` is neither a soft pass nor a
+hard refusal, and the docstring argues why: a gate that hard-failed on it would
+be bypassed within a day, while every `unknown` here names the one input that
+clears it and the manager holds that input.
+
+**The escape hatch is a file, not a flag** —
+`docs/claude/work/pr-action-exception.yaml`, graded by the SAME
+`spawn_gate.exception_covers` so the two cannot drift. `decision: pending`
+still refuses. **There is deliberately no `--force`**: a bypass flag is cheaper
+to lie to than to satisfy.
+
 ## The other half of a handoff: OPEN PRS
 
 `SESSIONS.json` says which sub-sessions a successor inherits. **`OPEN-PRS.json`
@@ -318,6 +360,184 @@ scripts/ops/install_merge_driver.sh   # git refuses an executable path from a tr
 is still dirty on GitHub; what this removes is resolving it by hand. A clone that
 never ran the installer merges these files the old way — it degrades, it does not
 break.
+
+⚠️ **AND UNTIL 2026-09-03, NO CLONE HAD EVER RUN IT.** The remedy shipped and was
+never *armed*: `git config --get merge.jsonregister.driver` is empty in a fresh
+clone, and nothing in the `SessionStart` hook, in any skill, or in CI ran the
+installer — the only two references to it in the whole repo were a comment in
+`.gitattributes` and the code block above. So every session container merged
+these files the old way, which is the most likely direct cause of the four
+hand-resolutions the manager paid for on the morning of 2026-09-03.
+
+MEASURED that morning on a fresh clone of `main` @`855397f6` — two sibling
+branches each appending ONE row to the same register, then merged:
+
+| | OPEN-ITEMS | MANAGER-CHECKLIST | SESSIONS | health-review-backlog |
+|---|---|---|---|---|
+| driver **not** armed | CONFLICT | CONFLICT | CONFLICT | CONFLICT |
+| driver armed | *(n/a — see below)* | **CLEAN** | **CLEAN** | **CLEAN** |
+
+`manager_preflight.py`'s **`merge_driver` check** now FAILS an un-armed clone and
+names the one-line remedy, so the gap is visible at the moment it costs something
+rather than after.
+
+### FIRST LIVE EXERCISE — 2026-09-03, on a real conflict rather than a constructed one
+
+The table above was a *constructed* pair of sibling branches. This is the driver
+resolving a conflict that actually blocked a merge: PR #10910's own, after six
+PRs landed on `main` behind it and GitHub refused the merge with
+`405 Pull Request has merge conflicts`.
+
+**Without the driver** (all three `merge.jsonregister.*` keys unset, i.e. a fresh
+clone), merging `origin/main` produced **one** conflict:
+
+| file | plain git |
+|---|---|
+| `docs/claude/health-review-backlog.json` | **CONFLICT** — 1 hunk |
+| `docs/claude/work/SESSIONS.json` | clean |
+| `docs/claude/work/README.md` | clean |
+| `scripts/ci/run_guards.py` | clean |
+
+**With the driver armed**, the same rebase completed across 12 commits with no
+conflict, and the result was verified BY ID rather than by eye:
+
+| register | `main` | branch | merged | union | verdict |
+|---|--:|--:|--:|--:|---|
+| `health-review-backlog.json` | 1154 | 1156 | **1157** | 1157 | exact union |
+| `SESSIONS.json` | 89 | 88 | **89** | 89 | exact union |
+| `MANAGER-CHECKLIST.json` | 90 | 84 | **90** | 90 | exact union |
+| `OPEN-ITEMS.json` | 51 | 51 | **51** | 51 | exact union |
+
+**Zero ids lost, zero invented, all four files valid JSON**, and
+`register-id-guard` passes on the merged tree. `OPEN-ITEMS.json` — which is not
+byte-reproducible — came through untouched, which is what splicing original byte
+spans is for.
+
+⚠️ **THIS INSTANCE WAS ROW CONTENTION, NOT THE HEADER SCALAR, AND THAT QUALIFIES
+THE HEADER-SCALAR FRAMING ABOVE.** Those shares — MANAGER-CHECKLIST 29 of 39
+pairs (74%), OPEN-PRS 8 of 12 (67%), SESSIONS 14 of 23 (61%), all measured by
+MI-76 on `main` @`1b82ab7` — were measured on MANAGER-CHECKLIST,
+OPEN-PRS and SESSIONS. `health-review-backlog.json` was measured at **8 of 91
+pairs (9%) row-contested and 1 of 91 (1%) header-contested**, and this conflict is
+one of that 9% — a new row appended at the array tail against rows `main` appended
+at the same tail. So the driver is **not** only a header-scalar device: it resolved
+the row-contention case here, on the register where row contention is the whole
+story. Do not read either measurement as covering the other.
+
+⚠️ **A PARTIAL UNINSTALL IS FATAL, NOT DEGRADED.** Clearing only
+`merge.jsonregister.driver` while leaving `merge.jsonregister.name` set makes git
+abort every merge of these files with `fatal: custom merge driver jsonregister
+lacks command line` — worse than not having it. Removing it means
+`git config --remove-section merge.jsonregister`, and there is no uninstall script.
+
+### THIRD LIVE EXERCISE — the driver resolved a HEADER SCALAR too, so it is not a tail fix
+
+The exercise above was row contention, which left an open question worth stating
+plainly: *if the driver handles the ROWS but leaves the shared `as_of`, then the
+dominant conflict class is untouched and this is only a tail fix.* Measured on the
+next collision (2026-09-03, `main` @`17ea45e1`), the answer is **no — it resolves
+both**, and this time the header scalar genuinely diverged:
+
+| register | field | merge base | `main` | branch | **merged** | |
+|---|---|---|---|---|---|---|
+| `MANAGER-CHECKLIST.json` | `as_of` | `08:25:00Z` | `09:25:00Z` | `08:25:00Z` | **`09:25:00Z`** | **DIVERGED — driver took the newer** |
+| `health-review-backlog.json` | rows | — | +1 row | +2 rows | **union** | row contention |
+
+Without the driver that same merge conflicts on `health-review-backlog.json`
+(1 hunk, both sides appending a `BL-20260903-…` row at the array tail). With it
+armed: 14 commits rebased clean, **zero unmerged paths, zero conflict markers**,
+and every register an exact union — health-review-backlog 1155+1157→**1158**,
+MANAGER-CHECKLIST 93+90→**93**, SESSIONS 89+89→**89**, OPEN-ITEMS 51+51→**51**.
+
+So across the two live exercises the driver has now resolved **the row class and
+the header-scalar class**, which are the two mechanisms the original measurement
+separated. Neither exercise produced a residue of any kind.
+
+### ⚠️ THE REGISTERS ARE NEVER QUIET BETWEEN MERGES — do not design as if they are
+
+Stated by the manager on 2026-09-03 and worth writing down, because it is a
+property of the system rather than an accident of one morning:
+
+> *"I have pushed three commits to `MANAGER-CHECKLIST.json` this morning (08:55Z,
+> 09:25Z, 09:58Z) as items were routed … the cadence is real and it will not
+> stop, because the checklist is the manager's state of record and updating it
+> IS the job."*
+
+**A manager that is managing writes to the registers continuously**, so any
+sibling PR open for more than a few minutes will find them moved underneath it.
+That is the ordinary case, not the exceptional one. Two consequences:
+
+- **A branch will need re-merging repeatedly, not once.** PR #10910 hit this
+  three times in one morning. The cost per occurrence is what matters, and armed
+  it is one `git rebase`; un-armed it is a hand-resolution each time.
+- ⚠️ **AND THE COST IS PAID BY EVERY SIBLING, NOT JUST THE SLOW ONE.** On
+  2026-09-03 two green PRs — #10910 and #10918 — sat `mergeable_state: dirty`
+  simultaneously on register collisions, on the morning the register-collision
+  work was itself what could not land. A design that assumes a quiet window
+  between merges has no such window to rely on.
+
+⚠️ **`OPEN-ITEMS.json` HAS NO APPEND HELPER AT ALL**, and that is why it has no
+"driver armed" cell above. `backlog_append.py::append_row` **refuses** it:
+measured 2026-09-03, none of its five candidate serialisations reproduces the
+file byte-for-byte (the closest, `indent=2, ensure_ascii=False`, differs on 236
+lines; `indent=1` differs on 236 too — the file indents array *elements* one
+level shallower than `json.dumps` does at any setting). The refusal is correct
+and is the helper working as designed — but it means the register with the
+**highest measured row contention — 23 of 65 adjacent register-touching commit
+pairs (35%), against 8 of 91 (9%) for `health-review-backlog.json`, measured by
+MI-76 on `main` @`1b82ab7`** — is the one register a session cannot append to
+safely with a tool. Filed as
+`BL-20260903-OPEN-ITEMS-HAS-NO-APPEND-HELPER-AND-BACKLOG-APPEND-REFUSES-IT`.
+
+## The half a merge driver CANNOT do: id collision
+
+**A row-aware merge fixes the TEXTUAL collision. It cannot see a SEMANTIC one.**
+On 2026-09-03 a branch filed a new item as `MI-86` while `MI-86` already existed
+as a different row that `main` had since given real content. To git that is one
+changed value at one key — indistinguishable from *"we both edited this row"* —
+so merging as written would have **silently deleted** the existing item. A human
+reading the three-way diff caught it, which is not a mechanism.
+
+`scripts/ci/check_register_ids.py` (**`register-id-guard`**, every PR) is that
+mechanism. Three rules, because the collision has three spellings:
+
+| | catches | coverage |
+|---|---|---|
+| **R1** uniqueness | the branch **appended** a second `MI-86` | every row, every register |
+| **R2a** creation-fact moved *and* headline moved | a dated row re-filed under a live id | only rows that record a creation date — **31%** on MANAGER-CHECKLIST |
+| **R2b** headline moved *and* <25% of fields survived | the branch **replaced** `main`'s `MI-86` | every shared id — no date needed |
+
+⚠️ **R2b is not redundant with R2a and the incident proves it**: `main`'s real
+`MI-86` carries no creation date, so R2a grades it `unassessable` and the
+replacement walks straight through. Planted against the actual row, R1 caught the
+append spelling and R2a missed the replace spelling until R2b was added.
+
+The 25% floor is **MEASURED, not chosen by feel**: over 126,278 same-id row-pairs
+across adjacent commits (OPEN-ITEMS 2,074/84 commits · MANAGER-CHECKLIST 2,528/53
+· health-review-backlog 121,676/120), exactly **16 changed a row's headline at
+all**, and the lowest field-retention among those real edits is **0.33**. A
+wholesale replacement retains ~0. The band between is wide and empty, so the
+exact value is not load-bearing.
+
+⚠️ **R2a's coverage is PRINTED PER REGISTER AND NEVER COLLAPSED** — a row that
+records no creation date grades `unassessable` (*we did not look*), never
+`passed`. **R3** is what makes that number climb: a row ADDED from now on must
+carry a creation date, with the past grandfathered.
+
+### The `registry_key` collision was live, not hypothetical
+
+MEASURED on `main` @`855397f6`: of the 85 rows in `SESSIONS.json`, 14 carried a
+`registry_key` and only **12 were distinct** — `pending-20260902T133456Z` was
+shared by **three** rows (MI-66, MI-69, MI-70, all spawned in the same second).
+`session_registry.py::confirm()` took the **first** match, so confirming any one
+of the three would have written that session's id onto a **different session's
+row** — a silent mis-bind in the registry whose entire purpose is proving no
+sub-session was lost. `confirm()` now **refuses** an ambiguous key instead, and
+`register` mints against the existing set.
+
+⚠️ **A FINER CLOCK IS NOT THE FIX.** Microsecond precision narrows the window
+without closing it, and makes the failure rarer and just as silent. Uniqueness is
+a property of the set, so it is checked against the set.
 
 ⚠️ **IT REFUSES RATHER THAN PICKING A WINNER.** Divergent same-id ADD, divergent
 same-id EDIT and delete-vs-edit all exit 1 with markers left. This is not
