@@ -1,0 +1,42 @@
+# ============================================
+# ICT WORK DIGEST SYSTEMD SERVICE (MI-83)
+# Fires scripts/ops/work_digest_now.py once an hour.
+# Save to: /etc/systemd/system/ict-work-digest.service
+# ============================================
+#
+# WHY THE DIGEST MOVED ONTO THE VM'S CLOCK. .github/workflows/work-digest.yml
+# declares `20 * * * *` and, measured over its complete run history, fired 5
+# times in a day at :19, :10, :33 and :47 -- never on its declared minute. A
+# GitHub Actions cron is not a clock in this repo (probes.yml's first scheduled
+# run was ~4h50m late; due-list.yml's landings were 4h41m and 4h07m late and
+# 23h27m apart). ict-git-sync.timer, by contrast, is observably pulling every
+# ~5 minutes. So the cadence the operator is relying on rides systemd.
+#
+# A CLOUD ROUTINE WAS REFUSED and must not be proposed -- operator, 2026-09-02:
+# "no cloud routine. We can't have anything that's gonna die at the end of the
+# session." A systemd unit outlives every session and is reinstalled by
+# scripts/install_systemd_units.sh on every deploy.
+
+[Unit]
+Description=ICT hourly work digest — render and send through send_ping
+After=network.target ict-trader-live.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+# Tolerate a missing .env on a fresh bootstrap (mirrors ict-git-sync.service).
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
+Environment=PYTHONPATH=/home/ubuntu/ict-trading-bot
+# DELIBERATELY NO data-dir drop-in. This unit's only write is
+# runtime_logs/work_digest_receipt.json, which diag reads via a repo_root()
+# anchor -- the same anchor notify_on_pull.py uses. Adding the drop-in would
+# move the writer to /data/bot-data/runtime_logs while the reader kept looking
+# at the repo path, which is the writer/reader split that hid the
+# hourly-snapshot balance stall for ~3 weeks (BL-20260611-M15-2).
+ExecStart=/usr/bin/python3 /home/ubuntu/ict-trading-bot/scripts/ops/work_digest_now.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
