@@ -482,6 +482,85 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # THE MANAGER'S OWN TOOLING MUST BE ABLE TO GRADE.
+        #
+        # ⚠️ THIS ENTRY EXISTS BECAUSE ITS ABSENCE WAS MEASURED, not on principle.
+        # On the morning of 2026-09-03 `manager_preflight.py --self-test` refused
+        # to grade -- the manager's own gate was unusable -- and NOTHING in CI
+        # noticed, because no guard ran it. The cause was environmental: an
+        # assertion read `count_autonomous_actions(2020) > 100`, a claim about
+        # CLONE DEPTH rather than about the behaviour under test, so it passed on
+        # a full clone (4043 commits) and failed on a `--depth=50` one (50). The
+        # assertion is now an equality against the count git itself reports, which
+        # is both stronger and depth-independent -- verified passing at depth 1,
+        # depth 50 and full.
+        #
+        # ⚠️ DEPTH-INDEPENDENCE IS WHAT MAKES THIS SAFE TO WIRE. A guard that
+        # assumed full history would fail under `actions/checkout`'s default
+        # `fetch-depth: 1`, i.e. it would red every PR for an environmental
+        # reason -- exactly the shape that gets a guard deleted instead of fixed.
+        #
+        # ⚠️ IT GRADES THE TOOLING, NEVER THE MANAGER. A contributor's PR does not
+        # go red because a preflight CHECK fails on live state -- only the bare
+        # `--self-test` runs here, which is a pure planted-failure suite over pure
+        # functions. The preflight's live verdict stays the manager's to run.
+        #
+        # `when: None`: this tooling can break from a change to anything it
+        # imports (`session_registry`, `manager_lease`), not only from a diff that
+        # touches its own file.
+        "name": "manager-tooling-selftests",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/manager_preflight.py", "--self-test"],
+            ["python3", "scripts/ops/manager_view.py", "--self-test"],
+            ["python3", "scripts/ops/handoff_check.py", "--self-test"],
+        ],
+    },
+    {
+        # DOES ANYTHING NOTICE IF THE MANAGER QUEUE WATCH ROUTINE DIES?
+        # `trig_01TWdAvrwFLe6T9XFoNopTeo` (cron `56 * * * *`) spawns a FRESH
+        # session hourly to check whether the manager is sitting on blocked
+        # sub-sessions -- a check NOT invoked by the actor it checks, which is
+        # why it works. Measured 2026-09-03 over all 25 Routines `list_triggers`
+        # returned for this account, it is the ONLY cron-driven one; the other 24
+        # are one-shot pokes at `next_run_at: 0001-01-01`. So there was exactly
+        # one recurring watcher and nothing watching IT.
+        #
+        # ⚠️ THE EXISTING LATCH COULD NOT HAVE ANSWERED THIS, which is why a new
+        # receipt exists rather than a new read of an old file.
+        # `QUEUE-WATCH-STATE.json` is written only when a page FIRES, so on a
+        # quiet queue it is never written and its absence collapses "the Routine
+        # never ran" into "the Routine ran and had nothing to say" -- opposite
+        # facts, one value. `queue_latency.py --write-receipt` now writes
+        # `MANAGER-QUEUE-WATCH.json` on EVERY run, and this grades its age.
+        #
+        # ⚠️ IT GRADES THE ROUTINE'S LIVENESS, NEVER THE QUEUE'S DEPTH. A
+        # contributor's PR must not go red because the manager is sitting on
+        # blocked sub-sessions -- the same objection this file already records
+        # against the pr-queue-watch and trainer-capture entries. The depth is
+        # PRINTED here and escalated by the Routine's own run.
+        #
+        # ⚠️ `never_ran` PASSES and that is correct rather than lenient: it is the
+        # accurate reading until the Routine next fires with `--write-receipt`,
+        # and failing on it would red every PR on the day this merges -- which is
+        # how a guard gets disabled instead of fixed. It arms itself on the first
+        # receipt.
+        #
+        # `when: None`: a Routine can die without any PR touching its files,
+        # which is precisely the case that must be caught.
+        "name": "manager-queue-watch-guard",
+        "when": None,
+        "steps": [
+            # Both directions, on both halves -- a planted defect fires and a
+            # clean input stays quiet. One direction proves a check runs, never
+            # that it discriminates.
+            ["python3", "scripts/ops/queue_latency.py", "--self-test"],
+            ["python3", "scripts/ops/manager_state_watch.py", "--self-test"],
+            ["python3", "scripts/ci/check_manager_queue_watch.py", "--self-test"],
+            ["python3", "scripts/ci/check_manager_queue_watch.py"],
+        ],
+    },
+    {
         # THE ALARM ON THE TRAINER'S FORWARD-ONLY ORDER-FLOW CAPTURE.
         # `trainer-capture-watch.yml` grades the mtime of the capture's own
         # output file. This entry is what makes that watcher a GUARD rather than
