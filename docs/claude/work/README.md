@@ -414,7 +414,9 @@ byte-reproducible — came through untouched, which is what splicing original by
 spans is for.
 
 ⚠️ **THIS INSTANCE WAS ROW CONTENTION, NOT THE HEADER SCALAR, AND THAT QUALIFIES
-THE 74%/67%/61% FRAMING ABOVE.** Those shares were measured on MANAGER-CHECKLIST,
+THE HEADER-SCALAR FRAMING ABOVE.** Those shares — MANAGER-CHECKLIST 29 of 39
+pairs (74%), OPEN-PRS 8 of 12 (67%), SESSIONS 14 of 23 (61%), all measured by
+MI-76 on `main` @`1b82ab7` — were measured on MANAGER-CHECKLIST,
 OPEN-PRS and SESSIONS. `health-review-backlog.json` was measured at **8 of 91
 pairs (9%) row-contested and 1 of 91 (1%) header-contested**, and this conflict is
 one of that 9% — a new row appended at the array tail against rows `main` appended
