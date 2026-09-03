@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager tooling only: one new manual-only ops gate (scripts/ops/pr_action_gate.py), its tests, a pending exception template that grants nothing, and one added --self-test step in run_guards.py. No order path, no strategy config, no risk cap, no src/, no deploy/, no VM runtime file. Merging it changes no behaviour on its own: the gate is deliberately NOT wired into CI (it needs a live list_sessions read CI cannot make), so the only CI effect is one more pure planted-failure suite. Declaring `hold` here would be the reflex the closed hold_reason vocabulary exists to refuse -- there is no named kind of hold for 'Tier-1 but I would feel better if someone looked', and Tier-1 work sitting unlanded is the exact failure this route was built for."
+}
