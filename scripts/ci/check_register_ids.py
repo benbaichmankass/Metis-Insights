@@ -158,13 +158,30 @@ REGISTERS: Tuple[Register, ...] = (
 # --------------------------------------------------------------------------- #
 # reading
 # --------------------------------------------------------------------------- #
-def _rows(doc: Any, array: str) -> List[Dict[str, Any]]:
+def _rows(doc: Any, array: str) -> Tuple[List[Dict[str, Any]], str, int]:
+    """Return (rows, array_state, skipped_non_dict).
+
+    ⚠️ `array_state` EXISTS BECAUSE THE FIRST VERSION OF THIS FUNCTION COLLAPSED
+    IT. It returned a bare list, so a register whose array had been renamed or
+    removed reported "0 rows, unique" — *we could not look* rendered identically
+    to *we looked and found nothing*, which is the exact collapsed-state defect
+    this repo keeps a CI guard for. A guard that reports a clean pass over an
+    array that is not there is worse than no guard, because the silence looks
+    like coverage. Found by probing this guard's own edge cases before shipping.
+
+    `absent` · `not_a_list` · `present` are three different facts and none of
+    them is "empty". Non-dict entries are COUNTED rather than silently dropped,
+    for the same reason.
+    """
     if not isinstance(doc, dict):
-        return []
+        return [], "not_a_list", 0
+    if array not in doc:
+        return [], "absent", 0
     got = doc.get(array)
     if not isinstance(got, list):
-        return []
-    return [r for r in got if isinstance(r, dict)]
+        return [], "not_a_list", 0
+    rows = [r for r in got if isinstance(r, dict)]
+    return rows, "present", len(got) - len(rows)
 
 
 def _load(path: Path) -> Optional[Any]:
@@ -379,21 +396,32 @@ def check(root: Path, base: Optional[str] = None,
             # that), but it must be SAID rather than skipped silently.
             report.append(f"  {reg.label}: not present or not parseable — not checked")
             continue
-        head_rows = _rows(doc, reg.array)
+        head_rows, arr_state, skipped = _rows(doc, reg.array)
+        if arr_state != "present":
+            # NOT a pass, and deliberately not phrased as one.
+            report.append(
+                f"  {reg.label}: ⚠️ ARRAY {arr_state.upper()} — nothing was "
+                f"checked here. This is 'we could not look', not '0 rows'.")
+            continue
+        junk = f", {skipped} non-dict entr(y/ies) SKIPPED" if skipped else ""
 
         problems += check_uniqueness(reg, head_rows)
 
         if base is None:
-            report.append(f"  {reg.label}: {len(head_rows)} rows, unique "
+            report.append(f"  {reg.label}: {len(head_rows)} rows, unique{junk} "
                           f"(R2/R3 skipped — no base given)")
             continue
 
         base_doc = _load_at_base(reg.path, base)
         if base_doc is None:
-            report.append(f"  {reg.label}: {len(head_rows)} rows, unique · "
+            report.append(f"  {reg.label}: {len(head_rows)} rows, unique{junk} · "
                           f"R2 UNKNOWN (no readable base at {base})")
             continue
-        base_rows = _rows(base_doc, reg.array)
+        base_rows, base_state, _ = _rows(base_doc, reg.array)
+        if base_state != "present":
+            report.append(f"  {reg.label}: {len(head_rows)} rows, unique{junk} · "
+                          f"R2 UNKNOWN (array {base_state} on {base})")
+            continue
 
         idp, cov = check_identity(reg, base_rows, head_rows)
         problems += idp
@@ -401,7 +429,7 @@ def check(root: Path, base: Optional[str] = None,
 
         pct = (100.0 * cov["assessed"] / cov["shared"]) if cov["shared"] else 100.0
         report.append(
-            f"  {reg.label}: {len(head_rows)} rows, unique · "
+            f"  {reg.label}: {len(head_rows)} rows, unique{junk} · "
             f"R2a (creation-fact) assessed {cov['assessed']}/{cov['shared']} "
             f"shared ids ({pct:.0f}%), {cov['unassessable']} unassessable · "
             f"R2b (replacement) {cov['shared']}/{cov['shared']} (100%), "
@@ -538,6 +566,33 @@ def _self_test() -> int:
     r3([{"id": "MI-99", "summary": "grandfathered, undated"}],
        [{"id": "MI-99", "summary": "grandfathered, undated"}],
        "R3: an existing undated row is grandfathered", False)
+
+    # --- the array_state controls -------------------------------------------
+    # These exist because the first version of _rows COLLAPSED them: a renamed
+    # or removed array reported "0 rows, unique", i.e. a clean pass over nothing.
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as _d:
+        root = Path(_d)
+        (root / "docs/claude").mkdir(parents=True)
+        target = root / "docs/claude/OPEN-ITEMS.json"
+        only = [REGISTERS[0]]
+
+        def report_for(payload: str) -> str:
+            target.write_text(payload)
+            return " ".join(check(root, None, only)[1])
+
+        cases.append(("array ABSENT is reported as 'we could not look', not as 0 rows",
+                      "ARRAY ABSENT" in report_for('{"schema_version": 1}'), True))
+        cases.append(("...and it is NOT described as unique",
+                      "unique" in report_for('{"schema_version": 1}'), False))
+        cases.append(("a non-list array is reported as NOT_A_LIST, not as 0 rows",
+                      "ARRAY NOT_A_LIST" in report_for('{"items": {"a": 1}}'), True))
+        cases.append(("a genuinely EMPTY array still reads as 0 rows (the positive control)",
+                      "0 rows, unique" in report_for('{"items": []}'), True))
+        cases.append(("non-dict entries are COUNTED, not silently dropped",
+                      "2 non-dict" in report_for(
+                          '{"items": [1, "x", {"id": "A", "opened": "2026-01-01",'
+                          ' "summary": "s"}]}'), True))
 
     for label, got, want in cases:
         status = "PASS" if got == want else "FAIL"
