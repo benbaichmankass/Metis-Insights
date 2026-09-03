@@ -41,6 +41,19 @@ blocked_on:
       `waiting`, not `done` — a `done` here would collapse "we deployed it" into "we
       verified it", which is the exact collapse the six-state vocabulary exists to prevent.
 
+blocked_on_basis: >-
+  ASSESSED. The edge(s) above were written deliberately by the session that built this
+  phase, naming a specific, dated dependency — that IS an assessment, and this key
+  records it so the FIELD and the readout stop disagreeing about the same row.
+  ⚠️ RECORDED BY MI-63 ON 2026-09-02, WHICH IS A NARROWER CLAIM THAN IT LOOKS: MI-63
+  established that an assessment was MADE, by reading the edge; it did NOT re-verify
+  that the edge still HOLDS today. Those are different facts and only the first is
+  claimed here. ⚠️ WHY IT WAS MISSING AT ALL: `scripts/ops/constraint_readout.py`
+  counts a row with any edge as assessed (writing an edge is a positive statement),
+  while the basis FIELD was absent — so the store read 6 assessed by the code and 2 by
+  the field. Neither number was wrong; they answer different questions. The four rows
+  that carried an edge and no basis were WO-20260901-PHASE-{A,B,C,H}, and this is one
+  of them.
 note: >-
   Migration and the ceiling ship TOGETHER, deliberately: ~572 not-closed
   backlog rows arriving unbounded would render as 572 things in flight, which

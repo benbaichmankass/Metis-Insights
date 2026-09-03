@@ -443,14 +443,61 @@ the manager owns that file.
 - Run `python3 scripts/ci/run_guards.py --base main` AFTER committing; if a tool
   is absent in your container, say which guards you could not run rather than
   reporting them green.
-- `issue_write` / `add_issue_comment` / `create_pull_request` 403 for you. Use
-  `.github/workflows/board-post.yml` and `.github/workflows/pr-opener.yml` with a
-  FRESH filename per use. Post a board START to issue #6927 before your first
-  substantive change, naming your branch AND your session id. Those relays commit
-  as `github-actions[bot]` and trigger no workflows, so if such a commit lands
-  last your PR shows ZERO checks and is blocked, not green — push an ordinary
-  commit after, to arm CI.
-- Open the PR as a DRAFT; the manager merges.
+- `issue_write` / `add_issue_comment` / `create_pull_request` MAY 403 for you —
+  TRY THEM DIRECTLY FIRST, and fall back to the relays only on an actual refusal.
+  ⚠️ This line asserted a flat 403 until 2026-09-02 and that was wrong: it has now
+  been measured in BOTH directions on the same day. MI-75 hit
+  `Resource not accessible by integration` on `create_pull_request`; MI-77 used
+  `create_pull_request` AND `add_issue_comment` with no 403 at all and said so.
+  So it is variable, not a property of being a sub-session, and neither reading
+  generalises. Assuming the 403 costs a working session a relay round-trip and a
+  buried CI run; assuming it works costs one refused call you can recover from —
+  which is why the instruction is try-then-fall-back rather than either claim.
+- ⚠️ Distinguish a WRITE-SCOPE 403 from the transient GitHub-MCP drop: the scope
+  boundary refuses writes while `issue_read` on the SAME object succeeds, and no
+  amount of backoff clears it. A drop fails everything and self-heals in seconds.
+  Retry once before reaching for a relay; do not build a retry loop around a 403.
+- The relays are `.github/workflows/board-post.yml` and
+  `.github/workflows/pr-opener.yml`, with a FRESH filename per use (the result
+  file is the idempotency key, so a reused name is a silent no-op). Post a board
+  START to issue #6927 before your first substantive change, naming your branch
+  AND your session id — a 403 is never a reason to skip the board.
+- ⚠️ Those relays commit as `github-actions[bot]`, and GitHub fires no workflows
+  for `GITHUB_TOKEN` pushes, so if such a commit lands LAST your PR shows ZERO
+  checks and reads as blocked, not green. Put board posts on a SEPARATE branch,
+  or push an ordinary commit after, to arm CI.
+- DECLARE YOUR TIER AND LAND YOUR OWN TIER-1 WORK. Write
+  `.github/pr-landing/<branch-slug>.json` (slug = your branch with `claude/`
+  stripped and `/`→`-`); `.github/pr-landing/README.md` has the four-line file
+  and `pr-landing-guard` checks it against your diff on every PR.
+  ⚠️ This line read `Open the PR as a DRAFT; the manager merges.` — unconditionally,
+  at every tier — until 2026-09-03, and it was the bug. On 2026-09-03 SEVEN of the
+  night shift's PRs sat open, green and unlanded, waiting on a manager for work
+  that `docs/CLAUDE-RULES-CANONICAL.md` § Permission Tiers says needs NO human OK.
+  Three of those PR bodies blamed `pr-opener.yml` for "creating every PR as a draft
+  regardless of `draft:false`". THAT IS FALSE — do not repeat it. `pr-opener.yml`
+  honours `draft:false`; `true` is merely the default, and those request files
+  asked for `"draft": true`. The blanket instruction was the cause, not the relay.
+  - **Tier-1** (docs, tests, CI, tooling, observability, read paths) — LAND IT
+    YOURSELF. Declare `{{"tier": 1, "landing": "self", "why": "..."}}`, open the PR
+    **not** as a draft (`"draft": false` in your `pr-requests` JSON, or
+    `create_pull_request` directly), and add `.github/pr-automerge-requests/<slug>.txt`
+    (any contents — its PATH is the signal). `claude-pr-automerge` then enables
+    native auto-merge and GitHub merges **when the required checks pass**. No
+    manager, and CI is never bypassed.
+    ⚠️ BOTH HALVES ARE REQUIRED AND NEITHER IS SUFFICIENT. `draft:false` alone
+    gives a ready green PR that waits for a human click — that IS the failure.
+    The request file alone against a DRAFT PR is REFUSED by `claude-pr-automerge`,
+    correctly and by design; do not try to defeat that refusal.
+  - **Tier-2 / Tier-3** — STAY A DRAFT. Declare `"landing": "hold"` with a
+    `hold_reason` from the closed vocabulary in that README. A draft means
+    *prepared, not approved*, and that convention is load-bearing.
+  - If you cannot un-draft your own PR (`update_pull_request` 403s), open it
+    ready in the first place rather than opening a draft and asking to be rescued.
+  - ⚠️ A PR opened through `pr-opener` starts with ZERO checks (GitHub fires no
+    workflows for `GITHUB_TOKEN` pushes), and auto-merge merges on GREEN — so it
+    will wait forever until checks exist. Push one ordinary commit AFTER the PR
+    exists to arm CI. Read CI with `get_check_runs`, never `get_status`.
 {scope}"""
 
 
@@ -634,6 +681,24 @@ def cmd_reconcile(a) -> int:
 
 
 def cmd_register(a) -> int:
+    # ⚠️ THE PRIORITY GATE, AT THE SPAWN CHOKEPOINT. Imported lazily because
+    # `spawn_gate` imports THIS module — a top-level import would be circular.
+    #
+    # There is deliberately NO --force. The escape is an operator-approved
+    # `spawn-priority-exception.yaml`, which is visible and argued; a bypass flag
+    # is neither, and a gate with a flag beside it is a gate that gets flagged
+    # past. `unknown` (an unreadable priority file) does NOT block — a typo must
+    # not halt the fleet — but it is printed and is never silent.
+    import spawn_gate
+    verdict = spawn_gate.grade_spawn(a.owns_object)
+    if verdict["state"] != spawn_gate.PERMITTED:
+        print(f"session-registry: spawn-gate [{verdict['state'].upper()}] "
+              f"{verdict['reason']}")
+    if verdict["state"] == spawn_gate.REFUSED:
+        print("session-registry: NOTHING WAS WRITTEN and no spawn prompt was "
+              "produced. Fix the above, or file the exception, then re-run.")
+        return 3
+
     row, ref = register(
         REGISTRY_PATH, title=a.title, why=a.why or "", spawned_by=a.spawned_by,
         session_id=a.session_id, branches=a.branch or None, owns_object=a.owns_object,
@@ -752,7 +817,24 @@ def _self_test() -> int:
     p = spawn_prompt("T", "W", "session_01AAAAAAAA")
     check("the spawn prompt names the registry reference",
           "session_01AAAAAAAA" in p, True)
-    check("the spawn prompt carries the DRAFT-PR rule", "DRAFT" in p, True)
+    # ⚠️ This assertion used to be `"DRAFT" in p`, pinning the blanket
+    # `Open the PR as a DRAFT; the manager merges.` line — so the template's own
+    # defect was held in place by a passing test. The rule the prompt must carry
+    # is TIER-AWARENESS, not drafting: Tier-1 lands itself, Tier-2/3 holds.
+    check("the spawn prompt tells Tier-1 to land itself",
+          '"landing": "self"' in p, True)
+    check("the spawn prompt names the landing declaration file",
+          ".github/pr-landing/" in p, True)
+    check("the spawn prompt still holds Tier-2/3 as a draft",
+          "STAY A DRAFT" in p and '"landing": "hold"' in p, True)
+    # Both halves of the Tier-1 route, because either alone lands nothing.
+    check("the spawn prompt names the auto-merge request file",
+          ".github/pr-automerge-requests/" in p, True)
+    check("the spawn prompt says to open Tier-1 not-as-a-draft",
+          "draft:false" in p or '"draft": false' in p, True)
+    # The correction, so the false pr-opener claim cannot quietly return.
+    check("the spawn prompt refutes the `pr-opener drafts everything` claim",
+          "THAT IS FALSE" in p, True)
 
     print("session-registry self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1

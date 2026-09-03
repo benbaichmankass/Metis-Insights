@@ -6,7 +6,9 @@ The 2026-05 overhaul (see ``docs/TELEGRAM-SPEC.md``) replaced the old
     🛑 Kill switch · 🩺 System update · 💼 Accounts · 📈 Strategies ·
     🚨 Close all positions
 
-``/start`` and ``/menu`` are the only slash commands. Every view reads
+``/start`` and ``/menu`` are the menu openers; ``/status`` and
+``/decisions`` (added 2026-09-02, see ``src.bot.operator_commands``)
+are the two operator pulls. Every view reads
 live state (accounts.yaml, strategies.yaml, the journal, runtime_status,
 systemd) so adding an account or strategy needs no bot code change.
 
@@ -42,9 +44,11 @@ from src.bot.cloud_notifier import (
     _read_loadavg,
     _read_meminfo_mb,
     _read_uptime_human,
+    claude_ping_failover_grace_s,
     get_service_status,
 )
 from src.bot.comms_handler import install_comms_handlers
+from src.bot.operator_commands import OPERATOR_COMMANDS, install_operator_commands
 from src.bot.strategy_execution_writer import (
     StrategyExecutionWriteError,
     set_strategy_execution,
@@ -134,11 +138,13 @@ def is_halted() -> bool:
     return _is_halted()
 
 
-# ── Operator command surface (just the menu openers) ────────────────────────
+# ── Operator command surface (the menu openers + the two operator pulls) ────
 #
 # BOT_COMMANDS is the flat list handed to ``set_my_commands`` — it IS the
-# hamburger menu Telegram shows in the composer. Per the overhaul it
-# carries only the two menu openers; there is no stale command wall.
+# hamburger menu Telegram shows in the composer. Per the overhaul it carries
+# the two menu openers and nothing stale; the two operator PULLS added
+# 2026-09-02 (``/status``, ``/decisions``) join it because a command absent
+# from this list is one the operator has to know exists in order to use.
 
 # (name, description) — the only operator-facing slash commands. Kept as
 # plain tuples (not telegram.BotCommand) so the surface is assertable even
@@ -147,8 +153,14 @@ _MENU_OPENERS: list[tuple[str, str]] = [
     ("start", "Open the menu"),
     ("menu", "Open the menu"),
 ]
+#: The full operator-facing slash surface: the menu openers PLUS the two
+#: operator pulls added 2026-09-02. Kept as its own constant so
+#: ``_MENU_OPENERS`` keeps meaning exactly what its name says — the openers —
+#: and the existing "no stale command wall" assertion still tests that claim
+#: rather than being widened to accommodate the new entries.
+_COMMAND_SURFACE: list[tuple[str, str]] = [*_MENU_OPENERS, *OPERATOR_COMMANDS]
 BOT_COMMAND_SPECS: list[BotCommand] = [
-    BotCommand(name, desc) for name, desc in _MENU_OPENERS
+    BotCommand(name, desc) for name, desc in _COMMAND_SURFACE
 ]
 BOT_COMMANDS = BOT_COMMAND_SPECS
 
@@ -524,6 +536,23 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 result, reply_markup=menu.back_to_menu_keyboard()
             )
 
+        elif action == "wdec":
+            # Work-decision answer — the two-way half of the operator's
+            # decision channel (operator ask, 2026-09-02). The button carries
+            # DIGESTS of (object_id, request_id) and of the option KEY, never
+            # the ids and never a positional index: 64 bytes is the whole
+            # budget, and an index would silently select a different option if
+            # the request were edited between the send and the tap.
+            #
+            # ⚠️ The reply this renders must never say `committed`. The route
+            # returns `in_transit`; the answer is not the decision until a
+            # committer writes it into the repo.
+            from src.runtime.telegram_decisions import handle_decision_callback
+
+            result = await asyncio.to_thread(handle_decision_callback, raw)
+            if result is not None:
+                await query.edit_message_text(result["reply"])
+
         elif action == "propexp":
             # Prop ticket-expiry Yes/No answer. The prompt is normally sent to
             # (and answered on) the prop bot, but breakout_notify._prop_bot_token
@@ -665,9 +694,31 @@ def main():
             return candidate
 
         async def _drain_claude_pings(context) -> None:
+            # ⚠️ THIS BOT IS THE FAILOVER, NOT AN OWNER (2026-09-01,
+            # BL-20260901-CLAUDE-PING-TWO-DRAINERS-ONE-QUEUE).
+            #
+            # `ict-claude-bridge.service` drains this SAME directory on its own
+            # 5s tick, and each drainer does read → send → unlink — so the file
+            # is still on disk for the whole Telegram POST and a tick landing
+            # inside that window delivers it a SECOND time. Measured live on
+            # 2026-09-01: one enqueue at 22:10:17Z arrived in both the dedicated
+            # channel and the trader chat, because the bridge's POST took 3.28s
+            # (22:10:19.93 → 22:10:23.21) and this bot's 22:10:21 tick read the
+            # file mid-flight.
+            #
+            # ⚠️ DELETING THIS DRAIN IS THE WRONG FIX and would re-open a known
+            # outage — it exists because the bridge sat dead on the Ampere VM
+            # and these pings were silently never delivered for weeks
+            # (2026-06-22, see the block above). So it stays, and it defers:
+            # the grace makes it take only what the bridge demonstrably has
+            # not. Healthy bridge → this delivers nothing. Dead bridge →
+            # everything, ≤ grace seconds late. Separation is a nice-to-have;
+            # delivery is not.
             bot = await _resolve_claude_bot()
             await _drain_pending_pings(
-                context, pings_dir=PENDING_CLAUDE_PINGS_DIR, bot=bot)
+                context, pings_dir=PENDING_CLAUDE_PINGS_DIR, bot=bot,
+                deliver_only_older_than_s=claude_ping_failover_grace_s(),
+            )
 
         application.job_queue.run_repeating(
             _drain_claude_pings,
@@ -675,6 +726,38 @@ def main():
             first=4,
             name="drain_pending_claude_pings",
         )
+
+        # Work-decision prompts — the ASK half of the two-way decision channel.
+        # Sweeps GET /api/bot/work/decisions and sends ONE inline-keyboard
+        # prompt per un-prompted, unanswered request. It lives HERE rather than
+        # on the trader tick because a button only works in a bot some process
+        # POLLS, and this process is the one that polls the token these prompts
+        # are sent on (see telegram_decisions.answerable_route).
+        from src.runtime.telegram_decisions import (
+            prompt_interval_seconds,
+            run_decision_prompt_sweep,
+        )
+
+        async def _sweep_work_decisions(context) -> None:
+            # Off the event loop: the sweep does blocking loopback HTTP and a
+            # file write, and polling must never stall behind it.
+            stats = await asyncio.to_thread(run_decision_prompt_sweep)
+            if stats.get("prompted_choice") or stats.get("prompted_free_text"):
+                logger.info("work-decision prompts: %s", stats)
+
+        _wd_interval = prompt_interval_seconds()
+        if _wd_interval > 0:
+            application.job_queue.run_repeating(
+                _sweep_work_decisions,
+                interval=_wd_interval,
+                first=20,
+                name="sweep_work_decisions",
+            )
+        else:
+            logger.info(
+                "work-decision prompts PAUSED "
+                "(WORK_DECISION_PROMPT_SECONDS <= 0)",
+            )
     else:
         logger.warning(
             "JobQueue unavailable — pending-pings inbox drain disabled. "
@@ -696,7 +779,71 @@ def main():
 
     application.add_handler(CommandHandler("start", cmd_start))
     application.add_handler(CommandHandler("menu", cmd_menu))
+
+    # The two operator PULLS (2026-09-02). Registered BEFORE the generic
+    # CallbackQueryHandler for the same reason install_comms_handlers is:
+    # handler order decides who wins. They resolve their destination through
+    # telegram_decisions.answerable_route() rather than a hardcoded token, so
+    # they follow whichever bot is genuinely polled.
+    install_operator_commands(
+        application,
+        is_authorised=is_authorised,
+        polled_token=TELEGRAM_BOT_TOKEN,
+    )
+
     application.add_handler(CallbackQueryHandler(callback_handler))
+
+    # ── declare what THIS process polls, now that the handlers are attached ───
+    # Registered here and not earlier, deliberately: a claim made before
+    # `add_handler` would be true of the intent rather than of the process, and
+    # the state this registry exists to catch is precisely a bot that is polled
+    # with no handler for the prefix — a tap that produces a `callback_query`
+    # nobody collects, with no error anywhere.
+    #
+    # The trader bot is the FALLBACK destination for work-decision prompts (the
+    # dedicated Claude bot is preferred once ict-claude-decision-bot.service is
+    # confirmed polling it), so `telegram_decisions.answerable_route()` needs
+    # positive evidence that a tap here is received before it will send buttons.
+    # CB_PREFIX rather than a literal "wdec", so the claim tracks the prefix
+    # `telegram_decisions` actually encodes into callback_data.
+    # ⚠️ `callback_handler`'s own branch above still tests the LITERAL "wdec",
+    # so a rename of CB_PREFIX would move this claim and the encoder together
+    # while leaving that branch behind — the claim would then name a prefix the
+    # dispatcher no longer routes. Left as-is rather than fixed here because a
+    # concurrent session (claude/claude-ping-double-delivery-x4mq2p) has declared
+    # this file; filed instead so it is not lost.
+    from src.runtime.telegram_decisions import CB_PREFIX
+    from src.runtime.telegram_poll_registry import (
+        heartbeat_interval_seconds,
+        log_poll_banner,
+        record_poll,
+    )
+
+    _polled_prefixes = (CB_PREFIX, "propexp")
+
+    async def _register_poll(_ctx) -> None:
+        await asyncio.to_thread(
+            record_poll, "TELEGRAM_BOT_TOKEN", _polled_prefixes,
+            service="ict-telegram-bot",
+        )
+
+    # In-process first, so the sweep that runs in THIS process has its answer
+    # without waiting a heartbeat interval or touching the filesystem.
+    record_poll("TELEGRAM_BOT_TOKEN", _polled_prefixes, service="ict-telegram-bot")
+    if application.job_queue is not None:
+        # A HEARTBEAT, so the claim EXPIRES on its own if this process dies —
+        # a claim written once and never refreshed outlives the thing it asserts.
+        application.job_queue.run_repeating(
+            _register_poll,
+            interval=heartbeat_interval_seconds(),
+            first=heartbeat_interval_seconds(),
+            name="telegram_poll_heartbeat",
+        )
+    log_poll_banner(
+        "TELEGRAM_BOT_TOKEN", _polled_prefixes, service="ict-telegram-bot",
+        log=logger,
+    )
+
     application.run_polling()
 
 

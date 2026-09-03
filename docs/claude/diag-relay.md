@@ -23,7 +23,7 @@
 > | run a command on the **TRAINER VM** | `automation/trainer-diag-requests/<fresh>.sh` | `automation/trainer-diag-results/<fresh>.txt` | `trainer-diag-relay.yml` |
 > | post to the **coordination board** (#6927) | `automation/board-posts/<fresh>.md` | `automation/board-results/<fresh>.txt` | `board-post.yml` |
 > | **open a PR** | `automation/pr-requests/<fresh>.json` | `automation/pr-results/<fresh>.txt` | `pr-opener.yml` |
-> | **merge** a PR on green | touch `.github/pr-automerge-request` on a `claude/**` branch | the PR itself | `claude-pr-automerge.yml` |
+> | **merge** a PR on green | add `.github/pr-automerge-requests/<branch-slug>.txt` on a `claude/**` branch (the name must match the branch) | the PR itself | `claude-pr-automerge.yml` |
 >
 > ⚠️ **`board-post` is NOT optional under a 403.** The coordination-board START
 > is mandatory in `docs/CLAUDE-RULES-CANONICAL.md`; a write 403 is a reason to

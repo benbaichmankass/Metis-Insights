@@ -1,0 +1,30 @@
+id: WO-20260902-TWO-OPEN-NON-DRAFT-PRS-ARE-RED
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Two open non-draft PRs are red on pytest-run and nothing is driving them
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Both #10764 and #10810 show pytest-run success on their pushed head and are merged, OR a comment on each names exactly what is failing and why it is not being fixed. Neither test is weakened, skipped or deleted to reach that state.
+
+why: >-
+  #10764 (the CLAUDE.md instruction-surface split, MI-41-B) and #10810 (the automerge request gate, MI-69) are both non-draft, both mergeable, and both RED on pytest-run since 16:43Z. Their sub-sessions have ended. The manager verified against origin/main that neither failure is the base branch's: the failing coherence check reproduces CLEAN on main. Both PRs are operating-layer deliverables, which is why this sits under that intent rather than being generic CI hygiene — two finished pieces of the layer are undeliverable with no owner.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

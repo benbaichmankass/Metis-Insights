@@ -44,8 +44,20 @@ name: work-digest
 
 on:
   schedule:
-    # Every 4h at :20 — operator-directed 2026-09-01 ("events live + a digest
-    # every few hours"), raised from the daily 06:20 this shipped with.
+    # HOURLY at :20 — operator-directed 2026-09-02, verbatim: "I realize that's
+    # a lot of noise, but that's how I want it for now until we get a little
+    # more settled in." Raised from every-4h (2026-09-01), itself raised from
+    # the daily 06:20 this shipped with.
+    #
+    # [!] THE WINDOW MOVED WITH THE CADENCE AND HAD TO. This was described as
+    # "changing one little number" and the cron genuinely is one number -- but
+    # the window below was pinned at 24h, so hourly firing alone would have
+    # re-reported THE SAME DAY twenty-four times over. That is not more
+    # frequent reporting, it is the same report louder, and it is the fastest
+    # way to train a reader to ignore the channel (the desensitized-alarm P1
+    # this repo has already paid for once: 202 of 376 CRITICAL rows in one
+    # window were a single un-latched alarm). Cadence and window are ONE
+    # decision; if a future change moves either, it moves both.
     #
     # WHY :20 AND WHY 06 IS IN THE SET. The 06:20 slot is load-bearing and was
     # not chosen for looks: it lands after probes (05:20) and due-list (05:50),
@@ -57,20 +69,125 @@ on:
     # that only fires when something interesting happened is indistinguishable
     # from one that has broken — the empty run IS the evidence the cadence is
     # alive. It will feel like noise before it feels like reassurance.
-    - cron: "20 2,6,10,14,18,22 * * *"
+    - cron: "20 * * * *"
+
+  # ⚠️ THE CRON IS NOW THE SECOND CARRIER, NOT THE FIRST — and it is kept
+  # rather than replaced, deliberately: it is the ONLY carrier that can fire
+  # while `main` is quiet.
+  #
+  # MEASURED 2026-09-02, and it is not a work-digest bug. Every scheduled
+  # producer in this repo lands hours late or skips days:
+  #   probes.yml       `20 5 * * *`  generated_at 09-01T10:13Z (+4h53m, none 09-02)
+  #   due-list.yml     `50 5 * * *`  landed      09-02T09:57Z (+4h07m)
+  #   econ-calendar    `30 22 * * *` landed      09-02T00:44Z (+2h14m)
+  #   macro-valuation  `30 7 * * *`  landed      09-01T12:52Z (+5h22m, none 09-02)
+  # Four workflows, four concurrency groups, one shape. The cause is GitHub's
+  # scheduler and it is NOT fixable from this repo. This file's own history is
+  # the same story: FOUR runs in its entire life, and the 17:20Z and 18:20Z
+  # slots after the hourly change went live at 16:22Z both did not fire.
+  #
+  # `push` on the SAME repo fires within SECONDS — directly observed, merge
+  # 8c82be1a at 18:36:23Z triggered five push-event workflows at 18:36:26Z —
+  # and `main` is busy: 34 merges in the 6h to 18:36Z, one every ~10.6 min. So
+  # the digest rides the carrier this repo has MEASURED to work, and
+  # `scripts/ops/digest_due.py` turns per-push into hourly.
+  #
+  # ⚠️ WHAT THIS DOES NOT FIX, STATED RATHER THAN GLOSSED: a push-driven digest
+  # cannot produce a heartbeat while `main` is genuinely quiet — there is no
+  # push to ride. A GUARANTEED quiet-period heartbeat needs a carrier this repo
+  # does not own (a Claude Routine, which costs a session per firing). That is
+  # an operator decision, not something to assume.
+  push:
+    branches: [main]
+
   workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
 
-concurrency:
-  group: work-digest
-  cancel-in-progress: false
-
 jobs:
-  digest:
+  # The gate is deliberately OUTSIDE the concurrency group: it is a few seconds
+  # of work and it must answer on EVERY push, never queue behind a running
+  # digest and get cancelled. Only the expensive half is serialised.
+  gate:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      due: ${{ steps.due.outputs.due }}
+      state: ${{ steps.due.outputs.state }}
+      base: ${{ steps.window.outputs.base }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          # The window is a diff over history, so the clone must reach past it.
+          # A shallow clone would silently produce an EMPTY digest —
+          # indistinguishable from a quiet hour, the failure this file is about.
+          fetch-depth: 0
+
+      - name: Self-test the gate before trusting its verdict
+        run: python3 scripts/ops/digest_due.py --self-test
+
+      # PRINTED so the carrier is PROBEABLE from outside. The whole point of
+      # this change is that a trigger fired -- and "the workflow file says
+      # push" is not that. `probe_actions_log.py` greps this exact literal, with
+      # `work-digest: trigger=` as its positive control, so a log that is
+      # fetched but no longer contains what we think it does reads as an
+      # UNREAD rather than as a clean negative.
+      - name: Declare which event carried this run
+        run: |
+          echo "work-digest: trigger=${{ github.event_name }}"
+
+      - name: Is a digest due?
+        id: due
+        run: python3 scripts/ops/digest_due.py --emit-github-output
+
+      # RESOLVED HERE so the digest job and the gate cannot disagree about the
+      # window, and so a MISSED slot does not silently swallow its own hour.
+      - name: Resolve the window base
+        id: window
+        run: |
+          set -euo pipefail
+          # Prefer the head of the LAST digest: consecutive windows then abut
+          # exactly, with no gap and no overlap. If the cron drops three slots,
+          # the next digest still reports all three hours instead of the most
+          # recent one -- a fixed `1 hour ago` would drop the other two on the
+          # floor, which is the same silent-omission failure as a missed ping.
+          BASE=""
+          PREV="$(python3 -c "
+          import json,sys
+          try:
+              print(json.load(open('docs/claude/work/WORK-DIGEST.json')).get('window_head','') or '')
+          except Exception:
+              print('')
+          ")"
+          if [ -n "$PREV" ] && git cat-file -e "${PREV}^{commit}" 2>/dev/null \
+             && git merge-base --is-ancestor "$PREV" main 2>/dev/null; then
+            BASE="$PREV"
+            echo "work-digest: window base = last digest head $BASE (contiguous)"
+          fi
+          if [ -z "$BASE" ]; then
+            BASE="$(git rev-list -1 --before='1 hour ago' main || true)"
+            echo "work-digest: no usable prior head; falling back to 1h ago -> $BASE"
+          fi
+          if [ -z "$BASE" ]; then
+            BASE="$(git rev-list --max-parents=0 main | tail -1)"
+            echo "::warning::work-digest: no commit older than 1h on main; " \
+                 "falling back to the root commit, so this digest covers ALL history."
+          fi
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+
+  digest:
+    needs: gate
+    if: needs.gate.outputs.due == 'true'
+    runs-on: ubuntu-latest
+    # Only the expensive half is serialised. `cancel-in-progress: false` because
+    # a digest that is mid-flight is producing a ping the operator wants.
+    concurrency:
+      group: work-digest
+      cancel-in-progress: false
     # BUDGET = work + wait + slack, and the WAIT dominates: commit-to-main with
     # verify-merged waits up to 30m for the auto-merge PR to land, so a budget
     # under 35 kills the job mid-wait and reports a failure for a merge that was
@@ -102,22 +219,35 @@ jobs:
           # trusted on exactly the same terms as the renderer it feeds.
           python3 scripts/ops/fetch_standing_wedges.py --self-test
 
-      - name: Resolve the 24h window
+      # RE-CHECK UNDER THE CONCURRENCY SLOT, and this is not belt-and-braces.
+      # The gate ran BEFORE this job queued. With a merge to main every ~10 min
+      # and `cancel-in-progress: false`, a second run can be admitted while the
+      # first is still rendering; both saw the same stale receipt and would both
+      # queue a ping. The checkout above happens AFTER the slot is acquired, so
+      # by here the previous run's receipt is on main and this read is current.
+      #
+      # ⚠️ It re-reads the RECEIPT, never a job output — an output computed
+      # before the wait cannot describe the world after it.
+      - name: Still due?
+        id: recheck
+        run: python3 scripts/ops/digest_due.py --emit-github-output
+
+      - name: Resolve the window
         id: window
+        if: steps.recheck.outputs.due == 'true'
         run: |
           set -euo pipefail
-          # The window is the last 24h of main, resolved to a REAL commit rather
-          # than a date expression, so the digest reports over a range that
-          # exists. `--before` returns nothing when the repo was quiet for a day;
-          # fall back to the root commit, which yields a digest over everything
-          # since — a loud over-report is recoverable, a silent empty one is not.
-          BASE="$(git rev-list -1 --before='24 hours ago' main || true)"
+          # Taken from the gate so the two halves cannot disagree about what
+          # window was reported. See the gate job for why it prefers the last
+          # digest's head over a fixed `1 hour ago`.
+          BASE="${{ needs.gate.outputs.base }}"
           if [ -z "$BASE" ]; then
             BASE="$(git rev-list --max-parents=0 main | tail -1)"
-            echo "::warning::work-digest: no commit older than 24h on main; " \
-                 "falling back to the root commit, so this digest covers ALL history."
+            echo "::warning::work-digest: gate resolved no base; falling back to " \
+                 "the root commit, so this digest covers ALL history."
           fi
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "head=$(git rev-parse main)" >> "$GITHUB_OUTPUT"
           echo "work-digest: window $BASE..main"
 
       # MI-34. A close failure CONFIRMED unclearable by any bot-side lever is
@@ -182,16 +312,48 @@ jobs:
           fi
 
       - name: Render the digest
+        if: steps.recheck.outputs.due == 'true'
         run: |
           set -euo pipefail
+          # `--force` bypasses work_digest.py's own one-per-UTC-day latch so the
+          # two mechanisms cannot compete. THE RECEIPT IS THE ONE AUTHORITY on
+          # the interval.
+          #
+          # ⚠️ THAT LATCH IS ALREADY INERT HERE AND ITS DOCSTRING SAYS OTHERWISE.
+          # `_already_sent_today` keys on runtime_logs/work_digest_state.json and
+          # `runtime_logs/` is .gitignore'd (line 29), so on a fresh runner — the
+          # only host that runs the digest — the file never exists and the latch
+          # guarantees nothing. Verified twice: by the gitignore, and by THREE
+          # digests landing on the same UTC day 2026-09-02 (#10710 00:21Z,
+          # #10813 14:35Z, #10836 18:36Z). Field beats comment. `--force` is
+          # therefore explicit about an authority that already sat here, rather
+          # than a new bypass: an ephemeral per-runner latch and a committed
+          # receipt silently disagreeing about whether to notify is the
+          # two-sources-of-truth shape this repo keeps paying for.
           python3 scripts/ops/work_digest.py \
-            --base "${{ steps.window.outputs.base }}" --head main --write
+            --base "${{ steps.window.outputs.base }}" --head main --write --force
+
+      # WRITTEN AFTER the render and COMMITTED IN THE SAME COMMIT as the ping it
+      # attests, so the receipt can never claim a digest that did not reach the
+      # queue. The shape lives in digest_due.py beside its reader, so a writer
+      # and a reader cannot drift about the field that decides whether the
+      # operator gets pinged.
+      - name: Record the digest receipt
+        if: steps.recheck.outputs.due == 'true'
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/digest_due.py --record \
+            --base "${{ steps.window.outputs.base }}" \
+            --head "${{ steps.window.outputs.head }}" \
+            --trigger "${{ github.event_name }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Land the digest on main (auto-merge PR)
+        if: steps.recheck.outputs.due == 'true'
         uses: ./.github/actions/commit-to-main
         with:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          paths: docs/claude/pending-pings.jsonl
+          paths: docs/claude/pending-pings.jsonl docs/claude/work/WORK-DIGEST.json
           message: "chore(ops): queue the daily work digest"
           pr-title: "chore(ops): queue the daily work digest (auto)"
           pr-body: >-

@@ -262,8 +262,18 @@ if [ -f "${_R4GATE_DROPIN_SRC}" ]; then
 fi
 
 # Why ict-claude-bridge needs the data-dir drop-in:
-#   The bridge is the SOLE drainer of the Claude update channel — it reads
+#   The bridge is the OWNER of the Claude update channel — it reads
 #   $DATA_DIR/runtime_logs/pending_claude_pings (via runtime_logs_dir()).
+#   ⚠️ CORRECTED 2026-09-01: this said "the SOLE drainer". It has not been
+#   since 2026-06-22, when ict-telegram-bot.service was given the same drain
+#   as a fallback (src/bot/telegram_query_bot.py) after this bridge sat dead
+#   on the Ampere VM. Both then ticked the same directory every 5s and
+#   double-delivered a ping on 2026-09-01
+#   (BL-20260901-CLAUDE-PING-TWO-DRAINERS-ONE-QUEUE). The trader-bot drain is
+#   now grace-gated so it only takes what this bridge has demonstrably not —
+#   which makes the DATA_DIR drop-in below MORE load-bearing, not less: if the
+#   bridge resolves the wrong directory it drains nothing, and every ping now
+#   waits out the failover grace before the fallback picks it up.
 #   Producers (send-ping system-action, notify_on_pull) write to that same
 #   canonical inbox now that they load DATA_DIR. If the bridge inherits no
 #   DATA_DIR (stripped from .env) it falls back to <repo>/runtime_logs and
@@ -486,6 +496,33 @@ if [ "$_VM_ROLE" != "gateway" ] && [ -f deploy/ict-claude-bridge.service ]; then
         echo ">>> install_systemd_units: enable --now ict-claude-bridge.service (core always-on)"
         if ! "${SUDO[@]}" systemctl enable --now ict-claude-bridge.service 2>&1; then
             echo ">>> install_systemd_units: WARN could not enable ict-claude-bridge.service (no systemd? token unset?)"
+        fi
+        changed=1
+    fi
+fi
+
+# ict-claude-decision-bot is the DEDICATED Claude bot's polling half, and it is
+# the thing that makes a work-decision BUTTON answerable rather than merely
+# delivered. Enabled here for the same reason ict-claude-bridge is: a core
+# always-on service that nobody enables at provisioning stays dark silently —
+# and this one's silence is worse than the bridge's was, because the decision
+# sweep keeps working by falling back to the TRADER bot, so the operator sees
+# prompts arriving in the wrong chat rather than nothing at all.
+#
+# Tolerant of a failed start by design: without TELEGRAM_CLAUDE_BOT_SECRET the
+# service exits EX_CONFIG (78) and RestartPreventExitStatus stops it in a
+# visible `failed` state. That is an operator action to resolve, not a deploy
+# failure, so it must never hard-fail the deploy. The gateway-prune block above
+# keeps it off the gateway VM.
+if [ "$_VM_ROLE" != "gateway" ] && [ -f deploy/ict-claude-decision-bot.service ]; then
+    heal_devnull || true  # re-heal before the is-enabled check (same 2>/dev/null)
+    if "${SUDO[@]}" systemctl is-enabled ict-claude-decision-bot.service >/dev/null 2>&1 \
+        && "${SUDO[@]}" systemctl is-active ict-claude-decision-bot.service >/dev/null 2>&1; then
+        :  # already enabled + running — nothing to do
+    else
+        echo ">>> install_systemd_units: enable --now ict-claude-decision-bot.service (core always-on)"
+        if ! "${SUDO[@]}" systemctl enable --now ict-claude-decision-bot.service 2>&1; then
+            echo ">>> install_systemd_units: WARN could not enable ict-claude-decision-bot.service (no systemd? TELEGRAM_CLAUDE_BOT_SECRET unset?)"
         fi
         changed=1
     fi

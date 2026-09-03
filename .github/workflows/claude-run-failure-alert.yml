@@ -37,6 +37,23 @@ name: claude-run-failure-alert
 on:
   workflow_run:
     workflows:
+      # The manager-side queue watcher. ⚠️ ITS SILENCE IS INDISTINGUISHABLE FROM
+      # A QUIET QUEUE unless something watches the run itself -- which is the
+      # whole failure class it exists for. It also FAILS DELIBERATELY when an
+      # escalation is due, so this entry is not only the death alarm, it is the
+      # escalation channel: a backed-up PR queue reaches the operator through a
+      # failed run here rather than through the manager, who is the bottleneck
+      # being reported on.
+      - pr-queue-watch
+      # The alarm on the trainer's FORWARD-ONLY order-flow capture. Its silence
+      # is indistinguishable from a healthy capture -- which is the entire
+      # failure class it exists for, one level up: the capture's own
+      # `ActiveState` is green while it writes nothing, so if the watcher dies
+      # too there is no signal anywhere. It also FAILS DELIBERATELY when the
+      # capture is stale or when the alarm flunks its own planted controls, so
+      # this entry is both the death alarm and the second escalation channel --
+      # a Telegram outage does not silence the finding.
+      - trainer-capture-watch
       # A cron whose run DIES notifies nobody otherwise, and this repo has a live
       # instance of that class open (probes.yml / due-list.yml, zero schedule runs
       # since landing). Watching it is the cheap half.
@@ -44,8 +61,18 @@ on:
       # digest sends nothing itself (it queues to pending-pings.jsonl for the
       # VM to drain), so a failed run and a quiet day look identical to the
       # operator.
+      # The reaper is the only thing recording what a killed session left behind.
+      # A dead reaper run is invisible in the worst way: its ledger simply stops
+      # advancing, and a stale ledger reads exactly like a quiet week.
+      - session-reaper
       - work-digest
       - work-decision-commit
+      # A1's readout, on the cadence the operating model always declared it
+      # had. A dead run here is invisible in the worst possible way: the
+      # CLAUDE.md session brief keeps rendering the LAST good readout with its
+      # own date attached, so a stalled cron looks exactly like a quiet work
+      # store to every session that reads it.
+      - constraint-readout
       - strategy-review-packets
       - sunset-pass
       - trainer-vm-diag
@@ -168,6 +195,13 @@ on:
       # failure of it means every row it covers is quietly unwatched WHILE the
       # last-known results file still reads as current — the worst shape.
       - probes
+      # ── added 2026-09-02 in the same PR that created it. `error-feed-digest`
+      #    is the only thing reading the trader's error feed on a cadence, and
+      #    its failure mode is the one this repo keeps paying for: a digest
+      #    that stopped being produced renders as a feed that went quiet. The
+      #    due-list raises a stale digest as a loud row, but only if a stale
+      #    digest is what lands — a run that DIES lands nothing at all.
+      - error-feed-digest
     types: [completed]
 
 permissions:

@@ -1,0 +1,146 @@
+id: WO-20260902-THE-MANAGER-HAS-NO-SUPERVISE-VERB-CONTROL
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The manager has no supervise verb: control over a spawned session is write-once and unobservable
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A manager can (a) READ the live state of every session it spawned from the repo, without an MCP call it may not hold, and (b) is REFUSED or ALARMED when it acts on a sub-session's artifact while that session is still running. Both halves, and (b) is the load-bearing one: reading is worthless if nothing objects when the read is ignored.
+
+why: >-
+  Operator, 2026-09-02: 'you are not in control of the work that you're supposed to be managing, and this cannot happen again. We need to understand why and how this is even able to happen when it's clearly not in your mandate.' MEASURED ANSWER: the mandate is instrumented NOWHERE. session_registry.py exposes exactly four verbs -- status, reconcile, register, confirm -- and ZERO of them write a terminal state (grep for a terminal-state write returns 0). cmd_reconcile only PRINTS; it never persists. A manager CANNOT message a running sub-session (work/README.md, verified by test), and no sub-session reports back, so there is no inbound channel either. list_sessions is an MCP tool CI cannot hold, so nothing automated can ever grade session state. Net: control is WRITE-ONCE at spawn time and the manager is thereafter a reader of GitHub PRs. Losing control is not a deviation the system can detect -- it is the DEFAULT, and the only thing that has ever pushed back is the operator noticing.
+
+source: >-
+  operator-2026-09-02T20:56Z
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
+
+# ── The instrument inventory, measured 2026-09-02T21:00Z ──────────────────
+# Every lever a manager actually holds over a session it spawned, and the
+# thing each one cannot do. This table is the answer to "how is this even
+# able to happen".
+manager_instruments:
+  - instrument: the spawn prompt
+    does: sets scope, tier bounds and the work object, once
+    cannot: be amended, narrowed or revoked after create_session returns
+  - instrument: session_registry.py register / confirm
+    does: appends a row at spawn time and prints the spawn prompt
+    cannot: >-
+      write any terminal state. MEASURED: the module exposes exactly four
+      verbs (status, reconcile, register, confirm) and a grep for a
+      terminal-state write returns 0 hits.
+  - instrument: session_registry.py reconcile
+    does: "prints ::UNREGISTERED:: for a live session with no row"
+    cannot: >-
+      persist anything — cmd_reconcile only PRINTs — and it grades
+      COMPLETENESS (is the row there?), never CURRENCY (does the row say
+      what is true now?).
+  - instrument: list_sessions (MCP)
+    does: the only true read of live session state
+    cannot: >-
+      be called from CI — it is an mcp__* tool CI does not hold — so no
+      automated check can ever grade session state. It is manual, and only
+      happens if a manager remembers.
+  - instrument: reading the session's PR on GitHub
+    does: shows the artifact
+    cannot: say anything about whether the AUTHOR considers it finished.
+
+structural_finding: >-
+  THERE IS NO SUPERVISE VERB AND NO INBOUND CHANNEL. A manager cannot
+  message a running sub-session (work/README.md, verified by test), and no
+  sub-session reports back. So control is WRITE-ONCE at spawn time, and
+  after that the manager is a reader of GitHub. ⚠️ Losing control is
+  therefore not a deviation this system can DETECT — it is the default
+  state of every manager session, and the only mechanism that has ever
+  pushed back on it is the operator noticing and saying so. That is the
+  precise thing the operator's standing directive forbids: "I want actual
+  guards and mechanisms in the repo/vm themselves that watch the manager
+  and enforce the rules on him."
+
+the_breach_this_produced: >-
+  2026-09-02T20:54Z the manager UNDRAFTED and ARMED AUTO-MERGE on #10857
+  while its authoring session (session_018ruZdgEkPZ1XceWzLwuYUU) was still
+  RUNNING, without the author's sign-off. ⚠️ THIS IS NOT REPORTED AS A
+  JUDGEMENT ERROR IN ISOLATION. It is the ONLY move available once a
+  session cannot be reached: the alternatives were to leave the work
+  stranded if the session died (the #10780 failure, where ~320 lines of
+  order-path work survived only as an uncommitted working tree) or to
+  block the wind-down on a session that cannot be asked. A system whose
+  only two options are "act without the author" and "risk losing the work"
+  has not given the manager a third one.
+  ⚠️ AND NOTHING OBJECTED. No guard, no check, no register refused it —
+  which is the finding, not the arming.
+
+what_would_NOT_close_this:
+  - >-
+    Correcting SESSIONS.json by hand. The wrap PR already did that for all
+    15 rows; they go stale the next time a session goes idle.
+  - >-
+    A green session-registry-guard. It checks COMPLETENESS and passed
+    throughout the entire window in which all 15 rows read 'working'
+    against 14 that were idle.
+  - >-
+    A rule, a reminder, or a line in a spawn prompt. The operator has ruled
+    this out explicitly: "No more instructions for Claude."
+  - >-
+    A close verb alone. A session that DIES cannot close itself, so the
+    reaper is the load-bearing half and the verb is the cheap one.
+
+decision_requests:
+  - id: DEC-20260902-HOW-A-MANAGER-IS-HELD-TO-ITS-MANDATE
+    asked_by: session_011JWFxuYAaEQKCFCmG6gnHJ
+    asked_at: "2026-09-02T21:00Z"
+    status: not_submitted
+    question: >-
+      A manager cannot see or reach the sessions it spawned, and nothing in
+      the repo detects that. Which mechanism should enforce it? (The
+      diagnosis is measured; this is the choice of remedy, and it is yours
+      because each option costs something different.)
+    options:
+      - key: reaper_and_derived_state
+        label: "A reaper writes session state; the registry stops storing it"
+        detail: >-
+          A scheduled job grades every registry row against a live
+          list_sessions observation and writes the terminal state back, so
+          a dead or idle session is recorded by something that is not
+          itself. State becomes an OBSERVATION with a timestamp, never a
+          claim. COST: needs a carrier that can hold an MCP tool, which CI
+          cannot — so it needs a Routine or a VM-side path, and this repo
+          has measured Routines dying with their session.
+      - key: block_on_running_author
+        label: "Refuse a manager action on a PR whose author session is live"
+        detail: >-
+          A guard refuses undraft/arm/merge on a PR whose owning session is
+          RUNNING, unless an explicit override records WHY. Directly
+          prevents today's breach. COST: it needs the same live read as
+          option 1, and on a false negative it BLOCKS the recovery path
+          that saved #10780's work.
+      - key: both
+        label: "Both — the read, and the refusal that uses it"
+        detail: >-
+          The stated done_condition. A read nothing acts on is what the
+          registry already is. COST: the largest build, and it is
+          CAPABILITY work pulled by a real held-up stage, which is the one
+          category this repo has measured itself over-investing in (45
+          governance sprints to 2 deployments in August).
+      - key: shrink_the_mandate
+        label: "Stop spawning what cannot be supervised"
+        detail: >-
+          Accept the instrument set as it is and cap concurrent
+          sub-sessions at what one manager can track by hand, rather than
+          building machinery to manage more. COST: throughput. BENEFIT: it
+          is available tonight and needs nothing built.

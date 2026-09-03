@@ -153,6 +153,114 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "r_provenance.r_state",
+        # The producer is `classify_r`, which returns the state; the vocabulary
+        # is module constants (`R_CONTAMINATED = "contaminated"`), so no
+        # `producer_field` is declared — narrowing to a field name would fail
+        # for a spelling reason rather than a correctness one (the
+        # `research_queue.power_state` precedent, same file).
+        "producer": "src/runtime/r_provenance.py",
+        "consumer_token": (r"\bR_CONTAMINATED\b|\bR_CONFIRMED_INITIAL\b|"
+                           r"\bR_UNVERIFIED\b|\bR_NO_BASIS\b|\bR_STATES\b|"
+                           r"\brProvenance\b|\bclassify_r\b"),
+        "states": ["contaminated", "confirmed_initial", "unverified", "no_basis"],
+        "why": (
+            "The R DENOMINATOR's provenance — the sibling of `provenance.py`'s "
+            "grade on the R numerator. `trades.stop_loss` holds the CURRENT "
+            "trailed stop, not the initial one, so R can be computed from a "
+            "risk the trade never took. `unverified` is THE state this contract "
+            "exists to protect: it means WE COULD NOT LOOK (side-plausible, no "
+            "independent signal-time `risk_per_unit` to check it against) and "
+            "it is the LARGEST bucket by construction — 1051 of 1346 closed "
+            "non-backtest rows on the live journal, 2026-09-02. Collapsing it "
+            "into `confirmed_initial` would report an unchecked stop as a "
+            "verified one and hand a promotion gate a number two orders of "
+            "magnitude above its true value; collapsing it into `contaminated` "
+            "would report a plausible stop as a proven-bad one and destroy the "
+            "signal the count exists to carry. `no_basis` is deliberately "
+            "distinct from all three: there is no R to grade at all, and it is "
+            "emitted so the four buckets SUM to the population and the "
+            "partition is checkable with arithmetic rather than trusted."
+        ),
+    },
+    {
+        "name": "manager_status.tree_state",
+        # No `producer_field` is declared, and deliberately -- the same reason
+        # `research_queue.power_state` above gives. The states are named module
+        # constants (`TREE_SYNCED = "synced"`), so the literal never shares a
+        # line with the word `tree_state`; narrowing to a field here would fail
+        # for a spelling reason rather than a correctness one.
+        "producer": "src/runtime/manager_status.py",
+        "consumer_token": (r"\btree_state\b|\bTREE_STATES\b|\bTREE_SYNCED\b|"
+                           r"\bTREE_BEHIND\b|\bTREE_UNKNOWN\b"),
+        "states": ["synced", "behind_main", "unknown"],
+        "why": (
+            "The Telegram `/status` and `/decisions` commands read the LIVE "
+            "VM's WORKING TREE, which lags `main` between `ict-git-sync` runs. "
+            "Measured 2026-09-02: `/api/bot/work/decisions` graded a request "
+            "`in_transit` for minutes after its answer was already committed "
+            "to `main`, because the VM was still on the older sha. So the "
+            "state is not cosmetic -- `committed` is read from the work object "
+            "IN THE REPO, and on a `behind_main` tree a question that HAS been "
+            "answered still reads unanswered to the operator. Collapsing "
+            "`behind_main` into `synced` would let a status claim currency "
+            "nobody established, which is the dangerous direction. Collapsing "
+            "`unknown` into `synced` is worse still: `unknown` is *we could "
+            "not look* (git unreadable, or a tree carrying commits `main` does "
+            "not, so what of main it reflects cannot be established), and "
+            "reporting that as level-with-main is a confident wrong answer "
+            "over a tree nobody graded. A confident status over a stale tree "
+            "is worse than no status."
+        ),
+    },
+    {
+        "name": "decision_push.delivery_state",
+        "producer": "src/runtime/decision_push.py",
+        "consumer_token": (r"\bdeliveryState\b|\bDELIVERY_STATES\b|"
+                           r"\bclassify_delivery\b|\bpushBack\b"),
+        "states": ["pushed", "session_gone", "unknown"],
+        "why": (
+            "The last hop of the decision round-trip: a committed answer is "
+            "PUSHED back to the session that asked, instead of that session "
+            "polling for it. The pair that must never collapse is "
+            "`session_gone` vs `unknown`. A `session_gone` verdict WRITES A "
+            "MARKER, and the marker is what stops any further attempt — so "
+            "grading an unrecognised failure (a timeout, a 529, an unset "
+            "credential) as `session_gone` would permanently strand an answer "
+            "for a session that was alive the whole time, on the strength of a "
+            "blip. `unknown` therefore writes NOTHING and is retried, and it is "
+            "the DEFAULT for anything not positively identified. `pushed` is "
+            "reserved for the delivery command's own `ok: true` — silence, a "
+            "zero exit with no parsable result, and an `ok:false` we cannot "
+            "attribute are all `unknown`, because reading silence as success is "
+            "the forward failure this whole subsystem refuses. And "
+            "`session_gone` is a REAL STATE, not an error: the answer stays "
+            "discoverable on the pull path, which this ADDS to and never "
+            "replaced."
+        ),
+    },
+    {
+        "name": "work_decisions.asked_by_state",
+        "producer": "src/runtime/work_decisions.py",
+        "consumer_token": (r"\baskedByState\b|\bASKED_BY_STATES\b|"
+                           r"\bnormalise_asked_by\b|\bbyAskedByState\b"),
+        "states": ["recorded", "unrecorded", "malformed"],
+        "why": (
+            "Whether a decision request records WHICH SESSION ASKED IT — the "
+            "address a committed answer can be pushed back to. Measured "
+            "2026-09-02 over the whole store: ZERO requests carried any such "
+            "field, so every answer had nowhere to go. `unrecorded` is the "
+            "ordinary and blameless state of every request written before the "
+            "field existed, and of any question a human asked. `malformed` "
+            "means somebody DID record an asker and it cannot be used — a "
+            "question whose answer will silently never be delivered while its "
+            "owner believes it will, which is a FINDING and fails the run. "
+            "Collapsing the two buries the finding among the ordinary ones, "
+            "and a push-back RATE computed without splitting them is a "
+            "recording-coverage problem wearing a delivery figure's label."
+        ),
+    },
+    {
         "name": "research_queue.power_state",
         # The producer is the GATE itself: `grade_power` returns a PowerVerdict
         # whose `state` is one of these seven, and the vocabulary is defined as
@@ -913,6 +1021,39 @@ CONTRACTS: List[Dict[str, object]] = [
             "otherwise inherit the first one's suppression budget. "
             "`newly_wedged` is loud on purpose: downgrading the ARRIVAL of a "
             "wedge would hide the condition rather than de-noise it."
+        ),
+    },
+    {
+        "name": "telegram_poll.poll_state",
+        # The producer is the resolver itself: `poll_state()` returns a
+        # PollEvidence whose `state` is one of these three, and the vocabulary
+        # is defined as module constants here and nowhere else.
+        "producer": "src/runtime/telegram_poll_registry.py",
+        # ⚠️ Scoped to the READING vocabulary, deliberately NOT to the module
+        # name. `src/bot/telegram_query_bot.py` imports this module to RECORD a
+        # claim (`record_poll`) and never reads a state back — a module-name
+        # token matched it anyway and then found the word "unknown" in an
+        # unrelated heartbeat label ("label": "unknown") and two VM-resource
+        # strings, reporting a registrant as a consumer that collapses two
+        # states. That is the coincidental-English false positive this guard's
+        # own header warns about, and the fix is a token that names the read
+        # surface rather than an override annotation asserting a file
+        # "legitimately sees only one state" when it sees none.
+        "consumer_token": r"\bpoll_state\b|\bPollEvidence\b|\bPOLL_STATES\b",
+        "states": ["polled_with_handler", "token_only_not_polled", "unknown"],
+        "why": (
+            "polled_with_handler = a live process claims it polls this token AND "
+            "handles this callback prefix, so a tap is received; "
+            "token_only_not_polled = we LOOKED and a tap would NOT be received; "
+            "unknown = we could NOT look. Collapsing unknown into "
+            "polled_with_handler ships an inline keyboard whose taps nobody "
+            "collects — a prompt that arrives, renders, highlights on tap and "
+            "does nothing, with no error on any surface. Collapsing it into "
+            "token_only_not_polled instead condemns a working channel on the "
+            "strength of an unreadable file and silently reroutes every operator "
+            "decision to the wrong chat. The two errors are opposite, which is "
+            "why the third value has to exist rather than be inferred from a "
+            "boolean."
         ),
     },
     {

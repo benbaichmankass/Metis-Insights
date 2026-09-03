@@ -1,0 +1,30 @@
+id: WO-20260903-THE-LANDING-ROUTE-TIER-1-SUB-SESSION
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The landing route: Tier-1 sub-session work lands itself; only Tier-2/3 reaches the manager
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A sub-session's Tier-1 PR reaches main with NO manager action, OBSERVED on a real PR; and a guard FAILS a Tier-1 PR left in draft with no tier declared. Not asserted from a test.
+
+why: >-
+  Measured 2026-09-03: 7 night-shift PRs sat as open drafts. Cause is not a broken tool -- pr-opener.yml honours draft:false (set -uo pipefail, no -e; verified in the workflow) and the request files themselves said draft:true. Sub-sessions 403 on update_pull_request; the MANAGER does not (verified by un-drafting #10875 this morning). So every PR regardless of tier funnels through one bottleneck.
+
+source: >-
+  operator direction 2026-09-03; manager triage of the night queue
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

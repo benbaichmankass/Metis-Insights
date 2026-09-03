@@ -51,7 +51,10 @@ is visible in PROBES.json either way. A declaration should also name a
 `--positive-control` literal, so a log that is fetched but no longer contains
 what we think it does is an unread too.
 
-Exit codes: 0 pass · 1 read-and-nothing-matched · 2 we could not look.
+Exit codes: 0 pass · 1 read-and-nothing-matched-over-N-rows · 2 we could not
+look · 3 read-and-the-source-was-EMPTY (added 2026-09-02 -- this file calls
+``probe_lib.report``, so it inherits the new code and its `if rc !=
+EXIT_PASS: return rc` passes it through unchanged).
 """
 
 from __future__ import annotations

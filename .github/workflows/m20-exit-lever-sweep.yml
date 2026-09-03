@@ -78,8 +78,16 @@ on:
   # touching it registers the workflow and fires the first run from the branch,
   # so the sweep does not have to wait on a merge it is meant to inform.
   push:
+    # 2026-09-02 (MI-66): was pinned to literal branch(es) that have since been
+    # DELETED from origin, so this push trigger could not fire at all — the
+    # workflow was reachable only by `workflow_dispatch`. Generalised to the
+    # `claude/**` namespace rather than dropped, because the `paths:` sentinel
+    # below is the real trigger (the branch list was only ever a convenience)
+    # and the header's documented "re-trigger by committing a new value to that
+    # sentinel" had been silently untrue since those branches went away.
+    # Enforced by scripts/ci/check_workflow_trigger_reachability.py.
     branches:
-      - 'claude/m20-exit-refinement-continue-g1qv46'
+      - 'claude/**'
     paths:
       - '.github/exit-lever-sweep-request'
 
@@ -605,15 +613,21 @@ jobs:
             RETARGETED=1
             echo "::notice::dispatched on ${DEFAULT_BRANCH:-main} (protected) — "
             echo "routing the corpus to '$TARGET' to preserve the rows."
-            mkdir -p .github
+            # ⚠️ The file is named for the TARGET BRANCH, and must stay that way.
+            # `claude-pr-automerge` now proves the ask against the branch's own
+            # name (`claude/m20-sweep-corpus` -> `m20-sweep-corpus.txt`) because a
+            # `paths:` filter cannot tell "I asked" from "I merged someone else's
+            # ask" — three PRs were armed through that gap on 2026-09-02. A file
+            # under any other name here would be silently ignored.
+            mkdir -p .github/pr-automerge-requests
             {
               echo "m20 exit-lever sweep corpus — run ${GITHUB_RUN_ID:-unknown}"
               echo "Opt-in marker for claude-pr-automerge.yml. NOTE: a push made"
               echo "with GITHUB_TOKEN does not start workflows, so this file is"
               echo "NOT read on this path — it is written so the branch is ready"
               echo "the moment a credential that CAN trigger it exists."
-            } > .github/pr-automerge-request
-            git add .github/pr-automerge-request
+            } > .github/pr-automerge-requests/m20-sweep-corpus.txt
+            git add .github/pr-automerge-requests/m20-sweep-corpus.txt
           fi
           echo "corpus target branch: $TARGET (retargeted=$RETARGETED)"
           # Message via a FILE, not an inline -m: the extractor's summary is
@@ -722,13 +736,15 @@ jobs:
             # `if`, not `A && B`: under `set -e` a false test or a clean
             # `--quiet` diff returns 1 and would abort the whole step.
             if [ "$RETARGETED" = "1" ]; then
-              mkdir -p .github
+              # Named for the target branch — see the note at the first writer.
+              mkdir -p .github/pr-automerge-requests
               {
                 echo "m20 exit-lever sweep corpus — run ${GITHUB_RUN_ID:-unknown}"
                 echo "Touching this file is the opt-in signal for claude-pr-automerge.yml;"
-                echo "its contents are ignored."
-              } > .github/pr-automerge-request
-              git add .github/pr-automerge-request
+                echo "its contents are ignored. The NAME is the signal, and it must"
+                echo "match the target branch slug or the relay ignores it."
+              } > .github/pr-automerge-requests/m20-sweep-corpus.txt
+              git add .github/pr-automerge-requests/m20-sweep-corpus.txt
             fi
             if git diff --cached --quiet; then
               echo "their copy already contains this run's rows"

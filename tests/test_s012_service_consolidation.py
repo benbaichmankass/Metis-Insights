@@ -41,6 +41,16 @@ EXPECTED_SERVICES = {
     "ict-ib-executions-pull.service",
     # Claude bridge bot (ict-claude-bridge.service manages it separately).
     "ict-claude-bridge.service",
+    # Added 2026-09-02: the DEDICATED Claude bot's POLLING half, which is what
+    # makes a work-decision BUTTON answerable rather than merely delivered — a
+    # tap on an unpolled bot yields a callback_query nobody collects, with no
+    # error on any surface. Its OWN unit rather than a second Application
+    # inside ict-telegram-bot: run_polling() owns an event loop and two do not
+    # compose, and one process is one event loop, so a stall in the decision
+    # channel would become a stall in the operator's kill switch.
+    # ⚠️ NOT the same bot as ict-claude-bridge above, whose name is historical
+    # — that one polls the PROP token.
+    "ict-claude-decision-bot.service",
     # Shadow log rotation for the shadow-predictions audit log.
     "ict-shadow-log-rotate.service",
     # One-shot smoke check run on deploy.
@@ -112,6 +122,14 @@ EXPECTED_SERVICES = {
     # ~500 commits stale with a dead forecast producer before this). TRAINER-VM
     # only (role-gated by install_systemd_units.sh); never on the live trader.
     "ict-trainer-git-sync.service",
+    # MI-83 (2026-09-02): the hourly work digest, moved off GitHub Actions cron
+    # onto the VM's own clock. work-digest.yml declares `20 * * * *` and fired 5
+    # times in a day at :19/:10/:33/:47 over its complete run history. Adding
+    # this unit is the architectural decision this set exists to force into the
+    # open; it ships alongside deploy/ict-work-digest.timer, is enabled by
+    # install_systemd_units.sh's deploy/*.timer glob, and is TIER-2 (merging is
+    # the VM mutation). Recorded in docs/claude/deployment-ops.md.
+    "ict-work-digest.service",
     # 2026-08-02 (R4 P1): observe-only research→results gate reporter. Timer-fired
     # oneshot (ict-research-results-gate.timer, daily) that runs
     # scripts/research/research_results_gate_report.py over the live journal and

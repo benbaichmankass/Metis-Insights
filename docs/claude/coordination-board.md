@@ -185,6 +185,39 @@ Shipped: <PR # / what merged> — area now clear.
   Fall back to the live open-PR list (`list_pull_requests state=open`) as the
   real-time truth.
 
+### ⚠️ THERE IS NO DIRECT SESSION-TO-SESSION CHANNEL, IN EITHER DIRECTION
+
+**This is why the board is mandatory rather than merely encouraged**, and it is the
+one thing a session most often assumes it can route around.
+
+`SendMessage` between a manager and a sub-session **fails both ways**:
+
+| direction | result | measured |
+|---|---|---|
+| manager → sub-session | `{"success": false, "No agent named ... is reachable"}` | 2026-09-01, `WO-20260901-PHASE-E` |
+| **sub-session → its own manager** | **the same error**, on its own `parent_session_id` | **2026-09-02, MI-70** |
+
+⚠️ **The downward half was recorded first and was read as the whole constraint.**
+That phrasing — *"a manager cannot message a sub-session"* — invites the reading
+that a sub-session can at least **report upward**. It cannot. `ListAgents` shows no
+reachable cloud peers in either direction, and there is no `send_message` or
+`list_events` tool in either surface.
+
+What follows, and it is not a detail:
+
+- **A sub-session with a finding, a blocker, or a question has exactly two channels
+  to its manager: THIS BOARD, and its PR.** Nothing else reaches. A sub-session that
+  "tells the manager" in its final message is talking to a transcript nobody polls.
+- **A spawn prompt must therefore carry every rule the sub-session will need**, and
+  must direct upward-bound information to the board or the PR rather than to the
+  manager. A rule remembered after the spawn cannot be delivered.
+- **A manager must not wait for a sub-session to report.** It polls `get_session`
+  and reads the board and the branch; there is no inbox on either side.
+
+**The handoff is cheap precisely because of this.** There is no live connection to
+transfer, so taking over is purely a KNOWLEDGE problem — and knowledge goes in
+files: `SESSIONS.json`, `MANAGER-CHECKLIST.json`, `OPEN-PRS.json`, and this board.
+
 ### If `add_issue_comment` returns 403 — USE THE RELAY, don't skip the board
 
 A PM-side session's MCP can be **read-only for issues and PRs**:
@@ -218,6 +251,32 @@ The two siblings, for the same 403: `automation/pr-requests/<name>.json` →
 `pr-opener.yml` opens a PR (fresh filename per PR — a reused one is a silent
 no-op), and `.github/pr-automerge-requests/<branch>.txt` →
 `claude-pr-automerge.yml` enables auto-merge.
+
+### ⚠️ EVERY RELAY POST ON A BRANCH WITH AN OPEN PR BURIES THAT PR'S CI
+
+**All three relays commit a result file back to your branch, authored by
+`github-actions[bot]` — and GitHub does not trigger workflows for
+`GITHUB_TOKEN` pushes.** So whenever that results commit lands last, your PR
+sits at **`mergeable_state: blocked` with `total_count: 0` check runs**: no
+checks fired at all.
+
+⚠️ **The more diligently you use the board, the more often this happens**, and
+`board-post.yml`'s own header does not mention it — `CLAUDE.md` documents the
+trap for `pr-opener` only. Measured on PR #10794 (MI-61, 2026-09-02): it fired
+**twice in one session**, once from the `pr-opener` results commit at PR
+creation, and again from the `board-post` results commit for the ✅ DONE post.
+
+**The fix is one ordinary commit from a real author**, which re-arms CI on the
+new head. Prefer a commit you owed anyway over an empty one.
+
+⚠️ **AND SEQUENCE IT: post your DONE to the board BEFORE the last commit you
+intend to push, or expect to push once more afterwards.** A DONE post is
+normally the last thing a session does, which is exactly when this bites.
+
+⚠️ **`blocked` and `dirty` BOTH render as `total_count: 0`, and only the second
+is a merge conflict.** Read `mergeable_state` before concluding anything:
+`blocked` here means *no checks fired* (this trap), `dirty` means GitHub could
+not build the merge ref and the fix is the merge, not another commit.
 
 ⚠️ **This paragraph exists because the relay was undiscoverable from the
 documents a session actually reads.** `board-post.yml` shipped 2026-08-20

@@ -290,6 +290,57 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # `context = work object + role pack` is the operating model's anti-silo
+        # mechanism, and on 2026-09-01 its two halves were wired to DIFFERENT
+        # systems: the object half shipped and not one role pack was updated to
+        # know it exists. A prose edit alone decays back to zero on the next
+        # rewrite — this is what keeps it true.
+        #
+        # Two directions, and only the second has teeth: a situating pack must
+        # NAME a live operating-layer path, and EVERY layer path ANY pack names
+        # must exist. So renaming the store reddens the packs pointing at the
+        # old place. Deliberately NOT all 32 — most packs are domain procedure
+        # and are correctly indifferent to where work is tracked.
+        #
+        # `when: None`: the thing that breaks it is usually a path MOVING
+        # elsewhere in the repo, which touches no skill file, so a diff-scoped
+        # version would go quiet exactly when it should speak.
+        "name": "role-pack-operating-layer",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_role_pack_operating_layer.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_role_pack_operating_layer.py"],
+        ],
+    },
+    {
+        # CAN THIS WORKFLOW'S PUSH TRIGGER FIRE AT ALL? A narrow, deterministic
+        # slice of the audit's own biggest blind spot: 87 of 129 workflows
+        # cannot be graded on dormancy (their history is skipped label-filter
+        # evaluations), so "is this thing dead?" had no cheap surface. This does
+        # not answer that — it answers the reachability half, which needs no run
+        # history: a `push` trigger pinned to a branch that no longer exists is
+        # unreachable by construction.
+        #
+        # It found THREE on its first run (ict-scalp-exit-sweep,
+        # m20-capture-census, m20-exit-lever-sweep); the audit had flagged one,
+        # and graded it as a CI failure to repair rather than a dead trigger.
+        #
+        # ⚠️ `when: None` so it runs on every PR, NOT diff-scoped to
+        # `.github/workflows/**`. The thing that breaks a trigger is usually a
+        # BRANCH DELETION, which touches no file in the diff — so a diff-scoped
+        # version would go quiet at exactly the moment it should speak.
+        # ⚠️ An unreadable `origin` PASSES (loudly). Failing on a network blip
+        # would red every open PR — BL-20260830.
+        "name": "workflow-trigger-reachability",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_workflow_trigger_reachability.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_workflow_trigger_reachability.py"],
+        ],
+    },
+    {
         "name": "session-brief-guard",
         "when": None,
         "steps": [
@@ -396,6 +447,185 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # THE MANAGER-SIDE GUARD. `pr-queue-watch.yml` times how long an open,
+        # unmerged PR has sat with no push -- the MCP-free half of the question
+        # `queue_latency.py` can only answer with `list_sessions`. This entry is
+        # what makes that watcher a GUARD rather than a script somebody could
+        # have run: the watcher is not invokable from a prompt, a skill or a
+        # checklist step, and its DEADNESS fails here, on every PR. Measured
+        # across this cycle -- every mechanism the manager had to CHOOSE to run
+        # went unused; every mechanism that STOOD IN THE WAY worked.
+        #
+        # ⚠️ IT GRADES THE WATCHER'S LIVENESS, NEVER THE BACKLOG'S SIZE. A
+        # contributor's PR must not go red because the manager has four others
+        # unmerged -- the same objection this file already records against
+        # fetching the live open-PR list in `open_pr_record.py --strict`
+        # ("reddening PRs for a row nobody could have written yet"). The backlog
+        # is PRINTED here and escalated by the watcher's own run.
+        #
+        # ⚠️ `never_ran` PASSES and that is correct rather than lenient: it is
+        # the accurate reading until the workflow first fires, and failing on it
+        # would red every PR on the day this merges -- which is how a guard gets
+        # disabled instead of fixed. It arms itself on the first real run.
+        #
+        # `when: None`: a watcher can die without any PR touching its files,
+        # which is precisely the case that must be caught.
+        "name": "pr-queue-watch-guard",
+        "when": None,
+        "steps": [
+            # Both directions, on both halves -- a planted defect fires and a
+            # clean input stays quiet. One direction proves a check runs, never
+            # that it discriminates.
+            ["python3", "scripts/ops/pr_queue_latency.py", "--self-test"],
+            ["python3", "scripts/ci/check_pr_queue_watch.py", "--self-test"],
+            ["python3", "scripts/ci/check_pr_queue_watch.py"],
+        ],
+    },
+    {
+        # THE MANAGER'S OWN TOOLING MUST BE ABLE TO GRADE.
+        #
+        # ⚠️ THIS ENTRY EXISTS BECAUSE ITS ABSENCE WAS MEASURED, not on principle.
+        # On the morning of 2026-09-03 `manager_preflight.py --self-test` refused
+        # to grade -- the manager's own gate was unusable -- and NOTHING in CI
+        # noticed, because no guard ran it. The cause was environmental: an
+        # assertion read `count_autonomous_actions(2020) > 100`, a claim about
+        # CLONE DEPTH rather than about the behaviour under test, so it passed on
+        # a full clone (4043 commits) and failed on a `--depth=50` one (50). The
+        # assertion is now an equality against the count git itself reports, which
+        # is both stronger and depth-independent -- verified passing at depth 1,
+        # depth 50 and full.
+        #
+        # ⚠️ DEPTH-INDEPENDENCE IS WHAT MAKES THIS SAFE TO WIRE. A guard that
+        # assumed full history would fail under `actions/checkout`'s default
+        # `fetch-depth: 1`, i.e. it would red every PR for an environmental
+        # reason -- exactly the shape that gets a guard deleted instead of fixed.
+        #
+        # ⚠️ IT GRADES THE TOOLING, NEVER THE MANAGER. A contributor's PR does not
+        # go red because a preflight CHECK fails on live state -- only the bare
+        # `--self-test` runs here, which is a pure planted-failure suite over pure
+        # functions. The preflight's live verdict stays the manager's to run.
+        #
+        # `when: None`: this tooling can break from a change to anything it
+        # imports (`session_registry`, `manager_lease`), not only from a diff that
+        # touches its own file.
+        "name": "manager-tooling-selftests",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/manager_preflight.py", "--self-test"],
+            ["python3", "scripts/ops/manager_view.py", "--self-test"],
+            ["python3", "scripts/ops/handoff_check.py", "--self-test"],
+        ],
+    },
+    {
+        # DOES ANYTHING NOTICE IF THE MANAGER QUEUE WATCH ROUTINE DIES?
+        # `trig_01TWdAvrwFLe6T9XFoNopTeo` (cron `56 * * * *`) spawns a FRESH
+        # session hourly to check whether the manager is sitting on blocked
+        # sub-sessions -- a check NOT invoked by the actor it checks, which is
+        # why it works. Measured 2026-09-03 over all 25 Routines `list_triggers`
+        # returned for this account, it is the ONLY cron-driven one; the other 24
+        # are one-shot pokes at `next_run_at: 0001-01-01`. So there was exactly
+        # one recurring watcher and nothing watching IT.
+        #
+        # ⚠️ THE EXISTING LATCH COULD NOT HAVE ANSWERED THIS, which is why a new
+        # receipt exists rather than a new read of an old file.
+        # `QUEUE-WATCH-STATE.json` is written only when a page FIRES, so on a
+        # quiet queue it is never written and its absence collapses "the Routine
+        # never ran" into "the Routine ran and had nothing to say" -- opposite
+        # facts, one value. `queue_latency.py --write-receipt` now writes
+        # `MANAGER-QUEUE-WATCH.json` on EVERY run, and this grades its age.
+        #
+        # ⚠️ IT GRADES THE ROUTINE'S LIVENESS, NEVER THE QUEUE'S DEPTH. A
+        # contributor's PR must not go red because the manager is sitting on
+        # blocked sub-sessions -- the same objection this file already records
+        # against the pr-queue-watch and trainer-capture entries. The depth is
+        # PRINTED here and escalated by the Routine's own run.
+        #
+        # ⚠️ `never_ran` PASSES and that is correct rather than lenient: it is the
+        # accurate reading until the Routine next fires with `--write-receipt`,
+        # and failing on it would red every PR on the day this merges -- which is
+        # how a guard gets disabled instead of fixed. It arms itself on the first
+        # receipt.
+        #
+        # `when: None`: a Routine can die without any PR touching its files,
+        # which is precisely the case that must be caught.
+        "name": "manager-queue-watch-guard",
+        "when": None,
+        "steps": [
+            # Both directions, on both halves -- a planted defect fires and a
+            # clean input stays quiet. One direction proves a check runs, never
+            # that it discriminates.
+            ["python3", "scripts/ops/queue_latency.py", "--self-test"],
+            ["python3", "scripts/ops/manager_state_watch.py", "--self-test"],
+            ["python3", "scripts/ci/check_manager_queue_watch.py", "--self-test"],
+            ["python3", "scripts/ci/check_manager_queue_watch.py"],
+        ],
+    },
+    {
+        # THE ALARM ON THE TRAINER'S FORWARD-ONLY ORDER-FLOW CAPTURE.
+        # `trainer-capture-watch.yml` grades the mtime of the capture's own
+        # output file. This entry is what makes that watcher a GUARD rather than
+        # a cron somebody hopes is firing: a watcher that quietly stopped would
+        # leave the capture in exactly the unmonitored state
+        # OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED was
+        # filed for, while everything looked fine.
+        #
+        # ⚠️ IT GRADES THE WATCHER'S LIVENESS, NEVER THE CAPTURE'S HEALTH. A
+        # contributor's PR must not go red because the trainer's capture stalled
+        # -- same objection as the pr-queue-watch entry above. The capture's own
+        # verdict is escalated by the watcher's own run (which fails, and pages).
+        #
+        # ⚠️ `never_ran` PASSES and that is correct rather than lenient: it is
+        # the accurate reading until the workflow first fires, and failing on it
+        # would red every PR on the day this merges. It arms itself on the first
+        # real run.
+        #
+        # `when: None`: a watcher can die without any PR touching its files,
+        # which is precisely the case that must be caught.
+        "name": "trainer-capture-watch-guard",
+        "when": None,
+        "steps": [
+            # Both directions, on both halves -- a planted defect fires and a
+            # clean input stays quiet. One direction proves a check runs, never
+            # that it discriminates.
+            ["python3", "-m", "pytest",
+             "tests/test_orderflow_capture_freshness.py", "-q"],
+            ["python3", "scripts/ci/check_trainer_capture_watch.py", "--self-test"],
+            ["python3", "scripts/ci/check_trainer_capture_watch.py"],
+        ],
+    },
+    {
+        # IS THE OPERATOR'S DIGEST STILL ARRIVING? On 2026-09-02 the operator
+        # asked "no pings for 3 hours?" -- it was four -- and nothing in the
+        # repo knew. F6 makes operator notification the CONDITION the autonomy
+        # grant rests on, so that precondition had been unmet all day unnoticed.
+        #
+        # `src_red_crons` cannot cover this: it grades the latest scheduled
+        # run's CONCLUSION, so a cron that never fires leaves a stale-but-green
+        # latest run and reads clean -- a missed slot and a quiet hour are
+        # indistinguishable from it. Worse, it rides `due-list.yml`, itself a
+        # cron, itself measured landing 4h07m late; a cron watchdog for crons
+        # cannot report its own carrier dying.
+        #
+        # `when: None`: the digest can stop without any PR touching its files,
+        # which is precisely the case that must be caught. And `pull_request`
+        # is an event this repo has measured firing within seconds.
+        #
+        # It PASSES on `never_ran` and arms itself on the first landed receipt,
+        # for the reason the pr-queue-watch guard above records: failing on it
+        # would red every PR the day this merges, which is how a guard gets
+        # disabled instead of fixed.
+        "name": "digest-liveness-guard",
+        "when": None,
+        "steps": [
+            # Both directions, on both halves -- a planted defect fires and a
+            # clean input stays quiet. One direction proves a check runs, never
+            # that it discriminates.
+            ["python3", "scripts/ops/digest_due.py", "--self-test"],
+            ["python3", "scripts/ci/check_digest_liveness.py", "--self-test"],
+            ["python3", "scripts/ci/check_digest_liveness.py"],
+        ],
+    },
+    {
         # The hand-maintained cron watch list in claude-run-failure-alert.yml
         # has been asserted-complete and been false TWICE (2026-08-21 count
         # said 12 and "ALL 12 are now listed"; measured 2026-08-31 there were
@@ -475,11 +705,103 @@ GUARDS: List[Dict[str, Any]] = [
         # it never had. A `partial` verdict MUST name the source it could not
         # read, or an empty section reads as "nothing is due" when it means
         # "nobody looked" — the `curl … || echo '{}'` failure in CLAUDE.md.
+        # The executable half of the 2026-09-02 standing operator directive:
+        # "anything soaking needs to be logged with an alarm that has either a
+        # timer or a soak threshold, so that we know to get back to it when the
+        # soak is ready."
+        #
+        # `when: None` — it runs on EVERY diff, deliberately. A diff-scoped
+        # version would pass vacuously on every PR that touches no soak writer,
+        # which is nearly all of them: a green that checked nothing. The
+        # pre-2026-09-02 debt is carried in an explicit dated BASELINE inside
+        # the script instead, so adding to it is a visible line in a PR diff
+        # rather than a silent skip — the `new-table-wiring-guard` lesson, where
+        # a presence-only marker made lying cheaper than complying.
+        #
+        # Its self-test runs first and carries a PLANTED POSITIVE (a new soak
+        # writer with no register row must FAIL): a guard that has only ever
+        # reported clean is indistinguishable from one that scans nothing.
+        "name": "soak-registered-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_soak_registered.py", "--self-test"],
+            ["python3", "scripts/ci/check_soak_registered.py"],
+        ],
+    },
+    {
         "name": "due-list-guard",
         "when": None,
         "steps": [
             ["python3", "scripts/ops/render_due_list.py", "--self-test"],
             ["python3", "scripts/ops/render_due_list.py", "--check"],
+            # The soak grader the due-list's `soaks` source imports. Its own
+            # controls prove the four states are reachable and DISTINCT —
+            # `not_writing` (the soak is dead) must never render as `accruing`
+            # (it is alive and waiting) or as `unknown` (we could not look).
+            ["python3", "scripts/ops/soak_alarm.py"],
+        ],
+    },
+    {
+        # The error feed the `duty` pass triages. Same posture as
+        # due-list-guard above and for the same reason: it does NOT check
+        # freshness — a committed digest is stale by construction and a
+        # clock-based failure would red every unrelated PR. It checks the one
+        # thing that is never acceptable, that a digest claims a completeness
+        # it never had: a `partial` verdict MUST name the feed it could not
+        # read, or a quiet section reads as "nothing fired" when it means
+        # "nobody looked".
+        #
+        # The self-test runs FIRST, deliberately. Its controls are the ones a
+        # reader's conclusion depends on — an unreachable feed not rendering as
+        # empty, a digit-varying flood collapsing to one row, and the watermark
+        # never advancing over a window nobody read. A grouper that regressed
+        # would land an artifact a session then triages, and the artifact
+        # itself would look fine.
+        "name": "error-feed-digest-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/error_feed_digest.py", "--self-test"],
+            ["python3", "scripts/ops/error_feed_digest.py", "--check"],
+        ],
+    },
+    {
+        # The DAILY BRIEF — the artifact the operator is handed in the morning
+        # and pastes as the opening of the next manager's prompt (MI-75,
+        # WO-20260901-PHASE-E). The acceptance criterion is the operator's own
+        # sentence: it must say "what was done overnight and what was wrapped
+        # up after I went to bed, SO THAT I KNOW WHERE I'M STARTING OFF FROM."
+        #
+        # ⚠️ `--check` GRADES THE CODE, NOT THE DATA, and that is deliberate. An
+        # unreadable register is a real problem, but failing here on it would
+        # red every open PR for a defect none of them introduced — the lesson
+        # session-brief-guard already learned
+        # (BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH),
+        # and the same polarity as workflow-trigger-reachability's "an
+        # unreadable origin PASSES (loudly)". A broken register is printed as a
+        # ::NOTICE:: and passes; what FAILS is the renderer raising over the
+        # live registers, or an invariant SENTENCE going missing in a refactor
+        # — the brief still rendering while quietly no longer saying the thing
+        # it exists to say is the only failure a smoke test would miss.
+        #
+        # ⚠️ It is deliberately WINDOWLESS and OFFLINE: no git window (a shallow
+        # checkout is the normal state of a session's clone) and no due-list
+        # collection (it reaches api.github.com). A guard that can fail on clone
+        # depth or an API blip reds unrelated PRs.
+        #
+        # NOT A WALL — measured before wiring. At the head this shipped on,
+        # `--check` exits 0 over all 6 registers, and prints the checklist's
+        # `done` (11) and `landed_unproven` (17) as SEPARATE numbers, which is
+        # the invariant the whole artifact turns on: a merge is a deploy, not an
+        # observation, and an item reported finished whose effect was never seen
+        # actively misinforms the person starting the day.
+        "name": "daily-brief-guard",
+        "when": None,
+        "steps": [
+            # Planted controls in BOTH directions — a defect fires and a clean
+            # input stays quiet. One direction proves a check runs, never that
+            # it discriminates.
+            ["python3", "scripts/ops/render_daily_brief.py", "--self-test"],
+            ["python3", "scripts/ops/render_daily_brief.py", "--check"],
         ],
     },
     {
@@ -1160,6 +1482,84 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_tp_venue_cap_single_owner.py"]],
     },
     {
+        "name": "automerge-trigger-guard",
+        # UNGATED: `when: None`, so it runs on every PR regardless of the diff.
+        # The registry's convention for "always" is an EXPLICIT `None`, never an
+        # absent key — every one of the other 73 entries carries the key, and
+        # `run_guards` itself dereferences `g["when"]` directly in three places
+        # (the `--list` render, the diff-scoped selection, and the dirty-worktree
+        # warning). This entry shipped without it and broke all three.
+        #
+        # ⚠️ THAT IS DELIBERATE AND IS THE POINT OF THE GUARD. A diff-scoped
+        # version would only fire when someone edits the relay — and nobody was
+        # editing the relay on 2026-09-02 when it un-drafted and armed three PRs
+        # that had asked for nothing. The regression vector is a path landing on
+        # `main`, not an edit to the workflow, so a guard that waits to be
+        # triggered by an edit is a guard that would have stayed silent through
+        # the whole incident. Same reasoning as `diagnostic-provenance-guard`'s
+        # ungated `--all` step.
+        #
+        # It is cheap (two file reads, no network) and the tree passes today, so
+        # an ungated step is survivable — which is exactly the precondition that
+        # made the diagnostic-provenance one survivable too.
+        #
+        # Self-test FIRST: the guard reports a CLEAN tree, so without an
+        # exercised failure path a green here is indistinguishable from a guard
+        # that stopped matching. Declared in `guard_selftests.py`'s
+        # COVERED_BY_CHECKER, which `check_selftest_wiring.py` VERIFIES rather
+        # than takes on trust.
+        "when": None,
+        "steps": [["python3", "scripts/ci/check_automerge_trigger.py", "--self-test"],
+                  ["python3", "scripts/ci/check_automerge_trigger.py"]],
+    },
+    {
+        "name": "pr-landing-guard",
+        # Every PR declares its TIER and how it means to LAND, and the
+        # declaration is checked against the diff rather than taken on trust.
+        #
+        # WHY IT IS UNGATED. The condition is a property of the PR — did this
+        # branch declare, and does the declaration match what it changed — not
+        # of any particular file it touched. A diff-scoped version would fire
+        # only when someone edits the landing machinery, which is exactly the
+        # PR least in need of it and never the ordinary PR that quietly asks to
+        # merge without declaring. Same reasoning as `automerge-trigger-guard`
+        # directly above.
+        #
+        # WHY IT IS SURVIVABLE ON DAY ONE. Requiring a declaration on every PR
+        # would otherwise red every branch already open when this merges — 6 of
+        # them (population: every open PR from `list_pull_requests` state=open,
+        # 2026-09-03), whose authoring sessions are mostly dead and cannot add
+        # the file. Failing them is how a guard gets disabled instead of fixed
+        # (`check_pr_queue_watch.py` records that reasoning). So the checker
+        # asks whether ITSELF existed at the branch's merge-base: a branch cut
+        # before the rule passes `undeclared_predates_guard`, loudly and
+        # counted. It arms itself as those branches drain and there is no flag
+        # to unset. ⚠️ The DANGEROUS direction is NOT grandfathered — arming
+        # auto-merge with no valid declaration fails at any age.
+        #
+        # THE TEETH ARE THE MERGE GATE, NOT AN ALARM. Auto-merge merges only on
+        # green and this is a required check, so a branch that arms while
+        # under-declaring its tier holds itself out of `main` by failing its
+        # own guard.
+        #
+        # Self-test FIRST, and it carries POSITIVE controls as well as plants:
+        # the failure paths here refuse work, so a guard that started refusing
+        # correct PRs would be worse than the problem it fixes.
+        #
+        # The real check is `pr_only` — a push/`--all` run has no branch to
+        # grade, and the checker reports `not_a_pr` rather than a pass.
+        # Costs ~2s: a few `git` plumbing calls plus one small JSON read.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_pr_landing.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_pr_landing.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
+        ],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read
@@ -1391,6 +1791,65 @@ GUARDS: List[Dict[str, Any]] = [
         "notify": True,
     },
 ]
+
+
+# ---------------------------------------------------------------------------
+# the registry's own shape, asserted at import
+# ---------------------------------------------------------------------------
+#
+# WHY THIS IS HERE AND NOT IN A TEST. `automerge-trigger-guard` was added on
+# 2026-09-02 with no `when` key at all, intending "ungated" — for which this
+# registry's convention is an explicit `None`. Nothing said so at the point of
+# writing, and the omission surfaced as a bare `KeyError: 'when'` raised seven
+# tests deep inside `tests/test_guards_uncommitted_work.py`, a file whose
+# subject is uncommitted work and not registry shape. The message named neither
+# the guard nor the key.
+#
+# ⚠️ AND THE `guards` CI JOB WAS GREEN THROUGHOUT. It invokes the driver in a
+# mode that short-circuits every `g["when"]` read, so the guard runner was
+# broken on `--list` and on the ordinary diff-scoped (local / pre-commit) path
+# while its own job reported success — green over a thing it did not check.
+#
+# This is not a second definition of the registry's shape. It asserts exactly
+# the three keys THIS MODULE dereferences with `[]` — `name` (the `--only`
+# filter, the skipped-set, the failure summary), `when` (the `--list` render at
+# the scope column, the relevance filter, the dirty-worktree warning) and
+# `steps` (the executor). A key the module indexes and does not require is the
+# defect; adding a field here without adding a dereference does not make it
+# required. Per `docs/CLAUDE-RULES-CANONICAL.md` § RULE ONE, the assertion goes
+# inside the transform — that mechanism caught 3 of the 10 verification
+# failures in the ledger there, where prose caught 0.
+
+_REQUIRED_GUARD_KEYS = ("name", "when", "steps")
+
+
+def _validate_registry(guards: List[Dict[str, Any]]) -> None:
+    """Refuse a malformed registry at import, naming the entry and the key.
+
+    Raises rather than warns: every consumer of `GUARDS` reads these keys, so a
+    registry that is missing one has no correct behaviour left to degrade to.
+    """
+    problems: List[str] = []
+    for i, g in enumerate(guards):
+        missing = [k for k in _REQUIRED_GUARD_KEYS if k not in g]
+        if missing:
+            who = g.get("name") or f"<entry {i} has no name>"
+            problems.append(
+                f"  {who} (index {i}): missing {', '.join(repr(k) for k in missing)}"
+            )
+    if problems:
+        raise ValueError(
+            "run_guards.GUARDS is malformed — every entry must declare "
+            + ", ".join(repr(k) for k in _REQUIRED_GUARD_KEYS)
+            + ".\n"
+            + "\n".join(problems)
+            + "\n\nFor a guard that should always run, the value is an EXPLICIT "
+              "`\"when\": None`. An absent key is not the same thing: the driver "
+              "indexes `g[\"when\"]` directly and raises."
+        )
+
+
+_validate_registry(GUARDS)
 
 
 # ---------------------------------------------------------------------------

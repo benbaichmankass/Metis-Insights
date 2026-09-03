@@ -1,0 +1,48 @@
+id: WO-20260902-NIGHT-SHIFT-2026-09-02-03-FINISH
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Night shift 2026-09-02→03: finish what is in flight, then registry currency and the 113h red PR
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-02
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  At 05:00Z a daily brief is rendered and delivered. Before that: #10857 is merged or its blocker is stated; MI-85 (#10398, red 113h) is diagnosed against a FRESH main rather than its 4.7-day-old CI; MI-84 is carried forward so the morning manager does not trust SESSIONS.json's state field. NOT done-when: a count of merges.
+
+why: >-
+  Operator said goodnight 2026-09-02T21:40Z. The day manager holds the lease and is standing down. Scope is deliberately NARROW because tonight's own finding is that a manager cannot see the sessions it spawns: no new spawns, no Tier-2/3, no trader, no Claude Routine.
+
+source: >-
+  operator-goodnight-2026-09-02
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
+
+# ── CORRECTION, operator 2026-09-02T21:50Z ───────────────────────────────
+routine_scope_correction: >-
+  ⚠️ THE `why` FIELD ABOVE SAYS "no Claude Routine" AND THAT IS AN
+  OVER-GENERALISATION THE OPERATOR HAS CORRECTED. Verbatim: "when I said no
+  cloud routines that wasn't 'don't use that tool', it was don't use that as a
+  Band-Aid for something that needs to be an actual routine. You CAN spawn off
+  cloud routines, especially if that's gonna give you better control over the
+  session. That was for that specific thing, not a general rule. I don't want
+  it written into the rules as a general rule."
+  WHAT WAS REFUSED: a session-bound Routine standing in for durable
+  infrastructure — the hourly work digest, whose right answer is the VM systemd
+  timer in #10859, because a session-bound Routine dies with its session.
+  WHAT IS ALLOWED: Routines as a real mechanism, and EXPLICITLY for manager
+  control over sub-sessions.
+  ⚠️ The night session's OTHER constraints are unchanged and still hold: no new
+  spawns, no Tier-2/3, no trader, do not merge #10859, do not act on the
+  unauthorised merges. Only the Routine clause is lifted.
