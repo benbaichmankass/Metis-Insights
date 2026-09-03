@@ -1,15 +1,15 @@
 {
   "_doc": "RECEIPT of the PR-queue watcher (scripts/ops/pr_queue_latency.py, fired by .github/workflows/pr-queue-watch.yml). ⚠️ READ `generated_at`, NEVER THE CRON EXPRESSION -- a merged, enabled, syntactically correct scheduled workflow in this repo is NOT evidence that it fires (probes.yml's first scheduled run was ~4h50m late and fired once instead of daily). `scripts/ci/check_pr_queue_watch.py` grades this file's age in run_guards.py on every PR, so a dead watcher announces itself in everybody's CI instead of going quiet. ⚠️ An ABSENT file means the watcher has NEVER run, which is a different fact from STALE and needs a different fix.",
   "schema_version": 1,
-  "generated_at": "2026-09-03T16:40:41Z",
+  "generated_at": "2026-09-03T21:19:42Z",
   "read_state": "measured",
   "population": "ALL 14 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
-  "waiting": 11,
-  "worst_hours": 132.8,
+  "waiting": 12,
+  "worst_hours": 137.5,
   "threshold_hours": 6.0,
   "by_state": {
-    "active": 3,
-    "waiting": 11
+    "active": 2,
+    "waiting": 12
   },
   "rows": [
     {
@@ -17,9 +17,9 @@
       "title": "chore(m1): economic-calendar PIT snapshots (auto)",
       "head_ref": "automation/econ-calendar-33232352515-1",
       "draft": false,
-      "quiet_hours": 132.8,
+      "quiet_hours": 137.5,
       "state": "waiting",
-      "why": "open and unmerged with no push for 132.8h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 137.5h (threshold 6.0h).",
       "last_push_utc": "2026-08-29T03:49:54Z"
     },
     {
@@ -27,9 +27,9 @@
       "title": "chore(ops): queue the daily work digest (auto)",
       "head_ref": "automation/work-digest-33726116576-1",
       "draft": false,
-      "quiet_hours": 9.5,
+      "quiet_hours": 14.1,
       "state": "waiting",
-      "why": "open and unmerged with no push for 9.5h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 14.1h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T07:13:26Z"
     },
     {
@@ -37,9 +37,9 @@
       "title": "daily brief for the operator's morning, rendered with every live observation supplied",
       "head_ref": "claude/night-brief",
       "draft": false,
-      "quiet_hours": 9.2,
+      "quiet_hours": 13.8,
       "state": "waiting",
-      "why": "open and unmerged with no push for 9.2h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 13.8h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T07:30:33Z"
     },
     {
@@ -47,9 +47,9 @@
       "title": "queue the night-shift summary to the Telegram bot (and what the trace says about the delivery defect)",
       "head_ref": "claude/night-shift-telegram-ping",
       "draft": false,
-      "quiet_hours": 8.9,
+      "quiet_hours": 13.6,
       "state": "waiting",
-      "why": "open and unmerged with no push for 8.9h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 13.6h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T07:44:20Z"
     },
     {
@@ -57,9 +57,9 @@
       "title": "chore(ops): queue the daily work digest (auto)",
       "head_ref": "automation/work-digest-33728274713-1",
       "draft": false,
-      "quiet_hours": 8.8,
+      "quiet_hours": 13.4,
       "state": "waiting",
-      "why": "open and unmerged with no push for 8.8h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 13.4h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T07:53:45Z"
     },
     {
@@ -67,9 +67,9 @@
       "title": "chore(ops): queue the daily work digest (auto)",
       "head_ref": "automation/work-digest-33730997742-1",
       "draft": false,
-      "quiet_hours": 8.1,
+      "quiet_hours": 12.8,
       "state": "waiting",
-      "why": "open and unmerged with no push for 8.1h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 12.8h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T08:34:28Z"
     },
     {
@@ -77,9 +77,9 @@
       "title": "chore(m7): strategy review packets (auto)",
       "head_ref": "automation/strategy-reviews-33737333473-1",
       "draft": false,
-      "quiet_hours": 7.5,
+      "quiet_hours": 12.2,
       "state": "waiting",
-      "why": "open and unmerged with no push for 7.5h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 12.2h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T09:10:21Z"
     },
     {
@@ -87,9 +87,9 @@
       "title": "chore(ops): refresh probe results (auto)",
       "head_ref": "automation/probes-33741499827-1",
       "draft": false,
-      "quiet_hours": 6.7,
+      "quiet_hours": 11.4,
       "state": "waiting",
-      "why": "open and unmerged with no push for 6.7h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 11.4h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T09:57:25Z"
     },
     {
@@ -97,9 +97,9 @@
       "title": "chore(ops): queue the daily work digest (auto)",
       "head_ref": "automation/work-digest-33742749108-1",
       "draft": false,
-      "quiet_hours": 6.5,
+      "quiet_hours": 11.2,
       "state": "waiting",
-      "why": "open and unmerged with no push for 6.5h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 11.2h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T10:09:44Z"
     },
     {
@@ -107,9 +107,9 @@
       "title": "chore(ops): session-reaper observations (auto)",
       "head_ref": "automation/session-reaper-33742749058-1",
       "draft": false,
-      "quiet_hours": 6.5,
+      "quiet_hours": 11.2,
       "state": "waiting",
-      "why": "open and unmerged with no push for 6.5h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 11.2h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T10:09:33Z"
     },
     {
@@ -117,39 +117,39 @@
       "title": "chore(ops): refresh the due-list (auto)",
       "head_ref": "automation/due-list-33742487046-1",
       "draft": false,
-      "quiet_hours": 6.4,
+      "quiet_hours": 11.0,
       "state": "waiting",
-      "why": "open and unmerged with no push for 6.4h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 11.0h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T10:16:44Z"
-    },
-    {
-      "pr": 10895,
-      "title": "merge-ping: log the success path, so the mechanism can be read off the fleet (MI-83 follow-up)",
-      "head_ref": "claude/mi83-merge-ping-observability",
-      "draft": false,
-      "quiet_hours": 1.0,
-      "state": "active",
-      "why": "a push landed 1.0h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-03T15:39:55Z"
     },
     {
       "pr": 10927,
       "title": "chore(ops): session-reaper observations (auto)",
       "head_ref": "automation/session-reaper-33748456729-1",
       "draft": false,
-      "quiet_hours": 5.3,
-      "state": "active",
-      "why": "a push landed 5.3h ago -- being worked, not queued.",
+      "quiet_hours": 9.9,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 9.9h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T11:23:31Z"
+    },
+    {
+      "pr": 10895,
+      "title": "merge-ping: log the success path, so the mechanism can be read off the fleet (MI-83 follow-up)",
+      "head_ref": "claude/mi83-merge-ping-observability",
+      "draft": false,
+      "quiet_hours": 5.7,
+      "state": "active",
+      "why": "a push landed 5.7h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-03T15:39:55Z"
     },
     {
       "pr": 10944,
       "title": "MI-101: make the close-wedge ledger's ABSENCE unreadable as a clean fleet",
       "head_ref": "claude/mi101-close-wedge-ledger",
       "draft": false,
-      "quiet_hours": 0.6,
+      "quiet_hours": 5.3,
       "state": "active",
-      "why": "a push landed 0.6h ago -- being worked, not queued.",
+      "why": "a push landed 5.3h ago -- being worked, not queued.",
       "last_push_utc": "2026-09-03T16:03:06Z"
     }
   ],
@@ -187,6 +187,13 @@
       "read_state": "measured",
       "waiting": 11,
       "worst_hours": 132.8,
+      "escalated": false
+    },
+    {
+      "at": "2026-09-03T21:19:42Z",
+      "read_state": "measured",
+      "waiting": 12,
+      "worst_hours": 137.5,
       "escalated": false
     }
   ],
