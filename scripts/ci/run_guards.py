@@ -514,6 +514,17 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ops/manager_preflight.py", "--self-test"],
             ["python3", "scripts/ops/manager_view.py", "--self-test"],
             ["python3", "scripts/ops/handoff_check.py", "--self-test"],
+            # The REFUSAL half of the same pair (MI-93). Its suite is pure —
+            # planted inputs through pure functions, no clone depth, no network,
+            # no MCP — so it is depth-independent for the same reason the three
+            # above are, and cannot red a PR for an environmental reason.
+            #
+            # ⚠️ ONLY THE `--self-test` RUNS HERE, NEVER THE GATE. The gate needs
+            # a live `list_sessions` read that CI cannot make, so wiring the gate
+            # itself would grade every PR `unknown` forever — a permanently amber
+            # check is one everyone learns to walk past, which is the
+            # desensitised-alarm failure its own docstring argues against.
+            ["python3", "scripts/ops/pr_action_gate.py", "--self-test"],
         ],
     },
     {
