@@ -1,0 +1,30 @@
+id: WO-20260903-THE-MONOLITHIC-REGISTERS-COLLIDE-ON-EVERY-SIBLING
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The monolithic registers collide on every sibling PR; split them so concurrent sessions stop serializing
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Two sibling PRs that both add a row to the same register merge with NO conflict, demonstrated on real branches -- not asserted from a test. The existing serialisation traps must survive: OPEN-ITEMS.json must still not be json.dump round-tripped, and backlog_append.py's duplicate-detection must still work.
+
+why: >-
+  MEASURED 2026-09-03: the manager hit register merge conflicts FOUR times in one morning -- OPEN-ITEMS.json, MANAGER-CHECKLIST.json, SESSIONS.json and health-review-backlog.json -- each costing a manual three-way resolution. One of them (MANAGER-CHECKLIST) concealed an ID COLLISION that git cannot see: a branch reused MI-86 for a different item, and merging as written would have silently deleted the existing row. This is MI-76, and it is the single largest recurring tax on manager throughput.
+
+source: >-
+  manager observation 2026-09-03
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

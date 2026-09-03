@@ -1,3 +1,1 @@
-Manager day-shift state, 2026-09-03 (re-arm #3).
-The previous request file merged to main, so it reads unchanged; the relay
-requires ADDED-OR-MODIFIED against main on the EXACT branch slug.
+Manager day-shift state, 2026-09-03 (re-arm #4).
