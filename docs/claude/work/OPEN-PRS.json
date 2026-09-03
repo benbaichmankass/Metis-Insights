@@ -63,6 +63,7 @@
     },
     {
       "pr": 10780,
+      "opened_at": "2026-09-02",
       "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
       "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
       "checklist_item": "MI-56",
