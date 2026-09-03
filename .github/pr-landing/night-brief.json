@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "manager_merges",
+  "hold_text": "Night-shift artifact; the manager merges after CI arms.",
+  "why": "Docs/register content only -- no runtime, order path, config or live-VM file."
+}
