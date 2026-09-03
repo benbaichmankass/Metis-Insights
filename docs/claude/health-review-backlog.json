@@ -31662,6 +31662,19 @@
       "resolution_criteria": "register REFUSES or auto-suffixes on a key that already exists in SESSIONS.json, asserted by a test that registers twice in one second and requires two distinct keys. A finer clock is NOT the fix -- it narrows the window without closing it; the fix is a uniqueness CHECK against the file. Also: confirm must refuse an ambiguous key rather than picking the first match.",
       "evidence": "docs/claude/work/SESSIONS.json @2026-09-03: duplicate registry_key values pending-20260903T070814Z (x2, disambiguated by hand to -b) and pending-20260902T133456Z (x2, left as found).",
       "found_by": "manager session_01Nopk1HcpvWBSEbZxEmALkd, while registering two spawns"
+    },
+    {
+      "id": "BL-20260903-BACKLOG-APPEND-WRITES-ROWS-THAT-REQUIRED-GUARDS-REJECT",
+      "opened": "2026-09-03",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ops/backlog-tooling",
+      "summary": "scripts/ops/backlog_append.py is the SANCTIONED appender -- CLAUDE.md tells every session to file through it rather than editing by hand -- and it accepted a row that two REQUIRED CI guards then rejected. Measured 2026-09-03 on BL-20260903-SESSIONS-REGISTRY-KEY-IS-SECOND-GRANULAR-AND-COLLIDES: artifact-validity-guard refused severity 'P2' (not in critical|high|medium|low) and claim-basis-guard refused a missing `status` (not in the declared enum). The append itself reported success.",
+      "why_it_matters": "Filing by the approved route is currently no guarantee of passing CI, so the tool and the guards disagree about what a valid row is. The cost lands at MERGE time on a PR that has already run its full check set -- ~17 minutes of pytest -- when it could be caught at WRITE time for free. It also quietly discourages the sanctioned route: a session that gets reds from backlog_append.py and greens from a hand-edit learns the wrong lesson, which is exactly how the read-append-write reformat defect the appender exists to prevent comes back.",
+      "resolution_criteria": "backlog_append.py REFUSES a row whose `severity` is outside critical|high|medium|low or whose `status` is missing/outside the enum, naming the offending field and the allowed values -- asserted by a test that feeds it a 'P2' severity and a status-less row and requires a non-zero exit. ⚠️ The enum must be IMPORTED from the guards (scripts/ops/check_backlog_criteria.py and scripts/check_claim_basis.py) rather than re-declared, or the two copies drift and this recurs one level down.",
+      "evidence": "CI run 33728581769 (guards, PR #10906): artifact-validity-guard and claim-basis-guard both exited 1 on the single row appended by backlog_append.py minutes earlier, which had reported 'appended ... 1148 item(s)'.",
+      "found_by": "manager session_01Nopk1HcpvWBSEbZxEmALkd, by having its own filed row rejected"
     }
   ]
 }
