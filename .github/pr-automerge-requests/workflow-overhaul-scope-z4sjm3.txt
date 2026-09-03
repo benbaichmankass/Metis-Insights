@@ -1,3 +1,1 @@
-Manager day-shift state, 2026-09-03.
-Re-armed after #10890 consumed the first request: the relay keys on the
-branch slug and requires the file to be ADDED-OR-MODIFIED vs main.
+Manager day-shift state, 2026-09-03 (re-arm #7).

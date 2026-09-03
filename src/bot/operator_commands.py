@@ -13,18 +13,39 @@ lives -- `src.runtime.manager_status` and `src.runtime.telegram_decisions` --
 so `/decisions` reuses the SAME prompt/keyboard builders the periodic
 `sweep_work_decisions` job uses rather than a second copy of them.
 
-**Why a separate module rather than more code in `telegram_query_bot.py`:** it
-follows the `install_comms_handlers(application, ...)` idiom that file already
-uses, and it keeps this change to two lines there -- an import and a call. A
-concurrent session (MI-58) is making the dedicated Claude bot polled in that
-same file, and a two-line diff is one that rebases cleanly against it.
+**Why a separate module rather than more code in the bot that installs it:** it
+follows the `install_comms_handlers(application, ...)` idiom the Telegram bots
+already use, and it keeps the change at the call site to two lines -- an import
+and a call. That cheapness is what made the fix below a move rather than a
+rewrite.
+
+⚠️ **WHERE THIS IS INSTALLED IS A CONSTRAINT, NOT A DETAIL (MI-92).** The sole
+caller is `src.bot.claude_decision_bot` (`ict-claude-decision-bot.service`).
+It is deliberately **NOT** installed on `src.bot.telegram_query_bot`, the
+TRADER bot.
+
+PR #10793 shipped it onto the trader bot on 2026-09-02 under its own title
+*"HELD, must not reach the trader bot"*. It was auto-merged with no human
+decision; the handlers went live at 18:59:03Z, and this module's own
+`answerable_elsewhere` WARNING named the violation as it registered them. Still
+live when re-observed at 2026-09-03T07:07:08Z. The operator's words:
+
+    "that's supposed to be showing up in Cloudbot. Right? Not on the trader
+     one, the decisions."
+
+`tests/test_operator_commands.py` asserts by AST that `telegram_query_bot`
+neither imports nor calls `install_operator_commands`. Do not re-add it there
+without a recorded operator decision withdrawing the constraint.
 
 **Destination.** Registration resolves
 `telegram_decisions.answerable_route()` -- never a hardcoded token and never
-`claude_route()`, which names a bot NO process polls. A `/command` is delivered
-only to a bot something is POLLING, the same property that makes a button live,
-so these commands ride whatever bot is genuinely polled and follow MI-58 to
-ClaudeBot with no second migration.
+`claude_route()`, which named a bot NO process polled when this was written. A
+`/command` is delivered only to a bot something is POLLING, the same property
+that makes a button live, so these commands ride whatever bot is genuinely
+polled. On ClaudeBot the answerable route IS the polled token, so `route_state`
+is `answerable_here` and a `/decisions` button is received by the very process
+that sent it -- on the trader bot the same button was a cross-bot tap this
+module had to warn about.
 
 ⚠️ **A route that does not resolve NEVER silently registers nothing.** That is
 a `could_not_look`-shaped state: it is logged as a WARNING naming it, and the
