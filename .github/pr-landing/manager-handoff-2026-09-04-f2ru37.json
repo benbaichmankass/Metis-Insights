@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Manager state and one generated data file. The partial take of docs/claude/PROBES.json from #10921 (three days newer than main's, checked for row loss before taking), four settled PR rows with measured stamp comparisons, the operator's Tier-2 approval on #10975 recorded verbatim with the tier correction that produced it, and the merge-queue refresh. No runtime, no order path, no strategy config, no risk cap, no live-VM file, no workflow, no scripts/, no src/."
+  "why": "Manager state and one backlog filing. MI-118 (MERGE-QUEUE.json has no row-aware merge driver), the MI-108 finding that an operator direction was routed and never filed plus the ml-review-backlog row that now actually carries it, and the MI-107 respawn record. docs/claude/** only, plus this branch's own landing files. No runtime, no order path, no strategy config, no risk cap, no live-VM file, no workflow, no scripts/, no src/."
 }

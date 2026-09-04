@@ -1,5 +1,4 @@
-Third manager landing of 2026-09-04: PROBES.json partial take from #10921,
-four settled receipt rows, the operator's Tier-2 approval on #10975, and the
-merge-queue refresh after the second drain.
+Fourth manager landing of 2026-09-04: MI-118, the MI-108 routed-but-never-filed
+finding and its real backlog row, and the MI-107 respawn record.
 
 Tier-1. Auto-merge merges only on green.

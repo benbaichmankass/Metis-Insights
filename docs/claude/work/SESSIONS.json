@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-04T07:44:07Z",
+  "updated_at": "2026-09-04T08:55:02Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1471,6 +1471,19 @@
       "why": "This is what blocks #10895, and #10895 is what makes OI-20260902-PER-MERGE-PING verifiable at all. The 2026-09-03 manager correctly refused all three shortcuts (force, except, rewrite another session's history), so the block is real and only this clears it.",
       "note": "Three states must not collapse: attributed / unattributed / violation. 'We cannot establish who wrote this' is not the same fact as 'a manager did an item', and today they render identically. --self-test needs a PLANT and a CONTROL.",
       "confirmed_at": "2026-09-04T07:44:07Z"
+    },
+    {
+      "session_id": "session_018zzzSLT8UdJ1e1RbFeyvsz",
+      "registry_key": "pending-20260904T085424Z",
+      "state": "working",
+      "title": "MI-107 (respawn 2) — downgrade-to-shadow-and-tune flow: design the EXIT CONDITION first",
+      "owns_object": "WO-20260903-SUNSET-DISPOSITIONS-OWED",
+      "checklist_item": "MI-107",
+      "spawned_at": "2026-09-04T08:54:24Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "why": "The first spawn (session_012p1DoQBRJYyggX8ELT1WEP) reached need_input at 08:00Z with 'push blocked by proxy; need auth or repo rename' and its clone's remote carries the LOWERCASE benbaichmankass/metis-insights, which the sandbox proxy scope denies. A manager cannot message a cloud sub-session -- VERIFIED this session, not assumed: ListAgents returns 'No reachable agents' -- so the only lever is a respawn, and its ~159k tokens of unpushed design work are LOST. That is a live instance of the cycle priority CY-20260903-MANAGER-CONTROL: the manager could see the session was stuck and could not reach it.",
+      "note": "FIRST ACTION: git remote set-url origin https://github.com/benbaichmankass/Metis-Insights -- exact case. The predecessor died on the lowercase form.",
+      "confirmed_at": "2026-09-04T08:55:02Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",
