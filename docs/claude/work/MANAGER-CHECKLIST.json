@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-  "updated_at": "2026-09-04T09:45:00Z",
+  "updated_at": "2026-09-04T22:47:26Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1602,7 +1602,28 @@
       "owner": "unassigned",
       "prs": "",
       "note": "MEASURED 2026-09-04 by running the tools and watching the register NOT move. manager_preflight's f6_digest_owed reads docs/claude/pending-pings.jsonl (committed) and graded FAIL at 10 autonomous actions vs a threshold of 3, calling F6 'the condition on which autonomy was granted'. send_ping.py left the file at 79 rows and wrote runtime_logs/pending_claude_pings/994780836961-normal.json; work_digest_now.py --force left it at 80 and wrote ...122973854114-normal.json. Only work_phase_ping.py reached the committed register. ⚠️ THE TOOLS REPORT 'queued -- the bot drains within ~5s' AND IN A SANDBOX NO BOT EXISTS: runtime_logs/ is gitignored (.gitignore:29), so the row never reaches the repo, the container is reclaimed, and the ping is simply lost while the tool reported success. Same family as BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE-SO-DELIVERED-IS-NOT-EVIDENCE, one hop earlier. ⚠️ SO A MANAGER CANNOT DISCHARGE F6 ON DEMAND: the two obvious tools are both wrong, and the one that works fires on work-object LIFECYCLE DIFFS rather than on a manager's action count -- so a manager with 10 actions and no lifecycle change has no available action that turns the check green. A condition-of-autonomy that cannot be satisfied becomes noise, which is the alarm-fatigue P1 this repo already knows. ⚠️ THIS PARTLY EXPLAINS THE STANDING 'I am not seeing pings' THREAD and should be read alongside MI-109: some fraction of pings sessions believed they queued were written to a gitignored directory in a container that no longer exists. Do NOT assume it explains all of it -- MI-109's defect (no destination recorded) is real and separate, and this one has not been quantified against the delivery record. Filed as BL-20260904-BOTH-ON-DEMAND-PING-TOOLS-WRITE-TO-A-GITIGNORED-DIR-SO-A-SANDBOX-PING-IS-LOST. Manager filed, did not build -- scripts/ is a worker path."
+    },
+    {
+      "id": "MI-122",
+      "added": "2026-09-04",
+      "state": "in_flight",
+      "owner": "session_01QRMbr88Ju1XAqsfHxcms5c",
+      "title": "manager-scope R7 picks its 'previous heartbeat' from the wrong lease run — a CLAIM over an expired lease is graded as a late check-in, and a merge reads sha~1's stale worker blob",
+      "prs": [],
+      "blocked_on": [],
+      "note": "TWO measured instances, ONE root, and the root is that R7 never establishes that the blob it compares against belongs to the same lease RUN, reached along the right parent. (a) MEASURED tonight on this manager's own re-claim commit cc984fec: R7 fails it at '746 minutes since this manager's previous heartbeat'. The 746 minutes are REAL and the failure is the point — the manager was idle twelve hours — but a CLAIM over an EXPIRED lease is a RECOVERY, not a late check-in, and R7's own docstring already exempts the sibling case: it compares only against 'a previous heartbeat by the SAME holder — a handover is not a lapse, and grading one would fail the incoming manager for the outgoing one's silence.' That reasoning transfers verbatim to a lease that DIED and was re-claimed. (b) The #10895 face, filed by MI-106's session rather than folded into its own PR (the correct disposition): R7 reads the previous blob from `sha~1`, which on a MERGE commit is the worker branch's stale lease, so merge 5244dafb reads as a lapse when the true same-holder gap was 49min, inside the 90min TTL — BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE. ⚠️ THE DANGEROUS DIRECTION IS THE INCENTIVE, NOT THE RED: as written, the cheapest route to a green PR for a returning manager is to NOT PUSH THE LEASE — i.e. not record the lapse — while MANAGER-LEASE.json's own header says an unpushed claim protects nothing. A guard whose cheapest evasion is deleting the evidence is the new-table-wiring-guard shape this repo already names. ⚠️ OPERATOR DECISION 2026-09-04, asked directly as a popup and answered 'Fix R7, route it to a session': fix the guard, do NOT write a manager-scope-exception entry, and accept that #10982 stays red until this lands. Recorded as a decision, not as a manager's own judgement. ⚠️ THE DEAD INTERVAL MUST STILL BE REPORTED. Reporting 746 minutes of no manager is the single most valuable thing the guard said tonight; what changes is where it is CHARGED, never whether it is SEEN — a silent pass here would be worse than tonight's false red. And R7's real case is untouched: a manager that is ALIVE and silent past one TTL must still fail. BLOCKS: #10982 (the manager register state, MI-118..MI-121, the session-cap resolution, and the record of the twelve-hour gap itself) and #10895."
+    },
+    {
+      "id": "MI-123",
+      "added": "2026-09-04",
+      "state": "in_flight",
+      "owner": "session_01SVUv3HZiqBsriCcc2RqQo7",
+      "title": "a manager that stops acting is detected by nothing — bound idle with a durable wake",
+      "prs": [],
+      "blocked_on": [],
+      "note": "MEASURED, and the measurement is this manager: last act ~09:45Z, operator asked at 21:53Z. TWELVE HOURS against a standing directive of thirty minutes — twenty-four times the bar — and NOTHING NOTICED. Not a check, not a probe, not a Routine, not another session. ⚠️ THE MANAGER DID NOT DIE, and that is what makes this a different object from the reaper. It stayed alive and connected and simply stopped taking turns. Every mechanism here is aimed at DEATH (the lease's 90min TTL, time-based takeover, 'a session that dies cannot hand over') and death is the case already covered. ALIVE-AND-SILENT is covered by nothing. COST, measured: #10975 was GREEN at 15:02:46Z with the operator's Tier-2 approval ALREADY GIVEN and sat unmerged ~7h; all three sub-sessions were at need_input by 09:41Z each naming the ONE act it waited on, and MI-107's was a restart go-ahead already given; the lease sat expired 746 minutes, claimable by anyone and claimed by nobody; the manager branch went dirty against 28 commits. ⚠️ THE LEASE IS NOT A DETECTOR — it EXPIRES correctly, and nothing READS an expired lease and acts. ⚠️ NOR IS R7 — it grades a heartbeat only when a commit ADVANCES one, so a manager writing no commits is graded by nothing at all. Same distinction CLAUDE.md already draws for BL-20260903-THE-PR-QUEUE-WATCHER-CANNOT-SEE-A-TEN-MINUTE-STALL, where every gap was 15–35min while a green PR sat ten minutes and the operator noticed first. Tonight is that finding at 48x. ⚠️ OPERATOR DECISION 2026-09-04, asked as a popup and answered 'A durable wake, so idle is bounded' — over a reaper and over building both. The reaper is real, complementary and DEFERRED, to be filed as its own row, not folded in. ⚠️ CREATING THE ROUTINE IS A DEPLOY, NOT THE DONE-CONDITION. The bar is an OBSERVED wake into a real session that then ACTS on something waiting — the same bar OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST sets for its own stage (4). CONSTRAINTS carried into the spawn: no minted credentials (operator, 2026-09-02, 'no minted tokens, ever'); no GitHub cron (work-digest fired 5x against 24 declared, probes ~4h50m late, #10845 already moved the digest off cron); and NO further reminder or checklist line — that instruction already exists, was read at session start, and produced the gap."
     }
   ],
-  "as_of": "2026-09-04T09:45:00Z"
+  "as_of": "2026-09-04T09:45:00Z",
+  "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv"
 }

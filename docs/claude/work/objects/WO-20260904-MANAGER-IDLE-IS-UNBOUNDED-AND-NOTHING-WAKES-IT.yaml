@@ -1,0 +1,100 @@
+id: WO-20260904-MANAGER-IDLE-IS-UNBOUNDED-AND-NOTHING-WAKES-IT
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  a manager that stops acting is not detected by anything -- idle is unbounded, the lease expires into nobody, and the only thing that restarted work was the operator noticing
+stage: DEPLOYMENT
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-04
+closed_at: null
+
+why: >-
+  MEASURED on this manager, 2026-09-04. Last act ~09:45Z; the operator asked "what
+  have you been up to" at 21:53Z. TWELVE HOURS. The standing operator directive is
+  that "a manager idle for thirty minutes is a failure", so this was twenty-four
+  times the stated bar, and NOTHING NOTICED -- not a check, not a probe, not a
+  Routine, not another session.
+  ⚠️ THE MANAGER DID NOT DIE. That is the whole point and it is what makes this a
+  different object from the reaper. The session stayed alive and connected; it
+  simply stopped taking turns. Every mechanism this repo has is aimed at DEATH
+  (the lease's 90-minute TTL, time-based takeover, "a session that dies cannot
+  hand over") and death is the case that is already covered. An ALIVE-AND-SILENT
+  manager is covered by nothing.
+  WHAT IT COST, measured rather than asserted:
+    * #10975 was GREEN at 15:02:46Z with the operator's Tier-2 approval ALREADY
+      GIVEN, and sat unmerged for about seven hours.
+    * All three sub-sessions had reached need_input by 09:41Z, each naming the ONE
+      act it was waiting on. MI-107 sat on a service-restart go-ahead that had
+      already been given, and a manager cannot message a running cloud sub-session
+      (verified, not assumed: ListAgents returns "No reachable agents"), so it
+      could not be told.
+    * The lease expired at 09:38Z and sat expired for 746 minutes -- claimable by
+      anyone, claimed by nobody.
+    * The manager branch went dirty against a main that moved 28 commits.
+  ⚠️ THE LEASE IS NOT A DETECTOR, and must not be mistaken for one. It EXPIRES
+  correctly -- that half works -- but nothing READS an expired lease and acts. It
+  is a mutual-exclusion token, not an alarm.
+  ⚠️ AND R7 IS NOT ONE EITHER: it grades a heartbeat only when a commit ADVANCES
+  one, so a manager that writes no commits is graded by nothing at all. A manager
+  can be silent forever without ever failing R7. This is the same distinction
+  CLAUDE.md already draws -- R7 grades whether the manager CHECKED IN, never
+  whether it ACTED (BL-20260903-THE-PR-QUEUE-WATCHER-CANNOT-SEE-A-TEN-MINUTE-STALL,
+  where every gap was 15-35min while a green PR sat ten minutes and the operator
+  noticed first). Tonight is that same finding at 48x the scale.
+
+cost_of_not_doing_it: >-
+  The operator is the detector. That is precisely the DECISION constraint the
+  cycle priority CY-20260903-MANAGER-CONTROL exists to relieve, reproduced by the
+  role meant to relieve it -- and it recurs every time a manager session stalls,
+  with the cost scaling by however long nobody happens to look.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-04 by the manager. Nothing blocks the work. The cycle priority
+  explicitly names cloud Routines as an allowed tool and "probably part of the
+  answer"; the operator chose the durable-wake approach directly on 2026-09-04,
+  over a reaper, so the direction is decided rather than open.
+
+done_condition: >-
+  A manager's idle time is BOUNDED BY A MECHANISM rather than by the operator
+  happening to look, and that mechanism is OBSERVED firing into a real session --
+  not merely created.
+  ⚠️ CREATING THE ROUTINE IS NOT THE DONE-CONDITION. That is a deploy. The
+  observation is: a manager session goes quiet, the wake fires, and the session is
+  seen RUNNING afterwards having acted on something that was waiting. Record which
+  session and what it did. This repo has an exactly-parallel row already open --
+  OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED,
+  whose stage (4) is "THE ASKING SESSION IS OBSERVED WAKING -- idle/disconnected
+  before and running/connected after via get_session". Use that bar.
+  ⚠️ AND THE WAKE MUST CARRY WHAT TO DO, not just a poke: a manager woken with no
+  state re-derives everything. It should land on the checklist -> recently done ->
+  next contract the operator already requires of every status update.
+
+do_not: >-
+  ⚠️ DO NOT build the REAPER here. It is a real and complementary mechanism (a
+  session that DIES cannot wake itself, and the lease expiring into nobody is that
+  case) and the operator was offered it and chose the wake first. File the reaper
+  as its own row rather than folding it in; scope creep is what turned this into a
+  twelve-hour gap in the first place.
+  ⚠️ DO NOT propose anything that needs a MINTED CREDENTIAL. The operator ruled
+  that out on 2026-09-02 -- "no minted tokens, ever" -- and the decision-drain row
+  records that the `claude -p --cloud` steps were DELETED rather than left behind
+  an unset secret, precisely so nothing looks armed and is not.
+  ⚠️ DO NOT make it a GitHub cron. Measured in this repo: work-digest fired FIVE
+  times in a day against 24 declared; probes fired ~4h50m late and once rather
+  than daily; #10845 moved the digest OFF cron for exactly this reason. A wake
+  that does not fire is worse than none, because it reads as covered.
+  ⚠️ DO NOT write another reminder, a doc line, or a checklist item that says
+  "check in every 5-10 minutes". That instruction ALREADY EXISTS, was read at
+  session start, and produced a twelve-hour gap. "Reminder is not a mechanism" is
+  a named non-fix here (MI-15, twice; BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY).
+  ⚠️ DO NOT let the wake become a poll loop for work the harness already notifies
+  on -- a long fallback beats a short poll.
+  ⚠️ DO NOT touch src/, config/, deploy/, or any order path. This is manager
+  infrastructure; it holds no money-at-risk state.
+
+review_trigger: >-
+  If a manager gap longer than one lease TTL happens again before this lands,
+  record it here with its duration and cost -- a second instance makes this the
+  cycle's top item rather than one of its items.

@@ -1,0 +1,88 @@
+id: WO-20260904-R7-GRADES-A-LEASE-CLAIM-AS-A-LATE-HEARTBEAT
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  manager-scope R7 picks its "previous heartbeat" from the wrong lease run, so a manager that DIED and recovered is permanently red and the cheapest way to green is to not record the lapse
+stage: DEPLOYMENT
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-04
+closed_at: null
+
+why: >-
+  MEASURED 2026-09-04T22:1xZ on this manager's own commit cc984fec. R7 failed it
+  at "746 minutes since this manager's previous heartbeat, longer than the lease's
+  own ttl_minutes (90)". THE GAP IS REAL -- the manager was idle for twelve hours,
+  the lease expired at 09:38Z, a green approved PR sat unmerged ~7h, and R7 is
+  right to consider that a failure. What is WRONG is where it takes the comparison
+  from.
+  R7 grades any commit that ADVANCES heartbeat_at, and a CLAIM advances
+  heartbeat_at too -- so a claim over an EXPIRED lease is graded as a late
+  check-in. Its own docstring already exempts the sibling case: it compares only
+  against "a previous heartbeat by the SAME holder -- a handover is not a lapse,
+  and grading one would fail the incoming manager for the outgoing one's silence."
+  That reasoning transfers verbatim to a lease that DIED and was re-claimed: the
+  claim is the RECOVERY, and the dead interval belongs to the run that ended, not
+  to the run that is starting.
+  ⚠️ THE DANGEROUS DIRECTION IS THE INCENTIVE, NOT THE RED. With R7 as written,
+  the cheapest route to a green PR for a returning manager is to NOT PUSH THE
+  LEASE -- i.e. to not record that the lapse happened, and to manage off an
+  unpushed claim that (per MANAGER-LEASE.json's own header) protects nothing. A
+  guard whose cheapest evasion is deleting the evidence is the shape this repo
+  already names for new-table-wiring-guard.
+  ⚠️ SECOND, INDEPENDENT FACE OF THE SAME ROOT, already filed by the MI-106
+  session and NOT yet fixed:
+  BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE
+  -- R7 reads the previous blob from `sha~1`, which on a MERGE commit is the
+  worker branch's stale lease, so merge 5244dafb reads as a lapse when the true
+  same-holder gap was 49min. That is what blocks #10895 today. TWO instances, one
+  root: R7 selects a "previous heartbeat" without establishing that it belongs to
+  the same lease RUN, reached along the right parent.
+
+cost_of_not_doing_it: >-
+  #10895 stays blocked (its own R7 face), and every future manager recovery is
+  red -- which trains the next manager to skip the lease push. PR #10982 carries
+  the manager register state, MI-118..MI-121, the session-cap resolution and the
+  record of the twelve-hour gap itself, and cannot land until this does.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-04 by the manager. Nothing blocks the work. The guard is
+  scripts/ci/check_manager_scope.py::heartbeat_cadence_gap, both instances are
+  measured against real commits, and no operator decision is outstanding -- the
+  operator was asked directly on 2026-09-04 and chose "fix R7" over an exception.
+
+done_condition: >-
+  R7 grades a CLAIM as a claim and a HEARTBEAT as a heartbeat, and both faces are
+  covered:
+  (a) a commit whose lease reads claimed_over_state in (expired, unreadable) is
+      not failed for the interval that preceded the claim -- the DEAD INTERVAL is
+      still REPORTED, loudly and by number, because the lapse must stay visible;
+  (b) the cadence comparison reaches the previous blob along the path that
+      belongs to the same lease run, so a manager's merge commit is not graded
+      against the worker branch's stale lease blob (the #10895 face);
+  and --self-test carries BOTH a PLANT and a CONTROL for each: a genuinely silent
+  live manager must still FAIL, and the recovery/merge cases must PASS. Verify by
+  MUTATION -- remove the fix and watch each test go red -- not by the tests being
+  green once.
+
+do_not: >-
+  ⚠️ DO NOT make the dead interval disappear. Reporting 746 minutes of no manager
+  is the single most valuable thing this guard said tonight; the change is where
+  it is CHARGED, never whether it is SEEN. A silent pass here would be worse than
+  today's false red.
+  ⚠️ DO NOT weaken R7's real case: a manager that is ALIVE and silent past one TTL
+  must still fail. That is the measured 4%-of-gaps case the rule exists for.
+  ⚠️ DO NOT write a manager-scope-exception entry for cc984fec or #10895. The
+  operator ruled on exactly this on 2026-09-04 and chose the fix; the exception
+  hatch is for live INCIDENTS by its own header.
+  ⚠️ DO NOT rewrite commit 5504200c or any commit on another session's branch.
+  ⚠️ DO NOT add a bypass flag. The cheapest way past this guard must stay
+  "make the guard correct".
+  ⚠️ AND DO NOT cite R7 as evidence a manager ACTED -- it grades whether the
+  manager CHECKED IN and never what it did, per BL-20260903-THE-PR-QUEUE-WATCHER-CANNOT-SEE-A-TEN-MINUTE-STALL.
+
+review_trigger: >-
+  If a third distinct R7 mis-selection is found before this lands, the fix should
+  be re-scoped from two patches to one correct "which blob is the previous
+  heartbeat of THIS lease run" resolver.

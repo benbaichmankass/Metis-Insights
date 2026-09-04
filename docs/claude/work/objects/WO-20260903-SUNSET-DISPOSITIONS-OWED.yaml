@@ -4,7 +4,7 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   Ten evidenced retirement candidates have sat undispositioned since 2026-09-01, and retiring a leg is Tier-3 so only the operator can move them
 stage: QUESTION
-lifecycle: in_flight
+lifecycle: waiting
 owner: null
 opened_at: 2026-09-03
 closed_at: null
@@ -217,3 +217,25 @@ answer:
   followup: >-
     Filed as MI-107. The sunset pass keeps producing candidates in the meantime;
     what changes is what happens to one.
+
+lifecycle_note: >-
+  in_flight -> waiting, manager 2026-09-04T22:4xZ, matching the MI-107 checklist row
+  which the owning session had already moved and which this object had not followed.
+  The BUILD half is done: the demote-to-shadow-and-tune flow the operator asked for
+  is WRITTEN at docs/design/strategy-demote-and-tune-DESIGN.md. Its done-condition
+  is OPERATOR AGREEMENT, not more code, so what remains is a decision and this
+  object is `waiting` rather than `in_flight` -- those are two different facts and
+  collapsing them is what puts a finished session's slot on the WIP ceiling.
+  ⚠️ THE DECISION IS LIVE AND ADDRESSED, not merely declared: the request is a
+  decision_requests[] block on this object, and it was PROMPTED to the operator's
+  dedicated Telegram bot at 2026-09-04T21:59:48Z -- read back from
+  /api/diag/log_file?name=work_decision_sweep_receipt, which grades that run
+  destination=claude, poll_state=polled_with_handler, token_from=
+  TELEGRAM_CLAUDE_BOT_SECRET, failed=0. So the question has REACHED a channel with
+  positive poll evidence behind it.
+  ⚠️ A SEND IS NOT AN ANSWER. /api/bot/work/decisions still grades this request
+  `not_submitted`; nothing has been tapped, and
+  OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP
+  stays open on its stage (4) -- a committed answer visible in this file on main.
+  NOTHING IS RETIRED and nothing here retires anything: the ten sunset candidates
+  stay live and stay candidates, which is the operator's standing instruction.

@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-04T22:06:19Z",
+  "updated_at": "2026-09-04T22:46:48Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1502,6 +1502,36 @@
         "claude/decision-answers-guard"
       ],
       "live_state": "2026-09-04T22:06:19Z: IDLE, connected, need_input. Its own summary: '#11006 auto-merge armed; awaiting service restart go-ahead'. ⚠️ THAT WAIT IS ALREADY SPENT AND IT DOES NOT KNOW — the restart it is asking for was dispatched by the manager at 21:58:36Z (issue #11010) and completed at 21:59:29Z, ~5 minutes before this read. A manager cannot message a running cloud sub-session (verified, ListAgents returns 'No reachable agents'), so it cannot be told; what unblocks it is the manager merging #11006 itself. ⚠️ AND ITS NAMED WORK IS NOT WHAT IT IS REPORTING ON: this session owns WO-20260903-SUNSET-DISPOSITIONS-OWED (MI-107, the demote-to-shadow-and-tune flow), and #11006 is decision-answers-guard work. The MI-107 half DID land — the flow is written at docs/design/strategy-demote-and-tune-DESIGN.md and its done-condition is operator agreement, which is now a live decision_requests[] block sitting not_submitted in the Telegram inbox. So MI-107 is correctly `waiting` on an operator decision, and this session drifted onto adjacent work after reaching it."
+    },
+    {
+      "session_id": "session_01QRMbr88Ju1XAqsfHxcms5c",
+      "registry_key": "pending-20260904T224429Z",
+      "state": "working",
+      "title": "MI-122 — R7 grades a lease CLAIM as a late heartbeat, and reads a merge's previous heartbeat from the wrong parent",
+      "owns_object": "WO-20260904-R7-GRADES-A-LEASE-CLAIM-AS-A-LATE-HEARTBEAT",
+      "checklist_item": "MI-122",
+      "spawned_at": "2026-09-04T22:44:29Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi122-r7-lease-run"
+      ],
+      "why": "TWO measured instances, one root. (a) This manager's re-claim commit cc984fec fails R7 at 746min because a CLAIM over an expired lease is graded as a late heartbeat -- while R7's own docstring already exempts a HANDOVER for the identical reason. (b) #10895 is blocked because R7 reads the previous blob from sha~1, which on a merge commit is the worker branch's stale lease. Operator decision 2026-09-04, asked directly: FIX R7, do NOT write a scope exception. PR #10982 (manager register state, MI-118..121, the session-cap resolution and the record of tonight's twelve-hour gap) cannot land until this does.",
+      "confirmed_at": "2026-09-04T22:46:48Z"
+    },
+    {
+      "session_id": "session_01SVUv3HZiqBsriCcc2RqQo7",
+      "registry_key": "pending-20260904T224451Z",
+      "state": "working",
+      "title": "MI-123 — bound a manager's idle time with a durable wake, so a manager that stops acting is detected by a mechanism and not by the operator",
+      "owns_object": "WO-20260904-MANAGER-IDLE-IS-UNBOUNDED-AND-NOTHING-WAKES-IT",
+      "checklist_item": "MI-123",
+      "spawned_at": "2026-09-04T22:44:51Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi123-manager-durable-wake"
+      ],
+      "why": "MEASURED tonight: this manager's last act was ~09:45Z and the operator asked at 21:53Z. TWELVE HOURS against a standing directive of thirty minutes, and NOTHING NOTICED. The manager did NOT die -- it stayed alive and connected and simply stopped taking turns, which is the one case every existing mechanism misses: the lease's TTL, time-based takeover and the whole reaper argument are all aimed at DEATH. Cost: #10975 green and approved at 15:02Z sat unmerged ~7h; all three sub-sessions were at need_input by 09:41Z each naming one act; the lease sat expired 746 minutes. Operator decision 2026-09-04, asked directly: build the DURABLE WAKE (bound idle), not the reaper.",
+      "confirmed_at": "2026-09-04T22:46:48Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",
