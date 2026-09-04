@@ -700,6 +700,17 @@ def supervision_gap(root: Path, sha: str) -> tuple[Optional[int], Optional[int],
 #: The 10-minute case needs `scripts/ops/pr_queue_latency.py`, and see
 #: BL-20260903-THE-PR-QUEUE-WATCHER-CANNOT-SEE-A-TEN-MINUTE-STALL for why that
 #: watcher cannot see it either as currently configured.
+#:
+#: ⚠️ MI-122 RE-MEASURED THE RULE'S ACTUAL REACH, because "90 minutes fails 4% of
+#: gaps" is a claim about the DISTRIBUTION and not about what this guard does to
+#: real commits. Population: the 46 commits touching MANAGER-LEASE.json reachable
+#: on `main` in a shallow clone at --depth=1000, graded by the pre-MI-122 guard
+#: and by this one. They disagree on 2, and R7 FAILs go 3 -> 1. Both changed
+#: verdicts are same-holder re-CLAIMS over state=expired -- 448f086a (dead
+#: interval 100 min) and 2e5ef601 (214 min) -- and BOTH still REPORT that
+#: interval rather than losing it. cb9f0bbb still FAILS at 131 minutes: that is
+#: the rule's real case, and it is why the exemption is keyed on the lease RUN
+#: rather than on the size of the gap. State the population when re-quoting this.
 def _lease_at(root: Path, ref: str) -> tuple[Optional[dict], str]:
     """(lease, state) at `ref`, state one of `ok` / `absent` / `unreadable`.
 
