@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-04T08:55:02Z",
+  "updated_at": "2026-09-04T22:06:19Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1436,7 +1436,7 @@
     {
       "session_id": "session_01MookmZshi5ikDNqjAUiifA",
       "registry_key": "pending-20260904T073813Z",
-      "state": "working",
+      "state": "done",
       "title": "MI-109 respawn — decision-delivery attribution: record WHERE a prompt went, on a durable surface",
       "owns_object": "WO-20260903-DECISION-DELIVERY-UNATTRIBUTED",
       "checklist_item": "MI-109",
@@ -1451,7 +1451,8 @@
       "prs": [
         "#10975"
       ],
-      "last_observed": "2026-09-04T08:20:00Z"
+      "last_observed": "2026-09-04T22:06:19Z",
+      "closing_observation": "2026-09-04T22:06:19Z: DONE and PROVEN ON THE FLEET, which is more than the row asked for. #10975 merged as squash 0689e985 (the manager, ~7h late — it was green at 15:02:46Z and the operator's Tier-2 approval was already given). Armed by pull-and-deploy, issue #11010, run 33923500430: ict-telegram-bot.service and ict-claude-decision-bot.service both restarted `active` at HEAD 0689e985, and /api/diag/version reads git_sha 0689e985. THE OBSERVATION THE DONE-CONDITION WANTED IS IN HAND: /api/diag/log_file?name=work_decision_sweep_receipt, run_at 2026-09-04T21:59:48Z, reads prompted_choice 2 · destination 'claude' · poll_state 'polled_with_handler' · token_from TELEGRAM_CLAUDE_BOT_SECRET · redelivered 2 · failed 0 · every held_* 0. So two decision prompts went to the DEDICATED bot on a route with positive poll evidence, and each prompt now records WHERE it went — which is the whole of MI-109. The 22:04:48Z run reads candidates 0 and suppressed_already_redelivered 2, so the once-only bound holds. ⚠️ WHAT IS STILL NOT PROVEN, and must not be folded in: nobody has TAPPED one. A send is not an answer, and OI-20260901-DECISION-ROUNDTRIP's stage (4) is a committed answer visible in the object YAML on main. That row stays open."
     },
     {
       "session_id": "session_012p1DoQBRJYyggX8ELT1WEP",
@@ -1469,7 +1470,7 @@
     {
       "session_id": "session_01Bh89HtTcDzZqhfSCzZ2Lmp",
       "registry_key": "pending-20260904T074315Z",
-      "state": "working",
+      "state": "done",
       "title": "MI-106 — manager-scope authorship is self-declared: make a mis-stamp read as unattributed, not as a verdict",
       "owns_object": "WO-20260904-MANAGER-SCOPE-AUTHORSHIP-SELF-DECLARED",
       "checklist_item": "MI-106",
@@ -1477,7 +1478,9 @@
       "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
       "why": "This is what blocks #10895, and #10895 is what makes OI-20260902-PER-MERGE-PING verifiable at all. The 2026-09-03 manager correctly refused all three shortcuts (force, except, rewrite another session's history), so the block is real and only this clears it.",
       "note": "Three states must not collapse: attributed / unattributed / violation. 'We cannot establish who wrote this' is not the same fact as 'a manager did an item', and today they render identically. --self-test needs a PLANT and a CONTROL.",
-      "confirmed_at": "2026-09-04T07:44:07Z"
+      "confirmed_at": "2026-09-04T07:44:07Z",
+      "last_observed": "2026-09-04T22:06:19Z",
+      "closing_observation": "2026-09-04T22:06:19Z: DONE. MI-106 merged (#10977); commit 5504200c now grades `unattributed` rather than an R2 violation, which is the three-state fix it was spawned for. Its own last summary asks the manager to move the MI-106 row to landed_unproven — a manager act, taken here. ⚠️ IT DID NOT UNBLOCK #10895, and the row must not be read as if it had: the sub-session re-measured and found a SECOND, independent defect — R7 reads the previous heartbeat from `sha~1`, which on a merge commit is the worker branch's stale lease blob, so the manager's own merge 5244dafb reads as a lapse when the true same-holder gap is 49min, inside the 90min TTL. Filed as BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE. It filed rather than folded it in, which is correct. #10895 stays blocked, on that row now and not on MI-106."
     },
     {
       "session_id": "session_018zzzSLT8UdJ1e1RbFeyvsz",
@@ -1490,9 +1493,17 @@
       "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
       "why": "The first spawn (session_012p1DoQBRJYyggX8ELT1WEP) reached need_input at 08:00Z with 'push blocked by proxy; need auth or repo rename' and its clone's remote carries the LOWERCASE benbaichmankass/metis-insights, which the sandbox proxy scope denies. A manager cannot message a cloud sub-session -- VERIFIED this session, not assumed: ListAgents returns 'No reachable agents' -- so the only lever is a respawn, and its ~159k tokens of unpushed design work are LOST. That is a live instance of the cycle priority CY-20260903-MANAGER-CONTROL: the manager could see the session was stuck and could not reach it.",
       "note": "FIRST ACTION: git remote set-url origin https://github.com/benbaichmankass/Metis-Insights -- exact case. The predecessor died on the lowercase form.",
-      "confirmed_at": "2026-09-04T08:55:02Z"
+      "confirmed_at": "2026-09-04T08:55:02Z",
+      "last_observed": "2026-09-04T22:06:19Z",
+      "prs": [
+        "#11006"
+      ],
+      "branches": [
+        "claude/decision-answers-guard"
+      ],
+      "live_state": "2026-09-04T22:06:19Z: IDLE, connected, need_input. Its own summary: '#11006 auto-merge armed; awaiting service restart go-ahead'. ⚠️ THAT WAIT IS ALREADY SPENT AND IT DOES NOT KNOW — the restart it is asking for was dispatched by the manager at 21:58:36Z (issue #11010) and completed at 21:59:29Z, ~5 minutes before this read. A manager cannot message a running cloud sub-session (verified, ListAgents returns 'No reachable agents'), so it cannot be told; what unblocks it is the manager merging #11006 itself. ⚠️ AND ITS NAMED WORK IS NOT WHAT IT IS REPORTING ON: this session owns WO-20260903-SUNSET-DISPOSITIONS-OWED (MI-107, the demote-to-shadow-and-tune flow), and #11006 is decision-answers-guard work. The MI-107 half DID land — the flow is written at docs/design/strategy-demote-and-tune-DESIGN.md and its done-condition is operator agreement, which is now a live decision_requests[] block sitting not_submitted in the Telegram inbox. So MI-107 is correctly `waiting` on an operator decision, and this session drifted onto adjacent work after reaching it."
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",
-  "⚠️_last_live_reconcile": "2026-09-03, day-manager WIND-DOWN. Basis: a real `list_sessions(mine=true, limit=60)` read returning 60 sessions (66 distinct ids in the payload), passed to `scripts/ops/handoff_check.py --live-sessions`, which graded `live_registry: PASS — all 6 graded live session(s) are registered (observed 60)` and `checklist_owners: PASS — all 58 owner mention(s) across 104 checklist items resolve to registered sessions`. ⚠️ THIS STAMP IS AN OBSERVATION, NOT AN ASSERTION THAT THE REGISTRY IS FINE: 60 is a page, not the fleet, and a session spawned after the read is not in it. There is deliberately no flag saying the registry is complete — asserting it is what failed twice."
+  "⚠️_last_live_reconcile": "2026-09-04T22:06:19Z — LIVE list_sessions(mine=true, limit=30) read from this session, 30 rows. Graded against this registry. The three sub-sessions this manager spawned are ALL present and ALL IDLE; none is RUNNING. This is the first live reconcile since 08:55Z — the manager was idle for roughly twelve hours and the lease expired at 09:38Z, so between those two points nothing was supervised and nothing recorded that it was not. ⚠️ THE GAP IS THE FINDING, not the states: all three sub-sessions had already reached need_input by 09:41Z and each names the ONE act it was waiting on, so the cost is measurable — #10975 sat green and approved for about seven hours, and MI-107 sat on a restart go-ahead that had already been given. Population caveat: list_sessions returns the 30 most recent, so this is a reconcile against that window and NOT a full-account census; a session older than the window would read as absent here without being missing."
 }
