@@ -1,0 +1,13 @@
+Arms `claude-pr-automerge` for claude/decision-answers-guard.
+
+Tier-1 self-land per .github/pr-landing/decision-answers-guard.json: the diff is
+scripts/ci/**, docs/** and ROADMAP.md only. Auto-merge still lands nothing until
+every required check is green — branch protection is the safety net and CI is
+never bypassed.
+
+The pr-opener request/result pair that opened #10993 is REMOVED in this same
+commit: automation/** is outside TIER1_SURFACE, so leaving it here asked the
+guard to vouch for paths it cannot certify (R5). Both halves go together — the
+result file is pr-opener's idempotency key, and removing only the request would
+leave the pair inconsistent. #10993 already exists, so neither file has any work
+left to do.
