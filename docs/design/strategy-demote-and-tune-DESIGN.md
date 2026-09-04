@@ -268,3 +268,41 @@ demoted. Each keeps a `review_by` so the lane cannot become its own backlog.
 nobody yet, no leg has run through it, and `sunset_pass.py` does not yet
 implement the budget-expiry forced disposition — that build follows agreement,
 so it is not reported as shipped.
+
+---
+
+## Appendix: how to measure "in shadow since", and how I got it wrong first
+
+The shadow-age table above is load-bearing — it is the evidence that the
+shadow-backlog is real rather than hypothetical — so the derivation is recorded
+here rather than left for the next session to guess at.
+
+**The wrong way, which I used and which produced a wrong answer:**
+
+```
+git log -S"<leg>" -- config/strategies.yaml | tail -1     # ✗ DO NOT
+```
+
+`-S` finds commits that changed the *number of occurrences of the string*, so
+this returns the commit that **added the leg to the file** — when it was
+created, not when it was demoted. It never reads the `execution:` value at all.
+It reported `turtle_soup` as shadow since 2026-04-29 (~4 months) when the true
+answer is 2026-07-07 (59 days), and it named it the oldest shadow leg when it is
+third behind `fade_breakout_4h` (95d) and `mgc_trend_1h` (78d).
+
+**The right way** — walk the value, not the string:
+
+```python
+for sha in git log --reverse --format=%H -- config/strategies.yaml:
+    cfg = yaml.safe_load(git show f"{sha}:config/strategies.yaml")
+    v = cfg["strategies"][leg].get("execution", "live")   # default-permissive
+    if v == "shadow" and previous != "shadow":
+        entered_shadow_at = commit_date          # a RE-entry is a new clock
+```
+
+Two details that matter: `execution:` is **default-permissive**, so an absent key
+is `live` and not "unknown"; and a leg can leave and re-enter `shadow`, so the
+clock starts at the most recent *entry*, not the first one ever.
+
+This is the `field beats comment` rule applied to history: the question is what
+the `execution:` field *was*, and only reading that field answers it.
