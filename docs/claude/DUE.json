@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-04T11:42:47+00:00",
+  "generated_at": "2026-09-04T16:34:57+00:00",
   "verdict": "partial",
   "unreadable_sources": [
     "red_crons",
@@ -31,7 +31,7 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=2.0h cadence=daily (cron 20 5 * * *) | 1 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=6.8h cadence=daily (cron 20 5 * * *) | 1 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "could_not_read",
@@ -46,7 +46,7 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-04T11:42:43+00:00, age 0.0h"
+      "note": "digest 2026-09-04T16:34:53+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -476,9 +476,18 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-9fd2fc82",
-      "title": "[error] x135 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 135 rows 2026-08-23T16:16:06 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
+      "title": "[error] x129 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
+      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 129 rows 2026-08-23T18:28:59 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
       "age_days": 12,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-2338a024",
+      "title": "[error] x13 bybit_over_cover detected: bybit_N/ETHUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL c",
+      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 13 rows 2026-08-26T02:19:58 → 2026-08-29T04:06:19 · accounts=bybit_1 — decide: fix now, or file to a backlog",
+      "age_days": 9,
       "loud": false,
       "link": ""
     },
@@ -503,17 +512,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-6eb9d669",
-      "title": "[error] x189 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: e",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 189 rows 2026-09-01T09:25:23 → 2026-09-02T08:17:06 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
-      "age_days": 3,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-ff2634b2",
-      "title": "[error] x124 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: i",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 124 rows 2026-09-01T13:31:22 → 2026-09-01T19:12:14 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
+      "title": "[error] x27 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: e",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 27 rows 2026-09-01T20:12:41 → 2026-09-02T08:17:06 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
       "age_days": 3,
       "loud": false,
       "link": ""
@@ -521,8 +521,17 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-86505576",
-      "title": "[error] x129 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 129 rows 2026-09-02T08:33:53 → 2026-09-04T10:53:52 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
+      "title": "[error] x137 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 137 rows 2026-09-02T08:33:53 → 2026-09-04T15:45:14 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
+      "age_days": 2,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-fa77ad80",
+      "title": "[error] x12 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 12 rows 2026-09-02T02:03:23 → 2026-09-04T09:37:42 · symbols=MES — decide: fix now, or file to a backlog",
       "age_days": 2,
       "loud": false,
       "link": ""
@@ -538,45 +547,36 @@
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-02a919f1",
-      "title": "[error] NEW x1 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T08:01:23 → 2026-09-04T08:01:23 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
+      "id": "ERRFEED-6dce9137",
+      "title": "[error] NEW x1 pairs_naked_leg unresolved: pairs BNBUSDT/BTCUSDT: leg BTCUSDT failed AND the unwind left N naked leg(s) on bybit_N — un-hedged directional ",
+      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-04T12:01:59 → 2026-09-04T12:01:59 · accounts=bybit_1 strategies=pairs,pairs_naked_leg — decide: fix now, or file to a backlog",
       "age_days": 0,
       "loud": false,
       "link": ""
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-03612dfd",
-      "title": "[error] NEW x1 bybit_over_cover detected: bybit_N/ETHUSDT: position N. THIS position is NOT over-protected: legs that reduce it total N across N leg(s) (N%",
-      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-04T08:05:59 → 2026-09-04T08:05:59 · accounts=bybit_1 — decide: fix now, or file to a backlog",
+      "id": "ERRFEED-b3c9b0e2",
+      "title": "[error] NEW x2 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg",
+      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 2 rows 2026-09-04T12:28:34 → 2026-09-04T16:09:47 · accounts=bybit_1 — decide: fix now, or file to a backlog",
       "age_days": 0,
       "loud": false,
       "link": ""
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-56f6a7ad",
-      "title": "[error] NEW x1 🪝 Exchange-side orphan position — policy=adopt Account: bybit_N Symbol: ETHUSDT | Side: long | Size: N Entry (Bybit avgPrice): N DB trade id",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T09:02:09 → 2026-09-04T09:02:09 · accounts=bybit_1 symbols=ETHUSDT — decide: fix now, or file to a backlog",
+      "id": "ERRFEED-d8ff6585",
+      "title": "[error] NEW x1 api_call bybit_place_order_failed: <REDACTED_TOKEN>: ab not enough for new order (ErrCode: N) (ErrTime: N:N:N). Request → POST https://api-d",
+      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-04T12:01:58 → 2026-09-04T12:01:58 · symbols=BTCUSDT — decide: fix now, or file to a backlog",
       "age_days": 0,
       "loud": false,
       "link": ""
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-8ef361c2",
-      "title": "[error] NEW x1 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ETHUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Cla",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T08:07:45 → 2026-09-04T08:07:45 · accounts=bybit_1 symbols=ETHUSDT — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-f65ecb1b",
-      "title": "[error] NEW x1 🚩🚩 ORPHAN TRADE CREATED — needs reconciliation Account: bybit_N Symbol: ETHUSDT | Side: long Trade id: N Origin: reverse_reconciler_adopt Re",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T09:02:09 → 2026-09-04T09:02:09 · accounts=bybit_1 symbols=ETHUSDT — decide: fix now, or file to a backlog",
+      "id": "ERRFEED-de928c1c",
+      "title": "[error] NEW x1 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: XRPUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: n",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T12:31:29 → 2026-09-04T12:31:29 · accounts=bybit_1 symbols=XRPUSDT — decide: fix now, or file to a backlog",
       "age_days": 0,
       "loud": false,
       "link": ""
@@ -584,8 +584,8 @@
     {
       "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "109 cause groups over 1600 rows (76 error-level, 33 warn-level, 5 new since the last digest)",
-      "why_due": "66 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-04T06:05:17.652612+00:00`.",
+      "title": "110 cause groups over 1311 rows (77 error-level, 33 warn-level, 4 new since the last digest)",
+      "why_due": "67 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-04T11:37:04.861161+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""

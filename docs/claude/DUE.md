@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-04T11:42:47+00:00 · verdict **partial**_
+_Generated 2026-09-04T16:34:57+00:00 · verdict **partial**_
 
 > ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
 
@@ -96,32 +96,32 @@ _Generated 2026-09-04T11:42:47+00:00 · verdict **partial**_
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
 - **ERRFEED-1ef305c7** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 18 rows 2026-08-23T21:42:55 → 2026-09-02T11:37:13 · symbols=AVAXUSDT — decide: fix now, or file to a backlog
   - [error] x18 api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty
-- **ERRFEED-9fd2fc82** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 135 rows 2026-08-23T16:16:06 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
-  - [error] x135 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+- **ERRFEED-9fd2fc82** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 129 rows 2026-08-23T18:28:59 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
+  - [error] x129 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+- **ERRFEED-2338a024** (error_feed · 9d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 13 rows 2026-08-26T02:19:58 → 2026-08-29T04:06:19 · accounts=bybit_1 — decide: fix now, or file to a backlog
+  - [error] x13 bybit_over_cover detected: bybit_N/ETHUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL c
 - **OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED** (open_items · 6d) — monitoring row 6d since last observation (cadence 2d)
   - The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.
 - **OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION** (open_items · 6d) — monitoring row 6d since last observation (cadence 3d)
   - The generated SESSION-BRIEF block in CLAUDE.md is the mechanism this session shipped in place of a cap and an adjective, and NO fresh session has ever read it. Shipped and working are different states
-- **ERRFEED-6eb9d669** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 189 rows 2026-09-01T09:25:23 → 2026-09-02T08:17:06 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
-  - [error] x189 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: e
-- **ERRFEED-ff2634b2** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 124 rows 2026-09-01T13:31:22 → 2026-09-01T19:12:14 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
-  - [error] x124 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: i
-- **ERRFEED-86505576** (error_feed · 2d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 129 rows 2026-09-02T08:33:53 → 2026-09-04T10:53:52 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
-  - [error] x129 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o
+- **ERRFEED-6eb9d669** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 27 rows 2026-09-01T20:12:41 → 2026-09-02T08:17:06 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
+  - [error] x27 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: e
+- **ERRFEED-86505576** (error_feed · 2d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 137 rows 2026-09-02T08:33:53 → 2026-09-04T15:45:14 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
+  - [error] x137 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o
+- **ERRFEED-fa77ad80** (error_feed · 2d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 12 rows 2026-09-02T02:03:23 → 2026-09-04T09:37:42 · symbols=MES — decide: fix now, or file to a backlog
+  - [error] x12 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
 - **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (soaks · 2d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then 
-- **ERRFEED-02a919f1** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T08:01:23 → 2026-09-04T08:01:23 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
-  - [error] NEW x1 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur
-- **ERRFEED-03612dfd** (error_feed · 0d) — error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-04T08:05:59 → 2026-09-04T08:05:59 · accounts=bybit_1 — decide: fix now, or file to a backlog
-  - [error] NEW x1 bybit_over_cover detected: bybit_N/ETHUSDT: position N. THIS position is NOT over-protected: legs that reduce it total N across N leg(s) (N%
-- **ERRFEED-56f6a7ad** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T09:02:09 → 2026-09-04T09:02:09 · accounts=bybit_1 symbols=ETHUSDT — decide: fix now, or file to a backlog
-  - [error] NEW x1 🪝 Exchange-side orphan position — policy=adopt Account: bybit_N Symbol: ETHUSDT | Side: long | Size: N Entry (Bybit avgPrice): N DB trade id
-- **ERRFEED-8ef361c2** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T08:07:45 → 2026-09-04T08:07:45 · accounts=bybit_1 symbols=ETHUSDT — decide: fix now, or file to a backlog
-  - [error] NEW x1 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ETHUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Cla
-- **ERRFEED-f65ecb1b** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T09:02:09 → 2026-09-04T09:02:09 · accounts=bybit_1 symbols=ETHUSDT — decide: fix now, or file to a backlog
-  - [error] NEW x1 🚩🚩 ORPHAN TRADE CREATED — needs reconciliation Account: bybit_N Symbol: ETHUSDT | Side: long Trade id: N Origin: reverse_reconciler_adopt Re
-- **ERROR-FEED-SUMMARY** (error_feed) — 66 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-04T06:05:17.652612+00:00`.
-  - 109 cause groups over 1600 rows (76 error-level, 33 warn-level, 5 new since the last digest)
+- **ERRFEED-6dce9137** (error_feed · 0d) — error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-04T12:01:59 → 2026-09-04T12:01:59 · accounts=bybit_1 strategies=pairs,pairs_naked_leg — decide: fix now, or file to a backlog
+  - [error] NEW x1 pairs_naked_leg unresolved: pairs BNBUSDT/BTCUSDT: leg BTCUSDT failed AND the unwind left N naked leg(s) on bybit_N — un-hedged directional 
+- **ERRFEED-b3c9b0e2** (error_feed · 0d) — error-level condition on `bot_logs`, FIRST SEEN since the last digest — 2 rows 2026-09-04T12:28:34 → 2026-09-04T16:09:47 · accounts=bybit_1 — decide: fix now, or file to a backlog
+  - [error] NEW x2 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg
+- **ERRFEED-d8ff6585** (error_feed · 0d) — error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-04T12:01:58 → 2026-09-04T12:01:58 · symbols=BTCUSDT — decide: fix now, or file to a backlog
+  - [error] NEW x1 api_call bybit_place_order_failed: <REDACTED_TOKEN>: ab not enough for new order (ErrCode: N) (ErrTime: N:N:N). Request → POST https://api-d
+- **ERRFEED-de928c1c** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T12:31:29 → 2026-09-04T12:31:29 · accounts=bybit_1 symbols=XRPUSDT — decide: fix now, or file to a backlog
+  - [error] NEW x1 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: XRPUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: n
+- **ERROR-FEED-SUMMARY** (error_feed) — 67 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-04T11:37:04.861161+00:00`.
+  - 110 cause groups over 1311 rows (77 error-level, 33 warn-level, 4 new since the last digest)
 - **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
 - **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched
