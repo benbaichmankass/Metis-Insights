@@ -149,6 +149,24 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # (c) of the demote-and-tune design: at budget expiry a demotion CANNOT
+        # stay demoted. UNGATED, like its sunset sibling: the failure is about a
+        # budget ACCRUING over time, which no diff is relevant to — a demotion
+        # carried past its budget becomes a failure on a PR that touched nothing
+        # near it, and that is the point.
+        "name": "demote-budget-guard",
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation because the interesting
+            # branches are unreachable in production today: no leg has been
+            # demoted under this flow yet, so without it the forcing function
+            # would be untested until the first demotion expired — two months
+            # after anyone could still remember writing it.
+            ["python3", "scripts/ops/demote_budget.py", "--self-test"],
+            ["python3", "scripts/ops/demote_budget.py"],
+        ],
+    },
+    {
         # E3 — Phase G. The forcing function that makes the system REMOVE.
         # UNGATED: the escalation is about candidates ACCRUING over time, which
         # no diff can be relevant to — a candidate carried past its threshold
