@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-04T08:05:00Z",
+  "as_of": "2026-09-04T08:09:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -205,6 +205,42 @@
         "text": "None recorded."
       },
       "blocker": "Open since 2026-08-29, automation-generated, no owning session. Held under MI-12; do not merge without establishing what it does."
+    },
+    {
+      "pr": 10975,
+      "opened_at": "2026-09-04T07:59:56Z",
+      "title": "fix(decisions): record WHERE a decision prompt went, and keep the sweep's stats (MI-109)",
+      "owner_session": "session_01MookmZshi5ikDNqjAUiifA",
+      "checklist_item": "MI-109",
+      "draft": false,
+      "tier": "1",
+      "state": "open_in_flight",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "Tier-1: observability + a durable read surface, no order path. ⚠️ ARMING the fix needs an ict-telegram-bot.service restart, which IS Tier-2 and is NOT covered by this row -- it must be asked separately when the PR is ready."
+      },
+      "blocker": "⚠️ ZERO CHECK RUNS as of 2026-09-04T08:09Z -- opened through the pr-opener relay, so no pull_request workflows fired and its own session reports 'awaiting CI', i.e. waiting on checks that will never arrive. Needs one ordinary commit to arm CI. The manager will arm it if the session does not."
+    },
+    {
+      "pr": 10976,
+      "opened_at": "2026-09-04T08:06:16Z",
+      "title": "manager: drain the queue to 9, and record two observations that do NOT clear",
+      "owner_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_manager_state",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "Tier-1 manager state: registers under docs/claude/** only."
+      },
+      "blocker": "⚠️ OPENED BY claude-pr-automerge.yml RATHER THAN BY HAND, so it started with ONE check (open-and-automerge) and none of the four required ones -- the same relay trap as #10975, walked into by the manager who had just documented it. #10974 avoided it only because it was opened via the API as a real user. Armed by an ordinary commit."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
