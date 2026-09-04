@@ -130,6 +130,25 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # An operator's WRITTEN answer must be READABLE by the grader.
+        # UNGATED (`when: None`) deliberately: the failure is a decision object
+        # going quiet, and a diff-scoped guard cannot see a row regress when an
+        # unrelated PR edits it. The tree was MEASURED clean in the change that
+        # added this (614 objects, 0 unparseable, 0 findings), so nothing is
+        # grandfathered and there is no separate standing audit to forget.
+        "name": "decision-answers-guard",
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation: on a clean tree this guard
+            # is only ever observed PASSING, which is the state a guard is least
+            # useful in. It exercises both rules AND the false-positive shape R2
+            # was tightened for (a request answered-and-nested beside a second
+            # that is genuinely open).
+            ["python3", "scripts/ci/check_decision_answers.py", "--self-test"],
+            ["python3", "scripts/ci/check_decision_answers.py"],
+        ],
+    },
+    {
         # E3 — Phase G. The forcing function that makes the system REMOVE.
         # UNGATED: the escalation is about candidates ACCRUING over time, which
         # no diff can be relevant to — a candidate carried past its threshold

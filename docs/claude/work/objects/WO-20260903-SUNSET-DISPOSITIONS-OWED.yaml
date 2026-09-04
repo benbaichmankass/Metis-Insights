@@ -163,6 +163,38 @@ decision_requests:
           strategies were never shown to be at fault — and removes the sol leg the
           arbitration row needs as evidence.
     allows_free_text: true
+    answer:
+      chosen: agree_flow_and_fund_repair
+      answered_at: '2026-09-04'
+      answered_by: operator
+      committed_by: session_018zzzSLT8UdJ1e1RbFeyvsz
+      answered_via: >-
+        Asked as an in-conversation popup after the operator reported they were not
+        receiving decision prompts. The Telegram prompt HAD been sent and delivered to
+        ClaudeBot at 10:01:56Z (marker written only on a confirmed send, verified) — the
+        defect was LATENCY, not routing: a decision cannot reach the operator until it is
+        MERGED to main, so they waited on the merge rather than on the question.
+      free_text: >-
+        "Agree flow + fund REPAIR diagnosis." THE FLOW IS AGREED. The ten candidates get a
+        budget-bounded REPAIR lane — a session actually asked to find out WHY each
+        produces nothing — rather than "never fired" becoming a retirement basis on its
+        own.
+      what_this_settles: >-
+        (a) the demote-vs-retire criteria, (b) the tuning loop and (c) the exit condition
+        are AGREED as written in docs/design/strategy-demote-and-tune-DESIGN.md. The flow
+        is now canon rather than a proposal.
+      what_is_now_OWED: >-
+        ⚠️ THE ANSWER CREATES WORK RATHER THAN CLOSING THE ROW, and the row must not be
+        marked done on the strength of the agreement. Owed: (1) the REPAIR lane is
+        SCHEDULED for the ten — a session per leg or a batch, budget-bounded, whose
+        deliverable is the CAUSE of zero production, not a tuning sweep; (2)
+        sunset_pass.py implements the budget-expiry forced disposition, which is DESIGNED
+        AND NOT BUILT; (3) three of the ten already have the cause half-named
+        (BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY,
+        BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1,
+        turtle_soup routed to zero accounts) so those three are the cheapest starting
+        point. ⚠️ NOTHING IS RETIRED AND NOTHING IS DEMOTED by this answer; every leg move
+        remains Tier-3.
 
 done_condition: >-
   The operator answers DEC-20260903-SUNSET-DISPOSITION-POLICY and the answer is
