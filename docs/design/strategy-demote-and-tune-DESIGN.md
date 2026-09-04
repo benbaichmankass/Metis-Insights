@@ -46,12 +46,17 @@ silently consumes evaluation budget while producing no money. Built second, this
 flow would convert a retire-backlog into a shadow-backlog and call it progress.
 
 **This is not hypothetical here. The shadow-backlog already exists.** Measured
-against `config/strategies.yaml` on 2026-09-04: **8 of 52 enabled legs are
-already `execution: shadow`**, and the oldest — `turtle_soup` — has been shadow
-since **2026-04-29**, four months, with zero lifetime closed trades, routed to
-zero accounts, and it is now surfacing as a *retirement candidate*. It is the
-exhibit for what this section exists to prevent: demoted, unowned, and only
-noticed because a different mechanism eventually flagged it.
+against `config/strategies.yaml` on 2026-09-04, walking each leg's `execution:`
+value through the file's history: **8 of 52 enabled legs are already
+`execution: shadow`**, and they have sat there between **11 and 95 days** —
+`fade_breakout_4h` since 2026-06-01 (95d), `mgc_trend_1h` since 2026-06-18
+(78d), `turtle_soup` since 2026-07-07 (59d), then 43d, 38d, 12d, 12d, 11d.
+**Not one of the eight has a recorded exit condition.**
+
+`turtle_soup` is the sharpest exhibit, though not the oldest: 59 days in
+`shadow`, zero lifetime closed trades, routed to **zero** accounts, and it
+surfaced as a *retirement candidate* only because a different mechanism
+eventually flagged it — demoted, unowned, and noticed by accident.
 
 ### The bound is on the TUNING BUDGET, not on the outcome
 
@@ -210,7 +215,7 @@ all 52 enabled legs, joined to `config/strategies.yaml` read 2026-09-04.
   `bybit_1`. `turtle_soup` is routed to **nothing**.
 - Nine grade `never_closed_lifetime`; `turtle_soup` grades `unrouted`.
 - `turtle_soup` is **already** `execution: shadow`, and has been since
-  2026-04-29.
+  **2026-07-07** — 59 days as of 2026-09-04.
 
 **So none of the ten qualifies for demote-and-tune.** Not because the operator's
 instinct was wrong — it was right, and the flow above is built — but because
