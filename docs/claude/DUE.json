@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-04T01:20:13+00:00",
+  "generated_at": "2026-09-04T06:31:04+00:00",
   "verdict": "partial",
   "unreadable_sources": [
     "red_crons",
@@ -31,7 +31,7 @@
     "probes": {
       "state": "read",
       "rows": 6,
-      "note": "freshness=stale age=63.1h cadence=daily (cron 20 5 * * *)"
+      "note": "freshness=stale age=68.3h cadence=daily (cron 20 5 * * *)"
     },
     "red_crons": {
       "state": "could_not_read",
@@ -46,7 +46,7 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-04T01:20:10+00:00, age 0.0h"
+      "note": "digest 2026-09-04T06:30:58+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -350,7 +350,7 @@
     {
       "source": "probes",
       "id": "PROBE-REPORT-STALE",
-      "title": "probe report is 63.1h old — expected daily (cron 20 5 * * *)",
+      "title": "probe report is 68.3h old — expected daily (cron 20 5 * * *)",
       "why_due": "EVERY probe verdict below was observed at 2026-09-01T10:13:20.626767+00:00, NOT today. The probes job did not land a fresh report, so treat its rows as a record of that run and check the workflow.",
       "age_days": 2,
       "loud": true,
@@ -414,7 +414,7 @@
       "source": "probes",
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
       "title": "A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.",
-      "why_due": "probe FAILED — its declared observation did not hold [observed 2026-09-01T10:13:20.626767+00:00, 63.1h ago]",
+      "why_due": "probe FAILED — its declared observation did not hold [observed 2026-09-01T10:13:20.626767+00:00, 68.3h ago]",
       "age_days": null,
       "loud": true,
       "link": ""
@@ -423,7 +423,7 @@
       "source": "probes",
       "id": "OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE",
       "title": "Reads all three committed research corpora and looks for any row stamped research_power_state=infeasible — the R4 grade this row's id says nothing has ever produced. The POSITIVE CONTROL is research_p",
-      "why_due": "probe FAILED — its declared observation did not hold [observed 2026-09-01T10:13:20.626767+00:00, 63.1h ago]",
+      "why_due": "probe FAILED — its declared observation did not hold [observed 2026-09-01T10:13:20.626767+00:00, 68.3h ago]",
       "age_days": null,
       "loud": true,
       "link": ""
@@ -466,18 +466,9 @@
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-3dedafaf",
-      "title": "[error] x7 ib_target_naked detected: ib_paper/MES: position N has N of take-profit coverage against a declared TP of N — the position can only stop out",
-      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 7 rows 2026-08-23T08:07:50 → 2026-08-23T13:54:32 · accounts=ib_paper — decide: fix now, or file to a backlog",
-      "age_days": 12,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
       "id": "ERRFEED-9fd2fc82",
-      "title": "[error] x141 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 141 rows 2026-08-23T05:47:27 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
+      "title": "[error] x139 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
+      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 139 rows 2026-08-23T10:11:56 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
       "age_days": 12,
       "loud": false,
       "link": ""
@@ -628,15 +619,6 @@
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-70ad5b6a",
-      "title": "[error] x5 bybit_over_cover detected: bybit_portfolio/ETHUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N acro",
-      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 5 rows 2026-09-02T18:06:01 → 2026-09-03T13:53:17 · accounts=bybit_portfolio — decide: fix now, or file to a backlog",
-      "age_days": 2,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
       "id": "ERRFEED-86505576",
       "title": "[error] x118 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o",
       "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 118 rows 2026-09-02T08:33:53 → 2026-09-03T23:41:53 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
@@ -655,9 +637,27 @@
     },
     {
       "source": "error_feed",
+      "id": "ERRFEED-0aa1e4e0",
+      "title": "[error] NEW x1 🚩🚩 ORPHAN TRADE CREATED — needs reconciliation Account: bybit_N Symbol: SOLUSDT | Side: long Trade id: N Origin: reverse_reconciler_adopt Re",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T04:44:05 → 2026-09-04T04:44:05 · accounts=bybit_1 symbols=SOLUSDT — decide: fix now, or file to a backlog",
+      "age_days": 0,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-d4bd1971",
+      "title": "[error] NEW x1 🪝 Exchange-side orphan position — policy=adopt Account: bybit_N Symbol: SOLUSDT | Side: long | Size: N Entry (Bybit avgPrice): N DB trade id",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T04:44:05 → 2026-09-04T04:44:05 · accounts=bybit_1 symbols=SOLUSDT — decide: fix now, or file to a backlog",
+      "age_days": 0,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "102 cause groups over 1554 rows (71 error-level, 31 warn-level, 0 new since the last digest)",
-      "why_due": "61 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-03T22:16:21.717144+00:00`.",
+      "title": "106 cause groups over 1562 rows (73 error-level, 33 warn-level, 4 new since the last digest)",
+      "why_due": "63 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-04T00:53:53.221418+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
@@ -666,7 +666,7 @@
       "source": "probes",
       "id": "OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED",
       "title": "probe could not run (exit_2)",
-      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-01T10:13:20.626767+00:00, 63.1h ago]",
+      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-01T10:13:20.626767+00:00, 68.3h ago]",
       "age_days": null,
       "loud": false,
       "link": ""
@@ -675,7 +675,7 @@
       "source": "probes",
       "id": "OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED",
       "title": "probe could not run (exit_2)",
-      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-01T10:13:20.626767+00:00, 63.1h ago]",
+      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-01T10:13:20.626767+00:00, 68.3h ago]",
       "age_days": null,
       "loud": false,
       "link": ""
@@ -684,7 +684,7 @@
       "source": "probes",
       "id": "OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED",
       "title": "probe could not run (exit_2)",
-      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-01T10:13:20.626767+00:00, 63.1h ago]",
+      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-01T10:13:20.626767+00:00, 68.3h ago]",
       "age_days": null,
       "loud": false,
       "link": ""
