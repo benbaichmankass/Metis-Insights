@@ -23,6 +23,7 @@ This push re-arms the route with NO open PR on the branch, so claude-pr-automerg
 takes its own create path (claude-pr-automerge.yml:188, `draft: false`) — born
 ready, which IS the request being fulfilled — and enables squash auto-merge.
 
-The lesson, filed as BL-20260904-A-TIER-1-SELF-LAND-PR-OPENED-BY-PR-OPENER-IS-A-DRAFT-...:
+The lesson, filed as
+BL-20260904-A-TIER-1-SELF-LAND-PR-OPENED-BY-PR-OPENER-IS-A-DRAFT-AND-CAN-NEVER-SELF-LAND-FROM-A-WEB-SESSION:
 for a Tier-1 self-land PR the automerge relay opens it; pr-opener is for PRs that
 are meant to sit as drafts awaiting a human.
