@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "what_this_is": "The trader's error feed, grouped by digit-normalised cause and rendered for the `duty` pass. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `groups`: on `partial` at least one feed could not be read and this digest is a LOWER BOUND, not a statement that the rest is quiet.",
-  "generated_at": "2026-09-04T16:34:53+00:00",
-  "covers_since": "2026-09-04T11:37:04.861161+00:00",
-  "covers_since_note": "resuming from the prior digest's watermark 2026-09-04T11:37:04.861161+00:00",
+  "generated_at": "2026-09-04T19:08:21+00:00",
+  "covers_since": "2026-09-04T16:34:37.822335+00:00",
+  "covers_since_note": "resuming from the prior digest's watermark 2026-09-04T16:34:37.822335+00:00",
   "verdict": "all_feeds_read",
   "unreachable_feeds": [],
   "truncated_feeds": [
@@ -14,11 +14,11 @@
       "state": "read",
       "note": "",
       "population": {
-        "rows_returned": 311,
+        "rows_returned": 317,
         "limit_requested": 1000,
         "truncated": false,
         "oldest_ts": "2026-09-01T18:29:17.192145+00:00",
-        "newest_ts": "2026-09-04T15:45:14.831259+00:00",
+        "newest_ts": "2026-09-04T18:45:17.413566+00:00",
         "undateable_rows": 0,
         "undecodable_lines": 0
       }
@@ -30,24 +30,24 @@
         "rows_returned": 1000,
         "limit_requested": 1000,
         "truncated": true,
-        "oldest_ts": "2026-08-23T17:24:30.189046+00:00",
-        "newest_ts": "2026-09-04T16:34:37.822335+00:00",
+        "oldest_ts": "2026-08-23T18:28:58.061011+00:00",
+        "newest_ts": "2026-09-04T17:15:36.266934+00:00",
         "undateable_rows": 0
       }
     }
   },
   "coverage": {
     "operator_alerts": {
-      "rows_considered": 311,
-      "rows_after_watermark": 12,
+      "rows_considered": 317,
+      "rows_after_watermark": 6,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-04T11:37:04.861161+00:00"
+      "watermark_applied": "2026-09-04T16:34:37.822335+00:00"
     },
     "bot_logs": {
       "rows_considered": 1000,
-      "rows_after_watermark": 13,
+      "rows_after_watermark": 3,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-04T11:37:04.861161+00:00"
+      "watermark_applied": "2026-09-04T16:34:37.822335+00:00"
     }
   },
   "account_roster": {
@@ -67,67 +67,30 @@
     ]
   },
   "counts": {
-    "groups": 110,
-    "new_groups": 4,
-    "error_groups": 77,
-    "rows_grouped": 1311
+    "groups": 112,
+    "new_groups": 2,
+    "error_groups": 79,
+    "rows_grouped": 1317
   },
   "watermark": {
-    "next_since": "2026-09-04T16:34:37.822335+00:00",
-    "note": "advanced to the newest row read (2026-09-04T16:34:37.822335+00:00)"
+    "next_since": "2026-09-04T18:45:17.413566+00:00",
+    "note": "advanced to the newest row read (2026-09-04T18:45:17.413566+00:00)"
   },
   "groups": [
     {
-      "feed": "bot_logs",
+      "feed": "operator_alerts",
       "level": "error",
-      "cause": "bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit",
-      "count": 2,
-      "is_new": true,
-      "first_seen": "2026-09-04T12:28:34.799241+00:00",
-      "last_seen": "2026-09-04T16:09:47.621967+00:00",
-      "sample": "bybit_over_cover detected: bybit_1/ADAUSDT: position 79855.0. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total 143170.0 across 2 leg(s) (179% of the position) \u2014 stale same-side legs have piled up; a trip would over-close and strand the rest. (side-blind SL total across all books: 143170.0, 179% of the position, 2 leg(s) \u2014 this is the figure that TRIPPED the check, not a claim about the graded book.) 4 of Bybit's 20-leg COMBINED TP+SL cap are used (16 left; 2 of them are stop legs); at the cap `set_trading_stop` refuses (ErrCode 110061) and a genuine protective tightening f",
-      "symbols": [],
-      "strategies": [],
-      "accounts": [
-        "bybit_1"
-      ],
-      "accounts_state": "matched",
-      "facets_found": [
-        "accounts"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "error",
-      "cause": "api_call bybit_place_order_failed: <REDACTED_TOKEN>: ab not enough for new order (ErrCode: N) (ErrTime: N:N:N). Request \u2192 POST https://api-demo.bybit.com/vN/ord",
+      "cause": "*DEMO TRADER* \u26a0\ufe0f Order execution failed Account: bybit_N Strategy: ict_scalp_avax_Nm Symbol: AVAXUSDT | Side: sell | Qty: N Reason: RuntimeError: Order submissi",
       "count": 1,
       "is_new": true,
-      "first_seen": "2026-09-04T12:01:58.850279+00:00",
-      "last_seen": "2026-09-04T12:01:58.850279+00:00",
-      "sample": "api_call bybit_place_order_failed: <REDACTED_TOKEN>: ab not enough for new order (ErrCode: 110007) (ErrTime: 12:01:58).\nRequest \u2192 POST https://api-demo.bybit.com/v5/order/create: {\"category\": \"linear\", \"symbol\": \"BTCUSDT\", \"side\": \"Sell\", \"orderType\": \"Market\", \"qty\": \"0.007\", \"stopLoss\": \"162480.20\", \"takeProfit\": \"40620.10\", \"tpslMode\": \"Partial\", \"tpSize\": \"0.007\", \"slSize\": \"0.007\", \"tpOrderType\": \"Market\", \"slOrderType\": \"Market\", \"positionIdx\": 2}.",
+      "first_seen": "2026-09-04T17:15:36.492729+00:00",
+      "last_seen": "2026-09-04T17:15:36.492729+00:00",
+      "sample": "*DEMO TRADER* \u26a0\ufe0f Order execution failed\nAccount: bybit_1\nStrategy: ict_scalp_avax_5m\nSymbol: AVAXUSDT | Side: sell | Qty: 23083.0\nReason: RuntimeError: Order submission failed for AVAXUSDT: The number of contracts exceeds maximum limit allowed: too large, order_qty:2308300000000 > max_qty:2200000000000 (ErrCode: 10001) (ErrTime: 17:15:36).\nRequest \u2192 POST https://api-demo.bybit.com/v5/order/create: {\"category\": \"linear\", \"symbol\": \"AVAXUSDT\", \"side\": \"Sell\", \"orderType\": \"Market\", \"qty\": \"23083.0\", \"stopLoss\": \"7.390\", \"takeProfit\": \"7.287\", \"tpslMode\": \"Partial\", \"tpSize\": \"23083.0\", \"slSize\":",
       "symbols": [
-        "BTCUSDT"
+        "AVAXUSDT"
       ],
-      "strategies": [],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "error",
-      "cause": "pairs_naked_leg unresolved: pairs BNBUSDT/BTCUSDT: leg BTCUSDT failed AND the unwind left N naked leg(s) on bybit_N \u2014 un-hedged directional exposure protected o",
-      "count": 1,
-      "is_new": true,
-      "first_seen": "2026-09-04T12:01:59.132724+00:00",
-      "last_seen": "2026-09-04T12:01:59.132724+00:00",
-      "sample": "pairs_naked_leg unresolved: pairs BNBUSDT/BTCUSDT: leg BTCUSDT failed AND the unwind left 1 naked leg(s) on bybit_1 \u2014 un-hedged directional exposure protected only by the exchange bracket; needs a manual flatten",
-      "symbols": [],
       "strategies": [
-        "pairs",
-        "pairs_naked_leg"
+        "ict_scalp_avax_5m"
       ],
       "accounts": [
         "bybit_1"
@@ -135,28 +98,32 @@
       "accounts_state": "matched",
       "facets_found": [
         "accounts",
-        "strategies"
+        "strategies",
+        "symbols"
       ]
     },
     {
       "feed": "operator_alerts",
       "level": "error",
-      "cause": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten Account: bybit_N Symbol: XRPUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: not_classified Nobody",
+      "cause": "\ud83d\udea8 ALL accounts failed to dispatch Strategy: ict_scalp_avax_Nm | Symbol: AVAXUSDT | Side: sell Accounts attempted: N | Trades placed: N Failures: \u2022 bybit_N: Runt",
       "count": 1,
       "is_new": true,
-      "first_seen": "2026-09-04T12:31:29.545416+00:00",
-      "last_seen": "2026-09-04T12:31:29.545416+00:00",
-      "sample": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten\nAccount: bybit_1\nSymbol: XRPUSDT | Side: short | Qty: 10330.6\nConsecutive close failures: 3\nshare_hold: not_classified\nNobody classified this failure \u2014 a non-Alpaca venue, or a path that never reached the classifying branch. WE DID NOT LOOK; treat the cause as unknown.\nLast error: InvalidRequestError: current position is zero, cannot fix reduce-only order qty (ErrCode: 110017) (ErrTime: 12:31:29).\nRequest \u2192 POST https://api-demo.bybit.com/v5/order/create: {\"category\": \"linear\", \"symbol\": \"XRPUSDT\", \"side\": \"Buy\", \"orderType\": \"Market\", \"qty\": \"10330.6\",",
+      "first_seen": "2026-09-04T17:15:36.502363+00:00",
+      "last_seen": "2026-09-04T17:15:36.502363+00:00",
+      "sample": "\ud83d\udea8 ALL accounts failed to dispatch\nStrategy: ict_scalp_avax_5m | Symbol: AVAXUSDT | Side: sell\nAccounts attempted: 1 | Trades placed: 0\nFailures:\n  \u2022 bybit_1: RuntimeError: Order submission failed for AVAXUSDT: The number of contracts exceeds maximum limit allowed: too large, or\u2026",
       "symbols": [
-        "XRPUSDT"
+        "AVAXUSDT"
       ],
-      "strategies": [],
+      "strategies": [
+        "ict_scalp_avax_5m"
+      ],
       "accounts": [
         "bybit_1"
       ],
       "accounts_state": "matched",
       "facets_found": [
         "accounts",
+        "strategies",
         "symbols"
       ]
     },
@@ -164,10 +131,10 @@
       "feed": "operator_alerts",
       "level": "error",
       "cause": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: orders_still_resting ",
-      "count": 137,
+      "count": 140,
       "is_new": false,
       "first_seen": "2026-09-02T08:33:53.957025+00:00",
-      "last_seen": "2026-09-04T15:45:14.831259+00:00",
+      "last_seen": "2026-09-04T18:45:17.413566+00:00",
       "sample": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten\nAccount: alpaca_paper\nSymbol: GLD | Side: long | Qty: 39.0\nConsecutive close failures: 3\nshare_hold: orders_still_resting\nOrdinary cancellable orders are holding the shares \u2014 the next tick's cancel-then-retry may well clear this on its own. Worth watching before acting.\nLast error: extended-hours limit close rejected: insufficient qty available for order (requested: 39, available: 0) [share_hold=orders_still_resting: 2 cancellable order(s) still resting (2e843e04-5487-470c-a702-70e796fbd05e is new, 891ddff0-b24d-4039-9322-8492bcd51e66 is held) \u2014 a retry",
       "symbols": [
         "GLD"
@@ -230,11 +197,11 @@
       "feed": "bot_logs",
       "level": "error",
       "cause": "api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty:N (ErrCode: N) (Err",
-      "count": 18,
+      "count": 19,
       "is_new": false,
       "first_seen": "2026-08-23T21:42:55.110019+00:00",
-      "last_seen": "2026-09-02T11:37:13.782346+00:00",
-      "sample": "api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:2337480000000 > max_qty:2200000000000 (ErrCode: 10001) (ErrTime: 11:37:13).\nRequest \u2192 POST https://api-demo.bybit.com/v5/order/create: {\"category\": \"linear\", \"symbol\": \"AVAXUSDT\", \"side\": \"Buy\", \"orderType\": \"Market\", \"qty\": \"23374.8\", \"stopLoss\": \"7.038\", \"takeProfit\": \"7.253\", \"tpslMode\": \"Partial\", \"tpSize\": \"23374.8\", \"slSize\": \"23374.8\", \"tpOrderType\": \"Market\", \"slOrderType\": \"Market\"}.",
+      "last_seen": "2026-09-04T17:15:36.266934+00:00",
+      "sample": "api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:2308300000000 > max_qty:2200000000000 (ErrCode: 10001) (ErrTime: 17:15:36).\nRequest \u2192 POST https://api-demo.bybit.com/v5/order/create: {\"category\": \"linear\", \"symbol\": \"AVAXUSDT\", \"side\": \"Sell\", \"orderType\": \"Market\", \"qty\": \"23083.0\", \"stopLoss\": \"7.390\", \"takeProfit\": \"7.287\", \"tpslMode\": \"Partial\", \"tpSize\": \"23083.0\", \"slSize\": \"23083.0\", \"tpOrderType\": \"Market\", \"slOrderType\": \"Market\"}.",
       "symbols": [
         "AVAXUSDT"
       ],
@@ -780,6 +747,25 @@
     {
       "feed": "bot_logs",
       "level": "error",
+      "cause": "bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit",
+      "count": 2,
+      "is_new": false,
+      "first_seen": "2026-09-04T12:28:34.799241+00:00",
+      "last_seen": "2026-09-04T16:09:47.621967+00:00",
+      "sample": "bybit_over_cover detected: bybit_1/ADAUSDT: position 79855.0. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total 143170.0 across 2 leg(s) (179% of the position) \u2014 stale same-side legs have piled up; a trip would over-close and strand the rest. (side-blind SL total across all books: 143170.0, 179% of the position, 2 leg(s) \u2014 this is the figure that TRIPPED the check, not a claim about the graded book.) 4 of Bybit's 20-leg COMBINED TP+SL cap are used (16 left; 2 of them are stop legs); at the cap `set_trading_stop` refuses (ErrCode 110061) and a genuine protective tightening f",
+      "symbols": [],
+      "strategies": [],
+      "accounts": [
+        "bybit_1"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
       "cause": "bybit_over_cover detected: bybit_N/ETHUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg cap are used (N left); at the cap `s",
       "count": 2,
       "is_new": false,
@@ -1241,6 +1227,25 @@
     {
       "feed": "bot_logs",
       "level": "error",
+      "cause": "api_call bybit_place_order_failed: <REDACTED_TOKEN>: ab not enough for new order (ErrCode: N) (ErrTime: N:N:N). Request \u2192 POST https://api-demo.bybit.com/vN/ord",
+      "count": 1,
+      "is_new": false,
+      "first_seen": "2026-09-04T12:01:58.850279+00:00",
+      "last_seen": "2026-09-04T12:01:58.850279+00:00",
+      "sample": "api_call bybit_place_order_failed: <REDACTED_TOKEN>: ab not enough for new order (ErrCode: 110007) (ErrTime: 12:01:58).\nRequest \u2192 POST https://api-demo.bybit.com/v5/order/create: {\"category\": \"linear\", \"symbol\": \"BTCUSDT\", \"side\": \"Sell\", \"orderType\": \"Market\", \"qty\": \"0.007\", \"stopLoss\": \"162480.20\", \"takeProfit\": \"40620.10\", \"tpslMode\": \"Partial\", \"tpSize\": \"0.007\", \"slSize\": \"0.007\", \"tpOrderType\": \"Market\", \"slOrderType\": \"Market\", \"positionIdx\": 2}.",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "strategies": [],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
       "cause": "api_call bybit_place_order_failed: RuntimeError: ErrCode N pre-check: Buy SL N >= last_price N for AVAXUSDT \u2014 aborting; price moved against signal between gener",
       "count": 1,
       "is_new": false,
@@ -1327,6 +1332,29 @@
       "accounts_state": "matched",
       "facets_found": [
         "accounts"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
+      "cause": "pairs_naked_leg unresolved: pairs BNBUSDT/BTCUSDT: leg BTCUSDT failed AND the unwind left N naked leg(s) on bybit_N \u2014 un-hedged directional exposure protected o",
+      "count": 1,
+      "is_new": false,
+      "first_seen": "2026-09-04T12:01:59.132724+00:00",
+      "last_seen": "2026-09-04T12:01:59.132724+00:00",
+      "sample": "pairs_naked_leg unresolved: pairs BNBUSDT/BTCUSDT: leg BTCUSDT failed AND the unwind left 1 naked leg(s) on bybit_1 \u2014 un-hedged directional exposure protected only by the exchange bracket; needs a manual flatten",
+      "symbols": [],
+      "strategies": [
+        "pairs",
+        "pairs_naked_leg"
+      ],
+      "accounts": [
+        "bybit_1"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "strategies"
       ]
     },
     {
@@ -1599,6 +1627,28 @@
     {
       "feed": "operator_alerts",
       "level": "error",
+      "cause": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten Account: bybit_N Symbol: XRPUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: not_classified Nobody",
+      "count": 1,
+      "is_new": false,
+      "first_seen": "2026-09-04T12:31:29.545416+00:00",
+      "last_seen": "2026-09-04T12:31:29.545416+00:00",
+      "sample": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten\nAccount: bybit_1\nSymbol: XRPUSDT | Side: short | Qty: 10330.6\nConsecutive close failures: 3\nshare_hold: not_classified\nNobody classified this failure \u2014 a non-Alpaca venue, or a path that never reached the classifying branch. WE DID NOT LOOK; treat the cause as unknown.\nLast error: InvalidRequestError: current position is zero, cannot fix reduce-only order qty (ErrCode: 110017) (ErrTime: 12:31:29).\nRequest \u2192 POST https://api-demo.bybit.com/v5/order/create: {\"category\": \"linear\", \"symbol\": \"XRPUSDT\", \"side\": \"Buy\", \"orderType\": \"Market\", \"qty\": \"10330.6\",",
+      "symbols": [
+        "XRPUSDT"
+      ],
+      "strategies": [],
+      "accounts": [
+        "bybit_1"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
       "cause": "\ud83e\uddf1 Position CLOSE wedged BROKER-SIDE \u2014 carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: br",
       "count": 1,
       "is_new": false,
@@ -1666,10 +1716,10 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "count": 242,
+      "count": 244,
       "is_new": false,
       "first_seen": "2026-08-25T23:10:31.406008+00:00",
-      "last_seen": "2026-09-04T16:34:37.822335+00:00",
+      "last_seen": "2026-09-04T16:44:37.486698+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_15m: no candle data for symbol=MGC timeframe=15m.",
       "symbols": [
         "MGC"
@@ -1688,9 +1738,9 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection",
-      "count": 151,
+      "count": 150,
       "is_new": false,
-      "first_seen": "2026-08-23T17:24:30.498960+00:00",
+      "first_seen": "2026-08-23T18:28:59.996647+00:00",
       "last_seen": "2026-09-04T16:32:37.976105+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_1h: no candle data returned for symbol=MGC timeframe=1h. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
@@ -1710,9 +1760,9 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect",
-      "count": 136,
+      "count": 135,
       "is_new": false,
-      "first_seen": "2026-08-23T17:24:30.189046+00:00",
+      "first_seen": "2026-08-23T18:28:59.687209+00:00",
       "last_seen": "2026-09-04T09:37:10.081647+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_1d: no candle data returned for symbol=MGC timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
@@ -1732,9 +1782,9 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect",
-      "count": 119,
+      "count": 118,
       "is_new": false,
-      "first_seen": "2026-08-23T17:24:31.808427+00:00",
+      "first_seen": "2026-08-23T18:29:01.298718+00:00",
       "last_seen": "2026-09-04T09:37:12.083440+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_1d: no candle data returned for symbol=MHG timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
@@ -2018,6 +2068,28 @@
     {
       "feed": "operator_alerts",
       "level": "warn",
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: spy_pullback_Nh | Symbol: SPY Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its timefr",
+      "count": 2,
+      "is_new": false,
+      "first_seen": "2026-09-01T19:06:51.323492+00:00",
+      "last_seen": "2026-09-04T18:06:56.556973+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: spy_pullback_1h | Symbol: SPY\nPackage: pkg-3a13394dff794e93\nDB trade id: 5301\nHeld for: 180 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "symbols": [
+        "SPY"
+      ],
+      "strategies": [
+        "spy_pullback_1h"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "warn",
       "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: uso_trend_Nh | Symbol: USO Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its timeframe",
       "count": 2,
       "is_new": false,
@@ -2161,28 +2233,6 @@
       ],
       "strategies": [
         "sol_pullback_2h"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "warn",
-      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: spy_pullback_Nh | Symbol: SPY Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its timefr",
-      "count": 1,
-      "is_new": false,
-      "first_seen": "2026-09-01T19:06:51.323492+00:00",
-      "last_seen": "2026-09-01T19:06:51.323492+00:00",
-      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: spy_pullback_1h | Symbol: SPY\nPackage: pkg-3a13394dff794e93\nDB trade id: 5301\nHeld for: 180 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
-      "symbols": [
-        "SPY"
-      ],
-      "strategies": [
-        "spy_pullback_1h"
       ],
       "accounts": [],
       "accounts_state": "matched",
