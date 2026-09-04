@@ -86,6 +86,24 @@ decision_requests:
           instead of leaving it looking like work in flight. Records that the candidates
           were seen and kept.
     allows_free_text: true
+    answer:
+      chosen: none_of_the_above
+      answered_at: '2026-09-03'
+      answered_by: operator
+      committed_by: session_018zzzSLT8UdJ1e1RbFeyvsz (MI-107, 2026-09-04)
+      free_text: >-
+        "I don't want to retire anything yet - we need a flow for downgrading to shadow
+        and tuning, not just turning things off out right." ⚠️ THIS REJECTED ALL FOUR
+        OPTIONS AND THE QUESTION WAS MIS-FRAMED — every option was a point on a
+        retire / do-not-retire axis, and the operator rejected the AXIS. NOTHING IS
+        RETIRED. The redirect is filed as MI-107 and is carried by
+        DEC-20260904-DEMOTE-AND-TUNE-FLOW on this same object.
+        ⚠️ THIS BLOCK IS A TRANSCRIPTION of the object-level `answer:` block below,
+        which stays the fuller record. It is nested INSIDE the request because
+        `work_decisions.grade_answer_state()` reads `request["answer"]` AND NOTHING
+        ELSE — so without it this request graded `not_submitted` and the decision
+        inbox would have re-prompted the operator with the very four options they
+        rejected on 2026-09-03. Verified with the real normaliser, not by eye.
 
   - id: DEC-20260904-DEMOTE-AND-TUNE-FLOW
     question: >-
