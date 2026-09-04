@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# wiring: manual-only - the runner is the hourly `manager-wake` cloud Routine, which
+# lives OUTSIDE this repo by necessity: nothing in a workflow, a script, or a
+# session's repo access can create a Routine, and a GitHub cron is ruled out here
+# (work-digest fired 5x against 24 declared; probes ~4h50m late). Its prompt and
+# settings are committed at docs/claude/work/manager-wake-routine-prompt.md, and
+# scripts/ops/check_wake_liveness.py is what notices when that runner stops.
 """THE MANAGER WAKE — a manager's idle time is bounded by a MECHANISM, not by the operator looking.
 
 MEASURED 2026-09-04, population = one manager session
@@ -69,7 +75,7 @@ WHAT IT IS NOT, each ruled out for a MEASURED reason rather than taste:
 * **NOT another reminder.** "Check in every 5-10 minutes" ALREADY EXISTS, was
   read at session start, and produced a twelve-hour gap. "A reminder is not a
   mechanism" is a named non-fix here (MI-15, twice;
-  ``BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY``). The difference is not
+  ``BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY-AND-STATUS-REPORTS-IT-AS-CURRENT``). The difference is not
   emphasis: this text is delivered by something the silent manager does not run.
 * **NOT a poll loop.** One fire an hour, and most fires do nothing. A long
   fallback beats a short poll.
