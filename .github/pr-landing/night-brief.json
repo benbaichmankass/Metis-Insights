@@ -1,7 +1,7 @@
 {
   "tier": 1,
   "landing": "hold",
-  "hold_reason": "manager_merges",
-  "hold_text": "Night-shift artifact; the manager merges after CI arms.",
-  "why": "Docs/register content only -- no runtime, order path, config or live-VM file."
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Night-shift artifact; a human merges it rather than the PR self-landing. The operator instruction being honoured, quoted from CLAUDE.md's canonized manager duties (operator, 2026-09-03): 'THE MANAGER RUNS THE MERGE QUEUE -- it SCHEDULES merges rather than resolving the conflicts that not scheduling them causes.' So this PR waits for the manager to schedule it, which is what a hold is for. TOKEN CORRECTED 2026-09-04 by the manager: this file previously read hold_reason 'manager_merges', which R7 REFUSES -- hold_reason is a closed vocabulary and that value is not in it. The intent is unchanged and is preserved above; only the token moved. THIS IS THE SECOND TIME THE SAME INVENTED TOKEN HAS BLOCKED A PR (.github/pr-landing/mi81-capture-watch-observed.json carries the identical correction), so the gap is in the vocabulary rather than in either author -- filed as MI-116.",
+  "why": "Docs/register content only -- no runtime, order path, config or live-VM file. One generated brief under comms/briefs/ plus its own landing and relay bookkeeping."
 }
