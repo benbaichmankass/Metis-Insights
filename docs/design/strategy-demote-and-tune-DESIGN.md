@@ -223,8 +223,8 @@ fills and guarantee the exit condition is never met.
 
 | leg | cause already filed | class |
 |---|---|---|
-| `splg_trend_long_1d` | `BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY`, `BL-20260829-...-EMITS-ZERO-TRADES-IN-730-DAYS` | data feed |
-| `trend_donchian_sol` | `BL-20260830-...-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1` — it **does** signal, 144 times; nothing reaches the journal | routing / arbitration |
+| `splg_trend_long_1d` | `BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY`, `BL-20260829-SPLG-TREND-LONG-1D-EMITS-ZERO-TRADES-IN-730-DAYS` | data feed |
+| `trend_donchian_sol` | `BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1` — it **does** signal, 144 times; nothing reaches the journal | routing / arbitration |
 | `turtle_soup` | `enabled: true` and in the `strategies:` list of **zero** accounts | config inconsistency |
 
 `trend_donchian_sol` is the sharpest case: 144 actionable signals and zero
