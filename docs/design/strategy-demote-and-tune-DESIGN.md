@@ -255,19 +255,56 @@ demoted. Each keeps a `review_by` so the lane cannot become its own backlog.
   data forced.
 - **(b)** the tuning loop's shape and its existing tooling.
 
-**Not settled, and needing the operator:**
+**AGREED AND BUILT 2026-09-04** — operator answer to
+`DEC-20260904-DEMOTE-AND-TUNE-FLOW`, chosen `agree_flow_and_fund_repair`:
 
-- **Agreement to the flow itself.** It is written; it is not agreed.
+- **The flow is AGREED.** It was written and unagreed when this doc was first
+  filed; that is no longer true.
+- **(c) IS BUILT** — `scripts/ops/demote_budget.py`, a pure decision function
+  with a seven-state verdict, registered as `demote-budget-guard` and
+  self-tested on every CI run. Its load-bearing property: past the budget, **no
+  state is a no-op** — a self-test case asserts that every gate verdict at
+  expiry proposes a Tier-3 move, so the forcing function cannot silently stop
+  forcing. `retire_graded` (measured, below the bar) and
+  `retire_never_gradeable` (two months of shadow, no measurement) are kept apart
+  by another case, because collapsing them would let a reader conclude a leg
+  lost money when nobody ever graded it.
+- **The `REPAIR` lane is FUNDED and FILED** — all ten rows moved `keep` →
+  `repair` in `SUNSET-DISPOSITIONS.json`, each carrying a `cause_hypothesis` and
+  keeping its existing `2026-11-03` expiry rather than quietly buying itself
+  more time. Three cite an already-filed cause; **the other seven say the cause
+  is NOT YET ESTABLISHED** and name the one measurement that discriminates the
+  three fault classes, because a hypothesis has to be disprovable.
+- **`demote` and `repair` are enforced vocabulary** — `check_sunset_dispositions.py`
+  RULE 4 refuses a demotion missing any of its four fields or carrying a
+  non-positive budget; RULE 5 refuses a repair with no `cause_hypothesis` or an
+  expired/unreadable `review_by`. Its self-test went 12 → 22 cases, because a
+  rule whose failure path is never exercised is indistinguishable from one that
+  always passes.
+
+**Still not settled, and needing the operator:**
 - **The `REPAIR` lane for the ten.** These legs need *diagnosis*, which is
   session work nobody has been asked to schedule. Whether to spend that, or to
   make "never fired in N passes" a retirement basis on its own, is a real fork
   and it is the operator's call.
 - **Every move remains Tier-3.** No leg's `execution:` changes in this PR.
 
-**Explicitly NOT claimed:** that the flow works. It is designed and agreed by
-nobody yet, no leg has run through it, and `sunset_pass.py` does not yet
-implement the budget-expiry forced disposition — that build follows agreement,
-so it is not reported as shipped.
+**Explicitly NOT claimed: that the flow WORKS.** It is designed, agreed and now
+built, and **no leg has ever run through it** — `demote_budget.py` reports
+`0 demotion(s)` against a 12-row register, which is the correct reading today
+and not an empty result to explain away. The three things that would make this
+*proven* rather than *built* have none of them happened:
+
+1. no leg has been demoted under this flow, so no budget is running;
+2. therefore no budget has expired, so the forcing function has never fired on
+   a real row — its behaviour is known only from its self-test;
+3. no `REPAIR` diagnosis has been performed on any of the ten; the lane is
+   funded and filed, which is not the same as worked.
+
+⚠️ **A green guard is not evidence that a leg was ever forced out of shadow.**
+The first genuine test of (c) is two months after the first real demotion, which
+is exactly why the self-test exercises the expiry branches now, while the person
+who wrote them can still be asked what they meant.
 
 ---
 
