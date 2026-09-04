@@ -1,0 +1,3 @@
+FAILED:
+a pull request for branch "claude/mi106-manager-scope-authorship" into branch "main" already exists:
+https://github.com/benbaichmankass/Metis-Insights/pull/10977
