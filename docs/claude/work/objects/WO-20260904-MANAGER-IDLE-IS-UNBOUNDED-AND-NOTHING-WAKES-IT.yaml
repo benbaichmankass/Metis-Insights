@@ -88,7 +88,7 @@ do_not: >-
   ⚠️ DO NOT write another reminder, a doc line, or a checklist item that says
   "check in every 5-10 minutes". That instruction ALREADY EXISTS, was read at
   session start, and produced a twelve-hour gap. "Reminder is not a mechanism" is
-  a named non-fix here (MI-15, twice; BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY).
+  a named non-fix here (MI-15, twice; BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY-AND-STATUS-REPORTS-IT-AS-CURRENT).
   ⚠️ DO NOT let the wake become a poll loop for work the harness already notifies
   on -- a long fallback beats a short poll.
   ⚠️ DO NOT touch src/, config/, deploy/, or any order path. This is manager
