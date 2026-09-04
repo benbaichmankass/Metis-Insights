@@ -157,9 +157,14 @@ decision_requests:
         and dates), not another benchmark and not another decision request. Its done
         condition is a model that is PRODUCTION READY — the operator's words and the bar
         both arms failed — which on this repo's own rules means measured against a stated
-        task, not asserted. ⚠️ NOT YET FILED: this records the directive and names the
-        surface; the milestone itself is not written, so do not read this field as the
-        milestone existing. Next session picking this up files it.
+        task, not asserted. ✅ FILED 2026-09-04 as ROADMAP.md M41 (⚠️ M41, not M40 —
+        M40 was already taken by the research-workflow milestone; the number was checked
+        against the table rather than assumed from M39 being the visible tail). It is
+        filed at 📋 BACKLOG and NOT STARTED, and the row says so in its own status —
+        filing the milestone is not progress on it. It inherits M38's surviving findings
+        rather than rediscovering them: M38 was closed with "we should still build it,
+        just not for the screenshots", and its public-repo and trainer-VM constraints
+        are the expensive part of the work.
 
 evidence:
   - docs/claude/OPEN-ITEMS.json#OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM
