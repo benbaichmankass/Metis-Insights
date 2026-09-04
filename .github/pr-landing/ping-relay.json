@@ -1,0 +1,6 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "why": "Adds .github/workflows/ping-relay.yml, a push-triggered trigger for the EXISTING Tier-1 send-ping system-action, because a Claude Code on the web session cannot open the issue system-actions.yml requires (issue_write -> 403, re-measured 2026-09-04). It adds no capability send-ping did not already have and mutates nothing on the VM -- it enqueues one Telegram message, no deploy, no pull, no restart. Held rather than self-landed because it is a NEW automation path that reaches the operator's phone, and the operator should see it before it can fire from any branch."
+}

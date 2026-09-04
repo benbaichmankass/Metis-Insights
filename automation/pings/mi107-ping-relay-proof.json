@@ -1,0 +1,5 @@
+{
+  "message": "Ping relay is live. This message was sent from a WORKING session on a branch push -- no merge, no issue, no action from you. That is the fix for what you flagged: DEC-20260904-DEMOTE-AND-TUNE-FLOW only reached you at 10:01Z because it had to be MERGED first (authored ~09:10Z, merged 09:52Z). You should not have had to come and ask. Two decisions are still open and waiting on you.",
+  "priority": "normal",
+  "target": "claude"
+}

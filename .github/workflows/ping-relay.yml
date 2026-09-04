@@ -1,0 +1,214 @@
+name: ping-relay
+
+# PUSH-TRIGGERED Telegram ping for a session that cannot dispatch a workflow.
+#
+# WHY THIS EXISTS, MEASURED (2026-09-04, operator-reported)
+# ========================================================
+# `send-ping` is a Tier-1 autonomous system-action and has been since
+# 2026-05-24 — the sanctioned "Claude wants to say something NOW" path. But
+# `system-actions.yml` is triggered by an ISSUE, and a Claude Code on the web
+# session cannot open one: `issue_write` returns
+# `403 Resource not accessible by integration` (re-measured this session, and
+# already recorded in OI-20260901-CLAUDE-CHANNEL-SEPARATION and
+# BL-20260901-COORDINATION-BOARD-WRITES-403-FROM-THIS-SESSION-WHILE-READS-SUCCEED).
+#
+# A web session CAN push git. So the only way it could reach the operator's
+# Telegram was to MERGE TO MAIN — the decision inbox
+# (`GET /api/bot/work/decisions`) reads the work objects out of the VM's clone
+# of `main`, and `sweep_work_decisions` prompts from that. Measured on
+# 2026-09-04: `DEC-20260904-DEMOTE-AND-TUNE-FLOW` was authored ~09:10Z, merged
+# 09:52Z, and prompted 10:01:56Z. The operator waited on the MERGE, not on the
+# question — and a session that dies before merging asks nothing at all.
+#
+# The operator's words, 2026-09-04: *"you're not merging to me until the end,
+# which means that that mechanism is not a good mechanism. It needs to be
+# changed because I need to get regular updates to Telegram, not just when you
+# merge at the end."*
+#
+# ⚠️ THIS DOES NOT FIRE ON `main` AND THAT IS THE ENTIRE POINT. A `push` event
+# runs the workflow file FROM THE PUSHED REF, so dropping a request on a
+# `claude/**` branch sends immediately — no merge, no PR, no operator action.
+# That is the same mechanism `board-post.yml` and `pr-opener.yml` already use;
+# this is the third instance of a proven pattern, not a new one.
+#
+# USAGE
+# -----
+#   1. Write `automation/pings/<name>.json`:
+#        {"message": "...",              # required, non-empty
+#         "priority": "normal",          # optional: urgent|high|normal|low
+#         "target":   "claude",          # optional: claude|trader
+#         "kind":     "decision",        # optional: decision|state_change|lifecycle
+#         "why":      "...",             # REQUIRED when kind is set
+#         "unproven": "..."}             # optional, needs kind
+#   2. Push it on your branch.
+#   3. Read `automation/ping-results/<name>.txt` back.
+#
+# ⚠️ USE A FRESH FILENAME PER PING — the result file is the idempotency key, so
+# reusing a name is a silent no-op (the `pr-opener.yml` rule).
+#
+# ⚠️ THE RESULTS COMMIT TOUCHES ONLY `automation/ping-results/**`, which is
+# OUTSIDE this workflow's own trigger path — so there is no self-retrigger, no
+# `[skip ci]`, and an open PR on the branch KEEPS its checks. That is
+# `board-post.yml`'s hard-won shape: an earlier version there deleted the
+# request, which touched the trigger path, needed `[skip ci]`, and left PRs
+# with zero check runs that could never arrive (measured on PR #10076).
+#
+# TIER. The ACTION it invokes is Tier-1 and non-mutating: it enqueues one
+# Telegram message and deploys, pulls and restarts nothing. This workflow adds
+# no capability that `send-ping` did not already have — it only adds a trigger
+# a web session can actually reach.
+#
+# ⚠️ A WITHHELD PING IS NOT A SENT PING. `send_ping_action.sh` exits 0 and
+# prints `withheld: <reason>` when the class limiter suppresses one; the result
+# file records that verbatim rather than writing `ok`. Do not read a green run
+# as a delivered ping — read the result file.
+
+on:
+  push:
+    paths: ['automation/pings/**']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ping-relay-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+  VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Send pending pings
+        run: |
+          set -uo pipefail
+          mkdir -p automation/ping-results
+          shopt -s nullglob
+          failed=0
+          found=0
+
+          for req in automation/pings/*.json; do
+            base="$(basename "$req" .json)"
+            out="automation/ping-results/${base}.txt"
+
+            # Idempotency is the RESULT file, never deletion of the request —
+            # deleting would touch the trigger path and re-fire this workflow.
+            if [ -f "$out" ]; then
+              echo ">>> ${base}: already sent, skipping ($(head -1 "$out"))"
+              continue
+            fi
+            found=$((found + 1))
+
+            if ! jq -e 'type == "object"' "$req" >/dev/null 2>&1; then
+              echo "REFUSED: not a JSON object" > "$out"; failed=1; continue
+            fi
+
+            MESSAGE="$(jq -r '.message // ""' "$req")"
+            PRIORITY="$(jq -r '.priority // "normal"' "$req")"
+            TARGET="$(jq -r '.target // "claude"' "$req")"
+            KIND="$(jq -r '.kind // ""' "$req")"
+            WHY="$(jq -r '.why // ""' "$req")"
+            UNPROVEN="$(jq -r '.unproven // ""' "$req")"
+
+            # Assert the input before trusting the outcome: a blank message
+            # would "send successfully" and say nothing.
+            if [ -z "${MESSAGE// }" ]; then
+              echo "REFUSED: empty message" > "$out"; failed=1; continue
+            fi
+            # The same kind/why pairing system-actions.yml enforces, for the
+            # same reason: the producer only reads `why` under `--kind`, so the
+            # other orderings are accepted-and-silently-dropped.
+            if [ -n "${KIND// }" ]; then
+              case "${KIND}" in
+                decision|state_change|lifecycle) ;;
+                *) echo "REFUSED: kind '${KIND}' is not a class" > "$out"; failed=1; continue ;;
+              esac
+              if [ -z "${WHY// }" ]; then
+                echo "REFUSED: kind='${KIND}' requires 'why'" > "$out"; failed=1; continue
+              fi
+            elif [ -n "${WHY// }" ] || [ -n "${UNPROVEN// }" ]; then
+              echo "REFUSED: 'why'/'unproven' with no 'kind' would be dropped" > "$out"; failed=1; continue
+            fi
+
+            REMOTE="ACTION_MESSAGE=$(printf '%q' "${MESSAGE}")"
+            REMOTE="${REMOTE} ACTION_PRIORITY=$(printf '%q' "${PRIORITY}")"
+            REMOTE="${REMOTE} ACTION_TARGET=$(printf '%q' "${TARGET}")"
+            [ -n "${KIND// }" ] && REMOTE="${REMOTE} ACTION_KIND=$(printf '%q' "${KIND}") ACTION_WHY=$(printf '%q' "${WHY}")"
+            [ -n "${UNPROVEN// }" ] && REMOTE="${REMOTE} ACTION_UNPROVEN=$(printf '%q' "${UNPROVEN}")"
+            REMOTE="${REMOTE} bash /home/ubuntu/ict-trading-bot/scripts/ops/send_ping_action.sh"
+
+            echo ">>> ${base}: sending ${PRIORITY} ping to ${TARGET} (kind=${KIND:-passthrough})"
+            set +e
+            SEND_OUT="$(ssh -i ~/.ssh/id_rsa \
+                            -o BatchMode=yes \
+                            -o StrictHostKeyChecking=accept-new \
+                            -o ConnectTimeout=20 \
+                            "${VM_SSH_USER}@${VM_SSH_HOST}" \
+                            "${REMOTE}" 2>&1)"
+            SEND_RC=$?
+            set -e
+            echo "${SEND_OUT}"
+
+            if [ "${SEND_RC}" -ne 0 ]; then
+              { echo "FAILED: send_ping_action.sh exited ${SEND_RC}"; echo "${SEND_OUT}"; } > "$out"
+              failed=1
+              continue
+            fi
+            # `withheld` is its own status, never folded into ok — the whole
+            # point of send_ping_action.sh capturing stdout.
+            if printf '%s' "${SEND_OUT}" | grep -q 'WITHHELD'; then
+              { echo "WITHHELD: suppressed by the class limiter — NOTHING was queued"; echo "${SEND_OUT}"; } > "$out"
+              continue
+            fi
+            echo "ok: queued to ${TARGET} (${PRIORITY}, kind=${KIND:-passthrough})" > "$out"
+          done
+
+          echo "found=${found} failed=${failed}"
+          echo "PING_FAILED=${failed}" >> "$GITHUB_ENV"
+
+      - name: Commit results
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- automation/ping-results; then
+            echo "no new results"
+            exit 0
+          fi
+          git add automation/ping-results
+          git commit -m "ping-relay: results"
+          for i in 1 2 3; do
+            git push origin "HEAD:${GITHUB_REF_NAME}" && break || sleep $((i * 3))
+          done
+
+      - name: Fail the run when a ping did not go out
+        run: |
+          set -euo pipefail
+          # Deliberately LOUDER than pr-opener: a session that believes it
+          # pinged the operator and did not is invisible to the operator AND to
+          # itself, which is precisely the failure this relay was built for.
+          if [ "${PING_FAILED:-0}" != "0" ]; then
+            echo "::error::a ping request was REFUSED or FAILED — read automation/ping-results/"
+            exit 1
+          fi
