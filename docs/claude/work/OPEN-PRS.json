@@ -40,82 +40,10 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-04T08:09:00Z",
+  "as_of": "2026-09-04T08:40:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
-    {
-      "pr": 10957,
-      "opened_at": "2026-09-03T21:19:44Z",
-      "title": "chore(ops): PR-queue watcher receipt (auto)",
-      "owner_session": null,
-      "checklist_item": null,
-      "draft": false,
-      "tier": "1",
-      "state": "open_untriaged_automation",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded."
-      },
-      "blocker": "AUTOMATION. ⚠️ POSSIBLY MORE THAN ROUTINE, AND NOT VERIFIED HERE: it is the dated liveness receipt from .github/workflows/pr-queue-watch.yml, whose OPEN-ITEMS row OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED is waiting on exactly this artifact. ⚠️ THAT ROW CLEARS ONLY ON A RUN WHOSE EVENT IS `schedule`, NEVER ON THE FILE EXISTING — a workflow_dispatch run writes a byte-identical receipt and clears the WORKFLOW half only. The day manager did NOT read the run's event and is not claiming it fired on cron. Read the run history and the receipt's `generated_at`; do not clear the row on this row."
-    },
-    {
-      "pr": 10927,
-      "opened_at": "2026-09-03T11:13:24Z",
-      "title": "chore(ops): session-reaper observations (auto)",
-      "owner_session": null,
-      "checklist_item": null,
-      "draft": false,
-      "tier": "1",
-      "state": "open_untriaged_automation",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded."
-      },
-      "blocker": "AUTOMATION, generated artifact only. Not individually examined by the day manager — this row records that it is OPEN and UNTRIAGED, never that it was reviewed."
-    },
-    {
-      "pr": 10925,
-      "opened_at": "2026-09-03T10:09:38Z",
-      "title": "chore(ops): session-reaper observations (auto)",
-      "owner_session": null,
-      "checklist_item": null,
-      "draft": false,
-      "tier": "1",
-      "state": "open_untriaged_automation",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded."
-      },
-      "blocker": "AUTOMATION, generated artifact only. Not individually examined by the day manager — this row records that it is OPEN and UNTRIAGED, never that it was reviewed."
-    },
-    {
-      "pr": 10922,
-      "opened_at": "2026-09-03T10:06:33Z",
-      "title": "chore(ops): refresh the due-list (auto)",
-      "owner_session": null,
-      "checklist_item": null,
-      "draft": false,
-      "tier": "1",
-      "state": "open_untriaged_automation",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded."
-      },
-      "blocker": "AUTOMATION, generated artifact only. Not individually examined by the day manager — this row records that it is OPEN and UNTRIAGED, never that it was reviewed."
-    },
     {
       "pr": 10921,
       "opened_at": "2026-09-03T09:57:27Z",
@@ -132,7 +60,7 @@
         "decided_on": null,
         "text": "None recorded."
       },
-      "blocker": "AUTOMATION, generated artifact only. Not individually examined by the day manager — this row records that it is OPEN and UNTRIAGED, never that it was reviewed."
+      "blocker": "PARTIAL TAKE, not a supersede and not a merge. Its PROBES.json is THREE DAYS NEWER than main's (2026-09-03T09:56:34 vs 2026-09-01T10:13:20) while its DUE.json/DUE.md are ~20h OLDER, so merging whole advances one register and rewinds two. The manager takes PROBES.json BY VALUE and then closes the PR. ⚠️ TAKING THE NEWER FILE WHOLESALE WAS CHECKED BEFORE DOING IT, because a newer generated snapshot can still DROP rows: main's copy carries 15 probe results and the PR's 34, and three ids on main are absent from the PR (OI-20260829-TRAINER-..., OI-20260830-BYBIT-HEDGE-MODE-..., OI-20260901-SCHEDULED-PROBES-...). All three were confirmed ABSENT from docs/claude/OPEN-ITEMS.json today, i.e. those rows have been cleared and the probe file correctly no longer covers them; and all 34 of the PR's ids ARE still live rows. So the take loses nothing that is still open."
     },
     {
       "pr": 10919,
@@ -171,24 +99,6 @@
       "blocker": "⚠️ RE-MEASURED 2026-09-04. The MI-106 half is FIXED on claude/mi106-manager-scope-authorship: check_manager_scope now grades 5504200c `unattributed` rather than an R2 violation, because MANAGER-LEASE.json's own history places session_011JWFxuYAaEQKCFCmG6gnHJ out of office at the commit's 06:13:07Z author time. ⚠️ THIS PR IS STILL RED, ON A SECOND AND DIFFERENT DEFECT that was masked behind the first: R7 fails 5244dafb for '223 minutes since this manager's previous heartbeat', a number produced by reading the previous heartbeat from `sha~1` — on a merge commit, the WORKER branch's stale lease blob. The register reachable from that commit shows same-holder heartbeats at 08:32:50Z and 09:21:42Z: a 49-minute gap, inside the TTL. Filed as BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE. ⚠️ The standing DO-NOTs are unchanged and still correct: no manager-scope exception (this is not a live incident), no rewriting another session's commit, no merging past a failing required check."
     },
     {
-      "pr": 10877,
-      "opened_at": "2026-09-02T22:14:18Z",
-      "title": "daily brief for the operator's morning",
-      "owner_session": "session_01AYPxs3aDHwv3XBLRF4oK15",
-      "checklist_item": null,
-      "draft": false,
-      "tier": "1",
-      "state": "open_untriaged_by_day_manager_probably_superseded",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded."
-      },
-      "blocker": "A generated brief under comms/briefs/, rendered 2026-09-02T22:07Z covering 21:40Z→22:07Z — its own body calls it a floor, not the deliverable. ⚠️ `probably_superseded` IS A HYPOTHESIS, NOT A DISPOSITION: the day manager did not open the diff. Establish it before closing, and if it IS superseded record that as the disposition rather than letting it lapse."
-    },
-    {
       "pr": 10398,
       "opened_at": "2026-08-29T03:49:57Z",
       "title": "chore(m1): economic-calendar PIT snapshots (auto)",
@@ -216,31 +126,13 @@
       "tier": "1",
       "state": "open_in_flight",
       "operator_decision": {
-        "verdict": "not_required",
+        "verdict": "approved",
         "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "Tier-1: observability + a durable read surface, no order path. ⚠️ ARMING the fix needs an ict-telegram-bot.service restart, which IS Tier-2 and is NOT covered by this row -- it must be asked separately when the PR is ready."
+        "scope": "merge AND the ict-telegram-bot.service restart that arms it",
+        "decided_on": "2026-09-04",
+        "text": "Operator asked directly and answered 'Approve merge AND the service restart'. ⚠️ THE TIER WAS CORRECTED BY THE OWNING SESSION, NOT BY THE MANAGER: the manager dispatched MI-109 as Tier-1 and session_01MookmZshi5ikDNqjAUiifA pushed back, correctly -- the diff touches src/bot/telegram_query_bot.py, src/runtime/telegram_decisions.py and src/web/api/routers/diag.py; TIER1_SURFACE is a FAIL-CLOSED allowlist that vouches for none of them; and CLAUDE.md's own WORK_DECISION_PROMPT_SECONDS row already reads 'Tier-2 (it touches the Telegram bridge and needs an ict-telegram-bot.service restart)'. Verified against the guard and the canonical doc before the ask, not after. ⚠️ THE RESTART HAS NO DEDICATED ACTION: `restart-bot-service` bounces ict-trader-live.service ONLY. The sanctioned path is `pull-and-deploy`, which hard-resets the VM worktree to origin/main and bounces ict-trader-live + ict-web-api + ict-telegram-bot (verified in scripts/deploy_pull_restart.sh's ICT_UNITS and in docs/claude/system-actions.md). That is what the approval is being spent on. ⚠️ MERGED AND ARMED IS NOT PROVEN: no prompt has yet been observed carrying its destination, so MI-109 goes to landed_unproven, not done, and a green harness is not evidence about the fleet."
       },
-      "blocker": "⚠️ ZERO CHECK RUNS as of 2026-09-04T08:09Z -- opened through the pr-opener relay, so no pull_request workflows fired and its own session reports 'awaiting CI', i.e. waiting on checks that will never arrive. Needs one ordinary commit to arm CI. The manager will arm it if the session does not."
-    },
-    {
-      "pr": 10976,
-      "opened_at": "2026-09-04T08:06:16Z",
-      "title": "manager: drain the queue to 9, and record two observations that do NOT clear",
-      "owner_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-      "checklist_item": null,
-      "draft": false,
-      "tier": "1",
-      "state": "open_manager_state",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "Tier-1 manager state: registers under docs/claude/** only."
-      },
-      "blocker": "⚠️ OPENED BY claude-pr-automerge.yml RATHER THAN BY HAND, so it started with ONE check (open-and-automerge) and none of the four required ones -- the same relay trap as #10975, walked into by the manager who had just documented it. #10974 avoided it only because it was opened via the API as a real user. Armed by an ordinary commit."
+      "blocker": "Waiting on pytest-run only; guards, pytest-collect, repo-inventory and open are green. Operator Tier-2 approval recorded above covers BOTH the merge and the pull-and-deploy that arms it."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -971,8 +863,144 @@
       "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
       "reason": "SUPERSEDED, and the queued ping was RESCUED FIRST rather than dropped. This PR carried one docs/claude/pending-pings.jsonl row absent from main (2026-09-03T04:44:40.131943+00:00 night_shift_summary); that row is now ON MAIN, preserved by value in #10974 (merged c17b4e7c) and verified by reading origin/main:docs/claude/pending-pings.jsonl AFTER the merge -- the timestamp appears exactly once, 74 -> 79 rows, +5/-0. The three relay-bookkeeping files it also carried (.github/pr-landing + automation/pr-requests + automation/pr-results) are records of this PR's own opening and have no value once it is closed; that is stated rather than glossed. ⚠️ THE FIRST MEASUREMENT OF THIS PR SAID IT CARRIED NO PING AND WAS WRONG: the manager container clones SHALLOW (50 commits), so the three-dot diff returned empty -- a failed read rendering as a clean negative, the exact failure the ping rule exists to prevent. Re-measured unshallowed, PER PR rather than by class. Root cause it could never have merged cleanly: MI-113.",
       "disposition": "superseded — its one queued pending-pings row was RESCUED to main by value in #10974 BEFORE this PR was closed, and verified present on origin/main afterwards; the rest of its diff would have rewound a newer receipt or was its own relay bookkeeping"
+    },
+    {
+      "pr": 10877,
+      "opened_at": "2026-09-02T22:14:18Z",
+      "title": "daily brief for the operator's morning",
+      "owner_session": "session_01AYPxs3aDHwv3XBLRF4oK15",
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_by_day_manager_probably_superseded",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "A generated brief under comms/briefs/, rendered 2026-09-02T22:07Z covering 21:40Z→22:07Z — its own body calls it a floor, not the deliverable. ⚠️ `probably_superseded` IS A HYPOTHESIS, NOT A DISPOSITION: the day manager did not open the diff. Establish it before closing, and if it IS superseded record that as the disposition rather than letting it lapse.",
+      "terminal": "merged",
+      "merge_sha": "d7180478dc521fb2537dfae9a82f77e33eaa90c3",
+      "observed_at": "2026-09-04T08:25:29Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10976,
+      "opened_at": "2026-09-04T08:06:16Z",
+      "title": "manager: drain the queue to 9, and record two observations that do NOT clear",
+      "owner_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_manager_state",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "Tier-1 manager state: registers under docs/claude/** only."
+      },
+      "blocker": "⚠️ OPENED BY claude-pr-automerge.yml RATHER THAN BY HAND, so it started with ONE check (open-and-automerge) and none of the four required ones -- the same relay trap as #10975, walked into by the manager who had just documented it. #10974 avoided it only because it was opened via the API as a real user. Armed by an ordinary commit.",
+      "terminal": "merged",
+      "merge_sha": "71d3f1af262fba082c261c09a12e3b4acd698454",
+      "observed_at": "2026-09-04T08:25:29Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10957,
+      "opened_at": "2026-09-03T21:19:44Z",
+      "title": "chore(ops): PR-queue watcher receipt (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION. ⚠️ POSSIBLY MORE THAN ROUTINE, AND NOT VERIFIED HERE: it is the dated liveness receipt from .github/workflows/pr-queue-watch.yml, whose OPEN-ITEMS row OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED is waiting on exactly this artifact. ⚠️ THAT ROW CLEARS ONLY ON A RUN WHOSE EVENT IS `schedule`, NEVER ON THE FILE EXISTING — a workflow_dispatch run writes a byte-identical receipt and clears the WORKFLOW half only. The day manager did NOT read the run's event and is not claiming it fired on cron. Read the run history and the receipt's `generated_at`; do not clear the row on this row.",
+      "terminal": "closed_unmerged",
+      "settled_at": "2026-09-04T08:40:00Z",
+      "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "disposition": "superseded — main's PR-QUEUE-WATCH.json is newer (2026-09-04T05:05:02Z) than this PR's (2026-09-03T21:19:42Z); merging would have rewound it by ~8h",
+      "reason": "SUPERSEDED, established by comparing the STAMPS rather than by judging the class: main:PR-QUEUE-WATCH.json carries 2026-09-04T05:05:02Z, this PR carries 2026-09-03T21:19:42Z, so merging rewinds the register by ~8h. Verified separately that it carries NO docs/claude/pending-pings.jsonl row absent from main, on an UNSHALLOWED clone and PER PR -- a shallow clone returns empty diffs that read as clean negatives, which is how five real pings were nearly dropped this morning. ⚠️ CLOSING THIS DOES NOT CLEAR OI-20260902-PR-QUEUE-WATCHER-... and neither did its existence: that row needs a run whose EVENT is `schedule`, because a workflow_dispatch run writes a byte-identical receipt. It was cleared today on separate evidence -- main's receipt was landed by #10971 whose head branch is automation/data-commit-33839153592-1, and 33839153592 IS scheduled run #8, so the tie is by IDENTITY rather than timestamp proximity."
+    },
+    {
+      "pr": 10927,
+      "opened_at": "2026-09-03T11:13:24Z",
+      "title": "chore(ops): session-reaper observations (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION, generated artifact only. Not individually examined by the day manager — this row records that it is OPEN and UNTRIAGED, never that it was reviewed.",
+      "terminal": "closed_unmerged",
+      "settled_at": "2026-09-04T08:40:00Z",
+      "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "disposition": "superseded — main's REAPER-OBSERVATIONS.json is newer (2026-09-04T04:31:59Z) than this PR's (2026-09-03T11:13:07Z); merging would have rewound it by ~17h",
+      "reason": "SUPERSEDED, established by comparing the STAMPS rather than by judging the class: main:REAPER-OBSERVATIONS.json carries 2026-09-04T04:31:59Z, this PR carries 2026-09-03T11:13:07Z, so merging rewinds the register by ~17h. Verified separately that it carries NO docs/claude/pending-pings.jsonl row absent from main, on an UNSHALLOWED clone and PER PR -- a shallow clone returns empty diffs that read as clean negatives, which is how five real pings were nearly dropped this morning."
+    },
+    {
+      "pr": 10925,
+      "opened_at": "2026-09-03T10:09:38Z",
+      "title": "chore(ops): session-reaper observations (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION, generated artifact only. Not individually examined by the day manager — this row records that it is OPEN and UNTRIAGED, never that it was reviewed.",
+      "terminal": "closed_unmerged",
+      "settled_at": "2026-09-04T08:40:00Z",
+      "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "disposition": "superseded — main's REAPER-OBSERVATIONS.json is newer (2026-09-04T04:31:59Z) than this PR's (2026-09-03T10:09:15Z); merging would have rewound it by ~18h",
+      "reason": "SUPERSEDED, established by comparing the STAMPS rather than by judging the class: main:REAPER-OBSERVATIONS.json carries 2026-09-04T04:31:59Z, this PR carries 2026-09-03T10:09:15Z, so merging rewinds the register by ~18h. Verified separately that it carries NO docs/claude/pending-pings.jsonl row absent from main, on an UNSHALLOWED clone and PER PR -- a shallow clone returns empty diffs that read as clean negatives, which is how five real pings were nearly dropped this morning."
+    },
+    {
+      "pr": 10922,
+      "opened_at": "2026-09-03T10:06:33Z",
+      "title": "chore(ops): refresh the due-list (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION, generated artifact only. Not individually examined by the day manager — this row records that it is OPEN and UNTRIAGED, never that it was reviewed.",
+      "terminal": "closed_unmerged",
+      "settled_at": "2026-09-04T08:40:00Z",
+      "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "disposition": "superseded — main's DUE.json is newer (2026-09-04T06:31:04Z) than this PR's (2026-09-03T10:06:25Z); merging would have rewound it by ~20h",
+      "reason": "SUPERSEDED, established by comparing the STAMPS rather than by judging the class: main:DUE.json carries 2026-09-04T06:31:04Z, this PR carries 2026-09-03T10:06:25Z, so merging rewinds the register by ~20h. Verified separately that it carries NO docs/claude/pending-pings.jsonl row absent from main, on an UNSHALLOWED clone and PER PR -- a shallow clone returns empty diffs that read as clean negatives, which is how five real pings were nearly dropped this morning. ⚠️ ITS SIBLING #10921 CARRIES THE SAME STALE DUE.json AND WAS DELIBERATELY NOT CLOSED WITH IT: #10921's PROBES.json is THREE DAYS NEWER than main's, so it needed a partial take rather than a supersede."
     }
   ],
-  "last_reconciled_at": "2026-09-03T23:19:26Z",
-  "last_reconciled_sha": "3d674b820bb1ef6a4e7c52d2061edd68b43553fb"
+  "last_reconciled_at": "2026-09-04T08:25:29Z",
+  "last_reconciled_sha": "d7180478dc521fb2537dfae9a82f77e33eaa90c3"
 }

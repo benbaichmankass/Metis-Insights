@@ -1,6 +1,5 @@
-Second manager landing of 2026-09-04: merge-queue refresh after the first
-drain, five settled PR rows, MI-116, the MI-112 refinement, and two OPEN-ITEMS
-observations that deliberately do not clear their rows.
+Third manager landing of 2026-09-04: PROBES.json partial take from #10921,
+four settled receipt rows, the operator's Tier-2 approval on #10975, and the
+merge-queue refresh after the second drain.
 
-Tier-1 throughout. Arming the route because the declaration says
-`landing: "self"`; auto-merge still merges only on green.
+Tier-1. Auto-merge merges only on green.

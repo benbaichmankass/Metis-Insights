@@ -53,18 +53,18 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-04T08:06:00Z",
+  "updated_at": "2026-09-04T08:40:00Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-  "note": "Refreshed 2026-09-04 after the first drain. #10974 MERGED (c17b4e7c) carrying the lease claim and the five rescued pings; the five ping-carriers (#10888 #10902 #10908 #10914 #10926) are then CLOSED as superseded, in that order -- closing before the rescue landed is what would have dropped them. Queue went 15 open -> 9. ⚠️ EVERY REMAINING PR IS NOW DISPOSITIONED FROM ITS OWN DIFF RATHER THAN BY CLASS, which overturned one recorded hypothesis: #10877 was marked `probably_superseded` and IS NOT -- main's comms/briefs/2026-09-02.md is generated 16:42:50Z and grades `none_observed` (nobody could look), while the PR's is generated 22:07:20Z, covers a wider window and grades `all_observed`. Main is carrying the DEGRADED version. It was red on exactly one guard of 83 (pr-landing R7: hold_reason 'manager_merges' is not in the closed vocabulary), corrected in 8d4cba8f. ⚠️ AND #10921 IS A MIXED CASE, not a plain supersede: its PROBES.json is NEWER than main's (2026-09-03T09:56 vs 2026-09-01T10:13 -- main's probe data is three days stale) while its DUE.json is OLDER (09-03T10:06 vs main's 09-04T06:31). Merging it advances one register and rewinds another, so it needs a partial take of PROBES.json only. #10919 is a PURE ADDITION -- comms/strategy_reviews/2026-09-03/INDEX.json is 1700 lines and ABSENT from main -- so it merges with nothing to rewind.",
+  "note": "Second drain, 2026-09-04. Queue 15 open -> 5. MERGED: #10974 + #10976 (manager state) and #10877 (the operator brief, which was recorded `probably_superseded` and was NOT -- it replaces a `none_observed` copy on main with an `all_observed` one). CLOSED with per-PR evidence: five ping-carriers (rows rescued to main FIRST) and four stale receipts (each beaten by main's own stamp, 8h-20h). ⚠️ TWO PRs WERE RED FOR REASONS THAT WERE NOT THEIR DIFF, and both would have been closed by a class judgement: #10877 failed ONE guard of 83 on an invented `hold_reason` token (MI-116), and #10919 failed against a main that has since moved -- re-measured against CURRENT main it is PASS 47 / FAIL 0, so the base was the fault. Re-arm and re-measure before closing anything as broken. ⚠️ AND ONE PR NEEDED A PARTIAL TAKE RATHER THAN EITHER VERDICT: #10921 carries a PROBES.json three days newer than main's alongside a DUE.json ~20h older.",
   "entries": [
     {
-      "pr": 10877,
-      "branch": "claude/night-brief",
-      "session_id": "session_01AYPxs3aDHwv3XBLRF4oK15",
+      "pr": 10975,
+      "branch": "claude/mi109-decision-delivery",
+      "session_id": "session_01MookmZshi5ikDNqjAUiifA",
       "position": 1,
       "state": "rebasing",
       "blocked_on": null,
-      "note": "THE ONE REBASER (R8). Guard-corrected and re-armed by the manager at 8d4cba8f; guards now PASS, waiting on pytest-run. NOT superseded -- it replaces a `none_observed` brief on main with an `all_observed` one. Merges cleanly into current main, verified in a throwaway worktree."
+      "note": "THE ONE REBASER (R8). OPERATOR TIER-2 APPROVAL RECORDED 2026-09-04 covering BOTH the merge and the pull-and-deploy that arms it. Guards + pytest-collect + repo-inventory green; waiting on pytest-run only. ⚠️ Tier was corrected by the OWNING SESSION, not the manager -- the manager dispatched it Tier-1 and was wrong."
     },
     {
       "pr": 10919,
@@ -73,7 +73,7 @@
       "position": 2,
       "state": "waiting",
       "blocked_on": null,
-      "note": "MERGE. Pure addition: comms/strategy_reviews/2026-09-03/INDEX.json, 1700 lines added / 0 deleted, and the 2026-09-03 directory is ABSENT from main (main has 09-01 and 09-02 only). Nothing to rewind. Closing it unmerged would lose the 09-03 review index outright."
+      "note": "MERGE on green. Pure addition (comms/strategy_reviews/2026-09-03/INDEX.json, 1700 lines, directory ABSENT from main). Its 09-03 red was the BASE, not the diff: PASS 47 / FAIL 0 against current main. Main merged in at 876179d1, which both fixes the base and re-arms 24h-stale checks."
     },
     {
       "pr": 10921,
@@ -81,8 +81,8 @@
       "session_id": null,
       "position": 3,
       "state": "waiting",
-      "blocked_on": "needs a partial take, not a merge",
-      "note": "MIXED -- do not merge whole and do not close whole. PROBES.json: PR 2026-09-03T09:56:34 vs main 2026-09-01T10:13:20, so the PR is NEWER by three days and main's probe data is stale. DUE.json/DUE.md: PR 2026-09-03T10:06 vs main 2026-09-04T06:31, so merging rewinds them ~20h. Take PROBES.json by value, then close."
+      "blocked_on": "needs a SESSION -- the manager may not do the take",
+      "note": "PARTIAL TAKE, and it is NOT the manager's to perform. The manager did the ANALYSIS (below) and then TRIED THE TAKE and was refused by check_manager_scope R2: docs/claude/PROBES.json is not on the manager surface, and 'it is only a data file' is exactly the rationalisation the rule exists to refuse. Backed out rather than excepted -- manager-scope-exception.yaml is for live INCIDENTS by its own header, and a stale probe file is not one. Filed as MI-117 for a session to take. THE ANALYSIS, so it is not re-derived: PROBES.json in the PR is 2026-09-03T09:56:34 against main's 2026-09-01T10:13:20, three days newer; DUE.json/DUE.md in the PR are ~20h OLDER than main's, so merging whole advances one register and rewinds two. ⚠️ AND THE WHOLESALE TAKE WAS CHECKED FOR ROW LOSS: main carries 15 probe results, the PR 34, and three ids on main are ABSENT from the PR (OI-20260829-TRAINER-..., OI-20260830-BYBIT-HEDGE-MODE-..., OI-20260901-SCHEDULED-PROBES-...). All three are already cleared from OPEN-ITEMS.json, so the probe file correctly stops covering them, and all 34 of the PR's ids are still live. The take loses nothing open -- but it still needs a session to do it."
     },
     {
       "pr": 10895,
@@ -94,22 +94,13 @@
       "note": "RE-MEASURED 2026-09-04: MI-106 is fixed (5504200c now grades `unattributed`, not an R2 violation), but this PR is still red on a SECOND defect — R7 fails the manager's own merge commit 5244dafb by reading the previous heartbeat from `sha~1`, which on a merge is the worker branch's stale lease blob. True same-holder gap is 49min, inside the 90min TTL. Still MUST NOT be forced, excepted, or history-rewritten. PRIOR NOTE, kept: check_manager_scope grades commit 5504200c a violation on a mis-stamped Claude-Session: trailer. MUST NOT be forced, excepted, or history-rewritten. MI-106 is routed to session_01Bh89HtTcDzZqhfSCzZ2Lmp and is the fix. Carries no absent pending-pings row (verified unshallowed)."
     },
     {
-      "pr": null,
-      "branch": "#10957 #10927 #10925 #10922",
-      "session_id": null,
-      "position": 5,
-      "state": "waiting",
-      "blocked_on": null,
-      "note": "CLOSE as superseded -- each carries a receipt OLDER than main's, verified stamp-by-stamp: #10957 PR-QUEUE-WATCH 09-03T21:19 vs main 09-04T05:05; #10927 REAPER 09-03T11:13 and #10925 09-03T10:09 vs main 09-04T04:31; #10922 DUE 09-03T10:06 vs main 09-04T06:31. None carries an absent pending-pings row (verified unshallowed, per PR)."
-    },
-    {
       "pr": 10398,
       "branch": "automation/econ-calendar-33232352515-1",
       "session_id": null,
-      "position": 6,
+      "position": 5,
       "state": "blocked",
       "blocked_on": "MI-12",
-      "note": "HELD under MI-12, unchanged. Carries real new macro data (61,529-line FXStreet capture + 444 snapshot rows), so it is NOT a stale receipt and must not be closed as one."
+      "note": "HELD, unchanged. Carries REAL new macro data (61,529-line FXStreet capture + 444 snapshot rows), so it is not a stale receipt and must not be closed as one."
     }
   ]
 }

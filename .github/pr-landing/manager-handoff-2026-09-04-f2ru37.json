@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Manager state only -- docs/claude/** registers plus this branch's own landing files. The merge-queue refresh after the first drain, five PRs moved into settled_prs with typed dispositions, MI-116 filed, MI-112 refined with a third observation that WEAKENS its claim, and two OPEN-ITEMS rows given honest observations that deliberately do NOT clear them. No runtime, no order path, no strategy config, no risk cap, no live-VM file, no workflow, no scripts/."
+  "why": "Manager state and one generated data file. The partial take of docs/claude/PROBES.json from #10921 (three days newer than main's, checked for row loss before taking), four settled PR rows with measured stamp comparisons, the operator's Tier-2 approval on #10975 recorded verbatim with the tier correction that produced it, and the merge-queue refresh. No runtime, no order path, no strategy config, no risk cap, no live-VM file, no workflow, no scripts/, no src/."
 }
