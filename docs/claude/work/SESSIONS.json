@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-04T22:46:48Z",
+  "updated_at": "2026-09-04T23:17:43Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1506,7 +1506,7 @@
     {
       "session_id": "session_01QRMbr88Ju1XAqsfHxcms5c",
       "registry_key": "pending-20260904T224429Z",
-      "state": "working",
+      "state": "review_ready",
       "title": "MI-122 — R7 grades a lease CLAIM as a late heartbeat, and reads a merge's previous heartbeat from the wrong parent",
       "owns_object": "WO-20260904-R7-GRADES-A-LEASE-CLAIM-AS-A-LATE-HEARTBEAT",
       "checklist_item": "MI-122",
@@ -1516,12 +1516,17 @@
         "claude/mi122-r7-lease-run"
       ],
       "why": "TWO measured instances, one root. (a) This manager's re-claim commit cc984fec fails R7 at 746min because a CLAIM over an expired lease is graded as a late heartbeat -- while R7's own docstring already exempts a HANDOVER for the identical reason. (b) #10895 is blocked because R7 reads the previous blob from sha~1, which on a merge commit is the worker branch's stale lease. Operator decision 2026-09-04, asked directly: FIX R7, do NOT write a scope exception. PR #10982 (manager register state, MI-118..121, the session-cap resolution and the record of tonight's twelve-hour gap) cannot land until this does.",
-      "confirmed_at": "2026-09-04T22:46:48Z"
+      "confirmed_at": "2026-09-04T22:46:48Z",
+      "last_observed": "2026-09-04T23:17:43Z",
+      "prs": [
+        "#11012"
+      ],
+      "live_state": "2026-09-04T23:17:43Z: IDLE, connected, review_ready — 29 minutes after spawn. PR #11012 open on claude/mi122-r7-lease-run; guards, pytest-collect and repo-inventory all SUCCESS, pytest-run in_progress, automerge armed. NOT reviewed by the manager yet — this is a state observation, not an approval. ⚠️ ITS UNIT GOT HARDER AFTER IT WAS SPAWNED and it was told on the board (#6927) rather than by message, since a manager cannot reach a running cloud sub-session: the R7 defect is a DEADLOCK, not a slow queue. Measured 23:11Z — origin/main's lease reads heartbeat_at 08:08:00Z (expired, claimable) while the manager's branch reads 23:11:51Z, because heartbeats ride #10982, which is red on R7, which is red BECAUSE OF the lease. A lease-only commit built on origin/main was refused by branch protection (3 of 3 required checks) AND graded ✗R6 ✗R7 by check_manager_scope, so the lease cannot reach main by ANY route until this lands. ⚠️ AND ITS CONTRACT OBJECT IS NOT ON MAIN — WO-20260904-R7-GRADES-A-LEASE-CLAIM-AS-A-LATE-HEARTBEAT exists only on claude/manager-handoff-2026-09-04-f2ru37, the branch #10982 blocks. The spawn prompt carried the full done_condition and do_not inline, so it is not stranded; the board post says so explicitly and tells it not to re-create the file."
     },
     {
       "session_id": "session_01SVUv3HZiqBsriCcc2RqQo7",
       "registry_key": "pending-20260904T224451Z",
-      "state": "working",
+      "state": "review_ready",
       "title": "MI-123 — bound a manager's idle time with a durable wake, so a manager that stops acting is detected by a mechanism and not by the operator",
       "owns_object": "WO-20260904-MANAGER-IDLE-IS-UNBOUNDED-AND-NOTHING-WAKES-IT",
       "checklist_item": "MI-123",
@@ -1531,9 +1536,14 @@
         "claude/mi123-manager-durable-wake"
       ],
       "why": "MEASURED tonight: this manager's last act was ~09:45Z and the operator asked at 21:53Z. TWELVE HOURS against a standing directive of thirty minutes, and NOTHING NOTICED. The manager did NOT die -- it stayed alive and connected and simply stopped taking turns, which is the one case every existing mechanism misses: the lease's TTL, time-based takeover and the whole reaper argument are all aimed at DEATH. Cost: #10975 green and approved at 15:02Z sat unmerged ~7h; all three sub-sessions were at need_input by 09:41Z each naming one act; the lease sat expired 746 minutes. Operator decision 2026-09-04, asked directly: build the DURABLE WAKE (bound idle), not the reaper.",
-      "confirmed_at": "2026-09-04T22:46:48Z"
+      "confirmed_at": "2026-09-04T22:46:48Z",
+      "last_observed": "2026-09-04T23:17:43Z",
+      "prs": [
+        "#11014"
+      ],
+      "live_state": "2026-09-04T23:17:43Z: PR #11014 open on claude/mi123-manager-durable-wake — 1626 additions, 9 files, 4 commits; guards, pytest-collect and repo-inventory SUCCESS, pytest-run in_progress, automerge armed. ⚠️ THE DELIVERY HALF IS OBSERVED, WHICH IS MORE THAN THE OBJECT ASKED FOR: at 23:09:19Z its own mechanism WOKE THIS MANAGER — manager_wake.py --brief rendered and carried by a poke-only Routine, arriving as an out-of-band turn. That is the bar OI-20260902-DECISION-DRAIN-ROUTINE sets for its stage (4), reached rather than claimed. AND IT FOUND A REAL DEFECT ON ITS FIRST FIRING: it reported the lease 901 minutes stale, the manager's reflex was that the number was wrong, and the number was a true reading of origin/main — see the MI-122 row for the deadlock it exposed. ⚠️ SCHEDULING IS NOT ARMED AND NEEDS THE OPERATOR: create_trigger via MCP returns mcp_connections: [] and its fired sessions carry no mcp__* tools, which the wake's poke step requires; `connectors` is refused for this org. The session CREATED such a Routine, confirmed it would be inert, and DELETED it rather than leave something named manager-wake that cannot wake — the operator's own standard from the decision-drain row, applied unprompted. The prompt is committed at docs/claude/work/manager-wake-routine-prompt.md and needs the Claude Code Remote connector attached from the claude.ai Routines UI. MERGED WILL NOT BE ARMED. ⚠️ Its PR title and body were written by the MANAGER, not the author: the author is write-scope 403 on create_pull_request/update_pull_request (issue_read on the same objects succeeds), so the relay had titled a 1626-line PR after one commit of four. ⚠️ Guards PASS 65 / FAIL 1, and the 1 is NOT green: layer-guard COULD NOT RUN (lint-imports exited 127, absent from the container). Reported as 'we did not look', which is the honest third state. The reaper is FILED not built (BL-20260904-NOTHING-REAPS-A-DEAD-MANAGER-OR-CLAIMS-AN-EXPIRED-LEASE), correctly refusing the scope creep."
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",
-  "⚠️_last_live_reconcile": "2026-09-04T22:06:19Z — LIVE list_sessions(mine=true, limit=30) read from this session, 30 rows. Graded against this registry. The three sub-sessions this manager spawned are ALL present and ALL IDLE; none is RUNNING. This is the first live reconcile since 08:55Z — the manager was idle for roughly twelve hours and the lease expired at 09:38Z, so between those two points nothing was supervised and nothing recorded that it was not. ⚠️ THE GAP IS THE FINDING, not the states: all three sub-sessions had already reached need_input by 09:41Z and each names the ONE act it was waiting on, so the cost is measurable — #10975 sat green and approved for about seven hours, and MI-107 sat on a restart go-ahead that had already been given. Population caveat: list_sessions returns the 30 most recent, so this is a reconcile against that window and NOT a full-account census; a session older than the window would read as absent here without being missing."
+  "⚠️_last_live_reconcile": "2026-09-04T23:17:43Z — get_session polled directly on both sessions spawned 22:46Z, plus a GitHub read of #11012 and #11014. Both are review_ready with CI in flight and automerge armed; neither has been REVIEWED by the manager, and a state observation is not an approval. MI-107 (session_018zzzSLT8UdJ1e1RbFeyvsz) not re-polled this cycle — last read 22:06Z, idle, and #11006 merged 22:35:40Z so it is unblocked and cannot be told. ⚠️ This is a poll of THREE named sessions, not a census: the registry holds 95 rows, 67 of which have never been observed at all, and one carries a last_observed that is a bare string rather than an object — that row is invisible to every status query including this one, and is filed."
 }
