@@ -53,18 +53,18 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-03T17:42:27Z",
-  "updated_by": "session_01Nopk1HcpvWBSEbZxEmALkd",
-  "note": "Refreshed at the day manager's WIND-DOWN, 2026-09-03. ⚠️ THIS FILE'S SCHEMA WAS NEARLY REVERTED HERE AND THE REVERT WOULD HAVE BEEN INVISIBLE: the wind-down branch carried an ad-hoc version this manager wrote in the morning (top-level `queue`, no `entries`), main carried the schema MI-102 seeded at 11:35Z, and resolving the add/add conflict in the branch's favour reintroduced the violation. `check_manager_scope.py` R8 caught it — `entries` must be a list. Main's version won on the merits: it is both newer and schema-correct. The queue below is the wind-down state; per-PR conditions live in OPEN-PRS.json, which is the record a successor reads.",
+  "updated_at": "2026-09-04T07:40:00Z",
+  "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+  "note": "Refreshed by the 2026-09-04 manager on takeover. #10944 REMOVED — it merged (squash 717f00eb) and a merged PR is not a queue entry. THE PING QUESTION IS NOW ANSWERED RATHER THAN WARNED ABOUT: measured on an UNSHALLOWED clone, exactly five open PRs carry pending-pings rows absent from main — #10888 (04:44:40Z night-shift summary), #10902, #10908, #10914, #10926 (work digests). ⚠️ THE FIRST MEASUREMENT WAS WRONG AND SAID ZERO: this container clones SHALLOW (50 commits), so `git diff origin/main...pr-N` returned EMPTY for the older branches — a failed read rendering as a clean negative, which is the exact failure mode the ping rule exists to prevent. Unshallow before grading any branch. ⚠️ AND MERGING THE FOUR DIGEST PRs WOULD BE A REGRESSION, not a rescue: each rewinds docs/claude/work/WORK-DIGEST.json from main's 2026-09-04T06:34:02Z receipt back to a 2026-09-03 one. So the five rows are PRESERVED by value in #10974 and the PRs are then closed as superseded — the pings survive, the receipt does not move backwards. ROOT CAUSE FILED AS MI-113: pending-pings.jsonl is the ONE register absent from .gitattributes, so no row-aware driver applies and every ping-carrying PR conflicts unresolvably.",
   "entries": [
     {
-      "pr": 10944,
-      "branch": "claude/mi101-close-wedge-ledger",
-      "session_id": "session_01PYkDGej394sSF3zWBpy16j",
+      "pr": 10974,
+      "branch": "claude/manager-handoff-2026-09-04-f2ru37",
+      "session_id": "session_016e2k4UmsMGgpbrJ5ctqeFv",
       "position": 1,
-      "state": "blocked",
-      "blocked_on": "operator tier-2 approval",
-      "note": "HELD BY ITS OWN LANDING DECLARATION (tier 2 / hold / tier_2_3_needs_approval), not by anyone forgetting it. See OPEN-PRS.json for the operator-channel consequence a successor must not mistake for a regression."
+      "state": "rebasing",
+      "blocked_on": null,
+      "note": "THE ONE REBASER (R8: at most one entry `rebasing`). Manager state: lease claim + the five rescued ping rows. Lands FIRST because closing the ping-carrying PRs before it is on main is what drops the pings."
     },
     {
       "pr": 10895,
@@ -73,34 +73,25 @@
       "position": 2,
       "state": "blocked",
       "blocked_on": "MI-106",
-      "note": "check_manager_scope grades commit 5504200c a violation on a `Claude-Session:` trailer naming the PREVIOUS day's manager. MUST NOT be forced, excepted, or history-rewritten — MI-106 is the fix."
-    },
-    {
-      "pr": 10888,
-      "branch": "claude/night-shift-telegram-ping",
-      "session_id": "session_01AYPxs3aDHwv3XBLRF4oK15",
-      "position": 3,
-      "state": "waiting",
-      "blocked_on": null,
-      "note": "One appended pending-pings row. Carries a QUEUED PING: closing it unmerged drops that ping."
-    },
-    {
-      "pr": 10877,
-      "branch": "claude/night-brief",
-      "session_id": "session_01AYPxs3aDHwv3XBLRF4oK15",
-      "position": 4,
-      "state": "waiting",
-      "blocked_on": null,
-      "note": "A generated brief covering 21:40Z-22:07Z, which its own body calls a floor. PROBABLY superseded — a hypothesis, not a disposition; nobody opened the diff."
+      "note": "check_manager_scope grades commit 5504200c a violation on a `Claude-Session:` trailer naming the PREVIOUS day's manager. MUST NOT be forced, excepted, or history-rewritten — MI-106 is the fix. Carries no pending-pings row (verified on an unshallowed clone)."
     },
     {
       "pr": null,
-      "branch": "automation/*",
+      "branch": "#10888 #10902 #10908 #10914 #10926",
       "session_id": null,
-      "position": 5,
+      "position": 3,
+      "state": "waiting",
+      "blocked_on": "#10974 landing",
+      "note": "THE FIVE PING CARRIERS. Close as superseded ONLY after #10974 is on main; their five rows are preserved there by value. Each was diff-verified individually, not inferred from the class."
+    },
+    {
+      "pr": null,
+      "branch": "automation/* (#10957 #10927 #10925 #10922 #10921 #10919) + #10398 + #10877",
+      "session_id": null,
+      "position": 4,
       "state": "waiting",
       "blocked_on": null,
-      "note": "NINE automation PRs (#10927 #10926 #10925 #10922 #10921 #10919 #10914 #10908 #10902) plus #10398, held under MI-12. ⚠️ THE FOUR work-digest PRs AND #10888 CARRY QUEUED PINGS — read each one's docs/claude/pending-pings.jsonl diff before closing it unmerged, or those pings are dropped. Measured on this very wind-down: a file-level overwrite of that register staged -3/+1 and would have discarded three of them."
+      "note": "Carry NO absent ping rows (verified). #10398 held under MI-12. #10877 is recorded probably_superseded — a HYPOTHESIS, not a disposition; nobody has opened the diff. #10957 is the PR-queue watcher receipt: its existence does NOT clear OI-20260902-PR-QUEUE-WATCHER-..., which needs a run whose event is `schedule`."
     }
   ]
 }

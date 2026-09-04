@@ -1,0 +1,72 @@
+id: WO-20260904-MANAGER-SCOPE-AUTHORSHIP-SELF-DECLARED
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  manager-scope-guard derives authorship from a trailer the author writes themselves, so a MIS-stamped commit is a false violation and a MIS-stamped commit is also an open evasion
+stage: DEPLOYMENT
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-04
+closed_at: null
+
+why: >-
+  MEASURED 2026-09-03T14:0xZ while trying to land #10895. check_manager_scope
+  grades it a VIOLATION: commit 5504200c touches scripts/notify_on_pull.py and
+  tests/test_notify_merge_pings.py under a `Claude-Session:` trailer naming
+  session_011JWFxuYAaEQKCFCmG6gnHJ -- the PREVIOUS DAY'S MANAGER -- so the guard
+  reads it as a manager doing an item.
+  ⚠️ THE EVIDENCE SAYS THE TRAILER IS WRONG, AND THAT IS A READING RATHER THAN A
+  PROVEN FACT: the commit body is written in the MI-83 WORKER's voice ("a defect
+  in what I shipped", "The reason it could not be read is MINE") about #10857,
+  which is MI-83's own PR; the PR body's footer names
+  session_018ruZdgEkPZ1XceWzLwuYUU (MI-83); and that session was alive at
+  06:13:07Z when the commit was authored. So the guard produced a TRUE finding
+  about what it can SEE and a FALSE one about what HAPPENED.
+  ⚠️ THE INVERSE IS THE DANGEROUS HALF AND IT IS UNGUARDED: authorship is taken
+  from a trailer the author writes themselves, so a manager wanting to do an item
+  can simply stamp a worker's session id and the guard vouches for it. The guard
+  already discloses that UNTRAILERED commits are "a gap in coverage, not evidence
+  of compliance" -- a MIS-trailered one is not covered by that caveat and reads
+  as a graded verdict. A guard cheaper to lie to than to satisfy is worse than no
+  guard, which is the lesson its own siblings cite new-table-wiring-guard for.
+
+cost_of_not_doing_it: >-
+  #10895 stays OPEN, and it is the PR that makes OI-20260902-PER-MERGE-PING
+  verifiable at all. The 2026-09-03 manager did NOT force it, did NOT write an
+  exception, and did NOT rewrite another session's commit -- all three were
+  correctly refused -- so the block is real and only this object clears it.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-04 by the manager. Nothing blocks the work: the guard is
+  scripts/ci/check_manager_scope.py, the diagnosis is already measured against a
+  live instance, and no operator decision is required to make a guard state the
+  limits of its own evidence.
+
+done_condition: >-
+  EITHER authorship is established from something the author does not solely
+  control, OR the trailer's limits are stated in the guard's own output so a
+  mis-stamp reads as `unattributed` rather than as a graded verdict -- with BOTH
+  a plant AND a control in --self-test, so the check is shown to catch the thing
+  and shown not to fire on the clean case.
+  ⚠️ A THIRD STATE IS THE POINT: `attributed` / `unattributed` / `violation` must
+  not collapse. "We cannot establish who wrote this" is not the same fact as
+  "a manager did an item", and today they render identically.
+
+do_not: >-
+  ⚠️ DO NOT resolve this by excepting #10895. manager-scope-exception.yaml is for
+  live INCIDENTS by its own header, not for excusing a mis-stamp.
+  ⚠️ DO NOT rewrite commit 5504200c. It is on another session's branch and
+  rewriting another session's history is forbidden.
+  ⚠️ DO NOT merge #10895 past a failing required check to get the result you
+  want -- that is the thing the whole landing discipline exists to stop.
+  ⚠️ DO NOT weaken the guard into silence on untrailered commits; the disclosure
+  it already makes is correct and load-bearing.
+  Resolving #10895 specifically may just need its author session
+  (session_018ruZdgEkPZ1XceWzLwuYUU) to re-commit with the right trailer, which
+  is a different and cheaper move than changing the guard -- if you take it, say
+  so explicitly and note that it fixes the INSTANCE and not the CLASS.
+
+review_trigger: >-
+  If a second PR is blocked by a mis-stamped trailer before this lands, the
+  false-positive half stops being theoretical and the priority rises.

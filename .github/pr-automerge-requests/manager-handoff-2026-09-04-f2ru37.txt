@@ -1,0 +1,10 @@
+Manager state for the 2026-09-04 session: the lease claim, five rescued
+pending-pings rows, the routing of MI-106/MI-107, three new checklist rows
+(MI-113/114/115), the verified OI-20260902-PR-QUEUE-WATCHER observation, and
+the regenerated CLAUDE.md SESSION-BRIEF block.
+
+Tier-1 throughout -- docs/claude/** plus this branch's own landing files.
+Arming the route because the declaration says `landing: "self"`, and a
+readiness declaration that arms nothing is how seven green PRs sat unmerged
+on 2026-09-03. Auto-merge still merges only on green; branch protection is
+the safety net and no check is bypassed.
