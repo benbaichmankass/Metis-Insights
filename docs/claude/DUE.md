@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-04T09:46:12+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-04T09:57:42+00:00 · verdict **all_sources_read**_
 
 - 🔔 **#10398** (unlanded_automation · 6d) — producer output opened a PR that has not landed
   - chore(m1): economic-calendar PIT snapshots (auto)
@@ -102,8 +102,6 @@ _Generated 2026-09-04T09:46:12+00:00 · verdict **all_sources_read**_
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
 - 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'failure'
   - constraint-readout
-- 🔔 **due-list** (red_crons) — latest scheduled run concluded 'cancelled'
-  - due-list
 - 🔔 **pr-queue-watch** (red_crons) — latest scheduled run concluded 'failure'
   - pr-queue-watch
 - 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
@@ -128,24 +126,6 @@ _Generated 2026-09-04T09:46:12+00:00 · verdict **all_sources_read**_
   - [error] x11 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
 - **ERRFEED-ff2634b2** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 124 rows 2026-09-01T13:31:22 → 2026-09-01T19:12:14 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
   - [error] x124 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: i
-- **strategy:gdx_pullback_1d** (sunset · 3d) — sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact
-  - strategy_leg · gdx_pullback_1d
-- **strategy:gld_pullback_1d** (sunset · 3d) — sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact
-  - strategy_leg · gld_pullback_1d
-- **strategy:iaum_pullback_1d** (sunset · 3d) — sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact
-  - strategy_leg · iaum_pullback_1d
-- **strategy:mes_trend_long_1d** (sunset · 3d) — sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact
-  - strategy_leg · mes_trend_long_1d
-- **strategy:scha_trend_long_1d** (sunset · 3d) — sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact
-  - strategy_leg · scha_trend_long_1d
-- **strategy:splg_trend_long_1d** (sunset · 3d) — sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact
-  - strategy_leg · splg_trend_long_1d
-- **strategy:spy_trend_long_1d** (sunset · 3d) — sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact
-  - strategy_leg · spy_trend_long_1d
-- **strategy:tqqq_trend_long_1d** (sunset · 3d) — sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact
-  - strategy_leg · tqqq_trend_long_1d
-- **strategy:trend_donchian_sol** (sunset · 3d) — sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact
-  - strategy_leg · trend_donchian_sol
 - **ERRFEED-86505576** (error_feed · 2d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 118 rows 2026-09-02T08:33:53 → 2026-09-03T23:41:53 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
   - [error] x118 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o
 - **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (soaks · 2d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.

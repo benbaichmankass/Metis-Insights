@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-04T09:46:12+00:00",
+  "generated_at": "2026-09-04T09:57:42+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
@@ -28,11 +28,11 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=0.0h cadence=daily (cron 20 5 * * *) | 1 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=0.2h cadence=daily (cron 20 5 * * *) | 1 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 5,
+      "rows": 4,
       "note": ""
     },
     "unlanded_automation": {
@@ -43,17 +43,17 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-04T06:30:58+00:00, age 3.3h"
+      "note": "digest 2026-09-04T06:30:58+00:00, age 3.4h"
     },
     "sunset": {
       "state": "read",
-      "rows": 9,
+      "rows": 0,
       "note": ""
     }
   },
   "counts": {
-    "due": 85,
-    "loud": 54
+    "due": 75,
+    "loud": 53
   },
   "rows": [
     {
@@ -508,15 +508,6 @@
     },
     {
       "source": "red_crons",
-      "id": "due-list",
-      "title": "due-list",
-      "why_due": "latest scheduled run concluded 'cancelled'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33742487046"
-    },
-    {
-      "source": "red_crons",
       "id": "pr-queue-watch",
       "title": "pr-queue-watch",
       "why_due": "latest scheduled run concluded 'failure'",
@@ -622,87 +613,6 @@
       "age_days": 3,
       "loud": false,
       "link": ""
-    },
-    {
-      "source": "sunset",
-      "id": "strategy:gdx_pullback_1d",
-      "title": "strategy_leg · gdx_pullback_1d",
-      "why_due": "sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact",
-      "age_days": 3,
-      "loud": false,
-      "link": "docs/claude/SUNSET-DISPOSITIONS.json"
-    },
-    {
-      "source": "sunset",
-      "id": "strategy:gld_pullback_1d",
-      "title": "strategy_leg · gld_pullback_1d",
-      "why_due": "sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact",
-      "age_days": 3,
-      "loud": false,
-      "link": "docs/claude/SUNSET-DISPOSITIONS.json"
-    },
-    {
-      "source": "sunset",
-      "id": "strategy:iaum_pullback_1d",
-      "title": "strategy_leg · iaum_pullback_1d",
-      "why_due": "sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact",
-      "age_days": 3,
-      "loud": false,
-      "link": "docs/claude/SUNSET-DISPOSITIONS.json"
-    },
-    {
-      "source": "sunset",
-      "id": "strategy:mes_trend_long_1d",
-      "title": "strategy_leg · mes_trend_long_1d",
-      "why_due": "sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact",
-      "age_days": 3,
-      "loud": false,
-      "link": "docs/claude/SUNSET-DISPOSITIONS.json"
-    },
-    {
-      "source": "sunset",
-      "id": "strategy:scha_trend_long_1d",
-      "title": "strategy_leg · scha_trend_long_1d",
-      "why_due": "sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact",
-      "age_days": 3,
-      "loud": false,
-      "link": "docs/claude/SUNSET-DISPOSITIONS.json"
-    },
-    {
-      "source": "sunset",
-      "id": "strategy:splg_trend_long_1d",
-      "title": "strategy_leg · splg_trend_long_1d",
-      "why_due": "sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact",
-      "age_days": 3,
-      "loud": false,
-      "link": "docs/claude/SUNSET-DISPOSITIONS.json"
-    },
-    {
-      "source": "sunset",
-      "id": "strategy:spy_trend_long_1d",
-      "title": "strategy_leg · spy_trend_long_1d",
-      "why_due": "sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact",
-      "age_days": 3,
-      "loud": false,
-      "link": "docs/claude/SUNSET-DISPOSITIONS.json"
-    },
-    {
-      "source": "sunset",
-      "id": "strategy:tqqq_trend_long_1d",
-      "title": "strategy_leg · tqqq_trend_long_1d",
-      "why_due": "sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact",
-      "age_days": 3,
-      "loud": false,
-      "link": "docs/claude/SUNSET-DISPOSITIONS.json"
-    },
-    {
-      "source": "sunset",
-      "id": "strategy:trend_donchian_sol",
-      "title": "strategy_leg · trend_donchian_sol",
-      "why_due": "sunset pass proposed RETIRE (never_closed_lifetime) and no disposition is recorded — Tier-3, so propose, never enact",
-      "age_days": 3,
-      "loud": false,
-      "link": "docs/claude/SUNSET-DISPOSITIONS.json"
     },
     {
       "source": "error_feed",
