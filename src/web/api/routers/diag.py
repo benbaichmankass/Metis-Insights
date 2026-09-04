@@ -578,8 +578,9 @@ _LOG_FILES: dict[str, Path] = {
     # MI-109 (b), 2026-09-04 — the sweep's PER-RUN stats, durably.
     #
     # ⚠️ THIS EXISTS BECAUSE MORE JOURNAL LOGGING WAS NOT SUFFICIENT.
-    # `_sweep_work_decisions` already emitted `destination` and `poll_state`
-    # via `logger.info`, and the journal is the surface that evaporated:
+    # `_sweep_work_decisions` already emitted the destination and the poll
+    # evidence via `logger.info`, and the journal is the surface that
+    # evaporated:
     # measured 2026-09-03, a 1500-line pull spanned 14:23:34→14:53:46 — THIRTY
     # MINUTES — so the 14:05:48 send was unreachable 45 minutes later, before
     # anyone had been told there was a problem.

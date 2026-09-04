@@ -32,7 +32,6 @@ destination is `landed_unproven`.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -430,6 +429,45 @@ def test_receipt_is_allowlisted_on_the_diag_read_surface():
     assert '_WORK_DECISION_PROMPTED_STATE = runtime_logs_dir() /' in diag
     # And the basename the reader names is the one the writer writes.
     assert td._SWEEP_RECEIPT_BASENAME == "work_decision_sweep_receipt.json"
+
+
+@pytest.mark.parametrize("state,fragment", [
+    (poll_registry.TOKEN_ONLY_NOT_POLLED, "no process is polling it"),
+    (poll_registry.UNKNOWN, "could NOT be read"),
+])
+def test_a_held_run_records_WHY_it_held_durably(
+        tmp_path, monkeypatch, routed, state, fragment, caplog):
+    """The two non-answerable poll states take DIFFERENT operator actions —
+    `token_only_not_polled` is fixed by STARTING A SERVICE, `unknown` by
+    looking at the VM's disk — and until MI-109 the only place that
+    distinction survived was the systemd journal, i.e. ~30 minutes.
+
+    Held runs send nothing, so they were the runs that left NO trace at all.
+    The receipt must carry the state, and it must carry the right one.
+    """
+    req = _request()
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([req]), None))
+    routed("claude", state=state)
+    sent = []
+    monkeypatch.setattr(td, "_default_sender", _sender(sent))
+
+    # sender=None so the real poll gate applies, per the sweep's own contract.
+    with caplog.at_level("WARNING"):
+        stats = td.run_decision_prompt_sweep(
+            sender=None, state_path=tmp_path / "prompted.json")
+
+    assert stats["held_not_polled"] == 1
+    # ⚠️ NOT pooled with `held_route`: "nowhere to send" and "somewhere to send
+    # whose buttons are dead" are different faults with different fixes.
+    assert stats["held_route"] == 0
+    assert sent == []
+    assert fragment in caplog.text
+
+    receipt, read_state = td.read_sweep_receipt(
+        tmp_path / "work_decision_sweep_receipt.json")
+    assert read_state == "read"
+    assert receipt["last"]["poll_state"] == state
+    assert receipt["last"]["held_not_polled"] == 1
 
 
 # ═════════════════════════════════════════════════════════════════════════════
