@@ -38,8 +38,8 @@
     "deploy, a lease heartbeat, a spawn), never a build."
   ],
   "schema_version": 1,
-  "manager_session": "session_01Nopk1HcpvWBSEbZxEmALkd",
-  "updated_at": "2026-09-03T08:25:00Z",
+  "manager_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+  "updated_at": "2026-09-04T07:40:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1514,7 +1514,23 @@
       "deferred_reason": null,
       "added": "2026-09-03",
       "blocked_on": ""
+    },
+    {
+      "id": "MI-113",
+      "title": "pending-pings.jsonl is the ONE register with no row-aware merge driver, so every ping-carrying PR conflicts unresolvably and gets closed unmerged",
+      "state": "queued",
+      "owner": "unassigned",
+      "prs": "",
+      "note": "MEASURED 2026-09-04. .gitattributes maps `merge=jsonregister` onto exactly five registers (health-review-backlog.json, OPEN-ITEMS.json, MANAGER-CHECKLIST.json, SESSIONS.json, OPEN-PRS.json). docs/claude/pending-pings.jsonl is NOT among them. Verified by test-merging all five ping-carrying PRs into origin/main in throwaway worktrees WITH the driver armed: every one still reported `CONFLICT (content): Merge conflict in docs/claude/pending-pings.jsonl`. ⚠️ THIS IS THE MECHANISM BEHIND THE NEAR-MISS THE HANDOFF WARNS ABOUT, not a separate defect: the file whose loss the 'read the diff before closing it' rule exists to prevent is precisely the file the driver does not cover, so a ping-carrying PR can never self-heal and the only paths left are close-it (drops the ping) or hand-rescue the rows (what #10974 did for five of them). ⚠️ AND `jsonregister` MAY BE THE WRONG DRIVER HERE: the other five are JSON objects; this is append-only JSONL, for which git's built-in `merge=union` is the natural fit and needs no new code. Establish which before writing any — do not assume the existing driver parses JSONL. ⚠️ NOT VERIFIED: whether merge_json_register.py handles line-delimited input at all. Nobody has run it on this file. Manager filed, did not build — .gitattributes is a worker path."
+    },
+    {
+      "id": "MI-114",
+      "title": "handoff_check grades the OUTGOING manager as an unregistered LIVE session, so a clean takeover cannot reach `ready`",
+      "state": "queued",
+      "owner": "unassigned",
+      "prs": "",
+      "note": "MEASURED 2026-09-04 on the takeover run. `live_registry` FAILED naming exactly one session — session_01Nopk1HcpvWBSEbZxEmALkd — which is the PREVIOUS MANAGER, idle, and which released the lease at 2026-09-03T17:42:47Z. Population: 60 observed, excluded self 1 / terminal 9 / other-manager 49, graded 1. It is absent from SESSIONS.json because a manager registers its SUB-sessions, never itself, so the predecessor is structurally unregistrable and every takeover will reproduce this. ⚠️ DO NOT 'FIX' IT BY REGISTERING THE PREDECESSOR AS A SUB-SESSION — that writes a false parentage into the one file a cold manager trusts, which is worse than the false alarm. The cheap true fix is an exclusion the lease already knows about: MANAGER-LEASE.json carries `previous_holder` and `released_by`, so a session named there is a predecessor manager and belongs in the existing `other-manager` exclusion bucket. SIBLING OF MI-111 and the same shape: both are cases where doing the correct thing at handover turns the readiness verdict red, which is how a check gets ignored rather than obeyed. ⚠️ THE CHECK IS NOT WRONG TO NOTICE IT — an idle predecessor holding context IS a real session — so the remedy is a named exclusion with a reason, never a blanket suppression."
     }
   ],
-  "as_of": "2026-09-03T11:45:00Z"
+  "as_of": "2026-09-04T07:40:00Z"
 }

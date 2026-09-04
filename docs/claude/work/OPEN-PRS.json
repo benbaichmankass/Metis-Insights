@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-03T23:04:18Z",
+  "as_of": "2026-09-04T07:40:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -295,6 +295,24 @@
         "text": "None recorded."
       },
       "blocker": "Open since 2026-08-29, automation-generated, no owning session. Held under MI-12; do not merge without establishing what it does."
+    },
+    {
+      "pr": 10974,
+      "opened_at": "2026-09-04T07:28:44Z",
+      "title": "manager: claim the lease for the 2026-09-04 session",
+      "owner_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_manager_state",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "Tier-1 manager state (lease claim + ping preservation + register refresh). No operator decision needed."
+      },
+      "blocker": "None. Carries the 2026-09-04 manager lease claim AND the five rescued pending-pings rows (see MI-113). Must land before the five ping-carrying PRs are closed — closing them first is what drops the pings."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
