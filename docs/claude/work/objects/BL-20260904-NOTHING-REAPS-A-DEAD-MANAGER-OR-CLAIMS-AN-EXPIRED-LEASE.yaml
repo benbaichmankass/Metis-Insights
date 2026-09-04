@@ -1,0 +1,96 @@
+ID_NOTE: >-
+  FILED, NOT FOLDED IN. Opened 2026-09-04 by the MI-123 session while building the
+  durable wake, because the wake explicitly does NOT cover this case and the
+  operator was offered both and chose the wake first. Filing is the act of NOT
+  taking the item; scope creep is what turned 2026-09-04 into a twelve-hour gap.
+id: BL-20260904-NOTHING-REAPS-A-DEAD-MANAGER-OR-CLAIMS-AN-EXPIRED-LEASE
+type: defect
+parent_intent: IN-20260901-OPERATING-LAYER
+title: |-
+  An expired manager lease is claimable by anyone and claimed by nobody — nothing reads the expiry and nothing takes over, so a manager that DIES stops management indefinitely
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: '2026-09-04'
+closed_at: null
+
+why: |-
+  MEASURED 2026-09-04, population = one lease, one expiry: the manager lease
+  expired at 09:38Z and sat expired for 746 minutes — claimable the entire time,
+  claimed by nobody. Nothing restarted management except the operator asking a
+  question at 21:53Z.
+
+  ⚠️ THIS IS THE COMPLEMENT OF THE DURABLE WAKE, NOT A DUPLICATE OF IT. The wake
+  (WO-20260904-MANAGER-IDLE-IS-UNBOUNDED-AND-NOTHING-WAKES-IT, landed as
+  scripts/ops/manager_wake.py) covers the ALIVE-AND-SILENT manager: it pokes the
+  lease HOLDER and that only works because there is a session on the other end to
+  receive it. A manager that has DIED cannot be woken by anything — the poke goes
+  to a session that will never take another turn — and `manager_wake.py --assess`
+  reports that case as `no_manager` and deliberately STOPS THERE, doing nothing.
+  So the two mechanisms partition the failure space and neither covers the other's
+  half.
+
+  ⚠️ THE LEASE IS NOT A DETECTOR. It EXPIRES correctly — that half works — but it
+  is a mutual-exclusion token, not an alarm: nothing READS an expired lease and
+  acts on it. Its own module says takeover is TIME-BASED and deliberately does not
+  require the outgoing manager to do anything, which is right; what is missing is
+  anything that shows up to take the takeover.
+
+cost_of_not_doing_it: |-
+  Management stops for however long it takes a human to notice, with no upper
+  bound. The 746-minute instance is one sample, not a worst case — nothing in the
+  system would have made it shorter, and nothing would stop it being longer. The
+  operator remains the detector, which is the DECISION constraint the whole
+  CY-20260903-MANAGER-CONTROL cycle exists to relieve.
+
+blocked_on: []
+blocked_on_basis: |-
+  ASSESSED 2026-09-04 by the MI-123 session, not migrated in bulk. Nothing blocks
+  the work: the wake's Routine machinery is the same machinery a reaper would use,
+  and manager_lease.py already exposes the `expired` / `released` / `absent`
+  states a reaper would read. What is absent is a decision about WHAT SHOULD
+  HAPPEN on expiry, which is why this is dormant rather than queued — see
+  done_condition.
+
+done_condition: |-
+  An expired or released lease is OBSERVED being acted on by a mechanism rather
+  than by the operator: within one bounded interval of expiry, either a successor
+  manager session exists and holds the lease, or the operator has been told that
+  management has stopped and nothing took over. Both outcomes are acceptable; the
+  silent third one is not.
+
+  ⚠️ THE DESIGN DECISION IS NOT MADE AND MUST NOT BE ASSUMED. Spawning a
+  successor automatically is a real cost (a fresh manager duplicates context, and
+  the operator has capped concurrent sessions at 3 — MI-64), and it can produce a
+  manager nobody asked for at 04:00Z. Notifying instead is cheaper but puts the
+  operator back in the detection loop for this case. Ask before building.
+
+  ⚠️ NOT satisfied by anything that only runs inside a manager session. That is
+  the same error the wake was built to correct: a dead manager runs nothing.
+
+do_not: |-
+  ⚠️ DO NOT make this a second thing that pokes a live manager — that is the wake,
+  it exists, and duplicating it would produce two mechanisms racing on the same
+  lease.
+  ⚠️ DO NOT let it force-claim a lease. `unreadable` fails CLOSED on purpose: the
+  one outcome the operator forbade is two concurrent managers, and a reaper that
+  claims on no evidence is exactly how that happens.
+  ⚠️ DO NOT build it on a minted credential (operator, 2026-09-02: "no minted
+  tokens, ever") or on a GitHub cron (measured unreliable here: work-digest fired
+  5× against 24 declared; probes fired ~4h50m late).
+
+review_trigger: |-
+  Re-read when a manager lease is next found expired with no successor, and record
+  that instance's duration here. A second measured instance makes this a queued
+  cycle item rather than a dormant row. Also re-read if the operator asks for the
+  reaper directly — it was offered on 2026-09-04 and deferred in favour of the
+  wake, which is a deferral, not a rejection.
+
+evidence:
+- |-
+  docs/claude/work/MANAGER-LEASE.json — state `held`, holder session_016e2k4UmsMGgpbrJ5ctqeFv, heartbeat_at 2026-09-04T08:08:00Z, expires_at 2026-09-04T09:38:00Z; still unclaimed at 22:53Z when this row was filed (885 minutes past the last heartbeat).
+- |-
+  scripts/ops/manager_wake.py — `assess` returns `no_manager` for an unheld lease and does nothing, by design. That gap is this row.
+- |-
+  WO-20260904-MANAGER-IDLE-IS-UNBOUNDED-AND-NOTHING-WAKES-IT — its `do_not` names filing the reaper separately as the required disposition.
+verdict: null

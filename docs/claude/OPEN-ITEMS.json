@@ -3,7 +3,7 @@
  "what_this_is": "The SHORT list every session reads at START — and its live contents are RENDERED INTO CLAUDE.md by scripts/ops/render_session_brief.py, because CLAUDE.md is the only channel that reliably reaches a session before its first tool call. Hooks do NOT run on Claude Code on the web (verified 2026-08-26: the SessionStart contract's output was absent from the session context; 1,379 consecutive 'Found 0 total hooks in registry' log lines on 2026-08-20), and CI guards fire at MERGE, which is far too late to make the work correct in the first place.",
  "every_row_declares_how_it_leaves": "`clears_when` names the OBSERVABLE condition that removes the row. 'the fix works' is not one; 'the mechanism is seen acting on a named trade' is. A row nobody can tell is finished never gets cleared.",
  "loud_means_report_it_every_session": "A row with `loud: true` must be REPORTED ON in the session's closing summary — checked and stated, not silently carried. Operator directive 2026-08-26: 'keep a LOUD backlog item for EVERY SESSION to check and report on it till it's implemented correctly and the mechanism has been verified.'",
- "updated_at": "2026-09-03",
+ "updated_at": "2026-09-04",
  "items": [
  {
   "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
@@ -1125,7 +1125,29 @@
         "MI-101",
         "docs/claude/work/objects/WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT.yaml"
       ]
-    }
+    },
+ {
+  "id": "OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST",
+  "opened": "2026-09-04",
+  "kind": "awaiting_verification",
+  "loud": true,
+  "verified_at": null,
+  "last_checked": "2026-09-04",
+  "check_every_days": 1,
+  "probe_absent_reason": "A probe EXISTS and is deliberately expected to FAIL: `python3 scripts/ops/check_wake_liveness.py` grades the committed receipt and returns `never_ran` until the Routine fires on its own schedule. That is the CORRECT reading while the scheduler does not exist, not a fault — the same posture `check_drain_liveness.py` holds for the decision drain. ⚠️ Do NOT read a one-off `fresh` as this row clearing: the single receipt on main was written by a poke fired BY HAND, so `fresh` today says a human-triggered fire was recorded and says nothing about cadence.",
+  "summary": "MI-123 / PR #11014 built the manager durable wake: `manager_wake.py` (assess/brief/receipt), `check_wake_liveness.py`, a committed Routine prompt, 28 tests. The DELIVERY half is OBSERVED — the manager session went SESSION_STATUS_IDLE/disconnected (2026-09-04T23:09Z) to SESSION_STATUS_RUNNING/connected (23:11:29Z) via get_session, poked with `--brief` verbatim after 901 measured minutes of silence. ⚠️ THE SCHEDULING HALF DOES NOT EXIST. There is NO Routine. A manager's idle time is therefore STILL UNBOUNDED, exactly as it was before this work, and the only thing that has changed is that the machinery to bound it is now in the repo. Built, delivered-once, and scheduled are three facts; only the first two are established. verified_at is deliberately null: no unattended observation has been made, and dating it today would be a claim of one.",
+  "detail": "WHY THERE IS NO ROUTINE, measured in both directions rather than assumed. (a) `create_trigger` through the Claude Code Remote MCP returns `mcp_connections: []` and warns that the sessions it fires run WITHOUT `mcp__*` tools — and the wake's poke step IS `create_trigger` + `fire_trigger`, so such a Routine could assess and record and NEVER WAKE ANYONE. (b) Passing the `connectors` parameter is refused outright: 'the connectors parameter is not available for this organization.' (c) Sub-hourly is also refused: `*/30 * * * *` -> 'the minimum interval is 1 hour', which is the MEASURED basis for the ~30-90 minute bound this work claims rather than an assumption.\n\nAn hourly Routine WAS created (trig_014XUfC9M5aL5FsJwHhkhQkY), confirmed inert, and DELETED rather than left in place — the operator's own standard, recorded in OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED, where the `claude -p --cloud` steps were deleted rather than left behind an unset secret 'precisely so nothing looks armed and is not'. A Routine named `manager-wake` that cannot wake is that failure wearing the fix's name.\n\nWHAT THE OPERATOR MUST DO: create it from claude.ai/code/routines with the Claude Code Remote connector attached, pasting the committed prompt at docs/claude/work/manager-wake-routine-prompt.md. This is the SAME constraint decision-drain-routine-prompt.md already records for the drain — two mechanisms now blocked on one operator action, which is itself worth noticing.\n\n⚠️ THE REAPER IS A DIFFERENT ROW, NOT THIS ONE. The wake covers an ALIVE-AND-SILENT manager; a manager that DIED cannot be poked at all, and `assess` reports that as `no_manager` and deliberately does nothing. Filed as BL-20260904-NOTHING-REAPS-A-DEAD-MANAGER-OR-CLAIMS-AN-EXPIRED-LEASE.",
+  "clears_when": "THREE things, and they are different facts — say which you cleared rather than clearing on the easiest. (1) SCHEDULER EXISTS: a `manager-wake` Routine is listed by list_triggers with a real cron schedule AND carries a connector, so its fired sessions actually hold create_trigger/fire_trigger. (2) IT FIRED ON ITS OWN: `check_wake_liveness.py` grades `fresh` on a receipt whose newest run was written by a SCHEDULED firing, not a hand-fired one — read the receipt's `detail`, since a hand-fired run writes a byte-similar entry, and this is the same event-vs-artifact distinction that keeps OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED open. (3) IT WOKE SOMEBODY UNATTENDED: a receipt entry with outcome `poked` from a scheduled fire, AND that manager observed running afterwards via get_session, with NO human in the loop for any step. ⚠️ THE MERGE OF #11014 CLEARS NOTHING — a merge is not a deploy and a deploy is not a fire. ⚠️ A GREEN CI CLEARS NOTHING: 28 tests and PASS 65 are a harness, and a harness is exactly what cannot reach a Routine. ⚠️ THE 2026-09-04T23:11:26Z RECEIPT ON MAIN CLEARS NOTHING — that fire was triggered by hand from the MI-123 session and proves DELIVERY, not CADENCE, which is the whole thing this row is open about. ⚠️ AND IF THE OPERATOR DECIDES NOT TO CREATE THE ROUTINE, THIS ROW DOES NOT CLEAR — IT CHANGES: a manager's idle time is then bounded by nothing, which is a legitimate decision and must be RECORDED as one with that consequence stated, rather than left looking like work in flight.",
+  "observation": "",
+  "refs": [
+   "#11014",
+   "MI-123",
+   "docs/claude/work/objects/WO-20260904-MANAGER-IDLE-IS-UNBOUNDED-AND-NOTHING-WAKES-IT.yaml",
+   "docs/claude/work/manager-wake-routine-prompt.md",
+   "BL-20260904-NOTHING-REAPS-A-DEAD-MANAGER-OR-CLAIMS-AN-EXPIRED-LEASE",
+   "OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED"
+  ]
+ }
  ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
  "monitoring_rows_are_enforced_by_observation": "kind:'monitoring' rows carry `check_every_days`, `verified_at` and `observation`. A row past its cadence is DUE and is rendered into CLAUDE.md, so the next session sees it in context before acting. Clearing it for another cycle costs one honest look: record WHAT YOU OBSERVED and today's date. It cannot be cleared by asserting progress — `observation` must state a thing that was seen. This replaces `loud`, which was just another alarm to walk past.",

@@ -1,0 +1,28 @@
+{
+  "_doc": [
+    "THE MANAGER WAKE RECEIPT. One entry per Routine fire, including fires that",
+    "found nothing to wake.",
+    "",
+    "Written by scripts/ops/manager_wake.py --record. Graded by",
+    "scripts/ops/check_wake_liveness.py, which is the thing that notices when the",
+    "wake itself has stopped -- because a dead detector reads exactly like a",
+    "healthy one from every other surface.",
+    "",
+    "A run with outcome `no_action` is NOT a wasted fire. It is the evidence that",
+    "separates 'nothing needed waking' from 'the wake is dead'."
+  ],
+  "schema_version": 1,
+  "updated_at": "2026-09-04T23:11:26Z",
+  "cadence_minutes": 60,
+  "silence_threshold_minutes": 30,
+  "runs": [
+    {
+      "at": "2026-09-04T23:11:26Z",
+      "assessed_state": "silent",
+      "outcome": "poked",
+      "wake_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "silent_minutes": 901,
+      "detail": "trig_01J3HLLt2MQQGWDdRR7YCr56 — MI-123 delivery proof: poke-only Routine created and fired BY HAND from session_01SVUv3HZiqBsriCcc2RqQo7, carrying --brief verbatim. This is the DELIVERY half only; the SCHEDULING half (the hourly Routine) could not be created with connectors from this session and is owed by the operator."
+    }
+  ]
+}
