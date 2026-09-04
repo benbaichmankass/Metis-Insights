@@ -24,8 +24,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-04T07:44:07Z",
-  "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+  "updated_at": "2026-09-04T08:20:00Z",
+  "updated_by": "session_01MookmZshi5ikDNqjAUiifA",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -1443,8 +1443,15 @@
       "spawned_at": "2026-09-04T07:38:13Z",
       "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
       "why": "The 2026-09-03 spawn (session_011J1VB7UsXW1LZb5bCFixRD) went need_input six minutes in because WO-20260903-DECISION-DELIVERY-UNATTRIBUTED existed only on the previous manager's branch. It is on main now (2b2508be), so the blocker is cleared at the source. A manager cannot message a running cloud sub-session, so this is a RESPAWN against main, not a nudge. The operator has now answered the one question only they could: they have @ict_cluade_bot open.",
-      "note": "Operator answer 2026-09-04, recorded verbatim: the bot they actually have open is @ict_cluade_bot -- the DEDICATED Claude bot, TELEGRAM_CLAUDE_BOT_SECRET. NOTE THE HANDLE IS SPELLED 'cluade', a typo baked into the real handle; MI-109's own question text spells it '@ict_claude_bot' and that string is wrong. This closes question (3) of the five.",
-      "confirmed_at": "2026-09-04T07:39:11Z"
+      "note": "Operator answer 2026-09-04, recorded verbatim: the bot they actually have open is @ict_cluade_bot -- the DEDICATED Claude bot, TELEGRAM_CLAUDE_BOT_SECRET. NOTE THE HANDLE IS SPELLED 'cluade', a typo baked into the real handle; MI-109's own question text spells it '@ict_claude_bot' and that string is wrong. This closes question (3) of the five.\n\nBOTH halves of done_condition cleared, in PR #10975: (a) the prompted marker now records destination + poll_state + token_from + chat_from (the token VARIABLE name, never a value), and a prompt that missed the preferred bot is re-sent EXACTLY ONCE once the route becomes preferred — bounded by three suppressing verdicts, never unconditional; (b) the sweep's per-run stats land on runtime_logs/work_decision_sweep_receipt.json, allowlisted at /api/diag/log_file?name=work_decision_sweep_receipt in the same commit as the writer. ⚠️ IT IS A BOUNDED RING (200 rows), NOT the one-slot work_digest_receipt shape: that carrier is hourly, this sweep fires every 300s, so one slot would retain FIVE MINUTES — worse than the ~30 of journal it replaces. ⚠️ NOT PROVEN ON THE FLEET: a harness cannot reach the VM, arming needs an ict-telegram-bot.service restart (Tier-2, NOT dispatched from here), and no prompt has been observed carrying its destination. ⚠️ QUESTION (4) IS ANSWERED AND THE ANSWER IS THE OPPOSITE OF THE ONE ON RECORD: PUSH WORKS. add_repo returned push_check=refused and the cross-tier add of benbaichmankass/Metis-Insights was refused outright, but `git push` over the legacy the-lizardking/ict-trading-bot URL succeeded through the git proxy (GitHub 301-redirects it). So add_repo's pre-check does NOT predict git-proxy push access, and a session must not conclude it is blocked from that field alone. mcp create_pull_request DID 403 ('Resource not accessible by integration' — the write-scope boundary, not the transient drop), so the PR was opened through pr-opener.yml.",
+      "confirmed_at": "2026-09-04T07:39:11Z",
+      "branches": [
+        "claude/mi109-decision-delivery"
+      ],
+      "prs": [
+        "#10975"
+      ],
+      "last_observed": "2026-09-04T08:20:00Z"
     },
     {
       "session_id": "session_012p1DoQBRJYyggX8ELT1WEP",
