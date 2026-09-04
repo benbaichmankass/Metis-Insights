@@ -32058,6 +32058,21 @@
         "MI-108",
         "MI-119"
       ]
+    },
+    {
+      "id": "BL-20260904-BOTH-ON-DEMAND-PING-TOOLS-WRITE-TO-A-GITIGNORED-DIR-SO-A-SANDBOX-PING-IS-LOST",
+      "opened_at": "2026-09-04",
+      "title": "send_ping.py and work_digest_now.py queue to a gitignored runtime dir, so a ping queued from a sandbox session never reaches the operator and never satisfies the F6 check",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "detail": "MEASURED 2026-09-04 by the day manager, by running both tools and watching the register NOT move. manager_preflight's f6_digest_owed check reads docs/claude/pending-pings.jsonl -- a COMMITTED register -- and graded FAIL at 10 autonomous actions against a threshold of 3, saying 'F6 is the condition on which autonomy was granted'. The manager queued a rolled-up digest with scripts/send_ping.py: the row count of docs/claude/pending-pings.jsonl stayed at 79 and git status showed the file unmodified. It had written to runtime_logs/pending_claude_pings/994780836961-normal.json instead. Repeated with scripts/ops/work_digest_now.py --force: same result, row count still 80, queued to runtime_logs/pending_claude_pings/122973854114-normal.json. SPLIT MEASURED ACROSS THE FOUR WRITERS: scripts/ops/work_digest.py (workflow-invoked) and scripts/ops/work_phase_ping.py write to docs/claude/pending-pings.jsonl and are therefore committable and visible; scripts/send_ping.py (PENDING_CLAUDE_PINGS_DIR = _RUNTIME_LOGS / 'pending_claude_pings') and work_digest_now.py write to runtime_logs/, which .gitignore line 29 excludes. [!] THE CONSEQUENCE IS NOT A FAILED CHECK, IT IS A LOST PING. On the VM that directory is drained by the bot. In a SANDBOX session there is no bot and the container is reclaimed, so the file is written, the tool reports 'queued -- the bot drains within ~5s', and nothing is ever sent. The tool reports success for a delivery that cannot happen. That is the same shape as BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE-SO-DELIVERED-IS-NOT-EVIDENCE, one hop earlier: that row is about delivery being marked on a write; this is about the write going somewhere unreachable. [!] AND IT MAKES F6 UNDISCHARGEABLE ON DEMAND. A manager told by its own preflight to 'queue ONE ROLLED-UP DIGEST' has two obvious tools and both are the wrong ones; only work_phase_ping.py (which fires on lifecycle diffs, not on a manager's action count) reaches the graded register. So the check can be red with no available action that turns it green -- which is how a condition-of-autonomy becomes noise.",
+      "resolution_criteria": "EITHER the two on-demand tools write to docs/claude/pending-pings.jsonl like their siblings (and say, as work_phase_ping.py already does, that an uncommitted row is a ping that never happened), OR they detect that runtime_logs/ is gitignored-and-undrained in this environment and REFUSE with a message naming the tool that does work, rather than reporting 'queued'. [!] Reporting 'queued -- the bot drains within ~5s' when no bot exists is the specific behaviour to remove; a tool may not claim a delivery path it cannot see. [!] NOT SUFFICIENT: documenting which tool to use. Two tools that look right and silently do nothing is the defect, and a doc does not stop the next session reaching for the obvious one.",
+      "source": "manager session_016e2k4UmsMGgpbrJ5ctqeFv, 2026-09-04",
+      "refs": [
+        "MI-121",
+        "BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE-SO-DELIVERED-IS-NOT-EVIDENCE"
+      ]
     }
   ]
 }
