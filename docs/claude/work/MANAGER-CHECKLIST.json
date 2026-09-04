@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-  "updated_at": "2026-09-04T09:08:00Z",
+  "updated_at": "2026-09-04T09:20:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1577,7 +1577,16 @@
       "owner": "unassigned",
       "prs": "",
       "note": "MEASURED 2026-09-04 by being refused. MANAGER_SURFACE contains exactly one backlog -- docs/claude/health-review-backlog.json -- so a manager writing to ml-review / performance-review / research-review fails R2, while CLAUDE.md and the guard's own docstring both say filing is permitted and uncapped because 'filing is the act of NOT taking the item'. ⚠️ IT BIT EXACTLY WHERE IT COSTS MOST. MI-108 carries an operator direction ('we have to continue finding/building a production worthy llm'), correctly routed to ml-review because that file owns AI-experiment follow-ups; ZERO of ml-review's 107 rows carried the subject, so the routing had never been executed; the manager filed it and was refused. Backed the write out rather than excepting it. ⚠️ THE GUARD IS NOT OBVIOUSLY WRONG and must not be patched reflexively: MANAGER_SURFACE is DERIVED from what three lease-holding sessions actually committed across 263 commits, and an unrecognised path fails closed on purpose -- the same polarity TIER1_SURFACE uses, for the same stated reason. Widening it is a judgement about how much authoring a manager should do, which is the question the no-cap ruling already argued once. ⚠️ AND THE CHEAP WRONG FIX IS TO FILE EVERYTHING IN health-review: that is how health reached 1180 rows against ml-review's 107, and it dissolves the split the three review skills exist to maintain. Filed in health-review as BL-20260904-MANAGER-MAY-FILE-TO-ONE-BACKLOG-OF-FOUR-SO-A-ROUTED-ITEM-CANNOT-BE-FILED-WHERE-IT-BELONGS -- which is itself an instance of the problem, since health is the only backlog the manager may write to. ⚠️ THE LOCAL-LLM ROW IS STILL NOT FILED IN ml-review AND THIS ROW DOES NOT CARRY IT: a session must do that."
+    },
+    {
+      "id": "MI-120",
+      "added": "2026-09-04",
+      "title": "test_work_digest builds its control from the LIVE work store, so the whole suite goes red whenever in_flight legitimately reaches the ceiling",
+      "state": "queued",
+      "owner": "unassigned",
+      "prs": "#10919 #10977 were the live casualties",
+      "note": "MEASURED 2026-09-04, and it blocked the entire merge queue for ~90 minutes. tests/test_work_digest.py::test_ceiling_hit_is_loud_and_under_ceiling_is_not calls wd.build_digest('HEAD','HEAD') -- the REAL work store at the git ref -- and uses it as the NOT-HIT control: `assert 'WIP CEILING HIT' not in quiet`. So the control is only valid while production happens to be under the ceiling. The manager took in_flight to 8 of 8 at 07:43 by creating one work object -- a state scripts/ci/check_wip_ceiling.py explicitly grades `OK` -- and three tests went red on EVERY PR that runs the suite. ⚠️ THE CODE UNDER TEST WAS CORRECT THROUGHOUT. The digest was right to say WIP CEILING HIT; the ceiling WAS hit. The test asserts that production is not in a state production is allowed to be in. That is the inverse of the usual failure: not a green that checked nothing, but a RED that indicts nothing. ⚠️ IT IS INVISIBLE UNTIL IT BITES, for two reasons worth knowing. (1) pytest-run appears to be path-filtered: docs-only PRs completed it in 12-19s while PRs touching comms/ or src/ took 17-25min, so several manager landings merged green while the defect was already live. (2) The digest reads at a GIT REF, not the working tree, so a local fix does not take effect until it is COMMITTED -- the manager re-ran the tests after correcting the lifecycle, saw them still fail, and briefly concluded the diagnosis was wrong. HOW IT WAS IDENTIFIED, since the same reasoning finds the next one: #10919 is a PURE DATA ADDITION whose pytest-run PASSED on 2026-09-03 and failed on 2026-09-04 with no test change in its diff. A pure-data PR going red is the signal that the BASE moved, not the PR. ⚠️ MAIN'S OWN pytest-run RUNS ARE NOT EVIDENCE OF A GREEN BASE: they complete in 18-77s against a 17-25min PR run, so they are not running the suite. Do not clear this by pointing at them. THE FIX IS A SYNTHETIC FIXTURE for the control -- construct a store known to be under the ceiling rather than reading the live one. ⚠️ DO NOT 'fix' it by keeping in_flight below the ceiling: that makes an operational limit into a test constraint and hands every future manager a CI failure for using a documented allowance. Manager filed, did NOT fix: tests/ is a worker path, and the operator was explicit on 2026-09-04 that the manager delegates rather than doing items. Unblocked instead by correcting one object's stale lifecycle, on an operator decision, recorded in that object's lifecycle_note."
     }
   ],
-  "as_of": "2026-09-04T09:08:00Z"
+  "as_of": "2026-09-04T09:20:00Z"
 }
