@@ -90,8 +90,8 @@
       "session_id": "session_018ruZdgEkPZ1XceWzLwuYUU",
       "position": 4,
       "state": "blocked",
-      "blocked_on": "MI-106",
-      "note": "check_manager_scope grades commit 5504200c a violation on a mis-stamped Claude-Session: trailer. MUST NOT be forced, excepted, or history-rewritten. MI-106 is routed to session_01Bh89HtTcDzZqhfSCzZ2Lmp and is the fix. Carries no absent pending-pings row (verified unshallowed)."
+      "blocked_on": "BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE",
+      "note": "RE-MEASURED 2026-09-04: MI-106 is fixed (5504200c now grades `unattributed`, not an R2 violation), but this PR is still red on a SECOND defect — R7 fails the manager's own merge commit 5244dafb by reading the previous heartbeat from `sha~1`, which on a merge is the worker branch's stale lease blob. True same-holder gap is 49min, inside the 90min TTL. Still MUST NOT be forced, excepted, or history-rewritten. PRIOR NOTE, kept: check_manager_scope grades commit 5504200c a violation on a mis-stamped Claude-Session: trailer. MUST NOT be forced, excepted, or history-rewritten. MI-106 is routed to session_01Bh89HtTcDzZqhfSCzZ2Lmp and is the fix. Carries no absent pending-pings row (verified unshallowed)."
     },
     {
       "pr": null,
