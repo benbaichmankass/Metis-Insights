@@ -32082,7 +32082,8 @@
         ".github/workflows/claude-pr-automerge.yml",
         "scripts/ci/check_pr_landing.py"
       ],
-      "status": "open"
+      "status": "open",
+      "resolution_criteria": "TWO OBSERVABLE CONDITIONS, and they are different facts — say which you cleared rather than closing the row on the easier one.\n\n(1) THE DRAFT TRAP. A PR is observed reaching `merged: true` where ALL of: its branch carries a `.github/pr-landing/*.json` with `landing: \"self\"`; the PR was opened by the `claude-pr-automerge` workflow (NOT pr-opener); and NO human flipped its draft flag — verified by reading the PR's timeline for a `ready_for_review` event and finding none, never by asking whether anyone remembers clicking. Name the PR number. ⚠️ #11006 DOES NOT CLEAR THIS: it only exists because #10993 was closed and reopened by hand, which is the workaround, not the fix. What clears it is the NEXT web session opening a self-land PR and it landing with no rescue.\n\n(2) THE TITLE. A squash commit on `main` from such a PR is observed whose subject describes the CHANGE rather than whichever commit happened to be at HEAD when the relay first ran. Read `git log origin/main` for it. ⚠️ A PR that never received a second push cannot clear this — its title is trivially correct — so the qualifying observation is a PR that was pushed to AFTER the relay opened it.\n\n⚠️ NEITHER IS CLEARED BY A CODE CHANGE ALONE. Editing claude-pr-automerge.yml to refresh the title, or teaching check_pr_landing.py R6 to fail on a draft, is a DEPLOY — this repo's standing distinction — and the row stays open until a real PR is seen going through. ⚠️ AND A DECISION NOT TO FIX IT CLOSES THIS ROW TOO, recorded as a decision with its consequence stated: every web-session Tier-1 PR then needs a human click, which is exactly what self-land exists to avoid."
     }
   ]
 }
