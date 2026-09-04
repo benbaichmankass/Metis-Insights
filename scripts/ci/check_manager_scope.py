@@ -700,43 +700,208 @@ def supervision_gap(root: Path, sha: str) -> tuple[Optional[int], Optional[int],
 #: The 10-minute case needs `scripts/ops/pr_queue_latency.py`, and see
 #: BL-20260903-THE-PR-QUEUE-WATCHER-CANNOT-SEE-A-TEN-MINUTE-STALL for why that
 #: watcher cannot see it either as currently configured.
+def _lease_at(root: Path, ref: str) -> tuple[Optional[dict], str]:
+    """(lease, state) at `ref`, state one of `ok` / `absent` / `unreadable`.
+
+    Three states, never collapsed: a lease that is not there and a lease we
+    could not parse are different facts, and only the second is worth a note.
+    """
+    rc, blob = _git(root, "show", f"{ref}:{LEASE_REL}")
+    if rc != 0:
+        return None, "absent"
+    try:
+        doc = json.loads(blob)
+    except Exception:
+        return None, "unreadable"
+    return (doc, "ok") if isinstance(doc, dict) else (None, "unreadable")
+
+
+def _parents(root: Path, sha: str) -> list[str]:
+    """Every parent of `sha`, in git's order (first parent first)."""
+    rc, out = _git(root, "rev-list", "--parents", "-n", "1", sha)
+    if rc != 0 or not out.strip():
+        return []
+    return out.split()[1:]
+
+
+def _latest_heartbeat(cands: list[tuple[str, dict]]):
+    """The (heartbeat, sha) with the NEWEST heartbeat_at, or None."""
+    best = None
+    for p, pl in cands:
+        hb = _parse_ts(pl.get("heartbeat_at"))
+        if hb is None:
+            continue
+        if best is None or hb > best[0]:
+            best = (hb, p)
+    return best
+
+
 def heartbeat_cadence_gap(root: Path, sha: str) -> tuple[Optional[int], Optional[int], list[str]]:
     """(gap_minutes_since_previous_heartbeat, ttl_minutes, notes).
 
     Graded only on a commit that ADVANCES `heartbeat_at`, and only against a
-    previous heartbeat by the SAME holder — a handover is not a lapse, and
-    grading one would fail the incoming manager for the outgoing one's silence.
+    previous heartbeat that belongs to the SAME LEASE RUN, reached along
+    whichever parent actually carries that run's prior state.
+
+    ⚠️ **A "previous heartbeat" is not simply whatever blob sits at `sha~1`.**
+    Two things must be established before a gap means anything, and R7
+    established NEITHER until MI-122. Both measured instances share this one
+    root: R7 selected a previous heartbeat without establishing that it
+    belonged to the same run, reached along the right parent.
+
+    **1. THE SAME RUN, not merely the same holder.** A lease RUN is identified
+    by `(holder, claimed_at)`: `manager_lease.py::cmd_claim` stamps a fresh
+    `claimed_at` on every claim and `cmd_heartbeat` preserves it, so the pair
+    names the run and nothing else does. A CLAIM over a lease that EXPIRED
+    opens a NEW run for the same session, and charging the dead interval to it
+    grades the incoming manager for the silence of a lease that was already
+    gone. That is exactly the reasoning this function already used to exempt a
+    HANDOVER — *"grading one would fail the incoming manager for the outgoing
+    one's silence"* — and it transfers verbatim: a lease that DIED and was
+    re-claimed is a handover to oneself. Measured instance: `cc984fec` failed
+    at *"746 minutes since this manager's previous heartbeat"*.
+
+    ⚠️⚠️ **THE DEAD INTERVAL IS STILL REPORTED, AND THAT IS THE POINT.** What
+    moves is WHERE the silence is charged, never WHETHER it is seen. 746
+    minutes with no manager is the most valuable thing this guard said that
+    night, and a silent pass would be strictly worse than the false red it
+    replaces. A re-claim emits a note naming the interval and the state it was
+    claimed over, and `--self-test` ASSERTS that note is present — so a future
+    change that "fixes" this rule by simply not looking fails the test rather
+    than passing quietly.
+
+    ⚠️ **AND THE EXEMPTION IS NOT A BYPASS.** `cmd_claim` returns early on
+    `held_by_me` WITHOUT rewriting `claimed_at`, so a manager holding a live
+    lease cannot re-claim its way out of a cadence grade. Reaching a new run
+    costs either letting the lease actually expire — which IS the silence, and
+    it is reported — or `--force --reason`, which the file records. The
+    cheapest way past R7 is still to check in.
+
+    **2. THE RIGHT PARENT.** `sha~1` is the FIRST parent, which on a MERGE is
+    the branch being merged INTO. A manager merging `main` into a worker
+    branch therefore read the WORKER branch's stale lease as its own previous
+    heartbeat and graded a lapse that never happened, blocking #10895. Filed as
+    BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE
+    — that id is deliberately on ONE line: wrapped across two, `artifact-validity-guard`
+    reads the fragment and the reference resolves to NOTHING, which reads as
+    tracked while being tracked by nobody.
+    Every parent is read, and the LATEST same-run heartbeat among them wins:
+    the manager's silence is WALL-CLOCK silence, so the most recent check-in
+    on any line the commit just brought together is the last time it was
+    heard from.
+
+    ⚠️ **AN ABSENT `claimed_at` STILL GRADES, deliberately.** When either side
+    omits it the run cannot be established, and the choice is between dropping
+    enforcement and keeping it. This keeps it, and says so in a note. R7's real
+    case — a manager ALIVE and silent past one TTL — is the measured 4% of gaps
+    the rule exists for, and a guard that stops grading whenever a field is
+    missing is one hand-edit away from being switched off.
     """
-    rc, blob = _git(root, "show", f"{sha}:{LEASE_REL}")
-    if rc != 0:
-        return None, None, []
-    try:
-        lease = json.loads(blob)
-    except Exception:
+    lease, lstate = _lease_at(root, sha)
+    if lstate != "ok" or lease is None:
         return None, None, []
     if lease.get("state") != "held":
         return None, None, []
 
-    rc, prev_blob = _git(root, "show", f"{sha}~1:{LEASE_REL}")
-    if rc != 0:
-        return None, None, []                    # no predecessor to compare to
-    try:
-        prev = json.loads(prev_blob)
-    except Exception:
-        return None, None, [f"{LEASE_REL} unreadable at {sha[:8]}~1 — cadence "
-                            f"NOT graded here (we could not look)"]
-
     now_hb = _parse_ts(lease.get("heartbeat_at"))
-    was_hb = _parse_ts(prev.get("heartbeat_at"))
     ttl = lease.get("ttl_minutes")
-    if now_hb is None or was_hb is None or not isinstance(ttl, int):
+    if now_hb is None or not isinstance(ttl, int):
         return None, None, []
-    if now_hb == was_hb:
-        return None, None, []                    # heartbeat not advanced here
-    if lease.get("holder") != prev.get("holder"):
-        return None, None, [f"{sha[:8]} is a HANDOVER (holder changed) — cadence "
-                            f"not graded; a handover is not a lapse"]
-    return int((now_hb - was_hb).total_seconds() // 60), ttl, []
+
+    holder = lease.get("holder")
+    claimed = lease.get("claimed_at")
+
+    parents = _parents(root, sha)
+    if not parents:
+        return None, None, []                  # root commit: nothing to compare
+
+    notes: list[str] = []
+    readable: list[tuple[str, dict]] = []
+    unreadable: list[str] = []
+    for p in parents:
+        pl, pstate = _lease_at(root, p)
+        if pstate == "unreadable":
+            unreadable.append(p)
+        elif pl is not None:
+            readable.append((p, pl))
+
+    if unreadable:
+        notes.append(
+            f"{LEASE_REL} unreadable at {', '.join(s[:8] for s in unreadable)} "
+            f"(parent of {sha[:8]}) — that parent NOT used as the previous "
+            f"heartbeat (we could not look)")
+    if not readable:
+        return None, None, notes               # no predecessor to compare to
+
+    if len(parents) > 1:
+        notes.append(
+            f"{sha[:8]} is a MERGE ({len(parents)} parents) — the previous "
+            f"heartbeat is the LATEST same-run parent, NOT `{sha[:8]}~1`; the "
+            f"first parent is the branch merged INTO, whose lease is stale "
+            f"when a manager merges main into a worker branch")
+
+    same_holder = [(p, pl) for p, pl in readable if pl.get("holder") == holder]
+    if not same_holder:
+        notes.append(f"{sha[:8]} is a HANDOVER (holder changed) — cadence "
+                     f"not graded; a handover is not a lapse")
+        return None, None, notes
+
+    same_run: list[tuple[str, dict]] = []
+    other_run: list[tuple[str, dict]] = []
+    unestablished = False
+    for p, pl in same_holder:
+        pc = pl.get("claimed_at")
+        if pc is None or claimed is None:
+            unestablished = True
+            same_run.append((p, pl))
+        elif pc == claimed:
+            same_run.append((p, pl))
+        else:
+            other_run.append((p, pl))
+
+    if unestablished:
+        notes.append(
+            f"{sha[:8]}: `claimed_at` absent on one side — the lease RUN could "
+            f"NOT be established, so cadence is graded on holder alone. "
+            f"Enforcement is KEPT rather than dropped: R7's real case is a "
+            f"manager ALIVE and silent past one TTL, and a rule that stops "
+            f"grading on a missing field is one hand-edit from being off.")
+
+    if not same_run:
+        # Every same-holder parent belongs to an EARLIER run, so this commit
+        # OPENS a run: it is a re-CLAIM, not a late check-in. The silence is
+        # not charged as cadence -- and it is REPORTED, loudly, because the
+        # dead interval is the finding even when the lapse is not.
+        best = _latest_heartbeat(other_run)
+        over = lease.get("claimed_over_state")
+        if best is None:
+            notes.append(
+                f"⚠️ {sha[:8]} is a re-CLAIM (a NEW lease run for the same "
+                f"holder) — cadence not graded; no readable previous heartbeat "
+                f"to measure the dead interval against (we could not look)")
+            return None, None, notes
+        dead = int((now_hb - best[0]).total_seconds() // 60)
+        notes.append(
+            f"⚠️ {sha[:8]} is a re-CLAIM, not a late check-in: it opens a NEW "
+            f"lease run (claimed_at {claimed}) for the same holder"
+            + (f", over state={over}" if over else "")
+            + f", so the gap is NOT charged as this run's cadence. THE DEAD "
+              f"INTERVAL IS REAL AND IS REPORTED: {dead} minutes with no "
+              f"manager heartbeat before this claim. A lease that DIED and was "
+              f"re-claimed is a handover to oneself; charging it would fail "
+              f"the incoming manager for the silence of a lease already gone.")
+        return None, None, notes
+
+    best = _latest_heartbeat(same_run)
+    if best is None:
+        return None, None, notes
+    was_hb, was_sha = best
+    if now_hb <= was_hb:
+        return None, None, notes               # heartbeat not advanced here
+    if len(parents) > 1:
+        notes.append(f"{sha[:8]}: previous heartbeat taken from parent "
+                     f"{was_sha[:8]} ({was_hb.isoformat()})")
+    return int((now_hb - was_hb).total_seconds() // 60), ttl, notes
 
 
 # --------------------------------------------------------------------------
@@ -1202,10 +1367,30 @@ def _commit(root: Path, msg: str, session: Optional[str],
                    env={**os.environ, **env})
 
 
-def _lease(holder: str, hb: str, up_state: str = "held", ttl: int = 90) -> str:
-    return json.dumps({"schema_version": 1, "state": up_state, "holder": holder,
-                       "heartbeat_at": hb, "ttl_minutes": ttl,
-                       "heartbeat_target_minutes": 30}, indent=2)
+#: The `claimed_at` the base fixture's lease carries, so an ordinary heartbeat
+#: written by a test CONTINUES that one run rather than accidentally opening a
+#: new one. A test that means to write a re-CLAIM passes a different value.
+FIXTURE_RUN = "2026-09-03T07:00:00Z"
+
+
+def _lease(holder: str, hb: str, up_state: str = "held", ttl: int = 90,
+           claimed_at: Optional[str] = FIXTURE_RUN,
+           claimed_over_state: Optional[str] = None) -> str:
+    """One lease revision.
+
+    `claimed_at` defaults to the fixture's single run. Pass a DIFFERENT value
+    to write a re-CLAIM (a new run by the same holder), or `None` to omit the
+    field entirely — the pre-MI-122 shape, which must still be GRADED rather
+    than silently exempted.
+    """
+    doc = {"schema_version": 1, "state": up_state, "holder": holder,
+           "heartbeat_at": hb, "ttl_minutes": ttl,
+           "heartbeat_target_minutes": 30}
+    if claimed_at is not None:
+        doc["claimed_at"] = claimed_at
+    if claimed_over_state is not None:
+        doc["claimed_over_state"] = claimed_over_state
+    return json.dumps(doc, indent=2)
 
 
 def _sessions(updated_at: str) -> str:
@@ -1241,6 +1426,18 @@ def _fixture(tmp: Path, lease: Optional[str] = None) -> Path:
 
 def _branch(root: Path, name: str) -> None:
     _run(root, "checkout", "-q", "-b", name, "main")
+
+
+def _merge_no_commit(root: Path, other: str) -> None:
+    """Stage a merge of `other` WITHOUT committing it.
+
+    The caller then writes whatever the merge resolves by hand and calls
+    `_commit`, which finds MERGE_HEAD and produces a real two-parent commit.
+    That is the only way to plant the shape MI-122 is about: a commit whose
+    FIRST parent is not the line carrying the lease's prior state.
+    """
+    subprocess.run(["git", "-C", str(root), "merge", "--no-ff", "--no-commit",
+                    other], check=True, capture_output=True, text=True)
 
 
 def self_test() -> int:
@@ -1473,6 +1670,141 @@ def self_test() -> int:
         assert st == "clean", (st, fails)
         cases.append(("handover after a long silence -> clean (not a lapse)",
                       st, ""))
+
+        # -- 8e. MI-122 PLANT (face A): a re-CLAIM over an EXPIRED lease is
+        #    NOT a late check-in. Must PASS -- and must still REPORT the dead
+        #    interval. The live instance's exact shape and its exact number:
+        #    the base fixture last heartbeats at 08:00 and this claim is at
+        #    20:26, so the silence is 746 minutes, the figure cc984fec failed
+        #    on. The holder is UNCHANGED, so the pre-existing handover
+        #    exemption cannot reach it -- only the RUN can.
+        #    ⚠️ THIS CASE MUST NOT PASS BY BEING QUIET. It asserts the note is
+        #    present AND names the interval, so a change that "fixes" R7 by
+        #    simply not looking fails here instead of passing silently. That
+        #    is the whole difference between moving where silence is charged
+        #    and making it disappear.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "plant-reclaim")
+        _write(root, LEASE_REL,
+               _lease(MANAGER, "2026-09-03T20:26:00Z",
+                      claimed_at="2026-09-03T20:26:00Z",
+                      claimed_over_state="expired"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T20:21:00Z"))
+        _commit(root, "manager-lease: claim by the manager over an expired lease",
+                MANAGER)
+        st, fails, notes = check(root, "main")
+        assert st == "clean", (st, fails)
+        joined = "\n".join(notes)
+        assert "re-CLAIM" in joined, notes
+        assert "746 minutes" in joined, ("the dead interval must still be "
+                                         "REPORTED, not made to disappear", notes)
+        assert "expired" in joined, notes
+        cases.append(("re-claim over an expired lease -> clean, dead interval "
+                      "still reported", st, ""))
+
+        # -- 8f. MI-122 CONTROL (face A): the SAME 746-minute gap, the SAME
+        #    holder, but the SAME RUN -- an ALIVE manager that simply went
+        #    quiet. Must still be a VIOLATION. Without this the plant above is
+        #    satisfiable by a guard that has stopped grading cadence at all,
+        #    and R7's real case (the measured 4% of gaps past one TTL) would
+        #    be gone.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "control-same-run-silence")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T20:26:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T20:21:00Z"))
+        _commit(root, "manager: lease heartbeat after a very long silence",
+                MANAGER)
+        st, fails, _ = check(root, "main")
+        assert st == "violation", (st, fails)
+        joined = "\n".join(fails)
+        assert "R7" in joined, fails
+        assert "R6" not in joined, ("R6 fired too -- the plant is not isolated",
+                                    fails)
+        cases.append(("746min silence WITHIN one run -> violation (R7 only)",
+                      st, joined))
+
+        # -- 8g. MI-122 PLANT (face B): a manager MERGE whose FIRST parent is
+        #    the worker branch, carrying a lease 140 minutes stale, while the
+        #    SECOND parent carries the manager's actual latest heartbeat. Must
+        #    PASS. Reading `sha~1` grades 140 minutes against a 90-minute TTL
+        #    and fails a lapse that never happened -- the #10895 blocker.
+        #    The manager line steps 08:00 -> 09:10 -> 10:20, each 70 minutes,
+        #    deliberately UNDER the TTL so those commits cannot fail on their
+        #    own and only the merge is under test.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "manager-line")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T09:10:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T09:05:00Z"))
+        _commit(root, "manager: lease heartbeat", MANAGER)
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T10:20:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T10:15:00Z"))
+        _commit(root, "manager: lease heartbeat", MANAGER)
+        _branch(root, "worker-line")
+        _write(root, "src/runtime/orders.py", "x = 9\n")
+        _commit(root, "worker: an ordinary change on the worker branch", WORKER)
+        _merge_no_commit(root, "manager-line")
+        _commit(root, "manager: merge main into the worker branch", MANAGER)
+        st, fails, notes = check(root, "main")
+        assert st == "clean", (st, fails)
+        assert "MERGE" in "\n".join(notes), notes
+        cases.append(("manager merge, stale FIRST parent -> clean (previous "
+                      "heartbeat read from the right parent)", st, ""))
+
+        # -- 8h. MI-122 CONTROL (face B): the SAME merge shape, but the merge
+        #    itself advances the heartbeat to 12:30 -- 130 minutes past the
+        #    NEWEST parent (10:20), not merely past the stale one. Must still
+        #    be a VIOLATION. Without this, reading every parent could be
+        #    "fixed" into never grading a merge at all, and a manager could
+        #    launder any silence through a merge commit.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "manager-line")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T09:10:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T09:05:00Z"))
+        _commit(root, "manager: lease heartbeat", MANAGER)
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T10:20:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T10:15:00Z"))
+        _commit(root, "manager: lease heartbeat", MANAGER)
+        _branch(root, "worker-line")
+        _write(root, "src/runtime/orders.py", "x = 9\n")
+        _commit(root, "worker: an ordinary change on the worker branch", WORKER)
+        _merge_no_commit(root, "manager-line")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T12:30:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T12:25:00Z"))
+        _commit(root, "manager: merge main into the worker branch and check in",
+                MANAGER)
+        st, fails, _ = check(root, "main")
+        assert st == "violation", (st, fails)
+        joined = "\n".join(fails)
+        assert "R7" in joined, fails
+        assert "R6" not in joined, ("R6 fired too -- the plant is not isolated",
+                                    fails)
+        cases.append(("merge that is genuinely 130min past its NEWEST parent "
+                      "-> violation (R7 only)", st, joined))
+
+        # -- 8i. MI-122 CONTROL: a lease with NO `claimed_at` on either side
+        #    still GRADES. The run cannot be established, and the deliberate
+        #    choice is to keep enforcement rather than drop it -- otherwise
+        #    deleting one field from the lease would switch R7 off, which is
+        #    cheaper than checking in and is exactly the incentive this unit
+        #    exists to close.
+        shutil.rmtree(root)
+        root = _fixture(tmp, lease=_lease(MANAGER, "2026-09-03T08:00:00Z",
+                                          claimed_at=None))
+        _branch(root, "control-no-claimed-at")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T11:30:00Z",
+                                       claimed_at=None))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T11:25:00Z"))
+        _commit(root, "manager: lease heartbeat after a long silence", MANAGER)
+        st, fails, notes = check(root, "main")
+        assert st == "violation", (st, fails)
+        assert "R7" in "\n".join(fails), fails
+        assert "could NOT be established" in "\n".join(notes), notes
+        cases.append(("no claimed_at -> still graded (enforcement kept)",
+                      st, "\n".join(fails)))
 
         # -- 9. PLANTED: a `pending` exception must GRANT NOTHING. ------------
         shutil.rmtree(root)
