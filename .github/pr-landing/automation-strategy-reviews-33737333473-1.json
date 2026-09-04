@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Machine-generated data commit from the 'strategy-reviews' workflow (run 33737333473) on branch automation/strategy-reviews-33737333473-1. Tier-1 by the canonical doc's own list: the diff is one generated artifact, comms/strategy_reviews/2026-09-03/INDEX.json, with no order path, no strategy config, no risk caps, no src/, no deploy/ and no live-VM runtime file. WRITTEN BY HAND BY THE MANAGER RATHER THAN BY THE GENERATOR, because this branch PREDATES the declaration: .github/actions/commit-to-main only began emitting .github/pr-landing/<slug>.json partway through 2026-09-03, so the runs at 09:10Z (this one) and 09:57Z (#10921) carry none while the 21:19Z run (#10957) does. The absence is branch age, not a defect in the content. Text mirrors the generator's own sibling declaration rather than being invented."
+}
