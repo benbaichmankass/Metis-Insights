@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-04T16:34:57+00:00",
+  "generated_at": "2026-09-04T19:08:24+00:00",
   "verdict": "partial",
   "unreadable_sources": [
     "red_crons",
@@ -31,7 +31,7 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=6.8h cadence=daily (cron 20 5 * * *) | 1 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=9.4h cadence=daily (cron 20 5 * * *) | 1 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "could_not_read",
@@ -46,7 +46,7 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-04T16:34:53+00:00, age 0.0h"
+      "note": "digest 2026-09-04T19:08:21+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -467,8 +467,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-1ef305c7",
-      "title": "[error] x18 api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty",
-      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 18 rows 2026-08-23T21:42:55 → 2026-09-02T11:37:13 · symbols=AVAXUSDT — decide: fix now, or file to a backlog",
+      "title": "[error] x19 api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty",
+      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 19 rows 2026-08-23T21:42:55 → 2026-09-04T17:15:36 · symbols=AVAXUSDT — decide: fix now, or file to a backlog",
       "age_days": 12,
       "loud": false,
       "link": ""
@@ -521,8 +521,17 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-86505576",
-      "title": "[error] x137 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 137 rows 2026-09-02T08:33:53 → 2026-09-04T15:45:14 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
+      "title": "[error] x140 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 140 rows 2026-09-02T08:33:53 → 2026-09-04T18:45:17 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
+      "age_days": 2,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-a46d2970",
+      "title": "[error] x12 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 12 rows 2026-09-02T02:03:23 → 2026-09-04T09:37:43 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
       "age_days": 2,
       "loud": false,
       "link": ""
@@ -547,36 +556,27 @@
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-6dce9137",
-      "title": "[error] NEW x1 pairs_naked_leg unresolved: pairs BNBUSDT/BTCUSDT: leg BTCUSDT failed AND the unwind left N naked leg(s) on bybit_N — un-hedged directional ",
-      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-04T12:01:59 → 2026-09-04T12:01:59 · accounts=bybit_1 strategies=pairs,pairs_naked_leg — decide: fix now, or file to a backlog",
+      "id": "ERRFEED-6da04340",
+      "title": "[error] x9 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 9 rows 2026-09-03T11:19:27 → 2026-09-04T09:37:43 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog",
+      "age_days": 1,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-aea71360",
+      "title": "[error] NEW x1 🚨 ALL accounts failed to dispatch Strategy: ict_scalp_avax_Nm | Symbol: AVAXUSDT | Side: sell Accounts attempted: N | Trades placed: N Failu",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T17:15:36 → 2026-09-04T17:15:36 · accounts=bybit_1 symbols=AVAXUSDT strategies=ict_scalp_avax_5m — decide: fix now, or file to a backlog",
       "age_days": 0,
       "loud": false,
       "link": ""
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-b3c9b0e2",
-      "title": "[error] NEW x2 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg",
-      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 2 rows 2026-09-04T12:28:34 → 2026-09-04T16:09:47 · accounts=bybit_1 — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-d8ff6585",
-      "title": "[error] NEW x1 api_call bybit_place_order_failed: <REDACTED_TOKEN>: ab not enough for new order (ErrCode: N) (ErrTime: N:N:N). Request → POST https://api-d",
-      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-04T12:01:58 → 2026-09-04T12:01:58 · symbols=BTCUSDT — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-de928c1c",
-      "title": "[error] NEW x1 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: XRPUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: n",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T12:31:29 → 2026-09-04T12:31:29 · accounts=bybit_1 symbols=XRPUSDT — decide: fix now, or file to a backlog",
+      "id": "ERRFEED-ca879cdd",
+      "title": "[error] NEW x1 *DEMO TRADER* ⚠️ Order execution failed Account: bybit_N Strategy: ict_scalp_avax_Nm Symbol: AVAXUSDT | Side: sell | Qty: N Reason: RuntimeE",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-04T17:15:36 → 2026-09-04T17:15:36 · accounts=bybit_1 symbols=AVAXUSDT strategies=ict_scalp_avax_5m — decide: fix now, or file to a backlog",
       "age_days": 0,
       "loud": false,
       "link": ""
@@ -584,8 +584,8 @@
     {
       "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "110 cause groups over 1311 rows (77 error-level, 33 warn-level, 4 new since the last digest)",
-      "why_due": "67 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-04T11:37:04.861161+00:00`.",
+      "title": "112 cause groups over 1317 rows (79 error-level, 33 warn-level, 2 new since the last digest)",
+      "why_due": "69 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-04T16:34:37.822335+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
