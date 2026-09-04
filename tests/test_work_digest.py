@@ -170,13 +170,30 @@ def test_render_states_the_population_on_its_numbers():
 # ── the WIP ceiling is a reading, not a gate ─────────────────────────────
 
 def test_ceiling_hit_is_loud_and_under_ceiling_is_not():
+    """⚠️ BOTH ARMS ARE CONSTRUCTED (fixed 2026-09-04), and the control is the
+    reason. It used to be `wd.render(wd.build_digest("HEAD", "HEAD"))` — the
+    LIVE repo — asserting that the repo is UNDER the WIP ceiling. That is not a
+    property of the renderer, it is a property of whatever work is in flight
+    today, and on 2026-09-04 the repo legitimately sat AT the ceiling (8
+    in_flight of 8; `check_wip_ceiling` refuses the NINTH, so being at 8 is a
+    permitted state). The renderer was right, the control was unsound, and
+    `pytest-run` — a REQUIRED context — went red on every open PR at once.
+
+    Constructing both arms is STRICTLY STRONGER than what it replaces: the old
+    control could only ever pass by accident of repo state.
+    """
     d = wd.build_digest("HEAD", "HEAD")
-    quiet = wd.render(d)
     hit_standing = dict(
         d["standing"],
         wip=dict(d["standing"]["wip"], inFlight=wd.WIP_CEILING, ceilingHit=True),
     )
+    under_standing = dict(
+        d["standing"],
+        wip=dict(d["standing"]["wip"], inFlight=wd.WIP_CEILING - 1,
+                 ceilingHit=False),
+    )
     loud = wd.render({**d, "standing": hit_standing})
+    quiet = wd.render({**d, "standing": under_standing})
     assert "WIP CEILING HIT" in loud
     assert "WIP CEILING HIT" not in quiet, "positive control: not-hit stays quiet"
 
@@ -190,14 +207,36 @@ def test_ceiling_is_reported_as_enforced_because_it_is():
     "declared, not enforced" tells a reader they may open one. The dangerous
     direction, which is why the name changed rather than the assertion being
     loosened.
+
+    ⚠️ THE RENDER ARM WAS PINNED TO LIVE REPO STATE UNTIL 2026-09-04. "IS a
+    gate" is the UNDER-ceiling line; at the ceiling the renderer emits the
+    louder "WIP CEILING HIT ... ENFORCED in CI" instead, so this asserted a
+    string that correctly disappears in a state the ceiling is designed to
+    reach. The `enforced` / `state` facts below are constants and stay read
+    from the live standing state; only the rendered line is now constructed.
+
+    Both renders are checked, so the "advisory" wording is barred in BOTH
+    branches rather than only in whichever one the repo happens to be in.
     """
     wip = wd.standing_state("HEAD")["wip"]
     assert wip["enforced"] is True
     assert wip["state"] == "enforced_in_ci"
-    rendered = wd.render(wd.build_digest("HEAD", "HEAD"))
-    assert "not a gate" not in rendered, (
-        "the digest must not tell a reader the ceiling is advisory — it is a gate")
-    assert "IS a gate" in rendered
+
+    d = wd.build_digest("HEAD", "HEAD")
+    under = wd.render({**d, "standing": dict(
+        d["standing"],
+        wip=dict(d["standing"]["wip"], inFlight=wd.WIP_CEILING - 1,
+                 ceilingHit=False))})
+    at_ceiling = wd.render({**d, "standing": dict(
+        d["standing"],
+        wip=dict(d["standing"]["wip"], inFlight=wd.WIP_CEILING,
+                 ceilingHit=True))})
+    for rendered in (under, at_ceiling):
+        assert "not a gate" not in rendered, (
+            "the digest must not tell a reader the ceiling is advisory — "
+            "it is a gate")
+    assert "IS a gate" in under
+    assert "ENFORCED in CI" in at_ceiling
 
 
 # ── coverage: never claims to be the whole picture ───────────────────────

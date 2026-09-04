@@ -88,7 +88,7 @@
       "checklist_item": "MI-83",
       "draft": false,
       "tier": "1",
-      "state": "blocked_on_MI-106",
+      "state": "blocked_on_BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE",
       "operator_decision": {
         "verdict": "none_recorded",
         "condition": null,
@@ -96,7 +96,7 @@
         "decided_on": null,
         "text": "None recorded. Tier-1 — one log line, two tests, one register correction."
       },
-      "blocker": "⚠️ BLOCKED BY MI-106, AND MUST NOT BE FORCED. check_manager_scope grades commit 5504200c a VIOLATION because it touches scripts/notify_on_pull.py under a `Claude-Session:` trailer naming session_011JWFxuYAaEQKCFCmG6gnHJ — the PREVIOUS DAY'S MANAGER. The evidence says the TRAILER is wrong, not the commit: the body is in the MI-83 worker's voice about MI-83's own PR. That is a READING, not a proven fact. ⚠️ DO NOT resolve it with a manager-scope-exception (this is not a live incident), by rewriting history, or by merging past the guard — MI-106 is the fix, and the guard being wrong in this direction is the same defect that makes it evadable in the other."
+      "blocker": "⚠️ RE-MEASURED 2026-09-04. The MI-106 half is FIXED on claude/mi106-manager-scope-authorship: check_manager_scope now grades 5504200c `unattributed` rather than an R2 violation, because MANAGER-LEASE.json's own history places session_011JWFxuYAaEQKCFCmG6gnHJ out of office at the commit's 06:13:07Z author time. ⚠️ THIS PR IS STILL RED, ON A SECOND AND DIFFERENT DEFECT that was masked behind the first: R7 fails 5244dafb for '223 minutes since this manager's previous heartbeat', a number produced by reading the previous heartbeat from `sha~1` — on a merge commit, the WORKER branch's stale lease blob. The register reachable from that commit shows same-holder heartbeats at 08:32:50Z and 09:21:42Z: a 49-minute gap, inside the TTL. Filed as BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE. ⚠️ The standing DO-NOTs are unchanged and still correct: no manager-scope exception (this is not a live incident), no rewriting another session's commit, no merging past a failing required check."
     },
     {
       "pr": 10398,

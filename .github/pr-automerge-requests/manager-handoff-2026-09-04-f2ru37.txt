@@ -1,4 +1,5 @@
-Fourth manager landing of 2026-09-04: MI-118, the MI-108 routed-but-never-filed
-finding and its real backlog row, and the MI-107 respawn record.
+Fourth manager landing of 2026-09-04: the session-cap resolution to 3, MI-118
+through MI-121, the MI-101 lifecycle correction, and the re-claimed lease after
+a twelve-hour manager gap.
 
 Tier-1. Auto-merge merges only on green.

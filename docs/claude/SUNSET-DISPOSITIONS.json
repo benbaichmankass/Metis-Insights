@@ -11,13 +11,112 @@
     {
       "id": "strategy:turtle_soup",
       "target": null,
-      "disposition": "retire_proposed",
+      "disposition": "keep",
       "tier": 3,
-      "operator_decision": "pending",
-      "decided_by": "claude (Phase G, 2026-09-01)",
-      "decided_at": "2026-09-01",
-      "reason": "MEASURED, and it is a config inconsistency as much as a retirement: `turtle_soup` is `enabled: true` in config/strategies.yaml and appears in the `strategies:` list of ZERO accounts in config/accounts.yaml, so it cannot reach the order path at all. Lifetime closed trades: 0 (population: /api/bot/performance?window=all, real+paper perStrategy, read 2026-09-01T22:56Z). The M7 gate grades it `hold — no closed trades in window — insufficient evidence` every day, which is indistinguishable from a healthy young leg. ⚠️ EITHER the routing is the bug and it should be routed, OR the leg is dead and should come out — this row does not presume which, and that is the operator's call because it edits config/strategies.yaml (Tier-3).",
-      "review_by": "2026-09-15"
+      "operator_decision": "refused",
+      "decided_by": "operator 2026-09-03 (recorded by claude, MI-107, 2026-09-04)",
+      "decided_at": "2026-09-04",
+      "reason": "OPERATOR DECISION 2026-09-03, verbatim: \"I don't want to retire anything yet - we need a flow for downgrading to shadow and tuning, not just turning things off out right.\" So this is EXAMINED AND KEPT, not deferred. ⚠️ AND IT DOES NOT QUALIFY FOR THAT DEMOTE-AND-TUNE FLOW, which is the finding rather than an evasion: MEASURED over comms/sunset/2026-09-01/INDEX.json joined to config/strategies.yaml on 2026-09-04, this leg has lifetime_closed_trades: 0 and is routed to PAPER only — so no money is at risk to protect and there is no measured behaviour to tune. `execution: shadow` folds into effective_dry on EVERY account including paper (src/core/coordinator.py, the execution:shadow fold in multi_account_execute), so demoting it would STOP ITS PAPER FILLS and make any exit condition strictly harder to meet. Proposed disposition is REPAIR — the DIAGNOSIS is the work, not the parameters — pending DEC-20260904-DEMOTE-AND-TUNE-FLOW on WO-20260903-SUNSET-DISPOSITIONS-OWED. Flow: docs/design/strategy-demote-and-tune-DESIGN.md. ⚠️ turtle_soup IS THE EXHIBIT FOR WHY THE EXIT CONDITION HAD TO COME FIRST: it has ALREADY been `execution: shadow` since 2026-07-07 — 59 days as of 2026-09-04, zero lifetime closes, listed in the `strategies:` list of ZERO accounts — and it is NOT even the oldest: fade_breakout_4h has sat in shadow since 2026-06-01 (95d), and none of the 8 shadow legs has a recorded exit condition — and it surfaced only because a DIFFERENT mechanism eventually flagged it. That is a demote with no exit condition, already sitting in the tree. Its own fault is a CONFIG INCONSISTENCY (enabled: true, routed nowhere), so it is REPAIR: either the routing is the bug and it should be routed, or the leg is dead — this row does not presume which, and establishing it is the work. The prior retire_proposed/pending row is superseded by the operator's 2026-09-03 answer, not deleted.",
+      "review_by": "2026-11-03"
+    },
+    {
+      "id": "strategy:gdx_pullback_1d",
+      "target": null,
+      "disposition": "keep",
+      "tier": 3,
+      "operator_decision": "refused",
+      "decided_by": "operator 2026-09-03 (recorded by claude, MI-107, 2026-09-04)",
+      "decided_at": "2026-09-04",
+      "reason": "OPERATOR DECISION 2026-09-03, verbatim: \"I don't want to retire anything yet - we need a flow for downgrading to shadow and tuning, not just turning things off out right.\" So this is EXAMINED AND KEPT, not deferred. ⚠️ AND IT DOES NOT QUALIFY FOR THAT DEMOTE-AND-TUNE FLOW, which is the finding rather than an evasion: MEASURED over comms/sunset/2026-09-01/INDEX.json joined to config/strategies.yaml on 2026-09-04, this leg has lifetime_closed_trades: 0 and is routed to PAPER only — so no money is at risk to protect and there is no measured behaviour to tune. `execution: shadow` folds into effective_dry on EVERY account including paper (src/core/coordinator.py, the execution:shadow fold in multi_account_execute), so demoting it would STOP ITS PAPER FILLS and make any exit condition strictly harder to meet. Proposed disposition is REPAIR — the DIAGNOSIS is the work, not the parameters — pending DEC-20260904-DEMOTE-AND-TUNE-FLOW on WO-20260903-SUNSET-DISPOSITIONS-OWED. Flow: docs/design/strategy-demote-and-tune-DESIGN.md.",
+      "review_by": "2026-11-03"
+    },
+    {
+      "id": "strategy:gld_pullback_1d",
+      "target": null,
+      "disposition": "keep",
+      "tier": 3,
+      "operator_decision": "refused",
+      "decided_by": "operator 2026-09-03 (recorded by claude, MI-107, 2026-09-04)",
+      "decided_at": "2026-09-04",
+      "reason": "OPERATOR DECISION 2026-09-03, verbatim: \"I don't want to retire anything yet - we need a flow for downgrading to shadow and tuning, not just turning things off out right.\" So this is EXAMINED AND KEPT, not deferred. ⚠️ AND IT DOES NOT QUALIFY FOR THAT DEMOTE-AND-TUNE FLOW, which is the finding rather than an evasion: MEASURED over comms/sunset/2026-09-01/INDEX.json joined to config/strategies.yaml on 2026-09-04, this leg has lifetime_closed_trades: 0 and is routed to PAPER only — so no money is at risk to protect and there is no measured behaviour to tune. `execution: shadow` folds into effective_dry on EVERY account including paper (src/core/coordinator.py, the execution:shadow fold in multi_account_execute), so demoting it would STOP ITS PAPER FILLS and make any exit condition strictly harder to meet. Proposed disposition is REPAIR — the DIAGNOSIS is the work, not the parameters — pending DEC-20260904-DEMOTE-AND-TUNE-FLOW on WO-20260903-SUNSET-DISPOSITIONS-OWED. Flow: docs/design/strategy-demote-and-tune-DESIGN.md.",
+      "review_by": "2026-11-03"
+    },
+    {
+      "id": "strategy:iaum_pullback_1d",
+      "target": null,
+      "disposition": "keep",
+      "tier": 3,
+      "operator_decision": "refused",
+      "decided_by": "operator 2026-09-03 (recorded by claude, MI-107, 2026-09-04)",
+      "decided_at": "2026-09-04",
+      "reason": "OPERATOR DECISION 2026-09-03, verbatim: \"I don't want to retire anything yet - we need a flow for downgrading to shadow and tuning, not just turning things off out right.\" So this is EXAMINED AND KEPT, not deferred. ⚠️ AND IT DOES NOT QUALIFY FOR THAT DEMOTE-AND-TUNE FLOW, which is the finding rather than an evasion: MEASURED over comms/sunset/2026-09-01/INDEX.json joined to config/strategies.yaml on 2026-09-04, this leg has lifetime_closed_trades: 0 and is routed to PAPER only — so no money is at risk to protect and there is no measured behaviour to tune. `execution: shadow` folds into effective_dry on EVERY account including paper (src/core/coordinator.py, the execution:shadow fold in multi_account_execute), so demoting it would STOP ITS PAPER FILLS and make any exit condition strictly harder to meet. Proposed disposition is REPAIR — the DIAGNOSIS is the work, not the parameters — pending DEC-20260904-DEMOTE-AND-TUNE-FLOW on WO-20260903-SUNSET-DISPOSITIONS-OWED. Flow: docs/design/strategy-demote-and-tune-DESIGN.md.",
+      "review_by": "2026-11-03"
+    },
+    {
+      "id": "strategy:mes_trend_long_1d",
+      "target": null,
+      "disposition": "keep",
+      "tier": 3,
+      "operator_decision": "refused",
+      "decided_by": "operator 2026-09-03 (recorded by claude, MI-107, 2026-09-04)",
+      "decided_at": "2026-09-04",
+      "reason": "OPERATOR DECISION 2026-09-03, verbatim: \"I don't want to retire anything yet - we need a flow for downgrading to shadow and tuning, not just turning things off out right.\" So this is EXAMINED AND KEPT, not deferred. ⚠️ AND IT DOES NOT QUALIFY FOR THAT DEMOTE-AND-TUNE FLOW, which is the finding rather than an evasion: MEASURED over comms/sunset/2026-09-01/INDEX.json joined to config/strategies.yaml on 2026-09-04, this leg has lifetime_closed_trades: 0 and is routed to PAPER only — so no money is at risk to protect and there is no measured behaviour to tune. `execution: shadow` folds into effective_dry on EVERY account including paper (src/core/coordinator.py, the execution:shadow fold in multi_account_execute), so demoting it would STOP ITS PAPER FILLS and make any exit condition strictly harder to meet. Proposed disposition is REPAIR — the DIAGNOSIS is the work, not the parameters — pending DEC-20260904-DEMOTE-AND-TUNE-FLOW on WO-20260903-SUNSET-DISPOSITIONS-OWED. Flow: docs/design/strategy-demote-and-tune-DESIGN.md. Routed to ib_paper only. Note MB-20260721-MES-15M-HEAD-PARKED and the recorded MES stranding — a leg that never traded because of a gate, not because of its edge, is the exact history this repo is warned about; establish which this is before proposing a strategy verdict.",
+      "review_by": "2026-11-03"
+    },
+    {
+      "id": "strategy:scha_trend_long_1d",
+      "target": null,
+      "disposition": "keep",
+      "tier": 3,
+      "operator_decision": "refused",
+      "decided_by": "operator 2026-09-03 (recorded by claude, MI-107, 2026-09-04)",
+      "decided_at": "2026-09-04",
+      "reason": "OPERATOR DECISION 2026-09-03, verbatim: \"I don't want to retire anything yet - we need a flow for downgrading to shadow and tuning, not just turning things off out right.\" So this is EXAMINED AND KEPT, not deferred. ⚠️ AND IT DOES NOT QUALIFY FOR THAT DEMOTE-AND-TUNE FLOW, which is the finding rather than an evasion: MEASURED over comms/sunset/2026-09-01/INDEX.json joined to config/strategies.yaml on 2026-09-04, this leg has lifetime_closed_trades: 0 and is routed to PAPER only — so no money is at risk to protect and there is no measured behaviour to tune. `execution: shadow` folds into effective_dry on EVERY account including paper (src/core/coordinator.py, the execution:shadow fold in multi_account_execute), so demoting it would STOP ITS PAPER FILLS and make any exit condition strictly harder to meet. Proposed disposition is REPAIR — the DIAGNOSIS is the work, not the parameters — pending DEC-20260904-DEMOTE-AND-TUNE-FLOW on WO-20260903-SUNSET-DISPOSITIONS-OWED. Flow: docs/design/strategy-demote-and-tune-DESIGN.md.",
+      "review_by": "2026-11-03"
+    },
+    {
+      "id": "strategy:splg_trend_long_1d",
+      "target": null,
+      "disposition": "keep",
+      "tier": 3,
+      "operator_decision": "refused",
+      "decided_by": "operator 2026-09-03 (recorded by claude, MI-107, 2026-09-04)",
+      "decided_at": "2026-09-04",
+      "reason": "OPERATOR DECISION 2026-09-03, verbatim: \"I don't want to retire anything yet - we need a flow for downgrading to shadow and tuning, not just turning things off out right.\" So this is EXAMINED AND KEPT, not deferred. ⚠️ AND IT DOES NOT QUALIFY FOR THAT DEMOTE-AND-TUNE FLOW, which is the finding rather than an evasion: MEASURED over comms/sunset/2026-09-01/INDEX.json joined to config/strategies.yaml on 2026-09-04, this leg has lifetime_closed_trades: 0 and is routed to PAPER only — so no money is at risk to protect and there is no measured behaviour to tune. `execution: shadow` folds into effective_dry on EVERY account including paper (src/core/coordinator.py, the execution:shadow fold in multi_account_execute), so demoting it would STOP ITS PAPER FILLS and make any exit condition strictly harder to meet. Proposed disposition is REPAIR — the DIAGNOSIS is the work, not the parameters — pending DEC-20260904-DEMOTE-AND-TUNE-FLOW on WO-20260903-SUNSET-DISPOSITIONS-OWED. Flow: docs/design/strategy-demote-and-tune-DESIGN.md. CAUSE ALREADY HALF-NAMED, do not re-derive it: BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY and BL-20260829-SPLG-TREND-LONG-1D-EMITS-ZERO-TRADES-IN-730-DAYS — zero emits on its own harness over 730d while spy_trend_long_1d emits 8 on the same index/harness/window. That points at the DATA FEED, not the strategy, and retiring it would record a strategy verdict for a data fault.",
+      "review_by": "2026-11-03"
+    },
+    {
+      "id": "strategy:spy_trend_long_1d",
+      "target": null,
+      "disposition": "keep",
+      "tier": 3,
+      "operator_decision": "refused",
+      "decided_by": "operator 2026-09-03 (recorded by claude, MI-107, 2026-09-04)",
+      "decided_at": "2026-09-04",
+      "reason": "OPERATOR DECISION 2026-09-03, verbatim: \"I don't want to retire anything yet - we need a flow for downgrading to shadow and tuning, not just turning things off out right.\" So this is EXAMINED AND KEPT, not deferred. ⚠️ AND IT DOES NOT QUALIFY FOR THAT DEMOTE-AND-TUNE FLOW, which is the finding rather than an evasion: MEASURED over comms/sunset/2026-09-01/INDEX.json joined to config/strategies.yaml on 2026-09-04, this leg has lifetime_closed_trades: 0 and is routed to PAPER only — so no money is at risk to protect and there is no measured behaviour to tune. `execution: shadow` folds into effective_dry on EVERY account including paper (src/core/coordinator.py, the execution:shadow fold in multi_account_execute), so demoting it would STOP ITS PAPER FILLS and make any exit condition strictly harder to meet. Proposed disposition is REPAIR — the DIAGNOSIS is the work, not the parameters — pending DEC-20260904-DEMOTE-AND-TUNE-FLOW on WO-20260903-SUNSET-DISPOSITIONS-OWED. Flow: docs/design/strategy-demote-and-tune-DESIGN.md.",
+      "review_by": "2026-11-03"
+    },
+    {
+      "id": "strategy:tqqq_trend_long_1d",
+      "target": null,
+      "disposition": "keep",
+      "tier": 3,
+      "operator_decision": "refused",
+      "decided_by": "operator 2026-09-03 (recorded by claude, MI-107, 2026-09-04)",
+      "decided_at": "2026-09-04",
+      "reason": "OPERATOR DECISION 2026-09-03, verbatim: \"I don't want to retire anything yet - we need a flow for downgrading to shadow and tuning, not just turning things off out right.\" So this is EXAMINED AND KEPT, not deferred. ⚠️ AND IT DOES NOT QUALIFY FOR THAT DEMOTE-AND-TUNE FLOW, which is the finding rather than an evasion: MEASURED over comms/sunset/2026-09-01/INDEX.json joined to config/strategies.yaml on 2026-09-04, this leg has lifetime_closed_trades: 0 and is routed to PAPER only — so no money is at risk to protect and there is no measured behaviour to tune. `execution: shadow` folds into effective_dry on EVERY account including paper (src/core/coordinator.py, the execution:shadow fold in multi_account_execute), so demoting it would STOP ITS PAPER FILLS and make any exit condition strictly harder to meet. Proposed disposition is REPAIR — the DIAGNOSIS is the work, not the parameters — pending DEC-20260904-DEMOTE-AND-TUNE-FLOW on WO-20260903-SUNSET-DISPOSITIONS-OWED. Flow: docs/design/strategy-demote-and-tune-DESIGN.md.",
+      "review_by": "2026-11-03"
+    },
+    {
+      "id": "strategy:trend_donchian_sol",
+      "target": null,
+      "disposition": "keep",
+      "tier": 3,
+      "operator_decision": "refused",
+      "decided_by": "operator 2026-09-03 (recorded by claude, MI-107, 2026-09-04)",
+      "decided_at": "2026-09-04",
+      "reason": "OPERATOR DECISION 2026-09-03, verbatim: \"I don't want to retire anything yet - we need a flow for downgrading to shadow and tuning, not just turning things off out right.\" So this is EXAMINED AND KEPT, not deferred. ⚠️ AND IT DOES NOT QUALIFY FOR THAT DEMOTE-AND-TUNE FLOW, which is the finding rather than an evasion: MEASURED over comms/sunset/2026-09-01/INDEX.json joined to config/strategies.yaml on 2026-09-04, this leg has lifetime_closed_trades: 0 and is routed to PAPER only — so no money is at risk to protect and there is no measured behaviour to tune. `execution: shadow` folds into effective_dry on EVERY account including paper (src/core/coordinator.py, the execution:shadow fold in multi_account_execute), so demoting it would STOP ITS PAPER FILLS and make any exit condition strictly harder to meet. Proposed disposition is REPAIR — the DIAGNOSIS is the work, not the parameters — pending DEC-20260904-DEMOTE-AND-TUNE-FLOW on WO-20260903-SUNSET-DISPOSITIONS-OWED. Flow: docs/design/strategy-demote-and-tune-DESIGN.md. ⚠️ THE SHARPEST CASE, AND IT ARGUES AGAINST BOTH RETIRE AND TUNE: BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1 — 144 actionable buy signals since 08-01 and ZERO journal rows on bybit_1. The strategy IS working; something between the signal and the order is not, so tuning its parameters would change nothing. AND retiring it would delete the live tiebreak evidence OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED is waiting on.",
+      "review_by": "2026-11-03"
     },
     {
       "id": "tool:scripts/ml/fetch_fred_macro.py",

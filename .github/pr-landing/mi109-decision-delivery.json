@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Seeking ONE operator OK, via the manager (session_016e2k4UmsMGgpbrJ5ctqeFv), to merge and then restart ict-telegram-bot.service. CLAUDE.md's own WORK_DECISION_PROMPT_SECONDS row already labels this subsystem 'Tier-2 (it touches the Telegram bridge and needs an ict-telegram-bot.service restart)', and this branch changes that exact sweep, so the declaration follows the canonical doc rather than the spawn prompt's Tier-1 reading. The restart is not dispatched from here.",
+  "why": "MI-109 / WO-20260903-DECISION-DELIVERY-UNATTRIBUTED. The change is observability by intent — the prompted marker records WHERE a prompt went, and the sweep's per-run stats land on a durable receipt with a diag allowlist entry — and it touches NO order path, NO strategy config and NO risk caps. But it edits src/runtime/telegram_decisions.py, src/bot/telegram_query_bot.py and src/web/api/routers/diag.py, none of which TIER1_SURFACE vouches for, so R5 would refuse a tier-1 self-land and the allowlist's fail-closed polarity is the correct answer here rather than something to route around. The one behavioural change beyond recording is a bounded, once-per-request re-send of a prompt whose marker shows it did not reach the preferred bot, gated on the route having become preferred; that is a live send path and is exactly the sort of thing the one OK is for."
+}
