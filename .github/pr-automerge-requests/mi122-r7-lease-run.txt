@@ -1,0 +1,3 @@
+MI-122 — R7: same lease RUN, right parent.
+Tier-1, self-landing. The PATH of this file is the signal; its contents are not read.
+Paired with .github/pr-landing/mi122-r7-lease-run.json ("draft": false is the other required half).
