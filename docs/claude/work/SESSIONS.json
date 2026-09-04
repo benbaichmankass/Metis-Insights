@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-04T07:39:11Z",
+  "updated_at": "2026-09-04T07:44:07Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1445,6 +1445,32 @@
       "why": "The 2026-09-03 spawn (session_011J1VB7UsXW1LZb5bCFixRD) went need_input six minutes in because WO-20260903-DECISION-DELIVERY-UNATTRIBUTED existed only on the previous manager's branch. It is on main now (2b2508be), so the blocker is cleared at the source. A manager cannot message a running cloud sub-session, so this is a RESPAWN against main, not a nudge. The operator has now answered the one question only they could: they have @ict_cluade_bot open.",
       "note": "Operator answer 2026-09-04, recorded verbatim: the bot they actually have open is @ict_cluade_bot -- the DEDICATED Claude bot, TELEGRAM_CLAUDE_BOT_SECRET. NOTE THE HANDLE IS SPELLED 'cluade', a typo baked into the real handle; MI-109's own question text spells it '@ict_claude_bot' and that string is wrong. This closes question (3) of the five.",
       "confirmed_at": "2026-09-04T07:39:11Z"
+    },
+    {
+      "session_id": "session_012p1DoQBRJYyggX8ELT1WEP",
+      "registry_key": "pending-20260904T074156Z",
+      "state": "working",
+      "title": "MI-107 — the downgrade-to-shadow-and-tune flow: design the EXIT CONDITION first",
+      "owns_object": "WO-20260903-SUNSET-DISPOSITIONS-OWED",
+      "checklist_item": "MI-107",
+      "spawned_at": "2026-09-04T07:41:56Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "why": "Operator decision 2026-09-03, verbatim: 'I don't want to retire anything yet - we need a flow for downgrading to shadow and tuning, not just turning things off out right.' That rejected all four options offered because every one was a point on a retire / do-not-retire axis and the operator rejected the AXIS. Ten sunset candidates stay live and stay candidates. Rides the already-in_flight WO-20260903-SUNSET-DISPOSITIONS-OWED rather than opening a new object, because the WIP ceiling is 8 and 7 are in flight.",
+      "note": "Build the EXIT CONDITION first. A demote with no exit condition is how a leg becomes permanently half-off and unowned -- BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED is that failure already recorded, and a shadowed strategy is worse because it silently consumes evaluation budget while producing no money.",
+      "confirmed_at": "2026-09-04T07:42:31Z"
+    },
+    {
+      "session_id": "session_01Bh89HtTcDzZqhfSCzZ2Lmp",
+      "registry_key": "pending-20260904T074315Z",
+      "state": "working",
+      "title": "MI-106 — manager-scope authorship is self-declared: make a mis-stamp read as unattributed, not as a verdict",
+      "owns_object": "WO-20260904-MANAGER-SCOPE-AUTHORSHIP-SELF-DECLARED",
+      "checklist_item": "MI-106",
+      "spawned_at": "2026-09-04T07:43:15Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "why": "This is what blocks #10895, and #10895 is what makes OI-20260902-PER-MERGE-PING verifiable at all. The 2026-09-03 manager correctly refused all three shortcuts (force, except, rewrite another session's history), so the block is real and only this clears it.",
+      "note": "Three states must not collapse: attributed / unattributed / violation. 'We cannot establish who wrote this' is not the same fact as 'a manager did an item', and today they render identically. --self-test needs a PLANT and a CONTROL.",
+      "confirmed_at": "2026-09-04T07:44:07Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",
