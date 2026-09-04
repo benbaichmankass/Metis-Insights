@@ -89,7 +89,30 @@ decision_requests:
       answered_by: operator
       answered_on: '2026-09-02'
       channel: telegram (ClaudeBot inline prompt), answered in free text to the manager
-      chosen: null
+      chosen: none_of_the_above
+      free_text: >-
+        2026-09-02: "for this, i want us to keep researching better models or better ways
+        to build models". RE-AFFIRMED 2026-09-04 after the operator was asked AGAIN:
+        "I have already answered this question repeatedly. It needs to be logged
+        correctly. We're not using either arm because neither of them have proven that
+        they're production ready. But we still have a... we are not shelving the idea
+        completely. We still need to have a milestone for finding and building and tuning
+        an actual functional LLM that is production ready."
+        ⚠️ NEITHER ARM IS ADOPTED AND THE PATH IS NOT SHELVED — those are the two things
+        the three declared options could not express between them.
+      ⚠️_why_this_was_re_asked: >-
+        ⚠️ THE ANSWER WAS ALWAYS HERE AND THE GRADER COULD NOT SEE IT. This block was
+        written 2026-09-02 with `chosen: null` and no `free_text`, and
+        `work_decisions.normalise_answer()` returns None unless one of those two is a
+        non-empty string — so `grade_answer_state()` graded the request
+        `not_submitted`, the inbox kept listing it, and the sweep kept re-prompting it.
+        The operator answered repeatedly and was re-asked every time. MEASURED
+        2026-09-04 by running the real normaliser over this file, not by inspection.
+        Adding `chosen` + `free_text` is what makes the existing answer READABLE; the
+        prose fields below are kept because they carry the reasoning the schema cannot.
+        This is the SECOND instance of the class in one day — the same defect was found
+        and fixed on DEC-20260903-SUNSET-DISPOSITION-POLICY the same morning — which is
+        why it is now a CI guard (`check_decision_answers.py`) rather than a third fix.
       verdict: ALL_THREE_DECLARED_OPTIONS_REFUSED
       operator_words: >-
         "for this, i want us to keep researching better models or better ways to build
@@ -124,6 +147,24 @@ decision_requests:
         both size arms are measured, and a throughput comparison was never what was
         owed. A session picking this up should design a DIFFERENT experiment, not
         re-run the old one on a 1-core box under the heavy lock.
+      the_MILESTONE_the_operator_asked_for: >-
+        ⚠️ OPERATOR DIRECTIVE 2026-09-04, AND IT IS THE ACTIONABLE HALF OF THIS ANSWER:
+        "We still need to have a milestone for finding and building and tuning an actual
+        functional LLM that is production ready." So this object does NOT close on the
+        refusal — the refusal redirects the work, and a decision that redirects without
+        anything carrying the new direction is how the direction is lost. What is owed is
+        a MILESTONE in ROADMAP.md (the centralized record of every milestone, its status
+        and dates), not another benchmark and not another decision request. Its done
+        condition is a model that is PRODUCTION READY — the operator's words and the bar
+        both arms failed — which on this repo's own rules means measured against a stated
+        task, not asserted. ✅ FILED 2026-09-04 as ROADMAP.md M41 (⚠️ M41, not M40 —
+        M40 was already taken by the research-workflow milestone; the number was checked
+        against the table rather than assumed from M39 being the visible tail). It is
+        filed at 📋 BACKLOG and NOT STARTED, and the row says so in its own status —
+        filing the milestone is not progress on it. It inherits M38's surviving findings
+        rather than rediscovering them: M38 was closed with "we should still build it,
+        just not for the screenshots", and its public-repo and trainer-VM constraints
+        are the expensive part of the work.
 
 evidence:
   - docs/claude/OPEN-ITEMS.json#OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM
