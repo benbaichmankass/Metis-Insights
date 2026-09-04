@@ -347,3 +347,78 @@ def test_extra_fields_can_never_overwrite_a_core_ring_field(tmp_path, monkeypatc
     row = json.loads(ring.read_text().splitlines()[0])
     assert row["kind"] == "close_failure" and row["ts"] != "spoofed"
     assert row["route"] == "digest"
+
+
+# --------------------------------------------------------------------------
+# MI-101: the ledger's ABSENCE must stop being readable as a clean fleet.
+#
+# Measured 2026-09-03: the trader had NEVER written this file, diag answered
+# `present: false`, the fetch step synthesised an empty ledger from that, and
+# twelve consecutive digests reported "none (ledger read, 0 entries) — a real
+# observation, not an absence of one" over a real-money close path. Every one
+# of those words was false and each layer was individually defensible, which is
+# why the assertions below are spread across writer, unwrapper and reader.
+# --------------------------------------------------------------------------
+
+
+def test_sweep_creates_an_empty_but_present_ledger(ledger: Path) -> None:
+    """The WRITER produces it. Nothing else may."""
+    assert not ledger.exists()
+    cw.sweep_vanished(now=T0, path=ledger)
+    assert ledger.exists(), "a sweep with no wedges must still stamp the ledger"
+    raw = json.loads(ledger.read_text())
+    assert raw["wedges"] == {}
+    assert raw["updated_at"] == T0.isoformat()
+
+
+def test_the_ledger_declares_its_own_freshness_budget(ledger: Path) -> None:
+    """A reader must not need a second copy of the cadence to grade staleness."""
+    cw.sweep_vanished(now=T0, path=ledger)
+    raw = json.loads(ledger.read_text())
+    assert raw["heartbeat_interval_s"] == int(cw.heartbeat_minutes() * 60)
+    assert raw["stale_after_intervals"] == cw.STALE_AFTER_INTERVALS
+
+
+def test_heartbeat_is_floored_so_it_is_not_a_per_pass_write(ledger: Path) -> None:
+    cw.sweep_vanished(now=T0, path=ledger)
+    first = ledger.read_text()
+    cw.sweep_vanished(now=T0 + dt.timedelta(minutes=1), path=ledger)
+    assert ledger.read_text() == first, "a sweep inside the floor must not rewrite"
+    cw.sweep_vanished(
+        now=T0 + dt.timedelta(minutes=cw.heartbeat_minutes() + 1), path=ledger,
+    )
+    assert ledger.read_text() != first, "and past the floor it MUST refresh"
+
+
+def test_heartbeat_never_advances_the_observation_clock(ledger: Path) -> None:
+    """Liveness is not observation-continuity, and conflating them invents a
+    disappearance: a sweep that believed it had watched a full window would
+    retire the first wedge it ever sees as `vanished_unattributed`."""
+    for i in range(6):
+        cw.sweep_vanished(now=T0 + dt.timedelta(hours=i), path=ledger)
+    assert json.loads(ledger.read_text())["last_sweep_at"] is None
+
+
+def test_heartbeat_never_overwrites_a_store_it_could_not_parse(ledger: Path) -> None:
+    """Tidying a file we failed to read would destroy standing wedges."""
+    ledger.write_text("{ this is not json")
+    cw.sweep_vanished(now=T0, path=ledger)
+    assert ledger.read_text() == "{ this is not json"
+
+
+def test_a_real_wedge_still_retires_normally_after_the_heartbeat(ledger: Path) -> None:
+    """The POSITIVE CONTROL for the sweep: the heartbeat must not have broken
+    the retirement path it now shares an entry point with."""
+    cw.sweep_vanished(now=T0, path=ledger)              # ledger exists, empty
+    d = cw.observe(_wedge_obs(), now=T0, path=ledger)   # a real wedge lands
+    assert d.transition == "newly_wedged"
+    assert json.loads(ledger.read_text())["wedges"]
+    # Arm the clock, then let the wedge age past the window WITHOUT letting the
+    # sweep's own observation lapse — a gap in OUR watching re-arms instead of
+    # retiring, which is the guard this control must not trip over.
+    window = cw.vanish_after_hours()
+    cw.sweep_vanished(now=T0 + dt.timedelta(hours=1), path=ledger)
+    swept = cw.sweep_vanished(
+        now=T0 + dt.timedelta(hours=window + 0.5), path=ledger,
+    )
+    assert [s.transition for s in swept] == ["vanished_unattributed"]

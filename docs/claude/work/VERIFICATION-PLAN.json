@@ -1,0 +1,86 @@
+{
+  "_doc": "THE EXIT CONDITION FOR THE WORKFLOW OVERHAUL. Operator directive 2026-09-03: 'we need to finish the workflow overhaul before the roadmap review, INCLUDING VERIFYING THE THINGS THAT HAVE SHIPPED.' ⚠️ THAT SHARPENS THE EARLIER SEQUENCING AND MAKES THIS THE CRITICAL PATH: the remaining PR queue is the SMALL half. The big half is 26 rows sitting at `landed_unproven` -- merged, with their effect NEVER OBSERVED on the fleet. `done` means MERGED AND OBSERVED; `landed_unproven` means the code is in and nobody has seen it work. Collapsing those two is the failure this repo has paid for repeatedly, and phase 2 does not start until this list is worked.",
+  "as_of": "2026-09-03T11:56:00Z",
+  "manager_session": "session_01Nopk1HcpvWBSEbZxEmALkd",
+  "population": "26 rows at landed_unproven in docs/claude/work/MANAGER-CHECKLIST.json, measured 2026-09-03T11:48Z over all 97 items. Counted, not estimated.",
+  "why_this_is_not_just_a_checklist_sweep": "Verification is a DIFFERENT KIND OF WORK from building, and some of it CANNOT be done by the session that built the thing. A session that knows about a mechanism cannot be the cold reader that proves the mechanism reaches a session that does not. That is why several of these have sat unproven for days: they were never blocked on effort, they were blocked on nobody being in a position to observe them.",
+  "classes": {
+    "A_COLD_SESSION": {
+      "what_it_needs": "A session NOT pointed at the mechanism by its prompt, observed using it. ⚠️ THE MANAGER CANNOT PRODUCE THIS BY ASKING FOR IT -- asking contaminates the observation, which is exactly what OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION and OI-20260901-CYCLE-PRIORITY-IS-RENDERED both say in their own clears_when. The only honest route is to spawn ordinary work and READ WHAT THE SESSION DID unprompted.",
+      "rows": [
+        "MI-04-PHASE-F",
+        "MI-05-PHASE-D",
+        "MI-06-PHASE-G",
+        "MI-07-PHASE-H-PRECONDITIONS",
+        "MI-66-ENACT-THE-OPERATING-LAYER-INVENTORY",
+        "MI-68-THE-MANAGER-ROLE-HAS-NO-ROLE-PACK"
+      ],
+      "count": 6,
+      "note": "This class also covers the Phases A-D `waiting` lifecycle in the work store -- their code shipped and the cold read is what is missing."
+    },
+    "B_LIVE_FLEET_READ": {
+      "what_it_needs": "A diag read of real runtime behaviour on the live VM. Available to any session with the diag path; bounded and cheap per row. ⚠️ A PASSING TEST IS NOT THIS.",
+      "rows": [
+        "MI-01-PING-FORMAT",
+        "MI-02-CLAUDE-CHANNEL",
+        "MI-16-SEND-PING-CLASSES-REACHABLE",
+        "MI-17-PING-TEST-MATRIX",
+        "MI-80",
+        "MI-83",
+        "MI-09-GLD-CLOSE",
+        "MI-10-PROP-FILLS",
+        "MI-27-REPLAY-PREGATE-NIGHTLY-FAILS",
+        "MI-36-BYBIT-OVER-COVER-NAMES-THE-WRONG-CONDITION",
+        "MI-90"
+      ],
+      "count": 11,
+      "note": "SIX OF THESE ARE ONE SUBSYSTEM -- the ping/comms chain (MI-01, MI-02, MI-16, MI-17, MI-80, MI-83). They should be verified TOGETHER by one session in one pass, not six times. ⚠️ AND ONE IS ALREADY PART-CLEARED: the per-merge ping was CONFIRMED DELIVERED by the operator today (#10917), which is the first real evidence in that whole chain -- start there rather than from zero."
+    },
+    "C_EXERCISED_BY_USE": {
+      "what_it_needs": "The mechanism being USED under real conditions, then read back. Several were exercised TODAY and the evidence already exists -- these are the cheapest and should go first.",
+      "rows": [
+        "MI-20-REGISTER-PRS-SERIALIZE-BADLY",
+        "MI-35-BATCH-RESOLVE-THEN-BATCH-MERGE-CANNOT-CONVERGE",
+        "MI-79",
+        "MI-94",
+        "MI-89",
+        "MI-93",
+        "MI-98",
+        "MI-100",
+        "MI-70"
+      ],
+      "count": 9,
+      "note": "⚠️ TODAY'S QUEUE JAM WAS THE EXERCISE for MI-20 / MI-35 / MI-94: 26 merges to main, 19 (73%) touching a shared register, #10918 conflicted three times, the merge driver armed in ZERO clones, and the driver proven CLIENT-SIDE ONLY -- it removes the hand-resolution and never the GitHub-side dirty state. That is real evidence and it is already measured; these rows can be closed or sharpened on it TODAY. ⚠️ MI-98 IS THE OPPOSITE CASE and must NOT be closed: measured 11:25Z, its fix is FORWARD-LOOKING ONLY and the 12 already-open automation PRs still fail R11. ⚠️ MI-70 needs a DELIBERATE ACT -- killing a session mid-work -- and nobody has done it."
+    }
+  },
+  "order": [
+    "1. CLASS C FIRST, and specifically the rows today already exercised (MI-20, MI-35, MI-94, MI-89, MI-93, MI-100). The evidence exists; this is reading and recording, not new work, and it is the fastest reduction of the 26.",
+    "2. THE PING CHAIN as ONE unit (MI-01, MI-02, MI-16, MI-17, MI-80, MI-83) -- six rows, one subsystem, one session, one pass. Start from the per-merge ping the operator confirmed today rather than from zero.",
+    "3. THE REMAINING CLASS B LIVE READS (MI-09, MI-10, MI-27, MI-36, MI-90) -- independent, bounded, parallelisable.",
+    "4. MI-70 -- the deliberate session kill. Its own row says prove it by ACTUALLY killing a session mid-work; a simulation is not the proof.",
+    "5. CLASS A COLD-SESSION LAST, because it is the one class the manager cannot manufacture. It clears as a SIDE EFFECT of ordinary work being spawned, so it should ride whatever comes next rather than blocking the gate."
+  ],
+  "the_honest_risk": "⚠️ CLASS A MAY NOT CLEAR BEFORE THE ROADMAP REVIEW, AND PRETENDING OTHERWISE WOULD BE THE FAILURE THIS WHOLE PLAN EXISTS TO PREVENT. Six rows need an UNCONTAMINATED cold observation, and the manager cannot produce one on demand without destroying it. If the operator wants phase 2 to start, the honest options are: (a) accept Class A as explicitly OUTSTANDING with a named carrier, or (b) hold phase 2 until ordinary work happens to clear them. What must NOT happen is Class A being marked verified because a session was told to go look -- that is the contaminated observation those rows' own clears_when text forbids by name.",
+  "what_done_means": "A row leaves `landed_unproven` ONLY on an OBSERVATION of the mechanism working on the fleet, recorded in the row. Not a passing test. Not a merged diff. Not 'the code is obviously correct'. And a row whose verification FAILS is a better outcome than one quietly marked done -- MI-98 is today's example: verifying it found the fix is forward-only, which is a finding worth more than the merge.",
+  "operator_directive_on_untestable_items": {
+    "stated": "2026-09-03T11:51Z",
+    "verbatim": "if there are items for which we can't manufacture a reliable test, then we need to log them to be monitored so that once they get triggered in real life, we can observe and verify or fix",
+    "resolution": "This RESOLVES the Class A blocker and it does NOT require new machinery -- the mechanism already exists and is populated. docs/claude/OPEN-ITEMS.json holds 51 rows, 34 of them `kind: monitoring`, and every one of the six Class A subjects already has a plausible monitoring row. So Class A stops gating phase 2: those rows are CARRIED, and they clear when the condition triggers in real life, which is exactly what the operator asked for.",
+    "but_the_measurement_found_a_different_gap": "⚠️ 25 OF THE 26 landed_unproven ROWS NAME NO CARRIER -- 3% linkage. The monitoring register knows what it watches (11 of 51 OI rows name an MI row); the WORK register does not know it is being watched. So a manager reading the checklist cannot tell a CARRIED row from an ORPHANED one -- opposite facts rendering identically, in the register built to prevent that. Filed as BL-20260903-LANDED-UNPROVEN-ROWS-NAME-NO-CARRIER-SO-MONITORED-AND-FORGOTTEN-LOOK-IDENTICAL. THE FIX IS A CHECK, not a one-off linking pass: `monitored_by` naming the OI row, or an explicit null WITH a reason, enforced -- because a manual pass restores the same gap on the next row that lands. ⚠️ AND A CARRIER MUST NOT BE INVENTED TO FILL THE FIELD: pointing a row at a monitoring row that does not cover it converts 'nobody is watching' into a false claim that someone is, which is worse than the honest null.",
+    "what_this_changes_about_the_gate": "Phase 2 is no longer blocked on Class A being OBSERVED. It is blocked on Class A being CARRIED AND SAID TO BE -- i.e. each of the six naming its carrier, so the claim is checkable rather than asserted. That is achievable today; an uncontaminated cold observation is not."
+  },
+  "operator_correction_monitoring_is_the_EXCEPTION": {
+    "stated": "2026-09-03T11:55Z",
+    "verbatim": "but only if we really can't verify beforehand, what can be verified should be",
+    "why_it_matters": "⚠️ THIS IS A GUARD AGAINST THE PLAN'S OWN FAILURE MODE, AND IT CAUGHT ME. 'Log it as monitored' is an escape hatch that, applied loosely, turns the monitoring register into a PARKING LOT -- every unproven row gets a carrier, nothing gets verified, and the 26 becomes 26 rows nobody will ever look at again. The register already carries 34 monitoring rows; adding six more without testing whether they were genuinely unverifiable would be exactly that.",
+    "the_binding_test": "THE DEFAULT IS VERIFY. Monitoring requires a JUSTIFICATION, not the other way round. The test for each row: CAN WE CAUSE THIS TO BE OBSERVED BY DOING SOMETHING? If yes -- even if it is slow, awkward, or needs an operator action -- it gets VERIFIED. Monitoring is only for a row whose observation we cannot bring about at all, which in practice means ONE thing: an observation that ASKING FOR DESTROYS.",
+    "applying_it_shrinks_class_A_from_6_to_2": "⚠️ RE-GRADED HONESTLY UNDER THE STRICT TEST, AND MY ORIGINAL CLASS A WAS TOO GENEROUS -- four of the six ARE verifiable and were misfiled:\n  • MI-04 (Phase F, decision packet) -> VERIFIABLE. Its clears_when wants a SCHEDULED run whose index carries a real floor_state instead of `unknown`. That is a live read of a cron run history plus the committed artifact. Nothing about it needs a cold session. MOVED TO CLASS B.\n  • MI-06 (Phase G, the forcing function) -> VERIFIABLE. It clears when something is actually RETIRED, and there are 10 sunset candidates sitting undispositioned. Retiring a leg is Tier-3 so it needs an operator decision -- but 'needs an operator decision' is not 'cannot be verified'. MOVED TO CLASS D (needs an operator action).\n  • MI-07 (Phase H, decision round-trip) -> VERIFIABLE, and this is the clearest misfiling. It clears when ONE decision completes the round trip end to end. We can CAUSE that: there is a real question already sitting in the queue (DEC-20260901-READ-GATE-SEQUENCING), and the operator answering it through the channel IS the observation. MOVED TO CLASS D.\n  • MI-05 (Phase D, constraint readout) -> PARTLY VERIFIABLE. Its cron half is a live read (Class B). Its 'a session acted on the refusal by writing a TRUE blocked_on edge' half is genuinely cold. SPLIT.\nWHAT GENUINELY REMAINS IN CLASS A: **MI-66 and MI-68** (the role packs and the manager preflight) and MI-05's second half. Their shared property is precise: the claim is 'a session that was NOT TOLD found and used this', and telling a session to go and check it destroys the very thing being claimed. That is the only honest reason to monitor rather than verify, and it applies to two rows, not six.",
+    "new_class_D": "NEEDS AN OPERATOR ACTION, WHICH IS NOT THE SAME AS UNVERIFIABLE. MI-06 (disposition a sunset candidate -- Tier-3) and MI-07 (answer the queued decision through the Telegram channel). Both are verifiable TODAY if the operator does one small thing, and both should be PUT TO THE OPERATOR rather than parked in monitoring. Parking a row because it needs a human is how a decision queue becomes invisible -- which is the defect MI-99 exists to fix.",
+    "revised_counts": {
+      "A_genuinely_unverifiable": 2,
+      "B_live_fleet_read": 13,
+      "C_exercised_by_use": 9,
+      "D_needs_operator_action": 2
+    }
+  }
+}

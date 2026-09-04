@@ -235,6 +235,33 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # ID UNIQUENESS + IDENTITY across the shared registers — the half of
+        # the register-collision problem `merge_json_register.py` CANNOT do.
+        # That driver resolves the TEXTUAL collision (and only client-side);
+        # this catches the SEMANTIC one, where a branch files new work under an
+        # id `main` has already given to something else. To git that is one
+        # changed value at one key, so the merge deletes the existing row and
+        # reports success. It happened on 2026-09-03 (MI-86) and was caught by
+        # a human reading a three-way diff, which is not a mechanism.
+        #
+        # `when: None` — every diff, for the same reason as open-items-guard
+        # above: the registers are written by many concurrent sessions, and the
+        # colliding write is by definition made by someone who did not know the
+        # id was taken. A guard that only fires when someone happens to touch a
+        # register would be checking the one case that needs no checking.
+        #
+        # ⚠️ `--base` is what makes R2/R3 diff-scoped. WITHOUT it the script
+        # runs R1 only and SAYS SO in its report rather than printing a clean
+        # verdict it did not earn.
+        "name": "register-id-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_register_ids.py", "--self-test"],
+            ["python3", "scripts/ci/check_register_ids.py",
+             "--base", "origin/{base_ref}"],
+        ],
+    },
+    {
         # A5 — the WIP ceiling of 8 work objects IN FLIGHT (operating-layer
         # Phase C). ⚠️ THIS IS A DIFFERENT POPULATION FROM open-items-guard
         # ABOVE, and the distinction is load-bearing: the REGISTER is uncapped
@@ -1565,6 +1592,50 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_pr_landing.py", "--self-test"],
             {
                 "argv": ["python3", "scripts/ci/check_pr_landing.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
+        ],
+    },
+    {
+        # THE MANAGER SESSION ONLY MANAGES — as a check, not a paragraph.
+        # `CLAUDE.md` has carried the operator's rule verbatim since
+        # 2026-09-01; the 2026-09-03 day manager read it at session start and
+        # was caught doing items the same morning. Adding emphasis to a rule
+        # that was read and disobeyed is the non-fix this repo has paid for
+        # three times (MI-15 twice, and
+        # BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY-AND-STATUS-REPORTS-IT-AS-CURRENT).
+        # So: a manager COMMIT touching a worker path fails, named.
+        #
+        # WHO IS THE MANAGER IS DERIVED, NOT DECLARED — from the git history of
+        # MANAGER-LEASE.json (3 sessions across 59 revisions) joined to each
+        # commit's `Claude-Session:` trailer. Branch name was measured and
+        # REJECTED: `claude/risk-manager-backstop` is a worker branch and
+        # `claude/openprs-prune-merged-rows` is a manager one.
+        #
+        # ⚠️ PER-COMMIT, NOT PER-BRANCH-DIFF, and that is the whole point. The
+        # accused acts — resolving conflicts on OTHER sessions' PRs — never
+        # appear in the manager's own PR. A branch-diff check would be blind to
+        # exactly the failure it exists for.
+        #
+        # NOT A WALL — measured before wiring. Replayed over commits on
+        # origin/main since 2026-09-01: the 2026-09-02 manager grades 75 clean
+        # / 31 failing; the night manager 2 / 0; the 2026-09-03 manager
+        # (the one the directive is about) 5 / 0. It bites where the building
+        # actually happened.
+        #
+        # `when: None` for check_pr_landing's reason: what trips this is a
+        # COMMIT, which may touch no file the predicate would match. Costs a few
+        # `git` plumbing calls over the branch's own commits only.
+        "name": "manager-scope-guard",
+        "when": None,
+        "steps": [
+            # Self-test FIRST, with plants AND controls: this guard REFUSES
+            # work, so one that started failing correct PRs would be worse than
+            # the problem it fixes.
+            ["python3", "scripts/ci/check_manager_scope.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_manager_scope.py",
                          "--base", "origin/{base_ref}"],
                 "pr_only": True,
             },

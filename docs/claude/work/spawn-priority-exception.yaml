@@ -14,6 +14,7 @@ approved_at: 2026-09-03
 
 covers:
   - WO-20260903-AVAX-VENUE-MAX-OWN-THE-ORDER-PATH
+  - WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -72,3 +73,37 @@ sequencing_conflict:
   manager_recommendation: stand it down and free the slot for workflow build
   operator_decision: let it finish — disposition, not development
   decided_at: 2026-09-03
+
+
+# ---------------------------------------------------------------------------
+# SECOND COVERED OBJECT, added 2026-09-03T11:45Z
+# ---------------------------------------------------------------------------
+close_wedge_ledger_exception:
+  covers: WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT
+  approved_by: operator (ben.baichmankass) — in conversation, via decision pop-up
+  approved_at: 2026-09-03
+  asked_as: >-
+    The manager put it to the operator directly with three options (spawn MI-101 now /
+    spend the slot on the cold-session verification for Phases A-D instead / leave the
+    slot empty). The operator chose "Spawn MI-101 now".
+  reason: >-
+    It is a LIVE-SYSTEM observability hole on a REAL-MONEY close path, and the
+    operator has separately and explicitly carved live-system work out of the
+    build -> roadmap -> work sequencing they set this morning. So this is not the
+    cycle priority being overridden by a session's judgement; it is the category
+    the operator already excluded from the sequencing, now confirmed case by case.
+    MEASURED, not asserted: /api/diag/log_file?name=close_wedge_standing returns
+    present:false at the canonical path, AND the work digest reads a repo-relative
+    path for it, so a broker_cancel_wedged close failure is currently carried by
+    NEITHER the pager nor the digest.
+  why_it_displaces_rather_than_waits: >-
+    The exposure accrues silently. Every hour it stays unfixed is an hour in which a
+    close failure on a real-money account could occur and be recorded nowhere a human
+    reads. That is exactly the shape of harm that does not announce itself and so
+    cannot be picked up later by noticing it -- unlike the workflow-build items, which
+    are visible in the queue and lose nothing by waiting an hour.
+  scope_limit: >-
+    ⚠️ This exception covers ONE object. It is NOT a standing permission for trading
+    or Ops work generally, and it does NOT displace the operator's sequencing for
+    anything else. A blanket exception naming nothing is a permanent cap-raise wearing
+    an exception's clothes -- which is the gate's own wording, and it is right.

@@ -40,12 +40,139 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-02T21:21:00Z",
+  "as_of": "2026-09-04T08:09:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
     {
+      "pr": 10957,
+      "opened_at": "2026-09-03T21:19:44Z",
+      "title": "chore(ops): PR-queue watcher receipt (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION. ⚠️ POSSIBLY MORE THAN ROUTINE, AND NOT VERIFIED HERE: it is the dated liveness receipt from .github/workflows/pr-queue-watch.yml, whose OPEN-ITEMS row OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED is waiting on exactly this artifact. ⚠️ THAT ROW CLEARS ONLY ON A RUN WHOSE EVENT IS `schedule`, NEVER ON THE FILE EXISTING — a workflow_dispatch run writes a byte-identical receipt and clears the WORKFLOW half only. The day manager did NOT read the run's event and is not claiming it fired on cron. Read the run history and the receipt's `generated_at`; do not clear the row on this row."
+    },
+    {
+      "pr": 10927,
+      "opened_at": "2026-09-03T11:13:24Z",
+      "title": "chore(ops): session-reaper observations (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION, generated artifact only. Not individually examined by the day manager — this row records that it is OPEN and UNTRIAGED, never that it was reviewed."
+    },
+    {
+      "pr": 10925,
+      "opened_at": "2026-09-03T10:09:38Z",
+      "title": "chore(ops): session-reaper observations (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION, generated artifact only. Not individually examined by the day manager — this row records that it is OPEN and UNTRIAGED, never that it was reviewed."
+    },
+    {
+      "pr": 10922,
+      "opened_at": "2026-09-03T10:06:33Z",
+      "title": "chore(ops): refresh the due-list (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION, generated artifact only. Not individually examined by the day manager — this row records that it is OPEN and UNTRIAGED, never that it was reviewed."
+    },
+    {
+      "pr": 10921,
+      "opened_at": "2026-09-03T09:57:27Z",
+      "title": "chore(ops): refresh probe results (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION, generated artifact only. Not individually examined by the day manager — this row records that it is OPEN and UNTRIAGED, never that it was reviewed."
+    },
+    {
+      "pr": 10919,
+      "opened_at": "2026-09-03T09:10:24Z",
+      "title": "chore(m7): strategy review packets (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION, generated artifact only. Not individually examined by the day manager — this row records that it is OPEN and UNTRIAGED, never that it was reviewed."
+    },
+    {
+      "pr": 10895,
+      "opened_at": "2026-09-03T06:13:40Z",
+      "title": "merge-ping: log the success path (MI-83 follow-up)",
+      "owner_session": "session_018ruZdgEkPZ1XceWzLwuYUU",
+      "checklist_item": "MI-83",
+      "draft": false,
+      "tier": "1",
+      "state": "blocked_on_MI-106",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 — one log line, two tests, one register correction."
+      },
+      "blocker": "⚠️ BLOCKED BY MI-106, AND MUST NOT BE FORCED. check_manager_scope grades commit 5504200c a VIOLATION because it touches scripts/notify_on_pull.py under a `Claude-Session:` trailer naming session_011JWFxuYAaEQKCFCmG6gnHJ — the PREVIOUS DAY'S MANAGER. The evidence says the TRAILER is wrong, not the commit: the body is in the MI-83 worker's voice about MI-83's own PR. That is a READING, not a proven fact. ⚠️ DO NOT resolve it with a manager-scope-exception (this is not a live incident), by rewriting history, or by merging past the guard — MI-106 is the fix, and the guard being wrong in this direction is the same defect that makes it evadable in the other."
+    },
+    {
       "pr": 10398,
+      "opened_at": "2026-08-29T03:49:57Z",
       "title": "chore(m1): economic-calendar PIT snapshots (auto)",
       "owner_session": null,
       "checklist_item": "MI-12",
@@ -62,19 +189,22 @@
       "blocker": "Open since 2026-08-29, automation-generated, no owning session. Held under MI-12; do not merge without establishing what it does."
     },
     {
-      "pr": 10780,
-      "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
-      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
-      "checklist_item": "MI-56",
-      "draft": true,
-      "tier": "2/3 (order path) — UNREVIEWED",
-      "state": "preserved_do_not_merge",
+      "pr": 10975,
+      "opened_at": "2026-09-04T07:59:56Z",
+      "title": "fix(decisions): record WHERE a decision prompt went, and keep the sweep's stats (MI-109)",
+      "owner_session": "session_01MookmZshi5ikDNqjAUiifA",
+      "checklist_item": "MI-109",
+      "draft": false,
+      "tier": "1",
+      "state": "open_in_flight",
       "operator_decision": {
-        "verdict": "pending",
-        "decided_on": "2026-09-02",
-        "text": "No operator statement exists. ⚠️ THE ROW MATTERS MORE THAN THE PR: this branch preserves ~320 lines of UNREVIEWED order-path work (execute.py, qty_legalize.py, precision.py) recovered from a DEAD session's uncommitted working tree. It must NOT be merged on green CI — its existing venue-max tests monkeypatch _resolve_venue_lot_rule to return vmax=22_000, so they exercise the CLAMP and never the RESOLUTION, i.e. they pass for the wrong reason, which is how the AVAX leg reached a third recurrence. A successor reading 'draft, CI green' without this row could land unreviewed order-path code on a real-money client."
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "Tier-1: observability + a durable read surface, no order path. ⚠️ ARMING the fix needs an ict-telegram-bot.service restart, which IS Tier-2 and is NOT covered by this row -- it must be asked separately when the PR is ready."
       },
-      "blocker": "Needs a live session to take ownership and verify the resolution path against a real venue read, then re-open as a normal Tier-gated PR. Until then this branch is a BACKUP, not a proposal."
+      "blocker": "⚠️ ZERO CHECK RUNS as of 2026-09-04T08:09Z -- opened through the pr-opener relay, so no pull_request workflows fired and its own session reports 'awaiting CI', i.e. waiting on checks that will never arrive. Needs one ordinary commit to arm CI. The manager will arm it if the session does not."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -623,8 +753,234 @@
       "merge_sha": "8d64afe3edda2280c4ac2441d9d52e4e14c19448",
       "observed_at": "2026-09-03T06:31:46Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10780,
+      "title": "[RECOVERED — DO NOT MERGE] MI-56 AVAX venue-max work orphaned by a dead session",
+      "owner_session": "session_011JWFxuYAaEQKCFCmG6gnHJ",
+      "checklist_item": "MI-56",
+      "draft": true,
+      "tier": "2/3 (order path) — UNREVIEWED",
+      "state": "preserved_do_not_merge",
+      "operator_decision": {
+        "verdict": "pending",
+        "decided_on": "2026-09-02",
+        "text": "No operator statement exists. ⚠️ THE ROW MATTERS MORE THAN THE PR: this branch preserves ~320 lines of UNREVIEWED order-path work (execute.py, qty_legalize.py, precision.py) recovered from a DEAD session's uncommitted working tree. It must NOT be merged on green CI — its existing venue-max tests monkeypatch _resolve_venue_lot_rule to return vmax=22_000, so they exercise the CLAMP and never the RESOLUTION, i.e. they pass for the wrong reason, which is how the AVAX leg reached a third recurrence. A successor reading 'draft, CI green' without this row could land unreviewed order-path code on a real-money client."
+      },
+      "blocker": "Needs a live session to take ownership and verify the resolution path against a real venue read, then re-open as a normal Tier-gated PR. Until then this branch is a BACKUP, not a proposal.",
+      "terminal": "closed_unmerged",
+      "closed_at": "2026-09-03T06:46:40Z",
+      "disposition": "superseded",
+      "disposition_basis": "ESTABLISHED FROM PRIMARY SOURCES 2026-09-03T13:5xZ, NOT INFERRED, and NOT INVENTED to satisfy a guard. THREE independent readings agree: (1) the PR's own TITLE is '[RECOVERED — DO NOT MERGE]' and its body calls itself 'a preservation commit, not a proposal' — it was a backup of ~320 lines that existed only as uncommitted working-tree changes in a dead session's container, and its Test plan reads 'Not run. Deliberately. Running CI on this would invite reading green as approval.' It was never intended to merge. (2) Its own Disposition section asked for 'a live session to take ownership ... and re-open as a normal Tier-gated PR'. (3) That happened: MI-90 records the work re-opened as #10900 and MERGED on the operator's Tier-2/3 OK, after the recovered diff was read adversarially — 6 recovered tests fail on main and pass on the branch, and the ceiling was confirmed as the venue's own (Bybit named max_qty 22000, bracketed by an accepted fill at 21657.1 and a rejection at 22995.1). So the content LANDED by another route and the backup was closed. ⚠️ WHY THIS ROW MATTERED FAR BEYOND ITSELF: its missing `disposition` was the single fact jamming `open_pr_record.py --strict`, which is what fails every `reconcile-open-prs` automation PR — 7 open as of 13:45Z, with a new one generated on EVERY merge to main. Measured directly by running the failing guard against #10938's own OPEN-PRS.json: one finding, this row. See MI-103. ⚠️ AND THE GUARD WAS RIGHT TO REFUSE. 'superseded', 'the operator refused it' and 'the author gave up' are opposite next actions, and only the first is true here — reading it as either of the others would have sent someone to re-litigate a Tier-3 order-path change the operator already approved.",
+      "settled_at": "2026-09-03T06:46:40Z"
+    },
+    {
+      "pr": 10944,
+      "opened_at": "2026-09-03T15:59:41Z",
+      "title": "MI-101: make the close-wedge ledger's ABSENCE unreadable as a clean fleet",
+      "owner_session": "session_01PYkDGej394sSF3zWBpy16j",
+      "checklist_item": "MI-101",
+      "draft": false,
+      "tier": "2",
+      "state": "awaiting_operator_tier2_approval",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": null,
+        "decided_on": "2026-09-03",
+        "text": "Operator approved in-conversation at the day manager's wind-down, 2026-09-03, verbatim: 'ok, approved'. UNCONDITIONAL — no account scoping, no staging, no soak was asked for, and none is recorded here. ⚠️ RECORDING `approved` RATHER THAN `approved_with_conditions` IS A POSITIVE CLAIM THAT NO CONDITION WAS GIVEN, not the absence of one being written down: a row asserting a verdict whose condition was dropped is worse than a missing row, because it reads as complete. The operator had been shown, in the checklist item and in this record, that the digest will report NOT EXAMINED until the trader restarts — that is a stated CONSEQUENCE of the change, not a condition on it."
+      },
+      "blocker": "⚠️ NEEDS THE OPERATOR'S ONE TIER-2 OK. It makes src/runtime/close_wedge_standing.py's monitor sweep WRITE where it previously returned early. ⚠️ AND IT HAS A VISIBLE OPERATOR-CHANNEL CONSEQUENCE THE SUCCESSOR MUST NOT BE SURPRISED BY: until the trader restarts with the heartbeat, the work digest will report NOT EXAMINED instead of today's false clean bill. That is the honest state of a ledger nothing writes, it is strictly more informative, and it self-resolves on the next deploy — it is NOT a regression to roll back. Opened ready, not draft; the declaration holds it, not the draft flag.",
+      "terminal": "merged",
+      "merge_sha": "717f00eb75df7f9f5cc810f9b60db67f46f4c0b9",
+      "settled_at": "2026-09-03T23:00:06Z",
+      "settled_by": "session_01Nopk1HcpvWBSEbZxEmALkd (reconciler also stamped it: reconciler)",
+      "disposition": "Merged squash 717f00eb on the operator's Tier-2 approval.",
+      "disposition_basis": "⚠️ MERGED IS NOT PROVEN AND THIS ROW MUST NOT BE READ AS A DONE-CONDITION. The close-wedge ledger has NEVER been observed present on the fleet; everything verified so far is a harness. What the merge owes, and what a green CI is NOT: (1) after the trader restarts, /api/diag/log_file?name=close_wedge_standing reads present:true with a fresh updated_at; (2) a work-digest run NAMES /data/bot-data/... in its own output. Carried on MI-101 as landed_unproven.",
+      "observed_at": "2026-09-03T22:59:47Z"
+    },
+    {
+      "pr": 10961,
+      "opened_at": "2026-09-03T23:03:36Z",
+      "title": "wind-down (final): settle #10944, record why MI-109 blocked, refute my own MI-112 theory",
+      "owner_session": "session_01Nopk1HcpvWBSEbZxEmALkd",
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "self_landing",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None required — Tier-1, manager registers only."
+      },
+      "blocker": "The day manager's own last register update. Declared `self` and armed; lands on green.",
+      "terminal": "merged",
+      "merge_sha": "18c8ba249e94fc9619f8cce959e33d75dae79e83",
+      "observed_at": "2026-09-03T23:19:26Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10926,
+      "opened_at": "2026-09-03T10:09:48Z",
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION, work-digest. ⚠️ DO NOT CLOSE WITHOUT READING ITS docs/claude/pending-pings.jsonl DIFF FIRST — a work-digest PR carries QUEUED PINGS, and closing it unmerged DROPS them. #10398 is the named exception (a different generator, held under MI-12). Not individually examined by the day manager: this row records that it is OPEN and UNTRIAGED, never that it is safe to close.",
+      "terminal": "closed_unmerged",
+      "settled_at": "2026-09-04T08:05:00Z",
+      "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "reason": "SUPERSEDED, and the queued ping was RESCUED FIRST rather than dropped. This PR carried one docs/claude/pending-pings.jsonl row absent from main (2026-09-03T10:09:39.406186+00:00 work_digest); that row is now ON MAIN, preserved by value in #10974 (merged c17b4e7c) and verified by reading origin/main:docs/claude/pending-pings.jsonl AFTER the merge -- the timestamp appears exactly once, 74 -> 79 rows, +5/-0. Merging instead would have REWOUND docs/claude/work/WORK-DIGEST.json from main's 2026-09-04T06:34:02Z receipt to a 2026-09-03 one, so close-after-rescue is the disposition and merge is not. ⚠️ THE FIRST MEASUREMENT OF THIS PR SAID IT CARRIED NO PING AND WAS WRONG: the manager container clones SHALLOW (50 commits), so the three-dot diff returned empty -- a failed read rendering as a clean negative, the exact failure the ping rule exists to prevent. Re-measured unshallowed, PER PR rather than by class. Root cause it could never have merged cleanly: MI-113.",
+      "disposition": "superseded — its one queued pending-pings row was RESCUED to main by value in #10974 BEFORE this PR was closed, and verified present on origin/main afterwards; the rest of its diff would have rewound a newer receipt or was its own relay bookkeeping"
+    },
+    {
+      "pr": 10914,
+      "opened_at": "2026-09-03T08:24:19Z",
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION, work-digest. ⚠️ DO NOT CLOSE WITHOUT READING ITS docs/claude/pending-pings.jsonl DIFF FIRST — a work-digest PR carries QUEUED PINGS, and closing it unmerged DROPS them. #10398 is the named exception (a different generator, held under MI-12). Not individually examined by the day manager: this row records that it is OPEN and UNTRIAGED, never that it is safe to close.",
+      "terminal": "closed_unmerged",
+      "settled_at": "2026-09-04T08:05:00Z",
+      "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "reason": "SUPERSEDED, and the queued ping was RESCUED FIRST rather than dropped. This PR carried one docs/claude/pending-pings.jsonl row absent from main (2026-09-03T08:24:11.881433+00:00 work_digest); that row is now ON MAIN, preserved by value in #10974 (merged c17b4e7c) and verified by reading origin/main:docs/claude/pending-pings.jsonl AFTER the merge -- the timestamp appears exactly once, 74 -> 79 rows, +5/-0. Merging instead would have REWOUND docs/claude/work/WORK-DIGEST.json from main's 2026-09-04T06:34:02Z receipt to a 2026-09-03 one, so close-after-rescue is the disposition and merge is not. ⚠️ THE FIRST MEASUREMENT OF THIS PR SAID IT CARRIED NO PING AND WAS WRONG: the manager container clones SHALLOW (50 commits), so the three-dot diff returned empty -- a failed read rendering as a clean negative, the exact failure the ping rule exists to prevent. Re-measured unshallowed, PER PR rather than by class. Root cause it could never have merged cleanly: MI-113.",
+      "disposition": "superseded — its one queued pending-pings row was RESCUED to main by value in #10974 BEFORE this PR was closed, and verified present on origin/main afterwards; the rest of its diff would have rewound a newer receipt or was its own relay bookkeeping"
+    },
+    {
+      "pr": 10908,
+      "opened_at": "2026-09-03T07:43:36Z",
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION, work-digest. ⚠️ DO NOT CLOSE WITHOUT READING ITS docs/claude/pending-pings.jsonl DIFF FIRST — a work-digest PR carries QUEUED PINGS, and closing it unmerged DROPS them. #10398 is the named exception (a different generator, held under MI-12). Not individually examined by the day manager: this row records that it is OPEN and UNTRIAGED, never that it is safe to close.",
+      "terminal": "closed_unmerged",
+      "settled_at": "2026-09-04T08:05:00Z",
+      "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "reason": "SUPERSEDED, and the queued ping was RESCUED FIRST rather than dropped. This PR carried one docs/claude/pending-pings.jsonl row absent from main (2026-09-03T07:43:29.982554+00:00 work_digest); that row is now ON MAIN, preserved by value in #10974 (merged c17b4e7c) and verified by reading origin/main:docs/claude/pending-pings.jsonl AFTER the merge -- the timestamp appears exactly once, 74 -> 79 rows, +5/-0. Merging instead would have REWOUND docs/claude/work/WORK-DIGEST.json from main's 2026-09-04T06:34:02Z receipt to a 2026-09-03 one, so close-after-rescue is the disposition and merge is not. ⚠️ THE FIRST MEASUREMENT OF THIS PR SAID IT CARRIED NO PING AND WAS WRONG: the manager container clones SHALLOW (50 commits), so the three-dot diff returned empty -- a failed read rendering as a clean negative, the exact failure the ping rule exists to prevent. Re-measured unshallowed, PER PR rather than by class. Root cause it could never have merged cleanly: MI-113.",
+      "disposition": "superseded — its one queued pending-pings row was RESCUED to main by value in #10974 BEFORE this PR was closed, and verified present on origin/main afterwards; the rest of its diff would have rewound a newer receipt or was its own relay bookkeeping"
+    },
+    {
+      "pr": 10902,
+      "opened_at": "2026-09-03T07:03:19Z",
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION, work-digest. ⚠️ DO NOT CLOSE WITHOUT READING ITS docs/claude/pending-pings.jsonl DIFF FIRST — a work-digest PR carries QUEUED PINGS, and closing it unmerged DROPS them. #10398 is the named exception (a different generator, held under MI-12). Not individually examined by the day manager: this row records that it is OPEN and UNTRIAGED, never that it is safe to close.",
+      "terminal": "closed_unmerged",
+      "settled_at": "2026-09-04T08:05:00Z",
+      "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "reason": "SUPERSEDED, and the queued ping was RESCUED FIRST rather than dropped. This PR carried one docs/claude/pending-pings.jsonl row absent from main (2026-09-03T07:03:13.149536+00:00 work_digest); that row is now ON MAIN, preserved by value in #10974 (merged c17b4e7c) and verified by reading origin/main:docs/claude/pending-pings.jsonl AFTER the merge -- the timestamp appears exactly once, 74 -> 79 rows, +5/-0. Merging instead would have REWOUND docs/claude/work/WORK-DIGEST.json from main's 2026-09-04T06:34:02Z receipt to a 2026-09-03 one, so close-after-rescue is the disposition and merge is not. ⚠️ THE FIRST MEASUREMENT OF THIS PR SAID IT CARRIED NO PING AND WAS WRONG: the manager container clones SHALLOW (50 commits), so the three-dot diff returned empty -- a failed read rendering as a clean negative, the exact failure the ping rule exists to prevent. Re-measured unshallowed, PER PR rather than by class. Root cause it could never have merged cleanly: MI-113.",
+      "disposition": "superseded — its one queued pending-pings row was RESCUED to main by value in #10974 BEFORE this PR was closed, and verified present on origin/main afterwards; the rest of its diff would have rewound a newer receipt or was its own relay bookkeeping"
+    },
+    {
+      "pr": 10888,
+      "opened_at": "2026-09-03T04:45:32Z",
+      "title": "queue the night-shift summary to the Telegram bot",
+      "owner_session": "session_01AYPxs3aDHwv3XBLRF4oK15",
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_by_day_manager",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "One appended row in docs/claude/pending-pings.jsonl. ⚠️ SAME PING-DROP HAZARD AS THE work-digest PRs: closing it unmerged discards the queued ping. Read the diff before deciding. Not examined by the day manager beyond its diff shape.",
+      "terminal": "closed_unmerged",
+      "settled_at": "2026-09-04T08:05:00Z",
+      "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "reason": "SUPERSEDED, and the queued ping was RESCUED FIRST rather than dropped. This PR carried one docs/claude/pending-pings.jsonl row absent from main (2026-09-03T04:44:40.131943+00:00 night_shift_summary); that row is now ON MAIN, preserved by value in #10974 (merged c17b4e7c) and verified by reading origin/main:docs/claude/pending-pings.jsonl AFTER the merge -- the timestamp appears exactly once, 74 -> 79 rows, +5/-0. The three relay-bookkeeping files it also carried (.github/pr-landing + automation/pr-requests + automation/pr-results) are records of this PR's own opening and have no value once it is closed; that is stated rather than glossed. ⚠️ THE FIRST MEASUREMENT OF THIS PR SAID IT CARRIED NO PING AND WAS WRONG: the manager container clones SHALLOW (50 commits), so the three-dot diff returned empty -- a failed read rendering as a clean negative, the exact failure the ping rule exists to prevent. Re-measured unshallowed, PER PR rather than by class. Root cause it could never have merged cleanly: MI-113.",
+      "disposition": "superseded — its one queued pending-pings row was RESCUED to main by value in #10974 BEFORE this PR was closed, and verified present on origin/main afterwards; the rest of its diff would have rewound a newer receipt or was its own relay bookkeeping"
+    },
+    {
+      "pr": 10877,
+      "opened_at": "2026-09-02T22:14:18Z",
+      "title": "daily brief for the operator's morning",
+      "owner_session": "session_01AYPxs3aDHwv3XBLRF4oK15",
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_by_day_manager_probably_superseded",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "A generated brief under comms/briefs/, rendered 2026-09-02T22:07Z covering 21:40Z→22:07Z — its own body calls it a floor, not the deliverable. ⚠️ `probably_superseded` IS A HYPOTHESIS, NOT A DISPOSITION: the day manager did not open the diff. Establish it before closing, and if it IS superseded record that as the disposition rather than letting it lapse.",
+      "terminal": "merged",
+      "merge_sha": "d7180478dc521fb2537dfae9a82f77e33eaa90c3",
+      "observed_at": "2026-09-04T08:25:29Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 10976,
+      "opened_at": "2026-09-04T08:06:16Z",
+      "title": "manager: drain the queue to 9, and record two observations that do NOT clear",
+      "owner_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_manager_state",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "Tier-1 manager state: registers under docs/claude/** only."
+      },
+      "blocker": "⚠️ OPENED BY claude-pr-automerge.yml RATHER THAN BY HAND, so it started with ONE check (open-and-automerge) and none of the four required ones -- the same relay trap as #10975, walked into by the manager who had just documented it. #10974 avoided it only because it was opened via the API as a real user. Armed by an ordinary commit.",
+      "terminal": "merged",
+      "merge_sha": "71d3f1af262fba082c261c09a12e3b4acd698454",
+      "observed_at": "2026-09-04T08:25:29Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-03T06:31:46Z",
-  "last_reconciled_sha": "8d64afe3edda2280c4ac2441d9d52e4e14c19448"
+  "last_reconciled_at": "2026-09-04T08:25:29Z",
+  "last_reconciled_sha": "d7180478dc521fb2537dfae9a82f77e33eaa90c3"
 }

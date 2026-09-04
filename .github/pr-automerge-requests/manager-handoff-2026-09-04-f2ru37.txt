@@ -1,0 +1,6 @@
+Second manager landing of 2026-09-04: merge-queue refresh after the first
+drain, five settled PR rows, MI-116, the MI-112 refinement, and two OPEN-ITEMS
+observations that deliberately do not clear their rows.
+
+Tier-1 throughout. Arming the route because the declaration says
+`landing: "self"`; auto-merge still merges only on green.

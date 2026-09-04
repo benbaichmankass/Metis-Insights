@@ -253,7 +253,8 @@ jobs:
       # MI-34. A close failure CONFIRMED unclearable by any bot-side lever is
       # downgraded out of the paging channel and carried here instead (operator
       # decision 2026-09-02). The trader writes that ledger to
-      # runtime_logs/close_wedge_standing.json, which is .gitignore'd and lives
+      # $DATA_DIR/runtime_logs/close_wedge_standing.json (the canonical resolver;
+      # on this runner that is the checkout), which is .gitignore'd and lives
       # on the VM — so on this runner the file is ABSENT unless we fetch it.
       #
       # ⚠️ THE FETCH IS BEST-EFFORT AND THE FAILURE DIRECTION IS THE POINT.
@@ -284,7 +285,6 @@ jobs:
           DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
         run: |
           set -uo pipefail
-          mkdir -p runtime_logs
           if [ -z "${DIAG_READ_TOKEN:-}" ]; then
             echo "::warning::work-digest: no DIAG_READ_TOKEN — the standing " \
                  "close-wedge ledger will report NOT EXAMINED (we did not look)."
@@ -301,12 +301,17 @@ jobs:
             exit 0
           fi
           # Unwrapping is a SCRIPT, not four lines of inline YAML, because it
-          # decides which of three operator-visible states the digest reports —
-          # and "the fetch failed" and "nothing is wedged" are two of them. Its
-          # own --self-test covers every branch including the failure ones.
+          # decides which operator-visible state the digest reports — and "the
+          # fetch failed" and "nothing is wedged" are two of them. Its own
+          # --self-test covers every branch including the failure ones.
+          #
+          # No --out and no `mkdir -p runtime_logs`: the script defaults through
+          # the same canonical $DATA_DIR resolver the digest reads with, so the
+          # fetch cannot land beside the file the reader looks for (MI-101). On
+          # this runner DATA_DIR is unset, so that resolves to the checkout's own
+          # runtime_logs/ exactly as the literal did, and creates it.
           if ! printf '%s' "$out" \
-               | python3 scripts/ops/fetch_standing_wedges.py \
-                   --out runtime_logs/close_wedge_standing.json; then
+               | python3 scripts/ops/fetch_standing_wedges.py; then
             echo "::warning::work-digest: ledger payload unusable — the digest " \
                  "will report NOT EXAMINED rather than guessing at a clean fleet."
           fi

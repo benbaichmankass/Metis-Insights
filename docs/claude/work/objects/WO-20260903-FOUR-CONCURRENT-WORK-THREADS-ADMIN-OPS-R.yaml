@@ -1,0 +1,143 @@
+id: WO-20260903-FOUR-CONCURRENT-WORK-THREADS-ADMIN-OPS-R
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Four concurrent work THREADS (Admin / Ops / R&D / Eng) instead of one work-type per day
+stage: QUESTION
+lifecycle: ready
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The operator and the manager have AGREED the thread model in writing -- what the four threads are, how a thread relates to an intent, how the cycle priority works when four threads run at once, what daily cadence each thread owes, and how a starved thread is DETECTED -- and it is recorded as an operator decision, not a session's proposal. ⚠️ AGREEING IT IS THE DONE-CONDITION; BUILDING IT IS DOWNSTREAM WORK and must not be started before the agreement exists.
+
+why: >-
+  Operator idea, 2026-09-03: 'I want us to have defined threads of work that run concurrently, separated and managed cleanly - this way we can make progress on different avenues of work, instead of dedicating each day to only one work type. This also limits the number of concurrent sessions working on the same thing.' PROPOSED THREADS: Admin (how we do our work -- the cornerstone of system integrity; not daily, but takes priority) · Ops (live trading + research pipelines, comms, system review, trade grading, ML review, backlog triage+drain -- daily) · R&D (build and test new strategies/MLs -- daily, the driver of the roadmap and the actual trading edge) · Eng (infra supporting the others -- ad-hoc, prioritized when it BLOCKS another thread or resolves a serious bug). ⚠️ THE PROBLEM IS MEASURED: 2026-09-03 spent ALL THREE session slots on Admin; the trading side got one slot only because the manager asked for an exception. August ran 45 governance/hardening sprints against 2 deployments. 21 of 32 milestones are simultaneously active.
+
+source: >-
+  operator idea 2026-09-03, raised as 'an idea for us to work on together, not a specific plan'
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
+
+# ---------------------------------------------------------------------------
+# AGREEMENT IN PROGRESS — operator answers of 2026-09-03T09:5xZ, recorded by the
+# manager. This is the done-condition artifact. It is NOT yet complete: the
+# operator's point 5 arrived EMPTY and the two open items at the bottom are
+# unanswered, so this reads `agreement_state: agreed`, never `agreed`.
+# ---------------------------------------------------------------------------
+agreement_state: agreed
+
+agreed:
+  intent_is_sub_thread: >-
+    An INTENT sits BELOW a thread, and the standing rule is ONE INTENT PER THREAD
+    AT A TIME unless a specific exception is made. Operator, verbatim: "I think
+    intent is sub-thread, but the rule (unless we make a specific exception) is
+    one intent per thread at a time". ⚠️ THIS RESOLVES THE THREADS-VS-INTENTS
+    TENSION IN THE CHEAP DIRECTION AND THAT IS THE POINT: there is ONE taxonomy,
+    not two that drift. It is also enforceable with machinery that already
+    exists — the spawn gate already refuses work that cannot be attributed to an
+    intent, so the new refusal is narrow: a SECOND concurrent intent inside one
+    thread. ⚠️ TODAY (2026-09-03) IS A DECLARED EXCEPTION, on the operator's own
+    words: "today is an exception because we need the workflow implemented to
+    actually use it". An exception with no END CONDITION becomes the permanent
+    state, which is the failure this repo keeps paying for — see the open items.
+
+  priority_is_a_matrix_not_an_ordering: >-
+    There is a priority PER THREAD and a priority BETWEEN THREADS, and only THREE
+    threads run concurrently — so with four threads defined, one is always dark
+    BY DESIGN rather than by neglect. Operator, verbatim: "we should still only
+    have 3 threads concurrently, and we need to be able to choose what is the
+    most important. This may need ad-hoc consideration, but in general, admin is
+    most important, and OPS needs to always have a thread to itself. However, we
+    may have a roadmap item from research that is prioritised, but then we finish
+    it and free up that slot for an engineering task, or we need to put the
+    research on hold to resolve an engineering blocker, etc. So a matrix of
+    prioritzation that helps us create the most optimized workplan for
+    priorities."
+    MANAGER'S READING, to be corrected if wrong: OPS HOLDS A STANDING SLOT, so
+    only TWO slots float. ADMIN IS PRECEDENCE, NOT ALLOCATION — it is "most
+    important" when it HAS work, and the operator separately said it "shouldn't
+    require daily work", so it does not hold a standing slot; those are different
+    claims and collapsing them would starve R&D and Eng permanently. The floating
+    two are contested by Admin, R&D and Eng, and the contest is decided by the
+    matrix rather than by a fixed rank — a blocker outranks a non-blocker even
+    across threads, which is exactly the "put research on hold to resolve an
+    engineering blocker" case.
+    ⚠️ THIS REPLACES THE SINGLE CYCLE PRIORITY. Today's gate admits exactly ONE
+    priority and refuses displacement, which under four threads would need an
+    exception EVERY DAY and would degrade into a formality — the guard everyone
+    files past. Whatever is built must express a priority per thread plus a
+    cross-thread contest, or the gate must be retired rather than routinely
+    overridden.
+
+  backlog_triage_is_tier_aware: >-
+    Backlog work is not one lane. Operator, verbatim: "Backlogs should also
+    consider the tier - small items may be reserved for a dedicated backlog
+    session, while bigger backlog items with a wider blast radius may need a
+    dedicated session in their own thread (this builds on the last point and is
+    essentially part of the triage work, which is backlog-level)". So TRIAGE
+    ASSIGNS THE ROUTE: a small row is BATCHED into a dedicated backlog session
+    (Ops), while a wide-blast-radius row is PROMOTED to its own session in
+    whichever thread owns it — and that promotion then competes in the matrix
+    like any other item. This also answers the earlier "backlog items span
+    threads" tension: the row does not need a thread tag at filing time, because
+    triage is what assigns it.
+
+  the_rule_is_a_START_OF_DAY_PLANNING_RULE_not_a_quota: >-
+    The mechanism is NOT "every thread gets a slot every day". Operator, verbatim:
+    "The rule we need should really relate to how we prioritize and organize our
+    work at the start of the day - making sure we have a holistic picture. It
+    doesn't mean each thread gets a slot every day, but the planning needs to
+    look at the bigger picture than just the session's own open items."
+    MANAGER'S READING: the enforceable artifact is a DAY PLAN that CANNOT BE
+    WRITTEN without stating every thread's state — has work / dark and why —
+    so a starved thread is VISIBLE without costing a slot. That is strictly
+    better than the quota I was reaching for: a quota forces a session nobody
+    needs, whereas an unwritable-while-incomplete plan forces the LOOK. It also
+    directly attacks the measured failure, which was never "we ran the wrong
+    session" but "nobody looked past the open items in front of them".
+
+resolved:
+  OPEN-1-POINT-FIVE: >-
+    ANSWERED 2026-09-03: "Point 4 covers it, but tell me if you still need more
+    from me." So the START-OF-DAY PLAN *IS* THE STARVATION DETECTOR, and there is
+    deliberately no second mechanism. What that requires of the build: a day plan
+    that CANNOT BE WRITTEN without stating EVERY thread's state -- has work, or
+    dark and why -- so a starved thread is visible without costing a slot. ⚠️ A
+    plan that merely HAS a threads section is not this: the section must be
+    unskippable, the same way handoff_check.py grades `unknown` rather than
+    `ready` when nobody looked. If the build finds it cannot make the look
+    unavoidable, that is a finding to bring BACK to the operator, who explicitly
+    left that door open, rather than quietly shipping an optional field.
+  OPEN-2-TODAYS-EXCEPTION: >-
+    ANSWERED 2026-09-03: the exception ends when the operator and the manager
+    AGREE THE WORKFLOW BUILD IS COMPLETE and phase 2 -- the joint roadmap review
+    -- begins. The first normal day under the thread model is the day after that.
+    ⚠️ This is a CONDITION, not a date, so it must be written where the next
+    manager will read it, or it becomes the permanent state by default. It is
+    recorded in MANAGER-CHECKLIST.json (MI-97) as well as here.
+  OPEN-3-ADMIN-PRECEDENCE-VS-ALLOCATION: >-
+    ANSWERED 2026-09-03: PRECEDENCE, NOT A STANDING SLOT. Admin outranks
+    everything WHEN IT HAS WORK and holds no slot when it does not. So of three
+    concurrent slots, OPS STANDS and TWO FLOAT, contested by Admin, R&D and Eng
+    and decided by the matrix. The cap stays at 3; four threads defined against
+    three slots means one thread is dark BY DESIGN, which the day plan makes
+    visible rather than silent.
+
+build_preconditions: >-
+  ⚠️ THE AGREEMENT IS NOW COMPLETE AND THE BUILD IS STILL NOT AUTHORISED TODAY.
+  Today runs under the declared exception (three Admin threads to finish the
+  workflow build), and per OPEN-2 the model starts AFTER that build is agreed
+  complete and the joint roadmap review has begun. Building the thread machinery
+  now would consume the very slots the exception exists to protect. The next
+  manager reads this object, not a session's memory of it.
