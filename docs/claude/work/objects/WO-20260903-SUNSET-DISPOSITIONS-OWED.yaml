@@ -87,6 +87,65 @@ decision_requests:
           were seen and kept.
     allows_free_text: true
 
+  - id: DEC-20260904-DEMOTE-AND-TUNE-FLOW
+    question: >-
+      The demote-to-shadow-and-tune flow you asked for is WRITTEN
+      (docs/design/strategy-demote-and-tune-DESIGN.md). Do you agree it, yes or no?
+      And the one thing I cannot decide for you is inside it: the ten candidates
+      that prompted the flow do not qualify for it, because they do not trade at
+      all. Who owns finding out why?
+    urgency: routine
+    asked_on: '2026-09-04'
+    asked_by: session_018zzzSLT8UdJ1e1RbFeyvsz
+    context: >-
+      ⚠️ THIS IS NOT ANOTHER MENU ON THE RETIRE AXIS — that framing is what you
+      rejected on 2026-09-03 and it was the right rejection. The flow is built the
+      way you asked: a leg that trades and loses gets DEMOTED to `execution: shadow`
+      and TUNED, riding the gate that already exists, with no third execution gate
+      added. ⚠️ WHAT THE DATA THEN FORCED, and it is the real content of this ask:
+      MEASURED over comms/sunset/2026-09-01/INDEX.json joined to config/strategies.yaml
+      on 2026-09-04, ALL TEN candidates have `lifetime_closed_trades: 0` — not one has
+      closed a single trade in its life — and NOT ONE is routed to real money; every
+      routing is paper. So there is no money being lost to protect and no measured
+      behaviour to tune. Worse, `execution: shadow` folds into `effective_dry` on EVERY
+      account including paper, so demoting them would STOP THEIR PAPER FILLS and
+      guarantee the exit condition is never met. Demote-and-tune is the right
+      instrument for a leg that trades and loses; these ten are not underperforming,
+      they are NOT RUNNING. ⚠️ AND THREE ALREADY HAVE A NAMED CAUSE sitting dormant in
+      the work store: splg_trend_long_1d has no usable price history
+      (BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY); trend_donchian_sol emitted 144
+      actionable signals and wrote ZERO journal rows
+      (BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1)
+      — the strategy works, something between signal and order does not; turtle_soup is
+      `enabled: true` and listed by ZERO accounts. Their fault is upstream of the
+      strategy, so the flow grew a third disposition — REPAIR — where the DIAGNOSIS is
+      the work, not the parameters. ⚠️ NOTHING IS RETIRED AND NOTHING IS DEMOTED BY THIS
+      ASK; every move stays Tier-3. ⚠️ AND THE EXHIBIT FOR WHY THE EXIT CONDITION CAME
+      FIRST: turtle_soup has ALREADY been `execution: shadow` since 2026-04-29 — four
+      months, zero closes, routed to nothing — and surfaced only because a different
+      mechanism eventually flagged it. The shadow-backlog is not a risk, it already
+      exists; 8 of 52 enabled legs are shadow today.
+    options:
+      - key: agree_flow_and_fund_repair
+        label: Agree the flow, and schedule the REPAIR diagnosis for the ten
+        implication: >-
+          The flow is settled and the ten get a budget-bounded diagnosis lane — a
+          session actually asked to find out WHY each produces nothing. Costs session
+          time on ten legs that make no money today. Note three of the ten already have
+          the cause half-named, so this is cheaper than it looks, and
+          trend_donchian_sol's answer is evidence another open row
+          (OI-20260831-PER-ACCOUNT-ARBITRATION) is already waiting on.
+      - key: agree_flow_never_fired_is_terminal
+        label: Agree the flow, and make "never fired in N passes" a retirement basis on its own
+        implication: >-
+          The flow is settled and no diagnosis is funded: a leg that has never produced
+          a close becomes retire-proposed on the carry count alone. Cheapest, and it is
+          a REAL answer rather than a deferral. The stated cost: splg's cause is a data
+          feed and trend_donchian_sol's is routing, so this retires two legs whose
+          strategies were never shown to be at fault — and removes the sol leg the
+          arbitration row needs as evidence.
+    allows_free_text: true
+
 done_condition: >-
   The operator answers DEC-20260903-SUNSET-DISPOSITION-POLICY and the answer is
   COMMITTED into this object on main. ⚠️ Whatever the answer, it must then be
