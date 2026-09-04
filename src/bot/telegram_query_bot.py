@@ -762,7 +762,15 @@ def main():
             # Off the event loop: the sweep does blocking loopback HTTP and a
             # file write, and polling must never stall behind it.
             stats = await asyncio.to_thread(run_decision_prompt_sweep)
-            if stats.get("prompted_choice") or stats.get("prompted_free_text"):
+            # ⚠️ THIS LINE IS NO LONGER THE RECORD OF RECORD, and must not be
+            # relied on as one: the journal's measured retention is ~30 minutes
+            # (MI-109), so a mis-delivery was unreadable before anyone was told
+            # about it. `run_decision_prompt_sweep` now stamps every run to
+            # runtime_logs/work_decision_sweep_receipt.json, readable at
+            # /api/diag/log_file?name=work_decision_sweep_receipt. This stays
+            # for the operator tailing journalctl live.
+            if (stats.get("prompted_choice") or stats.get("prompted_free_text")
+                    or stats.get("redelivered")):
                 logger.info("work-decision prompts: %s", stats)
 
         _wd_interval = prompt_interval_seconds()
