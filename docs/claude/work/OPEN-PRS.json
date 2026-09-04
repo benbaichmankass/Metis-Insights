@@ -115,24 +115,6 @@
         "text": "None recorded."
       },
       "blocker": "Open since 2026-08-29, automation-generated, no owning session. Held under MI-12; do not merge without establishing what it does."
-    },
-    {
-      "pr": 10975,
-      "opened_at": "2026-09-04T07:59:56Z",
-      "title": "fix(decisions): record WHERE a decision prompt went, and keep the sweep's stats (MI-109)",
-      "owner_session": "session_01MookmZshi5ikDNqjAUiifA",
-      "checklist_item": "MI-109",
-      "draft": false,
-      "tier": "1",
-      "state": "open_in_flight",
-      "operator_decision": {
-        "verdict": "approved",
-        "condition": null,
-        "scope": "merge AND the ict-telegram-bot.service restart that arms it",
-        "decided_on": "2026-09-04",
-        "text": "Operator asked directly and answered 'Approve merge AND the service restart'. ⚠️ THE TIER WAS CORRECTED BY THE OWNING SESSION, NOT BY THE MANAGER: the manager dispatched MI-109 as Tier-1 and session_01MookmZshi5ikDNqjAUiifA pushed back, correctly -- the diff touches src/bot/telegram_query_bot.py, src/runtime/telegram_decisions.py and src/web/api/routers/diag.py; TIER1_SURFACE is a FAIL-CLOSED allowlist that vouches for none of them; and CLAUDE.md's own WORK_DECISION_PROMPT_SECONDS row already reads 'Tier-2 (it touches the Telegram bridge and needs an ict-telegram-bot.service restart)'. Verified against the guard and the canonical doc before the ask, not after. ⚠️ THE RESTART HAS NO DEDICATED ACTION: `restart-bot-service` bounces ict-trader-live.service ONLY. The sanctioned path is `pull-and-deploy`, which hard-resets the VM worktree to origin/main and bounces ict-trader-live + ict-web-api + ict-telegram-bot (verified in scripts/deploy_pull_restart.sh's ICT_UNITS and in docs/claude/system-actions.md). That is what the approval is being spent on. ⚠️ MERGED AND ARMED IS NOT PROVEN: no prompt has yet been observed carrying its destination, so MI-109 goes to landed_unproven, not done, and a green harness is not evidence about the fleet."
-      },
-      "blocker": "Waiting on pytest-run only; guards, pytest-collect, repo-inventory and open are green. Operator Tier-2 approval recorded above covers BOTH the merge and the pull-and-deploy that arms it."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -999,8 +981,30 @@
       "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
       "disposition": "superseded — main's DUE.json is newer (2026-09-04T06:31:04Z) than this PR's (2026-09-03T10:06:25Z); merging would have rewound it by ~20h",
       "reason": "SUPERSEDED, established by comparing the STAMPS rather than by judging the class: main:DUE.json carries 2026-09-04T06:31:04Z, this PR carries 2026-09-03T10:06:25Z, so merging rewinds the register by ~20h. Verified separately that it carries NO docs/claude/pending-pings.jsonl row absent from main, on an UNSHALLOWED clone and PER PR -- a shallow clone returns empty diffs that read as clean negatives, which is how five real pings were nearly dropped this morning. ⚠️ ITS SIBLING #10921 CARRIES THE SAME STALE DUE.json AND WAS DELIBERATELY NOT CLOSED WITH IT: #10921's PROBES.json is THREE DAYS NEWER than main's, so it needed a partial take rather than a supersede."
+    },
+    {
+      "pr": 10975,
+      "opened_at": "2026-09-04T07:59:56Z",
+      "title": "fix(decisions): record WHERE a decision prompt went, and keep the sweep's stats (MI-109)",
+      "owner_session": "session_01MookmZshi5ikDNqjAUiifA",
+      "checklist_item": "MI-109",
+      "draft": false,
+      "tier": "1",
+      "state": "open_in_flight",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": "merge AND the ict-telegram-bot.service restart that arms it",
+        "decided_on": "2026-09-04",
+        "text": "Operator asked directly and answered 'Approve merge AND the service restart'. ⚠️ THE TIER WAS CORRECTED BY THE OWNING SESSION, NOT BY THE MANAGER: the manager dispatched MI-109 as Tier-1 and session_01MookmZshi5ikDNqjAUiifA pushed back, correctly -- the diff touches src/bot/telegram_query_bot.py, src/runtime/telegram_decisions.py and src/web/api/routers/diag.py; TIER1_SURFACE is a FAIL-CLOSED allowlist that vouches for none of them; and CLAUDE.md's own WORK_DECISION_PROMPT_SECONDS row already reads 'Tier-2 (it touches the Telegram bridge and needs an ict-telegram-bot.service restart)'. Verified against the guard and the canonical doc before the ask, not after. ⚠️ THE RESTART HAS NO DEDICATED ACTION: `restart-bot-service` bounces ict-trader-live.service ONLY. The sanctioned path is `pull-and-deploy`, which hard-resets the VM worktree to origin/main and bounces ict-trader-live + ict-web-api + ict-telegram-bot (verified in scripts/deploy_pull_restart.sh's ICT_UNITS and in docs/claude/system-actions.md). That is what the approval is being spent on. ⚠️ MERGED AND ARMED IS NOT PROVEN: no prompt has yet been observed carrying its destination, so MI-109 goes to landed_unproven, not done, and a green harness is not evidence about the fleet."
+      },
+      "blocker": "Waiting on pytest-run only; guards, pytest-collect, repo-inventory and open are green. Operator Tier-2 approval recorded above covers BOTH the merge and the pull-and-deploy that arms it.",
+      "terminal": "merged",
+      "merge_sha": "0689e985f483e429326b4152859093a6bda96ec3",
+      "observed_at": "2026-09-04T21:58:33Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-04T08:25:29Z",
-  "last_reconciled_sha": "d7180478dc521fb2537dfae9a82f77e33eaa90c3"
+  "last_reconciled_at": "2026-09-04T21:58:33Z",
+  "last_reconciled_sha": "0689e985f483e429326b4152859093a6bda96ec3"
 }
