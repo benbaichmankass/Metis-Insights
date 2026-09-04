@@ -4,7 +4,7 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   The standing close-wedge ledger does not exist, and the digest that replaced the pager reads a non-canonical path for it -- so a downgraded wedge is in NEITHER channel
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: waiting
 owner: null
 opened_at: 2026-09-03
 closed_at: null
@@ -70,3 +70,27 @@ review_trigger: >-
 
 refs:
   - BL-20260903-CLOSE-WEDGE-LEDGER-IS-ABSENT-SO-DOWNGRADED-WEDGES-ARE-IN-NEITHER-CHANNEL
+
+lifecycle_note: >-
+  CORRECTED in_flight -> waiting 2026-09-04 by the manager, on an explicit operator decision.
+  THE HONEST BASIS FIRST, because the timing invites a less honest one: MI-101's PR #10944 is
+  MERGED (717f00eb), its owning session is IDLE, and the row is `landed_unproven` awaiting a
+  fleet observation -- a fresh `present: true` from /api/diag/log_file?name=close_wedge_standing
+  plus a digest naming a /data/bot-data/ path. Nobody is working it; it is waiting on an
+  observation. `waiting` is what that state is called, and `in_flight` was stale from the moment
+  the PR merged.
+  ⚠️ AND THE THING THAT IS NOT INCIDENTAL, STATED RATHER THAN BURIED: this edit also takes
+  in_flight from 8 to 7, which unblocks a repo-wide CI failure the manager itself caused.
+  tests/test_work_digest.py builds a digest from the LIVE work store and asserts the not-hit
+  case stays quiet, so at 8/8 -- a state check_wip_ceiling.py explicitly grades OK -- three
+  tests go red on every PR that runs the suite. The manager put the choice to the operator
+  rather than making it, precisely because changing production state to turn a test green is
+  the wrong direction even when the change is independently defensible.
+  ⚠️ THE OPERATOR REFUSED THE ALTERNATIVE ON PRINCIPLE, and that reason is the durable part:
+  a wip-ceiling-exception was available and was declined -- 'we are not going to lean towards
+  making an exception like this ever like we have. We're trying to stick to a set of rules that
+  will keep us focused.' So this is not a precedent for re-lifecycling objects to clear CI; it
+  is a correction that was owed anyway.
+  ⚠️ THE TEST DEFECT IS UNFIXED AND WILL RE-FIRE the next time in_flight legitimately reaches
+  the ceiling. Filed as MI-120. It is NOT fixed here: tests/ is a worker path, and the operator
+  was explicit that the manager delegates rather than doing items.
