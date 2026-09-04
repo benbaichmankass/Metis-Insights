@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-  "updated_at": "2026-09-04T07:44:00Z",
+  "updated_at": "2026-09-04T07:52:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1530,7 +1530,15 @@
       "owner": "unassigned",
       "prs": "",
       "note": "MEASURED 2026-09-04 on the takeover run. `live_registry` FAILED naming exactly one session — session_01Nopk1HcpvWBSEbZxEmALkd — which is the PREVIOUS MANAGER, idle, and which released the lease at 2026-09-03T17:42:47Z. Population: 60 observed, excluded self 1 / terminal 9 / other-manager 49, graded 1. It is absent from SESSIONS.json because a manager registers its SUB-sessions, never itself, so the predecessor is structurally unregistrable and every takeover will reproduce this. ⚠️ DO NOT 'FIX' IT BY REGISTERING THE PREDECESSOR AS A SUB-SESSION — that writes a false parentage into the one file a cold manager trusts, which is worse than the false alarm. The cheap true fix is an exclusion the lease already knows about: MANAGER-LEASE.json carries `previous_holder` and `released_by`, so a session named there is a predecessor manager and belongs in the existing `other-manager` exclusion bucket. SIBLING OF MI-111 and the same shape: both are cases where doing the correct thing at handover turns the readiness verdict red, which is how a check gets ignored rather than obeyed. ⚠️ THE CHECK IS NOT WRONG TO NOTICE IT — an idle predecessor holding context IS a real session — so the remedy is a named exclusion with a reason, never a blanket suppression."
+    },
+    {
+      "id": "MI-115",
+      "title": "the PR-queue watcher's escalation exits 1 into a workflow log and reaches no human, so a 17.4h-standing page was found only by a manager reading job logs by hand",
+      "state": "queued",
+      "owner": "unassigned",
+      "prs": "",
+      "note": "MEASURED 2026-09-04 from the job log of scheduled run #8 (33839153592). ⚠️ FIRST READING WAS WRONG AND IS RECORDED SO NOBODY REPEATS IT: 4 of the 6 scheduled runs conclude `failure` (#3 #5 #7 #8 fail; #4 #6 succeed) and I was about to file that as 'the watcher fails two-thirds of the time'. IT IS THE WATCHER WORKING. The job exits 1 DELIBERATELY to escalate — run #8's log reads `escalate: True -- the condition has stood 17.4h since the last page (floor 12.0h)`, `receipt : written`, and `##[error]PR-QUEUE ESCALATION -- open PRs are waiting on a merge decision past the threshold`. Reading `conclusion: failure` as 'this mechanism is broken' is UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A, which this repo has a guard for. THE ACTUAL DEFECT IS THE DELIVERY: the escalation's only surface is a red workflow run and a line in a job log. It writes no pending-pings row, sends no Telegram, and raises no notification — so the page had been standing 17.4h across at least two scheduled runs (#7 21:19Z, #8 05:04Z) and reached nobody until a manager opened the job log by hand on 2026-09-04. A red run in a repo whose automation PRs are routinely red is invisible; that is the desensitised-alarm shape CLAUDE.md names as a P1 in its own right. ⚠️ WHAT IT WAS PAGING ABOUT WAS TRUE AND ACTIONABLE: 14 PRs waiting on a merge decision, worst 145.3h. ⚠️ DO NOT 'FIX' THIS BY MAKING THE RUN EXIT 0 — that removes the only signal there currently is. The fix is to give the escalation a surface a human actually reads, and the repo already has the pattern: a pending-pings row plus a durable receipt, the way work-digest does it. ⚠️ AND NOTE THE COUPLING TO MI-113: pending-pings.jsonl has no row-aware merge driver, so anything that appends to it from CI inherits that conflict problem. Establish that before choosing the surface. Manager filed, did not build — .github/workflows/ and scripts/ci/ are worker paths."
     }
   ],
-  "as_of": "2026-09-04T07:44:00Z"
+  "as_of": "2026-09-04T07:52:00Z"
 }
