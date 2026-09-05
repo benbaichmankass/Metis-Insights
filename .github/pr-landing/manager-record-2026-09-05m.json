@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager surfaces only: docs/claude/work/SESSIONS.json (94 rows graded against a live list_sessions read, replacing spawn-time guesses with platform truth and adding a last_observed block to each) and docs/claude/health-review-backlog.json (one row filed through backlog_append.py), plus the two landing-declaration files. The large diff is 94 rows each gaining a last_observed object and a corrected state; no row is deleted and no row's identity changes. No src/, no config/, no deploy/, no .github/workflows/, no tests, no order path, no strategy config, no risk caps, no live-VM runtime file: Tier-1 by the canonical doc's own surface list."
+}
