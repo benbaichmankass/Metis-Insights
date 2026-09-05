@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-  "updated_at": "2026-09-05T12:35:00Z",
+  "updated_at": "2026-09-05T14:45:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1726,6 +1726,16 @@
       "prs": "",
       "blocked_on": "",
       "note": "OPERATOR DECISION 2026-09-05, asked as a popup and answered 'Re-grade loudness against a bar'. MEASURED 2026-09-05T11:09Z: docs/claude/OPEN-ITEMS.json holds 54 items and 43 carry loud:true — 79.6%. A flag that fires on four rows in five is not a priority signal, and every status update is obliged to carry all 43. That is the desensitized-alarm failure this repo names as its own P1 in CLAUDE.md's 'If you see something, say something' — the motivating incident there was a dataset audit that degenerated to 62/86 manifests alarming while a real bug soaked inside the noise for weeks. ⚠️ THE JOB IS TO DEFINE THE BAR FIRST AND GRADE AGAINST IT, NOT TO PICK A TARGET COUNT: deciding 'loud should be about ten rows' and trimming to fit is choosing the answer before the question. A defensible bar is something like money-at-risk, or a live gate that is ARMED but never exercised. ⚠️ EVERY RE-GRADE MUST RECORD ITS BASIS ON THE ROW, so a later session can tell a row that was assessed and found quiet from one nobody looked at — 'we did not look' and 'we looked and found nothing' are different facts and collapsing them is the exact class this repo guards against elsewhere. ⚠️ DEMOTING A ROW IS NOT CLOSING IT: loudness governs REPORTING, not whether the item is open. Nothing gets cleared by this pass."
+    },
+    {
+      "id": "MI-134",
+      "title": "OPERATOR DIRECTIVE: no session works without ownership, in any case — measured 0 of 79 idle sessions have a live owner",
+      "state": "queued",
+      "owner": "unassigned — NEEDS A SESSION",
+      "added": "2026-09-05",
+      "prs": "",
+      "blocked_on": "",
+      "note": "OPERATOR DIRECTIVE, 2026-09-05, verbatim: \"no sessions working on their own without ownership. That should not happen in any case.\" Given after the manager reported 79 idle sessions carried over from previous managers. || MEASURED THE SAME DAY, platform truth joined to SESSIONS.json, population = the 79 sessions the platform reports IDLE: ZERO have an owner session that is currently RUNNING; 76 are ORPHANED (their spawned_by is itself idle/archived/dead); 1 records no spawned_by at all; 2 are NOT IN THE REGISTRY AT ALL; and 32 name NEITHER a checklist_item NOR an owns_object, so you could not tell what they were for even having found them. The only RUNNING session account-wide was the manager. || ⚠️ THE ENFORCEMENT CANNOT BE BUILT ON THE CURRENT REGISTER. Before the same-day re-grade, 65 of 94 rows carried a state the platform contradicts and 58 had never been observed once, so the register claimed 41 sessions were working/idle/running. Ownership derived from a store that is 69% wrong about state inherits the lie — derive it at READ time from a live list_sessions join, the same fix `state` needs. || ⚠️ WHAT WOULD NOT SATISFY THIS: archiving the 79 (resolves lifecycle, says NOTHING about whether their work reached main — an idle session is not a finished one); or a documented rule that managers must register and check ownership, which is the reminder-is-not-a-mechanism non-fix MI-15 has already failed three times with the recorded remedy 'remember to register'. || THE MANAGER DID NOT BUILD THIS (worker item: scripts/**) AND DELIBERATELY DID NOT SWEEP-ARCHIVE THE 79, which would have destroyed the evidence the item rests on. Full statement of the commitment: docs/claude/work/objects/WO-20260905-NO-SESSION-MAY-EXIST-WITHOUT-A-LIVE-OWNER.yaml"
     }
   ],
   "as_of": "2026-09-04T09:45:00Z",

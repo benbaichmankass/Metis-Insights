@@ -230,3 +230,40 @@ PRs that ARE merged.** Every row in a 60-PR listing read `merged: false`,
 including ones merged minutes earlier. Re-reading #11052 with full fields
 gave `merged: true`. **Never grade merge state from a field-subset listing** —
 use `search_pull_requests` with `is:unmerged`, or a full read.
+
+---
+
+## ⚠️ NEW STANDING RULE — operator, 2026-09-05
+
+> **"no sessions working on their own without ownership. That should not
+> happen in any case."**
+
+Given after the manager reported 79 idle sessions carried over from previous
+managers. Recorded as **MI-134** and
+`WO-20260905-NO-SESSION-MAY-EXIST-WITHOUT-A-LIVE-OWNER.yaml`.
+
+**Measured the same day** — platform truth joined to `SESSIONS.json`,
+population = the 79 sessions the platform reports IDLE:
+
+| | count |
+|---|---|
+| have an owner session currently RUNNING | **0** |
+| ORPHANED (spawned_by is itself idle/archived/dead) | **76** |
+| record no `spawned_by` at all | 1 |
+| **not in the registry at all** | **2** |
+| name NEITHER a `checklist_item` NOR an `owns_object` | **32** |
+
+The only RUNNING session account-wide was the manager itself.
+
+⚠️ **Ownership enforcement cannot be built on the current register.** Before
+the same-day re-grade, 65 of 94 rows carried a state the platform
+contradicts and 58 had never been observed once, so the register claimed 41
+sessions were working/idle/running. Derive ownership at READ time from a
+live join — the same fix `state` needs — or the enforcement inherits the lie.
+
+⚠️ **Archiving the 79 does NOT satisfy this.** It resolves lifecycle and says
+nothing about whether their work reached `main`, which is the half that
+carries the loss. **An idle session is not a finished one.** The manager
+deliberately did not sweep-archive them: that would have destroyed the
+evidence the item rests on, and it is not the manager's call to make on 76
+sessions it did not spawn.
