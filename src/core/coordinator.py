@@ -1091,9 +1091,18 @@ class Coordinator:
         #   3. ``strategies is None`` → fall through to allow. Means the
         #      account didn't declare a mapping at all (legacy
         #      fixtures, unit tests that don't set the field).
-        def _eligible_for_dispatch(account_obj) -> bool:
+        # BL-20260905 (empty-sizing brake): this predicate used to return a
+        # bare ``bool``, so every account it dropped vanished without a
+        # recoverable reason — and when it dropped ALL of them the dispatch
+        # produced an EMPTY ``sized_qty_by_account`` that could say nothing
+        # about its own cause. That is precisely what made the 2026-06-01
+        # ``mes_trend_long_1d`` burst unreadable: seven identical packages,
+        # each carrying ``{}``, none naming why. It now returns the exclusion
+        # REASON (``None`` == eligible) and the caller keeps the map, so the
+        # refusal below can name the cause instead of counting to zero.
+        def _dispatch_exclusion_reason(account_obj) -> Optional[str]:
             if not getattr(account_obj, "configured", True):
-                return False
+                return "not_configured"
             # Symbol→exchange routing gate (multi-symbol M11). Applied only
             # when EITHER side involves Interactive Brokers, so:
             #   * a BTCUSDT (bybit) package never reaches an IB account, and
@@ -1110,25 +1119,45 @@ class Coordinator:
                 or acct_exchange == "interactive_brokers"
             )
             if ib_involved and inst_exchange and acct_exchange and inst_exchange != acct_exchange:
-                return False
+                return (
+                    f"symbol_exchange_routing: {pkg.symbol} routes to "
+                    f"{inst_exchange}, account is {acct_exchange}"
+                )
             assigned = getattr(account_obj, "strategies", None)
             if assigned is None:
-                return True  # legacy / no-mapping account
+                return None  # legacy / no-mapping account
             if not assigned:
-                return False  # explicit empty: block all strategies
+                # explicit empty: block all strategies
+                return "strategies_declared_empty"
             if not pkg.strategy:
-                return True  # legacy package without a strategy tag
+                return None  # legacy package without a strategy tag
             if pkg.strategy not in assigned:
-                return False
+                return (
+                    f"strategy_not_assigned: {pkg.strategy} not in "
+                    f"{sorted(str(a) for a in assigned)}"
+                )
             # Per-account arbitration fan-out (ARBITRATION_FANOUT_MODE=apply).
             # LAST, and NARROWING ONLY: every rule above has already passed, so
             # this can subtract an account from the eligible set but can never
             # add one. `None` = no fan-out in play = unchanged behaviour.
             if account_scope is not None:
-                return str(getattr(account_obj, "name", "")) in account_scope
-            return True
+                if str(getattr(account_obj, "name", "")) not in account_scope:
+                    return "outside_account_scope"
+            return None
 
-        accounts = [a for a in accounts if _eligible_for_dispatch(a)]
+        # Keep the reasons, not just the survivors — an empty eligible set is
+        # the input to the empty-sizing refusal below, and a refusal that
+        # cannot say WHY is the failure this change exists to remove.
+        excluded_by_account: Dict[str, str] = {}
+        _loaded_account_count = len(accounts)
+        _eligible: List[Any] = []
+        for _acct in accounts:
+            _reason = _dispatch_exclusion_reason(_acct)
+            if _reason is None:
+                _eligible.append(_acct)
+            else:
+                excluded_by_account[str(getattr(_acct, "name", "?"))] = _reason
+        accounts = _eligible
         logger.info(
             "[coordinator.dispatch] trace_id=%s strategy=%s symbol=%s eligible_accounts=%d",
             getattr(pkg, "trace_id", "?"), pkg.strategy, pkg.symbol, len(accounts),
@@ -1154,6 +1183,14 @@ class Coordinator:
         results = []
         for account in accounts:
             if account_type and account.account_type != account_type:
+                # Also a pre-sizing exclusion — recorded for the same reason
+                # the pre-loop filter records its own: a round narrowed to
+                # ``account_type`` that matches nobody sizes nothing, and the
+                # refusal must be able to say so.
+                excluded_by_account[str(getattr(account, "name", "?"))] = (
+                    f"account_type_mismatch: round wants {account_type}, "
+                    f"account is {account.account_type}"
+                )
                 continue
             # Reset per-iteration so intent_legs from a previous account
             # doesn't leak into a non-intent dispatch on the next.
@@ -2561,6 +2598,78 @@ class Coordinator:
                     "raised: %s", exc,
                 )
 
+        # ------------------------------------------------------------------
+        # BL-20260905 — EMPTY SIZING MAP: refuse ONCE, with a named cause.
+        #
+        # ``sized_qty_by_account`` is EMPTY (not zero — empty) when no account
+        # reached ``position_size`` at all. That is a different state from "an
+        # account was asked and said 0", and collapsing the two is what made
+        # this class unreadable: on 2026-06-01 ``mes_trend_long_1d`` minted
+        # SEVEN order packages in 49 minutes from ONE daily signal, every one
+        # carrying ``"sized_qty_by_account": {}`` and every one orphaned
+        # unexecuted by the reconciler at +5 min. Seven identical attempts,
+        # none of which said anything about its own cause.
+        #
+        # Nothing reached a venue and no money moved — the harm is (a) a retry
+        # with no ceiling and (b) seven phantom packages per occurrence
+        # polluting exactly the order-package data the M7 review packets grade
+        # strategies on. It corrupts the evidence base, not the book.
+        #
+        # Two things are recorded here, and BOTH are load-bearing:
+        #   * ``cause`` — a readable statement of WHY nothing was sized,
+        #     assembled from the per-account exclusion reasons the eligibility
+        #     filter now keeps. Suppressing the re-emission without this would
+        #     convert a noisy failure into a silent one, which is strictly
+        #     worse and is the exact class ``silent_refusal_alert`` exists to
+        #     catch. A bare count is NOT a cause.
+        #   * ``signal_key`` — the identity of the SIGNAL, so the brake in
+        #     ``strategy_monocle._empty_sizing_refusal_for_signal`` can refuse
+        #     re-emission of *this* signal without muting the next one. All
+        #     seven 2026-06-01 packages shared one entry_time and one
+        #     donchian_hi: one signal, re-emitted, not seven signals.
+        #
+        # SCOPE (operator, Tier-2, 2026-09-05): this is the BRAKE, not the
+        # cause. WHY the map came back empty on a leg that traded normally on
+        # 2026-08-03 is a separate question and is filed as its own row.
+        # ------------------------------------------------------------------
+        _empty_sizing_cause: Optional[str] = None
+        if not sized_qty_by_account:
+            _empty_sizing_cause = _explain_empty_sizing_map(
+                accounts_loaded=_loaded_account_count,
+                excluded_by_account=excluded_by_account,
+                account_type=account_type,
+                results=results,
+            )
+            logger.warning(
+                "multi_account_execute: EMPTY SIZING MAP — no account reached "
+                "the sizer; refusing this signal ONCE rather than re-emitting "
+                "(pkg=%s strategy=%s symbol=%s): %s",
+                order_package_id, getattr(pkg, "strategy", "?"),
+                getattr(pkg, "symbol", "?"), _empty_sizing_cause,
+            )
+            try:
+                from datetime import datetime as _dt, timezone as _tz
+
+                from src.runtime.order_bridge import (
+                    signal_key_for_package as _signal_key_for_package,
+                )
+
+                if pkg.meta is None:
+                    pkg.meta = {}
+                pkg.meta["empty_sizing_refusal"] = {
+                    "cause": _empty_sizing_cause,
+                    "excluded_by_account": dict(excluded_by_account),
+                    "accounts_loaded": int(_loaded_account_count),
+                    "accounts_reached_sizer": 0,
+                    "signal_key": _signal_key_for_package(pkg),
+                    "refused_at": _dt.now(_tz.utc).isoformat(),
+                }
+            except Exception as exc:  # noqa: BLE001 — never break dispatch
+                logger.warning(
+                    "multi_account_execute: empty-sizing refusal stamp failed "
+                    "(pkg=%s): %s", order_package_id, exc,
+                )
+
         # BUG-049 backstop (2026-06-25): guarantee the emit→terminal contract.
         # The package is logged status='open' at the top of dispatch, BEFORE the
         # eligibility filter. If this round placed NO trade for it AND the
@@ -2582,7 +2691,12 @@ class Coordinator:
         # Pure post-dispatch status hygiene: it changes no execution decision and
         # the genuine-failure roll-up ping above still fires. Best-effort.
         if order_package_id and not any_trade_placed:
-            if not accounts:
+            if _empty_sizing_cause is not None:
+                # Name the cause in ``close_reason`` too. "no_eligible_account"
+                # is true but says nothing an operator can act on, and this row
+                # is the only durable trace of the refusal.
+                _term_reason = f"empty_sizing_map: {_empty_sizing_cause}"[:500]
+            elif not accounts:
                 _term_reason = "no_eligible_account"
             elif all_benign_noop:
                 _term_reason = "all_accounts_noop"
@@ -3422,6 +3536,64 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
             getattr(pkg, "strategy", "?"), getattr(pkg, "symbol", "?"), exc,
         )
         return None
+
+
+def _explain_empty_sizing_map(
+    *,
+    accounts_loaded: int,
+    excluded_by_account: Dict[str, str],
+    account_type: Optional[str],
+    results: List[Dict[str, Any]],
+) -> str:
+    """Name WHY ``sized_qty_by_account`` came back empty (BL-20260905).
+
+    An empty map means **no account reached** ``RiskManager.position_size``.
+    It is NOT the same fact as "an account was asked and answered 0" — that
+    case leaves a populated map and its own per-account rejection rows, and
+    ``_explain_zero_sized_qty`` already names it. Keeping the two apart is the
+    point: the 2026-06-01 burst was seven packages carrying ``{}`` and the
+    empty map was read as a sizing bug when the accounts had been filtered out
+    before any sizer ran.
+
+    The states are deliberately NOT collapsed:
+
+      * ``no_accounts_loaded`` — ``accounts.yaml`` yielded nothing. We did not
+        exclude anybody; there was nobody. (A config/creds question, not a
+        sizing one.)
+      * ``all_accounts_excluded_pre_sizing`` — accounts existed and every one
+        was dropped before the sizer. The per-account reasons are listed, so
+        the operator reads *which rule* dropped *which account* rather than a
+        count.
+      * ``no_account_reached_sizer`` — the residual: accounts survived the
+        filter and the loop still produced no sizing entry (a branch that
+        ``continue``d without recording an exclusion). Named as the honest
+        "we cannot attribute this" state rather than folded into the one
+        above, because guessing here is how a wrong cause gets believed.
+
+    Returns a single readable line; the caller logs it, stamps it on the
+    package meta, and writes it into ``close_reason``.
+    """
+    if accounts_loaded == 0:
+        return (
+            "no_accounts_loaded: accounts.yaml yielded 0 accounts, so no "
+            "account could be sized"
+        )
+    if excluded_by_account:
+        detail = "; ".join(
+            f"{name}={reason}"
+            for name, reason in sorted(excluded_by_account.items())
+        )
+        scope = f" (round scoped to account_type={account_type})" if account_type else ""
+        return (
+            f"all_accounts_excluded_pre_sizing: {len(excluded_by_account)} of "
+            f"{accounts_loaded} loaded account(s) were dropped before the "
+            f"sizer ran{scope} — {detail}"
+        )
+    return (
+        f"no_account_reached_sizer: {accounts_loaded} account(s) loaded and "
+        f"none was excluded by a recorded rule, yet the dispatch loop produced "
+        f"no sizing entry ({len(results)} result row(s)) — cause unattributed"
+    )
 
 
 def _explain_zero_sized_qty(

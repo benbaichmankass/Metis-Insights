@@ -5,7 +5,8 @@ title: >-
   An empty sizing map is re-emitted rather than refused, so mes_trend_long_1d minted seven order
   packages in 49 minutes from ONE daily signal, all orphaned unexecuted
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: done
+closed_at: 2026-09-05
 owner: null
 opened_at: 2026-09-05
 operator_decision:
@@ -49,3 +50,15 @@ done_condition: >-
 
 blocked_on: []
 blocked_on_basis: ASSESSED
+
+closing_evidence: >-
+  CLOSED 2026-09-05T08:21Z — #11035 merged as 38a50671 on the operator Tier-2 OK. Two red tests were fixed
+  by MI-129b first, and the manager verified that against the DIFF rather than the session report: no skip,
+  xfail or quarantine anywhere; the source-scraping assertion replaced with a behavioural test; the
+  close_reason literal replaced with a PROPERTY assertion (must NAME the excluded account and the rule),
+  which is strictly stronger than what it replaced. Its consumer search carried a population AND a positive
+  control: 0 occurrences of the old literal in the last 1000 order_packages rows while its two if/elif
+  siblings showed 197 and 76, so the probe was demonstrably not blind.
+  ⚠️ LANDED, NOT PROVEN ON THE FLEET, and deliberately with nothing to check yet: the brake only shows
+  itself when a leg's sizing NEXT returns empty. The observation owed is a logged cause that NAMES an
+  account and a rule; a silent refusal would be the failure this change exists to prevent.

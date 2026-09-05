@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager surface only — the lease heartbeat plus one backlog row filed through backlog_append.py recording the automerge-relay race as a RECURRENCE (three instances in one night) and the close-and-reopen workaround it induces. Tier-1 by the canonical doc's own list: no src/, no config/, no deploy/, no scripts/, no .github/workflows/, no order path, no strategy params, no risk caps, no live-VM runtime file. Filing a backlog row is the act of NOT taking an item and is explicitly uncapped for a manager."
+}
