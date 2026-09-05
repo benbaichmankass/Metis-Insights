@@ -634,13 +634,46 @@ def supervision_gap(root: Path, sha: str) -> tuple[Optional[int], Optional[int],
     if lease.get("state") != "held":
         return None, None, notes
 
-    rc, prev = _git(root, "show", f"{sha}~1:{LEASE_REL}")
-    if rc == 0:
-        try:
-            if json.loads(prev).get("heartbeat_at") == lease.get("heartbeat_at"):
-                return None, None, notes      # heartbeat not advanced here
-        except Exception:
-            pass
+    # ⚠️ "ADVANCED" IS DECIDED AGAINST EVERY PARENT, NOT `sha~1`.
+    #
+    # This is R7's MI-122 root, and it was left in R6. `sha~1` is the FIRST
+    # parent, which on a MERGE is the branch being merged INTO. When a manager
+    # merges `main` into a worker branch the lease's prior state arrives along
+    # the SECOND parent, so comparing against `sha~1` sees a heartbeat that
+    # "changed" and grades a commit that ADVANCED NOTHING — the affirmative
+    # claim "I am still managing" was never made here.
+    #
+    # MEASURED before the fix (MI-125), on the R6 face of the 8g plant: the
+    # merge was `GRADED` with gap=75min under a 90min TTL, and the SAME shape
+    # with a registry 160min stale FAILED. So the defect was not latent — it
+    # was one arithmetic step from a false red, and R7's own 8g plant could
+    # never have caught it because that plant keeps the registry FRESH on the
+    # manager line so only R7 can fire.
+    #
+    # ⚠️ AND NOT GRADING A MERGE AT ALL IS THE WRONG FIX — it would let a
+    # manager launder any lapse through a merge commit. A merge that GENUINELY
+    # advances the heartbeat past a stale registry must still fail, which is
+    # what the paired control asserts.
+    now_hb_raw = lease.get("heartbeat_at")
+    now_hb_ts = _parse_ts(now_hb_raw)
+    parent_hbs = []
+    for p in _parents(root, sha):
+        pl, _pstate = _lease_at(root, p)
+        if pl is None:
+            continue
+        if pl.get("heartbeat_at") == now_hb_raw:
+            return None, None, notes      # heartbeat not advanced here
+        phb = _parse_ts(pl.get("heartbeat_at"))
+        if phb is not None:
+            parent_hbs.append((phb, p))
+    if now_hb_ts is not None and parent_hbs:
+        newest, newest_sha = max(parent_hbs, key=lambda t: t[0])
+        if now_hb_ts <= newest:
+            notes.append(
+                f"R6 {sha[:8]}: heartbeat NOT advanced here — parent "
+                f"{newest_sha[:8]} already carries {newest.isoformat()}; the "
+                f"claim arrived along that parent, not at this commit")
+            return None, None, notes
 
     hb = _parse_ts(lease.get("heartbeat_at"))
     ttl = lease.get("ttl_minutes")
@@ -1795,6 +1828,74 @@ def self_test() -> int:
                                     fails)
         cases.append(("merge that is genuinely 130min past its NEWEST parent "
                       "-> violation (R7 only)", st, joined))
+
+        # -- 8g6. MI-125 PLANT (R6 face): the SAME wrong-parent shape MI-122
+        #    fixed for R7, on R6. R7's 8g plant keeps the registry FRESH on the
+        #    manager line, so R6 is never reached there and its `sha~1` read
+        #    went unexercised -- which is exactly why this was still open.
+        #
+        #    main carries a CLEAN manager heartbeat (09:10 over a 09:05
+        #    registry). The worker branch is cut BEFORE it and writes its own
+        #    registry row at 06:30, while the manager line touches ONLY the
+        #    lease -- so git auto-merges and the worker's row survives.
+        #    The merged tree therefore reads lease 09:10 against registry 06:30,
+        #    160 minutes, over the 90-minute TTL -- and THE MERGE ADVANCED NO
+        #    HEARTBEAT: the claim arrived along the SECOND parent. Must be CLEAN.
+        #
+        #    MEASURED before the fix: `supervision_gap` returned GRADED gap=160
+        #    and R6 FAILED. A gentler variant (registry 07:55, gap 75) returned
+        #    GRADED and merely passed on the arithmetic -- so a plant that only
+        #    read `check()` would have reported "clean" for the wrong reason.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "manager-line")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T09:10:00Z"))
+        _commit(root, "manager: lease heartbeat", MANAGER)
+        _run(root, "checkout", "-q", "main")
+        _run(root, "merge", "-q", "--ff-only", "manager-line")
+        _run(root, "checkout", "-q", "-b", "worker-line", "HEAD~1")
+        _write(root, "src/runtime/orders.py", "x = 9\n")
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T06:30:00Z"))
+        _commit(root, "worker: register this sub-session", WORKER)
+        _merge_no_commit(root, "main")
+        _commit(root, "manager: merge main into the worker branch", MANAGER)
+        tip = _git(root, "rev-parse", "HEAD")[1].strip()
+        gap_seen, _ttl_seen, _n = supervision_gap(root, tip)
+        assert gap_seen is None, (
+            "R6 GRADED a merge that advanced no heartbeat -- the wrong-parent "
+            "read is back; reading check() alone would hide this whenever the "
+            "arithmetic happens to land under the TTL", gap_seen)
+        st, fails, _ = check(root, "main")
+        assert st == "clean", (st, fails)
+        cases.append(("R6: manager merge, stale FIRST parent, registry 160min "
+                      "stale -> clean (no heartbeat was advanced here)", st, ""))
+
+        # -- 8g7. MI-125 CONTROL (R6 face): the SAME merge, except the merge
+        #    ITSELF advances the heartbeat to 10:30 over that 240-minute-stale
+        #    registry. Must STILL be a VIOLATION. Without this, 8g6 could be
+        #    "satisfied" by never grading a merge commit at all, and a manager
+        #    could launder any supervision lapse through a merge.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "manager-line")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T09:10:00Z"))
+        _commit(root, "manager: lease heartbeat", MANAGER)
+        _run(root, "checkout", "-q", "main")
+        _run(root, "merge", "-q", "--ff-only", "manager-line")
+        _run(root, "checkout", "-q", "-b", "worker-line", "HEAD~1")
+        _write(root, "src/runtime/orders.py", "x = 9\n")
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T06:30:00Z"))
+        _commit(root, "worker: register this sub-session", WORKER)
+        _merge_no_commit(root, "main")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T10:30:00Z"))
+        _commit(root, "manager: merge main into the worker branch and check in",
+                MANAGER)
+        st, fails, _ = check(root, "main")
+        assert st == "violation", (st, fails)
+        joined = "\n".join(fails)
+        assert "R6" in joined, fails
+        cases.append(("R6: merge that DOES advance the heartbeat over a "
+                      "240min-stale registry -> violation", st, joined))
 
         # -- 8i. MI-122 CONTROL: a lease with NO `claimed_at` on either side
         #    still GRADES. The run cannot be established, and the deliberate

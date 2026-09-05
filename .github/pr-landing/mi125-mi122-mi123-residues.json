@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI guard + its self-test only (scripts/ci/check_manager_scope.py). Tier-1 by the canonical doc's own list: no src/, no config/, no deploy/, no order path, no risk caps, no live-VM runtime file. It fixes R6's wrong-parent selection (the MI-122 root, left in R6) and adds the plant+control that catch it; it does not weaken R6 — the #11031 finding still fails."
+}
