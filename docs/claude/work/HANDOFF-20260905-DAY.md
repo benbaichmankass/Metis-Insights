@@ -295,3 +295,5 @@ owner, since the platform reports no sub-session running at all.
 spawned ARCHIVED · exactly one session running account-wide (this one) ·
 2 PRs open (#10895 actionable, #10398 close-owed) · 16 backlog rows filed
 today · **zero items taken, zero sessions spawned.**
+
+<!-- clean stop confirmed 15:05Z -->
