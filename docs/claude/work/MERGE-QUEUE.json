@@ -53,63 +53,81 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T07:21:31Z",
+  "updated_at": "2026-09-05T11:40:00Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-  "note": "Refreshed 2026-09-05T02:31:57Z after the overnight drain. MERGED since the last refresh: #10982 (manager state — and with it the LEASE finally reached main after a 16h41m publication gap), #11012 (the R7 fix that unblocked it), #11014 (the durable wake), #11017, #11019 (MI-124's diagnosis). ⚠️ A CORRECTION THE MANAGER MADE TO ITSELF: it reported '#10398 merged too'. IT DID NOT. What merged was #11017 — a LATER run of the same econ-calendar workflow with an identical title. Same-title automation PRs are not interchangeable and reading one as the other is how a unique artifact gets closed as superseded. OPEN AND DISPOSITIONED PER PR, not by class: #11020 (MI-126, sunset_pass fix, automerge armed) · #10895 (blocked on the R7 sha~1 face — SHOULD clear under a0b776fa but that is an INFERENCE, verify against #10895 itself) · #10981 / #10919 (M7 packets) · #10921 (needs a PARTIAL TAKE — PROBES.json newer than main's, DUE.json older; MI-117, unrouted) · #10398 (needs a PARTIAL TAKE — a unique 61,529-line PIT capture ABSENT from main, beside an econ_calendar_upcoming.json that would rewind main by SEVEN DAYS and drop 49 events; BL-20260905-PR-10398-IS-A-MIXED-TAKE-A-UNIQUE-PIT-CAPTURE-BESIDE-A-SEVEN-DAY-REWIND-...). ⚠️ TWO PRs IN THIS QUEUE NOW NEED A PARTIAL TAKE FOR THE SAME STRUCTURAL REASON — an automation run bundling an append-only artifact with a regenerated current-view file. That is a workflow shape question, not two coincidences.",
+  "note": "Refreshed 2026-09-05T11:40Z at the operator's wrap-up instruction. THE LANE WAS JAMMED and is now unjamming: five reconcile PRs stacked unmergeable 07:40Z-10:37Z on a single missing fact — the #10921 disposition — which no automated job can supply. #11062 carries it. ⚠️ THE JAM IS AN INSTANCE OF MI-103, WHICH IS PROVEN TO REGENERATE: instance 1 (#10780, 09-03) was cleared by closing 8 stacked PRs, instance 2 (today) by closing 5. The per-instance workaround is now the established non-fix, and the next PR closed without merging re-jams it. MI-103's owner is `unassigned` and needs one. MERGED today: #11024 #11025 #11035 #11039 #11043 #11044 #11047 #11049 #11061. ⚠️ #11049 merged on its FIRST commit while a second was being written, stranding it — after any manager PR merges, check the content reached main.",
   "entries": [
     {
-      "pr": 10975,
-      "branch": "claude/mi109-decision-delivery",
-      "session_id": "session_01MookmZshi5ikDNqjAUiifA",
+      "pr": 11062,
+      "branch": "claude/manager-record-2026-09-05h",
+      "session_id": "session_016e2k4UmsMGgpbrJ5ctqeFv",
       "position": 1,
-      "state": "merged",
-      "blocked_on": null,
-      "note": "MERGED 2026-09-04T21:58:16Z as 135b8bef (operator Tier-2 OK covered the merge AND the restart that arms it). RETIRED FROM THE REBASING SLOT 2026-09-05T03:27Z: it held R8s one rebasing entry for five hours AFTER merging, which is not a violation but did make the slot unavailable to a real rebaser. The arming half is DISCHARGED and OBSERVED, not inferred: ict-git-sync ran deploy_pull_restart.sh (which restarts ict-telegram-bot.service, line 435) and /api/diag/version reads git_sha 5eb59917 == main tip with restart_pending false. So no restart needed dispatching."
+      "state": "waiting",
+      "blocked_on": "ci",
+      "note": "THE MANAGEMENT RECORD + the register repair that unjams the reconcile lane. Carries the #10921 disposition (a reason only the manager who closed it can supply), settles #11047, records the operator's two decisions of 2026-09-05 as MI-132/MI-133, seven backlog rows, and the handoff brief. Tier-1 self-landing declared and armed; auto-merge will take it on green. ⚠️ EVERYTHING BELOW DEPENDS ON THIS LANDING — the five reconcile PRs are superseded BY ITS CONTENT, so verify it is ON MAIN before closing them."
     },
     {
-      "pr": 10919,
-      "branch": "automation/strategy-reviews-33737333473-1",
+      "pr": 11041,
+      "branch": "automation/reconcile-open-prs-33953177717-1",
       "session_id": null,
       "position": 2,
-      "state": "merged",
-      "blocked_on": null,
-      "note": "MERGE on green. Pure addition (comms/strategy_reviews/2026-09-03/INDEX.json, 1700 lines, directory ABSENT from main). Its 09-03 red was the BASE, not the diff: PASS 47 / FAIL 0 against current main. Main merged in at 876179d1, which both fixes the base and re-arms 24h-stale checks. || 2026-09-05T03:27Z MANAGER: pytest-run was FAILING on both of these pure-data M7 PRs, which is a shared cause and not each PRs own. Both sat on bases from 09-03/09-04; pytest-run passes on current main (#11020 merged green tonight). Branch updated to re-run against current main. If it is still red after that, the failure IS theirs and gets root-caused, not re-run again. || MERGED 2026-09-05T03:43Z as 9f2590b2. The stale-base diagnosis HELD: pytest-run went red->green on the branch update alone, with no code change, completing 03:42:10Z."
+      "state": "blocked",
+      "blocked_on": "superseded-by-11062",
+      "note": "CLOSE, do not merge. Oldest of five stacked reconcile PRs. Its register is STALE against the other four (settled 42, missing #11047). ⚠️ 'closed unmerged' has NO term in this file's own closed vocabulary (blocked/green/merged/rebasing/waiting), which is why it sits here as `blocked` — filed as BL-20260905-MERGE-QUEUE-VOCABULARY-HAS-NO-STATE-FOR-A-PR-CLOSED-WITHOUT-MERGING."
+    },
+    {
+      "pr": 11046,
+      "branch": "automation/reconcile-open-prs-33953307522-1",
+      "session_id": null,
+      "position": 3,
+      "state": "blocked",
+      "blocked_on": "superseded-by-11062",
+      "note": "CLOSE, do not merge. Same stale register as #11041 (settled 42)."
+    },
+    {
+      "pr": 11051,
+      "branch": "automation/reconcile-open-prs-33956561204-1",
+      "session_id": null,
+      "position": 4,
+      "state": "blocked",
+      "blocked_on": "superseded-by-11062",
+      "note": "CLOSE, do not merge. Register is byte-equivalent to #11056/#11058 (settled 43) and to what #11062 carries, but WITHOUT the #10921 disposition, so it cannot pass open_pr_record.py --strict."
+    },
+    {
+      "pr": 11056,
+      "branch": "automation/reconcile-open-prs-33958018891-1",
+      "session_id": null,
+      "position": 5,
+      "state": "blocked",
+      "blocked_on": "superseded-by-11062",
+      "note": "CLOSE, do not merge. Byte-equivalent register to #11051/#11058."
+    },
+    {
+      "pr": 11058,
+      "branch": "automation/reconcile-open-prs-33961145367-1",
+      "session_id": null,
+      "position": 6,
+      "state": "blocked",
+      "blocked_on": "superseded-by-11062",
+      "note": "CLOSE, do not merge. Newest of the five and the one whose failing guards job named the blocker: PASS 49 / FAIL 1, `session-registry-guard: open_pr_record.py --strict exited 1`. Also carries a PR-QUEUE-WATCH.json update, which is NOT lost by closing it — the watcher regenerates it and #11061 already landed a fresher one."
     },
     {
       "pr": 10895,
       "branch": "claude/mi83-merge-ping-observability",
       "session_id": "session_018ruZdgEkPZ1XceWzLwuYUU",
-      "position": 4,
+      "position": 7,
       "state": "blocked",
-      "blocked_on": "BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE",
-      "note": "RE-MEASURED 2026-09-04: MI-106 is fixed (5504200c now grades `unattributed`, not an R2 violation), but this PR is still red on a SECOND defect — R7 fails the manager's own merge commit 5244dafb by reading the previous heartbeat from `sha~1`, which on a merge is the worker branch's stale lease blob. True same-holder gap is 49min, inside the 90min TTL. Still MUST NOT be forced, excepted, or history-rewritten. PRIOR NOTE, kept: check_manager_scope grades commit 5504200c a violation on a mis-stamped Claude-Session: trailer. MUST NOT be forced, excepted, or history-rewritten. MI-106 is routed to session_01Bh89HtTcDzZqhfSCzZ2Lmp and is the fix. Carries no absent pending-pings row (verified unshallowed)."
+      "blocked_on": "merge-conflict + unattributed-R2",
+      "note": "ACTIONABLE NOW, and this is NEW today: MI-125 measured its R7 face against #10895 ITSELF and it CLEARS, so R7 is no longer the blocker this row carried. What remains is a merge conflict plus an unattributed R2 commit. Do not except it and do not rewrite another session's commit."
     },
     {
       "pr": 10398,
       "branch": "automation/econ-calendar-33232352515-1",
       "session_id": null,
-      "position": 5,
+      "position": 8,
       "state": "blocked",
-      "blocked_on": "MI-12",
-      "note": "HELD, unchanged. Carries REAL new macro data (61,529-line FXStreet capture + 444 snapshot rows), so it is not a stale receipt and must not be closed as one."
-    },
-    {
-      "pr": 11024,
-      "branch": "claude/mi113-pending-pings-merge-driver",
-      "session_id": "session_01D4zdCcUatN8SoN5HnEE2fT",
-      "position": 1,
-      "state": "merged",
-      "blocked_on": "pytest-run",
-      "note": "MI-113, OPERATOR-APPROVED 2026-09-05 as a popup ('Merge #11024 — arm union'). Arms merge=union on docs/claude/pending-pings.jsonl. jsonregister was RUN and REJECTED: it parses the file as one JSON document, conflicts 5/5, AND leaves the ping row absent entirely — worse than no driver. union: 0/5 conflicts, both sides present. Its merge was blocked by a conflict that is THIS PR'S OWN SUBJECT — GitHub does not run merge drivers, so a merge clean in a driver-equipped clone reads dirty on the PR page. Resolved with the driver locally and pushed as 6088e259; verified 1198 rows from 1196+1196, ZERO main rows lost. guards/pytest-collect/repo-inventory green; waiting on pytest-run only. || MERGED 2026-09-05T06:45Z as 465f6e3a, operator-approved. merge=union is now armed on docs/claude/pending-pings.jsonl."
-    },
-    {
-      "pr": 11032,
-      "branch": "claude/manager-record-2026-09-05",
-      "session_id": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-      "position": 2,
-      "state": "merged",
-      "blocked_on": "ci",
-      "note": "THE MANAGEMENT RECORD. Replaces #11031, CLOSED unmerged. #11031 could not go green: check_manager_scope R6 failed on bfdf2fa3 and WAS CORRECT — that commit advanced the lease heartbeat while SESSIONS.json was 154 min stale against a 90-min TTL, because the manager had been idle 143 minutes and the lease had expired. bfdf2fa3 was an ancestor of the tip, so it was permanently in the graded range. manager-scope-exception.yaml was NOT used — it is for a live incident, and spending it on a manager's own lapse is the 'cheaper to lie to than to satisfy' move MI-113 refused an hour earlier. OPERATOR DECIDED the rebuild over an exception. ⚠️ UNTIL THIS LANDS, main's lease still reads a heartbeat from 00:49:40Z and its checklist is ~6h old, so a cold manager reading origin sees an EMPTY SEAT that is not empty. 4 of 5 checks green; waiting on guards. || 2026-09-05T06:47Z: FIVE guard failures found and fixed on this PR, all diagnosed rather than assumed and three of them mine. (1) no landing declaration -- added both the pr-landing json AND the automerge request, since either alone lands nothing. (2) WIP 10/8 because I had not closed the objects of three finished sessions; now 7/8, closed on evidence. (3) THREE BACKLOG ROWS LOST BY MY OWN REBUILD -- recovered via append_row; a straight file take was refused because it would have dropped 5 rows that reached main later. (4) my own notes cited TRUNCATED backlog ids, the exact class I filed a row about yesterday. (5) a SESSIONS.json id collision, resolved against broker truth (get_session created_at) by correcting ONLY the wrong field and keeping main's headline. ⚠️ AND A SIXTH FOUND BY A CONTROL, NOT BY READING THE DIFF: my wholesale directory copy REWOUND five machine-generated registers by up to 7.9h -- the #10398 hazard, committed by the session holding #10398 for exactly that reason. Caught because digest-liveness failed here and PASSED on a clean origin/main control, disproving my own written claim that it was unreachable from this diff. Filed as BL-20260905-A-WHOLESALE-DIRECTORY-COPY-REWOUND-FIVE-GENERATED-REGISTERS-AND-DROPPED-THREE-FILED-ROWS. Local suite now PASS 52 / FAIL 0. || MERGED 2026-09-05T06:46Z as 08493444."
+      "blocked_on": "close-owed",
+      "note": "CLOSE, do not merge, and DO NOT RE-DERIVE THE MEASUREMENT — it was done twice. MI-131 took the one unique file (the 2026-08-29 FXStreet capture) BY VALUE in #11047, merged 08:55:06Z. Its other two files are DERIVED and would rewind main by 7 days: snapshots.jsonl drops 2,950 rows across 7 generations, upcoming.json rewinds to 2026-08-29 and loses 49 event_ids. OPEN-PRS.json records this as state=dispositioned_take_by_value_close_owed."
     }
   ]
 }
