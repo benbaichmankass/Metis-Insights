@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-04T07:44:07Z",
+  "updated_at": "2026-09-05T01:37:42Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1436,15 +1436,23 @@
     {
       "session_id": "session_01MookmZshi5ikDNqjAUiifA",
       "registry_key": "pending-20260904T073813Z",
-      "state": "working",
+      "state": "done",
       "title": "MI-109 respawn — decision-delivery attribution: record WHERE a prompt went, on a durable surface",
       "owns_object": "WO-20260903-DECISION-DELIVERY-UNATTRIBUTED",
       "checklist_item": "MI-109",
       "spawned_at": "2026-09-04T07:38:13Z",
       "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
       "why": "The 2026-09-03 spawn (session_011J1VB7UsXW1LZb5bCFixRD) went need_input six minutes in because WO-20260903-DECISION-DELIVERY-UNATTRIBUTED existed only on the previous manager's branch. It is on main now (2b2508be), so the blocker is cleared at the source. A manager cannot message a running cloud sub-session, so this is a RESPAWN against main, not a nudge. The operator has now answered the one question only they could: they have @ict_cluade_bot open.",
-      "note": "Operator answer 2026-09-04, recorded verbatim: the bot they actually have open is @ict_cluade_bot -- the DEDICATED Claude bot, TELEGRAM_CLAUDE_BOT_SECRET. NOTE THE HANDLE IS SPELLED 'cluade', a typo baked into the real handle; MI-109's own question text spells it '@ict_claude_bot' and that string is wrong. This closes question (3) of the five.",
-      "confirmed_at": "2026-09-04T07:39:11Z"
+      "note": "Operator answer 2026-09-04, recorded verbatim: the bot they actually have open is @ict_cluade_bot -- the DEDICATED Claude bot, TELEGRAM_CLAUDE_BOT_SECRET. NOTE THE HANDLE IS SPELLED 'cluade', a typo baked into the real handle; MI-109's own question text spells it '@ict_claude_bot' and that string is wrong. This closes question (3) of the five.\n\nBOTH halves of done_condition cleared, in PR #10975: (a) the prompted marker now records destination + poll_state + token_from + chat_from (the token VARIABLE name, never a value), and a prompt that missed the preferred bot is re-sent EXACTLY ONCE once the route becomes preferred — bounded by three suppressing verdicts, never unconditional; (b) the sweep's per-run stats land on runtime_logs/work_decision_sweep_receipt.json, allowlisted at /api/diag/log_file?name=work_decision_sweep_receipt in the same commit as the writer. ⚠️ IT IS A BOUNDED RING (200 rows), NOT the one-slot work_digest_receipt shape: that carrier is hourly, this sweep fires every 300s, so one slot would retain FIVE MINUTES — worse than the ~30 of journal it replaces. ⚠️ NOT PROVEN ON THE FLEET: a harness cannot reach the VM, arming needs an ict-telegram-bot.service restart (Tier-2, NOT dispatched from here), and no prompt has been observed carrying its destination. ⚠️ QUESTION (4) IS ANSWERED AND THE ANSWER IS THE OPPOSITE OF THE ONE ON RECORD: PUSH WORKS. add_repo returned push_check=refused and the cross-tier add of benbaichmankass/Metis-Insights was refused outright, but `git push` over the legacy the-lizardking/ict-trading-bot URL succeeded through the git proxy (GitHub 301-redirects it). So add_repo's pre-check does NOT predict git-proxy push access, and a session must not conclude it is blocked from that field alone. mcp create_pull_request DID 403 ('Resource not accessible by integration' — the write-scope boundary, not the transient drop), so the PR was opened through pr-opener.yml.",
+      "confirmed_at": "2026-09-04T07:39:11Z",
+      "branches": [
+        "claude/mi109-decision-delivery"
+      ],
+      "prs": [
+        "#10975"
+      ],
+      "last_observed": "2026-09-04T22:06:19Z",
+      "closing_observation": "2026-09-04T22:06:19Z: DONE and PROVEN ON THE FLEET, which is more than the row asked for. #10975 merged as squash 0689e985 (the manager, ~7h late — it was green at 15:02:46Z and the operator's Tier-2 approval was already given). Armed by pull-and-deploy, issue #11010, run 33923500430: ict-telegram-bot.service and ict-claude-decision-bot.service both restarted `active` at HEAD 0689e985, and /api/diag/version reads git_sha 0689e985. THE OBSERVATION THE DONE-CONDITION WANTED IS IN HAND: /api/diag/log_file?name=work_decision_sweep_receipt, run_at 2026-09-04T21:59:48Z, reads prompted_choice 2 · destination 'claude' · poll_state 'polled_with_handler' · token_from TELEGRAM_CLAUDE_BOT_SECRET · redelivered 2 · failed 0 · every held_* 0. So two decision prompts went to the DEDICATED bot on a route with positive poll evidence, and each prompt now records WHERE it went — which is the whole of MI-109. The 22:04:48Z run reads candidates 0 and suppressed_already_redelivered 2, so the once-only bound holds. ⚠️ WHAT IS STILL NOT PROVEN, and must not be folded in: nobody has TAPPED one. A send is not an answer, and OI-20260901-DECISION-ROUNDTRIP's stage (4) is a committed answer visible in the object YAML on main. That row stays open."
     },
     {
       "session_id": "session_012p1DoQBRJYyggX8ELT1WEP",
@@ -1462,7 +1470,7 @@
     {
       "session_id": "session_01Bh89HtTcDzZqhfSCzZ2Lmp",
       "registry_key": "pending-20260904T074315Z",
-      "state": "working",
+      "state": "done",
       "title": "MI-106 — manager-scope authorship is self-declared: make a mis-stamp read as unattributed, not as a verdict",
       "owns_object": "WO-20260904-MANAGER-SCOPE-AUTHORSHIP-SELF-DECLARED",
       "checklist_item": "MI-106",
@@ -1470,9 +1478,101 @@
       "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
       "why": "This is what blocks #10895, and #10895 is what makes OI-20260902-PER-MERGE-PING verifiable at all. The 2026-09-03 manager correctly refused all three shortcuts (force, except, rewrite another session's history), so the block is real and only this clears it.",
       "note": "Three states must not collapse: attributed / unattributed / violation. 'We cannot establish who wrote this' is not the same fact as 'a manager did an item', and today they render identically. --self-test needs a PLANT and a CONTROL.",
-      "confirmed_at": "2026-09-04T07:44:07Z"
+      "confirmed_at": "2026-09-04T07:44:07Z",
+      "last_observed": "2026-09-04T22:06:19Z",
+      "closing_observation": "2026-09-04T22:06:19Z: DONE. MI-106 merged (#10977); commit 5504200c now grades `unattributed` rather than an R2 violation, which is the three-state fix it was spawned for. Its own last summary asks the manager to move the MI-106 row to landed_unproven — a manager act, taken here. ⚠️ IT DID NOT UNBLOCK #10895, and the row must not be read as if it had: the sub-session re-measured and found a SECOND, independent defect — R7 reads the previous heartbeat from `sha~1`, which on a merge commit is the worker branch's stale lease blob, so the manager's own merge 5244dafb reads as a lapse when the true same-holder gap is 49min, inside the 90min TTL. Filed as BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE. It filed rather than folded it in, which is correct. #10895 stays blocked, on that row now and not on MI-106."
+    },
+    {
+      "session_id": "session_018zzzSLT8UdJ1e1RbFeyvsz",
+      "registry_key": "pending-20260904T085424Z",
+      "state": "working",
+      "title": "MI-107 (respawn 2) — downgrade-to-shadow-and-tune flow: design the EXIT CONDITION first",
+      "owns_object": "WO-20260903-SUNSET-DISPOSITIONS-OWED",
+      "checklist_item": "MI-107",
+      "spawned_at": "2026-09-04T08:54:24Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "why": "The first spawn (session_012p1DoQBRJYyggX8ELT1WEP) reached need_input at 08:00Z with 'push blocked by proxy; need auth or repo rename' and its clone's remote carries the LOWERCASE benbaichmankass/metis-insights, which the sandbox proxy scope denies. A manager cannot message a cloud sub-session -- VERIFIED this session, not assumed: ListAgents returns 'No reachable agents' -- so the only lever is a respawn, and its ~159k tokens of unpushed design work are LOST. That is a live instance of the cycle priority CY-20260903-MANAGER-CONTROL: the manager could see the session was stuck and could not reach it.",
+      "note": "FIRST ACTION: git remote set-url origin https://github.com/benbaichmankass/Metis-Insights -- exact case. The predecessor died on the lowercase form.",
+      "confirmed_at": "2026-09-04T08:55:02Z",
+      "last_observed": "2026-09-04T22:06:19Z",
+      "prs": [
+        "#11006"
+      ],
+      "branches": [
+        "claude/decision-answers-guard"
+      ],
+      "live_state": "2026-09-04T22:06:19Z: IDLE, connected, need_input. Its own summary: '#11006 auto-merge armed; awaiting service restart go-ahead'. ⚠️ THAT WAIT IS ALREADY SPENT AND IT DOES NOT KNOW — the restart it is asking for was dispatched by the manager at 21:58:36Z (issue #11010) and completed at 21:59:29Z, ~5 minutes before this read. A manager cannot message a running cloud sub-session (verified, ListAgents returns 'No reachable agents'), so it cannot be told; what unblocks it is the manager merging #11006 itself. ⚠️ AND ITS NAMED WORK IS NOT WHAT IT IS REPORTING ON: this session owns WO-20260903-SUNSET-DISPOSITIONS-OWED (MI-107, the demote-to-shadow-and-tune flow), and #11006 is decision-answers-guard work. The MI-107 half DID land — the flow is written at docs/design/strategy-demote-and-tune-DESIGN.md and its done-condition is operator agreement, which is now a live decision_requests[] block sitting not_submitted in the Telegram inbox. So MI-107 is correctly `waiting` on an operator decision, and this session drifted onto adjacent work after reaching it."
+    },
+    {
+      "session_id": "session_01QRMbr88Ju1XAqsfHxcms5c",
+      "registry_key": "pending-20260904T224429Z",
+      "state": "review_ready",
+      "title": "MI-122 — R7 grades a lease CLAIM as a late heartbeat, and reads a merge's previous heartbeat from the wrong parent",
+      "owns_object": "WO-20260904-R7-GRADES-A-LEASE-CLAIM-AS-A-LATE-HEARTBEAT",
+      "checklist_item": "MI-122",
+      "spawned_at": "2026-09-04T22:44:29Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi122-r7-lease-run"
+      ],
+      "why": "TWO measured instances, one root. (a) This manager's re-claim commit cc984fec fails R7 at 746min because a CLAIM over an expired lease is graded as a late heartbeat -- while R7's own docstring already exempts a HANDOVER for the identical reason. (b) #10895 is blocked because R7 reads the previous blob from sha~1, which on a merge commit is the worker branch's stale lease. Operator decision 2026-09-04, asked directly: FIX R7, do NOT write a scope exception. PR #10982 (manager register state, MI-118..121, the session-cap resolution and the record of tonight's twelve-hour gap) cannot land until this does.",
+      "confirmed_at": "2026-09-04T22:46:48Z",
+      "last_observed": "2026-09-04T23:17:43Z",
+      "prs": [
+        "#11012"
+      ],
+      "live_state": "2026-09-04T23:17:43Z: IDLE, connected, review_ready — 29 minutes after spawn. PR #11012 open on claude/mi122-r7-lease-run; guards, pytest-collect and repo-inventory all SUCCESS, pytest-run in_progress, automerge armed. NOT reviewed by the manager yet — this is a state observation, not an approval. ⚠️ ITS UNIT GOT HARDER AFTER IT WAS SPAWNED and it was told on the board (#6927) rather than by message, since a manager cannot reach a running cloud sub-session: the R7 defect is a DEADLOCK, not a slow queue. Measured 23:11Z — origin/main's lease reads heartbeat_at 08:08:00Z (expired, claimable) while the manager's branch reads 23:11:51Z, because heartbeats ride #10982, which is red on R7, which is red BECAUSE OF the lease. A lease-only commit built on origin/main was refused by branch protection (3 of 3 required checks) AND graded ✗R6 ✗R7 by check_manager_scope, so the lease cannot reach main by ANY route until this lands. ⚠️ AND ITS CONTRACT OBJECT IS NOT ON MAIN — WO-20260904-R7-GRADES-A-LEASE-CLAIM-AS-A-LATE-HEARTBEAT exists only on claude/manager-handoff-2026-09-04-f2ru37, the branch #10982 blocks. The spawn prompt carried the full done_condition and do_not inline, so it is not stranded; the board post says so explicitly and tells it not to re-create the file."
+    },
+    {
+      "session_id": "session_01SVUv3HZiqBsriCcc2RqQo7",
+      "registry_key": "pending-20260904T224451Z",
+      "state": "review_ready",
+      "title": "MI-123 — bound a manager's idle time with a durable wake, so a manager that stops acting is detected by a mechanism and not by the operator",
+      "owns_object": "WO-20260904-MANAGER-IDLE-IS-UNBOUNDED-AND-NOTHING-WAKES-IT",
+      "checklist_item": "MI-123",
+      "spawned_at": "2026-09-04T22:44:51Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi123-manager-durable-wake"
+      ],
+      "why": "MEASURED tonight: this manager's last act was ~09:45Z and the operator asked at 21:53Z. TWELVE HOURS against a standing directive of thirty minutes, and NOTHING NOTICED. The manager did NOT die -- it stayed alive and connected and simply stopped taking turns, which is the one case every existing mechanism misses: the lease's TTL, time-based takeover and the whole reaper argument are all aimed at DEATH. Cost: #10975 green and approved at 15:02Z sat unmerged ~7h; all three sub-sessions were at need_input by 09:41Z each naming one act; the lease sat expired 746 minutes. Operator decision 2026-09-04, asked directly: build the DURABLE WAKE (bound idle), not the reaper.",
+      "confirmed_at": "2026-09-04T22:46:48Z",
+      "last_observed": "2026-09-04T23:17:43Z",
+      "prs": [
+        "#11014"
+      ],
+      "live_state": "2026-09-04T23:17:43Z: PR #11014 open on claude/mi123-manager-durable-wake — 1626 additions, 9 files, 4 commits; guards, pytest-collect and repo-inventory SUCCESS, pytest-run in_progress, automerge armed. ⚠️ THE DELIVERY HALF IS OBSERVED, WHICH IS MORE THAN THE OBJECT ASKED FOR: at 23:09:19Z its own mechanism WOKE THIS MANAGER — manager_wake.py --brief rendered and carried by a poke-only Routine, arriving as an out-of-band turn. That is the bar OI-20260902-DECISION-DRAIN-ROUTINE sets for its stage (4), reached rather than claimed. AND IT FOUND A REAL DEFECT ON ITS FIRST FIRING: it reported the lease 901 minutes stale, the manager's reflex was that the number was wrong, and the number was a true reading of origin/main — see the MI-122 row for the deadlock it exposed. ⚠️ SCHEDULING IS NOT ARMED AND NEEDS THE OPERATOR: create_trigger via MCP returns mcp_connections: [] and its fired sessions carry no mcp__* tools, which the wake's poke step requires; `connectors` is refused for this org. The session CREATED such a Routine, confirmed it would be inert, and DELETED it rather than leave something named manager-wake that cannot wake — the operator's own standard from the decision-drain row, applied unprompted. The prompt is committed at docs/claude/work/manager-wake-routine-prompt.md and needs the Claude Code Remote connector attached from the claude.ai Routines UI. MERGED WILL NOT BE ARMED. ⚠️ Its PR title and body were written by the MANAGER, not the author: the author is write-scope 403 on create_pull_request/update_pull_request (issue_read on the same objects succeeds), so the relay had titled a 1626-line PR after one commit of four. ⚠️ Guards PASS 65 / FAIL 1, and the 1 is NOT green: layer-guard COULD NOT RUN (lint-imports exited 127, absent from the container). Reported as 'we did not look', which is the honest third state. The reaper is FILED not built (BL-20260904-NOTHING-REAPS-A-DEAD-MANAGER-OR-CLAIMS-AN-EXPIRED-LEASE), correctly refusing the scope creep."
+    },
+    {
+      "session_id": "session_018iMJkpN41FHzNjKj7ShNPS",
+      "registry_key": "pending-20260905T001246Z",
+      "state": "working",
+      "title": "MI-124 — diagnose WHY each of the ten sunset candidates produces nothing (operator-funded repair lane)",
+      "owns_object": "WO-20260905-NEVER-FIRING-LEGS-NEED-A-REPAIR-DIAGNOSIS-NOT-A-RETIREMENT",
+      "checklist_item": "MI-124",
+      "spawned_at": "2026-09-05T00:12:46Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi124-never-firing-legs-diagnosis"
+      ],
+      "why": "OPERATOR-FUNDED, recorded on DEC-20260904-DEMOTE-AND-TUNE-FLOW, option agree_flow_and_fund_repair, verbatim: 'Agree flow + fund REPAIR diagnosis.' The demote-and-tune flow is AGREED and on main; this is the half it could not absorb, and the design says so itself -- the ten legs that prompted the flow do not qualify for it because they do not trade at all. NOTHING IS RETIRED and the retirement question is ANSWERED; the operator rejected the retire/do-not-retire AXIS twice.",
+      "confirmed_at": "2026-09-05T00:13:48Z"
+    },
+    {
+      "session_id": "session_01SZnY5fHV3fzh8UXg6cRgTS",
+      "title": "MI-124 — diagnose WHY each of the ten sunset candidates produces nothing (RESPAWN of session_018iMJkpN41FHzNjKj7ShNPS, whose work was lost)",
+      "owns_object": "WO-20260905-NEVER-FIRING-LEGS-NEED-A-REPAIR-DIAGNOSIS-NOT-A-RETIREMENT",
+      "checklist_item": "MI-124",
+      "spawned_at": "2026-09-05T01:37:42Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi124-never-firing-legs-diagnosis"
+      ],
+      "why": "OPERATOR-FUNDED on DEC-20260904-DEMOTE-AND-TUNE-FLOW, option agree_flow_and_fund_repair. Respawn after the predecessor completed the diagnostic and lost all of it to a failed push. Self-registered: the assigned registry key pending-20260905T011351Z was NOT present in SESSIONS.json when this session read it — only the predecessor's pending-20260905T001246Z, still marked state=working though the session is dead. That is the MI-15 recurrence, third occurrence.",
+      "note": "Diagnosis complete; PR opened via pr-opener relay (both MCP write paths 403). Guards: PASS 51 / FAIL 0.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",
-  "⚠️_last_live_reconcile": "2026-09-03, day-manager WIND-DOWN. Basis: a real `list_sessions(mine=true, limit=60)` read returning 60 sessions (66 distinct ids in the payload), passed to `scripts/ops/handoff_check.py --live-sessions`, which graded `live_registry: PASS — all 6 graded live session(s) are registered (observed 60)` and `checklist_owners: PASS — all 58 owner mention(s) across 104 checklist items resolve to registered sessions`. ⚠️ THIS STAMP IS AN OBSERVATION, NOT AN ASSERTION THAT THE REGISTRY IS FINE: 60 is a page, not the fleet, and a session spawned after the read is not in it. There is deliberately no flag saying the registry is complete — asserting it is what failed twice."
+  "⚠️_last_live_reconcile": "2026-09-04T23:17:43Z — get_session polled directly on both sessions spawned 22:46Z, plus a GitHub read of #11012 and #11014. Both are review_ready with CI in flight and automerge armed; neither has been REVIEWED by the manager, and a state observation is not an approval. MI-107 (session_018zzzSLT8UdJ1e1RbFeyvsz) not re-polled this cycle — last read 22:06Z, idle, and #11006 merged 22:35:40Z so it is unblocked and cannot be told. ⚠️ This is a poll of THREE named sessions, not a census: the registry holds 95 rows, 67 of which have never been observed at all, and one carries a last_observed that is a bare string rather than an object — that row is invisible to every status query including this one, and is filed."
 }

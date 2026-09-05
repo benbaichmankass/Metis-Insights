@@ -1,0 +1,88 @@
+id: WO-20260905-NEVER-FIRING-LEGS-NEED-A-REPAIR-DIAGNOSIS-NOT-A-RETIREMENT
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  ten sunset candidates produce nothing and nobody has established WHY -- diagnose each, because "never fired" is not a retirement basis on its own
+stage: QUESTION
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-05
+closed_at: null
+
+why: >-
+  OPERATOR DECISION, recorded on DEC-20260904-DEMOTE-AND-TUNE-FLOW
+  (WO-20260903-SUNSET-DISPOSITIONS-OWED), chosen option
+  `agree_flow_and_fund_repair`, verbatim: "Agree flow + fund REPAIR diagnosis."
+  The demote-to-shadow-and-tune flow is agreed and written
+  (docs/design/strategy-demote-and-tune-DESIGN.md, on main). This object is the
+  half the flow could NOT absorb, and the design says so itself: the ten legs that
+  PROMPTED the flow do not qualify for it, because they do not trade at all. A
+  flow that demotes a leg to shadow and tunes it needs a leg that produces
+  something to tune.
+  ⚠️ THE PRIOR QUESTION WAS MIS-FRAMED AND THE OPERATOR REJECTED THE AXIS, TWICE.
+  DEC-20260903-SUNSET-DISPOSITION-POLICY offered four options and all four were
+  points on a retire / do-not-retire line: "I don't want to retire anything yet --
+  we need a flow for downgrading to shadow and tuning, not just turning things off
+  out right." NOTHING IS RETIRED. Do not re-open the retirement question here; it
+  is answered, and re-asking it is the specific failure the operator has named.
+  ⚠️ "NEVER FIRED" IS AN OBSERVATION ABOUT US, NOT ABOUT THE STRATEGY. A leg that
+  emits nothing may be correctly declining a regime it should decline, or it may be
+  starved by a sibling on a netted symbol, or mis-routed, or dead. Those have
+  opposite remedies and the journal does not distinguish them today. Retiring on
+  silence would delete a working leg and a broken one with equal confidence, which
+  is why the operator funded a diagnosis instead.
+  RELATED AND NOT THE SAME: MI-29 already proposes sibling STARVATION on one netted
+  symbol as a better explanation than "long-horizon" for some never-traded legs.
+  Read it before starting; if starvation explains a candidate, say so and do not
+  re-derive it.
+
+cost_of_not_doing_it: >-
+  The ten candidates have waited since 2026-09-01 with an evidenced sunset packet
+  and no disposition, and the register that carries them (comms/sunset/) renders
+  into the session brief every cycle. A funded decision that produces no diagnosis
+  becomes the abandoned soak the operator's standing rule exists to prevent.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-05 by the manager. Nothing blocks it: the flow is agreed and on
+  main, the operator has funded the lane explicitly, the candidate list is
+  committed under comms/sunset/, and no Tier-3 change is required to ASK why a leg
+  is silent.
+
+done_condition: >-
+  For EACH of the ten candidates, a written cause with evidence behind it, drawn
+  from a closed vocabulary rather than prose: `declining_correctly` (the regime
+  gate or the strategy's own conditions refused, and that is the leg working) ·
+  `starved` (a sibling took the symbol -- name it) · `mis_routed` (the account,
+  symbol or timeframe does not resolve) · `refused_at_risk` (it signalled and
+  every order was refused -- name the cause) · `broken` (it raises, or its builder
+  is unreachable) · `not_established` (WE DID NOT FIND OUT -- an explicit, honest
+  terminal state, never folded into any of the others).
+  ⚠️ `not_established` MUST BE AVAILABLE AND MUST BE USED WHERE IT IS TRUE. A
+  diagnosis lane that cannot say "we could not tell" will manufacture a cause for
+  the hardest cases, which are exactly the ones worth knowing about.
+  Then ONE recommendation per leg, and the recommendation is NOT a retirement --
+  it is repair, re-route, demote-to-shadow-and-tune per the agreed flow, or an
+  explicit "leave it, it is behaving correctly".
+
+do_not: >-
+  ⚠️ DO NOT RETIRE, DISABLE, OR SHADOW ANY LEG. Every one of those is Tier-3 and
+  the operator has said twice that nothing is retired yet. PROPOSE only.
+  ⚠️ DO NOT touch config/strategies.yaml, config/accounts.yaml, config/risk_caps.yaml,
+  src/runtime/orders.py or any order path. This is a read-and-diagnose unit.
+  ⚠️ DO NOT re-ask the retirement question in any form. It is answered.
+  ⚠️ DO NOT report "no signals found" as a cause. That is the OBSERVATION this
+  object starts from; restating it is not a diagnosis.
+  ⚠️ DO NOT grade a leg from a silent query without a POSITIVE CONTROL. A probe
+  that returns nothing for a healthy leg and nothing for a dead one has told you
+  nothing -- show the probe finding a positive on a leg that DOES trade before
+  trusting any of its negatives. A negative needs a denominator.
+  ⚠️ STATE THE POPULATION on every count: which legs, which window, which journal.
+  ⚠️ AND DO NOT BUDGET-OVERRUN: the operator funded a BOUNDED diagnosis. If the
+  ten cannot be done well, do fewer properly and say which you did not reach --
+  `not_established` on an unexamined leg is a lie, "I did not get to it" is not.
+
+review_trigger: >-
+  If more than half the legs land on `not_established`, the lane is not answerable
+  from the journal as it stands and the finding becomes "the journal cannot
+  distinguish declining from dead", which is a different and more valuable item.

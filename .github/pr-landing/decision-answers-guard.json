@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI guard + two decision-record edits, both Tier-1 surfaces (scripts/ci/**, docs/claude/work/objects/**). Records two operator answers so they GRADE readable — DEC-20260904-DEMOTE-AND-TUNE-FLOW and DEC-20260902-LOCAL-LLM-WEIGHT, the latter answered on 09-02 and re-asked on 09-04 because normalise_answer() could not see it — and adds scripts/ci/check_decision_answers.py so a third instance is caught by machinery rather than by hand. No runtime, order path, strategy config, risk cap, deploy file or live-VM file is touched; the guard reads YAML and exits non-zero, it enacts nothing."
+}

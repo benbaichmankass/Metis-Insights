@@ -4,10 +4,10 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   manager-scope-guard derives authorship from a trailer the author writes themselves, so a MIS-stamped commit is a false violation and a MIS-stamped commit is also an open evasion
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: done
 owner: null
 opened_at: 2026-09-04
-closed_at: null
+closed_at: 2026-09-04
 
 why: >-
   MEASURED 2026-09-03T14:0xZ while trying to land #10895. check_manager_scope
@@ -70,3 +70,29 @@ do_not: >-
 review_trigger: >-
   If a second PR is blocked by a mis-stamped trailer before this lands, the
   false-positive half stops being theoretical and the priority rises.
+
+lifecycle_note: >-
+  CLOSED by the manager 2026-09-04T22:4xZ on the owning session's own observation,
+  not on the merge. #10977 is merged and commit 5504200c now grades `unattributed`
+  rather than an R2 violation -- the three-state fix this object was opened for,
+  read back rather than asserted. That is MERGED AND OBSERVED, which is what `done`
+  means here.
+  ⚠️ IT DID NOT UNBLOCK #10895, AND THIS ROW MUST NOT BE READ AS IF IT HAD.
+  `cost_of_not_doing_it` above says "only this object clears it" and that sentence
+  is now FALSE -- kept rather than edited, because the correction is the finding.
+  The owning session re-measured after its own fix landed and found a SECOND,
+  INDEPENDENT defect in the same guard: R7 reads the previous heartbeat from
+  `sha~1`, which on a MERGE commit is the worker branch's stale lease blob, so the
+  manager's merge 5244dafb reads as a lapse when the true same-holder gap is 49min,
+  inside the 90min TTL. It FILED that rather than folding it into its own PR --
+  the correct disposition -- as
+  BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE.
+  #10895 is blocked on THAT row now, and MERGE-QUEUE.json records the same edge.
+  ⚠️ AND THE R7 DEFECT HAS A SECOND FACE THE MANAGER MET DIRECTLY TONIGHT: R7 also
+  grades a CLAIM over an EXPIRED lease as a late heartbeat. Its own selection rule
+  already exempts a HANDOVER, reasoning that "grading one would fail the incoming
+  manager for the outgoing one's silence" -- the identical argument applies to a
+  lease that DIED and was re-claimed. Left as-is it makes the cheapest route to a
+  green PR "do not push the lease at all", i.e. do not record the lapse. Operator
+  decision 2026-09-04: fix R7, routed to its own session (MI-122), and do NOT
+  write a scope exception for it.
