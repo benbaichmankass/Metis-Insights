@@ -105,3 +105,42 @@ Both were put as popups and answered. They are recorded as **MI-132** and
   `unassigned` — honestly, rather than assigned to a session that does not
   exist.
 - **Took no items.** Filing is the act of not taking them.
+
+---
+
+## Two things found at the very end — read these before touching the queue
+
+**1. A reconcile PR cut before a disposition lands will ERASE it on merge,
+and the diff gives you nothing to notice.** A sixth reconcile PR (#11063,
+cut 11:17:47Z) read **identical** to `main` — `open_prs [10895, 10398]`,
+`settled_prs 43` — while carrying `#10921` with a **blank** `disposition`.
+Merging it would have overwritten the recorded reason with an empty one and
+re-jammed the guard. Row counts match, the file is generated so churn is
+expected, and the title is the same as every other reconcile PR. The only
+signal is reading that one field. **Any hand-supplied field is exposed this
+way to any register PR already open when it is written.** Filed as
+`BL-20260905-A-RECONCILE-PR-CUT-BEFORE-A-DISPOSITION-LANDS-WILL-ERASE-IT-ON-MERGE-WITH-IDENTICAL-ROW-COUNTS`.
+All six reconcile PRs are closed with the reason posted on each.
+
+**2. `OI-20260902-DECISION-DRAIN-…` rested on a premise that is FALSE.** It
+said *"Nothing in the repo can create it — a Routine is made from the web UI
+or /schedule in an interactive CLI session."* `create_trigger` **succeeds**
+from an ordinary session; I disproved this by accident building the wake.
+What is refused is the `connectors` parameter, org-wide. The row is
+corrected in place. ⚠️ **The verdict did not change — the REASON did**, and
+that is why it mattered: a session reading the old sentence concludes no
+Routine can exist and never looks at the real obstacle, which is that a
+Routine-fired session has no tools and cannot answer a permission prompt.
+⚠️ **Creating that drain today would be actively harmful** — it would
+deliver nothing while reading as armed, which is the failure that row
+itself exists to warn about.
+
+## One procedural note for the queue
+
+`claude-pr-automerge` opens PRs as `github-actions[bot]`, and GitHub fires
+no workflows for `GITHUB_TOKEN` pushes — so a relay-opened PR can sit at
+`mergeable_state: blocked` with **only** its own `open-and-automerge` check
+and none of the four required ones. #11066 sat like that for 13 minutes.
+**Push one ordinary commit yourself to arm CI.** Do not read zero checks as
+"CI hasn't started"; read `mergeable_state` — `blocked` is this, `dirty` is
+a merge conflict.
