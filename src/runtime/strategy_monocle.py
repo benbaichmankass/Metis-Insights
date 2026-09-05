@@ -315,3 +315,110 @@ def _same_bar_entry_for_strategy(
             strategy_name, symbol, exc,
         )
         return None
+
+
+# ---------------------------------------------------------------------------
+# Empty-sizing brake — refuse a signal ONCE when nothing could be sized
+# BL-20260905-MES-TREND-LONG-1D-RE-EMITTED-ONE-DAILY-SIGNAL-SEVEN-TIMES-IN-49-MINUTES-WHEN-SIZING-RETURNED-EMPTY  # noqa: E501
+# ---------------------------------------------------------------------------
+#
+# THE GAP THIS FILLS. The three gates above are each bounded by something that
+# is not "did this attempt size anything":
+#   * ``_has_open_package_for_strategy`` frees the moment the package leaves
+#     'open' — and a package that sized nothing is terminalised (or, pre-
+#     BUG-049-backstop, orphaned by the reconciler at +5 min), so it frees on
+#     its own and the next tick re-emits. That +5 min is visible in the
+#     evidence: seven packages ~8 minutes apart.
+#   * ``_recent_refusal_for_strategy`` requires ``status='rejected'`` AND a
+#     300 s window. The observed cadence was ~8 min — WIDER than the cooldown.
+#   * ``_same_bar_entry_for_strategy`` needs the strategy's configured
+#     ``timeframe`` to resolve; when it does not, it returns None and the
+#     debounce silently is not there.
+# So an empty sizing map had no ceiling of its own. This gate is that ceiling,
+# and it keys on the thing that actually went wrong.
+#
+# ⚠️ IT DOES NOT SUPPRESS SILENTLY. It fires only on a package that recorded a
+# NAMED cause (``meta.empty_sizing_refusal.cause``, written by
+# ``coordinator.multi_account_execute``) and it logs that cause every time it
+# blocks. A brake that quietly swallowed the re-emission would convert a noisy
+# failure into a silent one — strictly worse, and the exact class
+# ``silent_refusal_alert`` exists to catch.
+#
+# SCOPE: this is the brake, not the cause. Why sizing returned empty on a leg
+# that traded normally 63 days later is a separate, filed question.
+
+def _empty_sizing_brake_disabled() -> bool:
+    # Kill-switch mirroring STRATEGY_BAR_DEBOUNCE_DISABLED: this throttles
+    # RE-EMISSION of a signal that already sized to nothing. It never decides
+    # whether a strategy trades live vs dry (that stays accounts.yaml mode +
+    # strategies.yaml execution), and it is default-ON, not a default-off
+    # *_ENABLED gate.
+    raw = os.environ.get("STRATEGY_EMPTY_SIZING_BRAKE_DISABLED", "")  # allow-silent: re-emission brake, not a live/dry gate
+    return str(raw).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _empty_sizing_refusal_for_signal(
+    strategy_name: Optional[str],
+    signal_key: Optional[str],
+    symbol: Optional[str] = None,
+    *,
+    scan_limit: int = 5,
+) -> Optional[Dict[str, Any]]:
+    """Return the recorded refusal when *this same signal* already sized to
+    nothing, else ``None``.
+
+    Matches on ``meta.empty_sizing_refusal.signal_key`` — the SIGNAL's
+    identity, not a time window — so the refusal holds for as long as the
+    signal keeps re-presenting and lifts the instant the strategy produces a
+    different one. A blank ``signal_key`` on either side means "no identity",
+    and an unidentifiable signal is never braked.
+
+    Returns ``{"order_package_id", "cause", "signal_key", "refused_at"}``.
+
+    Best-effort, matching the contract of every sibling helper in this module:
+    a DB-read failure returns ``None`` (dispatch proceeds) rather than blocking
+    every signal on a transient SQLite hiccup. The cost of that direction is
+    one extra package in the read-failure window; the cost of the other is a
+    trader that stops trading when SQLite hiccups.
+    """
+    if not strategy_name or not signal_key or _empty_sizing_brake_disabled():
+        return None
+    try:
+        import json as _json
+        from src.units.db.database import Database
+        from src.utils.paths import trade_journal_db_path
+
+        db = Database(db_path=trade_journal_db_path())
+        # Any status: the refusal is terminal ('rejected'), and pre-backstop
+        # rows could also be 'orphaned' — the gate must see both, so it filters
+        # on the stamp rather than on a status whitelist.
+        rows = db.get_order_packages_by_strategy(
+            strategy_name, status=None, limit=scan_limit, symbol=symbol,
+        )
+        for row in rows or []:
+            meta = row.get("meta")
+            if isinstance(meta, str):
+                try:
+                    meta = _json.loads(meta)
+                except (TypeError, ValueError):
+                    continue
+            if not isinstance(meta, dict):
+                continue
+            refusal = meta.get("empty_sizing_refusal")
+            if not isinstance(refusal, dict):
+                continue
+            if str(refusal.get("signal_key") or "") != str(signal_key):
+                continue
+            return {
+                "order_package_id": str(row.get("order_package_id") or ""),
+                "cause": str(refusal.get("cause") or "unrecorded"),
+                "signal_key": str(signal_key),
+                "refused_at": str(refusal.get("refused_at") or ""),
+            }
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_empty_sizing_refusal_for_signal(%s, symbol=%s): DB read failed — %s",
+            strategy_name, symbol, exc,
+        )
+        return None

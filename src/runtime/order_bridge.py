@@ -59,3 +59,67 @@ def _signal_to_order_package(signal: Dict[str, Any], settings: dict):
         confidence=float(meta.get("confidence") or 0.0),
         meta=meta,
     )
+
+
+# ---------------------------------------------------------------------------
+# Signal identity (BL-20260905 — empty-sizing brake)
+# ---------------------------------------------------------------------------
+#
+# The empty-sizing brake must refuse re-emission of THE SAME signal without
+# muting the next one, so it needs an identity that is stable across ticks and
+# different for a genuinely new signal. On 2026-06-01 all seven
+# ``mes_trend_long_1d`` packages shared one ``entry_time``
+# ('2026-06-01 00:00:00') and one ``donchian_hi`` (7611.75): one daily signal
+# re-emitted seven times, not seven signals. Geometry + entry_time is exactly
+# what separated those two readings.
+#
+# ⚠️ ONE derivation, TWO call sites. The gate sees a pipeline *signal dict*
+# and the coordinator sees an *OrderPackage*; a second copy of "how a signal
+# maps to entry/sl/tp/direction" is how the two would silently disagree and
+# the brake would stop matching its own refusals. So the signal-side helper
+# NORMALISES THROUGH ``_signal_to_order_package`` — the package builder is the
+# normaliser — and both sides then hash the same package fields.
+
+def signal_key_for_package(pkg: Any) -> str:
+    """Stable identity for the signal *pkg* represents.
+
+    Hashes strategy + symbol + direction + entry/sl/tp (rounded to 8 dp so a
+    float round-trip through JSON/SQLite cannot change the key) plus
+    ``meta['entry_time']`` when the strategy publishes one. Returns a short
+    hex digest; never raises (an underivable key returns ``""``, which every
+    caller treats as "no identity — do not brake").
+    """
+    import hashlib
+
+    try:
+        meta = getattr(pkg, "meta", None) or {}
+        entry_time = meta.get("entry_time") if isinstance(meta, dict) else None
+        parts = [
+            str(getattr(pkg, "strategy", "") or ""),
+            str(getattr(pkg, "symbol", "") or ""),
+            str(getattr(pkg, "direction", "") or ""),
+            f"{float(getattr(pkg, 'entry', 0.0) or 0.0):.8f}",
+            f"{float(getattr(pkg, 'sl', 0.0) or 0.0):.8f}",
+            f"{float(getattr(pkg, 'tp', 0.0) or 0.0):.8f}",
+            str(entry_time or ""),
+        ]
+        return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:16]
+    except Exception:  # noqa: BLE001 — an identity helper must never break dispatch
+        return ""
+
+
+def signal_key_for_signal(
+    signal: Dict[str, Any], settings: Dict[str, Any] | None = None
+) -> str:
+    """``signal_key_for_package`` for a pipeline signal dict.
+
+    Returns ``""`` when the signal cannot be turned into a package at all
+    (missing entry/sl/tp) — an un-keyable signal is never braked, which
+    degrades to the pre-2026-09-05 behaviour rather than guessing.
+    """
+    try:
+        return signal_key_for_package(
+            _signal_to_order_package(signal, settings or {})
+        )
+    except Exception:  # noqa: BLE001
+        return ""

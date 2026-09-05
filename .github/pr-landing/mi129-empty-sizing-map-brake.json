@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 order-path change: src/core/coordinator.py (multi_account_execute), src/runtime/pipeline.py (a new pre-dispatch gate) and src/runtime/strategy_monocle.py. Operator approved the SCOPE on 2026-09-05 (the brake, not the cause); that is not an approval to self-land. Needs one operator OK on the diff in chat.",
+  "why": "Runtime dispatch/sizing path. A new gate can REFUSE an order package, so a wrong keying would stop a leg trading rather than merely log noise — the failure direction that needs a human read. No config/, no deploy/, no account files, no risk caps, no strategy params, no VM mutation."
+}
