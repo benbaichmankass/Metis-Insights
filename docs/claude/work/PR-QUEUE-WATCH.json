@@ -1,15 +1,15 @@
 {
   "_doc": "RECEIPT of the PR-queue watcher (scripts/ops/pr_queue_latency.py, fired by .github/workflows/pr-queue-watch.yml). ⚠️ READ `generated_at`, NEVER THE CRON EXPRESSION -- a merged, enabled, syntactically correct scheduled workflow in this repo is NOT evidence that it fires (probes.yml's first scheduled run was ~4h50m late and fired once instead of daily). `scripts/ci/check_pr_queue_watch.py` grades this file's age in run_guards.py on every PR, so a dead watcher announces itself in everybody's CI instead of going quiet. ⚠️ An ABSENT file means the watcher has NEVER run, which is a different fact from STALE and needs a different fix.",
   "schema_version": 1,
-  "generated_at": "2026-09-05T04:55:44Z",
+  "generated_at": "2026-09-05T10:54:47Z",
   "read_state": "measured",
-  "population": "ALL 5 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
-  "waiting": 3,
-  "worst_hours": 169.1,
+  "population": "ALL 8 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
+  "waiting": 2,
+  "worst_hours": 175.1,
   "threshold_hours": 6.0,
   "by_state": {
-    "active": 2,
-    "waiting": 3
+    "active": 6,
+    "waiting": 2
   },
   "rows": [
     {
@@ -17,50 +17,80 @@
       "title": "chore(m1): economic-calendar PIT snapshots (auto)",
       "head_ref": "automation/econ-calendar-33232352515-1",
       "draft": false,
-      "quiet_hours": 169.1,
+      "quiet_hours": 175.1,
       "state": "waiting",
-      "why": "open and unmerged with no push for 169.1h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 175.1h (threshold 6.0h).",
       "last_push_utc": "2026-08-29T03:49:54Z"
-    },
-    {
-      "pr": 10921,
-      "title": "chore(ops): refresh probe results (auto)",
-      "head_ref": "automation/probes-33741499827-1",
-      "draft": false,
-      "quiet_hours": 43.0,
-      "state": "waiting",
-      "why": "open and unmerged with no push for 43.0h (threshold 6.0h).",
-      "last_push_utc": "2026-09-03T09:57:25Z"
     },
     {
       "pr": 10895,
       "title": "merge-ping: log the success path, so the mechanism can be read off the fleet (MI-83 follow-up)",
       "head_ref": "claude/mi83-merge-ping-observability",
       "draft": false,
-      "quiet_hours": 37.3,
+      "quiet_hours": 43.2,
       "state": "waiting",
-      "why": "open and unmerged with no push for 37.3h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 43.2h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T15:39:55Z"
     },
     {
-      "pr": 11024,
-      "title": "MI-113: arm merge=union on pending-pings.jsonl (jsonregister measured and rejected)",
-      "head_ref": "claude/mi113-pending-pings-merge-driver",
+      "pr": 11041,
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "head_ref": "automation/reconcile-open-prs-33953177717-1",
       "draft": false,
-      "quiet_hours": 0.6,
+      "quiet_hours": 3.1,
       "state": "active",
-      "why": "a push landed 0.6h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-05T04:16:59Z"
+      "why": "a push landed 3.1h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-05T07:50:21Z"
     },
     {
-      "pr": 11029,
-      "title": "chore(ops): refresh the error-feed digest (auto)",
-      "head_ref": "automation/error-feed-digest-33945793998-1",
+      "pr": 11046,
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "head_ref": "automation/reconcile-open-prs-33953307522-1",
       "draft": false,
-      "quiet_hours": 0.0,
+      "quiet_hours": 2.4,
       "state": "active",
-      "why": "a push landed 0.0h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-05T04:54:34Z"
+      "why": "a push landed 2.4h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-05T08:30:33Z"
+    },
+    {
+      "pr": 11049,
+      "title": "manager: MI-125 settled all three residues, and one overturned my own framing",
+      "head_ref": "claude/manager-record-2026-09-05g",
+      "draft": false,
+      "quiet_hours": 2.3,
+      "state": "active",
+      "why": "a push landed 2.3h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-05T08:36:32Z"
+    },
+    {
+      "pr": 11051,
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "head_ref": "automation/reconcile-open-prs-33956561204-1",
+      "draft": false,
+      "quiet_hours": 1.9,
+      "state": "active",
+      "why": "a push landed 1.9h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-05T09:00:45Z"
+    },
+    {
+      "pr": 11056,
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "head_ref": "automation/reconcile-open-prs-33958018891-1",
+      "draft": false,
+      "quiet_hours": 1.4,
+      "state": "active",
+      "why": "a push landed 1.4h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-05T09:31:26Z"
+    },
+    {
+      "pr": 11058,
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "head_ref": "automation/reconcile-open-prs-33961145367-1",
+      "draft": false,
+      "quiet_hours": 0.1,
+      "state": "active",
+      "why": "a push landed 0.1h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-05T10:47:35Z"
     }
   ],
   "runs": [
@@ -133,9 +163,16 @@
       "waiting": 3,
       "worst_hours": 169.1,
       "escalated": false
+    },
+    {
+      "at": "2026-09-05T10:54:47Z",
+      "read_state": "measured",
+      "waiting": 2,
+      "worst_hours": 175.1,
+      "escalated": true
     }
   ],
-  "last_paged_at": "2026-09-04T21:02:03Z",
+  "last_paged_at": "2026-09-05T10:54:47Z",
   "last_band": 1920,
-  "last_page_reason": "the condition has stood 16.0h since the last page (floor 12.0h)."
+  "last_page_reason": "the condition has stood 13.9h since the last page (floor 12.0h)."
 }
