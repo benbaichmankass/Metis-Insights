@@ -891,7 +891,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-28T06:15:25Z"
+      "observed_at": "2026-08-29T03:49:52Z"
     },
     {
       "event_id": "evt-fed-chair-warsh-testifies-2026-07-15-us",
@@ -915,7 +915,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-28T06:15:25Z"
+      "observed_at": "2026-08-29T03:49:52Z"
     },
     {
       "event_id": "evt-fed-s-cook-speech-2026-07-15-us",
@@ -939,7 +939,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-28T06:15:25Z"
+      "observed_at": "2026-08-29T03:49:52Z"
     },
     {
       "event_id": "evt-fed-s-beige-book-2026-07-15-us",
@@ -963,7 +963,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-28T06:15:25Z"
+      "observed_at": "2026-08-29T03:49:52Z"
     },
     {
       "event_id": "evt-fed-s-musalem-speech-2026-07-15-us",
@@ -987,7 +987,7 @@
       "resolved_at": null,
       "source": "bigdata:fxstreet",
       "source_url": "https://www.fxstreet.com",
-      "observed_at": "2026-08-28T06:15:25Z"
+      "observed_at": "2026-08-29T03:49:52Z"
     },
     {
       "event_id": "evt-fed-s-logan-speech-2026-07-16-us",

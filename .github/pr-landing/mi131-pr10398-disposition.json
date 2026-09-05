@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Data-only macro research artifacts plus backlog and handoff records. Adds one point-in-time economic-calendar capture taken by value from PR #10398 (comms/macro/econ_calendar_captures/US-20260829T034952Z.fxstreet.json, absent from main) and regenerates the two DERIVED registers with scripts/macro/econ_calendar_produce.py, the repo's own sanctioned producer. Measured strictly additive against main: snapshots.jsonl +444 rows, 0 rows lost, 0 event_ids lost, all 39 of main's observed_at generations retained; upcoming.json keeps generated_from_observed_at 2026-09-05T00:18:54Z, 429 events, 0 lost, span unchanged. The operator-gated live-path config/economic_calendar.yaml is NOT touched (the producer was run without --emit-config). No src/, no deploy/, no workflows, no strategy config, no risk caps, no order path."
+}
