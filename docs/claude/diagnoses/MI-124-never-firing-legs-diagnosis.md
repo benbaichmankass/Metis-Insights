@@ -186,7 +186,7 @@ breakout line. Sampled 60 evals on each of 7 dates spanning 2026-07-01..2026-09-
 | `mes_trend_long_1d` | 420 | 0.065 | 0.240 | yes (686 buys) |
 
 TQQQ never came closer than 11.4% of channel width to its breakout line, while every
-leg that fired reached ≤6.5%. That is **consistent with** correctly declining — but
+leg that fired reached ≤6.5% (population: the 5 legs tabulated directly above, n=360/350/300/420/420 sampled evals each). That is **consistent with** correctly declining — but
 **it does not establish it**, for a reason I will not paper over: 360 sampled evals
 are a small fraction of the eval stream, and a minimum over a sample understates the
 true minimum. I cannot separate *"TQQQ genuinely never closed outside its 30-day
@@ -220,7 +220,7 @@ channel"* from *"a parameter or data issue keeps close inside it"* on this evide
    here.** `BL-20260807-BULK-RECONCILER-CLOSE-NO-EXIT-NO-PNL` records 7 rows bulk-closed
    on **2026-08-05** with null exit price and null realized pnl — the same date as
    three of the five falsified legs (`gdx`, `gld`, `iaum`), so that event is very
-   likely the direct upstream cause. `BL-20260825-EXIT-PROVENANCE-IS-STRUCTURED-BY-EXIT-PATH`
+   likely the direct upstream cause. `BL-20260825-EXIT-PROVENANCE-IS-STRUCTURED-BY-EXIT-PATH-SIX-PATHS-AT-ZERO`
    covers the wider class. Same exit path yields pnl
    sometimes and not others (`iwm` above). This is upstream of the sunset pass and
    affects the M7 gate identically — a leg invisible to `/api/bot/performance` is
