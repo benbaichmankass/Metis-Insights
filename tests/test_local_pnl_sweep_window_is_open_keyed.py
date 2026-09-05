@@ -1,12 +1,20 @@
-"""`_sweep_local_pnl_for_unpriced` bounds its scan by the OPEN, not the CLOSE —
-so a position held longer than the window can never be priced.
+"""`_sweep_local_pnl_for_unpriced` must bound its scan by the CLOSE, not the
+OPEN — or a position held longer than the window can never be priced.
 
-MI-127 (A). The reproduction for the mechanism behind the pnl-NULL closes that
-`MI-124` attributed to luck.
+MI-127 (A) diagnosed it; **MI-128 fixed it** (Tier-2, operator-approved
+2026-09-05, `approved_with_conditions`: FORWARD-ONLY — the scan window was
+re-keyed so future closes are priced, and the already-silent historical rows
+were deliberately NOT back-filled). The file name still says
+`window_is_open_keyed` because that is the defect it guards against; the
+assertions below now pin the fixed behaviour.
 
-THE DEFECT, IN ONE LINE
------------------------
-The sweep's scan query bounds itself with::
+⚠️ The filename is therefore the DEFECT NAME, not a description of current
+behaviour. It is deliberately not renamed — the backlog row, the work object
+and `MI-127`'s diagnosis all reference this path.
+
+THE DEFECT THIS GUARDS AGAINST, IN ONE LINE
+-------------------------------------------
+The sweep's scan query used to bound itself with::
 
     AND datetime(created_at) >= datetime('now', '-14 days')
 
@@ -55,19 +63,34 @@ Both times it was read as a *test* problem and the fixture was made relative.
 Nobody asked what the same predicate does to a production row that is
 long-lived by design rather than by accident.
 
-THE PROPOSED FIX (NOT APPLIED HERE — `src/**` is outside `TIER1_SURFACE`)
--------------------------------------------------------------------------
+THE FIX, AS APPLIED (MI-128)
+----------------------------
 Key the window on the close, falling back to the open for rows that have no
 `closed_at` (the `orphaned` rows this sweep also selects)::
 
     -    AND datetime(created_at) >= datetime('now', '-14 days')
     +    AND datetime(COALESCE(closed_at, created_at)) >= datetime('now', '-14 days')
 
-⚠️ Deploying that will make recently-closed long-held rows eligible on the next
-tick, and the sweep will price them from a close-time anchor. That is a
-BACK-FILL and it is the operator's decision, not this unit's — see the
-diagnosis for the five rows it would reach and what evidence each value would
-rest on.
+The `ORDER BY` was re-keyed with it: it feeds `LIMIT 100`, so ordering by the
+open would leave the same defect one level down.
+
+RE-MEASURED AFTER THE FIX (same population, 2026-09-05)
+-------------------------------------------------------
+The re-key is **strictly additive** — measured against the full live journal,
+9 rows gain eligibility and **0 lose it**, so the fix cannot remove coverage.
+Every non-null `created_at` (5,494) and `closed_at` (1,625) parses under
+sqlite `datetime()` (0 unparseable), so the `COALESCE` cannot silently drop a
+row either.
+
+⚠️ FORWARD-ONLY IS AN OPERATOR CONDITION, AND MERGING IS THE DEPLOY HERE.
+Of those 9 newly-eligible rows, 4 already carry `pnl_source: unmeasured` (the
+sweep will take the `already_unmeasured` branch and write nothing), leaving
+**5 historical rows the first post-deploy tick would actually write** — the
+same five the MI-127 diagnosis named. Each would be filled by a sanctioned
+path (a recorded fill, a close-time anchor stamped ESTIMATED, or an explicit
+`unmeasured` declaration); none can be fabricated, because the sweep has no
+mark-to-market fallback left. That is nonetheless a back-fill of already-silent
+rows and is the OPERATOR's call at merge time, not this unit's.
 """
 from __future__ import annotations
 
@@ -200,68 +223,50 @@ def test_short_hold_row_is_priced(db, anchored):
     )
 
 
-# ------------------------------------------------------- the defect, as-built
-def test_long_hold_row_is_never_even_scanned(db, anchored):
-    """THE REPRODUCTION. Same close, same symbol, same working anchor — the
-    only difference is that the position was held 38 days instead of 3.
-
-    ⚠️ This test asserts the defect AS IT CURRENTLY BEHAVES, so it is green on
-    `main`. When the window is re-keyed to the close it will go red, and that
-    is the intended signal to delete it along with the xfail below.
-    """
-    summary = om._sweep_local_pnl_for_unpriced(db)
-
-    assert summary["scanned"] == 1, (
-        "expected the long-held row to be excluded by the created_at window; "
-        f"scanned={summary['scanned']}"
-    )
-
-    row = _row(db, _LONG_ID)
-    assert row["pnl"] is None
-
-    # And the part that makes it a provenance defect rather than a coverage
-    # gap: the row carries NO declaration. It is silent, not honest.
-    notes = json.loads(row["notes"] or "{}")
-    assert "pnl_source" not in notes, (
-        "a row the sweep never scanned must not carry a provenance stamp"
-    )
-    assert summary["declared_unmeasured"] == 0, (
-        "the row was never offered to the anchor, so it cannot have been "
-        "declared unmeasured — if this fires, the mechanism has changed"
-    )
-
-
-def test_the_window_predicate_keys_on_the_open(db):
+# ------------------------------------------------------------ structural pin
+def test_the_window_predicate_keys_on_the_close(db):
     """Structural pin, so the SQL and the behavioural tests move together.
 
     Checked against the executing source rather than the docstring — the
     prose-vs-code confusion `test_sweep_no_mark_fabrication` had to correct.
+
+    The source is normalised (comments dropped, string-literal quotes removed,
+    whitespace collapsed) because the predicate is written across two adjacent
+    literals to stay inside the line limit. A pin that matched only a
+    contiguous substring would fail on a purely cosmetic re-wrap, which is the
+    kind of brittleness that teaches people to delete pins.
     """
     import inspect
+    import re
+
     src = "\n".join(
         line for line in
         inspect.getsource(om._sweep_local_pnl_for_unpriced).splitlines()
         if not line.lstrip().startswith("#")
     )
-    assert "datetime(created_at) >= datetime('now', '-14 days')" in src, (
-        "the scan window changed — re-read MI-127 (A) and update the "
-        "behavioural expectations in this file together with it"
+    normalised = re.sub(r"\s+", " ", src.replace('"', ""))
+
+    assert (
+        "AND datetime(COALESCE(closed_at, created_at)) "
+        ">= datetime('now', '-14 days')"
+    ) in normalised, (
+        "the scan window no longer keys on the CLOSE — re-read MI-128 and "
+        "update the behavioural expectations in this file together with it. "
+        "Keying it on created_at is the defect this file exists to prevent: a "
+        "position held longer than the window is already outside it when it "
+        "closes, so it is never priced AND never declared unmeasured."
     )
+    assert "datetime(created_at) >= datetime('now', '-14 days')" not in normalised, (
+        "the open-keyed predicate is back in the scan query"
+    )
+    # The LIMIT-level half of the same defect: ordering by the OPEN starves a
+    # just-closed long-held row behind 100 more-recently-opened ones.
+    assert (
+        "ORDER BY datetime(COALESCE(closed_at, created_at)) DESC" in normalised
+    ), "the scan ORDER BY must key on the close too — it feeds LIMIT 100"
 
 
 # ------------------------------------------------- the fix's acceptance test
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "MI-127 (A): the sweep's scan window keys on created_at (the OPEN) "
-        "instead of the close, so a position held longer than 14 days can "
-        "never be priced. Proposed fix: "
-        "datetime(COALESCE(closed_at, created_at)) >= datetime('now','-14 days'). "
-        "strict=True on purpose — when the fix lands this XPASSes and fails "
-        "the build, which is the prompt to delete both this marker and "
-        "test_long_hold_row_is_never_even_scanned above."
-    ),
-)
 def test_a_recent_close_is_priceable_regardless_of_hold_duration(db, anchored):
     """THE ACCEPTANCE CRITERION for the proposed fix.
 
@@ -269,10 +274,43 @@ def test_a_recent_close_is_priceable_regardless_of_hold_duration(db, anchored):
     of the STRATEGY, not of whether its realised PnL can be computed — and
     every `_1d` trend and pullback leg in the fleet is long-horizon by design.
     """
-    om._sweep_local_pnl_for_unpriced(db)
+    summary = om._sweep_local_pnl_for_unpriced(db)
+
+    assert summary["scanned"] == 2, (
+        "both rows close at the same recent moment, so both must be scanned; "
+        f"scanned={summary['scanned']} — the window is still keyed on the open"
+    )
 
     long_row = _row(db, _LONG_ID)
     assert long_row["pnl"] is not None, (
         "a position closed 2 days ago must be priceable even though it was "
         "opened 40 days ago"
     )
+
+
+def test_a_long_held_close_is_never_silent(db, anchored, monkeypatch):
+    """The done-condition, asserted directly: a long-held close must reach a
+    TERMINAL, PROVENANCED state — priced, or explicitly declared unmeasured.
+    Never a silent NULL.
+
+    `test_a_recent_close_is_priceable_regardless_of_hold_duration` above pins
+    the anchored branch. This pins the OTHER outcome — and the distinction
+    between them is the entire point of the fix, so it is asserted rather than
+    left to follow from the first. With the venue offering no bar, the row must
+    still come back carrying `pnl_source: unmeasured`; before the re-key it
+    came back carrying nothing at all, which is indistinguishable from a row
+    nobody ever looked at, because that is what it was.
+    """
+    import src.runtime.exit_anchor as EA
+    monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (None, "no_anchor"))
+
+    summary = om._sweep_local_pnl_for_unpriced(db)
+
+    long_row = _row(db, _LONG_ID)
+    assert long_row["pnl"] is None, "no anchor means no price — nothing to book"
+    notes = json.loads(long_row["notes"] or "{}")
+    assert notes.get("pnl_source") == "unmeasured", (
+        "a long-held close the venue cannot anchor must be DECLARED unmeasured, "
+        f"not left silent; notes={notes!r}"
+    )
+    assert summary["declared_unmeasured"] >= 1
