@@ -198,3 +198,33 @@ releasing is the right last act, the check cannot pass after it, and the
 tool's advice is "fix them, then re-run" — which for this one check means
 re-claim. Nothing enforces the order, so the natural sequence produces a red
 that invites the wrong repair.
+
+---
+
+## Close-out audit (12:35Z) — every sub-session is archived
+
+Asked directly whether anything was left dangling, so it was checked rather
+than asserted. **Zero sub-sessions remain idle or running; all are ARCHIVED.**
+
+| what was checked | result |
+|---|---|
+| PRs closed WITHOUT merging since 09-04 | **8**, via `is:closed is:unmerged` — the 6 reconcile PRs (superseded, reasons posted), #11031 (the R6 deadlock, operator-ruled), and **#10993** |
+| #10993's work | **NOT lost** — `check_decision_answers.py` is on main AND registered in `run_guards.py`, and the LOCAL-LLM answer now reads `chosen: none_of_the_above`. Recorded as settled with a disposition; it had **no row at all** before |
+| MI-113's three asks | **all three resolved.** #11024 merged; its work object exists on main; `pending-pings.jsonl merge=union` is in `.gitattributes` on main |
+| MI-131 / MI-125 | work merged (#11047, #11044, #11052); archived |
+
+⚠️ **THREE OF THREE IDLE SESSIONS CARRIED A STALE STATUS LINE.** MI-113 read
+`need_input` with three open asks **eight hours** after they were all
+resolved; MI-131 read "PR #11047 CI running" when it had merged at 08:55Z.
+`post_turn_summary` is what a session LAST SAID, never what became true
+afterwards. **Judge a session by its merged output, never by its status
+line** — I nearly left MI-113 open as a real blocker on the strength of its
+own words. Filed as
+`BL-20260905-A-SESSIONS-OWN-STATUS-LINE-IS-WHAT-IT-LAST-SAID-NOT-WHAT-BECAME-TRUE-SO-FINISHED-WORK-READS-AS-IN-FLIGHT`;
+it is MI-84 seen from the session side.
+
+⚠️ **`list_pull_requests` with a `fields` subset returns `merged: false` for
+PRs that ARE merged.** Every row in a 60-PR listing read `merged: false`,
+including ones merged minutes earlier. Re-reading #11052 with full fields
+gave `merged: true`. **Never grade merge state from a field-subset listing** —
+use `search_pull_requests` with `is:unmerged`, or a full read.

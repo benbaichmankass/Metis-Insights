@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T10:53:00Z",
+  "updated_at": "2026-09-05T12:35:00Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1652,7 +1652,7 @@
     {
       "session_id": "session_01D4zdCcUatN8SoN5HnEE2fT",
       "registry_key": "pending-20260905T032947Z",
-      "state": "idle",
+      "state": "archived",
       "title": "MI-113 — pending-pings.jsonl has no merge driver, so every ping-carrying PR dies unmergeable",
       "owns_object": "WO-20260905-PENDING-PINGS-HAS-NO-MERGE-DRIVER-SO-PING-PRS-DIE",
       "checklist_item": "MI-113",
@@ -1664,11 +1664,11 @@
       "why": "Ping-carrying PRs cannot self-heal; the only paths are close-it (drops an operator ping) or hand-rescue. This is LOSS, and it recurs on every such PR.",
       "confirmed_at": "2026-09-05T03:30:25Z",
       "last_observed": {
-        "at": "2026-09-05T10:53:00Z",
+        "at": "2026-09-05T12:35:00Z",
         "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-        "source": "list_sessions(mine=true, limit=14)",
-        "state": "idle",
-        "detail": "BLOCKED bucket, need_input: 403 on its own PR edit; its #11024 is merged"
+        "source": "list_sessions + archive_session",
+        "state": "archived",
+        "detail": "MI-113 — #11024 merged; all three of its asks resolved (see note)"
       }
     },
     {
@@ -1758,7 +1758,7 @@
     {
       "session_id": "session_01HTHCedaMSamfxT69fnRzXG",
       "registry_key": "pending-20260905T074038Z",
-      "state": "idle",
+      "state": "archived",
       "title": "MI-125 — three residues: R6's root (now with a live incident), #10895's unverified R7 face, shallow-clone stop-hook false alarm",
       "owns_object": "WO-20260905-MI122-MI123-RESIDUES",
       "checklist_item": "MI-125",
@@ -1770,17 +1770,17 @@
       "why": "Three claims carried as settled without a check. R6's half now has a live incident: it killed PR #11031 and was correct, but the remedy caused two further defects.",
       "confirmed_at": "2026-09-05T07:41:27Z",
       "last_observed": {
-        "at": "2026-09-05T10:53:00Z",
+        "at": "2026-09-05T12:35:00Z",
         "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-        "source": "list_sessions(mine=true, limit=14)",
-        "state": "idle",
-        "detail": "completed — #11044 absent from the open-PR list, so it merged"
+        "source": "list_sessions + archive_session",
+        "state": "archived",
+        "detail": "MI-125 — #11044 and #11052 both merged; all three residues settled"
       }
     },
     {
       "session_id": "session_01J2tRr5LVT1Zer8MkjLVLYV",
       "registry_key": "pending-20260905T080845Z",
-      "state": "idle",
+      "state": "archived",
       "title": "MI-131 — #10398 disposition: re-measure the mixed-take belief before taking or closing anything",
       "owns_object": "WO-20260905-PR-10398-MIXED-TAKE-ECON-CALENDAR-PIT",
       "checklist_item": "MI-131",
@@ -1792,11 +1792,11 @@
       "why": "Open since 2026-08-29 on a carried belief about direction. The identical belief was WRONG on sibling PR #10921 the same night and would have rewound a register.",
       "confirmed_at": "2026-09-05T08:09:32Z",
       "last_observed": {
-        "at": "2026-09-05T10:53:00Z",
+        "at": "2026-09-05T12:35:00Z",
         "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-        "source": "list_sessions(mine=true, limit=14)",
-        "state": "idle",
-        "detail": "review_ready — #11047 is absent from the open-PR list, so it merged"
+        "source": "list_sessions + archive_session",
+        "state": "archived",
+        "detail": "MI-131 — #11047 merged 08:55:06Z; #10398 dispositioned take-by-value, close owed"
       }
     },
     {
@@ -1817,5 +1817,5 @@
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",
-  "⚠️_last_live_reconcile": "2026-09-05T10:53:00Z — live census via list_sessions(mine=true, limit=14). ⚠️ POPULATION: the 14 MOST RECENT sessions only, not the registry's 109 rows — has_more was true, so this says NOTHING about the older tail. Of the 14: three alive (MI-131 idle/review_ready, MI-125 idle/completed, MI-113 idle/BLOCKED need_input), eleven ARCHIVED, and ZERO running — so the 3-concurrent cap is not near. ⚠️ ONE OF THE 14 WAS ABSENT FROM THIS REGISTRY (MI-129b, session_01CmitsBjXiAJxcuxi3DRoXB, spawned by this manager 07:12:12Z) and is backfilled above. 1-of-14 missing is not a clean census. ⚠️ A 15th session is NOT addressable here at all: the wake Routine's test fire (cse_01Aw2fCJHh6vnVdVRPAddUUB, fired 10:40:01Z) carries a cse_ id, not a session_ id, and archive_session returned NOT-FOUND for it. A Routine-fired session sits in a namespace this registry and any future reaper cannot name or reap."
+  "⚠️_last_live_reconcile": "2026-09-05T12:35:00Z — CLOSE-OUT reconcile. Every sub-session this manager spawned is now ARCHIVED; ZERO remain idle or running. The last three (MI-131, MI-125, MI-113) were IDLE with their work already merged and were archived here. ⚠️ ALL THREE CARRIED A STALE post_turn_summary: MI-131 still read 'PR #11047 CI running' when #11047 merged at 08:55:06Z, and MI-113 still read 'PR blocked on human merge' when #11024 had merged. A session's own status line is what it last said, NOT what became true afterwards, and a manager reading it as current will believe work is in flight that finished hours ago. Judge a session by its merged output, never by its status line."
 }
