@@ -239,6 +239,74 @@ def test_ceiling_is_reported_as_enforced_because_it_is():
     assert "ENFORCED in CI" in at_ceiling
 
 
+def _store_at(tmp_path, monkeypatch, in_flight: int):
+    """A REAL work store on a REAL git ref, holding exactly ``in_flight`` objects
+    that count against the ceiling.
+
+    The point is that nothing is injected. ``standing_state`` counts these files
+    itself and computes ``ceilingHit`` itself, so the boundary is exercised
+    rather than asserted about.
+    """
+    repo = tmp_path / f"r{in_flight}"
+    (repo / OBJECTS_DIR).mkdir(parents=True)
+
+    def run(*a):
+        return subprocess.run(a, cwd=repo, check=True, capture_output=True)
+    run("git", "init", "-q")
+    run("git", "config", "user.email", "t@t")
+    run("git", "config", "user.name", "t")
+    for i in range(in_flight):
+        (repo / OBJECTS_DIR / f"WO-FIXTURE-{i}.yaml").write_text(
+            f"id: WO-FIXTURE-{i}\ntitle: fixture\nlifecycle: in_flight\n",
+            encoding="utf-8")
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", f"fixture store at {in_flight} in flight")
+    monkeypatch.setattr(wd, "REPO_ROOT", repo)
+    import scripts.ops.work_phase_ping as wpp
+    monkeypatch.setattr(wpp, "REPO_ROOT", repo)
+    return repo
+
+
+def test_ceiling_fires_at_exactly_the_ceiling_against_a_constructed_store(
+        tmp_path, monkeypatch):
+    """MI-120. The boundary is COMPUTED here, not handed in.
+
+    ``test_ceiling_hit_is_loud_and_under_ceiling_is_not`` above constructs both
+    arms — correctly, that is what decoupled it from live state on 2026-09-04 —
+    but it constructs them by passing ``ceilingHit=`` straight into the dict it
+    renders. So it proves the RENDERER branches on the flag and proves nothing
+    about who sets the flag. Measured 2026-09-05: changing the computation at
+    work_digest.py to ``in_flight > WIP_CEILING`` — the off-by-one that makes the
+    ceiling go SILENT at exactly 8 of 8, which is precisely the state that turned
+    the suite red on 2026-09-04 — left all 35 tests in this file green.
+
+    So this builds a store that really holds ``WIP_CEILING`` in-flight objects on
+    a real ref and lets ``standing_state`` count them. Both arms are real stores;
+    neither waits for production to be in a convenient state, and the live store
+    is never read.
+    """
+    _store_at(tmp_path, monkeypatch, wd.WIP_CEILING)
+    at = wd.build_digest("HEAD", "HEAD")
+    assert at["standing"]["wip"]["inFlight"] == wd.WIP_CEILING, (
+        "the fixture store must really be at the ceiling, or the arm is vacuous")
+    assert at["standing"]["wip"]["ceilingHit"] is True, (
+        "AT the ceiling is HIT — `>=`, not `>`; the ninth is what is refused")
+    assert "WIP CEILING HIT" in wd.render(at)
+
+
+def test_under_the_ceiling_stays_quiet_against_a_constructed_store(
+        tmp_path, monkeypatch):
+    """The negative arm of MI-120, also a real store.
+
+    Without this the pair could be satisfied by a renderer that shouts always.
+    """
+    _store_at(tmp_path, monkeypatch, wd.WIP_CEILING - 1)
+    under = wd.build_digest("HEAD", "HEAD")
+    assert under["standing"]["wip"]["inFlight"] == wd.WIP_CEILING - 1
+    assert under["standing"]["wip"]["ceilingHit"] is False
+    assert "WIP CEILING HIT" not in wd.render(under)
+
+
 # ── coverage: never claims to be the whole picture ───────────────────────
 
 def test_digest_declares_the_store_incomplete():

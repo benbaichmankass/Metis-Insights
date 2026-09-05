@@ -32245,6 +32245,30 @@
       "why_it_matters": "A 1d leg that re-emits on every tick while sizing returns empty burns order-package ids and reconciler work, and leaves debris that later reads as evidence of a broken leg — which is exactly what happened here. The leg is fine; it traded normally on 2026-08-03. What is unestablished is WHY sizing returned empty that morning, and whether the re-emit loop is bounded by anything other than the condition clearing on its own.",
       "next_action": "Establish why sized_qty_by_account came back empty on 2026-06-01 (the 7 packages carry the full signal_logic, so the inputs are recoverable), and whether an empty sizing result should suppress re-emission for the rest of the bar on a 1d leg rather than retrying every tick.",
       "resolution_criteria": "The cause of the empty sizing map on 2026-06-01 is named with evidence, AND either (a) an empty sizing result on a leg whose timeframe exceeds the tick interval no longer re-emits within the same bar — asserted by a test — or (b) it is established with evidence that the existing retry is correctly bounded and the 7-package burst could not recur, in which case this row closes as no-change with that reasoning recorded."
+    },
+    {
+      "id": "BL-20260905-COMMITTED-STORE-DECISION-REQUEST-TEST-DRAWS-ITS-EXPECTED-VALUE-FROM-THE-LIVE-WORK-STORE",
+      "tier": "1 to fix (tests only) — the remedy is a constructed fixture store plus, if the health signal is wanted, a separate non-gating probe",
+      "severity": "low",
+      "status": "open",
+      "opened": "2026-09-05",
+      "opened_by": "MI-120",
+      "source": "tests/test_work_decisions.py:456 test_the_committed_store_declares_at_least_one_real_decision_request",
+      "title": "test_the_committed_store_declares_at_least_one_real_decision_request asserts the LIVE store currently carries at least one decision request, so answering the last open question turns pytest-run red on a correct production state",
+      "detail": "POPULATION: all 618 work objects in docs/claude/work/objects/*.yaml, scanned 2026-09-05 at 9f2590b2. 9 decision requests found. The test asserts `found` is non-empty, so the margin to red is 9 — the suite goes red when all nine are answered or removed, which is the GOAL state of the decision channel, not a defect. SAME CLASS AS MI-120: a test whose expected value is drawn from live production state asserts that production is currently in a particular condition and reports the violation as a code defect. It is filed rather than fixed under MI-120 because the margin is 9, where MI-120's was 0 (in_flight 8 of 8) and had already blocked the merge queue for ~90 minutes on 2026-09-04. The failure mode is identical: pytest-run is a REQUIRED context, so a legitimate production state blocks every open PR at once, and the block is not attributable to any PR's diff. The docstring makes the coupling deliberate ('Reads the REAL store, not a fixture') and the INTENT is sound — it checks that the mechanism carries real content rather than being deployed and unproven. The objection is to the CHANNEL, not the check: a claim about live production belongs in a monitor that pages, not in a required unit-test context that gates unrelated merges. NOT YET MEASURED: how fast the 9 drain, i.e. how much real time the margin buys.",
+      "resolution_criteria": "The mechanism's coverage is asserted against a CONSTRUCTED store containing a known decision request (proving normalise_requests parses a real object), and passes with the live store carrying both 9 requests and ZERO — demonstrated by running against a fixture store with none, not by waiting for the live store to be convenient. If the 'is the channel actually carrying questions' signal is still wanted, it exists somewhere that does not gate the merge queue. Closing note must state which assertions survive."
+    },
+    {
+      "id": "BL-20260905-PHASE-G-TEST-PINNED-TO-ONE-LIVE-WORK-OBJECT-FILE-BY-PATH",
+      "tier": "1 to fix (tests only) — inline the fixture, or assert the property across whatever objects declare the field",
+      "severity": "low",
+      "status": "open",
+      "opened": "2026-09-05",
+      "opened_by": "MI-120",
+      "source": "tests/test_phase_g_sunset_and_pull.py:105 test_phase_g_declares_the_stage_it_unblocks",
+      "title": "test_phase_g_declares_the_stage_it_unblocks reads one live work object by hard-coded path, so archiving a COMPLETED phase object breaks the suite with FileNotFoundError",
+      "detail": "POPULATION: 1 hard-coded path — docs/claude/work/objects/WO-20260901-PHASE-G.yaml — read 2026-09-05 at 9f2590b2; the file is present today, so the test passes. It is the only by-path live-object read in the work-store test files audited. The test loads that object and asserts obj['unblocks_stage'] in cpull.STAGES. Its docstring says it asserts 'E2's done-condition, against this change's own work object' — the object is a COMPLETED phase, so the ordinary lifecycle end-state for it is archival or removal, and that ordinary act turns the suite red with a FileNotFoundError that names no defect in the diff that triggered it. SAME CLASS AS MI-120 but by a different mechanism: MI-120 drew a COUNT from the live store, this draws the EXISTENCE OF A FILE. Both make an ordinary, correct change to production state present as a code defect in a required context. Severity is low because archival is not imminent and the failure is a loud error rather than a misleading assertion message. NOT MEASURED: whether any archival process exists that would actually move this file.",
+      "resolution_criteria": "The assertion no longer depends on one live object file existing at a fixed path: either the object's relevant content is inlined as a fixture, or the property ('every object declaring unblocks_stage declares a value in cpull.STAGES') is asserted across the objects that declare the field, with the population stated and a positive control showing the check can fail. Passes with WO-20260901-PHASE-G.yaml both present and absent, demonstrated by running with it removed, not by leaving it in place."
     }
   ]
 }
