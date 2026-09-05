@@ -5,7 +5,8 @@ title: >-
   #10921 carries probe results three days newer than main's beside a DUE.json 20 hours older —
   it can be neither merged nor closed whole, and needs PROBES.json taken BY VALUE
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: done
+closed_at: 2026-09-05
 owner: null
 opened_at: 2026-09-05
 
@@ -50,3 +51,14 @@ done_condition: >-
 
 blocked_on: []
 blocked_on_basis: ASSESSED
+
+closing_evidence: >-
+  CLOSED 2026-09-05T07:12Z, and NOT by performing the take. Re-measured at execution time the direction had
+  REVERSED since this object was written: main PROBES.json generated_at 2026-09-04T09:45:04 (34 rows)
+  against the PR 2026-09-03T09:56:34 (34 rows) — main is 23.8h NEWER, 0 ids missing either way, with the
+  set-difference instrument validated by a positive control. The PR DUE.json is 43h behind main. All three
+  files are stale and nothing is takeable; #10921 was CLOSED with the measurement written onto the PR.
+  ⚠️ EXECUTING THE ROUTED TAKE WOULD HAVE REWOUND main's probe register by 23.8h. The routing analysis
+  stated the DIRECTION as a settled premise while scoping its re-measure instruction to the ROW SET only;
+  the session re-measured the premise anyway. A dispatch that asserts a direction has already made the
+  decision it is asking a session to check.
