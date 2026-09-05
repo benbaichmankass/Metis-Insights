@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "what_this_is": "The trader's error feed, grouped by digit-normalised cause and rendered for the `duty` pass. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `groups`: on `partial` at least one feed could not be read and this digest is a LOWER BOUND, not a statement that the rest is quiet.",
-  "generated_at": "2026-09-05T00:21:29+00:00",
-  "covers_since": "2026-09-04T21:45:46.660581+00:00",
-  "covers_since_note": "resuming from the prior digest's watermark 2026-09-04T21:45:46.660581+00:00",
+  "generated_at": "2026-09-05T04:54:30+00:00",
+  "covers_since": "2026-09-05T00:12:31.767103+00:00",
+  "covers_since_note": "resuming from the prior digest's watermark 2026-09-05T00:12:31.767103+00:00",
   "verdict": "all_feeds_read",
   "unreachable_feeds": [],
   "truncated_feeds": [
@@ -14,11 +14,11 @@
       "state": "read",
       "note": "",
       "population": {
-        "rows_returned": 344,
+        "rows_returned": 346,
         "limit_requested": 1000,
         "truncated": false,
         "oldest_ts": "2026-09-01T18:29:17.192145+00:00",
-        "newest_ts": "2026-09-04T23:53:07.745133+00:00",
+        "newest_ts": "2026-09-05T02:08:45.543825+00:00",
         "undateable_rows": 0,
         "undecodable_lines": 0
       }
@@ -30,24 +30,24 @@
         "rows_returned": 1000,
         "limit_requested": 1000,
         "truncated": true,
-        "oldest_ts": "2026-08-23T23:44:52.782864+00:00",
-        "newest_ts": "2026-09-05T00:12:31.767103+00:00",
+        "oldest_ts": "2026-08-24T08:22:27.060982+00:00",
+        "newest_ts": "2026-09-05T04:51:06.498552+00:00",
         "undateable_rows": 0
       }
     }
   },
   "coverage": {
     "operator_alerts": {
-      "rows_considered": 344,
-      "rows_after_watermark": 17,
+      "rows_considered": 346,
+      "rows_after_watermark": 2,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-04T21:45:46.660581+00:00"
+      "watermark_applied": "2026-09-05T00:12:31.767103+00:00"
     },
     "bot_logs": {
       "rows_considered": 1000,
-      "rows_after_watermark": 22,
+      "rows_after_watermark": 14,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-04T21:45:46.660581+00:00"
+      "watermark_applied": "2026-09-05T00:12:31.767103+00:00"
     }
   },
   "account_roster": {
@@ -68,13 +68,13 @@
   },
   "counts": {
     "groups": 113,
-    "new_groups": 1,
+    "new_groups": 0,
     "error_groups": 79,
-    "rows_grouped": 1344
+    "rows_grouped": 1346
   },
   "watermark": {
-    "next_since": "2026-09-05T00:12:31.767103+00:00",
-    "note": "advanced to the newest row read (2026-09-05T00:12:31.767103+00:00)"
+    "next_since": "2026-09-05T04:51:06.498552+00:00",
+    "note": "advanced to the newest row read (2026-09-05T04:51:06.498552+00:00)"
   },
   "groups": [
     {
@@ -103,9 +103,9 @@
       "feed": "bot_logs",
       "level": "error",
       "cause": "strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "count": 116,
+      "count": 109,
       "is_new": false,
-      "first_seen": "2026-08-23T23:46:36.720727+00:00",
+      "first_seen": "2026-08-24T08:38:27.343311+00:00",
       "last_seen": "2026-08-25T22:48:45.661170+00:00",
       "sample": "strategy_builder exception: RuntimeError: ict_scalp_mgc_15m: no candle data for symbol=MGC timeframe=15m.",
       "symbols": [
@@ -169,9 +169,9 @@
       "feed": "bot_logs",
       "level": "error",
       "cause": "api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty:N (ErrCode: N) (Err",
-      "count": 15,
+      "count": 14,
       "is_new": false,
-      "first_seen": "2026-08-24T01:13:23.409252+00:00",
+      "first_seen": "2026-08-24T22:20:57.157672+00:00",
       "last_seen": "2026-09-04T17:15:36.266934+00:00",
       "sample": "api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:2308300000000 > max_qty:2200000000000 (ErrCode: 10001) (ErrTime: 17:15:36).\nRequest \u2192 POST https://api-demo.bybit.com/v5/order/create: {\"category\": \"linear\", \"symbol\": \"AVAXUSDT\", \"side\": \"Sell\", \"orderType\": \"Market\", \"qty\": \"23083.0\", \"stopLoss\": \"7.390\", \"takeProfit\": \"7.287\", \"tpslMode\": \"Partial\", \"tpSize\": \"23083.0\", \"slSize\": \"23083.0\", \"tpOrderType\": \"Market\", \"slOrderType\": \"Market\"}.",
       "symbols": [
@@ -328,6 +328,21 @@
       ]
     },
     {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\ud83e\uddf9 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the strategy-monocle gat",
+      "count": 5,
+      "is_new": false,
+      "first_seen": "2026-09-02T08:57:42.771157+00:00",
+      "last_seen": "2026-09-05T02:08:45.543825+00:00",
+      "sample": "\ud83e\uddf9 Stuck linked-package sweep fired\nForce-closed 1 order package(s) whose linked trade was already terminal but the package stayed open (the strategy-monocle gate would otherwise stay blocked).\nThis is the second-line self-heal \u2014 a non-zero count means a primary cascade path missed; worth a look.",
+      "symbols": [],
+      "strategies": [],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": []
+    },
+    {
       "feed": "bot_logs",
       "level": "error",
       "cause": "alpaca_target_naked detected: alpaca_portfolio/GLD: position N has N of take-profit coverage against a declared TP of N \u2014 the position can only stop out or run",
@@ -340,6 +355,25 @@
       "strategies": [],
       "accounts": [
         "alpaca_portfolio"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
+      "cause": "bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit",
+      "count": 4,
+      "is_new": false,
+      "first_seen": "2026-09-04T12:28:34.799241+00:00",
+      "last_seen": "2026-09-05T04:10:45.103349+00:00",
+      "sample": "bybit_over_cover detected: bybit_1/ADAUSDT: position 79855.0. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total 143170.0 across 2 leg(s) (179% of the position) \u2014 stale same-side legs have piled up; a trip would over-close and strand the rest. (side-blind SL total across all books: 143170.0, 179% of the position, 2 leg(s) \u2014 this is the figure that TRIPPED the check, not a claim about the graded book.) 4 of Bybit's 20-leg COMBINED TP+SL cap are used (16 left; 2 of them are stop legs); at the cap `set_trading_stop` refuses (ErrCode 110061) and a genuine protective tightening f",
+      "symbols": [],
+      "strategies": [],
+      "accounts": [
+        "bybit_1"
       ],
       "accounts_state": "matched",
       "facets_found": [
@@ -411,21 +445,6 @@
       ]
     },
     {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\ud83e\uddf9 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the strategy-monocle gat",
-      "count": 4,
-      "is_new": false,
-      "first_seen": "2026-09-02T08:57:42.771157+00:00",
-      "last_seen": "2026-09-04T12:36:04.861459+00:00",
-      "sample": "\ud83e\uddf9 Stuck linked-package sweep fired\nForce-closed 1 order package(s) whose linked trade was already terminal but the package stayed open (the strategy-monocle gate would otherwise stay blocked).\nThis is the second-line self-heal \u2014 a non-zero count means a primary cascade path missed; worth a look.",
-      "symbols": [],
-      "strategies": [],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": []
-    },
-    {
       "feed": "bot_logs",
       "level": "error",
       "cause": "alpaca_target_naked detected: alpaca_portfolio/QQQ: position N has N of take-profit coverage against a declared TP of N \u2014 the position can only stop out or run",
@@ -438,25 +457,6 @@
       "strategies": [],
       "accounts": [
         "alpaca_portfolio"
-      ],
-      "accounts_state": "matched",
-      "facets_found": [
-        "accounts"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "error",
-      "cause": "bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit",
-      "count": 3,
-      "is_new": false,
-      "first_seen": "2026-09-04T12:28:34.799241+00:00",
-      "last_seen": "2026-09-04T22:10:21.648726+00:00",
-      "sample": "bybit_over_cover detected: bybit_1/ADAUSDT: position 79855.0. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total 143170.0 across 2 leg(s) (179% of the position) \u2014 stale same-side legs have piled up; a trip would over-close and strand the rest. (side-blind SL total across all books: 143170.0, 179% of the position, 2 leg(s) \u2014 this is the figure that TRIPPED the check, not a claim about the graded book.) 4 of Bybit's 20-leg COMBINED TP+SL cap are used (16 left; 2 of them are stop legs); at the cap `set_trading_stop` refuses (ErrCode 110061) and a genuine protective tightening f",
-      "symbols": [],
-      "strategies": [],
-      "accounts": [
-        "bybit_1"
       ],
       "accounts_state": "matched",
       "facets_found": [
@@ -1713,35 +1713,13 @@
       ]
     },
     {
-      "feed": "operator_alerts",
-      "level": "warn",
-      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ada_pullback_Nh | Symbol: ADAUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its ti",
-      "count": 1,
-      "is_new": true,
-      "first_seen": "2026-09-04T22:10:16.827464+00:00",
-      "last_seen": "2026-09-04T22:10:16.827464+00:00",
-      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ada_pullback_2h | Symbol: ADAUSDT\nPackage: pkg-74ac657f0a69499a\nDB trade id: 5479\nHeld for: 360 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
-      "symbols": [
-        "ADAUSDT"
-      ],
-      "strategies": [
-        "ada_pullback_2h"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "count": 261,
+      "count": 269,
       "is_new": false,
       "first_seen": "2026-08-25T23:10:31.406008+00:00",
-      "last_seen": "2026-09-05T00:12:31.767103+00:00",
+      "last_seen": "2026-09-05T04:51:06.498552+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_15m: no candle data for symbol=MGC timeframe=15m.",
       "symbols": [
         "MGC"
@@ -1760,10 +1738,10 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection",
-      "count": 154,
+      "count": 157,
       "is_new": false,
-      "first_seen": "2026-08-24T07:58:05.899845+00:00",
-      "last_seen": "2026-09-05T00:01:18.947606+00:00",
+      "first_seen": "2026-08-24T08:22:27.060982+00:00",
+      "last_seen": "2026-09-05T04:06:47.680672+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_1h: no candle data returned for symbol=MGC timeframe=1h. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MGC"
@@ -1782,9 +1760,9 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect",
-      "count": 132,
+      "count": 128,
       "is_new": false,
-      "first_seen": "2026-08-23T23:44:52.782864+00:00",
+      "first_seen": "2026-08-24T08:38:37.747903+00:00",
       "last_seen": "2026-09-04T21:55:41.635837+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_1d: no candle data returned for symbol=MGC timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
@@ -1804,10 +1782,10 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect",
-      "count": 117,
+      "count": 118,
       "is_new": false,
       "first_seen": "2026-08-24T08:22:28.291203+00:00",
-      "last_seen": "2026-09-04T23:06:19.232793+00:00",
+      "last_seen": "2026-09-05T04:06:56.924885+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_1d: no candle data returned for symbol=MHG timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MHG"
@@ -1826,9 +1804,9 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne",
-      "count": 98,
+      "count": 97,
       "is_new": false,
-      "first_seen": "2026-08-24T08:22:24.984520+00:00",
+      "first_seen": "2026-08-24T08:49:15.686752+00:00",
       "last_seen": "2026-09-04T21:55:40.036770+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mes_trend_long_1d: no candle data returned for symbol=MES timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
@@ -2024,6 +2002,28 @@
     {
       "feed": "operator_alerts",
       "level": "warn",
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ict_scalp_xrp_Nm | Symbol: XRPUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its t",
+      "count": 2,
+      "is_new": false,
+      "first_seen": "2026-09-04T10:18:38.931506+00:00",
+      "last_seen": "2026-09-05T01:40:56.167943+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ict_scalp_xrp_5m | Symbol: XRPUSDT\nPackage: pkg-890f68f1272d4d65\nDB trade id: 5456\nHeld for: 30 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "symbols": [
+        "XRPUSDT"
+      ],
+      "strategies": [
+        "ict_scalp_xrp_5m"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "warn",
       "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: pairs_bnb_btc_a | Symbol: BNBUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its ti",
       "count": 2,
       "is_new": false,
@@ -2200,17 +2200,17 @@
     {
       "feed": "operator_alerts",
       "level": "warn",
-      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ict_scalp_xrp_Nm | Symbol: XRPUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its t",
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ada_pullback_Nh | Symbol: ADAUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its ti",
       "count": 1,
       "is_new": false,
-      "first_seen": "2026-09-04T10:18:38.931506+00:00",
-      "last_seen": "2026-09-04T10:18:38.931506+00:00",
-      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ict_scalp_xrp_5m | Symbol: XRPUSDT\nPackage: pkg-890f68f1272d4d65\nDB trade id: 5456\nHeld for: 30 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "first_seen": "2026-09-04T22:10:16.827464+00:00",
+      "last_seen": "2026-09-04T22:10:16.827464+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ada_pullback_2h | Symbol: ADAUSDT\nPackage: pkg-74ac657f0a69499a\nDB trade id: 5479\nHeld for: 360 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
       "symbols": [
-        "XRPUSDT"
+        "ADAUSDT"
       ],
       "strategies": [
-        "ict_scalp_xrp_5m"
+        "ada_pullback_2h"
       ],
       "accounts": [],
       "accounts_state": "matched",
