@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T00:13:48Z",
+  "updated_at": "2026-09-05T01:14:58Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1557,6 +1557,21 @@
       ],
       "why": "OPERATOR-FUNDED, recorded on DEC-20260904-DEMOTE-AND-TUNE-FLOW, option agree_flow_and_fund_repair, verbatim: 'Agree flow + fund REPAIR diagnosis.' The demote-and-tune flow is AGREED and on main; this is the half it could not absorb, and the design says so itself -- the ten legs that prompted the flow do not qualify for it because they do not trade at all. NOTHING IS RETIRED and the retirement question is ANSWERED; the operator rejected the retire/do-not-retire AXIS twice.",
       "confirmed_at": "2026-09-05T00:13:48Z"
+    },
+    {
+      "session_id": "session_01SZnY5fHV3fzh8UXg6cRgTS",
+      "registry_key": "pending-20260905T011351Z",
+      "state": "working",
+      "title": "MI-124 (respawn) — diagnose WHY each of the ten sunset candidates produces nothing (operator-funded repair lane)",
+      "owns_object": "WO-20260905-NEVER-FIRING-LEGS-NEED-A-REPAIR-DIAGNOSIS-NOT-A-RETIREMENT",
+      "checklist_item": "MI-124",
+      "spawned_at": "2026-09-05T01:13:51Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi124-never-firing-legs-diagnosis"
+      ],
+      "why": "RESPAWN. The first spawn (session_018iMJkpN41FHzNjKj7ShNPS) COMPLETED the ten-leg diagnostic -- 57,690 output tokens -- and then went need_input at 00:34Z with 'grant Bash git permissions to push branch + open PR'. MEASURED: git ls-remote matches no claude/mi124* branch, so nothing reached origin and the report is lost with the container. The manager cannot rescue it -- verified twice, by ListAgents ('No reachable agents') and by a direct SendMessage to the session id ('No agent named ... is reachable'). THIRD instance of this class in ~18h (MI-107 first spawn, MI-73, MI-124); filed as BL-20260905-SUB-SESSIONS-FINISH-WORK-THEY-CANNOT-PUSH-AND-THE-MANAGER-CANNOT-REACH-THEM. The lost session's own summary reported 6 false premises / 2 broken / 1 not_established / 1 mis_routed -- carried forward as a LEAD to test, never as a finding to reproduce.",
+      "confirmed_at": "2026-09-05T01:14:58Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",

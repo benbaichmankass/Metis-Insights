@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-  "updated_at": "2026-09-05T00:13:48Z",
+  "updated_at": "2026-09-05T01:14:59Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1631,11 +1631,11 @@
       "id": "MI-124",
       "added": "2026-09-05",
       "state": "in_flight",
-      "owner": "session_018iMJkpN41FHzNjKj7ShNPS",
+      "owner": "session_01SZnY5fHV3fzh8UXg6cRgTS",
       "prs": [],
       "blocked_on": [],
       "title": "diagnose WHY each of the ten sunset candidates produces nothing — operator-funded repair lane",
-      "note": "OPERATOR-FUNDED, recorded on DEC-20260904-DEMOTE-AND-TUNE-FLOW, option `agree_flow_and_fund_repair`, verbatim: 'Agree flow + fund REPAIR diagnosis.' The demote-and-tune flow is AGREED and on main (docs/design/strategy-demote-and-tune-DESIGN.md); this is the half it could not absorb, and the design says so itself — the ten legs that PROMPTED the flow do not qualify for it because they do not trade at all. ⚠️ THE RETIREMENT QUESTION IS ANSWERED AND THE AXIS WAS REJECTED TWICE. NOTHING IS RETIRED. Re-asking it in any form is the specific failure the operator has named. ⚠️ 'NEVER FIRED' IS AN OBSERVATION ABOUT US, NOT ABOUT THE STRATEGY: a silent leg may be declining correctly, starved by a sibling on a netted symbol, mis-routed, or dead — opposite remedies, and the journal does not distinguish them today. That is why a diagnosis was funded instead of a retirement. Closed cause vocabulary with `not_established` as a REQUIRED terminal state; a lane that cannot say 'we could not tell' manufactures causes for exactly the hardest cases."
+      "note": "OPERATOR-FUNDED, recorded on DEC-20260904-DEMOTE-AND-TUNE-FLOW, option `agree_flow_and_fund_repair`, verbatim: 'Agree flow + fund REPAIR diagnosis.' The demote-and-tune flow is AGREED and on main (docs/design/strategy-demote-and-tune-DESIGN.md); this is the half it could not absorb, and the design says so itself — the ten legs that PROMPTED the flow do not qualify for it because they do not trade at all. ⚠️ THE RETIREMENT QUESTION IS ANSWERED AND THE AXIS WAS REJECTED TWICE. NOTHING IS RETIRED. Re-asking it in any form is the specific failure the operator has named. ⚠️ 'NEVER FIRED' IS AN OBSERVATION ABOUT US, NOT ABOUT THE STRATEGY: a silent leg may be declining correctly, starved by a sibling on a netted symbol, mis-routed, or dead — opposite remedies, and the journal does not distinguish them today. That is why a diagnosis was funded instead of a retirement. Closed cause vocabulary with `not_established` as a REQUIRED terminal state; a lane that cannot say 'we could not tell' manufactures causes for exactly the hardest cases. ⚠️ RESPAWNED 2026-09-05T01:14:59Z. The first spawn COMPLETED the ten-leg diagnostic (57,690 output tokens) and then went need_input at 00:34Z on 'grant Bash git permissions to push branch + open PR'. MEASURED: git ls-remote matches no claude/mi124* branch — nothing reached origin, the report died with the container. The manager cannot rescue it, VERIFIED TWICE by two different probes rather than asserted: ListAgents returns 'No reachable agents', and a direct SendMessage to the session id returns \"No agent named ... is reachable\". (The session record carries cross_session_inbound: available, which prompted the re-test — that describes a capability the SESSION has, not an address the manager holds; reading it the other way would have been a false correction.) THIRD instance in ~18h, filed as BL-20260905-SUB-SESSIONS-FINISH-WORK-THEY-CANNOT-PUSH-AND-THE-MANAGER-CANNOT-REACH-THEM. The respawn carries a STEP 0 that proves deliverability — empty commit, push, stop on failure — BEFORE any work, because the three causes differ but the ORDERING is common to all of them. ⚠️ A LEAD, NOT A FINDING, carried forward from the lost session's own summary: '6 false premises, 2 broken (exit accounting, candle starvation), 1 not_established, 1 mis_routed'. Its evidence is gone, so the respawn is told to TEST it independently and that its own measurement wins on disagreement."
     },
     {
       "id": "MI-125",
