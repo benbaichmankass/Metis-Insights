@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T06:48:35Z",
+  "updated_at": "2026-09-05T07:12:38Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1680,6 +1680,19 @@
       ],
       "why": "Neither merging nor closing #10921 is correct. Manager attempted the take and check_manager_scope R2 refused it — PROBES.json is not manager surface.",
       "confirmed_at": "2026-09-05T06:48:35Z"
+    },
+    {
+      "session_id": "session_01CmitsBjXiAJxcuxi3DRoXB",
+      "title": "MI-129b — #11035 is red: two tests pin implementation details the approved rename changed",
+      "owns_object": "WO-20260905-EMPTY-SIZING-MAP-IS-RE-EMITTED-INSTEAD-OF-REFUSED",
+      "checklist_item": "MI-129",
+      "spawned_at": "2026-09-05T07:12:38Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi129-empty-sizing-map-brake"
+      ],
+      "why": "Operator-approved PR #11035 fails pytest-run on 2 tests, both confirmed this branch's against a clean origin/main control. Neither is a defect in the brake.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",
