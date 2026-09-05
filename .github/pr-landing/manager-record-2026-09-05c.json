@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager surface only — docs/claude/work/**: the lease heartbeat, the checklist (MI-117 closed with the premise-overturn recorded, MI-129 marked red and re-routed) and the merge queue (#10921 closed, #11032 recorded merged). Tier-1 by the canonical doc's own list: no src/, no config/, no deploy/, no scripts/, no .github/workflows/, no order path, no strategy params, no risk caps, no live-VM runtime file. It self-lands because holding manager state on a branch is the defect MI-130 records — main's lease and checklist go stale for exactly as long as this waits. GitHub still merges only on green and R5 still grades the diff against the Tier-1 surface rather than taking this declaration on trust."
+}
