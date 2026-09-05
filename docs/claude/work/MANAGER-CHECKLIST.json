@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-  "updated_at": "2026-09-05T08:02:31Z",
+  "updated_at": "2026-09-05T08:09:32Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1697,6 +1697,15 @@
       "prs": "11031",
       "title": "MANAGER PROCESS DEFECT: work objects and the management record lived only on the manager branch, so sub-sessions were dispatched against objects they could not read",
       "note": "FOUND BY A SUB-SESSION, NOT BY ME. MI-113 reported in PR #11024 that its own work object 'does not exist on main or on this branch — no WO-20260905-* file matches at all'. VERIFIED: git cat-file -e origin/main:<path> -> absent. MEASURED 2026-09-05T06:18Z: the manager branch was 32 COMMITS AHEAD of main; main's MANAGER-LEASE.json read heartbeat_at 00:49:40Z (5.5h stale, expired at 02:19Z by its own 90-min TTL) and MANAGER-CHECKLIST.json read 120 items updated 00:13:48Z, missing MI-128/MI-129. ⚠️ SO FOR ~5.5 HOURS A COLD MANAGER READING ORIGIN WOULD HAVE SEEN AN EXPIRED LEASE AND A SIX-HOUR-OLD CHECKLIST, and concluded the seat was empty while it was not. THIS IS THE SAME CLASS THE MERGE QUEUE'S OWN _doc WAS WRITTEN ABOUT — 'a queue held in a session's head dies with that session'. Mine was not in my head; it was on a branch nobody reads, which is functionally identical. MANAGER-LEASE.json's own contract says a claim you did not push protects nothing BECAUSE ANOTHER SESSION READS ORIGIN — and pushing to a side branch is not that. All three sub-sessions were dispatched against unreadable objects; they coped only because the spawn prompt carried the measurement inline, which is the prompt doing the object's job. REMEDY APPLIED: PR #11031 lands the 32 commits. REMEDY NOT YET PROVEN: nothing prevents this recurring — the manager branch will drift again the moment it accumulates. A durable fix is either landing manager state continuously or writing work objects straight to main. NOT YET DECIDED, and this row must not be closed on #11031 merging: that fixes the instance, not the mechanism. || INSTANCE FIXED 2026-09-05T06:46Z: #11032 merged as 08493444. VERIFIED ON MAIN, not assumed — lease heartbeat_at 06:44:12Z (was 00:49:40Z, expired), checklist 125 items with MI-128 present (was 120, missing), WORK-DIGEST generated_at 06:44:04Z (NOT rewound — the restore held), and all 7 WO-20260905 objects present, so a sub-session can finally read its own work object. ⚠️ THE ROW STAYS OPEN: the MECHANISM is unfixed. A manager branch drifts again the moment it accumulates, and nothing prevents it."
+    },
+    {
+      "id": "MI-131",
+      "added": "2026-09-05",
+      "state": "in_flight",
+      "owner": "session_01J2tRr5LVT1Zer8MkjLVLYV",
+      "prs": "#10398",
+      "title": "#10398 disposition — re-measure the mixed-take belief before taking or closing anything",
+      "note": "ROUTED 2026-09-05T08:09Z, and routed rather than TAKEN deliberately. #10398 has been open since 2026-08-29 on the carried belief that it is a mixed take: a unique 61,529-line PIT capture beside a file that rewinds main ~7 days, so neither mergeable nor closeable whole. ⚠️ THE DISPATCH STATES THAT AS A CLAIM TO BE RE-MEASURED, NEVER AS A PREMISE, and says so in terms — including telling the session to treat the manager's own framing with suspicion and that if its measurement disagrees, ITS MEASUREMENT WINS and saying so is the more valuable outcome. That wording exists because the identical belief was WRONG on the sibling PR the same night: #10921 was queued on 'main is three days stale', main was in fact 23.8h NEWER, and performing the routed take would have rewound the probe register. The manager's dispatch there stated the direction as settled and scoped the re-measure to the ROW SET only; only the session re-measuring the premise anyway caught it. ⚠️ AND THE MANAGER HAS NOW BEEN WRONG IN THE REWIND DIRECTION TWICE IN ONE NIGHT — that take, and the wholesale cp -r that rewound five generated registers by up to 7.9h. #10398 is ITSELF a rewind judgement, so the manager taking it would be putting the least reliable judge on the case. The done condition requires a per-file population on BOTH sides and a POSITIVE CONTROL on the instrument, because a broken set-difference that reports nothing looks exactly like a correct one that finds nothing. ⚠️ #11017 shares this PR's title and the manager nearly closed #10398 as superseded by it — the dispatch says to check numbers, not titles."
     }
   ],
   "as_of": "2026-09-04T09:45:00Z",

@@ -1,0 +1,52 @@
+id: WO-20260905-PR-10398-MIXED-TAKE-ECON-CALENDAR-PIT
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  #10398 has been open since 2026-08-29 on the belief that it is a mixed take — a unique
+  point-in-time capture beside a file that rewinds main. RE-MEASURE THAT BELIEF FIRST; it is a
+  claim, not a premise
+stage: DEPLOYMENT
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-05
+
+why: >-
+  #10398 (chore(m1): economic-calendar PIT snapshots) has sat open since 2026-08-29. The carried
+  belief is that it can be neither merged nor closed whole: it is said to hold a UNIQUE 61,529-line
+  point-in-time FMP capture that exists nowhere else, beside a file that would REWIND main by about
+  seven days.
+  ⚠️ THAT BELIEF IS A CLAIM AND MUST BE RE-MEASURED BEFORE ANYTHING IS TAKEN OR CLOSED. It is
+  recorded here as the reason the PR is open, NOT as an established fact, and the direction is the
+  FIRST thing to check rather than the thing to act on.
+  ⚠️ WHY THIS WARNING IS NOT BOILERPLATE — the identical belief was WRONG on the sibling PR the same
+  night. #10921 was queued on the analysis that main's PROBES.json was three days STALE and the PR's
+  newer. Re-measured at execution time, main was 23.8h NEWER; performing the routed take would have
+  rewound main's probe register. The manager's dispatch stated the direction as settled and scoped
+  its re-measure instruction to the ROW SET only; the session re-measured the premise anyway and
+  caught it. Do the same here.
+  ⚠️ AND THE MANAGER HAS BEEN WRONG IN THE REWIND DIRECTION TWICE IN ONE NIGHT — that take, and a
+  wholesale `cp -r docs/claude/work` that rewound five machine-generated registers by up to 7.9h
+  (BL-20260905-A-WHOLESALE-DIRECTORY-COPY-REWOUND-FIVE-GENERATED-REGISTERS-AND-DROPPED-THREE-FILED-ROWS).
+  So treat any statement of direction in this object with suspicion, including this one.
+  ⚠️ #11017 SHARES THIS PR'S TITLE and is a later run of the same workflow. The manager nearly closed
+  #10398 as superseded by it. They are NOT the same PR — check the numbers, not the titles.
+
+done_condition: >-
+  A written disposition for #10398 grounded in a re-measurement taken AT EXECUTION TIME, with the
+  population stated on BOTH sides for every file the PR touches — for each: which side is newer, how
+  many rows/lines each holds, which ids or dates exist on one side and not the other, and whether
+  any content on MAIN would be lost by taking the PR's version.
+  The instrument must carry a POSITIVE CONTROL — show it can detect a difference you inject — so a
+  "no rows lost" result has a denominator. A set-difference that reports nothing because it is
+  broken looks exactly like one that reports nothing because there is nothing.
+  THEN one of: (a) merge it, if nothing rewinds; (b) take specific files BY VALUE and close it,
+  naming what was taken and what was deliberately left; (c) close it whole, if nothing in it is
+  takeable — with the measurement written ONTO THE PR so the next session does not re-derive it;
+  or (d) leave it open with a stated reason and what would settle it.
+  ⚠️ TAKE FILES, NEVER THE DIRECTORY. A wholesale copy is what rewound five registers on 2026-09-05.
+  ⚠️ NOT SUFFICIENT: acting on this object's own description of the PR. If your re-measurement
+  disagrees with the "unique capture beside a 7-day rewind" framing, YOUR MEASUREMENT WINS and
+  saying so is the more valuable outcome.
+
+blocked_on: []
+blocked_on_basis: ASSESSED
