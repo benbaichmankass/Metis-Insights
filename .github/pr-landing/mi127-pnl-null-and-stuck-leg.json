@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Diagnosis and evidence only. Three paths, all inside TIER1_SURFACE: docs/claude/diagnoses/MI-127-... (the diagnosis, which is also the PR description), tests/test_local_pnl_sweep_window_is_open_keyed.py (the reproduction, with a positive control and a strict-xfail acceptance criterion), and docs/claude/health-review-backlog.json (three rows filed through backlog_append.py). NO src/ file is modified — the one-line fix for the pnl-NULL mechanism is PROPOSED in the diagnosis and deliberately not applied, because src/runtime/order_monitor.py is outside TIER1_SURFACE and the change is therefore Tier-2 by this repo's own guard. Nothing touches the order path, config/strategies.yaml, config/accounts.yaml, config/risk_caps.yaml or src/runtime/orders.py, and nothing acts on the live MES position this unit investigated: trade 4350 was established read-only against the venue and the recommendation is explicitly no intervention."
+}
