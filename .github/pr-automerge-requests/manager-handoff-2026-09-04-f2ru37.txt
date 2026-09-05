@@ -1,5 +1,5 @@
-Third manager landing of 2026-09-04: PROBES.json partial take from #10921,
-four settled receipt rows, the operator's Tier-2 approval on #10975, and the
-merge-queue refresh after the second drain.
+Fourth manager landing of 2026-09-04: the session-cap resolution to 3, MI-118
+through MI-121, the MI-101 lifecycle correction, and the re-claimed lease after
+a twelve-hour manager gap.
 
 Tier-1. Auto-merge merges only on green.

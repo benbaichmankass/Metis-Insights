@@ -29,30 +29,29 @@
     "and there it refuses instead of guessing."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-02",
-  "updated_by": "MI-68",
+  "updated_at": "2026-09-04",
+  "updated_by": "manager session_016e2k4UmsMGgpbrJ5ctqeFv (operator resolution)",
   "caps": {
     "sessions": {
       "counts": "concurrent work sessions the manager has assigned and not yet closed out",
       "population": "rows in docs/claude/work/SESSIONS.json whose `state` is in the enforced set, intersected with a LIVE list_sessions observation. A registry row alone is a claim, not an observation; a live row alone is not attributable to the manager.",
-      "limit": null,
-      "contested": [
-        {
-          "value": 3,
-          "source": "docs/claude/work/MANAGER-CHECKLIST.json :: MI-64-CONCURRENT-SESSION-CAP-IS-THREE-NOT-EIGHT (state in_flight, on origin/main at 9df1502b)",
-          "decided_on": "2026-09-02",
-          "text": "I think we need to limit ourselves to 3 concuurent work sessions - 8 seems like too much for to handle reliably, so lets start small and scale up based on what we actually know is feasible",
-          "note": "The only operator wording carried VERBATIM in the repo as of 2026-09-02T13:30Z. Followed by: 'LEt all the opne sessions close, but don't spawn new ones until 1 of the 3 slots is open' -- i.e. a spawn gate, not a forced stand-down."
-        },
+      "limit": 3,
+      "resolution": "MERGE #10799 (or edit this file) and set `limit` to the agreed number, moving the losing entry into `superseded`. Until then the check refuses only in the band 4 <= count <= 4 -- outside it, the contest does not matter and the verdict is definite.",
+      "resolved_on": "2026-09-04",
+      "resolved_by": "operator, in conversation with the 2026-09-04 day manager",
+      "resolution_text": "VERBATIM, 2026-09-04, asked directly while the manager was at count 4 and manager_preflight was REFUSING to grade because the limit was contested: 'just don't exceed it. For any reason, definitely not without my specific permission.' Preceded in the same exchange by: 'They're supposed to be up to three other intents running at a time, not 8' and 'You're already overloaded and you need to stay focused'. THAT RESOLVES THE CONTEST TO 3. The competing value of 4 came from PR #10799 and the MI-68 spawn brief and was NEVER recorded verbatim anywhere a session could read -- which is exactly why this file demanded verbatim wording. ⚠️ IT IS A HARD CAP, NOT A TARGET: 'for any reason' and 'not without my specific permission' are the operative words, so a manager may not exceed it to unblock itself, to fix a queue-wide CI failure, or to take an urgent item. In the same exchange the operator declined a wip-ceiling-exception on the same principle -- 'we are not going to lean towards making an exception like this ever like we have. We're trying to stick to a set of rules that will keep us focused.'",
+      "superseded_candidates": [
         {
           "value": 4,
           "source": "PR #10799 (OPEN, unmerged at 2026-09-02T13:30Z) 'manager: caps are 4 sessions AND 4 artifacts, independently', and the MI-68 spawn brief which states it as the operator's position",
           "decided_on": "2026-09-02",
           "text": "NOT RECORDED VERBATIM ANYWHERE THIS SESSION COULD READ. That is precisely why this entry is `contested` rather than authoritative.",
-          "note": "Probably the later refinement, and probably correct. `probably` is not a basis, and MI-65's lesson that same day was a session blocking work on a claim about live state it had not probed."
+          "note": "Probably the later refinement, and probably correct. `probably` is not a basis, and MI-65's lesson that same day was a session blocking work on a claim about live state it had not probed.",
+          "superseded_on": "2026-09-04",
+          "superseded_note": "Not deleted. The 4 remains recorded because knowing the number was once contested, and on what evidence, is what stops it being re-litigated from memory. It is no longer a candidate."
         }
       ],
-      "resolution": "MERGE #10799 (or edit this file) and set `limit` to the agreed number, moving the losing entry into `superseded`. Until then the check refuses only in the band 4 <= count <= 4 -- outside it, the contest does not matter and the verdict is definite."
+      "⚠️_why_contested_is_now_EMPTY": "The 4 is PRESERVED under `superseded_candidates`, not deleted -- knowing the number was once contested, and on what evidence, is what stops it being re-litigated from memory. But it is moved OUT of `contested` deliberately: manager_preflight builds its candidate set from `contested`, so leaving a superseded value there kept the check REFUSING to grade ('count is somewhere in [4,4] against candidate limit(s) [3,4]') even after the operator had resolved it. A resolved cap that still reads as contested is a check that cannot pass, which is the same shape as a guard nobody can satisfy."
     },
     "artifacts": {
       "counts": "concurrent artifacts in flight",
