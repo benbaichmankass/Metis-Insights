@@ -53,7 +53,7 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T03:27:37Z",
+  "updated_at": "2026-09-05T03:42:53Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "note": "Refreshed 2026-09-05T02:31:57Z after the overnight drain. MERGED since the last refresh: #10982 (manager state — and with it the LEASE finally reached main after a 16h41m publication gap), #11012 (the R7 fix that unblocked it), #11014 (the durable wake), #11017, #11019 (MI-124's diagnosis). ⚠️ A CORRECTION THE MANAGER MADE TO ITSELF: it reported '#10398 merged too'. IT DID NOT. What merged was #11017 — a LATER run of the same econ-calendar workflow with an identical title. Same-title automation PRs are not interchangeable and reading one as the other is how a unique artifact gets closed as superseded. OPEN AND DISPOSITIONED PER PR, not by class: #11020 (MI-126, sunset_pass fix, automerge armed) · #10895 (blocked on the R7 sha~1 face — SHOULD clear under a0b776fa but that is an INFERENCE, verify against #10895 itself) · #10981 / #10919 (M7 packets) · #10921 (needs a PARTIAL TAKE — PROBES.json newer than main's, DUE.json older; MI-117, unrouted) · #10398 (needs a PARTIAL TAKE — a unique 61,529-line PIT capture ABSENT from main, beside an econ_calendar_upcoming.json that would rewind main by SEVEN DAYS and drop 49 events; BL-20260905-PR-10398-IS-A-MIXED-TAKE-...). ⚠️ TWO PRs IN THIS QUEUE NOW NEED A PARTIAL TAKE FOR THE SAME STRUCTURAL REASON — an automation run bundling an append-only artifact with a regenerated current-view file. That is a workflow shape question, not two coincidences.",
   "entries": [
@@ -71,9 +71,9 @@
       "branch": "automation/strategy-reviews-33737333473-1",
       "session_id": null,
       "position": 2,
-      "state": "waiting",
+      "state": "merged",
       "blocked_on": null,
-      "note": "MERGE on green. Pure addition (comms/strategy_reviews/2026-09-03/INDEX.json, 1700 lines, directory ABSENT from main). Its 09-03 red was the BASE, not the diff: PASS 47 / FAIL 0 against current main. Main merged in at 876179d1, which both fixes the base and re-arms 24h-stale checks. || 2026-09-05T03:27Z MANAGER: pytest-run was FAILING on both of these pure-data M7 PRs, which is a shared cause and not each PRs own. Both sat on bases from 09-03/09-04; pytest-run passes on current main (#11020 merged green tonight). Branch updated to re-run against current main. If it is still red after that, the failure IS theirs and gets root-caused, not re-run again."
+      "note": "MERGE on green. Pure addition (comms/strategy_reviews/2026-09-03/INDEX.json, 1700 lines, directory ABSENT from main). Its 09-03 red was the BASE, not the diff: PASS 47 / FAIL 0 against current main. Main merged in at 876179d1, which both fixes the base and re-arms 24h-stale checks. || 2026-09-05T03:27Z MANAGER: pytest-run was FAILING on both of these pure-data M7 PRs, which is a shared cause and not each PRs own. Both sat on bases from 09-03/09-04; pytest-run passes on current main (#11020 merged green tonight). Branch updated to re-run against current main. If it is still red after that, the failure IS theirs and gets root-caused, not re-run again. || MERGED 2026-09-05T03:43Z as 9f2590b2. The stale-base diagnosis HELD: pytest-run went red->green on the branch update alone, with no code change, completing 03:42:10Z."
     },
     {
       "pr": 10921,
