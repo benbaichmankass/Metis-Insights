@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T07:41:27Z",
+  "updated_at": "2026-09-05T08:09:32Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1695,6 +1695,21 @@
       ],
       "why": "Three claims carried as settled without a check. R6's half now has a live incident: it killed PR #11031 and was correct, but the remedy caused two further defects.",
       "confirmed_at": "2026-09-05T07:41:27Z"
+    },
+    {
+      "session_id": "session_01J2tRr5LVT1Zer8MkjLVLYV",
+      "registry_key": "pending-20260905T080845Z",
+      "state": "working",
+      "title": "MI-131 — #10398 disposition: re-measure the mixed-take belief before taking or closing anything",
+      "owns_object": "WO-20260905-PR-10398-MIXED-TAKE-ECON-CALENDAR-PIT",
+      "checklist_item": "MI-131",
+      "spawned_at": "2026-09-05T08:08:45Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi131-pr10398-disposition"
+      ],
+      "why": "Open since 2026-08-29 on a carried belief about direction. The identical belief was WRONG on sibling PR #10921 the same night and would have rewound a register.",
+      "confirmed_at": "2026-09-05T08:09:32Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",
