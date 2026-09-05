@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One appended row in docs/claude/health-review-backlog.json, written by scripts/ops/backlog_append.py (10 insertions, 0 deletions, no reformat). Tier-1 by the canonical doc's own list: review-backlog content only, with no order path, no strategy config, no risk caps, no src/, no config/, no deploy/, no workflows and no live-VM runtime file. The work object this session was routed (WO-20260905-PROBES-JSON-PARTIAL-TAKE-FROM-10921) asked for a partial take of docs/claude/PROBES.json from PR #10921; re-measurement at execution time showed main's copy is already 23.8h NEWER than the PR's, so the take was correctly NOT performed and this PR deliberately leaves PROBES.json, DUE.json and DUE.md untouched. The filed row records that near-miss."
+}
