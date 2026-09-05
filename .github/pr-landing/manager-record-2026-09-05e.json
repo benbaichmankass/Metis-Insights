@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager surface only — docs/claude/work/: the lease heartbeat and the checklist row recording that MI-129b's fix to #11035 was verified against its DIFF rather than taken from its report. Tier-1 by the canonical doc's own list: no src/, no config/, no deploy/, no scripts/, no .github/workflows/, no order path, no strategy params, no risk caps, no live-VM runtime file. It self-lands because holding manager state on a branch is the defect MI-130 records."
+}
