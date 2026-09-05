@@ -4,10 +4,10 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   closes are landing with pnl NULL, and one leg has held a position 33 days and therefore cannot re-enter — the upstream cause MI-124 found and MI-126 deliberately did not fix
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: done
 owner: null
 opened_at: 2026-09-05
-closed_at: null
+closed_at: 2026-09-05
 
 why: >-
   MI-124's diagnosis (on main, docs/claude/diagnoses/MI-124-never-firing-legs-diagnosis.md,
@@ -81,3 +81,9 @@ review_trigger: >-
   If trade 4350 turns out to be closed on the venue while the journal reads open,
   this stops being a lifecycle defect and becomes a reconciliation defect — say so
   and re-scope rather than continuing under the wrong heading.
+
+closing_evidence: >-
+  CLOSED 2026-09-05: PR #11021 merged 03:40:58Z. Verdict was NO INTERVENTION NEEDED -- trade 4350 is healthy
+  by design (complete quantity-matched OCA bracket matching the journal to the 0.25 tick on both legs, stop
+  trailed up 151.5 points, on a 1d/tp_r-50/trail-3.0 leg). Two dispatch premises CORRECTED. Three rows filed,
+  one of which -- the local-pnl sweep window -- became MI-128 and is the head of the retirement chain.

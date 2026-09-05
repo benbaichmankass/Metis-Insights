@@ -6,7 +6,8 @@ title: >-
   suite goes red whenever in_flight legitimately reaches the WIP ceiling — a correct production
   state fails CI and blocks the merge queue
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: done
+closed_at: 2026-09-05
 owner: null
 opened_at: 2026-09-05
 
@@ -48,3 +49,9 @@ done_condition: >-
 
 blocked_on: []
 blocked_on_basis: ASSESSED
+
+closing_evidence: >-
+  CLOSED 2026-09-05 against the MERGE, not a session claim: PR #11025 is on main. The ceiling boundary is
+  computed under test rather than drawn from the live work store, and the session answered the denominator
+  question asked of it -- 339 assertions audited for the same live-store coupling, 2 further instances FILED
+  rather than widened into.
