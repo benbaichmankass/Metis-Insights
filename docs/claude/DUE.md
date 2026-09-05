@@ -1,9 +1,9 @@
 # What is due right now
 
-_Generated 2026-09-05T09:12:15+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-05T09:18:37+00:00 · verdict **partial**_
 
-- 🔔 **#10398** (unlanded_automation · 7d) — producer output opened a PR that has not landed
-  - chore(m1): economic-calendar PIT snapshots (auto)
+> ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
+
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 5d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
 - 🔔 **OI-20260829-E35-REVERSED-LEGS-ARE-A-TIER-3-PROPOSAL-SET-NOT-APPLIED** (open_items · 5d) — loud row — must be reported on every session
@@ -82,12 +82,6 @@ _Generated 2026-09-05T09:12:15+00:00 · verdict **all_sources_read**_
   - ⚠️ CORRECTED 2026-09-04 — THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS LINK IT BY NAME: THE CRON HAS FIRED. Measured over the workflow's COMPLETE scheduled
 - 🔔 **OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST** (open_items · 1d) — loud row — must be reported on every session
   - MI-123 / PR #11014 built the manager durable wake: `manager_wake.py` (assess/brief/receipt), `check_wake_liveness.py`, a committed Routine prompt, 28 tests. The DELIVERY half is OBSERVED — the manager
-- 🔔 **#11041** (unlanded_automation · 0d) — producer output opened a PR that has not landed
-  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
-- 🔔 **#11046** (unlanded_automation · 0d) — producer output opened a PR that has not landed
-  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
-- 🔔 **#11051** (unlanded_automation · 0d) — producer output opened a PR that has not landed
-  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
 - 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold
   - A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.
 - 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold
@@ -104,14 +98,10 @@ _Generated 2026-09-05T09:12:15+00:00 · verdict **all_sources_read**_
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
 - 🔔 **OI-20260905-MI-128-SWEEP-WINDOW-REKEYED-AND-THE-PR-HOLDS-ON-A-BACKFILL-DECISION** (open_items · 0d) — loud row — must be reported on every session
   - MI-128 / PR #11037 re-keys `_sweep_local_pnl_for_unpriced`'s scan window and ORDER BY from `created_at` (the OPEN) to `COALESCE(closed_at, created_at)` (the CLOSE). Keyed on the open, a position held 
-- 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'failure'
-  - constraint-readout
-- 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
-  - replay-pregate-nightly
 - **ERRFEED-1ef305c7** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 14 rows 2026-08-24T22:20:57 → 2026-09-04T17:15:36 · symbols=AVAXUSDT — decide: fix now, or file to a backlog
   - [error] x14 api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty
-- **ERRFEED-9fd2fc82** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 109 rows 2026-08-24T08:38:27 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
-  - [error] x109 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+- **ERRFEED-9fd2fc82** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 106 rows 2026-08-24T08:45:38 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
+  - [error] x106 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
 - **ERRFEED-2338a024** (error_feed · 10d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 13 rows 2026-08-26T02:19:58 → 2026-08-29T04:06:19 · accounts=bybit_1 — decide: fix now, or file to a backlog
   - [error] x13 bybit_over_cover detected: bybit_N/ETHUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL c
 - **OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED** (open_items · 7d) — monitoring row 7d since last observation (cadence 2d)
@@ -134,8 +124,8 @@ _Generated 2026-09-05T09:12:15+00:00 · verdict **all_sources_read**_
   - [error] x5 bybit_over_cover detected: bybit_N/SOLUSDT: position N. THIS position is NOT over-protected: legs that reduce it total N across N leg(s) (N%
 - **ERRFEED-6da04340** (error_feed · 2d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 12 rows 2026-09-03T11:19:27 → 2026-09-04T21:55:38 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog
   - [error] x12 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u
-- **ERROR-FEED-SUMMARY** (error_feed) — 69 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-05T00:12:31.767103+00:00`.
-  - 113 cause groups over 1346 rows (79 error-level, 34 warn-level, 0 new since the last digest)
+- **ERROR-FEED-SUMMARY** (error_feed) — 69 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-05T04:51:06.498552+00:00`.
+  - 113 cause groups over 1350 rows (79 error-level, 34 warn-level, 0 new since the last digest)
 - **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
 - **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched
