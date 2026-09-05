@@ -467,4 +467,37 @@ Deliberately **not** filed, because each restates an existing open row: the
 pnl-NULL close class (`BL-20260807`, `BL-20260825`) and trade 4350's protection
 state (`BL-20260820`, and the `PROTECTION_REASSERT_MODE` row itself).
 
+---
+
+## 7. Landing note — PR #11021's own title and body are boilerplate
+
+`claude-pr-automerge.yml` fires on any push to a `claude/**` branch touching
+`.github/pr-automerge-requests/`, and opens the PR itself. The Tier-1 protocol
+requires that file, so pushing the mandated landing pair opened **#11021** with
+`title = head-commit subject` ("file 3 backlog rows, declare Tier-1 landing,
+arm the automerge route") and a two-line body before `pr-opener.yml` could
+supply the real ones. `create_pull_request`, `update_pull_request` and
+`add_issue_comment` all return `403 Resource not accessible by integration`
+from this session, so the title cannot be corrected from here.
+
+This is a **recurrence**, not a new finding —
+`BL-20260905-AUTOMERGE-RELAY-WINS-THE-RACE-WITH-PR-OPENER-SO-EVERY-TIER-1-PR-GETS-A-BOILERPLATE-BODY`
+was filed by MI-124 one unit earlier, for the same mechanism on #11019. It is
+recorded here rather than re-filed. **§§0–6 above are the PR description.**
+
+Two consequences worth stating rather than leaving for a reader to hit:
+
+1. **The relay artifacts under `automation/` are `git rm`-ed once consumed.**
+   `automation/**` is outside `TIER1_SURFACE`, so `check_pr_landing.py` refuses
+   `landing: "self"` on any diff containing them. They are branch-only, so
+   deleting them removes them from the net three-dot diff entirely. This is
+   MI-124 §9b's finding, applied.
+2. **Each relay commits its result as `github-actions[bot]`, which fires no
+   workflows** — so a bot commit landing last leaves the PR showing zero checks,
+   which reads as blocked rather than green. The commit carrying this section is
+   the ordinary commit that re-arms CI.
+
+**Board START:** issue #6927 comment `5549016624`, posted through
+`board-post.yml` after `add_issue_comment` 403'd.
+
 **This document is the PR description.**
