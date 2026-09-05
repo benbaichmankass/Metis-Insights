@@ -319,8 +319,7 @@ def _same_bar_entry_for_strategy(
 
 # ---------------------------------------------------------------------------
 # Empty-sizing brake — refuse a signal ONCE when nothing could be sized
-# (BL-20260905-MES-TREND-LONG-1D-RE-EMITTED-ONE-DAILY-SIGNAL-SEVEN-TIMES-IN-49-
-#  MINUTES-WHEN-SIZING-RETURNED-EMPTY)
+# BL-20260905-MES-TREND-LONG-1D-RE-EMITTED-ONE-DAILY-SIGNAL-SEVEN-TIMES-IN-49-MINUTES-WHEN-SIZING-RETURNED-EMPTY  # noqa: E501
 # ---------------------------------------------------------------------------
 #
 # THE GAP THIS FILLS. The three gates above are each bounded by something that

@@ -40,6 +40,14 @@ any account reaches ``RiskManager.position_size``.
 """
 from __future__ import annotations
 
+# collapsed-state: applied — this file BRANCHES on nothing. The token appears
+# once, in the module docstring, quoting the backlog row's POPULATION statement
+# ("all 8 order_packages for mes_trend_long_1d, filter_state 'applied'") — which
+# CLAUDE.md § "Always state the population" requires. The db_explorer
+# filter_state states (not_requested / ignored_unknown_column) belong to the
+# Data Explorer's read surface and are neither produced nor consumed here;
+# enumerating them in prose would say nothing true about this test.
+
 import json
 import logging
 import sys
