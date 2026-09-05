@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-  "updated_at": "2026-09-05T11:06:00Z",
+  "updated_at": "2026-09-05T11:36:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1706,6 +1706,26 @@
       "prs": "#10398",
       "title": "#10398 disposition — re-measure the mixed-take belief before taking or closing anything",
       "note": "ROUTED 2026-09-05T08:09Z, and routed rather than TAKEN deliberately. #10398 has been open since 2026-08-29 on the carried belief that it is a mixed take: a unique 61,529-line PIT capture beside a file that rewinds main ~7 days, so neither mergeable nor closeable whole. ⚠️ THE DISPATCH STATES THAT AS A CLAIM TO BE RE-MEASURED, NEVER AS A PREMISE, and says so in terms — including telling the session to treat the manager's own framing with suspicion and that if its measurement disagrees, ITS MEASUREMENT WINS and saying so is the more valuable outcome. That wording exists because the identical belief was WRONG on the sibling PR the same night: #10921 was queued on 'main is three days stale', main was in fact 23.8h NEWER, and performing the routed take would have rewound the probe register. The manager's dispatch there stated the direction as settled and scoped the re-measure to the ROW SET only; only the session re-measuring the premise anyway caught it. ⚠️ AND THE MANAGER HAS NOW BEEN WRONG IN THE REWIND DIRECTION TWICE IN ONE NIGHT — that take, and the wholesale cp -r that rewound five generated registers by up to 7.9h. #10398 is ITSELF a rewind judgement, so the manager taking it would be putting the least reliable judge on the case. The done condition requires a per-file population on BOTH sides and a POSITIVE CONTROL on the instrument, because a broken set-difference that reports nothing looks exactly like a correct one that finds nothing. ⚠️ #11017 shares this PR's title and the manager nearly closed #10398 as superseded by it — the dispatch says to check numbers, not titles."
+    },
+    {
+      "id": "MI-132",
+      "title": "Manager wake: grant the connector AND fix the permission block — OPERATOR-APPROVED 2026-09-05",
+      "state": "queued",
+      "owner": "unassigned — NEEDS A SESSION, plus one operator action",
+      "added": "2026-09-05",
+      "prs": "",
+      "blocked_on": "operator action: grant the Claude Code Remote connector to the Routine. The DETECTOR half is NOT blocked on that and can start immediately.",
+      "note": "OPERATOR DECISION 2026-09-05, asked as a popup and answered 'Grant connector + fix the block' — BOTH halves get built. ⚠️ THEY ARE INDEPENDENT AND MUST BE REPORTED SEPARATELY; do not let one wait on the other. (1) POKE HALF — blocked on the operator alone: `create_trigger` refuses the `connectors` parameter org-wide ('not available for this organization'), so a fired session gets NO mcp__* tools and cannot poke. Only the operator can grant the Claude Code Remote connector. Nothing a session does unblocks this. (2) DETECTOR HALF — a session's work, startable NOW: a Routine-fired session BLOCKS on a permission prompt with no human to answer it. Measured 2026-09-05T10:40:01Z: the fire got a working repo and ran far enough to stage .github/pr-automerge-requests/automation-manager-wake.txt, then blocked on `git add` at 10:44:44Z and was still blocked and disconnected at 10:53Z, having landed NOTHING (verified: no branch on origin, no receipt on main). Until that is fixed a wake cannot record anything even with the connector granted. ⚠️ DO NOT RE-DERIVE ANY OF THIS by creating another Routine — it is all in OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST (whose title is now stale: a scheduler IS creatable) and in BL-20260905-THE-MANAGER-WAKE-ROUTINE-IS-CREATABLE-BUT-CAN-NEITHER-POKE-NOR-LAND-A-RECEIPT. ⚠️ AND DO NOT LEAVE A ROUTINE FIRING WHILE THE DETECTOR HALF IS BROKEN: at hourly cadence it produces 24 permanently-blocked sessions a day that record nothing, which reads as covered. The test trigger (trig_018AkCBVYcWGCXujNQVrZ92h) was DELETED at 10:56Z for exactly that reason."
+    },
+    {
+      "id": "MI-133",
+      "title": "Re-grade OPEN-ITEMS loudness against a stated bar — 43 of 54 rows are loud:true — OPERATOR-APPROVED 2026-09-05",
+      "state": "queued",
+      "owner": "unassigned — NEEDS A SESSION",
+      "added": "2026-09-05",
+      "prs": "",
+      "blocked_on": "",
+      "note": "OPERATOR DECISION 2026-09-05, asked as a popup and answered 'Re-grade loudness against a bar'. MEASURED 2026-09-05T11:09Z: docs/claude/OPEN-ITEMS.json holds 54 items and 43 carry loud:true — 79.6%. A flag that fires on four rows in five is not a priority signal, and every status update is obliged to carry all 43. That is the desensitized-alarm failure this repo names as its own P1 in CLAUDE.md's 'If you see something, say something' — the motivating incident there was a dataset audit that degenerated to 62/86 manifests alarming while a real bug soaked inside the noise for weeks. ⚠️ THE JOB IS TO DEFINE THE BAR FIRST AND GRADE AGAINST IT, NOT TO PICK A TARGET COUNT: deciding 'loud should be about ten rows' and trimming to fit is choosing the answer before the question. A defensible bar is something like money-at-risk, or a live gate that is ARMED but never exercised. ⚠️ EVERY RE-GRADE MUST RECORD ITS BASIS ON THE ROW, so a later session can tell a row that was assessed and found quiet from one nobody looked at — 'we did not look' and 'we looked and found nothing' are different facts and collapsing them is the exact class this repo guards against elsewhere. ⚠️ DEMOTING A ROW IS NOT CLOSING IT: loudness governs REPORTING, not whether the item is open. Nothing gets cleared by this pass."
     }
   ],
   "as_of": "2026-09-04T09:45:00Z",
