@@ -1,9 +1,12 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-05T09:25:07+00:00",
-  "verdict": "all_sources_read",
-  "unreadable_sources": [],
+  "generated_at": "2026-09-05T13:00:33+00:00",
+  "verdict": "partial",
+  "unreadable_sources": [
+    "red_crons",
+    "unlanded_automation"
+  ],
   "sources": {
     "open_items": {
       "state": "read",
@@ -28,22 +31,22 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=0.2h cadence=daily (cron 20 5 * * *) | 1 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=3.8h cadence=daily (cron 20 5 * * *) | 1 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
-      "state": "read",
-      "rows": 2,
-      "note": ""
+      "state": "could_not_read",
+      "rows": 0,
+      "note": "no GITHUB_TOKEN — cannot query the Actions API"
     },
     "unlanded_automation": {
-      "state": "read",
-      "rows": 4,
-      "note": ""
+      "state": "could_not_read",
+      "rows": 0,
+      "note": "no GITHUB_TOKEN — cannot list pull requests"
     },
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-05T09:18:33+00:00, age 0.1h"
+      "note": "digest 2026-09-05T13:00:30+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -52,19 +55,10 @@
     }
   },
   "counts": {
-    "due": 75,
-    "loud": 53
+    "due": 69,
+    "loud": 47
   },
   "rows": [
-    {
-      "source": "unlanded_automation",
-      "id": "#10398",
-      "title": "chore(m1): economic-calendar PIT snapshots (auto)",
-      "why_due": "producer output opened a PR that has not landed",
-      "age_days": 7,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/10398"
-    },
     {
       "source": "open_items",
       "id": "OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL",
@@ -408,42 +402,6 @@
       "link": ""
     },
     {
-      "source": "open_items",
-      "id": "OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST",
-      "title": "MI-123 / PR #11014 built the manager durable wake: `manager_wake.py` (assess/brief/receipt), `check_wake_liveness.py`, a committed Routine prompt, 28 tests. The DELIVERY half is OBSERVED — the manager",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 1,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "unlanded_automation",
-      "id": "#11041",
-      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
-      "why_due": "producer output opened a PR that has not landed",
-      "age_days": 0,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11041"
-    },
-    {
-      "source": "unlanded_automation",
-      "id": "#11046",
-      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
-      "why_due": "producer output opened a PR that has not landed",
-      "age_days": 0,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11046"
-    },
-    {
-      "source": "unlanded_automation",
-      "id": "#11051",
-      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
-      "why_due": "producer output opened a PR that has not landed",
-      "age_days": 0,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11051"
-    },
-    {
       "source": "probes",
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
       "title": "A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.",
@@ -508,30 +466,21 @@
     },
     {
       "source": "open_items",
-      "id": "OI-20260905-MI-128-SWEEP-WINDOW-REKEYED-AND-THE-PR-HOLDS-ON-A-BACKFILL-DECISION",
-      "title": "MI-128 / PR #11037 re-keys `_sweep_local_pnl_for_unpriced`'s scan window and ORDER BY from `created_at` (the OPEN) to `COALESCE(closed_at, created_at)` (the CLOSE). Keyed on the open, a position held ",
+      "id": "OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST",
+      "title": "MI-123 / PR #11014 built the manager durable wake: `manager_wake.py` (assess/brief/receipt), `check_wake_liveness.py`, a committed Routine prompt, 28 tests. The DELIVERY half is OBSERVED — the manager",
       "why_due": "loud row — must be reported on every session",
       "age_days": 0,
       "loud": true,
       "link": ""
     },
     {
-      "source": "red_crons",
-      "id": "constraint-readout",
-      "title": "constraint-readout",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
+      "source": "open_items",
+      "id": "OI-20260905-MI-128-SWEEP-WINDOW-REKEYED-AND-THE-PR-HOLDS-ON-A-BACKFILL-DECISION",
+      "title": "MI-128 / PR #11037 re-keys `_sweep_local_pnl_for_unpriced`'s scan window and ORDER BY from `created_at` (the OPEN) to `COALESCE(closed_at, created_at)` (the CLOSE). Keyed on the open, a position held ",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33866447693"
-    },
-    {
-      "source": "red_crons",
-      "id": "replay-pregate-nightly",
-      "title": "replay-pregate-nightly",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33954433170"
+      "link": ""
     },
     {
       "source": "error_feed",
@@ -545,8 +494,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-9fd2fc82",
-      "title": "[error] x106 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 106 rows 2026-08-24T08:45:38 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
+      "title": "[error] x101 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
+      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 101 rows 2026-08-24T09:16:04 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
       "age_days": 12,
       "loud": false,
       "link": ""
@@ -584,15 +533,6 @@
       "title": "[error] x27 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: e",
       "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 27 rows 2026-09-01T20:12:41 → 2026-09-02T08:17:06 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
       "age_days": 4,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-70ad5b6a",
-      "title": "[error] x5 bybit_over_cover detected: bybit_portfolio/ETHUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N acro",
-      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 5 rows 2026-09-02T18:06:01 → 2026-09-03T13:53:17 · accounts=bybit_portfolio — decide: fix now, or file to a backlog",
-      "age_days": 3,
       "loud": false,
       "link": ""
     },
@@ -652,9 +592,18 @@
     },
     {
       "source": "error_feed",
+      "id": "ERRFEED-b3c9b0e2",
+      "title": "[error] x5 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg",
+      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 5 rows 2026-09-04T12:28:34 → 2026-09-05T10:12:32 · accounts=bybit_1 — decide: fix now, or file to a backlog",
+      "age_days": 1,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
       "title": "113 cause groups over 1350 rows (79 error-level, 34 warn-level, 0 new since the last digest)",
-      "why_due": "69 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-05T04:51:06.498552+00:00`.",
+      "why_due": "69 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-05T08:58:33.203242+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
