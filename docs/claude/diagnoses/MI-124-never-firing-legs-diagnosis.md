@@ -267,7 +267,7 @@ supply the real ones; `pr-opener` then exited `FAILED: ... already exists`, and
 `update_pull_request` 403s from this session.
 
 Filed as `BL-20260905-AUTOMERGE-RELAY-WINS-THE-RACE-WITH-PR-OPENER-SO-EVERY-TIER-1-PR-GETS-A-BOILERPLATE-BODY`.
-It is **not** the `pr-opener` draft cluster (`BL-20260903-*`, `BL-20260904-*`) —
+It is **not** the `pr-opener` draft cluster (`BL-20260903-PR-OPENER-DRAFT-FALSE-IS-UNREACHABLE-SO-TIER-1-CAN-NEVER-SELF-LAND-THROUGH-THE-RELAY` and `BL-20260904-A-TIER-1-SELF-LAND-PR-OPENED-BY-PR-OPENER-IS-A-DRAFT-AND-CAN-NEVER-SELF-LAND-FROM-A-WEB-SESSION`) —
 there `pr-opener` opened the PR and got the draft flag wrong; here it opened
 nothing and the PR is correctly not a draft.
 
