@@ -1,0 +1,2 @@
+MI-127 — pnl-NULL mechanism named + trade 4350 established against broker truth.
+Tier-1: docs, tests, backlog rows. No src/ change; the src fix is proposed, not applied.
