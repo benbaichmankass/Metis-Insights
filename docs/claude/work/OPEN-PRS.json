@@ -1037,7 +1037,7 @@
       "settled_at": "2026-09-05T11:00:00Z",
       "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
       "observed_at": "2026-09-05T10:58:00Z",
-      "reason": "MERGED. Row taken from origin/main rather than from this branch, because this branch predates it: a straight take of my copy would have DROPPED #11047 entirely — the same wholesale-copy rewind filed this morning as BL-20260905-A-WHOLESALE-DIRECTORY-COPY-REWOUND-FIVE-GENERATED-REGISTERS. Caught by diffing against origin/main before committing, not after."
+      "reason": "MERGED. Row taken from origin/main rather than from this branch, because this branch predates it: a straight take of my copy would have DROPPED #11047 entirely — the same wholesale-copy rewind filed this morning as BL-20260905-A-WHOLESALE-DIRECTORY-COPY-REWOUND-FIVE-GENERATED-REGISTERS-AND-DROPPED-THREE-FILED-ROWS. Caught by diffing against origin/main before committing, not after."
     }
   ],
   "last_reconciled_at": "2026-09-05T03:42:28Z",
