@@ -1,0 +1,63 @@
+id: WO-20260905-LOCAL-PNL-SWEEP-WINDOW-KEYS-ON-THE-OPEN
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  _sweep_local_pnl_for_unpriced bounds its scan by created_at (the OPEN) while pricing a CLOSE,
+  so any position held longer than 14 days is never scanned, never priced, and never even
+  declared unmeasured
+stage: DEPLOYMENT
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-05
+operator_decision:
+  verdict: approved_with_conditions
+  condition: >-
+    FORWARD-ONLY. Fix the scan window so future closes are priced. Do NOT back-fill the ~20
+    already-silent long-held historical rows — that option was put to the operator explicitly and
+    NOT taken. It remains a SEPARATE decision with its own evidence bar, because pricing a
+    weeks-old close with no anchor is FABRICATED by this repo's own definition.
+  scope: src/runtime/order_monitor.py — the sweep's scan query only.
+  decided_on: 2026-09-05
+  text: >-
+    Asked as a popup with the three options (forward-only / fix-plus-backfill / hold for diff).
+    Operator selected "Fix the predicate, forward-only".
+
+why: >-
+  MEASURED by MI-127, filed on main as
+  BL-20260905-LOCAL-PNL-SWEEP-WINDOW-KEYS-ON-THE-OPEN-SO-A-LONG-HELD-CLOSE-IS-NEVER-PRICED.
+  src/runtime/order_monitor.py:10533 ends the sweep's scan query with
+  `AND datetime(created_at) >= datetime('now', '-14 days')`. `created_at` is when the position
+  was OPENED; the value the sweep exists to recover is a property of the CLOSE. A position held
+  longer than the window is ALREADY outside it at the moment it closes and stays outside forever,
+  so the row is never selected.
+  ⚠️ IT THEREFORE ALSO NEVER REACHES THE HONEST TERMINAL STATE. The row never gets to the
+  no_anchor branch (order_monitor.py:10637-10655) that stamps `pnl_source: unmeasured`, so the
+  result is a SILENT null with no provenance key at all — precisely what src/runtime/provenance.py
+  exists to prevent ("absence of a provenance record is not evidence of measurement").
+  POPULATION, stated: trade_journal.db::trades, all 5,493 rows fetched complete by pagination,
+  read 2026-09-05 against trader git_sha 5eb59917; non-backtest status='closed', intent_reduce
+  legs excluded, hold computable = 1,373 rows. pnl-NULL share by hold bucket: <1d 22/1103 (2.0%),
+  1-7d 3/196 (1.5%), 7-14d 12/47 (25.5%), >14d 20/22 (90.9%). Declared/silent split: held<=14d
+  15 declared / 22 silent; held>14d 0 declared / 20 silent. ZERO OF 20 — no row held longer than
+  the window has ever been declared. The only two >14d rows carrying a pnl were filled by OTHER
+  paths (pairs_half_open_cleanup wrote its own exit_price; bybit_closed_pnl is broker truth), so
+  this sweep has filled exactly zero long-held rows.
+  ⚠️ THIS IS THE HEAD OF A CHAIN WHOSE TAIL PROPOSES RETIRING REAL STRATEGIES: pnl NULL -> the leg
+  is absent from /api/bot/performance (its SQL carries `AND t.pnl IS NOT NULL`) -> sunset_pass has
+  no lifetime measurement -> a retirement basis built on an absence. MI-124 found the tail,
+  MI-126 fixed the default that manufactured a zero, this is the head.
+
+done_condition: >-
+  The scan window is keyed on the CLOSE — COALESCE(closed_at, created_at) — and
+  tests/test_local_pnl_sweep_window_is_open_keyed.py has had its strict-xfail marker and its
+  test_long_hold_row_is_never_even_scanned removed, the xfail XPASSing being the signal; plus
+  test_the_scan_window_check_can_fail ages out BOTH timestamps and is green (that is the negative
+  control — without it the assertion could pass vacuously).
+  Then a re-measurement over the SAME population shows no closed non-reduce row held >14 days
+  carrying a pnl NULL with NO pnl_source key — i.e. every such row is either priced or EXPLICITLY
+  declared unmeasured. Those two outcomes are both acceptable and must stay distinguishable.
+  ⚠️ HISTORICAL ROWS ARE NOT BACK-FILLED BY THIS OBJECT. That is the operator's recorded
+  condition, not an oversight, and a session that back-fills has exceeded its approval.
+
+blocked_on: []
+blocked_on_basis: ASSESSED

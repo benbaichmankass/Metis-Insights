@@ -1,0 +1,120 @@
+id: WO-20260905-SUNSET-PASS-MANUFACTURES-A-ZERO-FROM-AN-ABSENCE
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  sunset_pass.py defaults an ABSENT leg to ZERO lifetime closes, so "we did not observe a pnl-bearing close" became "has never closed a single trade in its life" and produced retirement candidates
+stage: DEPLOYMENT
+lifecycle: done
+owner: null
+opened_at: 2026-09-05
+closed_at: 2026-09-05
+
+why: >-
+  MEASURED AND FULLY TRACED by MI-124 (docs/claude/diagnoses/MI-124-never-firing-legs-diagnosis.md,
+  merged to main as 371ceaa6 in #11019). The defect is one line —
+  scripts/ops/sunset_pass.py:288:
+    life = lifetime.get(name, 0 if lifetime_state == "read" else None)
+  defended by a comment that is FALSE: it claims "/api/bot/performance lists every
+  strategy with any closed trade, so under `read` an absent leg genuinely closed
+  ZERO — a real measurement." The route does not do that. Measured at
+  src/web/api/routers/performance.py:324-326, its SQL carries
+  `AND t.pnl IS NOT NULL`, so the capture lists every strategy with a PNL-BEARING
+  close. A leg whose every close has pnl NULL is ABSENT, and the default turns that
+  absence into 0.
+  THE CHAIN, end to end: every close has pnl NULL -> absent from /api/bot/performance
+  -> lifetime.get(name, 0) yields 0 -> basis "never_closed_lifetime" -> verdict
+  `retire_candidate` -> note "has never closed a single trade in its life".
+  POPULATION, stated: against the live /api/bot/performance?window=all capture read
+  2026-09-05 — 52 enabled legs, 46 present in the capture, ELEVEN absent and
+  silently defaulted to 0. Of the ten sunset candidates NINE are absent; only
+  trend_donchian_sol is present. Five of the ten had closed trades in
+  trade_journal.db::trades BEFORE the packet was generated, so the packet's stated
+  basis is FALSE for five of the ten it proposed retiring.
+  ⚠️ THIS IS THE COLLAPSED-STATE CLASS, IN THE MACHINERY THAT PROPOSES RETIREMENTS.
+  "We did not observe a pnl-bearing close" and "the leg never closed a trade" are
+  different facts and the default fuses them. docs/CLAUDE-RULES-CANONICAL.md
+  § "Collapsed states" exists for exactly this, and sunset_pass.py ALREADY
+  implements the three-state discipline correctly one level up — which is what
+  makes this a slip in one default rather than a missing concept.
+  ⚠️ IT ALSO VINDICATES AN OPERATOR DECISION MADE WITHOUT THIS EVIDENCE. The
+  operator refused twice to retire on this basis ("I don't want to retire anything
+  yet") and funded a diagnosis instead. Had the batch retirement been taken, five
+  legs would have been retired on a manufactured zero.
+
+cost_of_not_doing_it: >-
+  Every future sunset pass reproduces it. The register renders into the CLAUDE.md
+  session brief each cycle, so the false candidates keep arriving in front of
+  sessions as evidenced retirement proposals, and the next reader may not have
+  MI-124's diagnosis in hand.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-05 by the manager. Nothing blocks it: the defect is one line, the
+  diagnosis is merged to main with its population and controls stated, and no
+  operator decision is outstanding — repairing a measurement is not a retirement.
+
+done_condition: >-
+  An absent leg is no longer defaulted to a measured zero. `lifetime_state == "read"`
+  must stop implying "and therefore every absent leg closed zero"; an absent leg is
+  NOT_OBSERVED and must be carried as its own state through to the verdict, so a
+  leg can never be graded `retire_candidate` on an absence.
+  ⚠️ THE COMMENT MUST GO OR BE CORRECTED IN THE SAME CHANGE. It is the load-bearing
+  part: it is what persuaded a reader the default was a real measurement, and
+  leaving it while changing the code would leave the next reader the same wrong
+  belief. Field beats comment, and here the comment is what has to move.
+  ⚠️ RE-RUN THE PASS AND STATE THE NEW POPULATION. The eleven absent legs must be
+  re-graded and the count of `retire_candidate` verdicts reported before and after.
+  A fix that changes no verdict has not been shown to work.
+  ⚠️ AND ASK WHETHER /api/bot/performance IS THE RIGHT SOURCE AT ALL. Its
+  `pnl IS NOT NULL` filter is correct for a PERFORMANCE view and wrong as a
+  "did this leg ever close" oracle. If a better source exists (a direct
+  trade_journal.db::trades count), say so rather than only patching the default —
+  but do NOT widen scope into rewriting the pass.
+  Cover it with a test that FAILS on the old default, verified by mutation.
+
+do_not: >-
+  ⚠️ DO NOT retire, disable or shadow any leg, and do not touch
+  docs/claude/SUNSET-DISPOSITIONS.json. Retiring is Tier-3, the operator has
+  answered twice, and NOTHING IS RETIRED. This object repairs a measurement.
+  ⚠️ DO NOT change /api/bot/performance's SQL. Its `pnl IS NOT NULL` filter is
+  CORRECT for what that route is for; the defect is the CALLER treating it as an
+  "ever closed" oracle. Changing the route to suit one consumer would break the
+  consumer it was written for.
+  ⚠️ DO NOT touch config/strategies.yaml, config/accounts.yaml, config/risk_caps.yaml
+  or any order path.
+  ⚠️ DO NOT fix the pnl-stamping defects MI-124 also found (alpaca reconciler closes
+  leaving pnl NULL for gdx/gld/iaum/scha/spy; trade 4350 plus 7 orphaned packages on
+  mes_trend_long_1d, which has held a position 33 days and therefore cannot
+  re-enter). Those are REAL and they are a DIFFERENT unit — they are why the closes
+  are pnl-null in the first place. File or route them separately; folding them in
+  makes this change unreviewable.
+  ⚠️ DO NOT grade any leg from a silent query without a POSITIVE CONTROL, and read
+  MI-124's § 1 first: it found that iwm/qqq/qld_trend_long_1d show side=none on
+  1000/1000 recent audit rows — identical to the candidates — while each has
+  lifetime closes, so a short window CANNOT distinguish a trading trend_long leg
+  from a dead one. Take counts LIFETIME.
+
+review_trigger: >-
+  If the re-run still produces retire_candidate verdicts for legs with journal
+  closes, the defect is not only this default and the object should be re-scoped.
+
+lifecycle_note: >-
+  CLOSED 2026-09-05T02:5xZ. MERGED as 5eb59917 (#11020), and the done-condition's
+  hard clause is MET rather than asserted: the pass was re-run and `retire_candidate`
+  went 9 -> 1 (docs/claude/diagnoses/MI-126-sunset-absence-not-zero.md § 3, population
+  stated). "A fix that changes no verdict has not been shown to work" was the bar and
+  it cleared it by eight verdicts.
+  The one survivor is `turtle_soup`, still a candidate on basis `unrouted` — a REAL
+  reason rather than a manufactured zero, which is the distinction the whole object
+  was about.
+  ⚠️ THE SHARPEST THING IT FOUND IS NOT IN THE DIFF. A TEST ENCODED THE DEFECT AS
+  CORRECT: an existing assertion read "a leg with zero lifetime closes is a
+  retire_candidate", which is true of a MEASURED zero and false of a defaulted one,
+  so the suite was holding the bug in place. A guard that locks in the defect it
+  should catch is worse than an absent one, and this is the second time tonight that
+  shape has appeared (the false comment at :288 being the first).
+  ⚠️ TWO DEFECTS FILED BY THE AUTHOR RATHER THAN FOLDED IN
+  (BL-20260905-{SELF-TEST,COVERAGE-GAP}) — correct disposition, not yet read by the
+  manager.
+  ⚠️ THIS FIXED THE READER, NOT THE SOURCE. The closes are still landing with pnl
+  NULL; that is MI-127.

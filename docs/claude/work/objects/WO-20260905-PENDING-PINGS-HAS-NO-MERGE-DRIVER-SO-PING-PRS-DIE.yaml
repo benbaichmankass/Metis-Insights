@@ -1,0 +1,53 @@
+id: WO-20260905-PENDING-PINGS-HAS-NO-MERGE-DRIVER-SO-PING-PRS-DIE
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  docs/claude/pending-pings.jsonl is the ONE register with no row-aware merge driver, so every
+  ping-carrying PR conflicts unresolvably and the only remaining paths are close-it (drops the
+  ping) or hand-rescue the rows
+stage: DEPLOYMENT
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-05
+
+why: >-
+  MEASURED 2026-09-04 by the manager, which filed rather than built (.gitattributes is a worker
+  path). .gitattributes maps `merge=jsonregister` onto exactly FIVE registers —
+  health-review-backlog.json, OPEN-ITEMS.json, MANAGER-CHECKLIST.json, SESSIONS.json,
+  OPEN-PRS.json. docs/claude/pending-pings.jsonl is NOT among them.
+  VERIFIED WITH A POSITIVE CONTROL, not by reading .gitattributes: all five ping-carrying PRs
+  were test-merged into origin/main in throwaway worktrees WITH the driver armed, and every one
+  still reported `CONFLICT (content): Merge conflict in docs/claude/pending-pings.jsonl`.
+  WHY IT MATTERS BEYOND TIDINESS. This is the mechanism behind the near-miss the manager handoff
+  warns about, not a separate defect: the file whose loss the "read the diff before closing it"
+  rule exists to prevent is precisely the file the driver does not cover. So a ping-carrying PR
+  can NEVER self-heal, and the only two paths left are close-it (which silently drops an
+  operator-facing ping) or hand-rescue the rows, which is what #10974 did for five of them.
+  The failure is therefore not a delay — it is LOSS, and it recurs on every ping-carrying PR.
+  ⚠️ THE OBVIOUS FIX MAY BE THE WRONG ONE, AND THAT IS THE FIRST THING TO ESTABLISH.
+  The other five registers are JSON OBJECTS; this file is append-only JSONL, for which git's
+  BUILT-IN `merge=union` is the natural fit and needs no new code at all. Whether
+  scripts/ops/merge_json_register.py handles line-delimited input is NOT VERIFIED — nobody has
+  ever run it against this file. Establish which driver is right BEFORE writing any code; do not
+  assume the existing driver parses JSONL because it is called "jsonregister".
+
+done_condition: >-
+  A ping-carrying PR that previously conflicted on docs/claude/pending-pings.jsonl is
+  test-merged into current origin/main in a throwaway worktree WITH the chosen driver armed, and
+  reports NO conflict on that file, AND the merged result is asserted to contain the rows from
+  BOTH sides — union, not one side winning. Read the merged file, do not infer from the absence
+  of a conflict marker.
+  ⚠️ NOT SUFFICIENT: (a) .gitattributes carrying a new line — that is a deploy, not an
+  observation, and the measurement above was made specifically because reading .gitattributes
+  is what gives the wrong answer; (b) a green test over a fixture, since the fixture is exactly
+  what cannot reproduce a real three-way merge of this file; (c) ONE PR merging cleanly if that
+  PR happened to touch no overlapping line — say which PR, and prefer one whose conflict was
+  actually observed on 2026-09-04.
+  ⚠️ AND A DELIBERATE DECISION NOT TO ARM A DRIVER ALSO CLOSES THIS — e.g. if `union` is judged
+  unsafe because a ping row can legitimately be REMOVED once drained, and duplicate-resend is
+  worse than a conflict. That is a legitimate answer and must be RECORDED as a decision, with
+  the consequence stated (ping PRs keep needing hand-rescue), rather than left looking like
+  work in flight.
+
+blocked_on: []
+blocked_on_basis: ASSESSED

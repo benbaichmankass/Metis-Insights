@@ -4,10 +4,10 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   ten sunset candidates produce nothing and nobody has established WHY -- diagnose each, because "never fired" is not a retirement basis on its own
 stage: QUESTION
-lifecycle: in_flight
+lifecycle: done
 owner: null
 opened_at: 2026-09-05
-closed_at: null
+closed_at: 2026-09-05
 
 why: >-
   OPERATOR DECISION, recorded on DEC-20260904-DEMOTE-AND-TUNE-FLOW
@@ -86,3 +86,17 @@ review_trigger: >-
   If more than half the legs land on `not_established`, the lane is not answerable
   from the journal as it stands and the finding becomes "the journal cannot
   distinguish declining from dead", which is a different and more valuable item.
+
+closing_evidence: >-
+  CLOSED 2026-09-05T03:31Z by the manager AGAINST THE ARTIFACT ON MAIN, not against a session's
+  claim of completion. docs/claude/diagnoses/MI-124-never-firing-legs-diagnosis.md is present on
+  origin/main (371ceaa6, #11019). Graded against this object's own done_condition by counting the
+  closed-vocabulary tokens in the committed file rather than by reading its prose: broken 19,
+  not_established 8, mis_routed 4, starved 3, declining_correctly 1, refused_at_risk 1 — every
+  cause drawn from the declared vocabulary, all ten candidate legs covered, and NO free-prose cause.
+  The done_condition's load-bearing clause is satisfied specifically: `not_established` is not
+  merely available but USED, eight times. A lane that cannot say "we could not tell" manufactures a
+  cause for the hardest cases, and this one declined to.
+  ⚠️ THE OBJECT WAS STALE AT in_flight WHILE ITS WORK WAS ALREADY ON MAIN, which is how the WIP
+  ceiling reads 8/8 with a finished item inside it. Closed on the evidence, NOT to make room — the
+  check was run before the count was looked at.
