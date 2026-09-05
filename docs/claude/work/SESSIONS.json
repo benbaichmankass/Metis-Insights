@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T00:13:48Z",
+  "updated_at": "2026-09-05T01:37:42Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1557,6 +1557,20 @@
       ],
       "why": "OPERATOR-FUNDED, recorded on DEC-20260904-DEMOTE-AND-TUNE-FLOW, option agree_flow_and_fund_repair, verbatim: 'Agree flow + fund REPAIR diagnosis.' The demote-and-tune flow is AGREED and on main; this is the half it could not absorb, and the design says so itself -- the ten legs that prompted the flow do not qualify for it because they do not trade at all. NOTHING IS RETIRED and the retirement question is ANSWERED; the operator rejected the retire/do-not-retire AXIS twice.",
       "confirmed_at": "2026-09-05T00:13:48Z"
+    },
+    {
+      "session_id": "session_01SZnY5fHV3fzh8UXg6cRgTS",
+      "title": "MI-124 — diagnose WHY each of the ten sunset candidates produces nothing (RESPAWN of session_018iMJkpN41FHzNjKj7ShNPS, whose work was lost)",
+      "owns_object": "WO-20260905-NEVER-FIRING-LEGS-NEED-A-REPAIR-DIAGNOSIS-NOT-A-RETIREMENT",
+      "checklist_item": "MI-124",
+      "spawned_at": "2026-09-05T01:37:42Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi124-never-firing-legs-diagnosis"
+      ],
+      "why": "OPERATOR-FUNDED on DEC-20260904-DEMOTE-AND-TUNE-FLOW, option agree_flow_and_fund_repair. Respawn after the predecessor completed the diagnostic and lost all of it to a failed push. Self-registered: the assigned registry key pending-20260905T011351Z was NOT present in SESSIONS.json when this session read it — only the predecessor's pending-20260905T001246Z, still marked state=working though the session is dead. That is the MI-15 recurrence, third occurrence.",
+      "note": "Diagnosis complete; PR opened via pr-opener relay (both MCP write paths 403). Guards: PASS 51 / FAIL 0.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",
