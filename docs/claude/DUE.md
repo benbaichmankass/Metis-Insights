@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-05T20:42:51+00:00 · verdict **partial**_
+_Generated 2026-09-05T23:14:33+00:00 · verdict **partial**_
 
 > ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
 
@@ -100,8 +100,8 @@ _Generated 2026-09-05T20:42:51+00:00 · verdict **partial**_
   - MI-128 / PR #11037 re-keys `_sweep_local_pnl_for_unpriced`'s scan window and ORDER BY from `created_at` (the OPEN) to `COALESCE(closed_at, created_at)` (the CLOSE). Keyed on the open, a position held 
 - **ERRFEED-1ef305c7** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 14 rows 2026-08-24T22:20:57 → 2026-09-04T17:15:36 · symbols=AVAXUSDT — decide: fix now, or file to a backlog
   - [error] x14 api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty
-- **ERRFEED-9fd2fc82** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 96 rows 2026-08-24T10:55:35 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
-  - [error] x96 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+- **ERRFEED-9fd2fc82** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 94 rows 2026-08-24T11:17:57 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
+  - [error] x94 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
 - **ERRFEED-2338a024** (error_feed · 10d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 13 rows 2026-08-26T02:19:58 → 2026-08-29T04:06:19 · accounts=bybit_1 — decide: fix now, or file to a backlog
   - [error] x13 bybit_over_cover detected: bybit_N/ETHUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL c
 - **OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED** (open_items · 7d) — monitoring row 7d since last observation (cadence 2d)
@@ -112,20 +112,20 @@ _Generated 2026-09-05T20:42:51+00:00 · verdict **partial**_
   - [error] x27 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: e
 - **ERRFEED-86505576** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 155 rows 2026-09-02T08:33:53 → 2026-09-04T23:53:07 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
   - [error] x155 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o
-- **ERRFEED-a46d2970** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 17 rows 2026-09-02T02:03:23 → 2026-09-05T16:20:37 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog
-  - [error] x17 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u
-- **ERRFEED-fa77ad80** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 14 rows 2026-09-02T02:03:23 → 2026-09-05T16:20:36 · symbols=MES — decide: fix now, or file to a backlog
-  - [error] x14 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
+- **ERRFEED-a46d2970** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 18 rows 2026-09-02T02:03:23 → 2026-09-05T20:49:41 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog
+  - [error] x18 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u
+- **ERRFEED-fa77ad80** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 15 rows 2026-09-02T02:03:23 → 2026-09-05T20:49:40 · symbols=MES — decide: fix now, or file to a backlog
+  - [error] x15 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
 - **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (soaks · 3d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then 
 - **ERRFEED-1177a741** (error_feed · 2d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 5 rows 2026-09-03T00:04:10 → 2026-09-04T11:28:19 · accounts=bybit_1 — decide: fix now, or file to a backlog
   - [error] x5 bybit_over_cover detected: bybit_N/SOLUSDT: position N. THIS position is NOT over-protected: legs that reduce it total N across N leg(s) (N%
-- **ERRFEED-6da04340** (error_feed · 2d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 13 rows 2026-09-03T11:19:27 → 2026-09-05T16:20:37 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog
-  - [error] x13 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u
-- **ERRFEED-b3c9b0e2** (error_feed · 1d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 6 rows 2026-09-04T12:28:34 → 2026-09-05T16:12:35 · accounts=bybit_1 — decide: fix now, or file to a backlog
-  - [error] x6 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg
-- **ERROR-FEED-SUMMARY** (error_feed) — 69 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-05T17:03:29.297909+00:00`.
-  - 117 cause groups over 1362 rows (79 error-level, 38 warn-level, 0 new since the last digest)
+- **ERRFEED-6da04340** (error_feed · 2d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 14 rows 2026-09-03T11:19:27 → 2026-09-05T20:49:40 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog
+  - [error] x14 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u
+- **ERRFEED-b3c9b0e2** (error_feed · 1d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 7 rows 2026-09-04T12:28:34 → 2026-09-05T22:13:05 · accounts=bybit_1 — decide: fix now, or file to a backlog
+  - [error] x7 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg
+- **ERROR-FEED-SUMMARY** (error_feed) — 69 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-05T20:22:35.392444+00:00`.
+  - 117 cause groups over 1365 rows (79 error-level, 38 warn-level, 0 new since the last digest)
 - **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
 - **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched
