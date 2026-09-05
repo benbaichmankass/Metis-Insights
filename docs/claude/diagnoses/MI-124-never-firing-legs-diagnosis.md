@@ -139,7 +139,9 @@ broken"; the remedy is in the exit/pnl path, not the strategy.
 
 ### Legs 6, 9, 10 — detail
 
-**6 · `mes_trend_long_1d`.** Its single trade is **id 4350 on `ib_paper`, sl
+**6 · `mes_trend_long_1d`.** Already-filed context, not re-derived:
+`BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG` covers
+trade 4350's protection state. Its single trade is **id 4350 on `ib_paper`, sl
 `7533.69642857`** — the exact trade `CLAUDE.md` names in the
 `PROTECTION_REASSERT_MODE` row as having sat with a diverged protective leg. It is
 still open 33 days on. 7 of 8 order packages are `orphaned`. The packet's literal
@@ -214,10 +216,43 @@ channel"* from *"a parameter or data issue keeps close inside it"* on this evide
    filter. 11 of 52 enabled legs are currently absent and defaulted to `0`.
 2. **The sunset pass grades `shadow` legs on live-trade criteria.** `turtle_soup` is
    `execution: shadow`; the packet's note does not mention it.
-3. **A large family of closes lands `pnl=None`.** Same exit path yields pnl
+3. **A large family of closes lands `pnl=None`.** **Already filed — not restated
+   here.** `BL-20260807-BULK-RECONCILER-CLOSE-NO-EXIT-NO-PNL` records 7 rows bulk-closed
+   on **2026-08-05** with null exit price and null realized pnl — the same date as
+   three of the five falsified legs (`gdx`, `gld`, `iaum`), so that event is very
+   likely the direct upstream cause. `BL-20260825-EXIT-PROVENANCE-IS-STRUCTURED-BY-EXIT-PATH`
+   covers the wider class. Same exit path yields pnl
    sometimes and not others (`iwm` above). This is upstream of the sunset pass and
    affects the M7 gate identically — a leg invisible to `/api/bot/performance` is
    ungradeable everywhere, not just here.
 4. **Not one of the ten was silent.** Eight of ten emitted actionable signals; the
    two that did not (`splg`, `tqqq`) did so for opposite reasons — one demonstrably
    broken, one not established.
+
+
+## 7. Filed
+
+- `BL-20260905-SUNSET-PASS-DEFAULTS-AN-ABSENT-LEG-TO-ZERO-CLOSES-AND-CALLS-IT-NEVER-TRADED` (high)
+- `BL-20260905-SUNSET-PASS-GRADES-SHADOW-LEGS-ON-A-LIVE-TRADE-CRITERION` (medium)
+
+Deliberately **not** filed, because each restates an existing open row:
+the pnl-NULL close class (`BL-20260807`, `BL-20260825`) and trade 4350's
+protection state (`BL-20260820`).
+
+## 8. On the predecessor's lead
+
+The lost predecessor session reported *"6 false premises, 2 broken (exit accounting,
+candle starvation), 1 not_established, 1 mis_routed"*. Its evidence was gone, so this
+was treated as a hypothesis and re-measured independently. It **substantially holds**,
+with one correction that is mine:
+
+- falsified premises: **5, not 6.** `trend_donchian_sol` is the difference — its only
+  close (`id 5419`) is dated **2026-09-04**, *after* the 2026-09-01 packet, so the
+  packet was **correct** about that leg when it was written. Crediting it would have
+  been an unfair reading of a dated artifact. That leg is `starved`, which is a real
+  cause and not a false premise.
+- `broken` ×2 (exit accounting `mes`, candle starvation `splg`): **confirmed**, and I
+  would add that legs 1–5 are also accounting-broken rather than strategy-broken.
+- `not_established` ×1 (`tqqq`): **confirmed**.
+- `mis_routed` ×1 (`turtle_soup`): **confirmed**, plus the shadow finding the packet
+  omits.
