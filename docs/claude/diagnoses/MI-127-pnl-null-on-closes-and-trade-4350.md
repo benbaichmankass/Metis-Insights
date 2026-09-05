@@ -460,8 +460,8 @@ or `src/runtime/orders.py`, and no `src/` file is modified at all.
 ## 6. Filed
 
 * `BL-20260905-LOCAL-PNL-SWEEP-WINDOW-KEYS-ON-THE-OPEN-SO-A-LONG-HELD-CLOSE-IS-NEVER-PRICED` (high) — the (A) defect.
-* `BL-20260905-A-LONG-HORIZON-LEG-HOLDING-BY-DESIGN-IS-INDISTINGUISHABLE-FROM-A-WEDGED-ONE` (medium) — the (B) observability gap.
-* `BL-20260905-MES-TREND-LONG-1D-RE-EMITS-A-DAILY-SIGNAL-EVERY-TICK-WHEN-SIZING-RETURNS-EMPTY` (medium) — the 2026-06-01 retry burst.
+* `BL-20260905-A-LONG-HORIZON-LEG-HOLDING-A-POSITION-BY-DESIGN-IS-INDISTINGUISHABLE-FROM-A-WEDGED-ONE` (medium) — the (B) observability gap.
+* `BL-20260905-MES-TREND-LONG-1D-RE-EMITTED-ONE-DAILY-SIGNAL-SEVEN-TIMES-IN-49-MINUTES-WHEN-SIZING-RETURNED-EMPTY` (medium) — the 2026-06-01 retry burst.
 
 Deliberately **not** filed, because each restates an existing open row: the
 pnl-NULL close class (`BL-20260807`, `BL-20260825`) and trade 4350's protection

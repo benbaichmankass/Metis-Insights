@@ -165,6 +165,15 @@ def anchored(monkeypatch):
     This is the control the finding needs: with pricing demonstrably available,
     any row that still ends NULL was never offered to the anchor at all.
     """
+    # collapsed-state: anchored — this fixture returns ONLY `anchored` on
+    # purpose. It is a positive control whose job is to hold pricing constant so
+    # that hold duration is the single variable; branching it would reintroduce
+    # the confound. The other two states of `bar_close_at` are NOT collapsed
+    # away, they are covered where they belong, in
+    # tests/test_sweep_no_mark_fabrication.py:
+    #   `no_anchor` -> test_no_anchor_declares_unmeasured_instead_of_pricing
+    #                  and test_declaring_is_idempotent
+    #   `deferred`  -> test_deferred_neither_prices_nor_declares
     import src.runtime.exit_anchor as EA
     monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (610.0, "anchored"))
 
