@@ -141,10 +141,12 @@ itself exists to warn about.
 no workflows for `GITHUB_TOKEN` pushes — so a relay-opened PR can sit at
 `mergeable_state: blocked` with **only** its own `open-and-automerge` check
 and none of the four required ones. #11066 sat like that for 13 minutes.
-**Push one ordinary commit yourself to arm CI.** ⚠️ MEASURED TWICE on
-2026-09-05, so treat it as the norm and not an edge case: #11066 sat 13
-minutes and #11067 sat 17, each carrying **only** `open-and-automerge` and
-none of `guards` / `pytest-run` / `pytest-collect` / `repo-inventory`. ⚠️ THE MECHANISM IS THE PR *OPENING*, NOT COMMIT ORDER — I got this
+**Push one ordinary commit yourself to arm CI.** ⚠️ **MEASURED THREE TIMES FOR THREE on 2026-09-05 — this is not an edge
+case, it is what the relay DOES.** #11066, #11067 and #11070 each opened
+carrying **only** `open-and-automerge` and none of `guards` / `pytest-run` /
+`pytest-collect` / `repo-inventory`; the first two sat 13 and 17 minutes
+before anyone noticed. Expect it on EVERY relay-opened PR and arm CI
+immediately rather than waiting to see. ⚠️ THE MECHANISM IS THE PR *OPENING*, NOT COMMIT ORDER — I got this
 wrong once and the wrong version is more misleading than no version. On
 #11067 the last commit on the branch was MINE (`e0499a64`, author
 `Claude`), so "the bot's results commit landed last" does not explain it.
@@ -198,3 +200,33 @@ releasing is the right last act, the check cannot pass after it, and the
 tool's advice is "fix them, then re-run" — which for this one check means
 re-claim. Nothing enforces the order, so the natural sequence produces a red
 that invites the wrong repair.
+
+---
+
+## Close-out audit (12:35Z) — every sub-session is archived
+
+Asked directly whether anything was left dangling, so it was checked rather
+than asserted. **Zero sub-sessions remain idle or running; all are ARCHIVED.**
+
+| what was checked | result |
+|---|---|
+| PRs closed WITHOUT merging since 09-04 | **8**, via `is:closed is:unmerged` — the 6 reconcile PRs (superseded, reasons posted), #11031 (the R6 deadlock, operator-ruled), and **#10993** |
+| #10993's work | **NOT lost** — `check_decision_answers.py` is on main AND registered in `run_guards.py`, and the LOCAL-LLM answer now reads `chosen: none_of_the_above`. Recorded as settled with a disposition; it had **no row at all** before |
+| MI-113's three asks | **all three resolved.** #11024 merged; its work object exists on main; `pending-pings.jsonl merge=union` is in `.gitattributes` on main |
+| MI-131 / MI-125 | work merged (#11047, #11044, #11052); archived |
+
+⚠️ **THREE OF THREE IDLE SESSIONS CARRIED A STALE STATUS LINE.** MI-113 read
+`need_input` with three open asks **eight hours** after they were all
+resolved; MI-131 read "PR #11047 CI running" when it had merged at 08:55Z.
+`post_turn_summary` is what a session LAST SAID, never what became true
+afterwards. **Judge a session by its merged output, never by its status
+line** — I nearly left MI-113 open as a real blocker on the strength of its
+own words. Filed as
+`BL-20260905-A-SESSIONS-OWN-STATUS-LINE-IS-WHAT-IT-LAST-SAID-NOT-WHAT-BECAME-TRUE-SO-FINISHED-WORK-READS-AS-IN-FLIGHT`;
+it is MI-84 seen from the session side.
+
+⚠️ **`list_pull_requests` with a `fields` subset returns `merged: false` for
+PRs that ARE merged.** Every row in a 60-PR listing read `merged: false`,
+including ones merged minutes earlier. Re-reading #11052 with full fields
+gave `merged: true`. **Never grade merge state from a field-subset listing** —
+use `search_pull_requests` with `is:unmerged`, or a full read.
