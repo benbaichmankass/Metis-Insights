@@ -6,7 +6,8 @@ title: >-
   so any position held longer than 14 days is never scanned, never priced, and never even
   declared unmeasured
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: done
+closed_at: 2026-09-05
 owner: null
 opened_at: 2026-09-05
 operator_decision:
@@ -61,3 +62,21 @@ done_condition: >-
 
 blocked_on: []
 blocked_on_basis: ASSESSED
+
+closing_evidence: >-
+  CLOSED 2026-09-05T07:49Z on a FLEET OBSERVATION, not on the merge. #11037 merged as 416460fb and the
+  deployed sha 41a9c8aa was confirmed to CONTAIN the fix by reading the code, not by ancestry alone:
+  git show 41a9c8aa:src/runtime/order_monitor.py has "COALESCE(closed_at, created_at)" three times.
+  All five newly-eligible historical rows then landed a SANCTIONED provenance and none is fabricated —
+  4169 pnl=534.66 and 4170 pnl=593.94 at pnl_source=local_compute + exit_price_source=verdict (ESTIMATED
+  per CLAUDE.md since 2026-08-24), and 4422/4423/4484 at pnl_source=unmeasured with pnl still None, which
+  is the EXPLICIT declaration the no_anchor branch stamps and the honest terminal state those rows could
+  never reach while the window keyed on the OPEN.
+  ⚠️ THE OPERATOR CONDITION WAS HONOURED: forward-only. No historical row was back-filled by the branch,
+  which touches no database; the five rows were written by the running sweep after the deploy, which the
+  operator was shown and accepted in advance.
+  ⚠️ AND THE VERIFYING MANAGER'S FIRST INSTRUMENT WAS WRONG: pnl_source and exit_price_source are NOT
+  columns on trades (41 columns; only cost_source matches /source|prov/) but live in the notes JSON blob,
+  so the pre-deploy baseline measured absent KEYS rather than absent provenance and nearly produced a
+  false FAIL escalation. Filed as
+  BL-20260905-PNL-PROVENANCE-KEYS-LIVE-IN-A-JSON-BLOB-SO-A-COLUMN-READ-RETURNS-NULL-AND-LOOKS-LIKE-MISSING-PROVENANCE.
