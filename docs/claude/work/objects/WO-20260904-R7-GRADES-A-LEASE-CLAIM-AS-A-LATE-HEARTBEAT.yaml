@@ -4,10 +4,10 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   manager-scope R7 picks its "previous heartbeat" from the wrong lease run, so a manager that DIED and recovered is permanently red and the cheapest way to green is to not record the lapse
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: done
 owner: null
 opened_at: 2026-09-04
-closed_at: null
+closed_at: 2026-09-05
 
 why: >-
   MEASURED 2026-09-04T22:1xZ on this manager's own commit cc984fec. R7 failed it
@@ -86,3 +86,22 @@ review_trigger: >-
   If a third distinct R7 mis-selection is found before this lands, the fix should
   be re-scoped from two patches to one correct "which blob is the previous
   heartbeat of THIS lease run" resolver.
+
+lifecycle_note: >-
+  CLOSED 2026-09-05T00:0xZ. MERGED as a0b776fa (#11012) and VERIFIED BY THE MANAGER
+  DIRECTLY rather than taken from the author: check_manager_scope.py --base
+  origin/main was re-run on a fresh heartbeat commit under the corrected guard and
+  returned rc=0, verdict `unattributed` (one commit in range carries no
+  Claude-Session trailer -- the three-state grading MI-106 shipped, not a
+  violation). The IDENTICAL commit shape graded ✗R6 ✗R7 before the fix, which is
+  what makes this a measured before/after rather than a claim. Author's self-test:
+  28/28.
+  ⚠️ FACE (b) IS NOT CONFIRMED. The #10895 half -- R7 reading the previous blob
+  from `sha~1`, which on a merge commit is the worker branch's stale lease --
+  SHOULD clear under the same fix, and that is an INFERENCE. It must be checked
+  against #10895 itself before its blocked_on edge is cut.
+  ⚠️ AND THE AUTHOR REPORTS "R6 ROOT UNFIXED" in its closing summary. R6 grades a
+  lease heartbeat against SESSIONS.json staleness and it passes here only because
+  the registry is fresh; the same wrong-parent selection that afflicted R7 has not
+  been shown to be absent from R6. That is OUT OF SCOPE for this object, which was
+  written about R7's two faces, and is filed as its own row rather than folded in.

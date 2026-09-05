@@ -4,7 +4,7 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   a manager that stops acting is not detected by anything -- idle is unbounded, the lease expires into nobody, and the only thing that restarted work was the operator noticing
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: waiting
 owner: null
 opened_at: 2026-09-04
 closed_at: null
@@ -98,3 +98,26 @@ review_trigger: >-
   If a manager gap longer than one lease TTL happens again before this lands,
   record it here with its duration and cost -- a second instance makes this the
   cycle's top item rather than one of its items.
+
+lifecycle_note: >-
+  in_flight -> waiting, 2026-09-05T00:0xZ. MERGED as 5f397509 (#11014). NOT `done`,
+  and the distinction is the whole point of this object.
+  WHAT IS MET: the done_condition's hard half -- "an OBSERVED wake into a real
+  session that then ACTS on something waiting". At 2026-09-04T23:09:19Z the wake
+  fired into the manager session as an out-of-band turn, reported the lease 901
+  minutes stale, and the manager ACTED on it. That reading is what exposed the
+  heartbeat-never-reaches-main deadlock, which nothing else had named. A mechanism
+  whose first firing surfaces a real defect its own reader disputed is the
+  strongest evidence this object could have produced.
+  WHAT IS NOT MET: the wake was carried by a poke the AUTHORING SESSION issued by
+  hand, not by a scheduled Routine. So DELIVERY is proven and CADENCE is not, and
+  those are different facts. Creating the Routine needs the operator (claude.ai
+  Routines UI + the Claude Code Remote connector): create_trigger via MCP yields
+  fired sessions with no mcp__* tools, which the poke step requires, and
+  `connectors` is refused for this org. The author created such a Routine,
+  confirmed it inert, and DELETED it rather than leave something named
+  manager-wake that cannot wake.
+  ⚠️ UNTIL THE ROUTINE EXISTS THE MANAGER'S CADENCE IS A HAND-ROLLED send_later
+  POKE, which is scaffolding and dies with this session -- exactly the failure this
+  object was opened about. Do not read the merge as having closed it.
+  The prompt is now ON MAIN at docs/claude/work/manager-wake-routine-prompt.md.
