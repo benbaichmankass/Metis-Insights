@@ -1,9 +1,9 @@
 # What is due right now
 
-_Generated 2026-09-05T09:18:37+00:00 · verdict **partial**_
+_Generated 2026-09-05T09:25:07+00:00 · verdict **all_sources_read**_
 
-> ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
-
+- 🔔 **#10398** (unlanded_automation · 7d) — producer output opened a PR that has not landed
+  - chore(m1): economic-calendar PIT snapshots (auto)
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 5d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
 - 🔔 **OI-20260829-E35-REVERSED-LEGS-ARE-A-TIER-3-PROPOSAL-SET-NOT-APPLIED** (open_items · 5d) — loud row — must be reported on every session
@@ -82,6 +82,12 @@ _Generated 2026-09-05T09:18:37+00:00 · verdict **partial**_
   - ⚠️ CORRECTED 2026-09-04 — THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS LINK IT BY NAME: THE CRON HAS FIRED. Measured over the workflow's COMPLETE scheduled
 - 🔔 **OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST** (open_items · 1d) — loud row — must be reported on every session
   - MI-123 / PR #11014 built the manager durable wake: `manager_wake.py` (assess/brief/receipt), `check_wake_liveness.py`, a committed Routine prompt, 28 tests. The DELIVERY half is OBSERVED — the manager
+- 🔔 **#11041** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11046** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11051** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
 - 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold
   - A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.
 - 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold
@@ -98,6 +104,10 @@ _Generated 2026-09-05T09:18:37+00:00 · verdict **partial**_
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
 - 🔔 **OI-20260905-MI-128-SWEEP-WINDOW-REKEYED-AND-THE-PR-HOLDS-ON-A-BACKFILL-DECISION** (open_items · 0d) — loud row — must be reported on every session
   - MI-128 / PR #11037 re-keys `_sweep_local_pnl_for_unpriced`'s scan window and ORDER BY from `created_at` (the OPEN) to `COALESCE(closed_at, created_at)` (the CLOSE). Keyed on the open, a position held 
+- 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'failure'
+  - constraint-readout
+- 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
+  - replay-pregate-nightly
 - **ERRFEED-1ef305c7** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 14 rows 2026-08-24T22:20:57 → 2026-09-04T17:15:36 · symbols=AVAXUSDT — decide: fix now, or file to a backlog
   - [error] x14 api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty
 - **ERRFEED-9fd2fc82** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 106 rows 2026-08-24T08:45:38 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
