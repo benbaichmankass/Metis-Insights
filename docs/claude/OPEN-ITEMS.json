@@ -3,7 +3,7 @@
  "what_this_is": "The SHORT list every session reads at START — and its live contents are RENDERED INTO CLAUDE.md by scripts/ops/render_session_brief.py, because CLAUDE.md is the only channel that reliably reaches a session before its first tool call. Hooks do NOT run on Claude Code on the web (verified 2026-08-26: the SessionStart contract's output was absent from the session context; 1,379 consecutive 'Found 0 total hooks in registry' log lines on 2026-08-20), and CI guards fire at MERGE, which is far too late to make the work correct in the first place.",
  "every_row_declares_how_it_leaves": "`clears_when` names the OBSERVABLE condition that removes the row. 'the fix works' is not one; 'the mechanism is seen acting on a named trade' is. A row nobody can tell is finished never gets cleared.",
  "loud_means_report_it_every_session": "A row with `loud: true` must be REPORTED ON in the session's closing summary — checked and stated, not silently carried. Operator directive 2026-08-26: 'keep a LOUD backlog item for EVERY SESSION to check and report on it till it's implemented correctly and the mechanism has been verified.'",
- "updated_at": "2026-09-04",
+ "updated_at": "2026-09-05",
  "items": [
  {
   "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
@@ -1147,8 +1147,48 @@
    "BL-20260904-NOTHING-REAPS-A-DEAD-MANAGER-OR-CLAIMS-AN-EXPIRED-LEASE",
    "OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED"
   ]
+ },
+
+ {
+
+  "id": "OI-20260905-MI-128-SWEEP-WINDOW-REKEYED-AND-THE-PR-HOLDS-ON-A-BACKFILL-DECISION",
+
+  "opened": "2026-09-05",
+
+  "kind": "awaiting_verification",
+
+  "loud": true,
+
+  "verified_at": null,
+
+  "last_checked": "2026-09-05",
+
+  "check_every_days": 2,
+
+  "probe_absent_reason": "A probe EXISTS and is deliberately expected to report the DEFECT until this merges: re-running the measurement in the PR body against the live journal still reads 0 declared / 20 silent for rows held >14d, because the fix is NOT DEPLOYED. That is the CORRECT reading while PR #11037 holds, not a fault. ⚠️ And do NOT read the count FALLING as this row clearing: 15 of the 20 rows will age past any 14-day window on their own and the other 5 are exactly what the held back-fill decision is about, so the number can drop for reasons that have nothing to do with the fix working.",
+
+  "summary": "MI-128 / PR #11037 re-keys `_sweep_local_pnl_for_unpriced`'s scan window and ORDER BY from `created_at` (the OPEN) to `COALESCE(closed_at, created_at)` (the CLOSE). Keyed on the open, a position held longer than 14 days was already outside the window when it closed and stayed outside forever — never scanned, never anchored, and never reaching the `no_anchor` branch that stamps `pnl_source: unmeasured`, so it ended as a SILENT null with no provenance key. Measured 2026-09-05 over the full live journal (all 5,494 rows fetched complete by pagination; population = non-backtest, closed, intent_reduce excluded, hold computable = 1,373): 0 of 20 rows held >14d had EVER been declared, against 16 of 37 held <=14d. Verified strictly additive (9 rows gained, 0 lost) and parse-safe (0 unparseable timestamps). Guards 67/0; 312 tests pass; both controls checked by mutation rather than asserted. ⚠️ IT IS NOT MERGED AND IT IS NOT DEPLOYED. The PR is Tier-2 with landing `hold`. ⚠️ AND THE MERGE CARRIES AN OPERATOR DECISION, NOT JUST AN APPROVAL: merging IS the deploy here (ict-git-sync, ~5 min), and the approved fix is FORWARD-ONLY, so the first post-deploy tick would write 5 already-silent HISTORICAL rows (4169, 4170, 4422, 4423, 4484) — a back-fill the operator was put explicitly and did not take. Each would be filled by a sanctioned path and none can be fabricated, but the call is the operator's. ⚠️ THE SAME DEFECT CLASS SURVIVES IN TWO MORE PLACES, filed not fixed: `_sweep_pending_pnl_from_bybit`'s 7-day window (costs MEASURED broker truth — worse than what MI-128 cost) and the `_LOCAL_PNL_BROKER_DEFER_MS` grace, inert for 333 of 1,204 Bybit rows (27.7%). So do NOT report the class as closed when this merges.",
+
+  "clears_when": "BOTH, and they are different facts — say which you cleared rather than clearing on the easier one. (1) MERGED AND DEPLOYED: PR #11037 merges with the back-fill question answered ON THE RECORD either way, and `/api/diag/version` reads a `git_sha` at or after that merge — a merge is not a deploy. (2) OBSERVED ON THE FLEET: a trade that CLOSES AFTER that deploy, having been held longer than 14 days, is found either carrying a pnl or carrying `pnl_source` — read from trade_journal.db::trades, naming the trade. ⚠️ (2) SAYS *CLOSES AFTER*, AND THAT IS THE WHOLE CRITERION: a long-held row that closed BEFORE the deploy satisfies the wording on its face while being one of the 5 back-filled rows, which proves the back-fill happened and NOT that forward behaviour is correct. ⚠️ EXPLICITLY NOT SUFFICIENT: the PR merging (that is (1) only); CI green or the 312 tests passing (a harness cannot reach the fleet, and this repo has paid for that distinction repeatedly); the silent-row count falling (see probe_absent_reason — it falls on its own); or the absence of an alarm, since the defect's entire signature is silence. ⚠️ IF THE OPERATOR DECLINES THE MERGE, this row does NOT clear — it CHANGES: long-held closes then remain permanently unpriceable AND undeclarable, which is a legitimate decision and must be RECORDED as one with that consequence stated, rather than left looking like work in flight.",
+
+  "refs": [
+
+   "PR #11037",
+
+   "BL-20260905-LOCAL-PNL-SWEEP-WINDOW-KEYS-ON-THE-OPEN-SO-A-LONG-HELD-CLOSE-IS-NEVER-PRICED",
+
+   "BL-20260905-BYBIT-BROKER-PNL-SWEEP-WINDOW-ALSO-KEYS-ON-THE-OPEN-SO-A-LONG-HELD-CLOSE-LOSES-BROKER-TRUTH",
+
+   "BL-20260905-LOCAL-PNL-BROKER-DEFER-GRACE-KEYS-ON-THE-OPEN-SO-A-LONG-HELD-BYBIT-CLOSE-HAS-NO-GRACE-AT-ALL",
+
+   "BL-20260905-FIFTEEN-LONG-HELD-CLOSES-STAY-SILENT-AFTER-MI-128-BECAUSE-THEIR-CLOSE-IS-ALREADY-OUTSIDE-THE-WINDOW",
+
+   "src/runtime/order_monitor.py::_sweep_local_pnl_for_unpriced"
+
+  ]
+
  }
- ],
+],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
  "monitoring_rows_are_enforced_by_observation": "kind:'monitoring' rows carry `check_every_days`, `verified_at` and `observation`. A row past its cadence is DUE and is rendered into CLAUDE.md, so the next session sees it in context before acting. Clearing it for another cycle costs one honest look: record WHAT YOU OBSERVED and today's date. It cannot be cleared by asserting progress — `observation` must state a thing that was seen. This replaces `loud`, which was just another alarm to walk past.",
  "probes_report_they_never_clear": "A `monitoring` row may carry `probe` (a declared command that OBSERVES something, run by scripts/ops/run_probes.py) or `probe_absent_reason` (why none exists), never both and never neither — so 'nothing probes this' stays distinguishable from 'a probe ran and was quiet'. A probe REPORTS; only a SESSION clears a row. Every probe therefore declares `is_not`: what a PASS still does not establish. The hazard is not a broken probe, it is a working one read as proof the row cleared."
