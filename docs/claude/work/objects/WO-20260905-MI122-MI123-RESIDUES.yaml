@@ -1,0 +1,59 @@
+id: WO-20260905-MI122-MI123-RESIDUES
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Three residues from the MI-122/MI-123 pair — R6's unfixed root (now with a live incident),
+  #10895's unverified R7 face, and a stop-hook false alarm on shallow clones
+stage: DEPLOYMENT
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-05
+
+why: >-
+  Filed 2026-09-05 as THREE SEPARATE FACTS rather than folded into two closed rows, because none
+  was in either object's done_condition.
+
+  (1) R6 ROOT UNFIXED — and it stopped being a suspicion on 2026-09-05.
+  R6 grades a lease heartbeat against SESSIONS.json staleness and passes on the manager branch ONLY
+  because the registry happens to be fresh; the wrong-parent selection that afflicted R7 has NOT been
+  shown absent from R6. Measured: a lease-only commit built on origin/main graded ✗R6 AND ✗R7, and
+  only R7 was fixed.
+  ⚠️ LIVE INCIDENT, same day: R6 KILLED PR #11031 — the manager's own 32-commit management record —
+  and the guard was CORRECT. Commit bfdf2fa3 advanced the lease heartbeat while SESSIONS.json was
+  154 min stale against a 90-min TTL, because the manager had been idle 143 minutes and the lease had
+  expired. bfdf2fa3 was an ANCESTOR of the branch tip, so it sat permanently inside the graded range
+  and the PR could NEVER go green however many later commits fixed the state.
+  ⚠️ THAT IS THE ACTIONABLE SHAPE: R6 grades HISTORICAL COMMITS in the range, so a lapse becomes
+  UNMERGEABLE FOREVER rather than correctable — there is no "I have since fixed it" path. The only
+  exits were a scope exception (refused: it is for live INCIDENTS, and spending it on a manager's own
+  lapse is the cheaper-to-lie-to-than-to-satisfy failure) or rebuilding the branch from main — which
+  the operator chose, and which SILENTLY DROPPED three filed backlog rows and REWOUND five generated
+  registers, both caught only afterwards.
+  So a TRUE finding cost a rebuild that caused two further defects. That is worth examining.
+  ⚠️ THIS IS NOT A PROPOSAL TO WEAKEN R6. The finding was true and the manager said so publicly.
+
+  (2) #10895's R7 FACE IS UNVERIFIED. It SHOULD clear under a0b776fa and that is an INFERENCE.
+  The repo's own rule is that a guard passing elsewhere is not evidence about THIS PR.
+
+  (3) stop-hook-git-check.sh FALSE-ALARMS ON SHALLOW CLONES (reported by MI-123, NOT independently
+  verified by the manager — recorded as the author's report, not as a manager measurement). Every
+  sub-session container is a shallow clone, so it would fire on all of them; the manager hit the same
+  shallow-clone class earlier that day reading ping carriers and reported a false negative from it
+  before `git fetch --unshallow`.
+
+done_condition: >-
+  Each of the three reaches a written disposition; they are independent and may resolve differently.
+  (1) R6: either the wrong-parent selection is SHOWN ABSENT from R6 by a test that would catch it
+  (the R7 fix's own shape), or the historical-commit trap is addressed, or a recorded decision that
+  the current behaviour is correct WITH the consequence stated — a manager lapse is permanently
+  unmergeable and the only remedy is a rebuild, which has now twice caused collateral defects.
+  (2) #10895: its R7 face checked against #10895 ITSELF and the result stated. If it clears, cut its
+  blocked_on edge and say so; if it does not, say what blocks it.
+  (3) The shallow-clone false alarm REPRODUCED (or shown not to reproduce) in a shallow clone, with
+  the command and the clone depth stated. ⚠️ It is currently one session's report — verify it before
+  fixing it, and if it does not reproduce, say so rather than fixing a phantom.
+  ⚠️ NOT SUFFICIENT for any of the three: asserting the state without the check. This object exists
+  precisely because three claims were carried as settled without one.
+
+blocked_on: []
+blocked_on_basis: ASSESSED
