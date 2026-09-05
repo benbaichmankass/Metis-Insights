@@ -1,0 +1,52 @@
+id: WO-20260905-PROBES-JSON-PARTIAL-TAKE-FROM-10921
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  #10921 carries probe results three days newer than main's beside a DUE.json 20 hours older —
+  it can be neither merged nor closed whole, and needs PROBES.json taken BY VALUE
+stage: DEPLOYMENT
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-05
+
+why: >-
+  MEASURED by the manager 2026-09-04. #10921 is a mixed take and both halves are load-bearing in
+  opposite directions:
+  MERGING IT REWINDS THE REGISTER A SESSION READS TO FIND WHAT IS OWED — its DUE.json / DUE.md are
+  roughly 20 hours OLDER than main's.
+  CLOSING IT LOSES THREE DAYS OF PROBE DATA — its PROBES.json is 2026-09-03T09:56:34 against main's
+  2026-09-01T10:13:20.
+  So the remedy is a PARTIAL take: PROBES.json BY VALUE onto main, then close the PR.
+  ⚠️ THE ROW-LOSS CHECK IS ALREADY DONE — do NOT skip it on the assumption that newer means
+  superset. Main carries 15 probe results, the PR 34, and THREE ids on main are ABSENT from the PR:
+  OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED,
+  OI-20260830-BYBIT-HEDGE-MODE-ARMED-BUT-UNEXERCISED,
+  OI-20260901-SCHEDULED-PROBES-AND-DUE-LIST-HAVE-NEVER-FIRED-ON-CRON.
+  All three were verified ABSENT from docs/claude/OPEN-ITEMS.json — i.e. cleared rows the probe file
+  correctly no longer covers — and all 34 of the PR's ids were still live rows.
+  ⚠️ RE-VERIFY THAT AT THE TIME OF THE TAKE, because rows keep clearing and this measurement is a
+  day old.
+  ⚠️ WHY THIS IS ROUTED RATHER THAN DONE BY THE MANAGER: the manager attempted the take and
+  check_manager_scope R2 REFUSED it — docs/claude/PROBES.json is not on the manager surface. It was
+  backed out rather than excepted, because manager-scope-exception.yaml is for live INCIDENTS by its
+  own header and a stale probe file is not one. The guard was right, and "it is only a data file" is
+  precisely the rationalisation the rule exists to refuse.
+
+done_condition: >-
+  docs/claude/PROBES.json on main carries #10921's results (generated stamp 2026-09-03T09:56:34 or
+  newer), main's DUE.json / DUE.md are UNCHANGED by this work, and #10921 is closed with a comment
+  saying what was taken and what was deliberately left.
+  ⚠️ THE ROW-LOSS CHECK IS PART OF THE DONE CONDITION, not a preliminary: before taking, re-run the
+  comparison and state the population — how many ids on each side, which ids on main are absent from
+  the PR, and for each of those, whether it is absent from OPEN-ITEMS.json (a correctly-dropped
+  cleared row) or still live (a row that would be LOST). If any still-live row would be lost, DO NOT
+  take the file wholesale — merge the two row sets instead, and say so.
+  ⚠️ TAKE THE FILE, NEVER THE DIRECTORY. On 2026-09-05 the manager rewound five machine-generated
+  registers by up to 7.9h with a wholesale `cp -r docs/claude/work` — the same class as the rewind
+  that makes #10921 unmergeable in the first place. Filed as
+  BL-20260905-A-WHOLESALE-DIRECTORY-COPY-REWOUND-FIVE-GENERATED-REGISTERS-AND-DROPPED-THREE-FILED-ROWS.
+  ⚠️ NOT SUFFICIENT: merging #10921 (rewinds DUE), closing it without taking PROBES (loses three
+  days), or taking PROBES without re-running the row-loss comparison.
+
+blocked_on: []
+blocked_on_basis: ASSESSED
