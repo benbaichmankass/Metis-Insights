@@ -144,9 +144,16 @@ and none of the four required ones. #11066 sat like that for 13 minutes.
 **Push one ordinary commit yourself to arm CI.** ⚠️ MEASURED TWICE on
 2026-09-05, so treat it as the norm and not an edge case: #11066 sat 13
 minutes and #11067 sat 17, each carrying **only** `open-and-automerge` and
-none of `guards` / `pytest-run` / `pytest-collect` / `repo-inventory`. In
-both cases the relay's own results commit was the LAST commit on the
-branch, which is what buries the checks. Do not read zero checks as
+none of `guards` / `pytest-run` / `pytest-collect` / `repo-inventory`. ⚠️ THE MECHANISM IS THE PR *OPENING*, NOT COMMIT ORDER — I got this
+wrong once and the wrong version is more misleading than no version. On
+#11067 the last commit on the branch was MINE (`e0499a64`, author
+`Claude`), so "the bot's results commit landed last" does not explain it.
+What does: the PR itself was OPENED by `github-actions[bot]` using
+`GITHUB_TOKEN`, and GitHub fires no workflow for any event a
+`GITHUB_TOKEN` action triggers — including `pull_request: opened`. So the
+required checks never fire at all, whoever wrote the head commit. A later
+push from a real account raises `synchronize` and CI starts normally.
+Do not read zero checks as
 "CI hasn't started"; read `mergeable_state` — `blocked` is this, `dirty` is
 a merge conflict.
 
