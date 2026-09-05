@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "what_this_is": "The trader's error feed, grouped by digit-normalised cause and rendered for the `duty` pass. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `groups`: on `partial` at least one feed could not be read and this digest is a LOWER BOUND, not a statement that the rest is quiet.",
-  "generated_at": "2026-09-04T21:46:29+00:00",
-  "covers_since": "2026-09-04T18:45:17.413566+00:00",
-  "covers_since_note": "resuming from the prior digest's watermark 2026-09-04T18:45:17.413566+00:00",
+  "generated_at": "2026-09-05T00:21:29+00:00",
+  "covers_since": "2026-09-04T21:45:46.660581+00:00",
+  "covers_since_note": "resuming from the prior digest's watermark 2026-09-04T21:45:46.660581+00:00",
   "verdict": "all_feeds_read",
   "unreachable_feeds": [],
   "truncated_feeds": [
@@ -14,11 +14,11 @@
       "state": "read",
       "note": "",
       "population": {
-        "rows_returned": 327,
+        "rows_returned": 344,
         "limit_requested": 1000,
         "truncated": false,
         "oldest_ts": "2026-09-01T18:29:17.192145+00:00",
-        "newest_ts": "2026-09-04T21:45:46.660581+00:00",
+        "newest_ts": "2026-09-04T23:53:07.745133+00:00",
         "undateable_rows": 0,
         "undecodable_lines": 0
       }
@@ -30,24 +30,24 @@
         "rows_returned": 1000,
         "limit_requested": 1000,
         "truncated": true,
-        "oldest_ts": "2026-08-23T18:34:51.022750+00:00",
-        "newest_ts": "2026-09-04T21:06:43.937720+00:00",
+        "oldest_ts": "2026-08-23T23:44:52.782864+00:00",
+        "newest_ts": "2026-09-05T00:12:31.767103+00:00",
         "undateable_rows": 0
       }
     }
   },
   "coverage": {
     "operator_alerts": {
-      "rows_considered": 327,
-      "rows_after_watermark": 10,
+      "rows_considered": 344,
+      "rows_after_watermark": 17,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-04T18:45:17.413566+00:00"
+      "watermark_applied": "2026-09-04T21:45:46.660581+00:00"
     },
     "bot_logs": {
       "rows_considered": 1000,
-      "rows_after_watermark": 10,
+      "rows_after_watermark": 22,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-04T18:45:17.413566+00:00"
+      "watermark_applied": "2026-09-04T21:45:46.660581+00:00"
     }
   },
   "account_roster": {
@@ -67,24 +67,24 @@
     ]
   },
   "counts": {
-    "groups": 112,
-    "new_groups": 0,
+    "groups": 113,
+    "new_groups": 1,
     "error_groups": 79,
-    "rows_grouped": 1327
+    "rows_grouped": 1344
   },
   "watermark": {
-    "next_since": "2026-09-04T21:45:46.660581+00:00",
-    "note": "advanced to the newest row read (2026-09-04T21:45:46.660581+00:00)"
+    "next_since": "2026-09-05T00:12:31.767103+00:00",
+    "note": "advanced to the newest row read (2026-09-05T00:12:31.767103+00:00)"
   },
   "groups": [
     {
       "feed": "operator_alerts",
       "level": "error",
       "cause": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: orders_still_resting ",
-      "count": 143,
+      "count": 155,
       "is_new": false,
       "first_seen": "2026-09-02T08:33:53.957025+00:00",
-      "last_seen": "2026-09-04T21:45:46.660581+00:00",
+      "last_seen": "2026-09-04T23:53:07.745133+00:00",
       "sample": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten\nAccount: alpaca_paper\nSymbol: GLD | Side: long | Qty: 39.0\nConsecutive close failures: 3\nshare_hold: orders_still_resting\nOrdinary cancellable orders are holding the shares \u2014 the next tick's cancel-then-retry may well clear this on its own. Worth watching before acting.\nLast error: extended-hours limit close rejected: insufficient qty available for order (requested: 39, available: 0) [share_hold=orders_still_resting: 2 cancellable order(s) still resting (2e843e04-5487-470c-a702-70e796fbd05e is new, 891ddff0-b24d-4039-9322-8492bcd51e66 is held) \u2014 a retry",
       "symbols": [
         "GLD"
@@ -103,9 +103,9 @@
       "feed": "bot_logs",
       "level": "error",
       "cause": "strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "count": 127,
+      "count": 116,
       "is_new": false,
-      "first_seen": "2026-08-23T18:34:51.022750+00:00",
+      "first_seen": "2026-08-23T23:46:36.720727+00:00",
       "last_seen": "2026-08-25T22:48:45.661170+00:00",
       "sample": "strategy_builder exception: RuntimeError: ict_scalp_mgc_15m: no candle data for symbol=MGC timeframe=15m.",
       "symbols": [
@@ -144,32 +144,13 @@
       ]
     },
     {
-      "feed": "bot_logs",
-      "level": "error",
-      "cause": "api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty:N (ErrCode: N) (Err",
-      "count": 19,
-      "is_new": false,
-      "first_seen": "2026-08-23T21:42:55.110019+00:00",
-      "last_seen": "2026-09-04T17:15:36.266934+00:00",
-      "sample": "api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:2308300000000 > max_qty:2200000000000 (ErrCode: 10001) (ErrTime: 17:15:36).\nRequest \u2192 POST https://api-demo.bybit.com/v5/order/create: {\"category\": \"linear\", \"symbol\": \"AVAXUSDT\", \"side\": \"Sell\", \"orderType\": \"Market\", \"qty\": \"23083.0\", \"stopLoss\": \"7.390\", \"takeProfit\": \"7.287\", \"tpslMode\": \"Partial\", \"tpSize\": \"23083.0\", \"slSize\": \"23083.0\", \"tpOrderType\": \"Market\", \"slOrderType\": \"Market\"}.",
-      "symbols": [
-        "AVAXUSDT"
-      ],
-      "strategies": [],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "symbols"
-      ]
-    },
-    {
       "feed": "operator_alerts",
       "level": "error",
       "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_unavailable (for N co",
-      "count": 14,
+      "count": 16,
       "is_new": false,
       "first_seen": "2026-09-02T02:03:23.938007+00:00",
-      "last_seen": "2026-09-04T20:54:07.515690+00:00",
+      "last_seen": "2026-09-04T23:06:13.752595+00:00",
       "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-146883bacb8743be\nStrategy: mhg_pullback_1d | Symbol: MHG\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
       "symbols": [
         "MHG"
@@ -181,6 +162,25 @@
       "accounts_state": "matched",
       "facets_found": [
         "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
+      "cause": "api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty:N (ErrCode: N) (Err",
+      "count": 15,
+      "is_new": false,
+      "first_seen": "2026-08-24T01:13:23.409252+00:00",
+      "last_seen": "2026-09-04T17:15:36.266934+00:00",
+      "sample": "api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:2308300000000 > max_qty:2200000000000 (ErrCode: 10001) (ErrTime: 17:15:36).\nRequest \u2192 POST https://api-demo.bybit.com/v5/order/create: {\"category\": \"linear\", \"symbol\": \"AVAXUSDT\", \"side\": \"Sell\", \"orderType\": \"Market\", \"qty\": \"23083.0\", \"stopLoss\": \"7.390\", \"takeProfit\": \"7.287\", \"tpslMode\": \"Partial\", \"tpSize\": \"23083.0\", \"slSize\": \"23083.0\", \"tpOrderType\": \"Market\", \"slOrderType\": \"Market\"}.",
+      "symbols": [
+        "AVAXUSDT"
+      ],
+      "strategies": [],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
         "symbols"
       ]
     },
@@ -207,10 +207,10 @@
       "feed": "operator_alerts",
       "level": "error",
       "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles_unavailable (for N ",
-      "count": 12,
+      "count": 13,
       "is_new": false,
       "first_seen": "2026-09-02T02:03:23.674823+00:00",
-      "last_seen": "2026-09-04T09:37:42.731506+00:00",
+      "last_seen": "2026-09-04T21:55:38.042637+00:00",
       "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-1d9598b29f38440c\nStrategy: mes_trend_long_1d | Symbol: MES\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
       "symbols": [
         "MES"
@@ -226,10 +226,10 @@
       "feed": "operator_alerts",
       "level": "error",
       "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_unavailable (for N co",
-      "count": 11,
+      "count": 12,
       "is_new": false,
       "first_seen": "2026-09-03T11:19:27.602273+00:00",
-      "last_seen": "2026-09-04T20:54:07.255194+00:00",
+      "last_seen": "2026-09-04T21:55:38.305593+00:00",
       "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-81464be432554b3f\nStrategy: mgc_pullback_1d | Symbol: MGC\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
       "symbols": [
         "MGC"
@@ -438,6 +438,25 @@
       "strategies": [],
       "accounts": [
         "alpaca_portfolio"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
+      "cause": "bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit",
+      "count": 3,
+      "is_new": false,
+      "first_seen": "2026-09-04T12:28:34.799241+00:00",
+      "last_seen": "2026-09-04T22:10:21.648726+00:00",
+      "sample": "bybit_over_cover detected: bybit_1/ADAUSDT: position 79855.0. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total 143170.0 across 2 leg(s) (179% of the position) \u2014 stale same-side legs have piled up; a trip would over-close and strand the rest. (side-blind SL total across all books: 143170.0, 179% of the position, 2 leg(s) \u2014 this is the figure that TRIPPED the check, not a claim about the graded book.) 4 of Bybit's 20-leg COMBINED TP+SL cap are used (16 left; 2 of them are stop legs); at the cap `set_trading_stop` refuses (ErrCode 110061) and a genuine protective tightening f",
+      "symbols": [],
+      "strategies": [],
+      "accounts": [
+        "bybit_1"
       ],
       "accounts_state": "matched",
       "facets_found": [
@@ -688,25 +707,6 @@
       "strategies": [],
       "accounts": [
         "alpaca_portfolio"
-      ],
-      "accounts_state": "matched",
-      "facets_found": [
-        "accounts"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "error",
-      "cause": "bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit",
-      "count": 2,
-      "is_new": false,
-      "first_seen": "2026-09-04T12:28:34.799241+00:00",
-      "last_seen": "2026-09-04T16:09:47.621967+00:00",
-      "sample": "bybit_over_cover detected: bybit_1/ADAUSDT: position 79855.0. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total 143170.0 across 2 leg(s) (179% of the position) \u2014 stale same-side legs have piled up; a trip would over-close and strand the rest. (side-blind SL total across all books: 143170.0, 179% of the position, 2 leg(s) \u2014 this is the figure that TRIPPED the check, not a claim about the graded book.) 4 of Bybit's 20-leg COMBINED TP+SL cap are used (16 left; 2 of them are stop legs); at the cap `set_trading_stop` refuses (ErrCode 110061) and a genuine protective tightening f",
-      "symbols": [],
-      "strategies": [],
-      "accounts": [
-        "bybit_1"
       ],
       "accounts_state": "matched",
       "facets_found": [
@@ -1713,13 +1713,35 @@
       ]
     },
     {
+      "feed": "operator_alerts",
+      "level": "warn",
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ada_pullback_Nh | Symbol: ADAUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its ti",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-04T22:10:16.827464+00:00",
+      "last_seen": "2026-09-04T22:10:16.827464+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ada_pullback_2h | Symbol: ADAUSDT\nPackage: pkg-74ac657f0a69499a\nDB trade id: 5479\nHeld for: 360 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "symbols": [
+        "ADAUSDT"
+      ],
+      "strategies": [
+        "ada_pullback_2h"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "count": 249,
+      "count": 261,
       "is_new": false,
       "first_seen": "2026-08-25T23:10:31.406008+00:00",
-      "last_seen": "2026-09-04T21:06:33.197865+00:00",
+      "last_seen": "2026-09-05T00:12:31.767103+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_15m: no candle data for symbol=MGC timeframe=15m.",
       "symbols": [
         "MGC"
@@ -1738,10 +1760,10 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection",
-      "count": 151,
+      "count": 154,
       "is_new": false,
-      "first_seen": "2026-08-23T20:10:44.085542+00:00",
-      "last_seen": "2026-09-04T21:06:43.937720+00:00",
+      "first_seen": "2026-08-24T07:58:05.899845+00:00",
+      "last_seen": "2026-09-05T00:01:18.947606+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_1h: no candle data returned for symbol=MGC timeframe=1h. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MGC"
@@ -1760,10 +1782,10 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect",
-      "count": 134,
+      "count": 132,
       "is_new": false,
-      "first_seen": "2026-08-23T20:10:43.721628+00:00",
-      "last_seen": "2026-09-04T19:13:16.339699+00:00",
+      "first_seen": "2026-08-23T23:44:52.782864+00:00",
+      "last_seen": "2026-09-04T21:55:41.635837+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_1d: no candle data returned for symbol=MGC timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MGC"
@@ -1784,8 +1806,8 @@
       "cause": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect",
       "count": 117,
       "is_new": false,
-      "first_seen": "2026-08-23T20:10:45.377519+00:00",
-      "last_seen": "2026-09-04T19:13:17.825445+00:00",
+      "first_seen": "2026-08-24T08:22:28.291203+00:00",
+      "last_seen": "2026-09-04T23:06:19.232793+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_1d: no candle data returned for symbol=MHG timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MHG"
@@ -1804,10 +1826,10 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne",
-      "count": 97,
+      "count": 98,
       "is_new": false,
       "first_seen": "2026-08-24T08:22:24.984520+00:00",
-      "last_seen": "2026-09-04T09:37:08.090856+00:00",
+      "last_seen": "2026-09-04T21:55:40.036770+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mes_trend_long_1d: no candle data returned for symbol=MES timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MES"
