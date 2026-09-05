@@ -45,24 +45,6 @@
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
     {
-      "pr": 10921,
-      "opened_at": "2026-09-03T09:57:27Z",
-      "title": "chore(ops): refresh probe results (auto)",
-      "owner_session": null,
-      "checklist_item": null,
-      "draft": false,
-      "tier": "1",
-      "state": "open_untriaged_automation",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded."
-      },
-      "blocker": "PARTIAL TAKE, not a supersede and not a merge. Its PROBES.json is THREE DAYS NEWER than main's (2026-09-03T09:56:34 vs 2026-09-01T10:13:20) while its DUE.json/DUE.md are ~20h OLDER, so merging whole advances one register and rewinds two. The manager takes PROBES.json BY VALUE and then closes the PR. ⚠️ TAKING THE NEWER FILE WHOLESALE WAS CHECKED BEFORE DOING IT, because a newer generated snapshot can still DROP rows: main's copy carries 15 probe results and the PR's 34, and three ids on main are absent from the PR (OI-20260829-TRAINER-..., OI-20260830-BYBIT-HEDGE-MODE-..., OI-20260901-SCHEDULED-PROBES-...). All three were confirmed ABSENT from docs/claude/OPEN-ITEMS.json today, i.e. those rows have been cleared and the probe file correctly no longer covers them; and all 34 of the PR's ids ARE still live rows. So the take loses nothing that is still open."
-    },
-    {
       "pr": 10895,
       "opened_at": "2026-09-03T06:13:40Z",
       "title": "merge-ping: log the success path (MI-83 follow-up)",
@@ -97,24 +79,6 @@
         "text": "None recorded. Tier-1 data disposition made by the worker session; no operator decision was sought or given."
       },
       "blocker": "PARTIAL TAKE, ALREADY PERFORMED -- do NOT merge this PR, and do NOT re-derive the measurement. This row previously read 'do not merge without establishing what it does'; that is now DONE. Measured 2026-09-05 against origin/main c6e657f6 and PR head 2726b0f6, and RE-MEASURED against main a6f78c4 with identical results; population = all 3 files it touches, both sides, stated for each. TAKEN BY VALUE into PR #11047: comms/macro/econ_calendar_captures/US-20260829T034952Z.fxstreet.json -- ABSENT from main, byte-unique against all 39 captures on main, filling a one-day hole at 2026-08-29 (main holds 08-28 and 08-30 but not 08-29). DELIBERATELY LEFT, both because they REWIND main by 7 days: econ_calendar_snapshots.jsonl (the PR's version deletes 2863 (event_id,observed_at) pairs = 2950 rows across the 7 observed_at generations 2026-08-30..2026-09-05, and 49 event_ids) and econ_calendar_upcoming.json (rewinds generated_from_observed_at 2026-09-05T00:18:54Z -> 2026-08-29T03:49:52Z, 429 -> 380 events, losing 49 event_ids and the 5 forward dates 2026-09-14..2026-09-18). WHY ONLY THE CAPTURE: both modified files are DERIVED, not source. scripts/macro/econ_calendar_produce.py is a full regen over the captures directory, and regenerating from main's own 39 captures reproduces main's copies of BOTH files BYTE-FOR-BYTE (blobs d92889ff / 4bb5403f) -- verified, not assumed. After the take, snapshots.jsonl gains 444 rows and loses ZERO (all 39 of main's generations retained, 0 event_ids lost); upcoming.json keeps main's generated_from_observed_at and all 429 events, 0 dates lost. POSITIVE CONTROL, so 'nothing lost' has a denominator: injecting a deletion plus an addition moved the set-difference by exactly 1 in each direction and named both injected keys; holding out one of MAIN'S OWN captures (US-20260905T001854Z) and regenerating correctly LOST exactly that generation (427 pairs) and rewound upcoming.json to 2026-09-04 -- so the instrument does detect a rewind; main compared to itself reports 0 both ways. config/economic_calendar.yaml NOT touched (operator-gated; producer run without --emit-config). FRAMING CORRECTIONS, since the carried belief was partly wrong: the capture's own source field reads 'fxstreet', NOT FMP (the token 'fmp' appears 0 times in it); and TWO files rewind main, not one. !! WHAT IS OWED: CLOSE #10398, and ONLY AFTER #11047 MERGES -- until then #10398 holds the only copy of the capture. The worker session could NOT close it: add_issue_comment, create_pull_request and update_pull_request all returned 403 Resource not accessible by integration, while pull_request_read on the same repo succeeded throughout -- the write-scope boundary, not the transient MCP drop, so a retry loop will not clear it; and board-post.yml is hardcoded to issue #6927, so no relay can comment on or close an arbitrary PR. A session with GitHub write scope owes this one close. !! DO NOT CONFUSE WITH #11017, which shares this exact title and is a LATER run of the same workflow. Check numbers, not titles."
-    },
-    {
-      "pr": 11047,
-      "opened_at": "2026-09-05T08:21:53Z",
-      "title": "data(m1): take PR #10398's unique 2026-08-29 econ-calendar PIT capture by value",
-      "owner_session": "session_01J2tRr5LVT1Zer8MkjLVLYV",
-      "checklist_item": "MI-131",
-      "draft": false,
-      "tier": "1",
-      "state": "open_self_landing",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded. Tier-1 self-landing declared in .github/pr-landing/mi131-pr10398-disposition.json."
-      },
-      "blocker": "None known. Carries the #10398 take-by-value. Guards run locally on the final tree: python3 scripts/ci/run_guards.py --base main -> PASS 51 / FAIL 0 / SKIP 36, nothing uncommitted. !! ITS PR TITLE AND BODY ARE THE claude-pr-automerge RELAY'S STUB, NOT THE SESSION'S -- update_pull_request returned 403, so the full per-file measurement lives in the take commit's message and in the #10398 row above, NOT in the PR body. Do not read the thin body as a thin change; it is +62k lines, almost all of it one point-in-time vendor capture. !! The branch was REBUILT from main a6f78c4 after the first attempt went mergeable_state=dirty on docs/claude/health-review-backlog.json; rebuilding rather than hand-resolving a 5MB shared register was deliberate -- main had gained 6 backlog rows from other sessions and a hand-merge is how those get dropped. Re-measured after the rebuild: identical (+444 rows, 0 lost). !! ON MERGE, CLOSE #10398 (see its row)."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1025,8 +989,52 @@
       "merge_sha": "9f2590b2f921c61a009efbf76738730c0f58691d",
       "observed_at": "2026-09-05T03:42:28Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 10921,
+      "opened_at": "2026-09-03T09:57:27Z",
+      "title": "chore(ops): refresh probe results (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "PARTIAL TAKE, not a supersede and not a merge. Its PROBES.json is THREE DAYS NEWER than main's (2026-09-03T09:56:34 vs 2026-09-01T10:13:20) while its DUE.json/DUE.md are ~20h OLDER, so merging whole advances one register and rewinds two. The manager takes PROBES.json BY VALUE and then closes the PR. ⚠️ TAKING THE NEWER FILE WHOLESALE WAS CHECKED BEFORE DOING IT, because a newer generated snapshot can still DROP rows: main's copy carries 15 probe results and the PR's 34, and three ids on main are absent from the PR (OI-20260829-TRAINER-..., OI-20260830-BYBIT-HEDGE-MODE-..., OI-20260901-SCHEDULED-PROBES-...). All three were confirmed ABSENT from docs/claude/OPEN-ITEMS.json today, i.e. those rows have been cleared and the probe file correctly no longer covers them; and all 34 of the PR's ids ARE still live rows. So the take loses nothing that is still open.",
+      "terminal": "closed_unmerged",
+      "merge_sha": null,
+      "observed_at": "2026-09-05T10:37:23Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 11047,
+      "opened_at": "2026-09-05T08:21:53Z",
+      "title": "data(m1): take PR #10398's unique 2026-08-29 econ-calendar PIT capture by value",
+      "owner_session": "session_01J2tRr5LVT1Zer8MkjLVLYV",
+      "checklist_item": "MI-131",
+      "draft": false,
+      "tier": "1",
+      "state": "open_self_landing",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 self-landing declared in .github/pr-landing/mi131-pr10398-disposition.json."
+      },
+      "blocker": "None known. Carries the #10398 take-by-value. Guards run locally on the final tree: python3 scripts/ci/run_guards.py --base main -> PASS 51 / FAIL 0 / SKIP 36, nothing uncommitted. !! ITS PR TITLE AND BODY ARE THE claude-pr-automerge RELAY'S STUB, NOT THE SESSION'S -- update_pull_request returned 403, so the full per-file measurement lives in the take commit's message and in the #10398 row above, NOT in the PR body. Do not read the thin body as a thin change; it is +62k lines, almost all of it one point-in-time vendor capture. !! The branch was REBUILT from main a6f78c4 after the first attempt went mergeable_state=dirty on docs/claude/health-review-backlog.json; rebuilding rather than hand-resolving a 5MB shared register was deliberate -- main had gained 6 backlog rows from other sessions and a hand-merge is how those get dropped. Re-measured after the rebuild: identical (+444 rows, 0 lost). !! ON MERGE, CLOSE #10398 (see its row).",
+      "terminal": "merged",
+      "merge_sha": "f488c77790782f0c7d05963be05bf7981b4663a3",
+      "observed_at": "2026-09-05T10:37:23Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-05T03:42:28Z",
-  "last_reconciled_sha": "8b8d37f11d9d32bdbd3f4b83e6e07e2954cf64ac"
+  "last_reconciled_at": "2026-09-05T10:37:23Z",
+  "last_reconciled_sha": "8c022fba81cce6c863cd3879d8fdf72930004b11"
 }
