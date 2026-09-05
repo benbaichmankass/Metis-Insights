@@ -32,10 +32,13 @@ conflict.
 """
 from __future__ import annotations
 
+import textwrap
 from typing import Any, Dict
+from unittest.mock import patch
 
 import pytest
 
+from src.core.coordinator import Coordinator, OrderPackage
 from src.runtime.arbitration_fanout import plan_per_account_election
 from src.runtime.intents import StrategyIntent, elect_from_gated
 
@@ -301,21 +304,107 @@ def test_round_package_uses_the_rounds_geometry_and_strips_the_plan():
 # --- the order-path scope is a narrowing, never a widening -----------------
 
 
-def test_account_scope_can_only_subtract():
+_SCOPE_ACCOUNTS_YAML = textwrap.dedent("""\
+    accounts:
+      bybit_1:
+        type: regular
+        exchange: bybit
+        api_key_env: BYBIT_KEY_1
+        strategies: [trend_donchian_sol]
+        risk:
+          max_dd_pct: 0.05
+          daily_usd: 100
+          pos_size: 500
+          risk_pct: 0.01
+          min_balance_usd: 50
+      bybit_2:
+        type: regular
+        exchange: bybit
+        api_key_env: BYBIT_KEY_2
+        strategies: [vwap]
+        risk:
+          max_dd_pct: 0.05
+          daily_usd: 100
+          pos_size: 500
+          risk_pct: 0.01
+          min_balance_usd: 50
+""")
+
+
+@pytest.fixture()
+def _scope_dispatch(tmp_path, monkeypatch):
+    """Drive the REAL ``multi_account_execute`` and report which accounts it
+    reached, so the scope property is measured rather than read off the source.
+    """
+    monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "trade_journal.db"))
+    for var in ("BYBIT_KEY_1", "BYBIT_KEY_2"):
+        monkeypatch.setenv(var, "test-value")
+        monkeypatch.setenv(f"{var}_SECRET", "test-secret")
+    units_yaml = tmp_path / "units.yaml"
+    units_yaml.write_text("units: {}\n")
+    accounts_yaml = tmp_path / "accounts.yaml"
+    accounts_yaml.write_text(_SCOPE_ACCOUNTS_YAML)
+    coord = Coordinator(units_path=str(units_yaml))
+
+    def dispatch(scope):
+        pkg = OrderPackage(
+            strategy="trend_donchian_sol", symbol="SOLUSDT", direction="long",
+            entry=100.0, sl=95.0, tp=115.0, confidence=0.7,
+            meta={"strategy_name": "trend_donchian_sol"},
+        )
+        with patch(
+            "src.units.accounts.execute.execute_pkg",
+            side_effect=lambda p, cfg, **kw: f"dry-{cfg['account_id']}",
+        ):
+            results = coord.multi_account_execute(
+                pkg, accounts_path=str(accounts_yaml), dry_run=True,
+                balance_fetcher=lambda _a: 10_000.0,
+                account_scope=scope,
+            )
+        # Every account that survives the eligibility filter produces exactly
+        # one per-account result row, whether it placed or refused.
+        return {r["name"] for r in results}
+
+    return dispatch
+
+
+def test_account_scope_can_only_subtract(_scope_dispatch):
     """``account_scope`` is applied LAST, after every existing eligibility rule.
 
     A caller passing a bad scope loses dispatches; it can never gain an
-    unauthorised one. Read against the source so the property is pinned to the
-    code rather than to a mock's shape.
-    """
-    import inspect
-    from src.core.coordinator import Coordinator
+    unauthorised one.
 
-    src = inspect.getsource(Coordinator.multi_account_execute)
-    body = src.split("def _eligible_for_dispatch")[1].split("accounts = [a for a")[0]
-    # The declared-strategies check must still be able to return False on its
-    # own, BEFORE the scope is consulted.
-    assert "if pkg.strategy not in assigned:" in body
-    assert body.index("if pkg.strategy not in assigned:") < body.index("account_scope")
-    # And the scope may only ever return a bool from a membership test.
-    assert "in account_scope" in body
+    ⚠️ MEASURED THROUGH ``multi_account_execute``, NOT READ OFF ITS SOURCE.
+    This test used to assert the property by ``inspect.getsource`` +
+    ``.split("def _eligible_for_dispatch")``, which pinned the SPELLING of a
+    private nested function rather than any behaviour: the MI-129 empty-sizing
+    brake renamed it to ``_dispatch_exclusion_reason`` and replaced the
+    list-comprehension the second split anchored on, and the test failed with
+    ``IndexError`` for a change that altered nothing this test is about. A test
+    that reads source text cannot survive a rename by construction, so it
+    converts every future refactor into a CI failure with no behavioural
+    meaning. The property itself is perfectly observable, which is what the
+    four cases below do.
+
+    The roster: ``bybit_1`` declares ``trend_donchian_sol``; ``bybit_2`` does
+    not (it declares only ``vwap``), so the declared-strategies rule already
+    rejects it BEFORE the scope is ever consulted.
+    """
+    # 1. No scope at all — the unchanged path. Only the account that declares
+    #    the strategy is reached.
+    assert _scope_dispatch(None) == {"bybit_1"}
+
+    # 2. A scope naming exactly the eligible account changes nothing.
+    assert _scope_dispatch(frozenset({"bybit_1"})) == {"bybit_1"}
+
+    # 3. A scope that omits the eligible account SUBTRACTS it — the narrowing
+    #    direction, and the only direction a scope may move the set.
+    assert _scope_dispatch(frozenset({"bybit_2"})) == set()
+
+    # 4. THE PROPERTY. A scope naming an account the declared-strategies rule
+    #    already rejected does NOT add it back. The scope is a narrowing over
+    #    the already-eligible set, never a re-admission.
+    assert _scope_dispatch(frozenset({"bybit_1", "bybit_2"})) == {"bybit_1"}
+
+    # 5. And an empty scope admits nobody — it cannot read as "no scope".
+    assert _scope_dispatch(frozenset()) == set()

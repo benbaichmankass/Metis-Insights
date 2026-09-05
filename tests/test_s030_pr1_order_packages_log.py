@@ -361,10 +361,48 @@ class TestMultiAccountExecuteBug049Backstop:
         rows = db.get_order_packages_by_strategy("turtle_soup")
         assert len(rows) == 1
         row = rows[0]
-        # Terminalised in-round — NOT left 'open' to orphan.
+        # --- the BUG-049 contract itself: still pinned exactly -------------
+        # Terminalised in-round — NOT left 'open' to orphan at +5min.
         assert row["status"] == "rejected"
-        assert row["close_reason"] == "no_eligible_account"
         assert row["linked_trade_id"] is None
+
+        # --- the REASON: asserted as a cause, not as one exact literal ------
+        # This line read ``== "no_eligible_account"`` until MI-129. That
+        # literal is no longer produced HERE and cannot be: the empty-sizing
+        # brake's branch is evaluated first, and whenever the eligible set is
+        # empty no account can have reached the sizer, so the ``elif not
+        # accounts`` arm that mints "no_eligible_account" is unreachable from
+        # this path. Nothing depended on the old wording — measured on the
+        # live journal (last 1000 order_packages rows, 2026-09-05) the token
+        # appears ZERO times while its two siblings from the same if/elif
+        # chain, ``all_accounts_noop`` (197) and ``no_fill_all_accounts``
+        # (76), are the 2nd and 5th commonest values, so the probe was not
+        # blind. No consumer branches on the value either; see the PR.
+        #
+        # So what is asserted is the PROPERTY the reason exists to carry: it
+        # must NAME the cause — which account was dropped and which rule
+        # dropped it — never a bare count and never silence. Re-wording is
+        # free; going quiet or losing the attribution is not.
+        reason = row["close_reason"]
+        assert reason, "a terminalised package must carry a close_reason"
+        assert "bybit_2" in reason, (
+            f"the reason must name the EXCLUDED ACCOUNT, got: {reason!r}"
+        )
+        assert "turtle_soup" in reason, (
+            f"the reason must name the strategy that was routed nowhere, "
+            f"got: {reason!r}"
+        )
+        assert "strategy_not_assigned" in reason, (
+            f"the reason must name the RULE that dropped the account, "
+            f"got: {reason!r}"
+        )
+        # ...and it must say the accounts were dropped BEFORE the sizer, which
+        # is the distinction ("nobody was asked" vs "somebody answered 0") the
+        # whole brake exists to keep apart.
+        assert "all_accounts_excluded_pre_sizing" in reason, (
+            f"the reason must distinguish 'no account reached the sizer' from "
+            f"'an account was asked and sized 0', got: {reason!r}"
+        )
 
     def test_successful_dispatch_left_open_for_trade_link(self, coord_and_yaml):
         """The backstop must NOT touch a package that DID place a trade — it
