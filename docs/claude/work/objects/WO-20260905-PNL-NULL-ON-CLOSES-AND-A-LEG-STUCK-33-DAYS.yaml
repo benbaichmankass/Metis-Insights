@@ -1,0 +1,83 @@
+id: WO-20260905-PNL-NULL-ON-CLOSES-AND-A-LEG-STUCK-33-DAYS
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  closes are landing with pnl NULL, and one leg has held a position 33 days and therefore cannot re-enter — the upstream cause MI-124 found and MI-126 deliberately did not fix
+stage: DEPLOYMENT
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-05
+closed_at: null
+
+why: >-
+  MI-124's diagnosis (on main, docs/claude/diagnoses/MI-124-never-firing-legs-diagnosis.md,
+  #11019) found TWO defects underneath the sunset false-premise, and MI-126 was
+  scoped to exclude both ON PURPOSE so its own change stayed reviewable. MI-126
+  has now merged (5eb59917) and took `retire_candidate` from 9 to 1, so the
+  REPORTING is repaired and these are what remain — the reasons the closes were
+  pnl-null in the first place.
+  ⚠️ TWO DISTINCT DEFECTS. Do not treat them as one.
+  (A) ACCOUNTING: closes on the alpaca reconciler path land with `pnl` NULL for
+  gdx_pullback_1d, gld_pullback_1d, iaum_pullback_1d, scha_trend_long_1d and
+  spy_trend_long_1d. A pnl-null close is invisible to /api/bot/performance (its
+  SQL carries `AND t.pnl IS NOT NULL`), which is what made those legs look like
+  they had never traded. This is a REPORTING/PROVENANCE defect: the trades
+  happened.
+  (B) LIFECYCLE, AND IT IS LIVE: mes_trend_long_1d holds trade 4350 OPEN and has
+  for ~33 DAYS, alongside 7 orphaned order packages. A leg holding a position
+  cannot re-enter — the netting guard is doing its job — so this leg is not
+  "silent", it is STUCK. That is a live position on a live account, not a
+  reporting artifact, and it is the half that should set the priority.
+  ⚠️ (B) MAY ALREADY BE PARTLY KNOWN: OI-20260830-E35-GEOMETRY names trade 4350
+  and PROTECTION_REASSERT's own row records an ib_paper MES 4350 divergence that
+  was RESOLVED on 2026-08-29 by an unestablished mechanism. Read both before
+  concluding anything new about it; the manager has NOT reconciled those records
+  with MI-124's finding and says so rather than implying they agree.
+
+cost_of_not_doing_it: >-
+  Every future measurement of these five legs stays wrong at the source — MI-126
+  fixed the machinery that READ the absence, not the thing producing it, so the
+  legs will keep reading as non-traders in any consumer that joins on pnl. And a
+  leg stuck 33 days is capital allocated to a position nobody decided to keep.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-05 by the manager. Nothing blocks the DIAGNOSIS half. Note that
+  any REMEDY touching a live position (closing 4350, reconciling the orphaned
+  packages) is Tier-2 at least and needs an operator OK — so the object is scoped
+  to establish and propose, not to enact.
+
+done_condition: >-
+  (A) The mechanism leaving `pnl` NULL on those closes is NAMED with the code path
+  and a reproduction, and either fixed (if it is a Tier-1 writer defect) or
+  proposed with the exact change. State whether historical rows should be
+  back-filled — and if you propose a back-fill, say what evidence each filled
+  value would rest on. ⚠️ NEVER back-fill a value nobody measured; `pnl` NULL is
+  an honest absence and a fabricated number is worse than a gap. Read CLAUDE.md
+  § "Number provenance" before proposing anything here.
+  (B) Trade 4350's state is ESTABLISHED against broker truth — not the journal
+  alone — via /api/diag/ib_open_orders and /api/diag/exchange_positions: is the
+  position actually open on the venue, is it protected, and what are the 7
+  orphaned packages. Then a written PROPOSAL for resolving it, with its tier.
+  Both halves state their population.
+
+do_not: >-
+  ⚠️ DO NOT close, flatten, modify or cancel anything on a live account. Trade
+  4350 is a REAL POSITION. Establish and propose; the operator decides.
+  ⚠️ DO NOT back-fill pnl on historical rows in this unit, even if the fix makes
+  it computable. That is its own decision with its own evidence bar.
+  ⚠️ DO NOT touch config/strategies.yaml, config/accounts.yaml,
+  config/risk_caps.yaml, or src/runtime/orders.py.
+  ⚠️ DO NOT re-open the retirement question — answered twice, nothing is retired.
+  ⚠️ DO NOT re-derive MI-124's diagnosis; it is on main and it is good. Start from
+  it. Equally, do NOT assume its every claim: it says five legs, and if your own
+  read of the journal disagrees, YOUR MEASUREMENT WINS and you say so.
+  ⚠️ AND DO NOT GRADE A LEG FROM A SHORT WINDOW. MI-124 § 1 established that
+  iwm/qqq/qld_trend_long_1d show side=none on 1000/1000 recent audit rows while
+  each has lifetime closes — a 4-day window cannot distinguish a trading leg from
+  a dead one. Take counts LIFETIME.
+
+review_trigger: >-
+  If trade 4350 turns out to be closed on the venue while the journal reads open,
+  this stops being a lifecycle defect and becomes a reconciliation defect — say so
+  and re-scope rather than continuing under the wrong heading.

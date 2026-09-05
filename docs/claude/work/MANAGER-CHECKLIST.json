@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-  "updated_at": "2026-09-05T02:05:44Z",
+  "updated_at": "2026-09-05T02:58:39Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1652,12 +1652,24 @@
     {
       "id": "MI-126",
       "added": "2026-09-05",
-      "state": "in_flight",
+      "state": "done",
       "owner": "session_01L1MbHt6xogVvRn3zvy23pB",
-      "prs": [],
+      "prs": [
+        "#11020"
+      ],
       "blocked_on": [],
       "title": "sunset_pass.py defaults an ABSENT leg to a measured ZERO, and that zero produced retirement candidates",
-      "note": "Routed 2026-09-05 off MI-124's merged diagnosis (371ceaa6). ONE LINE — sunset_pass.py:288, `life = lifetime.get(name, 0 if lifetime_state == 'read' else None)` — defended by a comment that is FALSE about its own source: it claims /api/bot/performance lists every strategy with ANY closed trade, while that route's SQL carries `AND t.pnl IS NOT NULL` and therefore lists PNL-BEARING closes. A leg whose every close has pnl NULL is ABSENT, and the default reads that absence as a measured 0. Chain: pnl NULL -> absent from the capture -> 0 -> basis `never_closed_lifetime` -> verdict `retire_candidate` -> note 'has never closed a single trade in its life'. POPULATION (live capture, 2026-09-05): 52 enabled legs, 46 present, ELEVEN absent and defaulted to 0; 9 of the 10 candidates are among them; 5 of the 10 had journal closes before the packet was generated. ⚠️ THE COLLAPSED-STATE CLASS, IN THE MACHINERY THAT PROPOSES RETIREMENTS — and sunset_pass.py already implements the three-state discipline correctly one level up, which is what makes it a slip in one default rather than a missing concept. ⚠️ IT VINDICATES AN OPERATOR DECISION MADE WITHOUT THIS EVIDENCE: the refusal to retire on this basis, twice. Had the batch retirement been taken, five legs would have gone on a manufactured zero. SCOPED TIGHT, and the exclusions are the point: do NOT change /api/bot/performance's SQL (correct for that route; the defect is the CALLER using it as an 'ever closed' oracle), and do NOT fix the pnl-stamping defects that CAUSE the nulls (alpaca reconciler closes; trade 4350 + 7 orphaned packages on mes_trend_long_1d, which has held a position 33 days and cannot re-enter) — real, different unit, still unrouted."
+      "note": "Routed 2026-09-05 off MI-124's merged diagnosis (371ceaa6). ONE LINE — sunset_pass.py:288, `life = lifetime.get(name, 0 if lifetime_state == 'read' else None)` — defended by a comment that is FALSE about its own source: it claims /api/bot/performance lists every strategy with ANY closed trade, while that route's SQL carries `AND t.pnl IS NOT NULL` and therefore lists PNL-BEARING closes. A leg whose every close has pnl NULL is ABSENT, and the default reads that absence as a measured 0. Chain: pnl NULL -> absent from the capture -> 0 -> basis `never_closed_lifetime` -> verdict `retire_candidate` -> note 'has never closed a single trade in its life'. POPULATION (live capture, 2026-09-05): 52 enabled legs, 46 present, ELEVEN absent and defaulted to 0; 9 of the 10 candidates are among them; 5 of the 10 had journal closes before the packet was generated. ⚠️ THE COLLAPSED-STATE CLASS, IN THE MACHINERY THAT PROPOSES RETIREMENTS — and sunset_pass.py already implements the three-state discipline correctly one level up, which is what makes it a slip in one default rather than a missing concept. ⚠️ IT VINDICATES AN OPERATOR DECISION MADE WITHOUT THIS EVIDENCE: the refusal to retire on this basis, twice. Had the batch retirement been taken, five legs would have gone on a manufactured zero. SCOPED TIGHT, and the exclusions are the point: do NOT change /api/bot/performance's SQL (correct for that route; the defect is the CALLER using it as an 'ever closed' oracle), and do NOT fix the pnl-stamping defects that CAUSE the nulls (alpaca reconciler closes; trade 4350 + 7 orphaned packages on mes_trend_long_1d, which has held a position 33 days and cannot re-enter) — real, different unit, still unrouted. ⚠️ CLOSED 2026-09-05T02:58:39Z: MERGED 5eb59917. DONE-CONDITION MET AND MEASURED — the pass was re-run and `retire_candidate` went 9 -> 1, population stated in docs/claude/diagnoses/MI-126-sunset-absence-not-zero.md § 3. The survivor is turtle_soup on basis `unrouted` — a real reason, not a manufactured zero. Session archived. ⚠️ ITS SHARPEST FINDING IS NOT IN THE DIFF: A TEST ENCODED THE DEFECT AS CORRECT — an existing assertion read 'a leg with zero lifetime closes is a retire_candidate', true of a MEASURED zero and false of a defaulted one, so the suite was HOLDING THE BUG IN PLACE. Second appearance of that shape tonight, after the false comment at :288. Two further defects filed rather than folded in (BL-20260905-SELF-TEST, BL-20260905-COVERAGE-GAP) — correct disposition, not yet read by the manager. ⚠️ IT FIXED THE READER, NOT THE SOURCE: closes still land with pnl NULL. That is MI-127."
+    },
+    {
+      "id": "MI-127",
+      "added": "2026-09-05",
+      "state": "in_flight",
+      "owner": "session_01BbUwYSusoggWYmSwpgcLnc",
+      "prs": [],
+      "blocked_on": [],
+      "title": "closes landing with pnl NULL, and mes_trend_long_1d stuck 33 days on trade 4350 — the upstream cause",
+      "note": "Routed 2026-09-05 as the half MI-126 deliberately excluded to stay reviewable. TWO DISTINCT DEFECTS, not one. (A) ACCOUNTING: closes on the alpaca reconciler path land with pnl NULL for gdx/gld/iaum/scha/spy_* — invisible to /api/bot/performance, which is what made them look like legs that never traded. The trades HAPPENED. (B) LIFECYCLE, AND IT IS LIVE: mes_trend_long_1d holds trade 4350 OPEN ~33 days plus 7 orphaned packages, so it cannot re-enter — the netting guard working correctly. That leg is not silent, it is STUCK, and it is a live position on a live account. (B) sets the priority. ⚠️ SCOPED TO ESTABLISH AND PROPOSE: nothing on a live account may be closed, flattened, modified or cancelled; 4350 must be read against BROKER TRUTH (/api/diag/ib_open_orders, /api/diag/exchange_positions), not the journal alone. And NO pnl back-fill in this unit even if the fix makes it computable — pnl NULL is an honest absence and a fabricated number is worse than a gap. ⚠️ THE MANAGER HAS NOT RECONCILED TWO EXISTING RECORDS WITH THIS AND SAYS SO RATHER THAN IMPLYING THEY AGREE: OI-20260830-E35-GEOMETRY names trade 4350, and CLAUDE.md's PROTECTION_REASSERT row records an ib_paper MES 4350 divergence marked RESOLVED on 2026-08-29 by a mechanism nobody established. Reconciling them is part of the unit."
     }
   ],
   "as_of": "2026-09-04T09:45:00Z",

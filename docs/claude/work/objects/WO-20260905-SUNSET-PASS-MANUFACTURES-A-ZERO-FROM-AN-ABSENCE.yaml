@@ -4,10 +4,10 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   sunset_pass.py defaults an ABSENT leg to ZERO lifetime closes, so "we did not observe a pnl-bearing close" became "has never closed a single trade in its life" and produced retirement candidates
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: done
 owner: null
 opened_at: 2026-09-05
-closed_at: null
+closed_at: 2026-09-05
 
 why: >-
   MEASURED AND FULLY TRACED by MI-124 (docs/claude/diagnoses/MI-124-never-firing-legs-diagnosis.md,
@@ -97,3 +97,24 @@ do_not: >-
 review_trigger: >-
   If the re-run still produces retire_candidate verdicts for legs with journal
   closes, the defect is not only this default and the object should be re-scoped.
+
+lifecycle_note: >-
+  CLOSED 2026-09-05T02:5xZ. MERGED as 5eb59917 (#11020), and the done-condition's
+  hard clause is MET rather than asserted: the pass was re-run and `retire_candidate`
+  went 9 -> 1 (docs/claude/diagnoses/MI-126-sunset-absence-not-zero.md § 3, population
+  stated). "A fix that changes no verdict has not been shown to work" was the bar and
+  it cleared it by eight verdicts.
+  The one survivor is `turtle_soup`, still a candidate on basis `unrouted` — a REAL
+  reason rather than a manufactured zero, which is the distinction the whole object
+  was about.
+  ⚠️ THE SHARPEST THING IT FOUND IS NOT IN THE DIFF. A TEST ENCODED THE DEFECT AS
+  CORRECT: an existing assertion read "a leg with zero lifetime closes is a
+  retire_candidate", which is true of a MEASURED zero and false of a defaulted one,
+  so the suite was holding the bug in place. A guard that locks in the defect it
+  should catch is worse than an absent one, and this is the second time tonight that
+  shape has appeared (the false comment at :288 being the first).
+  ⚠️ TWO DEFECTS FILED BY THE AUTHOR RATHER THAN FOLDED IN
+  (BL-20260905-{SELF-TEST,COVERAGE-GAP}) — correct disposition, not yet read by the
+  manager.
+  ⚠️ THIS FIXED THE READER, NOT THE SOURCE. The closes are still landing with pnl
+  NULL; that is MI-127.

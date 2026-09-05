@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T02:05:44Z",
+  "updated_at": "2026-09-05T02:58:39Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1592,6 +1592,21 @@
       ],
       "why": "MI-124 traced it end to end and its diagnosis is MERGED to main (371ceaa6, #11019): sunset_pass.py:288 defaults an absent leg to 0 lifetime closes, defended by a comment that is FALSE about what /api/bot/performance returns (its SQL carries pnl IS NOT NULL, so it lists pnl-BEARING closes, not any close). 11 of 52 enabled legs are absent from the capture and silently defaulted to 0; 9 of the 10 retirement candidates are among them; 5 of the 10 had journal closes before the packet was generated. The collapsed-state class, inside the machinery that proposes RETIREMENTS.",
       "confirmed_at": "2026-09-05T02:05:44Z"
+    },
+    {
+      "session_id": "session_01BbUwYSusoggWYmSwpgcLnc",
+      "registry_key": "pending-20260905T025732Z",
+      "state": "working",
+      "title": "MI-127 — closes landing with pnl NULL, and mes_trend_long_1d stuck 33 days on trade 4350",
+      "owns_object": "WO-20260905-PNL-NULL-ON-CLOSES-AND-A-LEG-STUCK-33-DAYS",
+      "checklist_item": "MI-127",
+      "spawned_at": "2026-09-05T02:57:32Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi127-pnl-null-and-stuck-leg"
+      ],
+      "why": "The upstream cause MI-124 found and MI-126 deliberately excluded to stay reviewable. MI-126 has merged (5eb59917, retire_candidate 9 -> 1) so the REPORTING is repaired; these are the reasons the closes were pnl-null. (B) is LIVE: mes_trend_long_1d has held trade 4350 open ~33 days plus 7 orphaned packages, so it cannot re-enter — a live position, not a reporting artifact.",
+      "confirmed_at": "2026-09-05T02:58:39Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",
