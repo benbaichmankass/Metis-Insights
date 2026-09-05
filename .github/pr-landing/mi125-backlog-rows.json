@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Three appended rows in docs/claude/health-review-backlog.json, filed through scripts/ops/backlog_append.py::append_row (30 insertions / 0 deletions, no reformat). Tier-1: filing a backlog row is explicitly permitted and uncapped. No src/, no config/, no deploy/, no order path. Split out of the MI-125 guard PR because the backlog is a SHARED REGISTER and was the only path conflicting on every rebase — it voided three ~16-minute CI runs while the guard fix itself never conflicted."
+}
