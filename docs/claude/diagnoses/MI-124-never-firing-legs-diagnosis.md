@@ -272,3 +272,30 @@ there `pr-opener` opened the PR and got the draft flag wrong; here it opened
 nothing and the PR is correctly not a draft.
 
 **This document is the PR description.** Read §§1–8 as the change's rationale.
+
+### 9b. A second, separable interaction — relay artifacts vs `TIER1_SURFACE`
+
+Both relays (`pr-opener.yml`, `board-post.yml`) write their request and result
+files under `automation/`, which is **outside `TIER1_SURFACE`**. So
+`check_pr_landing.py` refuses `landing: "self"` on any diff containing them:
+
+```
+R5 ... declares tier 1 and asks to self-land, but the diff contains paths this
+guard cannot vouch for — outside the Tier-1 surface: automation/board-results/...
+```
+
+The refusal is correct behaviour. The problem is that a session forced onto the
+relays *by the 403* is thereby forced out of the Tier-1 self-land it was
+instructed to declare, and the only way back is to `git rm` the artifacts once
+consumed (which is what this branch does — they are branch-only, so deleting
+them removes them from the net three-dot diff entirely). Nothing documents that,
+and a session that does not notice ships a PR stuck at `state=undeclared`.
+
+Recorded here rather than as a fourth backlog row; it belongs to the same
+mechanism as
+`BL-20260905-AUTOMERGE-RELAY-WINS-THE-RACE-WITH-PR-OPENER-SO-EVERY-TIER-1-PR-GETS-A-BOILERPLATE-BODY`.
+
+**Board posts for this session:** issue #6927 comments `5548528685` and
+`5548528747` — two, because the first attempt produced no result file for ~15
+minutes and was retried; both then landed. Duplication is the cost the relay's
+own contract accepts for a post that must not be silently lost.
