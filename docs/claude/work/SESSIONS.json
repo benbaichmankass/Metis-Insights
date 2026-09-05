@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T01:37:42Z",
+  "updated_at": "2026-09-05T06:24:23Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1560,16 +1560,110 @@
     },
     {
       "session_id": "session_01SZnY5fHV3fzh8UXg6cRgTS",
+      "registry_key": "pending-20260905T011351Z",
+      "state": "review_ready",
       "title": "MI-124 — diagnose WHY each of the ten sunset candidates produces nothing (RESPAWN of session_018iMJkpN41FHzNjKj7ShNPS, whose work was lost)",
       "owns_object": "WO-20260905-NEVER-FIRING-LEGS-NEED-A-REPAIR-DIAGNOSIS-NOT-A-RETIREMENT",
       "checklist_item": "MI-124",
-      "spawned_at": "2026-09-05T01:37:42Z",
+      "spawned_at": "2026-09-05T01:14:29Z",
       "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
       "branches": [
         "claude/mi124-never-firing-legs-diagnosis"
       ],
-      "why": "OPERATOR-FUNDED on DEC-20260904-DEMOTE-AND-TUNE-FLOW, option agree_flow_and_fund_repair. Respawn after the predecessor completed the diagnostic and lost all of it to a failed push. Self-registered: the assigned registry key pending-20260905T011351Z was NOT present in SESSIONS.json when this session read it — only the predecessor's pending-20260905T001246Z, still marked state=working though the session is dead. That is the MI-15 recurrence, third occurrence.",
-      "note": "Diagnosis complete; PR opened via pr-opener relay (both MCP write paths 403). Guards: PASS 51 / FAIL 0.",
+      "why": "RESPAWN. The first spawn (session_018iMJkpN41FHzNjKj7ShNPS) COMPLETED the ten-leg diagnostic -- 57,690 output tokens -- and then went need_input at 00:34Z with 'grant Bash git permissions to push branch + open PR'. MEASURED: git ls-remote matches no claude/mi124* branch, so nothing reached origin and the report is lost with the container. The manager cannot rescue it -- verified twice, by ListAgents ('No reachable agents') and by a direct SendMessage to the session id ('No agent named ... is reachable'). THIRD instance of this class in ~18h (MI-107 first spawn, MI-73, MI-124); filed as BL-20260905-SUB-SESSIONS-FINISH-WORK-THEY-CANNOT-PUSH-AND-THE-MANAGER-CANNOT-REACH-THEM. The lost session's own summary reported 6 false premises / 2 broken / 1 not_established / 1 mis_routed -- carried forward as a LEAD to test, never as a finding to reproduce.",
+      "confirmed_at": "2026-09-05T01:14:58Z",
+      "last_observed": "2026-09-05T01:38:51Z",
+      "prs": [
+        "#11019"
+      ],
+      "live_state": "2026-09-05T01:38:51Z: RUNNING, connected. PR #11019, 313 additions / 7 files / 6 commits. ⚠️ STEP 0 WORKED AND IT IS MEASURED, NOT ASSUMED: commit 56f261a5 'probe: confirm this session can reach origin before spending its budget' is on origin at 2026-09-05T01:15:33Z, SIXTY-FOUR SECONDS after the session was created (01:14:29Z). That is the resolution criterion of BL-20260905-SUB-SESSIONS-FINISH-WORK-THEY-CANNOT-PUSH-AND-THE-MANAGER-CANNOT-REACH-THEM as written -- the push precedes the work rather than merely existing -- checked against the session's own created_at, which is what that row insists on. ⚠️ n=1, and the fix lives in the MANAGER'S PROMPT AUTHORING rather than in any checked artifact, so a successor manager who writes a spawn prompt without step 0 silently reintroduces the class. Do not read one success as the class being closed. ⚠️ PR #11019 reads mergeable_state: blocked with zero checks -- the documented relay trap, its head 32cdce1d being a github-actions[bot] pr-opener results push, which fires no workflows. The session is RUNNING and left to arm CI itself; the manager did NOT push an arming commit onto a worker branch.",
+      "status": "done",
+      "note": "CREATION TIME CORRECTED 2026-09-05 against BROKER TRUTH; HEADLINE DELIBERATELY LEFT AS MAIN WROTE IT. register-id-guard flagged this id as a collision because main and this branch disagreed on BOTH spawned_at (01:37:42Z vs 01:13:51Z) and the title — and changing both is the signature the guard reads as new work filed under a taken id, which on merge silently deletes a row. It is ONE session: get_session on session_01SZnY5fHV3fzh8UXg6cRgTS reports created_at 2026-09-05T01:14:29.635435Z. So 01:13:51Z was the pre-spawn registration (~38s early) and 01:37:42Z a LATER re-registration that overwrote it. Only the timestamp is corrected, because only it is WRONG; the title difference was cosmetic and normalising it would have kept tripping a guard whose concern is legitimate. ⚠️ NOTE THE GUARD CANNOT TELL A CORRECTION FROM A COLLISION — filed as its own row. Status done: archived, PR #11019 merged."
+    },
+    {
+      "session_id": "session_01L1MbHt6xogVvRn3zvy23pB",
+      "registry_key": "pending-20260905T020449Z",
+      "state": "working",
+      "title": "MI-126 — sunset_pass.py manufactures a ZERO from an ABSENCE, and that zero produced retirement candidates",
+      "owns_object": "WO-20260905-SUNSET-PASS-MANUFACTURES-A-ZERO-FROM-AN-ABSENCE",
+      "checklist_item": "MI-126",
+      "spawned_at": "2026-09-05T02:04:49Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi126-sunset-pass-absence-not-zero"
+      ],
+      "why": "MI-124 traced it end to end and its diagnosis is MERGED to main (371ceaa6, #11019): sunset_pass.py:288 defaults an absent leg to 0 lifetime closes, defended by a comment that is FALSE about what /api/bot/performance returns (its SQL carries pnl IS NOT NULL, so it lists pnl-BEARING closes, not any close). 11 of 52 enabled legs are absent from the capture and silently defaulted to 0; 9 of the 10 retirement candidates are among them; 5 of the 10 had journal closes before the packet was generated. The collapsed-state class, inside the machinery that proposes RETIREMENTS.",
+      "confirmed_at": "2026-09-05T02:05:44Z"
+    },
+    {
+      "session_id": "session_01BbUwYSusoggWYmSwpgcLnc",
+      "registry_key": "pending-20260905T025732Z",
+      "state": "working",
+      "title": "MI-127 — closes landing with pnl NULL, and mes_trend_long_1d stuck 33 days on trade 4350",
+      "owns_object": "WO-20260905-PNL-NULL-ON-CLOSES-AND-A-LEG-STUCK-33-DAYS",
+      "checklist_item": "MI-127",
+      "spawned_at": "2026-09-05T02:57:32Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi127-pnl-null-and-stuck-leg"
+      ],
+      "why": "The upstream cause MI-124 found and MI-126 deliberately excluded to stay reviewable. MI-126 has merged (5eb59917, retire_candidate 9 -> 1) so the REPORTING is repaired; these are the reasons the closes were pnl-null. (B) is LIVE: mes_trend_long_1d has held trade 4350 open ~33 days plus 7 orphaned packages, so it cannot re-enter — a live position, not a reporting artifact.",
+      "confirmed_at": "2026-09-05T02:58:39Z"
+    },
+    {
+      "session_id": "session_01D4zdCcUatN8SoN5HnEE2fT",
+      "registry_key": "pending-20260905T032947Z",
+      "state": "working",
+      "title": "MI-113 — pending-pings.jsonl has no merge driver, so every ping-carrying PR dies unmergeable",
+      "owns_object": "WO-20260905-PENDING-PINGS-HAS-NO-MERGE-DRIVER-SO-PING-PRS-DIE",
+      "checklist_item": "MI-113",
+      "spawned_at": "2026-09-05T03:29:47Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi113-pending-pings-merge-driver"
+      ],
+      "why": "Ping-carrying PRs cannot self-heal; the only paths are close-it (drops an operator ping) or hand-rescue. This is LOSS, and it recurs on every such PR.",
+      "confirmed_at": "2026-09-05T03:30:25Z"
+    },
+    {
+      "session_id": "session_01XvvrE1Jp5G7fLcYCTRdMjX",
+      "registry_key": "pending-20260905T034319Z",
+      "state": "working",
+      "title": "MI-120 — test_work_digest builds its control from the LIVE work store, so CI goes red at the WIP ceiling",
+      "owns_object": "WO-20260905-TEST-WORK-DIGEST-BUILDS-ITS-CONTROL-FROM-THE-LIVE-WORK-STORE",
+      "checklist_item": "MI-120",
+      "spawned_at": "2026-09-05T03:43:19Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi120-work-digest-test-control"
+      ],
+      "why": "Deterministically blocks the merge queue whenever in_flight legitimately hits 8/8. It did so for ~90 minutes on 2026-09-04 and is armed again.",
+      "confirmed_at": "2026-09-05T03:44:03Z"
+    },
+    {
+      "session_id": "session_017on5EDUwHjXdJTBqrYpedh",
+      "title": "MI-128 — key the local-pnl sweep window on the CLOSE, not the OPEN (operator-approved Tier-2, FORWARD-ONLY)",
+      "owns_object": "WO-20260905-LOCAL-PNL-SWEEP-WINDOW-KEYS-ON-THE-OPEN",
+      "checklist_item": "MI-128",
+      "spawned_at": "2026-09-05T06:24:23Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi128-pnl-sweep-close-keyed"
+      ],
+      "why": "Operator Tier-2 approval 2026-09-05, condition FORWARD-ONLY. Head of the chain that ends in sunset_pass proposing real strategies for retirement.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01VMhu6qp1r5tXi3yfrsKvJW",
+      "title": "MI-129 — refuse an empty sizing map once instead of re-emitting it (operator-approved Tier-2)",
+      "owns_object": "WO-20260905-EMPTY-SIZING-MAP-IS-RE-EMITTED-INSTEAD-OF-REFUSED",
+      "checklist_item": "MI-129",
+      "spawned_at": "2026-09-05T06:24:23Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi129-empty-sizing-map-brake"
+      ],
+      "why": "Operator Tier-2 approval 2026-09-05. Scope is the BRAKE, not the root cause of the empty map.",
       "state": "working"
     }
   ],
