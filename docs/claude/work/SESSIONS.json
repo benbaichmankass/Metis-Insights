@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T02:58:39Z",
+  "updated_at": "2026-09-05T03:30:25Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1607,6 +1607,21 @@
       ],
       "why": "The upstream cause MI-124 found and MI-126 deliberately excluded to stay reviewable. MI-126 has merged (5eb59917, retire_candidate 9 -> 1) so the REPORTING is repaired; these are the reasons the closes were pnl-null. (B) is LIVE: mes_trend_long_1d has held trade 4350 open ~33 days plus 7 orphaned packages, so it cannot re-enter — a live position, not a reporting artifact.",
       "confirmed_at": "2026-09-05T02:58:39Z"
+    },
+    {
+      "session_id": "session_01D4zdCcUatN8SoN5HnEE2fT",
+      "registry_key": "pending-20260905T032947Z",
+      "state": "working",
+      "title": "MI-113 — pending-pings.jsonl has no merge driver, so every ping-carrying PR dies unmergeable",
+      "owns_object": "WO-20260905-PENDING-PINGS-HAS-NO-MERGE-DRIVER-SO-PING-PRS-DIE",
+      "checklist_item": "MI-113",
+      "spawned_at": "2026-09-05T03:29:47Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi113-pending-pings-merge-driver"
+      ],
+      "why": "Ping-carrying PRs cannot self-heal; the only paths are close-it (drops an operator ping) or hand-rescue. This is LOSS, and it recurs on every such PR.",
+      "confirmed_at": "2026-09-05T03:30:25Z"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",

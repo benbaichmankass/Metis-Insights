@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-  "updated_at": "2026-09-05T03:28:03Z",
+  "updated_at": "2026-09-05T03:30:25Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1525,10 +1525,10 @@
     {
       "id": "MI-113",
       "title": "pending-pings.jsonl is the ONE register with no row-aware merge driver, so every ping-carrying PR conflicts unresolvably and gets closed unmerged",
-      "state": "queued",
-      "owner": "unassigned",
+      "state": "in_flight",
+      "owner": "session_01D4zdCcUatN8SoN5HnEE2fT",
       "prs": "",
-      "note": "MEASURED 2026-09-04. .gitattributes maps `merge=jsonregister` onto exactly five registers (health-review-backlog.json, OPEN-ITEMS.json, MANAGER-CHECKLIST.json, SESSIONS.json, OPEN-PRS.json). docs/claude/pending-pings.jsonl is NOT among them. Verified by test-merging all five ping-carrying PRs into origin/main in throwaway worktrees WITH the driver armed: every one still reported `CONFLICT (content): Merge conflict in docs/claude/pending-pings.jsonl`. ⚠️ THIS IS THE MECHANISM BEHIND THE NEAR-MISS THE HANDOFF WARNS ABOUT, not a separate defect: the file whose loss the 'read the diff before closing it' rule exists to prevent is precisely the file the driver does not cover, so a ping-carrying PR can never self-heal and the only paths left are close-it (drops the ping) or hand-rescue the rows (what #10974 did for five of them). ⚠️ AND `jsonregister` MAY BE THE WRONG DRIVER HERE: the other five are JSON objects; this is append-only JSONL, for which git's built-in `merge=union` is the natural fit and needs no new code. Establish which before writing any — do not assume the existing driver parses JSONL. ⚠️ NOT VERIFIED: whether merge_json_register.py handles line-delimited input at all. Nobody has run it on this file. Manager filed, did not build — .gitattributes is a worker path.",
+      "note": "MEASURED 2026-09-04. .gitattributes maps `merge=jsonregister` onto exactly five registers (health-review-backlog.json, OPEN-ITEMS.json, MANAGER-CHECKLIST.json, SESSIONS.json, OPEN-PRS.json). docs/claude/pending-pings.jsonl is NOT among them. Verified by test-merging all five ping-carrying PRs into origin/main in throwaway worktrees WITH the driver armed: every one still reported `CONFLICT (content): Merge conflict in docs/claude/pending-pings.jsonl`. ⚠️ THIS IS THE MECHANISM BEHIND THE NEAR-MISS THE HANDOFF WARNS ABOUT, not a separate defect: the file whose loss the 'read the diff before closing it' rule exists to prevent is precisely the file the driver does not cover, so a ping-carrying PR can never self-heal and the only paths left are close-it (drops the ping) or hand-rescue the rows (what #10974 did for five of them). ⚠️ AND `jsonregister` MAY BE THE WRONG DRIVER HERE: the other five are JSON objects; this is append-only JSONL, for which git's built-in `merge=union` is the natural fit and needs no new code. Establish which before writing any — do not assume the existing driver parses JSONL. ⚠️ NOT VERIFIED: whether merge_json_register.py handles line-delimited input at all. Nobody has run it on this file. Manager filed, did not build — .gitattributes is a worker path. || ROUTED 2026-09-05T03:30Z into the slot freed by MI-107 closing. Chosen over MI-120/MI-117/MI-125 because this one LOSES work (a ping-carrying PR can only be closed, dropping an operator ping, or hand-rescued) where the others cost delay. Dispatched with the trap stated up front: union-vs-jsonregister is to be ESTABLISHED, not assumed, and deciding NOT to arm a driver is an allowed outcome if union would resurrect a drained ping row.",
       "added": "2026-09-04"
     },
     {
