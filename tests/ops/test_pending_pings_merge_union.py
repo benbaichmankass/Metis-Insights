@@ -36,6 +36,11 @@ def _git(repo, *args, check=True):
     )
 
 
+def _canon(row):
+    """Semantic identity of one row, so a key-order change is not a lost ping."""
+    return json.dumps(json.loads(row), sort_keys=True)
+
+
 def _rows(path):
     """Parsed rows, refusing to silently skip a conflict marker."""
     out = []
@@ -47,7 +52,7 @@ def _rows(path):
             assert not line.startswith(("<<<<<<<", "=======", ">>>>>>>")), (
                 f"conflict marker in merged file: {line[:40]!r}"
             )
-            out.append(json.dumps(json.loads(line), sort_keys=True))
+            out.append(_canon(line))
     return out
 
 
@@ -102,10 +107,9 @@ def test_union_merges_both_appends_and_keeps_both_rows(tmp_path, attr):
     assert res.returncode == 0, f"union should not conflict:\n{res.stdout}{res.stderr}"
 
     rows = _rows(repo / PINGS)          # reads the file; does not infer from exit code
-    canon = lambda s: json.dumps(json.loads(s), sort_keys=True)
-    assert canon(BASE_ROW) in rows, "base row lost"
-    assert canon(OURS_ROW) in rows, "OUR side's ping lost — this is the drop this file guards"
-    assert canon(THEIRS_ROW) in rows, "THEIR side's ping lost — this is the drop this file guards"
+    assert _canon(BASE_ROW) in rows, "base row lost"
+    assert _canon(OURS_ROW) in rows, "OUR side's ping lost — this is the drop this file guards"
+    assert _canon(THEIRS_ROW) in rows, "THEIR side's ping lost — this is the drop this file guards"
     assert len(rows) == 3, rows
 
 
@@ -124,6 +128,6 @@ def test_union_does_not_resurrect_a_row_deleted_on_one_side_only(tmp_path):
     res = _git(repo, "merge", "--no-commit", "--no-ff", "theirs", check=False)
     assert res.returncode == 0
     rows = _rows(repo / PINGS)
-    assert json.dumps(json.loads(BASE_ROW), sort_keys=True) in rows, (
+    assert _canon(BASE_ROW) in rows, (
         "documented union behaviour: a one-sided delete is resurrected"
     )
