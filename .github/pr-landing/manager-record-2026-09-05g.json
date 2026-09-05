@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager surface only — docs/claude/work/: the lease heartbeat and the checklist row recording MI-125's three dispositions, verified against its diff. Tier-1 by the canonical doc's own list: no src/, no config/, no deploy/, no scripts/, no .github/workflows/, no order path, no strategy params, no risk caps, no live-VM runtime file."
+}

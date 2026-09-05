@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T08:09:32Z",
+  "updated_at": "2026-09-05T10:53:00Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1506,7 +1506,7 @@
     {
       "session_id": "session_01QRMbr88Ju1XAqsfHxcms5c",
       "registry_key": "pending-20260904T224429Z",
-      "state": "review_ready",
+      "state": "archived",
       "title": "MI-122 — R7 grades a lease CLAIM as a late heartbeat, and reads a merge's previous heartbeat from the wrong parent",
       "owns_object": "WO-20260904-R7-GRADES-A-LEASE-CLAIM-AS-A-LATE-HEARTBEAT",
       "checklist_item": "MI-122",
@@ -1517,7 +1517,13 @@
       ],
       "why": "TWO measured instances, one root. (a) This manager's re-claim commit cc984fec fails R7 at 746min because a CLAIM over an expired lease is graded as a late heartbeat -- while R7's own docstring already exempts a HANDOVER for the identical reason. (b) #10895 is blocked because R7 reads the previous blob from sha~1, which on a merge commit is the worker branch's stale lease. Operator decision 2026-09-04, asked directly: FIX R7, do NOT write a scope exception. PR #10982 (manager register state, MI-118..121, the session-cap resolution and the record of tonight's twelve-hour gap) cannot land until this does.",
       "confirmed_at": "2026-09-04T22:46:48Z",
-      "last_observed": "2026-09-04T23:17:43Z",
+      "last_observed": {
+        "at": "2026-09-05T10:53:00Z",
+        "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+        "source": "list_sessions(mine=true, limit=14)",
+        "state": "archived",
+        "detail": "completed"
+      },
       "prs": [
         "#11012"
       ],
@@ -1526,7 +1532,7 @@
     {
       "session_id": "session_01SVUv3HZiqBsriCcc2RqQo7",
       "registry_key": "pending-20260904T224451Z",
-      "state": "review_ready",
+      "state": "archived",
       "title": "MI-123 — bound a manager's idle time with a durable wake, so a manager that stops acting is detected by a mechanism and not by the operator",
       "owns_object": "WO-20260904-MANAGER-IDLE-IS-UNBOUNDED-AND-NOTHING-WAKES-IT",
       "checklist_item": "MI-123",
@@ -1537,7 +1543,13 @@
       ],
       "why": "MEASURED tonight: this manager's last act was ~09:45Z and the operator asked at 21:53Z. TWELVE HOURS against a standing directive of thirty minutes, and NOTHING NOTICED. The manager did NOT die -- it stayed alive and connected and simply stopped taking turns, which is the one case every existing mechanism misses: the lease's TTL, time-based takeover and the whole reaper argument are all aimed at DEATH. Cost: #10975 green and approved at 15:02Z sat unmerged ~7h; all three sub-sessions were at need_input by 09:41Z each naming one act; the lease sat expired 746 minutes. Operator decision 2026-09-04, asked directly: build the DURABLE WAKE (bound idle), not the reaper.",
       "confirmed_at": "2026-09-04T22:46:48Z",
-      "last_observed": "2026-09-04T23:17:43Z",
+      "last_observed": {
+        "at": "2026-09-05T10:53:00Z",
+        "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+        "source": "list_sessions(mine=true, limit=14)",
+        "state": "archived",
+        "detail": "completed"
+      },
       "prs": [
         "#11014"
       ],
@@ -1546,7 +1558,7 @@
     {
       "session_id": "session_018iMJkpN41FHzNjKj7ShNPS",
       "registry_key": "pending-20260905T001246Z",
-      "state": "working",
+      "state": "archived",
       "title": "MI-124 — diagnose WHY each of the ten sunset candidates produces nothing (operator-funded repair lane)",
       "owns_object": "WO-20260905-NEVER-FIRING-LEGS-NEED-A-REPAIR-DIAGNOSIS-NOT-A-RETIREMENT",
       "checklist_item": "MI-124",
@@ -1556,12 +1568,19 @@
         "claude/mi124-never-firing-legs-diagnosis"
       ],
       "why": "OPERATOR-FUNDED, recorded on DEC-20260904-DEMOTE-AND-TUNE-FLOW, option agree_flow_and_fund_repair, verbatim: 'Agree flow + fund REPAIR diagnosis.' The demote-and-tune flow is AGREED and on main; this is the half it could not absorb, and the design says so itself -- the ten legs that prompted the flow do not qualify for it because they do not trade at all. NOTHING IS RETIRED and the retirement question is ANSWERED; the operator rejected the retire/do-not-retire AXIS twice.",
-      "confirmed_at": "2026-09-05T00:13:48Z"
+      "confirmed_at": "2026-09-05T00:13:48Z",
+      "last_observed": {
+        "at": "2026-09-05T10:53:00Z",
+        "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+        "source": "list_sessions(mine=true, limit=14)",
+        "state": "archived",
+        "detail": "completed"
+      }
     },
     {
       "session_id": "session_01SZnY5fHV3fzh8UXg6cRgTS",
       "registry_key": "pending-20260905T011351Z",
-      "state": "review_ready",
+      "state": "archived",
       "title": "MI-124 — diagnose WHY each of the ten sunset candidates produces nothing (RESPAWN of session_018iMJkpN41FHzNjKj7ShNPS, whose work was lost)",
       "owns_object": "WO-20260905-NEVER-FIRING-LEGS-NEED-A-REPAIR-DIAGNOSIS-NOT-A-RETIREMENT",
       "checklist_item": "MI-124",
@@ -1572,7 +1591,13 @@
       ],
       "why": "RESPAWN. The first spawn (session_018iMJkpN41FHzNjKj7ShNPS) COMPLETED the ten-leg diagnostic -- 57,690 output tokens -- and then went need_input at 00:34Z with 'grant Bash git permissions to push branch + open PR'. MEASURED: git ls-remote matches no claude/mi124* branch, so nothing reached origin and the report is lost with the container. The manager cannot rescue it -- verified twice, by ListAgents ('No reachable agents') and by a direct SendMessage to the session id ('No agent named ... is reachable'). THIRD instance of this class in ~18h (MI-107 first spawn, MI-73, MI-124); filed as BL-20260905-SUB-SESSIONS-FINISH-WORK-THEY-CANNOT-PUSH-AND-THE-MANAGER-CANNOT-REACH-THEM. The lost session's own summary reported 6 false premises / 2 broken / 1 not_established / 1 mis_routed -- carried forward as a LEAD to test, never as a finding to reproduce.",
       "confirmed_at": "2026-09-05T01:14:58Z",
-      "last_observed": "2026-09-05T01:38:51Z",
+      "last_observed": {
+        "at": "2026-09-05T10:53:00Z",
+        "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+        "source": "list_sessions(mine=true, limit=14)",
+        "state": "archived",
+        "detail": "completed"
+      },
       "prs": [
         "#11019"
       ],
@@ -1583,7 +1608,7 @@
     {
       "session_id": "session_01L1MbHt6xogVvRn3zvy23pB",
       "registry_key": "pending-20260905T020449Z",
-      "state": "working",
+      "state": "archived",
       "title": "MI-126 — sunset_pass.py manufactures a ZERO from an ABSENCE, and that zero produced retirement candidates",
       "owns_object": "WO-20260905-SUNSET-PASS-MANUFACTURES-A-ZERO-FROM-AN-ABSENCE",
       "checklist_item": "MI-126",
@@ -1593,12 +1618,19 @@
         "claude/mi126-sunset-pass-absence-not-zero"
       ],
       "why": "MI-124 traced it end to end and its diagnosis is MERGED to main (371ceaa6, #11019): sunset_pass.py:288 defaults an absent leg to 0 lifetime closes, defended by a comment that is FALSE about what /api/bot/performance returns (its SQL carries pnl IS NOT NULL, so it lists pnl-BEARING closes, not any close). 11 of 52 enabled legs are absent from the capture and silently defaulted to 0; 9 of the 10 retirement candidates are among them; 5 of the 10 had journal closes before the packet was generated. The collapsed-state class, inside the machinery that proposes RETIREMENTS.",
-      "confirmed_at": "2026-09-05T02:05:44Z"
+      "confirmed_at": "2026-09-05T02:05:44Z",
+      "last_observed": {
+        "at": "2026-09-05T10:53:00Z",
+        "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+        "source": "list_sessions(mine=true, limit=14)",
+        "state": "archived",
+        "detail": "completed"
+      }
     },
     {
       "session_id": "session_01BbUwYSusoggWYmSwpgcLnc",
       "registry_key": "pending-20260905T025732Z",
-      "state": "working",
+      "state": "archived",
       "title": "MI-127 — closes landing with pnl NULL, and mes_trend_long_1d stuck 33 days on trade 4350",
       "owns_object": "WO-20260905-PNL-NULL-ON-CLOSES-AND-A-LEG-STUCK-33-DAYS",
       "checklist_item": "MI-127",
@@ -1608,12 +1640,19 @@
         "claude/mi127-pnl-null-and-stuck-leg"
       ],
       "why": "The upstream cause MI-124 found and MI-126 deliberately excluded to stay reviewable. MI-126 has merged (5eb59917, retire_candidate 9 -> 1) so the REPORTING is repaired; these are the reasons the closes were pnl-null. (B) is LIVE: mes_trend_long_1d has held trade 4350 open ~33 days plus 7 orphaned packages, so it cannot re-enter — a live position, not a reporting artifact.",
-      "confirmed_at": "2026-09-05T02:58:39Z"
+      "confirmed_at": "2026-09-05T02:58:39Z",
+      "last_observed": {
+        "at": "2026-09-05T10:53:00Z",
+        "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+        "source": "list_sessions(mine=true, limit=14)",
+        "state": "archived",
+        "detail": "completed"
+      }
     },
     {
       "session_id": "session_01D4zdCcUatN8SoN5HnEE2fT",
       "registry_key": "pending-20260905T032947Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-113 — pending-pings.jsonl has no merge driver, so every ping-carrying PR dies unmergeable",
       "owns_object": "WO-20260905-PENDING-PINGS-HAS-NO-MERGE-DRIVER-SO-PING-PRS-DIE",
       "checklist_item": "MI-113",
@@ -1623,12 +1662,19 @@
         "claude/mi113-pending-pings-merge-driver"
       ],
       "why": "Ping-carrying PRs cannot self-heal; the only paths are close-it (drops an operator ping) or hand-rescue. This is LOSS, and it recurs on every such PR.",
-      "confirmed_at": "2026-09-05T03:30:25Z"
+      "confirmed_at": "2026-09-05T03:30:25Z",
+      "last_observed": {
+        "at": "2026-09-05T10:53:00Z",
+        "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+        "source": "list_sessions(mine=true, limit=14)",
+        "state": "idle",
+        "detail": "BLOCKED bucket, need_input: 403 on its own PR edit; its #11024 is merged"
+      }
     },
     {
       "session_id": "session_01XvvrE1Jp5G7fLcYCTRdMjX",
       "registry_key": "pending-20260905T034319Z",
-      "state": "working",
+      "state": "archived",
       "title": "MI-120 — test_work_digest builds its control from the LIVE work store, so CI goes red at the WIP ceiling",
       "owns_object": "WO-20260905-TEST-WORK-DIGEST-BUILDS-ITS-CONTROL-FROM-THE-LIVE-WORK-STORE",
       "checklist_item": "MI-120",
@@ -1638,7 +1684,14 @@
         "claude/mi120-work-digest-test-control"
       ],
       "why": "Deterministically blocks the merge queue whenever in_flight legitimately hits 8/8. It did so for ~90 minutes on 2026-09-04 and is armed again.",
-      "confirmed_at": "2026-09-05T03:44:03Z"
+      "confirmed_at": "2026-09-05T03:44:03Z",
+      "last_observed": {
+        "at": "2026-09-05T10:53:00Z",
+        "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+        "source": "list_sessions(mine=true, limit=14)",
+        "state": "archived",
+        "detail": "completed — #11025 merged"
+      }
     },
     {
       "session_id": "session_017on5EDUwHjXdJTBqrYpedh",
@@ -1651,7 +1704,14 @@
         "claude/mi128-pnl-sweep-close-keyed"
       ],
       "why": "Operator Tier-2 approval 2026-09-05, condition FORWARD-ONLY. Head of the chain that ends in sunset_pass proposing real strategies for retirement.",
-      "state": "working"
+      "state": "archived",
+      "last_observed": {
+        "at": "2026-09-05T10:53:00Z",
+        "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+        "source": "list_sessions(mine=true, limit=14)",
+        "state": "archived",
+        "detail": "completed"
+      }
     },
     {
       "session_id": "session_01VMhu6qp1r5tXi3yfrsKvJW",
@@ -1664,12 +1724,19 @@
         "claude/mi129-empty-sizing-map-brake"
       ],
       "why": "Operator Tier-2 approval 2026-09-05. Scope is the BRAKE, not the root cause of the empty map.",
-      "state": "working"
+      "state": "archived",
+      "last_observed": {
+        "at": "2026-09-05T10:53:00Z",
+        "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+        "source": "list_sessions(mine=true, limit=14)",
+        "state": "archived",
+        "detail": "completed"
+      }
     },
     {
       "session_id": "session_01ALy1pgBCEuvPm9x4pwWmoG",
       "registry_key": "pending-20260905T064740Z",
-      "state": "working",
+      "state": "archived",
       "title": "MI-117 — #10921 PROBES.json partial take (main's probe data is 3 days stale; its DUE.json is 20h older)",
       "owns_object": "WO-20260905-PROBES-JSON-PARTIAL-TAKE-FROM-10921",
       "checklist_item": "MI-117",
@@ -1679,12 +1746,19 @@
         "claude/mi117-probes-partial-take"
       ],
       "why": "Neither merging nor closing #10921 is correct. Manager attempted the take and check_manager_scope R2 refused it — PROBES.json is not manager surface.",
-      "confirmed_at": "2026-09-05T06:48:35Z"
+      "confirmed_at": "2026-09-05T06:48:35Z",
+      "last_observed": {
+        "at": "2026-09-05T10:53:00Z",
+        "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+        "source": "list_sessions(mine=true, limit=14)",
+        "state": "archived",
+        "detail": "completed"
+      }
     },
     {
       "session_id": "session_01HTHCedaMSamfxT69fnRzXG",
       "registry_key": "pending-20260905T074038Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-125 — three residues: R6's root (now with a live incident), #10895's unverified R7 face, shallow-clone stop-hook false alarm",
       "owns_object": "WO-20260905-MI122-MI123-RESIDUES",
       "checklist_item": "MI-125",
@@ -1694,12 +1768,19 @@
         "claude/mi125-mi122-mi123-residues"
       ],
       "why": "Three claims carried as settled without a check. R6's half now has a live incident: it killed PR #11031 and was correct, but the remedy caused two further defects.",
-      "confirmed_at": "2026-09-05T07:41:27Z"
+      "confirmed_at": "2026-09-05T07:41:27Z",
+      "last_observed": {
+        "at": "2026-09-05T10:53:00Z",
+        "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+        "source": "list_sessions(mine=true, limit=14)",
+        "state": "idle",
+        "detail": "completed — #11044 absent from the open-PR list, so it merged"
+      }
     },
     {
       "session_id": "session_01J2tRr5LVT1Zer8MkjLVLYV",
       "registry_key": "pending-20260905T080845Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-131 — #10398 disposition: re-measure the mixed-take belief before taking or closing anything",
       "owns_object": "WO-20260905-PR-10398-MIXED-TAKE-ECON-CALENDAR-PIT",
       "checklist_item": "MI-131",
@@ -1709,9 +1790,32 @@
         "claude/mi131-pr10398-disposition"
       ],
       "why": "Open since 2026-08-29 on a carried belief about direction. The identical belief was WRONG on sibling PR #10921 the same night and would have rewound a register.",
-      "confirmed_at": "2026-09-05T08:09:32Z"
+      "confirmed_at": "2026-09-05T08:09:32Z",
+      "last_observed": {
+        "at": "2026-09-05T10:53:00Z",
+        "by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+        "source": "list_sessions(mine=true, limit=14)",
+        "state": "idle",
+        "detail": "review_ready — #11047 is absent from the open-PR list, so it merged"
+      }
+    },
+    {
+      "session_id": "session_01CmitsBjXiAJxcuxi3DRoXB",
+      "registry_key": "backfilled-20260905T105300Z",
+      "state": "archived",
+      "title": "MI-129b — #11035 is red: two tests pin implementation details the approved rename changed",
+      "owns_object": "WO-20260905-EMPTY-SIZING-MAP-IS-RE-EMITTED-INSTEAD-OF-REFUSED",
+      "checklist_item": "MI-129",
+      "spawned_at": "2026-09-05T07:12:12Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi129-empty-sizing-brake"
+      ],
+      "why": "Follow-up spawn to green #11035 after the approved rename broke two source-scraping tests.",
+      "confirmed_at": "2026-09-05T10:53:00Z",
+      "⚠️_backfilled": "REGISTERED LATE, and that is the finding. This manager spawned it at 07:12:12Z and did NOT register it. It was found by the 10:53Z live census, not by the manager remembering — which is MI-15 recurring for the third recorded time (3-of-6 on 2026-09-01, 26-of-55 the same morning, and now 1-of-14 by me). The soft coupling the README concedes is what failed again: register is on the path to the spawn PROMPT, and a follow-up spawn reuses a prompt already written."
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",
-  "⚠️_last_live_reconcile": "2026-09-04T23:17:43Z — get_session polled directly on both sessions spawned 22:46Z, plus a GitHub read of #11012 and #11014. Both are review_ready with CI in flight and automerge armed; neither has been REVIEWED by the manager, and a state observation is not an approval. MI-107 (session_018zzzSLT8UdJ1e1RbFeyvsz) not re-polled this cycle — last read 22:06Z, idle, and #11006 merged 22:35:40Z so it is unblocked and cannot be told. ⚠️ This is a poll of THREE named sessions, not a census: the registry holds 95 rows, 67 of which have never been observed at all, and one carries a last_observed that is a bare string rather than an object — that row is invisible to every status query including this one, and is filed."
+  "⚠️_last_live_reconcile": "2026-09-05T10:53:00Z — live census via list_sessions(mine=true, limit=14). ⚠️ POPULATION: the 14 MOST RECENT sessions only, not the registry's 109 rows — has_more was true, so this says NOTHING about the older tail. Of the 14: three alive (MI-131 idle/review_ready, MI-125 idle/completed, MI-113 idle/BLOCKED need_input), eleven ARCHIVED, and ZERO running — so the 3-concurrent cap is not near. ⚠️ ONE OF THE 14 WAS ABSENT FROM THIS REGISTRY (MI-129b, session_01CmitsBjXiAJxcuxi3DRoXB, spawned by this manager 07:12:12Z) and is backfilled above. 1-of-14 missing is not a clean census. ⚠️ A 15th session is NOT addressable here at all: the wake Routine's test fire (cse_01Aw2fCJHh6vnVdVRPAddUUB, fired 10:40:01Z) carries a cse_ id, not a session_ id, and archive_session returned NOT-FOUND for it. A Routine-fired session sits in a namespace this registry and any future reaper cannot name or reap."
 }
