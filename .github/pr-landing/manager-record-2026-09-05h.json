@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One manager-surface register only: docs/claude/work/OPEN-PRS.json, plus the two landing-declaration files themselves. It records WHY #10921 was closed unmerged -- a reason only the manager who closed it can supply -- and settles the already-merged #11047. No src/, no config/, no deploy/, no .github/workflows/, no tests, no order path, no strategy config, no risk caps, no live-VM runtime file: Tier-1 by the canonical doc's own surface list, and recording a decision into docs/claude/work/** is explicitly a management act rather than a checklist item. Nothing here executes on the fleet or holds money-at-risk state. Verified before pushing: open_pr_record.py --strict passes, and zero rows present on origin/main are absent from this copy."
+}
