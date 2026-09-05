@@ -264,6 +264,11 @@ def _store_at(tmp_path, monkeypatch, in_flight: int):
     monkeypatch.setattr(wd, "REPO_ROOT", repo)
     import scripts.ops.work_phase_ping as wpp
     monkeypatch.setattr(wpp, "REPO_ROOT", repo)
+    # The whole point of this fixture is that the live store is NOT consulted,
+    # and a silent fallback to it is exactly the defect MI-120 exists about. A
+    # reader that stops honouring these patches would otherwise go on passing
+    # here while quietly measuring production again.
+    assert wd.REPO_ROOT == repo and wpp.REPO_ROOT == repo
     return repo
 
 
