@@ -1,5 +1,8 @@
 """BL-20260905 — an EMPTY sizing map is refused ONCE, with a named cause.
 
+Object: WO-20260905-EMPTY-SIZING-MAP-IS-RE-EMITTED-INSTEAD-OF-REFUSED (PR #11035).
+Row: BL-20260905-MES-TREND-LONG-1D-RE-EMITTED-ONE-DAILY-SIGNAL-SEVEN-TIMES-IN-49-MINUTES-WHEN-SIZING-RETURNED-EMPTY
+
 THE MEASURED DEFECT (population: all 8 ``order_packages`` rows for
 ``mes_trend_long_1d`` with ``filter_state='applied'``, read 2026-09-05):
 seven of them were created on 2026-06-01 between 09:06:57 and 09:56:04 —
