@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T03:44:03Z",
+  "updated_at": "2026-09-05T06:24:23Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
   "sessions": [
     {
@@ -1637,6 +1637,32 @@
       ],
       "why": "Deterministically blocks the merge queue whenever in_flight legitimately hits 8/8. It did so for ~90 minutes on 2026-09-04 and is armed again.",
       "confirmed_at": "2026-09-05T03:44:03Z"
+    },
+    {
+      "session_id": "session_017on5EDUwHjXdJTBqrYpedh",
+      "title": "MI-128 — key the local-pnl sweep window on the CLOSE, not the OPEN (operator-approved Tier-2, FORWARD-ONLY)",
+      "owns_object": "WO-20260905-LOCAL-PNL-SWEEP-WINDOW-KEYS-ON-THE-OPEN",
+      "checklist_item": "MI-128",
+      "spawned_at": "2026-09-05T06:24:23Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi128-pnl-sweep-close-keyed"
+      ],
+      "why": "Operator Tier-2 approval 2026-09-05, condition FORWARD-ONLY. Head of the chain that ends in sunset_pass proposing real strategies for retirement.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01VMhu6qp1r5tXi3yfrsKvJW",
+      "title": "MI-129 — refuse an empty sizing map once instead of re-emitting it (operator-approved Tier-2)",
+      "owns_object": "WO-20260905-EMPTY-SIZING-MAP-IS-RE-EMITTED-INSTEAD-OF-REFUSED",
+      "checklist_item": "MI-129",
+      "spawned_at": "2026-09-05T06:24:23Z",
+      "spawned_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "branches": [
+        "claude/mi129-empty-sizing-map-brake"
+      ],
+      "why": "Operator Tier-2 approval 2026-09-05. Scope is the BRAKE, not the root cause of the empty map.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "MEASURED 2026-09-02T05:56Z: 6 of the 9 sub-sessions this manager spawned were ABSENT from this file, 5 of them LIVE, including all three MI-41 sessions carrying the highest-priority work. A cold manager taking over would not have known MI-41 was being worked at all. THIS IS A RECURRENCE of MI-15 ('the sub-session registry was missing 3 of the 6 sessions this manager spawned'), and worse than the original -- so registering a spawn by remembering to do it has now FAILED TWICE and must stop being the mechanism. The registry is the ONLY thing that lets a cold manager pick up running sub-sessions; the lease does not carry it and a dead session cannot report it.",

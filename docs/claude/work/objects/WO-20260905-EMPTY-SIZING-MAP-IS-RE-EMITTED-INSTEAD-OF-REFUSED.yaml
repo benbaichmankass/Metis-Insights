@@ -1,0 +1,51 @@
+id: WO-20260905-EMPTY-SIZING-MAP-IS-RE-EMITTED-INSTEAD-OF-REFUSED
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  An empty sizing map is re-emitted rather than refused, so mes_trend_long_1d minted seven order
+  packages in 49 minutes from ONE daily signal, all orphaned unexecuted
+stage: DEPLOYMENT
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-05
+operator_decision:
+  verdict: approved
+  condition: >-
+    The approved scope is THE BRAKE, not the root cause of the empty sizing map. The operator was
+    offered "investigate WHY sizing returned empty first" as an alternative and did NOT take it.
+    A session that finds the empty map is itself an account/instrument resolution failure FILES
+    that separately rather than widening this object.
+  scope: the sizing/retry path — refuse once with a logged cause instead of re-emitting.
+  decided_on: 2026-09-05
+  text: >-
+    Asked as a popup with three options (route the Tier-2 brake now / file and leave it /
+    investigate the empty map first). Operator selected "Route it now as a Tier-2 fix".
+
+why: >-
+  MEASURED by MI-127, filed on main as
+  BL-20260905-MES-TREND-LONG-1D-RE-EMITTED-ONE-DAILY-SIGNAL-SEVEN-TIMES-IN-49-MINUTES-WHEN-SIZING-RETURNED-EMPTY.
+  mes_trend_long_1d minted SEVEN order packages in 49 minutes from ONE daily signal because
+  sizing returned an empty map and each attempt was re-emitted rather than refused. All seven
+  were orphaned unexecuted.
+  ⚠️ SEVERITY STATED HONESTLY SO IT IS NOT INFLATED: nothing reached a venue and no money moved.
+  The harm is a loop with no brake, and seven phantom order packages per occurrence — which
+  pollute exactly the order-package data the M7 review packets grade strategies on. So it
+  corrupts the EVIDENCE BASE rather than the book, which is why it is worth fixing and why it is
+  not an incident.
+  A daily-timeframe leg producing seven packages in 49 minutes is prima facie a retry with no
+  ceiling; the same shape applies to any leg whose sizing returns empty, so this is not
+  MES-specific.
+
+done_condition: >-
+  An empty sizing map produces ONE refusal with a logged, readable cause, and no further order
+  packages for that signal — demonstrated by a test that drives sizing to return empty and asserts
+  exactly one package (or zero) plus the logged cause, with a positive control showing the same
+  path still emits normally when sizing returns a real map.
+  The logged cause must NAME why nothing was sized; a bare count is not sufficient, since the
+  whole failure was that seven identical attempts said nothing about their own cause.
+  ⚠️ NOT SUFFICIENT: suppressing the re-emission without logging anything — that converts a noisy
+  failure into a silent one, which this repo treats as strictly worse.
+  ⚠️ OUT OF SCOPE by operator decision: fixing whatever made sizing return empty. FILE it.
+
+blocked_on: []
+blocked_on_basis: ASSESSED
