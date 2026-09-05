@@ -338,6 +338,15 @@ _EXIT_INTERVAL_SOAK_LOG = runtime_logs_dir() / "exit_interval_soak.jsonl"
 _CASH_SETTLEMENT_SOAK_LOG = runtime_logs_dir() / "cash_settlement_soak.jsonl"
 _WORK_DECISION_TRANSIT_LOG = runtime_logs_dir() / "work_decision_transit.jsonl"
 _WORK_DECISION_PROMPTED_STATE = runtime_logs_dir() / "work_decision_prompted.json"
+# MI-109 (b). The decision sweep's PER-RUN stats, on a durable surface.
+# Written by telegram_decisions.write_sweep_receipt from the same process that
+# writes the prompted marker above (ict-telegram-bot.service, which carries the
+# data-dir drop-in), so it resolves through runtime_logs_dir() exactly as its
+# sibling does — the writer/reader path split of BL-20260611-M15-2 is avoided
+# by matching the writer, not by picking a helper.
+_WORK_DECISION_SWEEP_RECEIPT = (
+    runtime_logs_dir() / "work_decision_sweep_receipt.json"
+)
 _PROP_TICKET_RISK_SOAK_LOG = (
     runtime_logs_dir() / "prop_ticket_risk_soak.jsonl"
 )
@@ -566,6 +575,30 @@ _LOG_FILES: dict[str, Path] = {
     # distinguished from an outage. An ABSENT file means the sweep has never
     # prompted anything on this VM -- never that nothing is waiting.
     "work_decision_prompted": _WORK_DECISION_PROMPTED_STATE,
+    # MI-109 (b), 2026-09-04 — the sweep's PER-RUN stats, durably.
+    #
+    # ⚠️ THIS EXISTS BECAUSE MORE JOURNAL LOGGING WAS NOT SUFFICIENT.
+    # `_sweep_work_decisions` already emitted the destination and the poll
+    # evidence via `logger.info`, and the journal is the surface that
+    # evaporated:
+    # measured 2026-09-03, a 1500-line pull spanned 14:23:34→14:53:46 — THIRTY
+    # MINUTES — so the 14:05:48 send was unreachable 45 minutes later, before
+    # anyone had been told there was a problem.
+    #
+    # ⚠️ IT IS A BOUNDED RING, NOT A ONE-SLOT RECEIPT, and that is deliberate.
+    # `work_digest_receipt` keeps only the last run because its carrier is
+    # HOURLY; this sweep fires every 300s, so one slot would retain five
+    # minutes — worse than the journal it replaces. Read `runs` for the
+    # history and `last` for the current state.
+    #
+    # ⚠️ A row is stamped on EVERY outcome, including `paused`, an unreadable
+    # inbox and an unreadable prompt-state — a receipt written only on a send
+    # cannot tell a DEAD sweep from a FAILING one (the `work_digest_receipt`
+    # lesson). An ABSENT file means the sweep has never run on this VM; it
+    # never means nothing is waiting.
+    #
+    # ⚠️ Rows name the token VARIABLE (`token_from`), never a token value.
+    "work_decision_sweep_receipt": _WORK_DECISION_SWEEP_RECEIPT,
     # 2026-09-02 — the POLL CLAIMS behind the decision channel's destination:
     # which token variable a live process says it polls, and which callback
     # prefixes it handles. One file per token VARIABLE (never a shared file, so

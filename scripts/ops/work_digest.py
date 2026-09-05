@@ -1004,9 +1004,20 @@ def _self_test() -> int:
     check(6, "dormant/ready never ping (imported predicate)", not noisy, str(noisy))
 
     # 7: a ceiling hit renders as an event; positive control on the negative.
+    #
+    # ⚠️ BOTH ARMS ARE CONSTRUCTED, and that is the fix rather than the style.
+    # Until 2026-09-04 the control was `render(d)` — the LIVE digest — which
+    # asserts the repo is UNDER the ceiling. On 2026-09-04 it legitimately was
+    # not (8 in_flight against a ceiling of 8; the NINTH is what
+    # check_wip_ceiling refuses), so this case failed, `test_self_test_passes`
+    # failed with it, and `pytest-run` — a REQUIRED context — went red on every
+    # open PR at once. A control that reads mutable repo state passes by
+    # accident and fails for a reason that has nothing to do with the renderer.
     hit = dict(st, wip=dict(st["wip"], inFlight=WIP_CEILING, ceilingHit=True))
+    under = dict(st, wip=dict(st["wip"], inFlight=WIP_CEILING - 1,
+                              ceilingHit=False))
     hit_txt = render({**d, "standing": hit})
-    quiet_txt = render(d)
+    quiet_txt = render({**d, "standing": under})
     check(7, "ceiling hit is loud, and not-hit is not",
           "WIP CEILING HIT" in hit_txt and "WIP CEILING HIT" not in quiet_txt)
 

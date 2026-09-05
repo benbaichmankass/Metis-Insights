@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Repairs a measurement in scripts/ops/sunset_pass.py (an observability/proposal pass that never enacts) plus its tests. No runtime, no order path, no config: strategies.yaml, accounts.yaml, risk_caps.yaml and /api/bot/performance's SQL are all untouched. It RETIRES NOTHING and touches no disposition register — it removes 8 retirement proposals that were manufactured from an absence."
+}

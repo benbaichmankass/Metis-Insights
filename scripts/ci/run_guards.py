@@ -130,6 +130,43 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # An operator's WRITTEN answer must be READABLE by the grader.
+        # UNGATED (`when: None`) deliberately: the failure is a decision object
+        # going quiet, and a diff-scoped guard cannot see a row regress when an
+        # unrelated PR edits it. The tree was MEASURED clean in the change that
+        # added this (614 objects, 0 unparseable, 0 findings), so nothing is
+        # grandfathered and there is no separate standing audit to forget.
+        "name": "decision-answers-guard",
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation: on a clean tree this guard
+            # is only ever observed PASSING, which is the state a guard is least
+            # useful in. It exercises both rules AND the false-positive shape R2
+            # was tightened for (a request answered-and-nested beside a second
+            # that is genuinely open).
+            ["python3", "scripts/ci/check_decision_answers.py", "--self-test"],
+            ["python3", "scripts/ci/check_decision_answers.py"],
+        ],
+    },
+    {
+        # (c) of the demote-and-tune design: at budget expiry a demotion CANNOT
+        # stay demoted. UNGATED, like its sunset sibling: the failure is about a
+        # budget ACCRUING over time, which no diff is relevant to — a demotion
+        # carried past its budget becomes a failure on a PR that touched nothing
+        # near it, and that is the point.
+        "name": "demote-budget-guard",
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation because the interesting
+            # branches are unreachable in production today: no leg has been
+            # demoted under this flow yet, so without it the forcing function
+            # would be untested until the first demotion expired — two months
+            # after anyone could still remember writing it.
+            ["python3", "scripts/ops/demote_budget.py", "--self-test"],
+            ["python3", "scripts/ops/demote_budget.py"],
+        ],
+    },
+    {
         # E3 — Phase G. The forcing function that makes the system REMOVE.
         # UNGATED: the escalation is about candidates ACCRUING over time, which
         # no diff can be relevant to — a candidate carried past its threshold

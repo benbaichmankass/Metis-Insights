@@ -249,12 +249,57 @@ STATES, NEVER COLLAPSED
                                could not have known. Passes, counted, loud.
   ``no_manager_commits``     — no commit in range is attributable to a session
                                that has held the lease. The ordinary worker PR.
-  ``unattributed``           — commits carry NO `Claude-Session:` trailer, so
-                               authorship could not be established. **We did not
-                               look is not the same as compliant**: reported
-                               loudly on every run and never silently passed.
-  ``clean``                  — manager commits found, all inside the surface.
+  ``unattributed``           — at least one commit's AUTHORSHIP could not be
+                               established, so it was not graded: it carries no
+                               `Claude-Session:` trailer, or it carries one the
+                               lease register CONTRADICTS. **We did not look is
+                               not the same as compliant**: reported loudly on
+                               every run, never silently passed, and it
+                               DOMINATES ``clean`` — a range holding one
+                               unattributable commit has not been fully looked
+                               at.
+  ``clean``                  — manager commits found, all inside the surface,
+                               and every commit in range was attributable.
   ``violation``              — a manager commit touched a worker path. FAILS.
+
+AUTHORSHIP IS A CLAIM, AND THE THIRD STATE IS THE WHOLE POINT (MI-106)
+----------------------------------------------------------------------
+Who wrote a commit is read from its `Claude-Session:` trailer — **which the
+author writes themselves**. Until 2026-09-04 that produced two different bugs
+from one root, and only one of them was visible:
+
+  * **The false positive, measured.** #10895 was blocked because `5504200c`
+    touches `scripts/notify_on_pull.py` under a trailer naming
+    `session_011JWFxuYAaEQKCFCmG6gnHJ` — the PREVIOUS DAY's manager. The commit
+    body is in the MI-83 *worker's* voice about MI-83's own PR, and the head
+    commit of that same branch says outright that the spawn dispatch handed the
+    sub-session the MANAGER's session URL to stamp. So the guard produced a TRUE
+    finding about what it could see and a FALSE one about what happened — and
+    rendered it as `violation`, a graded verdict, when the fact was *we cannot
+    establish who wrote this*.
+  * **The evasion, unguarded.** A manager that wants to do an item can stamp a
+    worker's session id and this guard vouches for it. The `unattributed`
+    disclosure covered UNTRAILERED commits only; a MIS-trailered one fell
+    outside it and read as graded. **A guard cheaper to lie to than to satisfy
+    is worse than no guard** — the `new-table-wiring-guard` lesson.
+
+THE FIX, AND EXACTLY HOW FAR IT REACHES. `office_windows` derives, from the git
+history of `MANAGER-LEASE.json`, the intervals in which each session actually
+HELD the lease, and a trailer naming a holder OUTSIDE its own window is graded
+``unattributed`` rather than ``violation``. This is not a workaround: R2's rule
+is *a MANAGER commit touching a worker path*, and manager-ness is a property of
+a MOMENT. A session that stood down yesterday is not the manager today, so
+grading its commits as management was wrong on the guard's own terms.
+
+⚠️ **IT CONTRADICTS; IT NEVER CONFIRMS.** The register is evidence the commit's
+author cannot reach back and change, but the author DATE it is joined against is
+ordinary git metadata and is author-settable. So this catches the CARELESS
+mis-stamp and not the deliberate one, and the deliberate one — a manager
+stamping a live worker's id inside that worker's window — remains open. It is
+named in a disclosure printed on EVERY verdict, including clean ones, because a
+limit stated is a limit a reader can price and a limit implied is not. Closing
+it honestly needs a per-session credential this repo does not have; nothing here
+pretends otherwise.
 
 THE RULES
 ---------
@@ -271,11 +316,12 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import os
 import re
 import shutil
 import subprocess
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -328,6 +374,46 @@ WORKER_PATHS = {
 }
 
 MIN_REASON = 30
+
+# --------------------------------------------------------------------------
+# THE ATTRIBUTION CONTRACT — three states, and collapsing any two is the defect
+# --------------------------------------------------------------------------
+#: Whether this guard can say WHO was managing when a commit was authored.
+#:
+#: ⚠️ THIS CONTRACT IS DELIBERATELY *NOT* REGISTERED IN
+#: `scripts/ci/check_collapsed_states.py`, AND THAT IS A MEASURED CHOICE, NOT
+#: AN OVERSIGHT. That registry's consumer model assumes a producer module and
+#: consumers in OTHER files: it skips `f == prod_path` outright, so a
+#: single-file CI guard whose only reader is its own `check()` fails check (2)
+#: — "state(s) [...] are produced but NO consumer branches on them" — however
+#: correctly the states are used. Registering it would have left exactly two
+#: ways to green: grandfather it, or invent a consumer module that exists to be
+#: consumed. That second one is the failure the registry itself records against
+#: its own earlier evidence model — "the only way to 'fix' it was to write
+#: worse code". So the PATTERN is followed here in full (named constants, the
+#: three states distinct in the guard's own output, and the collapse named
+#: below) and the registry entry is not faked. If the registry later grows a
+#: same-file consumer notion, this belongs in it.
+#:
+#: ⚠️ COLLAPSING ANY TWO OF THESE REINTRODUCES MI-106 VERBATIM. Until
+#: 2026-09-04 there were effectively two: a commit carrying a trailer was
+#: graded, and one without a trailer was not. A MIS-stamped commit therefore
+#: rendered as a graded verdict — `violation` — when the true fact was "we
+#: cannot establish who wrote this". `#10895` is the measured instance:
+#: `5504200c` touches `scripts/notify_on_pull.py` under a trailer naming
+#: `session_011JWFxuYAaEQKCFCmG6gnHJ`, the PREVIOUS DAY's manager, which the
+#: lease register shows released the lease at 2026-09-02T21:38:05Z — eight
+#: hours before the commit was authored. "We cannot establish who wrote this"
+#: and "a manager did an item" are different facts and must not render the
+#: same.
+ATTR_ATTRIBUTED = "attributed"       # trailer names a session the lease
+                                     # register independently places IN OFFICE
+                                     # at the commit's author time. GRADED.
+ATTR_UNATTRIBUTED = "unattributed"   # no trailer, OR a trailer the register
+                                     # CONTRADICTS. NOT graded, reported loudly
+                                     # on every run, never a pass.
+ATTR_NOT_MANAGER = "not_manager"     # trailer names a session that has never
+                                     # held the lease. R2 does not reach it.
 
 
 def _match(path: str, globs) -> bool:
@@ -614,43 +700,219 @@ def supervision_gap(root: Path, sha: str) -> tuple[Optional[int], Optional[int],
 #: The 10-minute case needs `scripts/ops/pr_queue_latency.py`, and see
 #: BL-20260903-THE-PR-QUEUE-WATCHER-CANNOT-SEE-A-TEN-MINUTE-STALL for why that
 #: watcher cannot see it either as currently configured.
+#:
+#: ⚠️ MI-122 RE-MEASURED THE RULE'S ACTUAL REACH, because "90 minutes fails 4% of
+#: gaps" is a claim about the DISTRIBUTION and not about what this guard does to
+#: real commits. Population: the 46 commits touching MANAGER-LEASE.json reachable
+#: on `main` in a shallow clone at --depth=1000, graded by the pre-MI-122 guard
+#: and by this one. They disagree on 2, and R7 FAILs go 3 -> 1. Both changed
+#: verdicts are same-holder re-CLAIMS over state=expired -- 448f086a (dead
+#: interval 100 min) and 2e5ef601 (214 min) -- and BOTH still REPORT that
+#: interval rather than losing it. cb9f0bbb still FAILS at 131 minutes: that is
+#: the rule's real case, and it is why the exemption is keyed on the lease RUN
+#: rather than on the size of the gap. State the population when re-quoting this.
+def _lease_at(root: Path, ref: str) -> tuple[Optional[dict], str]:
+    """(lease, state) at `ref`, state one of `ok` / `absent` / `unreadable`.
+
+    Three states, never collapsed: a lease that is not there and a lease we
+    could not parse are different facts, and only the second is worth a note.
+    """
+    rc, blob = _git(root, "show", f"{ref}:{LEASE_REL}")
+    if rc != 0:
+        return None, "absent"
+    try:
+        doc = json.loads(blob)
+    except Exception:
+        return None, "unreadable"
+    return (doc, "ok") if isinstance(doc, dict) else (None, "unreadable")
+
+
+def _parents(root: Path, sha: str) -> list[str]:
+    """Every parent of `sha`, in git's order (first parent first)."""
+    rc, out = _git(root, "rev-list", "--parents", "-n", "1", sha)
+    if rc != 0 or not out.strip():
+        return []
+    return out.split()[1:]
+
+
+def _latest_heartbeat(cands: list[tuple[str, dict]]):
+    """The (heartbeat, sha) with the NEWEST heartbeat_at, or None."""
+    best = None
+    for p, pl in cands:
+        hb = _parse_ts(pl.get("heartbeat_at"))
+        if hb is None:
+            continue
+        if best is None or hb > best[0]:
+            best = (hb, p)
+    return best
+
+
 def heartbeat_cadence_gap(root: Path, sha: str) -> tuple[Optional[int], Optional[int], list[str]]:
     """(gap_minutes_since_previous_heartbeat, ttl_minutes, notes).
 
     Graded only on a commit that ADVANCES `heartbeat_at`, and only against a
-    previous heartbeat by the SAME holder — a handover is not a lapse, and
-    grading one would fail the incoming manager for the outgoing one's silence.
+    previous heartbeat that belongs to the SAME LEASE RUN, reached along
+    whichever parent actually carries that run's prior state.
+
+    ⚠️ **A "previous heartbeat" is not simply whatever blob sits at `sha~1`.**
+    Two things must be established before a gap means anything, and R7
+    established NEITHER until MI-122. Both measured instances share this one
+    root: R7 selected a previous heartbeat without establishing that it
+    belonged to the same run, reached along the right parent.
+
+    **1. THE SAME RUN, not merely the same holder.** A lease RUN is identified
+    by `(holder, claimed_at)`: `manager_lease.py::cmd_claim` stamps a fresh
+    `claimed_at` on every claim and `cmd_heartbeat` preserves it, so the pair
+    names the run and nothing else does. A CLAIM over a lease that EXPIRED
+    opens a NEW run for the same session, and charging the dead interval to it
+    grades the incoming manager for the silence of a lease that was already
+    gone. That is exactly the reasoning this function already used to exempt a
+    HANDOVER — *"grading one would fail the incoming manager for the outgoing
+    one's silence"* — and it transfers verbatim: a lease that DIED and was
+    re-claimed is a handover to oneself. Measured instance: `cc984fec` failed
+    at *"746 minutes since this manager's previous heartbeat"*.
+
+    ⚠️⚠️ **THE DEAD INTERVAL IS STILL REPORTED, AND THAT IS THE POINT.** What
+    moves is WHERE the silence is charged, never WHETHER it is seen. 746
+    minutes with no manager is the most valuable thing this guard said that
+    night, and a silent pass would be strictly worse than the false red it
+    replaces. A re-claim emits a note naming the interval and the state it was
+    claimed over, and `--self-test` ASSERTS that note is present — so a future
+    change that "fixes" this rule by simply not looking fails the test rather
+    than passing quietly.
+
+    ⚠️ **AND THE EXEMPTION IS NOT A BYPASS.** `cmd_claim` returns early on
+    `held_by_me` WITHOUT rewriting `claimed_at`, so a manager holding a live
+    lease cannot re-claim its way out of a cadence grade. Reaching a new run
+    costs either letting the lease actually expire — which IS the silence, and
+    it is reported — or `--force --reason`, which the file records. The
+    cheapest way past R7 is still to check in.
+
+    **2. THE RIGHT PARENT.** `sha~1` is the FIRST parent, which on a MERGE is
+    the branch being merged INTO. A manager merging `main` into a worker
+    branch therefore read the WORKER branch's stale lease as its own previous
+    heartbeat and graded a lapse that never happened, blocking #10895. Filed as
+    BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE
+    — that id is deliberately on ONE line: wrapped across two, `artifact-validity-guard`
+    reads the fragment and the reference resolves to NOTHING, which reads as
+    tracked while being tracked by nobody.
+    Every parent is read, and the LATEST same-run heartbeat among them wins:
+    the manager's silence is WALL-CLOCK silence, so the most recent check-in
+    on any line the commit just brought together is the last time it was
+    heard from.
+
+    ⚠️ **AN ABSENT `claimed_at` STILL GRADES, deliberately.** When either side
+    omits it the run cannot be established, and the choice is between dropping
+    enforcement and keeping it. This keeps it, and says so in a note. R7's real
+    case — a manager ALIVE and silent past one TTL — is the measured 4% of gaps
+    the rule exists for, and a guard that stops grading whenever a field is
+    missing is one hand-edit away from being switched off.
     """
-    rc, blob = _git(root, "show", f"{sha}:{LEASE_REL}")
-    if rc != 0:
-        return None, None, []
-    try:
-        lease = json.loads(blob)
-    except Exception:
+    lease, lstate = _lease_at(root, sha)
+    if lstate != "ok" or lease is None:
         return None, None, []
     if lease.get("state") != "held":
         return None, None, []
 
-    rc, prev_blob = _git(root, "show", f"{sha}~1:{LEASE_REL}")
-    if rc != 0:
-        return None, None, []                    # no predecessor to compare to
-    try:
-        prev = json.loads(prev_blob)
-    except Exception:
-        return None, None, [f"{LEASE_REL} unreadable at {sha[:8]}~1 — cadence "
-                            f"NOT graded here (we could not look)"]
-
     now_hb = _parse_ts(lease.get("heartbeat_at"))
-    was_hb = _parse_ts(prev.get("heartbeat_at"))
     ttl = lease.get("ttl_minutes")
-    if now_hb is None or was_hb is None or not isinstance(ttl, int):
+    if now_hb is None or not isinstance(ttl, int):
         return None, None, []
-    if now_hb == was_hb:
-        return None, None, []                    # heartbeat not advanced here
-    if lease.get("holder") != prev.get("holder"):
-        return None, None, [f"{sha[:8]} is a HANDOVER (holder changed) — cadence "
-                            f"not graded; a handover is not a lapse"]
-    return int((now_hb - was_hb).total_seconds() // 60), ttl, []
+
+    holder = lease.get("holder")
+    claimed = lease.get("claimed_at")
+
+    parents = _parents(root, sha)
+    if not parents:
+        return None, None, []                  # root commit: nothing to compare
+
+    notes: list[str] = []
+    readable: list[tuple[str, dict]] = []
+    unreadable: list[str] = []
+    for p in parents:
+        pl, pstate = _lease_at(root, p)
+        if pstate == "unreadable":
+            unreadable.append(p)
+        elif pl is not None:
+            readable.append((p, pl))
+
+    if unreadable:
+        notes.append(
+            f"{LEASE_REL} unreadable at {', '.join(s[:8] for s in unreadable)} "
+            f"(parent of {sha[:8]}) — that parent NOT used as the previous "
+            f"heartbeat (we could not look)")
+    if not readable:
+        return None, None, notes               # no predecessor to compare to
+
+    if len(parents) > 1:
+        notes.append(
+            f"{sha[:8]} is a MERGE ({len(parents)} parents) — the previous "
+            f"heartbeat is the LATEST same-run parent, NOT `{sha[:8]}~1`; the "
+            f"first parent is the branch merged INTO, whose lease is stale "
+            f"when a manager merges main into a worker branch")
+
+    same_holder = [(p, pl) for p, pl in readable if pl.get("holder") == holder]
+    if not same_holder:
+        notes.append(f"{sha[:8]} is a HANDOVER (holder changed) — cadence "
+                     f"not graded; a handover is not a lapse")
+        return None, None, notes
+
+    same_run: list[tuple[str, dict]] = []
+    other_run: list[tuple[str, dict]] = []
+    unestablished = False
+    for p, pl in same_holder:
+        pc = pl.get("claimed_at")
+        if pc is None or claimed is None:
+            unestablished = True
+            same_run.append((p, pl))
+        elif pc == claimed:
+            same_run.append((p, pl))
+        else:
+            other_run.append((p, pl))
+
+    if unestablished:
+        notes.append(
+            f"{sha[:8]}: `claimed_at` absent on one side — the lease RUN could "
+            f"NOT be established, so cadence is graded on holder alone. "
+            f"Enforcement is KEPT rather than dropped: R7's real case is a "
+            f"manager ALIVE and silent past one TTL, and a rule that stops "
+            f"grading on a missing field is one hand-edit from being off.")
+
+    if not same_run:
+        # Every same-holder parent belongs to an EARLIER run, so this commit
+        # OPENS a run: it is a re-CLAIM, not a late check-in. The silence is
+        # not charged as cadence -- and it is REPORTED, loudly, because the
+        # dead interval is the finding even when the lapse is not.
+        best = _latest_heartbeat(other_run)
+        over = lease.get("claimed_over_state")
+        if best is None:
+            notes.append(
+                f"⚠️ {sha[:8]} is a re-CLAIM (a NEW lease run for the same "
+                f"holder) — cadence not graded; no readable previous heartbeat "
+                f"to measure the dead interval against (we could not look)")
+            return None, None, notes
+        dead = int((now_hb - best[0]).total_seconds() // 60)
+        notes.append(
+            f"⚠️ {sha[:8]} is a re-CLAIM, not a late check-in: it opens a NEW "
+            f"lease run (claimed_at {claimed}) for the same holder"
+            + (f", over state={over}" if over else "")
+            + f", so the gap is NOT charged as this run's cadence. THE DEAD "
+              f"INTERVAL IS REAL AND IS REPORTED: {dead} minutes with no "
+              f"manager heartbeat before this claim. A lease that DIED and was "
+              f"re-claimed is a handover to oneself; charging it would fail "
+              f"the incoming manager for the silence of a lease already gone.")
+        return None, None, notes
+
+    best = _latest_heartbeat(same_run)
+    if best is None:
+        return None, None, notes
+    was_hb, was_sha = best
+    if now_hb <= was_hb:
+        return None, None, notes               # heartbeat not advanced here
+    if len(parents) > 1:
+        notes.append(f"{sha[:8]}: previous heartbeat taken from parent "
+                     f"{was_sha[:8]} ({was_hb.isoformat()})")
+    return int((now_hb - was_hb).total_seconds() // 60), ttl, notes
 
 
 # --------------------------------------------------------------------------
@@ -736,6 +998,168 @@ def queue_findings(root: Path) -> tuple[list[str], list[str]]:
 
 
 # --------------------------------------------------------------------------
+def office_windows(root: Path) -> tuple[dict[str, list[tuple[datetime, datetime]]], list[str]]:
+    """When did each session actually HOLD the lease, per the register itself?
+
+    WHY THIS EXISTS. `lease_holders` answers "has this session EVER managed?",
+    and that is the wrong question for R2. R2's rule is *a manager commit
+    touching a worker path*, and manager-ness is a property of a MOMENT, not a
+    property a session keeps forever. Grading a commit authored on 2026-09-03
+    against a session that stood down on 2026-09-02 is wrong on the guard's own
+    terms, whether or not its trailer is honest.
+
+    THE EVIDENCE IS THE REGISTER, NOT THE COMMIT. Windows are read from the git
+    history of `MANAGER-LEASE.json` — dozens of separate commits written at
+    cadence by whoever held the lease, merged to `main` before this one existed.
+    The author of the commit being graded cannot reach back into that history.
+    That is the whole point: it is the one authorship signal here that is not
+    the author's own say-so.
+
+    ⚠️ IT CONTRADICTS, IT NEVER CONFIRMS. The commit's author date is git
+    metadata, and git metadata is settable by whoever makes the commit
+    (`GIT_AUTHOR_DATE`). So a window MISS is real evidence — the register
+    disagrees with the trailer — while a window HIT proves only that the two
+    are consistent, which a determined forger gets for free. This catches the
+    CARELESS mis-stamp (the measured one: a spawn template that handed
+    sub-sessions the manager's session URL) and not the deliberate one. The
+    deliberate one is named in the guard's standing disclosure instead, because
+    a limit stated is a limit a reader can price and a limit implied is not.
+
+    THE WINDOWS ARE DELIBERATELY GENEROUS. Each contiguous run of same-holder
+    observations is widened by one lease TTL at BOTH ends — the register's own
+    unit of uncertainty about who is managing, since takeover is time-based.
+    Widening can only ever cause MORE commits to be graded, never fewer, so the
+    error it risks is a false violation a reader can argue with, not a missed
+    one they never see.
+
+    Returns ({session_id: [(start, end), ...]}, notes).
+    """
+    notes: list[str] = []
+    rc, out = _git(root, "log", "--all", "--reverse", "--pretty=%H", "--", LEASE_REL)
+    if rc != 0:
+        return {}, ["lease register history unreadable — no office window "
+                    "could be derived"]
+
+    #: (timestamp, session, is_release) in register order.
+    obs: list[tuple[datetime, str, bool]] = []
+    ttls: list[int] = []
+    revisions = 0
+    for line in out.splitlines():
+        sha = line.strip()
+        if not sha:
+            continue
+        rc2, blob = _git(root, "show", f"{sha}:{LEASE_REL}")
+        if rc2 != 0:
+            continue
+        try:
+            d = json.loads(blob)
+        except Exception:
+            continue          # an unreadable revision is skipped, not fatal
+        revisions += 1
+        ttl = d.get("ttl_minutes")
+        if isinstance(ttl, int) and ttl > 0:
+            ttls.append(ttl)
+        holder = d.get("holder")
+        hb = _parse_ts(d.get("heartbeat_at"))
+        if isinstance(holder, str) and holder.startswith("session_") and hb:
+            obs.append((hb, holder, False))
+            continue
+        prev = d.get("previous_holder")
+        rel = _parse_ts(d.get("released_at"))
+        if isinstance(prev, str) and prev.startswith("session_") and rel:
+            obs.append((rel, prev, True))
+
+    if not obs:
+        notes.append(
+            f"⚠️ {revisions} revision(s) of {LEASE_REL} carry no usable "
+            f"(holder, timestamp) pair, so NO office window could be derived. "
+            f"Attribution falls back to the trailer alone for this run — the "
+            f"pre-MI-106 behaviour, stated rather than silent.")
+        return {}, notes
+
+    ttl = max(ttls) if ttls else 90
+    obs.sort(key=lambda o: o[0])
+
+    #: Contiguous runs of the same holder. A release CLOSES the run it names.
+    runs: list[tuple[str, datetime, datetime]] = []
+    cur_sess = None
+    cur_lo = cur_hi = None
+    for ts, sess, is_release in obs:
+        if sess != cur_sess:
+            if cur_sess is not None:
+                runs.append((cur_sess, cur_lo, cur_hi))
+            cur_sess, cur_lo, cur_hi = sess, ts, ts
+        else:
+            cur_hi = ts
+        if is_release:
+            runs.append((cur_sess, cur_lo, cur_hi))
+            cur_sess = cur_lo = cur_hi = None
+    if cur_sess is not None:
+        runs.append((cur_sess, cur_lo, cur_hi))
+
+    grace = timedelta(minutes=ttl)
+    windows: dict[str, list[tuple[datetime, datetime]]] = {}
+    for sess, lo, hi in runs:
+        windows.setdefault(sess, []).append((lo - grace, hi + grace))
+
+    notes.append(
+        f"office windows derived from {revisions} revision(s) of {LEASE_REL} "
+        f"(population: every revision reachable from --all): "
+        f"{len(runs)} lease-holding run(s) across {len(windows)} session(s), "
+        f"each widened by one ttl ({ttl}min) at both ends")
+    return windows, notes
+
+
+def commit_authored_at(root: Path, sha: str) -> Optional[datetime]:
+    """The commit's author timestamp. ⚠️ Author-settable — see office_windows."""
+    rc, out = _git(root, "log", "-1", "--pretty=%aI", sha)
+    if rc != 0:
+        return None
+    return _parse_ts(out.strip())
+
+
+def attribute(root: Path, sha: str, holders: set[str],
+              windows: dict[str, list[tuple[datetime, datetime]]]
+              ) -> tuple[str, Optional[str], str]:
+    """Grade one commit against the attribution contract.
+
+    Returns (state, session_or_None, why). See ATTR_* for why three states.
+    """
+    sess = commit_session(root, sha)
+    if sess is None:
+        return (ATTR_UNATTRIBUTED, None,
+                "carries no `Claude-Session:` trailer, so authorship could not "
+                "be established at all")
+    if sess not in holders:
+        return (ATTR_NOT_MANAGER, sess, "names a session that has never held "
+                                        "the manager lease")
+    if not windows:
+        # No window could be derived. Fall back to the trailer alone rather
+        # than blinding the guard — an unreadable register must not become the
+        # cheapest way past R2.
+        return (ATTR_ATTRIBUTED, sess,
+                "names a lease holder; no office window was derivable, so this "
+                "is the trailer's unchecked word")
+    when = commit_authored_at(root, sha)
+    if when is None:
+        return (ATTR_UNATTRIBUTED, sess,
+                f"names {sess}, but this commit has no readable author date, "
+                f"so the lease register could not be asked whether that "
+                f"session was managing when it was written")
+    for lo, hi in windows.get(sess, []):
+        if lo <= when <= hi:
+            return (ATTR_ATTRIBUTED, sess, f"in office at {when.isoformat()}")
+    held = windows.get(sess, [])
+    span = (", ".join(f"{lo.isoformat()}..{hi.isoformat()}" for lo, hi in held)
+            if held else "never, per the register")
+    return (ATTR_UNATTRIBUTED, sess,
+            f"names {sess}, but {LEASE_REL}'s own history places that session "
+            f"in office {span} — NOT at {when.isoformat()}, when this commit "
+            f"was authored. The register CONTRADICTS the trailer, so who wrote "
+            f"this is unestablished. It is NOT thereby excused: it is ungraded "
+            f"and said so out loud")
+
+
 def guard_existed_at_merge_base(root: Path, base: str) -> Optional[bool]:
     rc, mb = _git(root, "merge-base", base, "HEAD")
     if rc != 0 or not mb:
@@ -775,14 +1199,24 @@ def check(root: Path, base: str, today: Optional[str] = None):
         notes.append(f"ACTIVE EXCEPTION {e['id']} until {e['expires']}: "
                      f"{', '.join(e['paths'])}")
 
+    windows, wnotes = office_windows(root)
+    notes.extend(wnotes)
+
     graded = 0
     untrailered = 0
+    contradicted = 0
     for sha in shas:
-        sess = commit_session(root, sha)
-        if sess is None:
-            untrailered += 1
+        attr, sess, why = attribute(root, sha, holders, windows)
+        if attr == ATTR_NOT_MANAGER:
             continue
-        if sess not in holders:
+        if attr == ATTR_UNATTRIBUTED:
+            rc, subj = _git(root, "log", "-1", "--pretty=%s", sha)
+            if sess is None:
+                untrailered += 1
+            else:
+                contradicted += 1
+                notes.append(
+                    f"⚠️ UNATTRIBUTED {sha[:8]} {subj[:64]} — {why}")
             continue
         graded += 1
         rc, subject = _git(root, "log", "-1", "--pretty=%s", sha)
@@ -864,13 +1298,41 @@ def check(root: Path, base: str, today: Optional[str] = None):
             f"`Claude-Session:` trailer, so their authorship could not be "
             f"established and they were NOT graded. This is a gap in coverage, "
             f"not evidence of compliance.")
+    if contradicted:
+        notes.append(
+            f"⚠️ {contradicted} of {len(shas)} commit(s) in range name a "
+            f"lease holder the register places OUT OF OFFICE when they were "
+            f"authored, so who was managing could not be established and they "
+            f"were NOT graded. Same footing as an untrailered commit: a gap in "
+            f"coverage, not evidence of compliance, and not an excuse either.")
+
+    # The standing disclosure. Printed whenever this guard reaches a verdict at
+    # all, including a clean one, so that no reader prices a graded verdict
+    # higher than the evidence under it.
+    notes.append(
+        "⚠️ WHAT THIS GUARD CANNOT SEE: the `Claude-Session:` trailer is "
+        "written by the commit's own author, and so is the author date the "
+        "office-window check reads. Together they let the lease register "
+        "CONTRADICT a trailer; nothing here can CONFIRM one. A manager that "
+        "stamps a live worker's session id inside that worker's own window is "
+        "NOT detected — that evasion is open, named, and unguarded, and the "
+        "cheapest honest fix is a per-session credential this repo does not "
+        "have. Read `clean` as `no violation among the commits whose "
+        "authorship held up`, never as `no manager did an item`.")
 
     if fails:
         return ("violation", fails, notes)
+    # `unattributed` DOMINATES `clean` on purpose. A range holding even one
+    # commit whose authorship could not be established has not been fully
+    # looked at, and rendering that as a clean bill of health is the collapse
+    # MI-106 is about.
+    if untrailered or contradicted:
+        notes.append(f"{graded} manager commit(s) graded of {len(shas)}; "
+                     f"{untrailered + contradicted} could not be attributed")
+        return ("unattributed", [], notes)
     if graded == 0:
-        state = "unattributed" if untrailered == len(shas) else "no_manager_commits"
         notes.append(f"{graded} manager commit(s) in {len(shas)} commit(s) graded")
-        return (state, [], notes)
+        return ("no_manager_commits", [], notes)
     notes.append(f"{graded} manager commit(s) graded, all inside the surface")
     return ("clean", [], notes)
 
@@ -880,6 +1342,11 @@ def check(root: Path, base: str, today: Optional[str] = None):
 # --------------------------------------------------------------------------
 MANAGER = "session_01SELFTESTMANAGER0000"
 WORKER = "session_01SELFTESTWORKER00000"
+
+#: A day AFTER the fixture's lease history places MANAGER in office. Chosen to
+#: echo the live instance: `5504200c` was authored 2026-09-03T06:13:07Z under a
+#: trailer naming a session the register had released the previous evening.
+OUT_OF_OFFICE = "2026-09-04T06:13:07+00:00"
 
 
 def _run(root: Path, *args: str) -> None:
@@ -893,17 +1360,48 @@ def _write(root: Path, rel: str, text: str) -> None:
     p.write_text(text)
 
 
-def _commit(root: Path, msg: str, session: Optional[str]) -> None:
+#: Every fixture commit is authored HERE unless a case says otherwise: inside
+#: the window `_fixture`'s lease history puts MANAGER in office. Before MI-106
+#: the author date was irrelevant and the fixture left it as "now"; the
+#: office-window check reads it, so it is now part of the fixture's contract.
+FIXTURE_WHEN = "2026-09-03T08:15:00+00:00"
+
+
+def _commit(root: Path, msg: str, session: Optional[str],
+            when: str = FIXTURE_WHEN) -> None:
     _run(root, "add", "-A")
     body = msg if session is None else \
         f"{msg}\n\nClaude-Session: https://claude.ai/code/{session}\n"
-    _run(root, "commit", "-m", body)
+    env = {"GIT_AUTHOR_DATE": when, "GIT_COMMITTER_DATE": when}
+    subprocess.run(["git", "-C", str(root), "commit", "-m", body],
+                   check=True, capture_output=True, text=True,
+                   env={**os.environ, **env})
 
 
-def _lease(holder: str, hb: str, up_state: str = "held", ttl: int = 90) -> str:
-    return json.dumps({"schema_version": 1, "state": up_state, "holder": holder,
-                       "heartbeat_at": hb, "ttl_minutes": ttl,
-                       "heartbeat_target_minutes": 30}, indent=2)
+#: The `claimed_at` the base fixture's lease carries, so an ordinary heartbeat
+#: written by a test CONTINUES that one run rather than accidentally opening a
+#: new one. A test that means to write a re-CLAIM passes a different value.
+FIXTURE_RUN = "2026-09-03T07:00:00Z"
+
+
+def _lease(holder: str, hb: str, up_state: str = "held", ttl: int = 90,
+           claimed_at: Optional[str] = FIXTURE_RUN,
+           claimed_over_state: Optional[str] = None) -> str:
+    """One lease revision.
+
+    `claimed_at` defaults to the fixture's single run. Pass a DIFFERENT value
+    to write a re-CLAIM (a new run by the same holder), or `None` to omit the
+    field entirely — the pre-MI-122 shape, which must still be GRADED rather
+    than silently exempted.
+    """
+    doc = {"schema_version": 1, "state": up_state, "holder": holder,
+           "heartbeat_at": hb, "ttl_minutes": ttl,
+           "heartbeat_target_minutes": 30}
+    if claimed_at is not None:
+        doc["claimed_at"] = claimed_at
+    if claimed_over_state is not None:
+        doc["claimed_over_state"] = claimed_over_state
+    return json.dumps(doc, indent=2)
 
 
 def _sessions(updated_at: str) -> str:
@@ -911,8 +1409,12 @@ def _sessions(updated_at: str) -> str:
                        "sessions": []}, indent=2)
 
 
-def _fixture(tmp: Path) -> Path:
-    """A throwaway repo whose `main` carries the guard and a lease history."""
+def _fixture(tmp: Path, lease: Optional[str] = None) -> Path:
+    """A throwaway repo whose `main` carries the guard and a lease history.
+
+    `lease` overrides the base lease revision — used by the MI-106 case that
+    proves an UNTIMESTAMPED register does not blind the guard.
+    """
     root = tmp / "repo"
     root.mkdir()
     _run(root, "init", "-q", "-b", "main")
@@ -921,7 +1423,8 @@ def _fixture(tmp: Path) -> Path:
     # The guard must exist at the merge-base or every branch grades
     # `predates_guard`.
     _write(root, GUARD_REL, "# stand-in for the guard under test\n")
-    _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T08:00:00Z"))
+    _write(root, LEASE_REL,
+           lease if lease is not None else _lease(MANAGER, "2026-09-03T08:00:00Z"))
     _write(root, SESSIONS_REL, _sessions("2026-09-03T07:50:00Z"))
     _write(root, "CLAUDE.md",
            "# prose before\n\n"
@@ -934,6 +1437,18 @@ def _fixture(tmp: Path) -> Path:
 
 def _branch(root: Path, name: str) -> None:
     _run(root, "checkout", "-q", "-b", name, "main")
+
+
+def _merge_no_commit(root: Path, other: str) -> None:
+    """Stage a merge of `other` WITHOUT committing it.
+
+    The caller then writes whatever the merge resolves by hand and calls
+    `_commit`, which finds MERGE_HEAD and produces a real two-parent commit.
+    That is the only way to plant the shape MI-122 is about: a commit whose
+    FIRST parent is not the line carrying the lease's prior state.
+    """
+    subprocess.run(["git", "-C", str(root), "merge", "--no-ff", "--no-commit",
+                    other], check=True, capture_output=True, text=True)
 
 
 def self_test() -> int:
@@ -961,6 +1476,80 @@ def self_test() -> int:
         assert st == "no_manager_commits", (st, fails)
         assert not fails, fails
         cases.append(("same diff, worker session -> no_manager_commits", st, ""))
+
+        # -- 2b. MI-106 PLANT: a MIS-STAMPED trailer. Must NOT be a violation.
+        #    The live instance's exact shape: the diff is a worker's, the
+        #    trailer names the manager, and the manager was NOT in office when
+        #    it was authored. The fact is "we cannot establish who wrote this",
+        #    and rendering that as a graded `violation` is MI-106.
+        #    ⚠️ THIS IS THE CASE THAT MUST NOT PASS BY BEING QUIET: it asserts
+        #    the state is `unattributed` AND that the reason names the register,
+        #    so a future change that simply stops grading would fail it.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "plant-misstamp")
+        _write(root, "src/runtime/orders.py", "x = 2\n")
+        _commit(root, "worker: tweak the order path", MANAGER,
+                when=OUT_OF_OFFICE)
+        st, fails, notes = check(root, "main")
+        assert st == "unattributed", (st, fails)
+        assert not fails, ("a contradicted trailer must not produce a graded "
+                           "finding", fails)
+        joined = "\n".join(notes)
+        assert "UNATTRIBUTED" in joined, notes
+        assert "CONTRADICTS the trailer" in joined, notes
+        cases.append(("manager trailer, manager NOT in office -> unattributed "
+                      "(not violation)", st, ""))
+
+        # -- 2c. MI-106 CONTROL: the SAME diff, the SAME trailer, authored
+        #    INSIDE the manager's office window. Must still be a VIOLATION.
+        #    Without this the plant above is satisfiable by a guard that has
+        #    simply stopped enforcing R2.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "control-in-office")
+        _write(root, "src/runtime/orders.py", "x = 2\n")
+        _commit(root, "worker: tweak the order path", MANAGER)
+        st, fails, _ = check(root, "main")
+        assert st == "violation", (st, fails)
+        assert "application source" in "\n".join(fails), fails
+        cases.append(("same diff, same trailer, manager IN office -> violation",
+                      st, "\n".join(fails)))
+
+        # -- 2d. MI-106 CONTROL: an UNTIMESTAMPED register must not BLIND the
+        #    guard. If "no office window derivable" meant "nothing graded", the
+        #    cheapest way past R2 would be to break the lease file — the
+        #    `new-table-wiring-guard` failure with an extra step. It falls back
+        #    to the trailer alone and SAYS so.
+        shutil.rmtree(root)
+        root = _fixture(tmp, lease=json.dumps(
+            {"schema_version": 1, "state": "held", "holder": MANAGER,
+             "ttl_minutes": 90}, indent=2))
+        _branch(root, "control-no-window")
+        _write(root, "src/runtime/orders.py", "x = 2\n")
+        _commit(root, "manager: tweak the order path", MANAGER,
+                when=OUT_OF_OFFICE)
+        st, fails, notes = check(root, "main")
+        assert st == "violation", (st, fails)
+        assert "no office window could be derived" in "\n".join(notes) or \
+               "NO office window could be derived" in "\n".join(notes), notes
+        cases.append(("register carries no timestamps -> still graded, and "
+                      "said out loud", st, "\n".join(fails)))
+
+        # -- 2e. MI-106 CONTROL: the standing disclosure is on EVERY verdict,
+        #    including a clean one. A limit printed only on failures is a limit
+        #    no reader of a green run ever sees.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "control-disclosure")
+        _write(root, "docs/claude/work/MANAGER-CHECKLIST.json", '{"items": []}\n')
+        _commit(root, "manager: keep the checklist", MANAGER)
+        st, _, notes = check(root, "main")
+        assert st == "clean", st
+        assert "WHAT THIS GUARD CANNOT SEE" in "\n".join(notes), notes
+        assert "stamps a live worker's session id" in "\n".join(notes), notes
+        cases.append(("the trailer's limits are disclosed on a CLEAN run too",
+                      st, ""))
 
         # -- 3. CONTROL: manager commits its own registers. Must PASS. --------
         shutil.rmtree(root)
@@ -1092,6 +1681,141 @@ def self_test() -> int:
         assert st == "clean", (st, fails)
         cases.append(("handover after a long silence -> clean (not a lapse)",
                       st, ""))
+
+        # -- 8e. MI-122 PLANT (face A): a re-CLAIM over an EXPIRED lease is
+        #    NOT a late check-in. Must PASS -- and must still REPORT the dead
+        #    interval. The live instance's exact shape and its exact number:
+        #    the base fixture last heartbeats at 08:00 and this claim is at
+        #    20:26, so the silence is 746 minutes, the figure cc984fec failed
+        #    on. The holder is UNCHANGED, so the pre-existing handover
+        #    exemption cannot reach it -- only the RUN can.
+        #    ⚠️ THIS CASE MUST NOT PASS BY BEING QUIET. It asserts the note is
+        #    present AND names the interval, so a change that "fixes" R7 by
+        #    simply not looking fails here instead of passing silently. That
+        #    is the whole difference between moving where silence is charged
+        #    and making it disappear.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "plant-reclaim")
+        _write(root, LEASE_REL,
+               _lease(MANAGER, "2026-09-03T20:26:00Z",
+                      claimed_at="2026-09-03T20:26:00Z",
+                      claimed_over_state="expired"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T20:21:00Z"))
+        _commit(root, "manager-lease: claim by the manager over an expired lease",
+                MANAGER)
+        st, fails, notes = check(root, "main")
+        assert st == "clean", (st, fails)
+        joined = "\n".join(notes)
+        assert "re-CLAIM" in joined, notes
+        assert "746 minutes" in joined, ("the dead interval must still be "
+                                         "REPORTED, not made to disappear", notes)
+        assert "expired" in joined, notes
+        cases.append(("re-claim over an expired lease -> clean, dead interval "
+                      "still reported", st, ""))
+
+        # -- 8f. MI-122 CONTROL (face A): the SAME 746-minute gap, the SAME
+        #    holder, but the SAME RUN -- an ALIVE manager that simply went
+        #    quiet. Must still be a VIOLATION. Without this the plant above is
+        #    satisfiable by a guard that has stopped grading cadence at all,
+        #    and R7's real case (the measured 4% of gaps past one TTL) would
+        #    be gone.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "control-same-run-silence")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T20:26:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T20:21:00Z"))
+        _commit(root, "manager: lease heartbeat after a very long silence",
+                MANAGER)
+        st, fails, _ = check(root, "main")
+        assert st == "violation", (st, fails)
+        joined = "\n".join(fails)
+        assert "R7" in joined, fails
+        assert "R6" not in joined, ("R6 fired too -- the plant is not isolated",
+                                    fails)
+        cases.append(("746min silence WITHIN one run -> violation (R7 only)",
+                      st, joined))
+
+        # -- 8g. MI-122 PLANT (face B): a manager MERGE whose FIRST parent is
+        #    the worker branch, carrying a lease 140 minutes stale, while the
+        #    SECOND parent carries the manager's actual latest heartbeat. Must
+        #    PASS. Reading `sha~1` grades 140 minutes against a 90-minute TTL
+        #    and fails a lapse that never happened -- the #10895 blocker.
+        #    The manager line steps 08:00 -> 09:10 -> 10:20, each 70 minutes,
+        #    deliberately UNDER the TTL so those commits cannot fail on their
+        #    own and only the merge is under test.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "manager-line")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T09:10:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T09:05:00Z"))
+        _commit(root, "manager: lease heartbeat", MANAGER)
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T10:20:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T10:15:00Z"))
+        _commit(root, "manager: lease heartbeat", MANAGER)
+        _branch(root, "worker-line")
+        _write(root, "src/runtime/orders.py", "x = 9\n")
+        _commit(root, "worker: an ordinary change on the worker branch", WORKER)
+        _merge_no_commit(root, "manager-line")
+        _commit(root, "manager: merge main into the worker branch", MANAGER)
+        st, fails, notes = check(root, "main")
+        assert st == "clean", (st, fails)
+        assert "MERGE" in "\n".join(notes), notes
+        cases.append(("manager merge, stale FIRST parent -> clean (previous "
+                      "heartbeat read from the right parent)", st, ""))
+
+        # -- 8h. MI-122 CONTROL (face B): the SAME merge shape, but the merge
+        #    itself advances the heartbeat to 12:30 -- 130 minutes past the
+        #    NEWEST parent (10:20), not merely past the stale one. Must still
+        #    be a VIOLATION. Without this, reading every parent could be
+        #    "fixed" into never grading a merge at all, and a manager could
+        #    launder any silence through a merge commit.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "manager-line")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T09:10:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T09:05:00Z"))
+        _commit(root, "manager: lease heartbeat", MANAGER)
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T10:20:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T10:15:00Z"))
+        _commit(root, "manager: lease heartbeat", MANAGER)
+        _branch(root, "worker-line")
+        _write(root, "src/runtime/orders.py", "x = 9\n")
+        _commit(root, "worker: an ordinary change on the worker branch", WORKER)
+        _merge_no_commit(root, "manager-line")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T12:30:00Z"))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T12:25:00Z"))
+        _commit(root, "manager: merge main into the worker branch and check in",
+                MANAGER)
+        st, fails, _ = check(root, "main")
+        assert st == "violation", (st, fails)
+        joined = "\n".join(fails)
+        assert "R7" in joined, fails
+        assert "R6" not in joined, ("R6 fired too -- the plant is not isolated",
+                                    fails)
+        cases.append(("merge that is genuinely 130min past its NEWEST parent "
+                      "-> violation (R7 only)", st, joined))
+
+        # -- 8i. MI-122 CONTROL: a lease with NO `claimed_at` on either side
+        #    still GRADES. The run cannot be established, and the deliberate
+        #    choice is to keep enforcement rather than drop it -- otherwise
+        #    deleting one field from the lease would switch R7 off, which is
+        #    cheaper than checking in and is exactly the incentive this unit
+        #    exists to close.
+        shutil.rmtree(root)
+        root = _fixture(tmp, lease=_lease(MANAGER, "2026-09-03T08:00:00Z",
+                                          claimed_at=None))
+        _branch(root, "control-no-claimed-at")
+        _write(root, LEASE_REL, _lease(MANAGER, "2026-09-03T11:30:00Z",
+                                       claimed_at=None))
+        _write(root, SESSIONS_REL, _sessions("2026-09-03T11:25:00Z"))
+        _commit(root, "manager: lease heartbeat after a long silence", MANAGER)
+        st, fails, notes = check(root, "main")
+        assert st == "violation", (st, fails)
+        assert "R7" in "\n".join(fails), fails
+        assert "could NOT be established" in "\n".join(notes), notes
+        cases.append(("no claimed_at -> still graded (enforcement kept)",
+                      st, "\n".join(fails)))
 
         # -- 9. PLANTED: a `pending` exception must GRANT NOTHING. ------------
         shutil.rmtree(root)
@@ -1264,8 +1988,13 @@ def main() -> int:
               f"only — add a named, dated, scoped entry to {EXCEPTION_REL}.")
         return 1
     if state in ("not_a_pr", "unattributed"):
-        # Loud, and never rendered the same as a real pass.
-        print("  (nothing was graded — this is not a clean bill of health)")
+        # Loud, and never rendered the same as a real pass. `unattributed` is
+        # the THIRD state MI-106 exists for: it says we could not establish who
+        # wrote something, which is a different fact from `clean` (nobody broke
+        # the rule) and from `violation` (someone did). Collapsing it into
+        # either is the defect.
+        print("  (authorship could not be established for part of this range — "
+              "this is NOT a clean bill of health, and NOT an excuse either)")
     return 0
 
 

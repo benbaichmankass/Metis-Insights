@@ -228,6 +228,39 @@ _DEFAULT_PROMPT_SECONDS = 300.0
 _DEFAULT_RETAIN_DAYS = 30.0
 _HTTP_TIMEOUT_S = 15.0
 _PROMPT_STATE_BASENAME = "work_decision_prompted.json"
+_SWEEP_RECEIPT_BASENAME = "work_decision_sweep_receipt.json"
+
+#: How many per-run stats rows the durable receipt keeps.
+#:
+#: ⚠️ THE RING IS THE WHOLE POINT — A ONE-SLOT RECEIPT WOULD BE WORSE THAN THE
+#: JOURNAL IT REPLACES. `work_digest_receipt.json` holds only the last run
+#: because its carrier fires HOURLY; this sweep fires every
+#: ``WORK_DECISION_PROMPT_SECONDS`` (default 300s), so a single-slot receipt
+#: would retain FIVE MINUTES of history against the systemd journal's measured
+#: ~30 (MI-109: the 14:05:48 send was already unreachable 45 minutes later).
+#: At 200 rows × 300s the window is ~16.7 hours, which is the first surface on
+#: which a mis-delivery can still be diagnosed after the operator notices it.
+_RECEIPT_RUNS_KEPT = 200
+
+#: The destination the operator asked decisions to land on. A marker recording
+#: anything else is a prompt that was CONSUMED in the wrong chat.
+PREFERRED_DESTINATION = "claude"
+
+# ── the marker's destination states, never collapsed ─────────────────────────
+#: The marker records the preferred destination — the question was asked where
+#: it was supposed to be asked. Never re-send.
+MARKER_REACHED_PREFERRED = "reached_preferred"
+#: The marker records a destination that is NOT the preferred one (today:
+#: ``trader_fallback``, or ``none``). The question was consumed in the wrong
+#: chat and is re-sendable once routing improves.
+MARKER_WRONG_DESTINATION = "wrong_destination"
+#: The marker predates the destination field, or carries a destination we
+#: cannot read. ⚠️ THIS IS *WE DID NOT LOOK* AND IS NOT EITHER OF THE ABOVE.
+#: It is deliberately NOT folded into ``reached_preferred`` (which would leave
+#: every already-consumed prompt permanently unrecoverable — the exact defect
+#: MI-109 records) nor into ``wrong_destination`` (which would assert a
+#: mis-delivery nobody observed).
+MARKER_DESTINATION_UNRECORDED = "unrecorded"
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -795,11 +828,151 @@ def _prune(
     return out
 
 
+def marker_destination_state(row: Any) -> str:
+    """Where did the prompt this marker records actually GO?
+
+    Three states, never collapsed —
+    :data:`MARKER_REACHED_PREFERRED` / :data:`MARKER_WRONG_DESTINATION` /
+    :data:`MARKER_DESTINATION_UNRECORDED`. The third is *we did not look*, and
+    keeping it distinct is what lets a marker written before this field existed
+    be told apart from one that positively records the right chat.
+    """
+    if not isinstance(row, dict):
+        return MARKER_DESTINATION_UNRECORDED
+    dest = row.get("destination")
+    if not isinstance(dest, str) or not dest.strip():
+        return MARKER_DESTINATION_UNRECORDED
+    if dest.strip() == PREFERRED_DESTINATION:
+        return MARKER_REACHED_PREFERRED
+    return MARKER_WRONG_DESTINATION
+
+
+def _redelivery_count(row: Any) -> int:
+    if not isinstance(row, dict):
+        return 0
+    raw = row.get("redelivered_count")
+    return raw if isinstance(raw, int) and raw > 0 else 0
+
+
+def redelivery_verdict(row: Any, route: "AnswerableRoute") -> str:
+    """May this already-prompted request be asked ONE more time?
+
+    ⚠️ THIS IS NOT AN UNCONDITIONAL RE-SEND, which MI-109's ``done_condition``
+    rules out explicitly: it spams a question the operator may already have
+    answered, and the once-only marker exists for a real reason. Every one of
+    the three suppressing verdicts below is a hard stop, and the two permitting
+    ones each fire AT MOST ONCE PER REQUEST FOR ITS WHOLE LIFE.
+
+    A re-send is permitted only where all three hold:
+
+    1. the marker does NOT record that the prompt reached the preferred
+       destination — so re-asking cannot duplicate a question already put in
+       the right chat;
+    2. the route is NOW the preferred destination — so the re-ask goes
+       somewhere strictly better than the original did, rather than repeating
+       the same mis-delivery; and
+    3. this request has never been re-sent before — so this can never become a
+       loop, whatever happens to routing afterwards.
+
+    ⚠️ AND A DUPLICATE *DECISION* REMAINS IMPOSSIBLE REGARDLESS: the submit
+    route owns every refusal and answers a second submission with 409. The
+    worst case here is one duplicate PROMPT, which is recoverable; a
+    permanently consumed one is not.
+    """
+    if _redelivery_count(row) >= 1:
+        return "suppressed_already_redelivered"
+    state = marker_destination_state(row)
+    if state == MARKER_REACHED_PREFERRED:
+        return "suppressed_reached_preferred"
+    if route.destination != PREFERRED_DESTINATION:
+        # Re-asking on the same non-preferred route would consume the retry
+        # and land in the same wrong chat. Hold it: the marker keeps the
+        # request re-sendable for whenever routing IS fixed.
+        return "suppressed_route_not_better"
+    if state == MARKER_WRONG_DESTINATION:
+        return "redeliver_wrong_destination"
+    return "redeliver_unrecorded_destination"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# The DURABLE per-run receipt — (b) of MI-109.
+#
+# ⚠️ MORE JOURNAL LOGGING IS EXPLICITLY NOT SUFFICIENT: the journal is the
+# surface that already evaporated (measured ~30 minutes). This writes the same
+# stats to disk, where `/api/diag/log_file?name=work_decision_sweep_receipt`
+# can read them back, following the `work_digest_receipt.json` /
+# `prop_fills_staleness_state.json` pattern.
+# ═════════════════════════════════════════════════════════════════════════════
+
+
+def sweep_receipt_path() -> Path:
+    return Path(runtime_logs_dir()) / _SWEEP_RECEIPT_BASENAME
+
+
+def read_sweep_receipt(path: Optional[Path] = None) -> tuple[dict[str, Any], str]:
+    """Return ``(receipt, read_state)`` with ``read``/``absent``/``unreadable``.
+
+    Same three-state contract as :func:`read_prompt_state`: an ABSENT receipt
+    means this sweep has never run on this VM, and an UNREADABLE one means we
+    could not look — never that it did not run.
+    """
+    p = path or sweep_receipt_path()
+    try:
+        if not p.exists():
+            return {}, "absent"
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except OSError as exc:
+        logger.warning("telegram_decisions: sweep receipt unreadable: %s", exc)
+        return {}, "unreadable"
+    except ValueError as exc:
+        logger.warning("telegram_decisions: sweep receipt malformed: %s", exc)
+        return {}, "unreadable"
+    return (data if isinstance(data, dict) else {}), "read"
+
+
+def write_sweep_receipt(
+    stats: dict[str, Any], *, now: datetime, path: Optional[Path] = None,
+) -> None:
+    """Append this run's stats to the bounded receipt ring. Never raises.
+
+    ⚠️ STAMPED ON EVERY OUTCOME, not only on a send — the reason
+    ``work_digest_receipt`` is: *a receipt written only on success cannot tell
+    a DEAD sweep from a FAILING one*. A paused sweep, an unreadable inbox and a
+    held prompt all land here, because each of those is a state the operator
+    has actually been in and none of them was durably readable.
+    """
+    p = path or sweep_receipt_path()
+    row = dict(stats)
+    row["run_at"] = _iso(now)
+    try:
+        existing, _read_state = read_sweep_receipt(p)
+        prior = existing.get("runs")
+        runs = list(prior) if isinstance(prior, list) else []
+        runs.append(row)
+        payload = {
+            "schema": 1,
+            "updated_at": _iso(now),
+            "runs_kept": _RECEIPT_RUNS_KEPT,
+            "last": row,
+            "runs": runs[-_RECEIPT_RUNS_KEPT:],
+        }
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_suffix(p.suffix + ".tmp")
+        tmp.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, p)
+    except (OSError, TypeError, ValueError) as exc:
+        # A receipt is observability. It must never take the sweep down with
+        # it — the `run_prop_expiry_prompts` contract.
+        logger.warning("telegram_decisions: sweep receipt write failed: %s", exc)
+
+
 def run_decision_prompt_sweep(
     *,
     sender: Optional[Callable[[str, Optional[dict[str, Any]]], bool]] = None,
     now: Optional[datetime] = None,
     state_path: Optional[Path] = None,
+    receipt_path: Optional[Path] = None,
 ) -> dict[str, Any]:
     """Send ONE prompt per un-prompted, unanswered decision request.
 
@@ -820,9 +993,24 @@ def run_decision_prompt_sweep(
                                 poller), and pooling them hides which one you have.
       ``failed``                send attempted and not confirmed
 
+    Already-prompted requests are counted by WHY they were not re-asked, and
+    those populations are never pooled either (MI-109 (a)):
+      ``redelivered``                       re-sent ONCE, because the marker
+                                            shows the original prompt did not
+                                            reach the preferred destination and
+                                            the route now does.
+      ``suppressed_reached_preferred``      the marker records the right chat.
+      ``suppressed_route_not_better``       the route is still not preferred, so
+                                            a re-ask would repeat the mistake.
+      ``suppressed_already_redelivered``    re-sent once already; bounded there.
+
     ``poll_state`` / ``destination`` record WHY, and are never collapsed: read
     ``poll_state`` for ``token_only_not_polled`` (we looked, nothing polls it)
     vs ``unknown`` (we could not look).
+
+    ⚠️ EVERY RETURN PATH STAMPS THE DURABLE RECEIPT (MI-109 (b)) — including
+    the early ones. `paused`, `inbox unreadable` and `prompt-state unreadable`
+    are precisely the states that used to leave nothing behind at all.
     """
     stats: dict[str, Any] = {
         "checked": False, "reason": None, "candidates": 0,
@@ -831,9 +1019,22 @@ def run_decision_prompt_sweep(
         "failed": 0, "paused": False,
         "prompt_state_read": None,
         "destination": None, "poll_state": None,
+        "token_from": None,
+        "redelivered": 0,
+        "suppressed_reached_preferred": 0,
+        "suppressed_route_not_better": 0,
+        "suppressed_already_redelivered": 0,
     }
     from src.bot.telegram_routes import claude_route
 
+    ref = now or _now()
+    # ⚠️ The receipt follows a REDIRECTED state path by default. Both files are
+    # this sweep's on-disk state, so a caller that redirects one and not the
+    # other (every existing test) would otherwise keep writing the receipt into
+    # the real runtime_logs/ — which conftest's isolation detector grades as a
+    # test leaking state, and which would be a real leak.
+    if receipt_path is None and state_path is not None:
+        receipt_path = Path(state_path).parent / _SWEEP_RECEIPT_BASENAME
     try:
         if prompt_interval_seconds() <= 0:
             stats["paused"] = True
@@ -865,7 +1066,9 @@ def run_decision_prompt_sweep(
         stats["destination"] = route.destination
         stats["poll_state"] = (
             route.poll.state if route.poll else poll_registry.UNKNOWN)
-        ref = now or _now()
+        # The token VARIABLE name, never a token value — the discipline the
+        # poll registry and `AnswerableRoute.describe` already hold to.
+        stats["token_from"] = route.token_from
 
         # ⚠️ The poll gate applies ONLY to the DEFAULT sender, because only the
         # default sender sends on ``route.token``. An injected sender delivers
@@ -942,8 +1145,19 @@ def run_decision_prompt_sweep(
             if req.get("answerState") != "not_submitted":
                 continue
             key = marker_key(str(req.get("objectId")), str(req.get("id")))
-            if key in prompted:
-                continue
+            marker = prompted.get(key)
+            verdict = None
+            if marker is not None:
+                verdict = redelivery_verdict(marker, route)
+                if verdict.startswith("suppressed_"):
+                    stats[verdict] += 1
+                    continue
+                logger.info(
+                    "telegram_decisions: re-sending %s ONCE — its marker "
+                    "records destination=%s and the route is now %s (%s)",
+                    key, marker_destination_state(marker),
+                    route.destination, verdict,
+                )
             stats["candidates"] += 1
 
             keyboard = build_decision_keyboard(req)
@@ -983,12 +1197,37 @@ def run_decision_prompt_sweep(
                 # `run_prop_expiry_prompts` rule: flip only on a confirmed send.
                 stats["failed"] += 1
                 continue
-            prompted[key] = {
-                "prompted_at": _iso(ref),
+            # ⚠️ THE MARKER RECORDS WHERE IT WENT (MI-109 (a)). Without this the
+            # marker is once-only and destination-blind, so a prompt delivered
+            # to the wrong chat is PERMANENTLY CONSUMED and unattributable
+            # afterwards — the one line naming the destination lived only in
+            # the systemd journal, whose measured retention is ~30 minutes.
+            #
+            # ⚠️ `token_from` / `chat_from` are the VARIABLE NAMES, never the
+            # values. A marker file readable over /api/diag must not be a place
+            # a bot token can leak.
+            row: dict[str, Any] = {
+                "prompted_at": _iso(ref) if marker is None
+                else (marker.get("prompted_at") if isinstance(marker, dict)
+                      else _iso(ref)),
                 "object_id": req.get("objectId"),
                 "request_id": req.get("id"),
                 "kind": "choice" if keyboard is not None else "free_text_only",
+                "destination": route.destination,
+                "poll_state": stats["poll_state"],
+                "token_from": route.token_from,
+                "chat_from": route.chat_from,
             }
+            if marker is not None:
+                # Bounded at one for the life of the request, and it records
+                # what it was rescued FROM so the re-send is itself
+                # attributable rather than looking like a first ask.
+                row["redelivered_at"] = _iso(ref)
+                row["redelivered_count"] = _redelivery_count(marker) + 1
+                row["redelivered_from"] = marker_destination_state(marker)
+                row["redelivery_reason"] = verdict
+                stats["redelivered"] += 1
+            prompted[key] = row
             if keyboard is not None:
                 stats["prompted_choice"] += 1
             else:
@@ -1001,6 +1240,12 @@ def run_decision_prompt_sweep(
     except Exception as exc:  # noqa: BLE001 — the sweep must never kill the bot
         logger.warning("telegram_decisions: sweep failed: %s", exc, exc_info=True)
         stats["reason"] = f"sweep failed: {exc}"
+    finally:
+        # ⚠️ `finally`, so the EARLY returns above are stamped too. A receipt
+        # that only records runs which reached the bottom cannot tell a swept
+        # inbox from a paused sweep, and both of those are states the operator
+        # has been in while believing the channel was working.
+        write_sweep_receipt(stats, now=ref, path=receipt_path)
     return stats
 
 
@@ -1437,11 +1682,14 @@ __all__ = [
     "encode_callback",
     "fetch_inbox",
     "handle_decision_callback",
+    "marker_destination_state",
     "marker_key",
     "option_digest",
     "prompt_interval_seconds",
     "prompt_state_path",
     "read_prompt_state",
+    "read_sweep_receipt",
+    "redelivery_verdict",
     "render_callback_reply",
     "render_decision_prompt",
     "render_decisions_summary",
@@ -1449,5 +1697,11 @@ __all__ = [
     "resolve_callback",
     "run_decision_prompt_sweep",
     "submit_answer",
+    "sweep_receipt_path",
     "write_prompt_state",
+    "write_sweep_receipt",
+    "MARKER_REACHED_PREFERRED",
+    "MARKER_WRONG_DESTINATION",
+    "MARKER_DESTINATION_UNRECORDED",
+    "PREFERRED_DESTINATION",
 ]

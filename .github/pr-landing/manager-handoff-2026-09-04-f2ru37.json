@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Manager state and one generated data file. The partial take of docs/claude/PROBES.json from #10921 (three days newer than main's, checked for row loss before taking), four settled PR rows with measured stamp comparisons, the operator's Tier-2 approval on #10975 recorded verbatim with the tier correction that produced it, and the merge-queue refresh. No runtime, no order path, no strategy config, no risk cap, no live-VM file, no workflow, no scripts/, no src/."
+  "why": "Manager state and backlog filings. CONCURRENCY-CAPS.json resolved to sessions=3 on an operator decision (the superseded 4 moved out of contested so the check can pass), MI-118 (MERGE-QUEUE.json has no row-aware merge driver), MI-119, MI-120 (the work-digest test builds its control from live production state), MI-121, the MI-101 object corrected in_flight -> waiting, and MANAGER-LEASE.json re-claimed after the holder went idle for twelve hours and the lease expired. docs/claude/** plus this branch's own landing files. No runtime, no order path, no strategy config, no risk cap, no live-VM file, no workflow, no scripts/, no src/."
 }
