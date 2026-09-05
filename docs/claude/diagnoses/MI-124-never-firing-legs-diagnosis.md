@@ -256,3 +256,19 @@ with one correction that is mine:
 - `not_established` ×1 (`tqqq`): **confirmed**.
 - `mis_routed` ×1 (`turtle_soup`): **confirmed**, plus the shadow finding the packet
   omits.
+
+## 9. Landing note — why PR #11019's own description is boilerplate
+
+`claude-pr-automerge.yml` fires on any push to a `claude/**` branch touching
+`.github/pr-automerge-requests/`, and opens the PR itself. The Tier-1 protocol
+requires that file, so pushing the mandated landing pair opened #11019 with
+`title = head-commit subject` and a two-line body before `pr-opener.yml` could
+supply the real ones; `pr-opener` then exited `FAILED: ... already exists`, and
+`update_pull_request` 403s from this session.
+
+Filed as `BL-20260905-AUTOMERGE-RELAY-WINS-THE-RACE-WITH-PR-OPENER-SO-EVERY-TIER-1-PR-GETS-A-BOILERPLATE-BODY`.
+It is **not** the `pr-opener` draft cluster (`BL-20260903-*`, `BL-20260904-*`) —
+there `pr-opener` opened the PR and got the draft flag wrong; here it opened
+nothing and the PR is correctly not a draft.
+
+**This document is the PR description.** Read §§1–8 as the change's rationale.
