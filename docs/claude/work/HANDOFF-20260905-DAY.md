@@ -267,3 +267,31 @@ carries the loss. **An idle session is not a finished one.** The manager
 deliberately did not sweep-archive them: that would have destroyed the
 evidence the item rests on, and it is not the manager's call to make on 76
 sessions it did not spawn.
+
+---
+
+## CLEAN STOP (15:00Z) — nothing routed, nothing running
+
+Operator instruction, verbatim: *"Do not route anything anywhere else. I want
+a clean stop."* **No session was spawned.** The three queued items below are
+recorded and unowned, deliberately, and are the successor's to route.
+
+| item | state | what it needs |
+|---|---|---|
+| **MI-134** | queued, unowned | the ownership mechanism — **derive ownership at READ time**, not at spawn, or it inherits the register's staleness |
+| **MI-103** | queued, unowned | the reconcile generator's mechanism; **state corrected from `in_flight`** — see below |
+| **MI-132** | queued, unowned | detector half startable now; **poke half needs the operator's connector grant** |
+| MI-133 | queued, unowned | re-grade OPEN-ITEMS loudness against a stated bar |
+
+⚠️ **MI-103 was reading `in_flight` with owner `unassigned`, and nothing was
+working it.** I set that earlier today when recording the recurrence and
+never routed a session. That is the checklist-side form of exactly what
+MI-134 prohibits — work in a working state with no owner, reading as covered
+while nobody is on it. Corrected to `queued`. **Worth a sweep by the
+successor:** 27 items read `in_flight` and only a handful can have a live
+owner, since the platform reports no sub-session running at all.
+
+**Final state at stop:** lease RELEASED · every sub-session this manager
+spawned ARCHIVED · exactly one session running account-wide (this one) ·
+2 PRs open (#10895 actionable, #10398 close-owed) · 16 backlog rows filed
+today · **zero items taken, zero sessions spawned.**
