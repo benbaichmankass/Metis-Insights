@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Two manager surfaces: docs/claude/work/HANDOFF-20260905-DAY.md (records the final handoff_check result verbatim, so a successor seeing not_ready knows the single FAIL is a sequencing error and not lost state) and docs/claude/health-review-backlog.json (one low-severity row filed through backlog_append.py, which round-trips the file's exact serialisation), plus the two landing-declaration files themselves. No src/, no config/, no deploy/, no .github/workflows/, no tests, no order path, no strategy config, no risk caps, no live-VM runtime file: Tier-1 by the canonical doc's own surface list, and filing is explicitly the act of NOT taking an item. Verified before pushing: session-brief matches the registers, and every BL- id introduced resolves to a filed row. Everything is committed BEFORE the push that arms auto-merge, because arming and then continuing to work stranded three commits earlier today."
+}

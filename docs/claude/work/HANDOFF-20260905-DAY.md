@@ -144,3 +144,45 @@ and none of the four required ones. #11066 sat like that for 13 minutes.
 **Push one ordinary commit yourself to arm CI.** Do not read zero checks as
 "CI hasn't started"; read `mergeable_state` — `blocked` is this, `dirty` is
 a merge conflict.
+
+---
+
+## The gate says `not_ready`. Read why before you act on it.
+
+Run at 12:01Z with all three observations supplied
+(`--session-id`, `--live-sessions`, `--open-prs`):
+
+```
+[PASS] live_registry          3 live session(s) registered (observed 14)
+[PASS] checklist_owners       72 owner mention(s) across 128 items resolve
+[FAIL] lease                  you do not hold the lease (state=released)
+[PASS] manager_state_pushed   registry, checklist and lease match origin/main
+[PASS] pending_spawns         no unconfirmed spawn_pending rows
+[PASS] open_prs               all 2 open PRs have a row; no row names a closed one
+[PASS] pr_decisions           all rows carry a typed decision
+[PASS] settled_prs            43 rows, every non-merged one says why
+readiness=not_ready
+```
+
+**The single FAIL is a sequencing error I made, not state a successor
+loses.** The contract is hold → check → release; I released at 11:55:16Z and
+ran the check afterwards, so it correctly reports that I am handing over
+something I no longer hold. Every check that measures whether anything is
+LOST passes.
+
+⚠️ **I deliberately did NOT re-claim the lease to turn it green.** Claiming a
+lease for the sole purpose of passing a check, then releasing it again, is
+manufacturing a pass — the "cheaper to game than to satisfy" failure this
+repo's guards exist to prevent. A released lease is strictly better for you:
+you claim immediately instead of waiting out the 90-minute TTL.
+
+**What this means for you:** run the gate yourself once you hold the lease.
+It should read `ready`. If it does not, the failing check names a real loss —
+mine did not.
+
+⚠️ **And note the incentive this check creates**, filed as
+`BL-20260905-HANDOFF-CHECK-CANNOT-GRADE-READY-AFTER-THE-RELEASE-THAT-IS-THE-CORRECT-FINAL-ACT`:
+releasing is the right last act, the check cannot pass after it, and the
+tool's advice is "fix them, then re-run" — which for this one check means
+re-claim. Nothing enforces the order, so the natural sequence produces a red
+that invites the wrong repair.
