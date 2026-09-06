@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T10:26:00Z",
+  "updated_at": "2026-09-06T11:02Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1765,30 +1765,34 @@
       "id": "MI-135-OBSERVATION-SWEEP",
       "title": "Phase 1A — the observation sweep: 54 OPEN-ITEMS rows + 28 landed_unproven items have never been looked at on the fleet",
       "state": "landed_unproven",
-      "owner": "session_01UaZ9boMDajiCZsjVkr4Fnz (IDLE — completed its batch)",
+      "owner": "session_01UaZ9boMDajiCZsjVkr4Fnz",
       "owns_object": "WO-20260906-THE-OBSERVATION-SWEEP-54-OPEN-ITEMS-ROWS",
       "priority": "P1_CYCLE",
       "tier": "1",
-      "note": "Serves the cycle priority CY-20260903-MANAGER-CONTROL directly. 17 OPEN-ITEMS rows carry verified_at=never. Bar: a green test, a merged PR and a deploy are NOT observations. Dispatch committed at docs/claude/work/spawn-prompts/2026-09-06/1A-observation-sweep.md.",
+      "note": "#11101 merged; 26/82 items audited, 5 false register claims, 2 unsatisfiable criteria. Residue is MI-142.",
       "spawned_at": "2026-09-06T08:50Z",
       "result_2026_09_06": "LANDED via #11101 (b84f490c on main) — VERIFIED by diffing the file, not by the session's claim. 26 of 54 OPEN-ITEMS rows dispositioned: 2 CLOSED on fleet evidence, 17 RE-AFFIRMED with a fresh observation, 7 recorded NOT OBSERVABLE with the reason. verified_at=never fell 17 -> 9. Patched surgically (52 insertions / 52 deletions, row order preserved). The session brief SHRANK by 54 lines because re-observed rows stopped being DUE. ⚠️ THE SESSION'S OWN SUMMARY SAID '#11103 merged' AND THAT WAS THE WRONG PR — #11103 is a 3-file board-relay filing; the sweep landed in #11101. Read the diff, not the summary. 56 of 82 items REMAIN undone and the session is idle at 487k/1M context — needs a fresh session, not a nudge, since it cannot be messaged. FINDINGS IT SURFACED, each needing an owner: alpaca_live's routed real-money leg CANNOT PLACE (both gates read live, every signal journals dry_run_no_order_placed); a 2393% same-book SL over-accumulation on bybit_1/SOLUSDT; one repeating exception is 47% of the entire operator ERROR+ feed (alarm-fatigue P1); per-account arbitration CLOSED on all three criteria; the 10 sunset candidates CLOSED.",
-      "added": "2026-09-06"
+      "added": "2026-09-06",
+      "status": "done",
+      "updated": "2026-09-06T10:54Z"
     },
     {
       "id": "MI-136-ZERO-FOR-THIRTEEN",
       "title": "Phase 1B — real money went 0-for-13 the week e35 shipped, and the R instrument contradicts the PnL",
       "state": "in_flight",
-      "owner": "session_01XRYfPGr4jAHr4k1rmvTKFi (RETRY — pushed within 6 min, early-push instruction worked)",
+      "owner": "session_01XRYfPGr4jAHr4k1rmvTKFi",
       "owns_object": "WO-20260906-REAL-MONEY-WENT-0-FOR-13-THE",
       "priority": "P1_TRADING",
       "tier": "3 (proposal only)",
-      "note": "MEASURED 2026-09-06T07:1xZ: bybit_2 13 graded closes since 08-30, ZERO wins, -43.12 on a 264.86 book (~-14% of starting equity), expectancyR -0.90. Prior fortnight 14/23 (60.9%) and +40.96. 30d window reads expectancyR +0.98 while totalPnl is -3.63 -- MI-30's R contamination, and R feeds the promotion gates. Deliverable 1 (trustworthy instrument) GATES deliverable 2 (attribution). Displaces the cycle priority under a NARROW spawn-priority exception naming this object. Tier-3 PROPOSED never applied. Dispatch at docs/claude/work/spawn-prompts/2026-09-06/1B-loss-attribution.md.",
+      "note": "#11111 merged. e35 REFUTED as primary cause (13.5% of loss, and the run predates it). Regime collapse: median MFE/D 2.11 -> 0.15, zero of 13 reached +1R.",
       "spawned_at": "2026-09-06T08:50Z",
       "result_2026_09_06": "⚠️ THE FIRST RUN LOST ITS WORK ENTIRELY. session_013r8Joo877hnkYoKRzQsrwW completed the analysis, committed 7a72a1e and could not push — it was spawned with NO repo attached (session_context had no `sources` key, unlike its two siblings) and the git proxy refused with 'repo not in authorized set'. No branch reached origin. UNRECOVERABLE: the manager cannot message a cloud sub-session (SendMessage refuses, ListAgents empty, the CCR MCP has no send tool). Filed as BL-20260906-A-SUBSESSION-SPAWNED-WITHOUT-SOURCE-URL-GETS-NO-REPO-AND-ITS-WORK-DIES-UNPUSHED. Re-spawned 09:41Z WITH source_url explicit, plus an instruction to push a skeleton early and verify it reached origin before investing.",
       "deliverable_1_MEASURED_2026_09_06": "THE R INSTRUMENT IS NOT MERELY NOISY -- IT IS SIGN-INVERTED, and this lands before any attribution rests on it. Population: trades where status='closed' AND NOT is_backtest AND pnl IS NOT NULL, n=1451, drawn from all 5516 rows (full table, not a page), read live 2026-09-06. R-provenance via src/runtime/r_provenance.py::classify_r (imported, not re-derived): contaminated 124 (8.5%), confirmed_initial 174 (12.0%), unverified 1132 (78.0%), no_basis 21 (1.4%). 8.5% OF ROWS CARRY 98.8% OF THE R. Contaminated: sumR +4020.27, meanR +32.42. Confirmed_initial: sumR -92.16, meanR -0.53. All R-measurable: +2.84 mean. THE SIGN FLIPS -- on rows whose risk basis is CONFIRMED to be the initial risk, expectancy is -0.53R; the published +2.84R is an artifact of the other 8.5%. POSITIVE CONTROL for the discriminator: |R|>10 occurs 35 times among the 124 contaminated and ZERO times among the 174 confirmed_initial, max contaminated R +3672.3 -- total separation, so the threshold was not chosen to fit. MECHANISM, read from code not inferred: _clean_trades.r_multiple computes pnl/(|entry-stop|*|qty|*contract_value); the abs() is load-bearing, so a stop on the WRONG SIDE of entry still yields a positive risk and a finite R instead of a refusal. trades.stop_loss holds the FINAL stop and order_monitor._apply_update writes trailing amends into it, so a trade that trailed through breakeven stores a stop beyond entry, |entry-stop| collapses toward zero, and R explodes. R is defined against ENTRY-TIME risk; the column holds EXIT-TIME stop. CONSEQUENCE: every promote/demote verdict computed from expectancyR over a population containing contaminated rows is UNSAFE. This supersedes MI-30's framing (which said 17.2% store a stop on the wrong side and expectancyR reaches +206.9) with a measured sign inversion and a named mechanism. Deliverable 2 (attribution) is in progress and rests on NO R.",
       "operator_decision_2026_09_06_e35": "Asked as a decision pop-up with the tradeoffs stated; operator chose 'Wait for 1B's attribution'. So the three real-money e35 legs KEEP the tighter atr_stop_mult 2.0 for now. ⚠️ THE MANAGER CORRECTED ITS OWN FRAMING WHEN ASKING: it had earlier told the operator that reverting would 'destroy the counterfactual', which was WRONG — the counterfactual replay runs on HISTORICAL trades and survives a revert. What waiting actually buys is FORWARD evidence to separate e35 from the BTC 81k->77k drawdown. The accepted cost is continued exposure at roughly -43 USD/week on a 265 USD book, and the operator was told n is small enough that waiting may not settle it either.",
       "deliverable_2_ATTRIBUTION_2026_09_06": "VERDICT: e35 IS NOT THE PRIMARY CAUSE, and the manager's own leading hypothesis is REFUTED. PR #11111, docs/research/real-money-0for13-attribution-2026-09-06.md. RECOMMENDATION: DO NOT REVERT e35 on this evidence. (1) COMPOSITION: of the 11 trades OPENED after the deploy only 2 are on an e35 leg -- 2 of 13 losses, -5.83 of -43.12 = 13.5% of the money. (2) TIMING: the losing run is 14 trades and STARTS 2026-08-28, two days BEFORE e35 deployed (892c9a2c, 08-30T08:53Z); three of its members were OPENED 08-21/08-22 under the OLD geometry and merely closed inside the window, two by an operator flatten. (3) The dominant loser, ict_scalp_5m, has NO config change at all. THE COUNTERFACTUAL LOOKED LIKE SUPPORT AND IS NOT: over the 9 rows price says actually reached their stop, 7 would NOT have reached a 1.25x wider stop, clustering just past 1.0. But a wider stop buys a DEFERRAL, not a win -- none of these trades was ever meaningfully in profit, so the loss would have been taken later and larger. WHAT ACTUALLY CHANGED -- THE MARKET STOPPED TRAVELLING. Max favourable excursion as a multiple of each trade's own stop distance (MFE/D), from Bybit candles: PRIOR 08-16..08-29 n=23 median 2.11, 14/23 reached >= +1R; POST 08-30..09-06 n=13 median 0.15, max 0.95, ZERO of 13 reached +1R. The single best trade of the losing week never matched the MEDIAN trade of the winning fortnight. In the prior window 14 trades reached +1R and there were exactly 14 wins -- the metric tracks the outcome. A stop is a floor under a loss and cannot create upside, so no stop setting wins a trade that never goes into profit. And e35 made stops NARROWER, which INFLATES MFE/D; the post window is 14x lower DESPITE that upward bias. INDEPENDENT CORROBORATION, measured without reference to any trade (Coinbase spot 15m): per-bar volatility essentially UNCHANGED (median |15m| move 0.093 -> 0.091) while directional efficiency fell 4-6x (BTC 0.098 -> 0.023, ETH 0.093 -> 0.014, XRP 0.060 -> 0.010). The market did not get quieter, it got DIRECTIONLESS -- which is why ict_scalp_5m lost on BOTH its longs and its shorts. !! IT CORRECTS A FACT THE MANAGER GAVE THE OPERATOR AND PUT IN THE DISPATCH: 'BTC fell 81k -> 77k in the window' is FALSE. BTC opened the post window at 78234 and closed at 79864, +2.08%, high 82283 low 76219. The competing explanation is real but it is LOSS OF DIRECTIONALITY, not a decline -- and a decline would not explain a book that lost on longs and shorts alike. IS 0-FOR-13 UNUSUAL? YES, and the session corrected its own first reading to establish it: it nearly reported two prior 13-14 trade streaks as precedent, then dated them -- the 14 IS THIS EVENT and the 13 was entirely orphan_adopt reconciler artifacts. The longest genuine prior losing streak on comparable legs is 6. So the run is ~2x anything this book had done, a real outlier, just not one whose timing or composition points at e35. HONEST LIMITS, stated by the session: it CANNOT clear e35 (n=2), so OI-20260830-E35-...-NOT-YET-LIVE-VERIFIED stays open on its own terms; and it CANNOT separate regime from a silent degradation in ENTRY quality, because MFE/D is a joint function of both -- the independent regime measurement is why confidence is MODERATE rather than low, and it says plainly that anyone claiming this week was purely regime is over-claiming. THE REAL ITEM IS ict_scalp_5m, NOT e35: 6 of 13 losses, 58.6% of the money, stop distances 0.15%-0.80% on BTC -- inside the noise of a directionless tape. Lifetime on bybit_2: 37 trades, 54.1% WINS, -12.65 USD. It wins more often than it loses AND STILL LOSES MONEY, which is a payoff-geometry problem, not a hit-rate one. The session explicitly refuses to author a gate from n=6.",
-      "added": "2026-09-06"
+      "added": "2026-09-06",
+      "status": "done",
+      "updated": "2026-09-06T10:54Z"
     },
     {
       "id": "MI-137-THREE-LIVE-ALARMS",
@@ -1813,21 +1817,25 @@
       "priority": "P1_CYCLE",
       "tier": "2 (operator approval ALREADY GIVEN and recorded)",
       "spawned_at": "2026-09-06T10:04Z",
-      "note": "Operator chose 'Spawn a session to re-land clean' over merging past the red check. Carries the operator-approved job file to main and closes #11105. Excepted by name in spawn-priority-exception.yaml (operating-layer under a trading cycle — INVERTED polarity vs every earlier entry in that file).",
+      "note": "#11113 merged. #11105 is superseded and must be closed pointing at it.",
       "manager_error_caught_by_the_worker_2026_09_06": "THE SUB-SESSION OVERRODE THIS DISPATCH ON THREE POINTS AND WAS RIGHT ON ALL THREE. The manager verified each rather than taking them. (1) It refused to carry automation/jobs/1c-live-alarms-state-01.job onto the PR: main has NEVER held a .job (0 files, 0 commits over full history) because vm-driver.yml git-rm's the job after running it, and a resident job on main would RE-EXECUTE on the live money VM on the next claude/** branch that merges main and pushes. (2) The manager's Tier-2 hold could not have gated it anyway -- vm-driver fires on PUSH, not merge, so the job runs before any human reads the PR. The manager's model of the mechanism was wrong. (3) IT CAUGHT A MANAGER ERROR DIRECTLY: the dispatch told it the operator approval was 'recorded as a typed decision in docs/claude/work/OPEN-PRS.json'. It checked and it was NOT there -- the manager had written that record to its own unmerged branch, so main still read as_of 2026-09-05 with open_prs [10895, 10398]. It declined to bank an approval it could not verify, which is exactly the discipline the manager had applied to the author session's claim an hour earlier. CONSEQUENCE FOR THE OPERATOR'S APPROVAL: it was an approval to RUN the job, and running it means pushing to a claude/** branch -- which ALREADY HAPPENED on c8ccabdf at 09:46:38Z. That vm-driver run (34025596229) FAILED AFTER 21 SECONDS, which is why the job sits un-consumed and why alarms (a) and (b) STILL have no live reads. The approval is not spent and nothing is owed from the operator; what is owed is diagnosing that failed run.",
-      "added": "2026-09-06"
+      "added": "2026-09-06",
+      "status": "done",
+      "updated": "2026-09-06T10:54Z"
     },
     {
       "id": "MI-139-BYBIT-QTYSTEP",
       "title": "Bybit reduce-only close rejected 10001 Qty invalid on an unquantised float qty — the position cannot flatten",
       "state": "in_flight",
-      "owner": "session_01C6Lh24HDdkn6p14qsaeNrA",
+      "owner": "session_017UnyG4ArXmXKpB8rmEGv1j",
       "owns_object": "WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED",
       "priority": "P1_CYCLE",
       "tier": "3 (order path — PROPOSE only)",
       "spawned_at": "2026-09-06T10:05Z",
-      "note": "Serves CY-20260906-TRADING-TRUTH directly, no exception needed. Told to check for an existing un-wired legalizer FIRST (RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED) and to establish whether anything is unflattenable on bybit_2, which is real money.",
-      "added": "2026-09-06"
+      "note": "OPERATOR APPROVED BOTH PARTS 11:00Z (Tier-3). Applying: round(x,8) at execute.py:1855 + snap_artifact_qty (NEAREST, not floor) in the qty_legalize seam. Also fixing the XRPUSDT qty_step, which config declares 1.0 while the venue holds 7114.1. Draft PR, manager routes the merge - no self-merge on an order path.",
+      "added": "2026-09-06",
+      "status": "in_flight",
+      "updated": "2026-09-06T11:02Z"
     },
     {
       "id": "MI-140-ALPACA-LIVE-CANNOT-PLACE",
@@ -1866,7 +1874,7 @@
       "id": "MI-143-ICT-SCALP-5M-SHADOW",
       "title": "ict_scalp_5m -> shadow (operator-approved), then establish whether it should trade real money at all",
       "state": "in_flight",
-      "owner": "session_01Ne7LK6wMCoLUwnKpCZTPqE",
+      "owner": "session_01X3kyzCfUdFVimATxZFE8nd",
       "owns_object": "WO-20260906-ICT-SCALP-5M-TO-SHADOW-THEN-ESTABLISH",
       "priority": "P0_LIVE_MONEY",
       "tier": "3 (config/strategies.yaml — APPROVED for this one line)",
@@ -1878,18 +1886,23 @@
         "decided_on": "2026-09-06",
         "text": "Decision pop-up with four options and the tradeoffs stated; operator chose 'Move it to shadow now'."
       },
-      "added": "2026-09-06"
+      "added": "2026-09-06",
+      "status": "in_flight",
+      "note": "OPERATOR DECISION 11:00Z: NARROW lever - remove ict_scalp_5m from bybit_2's strategies list in accounts.yaml, NOT execution:shadow. Keeps both paper books trading it so bracket_geometry evidence keeps accruing. #11115 (execution:shadow) is SUPERSEDED and must be closed, its verdict doc carried across. Watch the tp_geometry ratchet.",
+      "updated": "2026-09-06T11:02Z"
     },
     {
       "id": "MI-144-THE-RECORD-DOES-NOT-SAY-WHAT-HAPPENED",
       "title": "TOP PRIORITY: the record of a trade does not say what happened — R sign-inverted, exit_reason frozen, read route silently empty",
       "state": "queued",
-      "owner": "unassigned — NEXT SLOT, operator called this top priority",
+      "owner": "session_01L7dTAuGMdn3CTGeyYV5Mox",
       "owns_object": "WO-20260906-THE-RECORD-OF-A-TRADE-DOES-NOT",
       "priority": "P0_INSTRUMENT",
       "tier": "2-3 (journal writer) — propose",
-      "note": "Operator 2026-09-06: 'we can't make good decisions if we have bad tools for making those decisions'. One session, all three defects (their choice over splitting) because they share the venue-candle adjudication 1B already built. GATES the strategy work: no promote/demote/kill/tune verdict is safe until R is fixed.",
-      "added": "2026-09-06"
+      "note": "Spawned 10:53Z. OPERATOR TOP PRIORITY. Three defects: R sign-inverted, exit_reason frozen, /trades/closed silently empties.",
+      "added": "2026-09-06",
+      "status": "in_flight",
+      "updated": "2026-09-06T10:54Z"
     },
     {
       "id": "MI-145-SWEEP-POSITIVE-CONTROL",
@@ -1906,12 +1919,14 @@
       "id": "MI-146-BRACKET-MECHANISMS-AUDIT",
       "title": "Are the bracket and active-management mechanisms in the roadmap properly, built out, and actually applied where we claim",
       "state": "queued",
-      "owner": "unassigned",
+      "owner": "session_014jrW67rFyJNnHr7y6dEhec",
       "owns_object": "WO-20260906-ARE-THE-BRACKET-AND-ACTIVE-MANAGEMENT-MECHANISMS",
       "priority": "P1_CYCLE",
       "tier": "1 (audit — propose only)",
-      "note": "Operator's thesis: brackets are the PREDICTION, trades should end at them, and the stop is trailed up to bank R. Measured against it: 39 of 468 cells shipped (8.3%); giveback_stop shipped on 1 of 52 legs; vol_trail/exit_ladder/regime_flip_exit on ZERO; 24 of 52 legs have none. ⚠️ Must distinguish n/a (never wired) from honest_negative (tested and rejected) — the matrix renders both as non-shipped and they are OPPOSITE findings.",
-      "added": "2026-09-06"
+      "note": "Spawned 10:53Z. The operator's exit-mechanics thesis. Must separate 'never wired' (n/a) from 'wired and honestly failed' (honest_negative).",
+      "added": "2026-09-06",
+      "status": "in_flight",
+      "updated": "2026-09-06T10:54Z"
     },
     {
       "id": "MI-147-BACKTEST-SOAK-CHAIN-AUDIT",
