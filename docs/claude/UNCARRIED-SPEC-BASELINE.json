@@ -1,0 +1,1003 @@
+{
+ "_doc": "MEASURED BASELINE of the un-carried-spec census, 2026-09-06 (MI-152). The per-artifact record behind docs/research/uncarried-spec-census-2026-09-06.md, committed so the count is AUDITABLE and RE-CHECKABLE rather than only narrated, and so the proposed mechanism has a measured state to diff against. Regenerate with `python3 scripts/ops/uncarried_specs.py --json`. !! MEASURED AGAINST origin/main 817a5a5f IN A CLEAN WORKTREE, deliberately NOT against the branch that adds this file: the census report is itself an artifact under docs/research/ and would enter its own population. A measurement that includes its own output is not the measurement that was reported. !! IT IS A SNAPSHOT, NOT A LIVE READ -- a register row landing after that sha changes a grade; re-run rather than trusting this file's age. !! `state` IS A FIVE-STATE LADDER, NEVER A BOOLEAN: only `active` and `queued` mean a session meets the artifact without someone happening to think of it. `dormant_only` is NOT carried -- it is the state the motivating incident sat in for 14 days. !! THE HEADLINE DENOMINATOR IS THE 111 SPECS, NOT THE 331 ARTIFACTS SCANNED.",
+ "generated_at": "2026-09-06",
+ "measured_against_sha": "817a5a5f348abb6357ddb2846df5dee651ec6a2f",
+ "instrument": "scripts/ops/uncarried_specs.py",
+ "report": "docs/research/uncarried-spec-census-2026-09-06.md",
+ "owning_work_object": "docs/claude/work/objects/WO-20260906-COUNT-THE-UN-CARRIED-SPECS.yaml",
+ "population": {
+  "artifacts_scanned": 331,
+  "dirs": [
+   "docs/research",
+   "docs/design"
+  ],
+  "excluded_with_reason": {
+   "RESEARCH-CAPABILITY-INDEX.md": "a routing index over scripts/, not a spec of work",
+   "README.md": "directory orientation, not a spec of work"
+  },
+  "register_surfaces_read": 1428,
+  "classified_as_specs": 111,
+  "tier_a_filename": 98,
+  "tier_b_self_declared": 13,
+  "tier_c_borderline_excluded_from_headline": 118,
+  "unreadable_we_could_not_look": 0
+ },
+ "counts": {
+  "active": 13,
+  "queued": 0,
+  "dormant_only": 1,
+  "mentioned": 89,
+  "uncarried": 8
+ },
+ "uncarried_total_strict": 98,
+ "sensitivity_to_carrier_boundary": {
+  "_doc": "57 of the 89 mentioned-only artifacts are named in ROADMAP.md; whether that is a CARRIER or a RECORD is the biggest judgement in this measurement, so it is reported both ways rather than asserted. The loosest reading is NOT defensible -- it is exactly the reading under which the motivating incident (one incidental mention) counts as carried.",
+  "strict_only_active_or_queued": 98,
+  "roadmap_mention_counts": 40,
+  "roadmap_or_sprintlog_counts": 24,
+  "loosest_any_mention_counts": 8
+ },
+ "controls": {
+  "positive": {
+   "path": "docs/design/operating-layer-build-plan-DESIGN.md",
+   "expected": "carried",
+   "observed": "active",
+   "work_object_carriers": 9,
+   "note": "the work object states SIX exist; the probe finds 9"
+  },
+  "negative": {
+   "path": "docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md",
+   "expected": "NOT carried",
+   "observed_at_pre_remediation_sha": "dormant_only",
+   "pre_remediation_sha": "daebbadaa51e350390685c52595c066cbcc6b646",
+   "note": "MUST be asserted against a PRE-remediation tree: at HEAD this artifact is legitimately carried by WO-20260906-* objects created the same day by the work that diagnosed its stranding. A control measured after the remediation proves nothing about the condition. The probe's FIRST CUT graded it carried and would have under-reported the pile."
+  }
+ },
+ "specs": [
+  {
+   "path": "docs/design/boot-read-size-PROPOSAL.md",
+   "tier": "A",
+   "state": "active",
+   "work_carriers": [
+    "docs/claude/OPEN-ITEMS.json"
+   ],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/design/decision-push-back-DESIGN.md",
+   "tier": "A",
+   "state": "active",
+   "work_carriers": [
+    "docs/claude/OPEN-ITEMS.json"
+   ],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/design/decision-push-back-FEASIBILITY.md",
+   "tier": "A",
+   "state": "active",
+   "work_carriers": [
+    "docs/claude/OPEN-ITEMS.json"
+   ],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/design/evidence-floor-horizon-PROPOSAL.md",
+   "tier": "A",
+   "state": "active",
+   "work_carriers": [
+    "docs/claude/OPEN-ITEMS.json",
+    "docs/claude/work/objects/WO-20260902-DECISION-REVIEW-PACKET-POPULATION.yaml[waiting]"
+   ],
+   "dormant_carriers": [],
+   "mention_count": 0
+  },
+  {
+   "path": "docs/design/exit-mechanism-construction-PROCESS.md",
+   "tier": "A",
+   "state": "active",
+   "work_carriers": [
+    "docs/claude/OPEN-ITEMS.json"
+   ],
+   "dormant_carriers": [
+    "docs/claude/work/objects/BL-20260820-INTRABAR-PANEL-HAS-NO-EXOGENOUS-FEATURE.yaml[dormant]",
+    "docs/claude/work/objects/BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE.yaml[dormant]",
+    "docs/claude/work/objects/BL-20260826-ONE-THIRD-OF-MEASURED-CLOSES-LAND-BEYOND-THE-DECISION-TIME-STOP.yaml[dormant]",
+    "docs/claude/work/objects/WO-20260906-ARE-THE-BRACKET-AND-ACTIVE-MANAGEMENT-MECHANISMS.yaml[done]"
+   ],
+   "mention_count": 23
+  },
+  {
+   "path": "docs/design/operating-layer-build-plan-DESIGN.md",
+   "tier": "A",
+   "state": "active",
+   "work_carriers": [
+    "docs/claude/OPEN-ITEMS.json",
+    "docs/claude/work/objects/WO-20260901-PHASE-A.yaml[waiting]",
+    "docs/claude/work/objects/WO-20260901-PHASE-B.yaml[waiting]",
+    "docs/claude/work/objects/WO-20260901-PHASE-C.yaml[waiting]",
+    "docs/claude/work/objects/WO-20260901-PHASE-D.yaml[waiting]",
+    "docs/claude/work/objects/WO-20260901-PHASE-E.yaml[ready]",
+    "docs/claude/work/objects/WO-20260901-PHASE-F.yaml[ready]",
+    "docs/claude/work/objects/WO-20260901-PHASE-G.yaml[ready]",
+    "docs/claude/work/objects/WO-20260901-PHASE-H.yaml[ready]"
+   ],
+   "dormant_carriers": [],
+   "mention_count": 5
+  },
+  {
+   "path": "docs/design/operating-model-DESIGN.md",
+   "tier": "A",
+   "state": "active",
+   "work_carriers": [
+    "docs/claude/OPEN-ITEMS.json"
+   ],
+   "dormant_carriers": [
+    "docs/claude/work/objects/WO-20260902-WORK-NEEDS-A-WORK-KIND-AXIS-RESEARCH.yaml[dormant]"
+   ],
+   "mention_count": 7
+  },
+  {
+   "path": "docs/design/strategy-demote-and-tune-DESIGN.md",
+   "tier": "A",
+   "state": "active",
+   "work_carriers": [
+    "docs/claude/work/MANAGER-CHECKLIST.json",
+    "docs/claude/work/objects/WO-20260903-SUNSET-DISPOSITIONS-OWED.yaml[waiting]"
+   ],
+   "dormant_carriers": [
+    "docs/claude/work/objects/WO-20260905-NEVER-FIRING-LEGS-NEED-A-REPAIR-DIAGNOSIS-NOT-A-RETIREMENT.yaml[done]"
+   ],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md",
+   "tier": "A",
+   "state": "active",
+   "work_carriers": [
+    "docs/claude/DUE.json",
+    "docs/claude/OPEN-ITEMS.json",
+    "docs/claude/work/objects/WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED.yaml[in_flight]",
+    "docs/claude/work/objects/WO-20260906-COUNT-THE-UN-CARRIED-SPECS.yaml[ready]"
+   ],
+   "dormant_carriers": [
+    "docs/claude/work/objects/BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET.yaml[dormant]"
+   ],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/bracket-calibration-2026-09-06.md",
+   "tier": "B",
+   "state": "active",
+   "work_carriers": [
+    "docs/claude/OPEN-ITEMS.json"
+   ],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/e35-passed-unshipped-proposal-2026-08-31.md",
+   "tier": "A",
+   "state": "active",
+   "work_carriers": [
+    "docs/claude/OPEN-ITEMS.json"
+   ],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/exit-lever-wiring-audit-2026-09-06.md",
+   "tier": "B",
+   "state": "active",
+   "work_carriers": [
+    "docs/claude/work/objects/WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED.yaml[in_flight]"
+   ],
+   "dormant_carriers": [
+    "docs/claude/work/objects/WO-20260906-ARE-THE-BRACKET-AND-ACTIVE-MANAGEMENT-MECHANISMS.yaml[done]"
+   ],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/trade-prioritisation-research-DESIGN.yaml",
+   "tier": "A",
+   "state": "active",
+   "work_carriers": [
+    "docs/claude/OPEN-ITEMS.json",
+    "docs/claude/work/objects/WO-20260902-EVIDENCE-TRADE-PRIORITISATION-AB.yaml[waiting]"
+   ],
+   "dormant_carriers": [
+    "docs/claude/work/objects/BL-20260831-RESEARCH-QUEUE-CANNOT-EXPRESS-A-BLOCKED-JOB.yaml[dormant]"
+   ],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/exit-reason-frozen-at-close-2026-08-22.md",
+   "tier": "B",
+   "state": "dormant_only",
+   "work_carriers": [],
+   "dormant_carriers": [
+    "docs/claude/work/objects/BL-20260822-EXIT-REASON-FROZEN-WHEN-PRICE-ARRIVES-LATE.yaml[dormant]"
+   ],
+   "mention_count": 5
+  },
+  {
+   "path": "docs/design/b6-split-packet-2026-08-29.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/design/d1b-live-time-stop-PROPOSAL.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/design/gross-exposure-governance-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 9
+  },
+  {
+   "path": "docs/design/ib-protective-price-reconciler-PROPOSAL.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/design/llm-burst-worker-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 5
+  },
+  {
+   "path": "docs/design/local-vision-backend-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 10
+  },
+  {
+   "path": "docs/design/operating-layer-function-derivation-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 5
+  },
+  {
+   "path": "docs/design/operating-layer-schema-and-state-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 6
+  },
+  {
+   "path": "docs/design/position-telemetry-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 5
+  },
+  {
+   "path": "docs/design/tp-sentinel-cap-venue-scope-PROPOSAL.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/A-regime-router-ml-vol-verdict-DESIGN-2026-06-27.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/A-vol-gating-AB-plan-2026-06-27.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/A-vol-gating-OFFcell-design-2026-06-27.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 6
+  },
+  {
+   "path": "docs/research/AI-TRADER-RESEARCH-PLAN-2026-07-19.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/AUTONOMOUS-WORKPLAN-2026-07-30.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/B-conviction-graduation-DESIGN-2026-06-27.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/research/CAPITAL-ACTIVATION-PACKET-2026-08-14.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 8
+  },
+  {
+   "path": "docs/research/M-regime-direction-filter-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/M19-next-direction-deep-research-brief-2026-07-05.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/M20-exit-head-PROGRAM.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 6
+  },
+  {
+   "path": "docs/research/M20-exit-lever-promotion-packet-2026-08-10.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/research/M20-momentum-exhaustion-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/M20X-vol-conditional-trail-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/M21-entry-refinement-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 6
+  },
+  {
+   "path": "docs/research/M23-decision-label-wall-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/M23-meta-labeling-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/M23-phase1-variantC-DESIGN-2026-07-17.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/research/M24-net-r-cost-aware-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/M25-btc-sol-promotion-packets-2026-07-20.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/M25-promotion-consolidation-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/M26-regime-transition-conflict-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 5
+  },
+  {
+   "path": "docs/research/M27-GLD-1H-PROMOTION-PACKET-2026-08-14.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/M27-MGC-15m-step2-scope-2026-07-28.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/research/M27-scalp-expansion-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/M28-macro-value-speculation-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/M28-signal-RnD-program.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/M28-signal-research-methodology.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 9
+  },
+  {
+   "path": "docs/research/M29-ai-system-dynamics-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/M30-deep-research-SESSION-PROMPT.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/M30-intrabar-exit-head-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/research/M31-track-b-soak-plan.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/M36-macro-intelligence-and-crowding-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/POST-VALUE-PIVOT-WORKPLAN-2026-07-27.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/research/RESEARCH-INFRA-AUDIT-2026-07-30.md",
+   "tier": "B",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/RESEARCH-PROGRAM-2026-07-30.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 8
+  },
+  {
+   "path": "docs/research/ROADMAP-REVIEW-WORKPLAN-2026-08-04.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/T0-data-corpus-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/T0.1-live-parity-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/T0.2-unsupervised-regime-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/research/T0.4-forecast-features-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/T0.4-live-parity-spike-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/T1-gpu-burst-spend-SPEC.md",
+   "tier": "B",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/T1.1-deep-sequence-model-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/T1.2-ssl-encoder-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/T1.3-ranker-SESSION-PROMPT.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/research/WORK-PLAN-2026-08-02.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 10
+  },
+  {
+   "path": "docs/research/WORKPLAN-2026-08-05.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 8
+  },
+  {
+   "path": "docs/research/WORKPLAN-2026-08-14.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 8
+  },
+  {
+   "path": "docs/research/WORKPLAN-desoak-and-milestone-closeout-2026-07-26.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/broker-truth-ib-flex-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/capital-allocation-ai-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 5
+  },
+  {
+   "path": "docs/research/cross-asset-strategy-scope-2026-06-18.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/e1-exogenous-panel-preconditions-2026-08-20.md",
+   "tier": "B",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/e2-feature-information-2026-08-20.md",
+   "tier": "B",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 7
+  },
+  {
+   "path": "docs/research/e35-rr-floor-walkforward-2026-08-20.md",
+   "tier": "B",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/exit-attribution-broker-truth-2026-08-22.md",
+   "tier": "B",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/exit-management-ml-experiment-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 5
+  },
+  {
+   "path": "docs/research/hf-prop-strategy-research-plan-2026-06-16.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/research/ict_scalp_5m-modernization-research-plan-2026-07-20.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 5
+  },
+  {
+   "path": "docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/m30-to-m16-integration-backbone-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 6
+  },
+  {
+   "path": "docs/research/netting-partial-close-packet-2026-08-02.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/research/overnight-2026-07-20-morning-packets.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/pairs-sleeve-PROPOSAL-2026-07-15.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/pnl-optimal-conflict-resolution-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/position-sizing-confidence-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 3
+  },
+  {
+   "path": "docs/research/promotion-gatecheck-and-mes-labeling-2026-06-26.md",
+   "tier": "B",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/research/prop-dynamic-exits-faster-banking-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 5
+  },
+  {
+   "path": "docs/research/regime-conditional-strategy-weighting-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/regime-router-design-2026-06-01.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 7
+  },
+  {
+   "path": "docs/research/research-framework-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 5
+  },
+  {
+   "path": "docs/research/roadmap-toolbox-assessment-2026-07-29.md",
+   "tier": "B",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 8
+  },
+  {
+   "path": "docs/research/roll-adjusted-continuous-futures-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 1
+  },
+  {
+   "path": "docs/research/signal-research-framework-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/sol-pullback-stale8-deep-corpus-2026-08-18.md",
+   "tier": "B",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 2
+  },
+  {
+   "path": "docs/research/strategy-primitives-recombination-DESIGN.md",
+   "tier": "A",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 4
+  },
+  {
+   "path": "docs/research/technical-quant-research-platform-scoping-2026-07-27.md",
+   "tier": "B",
+   "state": "mentioned",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 5
+  },
+  {
+   "path": "docs/research/A1-backtest-augment-runner-SCOPE-2026-08-02.md",
+   "tier": "A",
+   "state": "uncarried",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 0
+  },
+  {
+   "path": "docs/research/M27-P1-15m-promotion-proposal-2026-07-22.md",
+   "tier": "A",
+   "state": "uncarried",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 0
+  },
+  {
+   "path": "docs/research/bracket-geometry-decision-packet-2026-08-26.md",
+   "tier": "A",
+   "state": "uncarried",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 0
+  },
+  {
+   "path": "docs/research/crypto-finetune-proposals-2026-07-30.md",
+   "tier": "A",
+   "state": "uncarried",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 0
+  },
+  {
+   "path": "docs/research/options-level3-alpaca-research-BRIEF-2026-06-27.md",
+   "tier": "A",
+   "state": "uncarried",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 0
+  },
+  {
+   "path": "docs/research/prop-firm-testing-tool-DESIGN.md",
+   "tier": "A",
+   "state": "uncarried",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 0
+  },
+  {
+   "path": "docs/research/research-to-results-cost-gate-DESIGN-2026-08-01.md",
+   "tier": "A",
+   "state": "uncarried",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 0
+  },
+  {
+   "path": "docs/research/trainer-compute-ceiling-proposal-2026-07-29.md",
+   "tier": "A",
+   "state": "uncarried",
+   "work_carriers": [],
+   "dormant_carriers": [],
+   "mention_count": 0
+  }
+ ]
+}

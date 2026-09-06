@@ -247,3 +247,24 @@ available option, not a guaranteed one, and its own verification stays owed.
 (the count is measured, with a stated classifier and a positive control). **Clause (2) is not
 cleared** — the mechanism is proposed here, not built, and has not been run over the existing
 tree as a live surface.
+
+---
+
+## 9. Reproducing this
+
+```bash
+git worktree add /tmp/base 817a5a5f          # the sha this was measured at
+cp scripts/ops/uncarried_specs.py /tmp/base/scripts/ops/
+cd /tmp/base && python3 scripts/ops/uncarried_specs.py            # -> 98 of 111 (88.3%)
+python3 scripts/ops/uncarried_specs.py --self-test                # positive control
+python3 scripts/ops/uncarried_specs.py --triage                   # the un-carried list
+```
+
+⚠️ **Measure at a clean worktree, not at this branch.** This report is itself an artifact under
+`docs/research/`, so running the probe on the branch that adds it puts the report into its own
+population. A measurement that includes its own output is not the measurement that was reported —
+the same contamination, one level up, that the negative control hit in §3.
+
+The per-artifact record is committed at
+[`docs/claude/UNCARRIED-SPEC-BASELINE.json`](../claude/UNCARRIED-SPEC-BASELINE.json) so the count
+is auditable and a future mechanism has a measured state to diff against.
