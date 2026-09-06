@@ -6,6 +6,19 @@
  "updated_at": "2026-09-05",
  "items": [
  {
+   "id": "OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING-AND-MI-148-IS-THE-PROOF",
+   "kind": "monitoring",
+   "loud": true,
+   "opened": "2026-09-06",
+   "opened_at": "2026-09-06",
+   "verified_at": "2026-09-06",
+   "check_every_days": 3,
+   "title": "A finished, operator-directive-carrying session prompt sat undispatched for 14 days; the same thesis was re-derived seven times and built zero",
+   "summary": "docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md was written 2026-08-23 telling its reader to paste it as a new session, and no register pointed at it for 14 days. The bracket thesis was re-derived seven times and built zero. MI-148 now carries the work; this row keeps the class visible.",
+   "observation": "2026-09-06: docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md (written 2026-08-23, ends 'Paste this whole file as the opening message of a NEW session') is named by ZERO work objects and ZERO of the 54 OPEN-ITEMS rows; its only reference in docs/claude/ is an unrelated IB-trailing backlog row. POSITIVE CONTROL: the same probe finds 6 rows carrying the operating-layer design, so the silence is real absence, not a bad probe. MI-148 (WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED) now dispatches it, and THIS ROW is what keeps it from going quiet again.",
+   "clears_when": "BOTH, and they are different facts - say which you cleared. (1) MI-148 has produced a LANDED clause-1 deliverable: every enabled live leg either declares a take-profit expressing where the strategy thinks the move ends, or explicitly declares it has none - measured from the RUNNING config, not the matrix. A proposal is not a landing; a merged Tier-3 proposal awaiting operator approval is honestly reported as 'proposed', not as cleared. (2) A MECHANISM exists that makes an un-carried spec visible without a session thinking of it - see BL-20260906-A-RESEARCH-ARTIFACT-THAT-SPECIFIES-WORK-IS-NOT-REGISTERED-AS-WORK - AND it has been run over the existing tree with the count of already-un-carried specs REPORTED. That count is currently UNMEASURED and is itself the finding. !! DO NOT CLEAR THIS ROW BECAUSE MI-148 IS RUNNING. A session being spawned is exactly the state that looked fine on 2026-08-23. !! DO NOT CLEAR ON ANOTHER MEMO. The failure class is a well-written artifact nothing points at; an eighth document restating the diagnosis makes this row MORE true, not less. !! IF THE OPERATOR DECIDES the bracket rebuild is not worth doing, this row does not clear - it CHANGES: that is a legitimate decision and must be RECORDED as one, rather than left looking like work about to start."
+ },
+ {
   "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
   "opened": "2026-09-02",
   "soak": {

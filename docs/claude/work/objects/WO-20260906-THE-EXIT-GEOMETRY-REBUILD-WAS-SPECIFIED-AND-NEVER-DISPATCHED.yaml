@@ -1,0 +1,29 @@
+id: WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Build the active-management infrastructure: every bracket carries a real expectation at entry, and the trade may revise it
+stage: CAPABILITY
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  This object exists BECAUSE its specification sat undispatched for 14 days.
+  It must not be allowed to go quiet again: if it is not owned by a live
+  session, that is the finding, not a state to carry.
+done_condition: >-
+  (1) EVERY enabled live leg declares a take-profit that expresses where the strategy thinks the move ends -- no leg's resting target may be set by TP_VENUE_CAP_PCT rather than by a stated expectation, and a leg that deliberately has no target must DECLARE that rather than carry a 50R sentinel. Measured from the RUNNING config, not the matrix. (2) A producer exists that can EXTEND a target -- `_base.monitor` has declared `{"tp": float}` since it was written and no strategy has ever returned one; the entire downstream channel (interpret_verdict -> _apply_update -> _send_modify_to_exchange -> modify_open_order) is already built and working, so what is missing is the producer, not the plumbing. (3) target_extension_soak stops reading 100/100 `sentinel_no_expectation` -- it cannot currently distinguish 'the lever never fires' from 'no trade ever had a real target to approach', so (1) is a PRECONDITION for evaluating (2). (4) The bracket is graded for CALIBRATION against realised exit location, per the falsifier docs/design/exit-mechanism-construction-PROCESS.md sec E3.6 already states: 'a bracket that improves net R while being systematically wrong about WHERE trades exit has not met this bar.' !! Strategy geometry is Tier-3: propose, do not apply. !! And do NOT reach for a clamp, a floor, or a trade refusal -- the operator named that as the bandaid this thread exists to stop.
+
+why: >-
+  OPERATOR, 2026-09-06, on being shown MI-146's audit: "none of this is news ... there was definitely a problem on some of the strategies that there were brackets that weren't supposed to be met, and we were supposed to fix that already. And that was sort of what triggered the whole active management." THEY ARE RIGHT, AND THIS OBJECT IS THE PROOF. docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md was written 2026-08-23 by the full-system-audit session, carries the operator's directive VERBATIM ("Brackets ALWAYS represent our prediction of where the trade should end ... The only solution here is to properly build out the active management infra, not layer on bandaids"), states the populations already measured (enabled+live n=45, 24 sentinel / 21 real), and ends with "Paste this whole file as the opening message of a NEW session." IT WAS NEVER DISPATCHED. Measured 2026-09-06 with a positive control: zero work objects name it, zero OPEN-ITEMS rows carry it, and its ONLY reference in docs/claude/ is an unrelated IB-trailing backlog row that mentions it in passing -- while the same probe finds SIX rows carrying the operating-layer design, so the probe demonstrably fires on a positive. The thesis has now been re-derived at least seven times (2026-08-20 e35-bracket-is-not-a-decision, 08-23 bracket-expectation-construction, 08-24 bracket-target-reachability, 08-26 decision-packet, 08-29 matrix-recheck, 08-31 passed-unshipped-proposal, 09-06 MI-146) and built zero times.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-06. Nothing blocks the WORK. What blocked it was that no
+  register pointed at the specification, which this object fixes by existing.
+  Its clause (2) is gated on clause (1) as a matter of evaluability, not
+  permission: the extension soak cannot grade a lever while every row reads
+  `sentinel_no_expectation`.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (operator-directed)

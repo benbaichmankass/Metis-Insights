@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-06T11:00:41Z",
+  "updated_at": "2026-09-06T12:31:43Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2478,6 +2478,21 @@
       ],
       "why": "OPERATOR APPROVAL 2026-09-06: both parts of the #11112 proposal approved; a reduce-only close cannot be flattened today",
       "confirmed_at": "2026-09-06T11:00:41Z"
+    },
+    {
+      "session_id": "session_01K64KKRVtS3V7XhdtZMP4hU",
+      "registry_key": "pending-20260906T123030Z",
+      "state": "working",
+      "title": "MI-148 — build the active-management infra: real brackets that carry an expectation, and can be revised mid-trade",
+      "owns_object": "WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED",
+      "checklist_item": "MI-148-EXIT-GEOMETRY-REBUILD",
+      "spawned_at": "2026-09-06T12:30:30Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/exit-geometry-rebuild-20260906"
+      ],
+      "why": "OPERATOR 2026-09-06: 'none of this is news ... we were supposed to fix that already'. The spec has existed since 2026-08-23 and was never dispatched.",
+      "confirmed_at": "2026-09-06T12:31:43Z"
     }
   ],
   "⚠️_registry_completeness": "2026-09-05T14:35Z — GRADED AGAINST PLATFORM TRUTH, and the register was wrong at scale. 94 rows were graded against a live list_sessions(mine=true, limit=100) read; 65 carried a state the platform contradicts, and 58 of those had NEVER been observed even once (last_observed absent) despite being spawned 2026-09-02/03. ⚠️ THE HEADLINE: the register claimed 41 sessions were working/idle/running. THE PLATFORM SAYS EXACTLY ONE SESSION IS RUNNING ACROSS THE WHOLE ACCOUNT, and it is the manager itself (session_016e2k4UmsMGgpbrJ5ctqeFv). Every other session is IDLE or ARCHIVED. The register's `working` state was never a measurement — it is what a manager wrote at SPAWN time and nobody ever revisited, which is MI-84 measured rather than asserted. ⚠️ WHAT THIS DOES **NOT** ESTABLISH: an IDLE session is not the same as FINISHED work. These rows are now honest about the session's LIFECYCLE and say nothing about whether each one's deliverable reached main. That audit spans several previous managers' days and was NOT done here; do not read a clean state column as a clean handoff. ⚠️ AND 0 non-terminal row(s) are NOT covered by this page at all — not graded, not disproven, simply outside the 100 most recent. `unknown` would be the honest label and they retain their stale value; do not read them as confirmed.",

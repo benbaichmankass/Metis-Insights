@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Registers only: a new work object, an OPEN-ITEMS carrier row, a backlog row, four verified-landed objects closed, and the checklist. Tier-1 by the canonical doc's own list - no src/, tests/, scripts/, .github/workflows/, config/, deploy/, no order path, no strategy config, no risk caps, no canonical prose outside the generated SESSION-BRIEF. It changes no runtime behaviour and nothing on either VM: it makes an existing, already-written specification visible to planning, which is the defect it records."
+}

@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Three live alarms on the trading fleet are unowned: a SOL orphan position, MES data blindness, and a pending restart
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: done
 owner: null
 opened_at: 2026-09-06
-closed_at: null
+closed_at: 2026-09-06
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
