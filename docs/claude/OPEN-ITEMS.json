@@ -1239,26 +1239,6 @@
    "BL-20260906-VENUE-TP-CAP-IS-2-9X-TOO-LOOSE-ON-EVERY-LEG-THAT-TOUCHES-NO-BYBIT-ACCOUNT",
    "BL-20260901-E35-TP-R-CAN-BE-INERT-BEHIND-THE-VENUE-CLAMP-AND-THE-BINDING-RATE-IS-UNMEASURED"
   ]
- },
- {
-  "id": "OI-20260906-BRACKETOUTCOME-ANSWERS-THE-OPERATORS-QUESTION-OVER-A-QUARTER-OF-THE-BOOK",
-  "opened": "2026-09-06",
-  "kind": "awaiting_verification",
-  "loud": true,
-  "verified_at": null,
-  "last_checked": "2026-09-06",
-  "check_every_days": 2,
-  "probe": "curl -s 'https://ict-bot.duckdns.org/api/bot/performance?window=all' | python3 -c \"import json,sys;d=json.load(sys.stdin);b=d['bracketOutcome'];print('gradeable',b['gradeable'],'of totalTrades',d['totalTrades'],'coverage',round(b['gradeable']/d['totalTrades']*100,1),'%','reachedRatio',b['reachedRatio'],'noBracketRecord',b['noBracketRecord'])\"",
-  "probe_reports_the_defect_until_fixed": "The probe is EXPECTED to keep reporting the DEFECT until the successor PR deploys: it reads `gradeable 99 of 424` (23.3%) with `noBracketRecord 321`. \u26a0\ufe0f THE DISCRIMINATOR IS `gradeable`/`noBracketRecord`, NOT `reachedRatio`. `reachedRatio` is NOT broken and will not obviously move \u2014 it reads 0.4444 now and is expected around 0.5429 after \u2014 so watching it alone cannot tell a fixed instrument from an unfixed one. Coverage crossing ~98% is the signal.",
-  "summary": "\u26a0\ufe0f THE INSTRUMENT THAT ANSWERS THE OPERATOR'S CENTRAL QUESTION \u2014 'are trades ending at their brackets?' \u2014 IS DEPLOYED AND GRADES 23.3% OF THE REAL-MONEY BOOK. Found 2026-09-06 immediately after MI-144's PR #11131 deployed, by checking the deployed figure against the pre-merge measurement instead of accepting it. `bracketOutcome` joins `order_packages` on `trades.order_package_id` ONLY, and MEASURED against the live journal (via /api/bot/db/table/*, real-money closed non-backtest rows in the route's own population, n=428) just 99 (23.1%) carry a resolving `order_package_id` \u2014 so 325 rows file as `no_bracket_record` and the endpoint publishes `reachedRatio 0.4444` over a denominator of 99. The reverse edge `order_packages.linked_trade_id` reaches 325 of the 350 NULL rows (92.9%), lifting coverage to 420 of 428 (98.1%) and the answer to 228/420 (54.3%), 187 sl vs 41 tp. \u26a0\ufe0f THE PUBLISHED 44.4% IS NOT A WRONG NUMBER \u2014 it is a correct ratio over a population the reader cannot see is a quarter of the book, which is the SAME defect class MI-144 was dispatched to fix, reproduced by the fix itself. `noBracketRecord: 321` IS published beside it, so the state is not collapsed and a careful reader can see it; the hazard is `reachedRatio` being quoted alone. \u26a0\ufe0f DO NOT CONFLATE THIS WITH R: the same fallback moves `rBasis.declaredInitial` by only 103\u2192106 and `expectancyR` from -0.3152 to -0.3153, because the reverse-linked packages carry `sl`/`tp` but rarely a `meta.risk_per_unit`. R is fine; the BRACKET half is what is under-covered.",
-  "clears_when": "The successor PR merges AND deploys AND `/api/bot/performance?window=all` is OBSERVED with `bracketOutcome.gradeable` at or above ~420 of 424 with `noBracketRecord` in the low single digits \u2014 CHECK THE COVERAGE, not the ratio. \u26a0\ufe0f A MERGE CLEARS NOTHING (ict-git-sync must pull it) and a green suite clears nothing (three tests pin the fallback, two of them verified failing without it, and a harness cannot reach the live VM). \u26a0\ufe0f IF COVERAGE RISES BUT `reachedRatio` DOES NOT LAND NEAR 0.5429, that is the more valuable finding \u2014 write what was seen and keep the row open rather than clearing on the coverage half alone. \u26a0\ufe0f AND IF THE OPERATOR DECIDES the forward key should stay the only one \u2014 e.g. that a reverse-linked package is not trustworthy as the declared bracket \u2014 this row does NOT clear, it CHANGES: that is a legitimate decision and must be RECORDED as one, leaving `bracketOutcome` honestly scoped to the rows that carry a forward pointer.",
-  "refs": [
-   "PR #11131",
-   "docs/research/trade-record-integrity-2026-09-06.md",
-   "docs/claude/work/objects/WO-20260906-THE-RECORD-OF-A-TRADE-DOES-NOT.yaml",
-   "src/web/api/routers/performance.py",
-   "tests/test_performance_bracket_outcome_wiring.py"
-  ]
  }
 ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",

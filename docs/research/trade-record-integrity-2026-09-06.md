@@ -359,3 +359,79 @@ exactly why it is written now, while the data happens to be kind.
 
 ⚠️ Quote that from this measurement, not from the live endpoint, until the
 coverage fix deploys — the endpoint currently answers 44.4% over 99 rows.
+
+---
+
+## Coverage fix observed — 2026-09-06T16:56Z
+
+PR #11155 merged as `92aebf8c` and deployed the same minute: `/api/diag/version`
+reads `git_sha 92aebf8c == git_sha_on_disk`, `restart_pending false`, captured
+16:56:45Z. The fallback join (`opl_pick` / `_pkg_col` / `link_ok`) was
+content-verified on `origin/main` first, and the endpoint still served the old
+figures at 16:56:24Z — the positive control that makes this real
+absence-then-presence rather than an unreachable probe.
+
+**Real money, `window=all`, n = 424:**
+
+| | before | after |
+|---|---|---|
+| `gradeable` | 99 (23.3%) | **420 (99.1%)** |
+| `noBracketRecord` | 321 | **0** |
+| `priceNotMeasurable` | 4 | 4 |
+| `reachedRatio` | 0.4444 | **0.5429** |
+| sl : tp : mid | 32 : 12 : 55 | **187 : 41 : 192** |
+
+**Checked by arithmetic, not eyeballed.** The states partition —
+`0+0+192+0+4+187+41 = 424 == totalTrades`; `sl+tp+mid = 420 == gradeable`; and
+`228/420 = 0.5429`, equal to the published ratio.
+
+`rBasis` moved `{103, 321, 0, 0} → {106, 318, 0, 0}`, still summing to 424 with
+`declaredInitial + storedStop == rTradeCount`, and `expectancyR` **−0.3152 →
+−0.3153** against `profitFactor 0.7294`. That is the predicted negligible R
+effect, confirming the two halves stayed separate: the fallback bought bracket
+coverage, not R coverage.
+
+⚠️ **Every pre-merge prediction landed exactly** — 420 gradeable, 187:41,
+0.5429, 106 declared, −0.3153. That is a strong result and it is **not
+self-evidence that the instrument is correct**. What it establishes is that the
+offline pipeline and the deployed route agree, which is precisely what makes the
+before/after figures comparable. The classifier's correctness rests on its
+tests, not on this agreement.
+
+⚠️ The 4 rows grading `priceNotMeasurable` are the ones predicted unreachable by
+either key. They are **declared, not hidden** — the point of the state
+vocabulary.
+
+### The answer, now quotable from the endpoint
+
+> **Real money, all history, n = 424, 420 gradeable — 228 (54.3%) ended at a
+> declared bracket: 187 at the STOP against 41 at the TARGET, a 4.6:1 ratio.
+> 192 ended mid-bracket.**
+
+The earlier instruction to quote this from the measurement rather than the live
+endpoint is **spent**; `/api/bot/performance` now publishes it. Still never
+quote `reachedRatio` without `gradeable` beside it.
+
+### The 30d window, deployed — the one promotion decisions read
+
+Recorded because `window=30d` is the window a promote/demote/kill argument is
+usually built from, and it behaves differently from all-time in a way worth
+stating rather than leaving to be rediscovered.
+
+Real money, `window=30d` (since 2026-08-07), n = 39, measured 17:04Z:
+
+- `gradeable` **39 of 39 (100%)** — `noBracketRecord 0`, `priceNotMeasurable 0`.
+  This window was **never** under-covered: every row in it carries a resolving
+  `order_package_id`, which is why the coverage defect was invisible here and
+  showed up only on the full book. **A recent window is not a safe place to
+  check instrument coverage** — the forward key is populated on new rows and
+  missing on old ones, so the newest window is exactly where the defect hides.
+- `reachedRatio` **0.4103** — 13 sl, 3 tp, 23 mid. `rBasis` `{39, 0, 0, 0}`,
+  summing to `totalTrades`.
+- `expectancyR` **+0.1772** against `profitFactor 0.9507` and `totalPnl −3.63`.
+
+⚠️ **The 30d sl:tp is 4.3:1 and the all-time is 4.6:1 — do not read the pair as
+a trend.** n = 39 against n = 424, and 3 take-profits is not a sample anything
+should be concluded from. Both are consistent with one underlying rate; the
+difference is noise, and it is stated here so a later reader does not treat two
+adjacent numbers as a direction.
