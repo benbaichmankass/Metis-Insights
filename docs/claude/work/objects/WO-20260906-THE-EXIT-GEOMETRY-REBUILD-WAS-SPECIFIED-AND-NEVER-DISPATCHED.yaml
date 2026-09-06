@@ -1,0 +1,135 @@
+id: WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED
+title: >-
+  The exit-geometry rebuild was specified 2026-08-23 and never dispatched
+kind: commitment
+lifecycle: in_flight
+opened: '2026-09-06'
+intent: IN-20260903-TRADING-SYSTEM-HEALTH
+owner: MI-148
+registry_key: pending-20260906T123030Z
+branch: claude/exit-geometry-rebuild-20260906
+
+blocked_on: []
+blocked_on_basis: ASSESSED
+blocked_on_note: >-
+  Nothing blocks the TIER-1 half (measure the fleet's declared expectations,
+  build the calibration instrument E3.6's falsifier requires, write the
+  per-leg proposal). The Tier-3 half — applying per-leg target geometry to
+  config/strategies.yaml, and flipping target_extension_soak from annotate to
+  acting — is gated on an operator decision, which is a DECISION edge and not
+  a build blocker. Recorded as assessed rather than left empty.
+
+problem: >-
+  docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md was written 2026-08-23
+  by the full-system-audit session and ends "Paste this whole file as the
+  opening message of a NEW session." Nobody ever did. The diagnosis underneath
+  it has been established at least SEVEN times -- 2026-08-20
+  (e35-bracket-is-not-a-decision), 08-23 (bracket-expectation-construction,
+  34KB), 08-24 (bracket-target-reachability), 08-26
+  (bracket-geometry-decision-packet), 08-29 (e35-matrix-recheck), 08-31
+  (e35-passed-unshipped-proposal) and 09-06 (MI-146) -- and BUILT ZERO TIMES.
+  Re-measuring it an eighth time is the failure mode, not the work.
+
+thesis_governing_this_object: >-
+  Operator, 2026-08-23: "Brackets ALWAYS represent our prediction of where the
+  trade should end ... The only solution here is to properly build out the
+  active management infra, not layer on bandaids to a poorly constructed
+  strategy." And 2026-09-06: "at least know in the beginning where we think
+  that momentum is gonna burn out." Two binding consequences: a bracket must
+  carry an expectation AT ENTRY (a sentinel target is the ABSENCE of one), and
+  no clamp / floor / trade-refusal where the honest answer is that the
+  geometry was never constructed.
+
+done_condition:
+  - id: '1'
+    text: >-
+      Every enabled live leg declares a take-profit expressing where the
+      strategy thinks the move ends, measured from the RUNNING config. A leg
+      that deliberately has no target must DECLARE that, not carry a 50R
+      sentinel.
+    tier: 3
+    status: pending
+  - id: '2'
+    text: A producer exists that can EXTEND a target.
+    tier: 3
+    status: pending
+  - id: '3'
+    text: target_extension_soak stops reading 100% sentinel_no_expectation.
+    tier: 3
+    status: pending
+    depends_on: '1'
+  - id: '4'
+    text: >-
+      The bracket is graded for CALIBRATION against realised exit location --
+      E3.6's own falsifier. A calibration read, not a P&L read.
+    tier: 1
+    status: BUILT_AND_RUN
+
+taken_from_priors_not_re_derived:
+  - source: MI-146 docs/research/exit-lever-wiring-audit-2026-09-06.md
+    facts:
+      - 25 of 44 enabled live legs (56.8%) have no reachable take-profit
+      - 46 of 46 shipped matrix cells are armed on the running trader, zero drift
+      - directional book n=120 08-27..09-06 - bracket 29.2%, tp 5.8%, plumbing 63.3%
+  - source: src/runtime/target_expectation.py + target_extension_soak.py
+    facts:
+      - the extension producer's ANNOTATE phase already exists and runs on 41 legs
+      - the downstream tp channel is fully plumbed - only the producer was missing
+
+answer:
+  landed_2026_09_06:
+    clause_4: >-
+      DONE. E3.6's falsifier had "no instrument, no artifact and no cell"
+      (MI-146 Q1). It has one: src/runtime/bracket_calibration.py (pure
+      grader), scripts/research/bracket_calibration_report.py (--exits and
+      --mfe views with opposite flaws, never pooled), 30 tests pinning the
+      DISTINCTIONS rather than today's numbers. Guards PASS 70 / FAIL 0.
+    clause_1_evidence: >-
+      DONE. Census reproduced MI-146's 15 declared / 10 inherited / 19 real
+      split by a second method, and sharpened it - 9 of the 19 "real" targets
+      would themselves clamp at the reference ATR, so 34 of 44 enabled+live
+      legs rest a clamp-set target rather than a stated expectation.
+    clause_1_proposal: >-
+      SHAPE ONLY, deliberately. Per-leg numbers are NOT proposed because the
+      MFE n needed to set them honestly is 1-8 per leg live; proposing off
+      that would be the fitted-threshold failure. The gate is named: an MFE
+      distribution at proper n from the offline harness, which is not blocked.
+    clause_2: >-
+      NOT REBUILT - it already exists. target_expectation.evaluate_extension
+      is the decision and target_extension_soak.annotate_from_monitor is the
+      observe-only producer, running on 41 legs. What remains is the
+      annotate->act flip, Tier-3.
+    clause_3: >-
+      Correctly blocked on clause 1. The soak reads 100/100 sentinel because
+      no trade has ever had a target to approach; it starts producing
+      evaluable rows the moment any leg carries a real one.
+  headline_measurements:
+    - >-
+      Only 4 of 102 peak_gradeable trades (3.9%) ever reached the 9.9% level
+      their target sits at, even at the LOWER BOUND of MFE.
+    - >-
+      On the measured-exit stratum (n=82) the declared target sits at quantile
+      0.9024 of realised exits and reach_rate is 0.1220.
+    - >-
+      On 12 donchian/pullback legs the target sits at quantile 1.0000 of
+      realised exits - not one trade in the window ended above it.
+    - >-
+      ANSWERED an open question tp_venue_cap.py declared open: off Bybit the
+      0.099 cap is ~2.9x the p90 of lower-bound MFE and 0 of 39 trades ever
+      reached it; on Bybit-traded crypto it is ~1.0x (n=63) - about right, by
+      accident.
+  corrections_to_the_dispatch_brief:
+    - >-
+      PROCESS doc has NO section 4. The thesis rule is item 4 INSIDE E3.6
+      (line 344); the falsifier closes the same section.
+    - >-
+      The work object this session was told it owned did not exist on
+      origin/main or on disk. This branch creates it.
+  filed:
+    - >-
+      UPDATED IN PLACE (not duplicated) the binding rate is now measured, so
+      that row's own title is half false. Row:
+      BL-20260901-E35-TP-R-CAN-BE-INERT-BEHIND-THE-VENUE-CLAMP-AND-THE-BINDING-RATE-IS-UNMEASURED
+    - >-
+      NEW row filed:
+      BL-20260906-VENUE-TP-CAP-IS-2-9X-TOO-LOOSE-ON-EVERY-LEG-THAT-TOUCHES-NO-BYBIT-ACCOUNT

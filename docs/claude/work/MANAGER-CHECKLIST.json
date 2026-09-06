@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T11:02Z",
+  "updated_at": "2026-09-06T13:40Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1908,12 +1908,14 @@
       "id": "MI-145-SWEEP-POSITIVE-CONTROL",
       "title": "Positive control on the exit sweep — 320 of 468 lever cells say honest_negative and nothing has shown the harness can detect a positive",
       "state": "queued",
-      "owner": "unassigned",
+      "owner": "session_01SKvbp9rm3fiyD9uHxpeFKM",
       "owns_object": "WO-20260906-POSITIVE-CONTROL-ON-THE-EXIT-SWEEP-320",
       "priority": "P1_CYCLE",
       "tier": "1",
-      "note": "Operator chose 'Yes — positive control first' over folding it into the wider audit. If the harness is blind, 320 negatives are unfalsifiable AND the 39 shipped cells rest on the same instrument.",
-      "added": "2026-09-06"
+      "note": "Spawned 12:07Z into the lane MI-146 freed. Escalated by MI-146: 320 honest_negative AND 39 SHIPPED cells all rest on one uncontrolled instrument. Second deliverable: MI-146's recommendation #1 (re-status the 33 mislabels, add a basis field, propose the CI check).",
+      "added": "2026-09-06",
+      "status": "in_flight",
+      "updated": "2026-09-06T12:08Z"
     },
     {
       "id": "MI-146-BRACKET-MECHANISMS-AUDIT",
@@ -1923,10 +1925,10 @@
       "owns_object": "WO-20260906-ARE-THE-BRACKET-AND-ACTIVE-MANAGEMENT-MECHANISMS",
       "priority": "P1_CYCLE",
       "tier": "1 (audit — propose only)",
-      "note": "Spawned 10:53Z. The operator's exit-mechanics thesis. Must separate 'never wired' (n/a) from 'wired and honestly failed' (honest_negative).",
+      "note": "#11124 MERGED. ROOT CAUSE: no strategy has ever extended a target, and 25 of 44 enabled live legs (56.8%) have NO REACHABLE take-profit - 15 carry a tp_r>=20 sentinel clamped by TP_VENUE_CAP_PCT 0.099 (Bybit's rejection boundary), 10 declare none. Realised closes n=120 directional 2026-08-27..09-06: bracket 29.2% (tp only 5.8%), active-mgmt 7.5%, plumbing 63.3%. CAVEAT: those shares read exit_reason, the field MI-144 says is frozen, so bracket is a LOWER bound and plumbing an UPPER bound. Q3: 46 of 46 shipped cells armed on the running trader, zero drift. 33 genuine mislabels found (cells graded tested for a lever with no consumer in that leg's unit).",
       "added": "2026-09-06",
-      "status": "in_flight",
-      "updated": "2026-09-06T10:54Z"
+      "status": "done",
+      "updated": "2026-09-06T12:08Z"
     },
     {
       "id": "MI-147-BACKTEST-SOAK-CHAIN-AUDIT",
@@ -1938,6 +1940,15 @@
       "tier": "1 (audit — propose only)",
       "note": "Operator 2026-09-06: soaking is 'only for mechanical verification of what we already have tested to be verifiably true in backtesting'. The chain is inverted at least once: bracket_geometry reads PENDING (never swept) on the ENTIRE 8-leg ict_scalp family, every one execution: live.",
       "added": "2026-09-06"
+    },
+    {
+      "id": "MI-149-REGISTER-WRITERS",
+      "status": "queued",
+      "owner": null,
+      "opened": "2026-09-06",
+      "title": "Scaffold the guarded registers so a write cannot be wrong: OPEN-ITEMS, MANAGER-CHECKLIST, pr-landing",
+      "note": "OPERATOR 2026-09-06: 'your job is to manage the queue so that we don't lose cycles to these kinds of mistakes'. SEVEN guard failures on the manager's own PRs in one day, every one a field omission on a register write, every one found by CI ~2 min after the PR opened. backlog_append.py proves the pattern and is the ONLY one that exists. OPEN-ITEMS.json additionally does not round-trip at any json.dumps setting, so it can only be hand-spliced. Guards must NOT be weakened - the fix is upstream of them. Row: BL-20260906-EVERY-REGISTER-WRITE-IS-A-GUESS-THEN-A-CI-ROUND-TRIP. Highest queue-throughput item: the manager gates five sub-sessions.",
+      "updated": "2026-09-06T13:40Z"
     }
   ],
   "as_of": "2026-09-04T09:45:00Z",
