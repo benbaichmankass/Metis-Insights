@@ -12,6 +12,34 @@ review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
 done_condition: >-
+  ⚠️ PART (1) WAS SUPERSEDED BY THE OPERATOR ON 2026-09-06 — READ THIS BEFORE
+  ACTING ON THE TEXT BELOW. The lever is NO LONGER `config/strategies.yaml
+  execution: shadow`. Asked to choose between that and the narrower per-account
+  lever, the operator chose the narrower one: REMOVE `ict_scalp_5m` FROM
+  `bybit_2`'s `strategies:` LIST IN `config/accounts.yaml`, and LEAVE
+  `config/strategies.yaml` ALONE so the leg keeps `execution: live`. Rationale:
+  `execution:` is a per-STRATEGY gate and would also have stopped `bybit_1` and
+  `bybit_portfolio`, and the paper evidence is wanted — it feeds the
+  `bracket_geometry` sweep that part (2) turns on. DECIDED, Tier-3, scope
+  `bybit_2` only, no condition; typed record in docs/claude/work/OPEN-PRS.json.
+  Shipped as PR #11121; PR #11115, which implemented `execution: shadow`, is
+  CLOSED unmerged and superseded. ⚠️ DO NOT "fix" this by setting
+  `execution: shadow` — that would undo the operator's choice and stop both
+  paper books. ⚠️ AND WHEN VERIFYING: order packages AND PAPER FILLS will keep
+  appearing for this leg, because it is still live on two paper books. That is
+  the change working. Grade on `trades` rows carrying BOTH
+  `strategy_name='ict_scalp_5m'` AND `account_id='bybit_2'`.
+  ⚠️ ONE CORRECTION TO `why:` BELOW, which is load-bearing for part (2): its
+  "ZERO shipped exit levers ... all read n/a" is right in conclusion and wrong
+  in reasoning. Three levers (stale_stop, giveback_stop, exit_ladder) were
+  genuinely swept and honestly FAILED; four (trail_geometry, trail_decay,
+  vol_trail, regime_flip_exit) are INAPPLICABLE BY CONSTRUCTION — the strategy
+  has no trailing stop to reshape; one (exit_head_ml) awaits a Tier-3 ship.
+  EXACTLY ONE lever is both unrun and applicable: `bracket_geometry`. Reading
+  all seven as neglect would spread part (2)'s effort across six dead ends.
+  (Established in docs/research/ict-scalp-5m-real-money-verdict-2026-09-06.md.)
+  ---
+  ORIGINAL TEXT, KEPT AS THE RECORD OF WHAT WAS FIRST ASKED:
   TWO PARTS, and part 1 happens FIRST and FAST. (1) config/strategies.yaml sets execution: shadow on ict_scalp_5m -- Tier-3 and ALREADY OPERATOR-APPROVED for this specific change; open it ready with landing: hold and hold_text quoting the approval, and say in the PR that the approval is recorded in the manager checklist. Verify AFTER deploy that it stopped placing (a shadow leg still logs order packages) rather than assuming. (2) THEN the dive: should it trade real money at all? Establish what its edge is supposed to be, whether any backtest ever supported its bracket geometry, why a 54.1%-win leg loses money, and what would have to be true to put it back on live. !! DO NOT author a regime gate or a stop change from n=6 -- 1B's report explicitly refuses that and so must you. !! DO NOT use expectancyR anywhere: the R instrument is sign-inverted (PB-20260906-R-CONTAMINATION-QUANTIFIED).
 
 why: >-
