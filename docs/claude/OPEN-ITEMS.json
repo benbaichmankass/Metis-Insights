@@ -3,7 +3,7 @@
  "what_this_is": "The SHORT list every session reads at START — and its live contents are RENDERED INTO CLAUDE.md by scripts/ops/render_session_brief.py, because CLAUDE.md is the only channel that reliably reaches a session before its first tool call. Hooks do NOT run on Claude Code on the web (verified 2026-08-26: the SessionStart contract's output was absent from the session context; 1,379 consecutive 'Found 0 total hooks in registry' log lines on 2026-08-20), and CI guards fire at MERGE, which is far too late to make the work correct in the first place.",
  "every_row_declares_how_it_leaves": "`clears_when` names the OBSERVABLE condition that removes the row. 'the fix works' is not one; 'the mechanism is seen acting on a named trade' is. A row nobody can tell is finished never gets cleared.",
  "loud_means_report_it_every_session": "A row with `loud: true` must be REPORTED ON in the session's closing summary — checked and stated, not silently carried. Operator directive 2026-08-26: 'keep a LOUD backlog item for EVERY SESSION to check and report on it till it's implemented correctly and the mechanism has been verified.'",
- "updated_at": "2026-09-06",
+ "updated_at": "2026-09-05",
  "items": [
  {
   "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
@@ -1188,6 +1188,27 @@
 
   ]
 
+ },
+ {
+  "id": "OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON",
+  "opened": "2026-09-06",
+  "kind": "monitoring",
+  "loud": true,
+  "check_every_days": 7,
+  "summary": "E3.6's calibration falsifier finally has an instrument (MI-148, PR #11138) and it returns a clear negative: the fleet's take-profits are not predictions. NOTHING HAS BEEN CHANGED IN RESPONSE, deliberately — the per-leg numbers are Tier-3 and the n needed to set them honestly does not exist yet.",
+  "detail": "WHAT LANDED: src/runtime/bracket_calibration.py (pure grader, NO runtime caller), scripts/research/bracket_calibration_report.py (--exits / --mfe / --selftest), 30 tests, and docs/research/bracket-calibration-2026-09-06.md. Percent-of-entry basis, never R — the R denominator is contaminated (trades.stop_loss is the FINAL trailed stop) and the venue clamp is itself a percent of entry.\n\nWHAT IT FOUND (populations in the memo): only 4 of 102 peak_gradeable trades (3.9%) ever reached the 9.9% level their target sits at, even at the LOWER BOUND of MFE. On the measured-exit stratum (n=82) the declared target sits at quantile 0.9024 of realised exits; on 12 donchian/pullback legs it sits at 1.0000 — not one trade in the window ended above it. Off Bybit the 0.099 cap is ~2.9x the p90 of lower-bound MFE with 0 of 39 trades ever reaching it, which ANSWERS a question src/runtime/tp_venue_cap.py declares OPEN in its own docstring.\n\nWHY THIS ROW EXISTS AND NOT JUST A BACKLOG ROW: the specific failure that produced MI-148 was a complete specification (docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md, 2026-08-23) that nothing pointed at, so it sat undispatched for 14 days while its diagnosis was re-established SEVEN times and built zero. A memo plus a backlog row is exactly the shape that failed. This row is the thing that puts the next step in front of a session.\n\nTHE NEXT STEP IS NAMED AND UNCLAIMED: an MFE distribution at proper n from the OFFLINE HARNESS over historical candles. The live telemetry gives 1-8 rows per leg, too thin to set a per-leg target on — doing so anyway would be the fitted-threshold failure this repo already pays for. The harness reads no live broker state and is NOT BLOCKED on anything in this thread.\n\nDO NOT READ THIS AS 'the instrument needs proving'. It is pure, has no runtime caller, and cannot affect a live order; its --selftest asserts the recogniser fires on planted positives. What is unproven is nothing about the code — it is that the VERDICT has not reached a decision.",
+  "clears_when": "EITHER of two things, and say WHICH. (1) The operator makes a Tier-3 decision on the per-leg target geometry — approving a construction, rejecting it, or explicitly deciding the sentinel idiom stays — and it is RECORDED. A decision to change nothing is a legitimate outcome and clears this row; being un-actioned does not. (2) The offline-harness MFE distribution is produced at stated n and a per-leg proposal is put in front of the operator off THAT n rather than off the live 1-8.\n\n⚠️ A RE-RUN OF THE INSTRUMENT CLEARS NOTHING. Re-measuring is precisely the failure mode this row exists to stop: the diagnosis was established seven times before it was built once. If you re-run it and the numbers hold, that is not progress — write what you saw and leave the row open.\n\n⚠️ AND MERGING PR #11138 CLEARS NOTHING EITHER. The instrument landing is what OPENED this row, not what closes it.",
+  "probe_absent_reason": "NOTHING CAN PROBE THIS, and that is a property of the clears_when rather than a gap in the tooling. Both clauses are HUMAN ACTS — an operator Tier-3 decision on per-leg target geometry, or a per-leg proposal put in front of them off an offline-harness MFE distribution. A probe can only observe the repo and the fleet, and neither records that a decision was ASKED FOR and not given. \u26a0\ufe0f The probeable thing here is deliberately NOT the clears_when: re-running scripts/research/bracket_calibration_report.py is cheap and a probe could do it hourly, but the row says in terms that a re-run CLEARS NOTHING — re-measuring is the exact failure this row exists to stop (the diagnosis was established seven times before it was built once). Wiring that probe would manufacture activity against a row whose whole point is that measurement is finished and a decision is owed.",
+  "verified_at": "2026-09-06",
+  "observation": "2026-09-06 (MI-148): built and ran it this session. Guards PASS 71 / FAIL 0, 30 tests pass, lint-imports 6 contracts kept. PR #11138 open, tier 1 / landing hold (tier_2_3_needs_approval — pr-landing-guard R5 does not certify a src/** diff for self-landing). No config/** touched. No per-leg target value proposed.",
+  "refs": [
+   "docs/research/bracket-calibration-2026-09-06.md",
+   "docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md",
+   "docs/design/exit-mechanism-construction-PROCESS.md",
+   "docs/claude/work/objects/WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED.yaml",
+   "BL-20260906-VENUE-TP-CAP-IS-2-9X-TOO-LOOSE-ON-EVERY-LEG-THAT-TOUCHES-NO-BYBIT-ACCOUNT",
+   "BL-20260901-E35-TP-R-CAN-BE-INERT-BEHIND-THE-VENUE-CLAMP-AND-THE-BINDING-RATE-IS-UNMEASURED"
+  ]
  },
  {
   "id": "OI-20260906-THE-R-INSTRUMENT-IS-CORRECTED-ON-A-BRANCH-AND-EVERY-PUBLISHED-R-IS-STILL-THE-OLD-ONE",
