@@ -257,3 +257,105 @@ beats comment.**
 | (b) `_classify_broker_exit` → `classify_bracket_outcome` | **2** | edits the close/label writer path | **PROPOSED** |
 | (c) refusal + paging on `/trades/closed` | **1** | read route; response *shape* unchanged (still an array) | **LANDED** |
 | (c) the other 14 bare-empty sites | **1** each | but each needs its own consumer-contract call | **FILED** |
+
+---
+
+## Post-deploy observation — 2026-09-06T15:05Z
+
+PR #11131 merged as `44cc060b` (15:01Z) and reached the fleet at 15:05:17Z:
+`/api/diag/version` reads `git_sha 4c00c120 == git_sha_on_disk`,
+`restart_pending false`, and `44cc060b` is an ancestor of that sha on `main`.
+
+**The content test is the endpoint, not the sha.** Before the deploy,
+`/api/bot/performance` answered HTTP 200 carrying the *old* key set with no
+`rBasis` and no `bracketOutcome` — a positive control establishing that the
+absence was real absence and not an unreachable probe. After it, both blocks
+are served.
+
+### (a) R — the arithmetic, checked rather than eyeballed
+
+| window / block | rBasis (declared, stored, refused, noBasis) | sum == totalTrades | declared+stored == rTradeCount |
+|---|---|---|---|
+| 30d real money | 39 / 0 / 0 / 0 | 39 == 39 ✅ | 39 == 39 ✅ |
+| all real money | 103 / 321 / 0 / 0 | 424 == 424 ✅ | 424 == 424 ✅ |
+| all paper | 503 / 362 / 0 / 0 | 865 == 865 ✅ | 865 == 865 ✅ |
+| all paperPortfolio | 87 / 0 / 0 / 0 | 87 == 87 ✅ | 87 == 87 ✅ |
+
+`expectancyR` on 30d real money moved **+0.9818 → +0.1772**, exactly the
+pre-merge prediction. All-time real money now reads **−0.3152** against
+`profitFactor 0.7294` and `totalPnl −69.53` — the sign agrees on the book that
+matters.
+
+⚠️ **The sign test still is not general, and the 30d window shows it.** There
+`expectancyR +0.1772` sits against `profitFactor 0.9507`; the signs disagree, on
+a window whose `totalPnl` is **−$3.63** (n=39, essentially flat). That is the
+documented behaviour — R weights each trade by its own risk, USD does not — and
+it is restated here so the caveat is not quietly dropped now that the headline
+looks better.
+
+⚠️ **`refusedWrongSide` is 0 in every window.** The refusal branch is a
+backstop this data does not currently need: where a stop is contaminated the
+row usually also carries a declared initial risk, which wins first. Its being
+zero is not evidence it works — that is pinned by tests, not by production.
+
+### (c) The closed-trades contract, observed
+
+`limit=5` → `X-Total-Count: 447`, `X-Has-More: true`; `offset=5` returns a
+**disjoint** page (ids verified non-overlapping); `limit=800` → **HTTP 422**
+naming the cap rather than a bare `[]`; `since=2026-09-01` → 12 rows,
+`X-Has-More: false`.
+
+⚠️ **12 against the 142 recorded pre-merge is not a regression**, and was
+chased down rather than waved past: the route excludes paper by default, and
+`include_demo=true` returns **143** — the same population, one more close since.
+
+### ⚠️ (b) A defect the observation itself found
+
+The deployed bracket answer **covers a quarter of the real-money book.**
+`window=all` real money publishes `reachedRatio 0.4444` over `gradeable 99`,
+with `noBracketRecord 321` (`99 + 321 + 4 == 424`, so the states partition
+cleanly).
+
+Cause, measured rather than inferred — `bracketOutcome` joins `order_packages`
+on `trades.order_package_id` alone:
+
+| | real-money closed non-backtest |
+|---|---|
+| rows | 470 |
+| carrying `order_package_id` | 120 (25.5%) |
+| `order_package_id` NULL | 350 |
+| …of those, reachable via `order_packages.linked_trade_id` | 325 (92.9%) |
+| unreachable by **either** key | 25 |
+
+Re-run offline with the **shipped** classifier over the route's own population
+(n=428), the forward key alone reproduces the deployed **44/99 = 44.4%
+exactly** — the positive control that makes the two figures comparable — while
+forward-then-fallback grades **420 of 428 (98.1%)** and answers **228/420 =
+54.3%**, sl:tp **187:41**.
+
+**The 44.4% is not a wrong number.** It is a correct ratio over a denominator
+the reader cannot see is a quarter of the book — the same unprovenanced-
+denominator class MI-144 was dispatched to fix, reproduced by the fix itself.
+`noBracketRecord` *is* published beside it, so the state is not collapsed; the
+hazard is `reachedRatio` being quoted alone.
+
+⚠️ **Do not conflate this with R.** The same fallback moves
+`rBasis.declaredInitial` only **103 → 106** and `expectancyR` **−0.3152 →
+−0.3153**, because the reverse-linked packages carry `sl`/`tp` but rarely a
+`meta.risk_per_unit`. R is fine; the bracket half is what is under-covered.
+
+Fixed in the successor PR (Tier-1, read path): a pre-aggregated `LEFT JOIN` on
+`linked_trade_id`, consulted **only** where `order_package_id` is NULL, with
+`MIN(order_package_id)` for determinism. `linked_trade_id` is currently unique
+across all 4436 packages (1113 over 1113 distinct trades, **zero fan-out**), so
+the pre-aggregation is defensive rather than load-bearing today — which is
+exactly why it is written now, while the data happens to be kind.
+
+### The answer to the operator's question
+
+> **Real money, all history, n = 428, 420 gradeable: 228 (54.3%) ended at a
+> declared bracket — 187 at the STOP against 41 at the TARGET, a 4.6:1 ratio.
+> 192 ended mid-bracket.**
+
+⚠️ Quote that from this measurement, not from the live endpoint, until the
+coverage fix deploys — the endpoint currently answers 44.4% over 99 rows.
