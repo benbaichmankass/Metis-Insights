@@ -32822,6 +32822,24 @@
         "docs/design/exit-mechanism-construction-PROCESS.md"
       ],
       "found_by": "MI-148 exit-geometry rebuild (session_01K64KKRVtS3V7XhdtZMP4hU)"
+    },
+    {
+      "id": "BL-20260906-OPEN-ITEMS-JSON-HAS-NO-APPEND-HELPER-AND-ITS-SERIALISATION-IS-NOT-REPRODUCIBLE-BY-JSON-DUMPS",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-06",
+      "area": "session-end tooling / register hygiene",
+      "title": "docs/claude/OPEN-ITEMS.json is the one register EVERY session must edit and it has no append helper — a naive read-append-write reformats all 1,148 lines, the exact trap backlog_append.py was built to close one file over",
+      "detail": "CLAUDE.md § 'Every session' requires every session to READ docs/claude/OPEN-ITEMS.json at start and UPDATE it at end. For the three review backlogs that edit is protected: scripts/ops/backlog_append.py round-trips the file's exact serialisation and REFUSES to write when it cannot reproduce it, because BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES measured a ONE-ROW append producing 21,307 insertions / 21,288 deletions.\n\nOPEN-ITEMS.json has no such helper, and it is MORE exposed, not less: it is edited by every session rather than by the ones that happen to file a finding.\n\nMEASURED 2026-09-06 (MI-148), and this is a NEAR-MISS REPORT rather than a theory. Appending one row with json.dumps(indent=2, ensure_ascii=False) — the idiom that IS correct for the review backlogs — produced 1,148 insertions / 1,149 deletions on a 1,197-line file, i.e. a whole-file rewrite. open-items-guard PASSED on it ('OK — 55 items ... every one workable'), so the guard is no protection against this: it validates CONTENT, not the diff. It was caught only by reading git diff --numstat by hand.\n\nROOT CAUSE: the file's style is not reproducible by json.dumps at any indent. Its list elements sit at the SAME indent level as the enclosing key (item brace at 1 space, keys at 2), whereas json.dumps(indent=1) puts the brace at 2 and keys at 3. Verified by exhaustive round-trip over indent in (1,2,4,None) x ensure_ascii in (False,True) x three separator settings: NO combination reproduces the bytes. So the correct-looking helper call is the wrong one here, and there is nothing in the file or in CLAUDE.md that says so.\n\nWHY IT MATTERS BEYOND TIDINESS — the same argument backlog_append.py's docstring makes: every diff-scoped guard reads added-vs-origin/main, so a whole-file reformat RE-ATTRIBUTES all 54 pre-existing rows to the appending PR. On a register whose rows carry loud:true and clears_when contracts, that buries the one row the session actually added and turns unrelated sessions' rows red.\n\nWORKAROUND USED THIS SESSION (not a fix): surgical text insertion before the array's closing brace, with the row serialised at indent=1 and every line prefixed one space, then json.loads on the result to refuse writing invalid JSON. 20 insertions, 0 deletions. That works and should not have to be re-derived by the next session.",
+      "resolution_criteria": "EITHER (a) an append_open_item() helper beside backlog_append.py that round-trips OPEN-ITEMS.json's exact bytes and REFUSES rather than falling back to a default — the refusal is the feature, per backlog_append.py's own docstring — and CLAUDE.md's session-end bullet points at it the way it already points at backlog_append.py; OR (b) OPEN-ITEMS.json is re-serialised ONCE to a json.dumps-reproducible style in a dedicated PR that touches nothing else (so the one unavoidable whole-file diff is isolated and reviewable), after which the ordinary idiom is safe.\n\nClosing requires a demonstration, not an assertion: append a throwaway row through the chosen path and show git diff --numstat reports insertions only. A green open-items-guard does NOT close this — it passed on the 1,148-line reformat.",
+      "refs": [
+        "docs/claude/OPEN-ITEMS.json",
+        "scripts/ops/backlog_append.py",
+        "scripts/ci/check_open_items.py",
+        "BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES"
+      ],
+      "found_by": "MI-148 exit-geometry rebuild (session_01K64KKRVtS3V7XhdtZMP4hU) — near-miss while doing the mandated session-end update"
     }
   ]
 }
