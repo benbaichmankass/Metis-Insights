@@ -85,7 +85,7 @@ the block's own last substantive change is 2026-07-20. **Not an e35 casualty —
 
 ---
 
-## 2. Why a 54.1%-win leg loses money
+## 2. Why a 54.1%-win leg (20 of 37) loses money
 
 ### 2.1 The declared geometry and the realised geometry point opposite ways
 
@@ -97,13 +97,13 @@ The leg declares `tp_at_r: 1.5` — a 1.5:1 reward-to-risk bracket, which breaks
 | wins | 20 | +$47.46 | **+$2.3732** | +$1.2427 |
 | losses | 17 | −$60.11 | **−$3.5360** | −$3.8112 |
 
-**Realised payoff ratio 0.671. Profit factor 0.790. Breakeven win rate required: 59.8%.
-Actual: 54.1%.** The declared bracket says it needs 40%; the realised bracket says it needs
-60%. That inversion *is* the payoff-geometry problem, and it is not subtle — it is a factor
-of 2.23× between the reward:risk the config declares and the one the book delivers.
+**Realised payoff ratio 0.671. Profit factor 0.790.** Over those same 37 rows the breakeven
+win rate required is **59.8%** and the actual is **54.1%** (20 of 37). So the declared bracket
+says it needs 40.0% and the realised bracket says it needs 59.8% — an inversion of **2.23×**
+between the reward:risk the config declares and the one the book delivers. It is not subtle.
 
-Note the price-move view does **not** show the same inversion: median favourable move 0.79%
-vs median adverse move 0.61%, a ratio of 1.30 — close to the declared 1.5. **The geometry
+Note the price-move view does **not** show the same inversion: median favourable move 0.79% (n=20 wins)
+vs median adverse move 0.61% (n=17 losses), a ratio of 1.30 — close to the declared 1.5. **The geometry
 degrades between the price path and the dollars**, which is what points at the exits rather
 than at the entry signal or the stop placement.
 
@@ -123,7 +123,7 @@ Split by how the trade actually left:
 | **exits the strategy did not choose** | **16 (43%)** | **11 (68.8%)** | **+$9.89** | +$0.62 |
 
 **This is the answer to the question.** The 54.1% headline is an average over two populations
-that behave completely differently. On its own declared bracket the leg wins **38.1%** — just
+that behave completely differently. On its own declared bracket (n=21) the leg wins **38.1%** — just
 under the 40.0% its own 1.5:1 geometry requires — and loses $22.54. The 16 reconciler-closed
 rows win 68.8% but average **+$0.62**, i.e. they are mostly scratches: six of the twenty wins
 are under $1.00 (+0.07, +0.09, +0.83, +0.84, +0.94, +0.98) and together carry $3.75.
@@ -141,6 +141,7 @@ winners early cannot make a 1.5:1 bracket pay, however often it is right.
 `sl`/`tp` count is probably **higher** than 21 and the reconciler bucket smaller. That
 correction moves the finding in the **same** direction (more of the book is the strategy's own
 under-water bracket, less is scratch noise), which is why I report it as moderate-confidence
+<!-- population-ok: population B (n=37 closed graded bybit_2 ict_scalp_5m rows) defined in § 0.1 and unchanged through this section -->
 rather than withdrawing it. It does mean **the exact 38.1% should not be quoted as precise.**
 
 ### 2.3 Costs take what is left
@@ -148,14 +149,17 @@ rather than withdrawing it. It does mean **the exact 38.1% should not be quoted 
 All 37 rows carry `cost_source: 'estimate'` — so `fee_taker_usd` is a **modelled** round-trip
 fee (`src/runtime/trade_costs.py`), not broker truth, and I do not treat it as measured.
 
-| | |
-|---|---|
-| modelled round-trip fee, total | **$10.67** |
-| per trade | **$0.2885** |
-| as a share of median notional ($374.02) | 0.075% |
-| median adverse price move (≈ the stop distance) | 0.61% |
-| **fee as a share of the risk taken per trade** | **≈ 12%** |
-| mean per-trade result | **−$0.34** |
+<!-- population-ok: population B (n=37 closed graded bybit_2 ict_scalp_5m rows) defined in § 0.1 and unchanged through this section -->
+All figures below are over the same 37 rows unless the row says otherwise:
+
+| | value | over |
+|---|---|---|
+| modelled round-trip fee, total | **$10.67** | 37 trades |
+| per trade | **$0.2885** | 37 trades |
+| as a share of median notional ($374.02) | 0.075% | 37 trades |
+| median adverse price move (≈ the stop distance) | 0.61% | 17 losses |
+| **fee as a share of the risk taken per trade** | **≈ 12%** | derived from the two rows above |
+| mean per-trade result | **−$0.34** | 37 trades |
 
 **The modelled fee is 85% of the average per-trade loss.** That is the Phase-0 finding
 (*"real structural issue = fee load"*, `docs/research/ict_scalp_5m-phase0-findings-2026-07-20.md`)
@@ -184,6 +188,7 @@ PR #1156, 2026-05-14). Two observations:
    sign-inverted. I am not claiming the gate was wrong — it long predates the contamination
    and may well be clean — but **it has not been re-validated on a sound instrument**, and it
    is the only pre-live evidence the block cites.
+<!-- population-ok: population B (n=37 closed graded bybit_2 ict_scalp_5m rows) defined in § 0.1 and unchanged through this section -->
 2. Its **59.3%** projected win rate is almost exactly the **59.8%** breakeven this leg turns
    out to need. The live book came in at 54.1%. So the leg is not behaving wildly differently
    from its gate — it is missing it by ~5 points, on a geometry with no margin for that.
@@ -254,12 +259,13 @@ judgement call; each is a measurement that does not currently exist:
 1. **A `bracket_geometry` sweep on `data.binance.vision` crypto data** showing a tp/sl pair
    whose realised payoff clears its own breakeven at the win rate the leg actually achieves —
    with in-sample and out-of-sample windows, and graded in dollars, not R.
+<!-- population-ok: population B (n=37 closed graded bybit_2 ict_scalp_5m rows) defined in § 0.1 and unchanged through this section -->
 2. **A cost-aware net figure.** At 0.075% round-trip against a 0.61% stop, the fee is ~12% of
    risk per trade. Any candidate geometry must clear breakeven *after* that, and a wider stop
    helps this ratio while a tighter one makes it worse — which is a real constraint on (1),
    not a free parameter.
 3. **The exit-label question resolved**, so the `tp`/`sl` split can be graded from price
-   rather than from a label the repo knows is wrong 58.7% of the time. Until then the 38.1%
+   rather than from a label the repo knows is wrong in 91 of 155 (58.7%) reconciler closes. Until then the 38.1%
    is directional, not exact.
 4. **The pre-live gate re-run on a sound instrument** — its +0.301R is the leg's only
    entry-side evidence and R is currently sign-inverted.
@@ -267,6 +273,7 @@ judgement call; each is a measurement that does not currently exist:
 **What this document explicitly does not establish, and I will not let it be read as though
 it does:**
 
+<!-- population-ok: population B (n=37 closed graded bybit_2 ict_scalp_5m rows) defined in § 0.1 and unchanged through this section -->
 - **It does not show the entry signal has no edge.** Median favourable excursion (0.79%)
   exceeds median adverse (0.61%) — the entries do go the right way more than they go the
   wrong way. The failure is in converting that into dollars. A verdict on the entry needs the
