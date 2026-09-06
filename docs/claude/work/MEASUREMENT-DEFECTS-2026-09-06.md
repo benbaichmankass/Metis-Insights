@@ -147,6 +147,42 @@ it"* demand different responses, and 72 cells are in the second category.
 
 **Owner:** MI-146 (`session_014jrW67rFyJNnHr7y6dEhec`).
 
+### ⚠️ CORRECTION 2026-09-06 — P5's own headline is computed off a lossy column
+
+MI-145 (#11136) measured the sweep **corpus** rather than the matrix, and the premise
+above is wrong in the direction that closes questions. **`honest_negative` does not mean
+"the sweep found nothing."**
+
+**Population: 1,376 corpus cells / 225 distinct `(leg, lever)` pairs**, joined to the
+matrix by `leg → rows[].strategy`. **91 of 1,376 cells (6.6%) are passing**, giving
+**50 of 225 pairs (22.2%) with at least one passing cell** — and of those 50, **35 read
+`honest_negative` in the matrix.** Best OOS deltas among them: `gld_pullback_1h
+trail_decay` **+8.326**, `tlt_pullback_1d trail_decay` +8.316, `gld_pullback_1h vol_trail`
++8.267.
+
+**This is not a guard failure and not dishonesty** — `check_matrix_corpus_agreement.py`
+passes, and each of the 35 carries its counter-evidence in the cell's `ref` **prose**,
+which the guard's `ACK` regex requires. The matrix is doing something defensible: a
+passing *cell* is not a passing *lever disposition*, and changing a live leg's disposition
+is Tier-3.
+
+**The defect is that the status WORD cannot carry the distinction** — *"measured and it
+lost"* and *"measured, it WON across a walk-forward, disposition withheld pending an
+operator decision"* share one value. That is a **collapsed state** in this repo's own
+sense. And the consequence is concrete: **every aggregate reads the status column, not the
+prose.** So P5's "320 `honest_negative` (68.4%)" above, and MI-146's *"`vol_trail`:
+honestly failed everywhere … nothing to build"*, are both lossy the same way —
+**`vol_trail` passed a cell on 13 of those 35 pairs.**
+
+⚠️ **This does NOT say 35 levers should ship.** A Path B pass buys net R by spending
+drawdown, and `beats()`'s own docstring records `path_b_wf_pass` going **0-for-3** on that
+exchange rate in one measured run. It says the one-word summary closes questions it should
+leave open. Remedy proposed by MI-145 (Tier-1, status-only): a distinct
+`negative_disposition_withheld`, or a `corpus_pass: true` flag on the `basis` field.
+
+**This is the same disease as the meta-finding below, one layer down: research that found
+something, recorded as having found nothing.**
+
 ---
 
 ## P6 — the backtest → soak chain is inverted on the live ict_scalp family
