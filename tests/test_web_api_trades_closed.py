@@ -468,21 +468,38 @@ def test_no_session_returns_200(db, client):
 # ---------------------------------------------------------------------------
 
 
-def test_missing_db_returns_empty_list(tmp_path, monkeypatch, client):
+# ⚠️ THESE TWO ASSERTED THE DEFECT (changed 2026-09-06, MI-144).
+# They previously required an unreadable journal to render as HTTP 200 + `[]`,
+# i.e. as "no closed trades yet". This is the route a performance review grades
+# from, so that is a clean, confident, WRONG negative — `docs/
+# CLAUDE-RULES-CANONICAL.md` § "Collapsed states" applied to a whole endpoint:
+# *we could not look* and *we looked and there is nothing* had one
+# representation. The route now REFUSES with a machine-readable reason.
+#
+# The original concern behind them is preserved and still asserted: the API
+# must not 500 on a bad file. A 503 naming the cause is the correct shape —
+# it says the read failed AND why, where a 500 says only that something broke.
+
+def test_missing_db_refuses_with_a_reason_and_is_not_an_empty_list(
+    tmp_path, monkeypatch, client
+):
     monkeypatch.setattr(trades_closed_router, "_DB_PATH", tmp_path / "missing.db")
     resp = client.get("/api/bot/trades/closed")
-    assert resp.status_code == 200
-    assert resp.json() == []
+    assert resp.status_code == 503
+    assert resp.json()["detail"]["reason"] == "db_file_missing"
 
 
-def test_corrupt_db_returns_empty_list(tmp_path, monkeypatch, client):
-    """A non-sqlite file at TRADE_JOURNAL_DB shouldn't 500 the API."""
+def test_corrupt_db_refuses_with_a_reason_and_never_500s(tmp_path, monkeypatch, client):
+    """A non-sqlite file at TRADE_JOURNAL_DB must not 500 the API — and must
+    not read as an empty journal either."""
     bad = tmp_path / "bad.db"
     bad.write_bytes(b"not a sqlite file")
     monkeypatch.setattr(trades_closed_router, "_DB_PATH", bad)
     resp = client.get("/api/bot/trades/closed")
-    assert resp.status_code == 200
-    assert resp.json() == []
+    assert resp.status_code == 503
+    # "file is not a database" surfaces as an OperationalError — a DEPLOY
+    # problem, distinguished from a transient read failure on purpose.
+    assert resp.json()["detail"]["reason"] in ("db_operational", "db_read_failed")
 
 
 # ---------------------------------------------------------------------------
@@ -497,6 +514,9 @@ def test_corrupt_db_returns_empty_list(tmp_path, monkeypatch, client):
 # feed (real-money bybit_2 Jun-8..19 reconciler closes vanished, leaving
 # only the ISO-stamped backfill_closed_pnl_recovery row visible). These
 # tests call _query_closed_trades directly so they don't need httpx/Starlette.
+# It returns (rows, total) since MI-144 — `total` is the count matching the
+# filters BEFORE the limit, so a full page is distinguishable from an
+# exhausted one.
 # ---------------------------------------------------------------------------
 
 # 2026-06-19T03:18:41.796+00:00 in epoch-ms — the format the reconciler
@@ -520,7 +540,7 @@ def test_epoch_ms_closed_at_row_is_visible_and_dated(db):
                           "closed_by": "monitor_reconciler",
                           "exit_price_source": "bybit_closed_pnl"}),
     )
-    rows = trades_closed_router._query_closed_trades(
+    rows, _total = trades_closed_router._query_closed_trades(
         db, limit=trades_closed_router.DEFAULT_LIMIT, since=None,
     )
     assert [r["id"] for r in rows] == [str(trade_id)]
@@ -549,7 +569,7 @@ def test_epoch_ms_closed_at_orders_by_true_close_time(db):
         status="closed", is_backtest=0, account_id="bybit_2",
         closed_at=_MS_CLOSED_AT,  # 2026-06-19 > 2026-06-18
     )
-    rows = trades_closed_router._query_closed_trades(db, limit=50, since=None)
+    rows, _total = trades_closed_router._query_closed_trades(db, limit=50, since=None)
     assert [r["id"] for r in rows] == [str(ms_later), str(iso_earlier)]
 
 
@@ -567,12 +587,12 @@ def test_epoch_ms_closed_at_passes_since_filter(db):
         closed_at=_MS_CLOSED_AT,  # 2026-06-19T03:18Z
     )
     # since BEFORE the true close → included.
-    rows = trades_closed_router._query_closed_trades(
+    rows, _total = trades_closed_router._query_closed_trades(
         db, limit=50, since="2026-06-19T00:00:00Z",
     )
     assert [r["id"] for r in rows] == [str(trade_id)]
     # since AFTER the true close → excluded.
-    rows = trades_closed_router._query_closed_trades(
+    rows, _total = trades_closed_router._query_closed_trades(
         db, limit=50, since="2026-06-20T00:00:00Z",
     )
     assert rows == []
@@ -588,7 +608,7 @@ def test_iso_closed_at_unaffected_by_ms_normaliser(db):
         position_size=0.001, status="closed", is_backtest=0,
         account_id="bybit_2", closed_at="2026-06-20T05:13:07.700908+00:00",
     )
-    rows = trades_closed_router._query_closed_trades(db, limit=50, since=None)
+    rows, _total = trades_closed_router._query_closed_trades(db, limit=50, since=None)
     assert [r["id"] for r in rows] == [str(trade_id)]
     assert rows[0]["closedAt"] == "2026-06-20T05:13:07.700908+00:00"
 
