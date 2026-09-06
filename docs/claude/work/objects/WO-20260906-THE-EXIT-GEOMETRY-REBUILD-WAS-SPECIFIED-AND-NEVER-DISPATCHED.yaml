@@ -63,7 +63,7 @@ done_condition:
       The bracket is graded for CALIBRATION against realised exit location --
       E3.6's own falsifier. A calibration read, not a P&L read.
     tier: 1
-    status: pending
+    status: BUILT_AND_RUN
 
 taken_from_priors_not_re_derived:
   - source: MI-146 docs/research/exit-lever-wiring-audit-2026-09-06.md
@@ -75,3 +75,61 @@ taken_from_priors_not_re_derived:
     facts:
       - the extension producer's ANNOTATE phase already exists and runs on 41 legs
       - the downstream tp channel is fully plumbed - only the producer was missing
+
+answer:
+  landed_2026_09_06:
+    clause_4: >-
+      DONE. E3.6's falsifier had "no instrument, no artifact and no cell"
+      (MI-146 Q1). It has one: src/runtime/bracket_calibration.py (pure
+      grader), scripts/research/bracket_calibration_report.py (--exits and
+      --mfe views with opposite flaws, never pooled), 30 tests pinning the
+      DISTINCTIONS rather than today's numbers. Guards PASS 70 / FAIL 0.
+    clause_1_evidence: >-
+      DONE. Census reproduced MI-146's 15 declared / 10 inherited / 19 real
+      split by a second method, and sharpened it - 9 of the 19 "real" targets
+      would themselves clamp at the reference ATR, so 34 of 44 enabled+live
+      legs rest a clamp-set target rather than a stated expectation.
+    clause_1_proposal: >-
+      SHAPE ONLY, deliberately. Per-leg numbers are NOT proposed because the
+      MFE n needed to set them honestly is 1-8 per leg live; proposing off
+      that would be the fitted-threshold failure. The gate is named: an MFE
+      distribution at proper n from the offline harness, which is not blocked.
+    clause_2: >-
+      NOT REBUILT - it already exists. target_expectation.evaluate_extension
+      is the decision and target_extension_soak.annotate_from_monitor is the
+      observe-only producer, running on 41 legs. What remains is the
+      annotate->act flip, Tier-3.
+    clause_3: >-
+      Correctly blocked on clause 1. The soak reads 100/100 sentinel because
+      no trade has ever had a target to approach; it starts producing
+      evaluable rows the moment any leg carries a real one.
+  headline_measurements:
+    - >-
+      Only 4 of 102 peak_gradeable trades (3.9%) ever reached the 9.9% level
+      their target sits at, even at the LOWER BOUND of MFE.
+    - >-
+      On the measured-exit stratum (n=82) the declared target sits at quantile
+      0.9024 of realised exits and reach_rate is 0.1220.
+    - >-
+      On 12 donchian/pullback legs the target sits at quantile 1.0000 of
+      realised exits - not one trade in the window ended above it.
+    - >-
+      ANSWERED an open question tp_venue_cap.py declared open: off Bybit the
+      0.099 cap is ~2.9x the p90 of lower-bound MFE and 0 of 39 trades ever
+      reached it; on Bybit-traded crypto it is ~1.0x (n=63) - about right, by
+      accident.
+  corrections_to_the_dispatch_brief:
+    - >-
+      PROCESS doc has NO section 4. The thesis rule is item 4 INSIDE E3.6
+      (line 344); the falsifier closes the same section.
+    - >-
+      The work object this session was told it owned did not exist on
+      origin/main or on disk. This branch creates it.
+  filed:
+    - >-
+      UPDATED IN PLACE (not duplicated) BL-20260901-E35-TP-R-CAN-BE-INERT-
+      BEHIND-THE-VENUE-CLAMP-AND-THE-BINDING-RATE-IS-UNMEASURED - the binding
+      rate is now measured, so that row's own title is half false.
+    - >-
+      NEW BL-20260906-VENUE-TP-CAP-IS-2-9X-TOO-LOOSE-ON-EVERY-LEG-THAT-
+      TOUCHES-NO-BYBIT-ACCOUNT.

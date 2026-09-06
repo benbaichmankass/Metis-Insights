@@ -46,7 +46,7 @@ sys.path.insert(0, __file__.rsplit("/scripts/", 1)[0])
 
 from src.runtime import provenance as P  # noqa: E402
 from src.runtime.bracket_calibration import (  # noqa: E402
-    GRADE_OK, grade_trade, quantile, summarise,
+    grade_trade, quantile, summarise,
 )
 from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT  # noqa: E402
 
@@ -131,9 +131,15 @@ def report_mfe(rows: List[Dict[str, Any]], *, min_n: int) -> None:
     lb = sum(1 for r in rows if r.get("peak_r_is_lower_bound"))
     prov = collections.Counter(r.get("peak_provenance") for r in rows)
     print(f"⚠️ peak_r_is_lower_bound on {lb}/{len(rows)}; peak_provenance {dict(prov)}.")
-    print("   Every MFE below is therefore a LOWER BOUND on how far the move went —")
-    print("   the safe direction for falsifying a too-far target, the unsafe one")
-    print("   for justifying a too-near one.\n")
+    # The strength of the caveat is DERIVED from the rows, never asserted: if
+    # some rows are not lower-bounded, saying "every" would be a universal
+    # claim the data does not support, and the reader would calibrate on it.
+    if lb == len(rows) and rows:
+        print(f"   All {lb}/{len(rows)} MFE figures below are therefore LOWER BOUNDS")
+    else:
+        print(f"   {lb}/{len(rows)} of the MFE figures below are LOWER BOUNDS")
+    print("   on how far the move went — the safe direction for falsifying a")
+    print("   too-far target, the unsafe one for justifying a too-near one.\n")
     if not g:
         return
 

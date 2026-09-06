@@ -9,7 +9,6 @@ keep apart, each of which this repo has previously lost somewhere else:
   * an empty population vs a rate of zero (None vs 0.0)
   * a venue artefact vs a chosen level (clamp_bound)
 """
-import math
 
 import pytest
 
