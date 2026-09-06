@@ -163,6 +163,30 @@ live money before it was backtested, which is the stated order reversed.
 
 ---
 
+## ⚠️ P3 AND P5 INTERACT, AND IT CHANGES A HEADLINE NUMBER
+
+MI-146's audit landed 2026-09-06 (#11124, `docs/research/exit-lever-wiring-audit-2026-09-06.md`)
+and measured the realised close reasons: **directional book, n = 120, 2026-08-27→09-06** —
+bracket **29.2%**, of which take-profit **5.8%**; active-management levers **7.5%**;
+reconciliation and plumbing **63.3%**.
+
+**That measurement reads `exit_reason`, which is the field P3 says is frozen.** MI-144
+measured that **91 of 155 (58.7%)** `reconciler_filled` closes had in fact reached a
+declared bracket. MI-146 counts **29 `reconciler_filled`** rows in its 120. If the same
+58.7% holds on that subset, roughly **17** of them belong in the bracket bucket, which
+would move bracket to ~43% and plumbing to ~49%.
+
+**So state them as bounds, not point estimates:** bracket **≥ 29.2%**, plumbing
+**≤ 63.3%**. Neither audit is wrong; they were measured against the same defective field,
+and only P3 landing makes either number final. **Do not quote 63.3% as settled.**
+
+**What does NOT depend on the frozen field, and therefore stands:** MI-146's take-profit
+finding is read from the *running config*, not from close labels — **25 of 44 enabled live
+legs (56.8%) have no reachable take-profit** (15 carry a `tp_r ≥ 20` sentinel clamped by
+`TP_VENUE_CAP_PCT = 0.099`, Bybit's rejection boundary; 10 declare none at all). On those
+legs *"it was right and it hit the take profit"* is structurally impossible regardless of
+how any close is labelled.
+
 ## What is already actioned
 
 - **P1–P4** → MI-144, in flight, operator's top priority.
