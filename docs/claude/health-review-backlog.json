@@ -32780,6 +32780,17 @@
       "opened": "2026-09-06"
     },
     {
+      "id": "BL-20260906-RCOVERAGE-REPORTS-1-0-WHILE-90-PERCENT-OF-ROWS-ARE-UNVERIFIED",
+      "opened_at": "2026-09-06",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "title": "rCoverage publishes 1.0 while its own rProvenance block on the same payload reads 381 of 424 unverified (89.9%)",
+      "detail": "MEASURED live 2026-09-06 ~11:10Z, https://ict-bot.duckdns.org/api/bot/performance, window=all, n=424: rCoverage 1.0 against rProvenance {confirmedInitial 29, contaminated 14, unverified 381, noBasis 0} — 89.9% unverified. On window=7d it is 9 of 11 unverified (81.8%) and rCoverage STILL reads 1.0. rCoverage answers 'did we compute an R for every row?' while presenting as 'do we know the risk basis for every row?' — different questions with a 90-point gap. This is the repo's own COLLAPSED-STATES class: the field cannot say 'we did not look'. POSITIVE CONTROL that this is a defect and not a limitation: pnlCoverage on the SAME payload does it correctly — 0.7594, with measured 322 / estimated 20 / fabricated 4 / unverified 78, an honest denominator. The correct pattern already exists one field away. WHY IT MATTERS: rCoverage is the instrument that should warn a reader that expectancyR is untrustworthy. On the same endpoint, window=30d publishes expectancyR +0.9818 against profitFactor 0.9507 on a window that LOST money (-$3.63, n=39, contaminated 12 = 30.8%) — a sign contradiction that rCoverage 1.0 actively conceals. R feeds the promotion gates. SECONDARY, same family: on window=24h (n=0) pnlCoverage returns None ('we did not look') while rCoverage returns 0.0 (a real reading) — the same absence encoded two ways on one payload. Found while verifying P1 for the operator-requested measurement-defect list (docs/claude/work/MEASUREMENT-DEFECTS-2026-09-06.md, P2).",
+      "resolution_criteria": "rCoverage either (a) reports the share of rows with a VERIFIED risk basis, so the published number moves with rProvenance rather than contradicting it, or (b) is renamed/rescoped to what it actually measures AND an honest coverage figure is published beside it. Either way it must be able to express 'we did not look' — a zero-trade window must not read 0.0 as if that were a measurement, matching pnlCoverage's None. VERIFY BY RE-READING /api/bot/performance on at least two windows and showing rCoverage and rProvenance now agree; a passing unit test is NOT this observation. Consider registering the field with collapsed-state-guard.",
+      "owner": "MI-144 (session_01L7dTAuGMdn3CTGeyYV5Mox)"
+    },
+    {
       "id": "BL-20260906-MATRIX-GRADES-A-LEVER-AS-TESTED-ON-LEGS-WHOSE-UNIT-CANNOT-RUN-IT",
       "title": "33 exit-matrix cells grade a lever `honest_negative`/`shipped` on a leg whose monitor unit has no consumer for it — while the correct status blocked:no_lever_consumer_in_unit exists and is used on 5 sibling cells",
       "severity": "high",
