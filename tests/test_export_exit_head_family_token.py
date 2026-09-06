@@ -21,7 +21,6 @@ unchanged, so no existing round's output moves.
 """
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 from pathlib import Path
