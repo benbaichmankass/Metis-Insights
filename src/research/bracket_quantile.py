@@ -138,6 +138,18 @@ SHARP_NOT_MEASURED = "not_measured"
 #: n=5 is a number, not a measurement: its standard error at q=0.8 is ~0.18.
 MIN_EVAL_N = 30
 
+#: Hard cap on total SGD updates per fit (epochs x rows). Pure-Python descent
+#: costs ~1us/update/feature, and ONE evaluation fits 5 quantiles x (1 real + K
+#: control) models, with the dispersion and per-leg passes multiplying that
+#: again. At 300 fixed epochs over a 3k-row corpus that is ~50M updates and the
+#: harness simply does not finish -- MEASURED: a trainer run at 300 epochs was
+#: still going at 20 minutes and its 3000s timeout would have killed it.
+#: Epochs are therefore capped to `MAX_FIT_UPDATES // n`, never below
+#: MIN_FIT_EPOCHS. A model that cannot be run is not a conservative model, it
+#: is an absent one.
+MAX_FIT_UPDATES = 120_000
+MIN_FIT_EPOCHS = 40
+
 #: Default target quantiles for the reliability curve.
 DEFAULT_QUANTILES: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9)
 
@@ -247,6 +259,9 @@ class QuantileRegressor:
         self._y_sd: float = 1.0
         self.fitted: bool = False
         self.n_train: int = 0
+        #: epochs ACTUALLY run after the update budget was applied — reported so
+        #: a reader can see when the cap bound, rather than assuming `epochs`.
+        self.epochs_run: int = 0
 
     # -- internals ---------------------------------------------------------
     def _standardise(self, X: Sequence[Sequence[float]]) -> List[List[float]]:
@@ -311,7 +326,11 @@ class QuantileRegressor:
 
         rng = random.Random(self.seed)
         idx = list(range(len(Z)))
-        for epoch in range(self.epochs):
+        # Bound the work. See MAX_FIT_UPDATES.
+        budget_epochs = MAX_FIT_UPDATES // max(1, len(Z))
+        epochs = max(MIN_FIT_EPOCHS, min(self.epochs, budget_epochs))
+        self.epochs_run = epochs
+        for epoch in range(epochs):
             rng.shuffle(idx)
             # Robbins-Monro 1/sqrt(t) decay. A plain subgradient method on a
             # non-smooth objective does not converge at a fixed step -- it
