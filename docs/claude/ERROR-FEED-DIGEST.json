@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "what_this_is": "The trader's error feed, grouped by digit-normalised cause and rendered for the `duty` pass. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `groups`: on `partial` at least one feed could not be read and this digest is a LOWER BOUND, not a statement that the rest is quiet.",
-  "generated_at": "2026-09-06T19:28:10+00:00",
-  "covers_since": "2026-09-06T17:10:24.444973+00:00",
-  "covers_since_note": "resuming from the prior digest's watermark 2026-09-06T17:10:24.444973+00:00",
+  "generated_at": "2026-09-06T21:40:16+00:00",
+  "covers_since": "2026-09-06T18:51:49.880170+00:00",
+  "covers_since_note": "resuming from the prior digest's watermark 2026-09-06T18:51:49.880170+00:00",
   "verdict": "all_feeds_read",
   "unreachable_feeds": [],
   "truncated_feeds": [
@@ -30,8 +30,8 @@
         "rows_returned": 1000,
         "limit_requested": 1000,
         "truncated": true,
-        "oldest_ts": "2026-08-24T19:27:41.927866+00:00",
-        "newest_ts": "2026-09-06T18:51:49.880170+00:00",
+        "oldest_ts": "2026-08-24T19:35:20.227281+00:00",
+        "newest_ts": "2026-09-06T21:35:33.687997+00:00",
         "undateable_rows": 0
       }
     }
@@ -41,13 +41,13 @@
       "rows_considered": 391,
       "rows_after_watermark": 0,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-06T17:10:24.444973+00:00"
+      "watermark_applied": "2026-09-06T18:51:49.880170+00:00"
     },
     "bot_logs": {
       "rows_considered": 1000,
-      "rows_after_watermark": 5,
+      "rows_after_watermark": 9,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-06T17:10:24.444973+00:00"
+      "watermark_applied": "2026-09-06T18:51:49.880170+00:00"
     }
   },
   "account_roster": {
@@ -73,8 +73,8 @@
     "rows_grouped": 1391
   },
   "watermark": {
-    "next_since": "2026-09-06T18:51:49.880170+00:00",
-    "note": "advanced to the newest row read (2026-09-06T18:51:49.880170+00:00)"
+    "next_since": "2026-09-06T21:35:33.687997+00:00",
+    "note": "advanced to the newest row read (2026-09-06T21:35:33.687997+00:00)"
   },
   "groups": [
     {
@@ -103,9 +103,9 @@
       "feed": "bot_logs",
       "level": "error",
       "cause": "strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "count": 71,
+      "count": 69,
       "is_new": false,
-      "first_seen": "2026-08-24T19:29:43.448128+00:00",
+      "first_seen": "2026-08-24T19:35:21.469864+00:00",
       "last_seen": "2026-08-25T22:48:45.661170+00:00",
       "sample": "strategy_builder exception: RuntimeError: ict_scalp_mgc_15m: no candle data for symbol=MGC timeframe=15m.",
       "symbols": [
@@ -1741,10 +1741,10 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "count": 332,
+      "count": 340,
       "is_new": false,
       "first_seen": "2026-08-25T23:10:31.406008+00:00",
-      "last_seen": "2026-09-06T18:51:49.880170+00:00",
+      "last_seen": "2026-09-06T21:35:33.687997+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_15m: no candle data for symbol=MGC timeframe=15m.",
       "symbols": [
         "MGC"
@@ -1763,10 +1763,10 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection",
-      "count": 154,
+      "count": 153,
       "is_new": false,
-      "first_seen": "2026-08-24T19:27:42.244862+00:00",
-      "last_seen": "2026-09-06T17:25:46.883289+00:00",
+      "first_seen": "2026-08-24T21:35:55.265559+00:00",
+      "last_seen": "2026-09-06T20:34:49.183314+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_1h: no candle data returned for symbol=MGC timeframe=1h. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MGC"
@@ -1785,9 +1785,9 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect",
-      "count": 117,
+      "count": 115,
       "is_new": false,
-      "first_seen": "2026-08-24T19:27:41.927866+00:00",
+      "first_seen": "2026-08-24T21:35:54.951595+00:00",
       "last_seen": "2026-09-06T13:18:10.809754+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_1d: no candle data returned for symbol=MGC timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
@@ -1807,9 +1807,9 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect",
-      "count": 109,
+      "count": 107,
       "is_new": false,
-      "first_seen": "2026-08-24T19:27:43.462583+00:00",
+      "first_seen": "2026-08-24T19:35:23.694376+00:00",
       "last_seen": "2026-09-06T15:05:03.043592+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_1d: no candle data returned for symbol=MHG timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
@@ -1829,9 +1829,9 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne",
-      "count": 88,
+      "count": 87,
       "is_new": false,
-      "first_seen": "2026-08-24T19:29:42.230206+00:00",
+      "first_seen": "2026-08-24T19:35:20.227281+00:00",
       "last_seen": "2026-09-06T13:18:08.975371+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mes_trend_long_1d: no candle data returned for symbol=MES timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
