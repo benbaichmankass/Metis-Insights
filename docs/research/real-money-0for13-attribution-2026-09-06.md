@@ -51,8 +51,8 @@ against a **median stop distance of 0.65%** — the noise is a third of the sign
 
 So the proxy was discarded and the whole computation was re-run on Bybit's own candles
 through the trainer relay. On that data **6 of 6** known stop-outs reproduce. The rejected
-pass is kept in `docs/research/data/validate.py` because the negative result is the reason
-the relay was used.
+pass is recorded in `docs/research/data/mae-mfe-bybit-perp-2026-09-06.txt`, because the negative
+result is the reason the relay was used.
 
 ---
 
@@ -73,29 +73,44 @@ and it is structural, not a data-entry error.
 
 ### 1.2 Contamination across the whole journal
 
-**Population: `trades` where `status='closed'` AND NOT `is_backtest` AND `pnl IS NOT NULL`
-— n = 1451, all accounts.**
+**Population: every row `/api/bot/performance` would aggregate, with no time or account
+filter — `status='closed'`, not `is_backtest`, `pnl IS NOT NULL`, minus the three documented
+exclusions (`orphan_adopt`, `superseded`, `exchange_reset_flat`). n = 1286.**
+These are the figures `scripts/research/r_contamination_audit.py` prints, so a future session
+can re-derive them exactly.
 
 | R-provenance state | n | share |
 |---|---|---|
-| `contaminated` | 124 | 8.5% |
-| `confirmed_initial` | 174 | 12.0% |
-| `unverified` | 1132 | 78.0% |
-| `no_basis` | 21 | 1.4% |
+| `contaminated` | 104 | 8.1% |
+| `confirmed_initial` | 172 | 13.4% |
+| `unverified` | 1010 | 78.5% |
+| `no_basis` | 0 | 0.0% |
 
 | subset | n | sum R | mean R |
 |---|---|---|---|
-| `contaminated` | 124 | **+4020.27** | **+32.42** |
-| `confirmed_initial` | 174 | **−92.16** | **−0.53** |
-| all R-measurable | 1430 | +4067.52 | +2.84 |
+| `contaminated` | 104 | **+4232.03** | **+40.69** |
+| `confirmed_initial` | 172 | **−84.81** | **−0.49** |
+| all | 1286 | +4382.14 | +3.41 |
 
-**8.5% of rows carry 98.8% of all R.** On the rows whose risk basis is *confirmed to be the
-initial risk*, expectancy is **−0.53R**. The published +2.84R is an artifact.
+**8.1% of rows carry 96.6% of all R.** On the rows whose risk basis is *confirmed to be the
+initial risk*, expectancy is **−0.49R**.
 
-**Positive control for the discriminator:** `|R| > 10` occurs **35 times among the 124
-contaminated rows and 0 times among the 174 confirmed_initial rows**. Max contaminated R is
-**+3672.3** on a single row. The separation is total — this is not a threshold fitted to
-the answer.
+⚠️ **Do not over-read this one.** Removing the contaminated rows here does **not** flip the
+whole-journal figure negative — it collapses it to **+0.127R** over the remaining 1182 rows,
+because `unverified` still carries +234.93 and `unverified` is *"we could not look"*, not a
+clean bill. The sign flip happens in § 1.3, on the real-money window the gates actually read.
+The honest whole-journal claim is that the aggregate is **an artifact of 8.1% of rows and is
+indistinguishable from zero once they are removed**, not that it is negative.
+
+**Positive control for the discriminator:** `|R| > 10` occurs **26 times among the 104
+contaminated rows and 0 times among the 172 confirmed_initial rows**. The separation is
+total — this is not a threshold fitted to the answer.
+
+*(An earlier pass over the wider population that does **not** apply the three exclusions —
+n = 1451 — gives the same picture slightly stronger: 124 contaminated, 8.5%, carrying 98.8%
+of R, `confirmed_initial` mean −0.53R, control 35 vs 0. Both are correct for their stated
+population; the n = 1286 figures are quoted here because they are the ones the committed
+script reproduces.)*
 
 ### 1.3 The exact window the promotion gates read — reproduced, then decomposed
 
@@ -368,7 +383,7 @@ quality**, so I cannot rule out that entries degraded *as well*. Anyone who tell
 week was purely regime is over-claiming, and so would I be.
 
 **And n = 13 is 13.** Every per-leg figure in § 2.1 rests on 1–6 trades. The
-*aggregate* claims (MFE/D, efficiency, the R decomposition on n=1451) are much better
+*aggregate* claims (MFE/D, efficiency, the R decomposition on n=1286) are much better
 supported than any per-leg one, and the per-leg table should be read as *where the money
 went*, not as *which leg is broken*.
 
@@ -403,4 +418,7 @@ an `expectancyR` computed over `confirmed_initial` only.
 
 ---
 
-*Data and scripts: `docs/research/data/`. Relay evidence: issues #11107, #11108, #11109, #11110.*
+*Reproducer: `scripts/research/r_contamination_audit.py` (run it against the `rows` arrays from
+`/api/bot/db/table/trades` and `/api/bot/db/table/order_packages`). Measured excursion data:
+`docs/research/data/mae-mfe-bybit-perp-2026-09-06.txt`. Relay evidence: issues #11107, #11108,
+#11109, #11110.*

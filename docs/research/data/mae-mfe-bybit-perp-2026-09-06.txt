@@ -1,0 +1,65 @@
+Maximum adverse / favourable excursion per bybit_2 closed trade, measured against
+Bybit's OWN linear-perp 15m candles. Obtained through the trainer-vm-diag relay
+(Bybit's API is geo-blocked from a Claude sandbox: HTTP 403, CloudFront country block).
+
+D = the trade's own stop distance, as a fraction of entry.
+MAE_over_D >= 1.00  =>  price reached the stop.
+MAE_over_D >= 1.25  =>  price would ALSO have reached a 1.25x wider stop
+                        (pre-e35 atr_stop_mult 2.5 vs the shipped 2.0).
+MFE_over_D          =>  how far the trade EVER went in its favour, in units of its own risk.
+
+--- POST window 2026-08-30..09-06, from issue #11108 -----------------------------
+id|leg|dir|exit_reason|pnl|stopD_pct|MAE_pct|MAE_over_D|MFE_pct
+4904|trend_donchian_eth_4h|long|operator_flatten_reconciled|-1.2872|7.098|4.495|0.633|1.921
+4922|eth_pullback_2h|long|netting_attributed|-0.2519|0.679|1.669|2.457|4.937
+4934|xrp_pullback_2h|long|operator_flatten_reconciled|-2.4509|14.333|9.090|0.634|0.000
+5080|ict_scalp_5m|long|netting_attributed|1.144|0.150|0.000|0.000|0.437
+5096|ict_scalp_5m|long|tp_cross|4.27417006|0.150|0.485|3.233|1.152
+5170|ict_scalp_5m|short|reconciler_filled|6.3028|0.129|0.000|0.000|2.452
+5250|trend_donchian_xrp_4h|short|sl|-4.8189|3.484|3.577|1.027|0.268
+5312|ict_scalp_5m|short|reconciler_filled|-5.5101|0.639|0.671|1.050|0.244
+5316|ict_scalp_5m|short|sl|-5.5013|0.646|0.809|1.252|0.614
+5342|trend_donchian_eth_4h|short|reconciler_filled|-1.0126|2.914|2.399|0.823|0.298
+5359|xrp_pullback_2h|short|reconciler_filled|-4.4766|3.796|4.047|1.066|0.875
+5369|ict_scalp_5m|long|sl|-3.1858|0.471|0.486|1.032|0.257
+5403|eth_pullback_2h|short|reconciler_filled|-0.8391|2.839|1.521|0.536|0.414
+5409|ict_scalp_5m|long|sl|-2.7469|0.475|0.543|1.144|0.059
+5429|ict_scalp_5m|long|sl|-4.2576|0.731|0.770|1.053|0.000
+5450|ict_scalp_5m|long|sl|-4.0509|0.796|2.171|2.727|0.322
+5461|xrp_pullback_2h|long|netting_attributed|-2.97726|4.034|4.189|1.038|0.282
+
+--- PRIOR window 2026-08-16..08-29 (the control arm), from issue #11110 -----------
+id|stopD_pct|MAE_pct|MAE_over_D|MFE_pct|MFE_over_D
+4163|3.516|0.000|0.000|8.825|2.510
+4701|5.352|0.957|0.179|11.314|2.114
+4718|0.961|0.233|0.243|0.898|0.934
+4733|0.191|0.084|0.439|0.214|1.120
+4747|0.853|0.313|0.367|0.337|0.395
+4798|2.365|1.103|0.467|11.937|5.048
+4808|0.666|1.078|1.617|10.955|16.439
+4824|5.065|0.000|0.000|12.231|2.415
+4833|0.651|1.200|1.844|0.252|0.387
+4863|0.150|0.073|0.489|1.253|8.351
+4886|4.436|0.328|0.074|4.846|1.093
+4896|0.222|0.239|1.076|0.136|0.615
+4922|0.679|3.691|5.433|4.937|7.267
+4945|0.161|0.390|2.425|0.937|5.823
+4977|0.796|1.098|1.379|0.098|0.123
+5000|0.182|0.328|1.803|1.193|6.567
+5005|2.403|0.821|0.342|0.585|0.244
+5020|0.411|1.802|4.383|0.000|0.000
+5031|1.119|1.220|1.090|0.000|0.000
+5040|0.597|0.843|1.413|0.405|0.678
+5080|0.150|0.183|1.221|0.618|4.121
+5096|0.150|0.485|3.233|1.152|7.677
+5170|0.129|0.000|0.000|2.452|18.980
+(4730 returned NA: its recorded open and close timestamps are identical, so it spans no candle.)
+
+--- REJECTED INSTRUMENT, kept because the negative result is load-bearing --------
+A Coinbase-spot proxy was built first and TESTED before use: a row known to have hit
+its stop must show MAE_over_D >= 1.0. It failed 4 of 11 (36%) — ids 4733 (0.81),
+5031 (0.84), 5250 (0.70), 5429 (0.41). Mean spot-vs-perp basis at entry was 0.23%
+against a MEDIAN stop distance of 0.65%, i.e. the noise is a third of the signal, and
+all four failures UNDERSTATED excursion — biasing the counterfactual toward the
+hypothesis under test. The proxy was discarded. On the Bybit data above, 6 of 6 known
+stop-outs reproduce.
