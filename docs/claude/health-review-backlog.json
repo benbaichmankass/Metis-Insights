@@ -33009,6 +33009,27 @@
       "source": "MI-139 / PR #11112 section 5, carried forward by PR #11125 rather than silently widened"
     },
     {
+      "id": "BL-20260906-REGISTER-MERGE-DRIVER-SHIPS-UNARMED-AND-A-SESSION-PAID-ELEVEN-HAND-RESOLUTIONS",
+      "opened": "2026-09-06",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "area": "tooling",
+      "title": "The register merge driver is BUILT and ships DISARMED — a fresh clone has no merge.* config, and one session hand-resolved eleven conflicts beside it",
+      "detail": "NOT a duplicate of BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE and NOT its resolution — it is the half that row's criterion (b) does not cover. That criterion is now BUILT: scripts/ops/merge_json_register.py exists, .gitattributes maps the five registers to it, and it asserts per-id membership both ways exactly as the row demanded. ⚠️ BUT A GIT MERGE DRIVER IS CLIENT-SIDE AND PER-CLONE. Git runs it only after scripts/ops/install_merge_driver.sh has registered it in THAT clone's config, and .gitattributes says so in its own header ('SHIPPING IT IS NOT ARMING IT, AND FOR THE FIRST DAY NOBODY WAS ARMED'). Nothing in the session-start contract, CLAUDE.md, or any skill tells a session to run the installer, and a remote session's container is a FRESH CLONE every time — so the default state of every new session is DISARMED. MEASURED COST, one session (session_017UnyG4ArXmXKpB8rmEGv1j, MI-139b, PR #11125, 2026-09-06): `git config --get-regexp '^merge\\.'` returned NOTHING in a container whose tree contained both the driver and the .gitattributes mapping. That session hand-resolved ELEVEN conflicts between 11:26Z and 18:15Z — nine in health-review-backlog.json, one in OPEN-PRS.json, one in a work-object YAML — none in its order-path diff, and reached five green heads of which four went stale before the merge could be routed. ⚠️ THE HAND RESOLUTIONS WERE NOT WASTED EFFORT AND THIS IS NOT AN ARGUMENT THAT THEY WERE: one round preserved six of main's rows plus two edits, and another preserved an operator's `approved_with_conditions` verdict on PR #10940 that a side-wise resolution would have erased — the exact hazard CLAUDE.md calls worse than a missing row. The point is that a driver written to do precisely that work sat unarmed one directory away.",
+      "evidence": "In-container, on origin/main @9604b8a5: `git config --get-regexp '^merge\\.'` -> no output (exit 1); `ls -la scripts/ops/install_merge_driver.sh` -> present, mode 755; `cat .gitattributes` -> present, maps the five registers and carries the 'SHIPPING IT IS NOT ARMING IT' warning in its own header. Conflict count and timestamps: PR #11125 comment 5559817050 (first five, tabulated) plus the merge commits on claude/bybit-close-qty-apply-20260906 for rounds 6-11. Stale green heads: 765d83a2, 76167f7b, 5c290327, 8b37e208; merged on 7c17a2af as 9604b8a5.",
+      "resolution_criteria": "The driver is ARMED BY DEFAULT for a session that did not think to arm it, and that is VERIFIED rather than assumed. Candidates, in rough order of how little they depend on anyone remembering: (a) the session-start contract or a repo bootstrap step runs install_merge_driver.sh, so a fresh container arms itself; (b) a guard or the session brief READS `git config --get-regexp '^merge\\.'` and says plainly that the clone is disarmed — cheap, and it converts an invisible default into a visible one; (c) documented in CLAUDE.md § PM-side session capabilities beside the other per-clone facts. ⚠️ DO NOT CLOSE THIS BY ADDING A REMINDER TO A DOC NOBODY READS MID-TASK — that is the 'reminder is not a mechanism' non-fix this repo has already paid for on MI-15 (twice). ⚠️ AND DO NOT CLAIM IT FIXES GITHUB-SIDE MERGEABILITY: .gitattributes already states that GitHub's servers do not run custom merge drivers, so an armed clone removes the HAND-RESOLUTION cost and does NOT make a dirty PR auto-mergeable. A row claiming otherwise would be claiming a fix that is not there. ⚠️ VERIFY BY ARMING A CLONE AND MERGING A REAL DIVERGENT APPEND — not by observing that the file exists, which is what was already true while eleven conflicts were resolved by hand.",
+      "refs": [
+        "BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE",
+        "BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION",
+        "BL-20260905-EVERY-COMMITTED-REGISTER-USES-A-DIFFERENT-SERIALIZATION-SO-A-JSON-ROUND-TRIP-REFORMATS-IT",
+        "PR #11125",
+        "MI-139b",
+        "scripts/ops/merge_json_register.py",
+        "scripts/ops/install_merge_driver.sh"
+      ]
+    },
+    {
       "id": "BL-20260906-COVERAGE-FILE-SAYS-ICT-SCALP-HAS-NO-REGIME-CELL-AND-IT-HAS-TWO",
       "opened": "2026-09-06",
       "severity": "low",
