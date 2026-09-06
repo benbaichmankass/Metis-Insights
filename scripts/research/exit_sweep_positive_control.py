@@ -51,6 +51,17 @@ an instrument's credibility, never a ceiling.
 
 Tier-1 research tooling. Writes no config, ships nothing, and its cells never
 enter the coverage matrix.
+
+# wiring: manual-only - a CALIBRATION run, not a producer. It must NOT be on a
+# schedule or a CI step: it is run when someone doubts the sweep's verdicts, and
+# a green scheduled control is the "green is not evidence" failure this repo
+# already names (a passing run nobody reads teaches nothing, and a control whose
+# result nobody is waiting for is decoration). Invoke it by hand -- on the
+# trainer, which is where the fleet candle data lives:
+#   .venv/bin/python3 scripts/research/exit_sweep_positive_control.py --leg <leg>
+# Its own wrapper, scripts/research/_control_oracle_harness.py, is invoked by
+# THIS module and by nothing else, deliberately: it is not a harness anyone
+# should reach for directly.
 """
 from __future__ import annotations
 
