@@ -1,15 +1,15 @@
 {
   "_doc": "RECEIPT of the PR-queue watcher (scripts/ops/pr_queue_latency.py, fired by .github/workflows/pr-queue-watch.yml). ⚠️ READ `generated_at`, NEVER THE CRON EXPRESSION -- a merged, enabled, syntactically correct scheduled workflow in this repo is NOT evidence that it fires (probes.yml's first scheduled run was ~4h50m late and fired once instead of daily). `scripts/ci/check_pr_queue_watch.py` grades this file's age in run_guards.py on every PR, so a dead watcher announces itself in everybody's CI instead of going quiet. ⚠️ An ABSENT file means the watcher has NEVER run, which is a different fact from STALE and needs a different fix.",
   "schema_version": 1,
-  "generated_at": "2026-09-06T11:20:23Z",
+  "generated_at": "2026-09-06T15:45:18Z",
   "read_state": "measured",
-  "population": "ALL 10 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
-  "waiting": 1,
-  "worst_hours": 67.7,
+  "population": "ALL 11 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
+  "waiting": 2,
+  "worst_hours": 72.1,
   "threshold_hours": 6.0,
   "by_state": {
     "active": 9,
-    "waiting": 1
+    "waiting": 2
   },
   "rows": [
     {
@@ -17,9 +17,9 @@
       "title": "merge-ping: log the success path, so the mechanism can be read off the fleet (MI-83 follow-up)",
       "head_ref": "claude/mi83-merge-ping-observability",
       "draft": false,
-      "quiet_hours": 67.7,
+      "quiet_hours": 72.1,
       "state": "waiting",
-      "why": "open and unmerged with no push for 67.7h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 72.1h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T15:39:55Z"
     },
     {
@@ -27,9 +27,9 @@
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34023892187-1",
       "draft": false,
-      "quiet_hours": 2.0,
-      "state": "active",
-      "why": "a push landed 2.0h ago -- being worked, not queued.",
+      "quiet_hours": 6.4,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 6.4h (threshold 6.0h).",
       "last_push_utc": "2026-09-06T09:20:49Z"
     },
     {
@@ -37,80 +37,90 @@
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34025414265-1",
       "draft": false,
-      "quiet_hours": 1.5,
+      "quiet_hours": 5.9,
       "state": "active",
-      "why": "a push landed 1.5h ago -- being worked, not queued.",
+      "why": "a push landed 5.9h ago -- being worked, not queued.",
       "last_push_utc": "2026-09-06T09:51:32Z"
-    },
-    {
-      "pr": 11112,
-      "title": "docs(research): Bybit reduce-only close rejected by an un-quantised qty — root cause + Tier-3 fix proposal",
-      "head_ref": "claude/bybit-close-qty-legalization-a2",
-      "draft": true,
-      "quiet_hours": 0.9,
-      "state": "active",
-      "why": "a push landed 0.9h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-06T10:24:43Z"
-    },
-    {
-      "pr": 11118,
-      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
-      "head_ref": "automation/reconcile-open-prs-34028822109-1",
-      "draft": false,
-      "quiet_hours": 0.2,
-      "state": "active",
-      "why": "a push landed 0.2h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-06T11:07:12Z"
     },
     {
       "pr": 11121,
       "title": "fix(bybit_2): demote ict_scalp_5m from real money, keep both paper books trading it",
       "head_ref": "claude/ict-scalp-off-bybit2-20260906",
       "draft": true,
-      "quiet_hours": 0.1,
+      "quiet_hours": 4.0,
       "state": "active",
-      "why": "a push landed 0.1h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-06T11:16:44Z"
-    },
-    {
-      "pr": 11123,
-      "title": "The measurement defects, prioritized — the list the operator asked for",
-      "head_ref": "claude/measurement-defects-20260906",
-      "draft": false,
-      "quiet_hours": 0.1,
-      "state": "active",
-      "why": "a push landed 0.1h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-06T11:13:19Z"
-    },
-    {
-      "pr": 11124,
-      "title": "MI-146: exit-lever wiring audit — is the bracket/active-management thesis in the roadmap, built, and applied? (PROPOSE-O",
-      "head_ref": "claude/bracket-mechanisms-audit-20260906",
-      "draft": true,
-      "quiet_hours": 0.1,
-      "state": "active",
-      "why": "a push landed 0.1h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-06T11:12:55Z"
+      "why": "a push landed 4.0h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-06T11:45:48Z"
     },
     {
       "pr": 11125,
       "title": "fix(orders): a Bybit reduce-only close is no longer refused on a float artifact — MI-139, Tier-3, operator-approved",
       "head_ref": "claude/bybit-close-qty-apply-20260906",
       "draft": true,
+      "quiet_hours": 0.3,
+      "state": "active",
+      "why": "a push landed 0.3h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-06T15:30:13Z"
+    },
+    {
+      "pr": 11140,
+      "title": "MI-150: ship the M20 exit-head consumer into ict_scalp (annotate-only, disarmed)",
+      "head_ref": "claude/ict-scalp-exit-head-20260906",
+      "draft": true,
+      "quiet_hours": 1.4,
+      "state": "active",
+      "why": "a push landed 1.4h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-06T14:19:34Z"
+    },
+    {
+      "pr": 11142,
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "head_ref": "automation/reconcile-open-prs-34037651738-1",
+      "draft": false,
+      "quiet_hours": 1.6,
+      "state": "active",
+      "why": "a push landed 1.6h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-06T14:08:48Z"
+    },
+    {
+      "pr": 11145,
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "head_ref": "automation/reconcile-open-prs-34039084284-1",
+      "draft": false,
+      "quiet_hours": 1.1,
+      "state": "active",
+      "why": "a push landed 1.1h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-06T14:38:53Z"
+    },
+    {
+      "pr": 11150,
+      "title": "MI-151: ML-2, the predictive bracket — built, run, and REFUTED against the right baseline",
+      "head_ref": "claude/ml2-predictive-bracket-20260906",
+      "draft": true,
       "quiet_hours": 0.1,
       "state": "active",
       "why": "a push landed 0.1h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-06T11:16:24Z"
+      "last_push_utc": "2026-09-06T15:38:18Z"
     },
     {
-      "pr": 11126,
-      "title": "chore(ops): refresh the error-feed digest (auto)",
-      "head_ref": "automation/error-feed-digest-34029866321-1",
+      "pr": 11152,
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "head_ref": "automation/reconcile-open-prs-34041160527-1",
       "draft": false,
-      "quiet_hours": 0.0,
+      "quiet_hours": 0.4,
       "state": "active",
-      "why": "a push landed 0.0h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-06T11:18:55Z"
+      "why": "a push landed 0.4h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-06T15:19:42Z"
+    },
+    {
+      "pr": 11155,
+      "title": "MI-144 follow-up: the bracket answer was published over a quarter of the book",
+      "head_ref": "claude/mi-144-observe-20260906",
+      "draft": false,
+      "quiet_hours": 0.3,
+      "state": "active",
+      "why": "a push landed 0.3h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-06T15:26:12Z"
     }
   ],
   "runs": [
@@ -203,6 +213,13 @@
       "read_state": "measured",
       "waiting": 1,
       "worst_hours": 67.7,
+      "escalated": false
+    },
+    {
+      "at": "2026-09-06T15:45:18Z",
+      "read_state": "measured",
+      "waiting": 2,
+      "worst_hours": 72.1,
       "escalated": false
     }
   ],
