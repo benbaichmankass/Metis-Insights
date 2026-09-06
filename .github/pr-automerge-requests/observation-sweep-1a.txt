@@ -1,0 +1,1 @@
+Phase 1A observation sweep — Tier-1 register writes, self-landing.

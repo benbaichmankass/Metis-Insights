@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register/observability writes only. The diff is docs/claude/OPEN-ITEMS.json (verified_at + observation fields on 26 rows, patched surgically), docs/claude/work/MANAGER-CHECKLIST.json (note fields on 7 items; no state field changed — the manager owns those), and docs/claude/health-review-backlog.json (6 appended rows via scripts/ops/backlog_append.py). No src/, no config/, no .github/workflows/, no deploy/, no order path, no strategy config, no risk caps, no VM mutation. This was a READ-ONLY observation sweep on the fleet: every claim is a diag/bot-API read or a repo read, and nothing was armed, flipped or dispatched."
+}
