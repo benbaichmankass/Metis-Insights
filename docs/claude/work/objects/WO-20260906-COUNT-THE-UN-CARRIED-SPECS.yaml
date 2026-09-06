@@ -1,0 +1,26 @@
+id: WO-20260906-COUNT-THE-UN-CARRIED-SPECS
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  How many finished specifications sit in docs/research and docs/design with nothing pointing at them
+stage: INTEGRITY
+lifecycle: ready
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  The COUNT is the deliverable. A mechanism proposed without it is a fix whose
+  problem was never sized.
+done_condition: >-
+  A MEASURED COUNT with the population stated: over every artifact in docs/research/ and docs/design/, how many SPECIFY WORK (a session prompt, a proposal, a design with an unstarted build) and are named by NO work object, NO OPEN-ITEMS row and NO checklist item. !! A POSITIVE CONTROL IS MANDATORY -- the probe must be shown to FIND a carried spec before its silence on an un-carried one is trusted; the operating-layer design has SIX carrying rows and EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md had one incidental mention, so a known positive and a known negative both already exist to calibrate against. !! STATE THE CLASSIFIER: "specifies work" is a judgement, so publish the rule used and list the borderline cases separately, preferring over-inclusion. THEN propose the mechanism -- three candidates are in BL-20260906-A-RESEARCH-ARTIFACT-THAT-SPECIFIES-WORK-IS-NOT-REGISTERED-AS-WORK. !! A mechanism covering only NEW artifacts leaves the existing pile invisible; say which half yours covers.
+
+why: >-
+  OPERATOR DECISION, 2026-09-06, choosing this for the next lane over MI-147. It is the operator's own diagnosis: "none of this is news ... the fact that it's not easily accessible as part of this research is problematic in of itself, but that is the problem that we're trying to solve here." ONE instance is measured: docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md, written 2026-08-23 carrying the operator's directive verbatim and ending "Paste this whole file as the opening message of a NEW session", sat undispatched for 14 DAYS carried by nothing -- while the same thesis was re-derived at least SEVEN times and built ZERO times. NOBODY HAS ESTABLISHED WHETHER THAT IS A ONE-OFF OR A POPULATION. If the answer is twelve, it reframes what this cycle's real constraint is.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-06. Nothing blocks it: the artifacts are in the repo, the
+  registers are in the repo, and the join is mechanical. What it needs is a
+  stated classifier and a positive control, and both are its own work.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (operator-decided)

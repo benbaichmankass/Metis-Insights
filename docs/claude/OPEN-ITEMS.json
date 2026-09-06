@@ -6,6 +6,19 @@
  "updated_at": "2026-09-05",
  "items": [
  {
+   "id": "OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING",
+   "kind": "monitoring",
+   "loud": true,
+   "opened": "2026-09-06",
+   "opened_at": "2026-09-06",
+   "verified_at": "2026-09-06",
+   "check_every_days": 3,
+   "title": "A finished, operator-directive-carrying session prompt sat undispatched 14 days; the thesis was re-derived seven times and built zero",
+   "summary": "docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md told its reader to paste it as a new session and no register pointed at it for 14 days. MI-148 now carries the work (#11138 landed the calibration instrument); this row keeps the CLASS visible.",
+   "observation": "2026-09-06: the prompt was named by ZERO work objects and ZERO of the 54 OPEN-ITEMS rows; its only docs/claude/ reference was an unrelated IB-trailing backlog row. POSITIVE CONTROL: the same probe found 6 rows carrying the operating-layer design, so the silence is real absence. Operator-decided the same day: build ML-2 (WO-20260906-ML-2-THE-PREDICTIVE-BRACKET) and COUNT the un-carried specs (WO-20260906-COUNT-THE-UN-CARRIED-SPECS).",
+   "clears_when": "BOTH, and they are different facts - say WHICH you cleared. (1) The un-carried-spec COUNT is MEASURED and reported with a stated classifier and a positive control (WO-20260906-COUNT-THE-UN-CARRIED-SPECS). Until then nobody knows whether the 14-day case was a one-off or a population. (2) A MECHANISM makes an un-carried spec visible WITHOUT a session thinking of it - see BL-20260906-A-RESEARCH-ARTIFACT-THAT-SPECIFIES-WORK-IS-NOT-REGISTERED-AS-WORK - and it has been run over the EXISTING tree, not only armed for new artifacts. !! DO NOT CLEAR BECAUSE A SESSION IS RUNNING. A session being spawned is exactly the state that looked fine on 2026-08-23. !! DO NOT CLEAR ON ANOTHER MEMO. The failure class is a well-written artifact nothing points at; an eighth document restating the diagnosis makes this row MORE true. !! IF THE OPERATOR DECIDES the count is not worth measuring, this row does not clear - it CHANGES: that is a legitimate decision and must be RECORDED as one rather than left looking like work about to start."
+ },
+ {
   "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
   "opened": "2026-09-02",
   "soak": {
