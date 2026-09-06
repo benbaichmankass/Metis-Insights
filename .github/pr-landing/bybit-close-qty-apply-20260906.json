@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 LIVE ORDER PATH on a real-money venue: it changes what src/units/accounts/execute.py::close_open_position puts on the Bybit wire, and what apply_intent_reduce_partial_close persists as position_size. The operator APPROVED building and landing both parts (in conversation, 2026-09-06, verdict `approved`, no condition, scope: both parts as specified in PR #11112) — but that approval is to land the change THROUGH REVIEW, not for the authoring session to self-merge an order-path diff. The manager routes the merge. Recorded as a typed operator_decision in docs/claude/work/OPEN-PRS.json.",
+  "why": "src/units/accounts/execute.py (order path) + src/units/accounts/qty_legalize.py (the sizing seam it calls) + config/instruments.yaml (the venue lot rule an order is legalized against). Every one of those is a Tier-3 surface by path; the tests and the pr-landing file are the only Tier-1 parts of the diff."
+}
