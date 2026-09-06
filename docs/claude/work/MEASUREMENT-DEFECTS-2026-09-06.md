@@ -176,9 +176,10 @@ declared bracket. MI-146 counts **29 `reconciler_filled`** rows in its 120. If t
 58.7% holds on that subset, roughly **17** of them belong in the bracket bucket, which
 would move bracket to ~43% and plumbing to ~49%.
 
-**So state them as bounds, not point estimates:** bracket **≥ 29.2%**, plumbing
-**≤ 63.3%**. Neither audit is wrong; they were measured against the same defective field,
-and only P3 landing makes either number final. **Do not quote 63.3% as settled.**
+**So state them as bounds, not point estimates**, on that same n = 120 directional book:
+bracket **≥ 35 of 120 (29.2%)**, plumbing **≤ 76 of 120 (63.3%)**. Neither audit is wrong;
+they were measured against the same defective field, and only P3 landing makes either
+number final. **Do not quote 76 of 120 as settled.**
 
 **What does NOT depend on the frozen field, and therefore stands:** MI-146's take-profit
 finding is read from the *running config*, not from close labels — **25 of 44 enabled live
