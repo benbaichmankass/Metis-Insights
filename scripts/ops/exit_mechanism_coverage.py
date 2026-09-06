@@ -185,22 +185,57 @@ def unit_of(src: str, strategy: str) -> Tuple[Optional[str], str]:
 # every lever was inline and became a FALSE `not_implemented` the moment
 # `stale_stop`/`giveback_stop` were extracted (2026-08-18) — this audit would
 # have reported BOTH families as having lost mechanisms they still run.
+#: mechanism -> (shared verdict symbol, the module that actually owns the body).
+#:
+#: ⚠️ THE MODULE IS PART OF THE ENTRY, AND UNTIL 2026-09-06 IT WAS HARDCODED TO
+#: `exit_levers.py`. That made the shared-module escape hatch work for exactly
+#: the two levers whose bodies happened to live there, and silently unavailable
+#: to every future one — so the FIRST lever extracted to a different shared
+#: module would read as UNIMPLEMENTED and its declaring legs as ORPHANS.
+#:
+#: That is not hypothetical and it was not caught by review: MI-150 moved
+#: `_exit_head_verdict`'s body from `trend_donchian.py` to
+#: `src/runtime/exit_head_apply.py`, leaving a delegation shim, and this guard
+#: immediately reported `trend_donchian`, `trend_donchian_eth` and
+#: `trend_donchian_sol` as `exit_head` orphans — three LIVE legs whose lever
+#: still worked perfectly. The refactor was behaviour-preserving (asserted by 75
+#: parity cases over both call sites); the DETECTOR was the thing that broke.
+#:
+#: This is precisely
+#: BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS
+#: reproducing — "extracting a lever to a shared module reads as losing it" —
+#: on the one mechanism the earlier fix did not generalise to. The remedy is to
+#: make the shared module a DECLARED PROPERTY OF THE MECHANISM rather than a
+#: constant, so the next extraction only has to name its module here instead of
+#: re-discovering this failure.
 _SHARED_VERDICT_SYMBOLS = {
-    "stale_stop": "stale_stop_verdict",
-    "giveback_stop": "giveback_verdict",
+    "stale_stop": ("stale_stop_verdict", "src/runtime/exit_levers.py"),
+    "giveback_stop": ("giveback_verdict", "src/runtime/exit_levers.py"),
+    "exit_head": ("exit_head_verdict", "src/runtime/exit_head_apply.py"),
 }
 
 
 def module_implements(unit_src: str, mechanism: str) -> bool:
+    """Does this unit implement *mechanism* — directly, or via a shared module?
+
+    ⚠️ The shared-module branch is NOT a weakening. It still requires the unit
+    to reference the shared verdict symbol AND the shared module to actually
+    read this mechanism's config keys, so a unit cannot read as implementing a
+    lever it merely mentions. What it stops is the opposite error: a lever
+    correctly extracted to a shared module reading as LOST.
+    """
     if any(f'"{k}"' in unit_src for k in MECHANISMS[mechanism]):
         return True
-    sym = _SHARED_VERDICT_SYMBOLS.get(mechanism)
-    if not sym or not re.search(rf"\b{sym}\b", unit_src):
+    entry = _SHARED_VERDICT_SYMBOLS.get(mechanism)
+    if not entry:
+        return False
+    sym, rel = entry
+    if not re.search(rf"\b{sym}\b", unit_src):
         return False
     # The unit calls the shared verdict — confirm the SHARED module actually
     # reads this mechanism's keys, rather than trusting the call site's name.
     try:
-        shared = (REPO / "src" / "runtime" / "exit_levers.py").read_text()
+        shared = (REPO / rel).read_text()
     except OSError:
         return False
     return any(f'"{k}"' in shared for k in MECHANISMS[mechanism])
@@ -373,6 +408,20 @@ def _self_test() -> int:
                    unit_of(src, "xrp_pullback_2h")[0] == "htf_pullback_trend_2h"))
     checks.append(("trend_donchian_xrp_4h resolves to trend_donchian",
                    unit_of(src, "trend_donchian_xrp_4h")[0] == "trend_donchian"))
+    # MI-150 regression: a lever EXTRACTED to a shared module must not read as
+    # lost. `trend_donchian` delegates exit_head to exit_head_apply.py and its
+    # own source no longer carries the quoted config keys; before the shared
+    # module became a per-mechanism property this reported three LIVE legs as
+    # orphans. The positive control two checks above still asserts the opposite
+    # error is caught, so this cannot be satisfied by simply weakening the probe.
+    checks.append(("trend_donchian implements exit_head VIA the shared module",
+                   module_implements(
+                       (_UNITS / "trend_donchian.py").read_text(), "exit_head")))
+    checks.append(("...and that is NOT just the delegating name — a unit that "
+                   "calls the symbol while the shared module lacks the keys "
+                   "still reads as not implementing",
+                   not module_implements("exit_head_verdict(rec, meta)",
+                                         "trail_decay")))
     for label, passed in checks:
         print(f"  {'ok ' if passed else 'FAIL'} {label}")
         ok += bool(passed)
