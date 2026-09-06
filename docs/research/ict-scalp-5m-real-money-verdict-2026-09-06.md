@@ -30,7 +30,7 @@ it, and § 1.1 records the one place its population differs from mine.
 | `config/strategies.yaml`, `config/accounts.yaml`, `config/regime_policy.yaml` | declared geometry + routing | read from the tree at `origin/main` `8a16786d` |
 | `src/core/coordinator.py:1346-1362` | the shadow gate's actual mechanism | read, not assumed |
 | `docs/research/exit-refinement-coverage.json` | the exit-lever record | read per-lever, incl. each `ref` |
-| `docs/research/real-money-0for13-attribution-2026-09-06.md` (`origin/claude/perf-rootcause-1b-20260906`) | the losing-week attribution | cross-checked, see § 1.2 |
+| `docs/research/real-money-0for13-attribution-2026-09-06.md` (read on branch `claude/perf-rootcause-1b-20260906`; **landed on `main` 2026-09-06**, so it is now citable from there) | the losing-week attribution | cross-checked, see § 1.2 |
 
 `bybit_2` is the only real-money book. **No R multiple appears anywhere in this document** —
 the R instrument is sign-inverted and unsafe (`PB-20260906-R-CONTAMINATION-QUANTIFIED`); every
