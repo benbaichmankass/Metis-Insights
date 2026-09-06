@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-06T09:33:53+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-06T09:40:55+00:00 · verdict **all_sources_read**_
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 6d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
