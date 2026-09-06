@@ -1,0 +1,14 @@
+Records today's recurrence of the reconcile-PR deadlock on the row that already
+tracks it, rather than filing a duplicate.
+
+BL-20260905-AN-UNDISPOSITIONED-CLOSED-PR-DEADLOCKS-EVERY-RECONCILE-PR-AND-THEY-STACK-UNBOUNDEDLY
+gains one field, recurrence_20260906. The class repeated on a DIFFERENT closed
+PR (#11105, not #10921), so this is the mechanism recurring rather than the old
+instance lingering. Three reconcile PRs are stacked and red again (#11162,
+#11170, #11171), and OPEN-PRS.json on main consequently still lists #11125 as
+open although it merged at 18:43:22Z.
+
+Not filed as a new row: the existing row is open, high severity, and describes
+this exactly. backlog_search surfaced it at 0.75 overlap.
+
+One field, one row. No src/, no config/, no order path.
