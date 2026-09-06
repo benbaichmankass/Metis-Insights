@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T08:52:00Z",
+  "updated_at": "2026-09-06T09:50:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1762,37 +1762,40 @@
     {
       "id": "MI-135-OBSERVATION-SWEEP",
       "title": "Phase 1A — the observation sweep: 54 OPEN-ITEMS rows + 28 landed_unproven items have never been looked at on the fleet",
-      "state": "in_flight",
-      "owner": "session_01UaZ9boMDajiCZsjVkr4Fnz",
+      "state": "landed_unproven",
+      "owner": "session_01UaZ9boMDajiCZsjVkr4Fnz (IDLE — completed its batch)",
       "owns_object": "WO-20260906-THE-OBSERVATION-SWEEP-54-OPEN-ITEMS-ROWS",
       "priority": "P1_CYCLE",
       "tier": "1",
       "note": "Serves the cycle priority CY-20260903-MANAGER-CONTROL directly. 17 OPEN-ITEMS rows carry verified_at=never. Bar: a green test, a merged PR and a deploy are NOT observations. Dispatch committed at docs/claude/work/spawn-prompts/2026-09-06/1A-observation-sweep.md.",
-      "spawned_at": "2026-09-06T08:50Z"
+      "spawned_at": "2026-09-06T08:50Z",
+      "result_2026_09_06": "LANDED via #11101 (b84f490c on main) — VERIFIED by diffing the file, not by the session's claim. 26 of 54 OPEN-ITEMS rows dispositioned: 2 CLOSED on fleet evidence, 17 RE-AFFIRMED with a fresh observation, 7 recorded NOT OBSERVABLE with the reason. verified_at=never fell 17 -> 9. Patched surgically (52 insertions / 52 deletions, row order preserved). The session brief SHRANK by 54 lines because re-observed rows stopped being DUE. ⚠️ THE SESSION'S OWN SUMMARY SAID '#11103 merged' AND THAT WAS THE WRONG PR — #11103 is a 3-file board-relay filing; the sweep landed in #11101. Read the diff, not the summary. 56 of 82 items REMAIN undone and the session is idle at 487k/1M context — needs a fresh session, not a nudge, since it cannot be messaged. FINDINGS IT SURFACED, each needing an owner: alpaca_live's routed real-money leg CANNOT PLACE (both gates read live, every signal journals dry_run_no_order_placed); a 2393% same-book SL over-accumulation on bybit_1/SOLUSDT; one repeating exception is 47% of the entire operator ERROR+ feed (alarm-fatigue P1); per-account arbitration CLOSED on all three criteria; the 10 sunset candidates CLOSED."
     },
     {
       "id": "MI-136-ZERO-FOR-THIRTEEN",
       "title": "Phase 1B — real money went 0-for-13 the week e35 shipped, and the R instrument contradicts the PnL",
       "state": "in_flight",
-      "owner": "session_013r8Joo877hnkYoKRzQsrwW",
+      "owner": "session_01XRYfPGr4jAHr4k1rmvTKFi (RETRY)",
       "owns_object": "WO-20260906-REAL-MONEY-WENT-0-FOR-13-THE",
       "priority": "P1_TRADING",
       "tier": "3 (proposal only)",
       "note": "MEASURED 2026-09-06T07:1xZ: bybit_2 13 graded closes since 08-30, ZERO wins, -43.12 on a 264.86 book (~-14% of starting equity), expectancyR -0.90. Prior fortnight 14/23 (60.9%) and +40.96. 30d window reads expectancyR +0.98 while totalPnl is -3.63 -- MI-30's R contamination, and R feeds the promotion gates. Deliverable 1 (trustworthy instrument) GATES deliverable 2 (attribution). Displaces the cycle priority under a NARROW spawn-priority exception naming this object. Tier-3 PROPOSED never applied. Dispatch at docs/claude/work/spawn-prompts/2026-09-06/1B-loss-attribution.md.",
-      "spawned_at": "2026-09-06T08:50Z"
+      "spawned_at": "2026-09-06T08:50Z",
+      "result_2026_09_06": "⚠️ THE FIRST RUN LOST ITS WORK ENTIRELY. session_013r8Joo877hnkYoKRzQsrwW completed the analysis, committed 7a72a1e and could not push — it was spawned with NO repo attached (session_context had no `sources` key, unlike its two siblings) and the git proxy refused with 'repo not in authorized set'. No branch reached origin. UNRECOVERABLE: the manager cannot message a cloud sub-session (SendMessage refuses, ListAgents empty, the CCR MCP has no send tool). Filed as BL-20260906-A-SUBSESSION-SPAWNED-WITHOUT-SOURCE-URL-GETS-NO-REPO-AND-ITS-WORK-DIES-UNPUSHED. Re-spawned 09:41Z WITH source_url explicit, plus an instruction to push a skeleton early and verify it reached origin before investing."
     },
     {
       "id": "MI-137-THREE-LIVE-ALARMS",
       "title": "Phase 1C — three unowned live alarms: bybit_1 SOL orphan, MES data blindness, pending trader restart",
-      "state": "in_flight",
-      "owner": "session_01RHuSYKu1r1ZErc65KLKV8t",
+      "state": "landed_unproven",
+      "owner": "session_01RHuSYKu1r1ZErc65KLKV8t (BLOCKED on AskUserQuestion)",
       "owns_object": "WO-20260906-THREE-LIVE-ALARMS-ON-THE-TRADING-FLEET",
       "priority": "P1_TRADING",
       "tier": "2 (restart needs an operator OK relayed by the manager)",
       "note": "Read off /api/bot/notifications + /api/diag/version at 07:13Z. Orphan trade 5516 adopted on bybit_1 SOLUSDT 604.7 short; mes_trend_long_1d blind since 06:33Z on the IBKR path; restart_pending=true with live sha 4ec87e38 behind disk c2e47af5. Covered by the same narrow spawn-priority exception. Dispatch at docs/claude/work/spawn-prompts/2026-09-06/1C-live-alarms.md.",
-      "spawned_at": "2026-09-06T08:50Z"
+      "spawned_at": "2026-09-06T08:50Z",
+      "result_2026_09_06": "Work PUSHED and safe on claude/live-alarms-1c-20260906; the session then blocked on an AskUserQuestion no human can answer. Manager opened #11105 for it and armed self-landing + CI. BEST FINDING — a named, reproducing ORDER-PATH defect: a reduce-only close on bybit_1/SOLUSDT failed 3 consecutive times at 2026-09-06T03:37:22Z with 'InvalidRequestError: Qty invalid (ErrCode 10001)' on qty '33.299999999999955' — the IEEE-754 artifact of 33.3, serialised to the wire WITHOUT being quantised to the symbol's qtyStep. The position cannot be flattened by the normal path. Tier-3, escalated not fixed, NEEDS AN OWNER. MANAGER CORRECTION: the session marked every live-venue claim NOT VERIFIED believing SSH was the only route to the VM. It is not — the diag API answers plain HTTPS from a sandbox container. Manager read at 09:42Z: bybit_1 holds ADA/XRP/AVAX/ETH and NO SOLUSDT, and 0 open orders. So there is NO live SOL exposure and (a) is not an emergency; whether trade 5516 was real or a reconciler artifact is STILL OPEN. (c) the Tier-2 restart is still owed an operator OK."
     }
   ],
   "as_of": "2026-09-04T09:45:00Z",
-  "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj (spawned phase 1A/1B/1C)"
+  "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj (09:37Z check-in)"
 }
