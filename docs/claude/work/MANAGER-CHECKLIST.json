@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T08:45:00Z",
+  "updated_at": "2026-09-06T08:52:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1758,8 +1758,41 @@
       "prs": "",
       "blocked_on": "",
       "note": "OPERATOR DIRECTIVE, 2026-09-05, verbatim: \"no sessions working on their own without ownership. That should not happen in any case.\" Given after the manager reported 79 idle sessions carried over from previous managers. || MEASURED THE SAME DAY, platform truth joined to SESSIONS.json, population = the 79 sessions the platform reports IDLE: ZERO have an owner session that is currently RUNNING; 76 are ORPHANED (their spawned_by is itself idle/archived/dead); 1 records no spawned_by at all; 2 are NOT IN THE REGISTRY AT ALL; and 32 name NEITHER a checklist_item NOR an owns_object, so you could not tell what they were for even having found them. The only RUNNING session account-wide was the manager. || ⚠️ THE ENFORCEMENT CANNOT BE BUILT ON THE CURRENT REGISTER. Before the same-day re-grade, 65 of 94 rows carried a state the platform contradicts and 58 had never been observed once, so the register claimed 41 sessions were working/idle/running. Ownership derived from a store that is 69% wrong about state inherits the lie — derive it at READ time from a live list_sessions join, the same fix `state` needs. || ⚠️ WHAT WOULD NOT SATISFY THIS: archiving the 79 (resolves lifecycle, says NOTHING about whether their work reached main — an idle session is not a finished one); or a documented rule that managers must register and check ownership, which is the reminder-is-not-a-mechanism non-fix MI-15 has already failed three times with the recorded remedy 'remember to register'. || THE MANAGER DID NOT BUILD THIS (worker item: scripts/**) AND DELIBERATELY DID NOT SWEEP-ARCHIVE THE 79, which would have destroyed the evidence the item rests on. Full statement of the commitment: docs/claude/work/objects/WO-20260905-NO-SESSION-MAY-EXIST-WITHOUT-A-LIVE-OWNER.yaml"
+    },
+    {
+      "id": "MI-135-OBSERVATION-SWEEP",
+      "title": "Phase 1A — the observation sweep: 54 OPEN-ITEMS rows + 28 landed_unproven items have never been looked at on the fleet",
+      "state": "in_flight",
+      "owner": "session_01UaZ9boMDajiCZsjVkr4Fnz",
+      "owns_object": "WO-20260906-THE-OBSERVATION-SWEEP-54-OPEN-ITEMS-ROWS",
+      "priority": "P1_CYCLE",
+      "tier": "1",
+      "note": "Serves the cycle priority CY-20260903-MANAGER-CONTROL directly. 17 OPEN-ITEMS rows carry verified_at=never. Bar: a green test, a merged PR and a deploy are NOT observations. Dispatch committed at docs/claude/work/spawn-prompts/2026-09-06/1A-observation-sweep.md.",
+      "spawned_at": "2026-09-06T08:50Z"
+    },
+    {
+      "id": "MI-136-ZERO-FOR-THIRTEEN",
+      "title": "Phase 1B — real money went 0-for-13 the week e35 shipped, and the R instrument contradicts the PnL",
+      "state": "in_flight",
+      "owner": "session_013r8Joo877hnkYoKRzQsrwW",
+      "owns_object": "WO-20260906-REAL-MONEY-WENT-0-FOR-13-THE",
+      "priority": "P1_TRADING",
+      "tier": "3 (proposal only)",
+      "note": "MEASURED 2026-09-06T07:1xZ: bybit_2 13 graded closes since 08-30, ZERO wins, -43.12 on a 264.86 book (~-14% of starting equity), expectancyR -0.90. Prior fortnight 14/23 (60.9%) and +40.96. 30d window reads expectancyR +0.98 while totalPnl is -3.63 -- MI-30's R contamination, and R feeds the promotion gates. Deliverable 1 (trustworthy instrument) GATES deliverable 2 (attribution). Displaces the cycle priority under a NARROW spawn-priority exception naming this object. Tier-3 PROPOSED never applied. Dispatch at docs/claude/work/spawn-prompts/2026-09-06/1B-loss-attribution.md.",
+      "spawned_at": "2026-09-06T08:50Z"
+    },
+    {
+      "id": "MI-137-THREE-LIVE-ALARMS",
+      "title": "Phase 1C — three unowned live alarms: bybit_1 SOL orphan, MES data blindness, pending trader restart",
+      "state": "in_flight",
+      "owner": "session_01RHuSYKu1r1ZErc65KLKV8t",
+      "owns_object": "WO-20260906-THREE-LIVE-ALARMS-ON-THE-TRADING-FLEET",
+      "priority": "P1_TRADING",
+      "tier": "2 (restart needs an operator OK relayed by the manager)",
+      "note": "Read off /api/bot/notifications + /api/diag/version at 07:13Z. Orphan trade 5516 adopted on bybit_1 SOLUSDT 604.7 short; mes_trend_long_1d blind since 06:33Z on the IBKR path; restart_pending=true with live sha 4ec87e38 behind disk c2e47af5. Covered by the same narrow spawn-priority exception. Dispatch at docs/claude/work/spawn-prompts/2026-09-06/1C-live-alarms.md.",
+      "spawned_at": "2026-09-06T08:50Z"
     }
   ],
   "as_of": "2026-09-04T09:45:00Z",
-  "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj (in_flight adjudication vs a live session read)"
+  "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj (spawned phase 1A/1B/1C)"
 }
