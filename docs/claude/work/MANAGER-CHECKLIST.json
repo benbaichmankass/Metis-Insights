@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T10:22:00Z",
+  "updated_at": "2026-09-06T10:26:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1808,7 +1808,8 @@
       "priority": "P1_CYCLE",
       "tier": "2 (operator approval ALREADY GIVEN and recorded)",
       "spawned_at": "2026-09-06T10:04Z",
-      "note": "Operator chose 'Spawn a session to re-land clean' over merging past the red check. Carries the operator-approved job file to main and closes #11105. Excepted by name in spawn-priority-exception.yaml (operating-layer under a trading cycle — INVERTED polarity vs every earlier entry in that file)."
+      "note": "Operator chose 'Spawn a session to re-land clean' over merging past the red check. Carries the operator-approved job file to main and closes #11105. Excepted by name in spawn-priority-exception.yaml (operating-layer under a trading cycle — INVERTED polarity vs every earlier entry in that file).",
+      "manager_error_caught_by_the_worker_2026_09_06": "THE SUB-SESSION OVERRODE THIS DISPATCH ON THREE POINTS AND WAS RIGHT ON ALL THREE. The manager verified each rather than taking them. (1) It refused to carry automation/jobs/1c-live-alarms-state-01.job onto the PR: main has NEVER held a .job (0 files, 0 commits over full history) because vm-driver.yml git-rm's the job after running it, and a resident job on main would RE-EXECUTE on the live money VM on the next claude/** branch that merges main and pushes. (2) The manager's Tier-2 hold could not have gated it anyway -- vm-driver fires on PUSH, not merge, so the job runs before any human reads the PR. The manager's model of the mechanism was wrong. (3) IT CAUGHT A MANAGER ERROR DIRECTLY: the dispatch told it the operator approval was 'recorded as a typed decision in docs/claude/work/OPEN-PRS.json'. It checked and it was NOT there -- the manager had written that record to its own unmerged branch, so main still read as_of 2026-09-05 with open_prs [10895, 10398]. It declined to bank an approval it could not verify, which is exactly the discipline the manager had applied to the author session's claim an hour earlier. CONSEQUENCE FOR THE OPERATOR'S APPROVAL: it was an approval to RUN the job, and running it means pushing to a claude/** branch -- which ALREADY HAPPENED on c8ccabdf at 09:46:38Z. That vm-driver run (34025596229) FAILED AFTER 21 SECONDS, which is why the job sits un-consumed and why alarms (a) and (b) STILL have no live reads. The approval is not spent and nothing is owed from the operator; what is owed is diagnosing that failed run."
     },
     {
       "id": "MI-139-BYBIT-QTYSTEP",
