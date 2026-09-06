@@ -4,8 +4,8 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   The record of a trade does not say what happened: R is sign-inverted, exit_reason is frozen, and the read route silently empties
 stage: INTEGRITY
-lifecycle: dormant
-owner: null
+lifecycle: in_flight
+owner: session_01L7dTAuGMdn3CTGeyYV5Mox
 opened_at: 2026-09-06
 closed_at: null
 review_trigger: >-

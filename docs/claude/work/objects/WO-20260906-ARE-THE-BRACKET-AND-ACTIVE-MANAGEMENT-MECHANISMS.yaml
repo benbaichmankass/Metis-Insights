@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Are the bracket and active-management mechanisms in the roadmap properly, built out, and actually applied where we claim
 stage: CAPABILITY
-lifecycle: dormant
-owner: null
+lifecycle: done
+owner: session_014jrW67rFyJNnHr7y6dEhec
 opened_at: 2026-09-06
-closed_at: null
+closed_at: 2026-09-06
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
@@ -22,9 +22,73 @@ source: >-
 
 blocked_on: []
 blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+  ASSESSED 2026-09-06 by MI-146. Nothing blocked the ANSWER: all three questions were
+  answerable from the running trader (/api/bot/config), the unit source at origin/main,
+  and the live journal. The empty list is now a real reading, not an unlooked-at default.
+  ⚠️ The PROPOSALS this object produced are each blocked on an operator Tier-3
+  decision; those edges belong on the successor objects, not here — this object is a
+  QUESTION and the question is answered.
+
+answer: >-
+  Written 2026-09-06: docs/research/exit-lever-wiring-audit-2026-09-06.md.
+  (1) IN THE ROADMAP: YES for the thesis, NO for the done-condition. M20 is literally
+  titled "Active Trade Management" (renamed 2026-08-20 by operator directive) and
+  docs/design/exit-mechanism-construction-PROCESS.md § E3.6 carries the thesis with a
+  falsifier and a named ML track. BUT M20's done-condition is the coverage matrix
+  ("no pending/blocked rows on live legs"), which grades whether a lever was SCREENED,
+  not whether trades end at their brackets — so M20 can be declared DONE with the
+  thesis 100% unmet (320 of 468 cells are already honest_negative). None of E3.6's
+  three new capabilities has a matrix column. Replacement done-condition proposed in
+  the memo.
+  (2) IS IT BUILT: the whole post-entry toolkit lives in TWO units (trend_donchian 22
+  legs, htf_pullback_trend_2h 19) plus ict_scalp's own stale_stop. exit_ladder has
+  ZERO acting call sites (three observe-only tiers), regime_flip_exit has ZERO call
+  sites (its own docstring says so, deliberately). 120 of 459 cells grade a lever as
+  tested on a leg whose unit cannot run it; ~87 of those are DEFENSIBLE
+  research-before-build (exit_ladder 45, regime_flip_exit 42) and 33 are a genuine
+  mislabel where the correct status blocked:no_lever_consumer_in_unit already exists
+  and is used on 5 sibling cells. The ict_scalp n/a cells are CORRECT as a status and
+  ARE the operator's gap: n/a there means the family has no active management to
+  refine at all.
+  ⚠️ ROOT CAUSE FOUND: no strategy has ever EXTENDED a target — every monitor()
+  returns {"sl": ...} and `return {"tp": ...}` exists nowhere in src/units/strategies/.
+  The downstream channel is built end-to-end in order_monitor; the only ACTING producer
+  is on shadow turtle_soup. ⚠️ CORRECTING MY OWN FIRST READING: the producer's
+  OBSERVE-ONLY phase DOES exist — src/runtime/target_extension_soak.py, called from
+  trend_donchian.monitor() and htf_pullback_trend_2h.monitor() (41 legs). What is
+  missing is the annotate→act flip, not the code. AND IT CANNOT BE GATED TODAY:
+  100 of 100 soak rows read expectation_state=sentinel_no_expectation across 8 live
+  legs (/api/diag/log_file, 2026-09-06T10:31Z), re-confirming the open row
+  BL-20260826-TARGET-EXTENSION-SOAK-IS-100PCT-SENTINEL-AND-CANNOT-YET-OBSERVE-THE-LEVER eleven days on. One live row
+  makes it concrete: eth_pullback_2h declares target_r 50.0 → expectation_price
+  6264.99, while the venue actually holds 2698.81 (cap_r 3.19) — a 2.3× gap between
+  the declared expectation and the resting order.
+  And on 25 of 44 live legs there is no reachable take-profit at all
+  (15 carry the 50R sentinel clamped by tp_venue_cap.TP_VENUE_CAP_PCT=0.099 — Bybit's
+  rejection threshold — and 10 declare none). On 56.8% of the live fleet "it hit the
+  take profit" is structurally impossible, so the giveback the operator observed is
+  the ATR trail working as designed on legs whose design contains no profit-taking
+  prediction.
+  (3) IS IT APPLIED: YES — 46 of 46 shipped/shipped_gate_failed cells are armed on the
+  running trader, zero drift. (An initial 1-cell disagreement was MY predicate being
+  wrong, not the matrix: tlt_pullback_1h's shipped cell is `sm2`, a stop-mult cell.)
+  But realised closes (n=120 directional, 2026-08-27→2026-09-06): bracket 29.2%, of
+  which take-profit 5.8%; active-management levers 7.5% on three legs;
+  reconciliation/plumbing 63.3%.
+  RECOMMENDED FIRST BUILD: (1) split the matrix vocabulary + add a CI detector
+  (Tier-1); (2) ship the exit head into ict_scalp.monitor() — the ONLY passed-gate
+  cells blocked purely on missing code, 3 legs reproduce and 2 must be excluded
+  (Tier-3); (3) give the 25 targetless live legs a reachable stated target, via
+  E3.6's ML-2 calibration-first path (Tier-3); (4) flip the target-extension
+  producer from annotate to acting — the one lever class that is FREE (amending a
+  resting level is not a fill), but STRICTLY BLOCKED ON (3), because the soak has no
+  non-sentinel rows to gate on (Tier-3).
+  ⚠️ Two backlog rows filed (BL-20260906-MATRIX-GRADES-A-LEVER-AS-TESTED-ON-LEGS-WHOSE-UNIT-CANNOT-RUN-IT,
+  BL-20260906-COVERAGE-MATRIX-HAS-NO-COLUMN-FOR-TARGET-REVISION-SO-M20S-OWN-DONE-CONDITION-CANNOT-SEE-IT); two candidate
+  findings were NOT filed because they already have open rows and are re-confirmed
+  instead (BL-20260901-E35-TP-R-CAN-BE-INERT-BEHIND-THE-VENUE-CLAMP-AND-THE-BINDING-RATE-IS-UNMEASURED,
+  BL-20260820-EXIT-REASON-UNCLASSIFIED-IS-THE-MODAL-VALUE — which measured 63.7%
+  unclassifiable on 2026-08-20 against this audit's independent 63.3% on a different
+  population and definition).
 
 captured_by: scripts/ops/capture_idea.py
