@@ -20,11 +20,99 @@ why: >-
 source: >-
   operator (conversational)
 
-blocked_on: []
+blocked_on:
+  - kind: pull_request
+    ref: "#11131"
+    since: 2026-09-06
 blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+  ASSESSED 2026-09-06 by MI-144. All three defects reached a written
+  disposition and the Tier-1 half is BUILT AND VALIDATED; what the object is
+  waiting on is a human MERGE of PR #11131. That edge is REAL, not a
+  placeholder: `pr-landing-guard` R5 refuses to certify `src/**` for
+  self-landing, so the branch cannot land itself however green it is. It is the
+  ONLY thing blocking (a) and (c) outright.
+  ⚠️ (b) carries a SECOND, WEAKER dependency that is deliberately NOT written as
+  a blocking edge, because it does not block this object: the historical
+  re-classification of `exit_reason` and the removal of the duplicated
+  inequality are Tier-2 journal-writer changes, PROPOSED in the PR body with
+  their exact shape. They need an operator decision, not this object's
+  completion — the read-path derivation already answers the operator's question
+  without them.
+  ⚠️ NOT blocked on the pairs question
+  (`BL-20260906-PAIRS-LEGS-GRADED-AGAINST-A-PER-LEG-BRACKET-THAT-MAY-NOT-BE-THEIR-STOP`):
+  the REAL-MONEY bracket figure is clean (420 of 424 gradeable) and is the one
+  to quote, so that row bounds how the all-accounts number may be read rather
+  than holding this work.
 
 captured_by: scripts/ops/capture_idea.py
+
+disposition:
+  measured_on: 2026-09-06
+  evidence: docs/research/trade-record-integrity-2026-09-06.md
+  pr: "#11131"
+  # ⚠️ POPULATION FOR EVERY FIGURE BELOW: the whole journal pulled 2026-09-06 via
+  # /api/bot/db/table/{trades,order_packages} (5518 + 4435 rows), filtered to the
+  # population /api/bot/performance itself uses — closed, non-backtest, pnl NOT
+  # NULL, minus orphan_adopt/superseded/exchange_reset_flat. The endpoint's own
+  # totals were reproduced to the last digit FIRST, as a positive control.
+  a_r_sign_inverted:
+    tier: 1
+    state: landed_unproven   # merged-pending; NOT deployed and NOT observed
+    what: >-
+      R is now computed from the trade's DECLARED INITIAL risk
+      (order_packages.meta::risk_per_unit) where one exists, from the stored
+      stop where none does and the stop is not PROVEN wrong-side, and REFUSED
+      otherwise. rBasis publishes which of the four every row used.
+    measured: >-
+      30d real money n=39 published expectancyR +0.9818 against totalPnl
+      -3.6266 / profitFactor 0.9507 -> +0.1772 after. paperPortfolio n=87
+      published +0.6253 on a book down $11,244.87 -> -0.2736, sign now agrees.
+      Whole journal n=1287: 104 contaminated rows (8.1%) carried 96.6% of
+      totalR; single-row max R +3672.3.
+    caveat: >-
+      "the sign now agrees with profitFactor" is NOT a valid general acceptance
+      test and is not claimed as one. R weights by each trade's own risk, USD
+      does not. It holds on paperPortfolio (the mechanically-contaminated
+      exhibit); on paper-all the corrected R disagrees with profitFactor 1.4066
+      because that block's entire +$124,653 rests on ONE estimated row (id 4773,
+      +$249,185).
+  b_exit_reason_frozen:
+    tier: "1 for the read-path derivation; 2 for the journal re-label"
+    state: landed_unproven
+    what: >-
+      src/runtime/bracket_outcome.py re-derives the verdict from the recorded
+      exit price against the package's own sl/tp, published on
+      /api/bot/performance as bracketOutcome. NOTHING is written back.
+    answer_to_the_operators_question: >-
+      REAL MONEY n=424, 420 gradeable: 228 (54.3%) reached a declared bracket --
+      187 sl vs 41 tp, a 4.6:1 stop:target ratio -- against a stored exit_reason
+      reading sl|tp on only 127 (30.0%). All accounts n=1287: 430 of 1125
+      gradeable (38.2%) vs a stored 19.5%. The label understates bracket exits
+      by roughly half in every window measured.
+    proposed_tier_2: >-
+      (1) a one-shot re-classification of the historical reconciler_filled /
+      empty-label rows that now carry a measurable price (236 re-derive as
+      other, 29 as sl), stamping exit_reason_source so a re-labelled row stays
+      distinguishable; (2) order_monitor._classify_broker_exit calling
+      classify_bracket_outcome instead of keeping its own copy of the
+      inequality. Both edit the journal-writer path.
+  c_read_route_silently_empties:
+    tier: 1
+    state: landed_unproven
+    what: >-
+      /api/bot/trades/closed now REFUSES with 503 + a machine-readable reason
+      (db_file_missing / db_operational / db_read_failed / unexpected_error)
+      instead of returning a bare [] from four except handlers, and gains
+      `offset` + X-Total-Count / X-Has-More so truncation is distinguishable
+      from exhaustion. The cap was NOT raised -- raising it was never the fix.
+    briefed_symptom_did_not_reproduce: >-
+      MEASURED against the live endpoint 2026-09-06: limit 201/400/800/2000 all
+      return HTTP 422 naming the cap, and since= works (2026-09-01 -> 142 rows).
+      One root cause explains every original observation -- a probe that coerced
+      a non-200 body into []/0. The existing backlog row is corrected in place
+      rather than contradicted by a new one.
+    population_of_the_class: >-
+      MEASURED by AST over src/web/api/routers/*.py with a positive control: 28
+      empty-on-except returns, 12 justified, 16 bare. 2 fixed here; the other 14
+      filed as BL-20260906-FOURTEEN-READ-ROUTES-STILL-RETURN-A-BARE-EMPTY-ON-ERROR
+      rather than swept blind.
