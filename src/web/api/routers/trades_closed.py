@@ -370,14 +370,14 @@ def get_closed_trades(
             detail={"error": "journal_unavailable", "reason": "db_operational",
                     "detail": str(exc)},
         ) from exc
-    except sqlite3.Error as exc:
+    except sqlite3.Error as exc:  # allow-silent: NOT silent — logged (logger.exception) and RE-RAISED as a 503 naming `db_read_failed`; this handler is the FIX for the bare-[] this guard exists to catch (MI-144)
         logger.exception("trades_closed: sqlite read failed")
         raise HTTPException(
             status_code=503,
             detail={"error": "journal_unavailable", "reason": "db_read_failed",
                     "detail": str(exc)},
         ) from exc
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: NOT silent — logged and RE-RAISED as a 503 naming `unexpected_error`; the blanket catch is deliberate so an unforeseen failure still REFUSES rather than 500-ing or emptying (MI-144)
         logger.exception("trades_closed: unexpected error")
         raise HTTPException(
             status_code=503,
