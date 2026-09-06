@@ -138,15 +138,35 @@ All 36 `n/a` cells are the four trailing levers (`trail_geometry`, `trail_decay`
 | **`exit_ladder`** | `exit_plan`→`materializer`→`soak` | ❌ **zero acting call sites** (soak only) | 0 | 45 `honest_negative` + 1 `passed_unshipped` | **NEVER WIRED.** The negative is real (banking lost net_R in 20/20 cells) and was found *before* building — correct process — but it is a **harness** negative, not a live-lever one. |
 | **`regime_flip_exit`** | `src/runtime/regime_flip_exit.py` | ❌ **zero call sites** (its own docstring says so) | 0 | 42 `honest_negative` + 8 correct `n/a` | **NEVER WIRED, DELIBERATELY.** Predicate built, replay negative fleet-wide, build correctly stopped. **Not a gap — do not "fix" it.** |
 | **`bracket_geometry`** | entry-time, every unit | ✅ (entry only) | all | 17 `shipped`, 14 `honest_negative`, 8 `pending` | **WIRED but ENTRY-ONLY.** Cannot be revised after entry — see below. |
-| **target EXTENSION** | **none** | ❌ | 0 | **no column exists** | **NEVER WIRED, AND NOT EVEN TRACKED.** |
+| **target EXTENSION** | `src/runtime/target_extension_soak.py` | **annotate-only**, from `trend_donchian` + `htf_pullback_trend_2h` (41 legs) | 0 | **no matrix column exists** | **BUILT TO ANNOTATE, NEVER FLIPPED — and UNEVALUABLE:** 100/100 soak rows read `sentinel_no_expectation`. Not tracked by any matrix cell. |
 
 **Summary of the mislabel set: 120 of 459 cells (26.1%) carry a "tested" verdict (`honest_negative`/`shipped`/`passed_unshipped`) for a lever with no runtime consumer in that leg's own unit.** Of those, ~87 (`exit_ladder` 45 + `regime_flip_exit` 42) are defensible research-before-build, and **33 are the genuine mislabel** — 19 `exit_head_ml` + 10 `giveback_stop` + 2 `stale_stop` + 1 `vol_trail` + 1 `exit_ladder passed_unshipped`.
 
 ### The finding underneath all of it: no lever can move a target, and the targets are not predictions
 
-**(a) No strategy can extend a take-profit.** F2, exhaustive over `src/units/strategies/*.py`: every `monitor()` returns `{"sl": …}`. Fourteen `return {"sl": …}` sites exist; **`return {"tp": …}` exists nowhere.** Every other `"tp"` occurrence in a unit is either the *entry-time* package field or a **read** of `open_pkg.get("tp")`.
+**(a) No strategy has ever extended a take-profit — but the producer's annotate phase EXISTS and is running.**
 
-The **channel is fully built** — `order_monitor.py` applies `updates["tp"]` end-to-end to the DB and the venue (lines 1242/1373/1453) — and it has exactly **one producer in the whole repo**: `order_monitor.py:590`, rolling a package's tp forward when `turtle_soup` emits `next_tp = meta.tp2` alongside a TP1 partial. `turtle_soup` is `execution: shadow` and declares no `tp_r`. **So on the live fleet, a resting take-profit has never been moved, and there is no code that could move one.** The lever inventory is entirely reductive: eight columns that cut a trade short, and one entry-time column.
+⚠️ **Correcting my own first reading, which was wrong in the direction that would have wasted the operator's time.** My initial pass concluded *"there is no code that could move a target"*. That is false, and the backlog caught it: `src/runtime/target_extension_soak.py` exists and is **called from both `trend_donchian.monitor()` (line 754) and `htf_pullback_trend_2h.monitor()`** — 41 legs. It is the **observe-only first phase of the extension producer**, mirroring the M20 stale-stop rollout exactly. What is missing is the Tier-3 flip from annotate to acting, not the code.
+
+What IS confirmed, by the soak module's own AST-verified docstring (2026-08-23) and by F2 this session:
+
+- `_base.monitor` has declared `{"tp": float}` since it was written and **no strategy has ever produced one**. Fourteen `return {"sl": …}` sites exist across the units; **`return {"tp": …}` exists nowhere.**
+- The downstream channel is **fully built**: `interpret_verdict` parses a `tp` delta independently of `sl`, `order_monitor._apply_update` routes it, `_send_modify_to_exchange` forwards it, `execute.modify_open_order` amends the resting leg on Bybit / IB / Alpaca. The only *acting* producer in the repo is `order_monitor.py:590`, rolling a package's tp forward when `turtle_soup` emits `next_tp = meta.tp2` — and `turtle_soup` is `execution: shadow` with no declared `tp_r`.
+
+**So on the live fleet a resting take-profit has never been moved**, and the lever inventory remains entirely reductive: eight columns that cut a trade short, one entry-time column.
+
+**And the soak cannot yet evaluate the lever — measured, not assumed.** `GET /api/diag/log_file?name=target_extension_soak`, read 2026-09-06T10:31Z, **100 of 100 rows** (the tail the endpoint returns) carry `expectation_state: sentinel_no_expectation` and `extension_state: no_expectation_declared`, across 8 distinct live legs. This re-confirms the open row `BL-20260826-TARGET-EXTENSION-SOAK-IS-100PCT-SENTINEL-AND-CANNOT-YET-OBSERVE-THE-LEVER` eleven days after it was filed: the soak cannot distinguish *"the lever never fires"* from *"no trade ever had a real target to approach"*.
+
+**One live row makes the whole thesis gap concrete** (`eth_pullback_2h`, ETHUSDT long, `pkg-c90e8cf40c904e9e`):
+
+| field | value | |
+|---|---|---|
+| `target_r` / `target_source_key` | `50.0` / `tp_r` | what the strategy "declares" |
+| `expectation_price` | **6264.99** | where the declared target would sit |
+| `cap_r` | **3.19** | where the venue clamp actually binds |
+| `placed_price` / `current_tp` | **2698.81** | **what is actually resting at the venue** |
+
+The declared expectation and the resting order differ by **2.3×**, and the resting one is set by `TP_VENUE_CAP_PCT`. This is not a reconstruction — it is one row of live production telemetry.
 
 **(b) The resting take-profit on most of the fleet is a venue artefact, not a prediction.** `trend_donchian.py:25` says it outright: *"There is no fixed profit target — the trail is the sole profit-exit, so `tp` is placed `tp_r × risk` away (a **deliberately far sentinel**)."* The sentinel is then clamped by `src/runtime/tp_venue_cap.py::TP_VENUE_CAP_PCT = 0.099`, whose own docstring explains it is **Bybit's ~10% rejection boundary** (ErrCode 10001) — and warns that it *"is applied to every symbol, including legs that touch no Bybit account"*, so GLD/QQQ/SCHA/IWM/MES/MGC are clamped by a limit imported from a venue they do not trade on. The effective target is `min(cap_r, tp_r)` where `cap_r = 0.099 × entry / risk` — **a function of price and entry ATR, containing no view about where the trade should end.**
 
@@ -250,11 +270,15 @@ Everything else is downstream of this. On 25 of 44 live legs the take-profit is 
 
 The right shape is **E3.6's ML-2 (predictive bracket)**: regress the exit location an entry should expect, graded on **calibration first, P&L second** per E3.6's own falsifier. That is already named in the roadmap and has never been started. The cheapest honest first step is not a model at all: **publish the calibration instrument** — for every live leg, the distribution of realised exit R against its declared target — so the claim "our brackets are predictions" becomes falsifiable before anything is changed.
 
-### 4. Build the extend-target channel's missing producer — Tier-3, and it is cheap
+### 4. Flip the target-extension producer from annotate to acting — Tier-3, cheap, **and strictly blocked on (3)**
 
-`order_monitor` already applies `updates["tp"]` to the DB and the venue. E3.6(3) records the cost asymmetry that makes this the safest lever in the whole inventory: **"amending a resting level is not a fill and costs nothing"**, against a 0.082–0.163R round-trip for an early exit that eats most of a +0.12–0.14R mean edge. Every one of the eight existing levers pays that round-trip; a target revision pays nothing. **The one lever class that is free is the one class with no producer.**
+This is **not** a build-from-scratch item, and I initially mis-scoped it as one. `target_extension_soak.py` already runs the extension decision every tick on 41 legs; `order_monitor` already applies a `tp` update end-to-end. The remaining work is the annotate→act flip, the same shape as the M20 stale-stop rollout.
 
-Start with one leg, annotate-first, on a strategy whose thesis states its own exhaustion condition — the operator's momentum example is the specification.
+E3.6(3) records the cost asymmetry that makes this the safest lever in the inventory: **"amending a resting level is not a fill and costs nothing"**, against a 0.082–0.163R round-trip for an early exit that eats most of a +0.12–0.14R mean edge. Every one of the eight existing levers pays that round-trip; a target revision pays nothing.
+
+⚠️ **But it cannot be gated today, and this is the ordering argument for the whole memo.** The soak reads 100/100 `sentinel_no_expectation` — there has never been a real target for a trade to approach, so the lever has no evidence and cannot acquire any. **Recommendation 3 is a hard prerequisite for recommendation 4.** Do (3) on a small set of legs, let the soak accrue rows that are not sentinels, *then* gate this.
+
+⚠️ **Do not read the `exit_ladder` banking negative as evidence against this.** Banking a fixed partial and revising a predictive target are different objects; the memo's "What NOT to build" section says so explicitly.
 
 ### What NOT to build
 
@@ -266,10 +290,16 @@ Start with one leg, annotate-first, on a strategy whose thesis states its own ex
 
 ## Filed observations (not fixed here — this is a propose-only audit)
 
-1. `BL`-class: **33 matrix cells grade a lever as tested on legs whose unit cannot run it**, while the correct status exists and is used on 5 cells. No detector.
-2. `BL`-class: **`tp_venue_cap.py`'s 0.099 is applied to equity/futures legs that touch no Bybit account** — the module's own docstring flags this as an OPEN QUESTION. It is now load-bearing on the target of 15 live legs.
-3. `BL`-class: **63.3% of directional closes are reconciliation/plumbing, not decisions** (n=120, 10-day window). This is upstream of the entire M20 programme and is not tracked by any M20 cell.
-4. `BL`-class: **the exit-lever inventory is structurally one-directional** — 8 reductive columns, 1 entry-time column, no column for target revision — while the milestone that owns it was renamed to require bidirectional revision on 2026-08-20.
+**Checked against the existing backlogs before filing** (`scripts/ops/backlog_search.py`, five probes). Three of my four candidate findings already have rows — those are **re-confirmations at a later date**, not new filings, and saying so is the point:
+
+| # | finding | disposition |
+|---|---|---|
+| 1 | **33 matrix cells grade a lever as tested on legs whose unit cannot run it**, while the correct status (`blocked:no_lever_consumer_in_unit`) exists and is used on 5 sibling cells. No detector. | **NEW — file it.** Nearest existing rows (`BL-20260818-UNGRADED-CELLS-DO-NOT-SURFACE-AT-THE-FLEET-LEVEL`, `BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE`) are about *ungraded* and *un-A/B'd* cells, not about a cell graded against absent code. |
+| 2 | `tp_venue_cap`'s 0.099 binds the real target and is applied to legs touching no Bybit account | **ALREADY FILED** — `BL-20260901-E35-TP-R-CAN-BE-INERT-BEHIND-THE-VENUE-CLAMP-AND-THE-BINDING-RATE-IS-UNMEASURED` (open). **Re-confirmed here with the binding rate no longer unmeasured on one leg**: the live soak row shows `cap_r 3.19` against `target_r 50.0`, i.e. the clamp binds by 15.7×. |
+| 3 | 63.3% of directional closes are reconciliation/plumbing, not decisions (n=120) | **RECURRENCE of a known class** — `BL-20260820-EXIT-REASON-UNCLASSIFIED-IS-THE-MODAL-VALUE` measured 781/1226 = **63.7%** unclassifiable on 2026-08-20. My independent measure on a different population and a different definition lands at **63.3%**. Two months, two methods, the same number: this is stable, structural, and is upstream of the entire M20 programme. **Update that row rather than filing a fourth.** |
+| 4 | The exit-lever inventory is structurally one-directional — 8 reductive columns, 1 entry-time column, **no matrix column for target revision** — while the milestone that owns it was renamed on 2026-08-20 to require bidirectional revision | **PARTLY FILED** — `BL-20260826-TARGET-EXTENSION-SOAK-IS-100PCT-SENTINEL...` (open) covers the soak's blindness and is **re-confirmed here at 100/100 eleven days later**. What is NOT filed is that the *coverage matrix has no column for the capability at all*, so it is invisible to M20's done-condition. **File that half.** |
+
+⚠️ Also worth the operator's attention, found while searching: `BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING` records that **42 of the 43 `regime_flip_exit` negatives were graded on no-take-profit books.** That is independent confirmation of this memo's central claim from a different direction — and it means those negatives, like the `giveback_stop` ones, were measured under the very condition recommendation 3 exists to remove.
 
 ---
 

@@ -50,10 +50,20 @@ answer: >-
   and is used on 5 sibling cells. The ict_scalp n/a cells are CORRECT as a status and
   ARE the operator's gap: n/a there means the family has no active management to
   refine at all.
-  ⚠️ ROOT CAUSE FOUND: no strategy can EXTEND a target — every monitor() returns
-  {"sl": ...} and `return {"tp": ...}` exists nowhere in src/units/strategies/. The
-  channel is built end-to-end in order_monitor and has ONE producer, on shadow
-  turtle_soup. And on 25 of 44 live legs there is no reachable take-profit at all
+  ⚠️ ROOT CAUSE FOUND: no strategy has ever EXTENDED a target — every monitor()
+  returns {"sl": ...} and `return {"tp": ...}` exists nowhere in src/units/strategies/.
+  The downstream channel is built end-to-end in order_monitor; the only ACTING producer
+  is on shadow turtle_soup. ⚠️ CORRECTING MY OWN FIRST READING: the producer's
+  OBSERVE-ONLY phase DOES exist — src/runtime/target_extension_soak.py, called from
+  trend_donchian.monitor() and htf_pullback_trend_2h.monitor() (41 legs). What is
+  missing is the annotate→act flip, not the code. AND IT CANNOT BE GATED TODAY:
+  100 of 100 soak rows read expectation_state=sentinel_no_expectation across 8 live
+  legs (/api/diag/log_file, 2026-09-06T10:31Z), re-confirming the open row
+  BL-20260826-TARGET-EXTENSION-SOAK-IS-100PCT-SENTINEL eleven days on. One live row
+  makes it concrete: eth_pullback_2h declares target_r 50.0 → expectation_price
+  6264.99, while the venue actually holds 2698.81 (cap_r 3.19) — a 2.3× gap between
+  the declared expectation and the resting order.
+  And on 25 of 44 live legs there is no reachable take-profit at all
   (15 carry the 50R sentinel clamped by tp_venue_cap.TP_VENUE_CAP_PCT=0.099 — Bybit's
   rejection threshold — and 10 declare none). On 56.8% of the live fleet "it hit the
   take profit" is structurally impossible, so the giveback the operator observed is
@@ -69,7 +79,16 @@ answer: >-
   (Tier-1); (2) ship the exit head into ict_scalp.monitor() — the ONLY passed-gate
   cells blocked purely on missing code, 3 legs reproduce and 2 must be excluded
   (Tier-3); (3) give the 25 targetless live legs a reachable stated target, via
-  E3.6's ML-2 calibration-first path (Tier-3); (4) build the extend-target producer,
-  the one lever class that is free (Tier-3).
+  E3.6's ML-2 calibration-first path (Tier-3); (4) flip the target-extension
+  producer from annotate to acting — the one lever class that is FREE (amending a
+  resting level is not a fill), but STRICTLY BLOCKED ON (3), because the soak has no
+  non-sentinel rows to gate on (Tier-3).
+  ⚠️ Two backlog rows filed (BL-20260906-MATRIX-GRADES-A-LEVER-AS-TESTED-ON-LEGS-WHOSE-UNIT-CANNOT-RUN-IT,
+  BL-20260906-COVERAGE-MATRIX-HAS-NO-COLUMN-FOR-TARGET-REVISION-...); two candidate
+  findings were NOT filed because they already have open rows and are re-confirmed
+  instead (BL-20260901-E35-TP-R-CAN-BE-INERT-BEHIND-THE-VENUE-CLAMP,
+  BL-20260820-EXIT-REASON-UNCLASSIFIED-IS-THE-MODAL-VALUE — which measured 63.7%
+  unclassifiable on 2026-08-20 against this audit's independent 63.3% on a different
+  population and definition).
 
 captured_by: scripts/ops/capture_idea.py
