@@ -1,0 +1,9 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Read-only audit plus one written finding. Adds docs/research/mi147-backtest-soak-chain-2026-09-06.md and three rows to docs/claude/research-review-backlog.json (filed via scripts/ops/backlog_append.py::append_row, no reformat). Touches no strategy config, no execution gate, no account roster, and no cell status in docs/research/exit-refinement-coverage.json - every remedy is PROPOSED, not applied. Docs + backlog only is Tier-1 per docs/CLAUDE-RULES-CANONICAL.md section Permission Tiers.",
+  "work_object": "WO-20260906-IS-BACKTESTING-ACTUALLY-GATING-WHAT-GOES-TO",
+  "checklist_item": "MI-147-BACKTEST-SOAK-CHAIN-AUDIT",
+  "session": "session_01T5o3AkucfgozxdVhANWAdw",
+  "branch": "claude/mi147-backtest-soak-chain-20260906"
+}

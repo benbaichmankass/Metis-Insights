@@ -249,7 +249,37 @@
       ],
       "resolved": "2026-09-02",
       "resolution": "RESOLVED 2026-09-02, exactly as specified. tests/test_e35_achieved_oos_count.py now carries assert_target_diverges_from_achieved: it FAILS below 50% divergence over rows carrying BOTH split_target_oos and base_oos_trades, with a denominator floor (MIN_BOTH = 50) so a corpus that stopped carrying the evidence reads as 'could not look' rather than as a clean pass -- the 0/0 case the criterion named. BOTH PLANTED CONTROLS THE CRITERION REQUIRED are present and run: target == achieved FAILS (test_divergence_control_a_tracking_target_FAILS), and no row carrying both FAILS (test_divergence_control_no_row_carrying_both_FAILS); a diverging synthetic corpus PASSES as the negative control. LIVE CORPUS re-measured at 943a7192: 8,520 rows, 287 carrying both fields, 280 differing = 97.6%, reproducing the figure the module docstring recorded. PROVEN TO CATCH WHAT THE OLD PINS COULD NOT, which is the whole point of the row: with the live corpus rewritten so the target TRACKS the achieved count *within the already-recorded value set {50, 60}* -- a control built specifically to slip past the coverage ceiling and the value tripwire -- the new assertion was the ONLY one of the 8 tests in that file to fail (97.6% -> 0.0%). The now-false 'NOT PINNED BY A TEST' warning at N_FIELD is corrected in place; leaving it would be a comment contradicting its own field."
+    },
+    {
+      "id": "BL-20260906-NO-LEG-WENT-LIVE-ON-A-DISPOSITIONED-BACKTEST",
+      "severity": "P1",
+      "area": "research-pipeline",
+      "status": "open",
+      "title": "0 of 44 enabled live legs had a backtest result read and dispositioned BEFORE it went live",
+      "detail": "MEASURED (MI-147, docs/research/mi147-backtest-soak-chain-2026-09-06.md). Population: the 44 entries in config/strategies.yaml::strategies with enabled:true AND execution:live at f2b871e, defaults applied; each carries one symbol so leg==strategy 1:1. scripts/research/research_disposition.py --report returns 370 units (dispositioned 103, unread 11, superseded_unread 256) spanning 2026-08-10..2026-08-31. All 44 legs went live 2026-05-15..2026-08-13, so every dispositioned unit postdates its own leg's go-live: lag min 0 d, median 56 d, max 88 d, n=44. Also 365 of 370 units (98.6%) are not_queue_dispatched and 182 of 232 units belonging to these 44 legs (78.4%) sit below the declared power floor n>=49.06. CONSEQUENCE: soak cannot be 'mechanical verification of what backtesting proved' because for this population backtesting proved nothing prior to go-live - soak was the first measurement. REMEDY PROPOSED, NOT APPLIED (Tier-3): gate execution:live on a dispositioned unit whose run_stamp predates the config commit.",
+      "opened": "2026-09-06",
+      "source": "MI-147-BACKTEST-SOAK-CHAIN-AUDIT"
+    },
+    {
+      "id": "BL-20260906-BACKTEST-HARNESSES-RUN-NO-TAKE-PROFIT-BY-DEFAULT",
+      "severity": "P1",
+      "area": "research-pipeline",
+      "status": "open",
+      "title": "11 of 15 backtest harnesses never model the live TP cap and the other 4 default it OFF",
+      "detail": "MEASURED (MI-147). The live units clamp take-profit to min(entry*(1+0.099), entry+tp_r*risk) via TP_VENUE_CAP_PCT=0.099 (src/runtime/tp_venue_cap.py:64). Of 15 harnesses (scripts/backtest_*.py + src/backtest/run_backtest*.py), only backtest_trend / backtest_pullback / backtest_squeeze / backtest_fade reference tp_cap_pct at all, and in all four it is `tp_cap_pct: float = 0.0` - DEFAULT OFF, which sets tp_price=None, i.e. the harness runs a book with NO take-profit exit path. The other 11, including backtest_ict_scalp.py (covering 8 of the 44 enabled live legs) and src/backtest/run_backtest{,_vwap}.py, reference it zero times. So at defaults the backtest models a different exit geometry than the live system runs. Extends BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP from one harness to the fleet, and composes with MI-146 (25 of 44 legs, 56.8%, have no reachable take-profit). REMEDY PROPOSED, NOT APPLIED - defaulting the cap on is Tier-3 because it changes every prior verdict these harnesses produced.",
+      "opened": "2026-09-06",
+      "source": "MI-147-BACKTEST-SOAK-CHAIN-AUDIT"
+    },
+    {
+      "id": "BL-20260906-FIDELITY-CALIBRATOR-CANNOT-GRADE-EXIT-LOCATION",
+      "severity": "P2",
+      "area": "research-pipeline",
+      "status": "open",
+      "title": "backtest_fidelity_calibrate has left no durable run and grades outcome distribution, not exit location",
+      "detail": "MEASURED (MI-147). Path correction: the script is scripts/research/backtest_fidelity_calibrate.py, NOT scripts/ops/ as MI-151's briefing stated. (1) Across the full 4277-commit history (2026-03-22..2026-09-06) no backtest_fidelity_* OUTPUT artifact has ever been committed; only the three source files were added; comms/research/ - the script's own documented --out dir - has received exactly one file ever (crypto_correlation_2026-08-18.json, unrelated); no .github workflow references it. Positive control: the same pickaxe does return file additions, so this is absence not a broken probe. LIMIT: this proves no run LANDED in the repo; a trainer-side run leaving no record is not excluded. (2) Its SQL is `SELECT pnl, notes, direction, timestamp FROM trades` - it reads no exit price, no exit level, no exit-vs-target timestamp. It grades win-rate diff, KS on realized-R and mean-R gap, i.e. OUTCOME DISTRIBUTION. Exit LOCATION is not among them, so the instrument cannot answer the exit-fidelity question even when run. No other script in the repo grades backtest-vs-live exit location. Both MI-151 claims verified independently and both hold.",
+      "opened": "2026-09-06",
+      "source": "MI-147-BACKTEST-SOAK-CHAIN-AUDIT"
     }
   ],
-  "updated_at": "2026-09-02"
+  "updated_at": "2026-09-06"
 }
