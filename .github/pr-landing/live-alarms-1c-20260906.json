@@ -1,5 +1,7 @@
 {
-  "tier": 1,
-  "landing": "self",
-  "why": "Adds one new file under docs/claude/dispositions/ recording the written disposition of WO-20260906-THREE-LIVE-ALARMS-ON-THE-TRADING-FLEET. Docs only - no src/, config/, deploy/ or scripts/ change, no runtime or order-path effect. The Tier-2 restart and the Tier-3 order-path defect it describes are ESCALATED in the text and deliberately NOT actioned here."
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Adds automation/jobs/1c-live-alarms-state-01.job, which vm-driver.yml turns into bash executed over SSH on the LIVE money-handling VM. The job's payload is read-only by construction (GET /api/diag/* plus an allowlisted /proc/<MainPID>/environ read and systemctl is-active; nothing written, no trade-mutating command). Its commit message states it is operator-approved -- that is the AUTHOR SESSION'S claim, and the manager has not seen the approval itself, so it is recorded as a claim and not banked as one. Needs one operator OK naming this job file before it lands.",
+  "why": "Docs-only when opened; a VM-executing job file was added to the branch afterwards, which takes it off the Tier-1 self-land surface. Re-declared rather than narrowed, because splitting the job out would separate it from the disposition that explains why it exists."
 }

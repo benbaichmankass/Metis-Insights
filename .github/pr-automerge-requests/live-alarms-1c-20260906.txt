@@ -1,1 +1,0 @@
-manager-armed: 1C tier-1 disposition doc, self-landing per its own pr-landing declaration
