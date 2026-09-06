@@ -1,0 +1,171 @@
+=== trainer-diag-relay result ===
+request: mi154-scalp-exit-head-inventory-20260906
+state: ran
+remote_exit: 0
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/34047425502
+=================================
+=== PWD / HEAD ===
+/home/ubuntu/ict-trading-bot
+957fc81d 2026-09-06 15:47:29 +0000 chore(ops): PR-queue watcher receipt (auto) (#11159)
+
+=== A. exit_head dataset dirs ===
+./datasets-out/exit_head
+./runtime_logs/trainer_mirror/exit_head
+--- families under each ---
+### ./datasets-out/exit_head
+./datasets-out/exit_head/2h
+./datasets-out/exit_head/2h/ict_scalp_5m
+./datasets-out/exit_head/2h/fade
+./datasets-out/exit_head/2h/donchian
+./datasets-out/exit_head/2h/pullback
+./datasets-out/exit_head/2h/squeeze
+./datasets-out/exit_head/2h/vwap
+./datasets-out/exit_head/2h/fvg_range_15m
+./datasets-out/exit_head/1h
+./datasets-out/exit_head/1h/ict_scalp_5m
+./datasets-out/exit_head/1h/fade
+./datasets-out/exit_head/1h/donchian
+./datasets-out/exit_head/1h/pullback
+./datasets-out/exit_head/1h/squeeze
+./datasets-out/exit_head/1h/vwap
+./datasets-out/exit_head/1h/fvg_range_15m
+### ./runtime_logs/trainer_mirror/exit_head
+
+=== B. every rows.jsonl under an exit_head tree (size, mtime, lines) ===
+  20640026  2026-07-12  ./datasets-out/exit_head/1h/donchian/rows.jsonl
+     84089  2026-07-12  ./datasets-out/exit_head/1h/fade/rows.jsonl
+      2795  2026-07-12  ./datasets-out/exit_head/1h/fvg_range_15m/rows.jsonl
+     91443  2026-07-12  ./datasets-out/exit_head/1h/ict_scalp_5m/rows.jsonl
+    451872  2026-07-12  ./datasets-out/exit_head/1h/pullback/rows.jsonl
+     25227  2026-07-12  ./datasets-out/exit_head/1h/squeeze/rows.jsonl
+     64213  2026-07-12  ./datasets-out/exit_head/1h/vwap/rows.jsonl
+    152359  2026-07-12  ./datasets-out/exit_head/2h/donchian/rows.jsonl
+     40372  2026-07-12  ./datasets-out/exit_head/2h/fade/rows.jsonl
+      1679  2026-07-12  ./datasets-out/exit_head/2h/fvg_range_15m/rows.jsonl
+     45673  2026-07-12  ./datasets-out/exit_head/2h/ict_scalp_5m/rows.jsonl
+  18527202  2026-07-12  ./datasets-out/exit_head/2h/pullback/rows.jsonl
+     12321  2026-07-12  ./datasets-out/exit_head/2h/squeeze/rows.jsonl
+     25356  2026-07-12  ./datasets-out/exit_head/2h/vwap/rows.jsonl
+  41563885  2026-08-14  ./runtime_logs/m20_exit_head/1h_donchian_reswept/donchian/rows.jsonl
+  30831079  2026-07-12  ./runtime_logs/m20_exit_head/2h/pullback/rows.jsonl
+  15807338  2026-07-12  ./runtime_logs/m20_exit_head/4h/donchian/rows.jsonl
+     17269  2026-07-12  ./runtime_logs/m20_exit_head/4h/pullback/rows.jsonl
+  10095335  2026-08-15  ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_sol_15m_off0/ict_scalp_sol_15m/rows.jsonl
+  10095335  2026-08-15  ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_sol_15m_off12/ict_scalp_sol_15m/rows.jsonl
+  10095335  2026-08-15  ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_sol_15m_off4/ict_scalp_sol_15m/rows.jsonl
+  10095335  2026-08-15  ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_sol_15m_off8/ict_scalp_sol_15m/rows.jsonl
+   9979481  2026-08-15  ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_xrp_15m_off0/ict_scalp_xrp_15m/rows.jsonl
+   9979481  2026-08-15  ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_xrp_15m_off12/ict_scalp_xrp_15m/rows.jsonl
+   9979481  2026-08-15  ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_xrp_15m_off4/ict_scalp_xrp_15m/rows.jsonl
+   9979481  2026-08-15  ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_xrp_15m_off8/ict_scalp_xrp_15m/rows.jsonl
+  15110043  2026-08-15  ./runtime_logs/m20_exit_head/determinism_20260815T032648Z/donchian/rows.jsonl
+  13425279  2026-08-15  ./runtime_logs/m20_exit_head/dispersion_20260815T012205Z/off0/pullback/rows.jsonl
+  13425279  2026-08-15  ./runtime_logs/m20_exit_head/dispersion_20260815T012205Z/off10/pullback/rows.jsonl
+  13425279  2026-08-15  ./runtime_logs/m20_exit_head/dispersion_20260815T012205Z/off20/pullback/rows.jsonl
+  13425279  2026-08-15  ./runtime_logs/m20_exit_head/dispersion_20260815T012205Z/off30/pullback/rows.jsonl
+  13425279  2026-08-15  ./runtime_logs/m20_exit_head/dispersion_20260815T012205Z/off40/pullback/rows.jsonl
+  13425279  2026-08-15  ./runtime_logs/m20_exit_head/dispersion_clean_20260815T012717Z/off0/pullback/rows.jsonl
+  13425279  2026-08-15  ./runtime_logs/m20_exit_head/dispersion_clean_20260815T012717Z/off12/pullback/rows.jsonl
+  13425279  2026-08-15  ./runtime_logs/m20_exit_head/dispersion_clean_20260815T012717Z/off18/pullback/rows.jsonl
+  13425279  2026-08-15  ./runtime_logs/m20_exit_head/dispersion_clean_20260815T012717Z/off24/pullback/rows.jsonl
+  13425279  2026-08-15  ./runtime_logs/m20_exit_head/dispersion_clean_20260815T012717Z/off6/pullback/rows.jsonl
+  41563885  2026-08-15  ./runtime_logs/m20_exit_head/donch1h_20260815T072716Z/donch1h_off0/donchian/rows.jsonl
+  41563885  2026-08-15  ./runtime_logs/m20_exit_head/donch1h_20260815T072716Z/donch1h_off12/donchian/rows.jsonl
+  41563885  2026-08-15  ./runtime_logs/m20_exit_head/donch1h_20260815T072716Z/donch1h_off4/donchian/rows.jsonl
+
+=== C. POSITIVE CONTROL — the donchian family dir that produced the LIVE 1h head ===
+(if this is also absent, section B's silence is a broken probe, not an answer)
+./datasets-out/exit_head/2h/donchian
+./datasets-out/exit_head/2h/donchian/rows.jsonl
+./datasets-out/exit_head/1h/donchian
+./datasets-out/exit_head/1h/donchian/e1_report.json
+./datasets-out/exit_head/1h/donchian/rows.jsonl
+./runtime_logs/m20_exit_head/eh_1h_pooled/donchian
+./runtime_logs/m20_exit_head/eh_1h_pooled/donchian/e1_report.json
+./runtime_logs/m20_exit_head/eh_1h_pooled/donchian/rows.jsonl
+./runtime_logs/m20_exit_head/donch4h_20260815T093818Z/donch4h_off12/emit/trend_donchian_sol_4h.jsonl
+./runtime_logs/m20_exit_head/donch4h_20260815T093818Z/donch4h_off12/emit/trend_donchian_avax_4h.jsonl
+./runtime_logs/m20_exit_head/donch4h_20260815T093818Z/donch4h_off12/emit/trend_donchian_eth_4h.jsonl
+./runtime_logs/m20_exit_head/donch4h_20260815T093818Z/donch4h_off12/emit/trend_donchian_xrp_4h.jsonl
+./runtime_logs/m20_exit_head/donch4h_20260815T093818Z/donch4h_off12/emit/trend_donchian_ada_4h.jsonl
+./runtime_logs/m20_exit_head/donch4h_20260815T093818Z/donch4h_off12/donchian
+./runtime_logs/m20_exit_head/donch4h_20260815T093818Z/donch4h_off12/donchian/e1_report.json
+./runtime_logs/m20_exit_head/donch4h_20260815T093818Z/donch4h_off12/donchian/rows.jsonl
+./runtime_logs/m20_exit_head/donch4h_20260815T093818Z/donch4h_off4/emit/trend_donchian_sol_4h.jsonl
+./runtime_logs/m20_exit_head/donch4h_20260815T093818Z/donch4h_off4/emit/trend_donchian_avax_4h.jsonl
+./runtime_logs/m20_exit_head/donch4h_20260815T093818Z/donch4h_off4/emit/trend_donchian_eth_4h.jsonl
+./runtime_logs/m20_exit_head/donch4h_20260815T093818Z/donch4h_off4/emit/trend_donchian_xrp_4h.jsonl
+
+=== D. anything named for the two scalp rounds in the coverage ref ===
+./runtime_logs/m20_exit_head/scalp_5m_20260814T151003Z
+./runtime_logs/m20_exit_head/scalp_15m_20260814T135244Z
+runtime_logs/m20_xrp_holdconviction2
+runtime_logs/m20_xrp_holdconviction
+runtime_logs/m20_fleet
+runtime_logs/m20_armr_resweep_lp50
+runtime_logs/m20_fleet_stale_resweep_lp50
+runtime_logs/m20_fleet_stale_resweep_t50
+runtime_logs/m20_fleet_stale_resweep
+runtime_logs/m20_flip_replay_liveparity_v2
+runtime_logs/m20_flip_replay_liveparity
+runtime_logs/m20_exit_head
+runtime_logs/m20_item7_20260815T070349Z
+runtime_logs/m20_flip_replay
+runtime_logs/m20_fleet_p80
+runtime_logs/m20_fleet_decay_combo
+runtime_logs/m20_fleet_decay
+
+=== E. published exit-head artifacts in the trainer mirror (what the live VM receives) ===
+total 2052
+drwxrwxr-x 2 ubuntu ubuntu    4096 Jul 12 22:45 .
+drwxr-xr-x 7 ubuntu ubuntu    4096 Jul 14 10:20 ..
+-rw-rw-r-- 1 ubuntu ubuntu 1043684 Jul 12 14:44 exit-head-donchian-1h-v1.json
+-rw-rw-r-- 1 ubuntu ubuntu 1047168 Jul 12 22:45 exit-head-donchian-peak-1h-v1.json
+--- their declared family/tf/symbols/stage ---
+  exit-head-donchian-1h-v1                       family=donchian     tf=1h   stage=advisory  symbols=['BTCUSDT', 'ETHUSDT', 'SOLUSDT'] rows=34338
+  exit-head-donchian-peak-1h-v1                  family=donchian     tf=1h   stage=shadow    symbols=['BTCUSDT', 'ETHUSDT', 'SOLUSDT'] rows=44244
+
+=== F. dataset GC — has it pruned exit_head? ===
+(no dataset_gc.jsonl)
+
+=== G. canonical 5m/15m candle CSVs (what a rebuild would need) ===
+-rw-rw-r-- 1 ubuntu ubuntu 11607191 Jun 18 06:57 data/ADAUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 34516371 Jun 18 07:03 data/ADAUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu  9957243 Jun 18 07:14 data/AVAXUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 29593470 Jun 18 07:19 data/AVAXUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 10242803 Jun 18 06:41 data/BNBUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 30436092 Jun 18 06:47 data/BNBUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 10986203 Jul 12 16:52 data/BTCUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 11961474 Jun 18 06:26 data/ETHUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 35600463 Jun 18 06:31 data/ETHUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 11937589 Jun 18 07:05 data/LINKUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 35493834 Jun 18 07:12 data/LINKUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 10061741 Jun 18 06:33 data/SOLUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 29945803 Jun 18 06:38 data/SOLUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 11333437 Jun 18 06:48 data/XRPUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 33705202 Jun 18 06:54 data/XRPUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 41294721 May 22 17:13 data/backtest_BTCUSDT_5m.csv
+--- any SOL/XRP/AVAX/ETH 5m or 15m csv anywhere ---
+./data/ADAUSDT_15m.csv
+./data/SOLUSDT_5m.csv
+./data/XRPUSDT_15m.csv
+./data/XRPUSDT_5m.csv
+./data/AVAXUSDT_5m.csv
+./data/BNBUSDT_15m.csv
+./data/ETHUSDT_15m.csv
+./data/SOLUSDT_15m.csv
+./data/LINKUSDT_15m.csv
+./data/ADAUSDT_5m.csv
+./data/AVAXUSDT_15m.csv
+./data/backtest_BTCUSDT_5m.csv
+./data/ETHUSDT_5m.csv
+./data/BTCUSDT_15m.csv
+./data/LINKUSDT_5m.csv
+./data/BNBUSDT_5m.csv
+
+=== H. disk + service ===
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1        45G   39G  6.8G  86% /
+inactive
+=== END ===
+
