@@ -130,6 +130,67 @@ forbids `*_ENABLED` flags). Add `qty-legalization-guard`:
 This is the layer that prevents a *fifth* recurrence: a future contributor adding
 a new qty-producing path is stopped at CI unless they route through the seam.
 
+### 3.4 ⚠️ SCOPE GAP FOUND IN THE LIVE SYSTEM: the seam covered SIZING, never CLOSING (2026-09-06)
+
+**This section is a correction to §§ 3.1–3.3, added after the gap cost a live
+position its ability to close.** Read it before reasoning from the phrase *"every
+quantity producer routes through it"* above — that sentence enumerates FOUR
+entry/sizing sites and is true of them. It was never true of the system.
+
+`src/units/accounts/execute.py::close_open_position` builds its Bybit payload as
+`{"qty": str(qty)}` from the journal's `position_size` and calls
+`exchange_client.place_order(**kwargs)` **directly** — it never passes through
+`_submit_order`, which is the only Bybit submission path this design wired to the
+seam. `close_open_position` appears **zero** times in this document.
+
+MEASURED consequence: a reduce-only close on `bybit_1`/SOLUSDT was refused three
+consecutive times at **2026-09-06T03:37:22Z** on `qty "33.299999999999955"` (the
+IEEE-754 residue of `289.4 − 256.1`; Bybit `Qty invalid`, ErrCode 10001) and the
+position could not be flattened by the normal path. POPULATION for the incidence:
+`bybit_*`, non-backtest, `position_size > 0`, `trades` ids 4519–5518 (newest 1000
+rows, `/api/diag/journal?table=trades&limit=1000`, read 2026-09-06 ~11:02Z),
+**n = 631 → 9 off-grid = 1.43%**, including a real-money row on `bybit_2`.
+(`WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED`, PR #11112 → PR #11125.)
+
+**The remedy is `qty_legalize.snap_artifact_qty`, and it is NOT `legalize_qty`.**
+
+> ⚠️ **A CLOSE MUST NOT BE FLOORED.** § 3.1's contract — *"floors to the step,
+> never rounds up — realised risk must not exceed the sized cap"* — is correct
+> and must not change, but it is a statement about an **ENTRY**. On a CLOSE the
+> polarity inverts: flooring `33.299999999999955` to `33.2` under-closes by a
+> full step and leaves 0.1 SOL resting on the venue with **no journal row**,
+> turning a loud rejection into a silent orphan. **Flooring an ENTRY is
+> risk-reducing; flooring a CLOSE is risk-increasing.**
+
+So `snap_artifact_qty` snaps to **NEAREST**, and only across a distance no legal
+quantity can span, returning three never-collapsed states — `snapped` ·
+`unchanged` (the identity, the common path) · `not_graded` (*no rule resolved —
+we did not look* — OR genuinely off-step and not an artifact; both pass through
+untouched so a real off-step value keeps failing **loudly**). It lives **inside
+the seam**, so `qty-legalization-guard` is satisfied rather than worked around
+and no second copy of "what is this symbol's step" is created.
+
+**§ 3.3's SECOND BULLET WAS NEVER BUILT, and that is why this went unseen.** The
+shipped `scripts/check_qty_legalization_guard.py` implements only the first
+idea — it fails a file *outside* the seam that **calls** `get_lot_rule` or
+`quantize_qty`. `close_open_position` called **neither**, so it passed cleanly
+while doing exactly the thing the guard is named for. An absence-of-call guard
+can never see a site that submits a quantity without consulting anything; the
+positive form this section's bullet 2 describes — *"an order leg constructed with
+a qty that did not pass through the seam"* — is what would have caught it. Filed
+as `BL-20260906-QTY-LEGALIZATION-GUARD-CANNOT-DETECT-THE-CLASS-ITS-OWN-DOCSTRING-NAMES`,
+with the honest difficulty stated there rather than assumed away.
+
+**Two Bybit sibling paths share the shape and are deliberately UNFIXED**, because
+neither has an observed failure and both are *protective* order paths where a
+rejection fails a protective tightening **silently** — worse than a failed close:
+`modify_open_order`'s `slSize`/`tpSize` (`execute.py:2578,2580`) and
+`_bybit_top_up_partial_sl`'s `uncovered` (`order_monitor.py:9967`). Filed as
+`BL-20260906-TWO-BYBIT-PROTECTIVE-LEG-PATHS-SEND-AN-UNQUANTISED-STRFLOAT-QTY`.
+⚠️ Whoever fixes them must first establish whether a protective leg wants NEAREST
+or a deliberate round-UP; reaching for `legalize_qty` would UNDER-cover a live
+position, which is the unprotected direction.
+
 ## 4. Migration plan (phased — each phase a separate reviewed PR)
 
 Because this is the live money-sizing path, ship it incrementally, verifying live
