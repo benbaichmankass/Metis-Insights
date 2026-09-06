@@ -295,7 +295,37 @@ accounts:
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
-    strategies: [trend_donchian, ict_scalp_5m, fvg_range_15m, eth_pullback_2h, xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+    strategies: [trend_donchian, fvg_range_15m, eth_pullback_2h, xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+                                       # ict_scalp_5m DEMOTED from real money 2026-09-06
+                                       # (Tier-3, OPERATOR-APPROVED 2026-09-06 in conversation;
+                                       # scope: bybit_2 ONLY, no condition attached).
+                                       # DECIDED. Reversal: re-add ict_scalp_5m to this list.
+                                       # The operator was offered `execution: shadow` in
+                                       # config/strategies.yaml (PR #11115) and chose THIS
+                                       # narrower lever instead, deliberately: `execution:` is a
+                                       # per-STRATEGY gate that would also have stopped both PAPER
+                                       # books, and the paper evidence is wanted — it is what feeds
+                                       # the bracket_geometry sweep, the one exit lever that is both
+                                       # unrun and applicable to this leg. So the leg KEEPS
+                                       # execution: live and KEEPS trading on bybit_1 (demo soak)
+                                       # and bybit_portfolio (paper portfolio mirror).
+                                       # ⚠️ ORDER PACKAGES AND PAPER FILLS WILL KEEP APPEARING FOR
+                                       # ict_scalp_5m. That is this change working, not failing;
+                                       # grade it on `trades` rows carrying account_id='bybit_2'.
+                                       # MEASURED (real-money closes on bybit_2, n=37, to
+                                       # 2026-09-04T12:30Z; docs/research/ict-scalp-5m-real-money-verdict-2026-09-06.md):
+                                       # only 21 of 37 exited through the leg's own bracket. On its
+                                       # own bracket it wins 38.1% against the 40.0% its tp_at_r 1.5
+                                       # geometry needs. Realised payoff ratio 0.671 against a
+                                       # declared 1.5 — a 2.23x inversion — so the book needs 59.8%
+                                       # and delivers 54.1%; that published 54.1% is reached only by
+                                       # counting 16 reconciler-closed scratches. Round-trip fee
+                                       # $0.2885/trade against a mean per-trade result of -$0.34.
+                                       # 32 of 35 PnL rows are broker truth, none fabricated.
+                                       # No open ict_scalp_5m position on bybit_2 at demotion
+                                       # (last close id 5450, 2026-09-04T12:30Z), so no open-position
+                                       # risk. BTCUSDT stays in `symbols:` below — still traded by
+                                       # trend_donchian.
                                        # htf_pullback_trend_2h DEMOTED from real money 2026-07-15
                                        # (Tier-3, operator-approved: "merge all data-based tier-3 decisions").
                                        # /performance-review 2nd demote: NEGATIVE on BOTH books — real
