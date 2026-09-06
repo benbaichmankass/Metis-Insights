@@ -33065,6 +33065,17 @@
       "resolution_criteria": "Either (a) the approval gate is identified and removed/scoped so bot-opened PRs run CI directly -- needs repo Actions settings, which is operator-side; or (b) the documented remedy is corrected in place: CLAUDE.md's pr-opener/board-post note and BL-20260730-PR-CI-NOT-ATTACHING both say 'delivery dropped' where the observable state is action_required, and both should name actions_list as the surface that reveals it plus mergeable_state as the way to tell a conflict from a held run. ⚠️ Do NOT close this on a single PR whose CI later went green after a push -- that is the remedy working, not the gate being gone.",
       "evidence": "actions_list method=list_workflow_runs branch=claude/mi143b-closeout-20260906 -> 5 runs, 4 with conclusion=action_required, triggering_actor github-actions[bot]; same call on claude/mi147-backtest-soak-chain-20260906 -> action_required on the 'pr-opener: results' head 0ac6355a while the author-push runs on 71a6c15a executed. pull_request_read get_check_runs on #11189 -> total_count 1; get method=get -> mergeable_state 'blocked' (not 'dirty').",
       "source": "session_01X3kyzCfUdFVimATxZFE8nd (MI-143b closeout; found while verifying the closeout PR's own CI)"
+    },
+    {
+      "id": "BL-20260906-AUTOMERGE-RELAY-RACES-PR-OPENER-AND-DISCARDS-THE-AUTHORED-BODY",
+      "opened": "2026-09-06",
+      "severity": "medium",
+      "tier": "1 (CI automation under .github/workflows — no live path, no strategy config)",
+      "status": "open",
+      "area": "ci/pr-relays",
+      "title": "claude-pr-automerge races pr-opener on a branch's first push and the authored PR title/body is discarded",
+      "detail": "OBSERVED 2026-09-06 on PR #11188 (MI-147). Both relays trigger on a push to claude/**: claude-pr-automerge.yml on .github/pr-automerge-requests/<slug>.txt and pr-opener.yml on automation/pr-requests/<slug>.json. The landing contract requires BOTH files, so a session that pushes the automerge request with its first commit hands claude-pr-automerge the earlier trigger. It find-or-opens the PR with title = head-commit subject and its own GENERIC body ('Opened by the claude-pr-automerge workflow...'). pr-opener then wrote 'FAILED: a pull request for branch ... already exists' to automation/pr-results/<slug>.txt and DISCARDED the authored title and body. MEASURED on #11188: the body was the 4-line generic text; the authored body was 6156 characters. NOT RECOVERABLE IN-SESSION — update_pull_request 403s (write-scope boundary) and so does add_issue_comment, so the session can neither edit the body nor post it as a comment; the PR permanently under-describes its own change on the surface a reviewer reads first. The finding survived only because it was committed as a doc under docs/research/. NOT a duplicate of the documented 'relay results commit buries CI' trap — that one is about check runs, and both happened on this same PR.",
+      "resolution_criteria": "A PR whose branch pushes BOTH .github/pr-automerge-requests/<slug>.txt and automation/pr-requests/<slug>.json in the same push carries the title and body from the pr-request JSON rather than the automerge generic body — OBSERVED on a real PR, not asserted from the workflow diff. Equivalently: automation/pr-results/<slug>.txt no longer reports FAILED-already-exists when the existing PR was opened by the automerge relay for the same branch."
     }
   ]
 }
