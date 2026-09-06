@@ -103,6 +103,15 @@ have reported the pile as far smaller than it is. Two separate errors:
    pick this up"*, and CLAUDE.md calls the migrated population *"carried, not started, and NOT
    queued."*
 
+**The first of those two is filed as its own lesson —
+`BL-20260906-A-CONTROL-MEASURED-AFTER-YOUR-OWN-REMEDIATION-CONFIRMS-THE-FIX-INSTEAD-OF-TESTING-IT`**
+(`docs/claude/health-review-backlog.json`). It is deliberately not a restatement of RULE ONE:
+*"verify your own output"* is the **disposition**, whereas this names the **mechanism** — the
+measurement *point* is contaminated by the measurer's own commits, so re-reading the output more
+carefully cannot catch it; only re-measuring at a different sha can. Filing it is also the
+discipline this report argues for, applied to this report: **a lesson nothing points at is exactly
+as invisible as a bad one.**
+
 ## 4. The carrier ladder — five states, never collapsed
 
 Binary "carried / not carried" is what produced the error above.
