@@ -22,9 +22,9 @@ Asked directly what to do about the 25 targetless legs, the operator answered **
 
 | question | answer |
 |---|---|
-| What corpus? | The **offline harness over the trainer's historical candle store** — the unit MI-148 named and left unclaimed. 166k–184k 15m bars per symbol. |
+| What corpus? | The **offline harness over the trainer's historical candle store** — the unit MI-148 named and left unclaimed. **Built and run: 9,814 trades / 3 legs / 2021–2026**, from 166k–184k 15m bars per symbol. |
 | Do backtest and live exit locations agree? | **NOT ESTABLISHED, and this is a finding rather than a caveat.** The instrument that would answer the nearest question (`backtest_fidelity_calibrate.py`) **has never been run** — and it grades the wrong quantity anyway. |
-| The calibration read? | § "The calibration read" below. |
+| The calibration read? | **Calibration PASSES on n=9,814** (MACE 0.0061) — but that is the weak half, and the sharpness result was graded against the wrong baseline. **ML-2's central question is still OPEN.** § 4. |
 | The gate before any target changes? | § "The gate", five conditions. |
 
 ---
@@ -144,49 +144,55 @@ The signal arm's improvements run **0.56–0.82** against a null p95 of **0.04�
 
 ## 4. The calibration read
 
-⚠️ **NOT OBTAINED IN THIS SESSION. Stated plainly rather than deferred into a
-vaguer claim, because "the read is pending" and "the read came back negative"
-are different facts and only one of them is knowable right now.**
+**MEASURED** via `trainer-vm-diag` [#11154](https://github.com/benbaichmankass/Metis-Insights/issues/11154) (run `34041656868`, 2026-09-06), branch head `bba1defc`. Reproducible: `scripts/backtest_trend.py --emit-trades` over the trainer's `data/{BTC,ETH,ADA}USDT_15m.csv` → `ml2_bracket_corpus.py` → `ml2_bracket_train_eval.py`.
 
-Three trainer-relay runs were dispatched (`trainer-vm-diag` #11146, #11149,
-#11154). What each established:
+**POPULATION: 9,814 backtest trades across 3 `trend_donchian` 15m legs (BTCUSDT 3,194 · ETHUSDT 3,238 · ADAUSDT 3,382), entries 2021-07 → 2026, chronological split train 6,379 / eval 3,435. Zero rows dropped for a missing feature or outcome; `mfe_exact` 9,814 of 9,814; `malformed_lines_total` 0.** Outcome `mfe_frac`, basis percent-of-entry.
 
-| run | outcome |
-|---|---|
-| **#11146** | ✅ the candle inventory above. Its harness step died on a nested-heredoc quoting error in my own command. |
-| **#11149** | ✅ established that the trainer's **system `python3` has no pandas** — the harness needs the venv. My stdlib-only scripts ran there **unmodified**, which is the payoff of matching `bracket_calibration.py`'s no-numpy discipline. |
-| **#11154** | dispatched with the venv fix and the bounded fit; **had not returned when this session closed.** |
+### Calibration — it passes, and that is the *weak* half
 
-**Why it did not return, measured rather than guessed:** the trainer is a
-**1-OCPU** box and #11149 was still executing when #11154 started, so two
-harness passes over 175k–184k 15m bars were contending for one core.
+| target q | coverage | \|err\| |
+|---:|---:|---:|
+| 0.50 | 0.5141 | 0.0141 |
+| 0.60 | 0.6099 | 0.0099 |
+| 0.70 | 0.7048 | 0.0048 |
+| 0.80 | 0.8000 | 0.0000 |
+| 0.90 | 0.9019 | 0.0019 |
 
-⚠️ **One cost of that is mine, not the box's, and it is worth recording because
-it is a design lesson.** The first cut of the model ran a **fixed 300 epochs**,
-and one evaluation fits 5 quantiles × (1 real + K control) models — with the
-dispersion and per-leg passes multiplying that again, roughly **50M pure-Python
-updates on a 3k-row corpus**. That is why #11149 was still going at 20 minutes.
-It is now bounded by a total-update budget (`MAX_FIT_UPDATES`), which makes one
-evaluation **~9 s regardless of n**, and the cap costs no accuracy: at the cap
-(40 epochs, n=4000) the model still recovers a known conditional median to
-**1.007** against a true 1.0 and **1.949** against a true 2.0. **A model that
-cannot be run is not a conservative model, it is an absent one.**
+**MACE 0.0061.** So a stated q-quantile is reached (1−q) of the time, to within 1.4 points at worst. **E3.6's falsifier is cleared on this corpus** — and per § 3 that is, on its own, nearly worthless: the unconditional quantile clears it by construction.
 
-**What this means for the rest of the memo — and what it does NOT mean.** The
-corpus (§ 1), the fidelity finding (§ 2), the instrument and its validation
-(§ 3), and the gate (§ 5) do not depend on this read: § 1 and § 2 are
-measurements of the repo and the trainer, and § 3 is a property of the
-estimator. What is **not** established is any statement about whether exit
-location is actually predictable on this fleet.
+### Sharpness — and ⚠️ the first read was graded against the WRONG baseline
 
-**So no verdict is claimed here, in either direction.** In particular the
-absence of a result is **not** evidence for the negative — `insufficient_n` and
-`not_measured` are distinct from `miscalibrated` throughout this instrument
-precisely so that a missing read cannot be quoted as a finding.
+Against the **pooled** percent-of-entry quantile the model beat the baseline at **5 of 5** quantiles, improvements **0.056 → 0.184** against a shuffled-label null p95 of **0.011 → 0.023** (3–8× the null), every quantile `beats_baseline_and_null`; split dispersion `split_sensitive: False`; and all three legs individually `calibrated_and_sharper` (MACE 0.010–0.018, n≈3.2k each).
 
-**To obtain it**, one relay dispatch, unblocked and needing no operator action —
-its exact command is in issue #11154 and it re-runs against
-`claude/ml2-predictive-bracket-20260906`.
+**That result is real and it is not the claim ML-2 has to make.** The target is `mfe_frac = mfe_r × risk_frac` and **`risk_frac` is feature[0]** — the target is by construction proportional to a feature. A pooled percent-of-entry quantile ignores volatility entirely, so beating it says only *"scale the target with volatility"*, which is closer to arithmetic than to evidence.
+
+**And the fleet already scales with volatility**: `tp_r` is a multiple of risk, and E3.6(2) measured that a percent-of-entry target makes `tp_R` and `ATR/close` *"the same variable"* (collinearity confirmed 19/19). What destroys the fleet's vol scaling is the `TP_VENUE_CAP_PCT` clamp — not the absence of a model. **Reporting the pooled comparison as ML-2's result would have been an overclaim, and this memo is not making it.**
+
+The harness therefore now grades against a second, strictly harder baseline — the **risk-scaled** one (unconditional quantile taken *in R*, re-expressed per row as `q_R × risk_frac_i`, i.e. the `tp_r` equivalent) — and **the verdict keys on that**. Beating it is ML-2's actual hypothesis: that direction, conviction and session carry information about exit location *beyond* volatility.
+
+⚠️ **The n=9,814 corpus has not yet been graded against the risk-scaled baseline** — that re-run is [#11156](https://github.com/benbaichmankass/Metis-Insights/issues/11156) and had not returned when this session closed. **So ML-2's central question is OPEN, and the pooled result must not be quoted as having answered it.**
+
+⚠️ **Two further caveats on the run above, both mine.** (a) Its dispersion arms ran at `control_trials=3` while the headline ran at 10 — a defect fixed *after* dispatch; all three arms and the headline agree on `calibrated_and_sharper`, so the direction is unaffected, but that E4 stability claim is not on the same footing as the headline and is re-run in #11156. (b) **The corpus book is net-negative in R in almost every year** (BTCUSDT −6.7 / −65.7 / −178.6 / −109.7 / −153.3 / −82.5 by year). Nothing here is a P&L claim — per E3.6 that comes second — but a reader should not infer profitability from a calibration pass.
+
+### The per-leg MFE distribution — the numbers MI-148 could not compute
+
+**POPULATION: the same 9,814 rows; per-leg n stated in the table. Backtest, `trend_donchian` 15m only.** Percent-of-entry.
+
+| leg | n | p50 | p70 | p80 | p90 | p95 | reached 9.9% |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `trend_donchian_BTCUSDT_15m` | 3,194 | 0.75% | 1.58% | 2.36% | **3.87%** | 5.40% | **0.66%** |
+| `trend_donchian_ETHUSDT_15m` | 3,238 | 1.13% | 2.39% | 3.51% | **5.62%** | 7.66% | **2.75%** |
+| `trend_donchian_ADAUSDT_15m` | 3,382 | 1.38% | 2.87% | 4.19% | **6.84%** | 9.44% | **4.58%** |
+
+### ⚠️ This CONTRADICTS MI-148's crypto arm, and the disagreement is itself the finding
+
+MI-148 measured live crypto MFE **p90 = 9.70%** (n=63) and concluded the 9.9% venue cap was *"by accident, about right"* on Bybit-traded crypto — a ratio of ~1.0×. **The backtest says BTC p90 is 3.87% (n=3,194): a ratio of 2.6×, i.e. the cap is far too loose there too.**
+
+State the populations, because they are not the same: MI-148's is **live** `position_telemetry`, n=63, mixed symbols and strategies, with `peak_r_is_lower_bound: True` on every row — so its p90 is a *lower bound* and the true figure can only be **higher**, widening the gap rather than closing it. Mine is **backtest**, n=3,194, one strategy at one timeframe, and includes many trades stopped out quickly.
+
+**Neither is obviously the right number, and that is precisely the point:** two populations disagree by ~2.5× about the quantity a target would be set from. This is § 2's fidelity question arriving with a magnitude attached, and it is why fidelity is **condition 1** of the gate rather than a footnote. Do not set a target from either figure until they are reconciled.
+
+What both agree on: **the declared 9.9% target is reached by essentially nobody** — 0.66% of BTC trades and 4.58% of ADA trades in the backtest, 4 of 102 (3.9%) live. The fleet's targets are not predictions that are sometimes wrong; they are levels almost nothing reaches.
 
 ---
 
