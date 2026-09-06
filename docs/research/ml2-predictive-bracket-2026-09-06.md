@@ -24,8 +24,9 @@ Asked directly what to do about the 25 targetless legs, the operator answered **
 |---|---|
 | What corpus? | The **offline harness over the trainer's historical candle store** — the unit MI-148 named and left unclaimed. **Built and run: 9,814 trades / 3 legs / 2021–2026**, from 166k–184k 15m bars per symbol. |
 | Do backtest and live exit locations agree? | **NOT ESTABLISHED, and this is a finding rather than a caveat.** The instrument that would answer the nearest question (`backtest_fidelity_calibrate.py`) **has never been run** — and it grades the wrong quantity anyway. |
-| The calibration read? | **Calibration PASSES on n=9,814** (MACE 0.0061) — but that is the weak half, and the sharpness result was graded against the wrong baseline. **ML-2's central question is still OPEN.** § 4. |
-| The gate before any target changes? | § "The gate", five conditions. |
+| The calibration read? | **Calibration PASSES** (n=9,814, MACE 0.0061). **Sharpness FAILS against the `tp_r`-equivalent baseline: 0 of 5 quantiles.** § 4. |
+| So is ML-2 the answer? | **No — it is REFUTED, and that is the deliverable.** The six decision-time features add nothing over a fixed multiple of risk. The answer is a per-leg MFE quantile **in R**, which is MI-148's proposal unchanged. § 4. |
+| The gate before any target changes? | § "The gate", five conditions — and condition 2 is now **settled negative**, which changes what the remaining work is. |
 
 ---
 
@@ -160,19 +161,35 @@ The signal arm's improvements run **0.56–0.82** against a null p95 of **0.04�
 
 **MACE 0.0061.** So a stated q-quantile is reached (1−q) of the time, to within 1.4 points at worst. **E3.6's falsifier is cleared on this corpus** — and per § 3 that is, on its own, nearly worthless: the unconditional quantile clears it by construction.
 
-### Sharpness — and ⚠️ the first read was graded against the WRONG baseline
+### Sharpness — ⚠️ **ML-2 IS REFUTED, and this is the headline finding**
 
-Against the **pooled** percent-of-entry quantile the model beat the baseline at **5 of 5** quantiles, improvements **0.056 → 0.184** against a shuffled-label null p95 of **0.011 → 0.023** (3–8× the null), every quantile `beats_baseline_and_null`; split dispersion `split_sensitive: False`; and all three legs individually `calibrated_and_sharper` (MACE 0.010–0.018, n≈3.2k each).
+**MEASURED** via `trainer-vm-diag` [#11156](https://github.com/benbaichmankass/Metis-Insights/issues/11156) (run `34042377609`), branch head `b8a1aa54`, same corpus (n=9,814, byte-identical trade counts 3194/3238/3382).
 
-**That result is real and it is not the claim ML-2 has to make.** The target is `mfe_frac = mfe_r × risk_frac` and **`risk_frac` is feature[0]** — the target is by construction proportional to a feature. A pooled percent-of-entry quantile ignores volatility entirely, so beating it says only *"scale the target with volatility"*, which is closer to arithmetic than to evidence.
+| q | model | POOLED base | vs pooled | **RISK-SCALED base** | **vs risk-scaled** | null p95 | verdict |
+|---:|---:|---:|---:|---:|---:|---:|---|
+| 0.50 | 0.008066 | 0.008542 | +0.0557 | 0.008055 | **−0.0014** | 0.0110 | `no_better_than_baseline` |
+| 0.60 | 0.008623 | 0.009353 | +0.0781 | 0.008608 | **−0.0017** | 0.0180 | `no_better_than_baseline` |
+| 0.70 | 0.008564 | 0.009593 | +0.1072 | 0.008565 | **+0.0001** | 0.0189 | `beats_baseline_within_null` |
+| 0.80 | 0.007760 | 0.008944 | +0.1324 | 0.007751 | **−0.0011** | 0.0209 | `no_better_than_baseline` |
+| 0.90 | 0.005585 | 0.006845 | +0.1840 | 0.005612 | **+0.0048** | 0.0233 | `beats_baseline_within_null` |
 
-**And the fleet already scales with volatility**: `tp_r` is a multiple of risk, and E3.6(2) measured that a percent-of-entry target makes `tp_R` and `ATR/close` *"the same variable"* (collinearity confirmed 19/19). What destroys the fleet's vol scaling is the `TP_VENUE_CAP_PCT` clamp — not the absence of a model. **Reporting the pooled comparison as ML-2's result would have been an overclaim, and this memo is not making it.**
+**Beats POOLED at 5 of 5. Beats RISK-SCALED at 0 of 5.**
 
-The harness therefore now grades against a second, strictly harder baseline — the **risk-scaled** one (unconditional quantile taken *in R*, re-expressed per row as `q_R × risk_frac_i`, i.e. the `tp_r` equivalent) — and **the verdict keys on that**. Beating it is ML-2's actual hypothesis: that direction, conviction and session carry information about exit location *beyond* volatility.
+## ⚠️ VERDICT: `calibrated_but_no_sharper_than_baseline`
 
-⚠️ **The n=9,814 corpus has not yet been graded against the risk-scaled baseline** — that re-run is [#11156](https://github.com/benbaichmankass/Metis-Insights/issues/11156) and had not returned when this session closed. **So ML-2's central question is OPEN, and the pooled result must not be quoted as having answered it.**
+**The entire apparent win was the volatility confound.** Against a baseline that already scales with risk — the `tp_r` equivalent — the model's improvement is **−0.0017 to +0.0048**, i.e. indistinguishable from zero and inside the shuffled-label null at every quantile where it is positive at all.
 
-⚠️ **Two further caveats on the run above, both mine.** (a) Its dispersion arms ran at `control_trials=3` while the headline ran at 10 — a defect fixed *after* dispatch; all three arms and the headline agree on `calibrated_and_sharper`, so the direction is unaffected, but that E4 stability claim is not on the same footing as the headline and is re-run in #11156. (b) **The corpus book is net-negative in R in almost every year** (BTCUSDT −6.7 / −65.7 / −178.6 / −109.7 / −153.3 / −82.5 by year). Nothing here is a P&L claim — per E3.6 that comes second — but a reader should not infer profitability from a calibration pass.
+Stable and unambiguous: **`split_sensitive: False`** across splits 0.55 / 0.65 / 0.75, **`arms_consistent_with_headline: True`** (asserted, at matched control settings), and **all three legs individually** return the same verdict at n≈3.2k each (MACE 0.0102 / 0.0143 / 0.0182).
+
+**What this says, stated plainly:**
+
+1. **The six decision-time features carry no information about exit location beyond volatility.** Direction, conviction and session add nothing a fixed multiple of risk does not already have.
+2. **`tp_r` is the right functional form and always was.** A target that is a multiple of risk is, on this evidence, as good as anything ML-2 can learn. **What is broken is not the absence of a model — it is `TP_VENUE_CAP_PCT` converting that multiple-of-risk into a fixed percent-of-entry and destroying the scaling.**
+3. **The honest conclusion is MI-148's proposal, unchanged: a per-leg MFE quantile in R. No model required.** The table below is that quantity.
+
+**This is E3.6's falsifier doing its job, and the result is more useful than a pass would have been.** Had ML-2 been graded only against the pooled baseline it would have reported *"5 of 5 quantiles, 3–8× the null"* and licensed a model the fleet does not need — and the numbers to do exactly that are already published in [#11154](https://github.com/benbaichmankass/Metis-Insights/issues/11154). ⚠️ **Do not quote that run's sharpness figures. They are against the wrong baseline and they are superseded by this table.**
+
+⚠️ **What this does NOT establish.** It refutes *these six features on this corpus*, not the existence of exogenous information: § 0.2's complaint is that peer symbols, regime and book state are invisible, and **none of those is in this feature set**. A cross-asset or regime-conditioned re-run is a different experiment and this result does not pre-empt it — it does, however, mean the burden is on that experiment to beat the risk-scaled baseline, which this one did not.
 
 ### The per-leg MFE distribution — the numbers MI-148 could not compute
 
@@ -201,7 +218,7 @@ What both agree on: **the declared 9.9% target is reached by essentially nobody*
 Per the brief: *"the output is a proposal with its gate."* **No per-leg target number is proposed here.** Five conditions, in order, and the first two are the ones this session did not clear:
 
 1. **Backtest↔live exit-location fidelity is MEASURED, per leg, on the percent-of-entry basis** — § 2. Until then a backtest MFE quantile is a statement about the harness's book, not about what the fleet will do. **This is no longer a theoretical worry: § 4 measured the two populations disagreeing by ~2.5× about crypto p90 MFE** (backtest BTC 3.87% at n=3,194 vs MI-148's live 9.70% at n=63), which is exactly the quantity a target would be set from. An abstain floor, and a leg that fails it gets no target from this route.
-2. **The calibration read clears E3.6's falsifier on the real corpus — against the RISK-SCALED baseline, not the pooled one.** Calibration is **PASSED** (§ 4, MACE 0.0061, n=9,814). Sharpness against the `tp_r`-equivalent baseline is **NOT YET GRADED** (#11156), and beating the *pooled* quantile does not substitute: that is a claim the existing parameterisation already satisfies. The shuffled-label null must gate it per quantile and the E4 arms must agree at matched control settings (`split_sensitive` is a **refusal, not a caveat**).
+2. ~~**A model clears E3.6's falsifier**~~ — **SETTLED NEGATIVE, § 4.** Calibration passed (MACE 0.0061, n=9,814); sharpness against the `tp_r`-equivalent baseline failed at **0 of 5** quantiles, stable across splits and identical on all three legs. **So this condition is not "not yet met" — it is answered, and the answer removes the model from the path.** What replaces it: the target is set from the **per-leg MFE quantile in R** (table below), and the gate on THAT is condition 1 plus condition 3, not a model.
 3. **Per-leg n is stated with the proposal and clears the eval floor.** MI-148 refused per-leg values at n=1–8; the backtest corpus fixes availability, not the discipline. A leg that does not reach the floor gets `insufficient_n` and no number — and `insufficient_n` is neither calibrated nor miscalibrated.
 4. **The target is constructed per-leg and conditioned on the family's thesis** (E3.6(4)) — donchian: is the channel still being pushed; pullback: does ADX still clear its declared `adx_min`. ⚠️ **Never a lowered `tp_r`.** `tp_venue_cap.py` states that *no `tp_r` reproduces the clamp* — `cap_r = TP_VENUE_CAP_PCT × entry / risk` is a percent-of-entry against a multiple-of-risk, so an "equivalent" figure tightens the real target on every trade the clamp never bound.
 5. **`ict_scalp` is exempt and stays exempt.** It is the fleet's existence proof — fixed `tp_at_r: 1.5`, zero clamp-binding, targets at quantile 0.69–0.92 of its own outcomes (MI-148, n=162 over 8 legs). MI-146 and MI-148 both flagged the inversion. **Do not "harmonise" the one calibrated family into the sentinel idiom.**
@@ -213,7 +230,7 @@ And one that is not a gate but a warning: **a leg that genuinely wants no target
 ## 6. Honest limits
 
 - **The corpus is backtest-only, and its book LOSES money in almost every year** (§ 4). Calibration is a statement about where price went, not about profitability; § 2's fidelity question is open and named as the next unit of work.
-- **The feature set is thin and is not the one § 0.2 asks for.** Six entry-bar quantities; no peer symbols, no regime, no book state. A negative sharpness result here is weaker than it looks.
+- **The feature set is thin and is not the one § 0.2 asks for** — six entry-bar quantities; no peer symbols, no regime, no book state. **This is the single most important caveat on the refutation**: it says these six carry nothing beyond volatility, NOT that no exogenous feature does. A cross-asset or regime-conditioned re-run is a different experiment, and its bar is now the risk-scaled baseline.
 - **The model is linear on purpose** — and ⚠️ **its stated reason is now partly stale, so do not re-quote the old one.** It was chosen when per-leg n was expected to be "in the low hundreds at best"; the backtest corpus actually delivers **~3,200 rows per leg** (§ 4), which would support more capacity. The reason that survives is different and weaker: the corpus is one family at one timeframe on a net-negative book, and the features are the thin set above, so added capacity would fit that book's idiosyncrasies rather than the fleet's. **Revisit the model class once the fidelity gate is measured**, not before.
 - **`trend_donchian` only.** The harness run covers one family. `ict_scalp` (exempt anyway) and the pullback family are not in the corpus.
 - **No P&L claim is made anywhere in this memo**, per E3.6's ordering.
