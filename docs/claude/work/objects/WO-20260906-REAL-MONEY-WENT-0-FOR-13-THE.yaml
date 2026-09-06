@@ -1,0 +1,30 @@
+id: WO-20260906-REAL-MONEY-WENT-0-FOR-13-THE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Real money went 0-for-13 the week the e35 bracket geometry shipped, and the R instrument contradicts itself
+stage: EVIDENCE
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  TWO deliverables in order, and the first gates the second. (1) A TRUSTWORTHY INSTRUMENT: quantify the R contamination against the live journal with the population stated, and report windowed performance with the closed population SPLIT BY EXIT PATH (sl / tp / reconciler / other / pnl-is-null) -- post-08-30 was 6 sl, 4 reconciler, 5 other and two rows carry pnl=None with exit=None, so grading strategy quality over the pooled set grades the reconciler. (2) THE ATTRIBUTION: e35, regime, or entries -- with a counterfactual replay of the same 13 trades at the OLD atr_stop_mult, and the honest caveats stated (n=13 vs 23; BTC fell 81k->77k in the window; not every losing leg is an e35 leg). NOT SUFFICIENT: a verdict from the pooled numbers, or any claim resting on R before (1) lands. Tier-3 changes are PROPOSED to the operator with the exact diff, never applied.
+
+why: >-
+  bybit_2 (the only real-money book) closed 13 graded trades 2026-08-30..09-06 with ZERO winners, -43.12 USD, expectancyR -0.90, on a book that now reads 264.86 -- about -14% of starting equity. The prior 14 days were 14/23 wins (60.9%) and +40.96. The flip date is 08-30, which is the day the e35 bracket geometry deployed (atr_stop_mult 2.5 -> 2.0 on 9 legs, 3 of them routed to bybit_2). Stop-closes went 5/24 (21%) to 6/15 (40%). SEPARATELY the instrument is unsound: the 30d window reads expectancyR +0.98 / totalR +38.3 while totalPnl is -3.63 and profitFactor 0.95, which cannot both be true (MI-30: 17.2% of closed rows store a stop on the wrong side of entry). R feeds the promotion gates.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
