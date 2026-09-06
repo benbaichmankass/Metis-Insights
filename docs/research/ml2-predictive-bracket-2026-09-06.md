@@ -145,7 +145,7 @@ The signal arm's improvements run **0.56–0.82** against a null p95 of **0.04�
 
 ## 4. The calibration read
 
-**MEASURED** via `trainer-vm-diag` [#11154](https://github.com/benbaichmankass/Metis-Insights/issues/11154) (run `34041656868`, 2026-09-06), branch head `bba1defc`. Reproducible: `scripts/backtest_trend.py --emit-trades` over the trainer's `data/{BTC,ETH,ADA}USDT_15m.csv` → `ml2_bracket_corpus.py` → `ml2_bracket_train_eval.py`.
+**MEASURED** on the trainer, 2026-09-06, across two runs over the SAME corpus (byte-identical trade counts): `trainer-vm-diag` [#11154](https://github.com/benbaichmankass/Metis-Insights/issues/11154) (run `34041656868`, head `bba1defc`) and [#11156](https://github.com/benbaichmankass/Metis-Insights/issues/11156) (run `34042377609`, head `b8a1aa54`). **The calibration figures below are identical in both. Every SHARPNESS figure is from #11156** — #11154 predates the risk-scaled baseline and its sharpness numbers are superseded. Reproducible: `scripts/backtest_trend.py --emit-trades` over the trainer's `data/{BTC,ETH,ADA}USDT_15m.csv` → `ml2_bracket_corpus.py` → `ml2_bracket_train_eval.py`.
 
 **POPULATION: 9,814 backtest trades across 3 `trend_donchian` 15m legs (BTCUSDT 3,194 · ETHUSDT 3,238 · ADAUSDT 3,382), entries 2021-07 → 2026, chronological split train 6,379 / eval 3,435. Zero rows dropped for a missing feature or outcome; `mfe_exact` 9,814 of 9,814; `malformed_lines_total` 0.** Outcome `mfe_frac`, basis percent-of-entry.
 
@@ -159,7 +159,7 @@ The signal arm's improvements run **0.56–0.82** against a null p95 of **0.04�
 | 0.80 | 0.8000 | 0.0000 |
 | 0.90 | 0.9019 | 0.0019 |
 
-**MACE 0.0061.** So a stated q-quantile is reached (1−q) of the time, to within 1.4 points at worst. **E3.6's falsifier is cleared on this corpus** — and per § 3 that is, on its own, nearly worthless: the unconditional quantile clears it by construction.
+**MACE 0.0061.** So a stated q-quantile is reached (1−q) of the time, to within 1.4 points at worst. **E3.6's falsifier is cleared ON ITS CALIBRATION CLAUSE** — and per § 3 that is, on its own, nearly worthless: the unconditional quantile clears it by construction. The bracket as a whole does **not** clear the bar; see the next subsection.
 
 ### Sharpness — ⚠️ **ML-2 IS REFUTED, and this is the headline finding**
 
