@@ -108,8 +108,20 @@ The venue reports a HEDGE book (positionIdx 1/2) ...
 (side-blind SL total across all books: 1542.2, 18144% of the position, 2 leg(s))
 ```
 
-The graded basis says **100% covered by its own legs**; the side-blind basis says **18144%**.
-That is the `BYBIT_GRADED_COVERAGE_MODE` divergence, observed on the venue, on `bybit_1`/SOLUSDT.
+**Population: ONE `bybit_over_cover` group** — `count: 5`, `is_new: false`, `accounts: ['bybit_1']`,
+first_seen 2026-09-03T00:04:10Z, last_seen 2026-09-04T11:28:19Z — describing a SINGLE position,
+`bybit_1`/SOLUSDT of size **8.5**, carrying **2 resting SL legs** (one of 8.5 on its own book, one
+of 1533.7 on the opposite book). The two percentages below are that one position's coverage under
+the two bases; they are **n = 1**, not a rate over a sample.
+
+On that position the graded basis reads **8.5 / 8.5 = 100% covered by its own legs**, while the
+side-blind basis sums both books to **1542.2 / 8.5 = 18144%**. That is the
+`BYBIT_GRADED_COVERAGE_MODE` divergence, observed on the venue.
+
+⚠️ **The direction matters more than the size.** The side-blind figure is not merely inflated — on a
+position whose OWN stop was missing it would read as heavily over-covered while the book is naked,
+which is the masking `BYBIT_GRADED_COVERAGE_MODE` exists to end. Here the own-book leg is present,
+so this instance is the divergence WITHOUT the harm.
 
 And a second, different SOLUSDT condition at 2026-09-06T03:33:20.347956Z (count 1, `is_new: true`):
 
