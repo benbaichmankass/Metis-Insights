@@ -108,8 +108,25 @@ The venue reports a HEDGE book (positionIdx 1/2) ...
 (side-blind SL total across all books: 1542.2, 18144% of the position, 2 leg(s))
 ```
 
-The graded basis says **100% covered by its own legs**; the side-blind basis says **18144%**.
-That is the `BYBIT_GRADED_COVERAGE_MODE` divergence, observed on the venue, on `bybit_1`/SOLUSDT.
+> **Population for the two percentages below: n = 1.** They describe **one** `bybit_over_cover`
+> group (`count: 5`, `accounts: ['bybit_1']`, first_seen 2026-09-03T00:04:10Z, last_seen
+> 2026-09-04T11:28:19Z) reporting a **single** position of size 8.5 carrying **two** resting SL
+> legs — 8.5 on its own book, 1533.7 on the opposite book. Both percentages are that one
+> position's two legs divided two different ways; neither is a rate over a sample of positions,
+> and nothing here supports a claim about how OFTEN the two bases diverge.
+
+**n = 1 position, 2 resting legs, 1 group.** The graded basis says **100% covered by its own
+legs** (8.5 of 8.5); the side-blind basis says **18144%** (1542.2 of 8.5). That is the
+`BYBIT_GRADED_COVERAGE_MODE` divergence, observed on the venue, on `bybit_1`/SOLUSDT.
+
+**And the bare numbers lose the point, so state it.** The side-blind basis is dangerous not
+because it reports a large number, but because **on a position whose OWN stop is missing it reads
+as over-covered while the book is naked** — the opposite-book legs inflate the total past `size`,
+`covered_qty` clears the `>= size` test, and the re-arm is skipped on a genuinely unprotected
+position. **In THIS instance the own-book leg is present (8.5 of 8.5), so what was observed is the
+divergence WITHOUT the harm.** It is evidence the two bases can disagree by three orders of
+magnitude on this symbol; it is **not** an observation of a position left naked, and must not be
+relayed as one.
 
 And a second, different SOLUSDT condition at 2026-09-06T03:33:20.347956Z (count 1, `is_new: true`):
 
@@ -302,3 +319,89 @@ Per the dispatch: if something changes this session's row scope, say so. **It do
 `pending-20260906T084730Z` was scoped to *settle* three alarms; it settled **one** (c), and
 established that (a) and (b) are **not reachable from a session with this capability set**. The
 manager owns `SESSIONS.json`; this is the input, not an edit to it.
+
+---
+
+## Addendum (re-land, 2026-09-06) — what changed on the way to `main`
+
+*Added by `session_01WaQaYCpGb3yZKkkRqk4JfU` (registry key `pending-20260906T100427Z`,
+parent `WO-20260906-RE-LAND-1C-S-LIVE-ALARMS-DISPOSITION`). Everything above this line is the
+author session's work, re-applied unchanged except for the stated population on the coverage
+percentages. This addendum is mine, and it is here rather than in a PR comment because a PR
+comment is not a durable surface.*
+
+### Why the content moved branches at all
+
+`claude/live-alarms-1c-20260906` cannot merge, and the cause is not its content.
+`manager-scope-guard` R2 fails **two manager commits** on that branch — `a43ca75d` (the manager
+editing this disposition doc) and `89adb920` (the manager's own revert of that edit). **R2 grades
+COMMITS IN THE RANGE, not the net diff**, so `a43ca75d` is an ancestor of the tip and no later
+commit can clear it; the revert took the violation count from one to two. That is a fresh
+instance of the already-filed defect *"a lapse becomes UNMERGEABLE FOREVER rather than
+correctable"*. The content is re-applied here as this session's own commits — **not
+cherry-picked**, because the guard reads the self-written `Claude-Session:` trailer and a
+cherry-pick would grade as the author's, which the guard's own text names as an open, unguarded
+evasion.
+
+### ⚠️ `automation/jobs/1c-live-alarms-state-01.job` is deliberately NOT included — and the reason is the DESTINATION, not the payload
+
+This re-land was dispatched with instructions to carry that job file across. **It is not carried,
+and this is the one place the delivered scope is narrower than the ask.** Two measured reasons,
+neither of which is a judgement about the payload:
+
+**1. `main` has never carried a `.job` file, and landing one would be a standing landmine.**
+
+> **Population:** the complete `automation/jobs/` tree at `origin/main` (commit `8a16786`), plus
+> `git log origin/main -- 'automation/jobs/*'` over the full fetched history. **n = 0 files,
+> 0 commits.** `automation/results/` on `main` holds exactly one entry, `.gitkeep`. Reproduce with
+> `git ls-tree -r origin/main --name-only automation/jobs/`.
+
+That zero is by design, not by accident. `vm-driver.yml` **removes the job file** after running it
+("`git rm -q "$job"`") — a `.job` is a fire-and-forget request that is consumed, never a durable
+artifact. Its trigger is `push` to `branches: ['claude/**']` with `paths: ['automation/jobs/**']`.
+So a `.job` file resident on `main` would re-execute **on the live money VM** the next time any
+`claude/**` branch merges `main` and pushes — unrequested, unattributed, and potentially weeks
+later, by a session that has never heard of this work object. Nobody approved parking it there.
+
+**2. Pushing the file IS the execution, so the Tier-2 "hold" cannot gate it.**
+
+The declaration this re-land was asked to write holds the PR at `landing: hold` so a human
+confirms before it **lands**. But `vm-driver` fires on **push**, not on merge. The file was
+therefore going to run the moment this branch received it, and the hold would have gated nothing
+that had not already happened. **This is a correction to the dispatch's model of the mechanism,
+not a disagreement with its caution.**
+
+That is not hypothetical: `vm-driver` run **34025596229** fired on the author session's
+`c8ccabdf` at 2026-09-06T09:46:38Z and **failed** after 21 seconds, which is why the job file is
+still sitting on that branch un-consumed and no `automation/results/1c-live-alarms-state-01.txt`
+exists. The failure cause was not diagnosed by this session.
+
+**3. The approval is RELAYED, and is on no repo surface I could read.**
+
+The dispatch states the operator approved this job file verbatim on 2026-09-06 (*"you have my ok
+on 11105"*) and that it is recorded as a typed decision in `docs/claude/work/OPEN-PRS.json`.
+**Checked this session, and it is not there:** that file at `origin/main` carries `as_of`
+2026-09-05T08:45:00Z and exactly **two** `open_prs` rows (#10895, #10398), neither of them #11105.
+The three comments on #11105 are one scope-overlap bot post and two manager posts, the later of
+which (09:56:17Z) still **asks** for that OK. So the approval may well have been given in
+conversation — the manager is the relay and I have no reason to doubt it — but **I did not verify
+it, and I am not banking it.** Recorded as a claim, exactly as the manager recorded the author
+session's claim before it.
+
+**Given (1) alone**, the job file should not land on `main` even with the approval in hand. The
+approval was to **run** the job; the way to run it is to push it to a `claude/**` branch and let
+`vm-driver` consume it, then land the **result**. Those are different acts and only the second
+belongs in this PR.
+
+### What is therefore still owed, and by whom
+
+1. **The live reads that settle (a) and (b) have still not happened.** The job that would have
+   produced them has never completed. Whoever runs it should expect the push itself to be the
+   execution, and should investigate why run 34025596229 failed in 21s first.
+2. **Unchanged from the author session's asks:** the Tier-3 Bybit `qtyStep` quantisation defect
+   (`qty 33.299999999999955` → `ErrCode 10001`, so the position cannot flatten) is escalated and
+   **not fixed**; the Tier-2 trader restart carries a recommendation to **HOLD**; and there is an
+   open MES position whose monitor-driven exits are not running.
+3. **A follow-up worth filing beyond this work object:** `vm-driver`'s contract — that a `.job` is
+   consumed on push and must never reach `main` — is documented only inside the workflow's own
+   header comment. Nothing enforces it, and this is the first PR that would have violated it.

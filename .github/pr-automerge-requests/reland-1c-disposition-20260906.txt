@@ -1,0 +1,3 @@
+armed by session_01WaQaYCpGb3yZKkkRqk4JfU for claude/reland-1c-disposition-20260906
+Tier-1 docs-only re-land of the 1C live-alarms disposition. Declaration:
+.github/pr-landing/reland-1c-disposition-20260906.json
