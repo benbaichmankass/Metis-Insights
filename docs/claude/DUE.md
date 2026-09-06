@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-06T11:18:54+00:00 · verdict **partial**_
+_Generated 2026-09-06T14:22:47+00:00 · verdict **partial**_
 
 > ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
 
@@ -30,8 +30,6 @@ _Generated 2026-09-06T11:18:54+00:00 · verdict **partial**_
   - MI-70 built the missing Phase E reaper (scripts/ops/session_reaper.py + .github/workflows/session-reaper.yml) and RAN THE KILL. !! THE HEADLINE IS THAT WO-20260901-PHASE-E'S DONE-CONDITION AS WRITTEN 
 - 🔔 **OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED** (open_items · 3d) — monitoring row 3d since last observation (cadence 3d)
   - PR #10679 (DRAFT, Tier-2 order path, awaiting operator approval) adds classify_share_hold() so an Alpaca close that cannot free its shares says WHY -- four never-collapsed states, of which broker_canc
-- 🔔 **OI-20260902-PER-MERGE-PING-SHIPPED-AND-NO-MERGE-HAS-BEEN-SEEN-PINGING** (open_items · 3d) — monitoring row 3d since last observation (cadence 2d)
-  - The operator's per-merge ping is BUILT and has never been observed arriving. scripts/notify_on_pull.py gains Source 4: every PR that landed on main inside the pulled commit range, rolled up into ONE m
 - 🔔 **OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED** (open_items · 3d) — monitoring row 3d since last observation (cadence 3d)
   - SUCCESSOR to OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED, which CLEARED 2026-09-03 on its clause (a): trainer-capture-watch.yml run 33719856283 graded the trainer's order-flow c
 - 🔔 **OI-20260903-CLOSE-WEDGE-LEDGER-MERGED-AND-HAS-NEVER-BEEN-OBSERVED-PRESENT-ON-THE-FLEET** (open_items · 3d) — loud row — must be reported on every session
@@ -90,6 +88,8 @@ _Generated 2026-09-06T11:18:54+00:00 · verdict **partial**_
   - The operator's digest was moved OFF GitHub cron and onto push:main (#10845, MI-80), because cron does not fire here: work-digest had FOUR runs in its entire life against an hourly declaration, and eve
 - 🔔 **OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK** (open_items · 0d) — loud row — must be reported on every session
   - The hourly work digest has NO durable carrier, and the replacement is PREPARED BUT NOT APPLIED, held on a Tier-2 operator OK. .github/workflows/work-digest.yml declares `20 * * * *`; measured over its
+- 🔔 **OI-20260902-PER-MERGE-PING-SHIPPED-AND-NO-MERGE-HAS-BEEN-SEEN-PINGING** (open_items · 0d) — loud row — must be reported on every session
+  - The operator's per-merge ping is BUILT and has never been observed arriving. scripts/notify_on_pull.py gains Source 4: every PR that landed on main inside the pulled commit range, rolled up into ONE m
 - 🔔 **OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED** (open_items · 0d) — loud row — must be reported on every session
   - ⚠️ CORRECTED 2026-09-04 — THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS LINK IT BY NAME: THE CRON HAS FIRED. Measured over the workflow's COMPLETE scheduled
 - 🔔 **OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY** (open_items · 0d) — loud row — must be reported on every session
@@ -98,30 +98,34 @@ _Generated 2026-09-06T11:18:54+00:00 · verdict **partial**_
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
 - 🔔 **OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE** (open_items · 0d) — loud row — must be reported on every session
   - The TELEGRAM half of the decision round-trip is built (src/runtime/telegram_decisions.py + a `wdec:*` branch in telegram_query_bot.callback_handler + a job-queue sweep): an unanswered `decision_reques
+- 🔔 **OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING** (open_items · 0d) — loud row — must be reported on every session
+  - docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md told its reader to paste it as a new session and no register pointed at it for 14 days. MI-148 now carries the work (#11138 landed the calibration
+- 🔔 **OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON** (open_items · 0d) — loud row — must be reported on every session
+  - E3.6's calibration falsifier finally has an instrument (MI-148, PR #11138) and it returns a clear negative: the fleet's take-profits are not predictions. NOTHING HAS BEEN CHANGED IN RESPONSE, delibera
 - **ERRFEED-1ef305c7** (error_feed · 13d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 16 rows 2026-08-24T22:20:57 → 2026-09-06T00:32:43 · symbols=AVAXUSDT — decide: fix now, or file to a backlog
   - [error] x16 api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty
-- **ERRFEED-9fd2fc82** (error_feed · 13d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 82 rows 2026-08-24T17:04:54 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
-  - [error] x82 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+- **ERRFEED-9fd2fc82** (error_feed · 13d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 78 rows 2026-08-24T18:35:54 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
+  - [error] x78 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
 - **ERRFEED-2338a024** (error_feed · 11d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 13 rows 2026-08-26T02:19:58 → 2026-08-29T04:06:19 · accounts=bybit_1 — decide: fix now, or file to a backlog
   - [error] x13 bybit_over_cover detected: bybit_N/ETHUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL c
 - **ERRFEED-6eb9d669** (error_feed · 5d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 27 rows 2026-09-01T20:12:41 → 2026-09-02T08:17:06 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
   - [error] x27 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: e
 - **ERRFEED-86505576** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 155 rows 2026-09-02T08:33:53 → 2026-09-04T23:53:07 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
   - [error] x155 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o
-- **ERRFEED-a46d2970** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 20 rows 2026-09-02T02:03:23 → 2026-09-06T09:15:01 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog
-  - [error] x20 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u
-- **ERRFEED-fa77ad80** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 17 rows 2026-09-02T02:03:23 → 2026-09-06T09:15:01 · symbols=MES — decide: fix now, or file to a backlog
-  - [error] x17 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
+- **ERRFEED-a46d2970** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 21 rows 2026-09-02T02:03:23 → 2026-09-06T13:18:34 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog
+  - [error] x21 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u
+- **ERRFEED-fa77ad80** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 18 rows 2026-09-02T02:03:23 → 2026-09-06T13:18:33 · symbols=MES — decide: fix now, or file to a backlog
+  - [error] x18 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
 - **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (soaks · 4d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then 
-- **ERRFEED-6da04340** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 16 rows 2026-09-03T11:19:27 → 2026-09-06T09:15:01 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog
-  - [error] x16 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u
+- **ERRFEED-1177a741** (error_feed · 3d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 5 rows 2026-09-03T00:04:10 → 2026-09-04T11:28:19 · accounts=bybit_1 — decide: fix now, or file to a backlog
+  - [error] x5 bybit_over_cover detected: bybit_N/SOLUSDT: position N. THIS position is NOT over-protected: legs that reduce it total N across N leg(s) (N%
+- **ERRFEED-6da04340** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 17 rows 2026-09-03T11:19:27 → 2026-09-06T13:18:34 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog
+  - [error] x17 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u
 - **ERRFEED-b3c9b0e2** (error_feed · 2d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 9 rows 2026-09-04T12:28:34 → 2026-09-06T10:15:10 · accounts=bybit_1 — decide: fix now, or file to a backlog
   - [error] x9 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg
-- **ERRFEED-f27b3b0d** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-06T09:30:31 → 2026-09-06T09:30:31 · accounts=bybit_1 symbols=SOLUSDT — decide: fix now, or file to a backlog
-  - [error] NEW x1 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: SOLUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: n
-- **ERROR-FEED-SUMMARY** (error_feed) — 70 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-06T06:05:06.030147+00:00`.
-  - 118 cause groups over 1384 rows (80 error-level, 38 warn-level, 1 new since the last digest)
+- **ERROR-FEED-SUMMARY** (error_feed) — 70 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-06T11:14:01.947764+00:00`.
+  - 118 cause groups over 1389 rows (80 error-level, 38 warn-level, 0 new since the last digest)
 - **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
 - **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched
