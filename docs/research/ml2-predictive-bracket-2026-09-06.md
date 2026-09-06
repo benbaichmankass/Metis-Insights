@@ -2,7 +2,7 @@
 
 **MI-151** · work object [`WO-20260906-ML-2-THE-PREDICTIVE-BRACKET`](../claude/work/objects/WO-20260906-ML-2-THE-PREDICTIVE-BRACKET.yaml) · branch `claude/ml2-predictive-bracket-20260906` · PR #11150
 
-⚠️ **PROPOSE-ONLY.** Per-leg take-profit values are Tier-3. Nothing in `config/strategies.yaml` is touched, no target value is proposed as a number, and nothing is armed. What ships is Tier-1 and observe-only: a model, a corpus builder, an eval harness, 38 tests, and this memo.
+⚠️ **PROPOSE-ONLY.** Per-leg take-profit values are Tier-3. Nothing in `config/strategies.yaml` is touched, no target value is proposed as a number, and nothing is armed. What ships is Tier-1 and observe-only: a model, a corpus builder, an eval harness, 40 tests, and this memo.
 
 ---
 
@@ -144,7 +144,49 @@ The signal arm's improvements run **0.56–0.82** against a null p95 of **0.04�
 
 ## 4. The calibration read
 
-<!-- REAL-DATA-READ -->
+⚠️ **NOT OBTAINED IN THIS SESSION. Stated plainly rather than deferred into a
+vaguer claim, because "the read is pending" and "the read came back negative"
+are different facts and only one of them is knowable right now.**
+
+Three trainer-relay runs were dispatched (`trainer-vm-diag` #11146, #11149,
+#11154). What each established:
+
+| run | outcome |
+|---|---|
+| **#11146** | ✅ the candle inventory above. Its harness step died on a nested-heredoc quoting error in my own command. |
+| **#11149** | ✅ established that the trainer's **system `python3` has no pandas** — the harness needs the venv. My stdlib-only scripts ran there **unmodified**, which is the payoff of matching `bracket_calibration.py`'s no-numpy discipline. |
+| **#11154** | dispatched with the venv fix and the bounded fit; **had not returned when this session closed.** |
+
+**Why it did not return, measured rather than guessed:** the trainer is a
+**1-OCPU** box and #11149 was still executing when #11154 started, so two
+harness passes over 175k–184k 15m bars were contending for one core.
+
+⚠️ **One cost of that is mine, not the box's, and it is worth recording because
+it is a design lesson.** The first cut of the model ran a **fixed 300 epochs**,
+and one evaluation fits 5 quantiles × (1 real + K control) models — with the
+dispersion and per-leg passes multiplying that again, roughly **50M pure-Python
+updates on a 3k-row corpus**. That is why #11149 was still going at 20 minutes.
+It is now bounded by a total-update budget (`MAX_FIT_UPDATES`), which makes one
+evaluation **~9 s regardless of n**, and the cap costs no accuracy: at the cap
+(40 epochs, n=4000) the model still recovers a known conditional median to
+**1.007** against a true 1.0 and **1.949** against a true 2.0. **A model that
+cannot be run is not a conservative model, it is an absent one.**
+
+**What this means for the rest of the memo — and what it does NOT mean.** The
+corpus (§ 1), the fidelity finding (§ 2), the instrument and its validation
+(§ 3), and the gate (§ 5) do not depend on this read: § 1 and § 2 are
+measurements of the repo and the trainer, and § 3 is a property of the
+estimator. What is **not** established is any statement about whether exit
+location is actually predictable on this fleet.
+
+**So no verdict is claimed here, in either direction.** In particular the
+absence of a result is **not** evidence for the negative — `insufficient_n` and
+`not_measured` are distinct from `miscalibrated` throughout this instrument
+precisely so that a missing read cannot be quoted as a finding.
+
+**To obtain it**, one relay dispatch, unblocked and needing no operator action —
+its exact command is in issue #11154 and it re-runs against
+`claude/ml2-predictive-bracket-20260906`.
 
 ---
 
@@ -169,6 +211,6 @@ And one that is not a gate but a warning: **a leg that genuinely wants no target
 - **The model is linear on purpose.** Per-leg n is in the low hundreds at best; a gradient-boosted model on that sample fits noise and produces a confident wrong level on a path that ends at a live order. Capacity exceeding corpus is the fitted-threshold failure this repo already pays for.
 - **`trend_donchian` only.** The harness run covers one family. `ict_scalp` (exempt anyway) and the pullback family are not in the corpus.
 - **No P&L claim is made anywhere in this memo**, per E3.6's ordering.
-- **38 tests pin the distinctions, not the numbers** — so this memo's figures are not load-bearing for the suite, and re-running on a larger corpus does not require rewriting a test to match.
+- **40 tests pin the distinctions, not the numbers** — so this memo's figures are not load-bearing for the suite, and re-running on a larger corpus does not require rewriting a test to match.
 
 *Repo `origin/main` 817a5a5f. Trainer measurements via `trainer-vm-diag` #11146 / #11149 (run ids in the issue comments). Instrument validation is reproducible offline: `python3 scripts/research/ml2_bracket_train_eval.py --selftest`.*
