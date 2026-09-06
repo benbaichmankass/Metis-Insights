@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Seeking ONE manager/operator read of scripts/ml/export_exit_head.py, and saying plainly why rather than dressing it up. pr-landing-guard's TIER1_SURFACE allowlist lists scripts/ci/**, scripts/ops/**, scripts/research/** and scripts/reports/** but NOT scripts/ml/**, so it declines to certify self-landing on this path. That is the guard working as designed (fail-closed on a path it cannot vouch for), not a misdeclaration to route around. CLAUDE.md's tier table calls tooling Tier-1 and trainer-vm-mode.md makes trainer work autonomous, so `tier: 1` is the accurate tier and the hold is about the guard's allowlist, not about the tier. The change is additive: --family defaults to the existing fam_dir.name derivation, so omitting it is byte-for-byte the previous behaviour, no published artifact moves, and no live runtime path imports this script.",
+  "why": "trainer-side export tooling + its test; the artifact it writes is gated by stage and read only by the trainer->live mirror"
+}
