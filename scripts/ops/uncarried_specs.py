@@ -24,16 +24,30 @@ named the file. A design whose thing shipped is not stranded, and this probe wou
 report it un-carried. That is a real over-count and is reported rather than hidden — the
 `--triage` output exists so a human can settle those individually.
 
-THE THREE CARRIER STATES ARE NEVER COLLAPSED
---------------------------------------------
-  planned    — named by a WORK register (a work object/intent/step, an OPEN-ITEMS row, the
-               manager checklist, the due list). Something is meant to act on it.
-  mentioned  — named ONLY on a non-carrying surface (a backlog row's prose, ROADMAP, another
-               research artifact, a skill). A reference is not a carrier: the motivating
-               incident had exactly one such mention and still sat 14 days.
-  uncarried  — named nowhere outside itself.
-  unreadable — we could not look. NEVER folded into `uncarried`; absence of evidence from a
-               failed read is not evidence of absence.
+THE CARRIER LADDER — FIVE STATES, NEVER COLLAPSED
+-------------------------------------------------
+"Carried" is not binary, and grading it binary is what a first cut of this probe got wrong:
+it graded the KNOWN-STRANDED prompt as carried, on the strength of one `lifecycle: dormant`
+bulk-migrated row that names the artifact only to say work was *"carried INTO"* it. The
+repo's own words settle this — that row's `review_trigger` reads *"A dormant object is NOT
+a queued one — nothing is scheduled to pick this up"*, and CLAUDE.md calls the migrated
+population *"carried, not started, and NOT queued."* So:
+
+  active      — named by a work object that is `in_flight`/`waiting`, or by OPEN-ITEMS, the
+                manager checklist, or the due list. Something is moving or being watched.
+  queued      — named only by a `ready` work object. Nothing is moving, but it is claimed.
+  dormant_only— named only by `dormant`/`done`/`accepted` objects. By the store's own
+                semantics nothing is scheduled to pick it up. THIS IS THE STATE THE
+                MOTIVATING INCIDENT WAS IN, and it is why the ladder exists.
+  mentioned   — named ONLY on a non-carrying surface (a backlog row's prose, ROADMAP, another
+                research artifact, a skill). A reference is not a carrier.
+  uncarried   — named nowhere outside itself.
+  unreadable  — we could not look. NEVER folded into `uncarried`; absence of evidence from a
+                failed read is not evidence of absence.
+
+`active` and `queued` are the only two that mean a session will meet the artifact without
+someone happening to think of it. The headline UN-CARRIED figure is therefore
+dormant_only + mentioned + uncarried, reported with its three parts kept visible.
 
 Stdlib-only. Read-only: it writes nothing and mutates no register.
 
@@ -175,21 +189,52 @@ def _needles(path: pathlib.Path) -> list[str]:
     return [path.name, stem]
 
 
+ACTIVE_LIFECYCLES = ("in_flight", "waiting")
+QUEUED_LIFECYCLES = ("ready",)
+# Registers that carry work regardless of any lifecycle field of their own.
+ALWAYS_ACTIVE_REGISTERS = (
+    "docs/claude/OPEN-ITEMS.json",
+    "docs/claude/work/MANAGER-CHECKLIST.json",
+    "docs/claude/DUE.json",
+    "docs/claude/work/WORK-DIGEST.json",
+)
+_LIFECYCLE_RE = re.compile(r"^lifecycle:\s*([a-z_]+)\s*$", re.MULTILINE)
+
+
+def object_lifecycle(text: str) -> str:
+    """The object's declared lifecycle, or 'unknown' — never silently defaulted to a
+    value that would change its carrier grade."""
+    m = _LIFECYCLE_RE.search(text)
+    return m.group(1) if m else "unknown"
+
+
 def carriers(repo: pathlib.Path, path: pathlib.Path, corpus: dict[str, str]) -> dict:
-    """Which surfaces name this artifact, excluding the artifact itself."""
+    """Which surfaces name this artifact, excluding the artifact itself, graded by how
+    strongly each one carries it."""
     self_rel = str(path.relative_to(repo))
     needles = _needles(path)
-    planned, mentioned = [], []
+    active, queued, dormant, mentioned = [], [], [], []
     for rel, text in corpus.items():
         if rel == self_rel:
             continue
         if not any(n in text for n in needles):
             continue
-        if any(rel == w or rel.startswith(w.rstrip("/") + "/") for w in WORK_REGISTERS):
-            planned.append(rel)
-        else:
+        is_work = any(rel == w or rel.startswith(w.rstrip("/") + "/") for w in WORK_REGISTERS)
+        if not is_work:
             mentioned.append(rel)
-    return {"planned": sorted(planned), "mentioned": sorted(mentioned)}
+            continue
+        if rel in ALWAYS_ACTIVE_REGISTERS:
+            active.append(rel)
+            continue
+        lc = object_lifecycle(text)
+        if lc in ACTIVE_LIFECYCLES:
+            active.append(f"{rel}[{lc}]")
+        elif lc in QUEUED_LIFECYCLES:
+            queued.append(f"{rel}[{lc}]")
+        else:
+            dormant.append(f"{rel}[{lc}]")
+    return {"active": sorted(active), "queued": sorted(queued),
+            "dormant": sorted(dormant), "mentioned": sorted(mentioned)}
 
 
 def build_corpus(repo: pathlib.Path) -> dict[str, str]:
@@ -211,11 +256,19 @@ def build_corpus(repo: pathlib.Path) -> dict[str, str]:
 
 
 def state_for(c: dict) -> str:
-    if c["planned"]:
-        return "planned"
+    if c["active"]:
+        return "active"
+    if c["queued"]:
+        return "queued"
+    if c["dormant"]:
+        return "dormant_only"
     if c["mentioned"]:
         return "mentioned"
     return "uncarried"
+
+
+# The states in which a session meets the artifact without someone happening to think of it.
+CARRIED_STATES = ("active", "queued")
 
 
 def analyse(repo: pathlib.Path = REPO) -> dict:
@@ -226,7 +279,8 @@ def analyse(repo: pathlib.Path = REPO) -> dict:
         if tier == "unreadable":
             rows.append({"path": str(p.relative_to(repo)), "tier": tier,
                          "reasons": reasons, "state": "unreadable",
-                         "planned_by": [], "mentioned_by": []})
+                         "active_by": [], "queued_by": [], "dormant_by": [],
+                         "mentioned_by": []})
             continue
         c = carriers(repo, p, corpus)
         rows.append({
@@ -234,7 +288,9 @@ def analyse(repo: pathlib.Path = REPO) -> dict:
             "tier": tier,
             "reasons": reasons,
             "state": state_for(c),
-            "planned_by": c["planned"],
+            "active_by": c["active"],
+            "queued_by": c["queued"],
+            "dormant_by": c["dormant"],
             "mentioned_by": c["mentioned"],
         })
     return {"population_scanned": len(rows),
@@ -251,7 +307,19 @@ CONTROL_POSITIVE = "docs/design/operating-layer-build-plan-DESIGN.md"
 CONTROL_NEGATIVE = "docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md"
 
 
-def self_test(repo: pathlib.Path = REPO) -> tuple[bool, list[str]]:
+def self_test(repo: pathlib.Path = REPO, negative_must_be_uncarried: bool = False
+              ) -> tuple[bool, list[str]]:
+    """Calibrate the probe against a known positive and a known negative.
+
+    BOTH AXES ARE CHECKED, because a first cut passed the classifier half and still
+    mis-graded the carrier half: it called the known-stranded prompt 'carried' on the
+    strength of one dormant migrated row. A probe that cannot reproduce the known
+    negative's stranding will UNDER-report the pile it exists to measure.
+
+    `negative_must_be_uncarried` is for running against a PRE-REMEDIATION tree. On today's
+    tree the negative control is legitimately carried — this session's own work objects
+    carry it — so asserting it there would fail for the right reason at the wrong time.
+    """
     res = analyse(repo)
     by_path = {r["path"]: r for r in res["rows"]}
     problems = []
@@ -261,20 +329,29 @@ def self_test(repo: pathlib.Path = REPO) -> tuple[bool, list[str]]:
     else:
         if pos["tier"] != "A":
             problems.append(f"positive control classified {pos['tier']}, expected A")
-        if pos["state"] != "planned":
+        if pos["state"] not in CARRIED_STATES:
             problems.append(
                 f"POSITIVE CONTROL FAILED: {CONTROL_POSITIVE} graded {pos['state']!r}, "
-                f"expected 'planned'. The probe cannot find a carried spec, so its silence "
-                f"on an un-carried one proves nothing.")
-        elif len(pos["planned_by"]) < 6:
-            problems.append(
-                f"positive control found only {len(pos['planned_by'])} work-register "
-                f"carriers; the work object states SIX exist")
+                f"expected one of {CARRIED_STATES}. The probe cannot find a carried spec, "
+                f"so its silence on an un-carried one proves nothing.")
+        else:
+            n = len(pos["active_by"]) + len(pos["queued_by"]) + len(pos["dormant_by"])
+            if n < 6:
+                problems.append(
+                    f"positive control found only {n} work-object carriers; "
+                    f"the work object states SIX exist")
     neg = by_path.get(CONTROL_NEGATIVE)
     if neg is None:
         problems.append(f"NEGATIVE CONTROL MISSING from population: {CONTROL_NEGATIVE}")
-    elif neg["tier"] not in ("A", "B"):
-        problems.append(f"negative control classified {neg['tier']}, expected A or B")
+    else:
+        if neg["tier"] not in ("A", "B"):
+            problems.append(f"negative control classified {neg['tier']}, expected A or B")
+        if negative_must_be_uncarried and neg["state"] in CARRIED_STATES:
+            problems.append(
+                f"NEGATIVE CONTROL FAILED: {CONTROL_NEGATIVE} graded {neg['state']!r} on a "
+                f"pre-remediation tree, where it is known to have sat stranded for 14 days. "
+                f"carried_by={neg['active_by'] + neg['queued_by']}. The probe over-credits "
+                f"carriers and will UNDER-report the pile.")
     return (not problems), problems
 
 
@@ -283,12 +360,15 @@ def main(argv=None) -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--self-test", action="store_true",
                     help="run the positive/negative control; exit 1 if the probe is not calibrated")
+    ap.add_argument("--strict-negative", action="store_true",
+                    help="with --self-test: also require the negative control to grade "
+                         "un-carried (only valid against a PRE-remediation tree)")
     ap.add_argument("--triage", action="store_true", help="list the un-carried specs")
     ap.add_argument("--json", action="store_true", help="full machine-readable result")
     args = ap.parse_args(argv)
 
     if args.self_test:
-        ok, problems = self_test()
+        ok, problems = self_test(negative_must_be_uncarried=args.strict_negative)
         if ok:
             print("uncarried-specs self-test: OK "
                   f"(positive control {CONTROL_POSITIVE} reads 'planned'; "
@@ -307,9 +387,10 @@ def main(argv=None) -> int:
     specs = [r for r in rows if r["tier"] in ("A", "B")]
     border = [r for r in rows if r["tier"] == "C"]
     unread = [r for r in rows if r["tier"] == "unreadable"]
-    unc = [r for r in specs if r["state"] == "uncarried"]
-    men = [r for r in specs if r["state"] == "mentioned"]
-    pla = [r for r in specs if r["state"] == "planned"]
+    def n(st):
+        return [r for r in specs if r["state"] == st]
+    act, que, dor, men, unc = (n("active"), n("queued"), n("dormant_only"),
+                               n("mentioned"), n("uncarried"))
 
     print(f"POPULATION: {res['population_scanned']} artifacts under {', '.join(ARTIFACT_DIRS)} "
           f"(excluded {len(POPULATION_EXCLUDE)} by reasoned rule); "
@@ -321,17 +402,23 @@ def main(argv=None) -> int:
     if unread:
         print(f"UNREADABLE (we could not look — never counted as un-carried): {len(unread)}")
     print()
-    print(f"  planned   (named by a work register): {len(pla)}")
-    print(f"  mentioned (named only on a non-carrying surface): {len(men)}")
-    print(f"  UNCARRIED (named nowhere outside itself): {len(unc)}")
+    print("  CARRIED — a session meets it without anyone thinking of it:")
+    print(f"    active       (in_flight/waiting object, or OPEN-ITEMS/checklist/due): {len(act)}")
+    print(f"    queued       (a `ready` work object names it):                       {len(que)}")
+    print("  NOT CARRIED — nothing is scheduled to pick it up:")
+    print(f"    dormant_only (only dormant/done objects name it):                    {len(dor)}")
+    print(f"    mentioned    (only a non-carrying surface names it):                 {len(men)}")
+    print(f"    uncarried    (named nowhere outside itself):                         {len(unc)}")
+    print(f"    -> UN-CARRIED TOTAL: {len(dor)+len(men)+len(unc)} of {len(specs)} specs "
+          f"({100.0*(len(dor)+len(men)+len(unc))/len(specs):.1f}%)")
 
     if args.triage:
-        print("\n--- UNCARRIED specs, newest filename first ---")
-        for r in sorted(unc, key=lambda r: r["path"], reverse=True):
-            print(f"  {r['path']}  [{r['tier']}] {' '.join(r['reasons'])}")
-        print("\n--- MENTIONED-ONLY specs (a reference is not a carrier) ---")
-        for r in sorted(men, key=lambda r: r["path"], reverse=True):
-            print(f"  {r['path']}  [{r['tier']}] mentioned_by={r['mentioned_by'][:3]}")
+        for label, group in (("UNCARRIED (named nowhere outside itself)", unc),
+                             ("DORMANT_ONLY (only dormant/done objects name it)", dor),
+                             ("MENTIONED-ONLY (a reference is not a carrier)", men)):
+            print(f"\n--- {label}: n={len(group)} ---")
+            for r in sorted(group, key=lambda r: r["path"], reverse=True):
+                print(f"  {r['path']}  [{r['tier']}]")
     return 0
 
 

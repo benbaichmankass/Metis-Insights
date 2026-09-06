@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   How many finished specifications sit in docs/research and docs/design with nothing pointing at them
 stage: INTEGRITY
-lifecycle: ready
-owner: null
+lifecycle: done
+owner: MI-152 session_016UhdzaVjP5BLaokn2LajcA
 opened_at: 2026-09-06
-closed_at: null
+closed_at: 2026-09-06
 review_trigger: >-
   The COUNT is the deliverable. A mechanism proposed without it is a fix whose
   problem was never sized.
@@ -24,3 +24,75 @@ blocked_on_basis: >-
   stated classifier and a positive control, and both are its own work.
 
 captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (operator-decided)
+
+findings: >-
+  MEASURED 2026-09-06 against origin/main 817a5a5f. Report:
+  docs/research/uncarried-spec-census-2026-09-06.md. Instrument:
+  scripts/ops/uncarried_specs.py (read-only, stdlib-only, carries its own controls
+  as --self-test). POPULATION: 331 artifacts under docs/research (312) + docs/design
+  (19), 2 excluded by reasoned rule; 1428 register surfaces read for the join; 111
+  classified as SPECS (98 tier-A filename, 13 tier-B self-declared); 118 borderline
+  tier-C reported separately and NOT in the headline. ANSWER: 98 of 111 (88.3%)
+  un-carried under the strict reading. NOT A ONE-OFF -- the operator's "if the answer
+  is twelve" threshold is exceeded under every defensible reading. SENSITIVITY, because
+  57 of the 89 mentioned-only artifacts are named in ROADMAP.md and whether that is a
+  CARRIER or a RECORD is the biggest judgement here: strict 98 (88.3%) / ROADMAP counts
+  40 (36.0%) / ROADMAP-or-sprint-log 24 (21.6%) / loosest-any-mention 8 (7.2%). The
+  loosest reading is not defensible -- it is exactly the reading under which the
+  motivating incident (one incidental mention) counts as carried. JUDGEMENT-FREE CORE:
+  tier B, 13 artifacts whose OWN TEXT says the work is unbuilt, is 11 of 13 un-carried
+  strict and 4 of 13 even if ROADMAP counts; the only 2 carried were both written TODAY
+  and were given carriers by hand by this week's program. 8 artifacts are named NOWHERE
+  outside themselves, one of which (bracket-geometry-decision-packet-2026-08-26.md) is
+  one of the seven re-derivations the motivating backlog row counted.
+
+control_result: >-
+  BOTH AXES PASS, and the control CAUGHT A REAL DEFECT rather than rubber-stamping.
+  POSITIVE: operating-layer-build-plan-DESIGN.md grades `active` with 9 work-object
+  carriers (WO-20260901-PHASE-A..H + OPEN-ITEMS), against the SIX the done_condition
+  states. NEGATIVE: EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md grades `dormant_only`
+  against the PRE-remediation tree daebbada, reproducing the known 14-day stranding.
+  !! THE FIRST CUT OF THE PROBE FAILED THIS, IN THE DANGEROUS DIRECTION -- it graded the
+  known-stranded prompt `planned` and would have under-reported the pile. Two causes,
+  both worth carrying: (1) THE CONTROL WAS CONTAMINATED BY THIS SESSION'S OWN PROGRAM --
+  measured at HEAD the negative control is legitimately carried, because
+  WO-20260906-COUNT-THE-UN-CARRIED-SPECS and
+  WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED were created
+  TODAY by the work diagnosing the stranding; a control measured after the remediation
+  proves nothing about the condition, so the census runs at HEAD while the negative
+  control is asserted at daebbada. (2) "NAMED BY A WORK OBJECT" IS NOT "CARRIED" -- the
+  prompt's only work-store reference was a `lifecycle: dormant` bulk-migrated backlog row
+  about IB trailing, naming the artifact only to say a caveat was carried INTO it, i.e.
+  pointing OUTWARD. The repo's own words settle it: that row's review_trigger reads "A
+  dormant object is NOT a queued one -- nothing is scheduled to pick this up". The carrier
+  grade is therefore a five-state LADDER (active / queued / dormant_only / mentioned /
+  uncarried, plus unreadable kept distinct because a failed read is not evidence of
+  absence), never a boolean.
+
+mechanism_proposed: >-
+  (b) A RENDERED CLAUDE.md SESSION-BRIEF SECTION, then (a) A CI CHECK -- in that order.
+  WHICH HALF EACH COVERS, as the done_condition demands: (b) covers the EXISTING 98 and
+  the new half at once, because a new artifact enters a rendered view with nobody filing
+  anything; (a) covers ONLY the new half and would leave all 98 invisible, which is why
+  it is not sufficient alone. (c) a scheduled sweep is REJECTED: it produces a report
+  nobody is obliged to read, and the OI row warns that "an eighth document restating the
+  diagnosis makes this row MORE true". (b) is chosen because CLAUDE.md states the brief is
+  "the only surface that reaches a session before it acts" -- hooks do not run on Claude
+  Code on the web and CI fires at merge, after the wrong work is built. TWO CONSTRAINTS
+  the design must respect: a rendered list of 98 rows IS the alarm-fatigue P1, so the
+  section must be BOUNDED AND RANKED (tier B first, then uncarried tier A, capped ~10 with
+  the residual stated); and disposition must have NO THIRD STATE, copying
+  scripts/ops/check_research_index.py's proven EXEMPT-with-mandatory-reason shape, so
+  "nobody got around to it" -- the state all 98 are in now -- is not representable.
+  !! STATED HONESTLY: the SESSION-BRIEF surface is itself UNPROVEN
+  (OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION). It is the best available
+  option, not a guaranteed one.
+
+limits: >-
+  The probe CANNOT establish whether an un-carried spec's work was already done by a path
+  that never named the file -- a design whose thing shipped still reads un-carried, a real
+  over-count in tier A and the reason tier B is quoted beside it. Basename matching
+  OVER-credits carriers, biasing toward UNDER-reporting the pile (the conservative
+  direction). The count is a SNAPSHOT at 817a5a5f; a register row landing after it changes
+  a grade. And `active` means something NAMES the artifact, never that anything is
+  happening to it.
