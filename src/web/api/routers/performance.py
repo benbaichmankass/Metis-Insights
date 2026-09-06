@@ -75,7 +75,6 @@ from src.web.api._clean_trades import (
     exclude_superseded_predicate,
     not_paper_predicate,
     paper_predicate,
-    r_multiple,
 )
 from src.web.api._closed_at import close_time_sql
 from src.runtime.broker_truth import journal_trust_for, journal_trust_map
@@ -85,9 +84,15 @@ from src.runtime.r_provenance import (  # R-DENOMINATOR provenance
     R_CONTAMINATED,
     R_NO_BASIS,
     R_UNVERIFIED,
+    R_BASIS_DECLARED,
+    R_BASIS_NO_BASIS,
+    R_BASIS_REFUSED_WRONG_SIDE,
+    R_BASIS_STORED_STOP,
     classify_r,
     disagreement_ratio,
+    empty_basis_counts as r_empty_basis_counts,
     empty_counts as r_empty_counts,
+    r_multiple_provenanced,
 )
 from src.runtime.provenance import (
     # The "no value present" sentinel `classify_row` returns as its raw half.
@@ -170,9 +175,14 @@ def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, 
         "expectancyR": None,
         "rTradeCount": 0,
         "rCoverage": 0.0,
-        # R-denominator provenance — present on the empty/errored envelope too,
-        # with explicit zeros. A key that disappears makes a consumer branch on
-        # absence, and absence is not one of the states.
+        # Present on the empty/errored envelope too, with explicit zeros — a
+        # key that disappears makes a consumer branch on absence, and absence is
+        # not one of the states.
+        "rBasis": {
+            "declaredInitial": 0, "storedStop": 0,
+            "refusedWrongSide": 0, "noBasis": 0,
+        },
+        # R-denominator provenance — same rule.
         "rProvenance": {
             "contaminated": 0, "confirmedInitial": 0, "unverified": 0,
             "noBasis": 0, "tightenedVsDeclared": 0, "declaredRiskRecords": 0,
@@ -387,6 +397,11 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     # convert a visible-wrong number into an invisible-wrong one over an
     # unstated population.
     r_prov: Dict[str, int] = r_empty_counts()
+    # WHICH risk each published R was divided by. A different question from
+    # `r_prov` above (which grades the stored stop) and never a renaming of it:
+    # a row graded `unverified` can still be computed on the `declared_initial`
+    # basis, because the declared record is independent of the stored stop.
+    r_basis_counts: Dict[str, int] = r_empty_basis_counts()
     r_declared_records = 0     # denominator for the line below
     r_tightened = 0            # stored stop >= BAR x tighter than declared risk
     equity: List[Dict[str, Any]] = []
@@ -405,10 +420,46 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         # trade and a futures contract compare on one axis. None when risk is
         # unknown (missing stop/size); then it counts in NEITHER R numerator nor
         # denominator — never a raw-pnl fallback (the blending bug).
-        rr = r_multiple(
-            r["pnl"], _rget(r, "entry_price"), _rget(r, "stop_loss"),
-            _rget(r, "qty"), contract_value_usd_for(r["symbol"]),
+        # ⚠️ THE DENOMINATOR IS THE TRADE'S *INITIAL* RISK, NOT ITS STORED STOP
+        # (2026-09-06, MI-144). `trades.stop_loss` holds the FINAL trailed stop
+        # — `order_monitor._apply_update` mirrors every confirmed amend onto the
+        # row — so `|entry - stop|` collapses on a trade trailed through
+        # breakeven, and the legacy `abs()` turned a stop on the WRONG SIDE of
+        # entry into a small positive risk instead of refusing it. That single
+        # mechanism made a LOSING window publish a POSITIVE expectancyR.
+        #
+        # MEASURED, live journal pulled 2026-09-06 via /api/bot/db/table/
+        # {trades,order_packages} (5518 + 4435 rows; reproduction of this
+        # endpoint's own totals asserted first as a positive control):
+        #   30d real-money window, n=39 — published totalR +38.2891 /
+        #   expectancyR +0.9818 against totalPnl -3.6266 and profitFactor
+        #   0.9507. 12 rows (30.8%) graded `contaminated` carried 117.1% of
+        #   that R.
+        #   WHOLE journal, n=1287 — 104 contaminated rows (8.1%) carried 96.6%
+        #   of totalR (+4232.03 of +4381.91). Max single-row R: +3672.3
+        #   (`ict_scalp_sol_15m`, bybit_1).
+        #
+        # `r_multiple_provenanced` prefers the signal-time `risk_per_unit` from
+        # `order_packages.meta` (which no trailing amend can reach), falls back
+        # to the stored stop when there is no declared record and the stop is
+        # not PROVEN wrong-side, and REFUSES the proven-wrong-side row rather
+        # than abs()-ing it. A refusal counts in NEITHER the R numerator nor its
+        # denominator — the same discipline a missing stop already gets, never a
+        # raw-pnl fallback. `rBasis` below publishes which basis every row used,
+        # so no published R is over an unstated population.
+        rr, r_basis = r_multiple_provenanced(
+            {
+                "pnl": r["pnl"],
+                "entry_price": _rget(r, "entry_price"),
+                "stop_loss": _rget(r, "stop_loss"),
+                "take_profit_1": _rget(r, "take_profit_1"),
+                "direction": _rget(r, "direction"),
+                "qty": _rget(r, "qty"),
+                "package_meta": _rget(r, "package_meta"),
+            },
+            contract_value_usd_for(r["symbol"]),
         )
+        r_basis_counts[r_basis] = r_basis_counts.get(r_basis, 0) + 1
         if rr is not None:
             total_r += rr
             r_count += 1
@@ -456,10 +507,11 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             name,
             {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0,
              "r": 0.0, "rc": 0.0, "pnl_measured": 0.0, "pnl_estimated": 0.0,
-             "r_prov": r_empty_counts()},
+             "r_prov": r_empty_counts(), "r_basis": r_empty_basis_counts()},
         )
         bucket["trades"] += 1
         bucket["r_prov"][r_state] += 1
+        bucket["r_basis"][r_basis] += 1
         if pnl > 0:
             bucket["wins"] += 1
         bucket["pnl"] += pnl
@@ -608,6 +660,18 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
                 "confirmedInitial": int(b["r_prov"][R_CONFIRMED_INITIAL]),
                 "unverified": int(b["r_prov"][R_UNVERIFIED]),
                 "noBasis": int(b["r_prov"][R_NO_BASIS]),
+            },
+            # WHICH risk this leg's R was divided by. `rTradeCount` is
+            # `declaredInitial + storedStop` by construction; `refusedWrongSide`
+            # + `noBasis` are the rows that count in NEITHER the R numerator nor
+            # its denominator, so the four sum to `trades` and the partition is
+            # checkable with arithmetic. A leg whose R rides mostly on
+            # `storedStop` has an R that a trailing amend can still move.
+            "rBasis": {
+                "declaredInitial": int(b["r_basis"][R_BASIS_DECLARED]),
+                "storedStop": int(b["r_basis"][R_BASIS_STORED_STOP]),
+                "refusedWrongSide": int(b["r_basis"][R_BASIS_REFUSED_WRONG_SIDE]),
+                "noBasis": int(b["r_basis"][R_BASIS_NO_BASIS]),
             },
             # Per-strategy PnL provenance. This is the field that must be read
             # BEFORE tuning a strategy: a bucket at pnlCoverage 0.0 is being
@@ -819,6 +883,32 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         # the LARGEST bucket (78.1% live). A stop trailed to just SHORT of
         # entry is side-plausible and just as wrong; it is simply not provable
         # from the stored row.
+        # --- WHICH RISK EACH PUBLISHED R WAS DIVIDED BY (2026-09-06, MI-144) ---
+        # `rProvenance` below GRADES the stored stop. This says which basis the
+        # number above was actually computed FROM, so `totalR` / `expectancyR`
+        # are never published over an unstated population.
+        #
+        # `rTradeCount` == `declaredInitial + storedStop` BY CONSTRUCTION;
+        # `refusedWrongSide` + `noBasis` are excluded from both the R numerator
+        # and its denominator. The four sum to `totalTrades`, so the partition
+        # is checkable with arithmetic rather than trusted.
+        #
+        # ⚠️ `refusedWrongSide` IS NOT A DATA-QUALITY FOOTNOTE — it is the
+        # count of rows whose R was, until 2026-09-06, a finite number produced
+        # by `abs()`-ing an impossible risk distance. A non-zero value here on a
+        # window whose `expectancyR` you are about to act on means the OLD
+        # number for that window was wrong, not merely noisy.
+        #
+        # ⚠️ A HIGH `storedStop` SHARE IS NOT CLEAN. It means no signal-time
+        # `risk_per_unit` record exists for those rows, so their denominator is
+        # still the CURRENT stop and a trailing amend can still move it — it is
+        # simply not PROVABLY wrong. Read it beside `rProvenance.unverified`.
+        "rBasis": {
+            "declaredInitial": int(r_basis_counts[R_BASIS_DECLARED]),
+            "storedStop": int(r_basis_counts[R_BASIS_STORED_STOP]),
+            "refusedWrongSide": int(r_basis_counts[R_BASIS_REFUSED_WRONG_SIDE]),
+            "noBasis": int(r_basis_counts[R_BASIS_NO_BASIS]),
+        },
         "rProvenance": {
             "contaminated": int(r_prov[R_CONTAMINATED]),
             "confirmedInitial": int(r_prov[R_CONFIRMED_INITIAL]),

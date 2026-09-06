@@ -298,6 +298,140 @@ def classify_r(row: Mapping) -> Tuple[str, str]:
     return R_UNVERIFIED, "disagrees_with_declared_initial_risk"
 
 
+# ── the RISK BASIS: which number was R actually divided by? ────────────────
+#
+# The four states above GRADE the stored stop. These four say which risk the
+# published R was computed FROM — a different question, and the one that
+# decides whether the number is usable at all.
+#
+# ⚠️ THEY ARE NOT A RENAMING OF THE STATES ABOVE. A row can be graded
+# ``unverified`` (we could not prove the stored stop is the initial one) and
+# still be computed on the ``declared_initial`` basis, because the declared
+# record is INDEPENDENT of the stored stop. Collapsing the two vocabularies
+# would hide exactly that case, which is the majority one.
+R_BASIS_DECLARED = "declared_initial"
+R_BASIS_STORED_STOP = "stored_stop"
+R_BASIS_REFUSED_WRONG_SIDE = "refused_wrong_side"
+R_BASIS_NO_BASIS = "no_basis"
+
+R_BASES = (
+    R_BASIS_DECLARED,
+    R_BASIS_STORED_STOP,
+    R_BASIS_REFUSED_WRONG_SIDE,
+    R_BASIS_NO_BASIS,
+)
+
+
+def empty_basis_counts() -> Dict[str, int]:
+    """A zeroed count for EVERY basis — explicit zeros, never a missing key."""
+    return {basis: 0 for basis in R_BASES}
+
+
+def initial_risk_usd(row: Mapping, contract_value_usd: Any) -> Tuple[Optional[float], str]:
+    """The USD risk R should be divided by, and WHICH basis produced it.
+
+    ``risk_usd = <risk per unit> * |qty| * contract_value_usd`` — the same
+    absolute-USD scale as the stored multiplier-aware ``pnl``, so this is a
+    drop-in replacement for the denominator
+    :func:`src.web.api._clean_trades.r_multiple` builds. The ONLY thing that
+    changes is *which* per-unit risk is used, and that the impossible case is
+    REFUSED instead of being ``abs()``-ed into a finite number.
+
+    Precedence, and each step is a different claim:
+
+    ``declared_initial``
+        The signal's own ``risk_per_unit`` from ``order_packages.meta``.
+        Preferred whenever it exists, because it is the risk the trade was
+        ENTERED with and ``order_monitor._apply_update`` — which writes only
+        ``sl``/``tp`` — cannot reach it. This is the fix: R is *defined*
+        against entry-time risk, and ``trades.stop_loss`` holds the EXIT-time
+        stop.
+
+    ``stored_stop``
+        ``|entry - stop|``, used only when no declared record exists AND the
+        stored stop is not PROVEN wrong-side. Identical to the legacy
+        behaviour, deliberately — where there is no better basis, publishing
+        the old number is honest and dropping the row is not.
+
+    ``refused_wrong_side``
+        Returns ``None``. The stop sits on the wrong side of entry, which
+        cannot be an initial stop, and no declared record exists to fall back
+        to. ``abs()`` turns that impossibility into a plausible small
+        denominator and an enormous R — the single mechanism behind a losing
+        window publishing a positive ``expectancyR``. A refusal is the honest
+        output: the caller excludes the row from BOTH the R numerator and its
+        denominator, exactly as it already does for a missing stop.
+
+        ⚠️ The refusal uses :func:`classify_r`, not a bare side test, so a
+        direction-mirrored ``intent_reduce`` row (whose whole bracket is
+        inverted relative to ``direction``) is graded ``unverified`` and keeps
+        its stored basis rather than being refused for a trail it never had.
+
+    ``no_basis``
+        Returns ``None``. There is no R to compute — a missing price/size, or
+        a non-positive risk. The state :func:`src.web.api._clean_trades.r_multiple`
+        already returns ``None`` for.
+
+    The four bases sum to the population by construction, so a consumer can
+    check the partition with arithmetic rather than trusting it. ⚠️ The
+    stronger invariant a consumer may want — ``rTradeCount ==
+    declared_initial + stored_stop`` — additionally requires every row to carry
+    a non-NULL ``pnl``; ``/api/bot/performance`` guarantees that in SQL, an
+    arbitrary caller does not.
+    """
+    qty = _num(row.get("qty") if row.get("qty") is not None else row.get("position_size"))
+    entry = _num(row.get("entry_price"))
+    cv = _num(contract_value_usd)
+    if qty is None or qty == 0 or cv is None or cv <= 0:
+        return None, R_BASIS_NO_BASIS
+
+    meta = row.get("package_meta")
+    if meta is None:
+        meta = row.get("pkg_meta")
+    if meta is None:
+        meta = row.get("meta")
+    declared = declared_initial_risk(meta)
+    if declared is not None:
+        risk = declared * abs(qty) * cv
+        if risk > 0:
+            return risk, R_BASIS_DECLARED
+
+    stop = _num(row.get("stop_loss"))
+    if entry is None or stop is None or abs(entry - stop) <= 0:
+        return None, R_BASIS_NO_BASIS
+
+    if classify_r(row)[0] == R_CONTAMINATED:
+        return None, R_BASIS_REFUSED_WRONG_SIDE
+
+    risk = abs(entry - stop) * abs(qty) * cv
+    if risk <= 0:
+        return None, R_BASIS_NO_BASIS
+    return risk, R_BASIS_STORED_STOP
+
+
+def r_multiple_provenanced(
+    row: Mapping, contract_value_usd: Any
+) -> Tuple[Optional[float], str]:
+    """``(R, basis)`` for one row — the provenanced sibling of
+    :func:`src.web.api._clean_trades.r_multiple`.
+
+    ``None`` for R means the row counts in NEITHER the R numerator nor its
+    denominator; ``basis`` says WHY, and is never absent. On the
+    ``stored_stop`` basis this returns exactly what the legacy helper returns
+    — asserted by a test rather than claimed here, so the two cannot drift.
+    """
+    risk, basis = initial_risk_usd(row, contract_value_usd)
+    pnl = _num(row.get("pnl"))
+    if risk is None or pnl is None:
+        # ⚠️ The basis reports what the RISK resolution found, even when the
+        # numerator is absent. Overwriting it with `no_basis` on a missing
+        # ``pnl`` would collapse "there was no risk to divide by" into "there
+        # was nothing to divide" — two different facts, and this module exists
+        # to keep exactly that pair apart.
+        return None, basis
+    return pnl / risk, basis
+
+
 def empty_counts() -> Dict[str, int]:
     """A zeroed count for EVERY state — explicit zeros, never a missing key.
 
