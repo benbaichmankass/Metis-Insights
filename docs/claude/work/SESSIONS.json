@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-06T11:00:41Z",
+  "updated_at": "2026-09-06T12:07:46Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2478,6 +2478,21 @@
       ],
       "why": "OPERATOR APPROVAL 2026-09-06: both parts of the #11112 proposal approved; a reduce-only close cannot be flattened today",
       "confirmed_at": "2026-09-06T11:00:41Z"
+    },
+    {
+      "session_id": "session_01SKvbp9rm3fiyD9uHxpeFKM",
+      "registry_key": "pending-20260906T120641Z",
+      "state": "working",
+      "title": "MI-145 — positive control on the exit sweep: can the harness detect a lever that MUST help?",
+      "owns_object": "WO-20260906-POSITIVE-CONTROL-ON-THE-EXIT-SWEEP-320",
+      "checklist_item": "MI-145-SWEEP-POSITIVE-CONTROL",
+      "spawned_at": "2026-09-06T12:06:41Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/sweep-positive-control-20260906"
+      ],
+      "why": "OPERATOR DECISION 2026-09-06 'Yes - positive control first'. MI-146 escalated it: 320 honest_negative cells and 39 SHIPPED cells all rest on this one uncontrolled instrument.",
+      "confirmed_at": "2026-09-06T12:07:46Z"
     }
   ],
   "⚠️_registry_completeness": "2026-09-05T14:35Z — GRADED AGAINST PLATFORM TRUTH, and the register was wrong at scale. 94 rows were graded against a live list_sessions(mine=true, limit=100) read; 65 carried a state the platform contradicts, and 58 of those had NEVER been observed even once (last_observed absent) despite being spawned 2026-09-02/03. ⚠️ THE HEADLINE: the register claimed 41 sessions were working/idle/running. THE PLATFORM SAYS EXACTLY ONE SESSION IS RUNNING ACROSS THE WHOLE ACCOUNT, and it is the manager itself (session_016e2k4UmsMGgpbrJ5ctqeFv). Every other session is IDLE or ARCHIVED. The register's `working` state was never a measurement — it is what a manager wrote at SPAWN time and nobody ever revisited, which is MI-84 measured rather than asserted. ⚠️ WHAT THIS DOES **NOT** ESTABLISH: an IDLE session is not the same as FINISHED work. These rows are now honest about the session's LIFECYCLE and say nothing about whether each one's deliverable reached main. That audit spans several previous managers' days and was NOT done here; do not read a clean state column as a clean handoff. ⚠️ AND 0 non-terminal row(s) are NOT covered by this page at all — not graded, not disproven, simply outside the 100 most recent. `unknown` would be the honest label and they retain their stale value; do not read them as confirmed.",
