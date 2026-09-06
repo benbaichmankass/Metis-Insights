@@ -1,0 +1,55 @@
+TARGET=live
+---
+set -u
+# READ-ONLY diagnostic capture for WO-20260906-THREE-LIVE-ALARMS-ON-THE-TRADING-FLEET.
+# Operator-approved 2026-09-06 (session_01RHuSYKu1r1ZErc65KLKV8t).
+# No trade-mutating command appears below. Nothing is written on the VM.
+# The result file is committed to a PUBLIC repo: never echo the token, and
+# read /proc/<pid>/environ through an explicit key ALLOWLIST, never wholesale.
+
+TOKEN="$(sed -n 's/^DIAG_READ_TOKEN=//p' /etc/ict-trader/web-api.env | head -1 | tr -d '\r\n"')"
+if [ -z "${TOKEN}" ]; then echo "FATAL: could not read DIAG_READ_TOKEN"; exit 1; fi
+
+for p in \
+  "version" \
+  "services" \
+  "bybit_open_orders?account_id=bybit_1" \
+  "exchange_positions" \
+  "ib_state" \
+  "venue_session" ; do
+  echo "===== /api/diag/${p} ====="
+  curl -sS --fail --max-time 45 \
+       -H "Authorization: Bearer ${TOKEN}" \
+       "http://127.0.0.1:8001/api/diag/${p}" \
+    || echo "(curl failed)"
+  echo
+done
+
+echo "===== trader MainPID env (ALLOWLISTED KEYS ONLY) ====="
+PID="$(systemctl show -p MainPID --value ict-trader-live 2>/dev/null)"
+echo "ict-trader-live MainPID=${PID}"
+if [ -n "${PID}" ] && [ "${PID}" != "0" ] && [ -r "/proc/${PID}/environ" ]; then
+  tr '\0' '\n' < "/proc/${PID}/environ" \
+    | grep -E '^(BYBIT_HEDGE_MODE_SYMBOLS|BYBIT_GRADED_COVERAGE_MODE|BYBIT_GRADED_COVERAGE_ACCOUNTS|BYBIT_TPSL_MODE)=' \
+    || echo "(none of the allowlisted keys are set in the process environment)"
+else
+  echo "(cannot read process environ)"
+fi
+
+echo "===== on-disk .env values for those SAME keys (restart would pick these up) ====="
+grep -hE '^(BYBIT_HEDGE_MODE_SYMBOLS|BYBIT_GRADED_COVERAGE_MODE|BYBIT_GRADED_COVERAGE_ACCOUNTS|BYBIT_TPSL_MODE)=' \
+     /etc/ict-trader/*.env 2>/dev/null \
+  || echo "(none of the allowlisted keys present in /etc/ict-trader/*.env)"
+
+echo "===== systemd unit states ====="
+systemctl is-active ict-trader-live ict-web-api 2>&1
+systemctl show -p ActiveEnterTimestamp --value ict-trader-live 2>&1
+
+echo "===== IB gateway units ====="
+systemctl list-units --all --no-pager --plain 2>/dev/null | grep -iE 'ib.?gateway|ibc|tws' || echo "(no ib-gateway-like unit found)"
+
+echo "===== MES market-data errors, last 3h (bounded by TIME, not line count) ====="
+journalctl -u ict-trader-live --since '-3h' --no-pager 2>/dev/null \
+  | grep -iE 'candles_unavailable|market_data|MES|mes_trend_long_1d|pacing|farm|contract' \
+  | tail -80 \
+  || echo "(no matching journal lines)"
