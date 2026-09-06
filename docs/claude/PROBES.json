@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-05T09:10:49.528204+00:00",
+  "generated_at": "2026-09-06T09:32:19.774524+00:00",
   "contract": "A probe REPORTS. A session CLEARS the row. Nothing here writes verified_at, observation, or removes a row.",
   "states": [
     "pass",
@@ -91,7 +91,7 @@
       "scanned": null,
       "state": "could_not_run",
       "reason": "exit_2",
-      "detail": "probe: COULD NOT LOOK — [trainer-capture-watch.yml] trainer-capture-watch.yml: 13 run(s) listed but NONE had readable logs (13 unread). That is an unread population, not an absent line."
+      "detail": "probe: COULD NOT LOOK — [trainer-capture-watch.yml] trainer-capture-watch.yml: 17 run(s) listed but NONE had readable logs (17 unread). That is an unread population, not an absent line."
     },
     {
       "id": "OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED",
@@ -135,11 +135,11 @@
         "--require",
         "applied=true"
       ],
-      "matched": 233,
-      "scanned": 320,
+      "matched": 248,
+      "scanned": 339,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=233 scanned=320\nprobe: PASS — 233 of 320 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 320 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
+      "detail": "probe-counts: matched=248 scanned=339\nprobe: PASS — 248 of 339 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 339 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
     },
     {
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
@@ -412,7 +412,7 @@
       "scanned": null,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "pr-queue-watch: FRESH -- a run was recorded 4.2h ago, inside the 30.0h window.\n  queue at last run: 3 PR(s) waiting on a merge decision, worst 169.1h  (reported, not enforced here)"
+      "detail": "pr-queue-watch: FRESH -- a run was recorded 4.5h ago, inside the 30.0h window.\n  queue at last run: 2 PR(s) waiting on a merge decision, worst 193.2h  (reported, not enforced here)"
     },
     {
       "id": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED",
