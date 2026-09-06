@@ -5,7 +5,7 @@ title: >-
   A Bybit reduce-only close is rejected with ErrCode 10001 on an unquantised float qty, so the position cannot be flattened
 stage: DEPLOYMENT
 lifecycle: in_flight
-owner: null
+owner: session_017UnyG4ArXmXKpB8rmEGv1j
 opened_at: 2026-09-06
 closed_at: null
 review_trigger: >-

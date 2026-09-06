@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T10:54Z",
+  "updated_at": "2026-09-06T11:02Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1827,15 +1827,15 @@
       "id": "MI-139-BYBIT-QTYSTEP",
       "title": "Bybit reduce-only close rejected 10001 Qty invalid on an unquantised float qty — the position cannot flatten",
       "state": "in_flight",
-      "owner": "session_01C6Lh24HDdkn6p14qsaeNrA",
+      "owner": "session_017UnyG4ArXmXKpB8rmEGv1j",
       "owns_object": "WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED",
       "priority": "P1_CYCLE",
       "tier": "3 (order path — PROPOSE only)",
       "spawned_at": "2026-09-06T10:05Z",
-      "note": "#11112 (docs) green+draft. Tier-3 order-path fix PROPOSED, not applied - relayed to operator 10:55Z. Nothing unflattenable now (0 of 29 open rows). Bybit only.",
+      "note": "OPERATOR APPROVED BOTH PARTS 11:00Z (Tier-3). Applying: round(x,8) at execute.py:1855 + snap_artifact_qty (NEAREST, not floor) in the qty_legalize seam. Also fixing the XRPUSDT qty_step, which config declares 1.0 while the venue holds 7114.1. Draft PR, manager routes the merge - no self-merge on an order path.",
       "added": "2026-09-06",
-      "status": "landed_unproven",
-      "updated": "2026-09-06T10:54Z"
+      "status": "in_flight",
+      "updated": "2026-09-06T11:02Z"
     },
     {
       "id": "MI-140-ALPACA-LIVE-CANNOT-PLACE",
@@ -1874,7 +1874,7 @@
       "id": "MI-143-ICT-SCALP-5M-SHADOW",
       "title": "ict_scalp_5m -> shadow (operator-approved), then establish whether it should trade real money at all",
       "state": "in_flight",
-      "owner": "session_01Ne7LK6wMCoLUwnKpCZTPqE",
+      "owner": "session_01X3kyzCfUdFVimATxZFE8nd",
       "owns_object": "WO-20260906-ICT-SCALP-5M-TO-SHADOW-THEN-ESTABLISH",
       "priority": "P0_LIVE_MONEY",
       "tier": "3 (config/strategies.yaml — APPROVED for this one line)",
@@ -1886,7 +1886,10 @@
         "decided_on": "2026-09-06",
         "text": "Decision pop-up with four options and the tradeoffs stated; operator chose 'Move it to shadow now'."
       },
-      "added": "2026-09-06"
+      "added": "2026-09-06",
+      "status": "in_flight",
+      "note": "OPERATOR DECISION 11:00Z: NARROW lever - remove ict_scalp_5m from bybit_2's strategies list in accounts.yaml, NOT execution:shadow. Keeps both paper books trading it so bracket_geometry evidence keeps accruing. #11115 (execution:shadow) is SUPERSEDED and must be closed, its verdict doc carried across. Watch the tp_geometry ratchet.",
+      "updated": "2026-09-06T11:02Z"
     },
     {
       "id": "MI-144-THE-RECORD-DOES-NOT-SAY-WHAT-HAPPENED",
