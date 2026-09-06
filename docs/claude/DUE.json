@@ -1,9 +1,12 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-06T09:40:55+00:00",
-  "verdict": "all_sources_read",
-  "unreadable_sources": [],
+  "generated_at": "2026-09-06T11:18:54+00:00",
+  "verdict": "partial",
+  "unreadable_sources": [
+    "red_crons",
+    "unlanded_automation"
+  ],
   "sources": {
     "open_items": {
       "state": "read",
@@ -28,22 +31,22 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=0.1h cadence=daily (cron 20 5 * * *) | 1 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=1.8h cadence=daily (cron 20 5 * * *) | 1 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
-      "state": "read",
-      "rows": 3,
-      "note": ""
+      "state": "could_not_read",
+      "rows": 0,
+      "note": "no GITHUB_TOKEN — cannot query the Actions API"
     },
     "unlanded_automation": {
-      "state": "read",
-      "rows": 1,
-      "note": ""
+      "state": "could_not_read",
+      "rows": 0,
+      "note": "no GITHUB_TOKEN — cannot list pull requests"
     },
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-06T06:28:41+00:00, age 3.2h"
+      "note": "digest 2026-09-06T11:18:51+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -52,8 +55,8 @@
     }
   },
   "counts": {
-    "due": 71,
-    "loud": 51
+    "due": 67,
+    "loud": 47
   },
   "rows": [
     {
@@ -226,15 +229,6 @@
       "age_days": 1,
       "loud": true,
       "link": ""
-    },
-    {
-      "source": "unlanded_automation",
-      "id": "#11099",
-      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
-      "why_due": "producer output opened a PR that has not landed",
-      "age_days": 0,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11099"
     },
     {
       "source": "open_items",
@@ -489,33 +483,6 @@
       "link": ""
     },
     {
-      "source": "red_crons",
-      "id": "constraint-readout",
-      "title": "constraint-readout",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/33960748950"
-    },
-    {
-      "source": "red_crons",
-      "id": "pr-queue-watch",
-      "title": "pr-queue-watch",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34013061354"
-    },
-    {
-      "source": "red_crons",
-      "id": "replay-pregate-nightly",
-      "title": "replay-pregate-nightly",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34021814737"
-    },
-    {
       "source": "error_feed",
       "id": "ERRFEED-1ef305c7",
       "title": "[error] x16 api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty",
@@ -527,8 +494,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-9fd2fc82",
-      "title": "[error] x87 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 87 rows 2026-08-24T14:08:42 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
+      "title": "[error] x82 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
+      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 82 rows 2026-08-24T17:04:54 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
       "age_days": 13,
       "loud": false,
       "link": ""
@@ -563,8 +530,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-a46d2970",
-      "title": "[error] x19 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 19 rows 2026-09-02T02:03:23 → 2026-09-05T23:20:13 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
+      "title": "[error] x20 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 20 rows 2026-09-02T02:03:23 → 2026-09-06T09:15:01 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
       "age_days": 4,
       "loud": false,
       "link": ""
@@ -572,8 +539,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-fa77ad80",
-      "title": "[error] x16 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 16 rows 2026-09-02T02:03:23 → 2026-09-05T23:20:12 · symbols=MES — decide: fix now, or file to a backlog",
+      "title": "[error] x17 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 17 rows 2026-09-02T02:03:23 → 2026-09-06T09:15:01 · symbols=MES — decide: fix now, or file to a backlog",
       "age_days": 4,
       "loud": false,
       "link": ""
@@ -590,26 +557,26 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-6da04340",
-      "title": "[error] x15 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 15 rows 2026-09-03T11:19:27 → 2026-09-05T23:20:13 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog",
+      "title": "[error] x16 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 16 rows 2026-09-03T11:19:27 → 2026-09-06T09:15:01 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog",
       "age_days": 3,
       "loud": false,
       "link": ""
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-57791ab1",
-      "title": "[error] NEW x1 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: SOLUSDT | Side: long | Qty: N Consecutive close failures: N share_hold: no",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-06T03:37:22 → 2026-09-06T03:37:22 · accounts=bybit_1 symbols=SOLUSDT — decide: fix now, or file to a backlog",
-      "age_days": 0,
+      "id": "ERRFEED-b3c9b0e2",
+      "title": "[error] x9 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg",
+      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 9 rows 2026-09-04T12:28:34 → 2026-09-06T10:15:10 · accounts=bybit_1 — decide: fix now, or file to a backlog",
+      "age_days": 2,
       "loud": false,
       "link": ""
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-e02747e1",
-      "title": "[error] NEW x1 bybit_over_cover detected: bybit_N/SOLUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg",
-      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-06T03:33:20 → 2026-09-06T03:33:20 · accounts=bybit_1 — decide: fix now, or file to a backlog",
+      "id": "ERRFEED-f27b3b0d",
+      "title": "[error] NEW x1 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: SOLUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: n",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-06T09:30:31 → 2026-09-06T09:30:31 · accounts=bybit_1 symbols=SOLUSDT — decide: fix now, or file to a backlog",
       "age_days": 0,
       "loud": false,
       "link": ""
@@ -617,8 +584,8 @@
     {
       "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "117 cause groups over 1376 rows (79 error-level, 38 warn-level, 2 new since the last digest)",
-      "why_due": "69 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-06T01:10:25.083914+00:00`.",
+      "title": "118 cause groups over 1384 rows (80 error-level, 38 warn-level, 1 new since the last digest)",
+      "why_due": "70 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-06T06:05:06.030147+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
