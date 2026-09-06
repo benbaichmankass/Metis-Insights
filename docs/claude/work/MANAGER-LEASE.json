@@ -19,12 +19,16 @@
     "reads to pick them up. Design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml"
   ],
   "schema_version": 1,
-  "state": "released",
-  "holder": null,
-  "released_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-  "released_at": "2026-09-05T14:57:22Z",
-  "previous_holder": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+  "state": "held",
+  "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "claimed_at": "2026-09-06T07:11:54Z",
+  "heartbeat_at": "2026-09-06T07:11:54Z",
+  "expires_at": "2026-09-06T08:41:54Z",
+  "ttl_minutes": 90,
+  "heartbeat_target_minutes": 30,
+  "claimed_over_state": "released",
   "forced": false,
   "force_reason": null,
+  "previous_holder": null,
   "note": null
 }
