@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One appended row in docs/claude/health-review-backlog.json, filed via scripts/ops/backlog_append.py so the file's exact serialisation round-trips (+11 lines, no reformatting). Docs-only: no src/, no config/, no workflows, no order path, no runtime behaviour."
+}
