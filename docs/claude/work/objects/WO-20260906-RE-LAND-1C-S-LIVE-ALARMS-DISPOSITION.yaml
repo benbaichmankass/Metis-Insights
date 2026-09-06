@@ -4,7 +4,7 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   Re-land 1C's live-alarms disposition on a clean branch — the current one is permanently red on manager-scope
 stage: DEPLOYMENT
-lifecycle: dormant
+lifecycle: in_flight
 owner: null
 opened_at: 2026-09-06
 closed_at: null

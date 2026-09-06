@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T09:55:00Z",
+  "updated_at": "2026-09-06T10:07:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1782,7 +1782,8 @@
       "note": "MEASURED 2026-09-06T07:1xZ: bybit_2 13 graded closes since 08-30, ZERO wins, -43.12 on a 264.86 book (~-14% of starting equity), expectancyR -0.90. Prior fortnight 14/23 (60.9%) and +40.96. 30d window reads expectancyR +0.98 while totalPnl is -3.63 -- MI-30's R contamination, and R feeds the promotion gates. Deliverable 1 (trustworthy instrument) GATES deliverable 2 (attribution). Displaces the cycle priority under a NARROW spawn-priority exception naming this object. Tier-3 PROPOSED never applied. Dispatch at docs/claude/work/spawn-prompts/2026-09-06/1B-loss-attribution.md.",
       "spawned_at": "2026-09-06T08:50Z",
       "result_2026_09_06": "⚠️ THE FIRST RUN LOST ITS WORK ENTIRELY. session_013r8Joo877hnkYoKRzQsrwW completed the analysis, committed 7a72a1e and could not push — it was spawned with NO repo attached (session_context had no `sources` key, unlike its two siblings) and the git proxy refused with 'repo not in authorized set'. No branch reached origin. UNRECOVERABLE: the manager cannot message a cloud sub-session (SendMessage refuses, ListAgents empty, the CCR MCP has no send tool). Filed as BL-20260906-A-SUBSESSION-SPAWNED-WITHOUT-SOURCE-URL-GETS-NO-REPO-AND-ITS-WORK-DIES-UNPUSHED. Re-spawned 09:41Z WITH source_url explicit, plus an instruction to push a skeleton early and verify it reached origin before investing.",
-      "deliverable_1_MEASURED_2026_09_06": "THE R INSTRUMENT IS NOT MERELY NOISY -- IT IS SIGN-INVERTED, and this lands before any attribution rests on it. Population: trades where status='closed' AND NOT is_backtest AND pnl IS NOT NULL, n=1451, drawn from all 5516 rows (full table, not a page), read live 2026-09-06. R-provenance via src/runtime/r_provenance.py::classify_r (imported, not re-derived): contaminated 124 (8.5%), confirmed_initial 174 (12.0%), unverified 1132 (78.0%), no_basis 21 (1.4%). 8.5% OF ROWS CARRY 98.8% OF THE R. Contaminated: sumR +4020.27, meanR +32.42. Confirmed_initial: sumR -92.16, meanR -0.53. All R-measurable: +2.84 mean. THE SIGN FLIPS -- on rows whose risk basis is CONFIRMED to be the initial risk, expectancy is -0.53R; the published +2.84R is an artifact of the other 8.5%. POSITIVE CONTROL for the discriminator: |R|>10 occurs 35 times among the 124 contaminated and ZERO times among the 174 confirmed_initial, max contaminated R +3672.3 -- total separation, so the threshold was not chosen to fit. MECHANISM, read from code not inferred: _clean_trades.r_multiple computes pnl/(|entry-stop|*|qty|*contract_value); the abs() is load-bearing, so a stop on the WRONG SIDE of entry still yields a positive risk and a finite R instead of a refusal. trades.stop_loss holds the FINAL stop and order_monitor._apply_update writes trailing amends into it, so a trade that trailed through breakeven stores a stop beyond entry, |entry-stop| collapses toward zero, and R explodes. R is defined against ENTRY-TIME risk; the column holds EXIT-TIME stop. CONSEQUENCE: every promote/demote verdict computed from expectancyR over a population containing contaminated rows is UNSAFE. This supersedes MI-30's framing (which said 17.2% store a stop on the wrong side and expectancyR reaches +206.9) with a measured sign inversion and a named mechanism. Deliverable 2 (attribution) is in progress and rests on NO R."
+      "deliverable_1_MEASURED_2026_09_06": "THE R INSTRUMENT IS NOT MERELY NOISY -- IT IS SIGN-INVERTED, and this lands before any attribution rests on it. Population: trades where status='closed' AND NOT is_backtest AND pnl IS NOT NULL, n=1451, drawn from all 5516 rows (full table, not a page), read live 2026-09-06. R-provenance via src/runtime/r_provenance.py::classify_r (imported, not re-derived): contaminated 124 (8.5%), confirmed_initial 174 (12.0%), unverified 1132 (78.0%), no_basis 21 (1.4%). 8.5% OF ROWS CARRY 98.8% OF THE R. Contaminated: sumR +4020.27, meanR +32.42. Confirmed_initial: sumR -92.16, meanR -0.53. All R-measurable: +2.84 mean. THE SIGN FLIPS -- on rows whose risk basis is CONFIRMED to be the initial risk, expectancy is -0.53R; the published +2.84R is an artifact of the other 8.5%. POSITIVE CONTROL for the discriminator: |R|>10 occurs 35 times among the 124 contaminated and ZERO times among the 174 confirmed_initial, max contaminated R +3672.3 -- total separation, so the threshold was not chosen to fit. MECHANISM, read from code not inferred: _clean_trades.r_multiple computes pnl/(|entry-stop|*|qty|*contract_value); the abs() is load-bearing, so a stop on the WRONG SIDE of entry still yields a positive risk and a finite R instead of a refusal. trades.stop_loss holds the FINAL stop and order_monitor._apply_update writes trailing amends into it, so a trade that trailed through breakeven stores a stop beyond entry, |entry-stop| collapses toward zero, and R explodes. R is defined against ENTRY-TIME risk; the column holds EXIT-TIME stop. CONSEQUENCE: every promote/demote verdict computed from expectancyR over a population containing contaminated rows is UNSAFE. This supersedes MI-30's framing (which said 17.2% store a stop on the wrong side and expectancyR reaches +206.9) with a measured sign inversion and a named mechanism. Deliverable 2 (attribution) is in progress and rests on NO R.",
+      "operator_decision_2026_09_06_e35": "Asked as a decision pop-up with the tradeoffs stated; operator chose 'Wait for 1B's attribution'. So the three real-money e35 legs KEEP the tighter atr_stop_mult 2.0 for now. ⚠️ THE MANAGER CORRECTED ITS OWN FRAMING WHEN ASKING: it had earlier told the operator that reverting would 'destroy the counterfactual', which was WRONG — the counterfactual replay runs on HISTORICAL trades and survives a revert. What waiting actually buys is FORWARD evidence to separate e35 from the BTC 81k->77k drawdown. The accepted cost is continued exposure at roughly -43 USD/week on a 265 USD book, and the operator was told n is small enough that waiting may not settle it either."
     },
     {
       "id": "MI-137-THREE-LIVE-ALARMS",
@@ -1796,8 +1797,60 @@
       "spawned_at": "2026-09-06T08:50Z",
       "result_2026_09_06": "Work PUSHED and safe on claude/live-alarms-1c-20260906; the session then blocked on an AskUserQuestion no human can answer. Manager opened #11105 for it and armed self-landing + CI. BEST FINDING — a named, reproducing ORDER-PATH defect: a reduce-only close on bybit_1/SOLUSDT failed 3 consecutive times at 2026-09-06T03:37:22Z with 'InvalidRequestError: Qty invalid (ErrCode 10001)' on qty '33.299999999999955' — the IEEE-754 artifact of 33.3, serialised to the wire WITHOUT being quantised to the symbol's qtyStep. The position cannot be flattened by the normal path. Tier-3, escalated not fixed, NEEDS AN OWNER. MANAGER CORRECTION: the session marked every live-venue claim NOT VERIFIED believing SSH was the only route to the VM. It is not — the diag API answers plain HTTPS from a sandbox container. Manager read at 09:42Z: bybit_1 holds ADA/XRP/AVAX/ETH and NO SOLUSDT, and 0 open orders. So there is NO live SOL exposure and (a) is not an emergency; whether trade 5516 was real or a reconciler artifact is STILL OPEN. (c) the Tier-2 restart is still owed an operator OK.",
       "update_09_52Z": "The session came BACK TO LIFE at ~09:47Z -- somebody answered its AskUserQuestion -- and pushed c8ccabdf adding automation/jobs/1c-live-alarms-state-01.job, which vm-driver.yml executes as bash over SSH on the LIVE money VM. That took the PR off the Tier-1 self-land surface and pr-landing R5 refused it, correctly. Manager RE-DECLARED tier 2 / landing hold / hold_reason tier_2_3_needs_approval and REMOVED the automerge request it had itself added at 09:44Z -- otherwise the manager's own arming would have carried a VM-executing file toward main on green. The job's payload is read-only by construction and its commit says operator-approved; the manager has NOT seen that approval and records it as the author's CLAIM. #11105 now needs one operator OK naming the job file."
+    },
+    {
+      "id": "MI-138-RELAND-1C",
+      "title": "Re-land 1C's live-alarms disposition on a clean branch — #11105 is permanently red on manager-scope",
+      "state": "in_flight",
+      "owner": "session_01WaQaYCpGb3yZKkkRqk4JfU",
+      "owns_object": "WO-20260906-RE-LAND-1C-S-LIVE-ALARMS-DISPOSITION",
+      "priority": "P1_CYCLE",
+      "tier": "2 (operator approval ALREADY GIVEN and recorded)",
+      "spawned_at": "2026-09-06T10:04Z",
+      "note": "Operator chose 'Spawn a session to re-land clean' over merging past the red check. Carries the operator-approved job file to main and closes #11105. Excepted by name in spawn-priority-exception.yaml (operating-layer under a trading cycle — INVERTED polarity vs every earlier entry in that file)."
+    },
+    {
+      "id": "MI-139-BYBIT-QTYSTEP",
+      "title": "Bybit reduce-only close rejected 10001 Qty invalid on an unquantised float qty — the position cannot flatten",
+      "state": "in_flight",
+      "owner": "session_01C6Lh24HDdkn6p14qsaeNrA",
+      "owns_object": "WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED",
+      "priority": "P1_CYCLE",
+      "tier": "3 (order path — PROPOSE only)",
+      "spawned_at": "2026-09-06T10:05Z",
+      "note": "Serves CY-20260906-TRADING-TRUTH directly, no exception needed. Told to check for an existing un-wired legalizer FIRST (RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED) and to establish whether anything is unflattenable on bybit_2, which is real money."
+    },
+    {
+      "id": "MI-140-ALPACA-LIVE-CANNOT-PLACE",
+      "title": "alpaca_live's routed real-money leg cannot place an order — both gates read live, every signal journals dry_run_no_order_placed",
+      "state": "queued",
+      "owner": "unassigned — operator-selected, waiting on a session slot",
+      "owns_object": "WO-20260906-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG",
+      "priority": "P1_CYCLE",
+      "tier": "unknown until root-caused",
+      "note": "Operator selected this to be routed. Blocked only on the concurrency cap of 3. ⚠️ Do not assume it is a bug — 'declared live and correctly refusing' is a real outcome and would move the defect to the declaration; ALPACA_CASH_SETTLEMENT_MODE=apply is armed on this exact account."
+    },
+    {
+      "id": "MI-141-47-PERCENT-ERROR-FEED",
+      "title": "One repeating exception is 47% of the entire operator ERROR+ feed",
+      "state": "queued",
+      "owner": "unassigned — operator-selected, waiting on a session slot",
+      "owns_object": "WO-20260906-ONE-REPEATING-EXCEPTION-IS-47-OF-THE",
+      "priority": "P1_CYCLE",
+      "tier": "1-2 depending on root cause",
+      "note": "Operator selected this to be routed. Blocked only on the cap. A desensitised alarm is a P1 in its own right in this repo. ⚠️ Silencing without root-causing does NOT count, and any latch must be durable/wall-clock — a per-process one resets on every trader restart."
+    },
+    {
+      "id": "MI-142-FINISH-THE-SWEEP",
+      "title": "Finish the observation sweep — 56 of 82 rows have still never been looked at on the fleet",
+      "state": "queued",
+      "owner": "unassigned — operator-selected, waiting on a session slot",
+      "owns_object": "WO-20260906-FINISH-THE-OBSERVATION-SWEEP-56-OF-82",
+      "priority": "P1_CYCLE",
+      "tier": "1",
+      "note": "Operator selected this to be routed. Needs a FRESH session — 1A is idle at 487k/1M and cannot be messaged. Excepted by name in spawn-priority-exception.yaml (operating-layer under a trading cycle)."
     }
   ],
   "as_of": "2026-09-04T09:45:00Z",
-  "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj (09:37Z check-in)"
+  "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj (operator decisions + 2 spawns)"
 }

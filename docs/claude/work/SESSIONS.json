@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-06T08:51:01Z",
+  "updated_at": "2026-09-06T10:05:23Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2364,6 +2364,34 @@
       ],
       "why": "Live at 07:13Z: orphan trade 5516 adopted on bybit_1 SOLUSDT (604.7 short), mes_trend_long_1d blind since 06:33Z, and restart_pending=true with live code behind main.",
       "confirmed_at": "2026-09-06T08:51:01Z"
+    },
+    {
+      "session_id": "session_01WaQaYCpGb3yZKkkRqk4JfU",
+      "registry_key": "pending-20260906T100427Z",
+      "state": "working",
+      "title": "Re-land 1C's live-alarms disposition on a clean branch (#11105 is permanently red on manager-scope)",
+      "owns_object": "WO-20260906-RE-LAND-1C-S-LIVE-ALARMS-DISPOSITION",
+      "spawned_at": "2026-09-06T10:04:27Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/reland-1c-disposition-20260906"
+      ],
+      "why": "The operator approved the job file; the PR cannot merge because of the manager's own commits. Operator chose a clean re-land.",
+      "confirmed_at": "2026-09-06T10:05:23Z"
+    },
+    {
+      "session_id": "session_01C6Lh24HDdkn6p14qsaeNrA",
+      "registry_key": "pending-20260906T100427Z-2",
+      "state": "working",
+      "title": "Bybit reduce-only close rejected 10001 Qty invalid on an unquantised float qty — position cannot flatten",
+      "owns_object": "WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED",
+      "spawned_at": "2026-09-06T10:04:27Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/bybit-qtystep-close-20260906"
+      ],
+      "why": "3 consecutive close failures on bybit_1/SOLUSDT; qty 33.299999999999955 reaches the wire unquantised to qtyStep. Likely engine of the orphan class.",
+      "confirmed_at": "2026-09-06T10:05:23Z"
     }
   ],
   "⚠️_registry_completeness": "2026-09-05T14:35Z — GRADED AGAINST PLATFORM TRUTH, and the register was wrong at scale. 94 rows were graded against a live list_sessions(mine=true, limit=100) read; 65 carried a state the platform contradicts, and 58 of those had NEVER been observed even once (last_observed absent) despite being spawned 2026-09-02/03. ⚠️ THE HEADLINE: the register claimed 41 sessions were working/idle/running. THE PLATFORM SAYS EXACTLY ONE SESSION IS RUNNING ACROSS THE WHOLE ACCOUNT, and it is the manager itself (session_016e2k4UmsMGgpbrJ5ctqeFv). Every other session is IDLE or ARCHIVED. The register's `working` state was never a measurement — it is what a manager wrote at SPAWN time and nobody ever revisited, which is MI-84 measured rather than asserted. ⚠️ WHAT THIS DOES **NOT** ESTABLISH: an IDLE session is not the same as FINISHED work. These rows are now honest about the session's LIFECYCLE and say nothing about whether each one's deliverable reached main. That audit spans several previous managers' days and was NOT done here; do not read a clean state column as a clean handoff. ⚠️ AND 0 non-terminal row(s) are NOT covered by this page at all — not graded, not disproven, simply outside the 100 most recent. `unknown` would be the honest label and they retain their stale value; do not read them as confirmed.",

@@ -4,7 +4,7 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   A Bybit reduce-only close is rejected with ErrCode 10001 on an unquantised float qty, so the position cannot be flattened
 stage: DEPLOYMENT
-lifecycle: dormant
+lifecycle: in_flight
 owner: null
 opened_at: 2026-09-06
 closed_at: null
