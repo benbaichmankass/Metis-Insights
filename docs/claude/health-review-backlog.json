@@ -32921,6 +32921,23 @@
         "BL-20260815-SCALP-EXIT-HEAD-MATRIX-DISAGREES-WITH-THE-4-ARM-SCREEN",
         "BL-20260816-EXIT-HEAD-LEVER-HAS-NO-CONSUMER-IN-ICT-SCALP"
       ]
+    },
+    {
+      "id": "BL-20260906-NO-SCALP-EXIT-HEAD-ARTIFACT-IS-PUBLISHED-SO-THE-NEW-CONSUMER-CANNOT-SCORE",
+      "opened_at": "2026-09-06T14:30:00+00:00",
+      "opened_by": "claude (MI-150, measured on the live mirror while shipping the consumer)",
+      "severity": "medium",
+      "tier": "1 to file; training + publishing a head is trainer-side work",
+      "status": "open",
+      "area": "ml/exit-head",
+      "title": "The ict_scalp exit-head consumer shipped and cannot score any of its 8 legs — the live mirror publishes only 1h artifacts and every scalp leg is 5m/15m",
+      "detail": "MEASURED, NOT INFERRED. /api/diag/shadow_stats read 2026-09-06 (last_seen 10:00:01Z) returns exactly two exit_head model_ids on the live mirror: exit-head-donchian-1h-v1 (advisory) and exit-head-donchian-peak-1h-v1 (shadow), count 52 each. BOTH ARE 1h. All 8 ict_scalp legs in config/strategies.yaml are 5m or 15m (5m: ict_scalp_5m, _sol_5m, _xrp_5m, _avax_5m; 15m: _xrp_15m, _eth_15m, _sol_15m, _mgc_15m).\n\nexit_head_shadow.maybe_score_exit_head's in-distribution guard skips any artifact whose `tf` does not equal the leg's, so it fail-closes on every scalp leg and returns None. That is the guard working CORRECTLY -- scoring a 5m trade with a 1h head is exactly the out-of-family pollution it exists to prevent (the 2026-07-12 IWM-1d rows).\n\nWHY THIS IS WORTH A ROW RATHER THAN A SHRUG. MI-146 identified these five cells as the ONLY passed-gate work in the 468-cell matrix blocked on missing code, and MI-150 wrote that code. The blocker did not clear -- it MOVED, from MISSING CODE to MISSING ARTIFACT, and the second blocker is invisible from the matrix (which grades cells, not the mirror) and from the unit source (which now contains a perfectly good consumer). A future session reading either surface would conclude the lever is ready.\n\n⚠️ AND THE SOAK'S SILENCE IS NOT EVIDENCE. The consumer writes runtime_logs/ict_scalp_exit_head_soak.jsonl on EVERY outcome including `decision_state: not_scored`, deliberately, so a DEAD consumer stays distinguishable from a SILENT one. Once deployed the log will fill immediately with not_scored rows and carry zero firing rows, possibly forever. Read that as *we cannot look*, never as *the head declined to fire*.\n\nNOT A DEFECT IN ANY SHIPPED CODE -- nothing here is broken. It is a gap between what was trained and what was wired, and it is only actionable trainer-side.",
+      "resolution_criteria": "EITHER (a) a 5m and/or 15m ict_scalp exit-head artifact is trained and published to runtime_logs/trainer_mirror/exit_head/ AND a soak row is observed with decision_state != not_scored and a non-null model_id (i.e. the in-distribution guard actually admitted a leg); OR (b) a recorded decision that no scalp head will be trained, which is a legitimate outcome and must be written down as a DECISION rather than left looking like a soak about to start. ⚠️ Do NOT close this on the consumer existing -- that is the half MI-150 delivered and is not what this row tracks. ⚠️ And note (a) is necessary but not sufficient for ARMING: arming additionally needs evidence surviving re-partitioning and is blocked by the 2026-08-23 SHIP BLOCKED operator decision.",
+      "related": [
+        "BL-20260816-EXIT-HEAD-LEVER-HAS-NO-CONSUMER-IN-ICT-SCALP",
+        "BL-20260815-SCALP-EXIT-HEAD-MATRIX-DISAGREES-WITH-THE-4-ARM-SCREEN",
+        "BL-20260906-EXIT-HEAD-ARTIFACT-DECLARES-A-FAMILY-AND-THE-IN-DISTRIBUTION-GUARD-NEVER-READ-IT"
+      ]
     }
   ]
 }

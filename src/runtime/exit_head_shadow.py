@@ -364,7 +364,7 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
     could not be measured from a PM-side session). Tightening a live money path
     against an unverified string is how a working exit gate goes quiet. Gating
     donchian too is a separate change that must FIRST read that value —
-    ``BL-20260906-EXIT-HEAD-GUARD-IGNORES-THE-ARTIFACT-FAMILY-FIELD``.
+    BL-20260906-EXIT-HEAD-ARTIFACT-DECLARES-A-FAMILY-AND-THE-IN-DISTRIBUTION-GUARD-NEVER-READ-IT
     """
     try:
         # In-distribution guard: each head was trained on specific

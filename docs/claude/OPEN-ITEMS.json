@@ -1228,6 +1228,21 @@
    "min_matching": 1,
    "why_a_timer_cannot_express_this": "Elapsed time says nothing here, because the gating condition is not patience -- it is whether an artifact admitting a 5m/15m scalp leg has ever been published. Until one is, the tf guard refuses every leg and the log fills with not_scored rows FOREVER at any cadence. `ready` therefore has to be a FIELD VALUE (a row whose decision_state is anything other than not_scored, i.e. a leg the guard actually admitted); check_every_days says how often a session must LOOK, this says what it is looking FOR.",
    "an_empty_log_means_the_writer_is_dead_not_that_nothing_fired": "⚠️ THE POLARITY IS THE OPPOSITE OF MOST SOAKS AND IS THE MOST USEFUL THING THIS BLOCK ENCODES. This consumer writes on EVERY outcome, so once it is deployed the log must fill with not_scored rows immediately. A log that is EMPTY or has stopped growing therefore means the consumer is NOT RUNNING (not deployed, or an exception path swallowing it) -- it does NOT mean the head declined to fire. Conversely a log full of not_scored rows is the HEALTHY expected state and is NOT progress toward ready."
+  },
+  "probe": {
+   "cmd": [
+    "python3",
+    "scripts/ops/probe_soak.py",
+    "--path",
+    "/api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000",
+    "--require",
+    "decision_state~scored_no_fire,scored_would_close",
+    "--positive-control",
+    "decision_state~not_scored,scored_no_fire,scored_would_close"
+   ],
+   "checks": "A row exists in which the exit head ACTUALLY SCORED an ict_scalp leg — decision_state is one of the scored_* values, i.e. maybe_score_exit_head's in-distribution guard ADMITTED the leg and returned a record. That is the single fact this row is waiting on, and it cannot happen until a 5m/15m scalp exit-head artifact is published to the mirror.",
+   "positive_control_is_the_point": "⚠️ THE EXPECTED STATE IS A LOG FULL OF `not_scored` ROWS, so a bare 'nothing matched' is indistinguishable from a fetch that returned an empty page — the `curl … || echo '{}'` defect. The positive control includes not_scored precisely so the probe must first PROVE it can read this log and find rows before its negative on the scored_* predicate means anything. Without it, a 404 (before this PR deploys the diag allowlist entry) and a genuinely unpublished artifact would grade identically.",
+   "is_not": "A PASS DOES NOT CLEAR THIS ROW and does not authorise arming. It establishes ONE clause: that an artifact admitting a scalp leg now exists and the consumer reached it. It says nothing about (a) whether the head is any good, (b) the 2026-08-23 SHIP BLOCKED operator decision that cancelled the Tier-3 ship, or (c) the ict_scalp_sol_5m re-partitioning failure. ⚠️ A `could_not_look` verdict (exit 2/3) is the EXPECTED result until this PR merges and deploys — the diag allowlist entry for this log ships in it — and must not be read as a negative."
   }
  }
 ],

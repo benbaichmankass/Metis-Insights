@@ -868,8 +868,9 @@ def _exit_head_verdict(
     as its own precondition. This function is that precondition. It is not
     permission to arm, and for `ict_scalp_sol_5m` the same ref records that
     its pass **does not survive re-partitioning** (the 4-arm screen flips it
-    to `honest_negative`; `BL-20260815-SCALP-EXIT-HEAD-MATRIX-DISAGREES-WITH-
-    THE-4-ARM-SCREEN`).
+    to `honest_negative`).
+    See BL-20260815-SCALP-EXIT-HEAD-MATRIX-DISAGREES-WITH-THE-4-ARM-SCREEN
+    (id kept WHOLE on one line: a wrapped id resolves to nothing).
 
     Fail-safe: any missing input, any exception, any mode confusion returns
     ``None`` — never a spurious close, never raises into the monitor.

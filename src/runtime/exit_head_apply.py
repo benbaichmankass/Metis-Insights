@@ -174,9 +174,10 @@ def staged_exit_head_decision(
 
     ⚠️ **At `annotate` the decision runs in full and the verdict is
     DISCARDED, not skipped.** Computing a plan and throwing it away without
-    recording it is `BL-20260831-STRAY-OCA-SWEEP-ANNOTATE-COMPUTES-A-VERDICT-
-    AND-DISCARDS-IT` — an annotate mode that produces no row annotates
-    nothing. The caller writes `would_close` to the soak.
+    recording it is an annotate mode that annotates nothing. The caller
+    writes `would_close` to the soak. Prior art, id kept WHOLE on one line
+    because a wrapped id resolves to nothing:
+    BL-20260831-STRAY-OCA-SWEEP-ANNOTATE-COMPUTES-A-VERDICT-AND-DISCARDS-IT
 
     ``decision_state`` is four states, never collapsed:
 
