@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T12:08Z",
+  "updated_at": "2026-09-06T13:40Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1940,6 +1940,15 @@
       "tier": "1 (audit — propose only)",
       "note": "Operator 2026-09-06: soaking is 'only for mechanical verification of what we already have tested to be verifiably true in backtesting'. The chain is inverted at least once: bracket_geometry reads PENDING (never swept) on the ENTIRE 8-leg ict_scalp family, every one execution: live.",
       "added": "2026-09-06"
+    },
+    {
+      "id": "MI-149-REGISTER-WRITERS",
+      "status": "queued",
+      "owner": null,
+      "opened": "2026-09-06",
+      "title": "Scaffold the guarded registers so a write cannot be wrong: OPEN-ITEMS, MANAGER-CHECKLIST, pr-landing",
+      "note": "OPERATOR 2026-09-06: 'your job is to manage the queue so that we don't lose cycles to these kinds of mistakes'. SEVEN guard failures on the manager's own PRs in one day, every one a field omission on a register write, every one found by CI ~2 min after the PR opened. backlog_append.py proves the pattern and is the ONLY one that exists. OPEN-ITEMS.json additionally does not round-trip at any json.dumps setting, so it can only be hand-spliced. Guards must NOT be weakened - the fix is upstream of them. Row: BL-20260906-EVERY-REGISTER-WRITE-IS-A-GUESS-THEN-A-CI-ROUND-TRIP. Highest queue-throughput item: the manager gates five sub-sessions.",
+      "updated": "2026-09-06T13:40Z"
     }
   ],
   "as_of": "2026-09-04T09:45:00Z",
