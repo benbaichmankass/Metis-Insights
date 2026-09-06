@@ -108,6 +108,11 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
+# The venue cap comes from its ONE owner. A local fallback constant here would
+# be a second definition free to drift from the one the live path clamps with --
+# the same reason `bracket_calibration.py` imports it rather than restating it.
+from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT  # noqa: E402
+
 #: The closed feature list. Decision-time and exogenous — see the docstring.
 FEATURE_NAMES: Tuple[str, ...] = (
     "risk_frac", "is_long", "confidence", "hour_sin", "hour_cos", "dow",
@@ -300,10 +305,7 @@ def per_leg_mfe_quantiles(rows: Sequence[Dict[str, Any]],
     trades ever reaching it.
     """
     from collections import defaultdict
-    try:
-        from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT as _CAP
-    except Exception:
-        _CAP = 0.099
+    _CAP = TP_VENUE_CAP_PCT
     by: Dict[str, List[float]] = defaultdict(list)
     for r in rows:
         v = _f(r.get("mfe_frac"))
@@ -319,15 +321,26 @@ def per_leg_mfe_quantiles(rows: Sequence[Dict[str, Any]],
                 row[f"p{int(q * 100)}"] = None
                 continue
             pos = q * (n - 1)
-            lo = int(math.floor(pos)); hi = min(lo + 1, n - 1); fr = pos - lo
+            lo = int(math.floor(pos))
+            hi = min(lo + 1, n - 1)
+            fr = pos - lo
             row[f"p{int(q * 100)}"] = vals[lo] * (1 - fr) + vals[hi] * fr
         row["reach_venue_cap"] = (sum(1 for v in vals if v >= _CAP) / n) if n else None
         out.append(row)
     return out
 
 
-def read_emit(path: str) -> List[Dict[str, Any]]:
+def read_emit(path: str) -> Tuple[List[Dict[str, Any]], int]:
+    """Return (rows, malformed_line_count).
+
+    ⚠️ The count is returned, not swallowed. A silently-skipped malformed line
+    makes a WHOLLY unreadable emit file indistinguishable from an empty one —
+    both render as "0 trades", and the second is a real result while the first
+    is a broken run. The caller surfaces `malformed_lines` in the population
+    summary so the denominator is always visible.
+    """
     out: List[Dict[str, Any]] = []
+    malformed = 0
     with open(path, "r", encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
@@ -335,11 +348,14 @@ def read_emit(path: str) -> List[Dict[str, Any]]:
                 continue
             try:
                 obj = json.loads(line)
-            except Exception:
+            except json.JSONDecodeError:
+                malformed += 1
                 continue
             if isinstance(obj, dict):
                 out.append(obj)
-    return out
+            else:
+                malformed += 1
+    return out, malformed
 
 
 def main() -> int:
@@ -357,13 +373,19 @@ def main() -> int:
 
     legs = args.leg or []
     all_rows: List[Dict[str, Any]] = []
+    malformed_total = 0
+    read_report: List[Dict[str, Any]] = []
     for i, path in enumerate(args.emit):
-        raws = read_emit(path)
+        raws, malformed = read_emit(path)
+        malformed_total += malformed
+        read_report.append({"emit": path, "rows": len(raws), "malformed_lines": malformed})
         override = legs[i] if i < len(legs) else None
         all_rows.extend(build_rows(raws, bank_frac_asserted=args.bank_frac_asserted,
                                    leg_override=override))
 
     summary = summarise(all_rows)
+    summary["emit_files"] = read_report
+    summary["malformed_lines_total"] = malformed_total
     summary["per_leg_mfe_quantiles"] = per_leg_mfe_quantiles(all_rows)
     if args.out:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)

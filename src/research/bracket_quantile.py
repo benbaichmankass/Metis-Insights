@@ -311,7 +311,6 @@ class QuantileRegressor:
 
         rng = random.Random(self.seed)
         idx = list(range(len(Z)))
-        n = len(Z)
         for epoch in range(self.epochs):
             rng.shuffle(idx)
             # Robbins-Monro 1/sqrt(t) decay. A plain subgradient method on a

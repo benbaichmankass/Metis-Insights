@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# wiring: manual-only — a research READ a session runs on the trainer, where the
+# historical candle store lives. It trains nothing that ships, writes no config
+# and has no runtime caller; the geometry it informs is Tier-3 and
+# operator-gated, so a scheduled runner would be producing evidence for a
+# decision nobody has taken yet. Dispatch it through the trainer-vm-diag relay
+# (see docs/research/ml2-predictive-bracket-2026-09-06.md § 1).
 """ML-2 · train the predictive bracket and grade it — CALIBRATION FIRST.
 
 E3.6's falsifier is the contract this script implements, and it is a falsifier
@@ -61,7 +67,7 @@ import json
 import math
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
@@ -70,8 +76,8 @@ if str(REPO / "scripts" / "research") not in sys.path:
     sys.path.insert(0, str(REPO / "scripts" / "research"))
 
 from src.research.bracket_quantile import (  # noqa: E402
-    CAL_GRADED, DEFAULT_QUANTILES, MIN_EVAL_N, SHARP_BEATS_BASELINE,
-    SHARP_WITHIN_NULL, QuantileRegressor, calibration_curve, empirical_quantile,
+    DEFAULT_QUANTILES, MIN_EVAL_N, SHARP_BEATS_BASELINE,
+    QuantileRegressor, calibration_curve, empirical_quantile,
     grade_model, mean_absolute_calibration_error, shuffled_label_control,
 )
 from ml2_bracket_corpus import FEATURE_NAMES, feature_matrix  # noqa: E402
@@ -80,8 +86,14 @@ from ml2_bracket_corpus import FEATURE_NAMES, feature_matrix  # noqa: E402
 DISPERSION_SPLITS = (0.55, 0.65, 0.75)
 
 
-def _read_corpus(path: str) -> List[Dict[str, Any]]:
+def _read_corpus(path: str) -> Tuple[List[Dict[str, Any]], int]:
+    """Return (rows, malformed_line_count) — the count is surfaced, not swallowed.
+
+    A wholly unreadable corpus and an empty one both render as "0 rows"
+    otherwise, and only one of those is a result.
+    """
     rows: List[Dict[str, Any]] = []
+    malformed = 0
     with open(path, "r", encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
@@ -89,11 +101,14 @@ def _read_corpus(path: str) -> List[Dict[str, Any]]:
                 continue
             try:
                 obj = json.loads(line)
-            except Exception:
+            except json.JSONDecodeError:
+                malformed += 1
                 continue
             if isinstance(obj, dict):
                 rows.append(obj)
-    return rows
+            else:
+                malformed += 1
+    return rows, malformed
 
 
 def _chrono_key(r: Dict[str, Any]) -> str:
@@ -147,6 +162,12 @@ def evaluate(
     for q in quantiles:
         m = QuantileRegressor(q, seed=seed).fit(Xtr, ytr)
         base = empirical_quantile(ytr, q)
+        # ⚠️ NOT a probability, and this file prints one a column away.
+        # `coverage` IS a probability (fraction of outcomes at or below the
+        # level); this is a price DISTANCE. Reading the level as a probability
+        # would report a 4.3%-of-entry target as "4% likely".
+        # provenance: QuantileRegressor.predict — the conditional q-QUANTILE of
+        # the outcome in PERCENT-OF-ENTRY (e.g. 0.043 = 4.3% of entry)
         mp = m.predict(Xev) if m.fitted else [None] * len(yev)
         bp: List[Optional[float]] = [base] * len(yev)
         preds_by_q[q] = mp
@@ -366,7 +387,10 @@ def main() -> int:
     if not args.corpus:
         ap.error("--corpus is required (or --selftest)")
 
-    rows = _read_corpus(args.corpus)
+    rows, malformed = _read_corpus(args.corpus)
+    if malformed:
+        print(f"⚠️  {malformed} malformed line(s) in {args.corpus} — "
+              f"stated, not swallowed; the usable count below excludes them.")
     result = evaluate(rows, outcome=args.outcome, split=args.split,
                       min_n=args.min_n, control_trials=args.control_trials)
     disp = None if args.no_dispersion else dispersion(
