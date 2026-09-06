@@ -58,6 +58,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
@@ -268,21 +269,31 @@ def render(result: Dict[str, Any], disp: Optional[Dict[str, Any]]) -> None:
     print("=" * 74)
 
 
-def selftest() -> int:
-    """Positive + negative control on synthetic data.
+def selftest(seeds: int = 6, n: int = 500, trials: int = 8) -> int:
+    """Positive + negative control, as a RATE over seeds — never a single draw.
 
-    A test suite that only checks the plumbing cannot tell a working estimator
-    from a broken one. This asserts the estimator FINDS a signal that is there
-    and does NOT find one that is not — the same discipline
-    `exit_sweep_positive_control.py` applies to the sweep.
+    ⚠️ **This function's first version graded ONE draw and it was wrong.** It
+    reported the no-signal arm as `5/5 beats_baseline`, i.e. a full false
+    positive, because that seed happened to land in the null's tail. Re-run
+    across 6 seeds the same arm gave sharp counts [0, 1, 0, 2, 0, 1] of 5 —
+    the estimator was fine and the TEST was not.
+
+    That is precisely the failure `scripts/research/e2_null_calibration.py`
+    exists to prevent, in its own words: *"E2 injects ONE negative control, so a
+    single run yields a single Bernoulli draw and cannot tell 5% bad luck from a
+    broken null."* A control is validated by its RATE.
+
+    Asserted here, over `seeds` independent draws:
+      * SIGNAL   — the majority rule fires on >= 80% of seeds (it must find a
+                   signal that IS there);
+      * NO-SIGNAL— it fires on <= 20% of seeds (the false-positive rate).
     """
     import random
-    rng = random.Random(11)
-    ok = True
 
-    def _mk(n: int, signal: bool):
+    def _mk(nn: int, signal: bool, seed: int) -> List[Dict[str, Any]]:
+        rng = random.Random(seed)
         rows = []
-        for i in range(n):
+        for i in range(nn):
             rf = rng.uniform(0.005, 0.05)
             base = (3.0 * rf) if signal else 0.02
             mfe = max(0.0, base + rng.expovariate(1 / 0.01))
@@ -290,24 +301,45 @@ def selftest() -> int:
                 "leg": "synthetic", "symbol": "X",
                 "entry_time": f"2026-01-{1 + i % 28:02d} {i % 24:02d}:00:00",
                 "risk_frac": rf, "is_long": float(i % 2), "confidence": rng.random(),
-                "hour_sin": 0.1, "hour_cos": 0.2, "dow": float(i % 7),
+                "hour_sin": math.sin(i), "hour_cos": math.cos(i), "dow": float(i % 7),
                 "mfe_frac": mfe,
             })
         return rows
 
-    pos = evaluate(_mk(900, True), control_trials=6)
-    neg = evaluate(_mk(900, False), control_trials=6)
-    sharp_pos = sum(1 for s in pos["sharpness"] if s["sharpness_state"] == SHARP_BEATS_BASELINE)
-    sharp_neg = sum(1 for s in neg["sharpness"] if s["sharpness_state"] == SHARP_BEATS_BASELINE)
-    print(f"[selftest] SIGNAL   verdict={pos['verdict']} mace={_fmt(pos['mace'])} "
-          f"sharp_quantiles={sharp_pos}/{len(pos['sharpness'])}")
-    print(f"[selftest] NO-SIGNAL verdict={neg['verdict']} mace={_fmt(neg['mace'])} "
-          f"sharp_quantiles={sharp_neg}/{len(neg['sharpness'])}")
-    if sharp_pos < 3:
-        print("[selftest] FAIL: estimator did not find a signal that IS there.")
+    # The FULL default quantile set, so the selftest validates the configuration
+    # the real runs actually use. It also discriminates better: MEASURED over 6
+    # independent no-signal seeds, the sharp count never exceeded 2 of 5, while
+    # every signal seed reached 5 of 5 — so the majority rule (>= 3 of 5) sits
+    # in a genuine gap. At 3 quantiles the rule is ">= 2 of 3" and a noise seed
+    # reached it, giving an FPR of exactly 0.20 against a 0.20 bar.
+    qs = tuple(DEFAULT_QUANTILES)
+    need = len(qs) / 2.0
+    fired = {True: 0, False: 0}
+    detail = {True: [], False: []}
+    for signal in (True, False):
+        for sd in range(seeds):
+            r = evaluate(_mk(n, signal, 1000 + sd), quantiles=qs,
+                         control_trials=trials, seed=sd)
+            c = sum(1 for x in r["sharpness"]
+                    if x["sharpness_state"] == SHARP_BEATS_BASELINE)
+            detail[signal].append(c)
+            if c >= need:
+                fired[signal] += 1
+    tpr = fired[True] / seeds
+    fpr = fired[False] / seeds
+    print(f"[selftest] population: {seeds} seeds x n={n}, quantiles={qs}, "
+          f"control_trials={trials}, majority rule >= {need} of {len(qs)}")
+    print(f"[selftest] SIGNAL    fires {fired[True]}/{seeds} (TPR {tpr:.2f})  "
+          f"sharp counts {detail[True]}")
+    print(f"[selftest] NO-SIGNAL fires {fired[False]}/{seeds} (FPR {fpr:.2f})  "
+          f"sharp counts {detail[False]}")
+    ok = True
+    if tpr < 0.8:
+        print("[selftest] FAIL: does not find a signal that IS there (TPR < 0.80).")
         ok = False
-    if sharp_neg > sharp_pos:
-        print("[selftest] FAIL: found MORE signal in noise than in signal.")
+    if fpr > 0.2:
+        print("[selftest] FAIL: fires on noise too often (FPR > 0.20) — the null "
+              "is not gating.")
         ok = False
     print("[selftest]", "PASS" if ok else "FAIL")
     return 0 if ok else 1
@@ -326,10 +358,11 @@ def main() -> int:
     ap.add_argument("--no-dispersion", action="store_true")
     ap.add_argument("--out", default=None, help="write the full result JSON here")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--selftest-seeds", type=int, default=6)
     args = ap.parse_args()
 
     if args.selftest:
-        return selftest()
+        return selftest(seeds=args.selftest_seeds)
     if not args.corpus:
         ap.error("--corpus is required (or --selftest)")
 

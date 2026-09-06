@@ -282,6 +282,50 @@ def summarise(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
+def per_leg_mfe_quantiles(rows: Sequence[Dict[str, Any]],
+                          qs: Sequence[float] = (0.5, 0.7, 0.8, 0.9, 0.95),
+                          ) -> List[Dict[str, Any]]:
+    """Per-leg MFE quantiles in percent-of-entry — **the BASELINE, and the thing
+    MI-148 could not compute.**
+
+    Its memo gated clause 1 on exactly this: *"an MFE distribution at proper n …
+    the live telemetry gives 1-8 rows per leg."* This is that distribution from
+    the offline harness, so the per-leg n is the harness's, not the journal's.
+
+    ⚠️ It is also the model's COMPETITOR, not its input. If ML-2 does not beat
+    these numbers out of sample, these numbers are the answer and the model is
+    surplus. `reach_venue_cap` is carried beside them because a leg whose p90
+    sits far below `TP_VENUE_CAP_PCT` is one whose declared target is a venue
+    artefact rather than a prediction — MI-148 measured 0 of 39 non-crypto
+    trades ever reaching it.
+    """
+    from collections import defaultdict
+    try:
+        from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT as _CAP
+    except Exception:
+        _CAP = 0.099
+    by: Dict[str, List[float]] = defaultdict(list)
+    for r in rows:
+        v = _f(r.get("mfe_frac"))
+        if v is not None:
+            by[str(r.get("leg"))].append(v)
+    out: List[Dict[str, Any]] = []
+    for leg in sorted(by):
+        vals = sorted(by[leg])
+        n = len(vals)
+        row: Dict[str, Any] = {"leg": leg, "n": n, "venue_cap_pct": _CAP}
+        for q in qs:
+            if n == 0:
+                row[f"p{int(q * 100)}"] = None
+                continue
+            pos = q * (n - 1)
+            lo = int(math.floor(pos)); hi = min(lo + 1, n - 1); fr = pos - lo
+            row[f"p{int(q * 100)}"] = vals[lo] * (1 - fr) + vals[hi] * fr
+        row["reach_venue_cap"] = (sum(1 for v in vals if v >= _CAP) / n) if n else None
+        out.append(row)
+    return out
+
+
 def read_emit(path: str) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     with open(path, "r", encoding="utf-8") as fh:
@@ -320,6 +364,7 @@ def main() -> int:
                                    leg_override=override))
 
     summary = summarise(all_rows)
+    summary["per_leg_mfe_quantiles"] = per_leg_mfe_quantiles(all_rows)
     if args.out:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as fh:
