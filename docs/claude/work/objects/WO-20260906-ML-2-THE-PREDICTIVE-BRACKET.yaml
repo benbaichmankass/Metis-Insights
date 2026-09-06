@@ -1,0 +1,28 @@
+id: WO-20260906-ML-2-THE-PREDICTIVE-BRACKET
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  ML-2, the predictive bracket: regress the exit location an entry should expect, graded on calibration first
+stage: CAPABILITY
+lifecycle: ready
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  This is the ROOT-CAUSE item -- MI-146's recommendation #3, which it states
+  everything else is downstream of. If it goes quiet, that is worth saying
+  loudly rather than carrying.
+done_condition: >-
+  A model that predicts WHERE a trade should exit, and an honest read of whether it is any good. (1) GRADED ON CALIBRATION FIRST, P&L SECOND -- E3.6's own falsifier, not negotiable: "a bracket that improves net R while being systematically wrong about WHERE trades exit has NOT met this bar." Publish the calibration read before any P&L claim. (2) REUSE the instrument MI-148 already built and landed (#11138) rather than authoring a second one -- it measured 4 of 102 peak_gradeable trades (3.9%) ever reaching the level their target sits at, and the measured-exit stratum (n=82) putting the target at quantile 0.9024 of realised exits. A second calibration definition would be free to drift from the one that governs. (3) THE POPULATION PROBLEM IS THE FIRST THING TO SOLVE, NOT AN AFTERTHOUGHT: live MFE n is 1-8 PER LEG, which is exactly why MI-148 refused to propose per-leg target values. State the corpus you will train on, and establish whether backtest exit locations match live ones -- if you cannot, say so and treat the gap as a finding rather than an assumption. (4) The output is a PROPOSAL with its gate. Strategy geometry is Tier-3; propose, do not apply.
+
+why: >-
+  OPERATOR DECISION, 2026-09-06: asked directly what to do about the targets and answered "Build ML-2, the predictive bracket". It is MI-146's recommendation #3, which MI-146 calls the root cause: 25 of 44 enabled live legs (56.8%) have no reachable take-profit -- 15 carry a tp_r >= 20 sentinel clamped by TP_VENUE_CAP_PCT = 0.099, which is Bybit's ErrCode 10001 REJECTION boundary and is applied even to legs that touch no Bybit account; 10 declare none at all. Until a leg has a target that can be reached, no giveback lever can be EVALUATED on it and no trade on it can end at a bracket -- so the honest_negative measured on giveback_stop across 39 wired legs answers a different question than the one the operator asked. Operator's framing, 2026-09-06: "the brackets need to be the prediction of where we think the price is gonna go ... if we see that we're getting close to the take profit but the momentum is still strong, then we can adjust that during the trade. But there shouldn't be, like, an endless bracket."
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-06. ML-2 is named in E3.6 and has never been started; its
+  calibration instrument now EXISTS on main (#11138), which was the one real
+  precondition. The n-per-leg problem bounds what may be FITTED, not whether
+  the work can begin, so it is a design constraint rather than a blocker.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (operator-decided)
