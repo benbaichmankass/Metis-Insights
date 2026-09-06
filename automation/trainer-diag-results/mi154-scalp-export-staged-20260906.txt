@@ -1,0 +1,73 @@
+=== trainer-diag-relay result ===
+request: mi154-scalp-export-staged-20260906
+state: ran
+remote_exit: 0
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/34047529006
+=================================
+=== 0. venv + lightgbm ===
+.venv
+lightgbm 4.6.0 py 3.11.0rc1
+
+=== 1. candidate scalp family dirs with rows.jsonl ===
+  20640026 ./datasets-out/exit_head/1h/donchian/rows.jsonl
+     84089 ./datasets-out/exit_head/1h/fade/rows.jsonl
+      2795 ./datasets-out/exit_head/1h/fvg_range_15m/rows.jsonl
+     91443 ./datasets-out/exit_head/1h/ict_scalp_5m/rows.jsonl
+    451872 ./datasets-out/exit_head/1h/pullback/rows.jsonl
+     25227 ./datasets-out/exit_head/1h/squeeze/rows.jsonl
+     64213 ./datasets-out/exit_head/1h/vwap/rows.jsonl
+    152359 ./datasets-out/exit_head/2h/donchian/rows.jsonl
+     40372 ./datasets-out/exit_head/2h/fade/rows.jsonl
+      1679 ./datasets-out/exit_head/2h/fvg_range_15m/rows.jsonl
+     45673 ./datasets-out/exit_head/2h/ict_scalp_5m/rows.jsonl
+  18527202 ./datasets-out/exit_head/2h/pullback/rows.jsonl
+     12321 ./datasets-out/exit_head/2h/squeeze/rows.jsonl
+     25356 ./datasets-out/exit_head/2h/vwap/rows.jsonl
+  10095335 ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_sol_15m_off0/ict_scalp_sol_15m/rows.jsonl
+  10095335 ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_sol_15m_off12/ict_scalp_sol_15m/rows.jsonl
+  10095335 ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_sol_15m_off4/ict_scalp_sol_15m/rows.jsonl
+  10095335 ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_sol_15m_off8/ict_scalp_sol_15m/rows.jsonl
+   9979481 ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_xrp_15m_off0/ict_scalp_xrp_15m/rows.jsonl
+   9979481 ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_xrp_15m_off12/ict_scalp_xrp_15m/rows.jsonl
+   9979481 ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_xrp_15m_off4/ict_scalp_xrp_15m/rows.jsonl
+   9979481 ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_xrp_15m_off8/ict_scalp_xrp_15m/rows.jsonl
+   8651307 ./runtime_logs/m20_exit_head/scalp_15m_20260814T135244Z/ict_scalp_eth_15m/rows.jsonl
+  10095335 ./runtime_logs/m20_exit_head/scalp_15m_20260814T135244Z/ict_scalp_sol_15m/rows.jsonl
+   9979481 ./runtime_logs/m20_exit_head/scalp_15m_20260814T135244Z/ict_scalp_xrp_15m/rows.jsonl
+  27595714 ./runtime_logs/m20_exit_head/scalp_5m_20260814T151003Z/ict_scalp_avax_5m/rows.jsonl
+  22085559 ./runtime_logs/m20_exit_head/scalp_5m_20260814T151003Z/ict_scalp_sol_5m/rows.jsonl
+  21220240 ./runtime_logs/m20_exit_head/scalp_5m_20260814T151003Z/ict_scalp_xrp_5m/rows.jsonl
+
+=== 2. shape of each candidate: n rows, harness rows, symbols, tf, bar_t span ===
+--- ./runtime_logs/m20_exit_head/scalp_5m_20260814T151003Z/ict_scalp_avax_5m/rows.jsonl
+    rows=27513 harness=27513 symbols={'AVAXUSDT': 27513} tf_field={None: 27513}
+    bar_t span=2021-09-16..2026-06-16 coverage=1.0
+--- ./runtime_logs/m20_exit_head/scalp_5m_20260814T151003Z/ict_scalp_xrp_5m/rows.jsonl
+    rows=21258 harness=21258 symbols={'XRPUSDT': 21258} tf_field={None: 21258}
+    bar_t span=2021-05-13..2026-06-17 coverage=1.0
+--- ./runtime_logs/m20_exit_head/scalp_5m_20260814T151003Z/ict_scalp_sol_5m/rows.jsonl
+    rows=22120 harness=22120 symbols={'SOLUSDT': 22120} tf_field={None: 22120}
+    bar_t span=2021-10-17..2026-06-17 coverage=1.0
+--- ./runtime_logs/m20_exit_head/scalp_15m_20260814T135244Z/ict_scalp_sol_15m/rows.jsonl
+    rows=10079 harness=10079 symbols={'SOLUSDT': 10079} tf_field={None: 10079}
+    bar_t span=2021-10-25..2026-06-18 coverage=1.0
+--- ./runtime_logs/m20_exit_head/scalp_15m_20260814T135244Z/ict_scalp_eth_15m/rows.jsonl
+    rows=8644 harness=8644 symbols={'ETHUSDT': 8644} tf_field={None: 8644}
+    bar_t span=2021-03-16..2026-06-17 coverage=1.0
+--- ./runtime_logs/m20_exit_head/scalp_15m_20260814T135244Z/ict_scalp_xrp_15m/rows.jsonl
+    rows=9960 harness=9960 symbols={'XRPUSDT': 9960} tf_field={None: 9960}
+    bar_t span=2021-05-17..2026-06-18 coverage=1.0
+--- ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_sol_15m_off0/ict_scalp_sol_15m/rows.jsonl
+    rows=10079 harness=10079 symbols={'SOLUSDT': 10079} tf_field={None: 10079}
+    bar_t span=2021-10-25..2026-06-18 coverage=1.0
+--- ./runtime_logs/m20_exit_head/cand15m_20260815T042247Z/ict_scalp_xrp_15m_off0/ict_scalp_xrp_15m/rows.jsonl
+    rows=9960 harness=9960 symbols={'XRPUSDT': 9960} tf_field={None: 9960}
+    bar_t span=2021-05-17..2026-06-18 coverage=1.0
+--- ./datasets-out/exit_head/1h/ict_scalp_5m/rows.jsonl
+    rows=164 harness=0 symbols={} tf_field={}
+    bar_t: NONE
+
+=== 3. disk before ===
+/dev/sda1        45G   39G  6.8G  86% /
+=== END ===
+
