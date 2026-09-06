@@ -32917,6 +32917,24 @@
       "resolution_criteria": "Establish from the CODE and the DB -- not from this row -- what order_packages.sl/tp holds for a pairs leg, by reading pairs_executor's package writer and a sample of real pairs rows. Then either (a) the levels ARE per-leg protective levels, in which case 0-for-301 is a real finding about the sleeve and belongs in a performance review, or (b) they are not, in which case bracket_outcome must return a distinct state for a leg whose bracket is not a per-leg price level -- NOT mid_bracket, which currently asserts 'we looked and it ended between the levels'. Either way the all-accounts bracketOutcome numbers get restated with the answer.",
       "status": "open",
       "opened": "2026-09-06"
+    },
+    {
+      "id": "BL-20260906-BRACKETOUTCOME-JOINS-ONE-KEY-AND-GRADES-A-QUARTER-OF-THE-REAL-MONEY-BOOK",
+      "opened": "2026-09-06",
+      "severity": "medium",
+      "status": "open",
+      "area": "observability",
+      "title": "bracketOutcome joins order_packages on order_package_id only, so it answers the operator's bracket question over 23% of the real-money book",
+      "detail": "FOUND 2026-09-06 by checking the DEPLOYED figure against the pre-merge measurement instead of accepting it, minutes after PR #11131 (MI-144) deployed. /api/bot/performance's bracketOutcome resolves a trade's declared bracket by joining order_packages on trades.order_package_id ONLY. MEASURED against the live journal via /api/bot/db/table/*: of 470 real-money closed non-backtest trades only 120 (25.5%) carry an order_package_id, and 325 of the 350 NULL rows ARE reachable through the reverse edge order_packages.linked_trade_id (92.9%); 25 are unreachable by either key. Consequence on the route's own population (n=428): gradeable=99, noBracketRecord=325, published reachedRatio 0.4444. Re-run offline with the SHIPPED classifier, the forward key alone reproduces 44/99 = 44.4% EXACTLY (positive control), while forward-then-fallback grades 420 of 428 (98.1%) and answers 228/420 = 54.3%, sl:tp 187:41. NOTE THE 44.4% IS NOT A WRONG NUMBER -- it is a correct ratio over a denominator the reader cannot see is a quarter of the book, i.e. the same UNPROVENANCED-DENOMINATOR class MI-144 was dispatched to fix, reproduced by the fix itself. noBracketRecord IS published beside it so the state is not collapsed; the hazard is reachedRatio quoted alone. DO NOT CONFLATE WITH R: the same fallback moves rBasis.declaredInitial 103->106 and expectancyR -0.3152 -> -0.3153, because reverse-linked packages carry sl/tp but rarely a meta.risk_per_unit. FIX (Tier-1, read path): pre-aggregated LEFT JOIN on linked_trade_id consulted only where order_package_id is NULL, MIN(order_package_id) for determinism. linked_trade_id is currently UNIQUE across all 4436 packages (1113 over 1113 distinct trades, zero fan-out), so the pre-aggregation is defensive rather than load-bearing today.",
+      "refs": [
+        "PR #11131",
+        "src/web/api/routers/performance.py",
+        "tests/test_performance_bracket_outcome_wiring.py",
+        "docs/research/trade-record-integrity-2026-09-06.md",
+        "OI-20260906-BRACKETOUTCOME-ANSWERS-THE-OPERATORS-QUESTION-OVER-A-QUARTER-OF-THE-BOOK"
+      ],
+      "tier": "1 — read path / analytics only; no writer, no order path",
+      "resolution_criteria": "/api/bot/performance?window=all is OBSERVED on the live fleet with bracketOutcome.gradeable at or above ~420 of 424 and noBracketRecord in the low single digits. CHECK THE COVERAGE, NOT THE RATIO: reachedRatio is not broken and moves only 0.4444 -> ~0.5429, so watching it alone cannot distinguish a fixed instrument from an unfixed one. A merge closes nothing (ict-git-sync must pull it) and a green suite closes nothing (a harness cannot reach the VM). If coverage rises but the ratio does not land near 0.5429, that is the more valuable finding -- record it and keep the row open."
     }
   ]
 }
