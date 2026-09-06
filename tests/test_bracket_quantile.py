@@ -409,3 +409,47 @@ def test_per_leg_quantiles_report_none_not_zero_for_an_empty_leg():
     t = per_leg_mfe_quantiles([build_row(dict(_EMIT, mfe_r=None))])
     # a leg with no readable MFE must not appear with a 0.0 quantile
     assert all(r["n"] > 0 for r in t)
+
+
+# ---------------------------------------------------------------------------
+# the E4 dispersion arm must be the SAME computation as the headline
+# ---------------------------------------------------------------------------
+
+def test_dispersion_arm_at_the_headline_split_reproduces_the_headline():
+    """A stability claim about a DIFFERENT measurement reads as corroboration
+    and is worse than no claim at all.
+
+    This regressed once for real: the arms ran at `control_trials=3` while the
+    headline ran at 10, so every arm reported `calibrated_and_sharper` and
+    `split_sensitive: False` beneath a headline of
+    `calibrated_but_no_sharper_than_baseline`.
+    """
+    import ml2_bracket_train_eval as ev
+
+    rng = random.Random(41)
+    rows = []
+    for i in range(500):
+        rf = rng.uniform(0.005, 0.05)
+        rows.append({
+            "leg": "L", "entry_time": f"2026-01-{1 + i % 28:02d} {i % 24:02d}:00:00",
+            "risk_frac": rf, "is_long": float(i % 2), "confidence": rng.random(),
+            "hour_sin": math.sin(i), "hour_cos": math.cos(i), "dow": float(i % 7),
+            "mfe_frac": max(0.0, 3.0 * rf + rng.expovariate(1 / 0.01)),
+        })
+    head = ev.evaluate(rows, quantiles=(0.5, 0.8), control_trials=4, seed=0)
+    disp = ev.dispersion(rows, headline_verdict=head["verdict"],
+                         quantiles=(0.5, 0.8), control_trials=4, seed=0)
+    assert disp["arms_consistent_with_headline"] is True, (
+        f"arm at 0.65 gave {[a for a in disp['arms'] if a['split'] == 0.65]} "
+        f"but the headline gave {head['verdict']} — not the same computation")
+    assert disp["control_trials"] == 4
+
+
+def test_dispersion_consistency_is_none_not_true_when_not_checked():
+    """`None` is 'we did not compare', which must not read as agreement."""
+    import ml2_bracket_train_eval as ev
+    rows = [{"leg": "L", "entry_time": "2026-01-01 00:00:00", "risk_frac": 0.02,
+             "is_long": 1.0, "confidence": 0.1, "hour_sin": 0.0, "hour_cos": 1.0,
+             "dow": 1.0, "mfe_frac": 0.03} for _ in range(10)]
+    disp = ev.dispersion(rows, quantiles=(0.5,), control_trials=1)
+    assert disp["arms_consistent_with_headline"] is None

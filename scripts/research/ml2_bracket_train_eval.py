@@ -203,19 +203,42 @@ def evaluate(
     return out
 
 
-def dispersion(rows: Sequence[Dict[str, Any]], **kw: Any) -> Dict[str, Any]:
-    """E4: recompute the verdict at several splits. Disagreement is a REFUSAL."""
+def dispersion(rows: Sequence[Dict[str, Any]], *, headline_verdict: Optional[str] = None,
+               **kw: Any) -> Dict[str, Any]:
+    """E4: recompute the verdict at several splits. Disagreement is a REFUSAL.
+
+    ⚠️ **THE ARMS MUST USE THE SAME CONTROL CONFIGURATION AS THE HEADLINE, AND
+    ONCE DID NOT.** An earlier cut ran the arms at `control_trials=3` while the
+    headline ran at 10. A null estimated from 3 draws is wider-tailed and
+    noisier, so the arms cleared a *different* bar — and the smoke run showed
+    exactly what that produces: every arm reading `calibrated_and_sharper` and
+    `split_sensitive: False` beneath a headline of
+    `calibrated_but_no_sharper_than_baseline`. A stability claim about a
+    measurement other than the one reported is worse than no stability claim,
+    because it reads as corroboration.
+
+    Self-consistency is now ASSERTED rather than hoped for: the arm at the
+    headline split must reproduce the headline verdict, and `arms_consistent`
+    says whether it did. A mismatch means the two are not the same computation
+    and neither the stability claim nor the headline should be trusted.
+    """
     arms = []
-    for s in DISPERSION_SPLITS:
+    for sp in DISPERSION_SPLITS:
         kw2 = dict(kw)
-        kw2["split"] = s
+        kw2["split"] = sp
         r = evaluate(rows, **kw2)
-        arms.append({"split": s, "verdict": r["verdict"], "mace": r["mace"],
+        arms.append({"split": sp, "verdict": r["verdict"], "mace": r["mace"],
                      "n_eval": r["population"]["n_eval"]})
     verdicts = {a["verdict"] for a in arms}
+    at_headline = [a for a in arms if abs(a["split"] - 0.65) < 1e-9]
+    consistent: Optional[bool] = None
+    if headline_verdict is not None and at_headline:
+        consistent = (at_headline[0]["verdict"] == headline_verdict)
     return {
         "arms": arms,
+        "control_trials": kw.get("control_trials"),
         "split_sensitive": len(verdicts) > 1,
+        "arms_consistent_with_headline": consistent,
         "note": ("§ E4: split_sensitive is a REFUSAL, not a caveat — the verdict "
                  "does not proceed." if len(verdicts) > 1 else
                  "verdict stable across splits"),
@@ -277,6 +300,13 @@ def render(result: Dict[str, Any], disp: Optional[Dict[str, Any]]) -> None:
             print(f"  split={a['split']:.2f} n_eval={a['n_eval']:>5} "
                   f"mace={_fmt(a['mace'])} verdict={a['verdict']}")
         print(f"  split_sensitive={disp['split_sensitive']} — {disp['note']}")
+        cons = disp.get("arms_consistent_with_headline")
+        if cons is False:
+            print("  ⚠️  ARM AT THE HEADLINE SPLIT DISAGREES WITH THE HEADLINE.")
+            print("      These are then not the same computation, and neither the")
+            print("      stability claim nor the headline verdict should be trusted.")
+        elif cons is True:
+            print("  arms_consistent_with_headline=True (same computation, asserted)")
         print()
     print("=" * 74)
     print(f"VERDICT: {result['verdict']}")
@@ -393,8 +423,10 @@ def main() -> int:
               f"stated, not swallowed; the usable count below excludes them.")
     result = evaluate(rows, outcome=args.outcome, split=args.split,
                       min_n=args.min_n, control_trials=args.control_trials)
+    # SAME control configuration as the headline — see dispersion()'s docstring.
     disp = None if args.no_dispersion else dispersion(
-        rows, outcome=args.outcome, min_n=args.min_n, control_trials=3)
+        rows, headline_verdict=result["verdict"], outcome=args.outcome,
+        min_n=args.min_n, control_trials=args.control_trials)
     render(result, disp)
 
     per_leg = {}
@@ -405,7 +437,8 @@ def main() -> int:
         print("\n--- PER-LEG (the population problem, measured rather than asserted) ---")
         print(f"{'leg':<34} {'n':>6} {'verdict':<34} {'mace':>8}")
         for leg, lr in sorted(legs.items()):
-            res = evaluate(lr, outcome=args.outcome, min_n=args.min_n, control_trials=2)
+            res = evaluate(lr, outcome=args.outcome, min_n=args.min_n,
+                           control_trials=args.control_trials)
             per_leg[leg] = res
             print(f"{leg:<34} {res['population']['usable']:>6} "
                   f"{res['verdict']:<34} {_fmt(res['mace']):>8}")
