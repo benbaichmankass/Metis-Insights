@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T13:40Z",
+  "updated_at": "2026-09-06T14:34Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1949,6 +1949,24 @@
       "title": "Scaffold the guarded registers so a write cannot be wrong: OPEN-ITEMS, MANAGER-CHECKLIST, pr-landing",
       "note": "OPERATOR 2026-09-06: 'your job is to manage the queue so that we don't lose cycles to these kinds of mistakes'. SEVEN guard failures on the manager's own PRs in one day, every one a field omission on a register write, every one found by CI ~2 min after the PR opened. backlog_append.py proves the pattern and is the ONLY one that exists. OPEN-ITEMS.json additionally does not round-trip at any json.dumps setting, so it can only be hand-spliced. Guards must NOT be weakened - the fix is upstream of them. Row: BL-20260906-EVERY-REGISTER-WRITE-IS-A-GUESS-THEN-A-CI-ROUND-TRIP. Highest queue-throughput item: the manager gates five sub-sessions.",
       "updated": "2026-09-06T13:40Z"
+    },
+    {
+      "id": "MI-151-ML2-PREDICTIVE-BRACKET",
+      "status": "in_flight",
+      "owner": "session_01Adzvjpv8SZQouoBjwMJ4qv",
+      "opened": "2026-09-06",
+      "title": "ML-2, the predictive bracket - regress the exit location an entry should expect",
+      "note": "OPERATOR DECISION 'Build ML-2, the predictive bracket' - MI-146 rec #3, the ROOT CAUSE of the 25 targetless legs. Graded CALIBRATION FIRST per E3.6's own falsifier; REUSES MI-148's instrument (#11138), does not author a second. THE POPULATION PROBLEM IS THE FIRST TASK: live MFE n is 1-8 per leg, which is why MI-148 refused to propose values. Tier-3: propose, do not apply.",
+      "updated": "2026-09-06T14:34Z"
+    },
+    {
+      "id": "MI-152-COUNT-UNCARRIED-SPECS",
+      "status": "in_flight",
+      "owner": "session_016UhdzaVjP5BLaokn2LajcA",
+      "opened": "2026-09-06",
+      "title": "Count the un-carried specs in docs/research and docs/design",
+      "note": "OPERATOR DECISION - chosen over MI-147 for this lane. THE COUNT IS THE DELIVERABLE; a mechanism proposed without it is a fix whose problem was never sized. Requires a POSITIVE CONTROL (operating-layer design = 6 carrying rows, known positive; EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md = known negative) and a STATED CLASSIFIER with borderline cases listed.",
+      "updated": "2026-09-06T14:34Z"
     }
   ],
   "as_of": "2026-09-04T09:45:00Z",

@@ -4,8 +4,8 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   How many finished specifications sit in docs/research and docs/design with nothing pointing at them
 stage: INTEGRITY
-lifecycle: ready
-owner: null
+lifecycle: in_flight
+owner: session_016UhdzaVjP5BLaokn2LajcA
 opened_at: 2026-09-06
 closed_at: null
 review_trigger: >-
