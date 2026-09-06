@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-06T10:37:37Z",
+  "updated_at": "2026-09-06T10:53:56Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2418,6 +2418,36 @@
       ],
       "why": "session_013r8Joo877hnkYoKRzQsrwW completed the analysis and could not push (no repo attached); this is the re-spawn that carried it to #11111.",
       "state": "working"
+    },
+    {
+      "session_id": "session_01L7dTAuGMdn3CTGeyYV5Mox",
+      "registry_key": "pending-20260906T105301Z",
+      "state": "working",
+      "title": "MI-144 — the record of a trade does not say what happened (R inverted, exit_reason frozen, read route silently empties)",
+      "owns_object": "WO-20260906-THE-RECORD-OF-A-TRADE-DOES-NOT",
+      "checklist_item": "MI-144-THE-RECORD-DOES-NOT-SAY-WHAT-HAPPENED",
+      "spawned_at": "2026-09-06T10:53:01Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/trade-record-integrity-20260906"
+      ],
+      "why": "OPERATOR TOP PRIORITY 2026-09-06: 'we can't make good decisions if we have bad tools for making those decisions'",
+      "confirmed_at": "2026-09-06T10:53:56Z"
+    },
+    {
+      "session_id": "session_014jrW67rFyJNnHr7y6dEhec",
+      "registry_key": "pending-20260906T105301Z-2",
+      "state": "working",
+      "title": "MI-146 — are the bracket and active-management mechanisms in the roadmap, built, and applied where we claim",
+      "owns_object": "WO-20260906-ARE-THE-BRACKET-AND-ACTIVE-MANAGEMENT-MECHANISMS",
+      "checklist_item": "MI-146-BRACKET-MECHANISMS-AUDIT",
+      "spawned_at": "2026-09-06T10:53:01Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/bracket-mechanisms-audit-20260906"
+      ],
+      "why": "OPERATOR 2026-09-06 exit-mechanics thesis: trades must end at their brackets, and the stop must trail to bank R",
+      "confirmed_at": "2026-09-06T10:53:56Z"
     }
   ],
   "⚠️_registry_completeness": "2026-09-05T14:35Z — GRADED AGAINST PLATFORM TRUTH, and the register was wrong at scale. 94 rows were graded against a live list_sessions(mine=true, limit=100) read; 65 carried a state the platform contradicts, and 58 of those had NEVER been observed even once (last_observed absent) despite being spawned 2026-09-02/03. ⚠️ THE HEADLINE: the register claimed 41 sessions were working/idle/running. THE PLATFORM SAYS EXACTLY ONE SESSION IS RUNNING ACROSS THE WHOLE ACCOUNT, and it is the manager itself (session_016e2k4UmsMGgpbrJ5ctqeFv). Every other session is IDLE or ARCHIVED. The register's `working` state was never a measurement — it is what a manager wrote at SPAWN time and nobody ever revisited, which is MI-84 measured rather than asserted. ⚠️ WHAT THIS DOES **NOT** ESTABLISH: an IDLE session is not the same as FINISHED work. These rows are now honest about the session's LIFECYCLE and say nothing about whether each one's deliverable reached main. That audit spans several previous managers' days and was NOT done here; do not read a clean state column as a clean handoff. ⚠️ AND 0 non-terminal row(s) are NOT covered by this page at all — not graded, not disproven, simply outside the 100 most recent. `unknown` would be the honest label and they retain their stale value; do not read them as confirmed.",
