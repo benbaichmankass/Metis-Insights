@@ -1,0 +1,77 @@
+id: WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED
+title: >-
+  The exit-geometry rebuild was specified 2026-08-23 and never dispatched
+kind: commitment
+lifecycle: in_flight
+opened: '2026-09-06'
+intent: IN-20260903-TRADING-SYSTEM-HEALTH
+owner: MI-148
+registry_key: pending-20260906T123030Z
+branch: claude/exit-geometry-rebuild-20260906
+
+blocked_on: []
+blocked_on_basis: ASSESSED
+blocked_on_note: >-
+  Nothing blocks the TIER-1 half (measure the fleet's declared expectations,
+  build the calibration instrument E3.6's falsifier requires, write the
+  per-leg proposal). The Tier-3 half — applying per-leg target geometry to
+  config/strategies.yaml, and flipping target_extension_soak from annotate to
+  acting — is gated on an operator decision, which is a DECISION edge and not
+  a build blocker. Recorded as assessed rather than left empty.
+
+problem: >-
+  docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md was written 2026-08-23
+  by the full-system-audit session and ends "Paste this whole file as the
+  opening message of a NEW session." Nobody ever did. The diagnosis underneath
+  it has been established at least SEVEN times -- 2026-08-20
+  (e35-bracket-is-not-a-decision), 08-23 (bracket-expectation-construction,
+  34KB), 08-24 (bracket-target-reachability), 08-26
+  (bracket-geometry-decision-packet), 08-29 (e35-matrix-recheck), 08-31
+  (e35-passed-unshipped-proposal) and 09-06 (MI-146) -- and BUILT ZERO TIMES.
+  Re-measuring it an eighth time is the failure mode, not the work.
+
+thesis_governing_this_object: >-
+  Operator, 2026-08-23: "Brackets ALWAYS represent our prediction of where the
+  trade should end ... The only solution here is to properly build out the
+  active management infra, not layer on bandaids to a poorly constructed
+  strategy." And 2026-09-06: "at least know in the beginning where we think
+  that momentum is gonna burn out." Two binding consequences: a bracket must
+  carry an expectation AT ENTRY (a sentinel target is the ABSENCE of one), and
+  no clamp / floor / trade-refusal where the honest answer is that the
+  geometry was never constructed.
+
+done_condition:
+  - id: '1'
+    text: >-
+      Every enabled live leg declares a take-profit expressing where the
+      strategy thinks the move ends, measured from the RUNNING config. A leg
+      that deliberately has no target must DECLARE that, not carry a 50R
+      sentinel.
+    tier: 3
+    status: pending
+  - id: '2'
+    text: A producer exists that can EXTEND a target.
+    tier: 3
+    status: pending
+  - id: '3'
+    text: target_extension_soak stops reading 100% sentinel_no_expectation.
+    tier: 3
+    status: pending
+    depends_on: '1'
+  - id: '4'
+    text: >-
+      The bracket is graded for CALIBRATION against realised exit location --
+      E3.6's own falsifier. A calibration read, not a P&L read.
+    tier: 1
+    status: pending
+
+taken_from_priors_not_re_derived:
+  - source: MI-146 docs/research/exit-lever-wiring-audit-2026-09-06.md
+    facts:
+      - 25 of 44 enabled live legs (56.8%) have no reachable take-profit
+      - 46 of 46 shipped matrix cells are armed on the running trader, zero drift
+      - directional book n=120 08-27..09-06 - bracket 29.2%, tp 5.8%, plumbing 63.3%
+  - source: src/runtime/target_expectation.py + target_extension_soak.py
+    facts:
+      - the extension producer's ANNOTATE phase already exists and runs on 41 legs
+      - the downstream tp channel is fully plumbed - only the producer was missing
