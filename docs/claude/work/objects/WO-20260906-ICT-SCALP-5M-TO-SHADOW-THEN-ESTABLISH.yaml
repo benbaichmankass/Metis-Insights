@@ -1,0 +1,30 @@
+id: WO-20260906-ICT-SCALP-5M-TO-SHADOW-THEN-ESTABLISH
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  ict_scalp_5m to shadow, then establish whether it should trade real money at all
+stage: DECISION
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  TWO PARTS, and part 1 happens FIRST and FAST. (1) config/strategies.yaml sets execution: shadow on ict_scalp_5m -- Tier-3 and ALREADY OPERATOR-APPROVED for this specific change; open it ready with landing: hold and hold_text quoting the approval, and say in the PR that the approval is recorded in the manager checklist. Verify AFTER deploy that it stopped placing (a shadow leg still logs order packages) rather than assuming. (2) THEN the dive: should it trade real money at all? Establish what its edge is supposed to be, whether any backtest ever supported its bracket geometry, why a 54.1%-win leg loses money, and what would have to be true to put it back on live. !! DO NOT author a regime gate or a stop change from n=6 -- 1B's report explicitly refuses that and so must you. !! DO NOT use expectancyR anywhere: the R instrument is sign-inverted (PB-20260906-R-CONTAMINATION-QUANTIFIED).
+
+why: >-
+  OPERATOR DECISION 2026-09-06, via pop-up with the tradeoffs stated: 'Move it to shadow now'. ict_scalp_5m is 6 of 13 losses and -25.25 of -43.12 (58.6%) of the losing week on REAL MONEY, with NO config change since 2026-08-16. Its lifetime on bybit_2 is 37 trades / 54.1% WINS / -12.65 USD -- it wins more often than it loses and still loses money, which is payoff geometry, not hit rate. MEASURED in docs/research/exit-refinement-coverage.json: it has ZERO shipped exit levers. trail_geometry, trail_decay, vol_trail and regime_flip_exit all read n/a; exit_head_ml reads blocked:no_lever_consumer_in_unit (the strategy UNIT has no consumer for the lever); bracket_geometry reads PENDING, i.e. never swept. It is trading real money on a static bracket that no backtest ever tested, into a tape whose directional efficiency fell 4-6x.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

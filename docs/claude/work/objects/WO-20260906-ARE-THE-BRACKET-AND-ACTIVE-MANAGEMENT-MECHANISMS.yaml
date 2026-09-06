@@ -1,0 +1,30 @@
+id: WO-20260906-ARE-THE-BRACKET-AND-ACTIVE-MANAGEMENT-MECHANISMS
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Are the bracket and active-management mechanisms in the roadmap properly, built out, and actually applied where we claim
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A written answer to three questions, each with the population stated. (1) IS IT IN THE ROADMAP PROPERLY -- does ROADMAP.md carry the active-management/bracket thesis as a milestone with a done-condition, or is it only implicit in M20's exit-refinement rows? (2) IS IT BUILT -- per lever, does a consumer exist in the strategy units at all, or does the matrix say n/a and blocked:no_lever_consumer_in_unit because there is nothing to consume it? The ict_scalp family reads n/a on all four trailing levers, which is the difference between 'tested and rejected' and 'never wired'. (3) IS IT APPLIED WHERE WE CLAIM -- for each SHIPPED cell, is the lever actually live on that leg on the running trader, read from /api/bot/config, not from the matrix. !! DISTINGUISH n/a FROM honest_negative EVERYWHERE: 'the backtest says it does not help' and 'there is no code to run it' are opposite findings and the matrix currently renders both as a non-shipped cell. !! Propose, do not apply.
+
+why: >-
+  OPERATOR, 2026-09-06, stating the thesis the system is supposed to implement: 'the brackets need to be the prediction of where we think the price is gonna go ... trades need to be ending at the brackets. Either we were wrong and it hit the stop loss or it was right and it hit the take profit. But none of those are formalities.' And on the stop: 'the stop loss is our risk manager ... but we also need to keep on moving it up to be banking our R as it's coming in.' MEASURED AGAINST THAT: only 39 of 468 exit-lever cells are shipped (8.3%); giveback_stop -- the lever that directly implements 'stop giving back R' -- is shipped on ONE of 52 legs; vol_trail, exit_ladder and regime_flip_exit are shipped on ZERO; 24 of 52 legs have NO shipped exit lever at all. And 26 of the last 200 closes (13.0%) are labelled as ending at a declared bracket.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

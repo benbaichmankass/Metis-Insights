@@ -1,0 +1,30 @@
+id: WO-20260906-POSITIVE-CONTROL-ON-THE-EXIT-SWEEP-320
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Positive control on the exit sweep: 320 of 468 lever cells say honest_negative and nothing has shown the harness can detect a positive
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A lever that MUST help is planted and the sweep is shown to DETECT it -- e.g. a giveback stop on a leg whose trades demonstrably gave back R, or a stop so wide it cannot fire. Report the verdict the sweep returns on the planted case. THREE OUTCOMES, all valuable and none of them a failure to report: the harness detects it (the 320 negatives are real, say so and the matrix is trustworthy); it does NOT (every negative is unfalsifiable, and 39 shipped cells rest on the same instrument -- that is a P1 finding); or it cannot be tested for a stated reason (say which, and what would make it testable). !! DO NOT tune the planted lever until it passes -- that fits the control to the answer and destroys it.
+
+why: >-
+  OPERATOR DECISION 2026-09-06 via pop-up: 'Yes -- positive control first'. MEASURED in docs/research/exit-refinement-coverage.json (52 legs x 9 levers = 468 cells, updated_at 2026-08-30): 39 shipped (8.3%), 320 honest_negative (68.4%), 20 pending, 36 blocked. Either almost no exit lever helps anywhere, or the harness cannot see one. NOBODY HAS RUN A POSITIVE CONTROL ON THE SWEEP ITSELF, so every one of those 320 negatives is currently unfalsifiable -- and 39 cells were SHIPPED on the same instrument. This is the repo's own 'a negative needs a denominator' rule applied to the research harness rather than to a probe.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

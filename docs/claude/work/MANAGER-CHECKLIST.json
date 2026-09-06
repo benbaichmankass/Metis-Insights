@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T10:10:00Z",
+  "updated_at": "2026-09-06T10:22:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1850,6 +1850,63 @@
       "priority": "P1_CYCLE",
       "tier": "1",
       "note": "Operator selected this to be routed. Needs a FRESH session — 1A is idle at 487k/1M and cannot be messaged. Excepted by name in spawn-priority-exception.yaml (operating-layer under a trading cycle)."
+    },
+    {
+      "id": "MI-143-ICT-SCALP-5M-SHADOW",
+      "title": "ict_scalp_5m -> shadow (operator-approved), then establish whether it should trade real money at all",
+      "state": "in_flight",
+      "owner": "session_01Ne7LK6wMCoLUwnKpCZTPqE",
+      "owns_object": "WO-20260906-ICT-SCALP-5M-TO-SHADOW-THEN-ESTABLISH",
+      "priority": "P0_LIVE_MONEY",
+      "tier": "3 (config/strategies.yaml — APPROVED for this one line)",
+      "spawned_at": "2026-09-06T10:21Z",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": "execution: shadow on ict_scalp_5m ONLY — one leg, one line. NOT a fleet change and NOT approval to alter any parameter.",
+        "decided_on": "2026-09-06",
+        "text": "Decision pop-up with four options and the tradeoffs stated; operator chose 'Move it to shadow now'."
+      }
+    },
+    {
+      "id": "MI-144-THE-RECORD-DOES-NOT-SAY-WHAT-HAPPENED",
+      "title": "TOP PRIORITY: the record of a trade does not say what happened — R sign-inverted, exit_reason frozen, read route silently empty",
+      "state": "queued",
+      "owner": "unassigned — NEXT SLOT, operator called this top priority",
+      "owns_object": "WO-20260906-THE-RECORD-OF-A-TRADE-DOES-NOT",
+      "priority": "P0_INSTRUMENT",
+      "tier": "2-3 (journal writer) — propose",
+      "note": "Operator 2026-09-06: 'we can't make good decisions if we have bad tools for making those decisions'. One session, all three defects (their choice over splitting) because they share the venue-candle adjudication 1B already built. GATES the strategy work: no promote/demote/kill/tune verdict is safe until R is fixed."
+    },
+    {
+      "id": "MI-145-SWEEP-POSITIVE-CONTROL",
+      "title": "Positive control on the exit sweep — 320 of 468 lever cells say honest_negative and nothing has shown the harness can detect a positive",
+      "state": "queued",
+      "owner": "unassigned",
+      "owns_object": "WO-20260906-POSITIVE-CONTROL-ON-THE-EXIT-SWEEP-320",
+      "priority": "P1_CYCLE",
+      "tier": "1",
+      "note": "Operator chose 'Yes — positive control first' over folding it into the wider audit. If the harness is blind, 320 negatives are unfalsifiable AND the 39 shipped cells rest on the same instrument."
+    },
+    {
+      "id": "MI-146-BRACKET-MECHANISMS-AUDIT",
+      "title": "Are the bracket and active-management mechanisms in the roadmap properly, built out, and actually applied where we claim",
+      "state": "queued",
+      "owner": "unassigned",
+      "owns_object": "WO-20260906-ARE-THE-BRACKET-AND-ACTIVE-MANAGEMENT-MECHANISMS",
+      "priority": "P1_CYCLE",
+      "tier": "1 (audit — propose only)",
+      "note": "Operator's thesis: brackets are the PREDICTION, trades should end at them, and the stop is trailed up to bank R. Measured against it: 39 of 468 cells shipped (8.3%); giveback_stop shipped on 1 of 52 legs; vol_trail/exit_ladder/regime_flip_exit on ZERO; 24 of 52 legs have none. ⚠️ Must distinguish n/a (never wired) from honest_negative (tested and rejected) — the matrix renders both as non-shipped and they are OPPOSITE findings."
+    },
+    {
+      "id": "MI-147-BACKTEST-SOAK-CHAIN-AUDIT",
+      "title": "Is soaking only mechanically verifying what backtesting proved, or are we soaking things nothing tested",
+      "state": "queued",
+      "owner": "unassigned",
+      "owns_object": "WO-20260906-IS-SOAKING-ONLY-MECHANICALLY-VERIFYING-WHAT-BACKTESTING",
+      "priority": "P1_CYCLE",
+      "tier": "1 (audit — propose only)",
+      "note": "Operator 2026-09-06: soaking is 'only for mechanical verification of what we already have tested to be verifiably true in backtesting'. The chain is inverted at least once: bracket_geometry reads PENDING (never swept) on the ENTIRE 8-leg ict_scalp family, every one execution: live."
     }
   ],
   "as_of": "2026-09-04T09:45:00Z",
