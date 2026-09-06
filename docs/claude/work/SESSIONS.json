@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-06T16:55:05Z",
+  "updated_at": "2026-09-06T21:27:03Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2597,6 +2597,21 @@
       ],
       "why": "Operator decision 2026-09-06 chose 'Arm + queue the artifact', making this its own lane precisely because arming is inert without it. Measured with a positive control against /api/diag/shadow_stats: 32 models visible; the only exit-head artifacts are exit-head-donchian-1h-v1 and exit-head-donchian-peak-1h-v1, both 1h and both donchian, while all 8 ict_scalp legs are 5m/15m.",
       "confirmed_at": "2026-09-06T16:55:05Z"
+    },
+    {
+      "session_id": "session_01T5o3AkucfgozxdVhANWAdw",
+      "registry_key": "pending-20260906T212618Z",
+      "state": "working",
+      "title": "MI-147 - is backtesting actually gating what reaches soak, or is soak doing the discovery?",
+      "owns_object": "WO-20260906-IS-BACKTESTING-ACTUALLY-GATING-WHAT-GOES-TO",
+      "checklist_item": "MI-147-BACKTEST-SOAK-CHAIN-AUDIT",
+      "spawned_at": "2026-09-06T21:26:18Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/mi147-backtest-soak-chain-20260906"
+      ],
+      "why": "OPERATOR COMPANION QUESTION 2026-09-06, unanswered across three manager ticks and the oldest outstanding thing the operator asked for. MI-151 gave it a concrete lead: backtest_fidelity_calibrate.py has never been run and grades the wrong quantity for exit location.",
+      "confirmed_at": "2026-09-06T21:27:03Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
