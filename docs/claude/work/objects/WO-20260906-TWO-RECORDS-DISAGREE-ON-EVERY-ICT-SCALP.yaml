@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Two records disagree on every ict_scalp exit-head candidate leg
 stage: EVIDENCE
-lifecycle: dormant
-owner: null
+lifecycle: done
+owner: session_01JhtPDUP92XmMSuE8c4i3Up
 opened_at: 2026-09-06
-closed_at: null
+closed_at: 2026-09-06
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
@@ -32,3 +32,65 @@ blocked_on_basis: >-
   only on the blocked side is invisible from this one.
 
 captured_by: scripts/ops/capture_idea.py
+
+verdict: >-
+  ANSWERED 2026-09-06 (MI-153, session_01JhtPDUP92XmMSuE8c4i3Up). Full derivation:
+  docs/research/exit-head-figure-reconciliation-2026-09-06.md.
+
+  ⚠️ THE PREMISE IS FALSE AND THAT IS THE FINDING. The two records never disagreed.
+  Each of the three `exit_head_ml` cells carries BOTH figure sets in ONE append-only
+  `ref` string, in chronological order, joined by an explicit arrow — ict_scalp_sol_5m
+  literally reads "n_oos 800 -> 1150, auc 0.6149 -> 0.6184". MI-146 quotes the second
+  clause; this object's `why` quotes the first clause of the same string. One record,
+  read at two points. It is readable that way because the cell has NO structured figure
+  field at all (keys are exactly status/ref/tp_geometry), so every number lives in
+  ~4000 characters of prose whose opening sentence is the superseded measurement
+  (BL-20260815-EXIT-HEAD-ROUNDS-RUN-IDENTITY-IS-PROSE-NOT-A-FIELD, still open).
+
+  WHICH IS CURRENT: the 2026-08-14 set, for all 3 of 3 legs — sol_5m 1150/0.6184/22-23,
+  xrp_5m 1100/0.5987/21-22, sol_15m 450/0.5808/6-9. Established without the matrix prose:
+  it is the ONLY set in docs/research/m20-exit-head-rounds.jsonl (the structured
+  graded-round record; population = all 33 rows, 6 ict_scalp, no 2026-08-13 row for any
+  leg), that file's git history is a SINGLE commit so this is not attrition, and two
+  later independent 2026-08-15 rounds reproduce all four terms exactly.
+
+  MECHANISM: a RE-MEASUREMENT ON A LARGER CORPUS SLICE. From the generating code,
+  train_exit_head.fold_blocks gives u = floor(N/50) - 1 usable folds of exactly 50 OOS
+  trades, so n_oos = 50*u — verified by arithmetic, n_oos/usable_folds = 50.0 in 6 of 6
+  round rows and 3 of 3 superseded figures. Inverting it, the legs' own trade pools grew
+  by ~300-400 / ~400-500 / ~50-150 trades. 2026-08-13 (relay #8963) was an E1-ONLY re-run
+  over the E0 datasets already on the trainer; 2026-08-14 was a FULL round
+  (m20_exit_head_round.py re-runs the harness with --emit-trades and rebuilds the E0
+  dataset). Two different trade books, later one larger.
+
+  ⚠️ NOT A RE-PARTITIONING, and the note in the brief pointed at a DIFFERENT measurement.
+  --fold-offset holds block size fixed; across off0/off4/off8/off12, ict_scalp_sol_5m
+  holds n_oos=1150 and u=23 IDENTICALLY in all four arms while only beats_hard (16->14)
+  and the verdict move. Re-partitioning cannot change n_oos, so it cannot be what changed
+  here — and the 4-arm screen ran ON the larger book a day AFTER it, so the audit's larger
+  figures are NOT a pre-re-partitioning snapshot. The fragility attaches to the CURRENT
+  numbers. ⚠️ NOT A STALE COPY either, and TP geometry and block unit are refuted rather
+  than merely unselected (both sides live_parity_uncapped; both block_unit=per_leg,
+  because family_of does not collapse scalp legs).
+
+  NOT ESTABLISHED: WHY the harness emitted a larger book on 08-14. The round logs live on
+  the trainer under runtime_logs/m20_exit_head/ and are not committed; no trainer relay was
+  dispatched. An extra day of bars is RULED OUT (a ~1200-trade-lifetime 5m leg does not add
+  ~350 trades in 24h; the 1d pullback sibling moved 568->629 in one day on a leg trading
+  ~20/year), but the actual input change is not named. Recorded as the boundary of the
+  finding rather than filled with the most plausible candidate.
+
+  WHY NOTHING CAUGHT IT: exit_head_ml is a declared exemption in
+  check_matrix_corpus_agreement.CORPUS_EXEMPT_LEVERS — that guard reads only
+  m20-sweep-corpus.jsonl while the exit-head evidence lives in m20-exit-head-rounds.jsonl,
+  so the join has never been performed for this column. Its own text names the fix.
+  None of these three legs is in that exemption's 9-disagree-in-sign set.
+
+  DISPOSITION: the losing record is now EXPLICITLY DATED AS SUPERSEDED (not deleted) by a
+  dated clause appended to each of the three cell refs; MI-146's table is corrected on two
+  points (geometry is live_parity_uncapped, and beats_hard — the BINDING gate term — was
+  omitted). NO cell status changed (Tier-3). ARMING RECOMMENDATION UNCHANGED FOR ALL THREE
+  LEGS: the binding constraints are the 2026-08-23 SHIP BLOCKED operator decision,
+  sol_5m's re-partitioning fragility on the current book, and #11140's own measurement that
+  both published exit-head artifacts are tf 1h against 5m/15m legs. #11140 is UNBLOCKED to
+  land as it stands (annotate-only, disarmed); arming remains Tier-3 and is not recommended.

@@ -252,11 +252,20 @@ A decision cannot be made off a matrix that renders "we tested it on the real co
 
 The 5 `blocked:no_lever_consumer_in_unit` cells are the **only cells in the entire matrix that passed their gate and are blocked on wiring alone.** All five are `ict_scalp`; the matrix ref records the operator already unblocked the gate on 2026-08-13 (*"the E1→E2 gate's LIVE arm is a wiring check, not the evidence — the backtest is. Awaiting E3 ship (Tier-3)"*), and notes *"all 5 surviving candidates are ict_scalp; every non-scalp family in the re-run is honest_negative."*
 
-| leg | AUC (live-parity re-measure) | beats_actual | disposition |
-|---|---|---|---|
-| `ict_scalp_sol_5m` | 0.6184 (n_oos 1150) | 22/23 | reproduces — **ship candidate** |
-| `ict_scalp_xrp_5m` | 0.5987 (n_oos 1100) | 21/22 | reproduces — **ship candidate** |
-| `ict_scalp_sol_15m` | 0.5808 (n_oos 450) | 6/9 | reproduces — **ship candidate** |
+> ⚠️ **CORRECTED 2026-09-06 (MI-153 — `docs/research/exit-head-figure-reconciliation-2026-09-06.md`). Two corrections to the table below; the figures themselves are CONFIRMED CURRENT.**
+>
+> 1. **The geometry heading is wrong.** These were measured `live_parity_uncapped`, not `live_parity` — the 2026-08-14 rounds passed no `--tp-cap-pct`, and the live `ict_scalp` unit carries no clamp, so an uncapped book **is** parity for this unit but is **NOT poolable** with the capped donchian/pullback rounds.
+> 2. **`beats_hard` was omitted, and it is the BINDING term of the E1 gate** (`beats_hard*3 >= u*2`), not `beats_actual`. It is added below. `sol_5m` clears by **2 points of 46** — one fold the other way fails it, which is what the 4-arm re-partitioning screen then found.
+>
+> **The figures ARE current** — confirmed against `m20-exit-head-rounds.jsonl` (the only figures for these legs in the structured record) and reproduced exactly by two later independent 2026-08-15 rounds. The matrix cells' opening `n_oos=800 / 650 / 350` clause is the **superseded** 2026-08-13 E1-only re-run; each cell now says so at the point of use.
+>
+> ⚠️ **But `reproduces — ship candidate` is NOT a live disposition** and should not be read as one: all three cells carry a **2026-08-23 operator `SHIP BLOCKED`** verdict that cancelled the queued Tier-3 ship.
+
+| leg | AUC (live-parity **uncapped** re-measure) | beats_actual | **beats_hard** (binding) | disposition |
+|---|---|---|---|---|
+| `ict_scalp_sol_5m` | 0.6184 (n_oos 1150) | 22/23 | **16/23** — clears by 2 of 46 | reproduces — ship candidate *(ship cancelled 2026-08-23)* |
+| `ict_scalp_xrp_5m` | 0.5987 (n_oos 1100) | 21/22 | **19/22** — clears by 13 of 44 | reproduces — ship candidate *(ship cancelled 2026-08-23)* |
+| `ict_scalp_sol_15m` | 0.5808 (n_oos 450) | 6/9 | **7/9** | reproduces — ship candidate *(ship cancelled 2026-08-23)* |
 | `ict_scalp_5m` (BTC) | — | — | **UNMEASURED** (`data_missing:BTCUSDT`) — exclude |
 | `ict_scalp_eth_15m` | 0.6083 | beats_hard **4/11** | **DID NOT REPRODUCE** → `honest_negative` — **exclude** |
 
