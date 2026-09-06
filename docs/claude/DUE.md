@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-06T01:18:40+00:00 · verdict **partial**_
+_Generated 2026-09-06T06:28:45+00:00 · verdict **partial**_
 
 > ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
 
@@ -100,8 +100,8 @@ _Generated 2026-09-06T01:18:40+00:00 · verdict **partial**_
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
 - **ERRFEED-1ef305c7** (error_feed · 13d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 16 rows 2026-08-24T22:20:57 → 2026-09-06T00:32:43 · symbols=AVAXUSDT — decide: fix now, or file to a backlog
   - [error] x16 api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty
-- **ERRFEED-9fd2fc82** (error_feed · 13d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 89 rows 2026-08-24T14:04:40 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
-  - [error] x89 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+- **ERRFEED-9fd2fc82** (error_feed · 13d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 87 rows 2026-08-24T14:08:42 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
+  - [error] x87 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
 - **ERRFEED-2338a024** (error_feed · 11d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 13 rows 2026-08-26T02:19:58 → 2026-08-29T04:06:19 · accounts=bybit_1 — decide: fix now, or file to a backlog
   - [error] x13 bybit_over_cover detected: bybit_N/ETHUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL c
 - **OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED** (open_items · 8d) — monitoring row 8d since last observation (cadence 2d)
@@ -118,14 +118,14 @@ _Generated 2026-09-06T01:18:40+00:00 · verdict **partial**_
   - [error] x16 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
 - **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (soaks · 4d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then 
-- **ERRFEED-1177a741** (error_feed · 3d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 5 rows 2026-09-03T00:04:10 → 2026-09-04T11:28:19 · accounts=bybit_1 — decide: fix now, or file to a backlog
-  - [error] x5 bybit_over_cover detected: bybit_N/SOLUSDT: position N. THIS position is NOT over-protected: legs that reduce it total N across N leg(s) (N%
 - **ERRFEED-6da04340** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 15 rows 2026-09-03T11:19:27 → 2026-09-05T23:20:13 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog
   - [error] x15 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u
-- **ERRFEED-b3c9b0e2** (error_feed · 2d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 7 rows 2026-09-04T12:28:34 → 2026-09-05T22:13:05 · accounts=bybit_1 — decide: fix now, or file to a backlog
-  - [error] x7 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg
-- **ERROR-FEED-SUMMARY** (error_feed) — 68 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-05T23:06:33.258831+00:00`.
-  - 116 cause groups over 1372 rows (78 error-level, 38 warn-level, 0 new since the last digest)
+- **ERRFEED-57791ab1** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-06T03:37:22 → 2026-09-06T03:37:22 · accounts=bybit_1 symbols=SOLUSDT — decide: fix now, or file to a backlog
+  - [error] NEW x1 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: SOLUSDT | Side: long | Qty: N Consecutive close failures: N share_hold: no
+- **ERRFEED-e02747e1** (error_feed · 0d) — error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-06T03:33:20 → 2026-09-06T03:33:20 · accounts=bybit_1 — decide: fix now, or file to a backlog
+  - [error] NEW x1 bybit_over_cover detected: bybit_N/SOLUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg
+- **ERROR-FEED-SUMMARY** (error_feed) — 69 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-06T01:10:25.083914+00:00`.
+  - 117 cause groups over 1376 rows (79 error-level, 38 warn-level, 2 new since the last digest)
 - **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
 - **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched
