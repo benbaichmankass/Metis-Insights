@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T13:40Z",
+  "updated_at": "2026-09-06T13:41Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1949,6 +1949,15 @@
       "title": "Scaffold the guarded registers so a write cannot be wrong: OPEN-ITEMS, MANAGER-CHECKLIST, pr-landing",
       "note": "OPERATOR 2026-09-06: 'your job is to manage the queue so that we don't lose cycles to these kinds of mistakes'. SEVEN guard failures on the manager's own PRs in one day, every one a field omission on a register write, every one found by CI ~2 min after the PR opened. backlog_append.py proves the pattern and is the ONLY one that exists. OPEN-ITEMS.json additionally does not round-trip at any json.dumps setting, so it can only be hand-spliced. Guards must NOT be weakened - the fix is upstream of them. Row: BL-20260906-EVERY-REGISTER-WRITE-IS-A-GUESS-THEN-A-CI-ROUND-TRIP. Highest queue-throughput item: the manager gates five sub-sessions.",
       "updated": "2026-09-06T13:40Z"
+    },
+    {
+      "id": "MI-150-ICT-SCALP-EXIT-HEAD",
+      "status": "in_flight",
+      "owner": "session_01Lr1TDaQz2APJyYafBnsZen",
+      "opened": "2026-09-06",
+      "title": "Ship the exit head into ict_scalp: 3 legs that reproduce, 2 encoded exclusions",
+      "note": "OPERATOR APPROVED 2026-09-06 'Yes on MI 146' - MI-146's recommendation #2. The ONLY passed-gate work in the 468-cell matrix blocked purely on missing code; the E1->E2 gate was already unblocked by the operator 2026-08-13. Ship sol_5m (AUC 0.6184, 22/23), xrp_5m (0.5987, 21/22), sol_15m (0.5808, 6/9). EXCLUDE BTC ict_scalp_5m as UNMEASURED (data_missing) and eth_15m as DID-NOT-REPRODUCE (beats_hard 4/11) - two DIFFERENT exclusions, encoded distinctly. Mirror trend_donchian._exit_head_verdict, do not re-implement. ANNOTATE-FIRST: the approval is to ship the CONSUMER, not to arm the lever. Draft PR; manager routes the merge.",
+      "updated": "2026-09-06T13:41Z"
     }
   ],
   "as_of": "2026-09-04T09:45:00Z",

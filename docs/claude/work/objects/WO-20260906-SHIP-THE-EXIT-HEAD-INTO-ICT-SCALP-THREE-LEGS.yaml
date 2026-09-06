@@ -1,0 +1,27 @@
+id: WO-20260906-SHIP-THE-EXIT-HEAD-INTO-ICT-SCALP-THREE-LEGS
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Ship the exit head into ict_scalp on the three legs that reproduce, excluding the two that do not
+stage: CAPABILITY
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  This is the ONLY passed-gate work in the whole matrix blocked purely on
+  missing code. If it goes quiet, that fact is the finding.
+done_condition: >-
+  (1) An exit-head consumer exists in `ict_scalp.monitor()`, MIRRORING the one already live in `trend_donchian.monitor()` (`_exit_head_verdict`) rather than a second implementation -- a second copy of the verdict logic is how the two drift, and this repo has paid for that class repeatedly. (2) It carries the SAME in-distribution guard as the donchian consumer (the #6201 IWM incident) -- a head scoring outside the distribution it was trained on must refuse, not guess. (3) It follows the SAME annotate-first -> Tier-3 sequence: land the observe-only path, produce soak rows, and PROPOSE the flip; do not arm it. (4) EXACTLY THREE legs are shipped -- `ict_scalp_sol_5m`, `ict_scalp_xrp_5m`, `ict_scalp_sol_15m` -- and the two exclusions are ENCODED, not just described: `ict_scalp_5m` (BTC) is UNMEASURED (`data_missing:BTCUSDT`) and `ict_scalp_eth_15m` DID NOT REPRODUCE (beats_hard 4/11 -> honest_negative). A leg that was not measured and a leg that was measured and failed are different exclusions and must not be collapsed into one list. (5) The five matrix cells move off `blocked:no_lever_consumer_in_unit` to a status that states what actually happened to each.
+
+why: >-
+  OPERATOR APPROVAL, 2026-09-06, in conversation: asked directly whether to route MI-146's recommendation #2, answered "Yes on MI 146". MI-146's audit (docs/research/exit-lever-wiring-audit-2026-09-06.md, merged as #11124) established these are the ONLY cells in the 468-cell matrix that PASSED their gate and are blocked on wiring alone -- all five are ict_scalp, and the matrix ref records the operator already unblocked the E1->E2 gate on 2026-08-13 ("the gate's LIVE arm is a wiring check, not the evidence -- the backtest is. Awaiting E3 ship (Tier-3)"). Live-parity re-measure: sol_5m AUC 0.6184 (n_oos 1150, beats_actual 22/23), xrp_5m 0.5987 (n_oos 1100, 21/22), sol_15m 0.5808 (n_oos 450, 6/9). VERIFIED THIS SESSION, not taken on trust: `_exit_head_verdict` exists in src/units/strategies/trend_donchian.py:527 and `exit_head` appears ZERO times in src/units/strategies/ict_scalp.py -- the consumer genuinely does not exist.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-06. Nothing blocks the WORK -- the gate is passed, the
+  evidence is measured, the model to mirror is live in another unit. What
+  blocked it was that no object carried it; MI-146 surfaced it as a
+  recommendation and recommendations are not work.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (operator-approved)
