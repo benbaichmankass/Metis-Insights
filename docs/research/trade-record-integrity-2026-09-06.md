@@ -1,7 +1,7 @@
 # Does our record of a trade say what actually happened?
 
 **MI-144** · object `WO-20260906-THE-RECORD-OF-A-TRADE-DOES-NOT` · intent
-`IN-20260903-TRADING-SYSTEM-HEALTH` · 2026-09-06
+`IN-20260903-TRADING-SYSTEM-HEALTH` · PR #11131 · 2026-09-06
 
 > Operator, 2026-09-06: *"we're still having a lot of problems with wiring and
 > the mechanics and making sure that we're actually measuring the correct
