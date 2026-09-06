@@ -4,7 +4,7 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Ship the M20 exit-head consumer into the ict_scalp unit (MI-146 recommendation #2) — wiring only, annotate-first, arming NOT taken
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: waiting
 owner: session_01Lr1TDaQz2APJyYafBnsZen
 opened_at: 2026-09-06
 closed_at: null
@@ -54,7 +54,27 @@ outcome: >-
   survive re-partitioning. MI-146's memo omitted both.
 source: >-
   operator (conversational, 2026-09-06 — "Yes on MI 146"), routed via the manager as MI-150
+lifecycle_note: >-
+  MOVED in_flight -> waiting on 2026-09-06, and NOT to make room under the WIP
+  ceiling — the label is simply the accurate one now. The build half is
+  DELIVERED (PR #11140, draft), and what remains is two things neither this
+  session nor any session can advance by working harder: a manager-routed merge
+  (the PR declares landing `hold`), and the publication of a 5m/15m ict_scalp
+  exit-head artifact without which the consumer cannot score. wip-ceiling's own
+  message states the rule this follows: "`waiting` is free — a thing blocked on
+  someone else is not consuming attention." !! It became due when a concurrent
+  session's merge took the in-flight set to 9; the relabel is correct
+  independently of that, and if it were NOT correct the right move would have
+  been the operator-visible wip-ceiling-exception.yaml, not a convenient label.
 blocked_on:
+  - kind: review
+    ref: >-
+      PR #11140 is a DRAFT declaring tier 3 / landing `hold`
+      (.github/pr-landing/ict-scalp-exit-head-20260906.json), so it does not
+      self-merge and the manager routes it. Not a defect — the dispatch said so
+      explicitly ("I route the merge — this touches a live strategy unit and
+      does not self-merge").
+    since: 2026-09-06
   - kind: artifact
     ref: >-
       No ict_scalp exit-head artifact is published to the live mirror. Measured
