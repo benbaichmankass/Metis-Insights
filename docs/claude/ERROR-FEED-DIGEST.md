@@ -1,20 +1,20 @@
 # Trader error feed — grouped for triage
 
-_Generated 2026-09-06T17:20:40+00:00 · covers rows after `2026-09-06T14:02:20.751448+00:00` · verdict **all_feeds_read**_
+_Generated 2026-09-06T21:40:16+00:00 · covers rows after `2026-09-06T18:51:49.880170+00:00` · verdict **all_feeds_read**_
 
 > ⚠️ **Page cap hit** on `bot_logs` — older rows exist that this digest did not see.
 
 ## Population
 
 - **operator_alerts** — state `read` · 391 of 1000 requested · span 2026-09-01T18:29:17.192145+00:00 → 2026-09-06T15:05:37.825546+00:00
-- **bot_logs** — state `read` · 1000 of 1000 requested · span 2026-08-24T19:25:34.499856+00:00 → 2026-09-06T17:10:24.444973+00:00
+- **bot_logs** — state `read` · 1000 of 1000 requested · span 2026-08-24T19:35:20.227281+00:00 → 2026-09-06T21:35:33.687997+00:00
 
 ## Groups (118, covering 1391 rows)
 
 - **[error] x155** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: orders_still_resting 
   - 2026-09-02T08:33:53.957025+00:00 → 2026-09-04T23:53:07.745133+00:00 · accounts: alpaca_paper · symbols: GLD
-- **[error] x72** `bot_logs` — strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
-  - 2026-08-24T19:27:41.493760+00:00 → 2026-08-25T22:48:45.661170+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
+- **[error] x69** `bot_logs` — strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+  - 2026-08-24T19:35:21.469864+00:00 → 2026-08-25T22:48:45.661170+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
 - **[error] x27** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: extended-hours limit 
   - 2026-09-01T20:12:41.325890+00:00 → 2026-09-02T08:17:06.617344+00:00 · accounts: alpaca_paper · symbols: GLD
 - **[error] x22** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_unavailable (for N co
@@ -171,16 +171,16 @@ _Generated 2026-09-06T17:20:40+00:00 · covers rows after `2026-09-06T14:02:20.7
   - 2026-09-02T04:04:01.346497+00:00 → 2026-09-02T04:04:01.346497+00:00 · accounts: bybit_1 · symbols: BTCUSDT
 - **[error] x1** `operator_alerts` — 🪝 Exchange-side orphan position — policy=adopt Account: bybit_N Symbol: ETHUSDT | Side: long | Size: N Entry (Bybit avgPrice): N DB trade id (adopted): N
   - 2026-09-04T09:02:09.171793+00:00 → 2026-09-04T09:02:09.171793+00:00 · accounts: bybit_1 · symbols: ETHUSDT
-- **[warn] x328** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
-  - 2026-08-25T23:10:31.406008+00:00 → 2026-09-06T17:10:24.444973+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
-- **[warn] x154** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection
-  - 2026-08-24T19:25:34.813831+00:00 → 2026-09-06T15:21:49.302204+00:00 · symbols: MGC · strategies: mgc_trend_1h
-- **[warn] x118** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect
-  - 2026-08-24T19:25:34.499856+00:00 → 2026-09-06T13:18:10.809754+00:00 · symbols: MGC · strategies: mgc_pullback_1d
-- **[warn] x110** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect
-  - 2026-08-24T19:25:36.286167+00:00 → 2026-09-06T15:05:03.043592+00:00 · symbols: MHG · strategies: mhg_pullback_1d
-- **[warn] x89** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne
-  - 2026-08-24T19:27:40.260134+00:00 → 2026-09-06T13:18:08.975371+00:00 · symbols: MES
+- **[warn] x340** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+  - 2026-08-25T23:10:31.406008+00:00 → 2026-09-06T21:35:33.687997+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
+- **[warn] x153** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection
+  - 2026-08-24T21:35:55.265559+00:00 → 2026-09-06T20:34:49.183314+00:00 · symbols: MGC · strategies: mgc_trend_1h
+- **[warn] x115** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect
+  - 2026-08-24T21:35:54.951595+00:00 → 2026-09-06T13:18:10.809754+00:00 · symbols: MGC · strategies: mgc_pullback_1d
+- **[warn] x107** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect
+  - 2026-08-24T19:35:23.694376+00:00 → 2026-09-06T15:05:03.043592+00:00 · symbols: MHG · strategies: mhg_pullback_1d
+- **[warn] x87** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne
+  - 2026-08-24T19:35:20.227281+00:00 → 2026-09-06T13:18:08.975371+00:00 · symbols: MES
 - **[warn] x12** `bot_logs` — pairs_half_open cleaned: pairs SOLUSDT/ETHUSDT: one leg was stranded open on bybit_N (ETHUSDT) after a partial close; flattened this tick
   - 2026-08-26T09:38:04.382977+00:00 → 2026-09-04T09:02:23.196217+00:00 · accounts: bybit_1 · strategies: pairs, pairs_half_open
 - **[warn] x11** `bot_logs` — pairs_half_open cleaned: pairs SOLUSDT/ETHUSDT: one leg was stranded open on bybit_N (SOLUSDT) after a partial close; flattened this tick
@@ -250,4 +250,4 @@ _Generated 2026-09-06T17:20:40+00:00 · covers rows after `2026-09-06T14:02:20.7
 
 ---
 
-_Watermark: `2026-09-06T17:10:24.444973+00:00` — advanced to the newest row read (2026-09-06T17:10:24.444973+00:00)_
+_Watermark: `2026-09-06T21:35:33.687997+00:00` — advanced to the newest row read (2026-09-06T21:35:33.687997+00:00)_

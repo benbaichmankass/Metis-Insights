@@ -38,7 +38,7 @@ from __future__ import annotations
 import logging
 import threading
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -418,6 +418,133 @@ def legalize_qty(
         venue_min=venue_min, step=step, source=source, qty_str=aligned_str,
         venue_max=venue_max, clamped=clamped, venue_max_state=venue_max_state,
     )
+
+
+def snap_artifact_qty(
+    qty: float,
+    *,
+    account_cfg: dict,
+    symbol: str,
+    client: Any = None,
+    profiles: Optional[Dict[str, Any]] = None,
+    instruments_path: Optional[str] = None,
+) -> Tuple[float, str, str]:
+    """Repair an IEEE-754 ARTIFACT in a CLOSE quantity. -> ``(qty, qty_str, state)``.
+
+    MI-139 / ``WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED``. A reduce-only
+    close on ``bybit_1``/SOLUSDT failed 3 consecutive times (2026-09-06T03:37:22Z)
+    because ``close_open_position`` sent ``"qty": str(qty)`` verbatim and *qty*
+    was ``33.299999999999955`` — the raw float residue of ``289.4 - 256.1``.
+    Bybit refused it (``Qty invalid``, ErrCode 10001) and **the position could
+    not be flattened by the normal path**.
+
+    ⚠️ **THIS DELIBERATELY DOES NOT FLOOR, AND MUST NOT BE "HARMONISED" WITH**
+    :func:`legalize_qty`. That function floors (``quantize_qty`` uses
+    ``ROUND_DOWN``) for a stated and correct reason: *realised risk must never
+    exceed the sized cap*. **The polarity inverts on a CLOSE.** Flooring
+    ``33.299999999999955`` to the 0.1 grid yields ``33.2`` — it UNDER-closes by
+    a full step, leaving 0.1 SOL resting on the venue with no journal row. That
+    converts a LOUD, visible rejection into a SILENT naked residue, which is
+    precisely the orphan class this exists to kill. **Flooring an ENTRY is
+    risk-reducing; flooring a CLOSE is risk-increasing.** So this snaps to
+    NEAREST, and only across a distance no legal quantity can span.
+
+    It lives inside the seam because the seam is the only module permitted to
+    resolve a venue lot rule (``qty-legalization-guard``) — so this SATISFIES
+    that invariant rather than working around it, and adds no second copy of
+    "what is this symbol's step".
+
+    **Three states, never collapsed** (docs/CLAUDE-RULES-CANONICAL.md
+    § "Collapsed states"):
+
+    ``"snapped"``
+        A float artifact was found and repaired. Reachable ONLY when the input
+        is off-grid, i.e. only for orders the venue rejects today.
+    ``"unchanged"``
+        Already on the grid — **the identity, and the common path.**
+    ``"not_graded"``
+        Either **no lot rule resolved (we could not look)**, or the value is
+        genuinely off-step and NOT an artifact. Deliberately one state with two
+        causes *because the action is the same and it is the conservative one*:
+        pass through untouched. A genuinely off-step qty keeps failing LOUDLY,
+        because silently moving it is a decision no evidence supports.
+
+    **The wire string changes on the ``snapped`` path and NOWHERE ELSE.** Both
+    other states return ``str(float(qty))`` — byte-for-byte the line this
+    replaces. So the blast radius is exactly the set of currently-FAILING
+    orders; this cannot alter an order the venue would have accepted, which is
+    a structural argument, not an empirical one.
+
+    Never raises: any resolution or arithmetic error degrades to passthrough.
+    """
+    try:
+        raw = float(qty)
+    except (TypeError, ValueError):
+        return float(0.0), str(qty), "not_graded"
+    passthrough = (raw, str(raw), "not_graded")
+
+    try:
+        rule = _resolve_venue_lot_rule(
+            symbol, account_cfg, client,
+            profiles=profiles, instruments_path=instruments_path,
+            # LIVE lot rule first. The offline profile is a stated FALLBACK
+            # ("live lookup authoritative" in config/instruments.yaml) and has
+            # been measured wrong: XRPUSDT declared qty_step 1.0 while the venue
+            # publishes 0.1 (Bybit instruments-info, read 2026-09-06T11:03:10Z,
+            # trainer-diag #11120). Snapping a close to a step COARSER than the
+            # real one would move the quantity by up to half of a step that does
+            # not exist — so this must prefer the venue's own answer.
+            prefer_live=True,
+        )
+    except Exception as exc:  # noqa: BLE001 — must never crash the close path
+        logger.warning(
+            "snap_artifact_qty: lot-rule resolution error for %s: %s — passthrough",
+            symbol, exc,
+        )
+        return passthrough
+
+    if rule is None:
+        # WE COULD NOT LOOK. Pass through unchanged; today's behaviour exactly.
+        return passthrough
+
+    step = rule[0]
+    try:
+        s = Decimal(str(step))
+        if s <= 0:
+            return passthrough
+        d = Decimal(str(raw))
+        nearest = ((d / s).to_integral_value(rounding=ROUND_HALF_UP) * s).quantize(s)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "snap_artifact_qty: snap arithmetic failed for %s (%r, step=%s): %s "
+            "— passthrough", symbol, raw, step, exc,
+        )
+        return passthrough
+
+    if nearest <= 0:
+        # Snapping would zero the order. A close that sends 0 is not a close;
+        # let the current value go to the venue and be judged there.
+        return passthrough
+    if d == nearest:
+        return (raw, str(raw), "unchanged")
+
+    # An ARTIFACT is a value that misses the grid by less than any real
+    # quantity could. `s * 1e-6` bounds it far below one step (so a genuine
+    # off-step value such as 33.35 on a 0.1 step can never qualify), and the
+    # relative term keeps the test meaningful for very large quantities where
+    # one ULP already exceeds the absolute bound.
+    tol = max(s * Decimal("1e-6"), abs(d) * Decimal("1e-12"))
+    if abs(d - nearest) <= tol:
+        logger.warning(
+            "snap_artifact_qty: %s close qty %s is a float artifact — "
+            "sending %s instead (step=%s, source=%s). Un-snapped it would be "
+            "refused by the venue and the position could not be flattened.",
+            symbol, str(d), str(nearest), step, rule[4],
+        )
+        return (float(nearest), str(nearest), "snapped")
+
+    # Genuinely off-step and NOT an artifact. Untouched, so it fails LOUDLY.
+    return passthrough
 
 
 def instrument_lot(

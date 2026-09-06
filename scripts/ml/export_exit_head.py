@@ -12,10 +12,37 @@ Trainer-side (Tier-1 tooling). The live influence of this model is gated by
 stage: the artifact declares ``stage: "shadow"`` and the live scorer is
 observe-only regardless — E3 graduation is Tier-3.
 
+THE ``family`` TOKEN IS WHAT THE CONSUMING GUARD CHECKS — DECLARE IT.
+``family`` defaults to the ``--family-dir`` basename, which is a TRAINING-ROUND
+DIRECTORY NAME this repo does not control. That is correct only while the
+directory happens to be named the same word the consuming unit declares, and it
+fails silently-in-effect when it is not: the live in-distribution guard refuses
+the artifact and scores nothing.
+
+Measured 2026-09-06 (MI-154): the surviving E0 scalp rounds are laid out PER LEG
+— ``runtime_logs/m20_exit_head/scalp_5m_20260814T151003Z/`` holds
+``ict_scalp_sol_5m/``, ``ict_scalp_xrp_5m/``, ``ict_scalp_avax_5m/`` — so the
+DERIVED token is ``ict_scalp_sol_5m``, while the ict_scalp consumer declares
+``family="ict_scalp"`` and accepts only ``{"ict_scalp", "scalp"}``. Exporting a
+scalp head without ``--family ict_scalp`` therefore produces an artifact that is
+published, loaded, and then refused.
+
+Pass ``--family`` whenever the round directory is not already the consumer's
+token. Omitting it is byte-for-byte the legacy behaviour, so no existing round
+moves. The CLI line states which basis was used (``declared`` vs
+``derived_from_dir``) so a mismatch is diagnosable at EXPORT time rather than
+only from a WARNING on the live VM hours later.
+
 Usage (trainer):
   .venv/bin/python3 scripts/ml/export_exit_head.py \
       --family-dir datasets-out/exit_head/1h/donchian --tf 1h \
       --out runtime_logs/trainer_mirror/exit_head/exit-head-donchian-1h-v1.json
+
+  # a per-leg round dir whose name is NOT the consumer's family token:
+  .venv/bin/python3 scripts/ml/export_exit_head.py \
+      --family-dir runtime_logs/m20_exit_head/scalp_15m_.../ict_scalp_sol_15m \
+      --tf 15m --family ict_scalp \
+      --out runtime_logs/trainer_mirror/exit_head/exit-head-ict_scalp-15m-v1.json
 """
 from __future__ import annotations
 
@@ -77,6 +104,11 @@ def main(argv):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--family-dir", required=True)
     ap.add_argument("--tf", required=True)
+    ap.add_argument("--family", default=None,
+                    help="family token to stamp on the artifact. DEFAULTS to the "
+                         "--family-dir basename (unchanged legacy behaviour). Pass "
+                         "it when the round's directory name is not the token the "
+                         "consuming unit declares - see the module docstring.")
     ap.add_argument("--model-id", default="exit-head-donchian-1h-v1")
     ap.add_argument("--tau", type=float, default=0.10)
     ap.add_argument("--below-r", type=float, default=0.5)
@@ -101,6 +133,13 @@ def main(argv):
     FEATURES = teh.FEATURES
 
     fam_dir = Path(a.family_dir)
+    # The family token is what the consuming unit's in-distribution guard checks
+    # the artifact against. It is DECLARED when --family is given and DERIVED from
+    # the directory name otherwise; the two are different facts and the CLI line
+    # below says which was used, so a refused artifact can be diagnosed from the
+    # export output rather than from the live WARNING.
+    family = a.family if a.family else fam_dir.name
+    family_basis = "declared" if a.family else "derived_from_dir"
     rows = [r for r in load_rows(fam_dir / "rows.jsonl") if r["source"] == "harness"]
     if not rows:
         print("no harness rows", file=sys.stderr)
@@ -113,7 +152,7 @@ def main(argv):
 
     artifact = {
         "model_id": a.model_id,
-        "family": fam_dir.name,
+        "family": family,
         "tf": a.tf,
         "stage": a.stage,
         "symbols": symbols,
@@ -136,7 +175,10 @@ def main(argv):
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(artifact))
     print(f"{a.model_id}: {len(rows)} rows / {trades} trades -> {out} "
-          f"({out.stat().st_size // 1024} KiB)")
+          f"({out.stat().st_size // 1024} KiB) "
+          # provenance: family_basis - whether `family` was DECLARED via --family
+          # or DERIVED from the --family-dir basename
+          f"family={family!r} ({family_basis})")
     return 0
 
 

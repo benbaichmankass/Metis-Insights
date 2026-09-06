@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-06T17:20:44+00:00",
+  "generated_at": "2026-09-06T21:40:20+00:00",
   "verdict": "partial",
   "unreadable_sources": [
     "red_crons",
@@ -10,7 +10,7 @@
   "sources": {
     "open_items": {
       "state": "read",
-      "rows": 45,
+      "rows": 48,
       "note": ""
     },
     "soaks": {
@@ -31,7 +31,7 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=7.8h cadence=daily (cron 20 5 * * *) | 1 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=12.1h cadence=daily (cron 20 5 * * *) | 1 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "could_not_read",
@@ -46,7 +46,7 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-06T17:20:40+00:00, age 0.0h"
+      "note": "digest 2026-09-06T21:40:16+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -55,8 +55,8 @@
     }
   },
   "counts": {
-    "due": 69,
-    "loud": 49
+    "due": 72,
+    "loud": 52
   },
   "rows": [
     {
@@ -484,8 +484,35 @@
     },
     {
       "source": "open_items",
+      "id": "OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET",
+      "title": "PR #11125 merged 2026-09-06T18:43:22Z as 9604b8a5 (squash), Tier-3, operator-approved, routed by the manager rather than self-merged. Content VERIFIED on origin/main directly, not from the merge event",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP",
+      "title": "ict_scalp_5m was demoted off the REAL-MONEY bybit_2 account (Tier-3, operator-approved 2026-09-06, scope bybit_2 only) by removing it from that account's `strategies:` list in config/accounts.yaml. PR",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
       "id": "OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING",
       "title": "docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md told its reader to paste it as a new session and no register pointed at it for 14 days. MI-148 now carries the work (#11138 landed the calibration",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260906-SCALP-EXIT-HEAD-ARTIFACT-IS-THE-SECOND-MISSING-HALF-NOT-THE-FIRST",
+      "title": "MI-154, measured 2026-09-06 at main 957fc81d. The lane was opened on the premise that PR #11140 had SHIPPED the ict_scalp exit-head consumer and that only the artifact was missing. #11140 is OPEN and ",
       "why_due": "loud row — must be reported on every session",
       "age_days": 0,
       "loud": true,
@@ -512,8 +539,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-9fd2fc82",
-      "title": "[error] x72 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 72 rows 2026-08-24T19:27:41 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
+      "title": "[error] x69 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
+      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 69 rows 2026-08-24T19:35:21 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
       "age_days": 13,
       "loud": false,
       "link": ""
@@ -603,7 +630,7 @@
       "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
       "title": "118 cause groups over 1391 rows (80 error-level, 38 warn-level, 0 new since the last digest)",
-      "why_due": "70 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-06T14:02:20.751448+00:00`.",
+      "why_due": "70 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-06T18:51:49.880170+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""

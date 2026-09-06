@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One manager lease heartbeat in docs/claude/work/MANAGER-LEASE.json. Nothing else. A lease heartbeat is a management act under CLAUDE.md, not an item. Deliberately kept to a single file on its own short-lived branch: the previous carrier (#11164) accumulated other work, went `dirty`, and could not merge — which stopped the heartbeat reaching main for 158 minutes and made the lease expire twice. A carrier that carries only the heartbeat cannot be blocked by anything else."
+}

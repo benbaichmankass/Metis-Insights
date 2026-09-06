@@ -295,7 +295,50 @@ accounts:
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
-    strategies: [trend_donchian, ict_scalp_5m, fvg_range_15m, eth_pullback_2h, xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+    strategies: [trend_donchian, fvg_range_15m, eth_pullback_2h, xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+                                       # ict_scalp_5m DEMOTED from real money 2026-09-06
+                                       # (Tier-3, OPERATOR-APPROVED 2026-09-06 in conversation;
+                                       # scope: bybit_2 ONLY, no condition attached).
+                                       # DECIDED. Reversal: re-add ict_scalp_5m to this list.
+                                       # The operator was offered `execution: shadow` in
+                                       # config/strategies.yaml (PR #11115) and chose THIS
+                                       # narrower lever instead, deliberately: `execution:` is a
+                                       # per-STRATEGY gate that would also have stopped both PAPER
+                                       # books, and the paper evidence is wanted — it is what feeds
+                                       # the bracket_geometry sweep, the one exit lever that is both
+                                       # unrun and applicable to this leg. So the leg KEEPS
+                                       # execution: live and KEEPS trading on bybit_1 — the
+                                       # FULL-ROSTER soak book that "trades everything for data",
+                                       # which is exactly the book that evidence accrues on.
+                                       # ⚠️ bybit_portfolio does NOT keep it, and that is NOT a
+                                       # partial retreat from the operator's intent — it is the
+                                       # ROSTER-SYNC invariant, ENFORCED by tests/
+                                       # test_paper_portfolio_accounts.py. That book exists to
+                                       # mirror the REAL live-traded portfolio, so once bybit_2
+                                       # stops trading a leg the mirror must stop too or it
+                                       # misreports the very thing it exists to report. It is the
+                                       # winners-only PORTFOLIO book, never a soak book. This was
+                                       # NOT anticipated when the change was scoped: the config
+                                       # path does not propagate (bybit_portfolio.strategies is a
+                                       # literal list) but a TEST pins the two rosters together.
+                                       # CI found it; see that account below.
+                                       # ⚠️ ORDER PACKAGES AND PAPER FILLS WILL KEEP APPEARING FOR
+                                       # ict_scalp_5m. That is this change working, not failing;
+                                       # grade it on `trades` rows carrying account_id='bybit_2'.
+                                       # MEASURED (real-money closes on bybit_2, n=37, to
+                                       # 2026-09-04T12:30Z; docs/research/ict-scalp-5m-real-money-verdict-2026-09-06.md):
+                                       # only 21 of 37 exited through the leg's own bracket. On its
+                                       # own bracket it wins 38.1% against the 40.0% its tp_at_r 1.5
+                                       # geometry needs. Realised payoff ratio 0.671 against a
+                                       # declared 1.5 — a 2.23x inversion — so the book needs 59.8%
+                                       # and delivers 54.1%; that published 54.1% is reached only by
+                                       # counting 16 reconciler-closed scratches. Round-trip fee
+                                       # $0.2885/trade against a mean per-trade result of -$0.34.
+                                       # 32 of 35 PnL rows are broker truth, none fabricated.
+                                       # No open ict_scalp_5m position on bybit_2 at demotion
+                                       # (last close id 5450, 2026-09-04T12:30Z), so no open-position
+                                       # risk. BTCUSDT stays in `symbols:` below — still traded by
+                                       # trend_donchian.
                                        # htf_pullback_trend_2h DEMOTED from real money 2026-07-15
                                        # (Tier-3, operator-approved: "merge all data-based tier-3 decisions").
                                        # /performance-review 2nd demote: NEGATIVE on BOTH books — real
@@ -422,11 +465,37 @@ accounts:
     mode: live                         # demo = paper money; live is correct.
     market_type: linear                # USDT-margined linear perps (mirrors
                                        # bybit_2); set-leverage fires at boot.
-    strategies: [trend_donchian, ict_scalp_5m, fvg_range_15m, eth_pullback_2h, xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+    strategies: [trend_donchian, fvg_range_15m, eth_pullback_2h, xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
                                        # MIRRORS bybit_2's real-money roster
-                                       # (winners-only). ict_scalp_5m is
-                                       # execution: shadow globally, so it
-                                       # shadow-logs here exactly as on bybit_2.
+                                       # (winners-only).
+                                       # ict_scalp_5m REMOVED 2026-09-06 — FOLLOWS
+                                       # bybit_2's demote (see that account above for
+                                       # the Tier-3 approval and the evidence). This
+                                       # is the ROSTER-SYNC invariant above, which
+                                       # tests/test_paper_portfolio_accounts.py
+                                       # ::test_bybit_portfolio_mirrors_bybit_2_exactly
+                                       # ENFORCES — the mirror exists to show what the
+                                       # REAL portfolio is doing, so leaving a leg here
+                                       # that bybit_2 no longer trades would make this
+                                       # book misreport the live portfolio, which is
+                                       # the one thing it exists to get right.
+                                       # ⚠️ THE SOAK EVIDENCE IS NOT LOST: ict_scalp_5m
+                                       # keeps execution: live and keeps trading on
+                                       # bybit_1, the FULL-ROSTER soak book that
+                                       # "trades everything for data". That is the
+                                       # book the bracket_geometry evidence accrues
+                                       # on; bybit_portfolio is the winners-only
+                                       # PORTFOLIO book, never a soak book.
+                                       # ROLLBACK: re-add here AND to bybit_2 together
+                                       # — the invariant fails if only one moves.
+                                       # ⚠️ The previous comment on this line claimed
+                                       # "ict_scalp_5m is execution: shadow globally,
+                                       # so it shadow-logs here exactly as on bybit_2".
+                                       # That was FALSE and is deleted, not carried:
+                                       # config/strategies.yaml has ict_scalp_5m at
+                                       # execution: live since the 2026-07-20 Tier-3
+                                       # re-promotion, so this book was EXECUTING it,
+                                       # not shadow-logging it. Field beats comment.
     symbols: [BTCUSDT, ETHUSDT, XRPUSDT, ADAUSDT]  # mirrors bybit_2.symbols.
     risk:
       max_dd_pct: 0.05                 # mirrors bybit_2's caps.

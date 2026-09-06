@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Registers and one work-object YAML only — docs/claude/OPEN-ITEMS.json, docs/claude/work/OPEN-PRS.json, docs/claude/work/objects/WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED.yaml, docs/claude/health-review-backlog.json. It is the close-out of PR #11125, which the manager already merged as 9604b8a5. NO src/, NO config/, NO tests/, NO .github/workflows/, no order path, no strategy or risk surface — nothing here reaches a venue. The Tier-3 diff this records landed under its own approval and its own separate declaration (bybit-close-qty-apply-20260906.json, landing: hold); recording an outcome is not re-landing the change."
+}
