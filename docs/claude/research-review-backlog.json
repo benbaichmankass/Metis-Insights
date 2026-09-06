@@ -252,33 +252,36 @@
     },
     {
       "id": "BL-20260906-NO-LEG-WENT-LIVE-ON-A-DISPOSITIONED-BACKTEST",
-      "severity": "P1",
-      "area": "research-pipeline",
-      "status": "open",
-      "title": "0 of 44 enabled live legs had a backtest result read and dispositioned BEFORE it went live",
-      "detail": "MEASURED (MI-147, docs/research/mi147-backtest-soak-chain-2026-09-06.md). Population: the 44 entries in config/strategies.yaml::strategies with enabled:true AND execution:live at f2b871e, defaults applied; each carries one symbol so leg==strategy 1:1. scripts/research/research_disposition.py --report returns 370 units (dispositioned 103, unread 11, superseded_unread 256) spanning 2026-08-10..2026-08-31. All 44 legs went live 2026-05-15..2026-08-13, so every dispositioned unit postdates its own leg's go-live: lag min 0 d, median 56 d, max 88 d, n=44. Also 365 of 370 units (98.6%) are not_queue_dispatched and 182 of 232 units belonging to these 44 legs (78.4%) sit below the declared power floor n>=49.06. CONSEQUENCE: soak cannot be 'mechanical verification of what backtesting proved' because for this population backtesting proved nothing prior to go-live - soak was the first measurement. REMEDY PROPOSED, NOT APPLIED (Tier-3): gate execution:live on a dispositioned unit whose run_stamp predates the config commit.",
       "opened": "2026-09-06",
-      "source": "MI-147-BACKTEST-SOAK-CHAIN-AUDIT"
+      "severity": "high",
+      "tier": "1 (audit finding; the remedy — gating execution:live on a prior disposition — is Tier-3 and PROPOSED only)",
+      "status": "open",
+      "area": "research/gating",
+      "title": "0 of 44 enabled live legs had a backtest result read and dispositioned BEFORE it went live",
+      "detail": "MEASURED (MI-147, docs/research/mi147-backtest-soak-chain-2026-09-06.md). POPULATION: the 44 entries in config/strategies.yaml::strategies with enabled:true AND execution:live at f2b871e, permissive defaults applied; each carries exactly one symbol so leg==strategy 1:1. scripts/research/research_disposition.py --report returns 370 units (dispositioned 103, unread 11, superseded_unread 256, corpus_unreadable 0) spanning 2026-08-10..2026-08-31. All 44 legs went live 2026-05-15..2026-08-13, so every dispositioned unit postdates its own leg's go-live: lag min 0 d, median 56 d, max 88 d, n=44. Supporting: 365 of 370 units (98.6%) are not_queue_dispatched, and 182 of 232 units belonging to these 44 legs (78.4%) sit below the declared power floor n>=49.06. CONSEQUENCE: soak cannot be 'mechanical verification of what backtesting proved' for this population, because backtesting had dispositioned nothing prior to go-live — soak was the first measurement. The disposition machinery itself works; it was built 2026-08-10, after every leg in the population had already gone live.",
+      "resolution_criteria": "For at least one leg promoted to execution:live AFTER this row was filed, research_disposition.py --report shows a dispositioned unit whose run_stamp precedes that leg's config/strategies.yaml promotion commit — the ordering measured here reversed for a new promotion. Re-measure by section (b) of the finding doc. NOTE the 44 legs already live CANNOT close this: their ordering is history and is not repairable. The row ends when the PRACTICE changes for a new leg, or when the operator rules a pre-live disposition gate is not wanted and that ruling is recorded."
     },
     {
       "id": "BL-20260906-BACKTEST-HARNESSES-RUN-NO-TAKE-PROFIT-BY-DEFAULT",
-      "severity": "P1",
-      "area": "research-pipeline",
-      "status": "open",
-      "title": "11 of 15 backtest harnesses never model the live TP cap and the other 4 default it OFF",
-      "detail": "MEASURED (MI-147). The live units clamp take-profit to min(entry*(1+0.099), entry+tp_r*risk) via TP_VENUE_CAP_PCT=0.099 (src/runtime/tp_venue_cap.py:64). Of 15 harnesses (scripts/backtest_*.py + src/backtest/run_backtest*.py), only backtest_trend / backtest_pullback / backtest_squeeze / backtest_fade reference tp_cap_pct at all, and in all four it is `tp_cap_pct: float = 0.0` - DEFAULT OFF, which sets tp_price=None, i.e. the harness runs a book with NO take-profit exit path. The other 11, including backtest_ict_scalp.py (covering 8 of the 44 enabled live legs) and src/backtest/run_backtest{,_vwap}.py, reference it zero times. So at defaults the backtest models a different exit geometry than the live system runs. Extends BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP from one harness to the fleet, and composes with MI-146 (25 of 44 legs, 56.8%, have no reachable take-profit). REMEDY PROPOSED, NOT APPLIED - defaulting the cap on is Tier-3 because it changes every prior verdict these harnesses produced.",
       "opened": "2026-09-06",
-      "source": "MI-147-BACKTEST-SOAK-CHAIN-AUDIT"
+      "severity": "high",
+      "tier": "3 (defaulting the cap on changes every prior verdict these harnesses produced — PROPOSED, not applied)",
+      "status": "open",
+      "area": "research/harness-fidelity",
+      "title": "11 of 15 backtest harnesses never model the live TP cap and the other 4 default it OFF",
+      "detail": "MEASURED (MI-147). The live units clamp take-profit to min(entry*(1+0.099), entry+tp_r*risk) via TP_VENUE_CAP_PCT=0.099 (src/runtime/tp_venue_cap.py:64). POPULATION: the 15 backtest harnesses matched by scripts/backtest_*.py plus src/backtest/run_backtest*.py. Only 4 reference tp_cap_pct at all — backtest_trend.py, backtest_pullback.py, backtest_squeeze.py, backtest_fade.py — and in all four the signature reads `tp_cap_pct: float = 0.0`, DEFAULT OFF, which sets tp_price=None: the harness runs a book with NO take-profit exit path. The other 11, including backtest_ict_scalp.py (covering 8 of the 44 enabled live legs) and src/backtest/run_backtest{,_vwap}.py, reference it zero times. So at defaults the backtest models a different exit geometry than the live system runs. Extends BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP from one harness to the fleet, and composes with MI-146 (25 of 44 legs, 56.8%, have no reachable take-profit).",
+      "resolution_criteria": "All 15 harnesses both reference tp_cap_pct AND default it to TP_VENUE_CAP_PCT rather than 0.0, verified by reading the function signature and not the docstring. PARTIAL CLOSE IS ALLOWED and must be stated: porting the cap to backtest_ict_scalp.py alone covers 8 of the 44 legs and may be recorded, leaving the row open on the remainder. A harness that references tp_cap_pct but still defaults it to 0.0 does NOT satisfy this — default-off is the finding."
     },
     {
       "id": "BL-20260906-FIDELITY-CALIBRATOR-CANNOT-GRADE-EXIT-LOCATION",
-      "severity": "P2",
-      "area": "research-pipeline",
-      "status": "open",
-      "title": "backtest_fidelity_calibrate has left no durable run and grades outcome distribution, not exit location",
-      "detail": "MEASURED (MI-147). Path correction: the script is scripts/research/backtest_fidelity_calibrate.py, NOT scripts/ops/ as MI-151's briefing stated. (1) Across the full 4277-commit history (2026-03-22..2026-09-06) no backtest_fidelity_* OUTPUT artifact has ever been committed; only the three source files were added; comms/research/ - the script's own documented --out dir - has received exactly one file ever (crypto_correlation_2026-08-18.json, unrelated); no .github workflow references it. Positive control: the same pickaxe does return file additions, so this is absence not a broken probe. LIMIT: this proves no run LANDED in the repo; a trainer-side run leaving no record is not excluded. (2) Its SQL is `SELECT pnl, notes, direction, timestamp FROM trades` - it reads no exit price, no exit level, no exit-vs-target timestamp. It grades win-rate diff, KS on realized-R and mean-R gap, i.e. OUTCOME DISTRIBUTION. Exit LOCATION is not among them, so the instrument cannot answer the exit-fidelity question even when run. No other script in the repo grades backtest-vs-live exit location. Both MI-151 claims verified independently and both hold.",
       "opened": "2026-09-06",
-      "source": "MI-147-BACKTEST-SOAK-CHAIN-AUDIT"
+      "severity": "medium",
+      "tier": "1 (research tooling — adding a measurement axis, no live path)",
+      "status": "open",
+      "area": "research/harness-fidelity",
+      "title": "backtest_fidelity_calibrate has left no durable run and grades outcome distribution, not exit location",
+      "detail": "MEASURED (MI-147). PATH CORRECTION: the script is scripts/research/backtest_fidelity_calibrate.py, NOT scripts/ops/ as the MI-151 briefing stated. (1) NEVER RUN DURABLY — across the full 4277-commit history (2026-03-22..2026-09-06) no backtest_fidelity_* OUTPUT artifact has ever been committed; only the three source files were added; comms/research/, the script's own documented --out directory, has received exactly one file in the repo's life (crypto_correlation_2026-08-18.json, unrelated); no .github workflow references it. POSITIVE CONTROL: the same pickaxe does return file additions, including the script's own, so this is absence and not a broken probe. LIMIT, stated: this proves no run LANDED in the repo; a trainer-side run leaving no durable record is not excluded — 'no run has left a record' is not 'no process ever executed it'. (2) WRONG QUANTITY — its SQL is `SELECT pnl, notes, direction, timestamp FROM trades`; it reads no exit price, no exit level and no exit-vs-target timestamp. It grades win-rate difference, a two-sample KS on realized-R, and a mean-R gap: OUTCOME DISTRIBUTION. Two books can agree on all three and exit in entirely different places, so the instrument cannot answer the exit-location question even when run. No other script in the repo grades backtest-vs-live exit location. Both MI-151 claims verified independently; both hold.",
+      "resolution_criteria": "EITHER (a) the calibrator reads an exit LOCATION column and emits an axis graded on it, with a committed artifact under comms/research/ proving a run landed; OR (b) every doc and briefing citing it as the exit-fidelity instrument is corrected to say it grades outcome distribution only, and the exit-location question is either given its own instrument or explicitly recorded as unmeasured. Do NOT close on a landed run alone — a run of the CURRENT script still answers a different question, which is the finding."
     }
   ],
   "updated_at": "2026-09-06"
