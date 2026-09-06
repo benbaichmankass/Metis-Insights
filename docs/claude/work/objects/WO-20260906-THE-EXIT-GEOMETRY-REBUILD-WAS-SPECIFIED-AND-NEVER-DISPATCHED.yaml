@@ -127,9 +127,9 @@ answer:
       origin/main or on disk. This branch creates it.
   filed:
     - >-
-      UPDATED IN PLACE (not duplicated) BL-20260901-E35-TP-R-CAN-BE-INERT-
-      BEHIND-THE-VENUE-CLAMP-AND-THE-BINDING-RATE-IS-UNMEASURED - the binding
-      rate is now measured, so that row's own title is half false.
+      UPDATED IN PLACE (not duplicated) the binding rate is now measured, so
+      that row's own title is half false. Row:
+      BL-20260901-E35-TP-R-CAN-BE-INERT-BEHIND-THE-VENUE-CLAMP-AND-THE-BINDING-RATE-IS-UNMEASURED
     - >-
-      NEW BL-20260906-VENUE-TP-CAP-IS-2-9X-TOO-LOOSE-ON-EVERY-LEG-THAT-
-      TOUCHES-NO-BYBIT-ACCOUNT.
+      NEW row filed:
+      BL-20260906-VENUE-TP-CAP-IS-2-9X-TOO-LOOSE-ON-EVERY-LEG-THAT-TOUCHES-NO-BYBIT-ACCOUNT
