@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# wiring: manual-only - an investigative probe a session runs against a JOURNAL DUMP when it
+# is about to quote or act on an R-based figure (a promotion verdict, a review headline).
+# Deliberately NOT scheduled: it takes the `rows` arrays from /api/bot/db/table/* as files so
+# it can run off-VM, and a cron that quietly recomputed a contamination share nobody read
+# would be the "written and never consumed" failure this repo already paid for once.
 """Reproduce ``/api/bot/performance`` R aggregates, then decompose them by R-provenance.
 
 WHY THIS EXISTS

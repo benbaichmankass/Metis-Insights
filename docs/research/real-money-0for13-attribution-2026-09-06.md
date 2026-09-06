@@ -99,8 +99,8 @@ initial risk*, expectancy is **−0.49R**.
 whole-journal figure negative — it collapses it to **+0.127R** over the remaining 1182 rows,
 because `unverified` still carries +234.93 and `unverified` is *"we could not look"*, not a
 clean bill. The sign flip happens in § 1.3, on the real-money window the gates actually read.
-The honest whole-journal claim is that the aggregate is **an artifact of 8.1% of rows and is
-indistinguishable from zero once they are removed**, not that it is negative.
+The honest whole-journal claim is that the aggregate is **an artifact of 104 of 1286 rows (8.1%)
+and is indistinguishable from zero once they are removed**, not that it is negative.
 
 **Positive control for the discriminator:** `|R| > 10` occurs **26 times among the 104
 contaminated rows and 0 times among the 172 confirmed_initial rows**. The separation is
