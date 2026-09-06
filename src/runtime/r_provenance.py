@@ -59,13 +59,36 @@ THE STATES — four, never collapsed
     four buckets **sum to the population by construction** and the partition is
     checkable rather than trusted.
 
-WHAT THIS MODULE DELIBERATELY DOES NOT DO
------------------------------------------
-*It does not exclude anything from any aggregate.* Silently dropping the
-contaminated rows would convert a visible-wrong number into an invisible-wrong
-one over an unstated population — the failure ``docs/CLAUDE-RULES-CANONICAL.md``
-§ "Always state the population" names. Publish the count; let the consumer
-decide.
+WHAT IT DOES, AND WHAT IT DELIBERATELY DOES NOT
+-----------------------------------------------
+⚠️ **THIS SECTION READ "It does not exclude anything from any aggregate" UNTIL
+2026-09-06 — do not re-quote that.** It was true of the four GRADING states
+above and it is still true of them: :func:`classify_r` filters nothing, and
+``rProvenance`` reports over the whole population.
+
+It stopped being true of the module as a whole when :func:`initial_risk_usd`
+landed (MI-144). Its reasoning — *silently dropping the contaminated rows would
+convert a visible-wrong number into an invisible-wrong one over an unstated
+population* — is correct, and the operative word is **silently**. The escape it
+always left open is its own last clause, *"publish the count; let the consumer
+decide"*: no consumer COULD decide, because ``expectancyR`` was itself the
+number being consumed, by the promotion gates.
+
+MEASURED 2026-09-06 (live journal via ``/api/bot/db/table/{trades,
+order_packages}``, 5518 + 4435 rows; the reproduction matched the endpoint's own
+totals first, as a positive control): the 30d real-money window published
+``expectancyR +0.9818`` on a window that LOST money (``totalPnl -3.6266``,
+``profitFactor 0.9507``), with 12 of 39 rows (30.8%) carrying 117.1% of that R.
+Whole journal, n=1287: 104 contaminated rows — **8.1%** — carried **96.6%** of
+``totalR``. Single-row max: ``R = +3672.3``.
+
+So a PROVABLY impossible risk is now REFUSED, and the refusal is **declared**
+rather than silent: the basis is published per row and counted per window
+(``rBasis.refusedWrongSide``), and ``rCoverage`` falls correspondingly, so the
+population is stated at the point of reading. A refusal counts in neither the R
+numerator nor its denominator — the discipline a missing stop has always had.
+⚠️ And it is the LAST resort: a wrong-side row carrying a declared
+``risk_per_unit`` is COMPUTED on that record, never refused.
 
 *It does not treat a disagreement with the declared risk as PROOF.* Measured
 over the live journal (see :data:`DISAGREEMENT_RATIO_BAR`), the ratio

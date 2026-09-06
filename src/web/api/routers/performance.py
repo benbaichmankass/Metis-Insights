@@ -321,10 +321,27 @@ def _query(
         # `opk.sl` / `opk.tp` are the DECLARED bracket the exit price is graded
         # against — the same levels `order_monitor._classify_broker_exit` reads,
         # off the same 1:1 primary-key join as `meta` above.
-        meta_select = (
-            "\n                   opk.meta AS package_meta,"
+        #
+        # ⚠️ THEY RIDE THEIR OWN `order_packages` SCHEMA GUARD, NOT `trades`'.
+        # `avail` describes the TRADES table, so gating these on
+        # `order_package_id in avail` would select `opk.sl` from a legacy
+        # `order_packages` that has no such column and raise `no such column:
+        # opk.sl` — erroring the WHOLE endpoint (every metric, every window
+        # blanked) to buy one derived figure. That is exactly the failure the
+        # `notes` guard above exists to prevent, and the pre-existing
+        # `test_performance_r_provenance` fixtures are built on precisely that
+        # minimal schema. A missing column degrades `bracketOutcome` to
+        # `no_bracket_record` — *we could not look* — and leaves the rest
+        # intact.
+        pkg_avail = {row[1] for row in conn.execute(
+            "PRAGMA table_info(order_packages)")}
+        bracket_select = (
             "\n                   opk.sl AS package_sl,"
             "\n                   opk.tp AS package_tp,"
+            if "order_package_id" in avail
+            and {"sl", "tp"} <= pkg_avail else "")
+        meta_select = (
+            "\n                   opk.meta AS package_meta," + bracket_select
             if "order_package_id" in avail else "")
         meta_join = (
             "\n            LEFT JOIN order_packages opk"
