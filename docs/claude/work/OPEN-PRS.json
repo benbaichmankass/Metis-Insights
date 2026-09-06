@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-05T08:45:00Z",
+  "as_of": "2026-09-06T14:20:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -79,6 +79,24 @@
         "text": "Operator, in conversation 2026-09-06: 'you have my ok on 11105'. Given in direct reply to the manager's ask, which named the job file and stated it executes bash over SSH on the live money VM and is read-only by construction. NO condition was attached and none is invented here."
       },
       "blocker": "⚠️ THE APPROVAL DOES NOT LAND IT, and reading it as 'approved therefore mergeable' is the trap. The Tier-2 gate is DISCHARGED; a SEPARATE and unrelated blocker stands: manager-scope-guard R2 fails this branch on TWO manager commits (a43ca75d and its own revert 89adb920), because the manager edited the author session's disposition doc. R2 grades COMMITS IN THE RANGE, not the net diff, and a43ca75d is an ancestor of the tip (verified: git merge-base --is-ancestor succeeds), so no later commit can clear it and REVERTING TOOK THE COUNT FROM 1 TO 2. Recurrence of the shape that killed #11031 on 2026-09-05; filed as BL-20260906-A-MANAGER-COMMIT-ON-A-WORKER-BRANCH-MAKES-THAT-BRANCH-PERMANENTLY-UNMERGEABLE-RECURRENCE. ⚠️ DO NOT merge past the failing required check, do not spend manager-scope-exception.yaml (it is for live INCIDENTS), and do not cherry-pick the author's commits to launder the trailer (the guard names that as an open evasion). The route is a CLEAN RE-LAND on a branch carrying only the author's commits, plus the population fix whose exact wording is recorded in the PR thread."
+    },
+    {
+      "pr": 11140,
+      "opened_at": "2026-09-06T14:20:00Z",
+      "title": "MI-150: ship the M20 exit-head consumer into ict_scalp (annotate-only, disarmed)",
+      "owner_session": "session_01Lr1TDaQz2APJyYafBnsZen",
+      "checklist_item": "MI-150",
+      "draft": true,
+      "tier": "3",
+      "state": "draft_awaiting_manager_routed_merge",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": "APPROVAL IS FOR THE CONSUMER, NOT FOR ARMING THE LEVER — the two are different decisions and only the first was taken. The PR must land `annotate`-only: ICT_SCALP_EXIT_HEAD_MODE defaults to `annotate` and NO leg may declare `exit_head_action`. ⚠️ AND A SEPARATE, EARLIER OPERATOR DECISION BLOCKS THE ARMING: 2026-08-23 `SHIP BLOCKED` in all five candidate cells of docs/research/exit-refinement-coverage.json, which CANCELLED the queued Tier-3 ship and named 'a consumer exists in the ict_scalp unit' as its own precondition. This PR satisfies that precondition and nothing else. Arming additionally needs evidence that survives re-partitioning: for ict_scalp_sol_5m the 4-arm screen flips the pass to honest_negative (BL-20260815-SCALP-EXIT-HEAD-MATRIX-DISAGREES-WITH-THE-4-ARM-SCREEN) and its live-parity beats_hard 16/23 clears by 2 points of 46. Ship 3 legs' worth of WIRING; exclude ict_scalp_5m (BTC) as UNMEASURED and ict_scalp_eth_15m as a measured negative, encoded as DIFFERENT statuses.",
+        "scope": "MI-146 recommendation #2: the ict_scalp exit-head consumer, 3 legs, 2 excluded. Wiring only — no leg is armed, no env var is set, no strategies.yaml key is added.",
+        "decided_on": "2026-09-06",
+        "text": "Operator, asked directly whether to route MI-146's recommendation #2: \"Yes on MI 146\". Recorded verbatim; the conditions above are NOT quotes from that answer — they are (a) the scope of recommendation #2 as MI-146 itself states it (annotate-first, Tier-3 flip proposed separately) and (b) the standing 2026-08-23 operator decision recorded in the matrix cells, which the MI-146 memo did not surface. Flagged so a successor cannot read 'approved' as approval to arm — the half-informed case this record's own _doc calls the dangerous one."
+      },
+      "blocker": "NOT BLOCKED — draft awaiting a manager-routed merge; it does not self-merge (.github/pr-landing/ict-scalp-exit-head-20260906.json: tier 3, landing `hold`, hold_reason tier_2_3_needs_approval). ⚠️ WHAT IS BLOCKED IS THE OUTCOME, NOT THE MERGE: measured 2026-09-06 on /api/diag/shadow_stats, the live mirror publishes only `1h` exit_head artifacts (exit-head-donchian-1h-v1 advisory, exit-head-donchian-peak-1h-v1 shadow) while every ict_scalp leg is 5m/15m, so the in-distribution tf guard fail-closes on all 8 and the consumer records decision_state: not_scored. It cannot produce a firing soak row until a 5m/15m scalp head is trained and published. Do not read a quiet soak as the lever declining — tracked as OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
