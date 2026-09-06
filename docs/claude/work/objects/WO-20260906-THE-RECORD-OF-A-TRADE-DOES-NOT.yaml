@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   The record of a trade does not say what happened: R is sign-inverted, exit_reason is frozen, and the read route silently empties
 stage: INTEGRITY
-lifecycle: waiting
+lifecycle: done
 owner: session_01L7dTAuGMdn3CTGeyYV5Mox
 opened_at: 2026-09-06
-closed_at: null
+closed_at: 2026-09-06
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
@@ -20,12 +20,19 @@ why: >-
 source: >-
   operator (conversational)
 
-blocked_on:
-  - kind: observation
-    ref: OI-20260906-BRACKETOUTCOME-ANSWERS-THE-OPERATORS-QUESTION-OVER-A-QUARTER-OF-THE-BOOK
-    since: 2026-09-06
+blocked_on: []
 blocked_on_basis: >-
-  RE-ASSESSED 2026-09-06T15:02Z by MI-144, AND THE EDGE HAS MOVED — do not
+  CLEARED 2026-09-06T16:56Z — nothing blocks this object any more; both the
+  fix and the follow-up fix are MERGED, DEPLOYED and OBSERVED on the fleet
+  (see `observed_on_the_fleet.coverage_fix_observed`). The history below is
+  kept as the record of how the edge MOVED — pull_request -> observation ->
+  cleared — and must not be read as a live blocker.
+  ⚠️ TWO Tier-2 items remain PROPOSED and awaiting an operator decision (the
+  historical `exit_reason` re-classification, and folding
+  `order_monitor._classify_broker_exit` into `bracket_outcome`). They were
+  deliberately never blocking edges on this object and are not now: the
+  read-path derivation answers the operator's question without them.
+  HISTORY — RE-ASSESSED 2026-09-06T15:02Z by MI-144, AND THE EDGE HAS MOVED — do not
   re-quote the previous basis, which named a MERGE of PR #11131 as the blocker.
   #11131 MERGED as 44cc060b and the content is on origin/main (verified by
   `git cat-file -e origin/main:src/runtime/bracket_outcome.py` and by grepping
@@ -161,12 +168,38 @@ disposition:
       a correct ratio over an invisible denominator — the same defect class
       MI-144 was dispatched to fix, reproduced by the fix. Carried as
       OI-20260906-BRACKETOUTCOME-ANSWERS-THE-OPERATORS-QUESTION-OVER-A-QUARTER-OF-THE-BOOK.
+    coverage_fix_observed: >-
+      ✅ PR #11155 merged as 92aebf8c and DEPLOYED — /api/diag/version read
+      git_sha 92aebf8c == git_sha_on_disk, restart_pending false, at
+      2026-09-06T16:56:45Z. Content-verified on origin/main first (the
+      `opl_pick` / `_pkg_col` / `link_ok` fallback join is present), and the
+      endpoint still carried the OLD figures at 16:56:24Z — a positive
+      control, so this is real absence-then-presence and not an unreachable
+      probe. OBSERVED on /api/bot/performance?window=all, real money n=424:
+      gradeable 420 (99.1% coverage, up from 99 / 23.3%), noBracketRecord 0
+      (down from 321), priceNotMeasurable 4, reachedRatio 0.5429, sl 187 /
+      tp 41 / mid 192. CHECKED BY ARITHMETIC, not eyeballed: the states
+      partition (0+0+192+0+4+187+41 = 424 == totalTrades), sl+tp+mid = 420 ==
+      gradeable, and 228/420 = 0.5429 == the published ratio. rBasis moved
+      {103,321,0,0} -> {106,318,0,0}, still summing to 424 with
+      declaredInitial+storedStop == rTradeCount, and expectancyR -0.3152 ->
+      -0.3153 against profitFactor 0.7294 — exactly the predicted magnitude.
+      ⚠️ EVERY PRE-MERGE PREDICTION LANDED (420 gradeable, 187:41, 0.5429,
+      106 declared, -0.3153). That is a strong result and is NOT self-evidence
+      the instrument is CORRECT: it establishes that the offline pipeline and
+      the deployed route agree, which is what makes the two comparable — the
+      classifier's correctness rests on its tests, not on this agreement.
+      ⚠️ The 4 rows now grading `priceNotMeasurable` are the ones predicted
+      unreachable-by-either-key; they are DECLARED, not hidden.
     the_answer_to_the_operators_question: >-
       REAL MONEY, all history, n=428, 420 gradeable: 228 (54.3%) ended at a
       declared bracket — 187 at the STOP against 41 at the TARGET, a 4.6:1
-      ratio — and 192 ended mid-bracket. ⚠️ QUOTE THIS FROM THE MEASUREMENT,
-      NOT FROM THE LIVE ENDPOINT, until the coverage fix deploys: the endpoint
-      currently answers 44.4% over 99 rows.
+      ratio — and 192 ended mid-bracket. ✅ THE LIVE ENDPOINT NOW AGREES AND IS
+      THE PLACE TO QUOTE IT FROM: /api/bot/performance?window=all publishes
+      reachedRatio 0.5429 over gradeable 420 of 424 as of 2026-09-06T16:56Z.
+      ⚠️ The earlier instruction to quote the measurement RATHER THAN the
+      endpoint is SPENT — do not re-quote it. ⚠️ Still never quote
+      reachedRatio without `gradeable` beside it.
   c_read_route_silently_empties:
     tier: 1
     state: landed_unproven

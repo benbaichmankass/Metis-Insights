@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   A Bybit reduce-only close is rejected with ErrCode 10001 on an unquantised float qty, so the position cannot be flattened
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: done
 owner: session_017UnyG4ArXmXKpB8rmEGv1j
 opened_at: 2026-09-06
-closed_at: null
+closed_at: 2026-09-06
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
@@ -22,9 +22,120 @@ source: >-
 
 blocked_on: []
 blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+  ASSESSED 2026-09-06 by session_017UnyG4ArXmXKpB8rmEGv1j. NOTHING BLOCKS THIS
+  OBJECT ANY MORE — the edge it carried (`external_event`: the manager routing
+  the merge of PR #11125) was DISCHARGED at 2026-09-06T18:43:22Z when the
+  manager merged it as 9604b8a5. This empty list is therefore a REAL assessed
+  claim that nothing blocks it, NOT the migrated `blocked_on: []` /
+  NOT_ASSESSED default that 578 objects in this store carry and that means
+  nobody looked.
+  ⚠️ THE OBJECT IS DONE; THE FIX IS NOT PROVEN. Those are different facts and
+  collapsing them is what this repo keeps paying for. This object's own
+  done_condition asked for a root cause established in code and a Tier-3
+  PROPOSAL — that is fully MET and then some (approved and merged). Whether the
+  snap ever fires on the fleet is a separate observation, carried by
+  OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET, not
+  by leaving this object open. An object held open for an observation it did not
+  ask for is how the in-flight ceiling gets consumed by finished work.
 
 captured_by: scripts/ops/capture_idea.py
+
+# ---------------------------------------------------------------------------
+# 2026-09-06 — ROOT-CAUSED, PROPOSED, APPROVED, APPLIED. Awaiting merge routing.
+# ---------------------------------------------------------------------------
+progress: >-
+  ROOT CAUSE ESTABLISHED IN CODE (PR #11112, docs-only) and FIX APPLIED
+  (PR #11125, DRAFT — Tier-3, do not self-merge). Two writers, two parts:
+  (1) execute.apply_intent_reduce_partial_close persisted the residual as a raw
+  float subtraction and was the ONLY unrounded position_size writer -> now
+  round(x, 8), the identity on every legal quantity; (2) close_open_position
+  called exchange_client.place_order directly with "qty": str(qty), bypassing
+  _submit_order (the only Bybit path carrying the legalizer) -> now routed
+  through qty_legalize.snap_artifact_qty.
+  ⚠️ THE SNAP GOES TO NEAREST AND MUST NEVER BE "HARMONISED" WITH legalize_qty,
+  which floors: flooring 33.299999999999955 gives 33.2, under-closing by a full
+  step and orphaning 0.1 SOL with no journal row — a LOUD failure converted into
+  a SILENT one, i.e. the very orphan class this object exists to kill. Flooring
+  an ENTRY is risk-reducing; flooring a CLOSE is risk-increasing.
+  Also corrected config/instruments.yaml XRPUSDT min_qty/qty_step 1.0 -> 0.1,
+  MEASURED from Bybit /v5/market/instruments-info (read 2026-09-06T11:03:10Z,
+  trainer-vm-diag issue #11120, Actions run 34029110078) and corroborated by
+  three live fractional XRP positions.
+  ⚠️ AVAXUSDT WAS SUSPECTED WRONG AND IS NOT — do not re-open it. Its sub-0.1
+  journal rows all carry status='rejected', i.e. pre-legalization sized
+  quantities that never reached the venue; restricted to venue-reaching rows
+  (n=65) the step is exactly the declared 0.1, and the venue read agrees.
+
+done_condition_status: >-
+  MET on every clause except the merge. Root cause established IN CODE, not
+  inferred (the wire line, the writer, and the elimination of the two rounding
+  siblings). qty_legalize.py and qty-legalization-guard were checked FIRST, as
+  the clause demanded: a legalizer already existed and the close path had never
+  been in its scope — a scope gap, not a rebuild, and the new function lives
+  INSIDE the seam so the guard is satisfied rather than worked around.
+  OTHER VENUES: Bybit only — IB floors to whole contracts and refuses below one;
+  Alpaca and OANDA close by symbol and never put a qty on the wire.
+  ANY LIVE POSITION UNFLATTENABLE RIGHT NOW: NO — 0 of 29 open rows carry an
+  off-grid position_size (/api/bot/db/table/trades, filter_state 'applied',
+  read 2026-09-06 ~10:12Z).
+  It was PROPOSED and not applied until the operator approved it, per the
+  Tier-3 clause; the approval is recorded typed in docs/claude/work/OPEN-PRS.json.
+
+population_note: >-
+  ⚠️ PR #11112's FIRST PASS reported "82 off-grid rows (13.00%)" and that number
+  is WRONG — an artifact of the bad XRPUSDT step. It must not be quoted. The
+  figure is 9 of 631 = 1.43%: POPULATION bybit_* accounts, non-backtest,
+  position_size > 0, trades ids 4519-5518 (the newest 1000 rows,
+  /api/diag/journal?table=trades&limit=1000, read 2026-09-06 ~11:02Z), under a
+  criterion asserted in code to be a non-multiple of ALL of {1, 0.1, 0.01,
+  0.001}. Independently re-derived this session rather than inherited. It
+  includes id=5342 on bybit_2, which is REAL MONEY.
+
+not_widened: >-
+  The two Bybit sibling paths that share the shape — modify_open_order's
+  slSize/tpSize (execute.py:2578,2580) and _bybit_top_up_partial_sl's
+  `uncovered` (order_monitor.py:9967) — were NOT touched. No observed failure at
+  either, and both are PROTECTIVE order paths where a rejection fails a
+  protective tightening SILENTLY, which is worse than a failed close. Filed as
+  BL-20260906-TWO-BYBIT-PROTECTIVE-LEG-PATHS-SEND-AN-UNQUANTISED-STRFLOAT-QTY.
+  The guard's own coverage gap is filed as
+  BL-20260906-QTY-LEGALIZATION-GUARD-CANNOT-DETECT-THE-CLASS-ITS-OWN-DOCSTRING-NAMES.
+
+# ---------------------------------------------------------------------------
+# 2026-09-06T18:43:22Z — MERGED by the manager. Object closed.
+# ---------------------------------------------------------------------------
+outcome: >-
+  MERGED as 9604b8a5 (squash), by the manager, at 2026-09-06T18:43:22Z — the
+  authoring session did not self-merge, which is what the Tier-3 landing
+  contract required and what .github/pr-landing/ declared.
+  ⚠️ VERIFIED AGAINST origin/main, NOT FROM THE MERGE EVENT. The
+  `pull_request.closed` relay was treated as a claim to check: execute.py:1876
+  carries round(parent_qty - consumed, 8); qty_legalize.py:423 defines
+  snap_artifact_qty; execute.py:2841/2852 route close_open_position's bybit
+  branch onto "qty": snap_qty_str; config/instruments.yaml XRPUSDT reads
+  min_qty/qty_step 0.1 with its venue-read provenance comment;
+  tests/test_bybit_close_qty_artifact.py is present at 457 lines; both filed
+  backlog rows are present.
+  ⚠️ The PR head 7c17a2af is NOT an ancestor of main — that is the SQUASH, not a
+  failed merge, and a session checking ancestry alone would wrongly conclude the
+  change is absent.
+  ⚠️ MERGED IS NOT OBSERVED. Nothing has been seen emitting a `snapped`
+  qty_state on the fleet, and nothing can until a Bybit close carries an
+  artifact again — 1.43% of rows, so this may be days. Carried by
+  OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET.
+
+cost_note: >-
+  ELEVEN merge conflicts between 11:26Z and 18:15Z, every one in a shared
+  register (nine in docs/claude/health-review-backlog.json, one in
+  OPEN-PRS.json, one in this file) and NONE in the order-path diff. Five green
+  heads were reached and four went stale before the merge could be routed
+  (765d83a2, 76167f7b, 5c290327, 8b37e208; merged on 7c17a2af). Each resolution
+  was by ID with in-code assertions that the merged id-set equalled theirs UNION
+  ours and that no incoming row was altered or dropped — which earned its keep:
+  one round preserved six of main's rows plus two edits, another preserved an
+  operator's `approved_with_conditions` verdict on PR #10940 that a side-wise
+  resolution would have erased.
+  ⚠️ A MERGE DRIVER FOR EXACTLY THIS EXISTS AND WAS NOT ARMED IN THIS CLONE —
+  scripts/ops/merge_json_register.py, installed by
+  scripts/ops/install_merge_driver.sh. Filed as
+  BL-20260906-REGISTER-MERGE-DRIVER-SHIPS-UNARMED-AND-A-SESSION-PAID-ELEVEN-HAND-RESOLUTIONS.

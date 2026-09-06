@@ -144,8 +144,20 @@ instruments:
     quote_currency: USDT
     settlement_currency: USDT
     tick_size: 0.0001        # fallback — live lookup authoritative
-    min_qty: 1.0
-    qty_step: 1.0
+    # MEASURED from the venue, not chosen. Bybit V5
+    # /v5/market/instruments-info?category=linear&symbol=XRPUSDT read
+    # 2026-09-06T11:03:10Z (trainer-vm-diag issue #11120, Actions run
+    # 34029110078) returns lotSizeFilter {"minOrderQty":"0.1","qtyStep":"0.1"}.
+    # These were BOTH declared 1.0 and were BOTH wrong — field beats comment.
+    # Corroborated independently: /api/diag/exchange_positions read
+    # 2026-09-06T11:02:43Z holds XRPUSDT 7114.1 (bybit_1), 58.5 (bybit_2) and
+    # 11903.8 (bybit_portfolio). A linear-perp position size changes only by
+    # fills, so a .1/.5 tail cannot exist at step 1.0.
+    # ⚠️ NOT cosmetic: this profile is the offline FALLBACK a qty resolver uses
+    # when the live lookup misses, and a step COARSER than the real one makes a
+    # floor drop up to 0.1 XRP off every close — the silent-orphan direction.
+    min_qty: 0.1
+    qty_step: 0.1
     contract_value_usd: 1.0
     max_leverage: 100
     display_name: "XRP/USDT Perp (Bybit)"
