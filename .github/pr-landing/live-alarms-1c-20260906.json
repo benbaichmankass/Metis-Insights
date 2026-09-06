@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Adds one new file under docs/claude/dispositions/ recording the written disposition of WO-20260906-THREE-LIVE-ALARMS-ON-THE-TRADING-FLEET. Docs only - no src/, config/, deploy/ or scripts/ change, no runtime or order-path effect. The Tier-2 restart and the Tier-3 order-path defect it describes are ESCALATED in the text and deliberately NOT actioned here."
+}
