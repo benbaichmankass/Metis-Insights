@@ -61,24 +61,6 @@
         "text": "None recorded. Tier-1 — one log line, two tests, one register correction."
       },
       "blocker": "⚠️ RE-MEASURED 2026-09-04. The MI-106 half is FIXED on claude/mi106-manager-scope-authorship: check_manager_scope now grades 5504200c `unattributed` rather than an R2 violation, because MANAGER-LEASE.json's own history places session_011JWFxuYAaEQKCFCmG6gnHJ out of office at the commit's 06:13:07Z author time. ⚠️ THIS PR IS STILL RED, ON A SECOND AND DIFFERENT DEFECT that was masked behind the first: R7 fails 5244dafb for '223 minutes since this manager's previous heartbeat', a number produced by reading the previous heartbeat from `sha~1` — on a merge commit, the WORKER branch's stale lease blob. The register reachable from that commit shows same-holder heartbeats at 08:32:50Z and 09:21:42Z: a 49-minute gap, inside the TTL. Filed as BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE. ⚠️ The standing DO-NOTs are unchanged and still correct: no manager-scope exception (this is not a live incident), no rewriting another session's commit, no merging past a failing required check."
-    },
-    {
-      "pr": 11105,
-      "opened_at": "2026-09-06T09:43Z",
-      "title": "1C: written disposition of the three live alarms — and a named order-path defect on the Bybit close",
-      "owner_session": "session_01RHuSYKu1r1ZErc65KLKV8t (author) / opened by manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "MI-137-THREE-LIVE-ALARMS",
-      "draft": false,
-      "tier": "2",
-      "state": "operator_approved_but_BLOCKED_on_manager_scope_R2_needs_clean_reland",
-      "operator_decision": {
-        "verdict": "approved",
-        "condition": null,
-        "scope": "automation/jobs/1c-live-alarms-state-01.job — the vm-driver read-only diag capture that took this PR to Tier-2",
-        "decided_on": "2026-09-06",
-        "text": "Operator, in conversation 2026-09-06: 'you have my ok on 11105'. Given in direct reply to the manager's ask, which named the job file and stated it executes bash over SSH on the live money VM and is read-only by construction. NO condition was attached and none is invented here."
-      },
-      "blocker": "⚠️ THE APPROVAL DOES NOT LAND IT, and reading it as 'approved therefore mergeable' is the trap. The Tier-2 gate is DISCHARGED; a SEPARATE and unrelated blocker stands: manager-scope-guard R2 fails this branch on TWO manager commits (a43ca75d and its own revert 89adb920), because the manager edited the author session's disposition doc. R2 grades COMMITS IN THE RANGE, not the net diff, and a43ca75d is an ancestor of the tip (verified: git merge-base --is-ancestor succeeds), so no later commit can clear it and REVERTING TOOK THE COUNT FROM 1 TO 2. Recurrence of the shape that killed #11031 on 2026-09-05; filed as BL-20260906-A-MANAGER-COMMIT-ON-A-WORKER-BRANCH-MAKES-THAT-BRANCH-PERMANENTLY-UNMERGEABLE-RECURRENCE. ⚠️ DO NOT merge past the failing required check, do not spend manager-scope-exception.yaml (it is for live INCIDENTS), and do not cherry-pick the author's commits to launder the trailer (the guard names that as an open evasion). The route is a CLEAN RE-LAND on a branch carrying only the author's commits, plus the population fix whose exact wording is recorded in the PR thread."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1060,10 +1042,32 @@
       "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
       "disposition": "superseded — the work LANDED by another route and nothing is lost. VERIFIED against main rather than assumed: scripts/ci/check_decision_answers.py EXISTS on main AND is registered in run_guards.py, and WO-20260902-DECISION-LOCAL-LLM-WEIGHT.yaml now carries a readable nested answer (chosen: none_of_the_above, with free_text). Those are the two deliverables the PR body claims, so the close cost nothing.",
       "disposition_basis": "RECORDED LATE, 2026-09-05T12:35Z, by a manager that did not close it, and the lateness is the finding. This PR had NO ROW IN THIS FILE AT ALL — not open, not settled — so the register was silent about a closed-unmerged PR carrying 366 additions across 8 files, including the fix for why the operator was asked the same question twice. It did NOT jam the reconciler (that only moves rows that exist), which is precisely why it went unnoticed: the completeness gap is invisible where the deadlock is loud. Found by querying `is:closed is:unmerged` against GitHub rather than by reading this file, which could not have shown it."
+    },
+    {
+      "pr": 11105,
+      "opened_at": "2026-09-06T09:43Z",
+      "title": "1C: written disposition of the three live alarms — and a named order-path defect on the Bybit close",
+      "owner_session": "session_01RHuSYKu1r1ZErc65KLKV8t (author) / opened by manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-137-THREE-LIVE-ALARMS",
+      "draft": false,
+      "tier": "2",
+      "state": "operator_approved_but_BLOCKED_on_manager_scope_R2_needs_clean_reland",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": "automation/jobs/1c-live-alarms-state-01.job — the vm-driver read-only diag capture that took this PR to Tier-2",
+        "decided_on": "2026-09-06",
+        "text": "Operator, in conversation 2026-09-06: 'you have my ok on 11105'. Given in direct reply to the manager's ask, which named the job file and stated it executes bash over SSH on the live money VM and is read-only by construction. NO condition was attached and none is invented here."
+      },
+      "blocker": "⚠️ THE APPROVAL DOES NOT LAND IT, and reading it as 'approved therefore mergeable' is the trap. The Tier-2 gate is DISCHARGED; a SEPARATE and unrelated blocker stands: manager-scope-guard R2 fails this branch on TWO manager commits (a43ca75d and its own revert 89adb920), because the manager edited the author session's disposition doc. R2 grades COMMITS IN THE RANGE, not the net diff, and a43ca75d is an ancestor of the tip (verified: git merge-base --is-ancestor succeeds), so no later commit can clear it and REVERTING TOOK THE COUNT FROM 1 TO 2. Recurrence of the shape that killed #11031 on 2026-09-05; filed as BL-20260906-A-MANAGER-COMMIT-ON-A-WORKER-BRANCH-MAKES-THAT-BRANCH-PERMANENTLY-UNMERGEABLE-RECURRENCE. ⚠️ DO NOT merge past the failing required check, do not spend manager-scope-exception.yaml (it is for live INCIDENTS), and do not cherry-pick the author's commits to launder the trailer (the guard names that as an open evasion). The route is a CLEAN RE-LAND on a branch carrying only the author's commits, plus the population fix whose exact wording is recorded in the PR thread.",
+      "terminal": "closed_unmerged",
+      "merge_sha": null,
+      "observed_at": "2026-09-06T15:09:30Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-05T03:42:28Z",
-  "last_reconciled_sha": "8b8d37f11d9d32bdbd3f4b83e6e07e2954cf64ac",
+  "last_reconciled_at": "2026-09-06T15:09:30Z",
+  "last_reconciled_sha": "bf4cd14730b7cd82ee83f2e59ec976608381d832",
   "updated_at": "2026-09-05T12:35:00Z",
   "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv"
 }
