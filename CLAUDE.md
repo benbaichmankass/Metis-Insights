@@ -94,13 +94,12 @@ don't route around it.
 
 This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CONSTRAINT.json` + `comms/sunset/` + `docs/claude/OPEN-ITEMS.json` + `docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** because `CLAUDE.md` is the only surface that reaches a session before it acts — project **hooks do not run on Claude Code on the web** (verified 2026-08-26: the SessionStart contract's output was absent from the session context), and CI guards fire at merge, which is after the wrong work is already built. It lists only what is DUE or UNPREVENTED, so it shrinks as work lands.
 
-**🎯 THIS CYCLE'S PRIORITY — CY-20260903-MANAGER-CONTROL**
+**🎯 THIS CYCLE'S PRIORITY — CY-20260906-TRADING-TRUTH**
 
-> Keep implementing the operating-model plan — and SPECIFICALLY build the infrastructure that lets a MANAGER session actually manage the sessions it spawns. Operator-directed 2026-09-02T21:50Z, after a day in which the manager lost track of its own sub-sessions twice.
+> Understand what the trading system is actually doing, and make the instruments that measure it trustworthy -- BEFORE building more on top. Operator-directed 2026-09-06. The operating-model / manager-control build CONTINUES UNDERNEATH; this is the named priority within it, not a replacement for it.
 
-- **What that means for you:** If you are the manager: the highest-value thing you can build is the ability to SEE and REACH your own sub-sessions -- a close-time writer plus a reaper (a session that dies cannot close itself), or state DERIVED at read time from a live observation so it cannot go stale. ⚠️ CLOUD ROUTINES ARE AN ALLOWED TOOL FOR THIS AND ARE PROBABLY PART OF THE ANSWER -- see routine_scope_correction below before reasoning about them. The general operating-model build continues underneath this; manager-control is the named priority within it, not a replacement for it.
-- Set by **operator** on `unknown` · basis **DECIDED** · intent `IN-20260901-OPERATING-LAYER`
-- ⚠️ **No `review_by` date** — so nothing will ever mark this stale. A priority that cannot expire is one nobody has to re-argue.
+- **What that means for you:** Trading-side work no longer needs a spawn-priority exception -- it IS the cycle. ⚠️ THE ORDER MATTERS AND IS THE WHOLE POINT: repair the MEASUREMENT before acting on what it says. A verdict computed from a contaminated instrument is worse than no verdict, because it is acted on. If you are about to propose a promote, a demote, a kill or a param change off expectancyR, establish first that your population is clean. The operating-model build continues underneath: the manager still holds the lease, runs the merge queue, keeps the checklist and registers every spawn. Those are base duties, not items, and they do not compete with this.
+- Set by **operator** on `unknown` · basis **DECIDED** · intent `IN-20260903-TRADING-SYSTEM-HEALTH`
 
 **📉 THE COMPUTED READOUT BEHIND THAT PRIORITY** (`docs/claude/READOUT.md`, from `scripts/ops/constraint_readout.py`, generated `2026-09-02` — **it is a dated snapshot, not a live read**; re-run the script rather than trusting its age)
 

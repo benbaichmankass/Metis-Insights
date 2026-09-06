@@ -1,0 +1,30 @@
+id: WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  A Bybit reduce-only close is rejected with ErrCode 10001 on an unquantised float qty, so the position cannot be flattened
+stage: DEPLOYMENT
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The root cause is established in code (not inferred) and a Tier-3 proposal exists with the exact diff, the call sites, and evidence it does not change any quantity that is already legal. !! CHECK scripts/../qty_legalize.py and the qty-legalization-guard FIRST -- a legalizer may already exist and be un-wired on this path, which is a different and cheaper fix than writing a new one. !! Tier-3 ORDER PATH: PROPOSE, never apply. !! State whether other venues share the defect, and whether any LIVE position is currently unflattenable.
+
+why: >-
+  MEASURED from docs/claude/ERROR-FEED-DIGEST.json: a reduce-only close on bybit_1/SOLUSDT failed 3 CONSECUTIVE times as of 2026-09-06T03:37:22Z. POST /v5/order/create carried qty '33.299999999999955' -- the IEEE-754 artifact of 33.3 -- and Bybit refused it 'InvalidRequestError: Qty invalid (ErrCode 10001)'. The quantity reaches the wire WITHOUT being quantised to the symbol's qtyStep, so the position cannot be flattened by the normal path. Most likely engine of the orphan class: a position that cannot close drives exchange state away from the journal.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

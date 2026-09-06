@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only: MANAGER-CHECKLIST, MANAGER-LEASE, OPEN-PRS, SESSIONS, CONCURRENCY-CAPS, CYCLE-PRIORITY, spawn-priority-exception, 13 work objects, the 2026-09-06 spawn-prompt records, 4 backlog rows, and the GENERATED CLAUDE.md SESSION-BRIEF block (re-rendered by render_session_brief.py, no canonical prose hand-edited). No src/, config/, deploy/, scripts/ or workflow change."
+}

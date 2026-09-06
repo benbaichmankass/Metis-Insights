@@ -1,0 +1,30 @@
+id: WO-20260906-THREE-LIVE-ALARMS-ON-THE-TRADING-FLEET
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Three live alarms on the trading fleet are unowned: a SOL orphan position, MES data blindness, and a pending restart
+stage: DEPLOYMENT
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Each of the three reaches a written disposition, and they may resolve differently. (a) the SOL orphan: established as either a genuine exchange position needing adoption or a reconciler artifact, with its PROTECTION confirmed from a FRESH /api/diag/bybit_open_orders read -- never the cached monotonic view -- and the graded-vs-side-blind coverage distinction respected (BYBIT_HEDGE_MODE_SYMBOLS is armed on bybit_1, so a side-blind sum can mask a naked book). (b) the MES outage: root-caused to gateway / IBKR-session / config, fixed or escalated with the cause named. (c) the pending restart: either performed via the sanctioned system-action or a written reason it is being held. NOT SUFFICIENT: the banner clearing on its own -- a cleared banner is not a diagnosis.
+
+why: >-
+  Read off /api/bot/notifications and /api/diag/version at 2026-09-06T07:13Z. (a) ORPHAN TRADE CREATED 06:39:14Z on bybit_1 SOLUSDT, side short, size 604.7, entry 105.41, adopted as trade 5516 by reverse_reconciler_adopt, with a stuck-strategy watchdog on ict_scalp_sol_5m at 30 min. (b) mes_trend_long_1d has returned NO candle data since 06:33Z -- transient_market_data_unavailable on the IBKR path, which is the class that historically precedes a gateway wedge. (c) restart_pending=true: the running trader is on git_sha 4ec87e38 while the on-disk tree is c2e47af5, so live code is behind main.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

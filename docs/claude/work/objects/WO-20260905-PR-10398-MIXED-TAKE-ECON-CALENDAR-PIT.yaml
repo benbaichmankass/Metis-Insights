@@ -6,7 +6,18 @@ title: >-
   point-in-time capture beside a file that rewinds main. RE-MEASURE THAT BELIEF FIRST; it is a
   claim, not a premise
 stage: DEPLOYMENT
-lifecycle: in_flight
+lifecycle: done
+adjudicated_2026_09_06: >-
+  CLOSED by the manager holding the lease, 2026-09-06, via done_condition path (b) — take specific
+  files BY VALUE and close the PR, naming what was taken and what was deliberately left, with the
+  measurement written ONTO THE PR. What was owed since 2026-09-05 was the CLOSE itself: the worker
+  session that performed the analysis hit `403 Resource not accessible by integration` on every
+  GitHub write path and could not do it. The manager has write scope and did.
+  EVIDENCE, re-verified today rather than carried: the taken capture
+  comms/macro/econ_calendar_captures/US-20260829T034952Z.fxstreet.json IS present on origin/main
+  (git cat-file -e), so the by-value take landed. The full measurement — both populations, the two
+  files deliberately left because they rewind main, and the positive control — is posted as a
+  comment on #10398, which is now closed.
 owner: null
 opened_at: 2026-09-05
 

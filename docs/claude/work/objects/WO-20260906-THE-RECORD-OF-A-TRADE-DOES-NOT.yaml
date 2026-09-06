@@ -1,0 +1,30 @@
+id: WO-20260906-THE-RECORD-OF-A-TRADE-DOES-NOT
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The record of a trade does not say what happened: R is sign-inverted, exit_reason is frozen, and the read route silently empties
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Each of the three reaches a written disposition and, where the fix is in scope, a landed one. (a) expectancyR is computed from the DECLARED INITIAL risk (order_packages.meta, which classify_r already reads) or a wrong-side row is REFUSED rather than abs()-ed, or the published figure is scoped to confirmed_initial -- and the endpoint is re-measured after, with the population stated, to show the sign now agrees with profitFactor. (b) a late-arriving price RE-CLASSIFIES the exit, or the label is published beside an honest 'we did not look' state; then re-measure the bracket-vs-other split so the operator's question has a trustworthy answer. (c) the route SERVES the window or REFUSES it with a reason -- never a bare [] -- and every other read route is checked for the same shape, since this one was found by accident so the affected population is UNMEASURED. !! Raising the limit cap alone does NOT fix (c); the defect is the silence. !! Journal-writer changes are Tier-2/3: propose, and say which tier each is.
+
+why: >-
+  OPERATOR: this is TOP PRIORITY -- 'we can't make good decisions if we have bad tools for making those decisions', 2026-09-06. Three defects, one root question: does our record of a trade say what actually happened? (a) R IS SIGN-INVERTED: 8.5% of closed rows carry 98.8% of the R; confirmed_initial rows run meanR -0.53 against a published +2.84; r_multiple divides by |entry-stop| and trades.stop_loss holds the FINAL trailed stop, so trailing through breakeven collapses the denominator (max +3672 on one row). R FEEDS THE PROMOTION GATES. (b) exit_reason IS FROZEN at the one moment the answer cannot be known: 91 of 155 (58.7%) reconciler_filled closes had in fact reached a declared bracket and nothing re-classifies when a price arrives late; measured 2026-09-06, only 26 of the last 200 closes (13.0%) are labelled sl|tp. SO WE CANNOT ANSWER 'ARE TRADES ENDING AT THEIR BRACKETS'. (c) /api/bot/trades/closed SILENTLY RETURNS [] above limit ~200 and for ANY since= -- bisected with a positive control -- and it is the route a performance review grades from.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

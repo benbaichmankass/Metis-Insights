@@ -24,8 +24,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T14:35:00Z",
-  "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+  "updated_at": "2026-09-06T10:37:37Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -2322,6 +2322,102 @@
       "why": "Follow-up spawn to green #11035 after the approved rename broke two source-scraping tests.",
       "confirmed_at": "2026-09-05T10:53:00Z",
       "⚠️_backfilled": "REGISTERED LATE, and that is the finding. This manager spawned it at 07:12:12Z and did NOT register it. It was found by the 10:53Z live census, not by the manager remembering — which is MI-15 recurring for the third recorded time (3-of-6 on 2026-09-01, 26-of-55 the same morning, and now 1-of-14 by me). The soft coupling the README concedes is what failed again: register is on the path to the spawn PROMPT, and a follow-up spawn reuses a prompt already written."
+    },
+    {
+      "session_id": "session_01UaZ9boMDajiCZsjVkr4Fnz",
+      "registry_key": "pending-20260906T084622Z",
+      "state": "working",
+      "title": "Phase 1A — the observation sweep: what do we actually know?",
+      "owns_object": "WO-20260906-THE-OBSERVATION-SWEEP-54-OPEN-ITEMS-ROWS",
+      "spawned_at": "2026-09-06T08:46:22Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/obs-sweep-20260906"
+      ],
+      "why": "54 OPEN-ITEMS rows (17 with verified_at=never) + 28 landed_unproven checklist items + 21 just re-graded out of a false in_flight. Nothing has been LOOKED at on the fleet.",
+      "confirmed_at": "2026-09-06T08:51:01Z"
+    },
+    {
+      "session_id": "session_013r8Joo877hnkYoKRzQsrwW",
+      "registry_key": "pending-20260906T084729Z",
+      "state": "working",
+      "title": "Phase 1B — the 0-for-13 week: fix the instrument, then attribute the loss",
+      "owns_object": "WO-20260906-REAL-MONEY-WENT-0-FOR-13-THE",
+      "spawned_at": "2026-09-06T08:47:29Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/perf-rootcause-20260906"
+      ],
+      "why": "Real money 0 wins / 13 losses since 2026-08-30 (-43.12 on a 264.86 book) and the R metric contradicts the PnL (30d expectancyR +0.98 vs totalPnl -3.63).",
+      "confirmed_at": "2026-09-06T08:51:01Z"
+    },
+    {
+      "session_id": "session_01RHuSYKu1r1ZErc65KLKV8t",
+      "registry_key": "pending-20260906T084730Z",
+      "state": "working",
+      "title": "Phase 1C — three unowned live alarms: SOL orphan, MES data blindness, pending restart",
+      "owns_object": "WO-20260906-THREE-LIVE-ALARMS-ON-THE-TRADING-FLEET",
+      "spawned_at": "2026-09-06T08:47:30Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/live-alarms-20260906"
+      ],
+      "why": "Live at 07:13Z: orphan trade 5516 adopted on bybit_1 SOLUSDT (604.7 short), mes_trend_long_1d blind since 06:33Z, and restart_pending=true with live code behind main.",
+      "confirmed_at": "2026-09-06T08:51:01Z"
+    },
+    {
+      "session_id": "session_01WaQaYCpGb3yZKkkRqk4JfU",
+      "registry_key": "pending-20260906T100427Z",
+      "state": "working",
+      "title": "Re-land 1C's live-alarms disposition on a clean branch (#11105 is permanently red on manager-scope)",
+      "owns_object": "WO-20260906-RE-LAND-1C-S-LIVE-ALARMS-DISPOSITION",
+      "spawned_at": "2026-09-06T10:04:27Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/reland-1c-disposition-20260906"
+      ],
+      "why": "The operator approved the job file; the PR cannot merge because of the manager's own commits. Operator chose a clean re-land.",
+      "confirmed_at": "2026-09-06T10:05:23Z"
+    },
+    {
+      "session_id": "session_01C6Lh24HDdkn6p14qsaeNrA",
+      "registry_key": "pending-20260906T100427Z-2",
+      "state": "working",
+      "title": "Bybit reduce-only close rejected 10001 Qty invalid on an unquantised float qty — position cannot flatten",
+      "owns_object": "WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED",
+      "spawned_at": "2026-09-06T10:04:27Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/bybit-qtystep-close-20260906"
+      ],
+      "why": "3 consecutive close failures on bybit_1/SOLUSDT; qty 33.299999999999955 reaches the wire unquantised to qtyStep. Likely engine of the orphan class.",
+      "confirmed_at": "2026-09-06T10:05:23Z"
+    },
+    {
+      "session_id": "session_01Ne7LK6wMCoLUwnKpCZTPqE",
+      "registry_key": "pending-20260906T102046Z",
+      "state": "working",
+      "title": "ict_scalp_5m -> shadow (operator-approved), then establish whether it should trade real money at all",
+      "owns_object": "WO-20260906-ICT-SCALP-5M-TO-SHADOW-THEN-ESTABLISH",
+      "spawned_at": "2026-09-06T10:20:46Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/ict-scalp-5m-shadow-20260906"
+      ],
+      "why": "58.6% of the losing week on real money, zero shipped exit levers, bracket geometry never swept. Operator approved the shadow flip via pop-up.",
+      "confirmed_at": "2026-09-06T10:21:52Z"
+    },
+    {
+      "session_id": "session_01XRYfPGr4jAHr4k1rmvTKFi",
+      "title": "1B-RETRY — the 0-for-13 week (the first run's work was lost unpushed)",
+      "owns_object": "WO-20260906-REAL-MONEY-WENT-0-FOR-13-THE",
+      "spawned_at": "2026-09-06T10:37:37Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/perf-rootcause-1b-20260906"
+      ],
+      "why": "session_013r8Joo877hnkYoKRzQsrwW completed the analysis and could not push (no repo attached); this is the re-spawn that carried it to #11111.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "2026-09-05T14:35Z — GRADED AGAINST PLATFORM TRUTH, and the register was wrong at scale. 94 rows were graded against a live list_sessions(mine=true, limit=100) read; 65 carried a state the platform contradicts, and 58 of those had NEVER been observed even once (last_observed absent) despite being spawned 2026-09-02/03. ⚠️ THE HEADLINE: the register claimed 41 sessions were working/idle/running. THE PLATFORM SAYS EXACTLY ONE SESSION IS RUNNING ACROSS THE WHOLE ACCOUNT, and it is the manager itself (session_016e2k4UmsMGgpbrJ5ctqeFv). Every other session is IDLE or ARCHIVED. The register's `working` state was never a measurement — it is what a manager wrote at SPAWN time and nobody ever revisited, which is MI-84 measured rather than asserted. ⚠️ WHAT THIS DOES **NOT** ESTABLISH: an IDLE session is not the same as FINISHED work. These rows are now honest about the session's LIFECYCLE and say nothing about whether each one's deliverable reached main. That audit spans several previous managers' days and was NOT done here; do not read a clean state column as a clean handoff. ⚠️ AND 0 non-terminal row(s) are NOT covered by this page at all — not graded, not disproven, simply outside the 100 most recent. `unknown` would be the honest label and they retain their stale value; do not read them as confirmed.",
