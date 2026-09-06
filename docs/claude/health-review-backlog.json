@@ -33028,6 +33028,17 @@
         "scripts/ops/merge_json_register.py",
         "scripts/ops/install_merge_driver.sh"
       ]
+    },
+    {
+      "id": "BL-20260906-THE-OPEN-PRS-RECONCILER-FIRES-PER-MERGE-SO-A-BUSY-DAY-STACKS-N-STALE-PRS-FOR-ONE-DERIVED-EDIT",
+      "opened": "2026-09-06",
+      "severity": "low",
+      "tier": "1",
+      "status": "open",
+      "title": "The OPEN-PRS reconciler fires per-merge, so a busy day stacks N simultaneously-open PRs for one derived edit",
+      "detail": "MEASURED 2026-09-06T16:55Z. SIX reconcile-open-prs PRs were open at once - #11160, #11152, #11145, #11142, #11106, #11099 - spanning 09:10Z to 15:49Z. Population: 6 of 6 inspected with `git diff origin/main...`; 6 of 6 produce an IDENTICAL +30/-20 shape on docs/claude/work/OPEN-PRS.json, and the substantive content of all six is ONE move: the #11105 row from open_prs into settled_prs with terminal closed_unmerged. CAUSE: the reconciler is triggered per merge to main. On a day with roughly 45 merges it therefore cuts a PR per merge, and each is stale the moment the next lands, so they accumulate rather than replace each other. COST is manager attention in exactly the register the merge-queue duty exists to keep readable: six rows of queue noise competing with PRs that carry real work, each needing to be opened and diffed before it can be dismissed. It also multiplies the conflict surface named in BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE, since all six touch the same region of the same monolithic JSON file. NOT A DUPLICATE, and the near neighbours were read before filing. BL-20260905-A-RECONCILE-PR-CUT-BEFORE-A-DISPOSITION-LANDS-WILL-ERASE-IT-ON-MERGE-WITH-IDENTICAL-ROW-COUNTS is about a stale reconcile DESTROYING a disposition on merge - a correctness defect in what one PR contains. BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE is about the file SHAPE making siblings conflict. This row is about the TRIGGER CADENCE producing N of them for one edit, which neither addresses, and which is why closing five and merging one does not stop it recurring tomorrow. Discarding them is SAFE and that is load-bearing to the disposition: this reconcile is DERIVED state, recomputed from GitHub's live open-PR list on every run, so a discarded reconcile costs a recomputation and loses no information. That is why the remedy is safe to make lazier - not why the problem is unimportant.",
+      "resolution_criteria": "The reconciler no longer produces one PR per merge. Either (a) it runs on a SCHEDULE, or is debounced/coalesced, so at most one reconcile PR is open at a time, or (b) a new run UPDATES the existing open reconcile PR's branch instead of cutting a fresh one, or (c) it is shown that a no-op run opens no PR at all AND the six observed here each carried a genuine distinct delta - which the measurement above REFUTES for this instance, so (c) requires new evidence rather than a re-reading of this one. VERIFY BY OBSERVATION, NOT BY READING THE WORKFLOW: count simultaneously-open 'chore(ops): reconcile OPEN-PRS.json' PRs after a day with more than ~10 merges to main. A green workflow edit is not that observation. And a count of 1 on a QUIET day proves nothing - state the merge count alongside the PR count or the denominator is missing.",
+      "source": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj, while running the merge queue 2026-09-06"
     }
   ]
 }
