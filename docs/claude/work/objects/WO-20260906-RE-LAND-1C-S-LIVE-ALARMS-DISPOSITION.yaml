@@ -1,0 +1,30 @@
+id: WO-20260906-RE-LAND-1C-S-LIVE-ALARMS-DISPOSITION
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Re-land 1C's live-alarms disposition on a clean branch — the current one is permanently red on manager-scope
+stage: DEPLOYMENT
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The disposition doc and the operator-approved job file are ON MAIN, landed from a branch cut fresh from origin/main carrying ONLY the author session's commits (3bfd8d43, 58981304, c8ccabdf) plus the population fix. #11105 is closed with a comment naming what superseded it. !! DO NOT cherry-pick to launder the Claude-Session trailer -- the guard names that as an open evasion and using it knowingly is worse than the red check; re-apply the content as your own commits. !! DO NOT weaken or except manager-scope; the detection was CORRECT.
+
+why: >-
+  PR #11105 carries the disposition of three live alarms AND automation/jobs/1c-live-alarms-state-01.job, which the OPERATOR APPROVED on 2026-09-06 ('you have my ok on 11105'). It cannot merge: manager-scope-guard R2 fails TWO manager commits on the branch (a43ca75d and its revert 89adb920) because the manager edited the author session's disposition doc. R2 grades COMMITS IN RANGE, so a43ca75d is an ancestor of the tip and no later commit clears it -- reverting took the count 1 -> 2. Operator chose 'Spawn a session to re-land clean'.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

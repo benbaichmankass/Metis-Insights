@@ -17,6 +17,8 @@ covers:
   - WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT
   - WO-20260906-REAL-MONEY-WENT-0-FOR-13-THE
   - WO-20260906-THREE-LIVE-ALARMS-ON-THE-TRADING-FLEET
+  - WO-20260906-RE-LAND-1C-S-LIVE-ALARMS-DISPOSITION
+  - WO-20260906-FINISH-THE-OBSERVATION-SWEEP-56-OF-82
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -174,3 +176,55 @@ trading_truth_exception_2026_09_06:
     instrument, and when it comes it needs its own decision, not this one stretched.
     A blanket exception naming nothing is a permanent cap-raise wearing an exception's
     clothes -- the gate's own wording, and it is right.
+
+
+# ---------------------------------------------------------------------------
+# FIFTH AND SIXTH COVERED OBJECTS, added 2026-09-06T10:08Z
+# ⚠️ THE DIRECTION OF THIS EXCEPTION IS THE OPPOSITE OF EVERY ONE ABOVE.
+# ---------------------------------------------------------------------------
+operating_layer_exception_after_the_priority_flipped:
+  covers:
+    - WO-20260906-RE-LAND-1C-S-LIVE-ALARMS-DISPOSITION
+    - WO-20260906-FINISH-THE-OBSERVATION-SWEEP-56-OF-82
+  approved_by: operator (ben.baichmankass) — in conversation, via decision pop-up, 2026-09-06
+  approved_at: 2026-09-06
+  raised_by: manager (session_01HrmZ1RRNM4UnEUaFdrPEjj)
+
+  ⚠️_READ_THIS_FIRST_THE_POLARITY_INVERTED: >-
+    Every earlier entry in this file excepts TRADING work from an OPERATING-LAYER cycle.
+    These two are the reverse: they except OPERATING-LAYER work from a TRADING cycle. The
+    operator moved the cycle priority to CY-20260906-TRADING-TRUTH
+    (intent IN-20260903-TRADING-SYSTEM-HEALTH) the same day, which immediately made the
+    operating-layer objects the ones the spawn gate refuses. A successor skimming this file
+    and assuming every entry points the same way will read these backwards.
+
+  asked_as: >-
+    Both were put to the operator as decision pop-ups with the tradeoffs stated. On #11105 the
+    options were spawn-a-clean-reland / operator-merges-past-the-red-check / close-and-let-1C-redo
+    / leave-it-red, and the operator chose "Spawn a session to re-land clean". On the sweep, the
+    operator selected "Finish the observation sweep" among the work to route next. So each is
+    directly operator-chosen, not a manager's inference from a busy morning.
+
+  why_they_displace_rather_than_wait: >-
+    THE RE-LAND: it carries a job file the operator has ALREADY APPROVED ("you have my ok on
+    11105") and a disposition naming a live order-path defect, and it is stranded on a branch that
+    can never go green because of the MANAGER'S OWN commits. Leaving it parked means an approved
+    change sits unlanded on a permanently-red PR — the shape that turns an approval into nothing.
+    It is also small and bounded.
+    THE SWEEP: it is the direct instrument of "trustworthy instruments before building more on
+    top", which is the new cycle priority's own wording. 9 OPEN-ITEMS rows have still NEVER been
+    observed and 28 checklist items read landed_unproven, so the store cannot presently tell
+    shipped from working — and several of those rows are about TRADING mechanisms. Classing it as
+    operating-layer is a filing fact, not a statement that it serves the old priority.
+
+  scope_limit: >-
+    ⚠️ TWO objects, named. NOT a standing grant for operating-layer work under the trading cycle,
+    and NOT a partial reversal of the priority the operator just set. It expires with these two.
+    A blanket exception naming nothing is a permanent cap-raise wearing an exception's clothes —
+    the gate's own wording, and it is right in both directions.
+
+  ⚠️_the_four_earlier_entries_are_now_REDUNDANT_not_wrong: >-
+    WO-20260906-REAL-MONEY-WENT-0-FOR-13-THE and WO-20260906-THREE-LIVE-ALARMS-ON-THE-TRADING-FLEET
+    served IN-20260903-TRADING-SYSTEM-HEALTH, which is now the CYCLE intent, so they no longer need
+    excepting at all. They are left in place as the record of how that work was authorised BEFORE
+    the priority moved, and must not be read as still load-bearing.

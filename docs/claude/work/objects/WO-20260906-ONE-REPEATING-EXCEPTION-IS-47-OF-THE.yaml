@@ -1,0 +1,30 @@
+id: WO-20260906-ONE-REPEATING-EXCEPTION-IS-47-OF-THE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  One repeating exception is 47% of the entire operator ERROR+ feed
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The exception is root-caused and EITHER fixed at its tier OR given a durable, wall-clock-keyed cooldown latch of the shape _cooldown_admits already provides -- never a per-process one, which resets on every trader restart (BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART). Report the feed composition BEFORE and AFTER with the population stated. !! SILENCING IT WITHOUT ROOT-CAUSING IT DOES NOT COUNT and is the exact failure this row exists to prevent -- if the underlying condition is real it must still reach someone.
+
+why: >-
+  Found by the 2026-09-06 observation sweep. A single repeating exception accounts for roughly 47% of every CRITICAL/ERROR row the operator sees. This repo already rules that a desensitised alarm is ITSELF a P1 -- the motivating incident is the dataset audit that degenerated to 62/86 manifests alarming and hid the ETH-xa dead-feature bug for weeks. A feed that is half one message trains the operator past the channel reserved for unprotected positions.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
