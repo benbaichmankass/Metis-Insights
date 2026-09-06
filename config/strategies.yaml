@@ -481,7 +481,26 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
-    execution: live          # RE-PROMOTED shadow -> live 2026-07-20 (Tier-3,
+    execution: shadow        # DEMOTED live -> shadow 2026-09-06 (Tier-3). Reverse
+                             # by setting `execution: live` (one field, no redeploy).
+                             # WHY: on bybit_2 (REAL MONEY) this leg is 6 of the 13
+                             # losses in the 2026-09-01..06 losing week, -$25.25 of
+                             # -$43.12 (58.6%), with NO config change since
+                             # 2026-08-16 -- so it is not an e35 casualty. Lifetime
+                             # on bybit_2: 37 trades, 54.1% wins, -$12.65 -- it wins
+                             # more often than it loses AND still loses money, which
+                             # is a payoff-geometry problem, not a hit-rate one.
+                             # Verdict + population + what it cannot establish:
+                             # docs/research/ict-scalp-5m-real-money-verdict-2026-09-06.md
+                             # NOT a param change: no stop, no gate, no cell was
+                             # touched. Shadow keeps it evaluating and logging order
+                             # packages (live data collection) while sending no live
+                             # order -- it folds into the same `effective_dry`
+                             # resolution as account `mode:`.
+                             #
+                             # PRIOR STATE (kept as the record of what is being
+                             # reversed): RE-PROMOTED shadow -> live 2026-07-20
+                             # (Tier-3,
                              # operator-approved Phase-4 packet:
                              # docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md).
                              # The 2026-07-14 demotion's evidence did not survive
