@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Machine-generated data commit, opened by the 'reconcile-open-prs' workflow (run 34052766656) through .github/actions/commit-to-main on branch automation/reconcile-open-prs-34052766656-1. Tier-1 by the canonical doc's own list: the diff is generated register/report content on the Tier-1 surface, with no order path, no strategy config, no risk caps, no src/, no deploy/ and no live-VM runtime file. It self-lands because this same action arms auto-merge with `gh pr merge --auto --squash`, so `self` is what actually happens; GitHub still merges only on green, and R5 still grades the diff against the Tier-1 surface rather than taking this declaration on trust. Written by the generator because no session or human is in the loop to write it."
+}
