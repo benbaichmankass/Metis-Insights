@@ -85,6 +85,49 @@ from ml2_bracket_corpus import FEATURE_NAMES, feature_matrix  # noqa: E402
 #: Split fractions for the E4 dispersion test. 0.65 is the headline.
 DISPERSION_SPLITS = (0.55, 0.65, 0.75)
 
+#: Index of `risk_frac` in FEATURE_NAMES — the risk-scaled baseline needs it.
+_RISK_FRAC_IDX = FEATURE_NAMES.index("risk_frac")
+
+
+def risk_scaled_baseline(X_train: Sequence[Sequence[float]], y_train: Sequence[float],
+                         X_eval: Sequence[Sequence[float]], q: float) -> List[Optional[float]]:
+    """The `tp_r` baseline: a fixed multiple of RISK, expressed in percent-of-entry.
+
+    ⚠️ **THIS IS THE BASELINE THAT MATTERS, AND OMITTING IT WOULD HAVE
+    OVERSTATED ML-2 BADLY.** The target is `mfe_frac = mfe_r x risk_frac` and
+    `risk_frac` is feature[0], so the target is BY CONSTRUCTION proportional to
+    a feature. A pooled percent-of-entry quantile ignores volatility entirely,
+    so beating it is close to arithmetic rather than evidence — it says only
+    "scale the target with volatility".
+
+    And the fleet ALREADY has that: `tp_r` is a multiple of risk. E3.6(2)
+    measured that a percent-of-entry target makes `tp_R` and `ATR/close` *"the
+    same variable"* (collinearity confirmed 19/19). So "beats the pooled
+    quantile" would be a claim the existing parameterisation already satisfies,
+    and what actually destroys the fleet's vol scaling is the
+    `TP_VENUE_CAP_PCT` clamp, not the absence of a model.
+
+    This baseline takes the unconditional quantile **in R** on the training set
+    and re-expresses it per evaluation row as `q_R x risk_frac_i`. Beating IT is
+    the claim that the OTHER features — direction, conviction, session — carry
+    information about exit location beyond volatility. That is ML-2's real
+    hypothesis.
+    """
+    r_vals: List[float] = []
+    for xr, yv in zip(X_train, y_train):
+        rf = xr[_RISK_FRAC_IDX]
+        if rf and rf > 0:
+            r_vals.append(yv / rf)
+    q_r = empirical_quantile(r_vals, q)
+    if q_r is None:
+        return [None] * len(list(X_eval))
+    out: List[Optional[float]] = []
+    for xr in X_eval:
+        rf = xr[_RISK_FRAC_IDX]
+        # None, never 0.0 — an unusable risk is not a zero-distance target.
+        out.append(q_r * rf if rf and rf > 0 else None)
+    return out
+
 
 def _read_corpus(path: str) -> Tuple[List[Dict[str, Any]], int]:
     """Return (rows, malformed_line_count) — the count is surfaced, not swallowed.
@@ -171,6 +214,7 @@ def evaluate(
         mp = m.predict(Xev) if m.fitted else [None] * len(yev)
         bp: List[Optional[float]] = [base] * len(yev)
         preds_by_q[q] = mp
+        rs = risk_scaled_baseline(Xtr, ytr, Xev, q)
         # THE CONTROL IS RUN PER QUANTILE AND GATES THAT QUANTILE'S VERDICT.
         # It used to run once, at the middle q, and only be REPORTED -- so a
         # sub-null improvement still graded as a win. The null's width is not
@@ -179,9 +223,16 @@ def evaluate(
         ctrl = shuffled_label_control(Xtr, ytr, Xev, yev, q,
                                       trials=control_trials, seed=seed, min_n=min_n)
         controls[q] = ctrl
-        out["sharpness"].append(
-            grade_model(yev, mp, bp, q, min_n=min_n,
-                        null_p95=ctrl.get("null_p95_improvement")))
+        g_pooled = grade_model(yev, mp, bp, q, min_n=min_n,
+                               null_p95=ctrl.get("null_p95_improvement"))
+        g_risk = grade_model(yev, mp, rs, q, min_n=min_n,
+                             null_p95=ctrl.get("null_p95_improvement"))
+        # BOTH are reported. The VERDICT keys on the risk-scaled one, because
+        # that is the bar the existing tp_r parameterisation already clears.
+        g_pooled["vs_risk_scaled_improvement"] = g_risk["pinball_improvement"]
+        g_pooled["vs_risk_scaled_state"] = g_risk["sharpness_state"]
+        g_pooled["risk_scaled_pinball"] = g_risk["baseline_pinball"]
+        out["sharpness"].append(g_pooled)
 
     out["calibration"] = calibration_curve(yev, preds_by_q)  # type: ignore[arg-type]
     out["mace"] = mean_absolute_calibration_error(out["calibration"])
@@ -190,7 +241,12 @@ def evaluate(
                       **controls[quantiles[len(quantiles) // 2]]}
 
     graded = [c for c in out["calibration"] if c.get("coverage") is not None]
-    sharp = [s for s in out["sharpness"] if s["sharpness_state"] == SHARP_BEATS_BASELINE]
+    # THE VERDICT KEYS ON THE RISK-SCALED BASELINE, not the pooled one.
+    sharp = [s for s in out["sharpness"]
+             if s.get("vs_risk_scaled_state") == SHARP_BEATS_BASELINE]
+    out["sharp_vs_pooled_count"] = sum(
+        1 for s in out["sharpness"] if s["sharpness_state"] == SHARP_BEATS_BASELINE)
+    out["sharp_vs_risk_scaled_count"] = len(sharp)
     if not graded:
         out["verdict"] = "not_measured"
     elif out["mace"] is not None and out["mace"] <= 0.05 and len(sharp) >= len(quantiles) / 2:
@@ -276,13 +332,24 @@ def render(result: Dict[str, Any], disp: Optional[Dict[str, Any]]) -> None:
         print(f"{c['q']:>9.2f} {_fmt(c['coverage'],4):>9} {_fmt(c['coverage_error'],4):>8}")
     print(f"MACE (mean abs calibration error): {_fmt(result['mace'])}")
     print()
-    print("--- 2. SHARPNESS (does it beat the UNCONDITIONAL quantile? the real bar) ---")
-    print(f"{'q':>5} {'model_pin':>11} {'base_pin':>11} {'improve':>9} {'null_p95':>9}  state")
+    print("--- 2. SHARPNESS — against TWO baselines; the verdict keys on the 2nd ---")
+    print("    (a) POOLED   : the unconditional percent-of-entry quantile. Beating")
+    print("        it says only 'scale the target with volatility' — which tp_r")
+    print("        ALREADY does, so it is close to arithmetic, not evidence.")
+    print("    (b) RISK-SCALED: the tp_r equivalent (unconditional quantile in R,")
+    print("        re-expressed per row). Beating IT is ML-2's real hypothesis.")
+    print(f"{'q':>5} {'model':>10} {'pooled':>10} {'vs_pool':>8} "
+          f"{'riskscl':>10} {'vs_risk':>8} {'null_p95':>9}  verdict(vs risk-scaled)")
     for s in result["sharpness"]:
-        print(f"{s['q']:>5.2f} {_fmt(s['model_pinball'],6):>11} "
-              f"{_fmt(s['baseline_pinball'],6):>11} "
-              f"{_fmt(s['pinball_improvement'],4):>9} "
-              f"{_fmt(s.get('null_p95'),4):>9}  {s['sharpness_state']}")
+        print(f"{s['q']:>5.2f} {_fmt(s['model_pinball'],6):>10} "
+              f"{_fmt(s['baseline_pinball'],6):>10} "
+              f"{_fmt(s['pinball_improvement'],4):>8} "
+              f"{_fmt(s.get('risk_scaled_pinball'),6):>10} "
+              f"{_fmt(s.get('vs_risk_scaled_improvement'),4):>8} "
+              f"{_fmt(s.get('null_p95'),4):>9}  {s.get('vs_risk_scaled_state')}")
+    print(f"  beats POOLED at {result.get('sharp_vs_pooled_count')} of "
+          f"{len(result['sharpness'])} quantiles; beats RISK-SCALED at "
+          f"{result.get('sharp_vs_risk_scaled_count')}.")
     print()
     c = result.get("control") or {}
     print("--- 3. SHUFFLED-LABEL CONTROL (run PER QUANTILE; it GATES section 2) ---")
@@ -312,11 +379,11 @@ def render(result: Dict[str, Any], disp: Optional[Dict[str, Any]]) -> None:
     print(f"VERDICT: {result['verdict']}")
     if result["verdict"] == "calibrated_but_no_sharper_than_baseline":
         print("  Read this carefully: the model is calibrated AND adds nothing over")
-        print("  the leg's own unconditional MFE quantile. The unconditional quantile")
-        print("  is calibrated BY CONSTRUCTION, so this verdict means the features")
-        print("  carry no information about WHERE THIS trade will exit. The honest")
-        print("  conclusion is the per-leg MFE histogram MI-148 already proposed —")
-        print("  no model required.")
+        print("  the RISK-SCALED baseline — the tp_r equivalent. Since the pooled")
+        print("  quantile is calibrated BY CONSTRUCTION and tp_r already scales with")
+        print("  volatility, this verdict means the non-volatility features carry no")
+        print("  information about WHERE THIS trade will exit. The honest conclusion")
+        print("  is a per-leg MFE quantile in R — no model required.")
     print("=" * 74)
 
 
