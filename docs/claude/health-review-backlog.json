@@ -31285,6 +31285,13 @@
         ".github/workflows/board-post.yml",
         ".github/workflows/pr-opener.yml",
         "MI-28"
+      ],
+      "updates": [
+        {
+          "at": "2026-09-06T14:40:00+00:00",
+          "by": "claude (MI-150)",
+          "note": "RECURRED ON PR #11140, AND THE DOCUMENTED REMEDY DID NOT WORK — that second half is the new fact and it is the one that matters.\n\nMEASURED. Posting the MANDATORY board DONE left `e3756aef` ('board-post: results', authored by github-actions[bot]) at the PR head. At 14:05:18Z ALL FOUR pull_request workflows were created against that sha and every one concluded `action_required`: Guards #4619, pytest-run #10885, pytest-collect #12006, repo-inventory #10562. Not one workflow — the whole required set.\n\n⚠️ THE REMEDY THIS REPO DOCUMENTS IS 'push one ordinary commit yourself to arm CI' (CLAUDE.md § pr-opener/board-post relays). I PUSHED TWO — fdb26402 and a895a474, both ordinary, both authored by the session's own user, both confirmed on origin — AND NO WORKFLOW RUN WAS CREATED FOR EITHER, for any of the four workflows. `list_workflow_runs` for the branch stayed at total_count 28 with the newest run at 14:05:18Z across repeated polls over ~35 minutes. So the head advanced twice past the bot commit and CI never re-armed.\n\nWHY THAT CHANGES THE DISPOSITION. `action_required` is not 'queued' and not 'failed' — it is AWAITING HUMAN APPROVAL, and no amount of pushing clears it. A session following the remedy will push, see nothing appear, and have no way to tell that from Actions being slow; `get_check_runs` returns `total_count: 0`, which reads exactly like 'CI has not started yet'. The PR's mergeable_state is `blocked`, which is ALSO what a not-yet-run PR looks like. Every surface a session can read says 'wait'; the true state is 'a human must approve'.\n\n⚠️ AND NOTE THE INTERACTION WITH BL-20260903-EMPTY-COMMIT-DOES-ARM-CI-CONTRADICTING-THE-BOARD-RULE-NEVER-AN-EMPTY-ONE: that row measured an EMPTY commit arming CI twice. It was not tried here, deliberately — CLAUDE.md states flatly 'never push an empty commit ... to kick CI', and on this PR it would not have helped anyway, since the block is an approval gate rather than a missing trigger. Recording that it was considered and refused, so the next session does not read the silence as the option being unknown.\n\nREMEDY FOR THE READER, until this row is fixed: if your PR shows total_count 0 AND a bot-authored commit anywhere at or near HEAD, check list_workflow_runs for `action_required` BEFORE concluding CI is slow or re-pushing. A human approving the workflow runs is the only thing that clears it."
+        }
       ]
     },
     {
