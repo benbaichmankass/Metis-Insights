@@ -96,7 +96,7 @@ have reported the pile as far smaller than it is. Two separate errors:
    remediation proves nothing about the condition. The census is therefore run at HEAD but the
    negative control is asserted against the pre-remediation commit.
 2. **"Named by a work object" is not "carried".** At `daebbada` the prompt's only work-store
-   reference was `BL-20260823-IB-TRAILING-...yaml` — a `lifecycle: dormant` bulk-migrated
+   reference was `BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET.yaml` — a `lifecycle: dormant` bulk-migrated
    backlog row about IB trailing, which names the artifact only to say a caveat was *"carried
    **into**"* it. It points **outward**. The repo's own words settle it: that row's
    `review_trigger` reads *"A dormant object is NOT a queued one — nothing is scheduled to

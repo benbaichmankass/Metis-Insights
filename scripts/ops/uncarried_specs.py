@@ -51,6 +51,14 @@ dormant_only + mentioned + uncarried, reported with its three parts kept visible
 
 Stdlib-only. Read-only: it writes nothing and mutates no register.
 
+# wiring: manual-only - this is a MEASUREMENT INSTRUMENT, not a guard: it grades nothing and
+# gates nothing, and wiring it to CI today would render a 98-row finding on every PR, which is
+# the alarm-fatigue P1 this repo names by name. It is run on demand (and by
+# tests/test_uncarried_specs.py, which pins its calibration). Wiring it to a surface is exactly
+# the PROPOSED mechanism in docs/research/uncarried-spec-census-2026-09-06.md - bounded, ranked,
+# and rendered into the SESSION-BRIEF - which is deliberately not built here: the count is the
+# deliverable, and a mechanism proposed without the count is a fix whose problem was never sized.
+
 Usage:
   python3 scripts/ops/uncarried_specs.py                 # headline counts + population
   python3 scripts/ops/uncarried_specs.py --self-test     # POSITIVE CONTROL (exit 1 on fail)
