@@ -256,12 +256,25 @@ real-money bleed, keep accruing paper evidence", the narrower lever is removing
 > `config/accounts.yaml` one-field change; PR #11115, which implemented `execution: shadow`,
 > is superseded and closed. Reversal: re-add `ict_scalp_5m` to that list.
 >
-> ⚠️ **Verified this session, because the prose invites the opposite conclusion:**
-> `bybit_portfolio`'s comment says it "trades EXACTLY what `bybit_2` trades", which would
-> imply this demote propagates. It does not — `bybit_portfolio.strategies` is a **literal,
-> independently-declared list**, and `paper_role` appears 5x in `src/`, all in
-> `web/api/routers/` reporting surfaces and **zero** in the routing path. Both paper books
-> keep executing. Field beats comment.
+> ⚠️ **CORRECTION — "both paper books keep trading it" is FALSE, and CI is what caught it.**
+> An earlier draft of this section reasoned that the demote does not reach `bybit_portfolio`
+> because `bybit_portfolio.strategies` is a **literal, independently-declared list** and
+> `paper_role` appears 5x in `src/`, all in `web/api/routers/` reporting surfaces and **zero**
+> in the routing path. Every one of those facts is true, and the conclusion drawn from them
+> was still wrong: the config path does not propagate, but
+> `tests/test_paper_portfolio_accounts.py::test_bybit_portfolio_mirrors_bybit_2_exactly`
+> **pins the two rosters together as an enforced invariant** (`ROSTER-SYNC`). I read the
+> routing code and did not read the test suite. So `ict_scalp_5m` is removed from
+> `bybit_portfolio` too, in the same change.
+>
+> **This does not cost the evidence the lever was chosen to preserve.** `bybit_1` is the
+> FULL-ROSTER soak book that "trades everything for data" and keeps the leg at
+> `execution: live` — that is the book soak evidence accrues on. `bybit_portfolio` is the
+> winners-only PORTFOLIO book whose whole purpose is to mirror the REAL live-traded
+> portfolio; leaving a leg on it that `bybit_2` no longer trades would make it misreport
+> the one thing it exists to report. Following the invariant is therefore the correct
+> outcome, not a concession — but it IS a second account, which the operator's stated
+> `bybit_2 only` scope did not literally cover, so it is flagged on the PR for the merger.
 
 ---
 

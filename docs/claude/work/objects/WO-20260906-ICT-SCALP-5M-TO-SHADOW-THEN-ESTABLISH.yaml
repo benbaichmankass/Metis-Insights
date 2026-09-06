@@ -20,13 +20,19 @@ done_condition: >-
   `config/strategies.yaml` ALONE so the leg keeps `execution: live`. Rationale:
   `execution:` is a per-STRATEGY gate and would also have stopped `bybit_1` and
   `bybit_portfolio`, and the paper evidence is wanted — it feeds the
-  `bracket_geometry` sweep that part (2) turns on. DECIDED, Tier-3, scope
+  `bracket_geometry` sweep that part (2) turns on. ⚠️ CORRECTED AFTER CI:
+  `bybit_portfolio` DOES follow the demote, because
+  tests/test_paper_portfolio_accounts.py pins its roster to bybit_2's as an
+  enforced ROSTER-SYNC invariant (the config list is literal and does not
+  propagate, but the TEST does). The evidence is NOT lost — `bybit_1`, the
+  FULL-ROSTER soak book, keeps the leg at `execution: live` and is the book
+  soak evidence accrues on. DECIDED, Tier-3, scope
   `bybit_2` only, no condition; typed record in docs/claude/work/OPEN-PRS.json.
   Shipped as PR #11121; PR #11115, which implemented `execution: shadow`, is
   CLOSED unmerged and superseded. ⚠️ DO NOT "fix" this by setting
   `execution: shadow` — that would undo the operator's choice and stop both
   paper books. ⚠️ AND WHEN VERIFYING: order packages AND PAPER FILLS will keep
-  appearing for this leg, because it is still live on two paper books. That is
+  appearing for this leg, because it is still live on bybit_1. That is
   the change working. Grade on `trades` rows carrying BOTH
   `strategy_name='ict_scalp_5m'` AND `account_id='bybit_2'`.
   ⚠️ ONE CORRECTION TO `why:` BELOW, which is load-bearing for part (2): its
