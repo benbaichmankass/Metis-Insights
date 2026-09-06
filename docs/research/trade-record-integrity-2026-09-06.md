@@ -411,3 +411,27 @@ vocabulary.
 The earlier instruction to quote this from the measurement rather than the live
 endpoint is **spent**; `/api/bot/performance` now publishes it. Still never
 quote `reachedRatio` without `gradeable` beside it.
+
+### The 30d window, deployed — the one promotion decisions read
+
+Recorded because `window=30d` is the window a promote/demote/kill argument is
+usually built from, and it behaves differently from all-time in a way worth
+stating rather than leaving to be rediscovered.
+
+Real money, `window=30d` (since 2026-08-07), n = 39, measured 17:04Z:
+
+- `gradeable` **39 of 39 (100%)** — `noBracketRecord 0`, `priceNotMeasurable 0`.
+  This window was **never** under-covered: every row in it carries a resolving
+  `order_package_id`, which is why the coverage defect was invisible here and
+  showed up only on the full book. **A recent window is not a safe place to
+  check instrument coverage** — the forward key is populated on new rows and
+  missing on old ones, so the newest window is exactly where the defect hides.
+- `reachedRatio` **0.4103** — 13 sl, 3 tp, 23 mid. `rBasis` `{39, 0, 0, 0}`,
+  summing to `totalTrades`.
+- `expectancyR` **+0.1772** against `profitFactor 0.9507` and `totalPnl −3.63`.
+
+⚠️ **The 30d sl:tp is 4.3:1 and the all-time is 4.6:1 — do not read the pair as
+a trend.** n = 39 against n = 424, and 3 take-profits is not a sample anything
+should be concluded from. Both are consistent with one underlying rate; the
+difference is noise, and it is stated here so a later reader does not treat two
+adjacent numbers as a direction.
