@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-06T16:50Z",
+  "updated_at": "2026-09-06T16:55:05Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2567,6 +2567,36 @@
       "live_status_at_2026-09-06T16:50Z": "IDLE",
       "manager_disposition": "merged #11148",
       "⚠️_registered_retroactively": "TRUE. This row was NOT written at spawn time — it was reconstructed at 2026-09-06T16:50Z from a live list_sessions read after the completeness grade showed 4 of 16 tagged sessions absent. `confirmed_at` is null and stays null: a retroactive row is evidence the coupling FAILED, not evidence it held, and back-dating a confirmation would launder that. Recurrence of MI-15-SESSIONS-REGISTRY-INCOMPLETE (3 of 6 absent 2026-09-01; 26 of 55 absent 2026-09-02), and the pattern repeated exactly as recorded: all four absentees are the FOUR MOST RECENT spawns."
+    },
+    {
+      "session_id": "session_01JhtPDUP92XmMSuE8c4i3Up",
+      "registry_key": "pending-20260906T165346Z",
+      "state": "working",
+      "title": "MI-153 - two records disagree on every ict_scalp exit-head candidate leg: which is current, and WHY did they diverge?",
+      "owns_object": "WO-20260906-TWO-RECORDS-DISAGREE-ON-EVERY-ICT-SCALP",
+      "checklist_item": "MI-153-EXIT-HEAD-FIGURE-RECONCILIATION",
+      "spawned_at": "2026-09-06T16:53:46Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/mi153-exit-head-figures-20260906"
+      ],
+      "why": "BLOCKS PR #11140 by explicit operator decision 2026-09-06: offered 'resolve before arming' vs 'arm now, reconcile in parallel', the operator chose RESOLVE FIRST. These figures are the entire basis for calling a leg an arming candidate.",
+      "confirmed_at": "2026-09-06T16:55:05Z"
+    },
+    {
+      "session_id": "session_01S7pASy78QiNViwhSadGdNb",
+      "registry_key": "pending-20260906T165357Z",
+      "state": "working",
+      "title": "MI-154 - publish a 5m/15m scalp exit-head artifact: without one the ict_scalp consumer cannot score a single leg",
+      "owns_object": "WO-20260906-NO-5M-OR-15M-SCALP-EXIT-HEAD",
+      "checklist_item": "MI-154-SCALP-EXIT-HEAD-ARTIFACT",
+      "spawned_at": "2026-09-06T16:53:57Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/mi154-scalp-exit-head-artifact-20260906"
+      ],
+      "why": "Operator decision 2026-09-06 chose 'Arm + queue the artifact', making this its own lane precisely because arming is inert without it. Measured with a positive control against /api/diag/shadow_stats: 32 models visible; the only exit-head artifacts are exit-head-donchian-1h-v1 and exit-head-donchian-peak-1h-v1, both 1h and both donchian, while all 8 ict_scalp legs are 5m/15m.",
+      "confirmed_at": "2026-09-06T16:55:05Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
