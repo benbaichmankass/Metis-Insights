@@ -44,6 +44,7 @@ Strategies are pure signal generators (see ``_base.py``): no
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -814,6 +815,155 @@ def _stale_stop_verdict(
         return None
 
 
+def _exit_head_verdict(
+    open_pkg: Dict[str, Any],
+    cfg_dict: Dict[str, Any],
+    candles_df: pd.DataFrame,
+    current_price: Optional[float],
+    direction: str,
+) -> Optional[Dict[str, Any]]:
+    """M20 E3 exit-head consumer for ict_scalp (MI-150, spec: MI-146 §
+    "Recommendation 2" in docs/research/exit-lever-wiring-audit-2026-09-06.md).
+
+    ⚠️ **THIS MIRRORS THE DONCHIAN CONSUMER; IT DOES NOT RE-IMPLEMENT IT.**
+    The scoring call is the SAME `maybe_score_exit_head` and the firing
+    decision is the SAME `exit_head_apply.exit_head_verdict` that
+    `trend_donchian._exit_head_verdict` now delegates to. Nothing about the
+    head's policy is decided here. `tests/test_exit_head_apply_parity.py`
+    runs both call sites over one case table so they cannot drift.
+
+    ## The in-distribution guard is INHERITED, not re-stated
+
+    Calling the shared scorer is what carries the #6201-class guard: it
+    refuses to produce a score at all unless the artifact's declared
+    `(tf, symbols)` admit this leg, and — MI-150 — unless its declared
+    `family` accepts `ict_scalp`. A head asked to score outside the
+    distribution it was trained on therefore **REFUSES rather than guessing**,
+    and it refuses one layer above this function, where a second consumer
+    cannot forget to ask.
+
+    ⚠️ **MEASURED 2026-09-06: NO ict_scalp LEG CAN BE SCORED TODAY.** The live
+    mirror publishes exactly two exit-head artifacts — `exit-head-donchian-1h-v1`
+    (advisory) and `exit-head-donchian-peak-1h-v1` (shadow), both **1h**
+    (`/api/diag/shadow_stats`, `last_seen 2026-09-06T10:00:01Z`, count 52 each)
+    — while every ict_scalp leg is 5m or 15m. The tf guard therefore fail-closes
+    on all 8 and `rec` is always `None`. That is the CORRECT behaviour and it is
+    also the honest blocker: **this consumer cannot produce a firing soak row
+    until a 5m/15m scalp head is trained and published to the mirror.** It is
+    recorded as `decision_state: not_scored` — *we did not look* — and must NOT
+    be read as the head declining to fire.
+
+    ## Arming is a Tier-3 decision that has NOT been taken
+
+    Two independent things must both happen before this closes anything:
+    `ICT_SCALP_EXIT_HEAD_MODE=apply` **and** the leg declaring
+    `exit_head_action: close` in its YAML, on top of the artifact sitting at
+    stage `advisory`. Shipped state is `annotate` with **no leg declaring**,
+    so this path is byte-for-byte inert.
+
+    ⚠️ There is a STANDING OPERATOR DECISION against arming these legs:
+    the 2026-08-23 `SHIP BLOCKED` verdict recorded in every one of these cells
+    in `docs/research/exit-refinement-coverage.json`, which cancelled the
+    queued Tier-3 ship and named *"a consumer exists in the ict_scalp unit"*
+    as its own precondition. This function is that precondition. It is not
+    permission to arm, and for `ict_scalp_sol_5m` the same ref records that
+    its pass **does not survive re-partitioning** (the 4-arm screen flips it
+    to `honest_negative`; `BL-20260815-SCALP-EXIT-HEAD-MATRIX-DISAGREES-WITH-
+    THE-4-ARM-SCREEN`).
+
+    Fail-safe: any missing input, any exception, any mode confusion returns
+    ``None`` — never a spurious close, never raises into the monitor.
+    """
+    try:
+        from src.runtime.exit_head_apply import (resolve_mode,
+                                                 staged_exit_head_decision)
+
+        mode = resolve_mode()
+        if mode == "off" or current_price is None:
+            return None
+
+        meta = open_pkg.get("meta") or {}
+        if isinstance(meta, str):
+            try:
+                meta = json.loads(meta) if meta else {}
+            except Exception:  # noqa: BLE001
+                meta = {}
+        if not isinstance(meta, dict):
+            meta = {}
+
+        rec = None
+        try:
+            from src.runtime.exit_head_shadow import maybe_score_exit_head
+
+            # `family="ict_scalp"` is this unit DECLARING what it is — not a
+            # string parsed out of a strategy name. The scorer checks it
+            # against the artifact's own `family` field and refuses a
+            # mismatch loudly.
+            rec = maybe_score_exit_head(meta, open_pkg, candles_df, direction,
+                                        family="ict_scalp")
+        except Exception:  # noqa: BLE001 — scoring must never affect the monitor
+            rec = None
+
+        decision = staged_exit_head_decision(rec, meta, cfg_dict,
+                                             current_price, mode)
+        _record_exit_head_soak(open_pkg, meta, cfg_dict, rec, decision,
+                               direction, current_price)
+        return decision.get("verdict")
+    except Exception:  # noqa: BLE001 — fail-closed, never a spurious close
+        return None
+
+
+def _record_exit_head_soak(open_pkg, meta, cfg_dict, rec, decision,
+                           direction, current_price) -> None:
+    """One `runtime_logs/ict_scalp_exit_head_soak.jsonl` row per evaluation.
+
+    ⚠️ **Written on EVERY outcome, including `not_scored`.** A soak written
+    only when the head fires cannot tell a DEAD consumer from a SILENT one —
+    the distinction this whole path turns on today, since the tf guard makes
+    `not_scored` the only reachable value. Same reasoning as the
+    `work_decision_sweep_receipt` ring: an absent file means this code has
+    never run, never that nothing was found.
+
+    Carries the EFFECTIVE `mode` beside `apply_scope` and `acted`, so a
+    held-back row can never read as an applied one (the correction
+    `NETTING_ATTRIBUTION_ACCOUNTS` needed on 2026-08-09). Best-effort — a
+    write failure is never allowed to reach the monitor.
+    """
+    try:
+        from src.utils.paths import runtime_logs_dir
+
+        row = {
+            "at_utc": datetime.now(timezone.utc).isoformat(),
+            "strategy": str(meta.get("strategy_label")
+                            or open_pkg.get("strategy_name") or "ict_scalp"),
+            "symbol": str(open_pkg.get("symbol") or ""),
+            "timeframe": str(meta.get("timeframe") or ""),
+            "direction": direction,
+            "order_package_id": str(open_pkg.get("order_package_id") or ""),
+            "mode": decision.get("mode"),
+            "apply_scope": decision.get("apply_scope"),
+            "acted": decision.get("acted"),
+            "would_close": decision.get("would_close"),
+            "decision_state": decision.get("decision_state"),
+            # `declared` is the OTHER half of the arming gate: the mode alone
+            # binds nothing without the leg's own YAML declaration.
+            "leg_declares_action": str(
+                meta.get("exit_head_action")
+                or cfg_dict.get("exit_head_action") or "") or None,
+            "model_id": (rec or {}).get("model_id"),
+            "stage": (rec or {}).get("stage"),
+            "score": (rec or {}).get("score"),
+            "family_state": (rec or {}).get("family_state"),
+            "current_price": current_price,
+        }
+        path = runtime_logs_dir() / "ict_scalp_exit_head_soak.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+    except Exception:  # noqa: BLE001 — observation must never break the monitor
+        pass
+
+
 def monitor(cfg, candles_df, open_pkg):
     """Re-evaluate an open ict_scalp package against fresh candles.
 
@@ -885,6 +1035,11 @@ def monitor(cfg, candles_df, open_pkg):
     stale_verdict = _stale_stop_verdict(open_pkg, cfg_dict, candles_df)
     if stale_verdict is not None:
         return stale_verdict
+
+    eh_verdict = _exit_head_verdict(open_pkg, cfg_dict, candles_df,
+                                    current_price, direction)
+    if eh_verdict is not None:
+        return eh_verdict
 
     try:
         be_offset_bps = float(cfg_dict.get("be_offset_bps", 0.0))

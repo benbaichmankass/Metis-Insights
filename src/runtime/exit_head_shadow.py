@@ -324,9 +324,23 @@ def _feature_row(candles_df, entry: float, risk: float, direction: str,
     }
 
 
+#: Family tokens each consuming unit will accept from an artifact's own
+#: ``family`` field. A SET, not a string, because the token is minted by the
+#: trainer (``export_exit_head.py`` writes ``fam_dir.name`` — a directory name
+#: from the training round) and this repo does not control that name. A single
+#: hardcoded string would turn a harmless naming difference into a permanent,
+#: SILENT refusal to score. Normalised lowercase/stripped on both sides.
+_ACCEPTED_FAMILIES: dict = {
+    "donchian": {"donchian", "trend_donchian"},
+    "ict_scalp": {"ict_scalp", "scalp"},
+}
+
+
 def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
-                          candles_df, direction: str) -> Optional[Dict[str, Any]]:
-    """Score one open donchian-family trade at the last CLOSED bar.
+                          candles_df, direction: str,
+                          family: Optional[str] = None,
+                          ) -> Optional[Dict[str, Any]]:
+    """Score one open trade at the last CLOSED bar.
 
     Called from ``trend_donchian.monitor`` after the close-path checks.
     Scoring itself is side-effect-logging only (shadow_predictions +
@@ -335,6 +349,22 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
     monitor's E3 APPLY path can consult it — that path is gated separately
     (strategy-YAML declare + artifact ``stage == "advisory"``); the scorer
     itself never decides anything.
+
+    ``family`` (MI-150) is the CALLING UNIT's declaration of which exit-head
+    family it is entitled to score against, checked below against the
+    artifact's own ``family`` field.
+
+    ⚠️ **IT IS CALLER-OPT-IN, AND THAT IS DELIBERATE.** ``family=None`` means
+    *the caller did not declare* — **not** *no family applies* — and skips the
+    check, which is byte-for-byte the pre-MI-150 behaviour. The donchian call
+    site deliberately still passes nothing: the live mirror's advisory artifact
+    (``exit-head-donchian-1h-v1``) closes real positions, and **what value its
+    ``family`` field actually carries has NOT been read from the mirror** (the
+    exit_head artifact dir is not on the diag ``log_file`` allowlist, so it
+    could not be measured from a PM-side session). Tightening a live money path
+    against an unverified string is how a working exit gate goes quiet. Gating
+    donchian too is a separate change that must FIRST read that value —
+    ``BL-20260906-EXIT-HEAD-GUARD-IGNORES-THE-ARTIFACT-FAMILY-FIELD``.
     """
     try:
         # In-distribution guard: each head was trained on specific
@@ -353,6 +383,41 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
             symbols = artifact.get("symbols")
             if symbols and str(open_pkg.get("symbol") or "") not in symbols:
                 continue
+            # FAMILY gate (MI-150). The artifact has declared a `family` since
+            # export_exit_head.py:116 and NOTHING has ever read it, while this
+            # guard's own docstring says it exists to stop "an out-of-family
+            # score". That was inert while donchian was the only family with a
+            # published head; it stops being inert the moment a second family
+            # ships one, because `tf` + `symbols` alone do not separate two
+            # strategies trading the SAME symbol on the SAME timeframe — which
+            # is exactly ict_scalp vs donchian on SOLUSDT.
+            #
+            # ⚠️ A MISMATCH IS LOGGED AT WARNING, NOT SWALLOWED. The token is
+            # minted by the trainer and a naming difference is indistinguishable
+            # from a genuine out-of-family artifact from in here; refusing
+            # silently would present "the trainer named the dir differently" as
+            # "this head never fires", which is the same unreadable state
+            # `tf`-mismatch already produces. The refusal is correct; being
+            # quiet about it is not.
+            if family is not None:
+                a_fam = str(artifact.get("family") or "").strip().lower()
+                if a_fam:
+                    accepted = _ACCEPTED_FAMILIES.get(
+                        str(family).strip().lower(), {str(family).strip().lower()})
+                    if a_fam not in accepted:
+                        logger.warning(
+                            "exit_head_shadow: REFUSING out-of-family artifact "
+                            "%s (artifact family=%r, caller family=%r, accepted"
+                            "=%s) — no score produced for %s/%s. If this is a "
+                            "naming difference and not a real mismatch, add the "
+                            "token to _ACCEPTED_FAMILIES.",
+                            artifact.get("model_id"), a_fam, family,
+                            sorted(accepted), open_pkg.get("symbol"), meta_tf)
+                        continue
+                # An artifact declaring NO family is NOT graded as a match: it
+                # is "we could not look". It is allowed through (a legacy
+                # artifact predating the field must not be silently disabled)
+                # and the fact is recorded on the record as `family_state`.
             candidates.append((artifact, booster))
         if not candidates:
             return None
@@ -431,9 +496,25 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
                 "score": round(score, 6),
                 "event_source": "exit_head",
                 "symbol": str(open_pkg.get("symbol") or ""),
+                # ⚠️ The fallback follows the CALLER's declared family, not a
+                # hardcoded "trend_donchian". A scalp row landing in
+                # shadow_predictions.jsonl labelled `trend_donchian` would be
+                # UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A (CLAUDE.md
+                # § "Diagnostic provenance"): the label names a strategy the
+                # score did not come from, and every aggregate over that log
+                # reads the label.
                 "strategy": str(meta.get("strategy_label")
                                 or open_pkg.get("strategy_name")
+                                or family
                                 or "trend_donchian"),
+                # Three states, never collapsed: `matched` (artifact declared a
+                # family and the caller's is accepted) / `undeclared_by_artifact`
+                # (**we could not look** — a legacy artifact, NOT a match) /
+                # `not_checked` (the caller declared nothing).
+                "family_state": (
+                    "not_checked" if family is None
+                    else ("matched" if str(artifact.get("family") or "").strip()
+                          else "undeclared_by_artifact")),
                 "order_package_id": pkg_id,
                 "policy": policy,
                 "would_exit": would_exit,
