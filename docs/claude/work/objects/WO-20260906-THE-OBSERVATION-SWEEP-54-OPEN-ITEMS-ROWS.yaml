@@ -1,0 +1,30 @@
+id: WO-20260906-THE-OBSERVATION-SWEEP-54-OPEN-ITEMS-ROWS
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The observation sweep: 54 OPEN-ITEMS rows and 28 landed_unproven items have never been looked at on the fleet
+stage: OBSERVATION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Every OPEN-ITEMS row and every landed_unproven checklist item has been driven to ONE of three written outcomes: (a) CLOSED, carrying an observation of the live mechanism on the fleet naming what was seen and where; (b) RE-AFFIRMED, with verified_at advanced and a fresh observation written; or (c) RE-GRADED as NOT OBSERVABLE, stating why and what would make it observable. A green test, a merged PR and a deploy are NONE of these. Report the counts per outcome with the population stated.
+
+why: >-
+  A week of operating-model work is 'built but not observed'. 17 OPEN-ITEMS rows carry verified_at=never. 28 checklist items read landed_unproven. 21 more were just re-graded out of a false in_flight. Nothing distinguishes shipped from working.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
