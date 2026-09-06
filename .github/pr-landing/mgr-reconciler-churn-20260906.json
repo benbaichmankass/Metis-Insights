@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One backlog row appended to docs/claude/health-review-backlog.json via scripts/ops/backlog_append.py (which round-trips the file's exact serialisation). Filing a backlog row is explicitly management under CLAUDE.md — 'filing is the act of NOT taking the item' — and is permitted with no cap. No src/, no tests/, no scripts/, no config/, no deploy/, no workflow, no order path, no strategy parameter, no risk cap. The row it files is about workflow trigger cadence; it PROPOSES three remedies and applies none of them."
+}
