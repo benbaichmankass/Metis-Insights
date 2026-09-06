@@ -32781,7 +32781,7 @@
     },
     {
       "id": "BL-20260906-RCOVERAGE-REPORTS-1-0-WHILE-90-PERCENT-OF-ROWS-ARE-UNVERIFIED",
-      "added": "2026-09-06",
+      "opened_at": "2026-09-06",
       "severity": "high",
       "tier": 1,
       "status": "open",

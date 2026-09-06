@@ -32,8 +32,10 @@ trade*. The same window, same rows, lost money (`profitFactor 0.9507`, PnL −$3
 Both cannot be true.
 
 **And the contamination rate predicts it** — the only window that inverts is the only
-window with material contamination (30.8% vs 3.3% and 0%). That is the causal signature,
-not a coincidence.
+window with material contamination: **12 of 39 rows (30.8%)** on 30d, against **14 of 424
+(3.3%)** all-time and **0 of 11 (0%)** on 7d. That is the causal signature, not a
+coincidence. ⚠️ Note the denominator: n=39 is a small window, and this is one observation
+of the pattern, not a fitted relationship across many windows.
 
 **Mechanism:** `r_multiple` divides by `|entry − stop|`, and `trades.stop_loss` holds the
 **final trailed** stop. A trade trailed toward breakeven collapses its own denominator,
