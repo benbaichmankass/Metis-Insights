@@ -4,8 +4,8 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   A Bybit reduce-only close is rejected with ErrCode 10001 on an unquantised float qty, so the position cannot be flattened
 stage: DEPLOYMENT
-lifecycle: in_flight
-owner: null
+lifecycle: waiting
+owner: session_017UnyG4ArXmXKpB8rmEGv1j
 opened_at: 2026-09-06
 closed_at: null
 review_trigger: >-
@@ -20,11 +20,81 @@ why: >-
 source: >-
   operator (conversational)
 
-blocked_on: []
+blocked_on:
+  - kind: external_event
+    ref: "PR #11125 — the manager routing the merge of the approved Tier-3 diff"
+    since: 2026-09-06
 blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+  ASSESSED 2026-09-06 by session_017UnyG4ArXmXKpB8rmEGv1j. The fix is BUILT,
+  tested and open as a draft PR; nothing technical remains. ⚠️ THIS IS
+  DELIBERATELY `external_event` AND NOT `operator_decision`, and the distinction
+  is the point: the operator ALREADY decided (approved 2026-09-06, both parts, no
+  condition — recorded as a typed operator_decision in
+  docs/claude/work/OPEN-PRS.json). What remains is a manager ROUTING a merge, an
+  act by another party. Typing it `operator_decision` would put a phantom
+  decision-gate into the constraint computation — which is exactly the stage the
+  cycle readout is trying to measure honestly, so a false edge there is worse
+  than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+
+# ---------------------------------------------------------------------------
+# 2026-09-06 — ROOT-CAUSED, PROPOSED, APPROVED, APPLIED. Awaiting merge routing.
+# ---------------------------------------------------------------------------
+progress: >-
+  ROOT CAUSE ESTABLISHED IN CODE (PR #11112, docs-only) and FIX APPLIED
+  (PR #11125, DRAFT — Tier-3, do not self-merge). Two writers, two parts:
+  (1) execute.apply_intent_reduce_partial_close persisted the residual as a raw
+  float subtraction and was the ONLY unrounded position_size writer -> now
+  round(x, 8), the identity on every legal quantity; (2) close_open_position
+  called exchange_client.place_order directly with "qty": str(qty), bypassing
+  _submit_order (the only Bybit path carrying the legalizer) -> now routed
+  through qty_legalize.snap_artifact_qty.
+  ⚠️ THE SNAP GOES TO NEAREST AND MUST NEVER BE "HARMONISED" WITH legalize_qty,
+  which floors: flooring 33.299999999999955 gives 33.2, under-closing by a full
+  step and orphaning 0.1 SOL with no journal row — a LOUD failure converted into
+  a SILENT one, i.e. the very orphan class this object exists to kill. Flooring
+  an ENTRY is risk-reducing; flooring a CLOSE is risk-increasing.
+  Also corrected config/instruments.yaml XRPUSDT min_qty/qty_step 1.0 -> 0.1,
+  MEASURED from Bybit /v5/market/instruments-info (read 2026-09-06T11:03:10Z,
+  trainer-vm-diag issue #11120, Actions run 34029110078) and corroborated by
+  three live fractional XRP positions.
+  ⚠️ AVAXUSDT WAS SUSPECTED WRONG AND IS NOT — do not re-open it. Its sub-0.1
+  journal rows all carry status='rejected', i.e. pre-legalization sized
+  quantities that never reached the venue; restricted to venue-reaching rows
+  (n=65) the step is exactly the declared 0.1, and the venue read agrees.
+
+done_condition_status: >-
+  MET on every clause except the merge. Root cause established IN CODE, not
+  inferred (the wire line, the writer, and the elimination of the two rounding
+  siblings). qty_legalize.py and qty-legalization-guard were checked FIRST, as
+  the clause demanded: a legalizer already existed and the close path had never
+  been in its scope — a scope gap, not a rebuild, and the new function lives
+  INSIDE the seam so the guard is satisfied rather than worked around.
+  OTHER VENUES: Bybit only — IB floors to whole contracts and refuses below one;
+  Alpaca and OANDA close by symbol and never put a qty on the wire.
+  ANY LIVE POSITION UNFLATTENABLE RIGHT NOW: NO — 0 of 29 open rows carry an
+  off-grid position_size (/api/bot/db/table/trades, filter_state 'applied',
+  read 2026-09-06 ~10:12Z).
+  It was PROPOSED and not applied until the operator approved it, per the
+  Tier-3 clause; the approval is recorded typed in docs/claude/work/OPEN-PRS.json.
+
+population_note: >-
+  ⚠️ PR #11112's FIRST PASS reported "82 off-grid rows (13.00%)" and that number
+  is WRONG — an artifact of the bad XRPUSDT step. It must not be quoted. The
+  figure is 9 of 631 = 1.43%: POPULATION bybit_* accounts, non-backtest,
+  position_size > 0, trades ids 4519-5518 (the newest 1000 rows,
+  /api/diag/journal?table=trades&limit=1000, read 2026-09-06 ~11:02Z), under a
+  criterion asserted in code to be a non-multiple of ALL of {1, 0.1, 0.01,
+  0.001}. Independently re-derived this session rather than inherited. It
+  includes id=5342 on bybit_2, which is REAL MONEY.
+
+not_widened: >-
+  The two Bybit sibling paths that share the shape — modify_open_order's
+  slSize/tpSize (execute.py:2578,2580) and _bybit_top_up_partial_sl's
+  `uncovered` (order_monitor.py:9967) — were NOT touched. No observed failure at
+  either, and both are PROTECTIVE order paths where a rejection fails a
+  protective tightening SILENTLY, which is worse than a failed close. Filed as
+  BL-20260906-TWO-BYBIT-PROTECTIVE-LEG-PATHS-SEND-AN-UNQUANTISED-STRFLOAT-QTY.
+  The guard's own coverage gap is filed as
+  BL-20260906-QTY-LEGALIZATION-GUARD-CANNOT-DETECT-THE-CLASS-ITS-OWN-DOCSTRING-NAMES.

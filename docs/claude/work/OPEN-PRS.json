@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-05T08:45:00Z",
+  "as_of": "2026-09-06T11:25:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -79,6 +79,24 @@
         "text": "Operator, in conversation 2026-09-06: 'you have my ok on 11105'. Given in direct reply to the manager's ask, which named the job file and stated it executes bash over SSH on the live money VM and is read-only by construction. NO condition was attached and none is invented here."
       },
       "blocker": "⚠️ THE APPROVAL DOES NOT LAND IT, and reading it as 'approved therefore mergeable' is the trap. The Tier-2 gate is DISCHARGED; a SEPARATE and unrelated blocker stands: manager-scope-guard R2 fails this branch on TWO manager commits (a43ca75d and its own revert 89adb920), because the manager edited the author session's disposition doc. R2 grades COMMITS IN THE RANGE, not the net diff, and a43ca75d is an ancestor of the tip (verified: git merge-base --is-ancestor succeeds), so no later commit can clear it and REVERTING TOOK THE COUNT FROM 1 TO 2. Recurrence of the shape that killed #11031 on 2026-09-05; filed as BL-20260906-A-MANAGER-COMMIT-ON-A-WORKER-BRANCH-MAKES-THAT-BRANCH-PERMANENTLY-UNMERGEABLE-RECURRENCE. ⚠️ DO NOT merge past the failing required check, do not spend manager-scope-exception.yaml (it is for live INCIDENTS), and do not cherry-pick the author's commits to launder the trailer (the guard names that as an open evasion). The route is a CLEAN RE-LAND on a branch carrying only the author's commits, plus the population fix whose exact wording is recorded in the PR thread."
+    },
+    {
+      "pr": 11125,
+      "opened_at": "2026-09-06T11:20:00Z",
+      "title": "fix(orders): a Bybit reduce-only close is no longer refused on a float artifact — MI-139",
+      "owner_session": "session_017UnyG4ArXmXKpB8rmEGv1j",
+      "checklist_item": "MI-139b",
+      "draft": true,
+      "tier": "3",
+      "state": "awaiting_manager_merge",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": "Both parts as specified in PR #11112: (1) round(parent_qty - consumed, 8) in execute.apply_intent_reduce_partial_close, and (2) qty_legalize.snap_artifact_qty wired into close_open_position's bybit branch, snapping to NEAREST rather than flooring. The Bybit CLOSE path only — explicitly NOT the sibling protective paths (execute.py:2578,2580 slSize/tpSize; order_monitor.py:9967 uncovered), which are filed as BL-20260906-TWO-BYBIT-PROTECTIVE-LEG-PATHS-SEND-AN-UNQUANTISED-STRFLOAT-QTY instead.",
+        "decided_on": "2026-09-06",
+        "text": "Operator, in conversation, 2026-09-06, answering a question that named both parts, the 1.43% incidence (9 of 631 bybit_* non-backtest rows over trades ids 4519-5518) including a real-money row on bybit_2, and the warning that the naive floor-based fix is actively harmful because flooring a CLOSE under-closes by a full step and orphans the residue with no journal row. Verdict: approved. No condition attached. ⚠️ THE APPROVAL IS TO BUILD AND LAND THE CHANGE THROUGH REVIEW, NOT FOR THE AUTHORING SESSION TO SELF-MERGE AN ORDER-PATH DIFF — the dispatch said so explicitly ('Open the PR as a draft, get CI green, and do not merge it yourself — report back and I will route the merge'). Those are different permissions and collapsing them is the failure this field exists to prevent."
+      },
+      "blocker": "NOT BLOCKED ON A DEFECT — blocked on the manager routing the merge, by design. The PR is a DRAFT and .github/pr-landing/bybit-close-qty-apply-20260906.json declares tier 3 / landing hold, so claude-pr-automerge cannot land it and would be refused against a draft anyway. ⚠️ DO-NOTs for whoever picks this up: (1) do NOT widen it to the two sibling protective paths — no observed failure there, and a rejection on a protective tightening fails SILENTLY, so it needs its own evidence; (2) do NOT 'harmonise' snap_artifact_qty with legalize_qty's ROUND_DOWN — flooring a CLOSE is risk-INCREASING and orphans a step of dust with no journal row (tests/test_bybit_close_qty_artifact.py::test_snap_never_floors_any_artifact fails if anyone tries); (3) do NOT re-quote PR #11112's first-pass figure of '82 off-grid rows (13.00%)' — it is WRONG, an artifact of the bad XRPUSDT step, and the real figure is 9 of 631 = 1.43%; (4) AVAXUSDT's qty_step is CORRECT at 0.1 (venue-measured) — #11112 section 8b suspected it and was wrong, its sub-step journal rows all carry status='rejected'. Nothing is currently unflattenable (0 of 29 open rows, read 2026-09-06 ~10:12Z), so this is not urgent."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
