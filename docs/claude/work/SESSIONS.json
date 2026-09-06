@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-06T10:37:37Z",
+  "updated_at": "2026-09-06T16:55:05Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2418,8 +2418,187 @@
       ],
       "why": "session_013r8Joo877hnkYoKRzQsrwW completed the analysis and could not push (no repo attached); this is the re-spawn that carried it to #11111.",
       "state": "working"
+    },
+    {
+      "session_id": "session_01L7dTAuGMdn3CTGeyYV5Mox",
+      "registry_key": "pending-20260906T105301Z",
+      "state": "working",
+      "title": "MI-144 — the record of a trade does not say what happened (R inverted, exit_reason frozen, read route silently empties)",
+      "owns_object": "WO-20260906-THE-RECORD-OF-A-TRADE-DOES-NOT",
+      "checklist_item": "MI-144-THE-RECORD-DOES-NOT-SAY-WHAT-HAPPENED",
+      "spawned_at": "2026-09-06T10:53:01Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/trade-record-integrity-20260906"
+      ],
+      "why": "OPERATOR TOP PRIORITY 2026-09-06: 'we can't make good decisions if we have bad tools for making those decisions'",
+      "confirmed_at": "2026-09-06T10:53:56Z"
+    },
+    {
+      "session_id": "session_014jrW67rFyJNnHr7y6dEhec",
+      "registry_key": "pending-20260906T105301Z-2",
+      "state": "working",
+      "title": "MI-146 — are the bracket and active-management mechanisms in the roadmap, built, and applied where we claim",
+      "owns_object": "WO-20260906-ARE-THE-BRACKET-AND-ACTIVE-MANAGEMENT-MECHANISMS",
+      "checklist_item": "MI-146-BRACKET-MECHANISMS-AUDIT",
+      "spawned_at": "2026-09-06T10:53:01Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/bracket-mechanisms-audit-20260906"
+      ],
+      "why": "OPERATOR 2026-09-06 exit-mechanics thesis: trades must end at their brackets, and the stop must trail to bank R",
+      "confirmed_at": "2026-09-06T10:53:56Z"
+    },
+    {
+      "session_id": "session_01X3kyzCfUdFVimATxZFE8nd",
+      "registry_key": "pending-20260906T105926Z",
+      "state": "working",
+      "title": "MI-143b — ict_scalp_5m OFF bybit_2 only (operator chose the narrow lever over execution:shadow); supersedes #11115",
+      "owns_object": "WO-20260906-ICT-SCALP-5M-TO-SHADOW-THEN-ESTABLISH",
+      "checklist_item": "MI-143-ICT-SCALP-5M-SHADOW",
+      "spawned_at": "2026-09-06T10:59:26Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/ict-scalp-off-bybit2-20260906"
+      ],
+      "why": "OPERATOR DECISION 2026-09-06: stop the real-money bleed, KEEP paper evidence accruing for the bracket_geometry sweep",
+      "confirmed_at": "2026-09-06T11:00:41Z"
+    },
+    {
+      "session_id": "session_017UnyG4ArXmXKpB8rmEGv1j",
+      "registry_key": "pending-20260906T105926Z-2",
+      "state": "working",
+      "title": "MI-139b — APPLY the Tier-3 Bybit close-qty fix (operator approved both parts)",
+      "owns_object": "WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED",
+      "checklist_item": "MI-139-BYBIT-QTYSTEP",
+      "spawned_at": "2026-09-06T10:59:26Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/bybit-close-qty-apply-20260906"
+      ],
+      "why": "OPERATOR APPROVAL 2026-09-06: both parts of the #11112 proposal approved; a reduce-only close cannot be flattened today",
+      "confirmed_at": "2026-09-06T11:00:41Z"
+    },
+    {
+      "session_id": "session_01SKvbp9rm3fiyD9uHxpeFKM",
+      "registry_key": "pending-20260906T120641Z",
+      "state": "idle_delivered",
+      "title": "MI-145 — positive control on the exit sweep: can the harness detect a lever that MUST help?",
+      "owns_object": "WO-20260906-POSITIVE-CONTROL-ON-THE-EXIT-SWEEP-320",
+      "checklist_item": "MI-145-SWEEP-POSITIVE-CONTROL",
+      "spawned_at": "2026-09-06T12:06:41Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/sweep-positive-control-20260906"
+      ],
+      "why": "OPERATOR DECISION 2026-09-06 'Yes - positive control first'. MI-146 escalated it: 320 honest_negative cells and 39 SHIPPED cells all rest on this one uncontrolled instrument.",
+      "confirmed_at": "2026-09-06T12:07:46Z",
+      "live_status_at_2026-09-06T16:50Z": "IDLE",
+      "manager_disposition": "merged #11136"
+    },
+    {
+      "session_id": "session_01K64KKRVtS3V7XhdtZMP4hU",
+      "registry_key": "retro-20260906T123110Z",
+      "state": "idle_delivered",
+      "title": "MI-148 — build the active-management infra: brackets that are a prediction, trailed to bank R",
+      "owns_object": null,
+      "checklist_item": "MI-148-ACTIVE-MANAGEMENT-INFRA",
+      "spawned_at": "2026-09-06T12:31:10Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/active-management-20260906"
+      ],
+      "why": "OPERATOR thesis 2026-09-06: brackets must be the prediction of where the trade ends, and the stop must keep moving up to bank R. Dispatched off docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md, which had sat undispatched for 14 days carried by nothing.",
+      "confirmed_at": null,
+      "live_status_at_2026-09-06T16:50Z": "ARCHIVED",
+      "manager_disposition": "merged #11138",
+      "⚠️_registered_retroactively": "TRUE. This row was NOT written at spawn time — it was reconstructed at 2026-09-06T16:50Z from a live list_sessions read after the completeness grade showed 4 of 16 tagged sessions absent. `confirmed_at` is null and stays null: a retroactive row is evidence the coupling FAILED, not evidence it held, and back-dating a confirmation would launder that. Recurrence of MI-15-SESSIONS-REGISTRY-INCOMPLETE (3 of 6 absent 2026-09-01; 26 of 55 absent 2026-09-02), and the pattern repeated exactly as recorded: all four absentees are the FOUR MOST RECENT spawns."
+    },
+    {
+      "session_id": "session_01Lr1TDaQz2APJyYafBnsZen",
+      "registry_key": "retro-20260906T133958Z",
+      "state": "idle_delivered",
+      "title": "MI-150 — ship the exit head into ict_scalp: 3 legs that reproduced",
+      "owns_object": null,
+      "checklist_item": "MI-150-ICT-SCALP-EXIT-HEAD",
+      "spawned_at": "2026-09-06T13:39:58Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/ict-scalp-exit-head-20260906"
+      ],
+      "why": "MI-146 recommendation #2, operator 'Yes on MI 146'. ⚠️ Its post_turn_summary claims 'CI workflows need approval in Actions UI' — INVESTIGATED AND FALSE; the real causes were draft state, a relay-opened PR, and a merge conflict.",
+      "confirmed_at": null,
+      "live_status_at_2026-09-06T16:50Z": "IDLE",
+      "manager_disposition": "#11140 open, HELD on MI-153 by operator condition",
+      "⚠️_registered_retroactively": "TRUE. This row was NOT written at spawn time — it was reconstructed at 2026-09-06T16:50Z from a live list_sessions read after the completeness grade showed 4 of 16 tagged sessions absent. `confirmed_at` is null and stays null: a retroactive row is evidence the coupling FAILED, not evidence it held, and back-dating a confirmation would launder that. Recurrence of MI-15-SESSIONS-REGISTRY-INCOMPLETE (3 of 6 absent 2026-09-01; 26 of 55 absent 2026-09-02), and the pattern repeated exactly as recorded: all four absentees are the FOUR MOST RECENT spawns."
+    },
+    {
+      "session_id": "session_01Adzvjpv8SZQouoBjwMJ4qv",
+      "registry_key": "retro-20260906T143255Z",
+      "state": "idle_delivered",
+      "title": "MI-151 — ML-2, the predictive bracket: regress the exit distance the trade actually earned",
+      "owns_object": null,
+      "checklist_item": "MI-151-ML2-PREDICTIVE-BRACKET",
+      "spawned_at": "2026-09-06T14:32:55Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/ml2-predictive-bracket-20260906"
+      ],
+      "why": "OPERATOR chose 'Build ML-2, the predictive bracket' from the targets popup. Delivered a REFUTATION, which is a result and not a failure — manager must read it before any bracket-geometry work is queued off the assumption it works.",
+      "confirmed_at": null,
+      "live_status_at_2026-09-06T16:50Z": "IDLE",
+      "manager_disposition": "#11150 open, DRAFT — reports ML-2 REFUTED",
+      "⚠️_registered_retroactively": "TRUE. This row was NOT written at spawn time — it was reconstructed at 2026-09-06T16:50Z from a live list_sessions read after the completeness grade showed 4 of 16 tagged sessions absent. `confirmed_at` is null and stays null: a retroactive row is evidence the coupling FAILED, not evidence it held, and back-dating a confirmation would launder that. Recurrence of MI-15-SESSIONS-REGISTRY-INCOMPLETE (3 of 6 absent 2026-09-01; 26 of 55 absent 2026-09-02), and the pattern repeated exactly as recorded: all four absentees are the FOUR MOST RECENT spawns."
+    },
+    {
+      "session_id": "session_016UhdzaVjP5BLaokn2LajcA",
+      "registry_key": "retro-20260906T143323Z",
+      "state": "idle_delivered",
+      "title": "MI-152 — count the un-carried specs in docs/research and docs/design",
+      "owns_object": null,
+      "checklist_item": "MI-152-UNCARRIED-SPEC-BASELINE",
+      "spawned_at": "2026-09-06T14:33:23Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/uncarried-spec-baseline-20260906"
+      ],
+      "why": "OPERATOR chose 'Count the un-carried specs' as the next lane, off their own finding that the exit-geometry prompt was retrievable by nobody. ⚠️ Its status line says '98 of 111 (88.3%)' — that is the STRICT arm of a 98/40/24/8 sensitivity band, not a settled headline.",
+      "confirmed_at": null,
+      "live_status_at_2026-09-06T16:50Z": "IDLE",
+      "manager_disposition": "merged #11148",
+      "⚠️_registered_retroactively": "TRUE. This row was NOT written at spawn time — it was reconstructed at 2026-09-06T16:50Z from a live list_sessions read after the completeness grade showed 4 of 16 tagged sessions absent. `confirmed_at` is null and stays null: a retroactive row is evidence the coupling FAILED, not evidence it held, and back-dating a confirmation would launder that. Recurrence of MI-15-SESSIONS-REGISTRY-INCOMPLETE (3 of 6 absent 2026-09-01; 26 of 55 absent 2026-09-02), and the pattern repeated exactly as recorded: all four absentees are the FOUR MOST RECENT spawns."
+    },
+    {
+      "session_id": "session_01JhtPDUP92XmMSuE8c4i3Up",
+      "registry_key": "pending-20260906T165346Z",
+      "state": "working",
+      "title": "MI-153 - two records disagree on every ict_scalp exit-head candidate leg: which is current, and WHY did they diverge?",
+      "owns_object": "WO-20260906-TWO-RECORDS-DISAGREE-ON-EVERY-ICT-SCALP",
+      "checklist_item": "MI-153-EXIT-HEAD-FIGURE-RECONCILIATION",
+      "spawned_at": "2026-09-06T16:53:46Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/mi153-exit-head-figures-20260906"
+      ],
+      "why": "BLOCKS PR #11140 by explicit operator decision 2026-09-06: offered 'resolve before arming' vs 'arm now, reconcile in parallel', the operator chose RESOLVE FIRST. These figures are the entire basis for calling a leg an arming candidate.",
+      "confirmed_at": "2026-09-06T16:55:05Z"
+    },
+    {
+      "session_id": "session_01S7pASy78QiNViwhSadGdNb",
+      "registry_key": "pending-20260906T165357Z",
+      "state": "working",
+      "title": "MI-154 - publish a 5m/15m scalp exit-head artifact: without one the ict_scalp consumer cannot score a single leg",
+      "owns_object": "WO-20260906-NO-5M-OR-15M-SCALP-EXIT-HEAD",
+      "checklist_item": "MI-154-SCALP-EXIT-HEAD-ARTIFACT",
+      "spawned_at": "2026-09-06T16:53:57Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/mi154-scalp-exit-head-artifact-20260906"
+      ],
+      "why": "Operator decision 2026-09-06 chose 'Arm + queue the artifact', making this its own lane precisely because arming is inert without it. Measured with a positive control against /api/diag/shadow_stats: 32 models visible; the only exit-head artifacts are exit-head-donchian-1h-v1 and exit-head-donchian-peak-1h-v1, both 1h and both donchian, while all 8 ict_scalp legs are 5m/15m.",
+      "confirmed_at": "2026-09-06T16:55:05Z"
     }
   ],
-  "⚠️_registry_completeness": "2026-09-05T14:35Z — GRADED AGAINST PLATFORM TRUTH, and the register was wrong at scale. 94 rows were graded against a live list_sessions(mine=true, limit=100) read; 65 carried a state the platform contradicts, and 58 of those had NEVER been observed even once (last_observed absent) despite being spawned 2026-09-02/03. ⚠️ THE HEADLINE: the register claimed 41 sessions were working/idle/running. THE PLATFORM SAYS EXACTLY ONE SESSION IS RUNNING ACROSS THE WHOLE ACCOUNT, and it is the manager itself (session_016e2k4UmsMGgpbrJ5ctqeFv). Every other session is IDLE or ARCHIVED. The register's `working` state was never a measurement — it is what a manager wrote at SPAWN time and nobody ever revisited, which is MI-84 measured rather than asserted. ⚠️ WHAT THIS DOES **NOT** ESTABLISH: an IDLE session is not the same as FINISHED work. These rows are now honest about the session's LIFECYCLE and say nothing about whether each one's deliverable reached main. That audit spans several previous managers' days and was NOT done here; do not read a clean state column as a clean handoff. ⚠️ AND 0 non-terminal row(s) are NOT covered by this page at all — not graded, not disproven, simply outside the 100 most recent. `unknown` would be the honest label and they retain their stale value; do not read them as confirmed.",
-  "⚠️_last_live_reconcile": "2026-09-05T12:35:00Z — CLOSE-OUT reconcile. Every sub-session this manager spawned is now ARCHIVED; ZERO remain idle or running. The last three (MI-131, MI-125, MI-113) were IDLE with their work already merged and were archived here. ⚠️ ALL THREE CARRIED A STALE post_turn_summary: MI-131 still read 'PR #11047 CI running' when #11047 merged at 08:55:06Z, and MI-113 still read 'PR blocked on human merge' when #11024 had merged. A session's own status line is what it last said, NOT what became true afterwards, and a manager reading it as current will believe work is in flight that finished hours ago. Judge a session by its merged output, never by its status line."
+  "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
+  "⚠️_last_live_reconcile": "2026-09-06T16:50Z — LIVE reconcile against list_sessions(mine=true, limit=30). Population: 30 sessions returned; 16 carry the `manager-2026-09-06` tag. Of those 16, 8 are IDLE and 8 are ARCHIVED — ZERO are RUNNING, so no sub-session is in flight and supervision is not waiting on any of them. ⚠️ EVERY IDLE SESSION'S post_turn_summary IS STALE IN THE SAME DIRECTION as the 2026-09-05 close-out warned: MI-150's still reads 'CI workflows need approval in Actions UI', a claim this manager investigated and found false (the real causes were draft state, a relay-opened PR, and a merge conflict — none of them an Actions approval); MI-148's reads 'awaiting merge click' for #11138, which merged. Judge a session by its merged output, never by its status line. ⚠️ THIS RECONCILE IS A LIVE READ AND SO CANNOT BE PRODUCED BY CI — that is exactly why handoff_check.py grades `unknown` rather than `ready` without one."
 }

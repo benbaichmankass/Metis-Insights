@@ -1,0 +1,34 @@
+id: WO-20260906-TWO-RECORDS-DISAGREE-ON-EVERY-ICT-SCALP
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Two records disagree on every ict_scalp exit-head candidate leg
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  It is established, from the generating code and its inputs rather than from file mtimes, WHICH of the two figure sets is current for ict_scalp_sol_5m / xrp_5m / sol_15m AND WHY they diverged - naming the mechanism (a re-run on a different corpus slice, a re-partitioning, or a stale copy are three different answers). The losing record is corrected or explicitly dated as superseded. NOTE: a status change in the coverage matrix is Tier-3 and is NOT part of this done-condition.
+
+why: >-
+  Operator decision 2026-09-06 chose 'Resolve before arming' over 'arm now, reconcile in parallel', so this BLOCKS PR #11140. MI-146's audit table reads sol_5m auc 0.6184 / n_oos 1150 / 22 of 23; the matrix reads auc 0.6149 / n_oos 800 / 12 of 16. Same for xrp_5m and sol_15m - 3 of 3 candidate legs disagree. These figures are the entire basis for calling a leg an arming candidate, and the cycle priority is that a verdict computed from a contaminated instrument is worse than no verdict.
+
+source: >-
+  manager session_01HrmZ1RRNM4UnEUaFdrPEjj, from the operator's arming popup 2026-09-06
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-06 by manager session_01HrmZ1RRNM4UnEUaFdrPEjj. The empty
+  list is a real finding, not an unlooked-at default: nothing blocks THIS
+  object. Both records already exist in the repo and the generating code is
+  readable, so the investigation can start immediately. ⚠️ THE EDGE THIS
+  OBJECT PARTICIPATES IN RUNS THE OTHER WAY: it BLOCKS the arming of PR #11140
+  by explicit operator decision 2026-09-06 ("Resolve before arming", chosen
+  over "arm now, reconcile in parallel"). Recorded here because an edge stated
+  only on the blocked side is invisible from this one.
+
+captured_by: scripts/ops/capture_idea.py

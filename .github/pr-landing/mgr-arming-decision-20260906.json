@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager-surface registers only: docs/claude/work/OPEN-PRS.json (the typed operator decision for #11140), docs/claude/work/MANAGER-CHECKLIST.json (three items: MI-150 held, MI-153 the blocking figure reconciliation, MI-154 the artifact lane) and docs/claude/work/MANAGER-LEASE.json (a lease re-claim). No src/, no tests/, no scripts/, no config/, no deploy/, no workflow, no order path, no strategy parameter, no risk cap. Recording an operator decision into docs/claude/work/** is explicitly management under CLAUDE.md, not an item. Nothing here arms anything: #11140 stays HELD by the operator's own third answer, and no matrix status is edited (a status change is Tier-3 and is not carried by this PR)."
+}
