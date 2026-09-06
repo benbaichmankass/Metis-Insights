@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   A Bybit reduce-only close is rejected with ErrCode 10001 on an unquantised float qty, so the position cannot be flattened
 stage: DEPLOYMENT
-lifecycle: waiting
+lifecycle: done
 owner: session_017UnyG4ArXmXKpB8rmEGv1j
 opened_at: 2026-09-06
-closed_at: null
+closed_at: 2026-09-06
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
@@ -20,21 +20,23 @@ why: >-
 source: >-
   operator (conversational)
 
-blocked_on:
-  - kind: external_event
-    ref: "PR #11125 — the manager routing the merge of the approved Tier-3 diff"
-    since: 2026-09-06
+blocked_on: []
 blocked_on_basis: >-
-  ASSESSED 2026-09-06 by session_017UnyG4ArXmXKpB8rmEGv1j. The fix is BUILT,
-  tested and open as a draft PR; nothing technical remains. ⚠️ THIS IS
-  DELIBERATELY `external_event` AND NOT `operator_decision`, and the distinction
-  is the point: the operator ALREADY decided (approved 2026-09-06, both parts, no
-  condition — recorded as a typed operator_decision in
-  docs/claude/work/OPEN-PRS.json). What remains is a manager ROUTING a merge, an
-  act by another party. Typing it `operator_decision` would put a phantom
-  decision-gate into the constraint computation — which is exactly the stage the
-  cycle readout is trying to measure honestly, so a false edge there is worse
-  than a missing one.
+  ASSESSED 2026-09-06 by session_017UnyG4ArXmXKpB8rmEGv1j. NOTHING BLOCKS THIS
+  OBJECT ANY MORE — the edge it carried (`external_event`: the manager routing
+  the merge of PR #11125) was DISCHARGED at 2026-09-06T18:43:22Z when the
+  manager merged it as 9604b8a5. This empty list is therefore a REAL assessed
+  claim that nothing blocks it, NOT the migrated `blocked_on: []` /
+  NOT_ASSESSED default that 578 objects in this store carry and that means
+  nobody looked.
+  ⚠️ THE OBJECT IS DONE; THE FIX IS NOT PROVEN. Those are different facts and
+  collapsing them is what this repo keeps paying for. This object's own
+  done_condition asked for a root cause established in code and a Tier-3
+  PROPOSAL — that is fully MET and then some (approved and merged). Whether the
+  snap ever fires on the fleet is a separate observation, carried by
+  OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET, not
+  by leaving this object open. An object held open for an observation it did not
+  ask for is how the in-flight ceiling gets consumed by finished work.
 
 captured_by: scripts/ops/capture_idea.py
 
@@ -98,3 +100,42 @@ not_widened: >-
   BL-20260906-TWO-BYBIT-PROTECTIVE-LEG-PATHS-SEND-AN-UNQUANTISED-STRFLOAT-QTY.
   The guard's own coverage gap is filed as
   BL-20260906-QTY-LEGALIZATION-GUARD-CANNOT-DETECT-THE-CLASS-ITS-OWN-DOCSTRING-NAMES.
+
+# ---------------------------------------------------------------------------
+# 2026-09-06T18:43:22Z — MERGED by the manager. Object closed.
+# ---------------------------------------------------------------------------
+outcome: >-
+  MERGED as 9604b8a5 (squash), by the manager, at 2026-09-06T18:43:22Z — the
+  authoring session did not self-merge, which is what the Tier-3 landing
+  contract required and what .github/pr-landing/ declared.
+  ⚠️ VERIFIED AGAINST origin/main, NOT FROM THE MERGE EVENT. The
+  `pull_request.closed` relay was treated as a claim to check: execute.py:1876
+  carries round(parent_qty - consumed, 8); qty_legalize.py:423 defines
+  snap_artifact_qty; execute.py:2841/2852 route close_open_position's bybit
+  branch onto "qty": snap_qty_str; config/instruments.yaml XRPUSDT reads
+  min_qty/qty_step 0.1 with its venue-read provenance comment;
+  tests/test_bybit_close_qty_artifact.py is present at 457 lines; both filed
+  backlog rows are present.
+  ⚠️ The PR head 7c17a2af is NOT an ancestor of main — that is the SQUASH, not a
+  failed merge, and a session checking ancestry alone would wrongly conclude the
+  change is absent.
+  ⚠️ MERGED IS NOT OBSERVED. Nothing has been seen emitting a `snapped`
+  qty_state on the fleet, and nothing can until a Bybit close carries an
+  artifact again — 1.43% of rows, so this may be days. Carried by
+  OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET.
+
+cost_note: >-
+  ELEVEN merge conflicts between 11:26Z and 18:15Z, every one in a shared
+  register (nine in docs/claude/health-review-backlog.json, one in
+  OPEN-PRS.json, one in this file) and NONE in the order-path diff. Five green
+  heads were reached and four went stale before the merge could be routed
+  (765d83a2, 76167f7b, 5c290327, 8b37e208; merged on 7c17a2af). Each resolution
+  was by ID with in-code assertions that the merged id-set equalled theirs UNION
+  ours and that no incoming row was altered or dropped — which earned its keep:
+  one round preserved six of main's rows plus two edits, another preserved an
+  operator's `approved_with_conditions` verdict on PR #10940 that a side-wise
+  resolution would have erased.
+  ⚠️ A MERGE DRIVER FOR EXACTLY THIS EXISTS AND WAS NOT ARMED IN THIS CLONE —
+  scripts/ops/merge_json_register.py, installed by
+  scripts/ops/install_merge_driver.sh. Filed as
+  BL-20260906-REGISTER-MERGE-DRIVER-SHIPS-UNARMED-AND-A-SESSION-PAID-ELEVEN-HAND-RESOLUTIONS.
