@@ -156,3 +156,118 @@ def test_the_key_is_present_with_explicit_zeros_on_the_empty_envelope():
     }
     assert bo["reachedRatio"] is None, "null, never 0.0 — no window was read"
     assert all(v == 0 for k, v in bo.items() if k != "reachedRatio")
+
+
+# ---------------------------------------------------------------------------
+# THE SECOND KEY. Measured on the live journal 2026-09-06: only 99 of 428
+# real-money rows in this route's own population (23.1%) carry a resolving
+# `order_package_id`, so grading on that key alone filed 325 as
+# `no_bracket_record` and published 44/99 (44.4%) over a denominator the reader
+# could not see was a quarter of the book. Reached through
+# `order_packages.linked_trade_id` the same population grades 420 of 428
+# (98.1%) and answers 228/420 (54.3%).
+# ---------------------------------------------------------------------------
+
+def _mk_reverse_only(tmp_path, rows):
+    """Trades whose `order_package_id` is NULL, reachable ONLY by the reverse
+    `linked_trade_id` edge — the live shape for 76% of the real-money book."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    db = tmp_path / "trade_journal.db"
+    conn = sqlite3.connect(str(db))
+    conn.executescript(_FULL_SCHEMA)
+    for i, (direction, entry, exit_px, sl, tp) in enumerate(rows, start=1):
+        conn.execute(
+            "INSERT INTO trades (id, account_id, strategy_name, symbol, direction,"
+            " entry_price, stop_loss, take_profit_1, exit_price, position_size,"
+            " pnl, status, is_backtest, is_demo, account_class, setup_type,"
+            " exit_reason, closed_at, timestamp, notes, order_package_id)"
+            " VALUES (?,?, 'a', 'BTCUSDT', ?, ?, ?, ?, ?, 1.0, 5.0, 'closed',"
+            " 0, 0, 'real_money', NULL, 'reconciler_filled', ?, ?, '{}', NULL)",
+            [i, "bybit_2", direction, entry, sl, tp, exit_px,
+             f"2026-07-{10 + i:02d}T12:00:00Z", f"2026-07-{10 + i:02d}T11:00:00Z"])
+        conn.execute(
+            "INSERT INTO order_packages (order_package_id, linked_trade_id,"
+            " updated_at, meta, sl, tp) VALUES (?,?,?,NULL,?,?)",
+            [f"pkg-{i}", i, f"2026-07-{10 + i:02d}T12:00:00Z", sl, tp])
+    conn.commit()
+    conn.close()
+    return db
+
+
+def test_a_trade_with_no_order_package_id_is_still_graded_via_linked_trade_id(tmp_path):
+    """Without the fallback join every one of these grades `no_bracket_record`
+    and `reachedRatio` is None — which is what the endpoint published live."""
+    db = _mk_reverse_only(tmp_path / "rev", [
+        ("long",  100.0,  94.0,  95.0, 110.0),   # through the stop
+        ("long",  100.0, 112.0,  95.0, 110.0),   # through the target
+        ("long",  100.0, 103.0,  95.0, 110.0),   # mid-bracket
+    ])
+    bo = _aggregate(_query(db, since=None), "all", None)["bracketOutcome"]
+    assert bo["noBracketRecord"] == 0, "the reverse edge was not followed"
+    assert (bo["reachedSl"], bo["reachedTp"], bo["midBracket"]) == (1, 1, 1)
+    assert bo["gradeable"] == 3
+    assert bo["reachedRatio"] == 0.6667
+
+
+def test_the_forward_key_WINS_where_both_edges_exist(tmp_path):
+    """`order_package_id` is the pointer the writer set; `linked_trade_id` is
+    only consulted when it is absent. A trade that already resolves must not
+    have its bracket changed by the fallback.
+
+    ⚠️ THIS ONE CANNOT DISCRIMINATE and is labelled rather than counted as
+    evidence: without the fallback join there is nothing to override, so it
+    passes both before and after the change. The two tests around it WERE
+    verified failing on the pre-change module. This is a regression pin for the
+    precedence rule, not a proof that the rule was implemented."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    db = tmp_path / "trade_journal.db"
+    conn = sqlite3.connect(str(db))
+    conn.executescript(_FULL_SCHEMA)
+    conn.execute(
+        "INSERT INTO trades (id, account_id, strategy_name, symbol, direction,"
+        " entry_price, stop_loss, take_profit_1, exit_price, position_size,"
+        " pnl, status, is_backtest, is_demo, account_class, setup_type,"
+        " exit_reason, closed_at, timestamp, notes, order_package_id)"
+        " VALUES (1,'bybit_2','a','BTCUSDT','long',100.0,95.0,110.0,112.0,1.0,"
+        " 5.0,'closed',0,0,'real_money',NULL,'reconciler_filled',"
+        " '2026-07-11T12:00:00Z','2026-07-11T11:00:00Z','{}','pkg-fwd')")
+    # The forward package: exit 112 is THROUGH tp 110 -> reached_tp.
+    conn.execute("INSERT INTO order_packages VALUES ('pkg-fwd', 1,"
+                 " '2026-07-11T12:00:00Z', NULL, 95.0, 110.0)")
+    # A reverse-linked package with a WIDER target: 112 would be mid-bracket.
+    conn.execute("INSERT INTO order_packages VALUES ('pkg-rev', 1,"
+                 " '2026-07-11T12:00:00Z', NULL, 95.0, 500.0)")
+    conn.commit()
+    conn.close()
+    bo = _aggregate(_query(db, since=None), "all", None)["bracketOutcome"]
+    assert bo["reachedTp"] == 1, "the fallback overrode the forward key"
+    assert bo["midBracket"] == 0
+
+
+def test_the_fallback_cannot_fan_out_and_double_count_a_trade(tmp_path):
+    """One trade owning SEVERAL reverse-linked packages must contribute ONE
+    row, not one per package. `linked_trade_id` is unique in the live journal
+    today (1113 packages over 1113 distinct trades), so the pre-aggregation is
+    defensive — written while the data happens to be kind."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    db = tmp_path / "trade_journal.db"
+    conn = sqlite3.connect(str(db))
+    conn.executescript(_FULL_SCHEMA)
+    conn.execute(
+        "INSERT INTO trades (id, account_id, strategy_name, symbol, direction,"
+        " entry_price, stop_loss, take_profit_1, exit_price, position_size,"
+        " pnl, status, is_backtest, is_demo, account_class, setup_type,"
+        " exit_reason, closed_at, timestamp, notes, order_package_id)"
+        " VALUES (1,'bybit_2','a','BTCUSDT','long',100.0,95.0,110.0,94.0,1.0,"
+        " -5.0,'closed',0,0,'real_money',NULL,'reconciler_filled',"
+        " '2026-07-11T12:00:00Z','2026-07-11T11:00:00Z','{}',NULL)")
+    for suffix in ("a", "b", "c"):
+        conn.execute("INSERT INTO order_packages VALUES (?, 1,"
+                     " '2026-07-11T12:00:00Z', NULL, 95.0, 110.0)",
+                     [f"pkg-{suffix}"])
+    conn.commit()
+    conn.close()
+    agg = _aggregate(_query(db, since=None), "all", None)
+    assert agg["totalTrades"] == 1, "the trade was double-counted by the join"
+    bo = agg["bracketOutcome"]
+    assert bo["gradeable"] == 1 and bo["reachedSl"] == 1

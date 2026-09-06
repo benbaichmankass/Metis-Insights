@@ -335,18 +335,79 @@ def _query(
         # intact.
         pkg_avail = {row[1] for row in conn.execute(
             "PRAGMA table_info(order_packages)")}
+        # TWO keys reach a trade's package, and using only the first one
+        # published a ratio over a quarter of the book.
+        #
+        # MEASURED 2026-09-06 against the live journal, real-money closed
+        # non-backtest rows in THIS route's own population (n=428): only 99
+        # (23.1%) carry an `order_package_id` that resolves, so
+        # `bracketOutcome` graded 99 and filed 325 as `no_bracket_record`.
+        # Falling back to `order_packages.linked_trade_id` where
+        # `t.order_package_id` is NULL reaches 420 of 428 (98.1%), leaving 4
+        # genuinely unreachable. The published answer moves from 44/99 (44.4%)
+        # to 228/420 (54.3%) -- and the 44.4% was not wrong, it was computed
+        # over a denominator the reader could not see was 23% of the book.
+        # That is the exact defect class this block was added to fix, so
+        # leaving it would have been the instrument failing its own test.
+        #
+        # ⚠️ THE FALLBACK IS PRE-AGGREGATED TO 1 ROW PER TRADE and is NOT the
+        # bare `linked_trade_id` join the `op` subquery below is deliberately
+        # pre-aggregated to avoid. A bare join fans out when one trade owns
+        # several packages, double-counting that trade in every aggregate.
+        # Measured on the same pull, `linked_trade_id` is currently unique
+        # (1113 packages over 1113 distinct trades, zero fan-out), so the
+        # GROUP BY is defensive rather than load-bearing TODAY -- which is
+        # precisely why it is written now, while the data happens to be kind.
+        # `MIN(order_package_id)` makes the choice DETERMINISTIC rather than
+        # whichever row SQLite reaches first.
+        #
+        # ⚠️ `order_package_id` still WINS where it exists. It is the explicit
+        # pointer the writer set; `linked_trade_id` is the reverse edge and is
+        # only consulted when the forward one is absent, so this can never
+        # change the package a row already resolved.
+        pkg_bracket_ok = {"sl", "tp"} <= pkg_avail
+        pkg_meta_ok = "meta" in pkg_avail
+        opid_ok = ("order_package_id" in avail
+                   and "order_package_id" in pkg_avail)
+        # The fallback SELECTS `order_package_id` inside its pre-aggregation,
+        # so it needs BOTH columns — gating on `linked_trade_id` alone would
+        # raise `no such column: order_package_id` on a legacy package table
+        # and blank every metric, the exact failure the schema guards exist to
+        # prevent.
+        link_ok = {"linked_trade_id", "order_package_id"} <= pkg_avail
+
+        def _pkg_col(col: str) -> str:
+            """The package column, preferring the forward key."""
+            if opid_ok and link_ok:
+                return f"COALESCE(opk.{col}, opl.{col})"
+            if opid_ok:
+                return f"opk.{col}"
+            return f"opl.{col}"
+
+        _reachable = opid_ok or link_ok
         bracket_select = (
-            "\n                   opk.sl AS package_sl,"
-            "\n                   opk.tp AS package_tp,"
-            if "order_package_id" in avail
-            and {"sl", "tp"} <= pkg_avail else "")
+            f"\n                   {_pkg_col('sl')} AS package_sl,"
+            f"\n                   {_pkg_col('tp')} AS package_tp,"
+            if _reachable and pkg_bracket_ok else "")
         meta_select = (
-            "\n                   opk.meta AS package_meta," + bracket_select
-            if "order_package_id" in avail else "")
+            f"\n                   {_pkg_col('meta')} AS package_meta,"
+            + bracket_select
+            if _reachable and pkg_meta_ok else bracket_select)
         meta_join = (
             "\n            LEFT JOIN order_packages opk"
             "\n              ON opk.order_package_id = t.order_package_id"
-            if "order_package_id" in avail else "")
+            if opid_ok else "")
+        if link_ok and _reachable:
+            meta_join += (
+                "\n            LEFT JOIN ("
+                "\n                SELECT linked_trade_id,"
+                "\n                       MIN(order_package_id) AS order_package_id"
+                "\n                FROM order_packages"
+                "\n                WHERE linked_trade_id IS NOT NULL"
+                "\n                GROUP BY linked_trade_id"
+                "\n            ) opl_pick ON opl_pick.linked_trade_id = t.id"
+                "\n            LEFT JOIN order_packages opl"
+                "\n              ON opl.order_package_id = opl_pick.order_package_id")
         # `notes` carries the provenance keys behind pnlCoverage, and is OPTIONAL
         # for exactly the same reason the R inputs above are: selecting it
         # unconditionally makes a schema without the column raise

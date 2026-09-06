@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-06T11:25:00Z",
+  "as_of": "2026-09-05T08:45:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -79,6 +79,24 @@
         "text": "Operator, in conversation 2026-09-06: 'you have my ok on 11105'. Given in direct reply to the manager's ask, which named the job file and stated it executes bash over SSH on the live money VM and is read-only by construction. NO condition was attached and none is invented here."
       },
       "blocker": "⚠️ THE APPROVAL DOES NOT LAND IT, and reading it as 'approved therefore mergeable' is the trap. The Tier-2 gate is DISCHARGED; a SEPARATE and unrelated blocker stands: manager-scope-guard R2 fails this branch on TWO manager commits (a43ca75d and its own revert 89adb920), because the manager edited the author session's disposition doc. R2 grades COMMITS IN THE RANGE, not the net diff, and a43ca75d is an ancestor of the tip (verified: git merge-base --is-ancestor succeeds), so no later commit can clear it and REVERTING TOOK THE COUNT FROM 1 TO 2. Recurrence of the shape that killed #11031 on 2026-09-05; filed as BL-20260906-A-MANAGER-COMMIT-ON-A-WORKER-BRANCH-MAKES-THAT-BRANCH-PERMANENTLY-UNMERGEABLE-RECURRENCE. ⚠️ DO NOT merge past the failing required check, do not spend manager-scope-exception.yaml (it is for live INCIDENTS), and do not cherry-pick the author's commits to launder the trailer (the guard names that as an open evasion). The route is a CLEAN RE-LAND on a branch carrying only the author's commits, plus the population fix whose exact wording is recorded in the PR thread."
+    },
+    {
+      "pr": 11140,
+      "opened_at": "2026-09-06T13:57:05Z",
+      "title": "MI-150: ship the M20 exit-head consumer into ict_scalp (annotate-only, disarmed)",
+      "owner_session": "opened by manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-150-ICT-SCALP-EXIT-HEAD",
+      "draft": false,
+      "tier": "3",
+      "state": "operator_approved_with_conditions_HELD_on_MI-153",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "TWO conditions, both given in the same reply and neither optional. (1) ict_scalp_sol_5m is EXCLUDED from the armed set - its pass does not survive re-partitioning (the 4-arm screen flips it to honest_negative when folds are cut 12 trades later) and its AUC spread across arms, 0.0034, was the SMALLEST of the three legs, so AUC gave no warning. (2) The merge is HELD until the figure discrepancy between the MI-146 audit table and docs/research/exit-refinement-coverage.json is RESOLVED - operator chose 'Resolve before arming' over 'arm now, reconcile in parallel'. Tracked as MI-153.",
+        "scope": "ICT_SCALP_EXIT_HEAD_MODE armed for the ict_scalp legs EXCEPT ict_scalp_sol_5m, and only after MI-153 settles which figures are current. The operator ALSO directed that a 5m/15m scalp exit-head artifact be queued as its own lane (MI-154), because arming is inert without one.",
+        "decided_on": "2026-09-06",
+        "text": "Operator, in conversation 2026-09-06: 'you can arm it, give me any decisions as popups.' Put back as three popups naming what arming would and would not do. Answers: arm scope = 'Arm + queue the artifact'; sol_5m = 'Exclude sol_5m'; figures = 'Resolve before arming'. The third answer is what makes this HELD rather than mergeable - do not read the first answer alone as clearance to merge."
+      },
+      "blocker": "⚠️ APPROVED IS NOT MERGEABLE HERE, and the trap is reading the 'Arm + queue the artifact' answer on its own. The operator's THIRD answer gates the merge on MI-153. ⚠️ AND ARMING IS INERT TODAY, which is why the artifact lane exists: verified this session against /api/diag/shadow_stats with a positive control (32 models visible; the probe demonstrably finds both exit-head ids), the ONLY published exit-head artifacts are exit-head-donchian-1h-v1 (advisory) and exit-head-donchian-peak-1h-v1 (shadow) - both 1h, both donchian - while all eight ict_scalp legs are 5m/15m. The in-distribution guard fail-closes on every one, so a merge today would record decision_state: not_scored on all of them and change no live behaviour. That is the 'armed is not exercised' class; do not later read a quiet soak as evidence the head works. ⚠️ The 2026-08-23 SHIP BLOCKED operator decision is stamped on every candidate cell in the matrix ('re-graded passed_unshipped -> blocked', 'STATUS UNCHANGED (a status change is Tier-3)'). This approval supersedes it for the non-sol_5m legs ONLY, and the matrix status edit is itself Tier-3 - it is not carried by this row."
     },
     {
       "pr": 11125,
@@ -1082,6 +1100,6 @@
   ],
   "last_reconciled_at": "2026-09-05T03:42:28Z",
   "last_reconciled_sha": "8b8d37f11d9d32bdbd3f4b83e6e07e2954cf64ac",
-  "updated_at": "2026-09-05T12:35:00Z",
-  "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv"
+  "updated_at": "2026-09-06T16:05Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }

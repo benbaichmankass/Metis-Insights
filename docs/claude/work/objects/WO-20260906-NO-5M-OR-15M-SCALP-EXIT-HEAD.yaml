@@ -1,0 +1,36 @@
+id: WO-20260906-NO-5M-OR-15M-SCALP-EXIT-HEAD
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  No 5m or 15m scalp exit-head artifact exists, so the ict_scalp consumer cannot score a single leg
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A 5m and/or 15m scalp-family exit-head artifact is TRAINED, EXPORTED and PUBLISHED such that /api/diag/shadow_stats lists it, AND the in-distribution guard is OBSERVED admitting at least one real ict_scalp leg (a decision_state other than not_scored on a live or soak row). A green unit test is NOT this observation. SEPARATELY in the same lane: the artifact's declared `family` field, written since scripts/ml/export_exit_head.py:116, is read by NOTHING - the guard gates on tf + symbols only - so a scalp artifact in-distribution on tf and symbols would today be accepted by a donchian-family consumer with nothing checking family. Close that or file it explicitly.
+
+why: >-
+  Operator decision 2026-09-06 chose 'Arm + queue the artifact', making this its own lane rather than a follow-up, precisely because arming without it is inert. Measured this session with a positive control against /api/diag/shadow_stats: 32 models visible; the only exit-head artifacts are exit-head-donchian-1h-v1 and exit-head-donchian-peak-1h-v1, both 1h and both donchian, while all 8 ict_scalp legs are 5m/15m.
+
+source: >-
+  manager session_01HrmZ1RRNM4UnEUaFdrPEjj, from the operator's arming popup 2026-09-06
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-06 by manager session_01HrmZ1RRNM4UnEUaFdrPEjj. The empty
+  list is a real finding here, not an unlooked-at default: NOTHING blocks this
+  object. Training and publishing a 5m/15m scalp exit-head artifact needs no
+  decision that has not been made (the operator chose "Arm + queue the
+  artifact" on 2026-09-06) and no upstream work that is not already merged.
+  ⚠️ In particular it is NOT blocked on
+  WO-20260906-TWO-RECORDS-DISAGREE-ON-EVERY-ICT-SCALP: that object gates
+  ARMING, i.e. which legs the consumer may act on, and says nothing about
+  whether an artifact can exist. Coupling the two would stall the only lane
+  that can make the consumer non-inert behind a records question.
+
+captured_by: scripts/ops/capture_idea.py
