@@ -82,7 +82,7 @@ def test_the_committed_evidence_actually_exists_and_is_non_trivial() -> None:
 
 
 def test_the_disagreement_count_in_the_exemption_is_still_accurate() -> None:
-    """The exemption states 9 disagreements. Recompute and hold it to that.
+    """The exemption states 2 disagreements. Recompute and hold it to that.
 
     A number quoted in a comment and never recomputed is how the original reason
     went stale in the first place. If a round is added or a status is re-graded,
@@ -109,6 +109,19 @@ def test_the_disagreement_count_in_the_exemption_is_still_accurate() -> None:
     via `_base_status`. Importing that same helper rather than re-deriving the
     rule here is deliberate — two copies of "what counts as blocked" is how they
     drift apart.
+
+    ⚠️ 9 -> 2 ON 2026-09-06 (MI-145), AND THE DELTA IS REAL — this test's own
+    failure message says to check that first, so here is the check. All nine
+    were `candidate` (round) vs `honest_negative` (matrix). Seven moved to
+    `blocked:no_lever_consumer_in_unit` because their monitor unit implements no
+    exit head, established by CALLING `monitor_unit_for` and
+    `exit_mechanism_coverage.module_implements`. That is a change of
+    DISPOSITION, not a `blocked` cell gaining a reason suffix — the artifact
+    guarded against two paragraphs up — and `candidate offline` genuinely does
+    not contradict `unshippable for want of a consumer`. The two survivors,
+    trend_donchian_{ada,xrp}_4h, run on a unit that DOES implement the head, so
+    their contradiction is live; keeping them visible is the point of lowering
+    the number rather than leaving it at 9.
     """
     rows = [json.loads(x) for x in ROUNDS.read_text().splitlines() if x.strip()]
     matrix = json.loads(MATRIX.read_text())
@@ -131,9 +144,9 @@ def test_the_disagreement_count_in_the_exemption_is_still_accurate() -> None:
             disagree.append(rd["leg"])
 
     reason = guard.CORPUS_EXEMPT_LEVERS["exit_head_ml"]
-    assert "9 DISAGREE" in reason, "the exemption no longer states a count"
-    assert len(disagree) == 9, (
-        f"the exemption says 9 disagreements; recomputing over the committed "
+    assert "2 DISAGREE" in reason, "the exemption no longer states a count"
+    assert len(disagree) == 2, (
+        f"the exemption says 2 disagreements; recomputing over the committed "
         f"evidence gives {len(disagree)}: {sorted(disagree)}. Update the "
         "exemption text — a stale count is how this exemption went wrong before. "
         "But FIRST check whether the delta is real: a cell gaining a "
