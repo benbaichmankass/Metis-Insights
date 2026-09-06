@@ -29,7 +29,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 
 from src.utils.paths import trade_journal_db_path
 from src.web.api._asset_class import asset_class_for_symbol
@@ -218,7 +218,8 @@ def _query_closed_trades(
     db_path: Path, limit: int, since: Optional[str],
     account_id: Optional[str] = None,
     include_demo: bool = False,
-) -> List[Dict[str, Any]]:
+    offset: int = 0,
+) -> "tuple[List[Dict[str, Any]], int]":
     """Return up to *limit* closed trades, newest-first by closedAt
     (``op.updated_at``), filtered by *since* (ISO-8601 UTC) when provided.
 
@@ -270,26 +271,37 @@ def _query_closed_trades(
         if since:
             sql += f" AND {_CLOSED_AT_SORT_SQL} >= datetime(?)"
             params.append(since)
-        sql += f" ORDER BY {_CLOSED_AT_SORT_SQL} DESC LIMIT ?"
+        # The MATCHING count, computed over the SAME WHERE the page is drawn
+        # from and BEFORE the LIMIT is applied. Without it a full page is
+        # indistinguishable from an exhausted one: a caller asking for the last
+        # 400 closes gets 200 rows and no way to tell "that is all there is"
+        # from "you were truncated" — the silent-truncation half of
+        # BL-20260906-TRADES-CLOSED-CANNOT-SERVE-A-WINDOW-ABOVE-ITS-CAP.
+        total = int(conn.execute(
+            f"SELECT COUNT(*) FROM ({sql})", params).fetchone()[0])
+        sql += f" ORDER BY {_CLOSED_AT_SORT_SQL} DESC LIMIT ? OFFSET ?"
         params.append(limit)
+        params.append(offset)
         cur = conn.execute(sql, params)
         rows = cur.fetchall()
     finally:
         conn.close()
     # ONE ledger read per request, not one per row.
     trust_map = journal_trust_map()
-    return [_row_to_wire(r, trust_map) for r in rows]
+    return [_row_to_wire(r, trust_map) for r in rows], total
 
 
 @router.get("/trades/closed")
 def get_closed_trades(
+    response: Response,
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+    offset: int = Query(0, ge=0),
     since: Optional[str] = Query(None, max_length=64),
     account_id: Optional[str] = Query(None, max_length=64),
     include_paper: bool = Query(False),
     include_demo: bool = Query(False),
 ) -> List[Dict[str, Any]]:
-    """Return up to ``limit`` closed (non-backtest) trades.
+    """Return up to ``limit`` closed (non-backtest) trades, newest first.
 
     Each row carries ``accountClass`` ("paper" | "real_money") plus the
     legacy ``isDemo`` flag so consumers can split paper vs real in their UI.
@@ -300,22 +312,77 @@ def get_closed_trades(
         real-money (default false: real-money only).
       - ``include_demo`` — DEPRECATED alias for ``include_paper`` (kept for
         back-compat). Effective include = include_paper OR include_demo.
+      - ``offset`` — page back through the matching set. ``MAX_LIMIT`` caps ONE
+        PAGE, not the reachable window: a caller that wants the last 400 closes
+        makes two calls. Before this existed the window above the cap was
+        UNREACHABLE, and a 422 naming the cap told the caller its request was
+        refused without telling it what to do instead.
 
-    Best-effort: returns ``[]`` on missing DB, locked DB, or an
-    unexpected sqlite error. The dashboard treats an empty list the
-    same as "no closed trades yet" and keeps the tab usable.
+    **THIS ROUTE EITHER SERVES THE WINDOW OR REFUSES IT WITH A REASON. IT NEVER
+    RETURNS A BARE ``[]`` TO MEAN "SOMETHING WENT WRONG"**
+    (BL-20260906-TRADES-CLOSED-RETURNS-BARE-EMPTY-ON-READ-FAILURE). This is the
+    route a performance review grades from, so an unreadable journal rendering
+    as *"no closed trades yet"* is a clean, confident, WRONG negative — the
+    §"Collapsed states" failure applied to a whole endpoint: *we could not look*
+    and *we looked and there is nothing* had one representation.
+
+      * missing DB / locked DB / sqlite error / unexpected error → **503**
+        with a machine-readable ``reason``. The four are distinguished, because
+        they have different remedies.
+      * ``limit`` above ``MAX_LIMIT`` → **422** (FastAPI's own bound), already
+        naming the cap. That is a refusal WITH a reason and is correct — but see
+        ``offset`` above for how to reach the window anyway.
+      * a genuinely empty result → **200** with ``[]``. That is the ONLY thing
+        an empty list may mean.
+
+    Two response headers make truncation distinguishable from exhaustion —
+    without them a full page and a complete answer render identically:
+
+      * ``X-Total-Count`` — rows matching the filters BEFORE ``limit``/``offset``
+      * ``X-Has-More``  — ``"true"``/``"false"``; whether rows remain after this page
+
+    They are headers rather than a wrapper object on purpose: the SPA's
+    ``ClosedTrade[]`` contract is an ARRAY, and changing the body shape to add
+    metadata would break the only live consumer.
     """
     effective_include = include_paper or include_demo
     if not _DB_PATH.exists():
-        return []
-    try:
-        return _query_closed_trades(
-            _DB_PATH, limit, since, account_id=account_id,
-            include_demo=effective_include,
+        # NOT an empty journal — we could not look at one. A caller that reads
+        # this as "no closed trades" has been handed a false negative.
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "journal_unavailable", "reason": "db_file_missing",
+                    "path": _DB_PATH.name},
         )
-    except sqlite3.Error:
+    try:
+        rows, total = _query_closed_trades(
+            _DB_PATH, limit, since, account_id=account_id,
+            include_demo=effective_include, offset=offset,
+        )
+    except sqlite3.OperationalError as exc:
+        # Locked / schema-mismatched / unreadable file. Separated from the
+        # generic sqlite3.Error below because "the DB is busy" is a RETRY and
+        # "the schema is wrong" is a DEPLOY — different remedies, so they must
+        # not share one message.
+        logger.exception("trades_closed: sqlite operational failure")
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "journal_unavailable", "reason": "db_operational",
+                    "detail": str(exc)},
+        ) from exc
+    except sqlite3.Error as exc:
         logger.exception("trades_closed: sqlite read failed")
-        return []
-    except Exception:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "journal_unavailable", "reason": "db_read_failed",
+                    "detail": str(exc)},
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
         logger.exception("trades_closed: unexpected error")
-        return []
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "journal_unavailable", "reason": "unexpected_error"},
+        ) from exc
+    response.headers["X-Total-Count"] = str(total)
+    response.headers["X-Has-More"] = "true" if (offset + len(rows)) < total else "false"
+    return rows

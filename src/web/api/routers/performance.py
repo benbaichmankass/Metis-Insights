@@ -78,6 +78,14 @@ from src.web.api._clean_trades import (
 )
 from src.web.api._closed_at import close_time_sql
 from src.runtime.broker_truth import journal_trust_for, journal_trust_map
+from src.runtime.bracket_outcome import (  # did the close reach its DECLARED bracket?
+    BRACKET_MID,
+    BRACKET_REACHED_SL,
+    BRACKET_REACHED_TP,
+    GRADEABLE_STATES,
+    classify_bracket_outcome,
+    empty_bracket_counts,
+)
 from src.runtime.r_provenance import (  # R-DENOMINATOR provenance
     DISAGREEMENT_RATIO_BAR,
     R_CONFIRMED_INITIAL,
@@ -182,6 +190,14 @@ def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, 
             "declaredInitial": 0, "storedStop": 0,
             "refusedWrongSide": 0, "noBasis": 0,
         },
+        # Same rule: explicit zeros, and `reachedRatio` null (not 0.0) so
+        # "no rows" stays distinguishable from "rows, none reached a bracket".
+        "bracketOutcome": {
+            "reachedSl": 0, "reachedTp": 0, "midBracket": 0, "gradeable": 0,
+            "reachedRatio": None, "noExitPrice": 0, "priceNotMeasurable": 0,
+            "noBracketRecord": 0, "directionUnreadable": 0,
+            "excludedReduceLeg": 0,
+        },
         # R-denominator provenance — same rule.
         "rProvenance": {
             "contaminated": 0, "confirmedInitial": 0, "unverified": 0,
@@ -279,6 +295,15 @@ def _query(
                 # ("we could not look"), never to a confirmation.
                 ("direction", "direction"),
                 ("take_profit_1", "take_profit_1"),
+                # BRACKET-OUTCOME inputs (src.runtime.bracket_outcome). The
+                # recorded exit price is what the verdict is re-derived FROM;
+                # `setup_type` is the reduce-leg exclusion (a reduce's bracket
+                # is inverted relative to its own direction, so grading it
+                # would mislabel a deliberate partial close as a bracket hit).
+                # Same optional-column guard: a legacy schema degrades the
+                # grade to "we could not look", never to a verdict.
+                ("exit_price", "exit_price"),
+                ("setup_type", "setup_type"),
             )
             if col in avail
         )
@@ -293,8 +318,13 @@ def _query(
         # order_package_id, so ~28% of the population is unreachable this way
         # and lands `unverified` — which is the honest grade, not a gap to
         # paper over.
+        # `opk.sl` / `opk.tp` are the DECLARED bracket the exit price is graded
+        # against — the same levels `order_monitor._classify_broker_exit` reads,
+        # off the same 1:1 primary-key join as `meta` above.
         meta_select = (
             "\n                   opk.meta AS package_meta,"
+            "\n                   opk.sl AS package_sl,"
+            "\n                   opk.tp AS package_tp,"
             if "order_package_id" in avail else "")
         meta_join = (
             "\n            LEFT JOIN order_packages opk"
@@ -402,6 +432,10 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     # a row graded `unverified` can still be computed on the `declared_initial`
     # basis, because the declared record is independent of the stored stop.
     r_basis_counts: Dict[str, int] = r_empty_basis_counts()
+    # DID THE CLOSE REACH ITS DECLARED BRACKET? Re-derived from the recorded
+    # exit price, published BESIDE the stored `exit_reason` — never instead of
+    # it, and nothing is written back to the journal.
+    bracket_counts: Dict[str, int] = empty_bracket_counts()
     r_declared_records = 0     # denominator for the line below
     r_tightened = 0            # stored stop >= BAR x tighter than declared risk
     equity: List[Dict[str, Any]] = []
@@ -460,6 +494,22 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             contract_value_usd_for(r["symbol"]),
         )
         r_basis_counts[r_basis] = r_basis_counts.get(r_basis, 0) + 1
+        # BRACKET OUTCOME — the operator's question ("are trades ending at
+        # their brackets?") answered from the PRICE, not from the label.
+        # `exit_reason` is written once, at close time, and for the largest
+        # close path that is the one moment the answer cannot be known
+        # (the no-record fallback hard-codes `reconciler_filled` with
+        # `exit_price` still NULL). #10262 re-runs the classifier when the
+        # price later arrives, but on ONE path and FORWARD only.
+        bracket_counts[classify_bracket_outcome(
+            {
+                "direction": _rget(r, "direction"),
+                "exit_price": _rget(r, "exit_price"),
+                "setup_type": _rget(r, "setup_type"),
+                "notes": _rget(r, "notes"),
+            },
+            _rget(r, "package_sl"), _rget(r, "package_tp"),
+        )[0]] += 1
         if rr is not None:
             total_r += rr
             r_count += 1
@@ -625,6 +675,11 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         equity.append({"t": r["closed_at"], "cum": round(cum, 4)})
 
     losses = total - wins
+    # The denominator for `bracketOutcome.reachedRatio`: only the states on
+    # which a bracket-vs-other ratio HAS a meaning. Summed from the imported
+    # tuple rather than re-listed, so adding a state cannot silently leave it
+    # out of the arithmetic.
+    _bracket_gradeable = sum(bracket_counts[st] for st in GRADEABLE_STATES)
     per_strategy = [
         {
             "name": name,
@@ -883,6 +938,58 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         # the LARGEST bucket (78.1% live). A stop trailed to just SHORT of
         # entry is side-plausible and just as wrong; it is simply not provable
         # from the stored row.
+        # --- DID THE CLOSE REACH ITS DECLARED BRACKET? (2026-09-06, MI-144) ---
+        # `perExitPath` above buckets on the STORED `exit_reason`. This
+        # RE-DERIVES the verdict from the recorded exit price against the
+        # package's own sl/tp — the same conservative inequality
+        # `order_monitor._classify_broker_exit` uses — so the operator's
+        # question is answered by the price rather than by a label written
+        # before any price existed.
+        #
+        # ⚠️ NOTHING IS WRITTEN BACK. The stored label stays exactly as it is:
+        # a producer-AUTHORED reason (`vwap_cross`, `pairs_stop`, `exit_head`)
+        # is a real record of a real decision, and overwriting it with a
+        # re-derivation would destroy a better record than the one being
+        # written. Journal-writer changes are Tier-2/3.
+        #
+        # MEASURED, live journal pulled 2026-09-06 via /api/bot/db/table/
+        # {trades,order_packages}. Population: closed, non-backtest, pnl NOT
+        # NULL, minus orphan_adopt/superseded/reset_flat — n=1287.
+        #   stored label reads sl|tp on 251 of 1287 (19.5%);
+        #   re-derived, of the 1125 gradeable rows, 430 (38.2%) reached a
+        #   declared bracket (345 sl · 85 tp) and 695 (61.8%) ended
+        #   mid-bracket. On the LAST 200 closes: stored 27 (13.5%) vs
+        #   re-derived 46 (23.0%).
+        #
+        # ⚠️ `reachedRatio`'s DENOMINATOR IS `gradeable`, NOT `totalTrades`.
+        # The other states are *we could not look* (`noExitPrice`,
+        # `directionUnreadable`), a REFUSAL (`priceNotMeasurable` — a
+        # FABRICATED exit price compared to a bracket manufactures a verdict
+        # out of unrelated price action), or NOT APPLICABLE (`noBracketRecord`,
+        # `excludedReduceLeg`). Folding any of them in would publish a rate
+        # over a population it does not describe. `reachedRatio` is `null` —
+        # never 0.0 — when nothing was gradeable.
+        #
+        # ⚠️ `midBracket` IS AN OUTCOME, NOT A DEFECT. Several legs
+        # (`vwap_cross`, `exit_head`, `time_decay`) exit deliberately before a
+        # bracket; reading this bucket as failure is as wrong as reading the
+        # stored label as truth.
+        "bracketOutcome": {
+            "reachedSl": int(bracket_counts[BRACKET_REACHED_SL]),
+            "reachedTp": int(bracket_counts[BRACKET_REACHED_TP]),
+            "midBracket": int(bracket_counts[BRACKET_MID]),
+            "gradeable": int(_bracket_gradeable),
+            "reachedRatio": (
+                round((bracket_counts[BRACKET_REACHED_SL]
+                       + bracket_counts[BRACKET_REACHED_TP]) / _bracket_gradeable, 4)
+                if _bracket_gradeable else None
+            ),
+            "noExitPrice": int(bracket_counts["no_exit_price"]),
+            "priceNotMeasurable": int(bracket_counts["price_not_measurable"]),
+            "noBracketRecord": int(bracket_counts["no_bracket_record"]),
+            "directionUnreadable": int(bracket_counts["direction_unreadable"]),
+            "excludedReduceLeg": int(bracket_counts["excluded_reduce_leg"]),
+        },
         # --- WHICH RISK EACH PUBLISHED R WAS DIVIDED BY (2026-09-06, MI-144) ---
         # `rProvenance` below GRADES the stored stop. This says which basis the
         # number above was actually computed FROM, so `totalR` / `expectancyR`
