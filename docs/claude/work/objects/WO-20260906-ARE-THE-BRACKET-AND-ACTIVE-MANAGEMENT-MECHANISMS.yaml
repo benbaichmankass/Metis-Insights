@@ -59,7 +59,7 @@ answer: >-
   missing is the annotate→act flip, not the code. AND IT CANNOT BE GATED TODAY:
   100 of 100 soak rows read expectation_state=sentinel_no_expectation across 8 live
   legs (/api/diag/log_file, 2026-09-06T10:31Z), re-confirming the open row
-  BL-20260826-TARGET-EXTENSION-SOAK-IS-100PCT-SENTINEL eleven days on. One live row
+  BL-20260826-TARGET-EXTENSION-SOAK-IS-100PCT-SENTINEL-AND-CANNOT-YET-OBSERVE-THE-LEVER eleven days on. One live row
   makes it concrete: eth_pullback_2h declares target_r 50.0 → expectation_price
   6264.99, while the venue actually holds 2698.81 (cap_r 3.19) — a 2.3× gap between
   the declared expectation and the resting order.
@@ -84,9 +84,9 @@ answer: >-
   resting level is not a fill), but STRICTLY BLOCKED ON (3), because the soak has no
   non-sentinel rows to gate on (Tier-3).
   ⚠️ Two backlog rows filed (BL-20260906-MATRIX-GRADES-A-LEVER-AS-TESTED-ON-LEGS-WHOSE-UNIT-CANNOT-RUN-IT,
-  BL-20260906-COVERAGE-MATRIX-HAS-NO-COLUMN-FOR-TARGET-REVISION-...); two candidate
+  BL-20260906-COVERAGE-MATRIX-HAS-NO-COLUMN-FOR-TARGET-REVISION-SO-M20S-OWN-DONE-CONDITION-CANNOT-SEE-IT-...); two candidate
   findings were NOT filed because they already have open rows and are re-confirmed
-  instead (BL-20260901-E35-TP-R-CAN-BE-INERT-BEHIND-THE-VENUE-CLAMP,
+  instead (BL-20260901-E35-TP-R-CAN-BE-INERT-BEHIND-THE-VENUE-CLAMP-AND-THE-BINDING-RATE-IS-UNMEASURED,
   BL-20260820-EXIT-REASON-UNCLASSIFIED-IS-THE-MODAL-VALUE — which measured 63.7%
   unclassifiable on 2026-08-20 against this audit's independent 63.3% on a different
   population and definition).
