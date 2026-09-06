@@ -112,8 +112,8 @@ two arithmetics cannot drift.
 The object asks for it and it must be answered honestly rather than fitted.
 
 * On **`paperPortfolio`** — the exhibit where the inversion was *mechanically*
-  caused by contamination, and where declared-risk coverage is 100% — the sign
-  **does** now agree: +0.6253 → −0.2736 against `profitFactor` 0.777 and a book
+  caused by contamination, and where declared-risk coverage is 87 of 87 rows —
+  the sign **does** now agree: +0.6253 → −0.2736 against `profitFactor` 0.777 and a book
   that lost $11,244.87.
 * On **real-money `30d`** the magnitude fell 5.5× (+0.9818 → +0.1772) but the
   sign did **not** flip. All 39 rows use the declared basis, so the residual is

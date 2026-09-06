@@ -276,7 +276,7 @@ def _query_closed_trades(
         # indistinguishable from an exhausted one: a caller asking for the last
         # 400 closes gets 200 rows and no way to tell "that is all there is"
         # from "you were truncated" — the silent-truncation half of
-        # BL-20260906-TRADES-CLOSED-CANNOT-SERVE-A-WINDOW-ABOVE-ITS-CAP.
+        # BL-20260906-TRADES-CLOSED-SILENTLY-RETURNS-EMPTY-ABOVE-LIMIT-200-AND-FOR-ANY-SINCE.
         total = int(conn.execute(
             f"SELECT COUNT(*) FROM ({sql})", params).fetchone()[0])
         sql += f" ORDER BY {_CLOSED_AT_SORT_SQL} DESC LIMIT ? OFFSET ?"
@@ -320,7 +320,7 @@ def get_closed_trades(
 
     **THIS ROUTE EITHER SERVES THE WINDOW OR REFUSES IT WITH A REASON. IT NEVER
     RETURNS A BARE ``[]`` TO MEAN "SOMETHING WENT WRONG"**
-    (BL-20260906-TRADES-CLOSED-RETURNS-BARE-EMPTY-ON-READ-FAILURE). This is the
+    (BL-20260906-TRADES-CLOSED-SILENTLY-RETURNS-EMPTY-ABOVE-LIMIT-200-AND-FOR-ANY-SINCE). This is the
     route a performance review grades from, so an unreadable journal rendering
     as *"no closed trades yet"* is a clean, confident, WRONG negative — the
     §"Collapsed states" failure applied to a whole endpoint: *we could not look*
