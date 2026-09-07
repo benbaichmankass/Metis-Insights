@@ -174,6 +174,20 @@ outcome:
     executed — treat them as a pointer, not a receipt.
 
 blocked_on_note: null
+landed_as: |-
+  PR #11226 — https://github.com/benbaichmankass/Metis-Insights/pull/11226
+  Opened READY (not a draft) but HELD by its landing declaration, not by the
+  draft flag. ⚠️ NOT MERGED AT THE TIME OF WRITING, and `lifecycle: done` above
+  refers to the WORK being complete, not to the change being on `main` — those
+  are the two facts this repo keeps paying for collapsing. A successor should
+  read the PR's state on GitHub rather than this field.
+  ⚠️ Both GitHub write paths 403 from this session (`add_issue_comment` and
+  `create_pull_request`), so the PR was opened via `pr-opener.yml` and the board
+  START/DONE posted via `board-post.yml` on a SEPARATE branch
+  (`claude/mi-157-board-post`) so its result commit could not bury this PR's
+  checks. Board comment:
+  https://github.com/benbaichmankass/Metis-Insights/issues/6927#issuecomment-5568336506
+
 evidence:
 - |-
   Census: scripts/ci/check_candle_fixture_variance.py over every tracked file —
