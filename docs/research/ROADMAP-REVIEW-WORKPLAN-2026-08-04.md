@@ -1,6 +1,17 @@
 # Roadmap Review + Prioritized Workplan — 2026-08-04
 
-> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> ## **PLAN STATUS: `closed_unfinished`**
+> **What was left:** Not audited when this status was assigned — *we did not look*.
+> ⚠️ Read that as the honest state, not as "nothing was left": its successor
+> [`WORKPLAN-2026-08-05.md`](WORKPLAN-2026-08-05.md) says explicitly that it does
+> **NOT** replace this file and that *"the spine + two keystones + the wave structure
+> all stand"*, so parts of it were still considered live doctrine when the lineage
+> moved away on 2026-08-21. Keystone A (the conviction / P_win / EV head) and
+> Keystone B (the label wall) are the named structures a re-reader should check first.
+>
+> Status assigned 2026-09-07 (MI-159), enforced by `scripts/ci/check_one_live_workplan.py`. `closed_unfinished`, not `superseded`, precisely because the one document
+> that followed it disclaimed superseding it.
+
 
 > **Operator-requested full roadmap review + forward workplan.** Three focus
 > areas — **technical strategies**, the **macro sleeve**, and the **ML roster** —

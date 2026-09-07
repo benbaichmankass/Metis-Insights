@@ -1,6 +1,13 @@
 # Workplan — De-soak infrastructure + M24–M29 milestone close-out (2026-07-26)
 
-> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> ## **PLAN STATUS: `closed_unfinished`**
+> **What was left:** Not audited when this status was assigned — *we did not look*.
+> Its Phase 0 de-soak reframe is cited as landed by `ROADMAP.md` (the "CORRECTION
+> (2026-07-26 …)" note), but Phases 1–3 were never dispositioned anywhere.
+>
+> Status assigned 2026-09-07 (MI-159), enforced by `scripts/ci/check_one_live_workplan.py`. `closed_unfinished` rather than `superseded` because no successor names it.
+> It ceased to be the plan of record no later than **2026-08-21**.
+
 
 > **Status:** operator-approved 2026-07-26. Driven under `research-driver`.
 > **Anchor:** `MB-20260726-DESOAK-PROMOTION-EVIDENCE` (Phase 0), plus the existing

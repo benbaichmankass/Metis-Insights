@@ -1,8 +1,27 @@
 # Post-value-exhaustion research pivot — two-track workplan (2026-07-27)
 
-> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> ## **PLAN STATUS: `closed_unfinished`**
+> **What was left:** BOTH tracks. **Track 1** (higher-frequency microstructure off
+> existing feeds — declared PRIMARY and unblocked, needing nothing but a session) and
+> **Track 2** (Schwab options-implied skew), which was blocked on its single stated
+> operator hand-off: registering the Schwab developer app and adding
+> `SCHWAB_APP_KEY` / `SCHWAB_APP_SECRET` to Actions secrets. ⚠️ Whether that hand-off
+> was ever completed was **not audited** when this status was assigned — *we did not
+> look*, which is not the same as its being outstanding.
+>
+> Status assigned 2026-09-07 (MI-159), enforced by `scripts/ci/check_one_live_workplan.py`.
+>
+> ⚠️ **This file declared `Status: ACTIVE` until 2026-09-07** — it was the *second*
+> undetected live-declaring plan, and unlike `WORKPLAN-2026-08-14.md` it was not in
+> the dispatch brief at all. It is `closed_unfinished` and **not** `superseded`
+> because nothing ever replaced it: the plan-of-record lineage moved to
+> `docs/claude/` on 2026-08-21 and left this behind. Its own § "Definition of done"
+> is explicit that *"we tried a couple of studies and stopped"* does not close a
+> track — so this residual is a real debt, not tidy-up.
 
-**Status:** ACTIVE. Anchor `MB-20260727-POST-VALUE-PIVOT`. Operator-endorsed
+
+**Status:** ~~ACTIVE~~ — **CLOSED, UNFINISHED (2026-09-07).** See the PLAN STATUS
+block above. Anchor `MB-20260727-POST-VALUE-PIVOT`. Operator-endorsed
 2026-07-27 ("I like both of those directions").
 
 ## Why this exists (one paragraph)

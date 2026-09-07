@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-07T09:33:00Z",
+  "updated_at": "2026-09-07T11:55:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1991,14 +1991,14 @@
     },
     {
       "id": "MI-158-APPLY-REACHABLE-TP",
-      "status": "in_flight",
+      "status": "done",
       "owner": "session_016Li3hqzjKh3bAX7HYuGu23",
       "opened": "2026-09-07T09:33:00Z",
-      "updated": "2026-09-07T09:33:00Z",
+      "updated": "2026-09-07T11:55:00Z",
       "owns_object": "WO-20260907-APPLY-THE-OPERATOR-APPROVED-REACHABLE-TAKE-PROFIT",
       "tier": "3",
       "title": "APPLY the operator-approved reachable-take-profit change + ship the tp_intent reader",
-      "note": "OPERATOR TIER-3 APPROVAL 2026-09-07, verbatim: 'ok on the gld tp4 and the 24 declarations'. Covers the CONTENT of the diff in docs/research/reachable-take-profit-proposal-2026-09-07.md (merged d50543a1, PR #11225) - NOT a licence to widen it. Two halves that must land together: the config change (tp_r 4.0 on gld_pullback_1h, the ONLY value change; 22 tp_intent mode:none + 2 mode:unexamined, never collapsed) AND a real reader that BRANCHES on tp_intent.mode. The reader is the proposal's OWN stated condition: a written-and-never-read provenance key is what exit_price_source was, and it produced a phantom -6358 dollar leak. If no honest consumer can be built this cycle, the key does not land - half of this is worse than neither."
+      "note": "DONE AND OBSERVED ON THE FLEET, which is the bar this repo keeps failing: merged #11232 (3f88bfff), deployed (git_sha = git_sha_on_disk = 296c9392, restart_pending false), and read back on /api/bot/config at 11:52:13Z - gld_pullback_1h tp_r 4.0 with tp_intent r_multiple/calibrated:false, and 25 of 44 enabled+live legs carrying a tp_intent (22 none + 2 unexamined + 1 r_multiple). The 19 with none are the legs that already had a real target; 19 + gld = 20 real, reconciling with MI-158's own count. ⚠️ DEPLOYED IS NOT EXERCISED - no trade has yet exited at the new bracket, and 4.0R stays REACHABLE, NOT CALIBRATED."
     },
     {
       "id": "MI-156-REACHABLE-TAKE-PROFIT",
@@ -2013,14 +2013,14 @@
     },
     {
       "id": "MI-157-FLAT-BACKTEST-FIXTURES",
-      "status": "in_flight",
+      "status": "done",
       "owner": "session_01MLKjDPG9n1MHBByYEAEgjc",
       "opened": "2026-09-07T08:50:00Z",
-      "updated": "2026-09-07T08:50:00Z",
+      "updated": "2026-09-07T11:55:00Z",
       "owns_object": "WO-20260907-THE-COMMITTED-BACKTEST-CANDLE-FIXTURES-ARE-FLAT",
       "tier": "1",
       "title": "The committed backtest candle fixtures are flat, so anything measured on them is meaningless",
-      "note": "OPERATOR-DIRECTED to fix now as its own item, 2026-09-07. MI-151 found data/ohlcv/btc_5m_2026.csv opens and closes at 95000.0 for all 300 rows - exactly one unique close - while doing something else. Census, repair-or-delete-loudly, and a regression test so the class cannot return. Scoped OFF any strategy verdict: the job is the instrument, not a conclusion from it."
+      "note": "DONE - merged #11226 (29820f97). Census over all 8 committed .csv files: 7 candle files, FIVE flat (each 300 rows, 1 distinct close, 0 of 299 non-zero returns, sd 0), all five deleted; 2 real kept; 1 manifest graded as such. candle-fixture-variance-guard shipped and registered in run_guards.py. ⚠️ It was green at 09:42Z and sat unmerged until 11:33Z waiting on the manager - recorded as a MANAGER stall, not a session one."
     }
   ],
   "as_of": "2026-09-06T16:05Z",
