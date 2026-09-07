@@ -1,5 +1,7 @@
 # M21 — Entry Refinement (DESIGN)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** PLANNED (operator-acked 2026-07-13: "yes lets do that").
 **Owner surface:** this doc (design of record) + the ROADMAP M21 row (status)
 + a per-leg entry coverage matrix (`docs/research/entry-refinement-coverage.json`,

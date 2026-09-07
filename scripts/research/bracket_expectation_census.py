@@ -91,6 +91,48 @@ ORIGIN_DECLARED = "declared_in_yaml"
 ORIGIN_CLASS_DEFAULT = "inherited_class_default"
 ORIGIN_NONE = "no_target_anywhere"
 
+# --- tp_intent: WHY a leg has the target it has -------------------------------
+# The CONSUMER half of `config/strategies.yaml`'s `tp_intent` key (MI-156/MI-158,
+# operator-approved 2026-09-07). This is not decoration: writing the inherited
+# sentinel out explicitly on the 9 sub-population-B legs COLLAPSES this script's
+# own `target_origin` signal -- `inherited_class_default` went 10 -> 0 at a
+# stroke, so after that change `target_origin` alone can no longer tell a leg
+# that was DELIBERATELY left unbracketed from one whose target question was
+# NEVER ASKED. Both now read `declared_in_yaml` + `is_sentinel`. `tp_intent` is
+# the field that keeps them apart, and this module is what branches on it.
+#
+# ⚠️ THE THREE STATES ARE NEVER SUMMED (docs/CLAUDE-RULES-CANONICAL.md §
+# "Collapsed states"). `none` is a DECISION -- the trail is the profit-exit, or
+# a target exists but live cannot express it. `unexamined` is an ABSENCE OF
+# INQUIRY -- the leg is in neither sweep corpus. Folding `unexamined` into
+# `none` would launder *we did not look* into *we decided*, which is the exact
+# defect this vocabulary was accepted to prevent.
+INTENT_R_MULTIPLE = "r_multiple"     # a real target is declared
+INTENT_NONE = "none"                 # deliberate: no target, and we say why
+INTENT_UNEXAMINED = "unexamined"     # WE DID NOT LOOK -- never a decision
+INTENT_UNDECLARED = "undeclared"     # no tp_intent key: the pre-MI-158 state
+INTENT_STATES = (INTENT_R_MULTIPLE, INTENT_NONE, INTENT_UNEXAMINED,
+                 INTENT_UNDECLARED)
+
+
+def resolve_intent(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """-> {mode, reason, evidence, revisit_when, calibrated}. Never raises.
+
+    A malformed or non-mapping `tp_intent` resolves to INTENT_UNDECLARED rather
+    than to a state -- a typo must never be readable as a decision.
+    """
+    raw = cfg.get("tp_intent")
+    if not isinstance(raw, dict):
+        return {"mode": INTENT_UNDECLARED, "reason": None, "basis": None,
+                "evidence": None, "revisit_when": None, "calibrated": None}
+    mode = raw.get("mode")
+    if mode not in (INTENT_R_MULTIPLE, INTENT_NONE, INTENT_UNEXAMINED):
+        mode = INTENT_UNDECLARED
+    return {"mode": mode, "reason": raw.get("reason"),
+            "basis": raw.get("basis"), "evidence": raw.get("evidence"),
+            "revisit_when": raw.get("revisit_when"),
+            "calibrated": raw.get("calibrated")}
+
 
 def _read_class_default(rel: str, key: str) -> Optional[float]:
     """Parse `"<key>": <float>,` out of a strategy module's DEFAULTS block.
@@ -159,6 +201,7 @@ def census(path: Path, atr_over_entry: float) -> Dict[str, Any]:
         if not isinstance(cfg, dict):
             continue
         eff, src, origin = resolve_target(name, cfg, defaults)
+        intent = resolve_intent(cfg)
         sm = cfg.get("atr_stop_mult")
         try:
             sm = float(sm) if sm is not None else None
@@ -178,6 +221,11 @@ def census(path: Path, atr_over_entry: float) -> Dict[str, Any]:
             "target_origin": origin,
             "is_sentinel": (eff is not None and eff >= SENTINEL_R_FLOOR),
             "cap_r_at_ref_atr": cap,
+            "tp_intent_mode": intent["mode"],
+            "tp_intent_reason": intent["reason"],
+            "tp_intent_basis": intent["basis"],
+            "tp_intent_calibrated": intent["calibrated"],
+            "tp_intent_revisit_when": intent["revisit_when"],
             # Only meaningful for a REAL target: does the venue refuse it?
             "reachable": (None if eff is None or cap is None or eff >= SENTINEL_R_FLOOR
                           else bool(eff <= cap)),
@@ -228,6 +276,54 @@ def report(data: Dict[str, Any], out=sys.stdout) -> None:
     for leg in inh:
         p("    %-24s family=%-9s tf=%s" % (leg["name"], leg["family"], leg["timeframe"]))
     p("")
+    # --- BRANCH ON tp_intent -------------------------------------------------
+    # This is the section `target_origin` can no longer produce. Once the
+    # inherited sentinels are written out explicitly, EVERY sentinel reads
+    # `declared_in_yaml`; only `tp_intent.mode` separates a decision from an
+    # unasked question. The three buckets are printed separately and NEVER
+    # summed -- summing them is the collapse this exists to prevent.
+    sent = [leg for leg in live if leg["is_sentinel"]]
+    by_intent = {m: [leg for leg in sent if leg["tp_intent_mode"] == m]
+                 for m in INTENT_STATES}
+    p("=== WHY EACH ENABLED+LIVE SENTINEL HAS NO TARGET (tp_intent) : %d sentinels ==="
+      % len(sent))
+    p("    DELIBERATE / UNEXAMINED / UNDECLARED ARE THREE STATES, NEVER SUMMED.")
+    p("")
+    p("    DELIBERATE (mode: none) — a decision, recorded with its reason : %d"
+      % len(by_intent[INTENT_NONE]))
+    for reason in sorted({leg["tp_intent_reason"] for leg in by_intent[INTENT_NONE]},
+                         key=lambda x: (x is None, x)):
+        sub = [leg for leg in by_intent[INTENT_NONE] if leg["tp_intent_reason"] == reason]
+        p("        reason=%-34s %d  %s"
+          % (reason, len(sub), ", ".join(leg["name"] for leg in sub)))
+    p("")
+    p("    ⚠️ UNEXAMINED (mode: unexamined) — WE DID NOT LOOK, not a decision : %d"
+      % len(by_intent[INTENT_UNEXAMINED]))
+    for leg in by_intent[INTENT_UNEXAMINED]:
+        p("        %-24s reason=%s revisit_when=%s"
+          % (leg["name"], leg["tp_intent_reason"], leg["tp_intent_revisit_when"]))
+    if not by_intent[INTENT_UNEXAMINED]:
+        p("        (none — but a count of 0 here is only as good as the declarations)")
+    p("")
+    p("    UNDECLARED (no tp_intent key) — the remaining work : %d"
+      % len(by_intent[INTENT_UNDECLARED]))
+    for leg in by_intent[INTENT_UNDECLARED]:
+        p("        %-24s family=%-9s tf=%s"
+          % (leg["name"], leg["family"], leg["timeframe"]))
+    p("")
+    # A declared target that is REACHABLE but explicitly NOT CALIBRATED must never
+    # be quoted as evidence of where momentum runs out (MI-156 § 8).
+    uncal = [leg for leg in live
+             if leg["tp_intent_mode"] == INTENT_R_MULTIPLE
+             and leg["tp_intent_calibrated"] is False]
+    p("=== DECLARED TARGET, EXPLICITLY *NOT* CALIBRATED : %d ===" % len(uncal))
+    p("    Reachable != calibrated. Do NOT quote these as evidenced targets.")
+    for leg in uncal:
+        p("        %-24s target_r=%-6s basis=%s"
+          % (leg["name"], leg["target_r_effective"], leg["tp_intent_basis"]))
+    if not uncal:
+        p("        (none)")
+    p("")
     unreach = [leg for leg in live if leg["reachable"] is False]
     p("=== REAL TARGET THE VENUE WOULD CLAMP at the reference ATR : %d ===" % len(unreach))
     for leg in unreach:
@@ -236,11 +332,26 @@ def report(data: Dict[str, Any], out=sys.stdout) -> None:
     if not unreach:
         p("    (none at this reference ATR — reachability is ATR-dependent, so this")
         p("     is NOT proof a target rests; read live cap_r from the soak.)")
+    else:
+        # ⚠️ The populated case is the one that misleads, and it had no caveat.
+        # cap_r@ref assumes ATR/entry = 0.02, which is crypto-shaped and
+        # MATERIALLY UNDERSTATES cap_r on low-volatility equity/ETF legs. Worked
+        # example (MI-156 § 3): gld_pullback_1h lists here at cap_r@ref 1.98,
+        # while its MEASURED cap_r over n=4 live telemetry rows is min 7.94 /
+        # median 8.24 — so its 4.0R target BINDS on 4 of 4 observed trades and
+        # this section's "would clamp" is an artefact of the reference, not a
+        # finding. Read live cap_r from the soak before acting on any row here.
+        p("    ⚠️ AT THE REFERENCE ATR ONLY — NOT a measurement. cap_r@ref assumes")
+        p("       ATR/entry=0.02 and understates cap_r on low-vol equity/ETF legs")
+        p("       (gld_pullback_1h: ref 1.98 vs MEASURED median 8.24, n=4). Read")
+        p("       live cap_r from the soak before treating any row as clamped.")
 
 
 def selftest() -> int:
     fails = []
+    ran = []
     def chk(label, got, want):
+        ran.append(label)
         if got != want:
             fails.append("%s: got %r want %r" % (label, got, want))
     # the constants are IMPORTED from the one owner now, not mirrored, so the
@@ -275,9 +386,38 @@ def selftest() -> int:
     sent = [leg for leg in legs if leg["is_sentinel"]]
     chk("sentinels have reachable=None", all(leg["reachable"] is None for leg in sent), True)
     chk("census found legs", len(legs) > 0, True)
+    # --- tp_intent: the three states must stay separable ---------------------
+    # These pin the NON-COLLAPSE property itself, not a population count: a
+    # future edit that maps `unexamined` onto `none` fails here.
+    chk("undeclared when key absent", resolve_intent({})["mode"], INTENT_UNDECLARED)
+    chk("none parsed", resolve_intent({"tp_intent": {"mode": "none"}})["mode"],
+        INTENT_NONE)
+    chk("unexamined parsed",
+        resolve_intent({"tp_intent": {"mode": "unexamined"}})["mode"],
+        INTENT_UNEXAMINED)
+    chk("unexamined IS NOT none",
+        resolve_intent({"tp_intent": {"mode": "unexamined"}})["mode"]
+        == resolve_intent({"tp_intent": {"mode": "none"}})["mode"], False)
+    chk("undeclared IS NOT none",
+        resolve_intent({})["mode"]
+        == resolve_intent({"tp_intent": {"mode": "none"}})["mode"], False)
+    # A typo is never readable as a decision.
+    chk("unknown mode -> undeclared",
+        resolve_intent({"tp_intent": {"mode": "nope"}})["mode"], INTENT_UNDECLARED)
+    chk("non-mapping -> undeclared",
+        resolve_intent({"tp_intent": "none"})["mode"], INTENT_UNDECLARED)
+    chk("calibrated:false survives",
+        resolve_intent({"tp_intent": {"mode": "r_multiple",
+                                      "calibrated": False}})["calibrated"], False)
+    # ...and the live config actually exercises all three states.
+    modes = {leg["tp_intent_mode"] for leg in legs}
+    chk("config exercises none", INTENT_NONE in modes, True)
+    chk("config exercises unexamined", INTENT_UNEXAMINED in modes, True)
+    chk("config exercises r_multiple", INTENT_R_MULTIPLE in modes, True)
+
     for f in fails:
         print("FAIL " + f)
-    print("selftest: %d/%d passed" % (11 - len(fails), 11))
+    print("selftest: %d/%d passed" % (len(ran) - len(fails), len(ran)))
     return 1 if fails else 0
 
 
@@ -289,10 +429,32 @@ def main() -> int:
                          "cap_r is ATR-dependent; this is a REFERENCE, not a measurement.")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--assert-intent-declared", action="store_true",
+                    help="exit 1 if any enabled+live SENTINEL leg declares no "
+                         "tp_intent. Asserts a property, never a count.")
     a = ap.parse_args()
     if a.selftest:
         return selftest()
     data = census(Path(a.config), a.atr_over_entry)
+    if a.assert_intent_declared:
+        # Manual gate, deliberately NOT wired to CI: this script's header says a
+        # CI job asserting a particular count would fail every time a leg is
+        # legitimately retuned. This asserts a PROPERTY, not a count -- every
+        # enabled+live sentinel states WHY -- and is run by a session that means
+        # to drive the residue to zero.
+        live_ = [leg for leg in data["legs"]
+                 if leg["enabled"] and leg["execution"] == "live"]
+        gap = [leg for leg in live_ if leg["is_sentinel"]
+               and leg["tp_intent_mode"] == INTENT_UNDECLARED]
+        if gap:
+            print("bracket-expectation-census: FAIL — %d enabled+live sentinel(s) "
+                  "declare no tp_intent:" % len(gap), file=sys.stderr)
+            for leg in gap:
+                print("    %s" % leg["name"], file=sys.stderr)
+            return 1
+        print("bracket-expectation-census: OK — every enabled+live sentinel "
+              "declares a tp_intent.")
+        return 0
     if a.json:
         json.dump(data, sys.stdout, indent=2)
         return 0

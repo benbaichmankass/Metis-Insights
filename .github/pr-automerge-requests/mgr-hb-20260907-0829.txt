@@ -1,0 +1,5 @@
+Manager lease heartbeat 2026-09-07T08:29Z + supervision reconcile.
+
+Registers two sub-sessions that were spawned without a registry row
+(MI-155 session_017odw..., MI-150b session_01Et8...), found by the
+08:24Z reconcile against list_sessions rather than by remembering.

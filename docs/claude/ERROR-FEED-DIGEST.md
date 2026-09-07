@@ -1,46 +1,52 @@
 # Trader error feed — grouped for triage
 
-_Generated 2026-09-06T17:20:40+00:00 · covers rows after `2026-09-06T14:02:20.751448+00:00` · verdict **all_feeds_read**_
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
+_Generated 2026-09-07T10:41:54+00:00 · covers rows after `2026-09-07T04:50:33.956028+00:00` · verdict **all_feeds_read**_
 
 > ⚠️ **Page cap hit** on `bot_logs` — older rows exist that this digest did not see.
 
 ## Population
 
-- **operator_alerts** — state `read` · 391 of 1000 requested · span 2026-09-01T18:29:17.192145+00:00 → 2026-09-06T15:05:37.825546+00:00
-- **bot_logs** — state `read` · 1000 of 1000 requested · span 2026-08-24T19:25:34.499856+00:00 → 2026-09-06T17:10:24.444973+00:00
+- **operator_alerts** — state `read` · 411 of 1000 requested · span 2026-09-01T18:29:17.192145+00:00 → 2026-09-07T10:22:24.185650+00:00
+- **bot_logs** — state `read` · 1000 of 1000 requested · span 2026-08-24T22:48:40.397251+00:00 → 2026-09-07T10:41:39.779890+00:00
 
-## Groups (118, covering 1391 rows)
+## Groups (120, covering 1411 rows)
 
+- **[error] x1** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_unavailable (for N c
+  - 2026-09-07T08:38:27.866004+00:00 → 2026-09-07T08:38:27.866004+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
 - **[error] x155** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: orders_still_resting 
   - 2026-09-02T08:33:53.957025+00:00 → 2026-09-04T23:53:07.745133+00:00 · accounts: alpaca_paper · symbols: GLD
-- **[error] x72** `bot_logs` — strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
-  - 2026-08-24T19:27:41.493760+00:00 → 2026-08-25T22:48:45.661170+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
+- **[error] x59** `bot_logs` — strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+  - 2026-08-24T22:48:40.397251+00:00 → 2026-08-25T22:48:45.661170+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
 - **[error] x27** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: extended-hours limit 
   - 2026-09-01T20:12:41.325890+00:00 → 2026-09-02T08:17:06.617344+00:00 · accounts: alpaca_paper · symbols: GLD
-- **[error] x22** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_unavailable (for N co
-  - 2026-09-02T02:03:23.938007+00:00 → 2026-09-06T15:05:37.825546+00:00 · symbols: MHG · strategies: mhg_pullback_1d
-- **[error] x18** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles_unavailable (for N 
-  - 2026-09-02T02:03:23.674823+00:00 → 2026-09-06T13:18:33.827705+00:00 · symbols: MES
-- **[error] x17** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_unavailable (for N co
-  - 2026-09-03T11:19:27.602273+00:00 → 2026-09-06T13:18:34.097678+00:00 · symbols: MGC · strategies: mgc_pullback_1d
-- **[error] x16** `bot_logs` — api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty:N (ErrCode: N) (Err
-  - 2026-08-24T22:20:57.157672+00:00 → 2026-09-06T00:32:43.328719+00:00 · symbols: AVAXUSDT
+- **[error] x23** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_unavailable (for N co
+  - 2026-09-02T02:03:23.938007+00:00 → 2026-09-07T00:29:33.421649+00:00 · symbols: MHG · strategies: mhg_pullback_1d
+- **[error] x19** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles_unavailable (for N 
+  - 2026-09-02T02:03:23.674823+00:00 → 2026-09-07T00:29:32.853427+00:00 · symbols: MES
+- **[error] x18** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_unavailable (for N co
+  - 2026-09-03T11:19:27.602273+00:00 → 2026-09-07T00:29:33.138324+00:00 · symbols: MGC · strategies: mgc_pullback_1d
+- **[error] x13** `bot_logs` — bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit
+  - 2026-09-04T12:28:34.799241+00:00 → 2026-09-07T10:17:45.134477+00:00 · accounts: bybit_1
 - **[error] x13** `bot_logs` — bybit_over_cover detected: bybit_N/ETHUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL cap are used (N left;
   - 2026-08-26T02:19:58.119319+00:00 → 2026-08-29T04:06:19.407431+00:00 · accounts: bybit_1
-- **[error] x10** `bot_logs` — bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit
-  - 2026-09-04T12:28:34.799241+00:00 → 2026-09-06T16:15:12.188839+00:00 · accounts: bybit_1
+- **[error] x12** `bot_logs` — api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty:N (ErrCode: N) (Err
+  - 2026-08-24T22:52:50.843465+00:00 → 2026-09-06T00:32:43.328719+00:00 · symbols: AVAXUSDT
+- **[error] x8** `operator_alerts` — 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: br
+  - 2026-09-04T08:01:23.497832+00:00 → 2026-09-07T10:22:24.185650+00:00 · accounts: alpaca_paper · symbols: GLD
+- **[error] x6** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ETHUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker
+  - 2026-09-03T07:10:01.927365+00:00 → 2026-09-06T23:38:42.239864+00:00 · accounts: bybit_1, bybit_2 · symbols: ETHUSDT
+- **[error] x6** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker
+  - 2026-09-03T00:05:50.126942+00:00 → 2026-09-07T07:36:02.212226+00:00 · accounts: bybit_1 · symbols: SOLUSDT
+- **[error] x6** `operator_alerts` — 🧹 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the strategy-monocle gat
+  - 2026-09-02T08:57:42.771157+00:00 → 2026-09-07T07:38:02.660739+00:00
 - **[error] x5** `bot_logs` — bybit_over_cover detected: bybit_N/SOLUSDT: position N. THIS position is NOT over-protected: legs that reduce it total N across N leg(s) (N% of the position). S
   - 2026-09-03T00:04:10.571147+00:00 → 2026-09-04T11:28:19.181735+00:00 · accounts: bybit_1
 - **[error] x5** `bot_logs` — bybit_over_cover detected: bybit_portfolio/ETHUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of t
   - 2026-09-02T18:06:01.582965+00:00 → 2026-09-03T13:53:17.696783+00:00 · accounts: bybit_portfolio
-- **[error] x5** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ETHUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker
-  - 2026-09-03T07:10:01.927365+00:00 → 2026-09-03T14:50:07.503693+00:00 · accounts: bybit_1, bybit_2 · symbols: ETHUSDT
 - **[error] x5** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker_
   - 2026-09-03T07:53:56.409717+00:00 → 2026-09-06T03:38:44.111934+00:00 · accounts: bybit_1 · symbols: SOLUSDT
-- **[error] x5** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker
-  - 2026-09-03T00:05:50.126942+00:00 → 2026-09-04T08:02:00.950389+00:00 · accounts: bybit_1 · symbols: SOLUSDT
-- **[error] x5** `operator_alerts` — 🧹 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the strategy-monocle gat
-  - 2026-09-02T08:57:42.771157+00:00 → 2026-09-05T02:08:45.543825+00:00
 - **[error] x4** `operator_alerts` — *DEMO TRADER* ⚠️ Order execution failed Account: bybit_N Strategy: ict_scalp_avax_Nm Symbol: AVAXUSDT | Side: buy | Qty: N Reason: RuntimeError: Order submissio
   - 2026-09-02T09:06:12.160824+00:00 → 2026-09-06T00:32:43.532083+00:00 · accounts: bybit_1 · symbols: AVAXUSDT · strategies: ict_scalp_avax_5m
 - **[error] x4** `bot_logs` — bybit_over_cover detected: bybit_N/XRPUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL cap are used (N left;
@@ -99,6 +105,8 @@ _Generated 2026-09-06T17:20:40+00:00 · covers rows after `2026-09-06T14:02:20.7
   - 2026-09-01T23:39:10.880091+00:00 → 2026-09-02T03:28:17.903928+00:00 · accounts: bybit_portfolio · symbols: BTCUSDT
 - **[error] x2** `operator_alerts` — 🚩🚩 ORPHAN TRADE CREATED — needs reconciliation Account: bybit_N Symbol: SOLUSDT | Side: long Trade id: N Origin: reverse_reconciler_adopt Reason: exchange posit
   - 2026-09-04T04:44:05.981996+00:00 → 2026-09-04T08:00:16.321134+00:00 · accounts: bybit_1 · symbols: SOLUSDT
+- **[error] x2** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: broker_cancel_wedged 
+  - 2026-09-03T13:35:04.331553+00:00 → 2026-09-07T08:01:36.405495+00:00 · accounts: alpaca_paper · symbols: GLD
 - **[error] x2** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: AVAXUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: not_classified Nobod
   - 2026-09-03T07:06:28.148406+00:00 → 2026-09-03T14:25:36.563315+00:00 · accounts: bybit_1 · symbols: AVAXUSDT
 - **[error] x2** `operator_alerts` — 🪝 Exchange-side orphan position — policy=adopt Account: bybit_N Symbol: SOLUSDT | Side: long | Size: N Entry (Bybit avgPrice): N DB trade id (adopted): N
@@ -157,36 +165,34 @@ _Generated 2026-09-06T17:20:40+00:00 · covers rows after `2026-09-06T14:02:20.7
   - 2026-09-04T09:02:09.170046+00:00 → 2026-09-04T09:02:09.170046+00:00 · accounts: bybit_1 · symbols: ETHUSDT
 - **[error] x1** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: insufficient qty avai
   - 2026-09-01T19:12:14.122915+00:00 → 2026-09-01T19:12:14.122915+00:00 · accounts: alpaca_paper · symbols: GLD
-- **[error] x1** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: broker_cancel_wedged 
-  - 2026-09-03T13:35:04.331553+00:00 → 2026-09-03T13:35:04.331553+00:00 · accounts: alpaca_paper · symbols: GLD
 - **[error] x1** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: SOLUSDT | Side: long | Qty: N Consecutive close failures: N share_hold: not_classified Nobody 
   - 2026-09-06T03:37:22.662586+00:00 → 2026-09-06T03:37:22.662586+00:00 · accounts: bybit_1 · symbols: SOLUSDT
 - **[error] x1** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: SOLUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: not_classified Nobody
   - 2026-09-06T09:30:31.204647+00:00 → 2026-09-06T09:30:31.204647+00:00 · accounts: bybit_1 · symbols: SOLUSDT
 - **[error] x1** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: XRPUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: not_classified Nobody
   - 2026-09-04T12:31:29.545416+00:00 → 2026-09-04T12:31:29.545416+00:00 · accounts: bybit_1 · symbols: XRPUSDT
-- **[error] x1** `operator_alerts` — 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: br
-  - 2026-09-04T08:01:23.497832+00:00 → 2026-09-04T08:01:23.497832+00:00 · accounts: alpaca_paper · symbols: GLD
 - **[error] x1** `operator_alerts` — 🪝 Exchange-side orphan position — policy=adopt Account: bybit_N Symbol: BTCUSDT | Side: short | Size: N Entry (Bybit avgPrice): N DB trade id (adopted): N
   - 2026-09-02T04:04:01.346497+00:00 → 2026-09-02T04:04:01.346497+00:00 · accounts: bybit_1 · symbols: BTCUSDT
 - **[error] x1** `operator_alerts` — 🪝 Exchange-side orphan position — policy=adopt Account: bybit_N Symbol: ETHUSDT | Side: long | Size: N Entry (Bybit avgPrice): N DB trade id (adopted): N
   - 2026-09-04T09:02:09.171793+00:00 → 2026-09-04T09:02:09.171793+00:00 · accounts: bybit_1 · symbols: ETHUSDT
-- **[warn] x328** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
-  - 2026-08-25T23:10:31.406008+00:00 → 2026-09-06T17:10:24.444973+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
+- **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_mgc_Nm | Symbol: MGC Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timef
+  - 2026-09-07T09:12:01.452888+00:00 → 2026-09-07T09:12:01.452888+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
+- **[warn] x362** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+  - 2026-08-25T23:10:31.406008+00:00 → 2026-09-07T10:41:39.779890+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
 - **[warn] x154** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection
-  - 2026-08-24T19:25:34.813831+00:00 → 2026-09-06T15:21:49.302204+00:00 · symbols: MGC · strategies: mgc_trend_1h
-- **[warn] x118** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect
-  - 2026-08-24T19:25:34.499856+00:00 → 2026-09-06T13:18:10.809754+00:00 · symbols: MGC · strategies: mgc_pullback_1d
-- **[warn] x110** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect
-  - 2026-08-24T19:25:36.286167+00:00 → 2026-09-06T15:05:03.043592+00:00 · symbols: MHG · strategies: mhg_pullback_1d
-- **[warn] x89** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne
-  - 2026-08-24T19:27:40.260134+00:00 → 2026-09-06T13:18:08.975371+00:00 · symbols: MES
+  - 2026-08-24T22:48:41.305791+00:00 → 2026-09-07T09:35:55.960746+00:00 · symbols: MGC · strategies: mgc_trend_1h
+- **[warn] x113** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect
+  - 2026-08-24T22:48:40.973504+00:00 → 2026-09-07T00:29:00.452728+00:00 · symbols: MGC · strategies: mgc_pullback_1d
+- **[warn] x102** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect
+  - 2026-08-24T22:48:42.615776+00:00 → 2026-09-07T00:29:02.228699+00:00 · symbols: MHG · strategies: mhg_pullback_1d
+- **[warn] x81** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne
+  - 2026-08-24T22:56:39.963226+00:00 → 2026-09-07T00:28:58.566046+00:00 · symbols: MES
 - **[warn] x12** `bot_logs` — pairs_half_open cleaned: pairs SOLUSDT/ETHUSDT: one leg was stranded open on bybit_N (ETHUSDT) after a partial close; flattened this tick
   - 2026-08-26T09:38:04.382977+00:00 → 2026-09-04T09:02:23.196217+00:00 · accounts: bybit_1 · strategies: pairs, pairs_half_open
-- **[warn] x11** `bot_logs` — pairs_half_open cleaned: pairs SOLUSDT/ETHUSDT: one leg was stranded open on bybit_N (SOLUSDT) after a partial close; flattened this tick
-  - 2026-08-26T16:05:06.279960+00:00 → 2026-09-03T07:10:21.519974+00:00 · accounts: bybit_1 · strategies: pairs, pairs_half_open
-- **[warn] x7** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_sol_Nm | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
-  - 2026-09-02T04:41:45.168514+00:00 → 2026-09-06T07:10:37.468839+00:00 · symbols: SOLUSDT · strategies: ict_scalp_sol_15m, ict_scalp_sol_5m
+- **[warn] x12** `bot_logs` — pairs_half_open cleaned: pairs SOLUSDT/ETHUSDT: one leg was stranded open on bybit_N (SOLUSDT) after a partial close; flattened this tick
+  - 2026-08-26T16:05:06.279960+00:00 → 2026-09-06T23:39:03.167302+00:00 · accounts: bybit_1 · strategies: pairs, pairs_half_open
+- **[warn] x8** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_sol_Nm | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
+  - 2026-09-02T04:41:45.168514+00:00 → 2026-09-07T03:27:46.654764+00:00 · symbols: SOLUSDT · strategies: ict_scalp_sol_15m, ict_scalp_sol_5m
 - **[warn] x6** `bot_logs` — pairs_half_open cleaned: pairs BNBUSDT/BTCUSDT: one leg was stranded open on bybit_N (BNBUSDT) after a partial close; flattened this tick
   - 2026-08-25T03:07:51.533271+00:00 → 2026-09-04T12:03:50.800222+00:00 · accounts: bybit_1 · strategies: pairs, pairs_half_open
 - **[warn] x6** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_Nm | Symbol: BTCUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timef
@@ -201,16 +207,18 @@ _Generated 2026-09-06T17:20:40+00:00 · covers rows after `2026-09-06T14:02:20.7
   - 2026-09-02T11:02:08.585188+00:00 → 2026-09-05T17:03:29.297909+00:00 · symbols: BNBUSDT · strategies: pairs_bnb_btc_a
 - **[warn] x4** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: pairs_bnb_btc_b | Symbol: BTCUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its ti
   - 2026-09-02T11:02:08.579945+00:00 → 2026-09-05T17:03:29.290179+00:00 · symbols: BTCUSDT · strategies: pairs_bnb_btc_b
+- **[warn] x3** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_eth_Nm | Symbol: ETHUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
+  - 2026-09-02T02:31:25.742517+00:00 → 2026-09-06T23:00:50.137794+00:00 · symbols: ETHUSDT · strategies: ict_scalp_eth_15m
+- **[warn] x3** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_xrp_Nm | Symbol: XRPUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
+  - 2026-09-04T10:18:38.931506+00:00 → 2026-09-07T03:24:02.423841+00:00 · symbols: XRPUSDT · strategies: ict_scalp_xrp_15m, ict_scalp_xrp_5m
 - **[warn] x2** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: eth_pullback_Nh | Symbol: ETHUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its ti
   - 2026-09-03T00:05:59.559801+00:00 → 2026-09-04T20:05:14.912386+00:00 · symbols: ETHUSDT · strategies: eth_pullback_2h
-- **[warn] x2** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_eth_Nm | Symbol: ETHUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
-  - 2026-09-02T02:31:25.742517+00:00 → 2026-09-03T06:07:42.741021+00:00 · symbols: ETHUSDT · strategies: ict_scalp_eth_15m
-- **[warn] x2** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_xrp_Nm | Symbol: XRPUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
-  - 2026-09-04T10:18:38.931506+00:00 → 2026-09-05T01:40:56.167943+00:00 · symbols: XRPUSDT · strategies: ict_scalp_xrp_5m
 - **[warn] x2** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: qqq_pullback_Nh | Symbol: QQQ Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timefr
   - 2026-09-01T19:06:51.027477+00:00 → 2026-09-04T21:22:20.541248+00:00 · symbols: QQQ · strategies: qqq_pullback_1h
 - **[warn] x2** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: spy_pullback_Nh | Symbol: SPY Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timefr
   - 2026-09-01T19:06:51.323492+00:00 → 2026-09-04T18:06:56.556973+00:00 · symbols: SPY · strategies: spy_pullback_1h
+- **[warn] x2** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: trend_donchian_avax_Nh | Symbol: AVAXUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N
+  - 2026-09-04T03:04:02.466927+00:00 → 2026-09-07T08:53:24.796465+00:00 · symbols: AVAXUSDT · strategies: trend_donchian_avax_4h
 - **[warn] x2** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: trend_donchian_eth | Symbol: ETHUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its
   - 2026-09-03T18:01:10.588114+00:00 → 2026-09-06T04:41:32.116562+00:00 · symbols: ETHUSDT · strategies: trend_donchian_eth
 - **[warn] x2** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: trend_donchian_sol | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its
@@ -241,8 +249,6 @@ _Generated 2026-09-06T17:20:40+00:00 · covers rows after `2026-09-06T14:02:20.7
   - 2026-09-03T16:31:07.888705+00:00 → 2026-09-03T16:31:07.888705+00:00 · symbols: TLT · strategies: tlt_pullback_1h
 - **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: trend_donchian_ada_Nh | Symbol: ADAUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× 
   - 2026-09-04T02:25:28.190392+00:00 → 2026-09-04T02:25:28.190392+00:00 · symbols: ADAUSDT · strategies: trend_donchian_ada_4h
-- **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: trend_donchian_avax_Nh | Symbol: AVAXUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N
-  - 2026-09-04T03:04:02.466927+00:00 → 2026-09-04T03:04:02.466927+00:00 · symbols: AVAXUSDT · strategies: trend_donchian_avax_4h
 - **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: trend_donchian_eth_Nh | Symbol: ETHUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× 
   - 2026-09-02T22:33:35.064683+00:00 → 2026-09-02T22:33:35.064683+00:00 · symbols: ETHUSDT · strategies: trend_donchian_eth_4h
 - **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: trend_donchian_sol_Nh | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× 
@@ -250,4 +256,4 @@ _Generated 2026-09-06T17:20:40+00:00 · covers rows after `2026-09-06T14:02:20.7
 
 ---
 
-_Watermark: `2026-09-06T17:10:24.444973+00:00` — advanced to the newest row read (2026-09-06T17:10:24.444973+00:00)_
+_Watermark: `2026-09-07T10:41:39.779890+00:00` — advanced to the newest row read (2026-09-07T10:41:39.779890+00:00)_

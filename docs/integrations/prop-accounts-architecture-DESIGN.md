@@ -1,5 +1,7 @@
 # Prop accounts — scalable architecture (DESIGN, 2026-06-17)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **STATUS: DESIGN.** The blueprint for making the prop-trading work first-class
 > and **scalable to N prop accounts with different rules**, integrated into the
 > *standard* strategy flow (not a silo). Tier gates are marked per section; the

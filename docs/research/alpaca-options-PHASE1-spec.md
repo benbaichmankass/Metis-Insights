@@ -1,5 +1,7 @@
 # Alpaca L3 Options — Phase-1 Implementation Spec (paper options MVP)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-06-27 · **Branch:** `claude/alpaca-level3-options-research-djr017` · Parent: [`alpaca-options-l3-research-memo.md`](./alpaca-options-l3-research-memo.md) (Hybrid path, §9).
 
 **Goal of Phase 1:** prove the full options loop end-to-end **in paper** — chain discovery → premium/max-loss sizing → multi-leg order submit → snapshot greeks/IV read → poll-based expiry/assignment monitor → position/P&L surfacing — on **one underlying (XLF)**, starting with the smallest slice. No real money until the Phase-3 gate (memo §7).

@@ -1,5 +1,7 @@
 # Fleet model scorecard — RG3 + RG4 across the shadow regime fleet (2026-06-26)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **What this is.** Every shadow regime head read through *both* replay-pre-gate
 stages, in one table, to classify each head keep / watch / fix-skew / kill and —
 the operator's actual question — to learn **how to build models that will pass

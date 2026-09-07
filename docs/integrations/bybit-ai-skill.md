@@ -1,5 +1,7 @@
 # Bybit AI Trading Skill
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Source: <https://github.com/bybit-exchange/skills>  
 Version: 1.3.0 (MIT)
 

@@ -1,5 +1,7 @@
 # Breakout POC — manual browser-Claude bridge (2026-06-16)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Tier-1 design. A **proof-of-concept** way to run our strategies on the
 > Breakout 1-Step account **without** the DXTrade API or a third-party copier —
 > using copy-pasteable tickets and a browser-Claude session to drive the

@@ -1,5 +1,7 @@
 # Consolidation & Strategy Roadmap (session 2026-05-31)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** planning record (Tier-1 doc). Captures the consolidation decision and
 the strategy findings from the 2026-05-31 multi-thread research session so two
 parallel sessions stop diverging. Code work proceeds from here.

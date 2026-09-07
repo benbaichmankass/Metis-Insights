@@ -1,5 +1,7 @@
 # S-AUDIT-G — un-swept-areas sweep (M17 full-system audit, 2026-06-28)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Second wave of the M17 audit, covering the areas the first wave (S-AUDIT-F)
 did not reach: broker/account internals (`src/exchange/`, `src/units/accounts/`),
 the ML/trainer lifecycle (`ml/`), the Telegram bridge + news layer

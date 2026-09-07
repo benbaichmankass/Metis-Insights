@@ -1,5 +1,7 @@
 # M23 Phase 1 — pooled multi-strategy backtest-augmented meta-labels (2026-07-17)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Verdict: FAILS the pre-registered majority-accuracy gate, but population-matched
 pooling clearly HELPS — the precision lift over the real-trade base rate DOUBLED
 (+0.074 vs the single-strategy leg's +0.038), and accuracy rose +0.048.** The fair

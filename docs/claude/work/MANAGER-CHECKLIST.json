@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T16:05Z",
+  "updated_at": "2026-09-07T20:27:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1832,21 +1832,23 @@
       "priority": "P1_CYCLE",
       "tier": "3 (order path — PROPOSE only)",
       "spawned_at": "2026-09-06T10:05Z",
-      "note": "OPERATOR APPROVED BOTH PARTS 11:00Z (Tier-3). Applying: round(x,8) at execute.py:1855 + snap_artifact_qty (NEAREST, not floor) in the qty_legalize seam. Also fixing the XRPUSDT qty_step, which config declares 1.0 while the venue holds 7114.1. Draft PR, manager routes the merge - no self-merge on an order path.",
+      "note": "OPERATOR APPROVED BOTH PARTS 11:00Z (Tier-3). Applying: round(x,8) at execute.py:1855 + snap_artifact_qty (NEAREST, not floor) in the qty_legalize seam. Also fixing the XRPUSDT qty_step, which config declares 1.0 while the venue holds 7114.1. Draft PR, manager routes the merge - no self-merge on an order path. CLOSED 2026-09-07T17:35Z on merged output: 2 commits, last (2026-09-06T19:00:41Z) an explicit MI-139b close-out recording #11125's outcome and filing what it could not finish. Session IDLE since 2026-09-06T19:10Z.",
       "added": "2026-09-06",
-      "status": "in_flight",
-      "updated": "2026-09-06T11:02Z"
+      "status": "done",
+      "updated": "2026-09-07T17:35:00Z"
     },
     {
       "id": "MI-140-ALPACA-LIVE-CANNOT-PLACE",
       "title": "alpaca_live's routed real-money leg cannot place an order — both gates read live, every signal journals dry_run_no_order_placed",
       "state": "queued",
-      "owner": "unassigned — operator-selected, waiting on a session slot",
+      "owner": "session_01L4nzHTVNNdCxkpFxMqXB6V",
       "owns_object": "WO-20260906-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG",
       "priority": "P1_CYCLE",
       "tier": "unknown until root-caused",
-      "note": "Operator selected this to be routed. Blocked only on the concurrency cap of 3. ⚠️ Do not assume it is a bug — 'declared live and correctly refusing' is a real outcome and would move the defect to the declaration; ALPACA_CASH_SETTLEMENT_MODE=apply is armed on this exact account.",
-      "added": "2026-09-06"
+      "note": "Operator selected this to be routed. Blocked only on the concurrency cap of 3. ⚠️ Do not assume it is a bug — 'declared live and correctly refusing' is a real outcome and would move the defect to the declaration; ALPACA_CASH_SETTLEMENT_MODE=apply is armed on this exact account. DISPATCHED 2026-09-07T16:48Z, after the operator asked 'did you note the alpaca task?'. ⚠️ RECORDED AGAINST THE MANAGER: this row read 'unassigned — operator-selected, waiting on a session slot' for the whole day while the manager listed it as 'queued' in every status update. It was waiting on a SESSION SLOT, not on a decision, and the manager had slots — five other sessions were spawned in the same window. Noting an item in a checklist is not acting on it, and R7 grades whether the manager checked in, never whether it acted on what was waiting. MANAGER-VERIFIED ON THE FIELD BEFORE DISPATCH (config/accounts.yaml at main): alpaca_live is mode: live, account_class: real_money, strategies: ['tlt_pullback_1h']. The dispatch carries five leads to rule in or out and one binding instruction: DO NOT ASSUME IT IS A BUG — 'declared live and correctly refusing' is a real outcome that moves the defect to the DECLARATION, and those are different bugs with different fixes on a real-money account.",
+      "added": "2026-09-06",
+      "status": "in_flight",
+      "updated": "2026-09-07T16:48:00Z"
     },
     {
       "id": "MI-141-47-PERCENT-ERROR-FEED",
@@ -1887,9 +1889,9 @@
         "text": "Decision pop-up with four options and the tradeoffs stated; operator chose 'Move it to shadow now'."
       },
       "added": "2026-09-06",
-      "status": "in_flight",
-      "note": "OPERATOR DECISION 11:00Z: NARROW lever - remove ict_scalp_5m from bybit_2's strategies list in accounts.yaml, NOT execution:shadow. Keeps both paper books trading it so bracket_geometry evidence keeps accruing. #11115 (execution:shadow) is SUPERSEDED and must be closed, its verdict doc carried across. Watch the tp_geometry ratchet.",
-      "updated": "2026-09-06T11:02Z"
+      "status": "done",
+      "note": "OPERATOR DECISION 11:00Z: NARROW lever - remove ict_scalp_5m from bybit_2's strategies list in accounts.yaml, NOT execution:shadow. Keeps both paper books trading it so bracket_geometry evidence keeps accruing. #11115 (execution:shadow) is SUPERSEDED and must be closed, its verdict doc carried across. Watch the tp_geometry ratchet. CLOSED 2026-09-07T17:35Z on merged output: the MI-143b post-deploy observation landed 2026-09-06T21:48:32Z. ⚠️ That commit's own words are 'merged, deployed, NOT yet ...' — so read it as landed-and-deployed, and do NOT read this close as meaning the effect was observed on the fleet. Session IDLE since 2026-09-06T21:56Z.",
+      "updated": "2026-09-07T17:35:00Z"
     },
     {
       "id": "MI-144-THE-RECORD-DOES-NOT-SAY-WHAT-HAPPENED",
@@ -1899,10 +1901,10 @@
       "owns_object": "WO-20260906-THE-RECORD-OF-A-TRADE-DOES-NOT",
       "priority": "P0_INSTRUMENT",
       "tier": "2-3 (journal writer) — propose",
-      "note": "Spawned 10:53Z. OPERATOR TOP PRIORITY. Three defects: R sign-inverted, exit_reason frozen, /trades/closed silently empties.",
+      "note": "Spawned 10:53Z. OPERATOR TOP PRIORITY. Three defects: R sign-inverted, exit_reason frozen, /trades/closed silently empties. CLOSED 2026-09-07T17:35Z by the manager on MERGED OUTPUT, not on the owning session's say-so: 4 commits on main, the last (2026-09-06T17:08:22Z) reading 'the bracket instrument is fixed, deployed, and OBSERVED'. Session IDLE since 2026-09-06T17:09Z.",
       "added": "2026-09-06",
-      "status": "in_flight",
-      "updated": "2026-09-06T10:54Z"
+      "status": "done",
+      "updated": "2026-09-07T17:35:00Z"
     },
     {
       "id": "MI-145-SWEEP-POSITIVE-CONTROL",
@@ -1912,10 +1914,10 @@
       "owns_object": "WO-20260906-POSITIVE-CONTROL-ON-THE-EXIT-SWEEP-320",
       "priority": "P1_CYCLE",
       "tier": "1",
-      "note": "Spawned 12:07Z into the lane MI-146 freed. Escalated by MI-146: 320 honest_negative AND 39 SHIPPED cells all rest on one uncontrolled instrument. Second deliverable: MI-146's recommendation #1 (re-status the 33 mislabels, add a basis field, propose the CI check).",
+      "note": "Spawned 12:07Z into the lane MI-146 freed. Escalated by MI-146: 320 honest_negative AND 39 SHIPPED cells all rest on one uncontrolled instrument. Second deliverable: MI-146's recommendation #1 (re-status the 33 mislabels, add a basis field, propose the CI check). CLOSED 2026-09-07T17:35Z on merged output: landed 2026-09-06T13:08:54Z — 'the exit sweep DETECTS a planted positive'. Session IDLE since 2026-09-06T13:10Z.",
       "added": "2026-09-06",
-      "status": "in_flight",
-      "updated": "2026-09-06T12:08Z"
+      "status": "done",
+      "updated": "2026-09-07T17:35:00Z"
     },
     {
       "id": "MI-146-BRACKET-MECHANISMS-AUDIT",
@@ -1938,8 +1940,10 @@
       "owns_object": "WO-20260906-IS-SOAKING-ONLY-MECHANICALLY-VERIFYING-WHAT-BACKTESTING",
       "priority": "P1_CYCLE",
       "tier": "1 (audit — propose only)",
-      "note": "Operator 2026-09-06: soaking is 'only for mechanical verification of what we already have tested to be verifiably true in backtesting'. The chain is inverted at least once: bracket_geometry reads PENDING (never swept) on the ENTIRE 8-leg ict_scalp family, every one execution: live.",
-      "added": "2026-09-06"
+      "note": "ANSWERED and merged (#11188, 6bc5dae5). The operator's premise does not hold and it fails at link one: over the 44 enabled+live legs, 0 had a backtest result read and dispositioned before the leg went live (median lag 56 days, max 88); 11 of 44 (25.0%) have no pre-live backtest at any level, ict_scalp_5m and trend_donchian among them. Soak was the FIRST measurement of these legs, not a mechanical confirmation of something already proven.",
+      "added": "2026-09-06",
+      "status": "done",
+      "updated": "2026-09-07T08:42:00Z"
     },
     {
       "id": "MI-149-REGISTER-WRITERS",
@@ -1952,32 +1956,212 @@
     },
     {
       "id": "MI-150-ICT-SCALP-EXIT-HEAD",
-      "status": "in_flight",
+      "status": "done",
       "owner": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "opened": "2026-09-06",
       "title": "PR #11140 — the M20 exit-head consumer for ict_scalp: operator-approved with two conditions, HELD on MI-153",
-      "note": "OPERATOR 2026-09-06 answered three popups: arm + queue the artifact; EXCLUDE ict_scalp_sol_5m; RESOLVE the figures before arming. The third answer holds the merge — see OPEN-PRS.json #11140 for the typed decision. ⚠️ ARMING IS INERT TODAY: verified against /api/diag/shadow_stats with a positive control (32 models visible, probe finds both exit-head ids) that the only published exit-head artifacts are exit-head-donchian-1h-v1 and exit-head-donchian-peak-1h-v1 — both 1h, both donchian — while all eight ict_scalp legs are 5m/15m, so the in-distribution guard fail-closes on every one. Do not read a later quiet soak as evidence the head works.",
-      "updated": "2026-09-06T16:05Z"
+      "note": "#11140 MERGED 2026-09-07T05:25Z after the operator's Tier-3 approval ('ok on 11140'). Consumer is annotate-only and DISARMED. The chain is now end to end: consumer in, artifact published (MI-154b), mirror propagated on its own, and scoring CONFIRMED live — exit-head-ict_scalp-5m-v1 at 15 predictions and -15m-v1 at 6, git_sha == git_sha_on_disk == 86e059cc. Still disarmed; arming is a separate decision.",
+      "updated": "2026-09-07T08:42:00Z"
     },
     {
       "id": "MI-153-EXIT-HEAD-FIGURE-RECONCILIATION",
-      "status": "queued",
+      "status": "done",
       "owner": null,
       "opened": "2026-09-06",
       "title": "Two records report different numbers for the same ict_scalp exit-head legs — establish which is current, and why they diverged",
-      "note": "BLOCKS MI-150 by operator decision 2026-09-06 ('Resolve before arming'). The MI-146 audit table and docs/research/exit-refinement-coverage.json disagree on every candidate leg: ict_scalp_sol_5m reads auc 0.6184 / n_oos 1150 / beats_actual 22 of 23 in the audit and auc 0.6149 / n_oos 800 / beats_actual 12 of 16 in the matrix; ict_scalp_xrp_5m reads 0.5987 / 1100 / 21 of 22 against 0.613 / 650 / 12 of 13; ict_scalp_sol_15m reads 0.5808 / 450 / 6 of 9 against 0.5715 / 350 / 7 of 7. That is 3 of 3 candidate legs disagreeing. These figures are the ENTIRE basis for calling a leg a candidate. ⚠️ The question is not only which is current but WHY they diverged — a re-run on a different corpus slice, a re-partitioning, or a stale copy are three different answers with three different consequences, and 'the newer file wins' is not an investigation.",
-      "updated": "2026-09-06T16:05Z"
+      "note": "ANSWERED and merged (#11166 / 3292c5bd). The two records were NEVER in disagreement — each matrix cell's `ref` carries BOTH figure sets in one append-only string, chronologically, joined by '->'. The audit quoted the CURRENT clause; my brief quoted the SUPERSEDED one. Verdict of the deliverable: arm nothing. Separate real finding: the cell has no structured figure field at all — only status/ref/tp_geometry, with ~4,000 chars of prose.",
+      "updated": "2026-09-07T08:42:00Z"
     },
     {
       "id": "MI-154-SCALP-EXIT-HEAD-ARTIFACT",
-      "status": "queued",
+      "status": "done",
       "owner": null,
       "opened": "2026-09-06",
       "title": "Publish a 5m/15m scalp exit-head artifact — without one the MI-150 consumer cannot score a single leg",
-      "note": "OPERATOR 2026-09-06 chose 'Arm + queue the artifact', explicitly making this its own lane rather than a follow-up. Measured this session: the published exit-head fleet is exactly two artifacts, exit-head-donchian-1h-v1 (advisory) and exit-head-donchian-peak-1h-v1 (shadow), both 1h and both donchian; all eight ict_scalp legs are 5m/15m. ⚠️ Note the artifact's `family` field has been DECLARED since scripts/ml/export_exit_head.py:116 and has NEVER been read — the in-distribution guard gates on tf + symbols only. A scalp artifact that is in-distribution on tf and symbols would therefore be accepted by a donchian-family consumer with nothing checking the family, which is a real gap to close in the same lane rather than discover afterwards.",
-      "updated": "2026-09-06T16:05Z"
+      "note": "MERGED — #11169 (the declared family token) then #11208 (MI-154b, which actually PUBLISHED the two scalp exit heads at shadow). Verified on the live surface, not asserted: both heads are scoring.",
+      "updated": "2026-09-07T08:42:00Z"
+    },
+    {
+      "id": "MI-155-EXIT-LOCATION-FIDELITY",
+      "status": "done",
+      "owner": "session_017odwPFdR66U1yWyjBqzCwR",
+      "opened": "2026-09-07T06:57Z",
+      "updated": "2026-09-07T08:42:00Z",
+      "owns_object": "WO-20260907-PER-LEG-BACKTEST-TO-LIVE-EXIT-LOCATION",
+      "title": "Per-leg backtest<->live exit-location fidelity — the gate the bracket rebuild waits on",
+      "note": "MERGED #11220 (2b433130). The gate is ANSWERED and the answer BLOCKS: all 44 enabled+live legs grade `insufficient_n` — not one fidelity_ok, not one fidelity_failed. Abstain floor n_live >= 30; max per-leg live n is 8, and the verdict is invariant for any floor in [10, 30], so this is a DATA-VOLUME result and lowering the bar does not rescue it. The ~2.5x crypto p90 gap MI-151 measured did NOT reproduce as a fidelity failure — it is a horizon-composition artifact. Basis settled: measure in percent-of-entry, express the knob as tp_r, conversion is LOSSY (recorded as a finding). Two bounds on every figure: peak_r_is_lower_bound true on 171/171 rows, and n_bt = 0 on 41 of 44 legs — the backtest side of the comparison mostly does not exist. CONSEQUENCE: the bracket rebuild is blocked on data volume, not on method; the fork goes to the operator."
+    },
+    {
+      "id": "MI-158-APPLY-REACHABLE-TP",
+      "status": "done",
+      "owner": "session_016Li3hqzjKh3bAX7HYuGu23",
+      "opened": "2026-09-07T09:33:00Z",
+      "updated": "2026-09-07T11:55:00Z",
+      "owns_object": "WO-20260907-APPLY-THE-OPERATOR-APPROVED-REACHABLE-TAKE-PROFIT",
+      "tier": "3",
+      "title": "APPLY the operator-approved reachable-take-profit change + ship the tp_intent reader",
+      "note": "DONE AND OBSERVED ON THE FLEET, which is the bar this repo keeps failing: merged #11232 (3f88bfff), deployed (git_sha = git_sha_on_disk = 296c9392, restart_pending false), and read back on /api/bot/config at 11:52:13Z - gld_pullback_1h tp_r 4.0 with tp_intent r_multiple/calibrated:false, and 25 of 44 enabled+live legs carrying a tp_intent (22 none + 2 unexamined + 1 r_multiple). The 19 with none are the legs that already had a real target; 19 + gld = 20 real, reconciling with MI-158's own count. ⚠️ DEPLOYED IS NOT EXERCISED - no trade has yet exited at the new bracket, and 4.0R stays REACHABLE, NOT CALIBRATED."
+    },
+    {
+      "id": "MI-156-REACHABLE-TAKE-PROFIT",
+      "status": "done",
+      "owner": "session_0148fMEXBbDgQU3qsrcWujtx",
+      "opened": "2026-09-07T08:50:00Z",
+      "updated": "2026-09-07T17:35:00Z",
+      "owns_object": "WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE",
+      "tier": "3",
+      "title": "Give every enabled+live leg a take-profit the venue will actually accept",
+      "note": "OPERATOR-CHOSEN ROUTE, 2026-09-07, over three alternatives. MI-146 measured 25 of 44 enabled+live legs with no reachable TP: 15 declare tp_r >= 20 (clamped by TP_VENUE_CAP_PCT = 0.099) and 10 declare none. Chosen because it needs NO fidelity evidence - a target the venue accepts beats one it silently clamps away - which matters because MI-155 established the calibrated per-leg route is blocked on data volume (max live n = 8 vs a floor of 30), not on method. Deliverable is a Tier-3 PROPOSAL, config/ read-only. The binding instruction to the session: it is repairing REACHABILITY, not calibration, and must say so per leg - stating what each number rests on AND what it does not. CLOSED 2026-09-07T17:35Z — superseded end to end by MI-158, which APPLIED the operator-approved diff and was read back off the fleet at 11:52Z."
+    },
+    {
+      "id": "MI-157-FLAT-BACKTEST-FIXTURES",
+      "status": "done",
+      "owner": "session_01MLKjDPG9n1MHBByYEAEgjc",
+      "opened": "2026-09-07T08:50:00Z",
+      "updated": "2026-09-07T11:55:00Z",
+      "owns_object": "WO-20260907-THE-COMMITTED-BACKTEST-CANDLE-FIXTURES-ARE-FLAT",
+      "tier": "1",
+      "title": "The committed backtest candle fixtures are flat, so anything measured on them is meaningless",
+      "note": "DONE - merged #11226 (29820f97). Census over all 8 committed .csv files: 7 candle files, FIVE flat (each 300 rows, 1 distinct close, 0 of 299 non-zero returns, sd 0), all five deleted; 2 real kept; 1 manifest graded as such. candle-fixture-variance-guard shipped and registered in run_guards.py. ⚠️ It was green at 09:42Z and sat unmerged until 11:33Z waiting on the manager - recorded as a MANAGER stall, not a session one."
+    },
+    {
+      "id": "MI-159-ONE-WORKPLAN-AND-TASK-PRIORITY",
+      "status": "done",
+      "owner": "session_016szw9vJrzPUCH1FVMuXycM",
+      "opened": "2026-09-07T12:09:00Z",
+      "updated": "2026-09-07T17:35:00Z",
+      "owns_object": "WO-20260907-ONE-LIVE-WORK-PLAN-A-ROADMAP-THAT",
+      "tier": "1",
+      "title": "One live work plan, a roadmap that matches reality, and priority assigned by TASK not by milestone",
+      "note": "OPERATOR-DIRECTED 2026-09-07 after the manager gave a STALE roadmap read. Measured: TWELVE work-plan documents; docs/research/WORKPLAN-2026-08-14.md still declares itself ACTIVE three generations after being superseded (08-14 -> 08-21 -> 08-26 -> 08-29, the live one); ROADMAP.md's Next section points at the stale 08-14; and docs/claude/CYCLE-PRIORITY.json is newer than all of them and is what actually drives sessions. Three surfaces, three answers. THE MAIN DELIVERABLE IS (3), TASK-LEVEL PRIORITY THAT CROSSES MILESTONES - the operator's framing: a milestone we do not want to push may hold a subtask that unlocks one we do. (1) exactly one live plan with a CI guard and a planted control; (2) roadmap rows checked against what shipped, unverifiable ones MARKED unverified rather than left standing. ⚠️ THE OPERATOR EXPLICITLY REJECTED the 'too many open milestones' framing the manager raised - they are TRACKS, deliberately unfunded, and that is fine. Do not re-raise it. ⚠️ CY-20260906-TRADING-TRUTH STANDS, re-affirmed by the operator this session; the ranking serves it, it does not replace it. CLOSED 2026-09-07T17:35Z — landed #11241 + the Lane-A correction #11249; TASK-PRIORITY-2026-09-07.md is on main."
+    },
+    {
+      "id": "MI-160-PRUNE-PROPOSAL",
+      "status": "done",
+      "owner": "session_01GGFAu1uNpHL5KrzC7X7jAm",
+      "opened": "2026-09-07T12:15:00Z",
+      "updated": "2026-09-07T16:00:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "Propose roadmap prunes - against a roadmap whose statuses have been verified, never before",
+      "note": "OPERATOR, 2026-09-07: 'we can definitely prune the road map'. That REFINES their earlier correction, it does not reverse it - open milestones are still TRACKS and being numerous is still not a defect. What is permitted now is naming rows that are genuinely DEAD (withdrawn, superseded, or shipped and never marked) as distinct from merely DORMANT. ⚠️ PROPOSE ONLY; the operator decides. ⚠️ BLOCKED ON MI-159 BY DESIGN, not by scheduling: you cannot honestly propose closing a row whose status has not been verified, and MI-159 exists precisely because several statuses were measured WRONG today. Pruning first would close rows on the strength of claims already caught failing. ⚠️ THE MANAGER COULD NOT AMEND MI-159 IN FLIGHT - there is no send_message to a running sub-session (ListAgents: no reachable peers), which confirms the SESSIONS.json README's documented finding. Interrupting would have stopped it without being able to hand it the new instruction, so the split is a consequence of a real capability limit as well as of the right order. UNBLOCKED 2026-09-07T14:40Z: the predecessor MI-159 LANDED (#11241 + the Lane-A correction #11249) and docs/claude/TASK-PRIORITY-2026-09-07.md is on main. DONE 2026-09-07T16:00Z — landed #11254 (7fedaf34). 33 rows examined, 0 redundancies. Blockers: assessed coverage 6.73% (READOUT's 1.5% is STALE). Debt named: M40 R5 (daily cron that never fires) + M40 R2 (landing wired into 2 of 20 producers)."
+    },
+    {
+      "id": "MI-162-DOCUMENT-LIBRARY-POPULATION",
+      "status": "done",
+      "owner": "session_0136WbFixUR51Q9FngHUp9GR",
+      "opened": "2026-09-07T14:40:00Z",
+      "updated": "2026-09-07T17:35:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "The document library cannot see its own most important documents — POPULATION_GLOBS excludes every .md directly in docs/",
+      "note": "MEASURED by the manager 2026-09-07T14:35Z on 4ea74fda. `docs/**/*.md` is passed to git ls-files as a PATHSPEC, where `*` already matches `/`, so `docs/*.md` is recursive while `docs/**/` needs a literal intervening slash: 936 vs 965 paths. 27 documents carry NO index row, including docs/CLAUDE-RULES-CANONICAL.md (instruction hierarchy LEVEL 1) and docs/ARCHITECTURE-CANONICAL.md (LEVEL 2), while the guard prints population=971 registered=971 and OK. A CLEAN NEGATIVE — 100% coverage of a population that silently excluded the most important members — and the SECOND instance of the same defect class in the SAME function, whose own docstring records `--others --exclude-standard` missing on the first build with the note that the guard 'reported OK and the count never moved'. Filed as BL-20260907-DOCUMENT-INDEX-POPULATION-GLOB-EXCLUDES-EVERY-TOP-LEVEL-DOCS-FILE. Resolution requires fixing the POPULATION, not hand-adding rows. DONE 2026-09-07T16:16Z — VERIFIED BY THE MANAGER ON MAIN, not accepted on the session's word. POPULATION_GLOBS now ':(glob)docs/**/*.md'; census population 971 -> 1000, registered 1000. DELTA RECONCILED EXACTLY: +28 from the glob fix (git ls-files 937 -> 965; skills unchanged at 32, that glob was never broken since every skill lives in a subdirectory) and +1 from docs/research/roadmap-redundancy-audit-2026-09-07.md, a genuinely new document that landed in #11254 at 15:01Z AFTER the 971 reading. 971+1+28=1000. COVERAGE IS HONEST, NOT MANUFACTURED — the thing this item exists to check: of the 28 newly visible documents, 3 are `live` (CLAUDE-RULES-CANONICAL, ARCHITECTURE-CANONICAL, github-actions-workflows — canonical documents whose live status is not in doubt), 2 are generated matrices carrying `verified: generator exists and names the file`, 1 is `historical` (workplan.md), and ~22 are `unknown`. Status `unknown` across the store stands at 575 of 1000 — nobody manufactured a status for documents nobody read. CLOSED 2026-09-07T17:35Z — #11255 landed the ':(glob)' fix; the census above is the manager's own verification on main."
+    },
+    {
+      "id": "MI-161-DOCUMENT-LIBRARY",
+      "status": "done",
+      "owner": "session_01NriFh691pHJFiVc7agPHnC",
+      "opened": "2026-09-07T12:32:00Z",
+      "updated": "2026-09-07T17:35:00Z",
+      "owns_object": "WO-20260907-A-DOCUMENT-LIBRARY-ONE-CENTRALIZED-TABLE-WHERE",
+      "tier": "1",
+      "title": "The document library - one centralized, categorized, status-carrying index of every document",
+      "note": "OPERATOR-DIRECTED 2026-09-07, verbatim: 'we need a library for our documents ... a lot of things probably look fine if you just open them on their own. So maybe one centralized table where we keep track of everything, and everything has to be organized correctly and logged and categorized.' THE MOTIVATING FAILURE HAPPENED TODAY AND IS MEASURED: the manager reported a roadmap status TO THE OPERATOR off WORKPLAN-2026-08-14.md, which declares 'Status: ACTIVE' while three generations superseded. Three deliverables: the index (closed category vocabulary separating INSTRUCTION from EVIDENCE from HISTORY; status incl. superseded vs closed_unfinished vs unknown, never collapsed); a status header IN EVERY FILE, because the index alone does not help a reader who opens one document directly - which is the whole failure; and a CI guard with a PLANTED CONTROL proving it fires. ⚠️ SEQUENCED ALONGSIDE MI-159, NOT AGAINST IT: MI-159 owns which work plan is live and the roadmap statuses; MI-161 takes those FROM it and marks them unknown until it lands. Two sessions independently deciding which plan is live would reproduce the defect they are both fixing. CLOSED 2026-09-07T17:35Z — docs/DOCUMENT-INDEX.md on main, CLAUDE.md carrying the doc-status header."
+    },
+    {
+      "id": "MI-163-TRAILING-BANK-HALF",
+      "status": "done",
+      "owner": "session_01Sxe5Mj9GbmuvVCKZ8LHrLv",
+      "opened": "2026-09-07T16:00:00Z",
+      "updated": "2026-09-07T16:42:00Z",
+      "blocked_on": null,
+      "tier": "1 to measure and propose; 3 to change any live exit lever",
+      "title": "The trailing/banking half of the exit thesis — does the stop bank R as it accrues?",
+      "note": "The half of the operator's exit thesis still owed: 'the stop is the risk manager and must trail up to bank R', no endless bracket. MANAGER MEASUREMENT, over the 44 enabled+live legs (the same denominator MI-155 uses, reproduced independently): trail_mult 36/44, tp_r 36/44, trail_decay_tight_mult 16, trail_decay_stall_bars 10, be_offset_bps 8, trail_decay_arm_r 7, stale_exit_below_r 3, giveback_r 1 (uso_trend_1h only), be_at_r 0. exit_plan.py:304 reads be_at_r with NO default. ⚠️ THE MANAGER DELIBERATELY DID NOT SETTLE whether exit_plan.py is on the LIVE path or is the shadow ladder — CLAUDE.md calls the Exit Ladder observe-only and exit_ladder_soak.py is a caller, but so are coordinator.py:3485 and turtle_soup.py:420. If it is shadow-only then '0 of 44 be_at_r' is a fact about a shadow artifact and NOT the headline, and the live banking behaviour is whatever trail_mult/trail_decay_* do in the strategy units. Settling that backwards would produce a confident wrong finding about a live trading system, so it is the session's first task. THE SHIPPABLE SPLIT: per-leg trail geometry is blocked on MI-155's volume wall (all 44 insufficient_n, max live n=8 vs floor 30, invariant for any floor in [10,30]), but a FLEET-WIDE bank-at-+XR rule is gradeable on the POOLED corpus where n sums across legs. peak_r is a LOWER BOUND (peak_r_is_lower_bound true on 171/171 rows). DONE 2026-09-07T16:42Z — landed #11259 (59bfa099). SETTLED THE LIVE/SHADOW QUESTION: exit_plan.py is SHADOW — both callers WRITE and nothing READS the columns back, with a positive control proving the probe finds live readers for trail_mult. So the manager's '0 of 44 be_at_r' was a fact about a shadow artifact, and MI-163 said so rather than confirming what it was handed. THE FINDING: 36 of 44 legs run a monotone Chandelier ratchet, 8 run a one-shot break-even structurally incapable of accruing R; reaching break-even costs a median 2.00R against a median live peak of 0.84R, so it armed on 14 of 89 (15.7%) and banked +1R on 4 of 89 (4.5%). Pooled n=89 clears the floor of 30 where per-leg max n=8 does not."
+    },
+    {
+      "id": "MI-164-TELEMETRY-HOOK",
+      "status": "in_flight",
+      "owner": "session_01SZCy1acPMrX3ANUkzhM5te",
+      "opened": "2026-09-07T16:42:00Z",
+      "updated": "2026-09-07T16:42:00Z",
+      "blocked_on": null,
+      "tier": "3 — APPROVED by the operator 2026-09-07",
+      "title": "Proposal A (APPROVED): add record_position_telemetry to the 4 unhooked monitor units",
+      "note": "OPERATOR TIER-3 APPROVAL, 2026-09-07, verdict 'Approve A now', asked directly with the scope named: add the existing hook to squeeze_breakout_4h, ict_scalp, turtle_soup and vwap; observe-only; changes no exit. NO CONDITION was attached and the scope was NOT widened — a row recording a verdict without its condition is worse than a missing row, so the absence of one is stated deliberately rather than left to inference. WHY: 9 of 44 enabled+live legs are structurally invisible. MI-155 graded 13 legs n_live=0 as insufficient_n; MI-163 measured the split — 9 on an unhooked unit (we did not look) vs 4 a real absence of positions. Four need trading volume that effort cannot move; NINE need one line of code and no soak will ever produce a row for them. All 8 ict_scalp legs are among the 9, so the one-shot mechanism is entirely unmeasured. ⚠️ landed != observed: this closes only when a real row appears at /api/diag/position_telemetry for one of the 9."
+    },
+    {
+      "id": "MI-165-BE-FLOOR-SWEEP",
+      "status": "in_flight",
+      "owner": "session_01VKEGm8ZcTUgiZYRztPfryK",
+      "opened": "2026-09-07T16:42:00Z",
+      "updated": "2026-09-07T16:42:00Z",
+      "blocked_on": null,
+      "tier": "1 to sweep and propose; 3 to arm any value — NOT approved",
+      "title": "Proposal B (COMMISSIONED, not approved): the path-aware be_floor_r sweep",
+      "note": "OPERATOR DECISION, 2026-09-07, verdict 'Commission the path-aware sweep'. ⚠️ THE SCOPE IS THE SWEEP, NOT THE ARMING — the operator explicitly did NOT approve arming any be_floor_r value, and a successor reading 'approved' without that distinction could arm an exit lever on real money. THE GAP: MI-163's gross benefit peaks at +16.87R at 0.75R over n=71 closed in-population rows, but the telemetry carries peak_r/open_r/giveback_r and NO intra-trade path, so a stop parked at +X exits on the FIRST retrace and the forgone continuation is unmeasured. That is why MI-163 refused to name a value. THE GATE: a path-aware sweep over be_floor_r in {0.5,0.75,1.0,1.5} beating the ungated arm NET of forgone continuation, on the pooled corpus (n=89, floor 30 — sufficient, where per-leg max n=8 is not). Precedent this exists to avoid: FLIP_CONFIDENCE_THRESHOLD ran live on real money with no walk-forward, was measured 2026-08-11, LOST against plain hold, and was disarmed the same day. ⚠️ A clean 'no value clears the gate' is a FULLY SUCCESSFUL outcome and must not be softened."
+    },
+    {
+      "id": "MI-166-PIPELINE-INTEGRITY-LANE",
+      "status": "in_flight",
+      "owner": "session_01QZxiRyCB72BH4SaJ4yEJdC",
+      "opened": "2026-09-07T16:56:00Z",
+      "updated": "2026-09-07T16:56:00Z",
+      "blocked_on": null,
+      "tier": "1 to measure/diagnose/file; 3 for any order-path, protective-logic or lever change",
+      "title": "STANDING LANE — pipeline integrity: are we actually trading correctly? (pass 1)",
+      "note": "OPERATOR-DIRECTED 2026-09-07: 'keep a lane open for some pipeline review ... make sure that we're actually trading correctly so that we can review the data from the trades and make decisions.' ⚠️ THIS IS A STANDING LANE AND DOES NOT CLOSE — each pass ends by naming what the next should check. MI-140 (alpaca_live cannot place) is ONE INSTANCE of the class, not the class. The last clause is the cycle priority itself: trade data is the instrument every promotion, demotion and exit verdict is computed from, so a pipeline executing incorrectly contaminates the data at source and every downstream verdict inherits it. MANAGER-MEASURED LIVE 2026-09-07T16:54Z before dispatch, via diag_fetch (read_state 'orders_read', a real read — NOT an empty-on-error): ib_paper holds MHG 30 / MGC 11 / MES 15. ⚠️ MGC IS 491% OVER-COVERED ACROSS TWO DISJOINT OCA GROUPS (oca-protect-t5353 + oca-protect-t5531). OCA cancels only WITHIN a group, so if one group's stop fires and flattens the 11-lot position the other group's legs are still resting to sell 11 more — into a NAKED SHORT. ib_paper is paper so no real capital is exposed, but the mechanism is shared with ib_live. ⚠️ TWO OF THREE positions sit under NON-KEYED group names — '170199976' (bare numeric) and 'oca-protect-408' (legacy reqId form) — which place_protective's name-scoped pre-cancel can never treat as cancellation candidates. That is the PROTECTION_STRAY_GROUP_MODE class, and that gate ships at annotate with an EMPTY allowlist, which for that knob means NONE. ⚠️ ALARM CHANNEL DEGRADING, a P1 in its own right: 33 of 48 operator ERROR+ rows over 2026-09-02→09-07 (68.8%) are over-cover, plus 6 target_naked — about four fifths of the channel is one class. The alarm IS firing (ib_stop_over_cover detected: ib_paper/MGC is present), so detection works; the fix is to stop GENERATING over-covered books, never to widen a cooldown. IB CONNECTIVITY IS NOT THE PROBLEM — ib_state read all clients connected, no breaker, likely_wedged false. Also noted: /api/diag/version read git_sha 59bfa099 vs git_sha_on_disk b596ac4f, restart_pending TRUE."
+    },
+    {
+      "id": "MI-167-PHANTOM-MGC-LOTS",
+      "status": "in_flight",
+      "owner": "session_012Sc2fCUKAPXSVcSvKLRu5v",
+      "opened": "2026-09-07T18:53:00Z",
+      "updated": "2026-09-07T18:53:00Z",
+      "blocked_on": null,
+      "tier": "1 to measure/diagnose/file; 3 for any order-path, journal-write, reconciler or protective change",
+      "title": "Pipeline lane pass 2 — root-cause the 43 phantom MGC lots the journal holds and the venue does not",
+      "note": "⚠️ PASS 1 INVERTED ITS OWN DISPATCH AND THAT IS THE ACTIONABLE PART. The manager dispatched it believing ib_paper/MGC was 491% over-covered with the defect in place_protective's pre-cancel scoping. It is not: every resting OCA group matches its journal row TO THE TICK — 5258/MHG 30, 5353/MGC 11, 5531/MGC 43 — so protection is downstream and FAITHFUL. THE JOURNAL SUMS TO 54 MGC LONG; THE VENUE REPORTS 11. place_protective correctly armed 43 lots for a fill the journal recorded and does not have. Trade 5531 is ict_scalp_mgc_15m, opened 2026-09-07T08:26Z. ⚠️ LIVE HAZARD, and it is worse than one group going naked: the oversized group carries the TIGHTER stop (t5531 at 4394.5 vs t5353 at 4210.7, venue avg entry 4423.02), so t5531 is the NEAREST stop and fires FIRST, attempting to sell 43 lots when 11 exist — which on IBKR does not stop at flat but flips to a ~32-lot NAKED SHORT with t5353's legs still resting. ib_paper is paper so no real capital is at risk today, but ict_scalp_mgc_15m and this code path are shared with real-money accounts. ⚠️ WHETHER THE SAME CLASS TOUCHES bybit_2 OR alpaca_live OUTRANKS THE MGC ROOT CAUSE IF THE ANSWER IS YES. Also required: whether any CLOSED-TRADE PnL was computed off a phantom quantity — that is the operator's actual question, since a phantom qty multiplies through every PnL, R and expectancy figure derived from the row. ⚠️ DETECT AND PROPOSE ONLY. Do not cancel a leg or edit a journal row: the one attempt to remediate this class cancelled the leg that MATCHED the journal (BL-20260820)."
+    },
+    {
+      "id": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
+      "status": "blocked",
+      "owner": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "opened": "2026-09-07T19:30:00Z",
+      "updated": "2026-09-07T21:33:00Z",
+      "blocked_on": {
+        "kind": "decision",
+        "ref": "operator: (1) approve/reject the symbol->trade re-scope; (2) name the IB_CLOSE_CONFIRM partial-fill default",
+        "since": "2026-09-07T20:33:00Z"
+      },
+      "tier": "3 — PROPOSE ONLY; operator dispatched the proposal, not the merge",
+      "title": "Re-scope the close confirmation from SYMBOL-flat to TRADE-quantity (Tier-3 proposal)",
+      "note": "OPERATOR DECISION 2026-09-07, asked directly with the coupling stated: 'Dispatch it now, coupled to MI-140'. ⚠️ COUPLING IS THE POINT — alpaca_live (REAL MONEY) shares the identical symbol-scoped confirm and is immune TODAY only because it cannot place orders (MI-140). FIXING MI-140 ARMS THIS ON REAL MONEY; the two must not land independently, and the edge is written into BOTH work objects. bybit_2 (REAL MONEY) is NOT exposed — Bybit has no close-confirmation at all (0 hits, positive control returns IB + Alpaca) — so it escapes on a missing venue gate, not its trade shape, and must NOT be 'fixed' by adding one. Precondition is common: 13 (account,symbol) pairs held 2+ simultaneously-open rows in 28 days. ⚠️ OPERATOR STEER 2026-09-07: symbol-vs-trade is SETTLED — confirm on the TRADE'S OWN QUANTITY DELTA, observable even with siblings (MGC 54 → 11 IS 5531's 43 lots leaving). The existing check is not merely wrong: it exists because an accepted-but-unfilled close once left a real position NAKED with the row marked closed. Change the MEASUREMENT, keep the guarantee. STILL THE OPERATOR'S: the within-trade partial fill, which differs in what happens to the leftover lots' protection. MANAGER CAVEAT: whether both Alpaca close paths can observe a per-trade delta as cleanly as IB is NOT established — different position read; establish per venue, do not assume symmetry. BLOCKED 2026-09-07T21:33Z: the session reports #11279 is ready but NOT sufficient alone, because it also found the opposite-sign REAL-MONEY defect now filed as MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS. Two operator decisions are owed; see that row."
+    },
+    {
+      "id": "MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS",
+      "status": "unassigned",
+      "owner": null,
+      "opened": "2026-09-07T21:33:00Z",
+      "updated": "2026-09-07T21:33:00Z",
+      "blocked_on": null,
+      "tier": "3",
+      "title": "REAL MONEY: an alpaca_live close of ONE trade liquidates its SIBLINGS — the opposite-sign twin of MI-167, found by MI-168",
+      "note": "REPORTED BY MI-168 (session_01BpU7rfqWKir4rQrowT4ZQd) at 20:33Z and filed by that session as BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. MI-167 found IB grading a SUCCEEDED close a FAILURE because the confirmation asks whether the SYMBOL is flat when the close is of a TRADE. MI-168 reports Alpaca has the same symbol-vs-trade confusion with the OPPOSITE sign: a false-SUCCESS, where closing one trade takes its siblings out with it. That is strictly worse — a false-failure leaves a row open, a false-success closes positions nobody asked to close — and unlike MI-167 it is on alpaca_live, a REAL-MONEY account. IT IS INERT ONLY BECAUSE THAT ACCOUNT CANNOT CURRENTLY PLACE AN ORDER: MI-140 measured all 44 of its journal rows in the window as `rejected` over a population of 2 signals, both shorts suppressed by the operator's side_filter: long. So MI-140 and this row are COUPLED IN THE DANGEROUS DIRECTION — clearing MI-140 arms this. NOT VERIFIED BY THE MANAGER: this is MI-168's report as read off the session listing, not something I measured. MI-168's #11279 is explicitly NOT sufficient alone. TWO OPERATOR DECISIONS ARE OWED before anything ships: (1) approve or reject re-scoping the confirmation from symbol to trade; (2) name the IB_CLOSE_CONFIRM partial-fill default (strict is what shipped; the alternative is confirm-on-reduction)."
+    },
+    {
+      "id": "MI-169-MGC-REMEDIATION",
+      "status": "in_flight",
+      "owner": "session_0126L48N2S4fAxtjG82kq9vq",
+      "opened": "2026-09-07T19:30:00Z",
+      "updated": "2026-09-07T19:30:00Z",
+      "blocked_on": null,
+      "tier": "3 — OPERATOR-APPROVED for this trade only",
+      "title": "OPERATOR-APPROVED: cancel oca-protect-t5531, then repair trade 5531's journal row",
+      "note": "OPERATOR APPROVED OPTION 3 on 2026-09-07 with all three options and their consequences put to them: cancel the legs THEN repair the row, both, IN THAT ORDER. ⚠️ THE ORDER IS PART OF THE APPROVAL — a repair alone leaves 43 resting sell lots, a cancel alone leaves a phantom open row for the next protection sweep to re-arm. Cancel orders 548 (STP 43 @ 4394.5) + 551 (LMT 43 @ 4485.0) of oca-protect-t5531 on ib_paper/MGC; ⚠️ DO NOT TOUCH oca-protect-t5353, whose 11 lots are trade 5353's real and correct protection — and note the alarm's own remedy text ('cancel the leg that does NOT match trades.stop_loss') is USELESS here because BOTH legs match. Then journal 5531 closed_at 2026-09-07T11:45:06Z / exit 4392.9 / pnl −17024.28, re-derived from the venue rather than copied, with provenance stamped so a repaired row stays distinguishable from one the pipeline booked. ⚠️ THE APPROVAL COVERS THIS TRADE ONLY — a second instance is filed and reported, never remediated. ⚠️ ROOT CAUSE REMAINS OPEN under MI-168; a repaired row with the defect live will simply recur."
     }
   ],
   "as_of": "2026-09-06T16:05Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "updated": "2026-09-07T21:33:00Z"
 }

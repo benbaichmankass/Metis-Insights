@@ -578,6 +578,29 @@ def selftest_workflow_catalog() -> None:
           "non-workflow file is not mistaken for a phantom")
 
 
+def selftest_one_live_workplan() -> None:
+    """Alias for `check_one_live_workplan.py --self-test` (see COVERED_BY_CHECKER).
+
+    That checker owns its own planted-defect suite — twelve controls, including a
+    NEGATIVE control that runs first (a well-formed tree must PASS, or every
+    positive below it would be "failing" on an unrelated defect; it caught a
+    staging bug in its own fixtures on the day it was written) and two controls
+    asserting the HONEST answers are accepted: an unaudited residual, and a
+    struck-through legacy `ACTIVE` line. The plants have to build whole trees of
+    plan documents, so they are far more legible next to the rules they exercise.
+    This entry exists so the name resolves in `SELFTESTS`, and
+    `check_selftest_wiring.py` verifies the covering path rather than trusting
+    this docstring.
+    """
+    rc = _rc([sys.executable, "scripts/ci/check_one_live_workplan.py", "--self-test"])
+    if rc != 0:
+        raise SystemExit(
+            "::error::self-test FAILED — check_one_live_workplan's planted-defect "
+            f"suite exited {rc}. The one-live-workplan guard's failure path is "
+            "broken, so a green from it means nothing.")
+    print("self-test OK — all twelve planted work-plan status defects fail the guard")
+
+
 def selftest_automerge_trigger() -> None:
     """Alias for `check_automerge_trigger.py --self-test` (see COVERED_BY_CHECKER).
 
@@ -782,6 +805,7 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     "automerge-trigger": selftest_automerge_trigger,
     "pr-landing": selftest_pr_landing,
     "manager-scope": selftest_manager_scope,
+    "one-live-workplan": selftest_one_live_workplan,
 }
 
 # The SECOND covering path. A name here is one whose controls reach CI via the
@@ -796,6 +820,7 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
 # mapping cheaper to fake than to satisfy is worse than none at all
 # (`new-table-wiring-guard`'s presence-only marker is the cautionary case).
 COVERED_BY_CHECKER: Dict[str, str] = {
+    "one-live-workplan": "scripts/ci/check_one_live_workplan.py",
     "matrix-corpus-agreement": "scripts/ci/check_matrix_corpus_agreement.py",
     "workflow-catalog": "scripts/ci/check_workflow_catalog.py",
     "automerge-trigger": "scripts/ci/check_automerge_trigger.py",

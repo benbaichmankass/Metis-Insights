@@ -1,5 +1,7 @@
 # Deep review — strategies + ML: diagnosis, complementary-edge research, and a prioritized test plan (2026-06-25)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Tier-1 research memo. Analysis + proposals only.** Nothing here touches the
 > live order path, `config/strategies.yaml`, `config/accounts.yaml`,
 > `config/regime_policy.yaml`, or any unit the live VM consumes. Every config /

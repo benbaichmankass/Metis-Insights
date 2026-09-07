@@ -1,5 +1,7 @@
 # Sprint S-064 — Liquidity Maps + Settings (read-only)
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > **Sprint type:** auto-claude (M6 dashboard UI + two new Tier-1 bot
 > read endpoints).
 > **Risk tier:** Tier 1 (read-only bot endpoints, read-only dashboard

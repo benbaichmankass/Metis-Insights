@@ -1,5 +1,7 @@
 # Live-trade management contract — whole-repo audit + design plan (2026-06-16)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status: DESIGN — for operator approval. No production code in this PR.**
 Supersedes the narrower IB-only draft. Ref: operator direction 2026-06-16
 ("this isn't an IB fix — it's a two-sided contract that must hold for every

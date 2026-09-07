@@ -1,5 +1,7 @@
 # Position-Sizing & Qty-Legalization Consolidation — DESIGN
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** proposal, awaiting operator approval to kick off
 **Tier:** 3 (touches the live order-sizing path) — phased, each phase separately reviewed
 **Origin:** the recurring ETHUSDT/bybit_2 "below the exchange lot minimum after

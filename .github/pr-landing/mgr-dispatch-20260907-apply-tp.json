@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "manager registers only — one work object, one SESSIONS.json spawn confirmation, one MANAGER-CHECKLIST.json row recording the operator's Tier-3 approval. Recording an operator decision into docs/claude/work/** is explicitly management. No runtime, no order path, no config, no scripts."
+}

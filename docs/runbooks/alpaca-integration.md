@@ -1,5 +1,7 @@
 # Alpaca Integration — Runbook (M15 Phase 2b)
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Second platform of the M15 migration
 > ([`m15-phase0-results-2026-06-10.md`](../research/m15-phase0-results-2026-06-10.md)):
 > the daily ETF futures-replacements (trend1d QQQ/SPY ≈

@@ -1,5 +1,7 @@
 # Position telemetry — the missing state between entry and exit (M31)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** DESIGN, operator-directed 2026-08-16. Nothing here is shipped.
 > Phase 1 is Tier-1; phase 2 is Tier-2 (writes on the live exit loop, no order
 > path); anything that *reads* telemetry to change an exit is Tier-3 and is

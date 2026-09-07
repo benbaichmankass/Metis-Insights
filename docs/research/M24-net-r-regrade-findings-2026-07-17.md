@@ -1,5 +1,7 @@
 # M24 P1/P2 — Net-R re-grade findings (2026-07-17)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** M24 **P1 (net-R label pipeline) + P2 (net-R re-grade scorecard) DONE.**
 > P3 (cost-aware EV scorer refresh) + P4 (within-tick contrastive net-R ranker)
 > are **Tier-3** (order-routing/sizing-affecting) — proposed below, operator-gated.

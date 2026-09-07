@@ -1,5 +1,7 @@
 # Milestone & session state — HISTORICAL (frozen 2026-05-10)
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > **⛔ DO NOT USE FOR CURRENT STATUS.** This file is **superseded by
 > [`ROADMAP.md`](../../ROADMAP.md)**, which is the single source of
 > milestone + sprint state (status + dates). The table below is **frozen

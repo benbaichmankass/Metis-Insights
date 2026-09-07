@@ -1,5 +1,7 @@
 # e35 `passed_unshipped` — the Tier-3 proposal set, as it stands on 2026-08-31
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-31 · **Tier 1** (a proposal + records; no `src/`, no `config/`, no order path)
 **Requested by the operator** 2026-08-31 ("bring me the per-leg proposal to review").
 **Answers** `OI-20260829-E35-REVERSED-LEGS-ARE-A-TIER-3-PROPOSAL-SET-NOT-APPLIED`.

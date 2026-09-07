@@ -1,5 +1,7 @@
 # IBKR equity/ETF (STK) contract support — DESIGN
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status (updated 2026-07-08):** Steps 1-6 of §6 BUILT and MERGED (#5871 steps
 1-5; #5914 step 6 — Tier-3, operator-authorized). Only **step 7 (live paper
 verification)** remains open — no `ib_paper` SPY/QQQ/IWM/TLT fill has occurred

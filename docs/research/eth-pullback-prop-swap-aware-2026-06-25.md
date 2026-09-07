@@ -1,5 +1,7 @@
 # eth_pullback_2h on Breakout — swap-aware funded EV + a swap-robust variant
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 _2026-06-25. Tier-1 research (no live-path change). Driver: the
 `validate_alt_prop` gate (`scripts/prop/validate_alt_prop.py`) + the system
 engine (`scripts/backtest_system.py`) run on real ETHUSDT 5m candles

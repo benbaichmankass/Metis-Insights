@@ -1,5 +1,7 @@
 # Overnight results + morning Tier-3 decision packets (2026-07-20 → 07-21)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Prepared by the overnight ML-continuation session (operator directive: work
 autonomously, hold NEW Tier-3 decisions for the morning). Everything below is
 evidence + a recommendation; **nothing here has been executed** except where

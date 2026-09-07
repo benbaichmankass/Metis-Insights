@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "manager registers only — docs/claude/work/MANAGER-LEASE.json (a lease heartbeat) and docs/claude/work/SESSIONS.json (one retroactive sub-session registration). No runtime, no order path, no config, no scripts."
+}

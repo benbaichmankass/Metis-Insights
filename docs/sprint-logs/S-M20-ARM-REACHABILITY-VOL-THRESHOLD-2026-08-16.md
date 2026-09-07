@@ -1,5 +1,7 @@
 # Sprint Log: S-M20-ARM-REACHABILITY-VOL-THRESHOLD-2026-08-16
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-08-16 13:35 UTC
 - End: 2026-08-16 15:45 UTC

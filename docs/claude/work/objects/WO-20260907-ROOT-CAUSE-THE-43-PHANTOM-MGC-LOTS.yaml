@@ -1,0 +1,30 @@
+id: WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Root-cause the 43 phantom MGC lots the journal holds and the venue does not
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The 43 lots are traced through signal to order-package to sent-order to IBKR's actual answer to the trades write, with the gap named on evidence. PLUS: whether the same class touches bybit_2 or alpaca_live (both REAL MONEY - this outranks the MGC root cause if yes), and whether any closed-trade PnL was computed off a phantom quantity, over a stated population. No leg cancelled and no journal row edited - Tier-3 proposals only.
+
+why: >-
+  MI-166 pass 1 proved protection is FAITHFUL and the defect is upstream: every resting OCA group matches its journal row to the tick, the journal sums to 54 MGC long, and the venue reports 11. Trade 5531 (ict_scalp_mgc_15m, opened 2026-09-07T08:26Z) claims 43 lots it does not have. Its stop at 4394.5 is the NEAREST, so it fires first and would sell 43 lots against 11 - flipping to a ~32-lot naked SHORT.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

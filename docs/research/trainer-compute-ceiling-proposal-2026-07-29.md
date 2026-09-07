@@ -1,5 +1,7 @@
 # Trainer compute-ceiling relief — free-runner offload first, paid deferred (2026-07-29)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Type:** Tier-1 analysis + implementation (rec #3 of `roadmap-toolbox-assessment-2026-07-29.md`).
 > **Corrected 2026-07-29** after an operator challenge: the original draft led
 > with paid compute; that over-reached. **A free GitHub-hosted runner already has

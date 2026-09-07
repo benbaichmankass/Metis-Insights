@@ -1,5 +1,7 @@
 # Positive control on the M20 exit-lever sweep — the harness DETECTS a planted effect
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **MI-145** · work object [`WO-20260906-POSITIVE-CONTROL-ON-THE-EXIT-SWEEP-320`](../claude/work/objects/WO-20260906-POSITIVE-CONTROL-ON-THE-EXIT-SWEEP-320.yaml) · registry key `pending-20260906T120641Z` · branch `claude/sweep-positive-control-20260906`.
 
 ⚠️ **PROPOSE-ONLY on anything Tier-3.** No `src/`, no `config/`, no exit geometry, no lever declared or flipped. The control writes nothing to the coverage matrix and its cells never enter it.

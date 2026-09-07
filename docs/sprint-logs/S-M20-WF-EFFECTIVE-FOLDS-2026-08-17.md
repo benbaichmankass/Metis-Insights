@@ -1,5 +1,7 @@
 # Sprint Log: S-M20-WF-EFFECTIVE-FOLDS-2026-08-17
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-08-17 (overnight autonomous session, continuing from 2026-08-16)
 - End: 2026-08-17 14:2xZ (operator awake; Tier-3 items handed over, not decided)

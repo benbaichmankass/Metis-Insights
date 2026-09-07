@@ -1,5 +1,7 @@
 # Pre-registration: what the 1d pullback round can support
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Written 2026-08-14 ~21:30 UTC, BEFORE any verdict from the round was seen.**
 Round `pullback_1d_20260814T212317Z` (trainer-diag #9358), covering the last six
 pullback `exit_head_ml` cells never measured at live parity: `gdx` / `gld` /

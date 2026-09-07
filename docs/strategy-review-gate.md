@@ -1,5 +1,7 @@
 # Strategy Review Gate (M7)
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Canonical for M7. Adopted in sprint **S-M7-STRATEGY-REVIEW-GATE** (2026-06-09).
 > **Scope:** the *mechanical* decision gate on top of `/performance-review`.
 > The gate produces one of `{promote, hold, tune, demote_shadow, kill}` per

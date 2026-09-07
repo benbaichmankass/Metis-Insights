@@ -1,5 +1,7 @@
 # Cleanup policy
 
+> **Doc status:** `unknown` · category `instruction` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## Usually safe to delete
 
 - `*.bak`, `*.save`, `*.tmp`, editor swap files.

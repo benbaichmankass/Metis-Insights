@@ -1,5 +1,7 @@
 # The decision-drain Routine — the one hop the repo cannot build
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 This is **step 1 of `docs/design/decision-push-back-DESIGN.md` § 5**, and it is
 the only part of mechanism B that cannot live in this repository: a Routine is
 created from [claude.ai/code/routines](https://claude.ai/code/routines) or with

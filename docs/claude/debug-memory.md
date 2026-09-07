@@ -1,5 +1,7 @@
 # Debug memory
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Use this file for recurring bugs so Claude does not rediscover them.
 
 ## Known patterns

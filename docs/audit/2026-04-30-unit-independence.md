@@ -1,5 +1,7 @@
 # S-016 H4 — Unit-independence check (systemd graph), 2026-04-30
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Scope:** verify that the four production-relevant systemd units run
 independently — i.e. a crash or hang in one doesn't cascade into the
 others. Read-only inspection of `deploy/*.service` + `deploy/*.timer`.

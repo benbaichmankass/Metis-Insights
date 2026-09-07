@@ -1,5 +1,7 @@
 # Scalping through chop — multi-TF range-bounce capital-efficiency study
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-07-15 · **Author:** Claude research session
 (`claude/scalping-chop-strategies-b9n05u`) · **Tier:** 1 (research; no live wiring)
 · **PR:** #6479 · **Data:** trainer VM 3yr 5m (BTC `btc_5m.parquet`, ETH

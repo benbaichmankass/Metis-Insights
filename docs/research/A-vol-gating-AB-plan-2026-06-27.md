@@ -1,5 +1,7 @@
 # Design-A vol-gating A/B — run plan (2026-06-27)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 The harness + the option-2 lever are validated (`docs/research/A-regime-router-ml-vol-verdict-DESIGN-2026-06-27.md`
 § "Evidence BEFORE promotion"). This is the plan for the **full gated A/B** that
 decides whether the ML head's vol verdict beats the frozen-edge detector — the

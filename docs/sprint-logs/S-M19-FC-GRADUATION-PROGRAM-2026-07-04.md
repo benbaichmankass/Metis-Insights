@@ -1,5 +1,7 @@
 # Sprint Log: S-M19-FC-GRADUATION-PROGRAM-2026-07-04
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 2026-07-04 (extended autonomous session, post-T1.2-closeout — the "graduate the
 winner + all-of-above next phases" program).

@@ -1,5 +1,7 @@
 # Env-gate audit (2026-05-10)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 S-067 follow-up #4. **Tier 2 — DRAFT pending operator ack.**
 
 The 2026-05-03 directive (BUG-039) said per-account

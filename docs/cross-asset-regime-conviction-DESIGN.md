@@ -1,5 +1,7 @@
 # Cross-asset regime → conviction `c_reg` lens (DESIGN, 2026-06-18)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status: DESIGN — for operator review before any live-path code.** The probe
 > work (S-CROSS-ASSET-PROBE) is Tier-1 and shipped; THIS doc proposes wiring its
 > validated signal into the live conviction blend, which touches the trader's

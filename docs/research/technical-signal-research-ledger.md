@@ -1,5 +1,7 @@
 # Technical signal-research ledger (M30)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **The compounding record for the technical-side quant-research platform.** Mirrors
 the macro `M28-signal-research-ledger.md`: **every study is a row, and every null
 is a recorded result** — never a silent drop, never retry-until-significant. This

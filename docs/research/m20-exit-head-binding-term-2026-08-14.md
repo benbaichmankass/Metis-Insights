@@ -1,5 +1,7 @@
 # Which gate term actually binds — and the inference it invites, refuted
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-14 · **Tier:** 1 (measurement over committed artifacts; no live
 path, no status flipped, no default changed).
 

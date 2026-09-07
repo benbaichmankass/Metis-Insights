@@ -1,5 +1,7 @@
 # Pre-registration: how the fold-offset dispersion arms will be read
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Written 2026-08-15 ~00:55 UTC, BEFORE any arm reported.** Run
 `dispersion_*` (trainer-diag #9377): the 1d pullback family at
 `--fold-offset` 0/10/20/30/40, block size fixed at 50, same pool, same

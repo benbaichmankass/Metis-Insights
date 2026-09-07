@@ -1,5 +1,7 @@
 # S-047 Branch Status Audit
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Audit date:** 2026-05-20  
 **Sprint:** S-JANITOR-BRANCH-CLEANUP (Sprint 7)  
 **Scope:** All `claude/S-047-*`, `claude/S-049-*`, and closely related spot-margin `claude/` branches. Includes post-sprint follow-ups through the spot-margin sunset (2026-05-10).

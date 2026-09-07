@@ -1,5 +1,7 @@
 # Operating-Model Design — Metis-Insights
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status: AGREED (operator-approved 2026-09-01). Scope: STRUCTURE and FUNCTIONS only.**
 >
 > This document deliberately contains **no artifacts, no file changes, and no build

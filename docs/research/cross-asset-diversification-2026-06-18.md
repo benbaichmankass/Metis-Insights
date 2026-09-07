@@ -1,5 +1,7 @@
 # Cross-asset diversification — Direction-1 robustness pass (2026-06-18)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Continuation of the strategy-expansion initiative banked in
 [`regime-map-step1-results-2026-06-18.md`](regime-map-step1-results-2026-06-18.md)
 (the 10-cell crypto alt book, +409.8R / Sharpe 4.03). **Direction 1:** put the

@@ -1,5 +1,7 @@
 # ict_scalp_5m — Phase-4 regime-gate re-promotion packet (2026-07-20)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** Tier-3 PROPOSAL awaiting explicit operator approval — nothing in
 this packet is applied. Follows the Phase-0 gate verdict
 (`ict_scalp_5m-phase0-findings-2026-07-20.md`) and the operator's 2026-07-20

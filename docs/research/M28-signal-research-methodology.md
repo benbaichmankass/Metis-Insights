@@ -1,5 +1,7 @@
 # M28 — Signal-research methodology for the valuation-snapshot format
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** active work plan (operator-directed 2026-07-23). Owns the *process*
 (the iteration loop + construction backlog) for developing predictive signals in
 the valuation-snapshot schema, not any one sleeve. The top-level program plan —

@@ -1,5 +1,7 @@
 # Deriving E1's `--min-fold-trades` — measured, 2026-08-13
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Operator decision 2026-08-13:** derive the block size from a stated
 statistical target rather than leave it an undefended default, and *accept
 whatever it says, including stricter than 50.*

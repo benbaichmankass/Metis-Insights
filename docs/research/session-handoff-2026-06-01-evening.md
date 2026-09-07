@@ -1,5 +1,7 @@
 # Session handoff — 2026-06-01 (evening — matrix complete, router design awaiting operator review)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Continues** `docs/research/session-handoff-2026-06-01-afternoon.md`. This
 > session drained the remaining two matrix-coverage items
 > (`PERF-20260601-004` and `PERF-20260601-003`); the regime × direction matrix

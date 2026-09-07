@@ -1,5 +1,7 @@
 # Roadmap + Toolbox Assessment — 2026-07-29
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Type:** Tier-1 research/analysis (docs + read-paths only; no live-path change).
 > **Scope:** what we've *attempted*, what we've actually *accomplished*, how well we
 > use our *toolbox*, and what *tools are worth investing in* — judged against the

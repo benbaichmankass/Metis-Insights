@@ -1,5 +1,7 @@
 # M20 — `trend_donchian` trail-decay re-sweep on the converged engine (2026-08-09)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Tier-3 PROPOSAL. Nothing here is merged.** `config/strategies.yaml` is untouched
 by the PR carrying this memo.
 

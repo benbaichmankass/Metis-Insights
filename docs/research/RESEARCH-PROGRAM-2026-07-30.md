@@ -1,5 +1,7 @@
 # Research Program — 2026-07-30
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Type:** Tier-1 research planning. **Supersedes the *plan* half (§3–§4) of
 > [`AUTONOMOUS-WORKPLAN-2026-07-30.md`](AUTONOMOUS-WORKPLAN-2026-07-30.md)**, whose
 > §1 scorecard and §2 blocker diagnosis remain valid and are inputs here.

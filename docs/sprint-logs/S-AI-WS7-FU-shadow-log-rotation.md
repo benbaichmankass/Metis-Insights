@@ -1,5 +1,7 @@
 # S-AI-WS7-FU — Shadow-prediction audit log rotation
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Date:** 2026-05-10
 **Authority:** [`docs/sprint-logs/S-AI-WS7-PART-6.md`](S-AI-WS7-PART-6.md), [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md)
 **Status:** ✅ COMPLETE — script + systemd unit + timer; **disabled by default**.

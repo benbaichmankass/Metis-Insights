@@ -1,5 +1,7 @@
 # GitHub Actions OCI secrets contract
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Audience:** PM, operator, anyone reviewing a workflow that touches OCI.
 **Status:** Adopted 2026-05-11. Five secrets are configured at the repository level. No environment-scoped variant exists yet.
 

@@ -1,5 +1,7 @@
 # WS7 — Advisory influence operator (DESIGN — operator sign-off required)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **UPDATE 2026-06-13 — gate collapse (operator-directed).** The `ADVISORY_MODE`
 > global enable flag has been **removed**. It was a redundant default-off switch
 > stacked on the deployment-stage gate — the "third gate" the Prime Directive

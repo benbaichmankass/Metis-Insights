@@ -1,5 +1,7 @@
 # Sprint Roadmap: Native Android Companion App (M12)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Created:** 2026-05-26
 **Initiative ID:** ANDROID-COMPANION-APP
 **ROADMAP.md milestone:** M12

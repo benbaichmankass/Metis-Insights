@@ -1,5 +1,7 @@
 # P7 — Crypto cross-sectional momentum: 6-coin first pass (2026-06-26)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Verdict: FAILS the gate on 6 coins (indicative, not final).** Raw cross-sectional
 momentum on the available 6-coin universe is essentially dead, BUT the two overlays
 behave exactly as the memo predicted (BTC risk-off gate + the P1 vol-target both add

@@ -1,5 +1,7 @@
 # Bug log
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 A running ledger of bugs found and fixed in this repo, plus the
 architectural concern each one surfaces. Reviewed at the start of every
 planning sprint to spot recurring trouble spots.

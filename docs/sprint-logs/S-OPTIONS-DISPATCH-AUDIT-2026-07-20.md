@@ -1,5 +1,7 @@
 # Sprint Log: S-OPTIONS-DISPATCH-AUDIT-2026-07-20
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-07-20 ~13:40 UTC
 - End: 2026-07-20 ~14:40 UTC

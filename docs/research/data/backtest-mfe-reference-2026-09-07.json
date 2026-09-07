@@ -1,0 +1,76 @@
+{
+  "_doc": [
+    "The ONLY backtest per-leg MFE distribution that exists in this repo, on the",
+    "percent-of-entry basis. It is transcribed from MI-151's published table",
+    "(docs/research/ml2-predictive-bracket-2026-09-06.md § 'The per-leg MFE",
+    "distribution'), which is the artifact of trainer run 34041656868 reported in",
+    "issue #11154.",
+    "",
+    "WHY A TRANSCRIPTION AND NOT THE CORPUS: the 9,814-row corpus was produced on",
+    "the trainer VM and was never committed. A key census over every committed",
+    "corpus in docs/research/ (e35-bracket-corpus.jsonl n=8,520;",
+    "e35-bracket-corpus-history.jsonl n=10,547; m20-sweep-corpus.jsonl n=1,379 --",
+    "20,446 rows total) finds ZERO keys containing 'mfe', 'peak' or 'excurs',",
+    "against a positive control that does return those files' common keys. So the",
+    "quantiles below are the whole of the backtest side that a session can reach",
+    "without a trainer dispatch.",
+    "",
+    "THE FIELD THAT MATTERS MOST HERE IS `timeframe`. Every row is 15m. No live",
+    "leg runs trend_donchian at 15m (config/strategies.yaml: 1h and 4h only), so",
+    "these rows have NO timeframe-matched live counterpart. The consumer",
+    "(scripts/research/exit_location_fidelity.py) refuses to join across",
+    "timeframe rather than reporting a ratio that is a horizon difference wearing",
+    "a fidelity label."
+  ],
+  "basis": "percent_of_entry",
+  "source": {
+    "mark": "MEASURED",
+    "doc": "docs/research/ml2-predictive-bracket-2026-09-06.md",
+    "issue": 11154,
+    "trainer_run_id": "34041656868",
+    "corpus_rows": 9814,
+    "corpus_committed": false,
+    "population": "backtest, trend_donchian 15m only, three symbols; per-leg n stated per row"
+  },
+  "legs": [
+    {
+      "leg": "trend_donchian_BTCUSDT_15m",
+      "symbol": "BTCUSDT",
+      "family": "trend_donchian",
+      "timeframe": "15m",
+      "n": 3194,
+      "p50": 0.0075,
+      "p70": 0.0158,
+      "p80": 0.0236,
+      "p90": 0.0387,
+      "p95": 0.0540,
+      "reached_venue_cap_rate": 0.0066
+    },
+    {
+      "leg": "trend_donchian_ETHUSDT_15m",
+      "symbol": "ETHUSDT",
+      "family": "trend_donchian",
+      "timeframe": "15m",
+      "n": 3238,
+      "p50": 0.0113,
+      "p70": 0.0239,
+      "p80": 0.0351,
+      "p90": 0.0562,
+      "p95": 0.0766,
+      "reached_venue_cap_rate": 0.0275
+    },
+    {
+      "leg": "trend_donchian_ADAUSDT_15m",
+      "symbol": "ADAUSDT",
+      "family": "trend_donchian",
+      "timeframe": "15m",
+      "n": 3382,
+      "p50": 0.0138,
+      "p70": 0.0287,
+      "p80": 0.0419,
+      "p90": 0.0684,
+      "p95": 0.0944,
+      "reached_venue_cap_rate": 0.0458
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # Silent-empty audit — reporting layer (2026-05-10)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 S-067 follow-up #8. Same shape as
 `docs/audits/silent-empty-2026-05-10.md` but scoped to the
 reporting-layer files explicitly deferred from the original audit:

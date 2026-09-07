@@ -1,5 +1,7 @@
 # Hugging Face dataset publishing workflow
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Canonical. Adopted in **S-AI-WS3** (2026-05-10).
 >
 > **Scope:** This doc describes the *workflow*. It does NOT add a

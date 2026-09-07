@@ -1,5 +1,7 @@
 # § 5 — Entrypoint reconciliation
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Every script, unit, or `__main__` that claims to start the bot, with
 canonical-vs-stale verdict.
 

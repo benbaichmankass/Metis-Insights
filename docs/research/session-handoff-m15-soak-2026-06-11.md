@@ -1,5 +1,7 @@
 # Session Handoff — M15 Soak + Next Evidence Sweeps (2026-06-11)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Written at the close of the M15 build-out session (memo PR #3273 →
 > go-live PRs #3336–#3340). The practice fleet is LIVE; this doc is the
 > kickoff brief for the follow-up session. Read

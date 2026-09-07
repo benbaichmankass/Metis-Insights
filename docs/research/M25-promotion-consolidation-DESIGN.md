@@ -1,5 +1,7 @@
 # M25 — ML Promotion & Consolidation (harvest the maturing soaks)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** 📋 PROPOSED 2026-07-17 (design of record). The *evidence-gathering*
 > (RG4 readiness eval, promotion-readiness memos, tooling fixes) is **Tier-1** and
 > autonomous. The **shadow→advisory promotion itself is Tier-3** — the live-trading

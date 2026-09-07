@@ -1,5 +1,7 @@
 # Sprint S-067 — Silent-empty error path audit & hardening
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > **Date filed:** 2026-05-10
 > **Trigger:** 24h trade-performance review on 2026-05-10
 > ([branch `claude/analyze-trading-performance-Xbjbg`](https://github.com/benbaichmankass/ict-trading-bot/tree/claude/analyze-trading-performance-Xbjbg)).

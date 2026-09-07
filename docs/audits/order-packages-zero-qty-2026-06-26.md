@@ -1,5 +1,7 @@
 # Investigation — order packages "sizing to target_qty=0" (no_fill / reconciler artifact)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-06-26
 **Trigger:** system-report `RPT-20260626-060200-since-last` flagged 10 in-window
 order packages with `aggregated_target_qty: 0` + `sized_qty_by_account: {}`.

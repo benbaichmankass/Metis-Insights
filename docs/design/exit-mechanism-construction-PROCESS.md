@@ -1,5 +1,7 @@
 # How to build an exit MECHANISM (not another lever)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** process proposal, 2026-08-19. Written after ~20 lever cells across the
 pullback family produced zero shippable results, and the operator pushed back on the
 framing rather than the results:

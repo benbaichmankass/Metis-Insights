@@ -1,5 +1,7 @@
 # E2 — does anything in the widened panel carry information about forward R?
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-20 · **Step:** E2 of
 [`../design/exit-mechanism-construction-PROCESS.md`](../design/exit-mechanism-construction-PROCESS.md)
 · **Tool:** [`scripts/research/e2_feature_information.py`](../../scripts/research/e2_feature_information.py)

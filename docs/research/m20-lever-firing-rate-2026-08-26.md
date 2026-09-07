@@ -1,5 +1,7 @@
 # B2 — "the M20 levers fire 1.3%": correct-and-rare, and the framing is wrong twice
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Answer: NOT a wiring gap. The levers fire rarely because almost nothing
 declares them** — 4 of 52 enabled legs — and two of the four lever families are
 declared by **nobody**. The mechanism works; adoption is the variable.

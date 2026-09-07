@@ -1,5 +1,7 @@
 # Sprint S-012 — Production Wiring Audit & Full Live Activation
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > Finalized in PR F5 alongside the closing CHECKPOINT_LOG.md entry.
 >
 > **Sprint type:** All-night, slow-and-thorough audit + remediation.

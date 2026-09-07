@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Measurement only: a new research doc, a new audit script under scripts/research/, its tests, and one DOCUMENT-INDEX row. No src/, no config/, no order path, no strategy param, no risk lever, no workflow. The two Tier-3 changes this work identifies are PROPOSED in the document and deliberately not applied."
+}

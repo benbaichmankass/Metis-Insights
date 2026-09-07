@@ -1,5 +1,7 @@
 # Full-System Audit — 2026-08-04
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Program doc (the shared brain) per `.claude/skills/full-system-audit/SKILL.md`.
 > Session `system-review-audit-krgr52`, branch `claude/system-review-audit-krgr52`.
 > **Predecessor:** `full-system-audit-2026-07-31.md` (4 days prior). This is a

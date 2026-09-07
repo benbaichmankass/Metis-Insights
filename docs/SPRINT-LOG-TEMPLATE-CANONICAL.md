@@ -1,5 +1,7 @@
 # Sprint Log Template — Canonical (v2)
 
+> **Doc status:** `unknown` · category `instruction` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Canonical. Adopted in sprint **S-CANON-1** (2026-05-10).
 > **Use for every sprint going forward.** Older sprint summaries under
 > `docs/sprint-summaries/` and older plans under `docs/sprint-plans/`

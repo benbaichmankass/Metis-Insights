@@ -1,5 +1,7 @@
 # Sprint Log: S-FLIP-OVERRIDE-DISARM-2026-08-11
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-08-11 ~17:20Z
 - End: 2026-08-12 (session continued overnight at operator direction — see

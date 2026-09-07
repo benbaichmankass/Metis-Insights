@@ -1,5 +1,7 @@
 # Sprint Log: S-IB-NATIVE-FUTURES-RESEARCH-2026-07-07
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 2026-07-07 (single session, continued across context windows).
 

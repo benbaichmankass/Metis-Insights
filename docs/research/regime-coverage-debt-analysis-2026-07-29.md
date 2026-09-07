@@ -1,5 +1,7 @@
 # Regime-coverage debt — analysis + evidence-generation plan (2026-07-29)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Type:** Tier-1 research/analysis (the autonomous-analysis half of rec #5 in
 > `docs/research/roadmap-toolbox-assessment-2026-07-29.md`). It produces the
 > **plan + rule** for paying down `BL-20260717-REGIME-COVERAGE-DEBT`; the actual

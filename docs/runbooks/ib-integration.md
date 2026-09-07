@@ -1,5 +1,7 @@
 # Runbook — Interactive Brokers (MES) integration
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status: LIVE for MES paper trading (2026-05-22).** Wired 2026-05-21,
 taken live 2026-05-22. Connects the trader to Interactive Brokers via the
 TWS API (`ib_insync`) for **MES** (Micro E-mini S&P 500) futures on CME.

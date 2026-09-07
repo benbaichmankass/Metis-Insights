@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-05T08:45:00Z",
+  "as_of": "2026-09-07T21:40:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -63,58 +63,166 @@
       "blocker": "⚠️ RE-MEASURED 2026-09-04. The MI-106 half is FIXED on claude/mi106-manager-scope-authorship: check_manager_scope now grades 5504200c `unattributed` rather than an R2 violation, because MANAGER-LEASE.json's own history places session_011JWFxuYAaEQKCFCmG6gnHJ out of office at the commit's 06:13:07Z author time. ⚠️ THIS PR IS STILL RED, ON A SECOND AND DIFFERENT DEFECT that was masked behind the first: R7 fails 5244dafb for '223 minutes since this manager's previous heartbeat', a number produced by reading the previous heartbeat from `sha~1` — on a merge commit, the WORKER branch's stale lease blob. The register reachable from that commit shows same-holder heartbeats at 08:32:50Z and 09:21:42Z: a 49-minute gap, inside the TTL. Filed as BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE. ⚠️ The standing DO-NOTs are unchanged and still correct: no manager-scope exception (this is not a live incident), no rewriting another session's commit, no merging past a failing required check."
     },
     {
-      "pr": 11105,
-      "opened_at": "2026-09-06T09:43Z",
-      "title": "1C: written disposition of the three live alarms — and a named order-path defect on the Bybit close",
-      "owner_session": "session_01RHuSYKu1r1ZErc65KLKV8t (author) / opened by manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "MI-137-THREE-LIVE-ALARMS",
+      "pr": 11174,
+      "opened_at": "2026-09-06T19:09:58Z",
+      "title": "record today's recurrence of the reconcile-PR disposition deadlock",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-QUEUE-HYGIENE",
       "draft": false,
-      "tier": "2",
-      "state": "operator_approved_but_BLOCKED_on_manager_scope_R2_needs_clean_reland",
+      "tier": "1",
+      "state": "open_unreviewed",
       "operator_decision": {
-        "verdict": "approved",
+        "verdict": "none_recorded",
         "condition": null,
-        "scope": "automation/jobs/1c-live-alarms-state-01.job — the vm-driver read-only diag capture that took this PR to Tier-2",
-        "decided_on": "2026-09-06",
-        "text": "Operator, in conversation 2026-09-06: 'you have my ok on 11105'. Given in direct reply to the manager's ask, which named the job file and stated it executes bash over SSH on the live money VM and is read-only by construction. NO condition was attached and none is invented here."
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 — a backlog record, no code."
       },
-      "blocker": "⚠️ THE APPROVAL DOES NOT LAND IT, and reading it as 'approved therefore mergeable' is the trap. The Tier-2 gate is DISCHARGED; a SEPARATE and unrelated blocker stands: manager-scope-guard R2 fails this branch on TWO manager commits (a43ca75d and its own revert 89adb920), because the manager edited the author session's disposition doc. R2 grades COMMITS IN THE RANGE, not the net diff, and a43ca75d is an ancestor of the tip (verified: git merge-base --is-ancestor succeeds), so no later commit can clear it and REVERTING TOOK THE COUNT FROM 1 TO 2. Recurrence of the shape that killed #11031 on 2026-09-05; filed as BL-20260906-A-MANAGER-COMMIT-ON-A-WORKER-BRANCH-MAKES-THAT-BRANCH-PERMANENTLY-UNMERGEABLE-RECURRENCE. ⚠️ DO NOT merge past the failing required check, do not spend manager-scope-exception.yaml (it is for live INCIDENTS), and do not cherry-pick the author's commits to launder the trailer (the guard names that as an open evasion). The route is a CLEAN RE-LAND on a branch carrying only the author's commits, plus the population fix whose exact wording is recorded in the PR thread."
+      "blocker": "Not blocked on a decision. Carried open across several manager ticks because the merge queue kept prioritising research deliverables; it is the record of the very deadlock the four auto-reconcile PRs closed at 08:32Z on 2026-09-07 are instances of."
     },
     {
-      "pr": 11140,
-      "opened_at": "2026-09-06T13:57:05Z",
-      "title": "MI-150: ship the M20 exit-head consumer into ict_scalp (annotate-only, disarmed)",
-      "owner_session": "opened by manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "MI-150-ICT-SCALP-EXIT-HEAD",
+      "pr": 11260,
+      "opened_at": "2026-09-07T16:16:15Z",
+      "title": "close MI-162 — census verified on main",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-162-DOCUMENT-LIBRARY-POPULATION",
       "draft": false,
-      "tier": "3",
-      "state": "operator_approved_with_conditions_HELD_on_MI-153",
+      "tier": "1",
+      "state": "superseded_close_not_merge",
       "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "TWO conditions, both given in the same reply and neither optional. (1) ict_scalp_sol_5m is EXCLUDED from the armed set - its pass does not survive re-partitioning (the 4-arm screen flips it to honest_negative when folds are cut 12 trades later) and its AUC spread across arms, 0.0034, was the SMALLEST of the three legs, so AUC gave no warning. (2) The merge is HELD until the figure discrepancy between the MI-146 audit table and docs/research/exit-refinement-coverage.json is RESOLVED - operator chose 'Resolve before arming' over 'arm now, reconcile in parallel'. Tracked as MI-153.",
-        "scope": "ICT_SCALP_EXIT_HEAD_MODE armed for the ict_scalp legs EXCEPT ict_scalp_sol_5m, and only after MI-153 settles which figures are current. The operator ALSO directed that a 5m/15m scalp exit-head artifact be queued as its own lane (MI-154), because arming is inert without one.",
-        "decided_on": "2026-09-06",
-        "text": "Operator, in conversation 2026-09-06: 'you can arm it, give me any decisions as popups.' Put back as three popups naming what arming would and would not do. Answers: arm scope = 'Arm + queue the artifact'; sol_5m = 'Exclude sol_5m'; figures = 'Resolve before arming'. The third answer is what makes this HELD rather than mergeable - do not read the first answer alone as clearance to merge."
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 register maintenance."
       },
-      "blocker": "⚠️ APPROVED IS NOT MERGEABLE HERE, and the trap is reading the 'Arm + queue the artifact' answer on its own. The operator's THIRD answer gates the merge on MI-153. ⚠️ AND ARMING IS INERT TODAY, which is why the artifact lane exists: verified this session against /api/diag/shadow_stats with a positive control (32 models visible; the probe demonstrably finds both exit-head ids), the ONLY published exit-head artifacts are exit-head-donchian-1h-v1 (advisory) and exit-head-donchian-peak-1h-v1 (shadow) - both 1h, both donchian - while all eight ict_scalp legs are 5m/15m. The in-distribution guard fail-closes on every one, so a merge today would record decision_state: not_scored on all of them and change no live behaviour. That is the 'armed is not exercised' class; do not later read a quiet soak as evidence the head works. ⚠️ The 2026-08-23 SHIP BLOCKED operator decision is stamped on every candidate cell in the matrix ('re-graded passed_unshipped -> blocked', 'STATUS UNCHANGED (a status change is Tier-3)'). This approval supersedes it for the non-sol_5m legs ONLY, and the matrix status edit is itself Tier-3 - it is not carried by this row."
+      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml."
     },
     {
-      "pr": 11125,
-      "opened_at": "2026-09-06T11:20:00Z",
-      "title": "fix(orders): a Bybit reduce-only close is no longer refused on a float artifact — MI-139",
-      "owner_session": "session_017UnyG4ArXmXKpB8rmEGv1j",
-      "checklist_item": "MI-139b",
-      "draft": true,
-      "tier": "3",
-      "state": "awaiting_manager_merge",
+      "pr": 11261,
+      "opened_at": "2026-09-07T16:39:01Z",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "owner_session": "automation",
+      "checklist_item": "MI-AUTO-DIGEST",
+      "draft": false,
+      "tier": "1",
+      "state": "auto_generated",
       "operator_decision": {
-        "verdict": "approved",
+        "verdict": "none_recorded",
         "condition": null,
-        "scope": "Both parts as specified in PR #11112: (1) round(parent_qty - consumed, 8) in execute.apply_intent_reduce_partial_close, and (2) qty_legalize.snap_artifact_qty wired into close_open_position's bybit branch, snapping to NEAREST rather than flooring. The Bybit CLOSE path only — explicitly NOT the sibling protective paths (execute.py:2578,2580 slSize/tpSize; order_monitor.py:9967 uncovered), which are filed as BL-20260906-TWO-BYBIT-PROTECTIVE-LEG-PATHS-SEND-AN-UNQUANTISED-STRFLOAT-QTY instead.",
-        "decided_on": "2026-09-06",
-        "text": "Operator, in conversation, 2026-09-06, answering a question that named both parts, the 1.43% incidence (9 of 631 bybit_* non-backtest rows over trades ids 4519-5518) including a real-money row on bybit_2, and the warning that the naive floor-based fix is actively harmful because flooring a CLOSE under-closes by a full step and orphans the residue with no journal row. Verdict: approved. No condition attached. ⚠️ THE APPROVAL IS TO BUILD AND LAND THE CHANGE THROUGH REVIEW, NOT FOR THE AUTHORING SESSION TO SELF-MERGE AN ORDER-PATH DIFF — the dispatch said so explicitly ('Open the PR as a draft, get CI green, and do not merge it yourself — report back and I will route the merge'). Those are different permissions and collapsing them is the failure this field exists to prevent."
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Machine-generated digest."
       },
-      "blocker": "NOT BLOCKED ON A DEFECT — blocked on the manager routing the merge, by design. The PR is a DRAFT and .github/pr-landing/bybit-close-qty-apply-20260906.json declares tier 3 / landing hold, so claude-pr-automerge cannot land it and would be refused against a draft anyway. ⚠️ DO-NOTs for whoever picks this up: (1) do NOT widen it to the two sibling protective paths — no observed failure there, and a rejection on a protective tightening fails SILENTLY, so it needs its own evidence; (2) do NOT 'harmonise' snap_artifact_qty with legalize_qty's ROUND_DOWN — flooring a CLOSE is risk-INCREASING and orphans a step of dust with no journal row (tests/test_bybit_close_qty_artifact.py::test_snap_never_floors_any_artifact fails if anyone tries); (3) do NOT re-quote PR #11112's first-pass figure of '82 off-grid rows (13.00%)' — it is WRONG, an artifact of the bad XRPUSDT step, and the real figure is 9 of 631 = 1.43%; (4) AVAXUSDT's qty_step is CORRECT at 0.1 (venue-measured) — #11112 section 8b suspected it and was wrong, its sub-step journal rows all carry status='rejected'. Nothing is currently unflattenable (0 of 29 open rows, read 2026-09-06 ~10:12Z), so this is not urgent."
+      "blocker": "Not blocked. Auto-generated; carried here only so `completeness` is honest rather than silently short."
+    },
+    {
+      "pr": 11271,
+      "opened_at": "2026-09-07T18:19:51Z",
+      "title": "MI-140 (T-7): alpaca_live is not failing to place orders",
+      "owner_session": "session_01L4nzHTVNNdCxkpFxMqXB6V",
+      "checklist_item": "MI-140-ALPACA-LIVE-CANNOT-PLACE",
+      "draft": false,
+      "tier": "1",
+      "state": "green_in_queue",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 — a verdict document, no code, no config."
+      },
+      "blocker": "Not blocked. Was blocked ~80 minutes on a GitHub App 403 for PR creation, cleared by the manager via the pr-opener relay. ⚠️ ITS VERDICT IS COUPLED TO MI-170 IN THE DANGEROUS DIRECTION: alpaca_live is immune to the close-confirmation defects only because it cannot place an order, so acting on this verdict ARMS them."
+    },
+    {
+      "pr": 11273,
+      "opened_at": "2026-09-07T18:53:51Z",
+      "title": "dispatch MI-167 — root-cause the 43 phantom MGC lots",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-167-PHANTOM-MGC-LOTS",
+      "draft": false,
+      "tier": "1",
+      "state": "superseded_close_not_merge",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 dispatch record."
+      },
+      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml."
+    },
+    {
+      "pr": 11277,
+      "opened_at": "2026-09-07T19:29:37Z",
+      "title": "record the operator's two MGC decisions + the MI-140 coupling",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-169-MGC-REMEDIATION",
+      "draft": false,
+      "tier": "1",
+      "state": "superseded_close_not_merge",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 — it RECORDS two operator decisions (cancel-then-repair; dispatch the root cause coupled to MI-140) rather than taking one."
+      },
+      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml."
+    },
+    {
+      "pr": 11279,
+      "opened_at": "2026-09-07T19:51:13Z",
+      "title": "MI-168: propose a TRADE-scoped close confirmation (Tier-3, HELD — coupled to MI-140)",
+      "owner_session": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "checklist_item": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
+      "draft": false,
+      "tier": "3",
+      "state": "held_awaiting_operator_decision",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. TWO decisions are owed and they are different questions: (1) approve or reject re-scoping the close confirmation from SYMBOL to TRADE; (2) name the IB_CLOSE_CONFIRM partial-fill default — strict is what shipped, the alternative is confirm-on-reduction, and they differ in what happens to the leftover lots' protection."
+      },
+      "blocker": "⚠️ THE SESSION REPORTS THIS PR IS NOT SUFFICIENT ALONE. While preparing it, it found the OPPOSITE-SIGN twin of MI-167 on Alpaca — a false-SUCCESS in which closing one trade liquidates its SIBLINGS — and filed BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. That is on alpaca_live, REAL MONEY, inert only because MI-140 measured that account as unable to place an order. Filed as MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS. NOT VERIFIED BY THE MANAGER — this is the session's report."
+    },
+    {
+      "pr": 11280,
+      "opened_at": "2026-09-07T20:27:23Z",
+      "title": "manager-lease: RE-CLAIM after a LAPSE at 19:56:51Z + the operator's steer",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-MANAGER-LEASE",
+      "draft": false,
+      "tier": "1",
+      "state": "superseded_close_not_merge",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 lease + register."
+      },
+      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml."
+    },
+    {
+      "pr": 11281,
+      "opened_at": "2026-09-07T20:46:35Z",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "owner_session": "automation",
+      "checklist_item": "MI-AUTO-DIGEST",
+      "draft": false,
+      "tier": "1",
+      "state": "auto_generated",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Machine-generated digest."
+      },
+      "blocker": "Not blocked. Auto-generated; supersedes #11261 in content."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1096,10 +1204,235 @@
       "settled_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
       "disposition": "superseded — the work LANDED by another route and nothing is lost. VERIFIED against main rather than assumed: scripts/ci/check_decision_answers.py EXISTS on main AND is registered in run_guards.py, and WO-20260902-DECISION-LOCAL-LLM-WEIGHT.yaml now carries a readable nested answer (chosen: none_of_the_above, with free_text). Those are the two deliverables the PR body claims, so the close cost nothing.",
       "disposition_basis": "RECORDED LATE, 2026-09-05T12:35Z, by a manager that did not close it, and the lateness is the finding. This PR had NO ROW IN THIS FILE AT ALL — not open, not settled — so the register was silent about a closed-unmerged PR carrying 366 additions across 8 files, including the fix for why the operator was asked the same question twice. It did NOT jam the reconciler (that only moves rows that exist), which is precisely why it went unnoticed: the completeness gap is invisible where the deadlock is loud. Found by querying `is:closed is:unmerged` against GitHub rather than by reading this file, which could not have shown it."
+    },
+    {
+      "pr": 11105,
+      "opened_at": "2026-09-06T09:43Z",
+      "title": "1C: written disposition of the three live alarms — and a named order-path defect on the Bybit close",
+      "owner_session": "session_01RHuSYKu1r1ZErc65KLKV8t (author) / opened by manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-137-THREE-LIVE-ALARMS",
+      "draft": false,
+      "tier": "2",
+      "state": "settled",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": "automation/jobs/1c-live-alarms-state-01.job — the vm-driver read-only diag capture that took this PR to Tier-2",
+        "decided_on": "2026-09-06",
+        "text": "Operator, in conversation 2026-09-06: 'you have my ok on 11105'. Given in direct reply to the manager's ask, which named the job file and stated it executes bash over SSH on the live money VM and is read-only by construction. NO condition was attached and none is invented here."
+      },
+      "terminal": "closed_unmerged",
+      "closed_at": "2026-09-06T10:22:01Z",
+      "settled_at": "2026-09-07T08:40:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "disposition": "superseded — un-greenable, and the work LANDED by another route. The branch carried a manager commit touching a worker path, which check_manager_scope grades per COMMIT IN RANGE, so no later commit could clear it; a re-land session re-applied the same disposition doc on a clean branch and that merged. Nothing is lost."
+    },
+    {
+      "pr": 11140,
+      "opened_at": "2026-09-06T13:57:05Z",
+      "title": "MI-150: ship the M20 exit-head consumer into ict_scalp (annotate-only, disarmed)",
+      "owner_session": "opened by manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-150-ICT-SCALP-EXIT-HEAD",
+      "draft": false,
+      "tier": "3",
+      "state": "settled",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "TWO conditions, both given in the same reply and neither optional. (1) ict_scalp_sol_5m is EXCLUDED from the armed set - its pass does not survive re-partitioning (the 4-arm screen flips it to honest_negative when folds are cut 12 trades later) and its AUC spread across arms, 0.0034, was the SMALLEST of the three legs, so AUC gave no warning. (2) The merge is HELD until the figure discrepancy between the MI-146 audit table and docs/research/exit-refinement-coverage.json is RESOLVED - operator chose 'Resolve before arming' over 'arm now, reconcile in parallel'. Tracked as MI-153.",
+        "scope": "ICT_SCALP_EXIT_HEAD_MODE armed for the ict_scalp legs EXCEPT ict_scalp_sol_5m, and only after MI-153 settles which figures are current. The operator ALSO directed that a 5m/15m scalp exit-head artifact be queued as its own lane (MI-154), because arming is inert without one.",
+        "decided_on": "2026-09-06",
+        "text": "Operator, in conversation 2026-09-06: 'you can arm it, give me any decisions as popups.' Put back as three popups naming what arming would and would not do. Answers: arm scope = 'Arm + queue the artifact'; sol_5m = 'Exclude sol_5m'; figures = 'Resolve before arming'. The third answer is what makes this HELD rather than mergeable - do not read the first answer alone as clearance to merge."
+      },
+      "also_recorded_by_owner_session": {
+        "session": "session_01Lr1TDaQz2APJyYafBnsZen",
+        "note": "The PR author session recorded its own row for #11140 with verdict `approved` and the condition 'APPROVAL IS FOR THE CONSUMER, NOT FOR ARMING THE LEVER'. Both rows are kept reconciled here rather than one overwriting the other: the manager's typed record above is authoritative because it captures the operator's three popup answers verbatim, and the author's framing is preserved because it names the same consumer/arming split that MI-153 § 6 then independently endorsed. They do not conflict — they were written at 14:20Z and 18:45Z about different halves of the same decision.",
+        "author_condition": "APPROVAL IS FOR THE CONSUMER, NOT FOR ARMING THE LEVER — the two are different decisions and only the first was taken. The PR must land `annotate`-only: ICT_SCALP_EXIT_HEAD_MODE defaults to `annotate` and NO leg may declare `exit_head_action`. ⚠️ AND A SEPARATE, EARLIER OPERATOR DECISION BLOCKS THE ARMING: 2026-08-23 `SHIP BLOCKED` in all five candidate cells of docs/research/exit-refinement-coverage.json, which CANCELLED the queued Tier-3 ship and named 'a consumer exists in the ict_scalp unit' as its own precondition. This PR satisfies that precondition and nothing else. Arming additionally needs evidence that survives re-partitioning: for ict_scalp_sol_5m the 4-arm screen flips the pass to honest_negative (BL-20260815-SCALP-EXIT-HEAD-MATRIX-DISAGREES-WITH-THE-4-ARM-SCREEN) and its live-parity beats_hard 16/23 clears by 2 points of 46. Ship 3 legs' worth of WIRING; exclude ict_scalp_5m (BTC) as UNMEASURED and ict_scalp_eth_15m as a measured negative, encoded as DIFFERENT statuses."
+      },
+      "terminal": "merged",
+      "closed_at": "2026-09-07T05:25:15Z",
+      "settled_at": "2026-09-07T08:40:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "disposition": "merged — MI-150, the M20 exit-head consumer in ict_scalp, annotate-only and DISARMED. Tier-3 matrix status change, operator-approved in conversation ('ok on 11140')."
+    },
+    {
+      "pr": 11125,
+      "opened_at": "2026-09-06T11:20:00Z",
+      "title": "fix(orders): a Bybit reduce-only close is no longer refused on a float artifact — MI-139",
+      "owner_session": "session_017UnyG4ArXmXKpB8rmEGv1j",
+      "checklist_item": "MI-139b",
+      "draft": true,
+      "tier": "3",
+      "state": "settled",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": "Both parts as specified in PR #11112: (1) round(parent_qty - consumed, 8) in execute.apply_intent_reduce_partial_close, and (2) qty_legalize.snap_artifact_qty wired into close_open_position's bybit branch, snapping to NEAREST rather than flooring. The Bybit CLOSE path only — explicitly NOT the sibling protective paths (execute.py:2578,2580 slSize/tpSize; order_monitor.py:9967 uncovered), which are filed as BL-20260906-TWO-BYBIT-PROTECTIVE-LEG-PATHS-SEND-AN-UNQUANTISED-STRFLOAT-QTY instead.",
+        "decided_on": "2026-09-06",
+        "text": "Operator, in conversation, 2026-09-06, answering a question that named both parts, the 1.43% incidence (9 of 631 bybit_* non-backtest rows over trades ids 4519-5518) including a real-money row on bybit_2, and the warning that the naive floor-based fix is actively harmful because flooring a CLOSE under-closes by a full step and orphans the residue with no journal row. Verdict: approved. No condition attached. ⚠️ THE APPROVAL IS TO BUILD AND LAND THE CHANGE THROUGH REVIEW, NOT FOR THE AUTHORING SESSION TO SELF-MERGE AN ORDER-PATH DIFF — the dispatch said so explicitly ('Open the PR as a draft, get CI green, and do not merge it yourself — report back and I will route the merge'). Those are different permissions and collapsing them is the failure this field exists to prevent."
+      },
+      "terminal": "merged",
+      "closed_at": "2026-09-06T18:43:22Z",
+      "settled_at": "2026-09-07T08:40:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "disposition": "merged — MI-139b, Tier-3 Bybit reduce-only close qty quantisation, operator-approved. Close-out recorded in #11173."
+    },
+    {
+      "pr": 11121,
+      "opened_at": "2026-09-06T11:06:53Z",
+      "title": "fix(bybit_2): demote ict_scalp_5m from real money, keep both paper books trading it",
+      "owner_session": "session_01X3kyzCfUdFVimATxZFE8nd",
+      "checklist_item": "MI-143b",
+      "draft": true,
+      "tier": "3",
+      "state": "settled",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "The original approval was scoped 'bybit_2 only'. The demote could not land within that literal scope: tests/test_paper_portfolio_accounts.py::test_bybit_portfolio_mirrors_bybit_2_exactly (ROSTER-SYNC) pins bybit_portfolio's roster to bybit_2's, so removing the leg from one requires removing it from the other. Put to the operator 2026-09-06 as a three-way choice (accept the second account / except the test / hold pending the numbers). Operator chose ACCEPT THE SECOND ACCOUNT.",
+        "scope": "ict_scalp_5m removed from bybit_2 (REAL MONEY) and from bybit_portfolio (PAPER). bybit_1, the full-roster soak book, KEEPS the leg at execution: live and is where evidence continues to accrue. config/strategies.yaml is untouched - the leg keeps execution: live.",
+        "decided_on": "2026-09-06",
+        "text": "Operator selected 'Accept the second account' 2026-09-06, on a question that named the widening explicitly, named the invariant forcing it, and offered excepting the test as the alternative. The test was NOT weakened: it has exactly one sanctioned divergence (alpaca_portfolio's proxies) and no second exception was added."
+      },
+      "notes": "SUPERSEDES #11115 (claude/ict-scalp-5m-shadow-20260906), CLOSED unmerged -- same finding, wrong lever; its analysis is preserved here (verdict doc carried across, backlog row re-filed). RATCHET: docs/research/exit-refinement-coverage.json _unstamped_ceiling STAYS 229 and must not be moved to #11115's 220. MEASURED: live_cells=396 unstamped=229 ceiling=229 on origin/main ca73d00e AND unchanged after this PR's edit, because cells(live_only=True) filters on the matrix row's own `execution` field and this PR changes no execution field. #11115's 220 was correct for ITS lever (dropping the leg's 9 cells: 396-387=9=229-220). Positive control in the same run: _funding_by_leg() DID flip ict_scalp_5m real_money->paper while trend_donchian held real_money, so the non-movement is a measured negative, not a dead probe. Also deliberately did NOT carry #11115's strategy-coverage-matrix.md edit -- that file is one row per `execution: live` strategy and the leg is still live. GRADING AFTER DEPLOY: order packages and paper fills for ict_scalp_5m WILL keep appearing; that is the change working. Check trades rows carrying BOTH strategy_name='ict_scalp_5m' AND account_id='bybit_2', and grade it against a positive control -- the leg was quiet on ALL THREE accounts for ~2 days before this PR (latest row everywhere 2026-09-04T08:37), so a bare 'zero bybit_2 rows' check would pass having measured nothing. Watched by OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP. ⚠️ CI CAUGHT A MISSED CONSEQUENCE: bybit_portfolio must follow bybit_2 (ROSTER-SYNC, enforced by tests/test_paper_portfolio_accounts.py). The earlier claim that 'both paper books keep trading it' was FALSE and is corrected everywhere; only bybit_1 keeps it.",
+      "terminal": "merged",
+      "closed_at": "2026-09-06T21:27:22Z",
+      "settled_at": "2026-09-07T08:40:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "disposition": "merged — ict_scalp_5m demoted off real-money bybit_2, kept on the soak book. Operator approved the widening to bybit_portfolio that the ROSTER-SYNC invariant forced."
+    },
+    {
+      "pr": 11150,
+      "opened_at": "2026-09-06T15:00:00Z",
+      "title": "MI-151: ML-2, the predictive bracket — the corpus, the model, and the calibration read",
+      "owner_session": "session_01Adzvjpv8SZQouoBjwMJ4qv",
+      "checklist_item": "MI-151",
+      "draft": true,
+      "tier": "3 (subject matter) / 1 (diff)",
+      "state": "settled",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": "PROPOSE, DO NOT APPLY. No config/strategies.yaml, no live target values, no arming. Open as a draft; the operator routes the merge.",
+        "scope": "MI-146 recommendation #3 — build ML-2; propose, do not apply",
+        "decided_on": "2026-09-06",
+        "text": "Operator asked directly what to do about the 25 targetless legs and answered: \"Build ML-2, the predictive bracket\". Framing given as the spec: \"the brackets need to be the prediction of where we think the price is gonna go... if we see that we're getting close to the take profit but the momentum is still strong, then we can adjust that during the trade. But there shouldn't be, like, an endless bracket.\" Relayed to this session in its dispatch brief, which also states: \"Tier-3: PROPOSE, do not apply\" and \"Open as a draft. I route the merge.\""
+      },
+      "terminal": "merged",
+      "closed_at": "2026-09-07T00:26:28Z",
+      "settled_at": "2026-09-07T08:40:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "disposition": "merged — MI-151, ML-2 built, run and REFUTED against the tp_r-equivalent baseline: calibration passes, sharpness fails 0 of 5 quantiles."
+    },
+    {
+      "pr": 11222,
+      "opened_at": "2026-09-07T08:31:23Z",
+      "title": "manager-lease: heartbeat 2026-09-07T08:29:18Z + register the one genuinely unregistered sub-session",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "manager-base-duty",
+      "draft": false,
+      "tier": "1",
+      "state": "open_ci_running",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 — manager registers only (MANAGER-LEASE.json, SESSIONS.json). Auto-merge armed; merges on green."
+      },
+      "terminal": "merged",
+      "merge_sha": "20d7928eb1a5a7675752fdb0af9b91aba0a7082a",
+      "observed_at": "2026-09-07T09:34:53Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 11226,
+      "opened_at": "2026-09-07T09:40:00Z",
+      "title": "MI-157: the committed candle fixtures are flat — repair the instrument",
+      "owner_session": "session_01MLKjDPG9n1MHBByYEAEgjc",
+      "checklist_item": "MI-157",
+      "draft": false,
+      "tier": "1",
+      "state": "open_ready_held_awaiting_one_line_review",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": "",
+        "scope": "",
+        "decided_on": "",
+        "text": "NO OPERATOR DECISION HAS BEEN SOUGHT OR GIVEN — hence `none_recorded`, chosen from the closed vocabulary rather than invented. (This row first said `not_yet_sought`; open_pr_record.py --strict correctly refused it as ungradeable, which is the closed-vocabulary discipline doing its job.) Recorded explicitly rather than left blank because CLAUDE.md is emphatic that a row carrying a verdict without its condition is WORSE than a missing row — it reads as complete. WHAT IS TRUE: the MI-157 dispatch came from the MANAGER session, not the operator, and instructed Tier-1 self-landing. This session declined to self-land; the reason is in .github/pr-landing/mi-157-flat-candle-fixtures.json — pr-landing-guard R5 will not certify data/ohlcv/*.csv or bin/backtest_ict.py, and widening TIER1_SURFACE inside the PR it would let through is the 'guard cheaper to lie to than to satisfy' antipattern, especially for data/**, where a committed corpus IS the instrument every backtest is graded against. So the PR is HELD by its landing declaration and needs one line of review. WHAT A REVIEWER IS ASKED TO CONFIRM: that deleting five constant-price candle fixtures, and making both research candle readers refuse a degenerate series, is the intended repair."
+      },
+      "notes": "Tier-1 diff and Tier-1 subject matter: test fixtures, a CI guard, tests, and two research-only candle read paths. No config/, no src/runtime/, no order path, no strategy params, no risk caps. NO STRATEGY BACKTEST WAS RUN OR RE-INTERPRETED — this repairs the instrument and deliberately draws no verdict from it. Census: 7 committed candle files checked, 5 flat (all under data/ohlcv/, 300 rows and 1 distinct close each), 2 real. Closes BL-20260820-PLACEHOLDER-CANDLE-FIXTURES-CARRY-NO-MARKER, whose done_condition is met. ⚠️ CI ARMING: the PR was opened via pr-opener.yml, so its head was a GITHUB_TOKEN push that fires no workflows; an ordinary commit was pushed afterwards to arm CI. Read CI with get_check_runs, and if total_count is 0 check mergeable_state before concluding CI has not started.",
+      "terminal": "merged",
+      "merge_sha": "29820f9748ed7b2548d8d159176149cd8abc8889",
+      "observed_at": "2026-09-07T11:28:26Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 11264,
+      "opened_at": "2026-09-07T17:06:03Z",
+      "title": "MI-164 (Proposal A): hook the four unhooked monitor units for peak-R telemetry",
+      "owner_session": "session_01SZCy1acPMrX3ANUkzhM5te",
+      "checklist_item": "MI-164-TELEMETRY-HOOK",
+      "draft": false,
+      "tier": "3",
+      "state": "green_awaiting_human_merge",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": "Proposal A ONLY — add the existing observe-only record_position_telemetry hook to the four unhooked monitor units. It does NOT extend to arming any lever, to ICT_SCALP_EXIT_HEAD_MODE, to re-grading any exit-matrix cell, or to TP_VENUE_CAP_PCT.",
+        "decided_on": "2026-09-07",
+        "text": "Operator selected 'Approve A now (Recommended)' from a two-question AskUserQuestion put by the manager on 2026-09-07, alongside 'Commission the path-aware sweep (Recommended)' for Proposal B. Recorded verbatim as the selection made; the manager is the only witness to that exchange, which is exactly why it is typed here rather than left in a dispatch."
+      },
+      "blocker": "NOT blocked on a decision any more — blocked on a HUMAN CLICK. pr-landing-guard R4 bars a Tier-3 diff from landing itself whatever its approval state, so this can never self-land and that is correct, not a defect. The authoring session REFUSED to declare self-land and said so plainly: it could not verify the approval because the claim reached it only as text inside its own dispatch, and OPEN-PRS.json carried no typed decision for it. That refusal was RIGHT and this row is the answer to it. ⚠️ LANDED IS NOT OBSERVED: no telemetry row has been seen for any of the 9 previously-invisible legs, and a unit test is not an observation of the live mechanism.",
+      "terminal": "merged",
+      "merge_sha": "115b0c25cda5447f7c696d346ff2fba65fe3dd59",
+      "observed_at": "2026-09-07T21:55:07Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 11278,
+      "opened_at": "2026-09-07T19:37:52Z",
+      "title": "MI-169: HALT — the approved cancel names order 548, which is in oca-protect-t5353",
+      "owner_session": "session_0126L48N2S4fAxtjG82kq9vq",
+      "checklist_item": "MI-169-MGC-REMEDIATION",
+      "draft": false,
+      "tier": "1",
+      "state": "green_in_queue",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "The OPERATOR APPROVED the remediation ('Cancel legs, then repair the row'); the session correctly did NOT execute it, because the ids in the approved text do not match the venue. The approval stands; the ids do not."
+      },
+      "blocker": "Not blocked on CI. ⚠️ THE UNDERLYING ACTION IS STILL UNEXECUTED AND AWAITS THE OPERATOR RE-CONFIRMING THE CORRECTED IDS 550/551. The manager verified the session's finding against a live read and will not substitute the ids on its own authority.",
+      "terminal": "merged",
+      "merge_sha": "2ccc2ab8bb9607d4ec584f01054c2d0e1de7746b",
+      "observed_at": "2026-09-07T21:55:07Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 11283,
+      "opened_at": "2026-09-07T21:33:41Z",
+      "title": "manager: drain the stuck queue",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-QUEUE-HYGIENE",
+      "draft": false,
+      "tier": "1",
+      "state": "in_flight",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 register maintenance, zero worker-path files."
+      },
+      "blocker": "Not blocked. Consolidates the four superseded rows above.",
+      "terminal": "merged",
+      "merge_sha": "fd63b4f2c95df61e9c7ea23dcfdac60021fb6bef",
+      "observed_at": "2026-09-07T21:55:07Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-05T03:42:28Z",
-  "last_reconciled_sha": "8b8d37f11d9d32bdbd3f4b83e6e07e2954cf64ac",
-  "updated_at": "2026-09-06T16:05Z",
+  "last_reconciled_at": "2026-09-07T21:55:07Z",
+  "last_reconciled_sha": "115b0c25cda5447f7c696d346ff2fba65fe3dd59",
+  "updated_at": "2026-09-07T21:40:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }

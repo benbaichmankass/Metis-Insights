@@ -1,5 +1,7 @@
 # Sprint Log: S-M20-CORPUS-UNION-2026-08-17
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-08-17 (~00:00Z)
 - End: 2026-08-17 (~01:50Z)

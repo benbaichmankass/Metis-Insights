@@ -1,5 +1,7 @@
 # S-015 — Daily-resolution smoke test (NOT a baseline)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 _⚠️ HARNESS VALIDATION ONLY. The data here is **daily reference**
 **rates** from coinmetrics/data — not 5m / 15m intraday bars.
 DO NOT use these numbers to tune live strategy parameters._

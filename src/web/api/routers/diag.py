@@ -275,6 +275,13 @@ _TARGET_EXTENSION_SOAK_LOG = runtime_logs_dir() / "target_extension_soak.jsonl"
 # defect #8778 shipped with `exit_loop_health`.
 _PROTECTION_REASSERT_SOAK_LOG = runtime_logs_dir() / "protection_reassert_soak.jsonl"
 _STRAY_OCA_SOAK_LOG = runtime_logs_dir() / "stray_oca_soak.jsonl"
+# MI-150 — the ict_scalp exit-head consumer's staged soak. Allowlisted in the
+# SAME commit that ships the writer: an env-gated path whose only observation
+# surface cannot be read is BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE,
+# and the one thing a reader most needs from this file today is the
+# `decision_state: not_scored` rows that prove the tf guard is refusing.
+_ICT_SCALP_EXIT_HEAD_SOAK_LOG = (
+    runtime_logs_dir() / "ict_scalp_exit_head_soak.jsonl")
 #: The staged Bybit graded-book coverage basis (2026-09-02). Allowlisted in the
 #: SAME commit as its writer, deliberately: CLAUDE.md tells a Tier-2 reviewer to
 #: read `verdicts_differ` here before widening BYBIT_GRADED_COVERAGE_ACCOUNTS
@@ -478,6 +485,7 @@ _LOG_FILES: dict[str, Path] = {
     "target_extension_soak": _TARGET_EXTENSION_SOAK_LOG,
     "protection_reassert_soak": _PROTECTION_REASSERT_SOAK_LOG,
     "stray_oca_soak": _STRAY_OCA_SOAK_LOG,
+    "ict_scalp_exit_head_soak": _ICT_SCALP_EXIT_HEAD_SOAK_LOG,
     "bybit_coverage_soak": _BYBIT_COVERAGE_SOAK_LOG,
     # Allocator soak (M18 P0c, portfolio capital allocator): one line per tick
     # with ≥2 actionable candidates — what a capital allocator WOULD pick (the

@@ -1,5 +1,7 @@
 # IB Pipeline Stability Review — 2026-07-06
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Operator ask (verbatim intent):** we've had a lot of IB problems, we want to go
 live on `ib_live` soon (not yet), and before that we need a full pipeline review
 that (a) tells apart *real* instability from *false alarms* wasting time/compute,

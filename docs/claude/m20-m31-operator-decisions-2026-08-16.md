@@ -1,5 +1,7 @@
 # Operator decision memo — M20 / M31, overnight session 2026-08-16
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > ## ✅ FOUR OF THESE WERE DECIDED — 2026-08-16, operator, in-conversation
 >
 > **This memo was written as a queue. It is now partly a RECORD.** Read this

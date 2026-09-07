@@ -1,5 +1,7 @@
 # Telegram Bots — Product Spec (single source of truth)
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** authoritative for the 2026-05 bots overhaul
 (`claude/kilogram-bots-overhaul-ZtXDS`). **Supersedes** the S-001
 11-command spec (kept in git history) — the system is now menu-driven,

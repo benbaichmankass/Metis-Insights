@@ -1,5 +1,7 @@
 # Strategy readiness ladder (2026-06-18)
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Why this exists.** The backtest/walk-forward gate used to be **binary** —
 > a cell either cleared the strict every-fold gate (PASS) or it was FAIL. That
 > threw away the cells most worth *refining*: a genuine net-of-fee edge that

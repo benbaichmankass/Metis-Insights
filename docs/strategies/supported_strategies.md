@@ -1,5 +1,7 @@
 # Supported Strategies
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Set via the `STRATEGY` environment variable.
 
 | `STRATEGY` value    | Builder function                  | Description                                                        |

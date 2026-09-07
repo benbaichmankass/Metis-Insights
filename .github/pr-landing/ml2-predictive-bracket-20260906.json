@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Dispatch brief for MI-151, verbatim: \"Open as a draft. I route the merge.\" Also Tier-3 by subject matter: this proposes take-profit geometry, and the brief says \"Tier-3: PROPOSE, do not apply.\" Nothing in config/strategies.yaml is touched, so the DIFF is Tier-1 (research scripts + docs + tests, no writer, no order path, no runtime caller) -- but the PROPOSAL it carries is Tier-3 and the operator routes it.",
+  "why": "Research/analysis only: new scripts under scripts/research/, one memo under docs/research/, tests, and register updates. No src/ writer, no order path, no config, no runtime caller. scripts/ is outside pr-landing-guard R5's Tier-1 allowlist, so self-landing is refused regardless -- correctly."
+}

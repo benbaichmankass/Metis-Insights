@@ -1,5 +1,7 @@
 # Strategy Tuning (M8) — the canonical parameter-sweep harness
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **M8 makes the M7 gate's `tune` action executable.** The strategy review
 > gate (`docs/strategy-review-gate.md`) emits a `tune_recipe` block on every
 > `proposed_action == "tune"` packet. Until M8, that recipe was advisory text.

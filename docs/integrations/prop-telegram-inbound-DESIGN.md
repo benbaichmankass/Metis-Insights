@@ -1,5 +1,7 @@
 # Prop Telegram inbound — report a fill/close by typing in the channel
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** built 2026-06-23. Symbol mapping + parser shipped in PR #4241; all
 prop UI (report-back handler + `/menu` with the executor-assistant prompt) lives
 in the **dedicated prop bot `ict-claude-bridge`** (`@claude_ict_comms_bot`) — see

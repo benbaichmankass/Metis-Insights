@@ -1,5 +1,7 @@
 # Capital & activation decision packet — 2026-08-14
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **This packet presents a decision. It does not take one.** Account-mode flips are
 > Tier-3 and ride the `set-account-mode` operator action; funding is the operator's
 > alone. Lane 2 of [`WORKPLAN-2026-08-14.md`](./WORKPLAN-2026-08-14.md).

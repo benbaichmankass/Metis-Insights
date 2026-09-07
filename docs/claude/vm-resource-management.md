@@ -1,5 +1,7 @@
 # Cross-session resource management (binding, 2026-07-28)
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Operator directive (2026-07-28):** *"this is exactly what we have the GitHub
 > CPU platform and the GPU burst budget for — to ensure efficient and effective
 > resource management … Cross-session resource optimization needs to be the core

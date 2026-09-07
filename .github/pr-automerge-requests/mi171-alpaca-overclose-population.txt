@@ -1,0 +1,8 @@
+MI-171: Tier-1 read-only measurement; docs/ + scripts/research/ only. See .github/pr-landing/mi171-alpaca-overclose-population.json
+
+Re-armed 2026-09-07T22:37Z after #11289 was closed and replaced by #11292 (same
+branch, same content, real title and body — claude-pr-automerge's boilerplate
+body could not be edited because update_pull_request 403s for this session).
+Touching this file is what re-triggers claude-pr-automerge so it arms auto-merge
+on #11292, a PR it did not itself open; that is allowed because #11292 is not a
+draft (pr-opener honoured "draft": false).

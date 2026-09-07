@@ -1,5 +1,7 @@
 # The Claude Coordination Board (live cross-session comms)
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **The board is GitHub issue [#6927](https://github.com/benbaichmankass/ict-trading-bot/issues/6927)** —
 > "🤖 Claude Coordination Board". Standing/pinned, never closed. Discover it by
 > that number, by `search_issues in:title Coordination Board`, or by the

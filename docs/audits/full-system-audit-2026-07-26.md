@@ -1,5 +1,7 @@
 # Full-System Audit — 2026-07-26
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Program doc (the shared brain).** Per `.claude/skills/full-system-audit/SKILL.md`
 > this is the audit's findings doc + per-file coverage map. Consistency **and**
 > liveness axes; rules-first. Branch: `claude/full-system-audit-5v17vo` (all three repos).

@@ -1,5 +1,7 @@
 # S-HEALTH-REVIEW-GRADING-PROP — /health-review + grade backfill + prop status-request pings
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - **Start:** 2026-07-03
 - **End:** 2026-07-03

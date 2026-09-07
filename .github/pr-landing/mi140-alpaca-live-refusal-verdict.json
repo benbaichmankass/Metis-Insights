@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Measurement + research memo for T-7 (MI-140). ONE new doc under docs/research/ plus its one-line docs/DOCUMENT-INDEX.md registration (check_document_index.py: 1002/1002 OK). No src/, no config/, no scripts/, no workflows, no deploy/, no VM mutation. Deliberately touches NOTHING on the order path, sizing, risk caps or the account's mode: the finding is that none of them is defective, and the two post-arm refusals are the operator-directed side_filter:long gate working as declared on two short signals. The one real defect found (a silent_refusal_alert latch for alpaca_live frozen at 2026-08-21, pre-arming) is in the alerting layer and is PROPOSED, not applied, because its fix depends on a live SILENT_REFUSAL_SKIP read this session could not make."
+}

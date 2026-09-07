@@ -1,5 +1,7 @@
 # Design-A — SOL `trend_vol` OFF-cell RE-VALIDATION under the new advisory head (2026-08-02)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Re-runs the SOL vol-gate cell-selection walk-forward under the **current SOL
 advisory head** `sol-regime-15m-lgbm-fc-pcv-v2` (promoted shadow→advisory
 2026-08-02T04:10Z, operator-approved; confirmed `target_deployment_stage=advisory`

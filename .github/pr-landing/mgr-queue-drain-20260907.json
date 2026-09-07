@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register maintenance only: the four stuck manager branches (#11260, #11273, #11277, #11280) consolidated into one, plus a lease heartbeat and a live supervision pass. No src/, tests/, scripts/, workflows/, config/ or deploy/ path is touched. The four folded branches' own landing files are removed so this diff does not change another branch's landing machinery (R12)."
+}

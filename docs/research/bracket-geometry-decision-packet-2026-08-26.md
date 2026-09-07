@@ -1,5 +1,7 @@
 # Bracket-geometry decision packet — 14 `passed_unshipped` cells
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status: a PROPOSAL. Nothing here is applied.** Operator-directed 2026-08-26:
 prepare the packet, do not ship. Every cell below changes live exit geometry
 and is **Tier-3**.

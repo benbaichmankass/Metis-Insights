@@ -1,5 +1,7 @@
 # DEMOTE-TO-SHADOW-AND-TUNE — the third path
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** proposed, awaiting operator agreement (`DEC-20260904-DEMOTE-AND-TUNE-FLOW`)
 **Owner:** MI-107, under `WO-20260903-SUNSET-DISPOSITIONS-OWED`
 **Tier:** this document is Tier-1. Every *move* it describes is Tier-3.

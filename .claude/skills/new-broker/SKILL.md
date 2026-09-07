@@ -3,6 +3,8 @@ name: new-broker
 description: Wire a new broker (futures, FX, crypto, prop firm) into the bot's execution path. Use when the operator says "integrate <broker>", "wire up a new exchange", or anything that adds a new entry to `src/units/accounts/integrator.py::EXCHANGE_MAP`. Covers credentials handoff (via the `credentials-and-vm-mutations` rule), the package + factory + integrator + executor wiring, `accounts.yaml` entry, and verification. NOT for tuning an existing broker's params and NOT for adding a strategy (that's `new-strategy`).
 ---
 
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+
 # /new-broker — wire a new broker into the execution path
 
 Every broker integration on this bot follows the same architecture

@@ -1,5 +1,7 @@
 # Regime-coverage debt — matrix results & disposition (2026-07-29)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Tracking:** `BL-20260717-REGIME-COVERAGE-DEBT` · rec #5 of
 `docs/research/roadmap-toolbox-assessment-2026-07-29.md` §5.
 **Method doc:** `docs/research/regime-coverage-debt-analysis-2026-07-29.md` (the

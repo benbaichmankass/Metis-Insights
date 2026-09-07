@@ -1,5 +1,7 @@
 # M26 P0 — conflict-bleed quantification: results (2026-07-19)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Verdict: the operator's premise is confirmed, with a sharper shape than the
 premise itself.** Suppressed opposing signals DO carry information — holding
 after the warning was worse than closing in **~75–77% of measured cases** —

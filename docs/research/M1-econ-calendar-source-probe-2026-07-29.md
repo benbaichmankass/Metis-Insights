@@ -1,5 +1,7 @@
 # ROADMAP_MACRO M1 — free economic-calendar source probe (2026-07-29)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Why:** FMP's free tier returned HTTP 403 on the economic-calendar endpoint, so
 before wiring another adapter we **empirically probed every credible free source
 on a GitHub runner** (the sandbox can't reach these hosts) to see which actually

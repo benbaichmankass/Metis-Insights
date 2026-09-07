@@ -1,5 +1,7 @@
 # S-015 Session A — summary (updated 2026-04-30 21:25 UTC)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** Session A complete. **Live-behaviour DRAFT (#209)** awaits PM review. Session B (intraday baseline + parameter sweeps) still pending — needs a host with keyless intraday-API egress.
 **Scope:** infrastructure + harness validation + a daily-resolution smoke test against real coinmetrics data. **No 5m / 15m P&L claims.**
 **Date:** 2026-04-30.

@@ -1,5 +1,7 @@
 # Testing policy
 
+> **Doc status:** `unknown` · category `instruction` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## Test data sources (read first)
 
 Tests and notebooks **must not** pull market data from Binance or any other

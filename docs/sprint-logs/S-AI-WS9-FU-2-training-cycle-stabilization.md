@@ -1,5 +1,7 @@
 # Sprint Log: S-AI-WS9-FU-2
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > **Training-cycle stabilization** — make the daily trainer-VM cycle
 > land all trainable manifests with `overall_rc=0`, with a clear
 > per-run version trail in the model registry.
