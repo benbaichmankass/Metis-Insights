@@ -241,7 +241,7 @@ as **candidates for an assessment pass**, with evidence and with what is not est
 | # | blocked | blocked on | evidence | edge exists? |
 |---|---|---|---|---|
 | **B1** | `M20` — two exit-lever cells | MGC/MHG IBKR history that **no scheduled job produces** | M20 row names `BL-20260814-MGC-MHG-IBKR-HISTORY-NEVER-PULLED` | **No — and it cannot.** That id has **no work-store object**; it exists only as text inside `health-review-backlog.json` (5 hits) and `ml-review-backlog.json` (1). |
-| **B2** | `M24` P3/P4 | widening broker-truth cost coverage | M24 row: *"blocked on widening broker-truth cost coverage first"*; this is **T-15** | Object exists (`BL-20260830-BROKER-TRUTH-LEDGER-STALE-…`) but is `dormant` with `blocked_on: []` / `NOT_ASSESSED` |
+| **B2** | `M24` P3/P4 | widening broker-truth cost coverage | M24 row: *"blocked on widening broker-truth cost coverage first"*; this is **T-15** | Object exists (`BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED`) but is `dormant` with `blocked_on: []` / `NOT_ASSESSED` |
 | **B3** | `M22` P4 (P(win) entry filter) | *"a genuinely new input — order-flow features **or** a net-R label"* | M22 row states the gate explicitly | No edge. **Both upstreams are other milestones' deliverables** — the net-R label is M24's, the order-flow features come from the trainer capture in M40's R6 |
 | **B4** | `M31` P5 | P4 Check B returning `compared` — *"a DATA-ACCRUAL problem the writer does not solve"* | M31 row | No edge; see § 6.4 — this is a **declared exclusion**, not debt |
 
@@ -256,7 +256,7 @@ would not merely delay M22 P4 — it would destroy the input permanently.
 ⚠️ **NOT VERIFIED BY THIS SESSION.** Those figures are M40's, dated 2026-08-29. The trainer
 is reachable only through the issue relay, which this session did not use. **Whether the
 capture is alive right now is unknown and this document does not claim it is.** The
-`BL-20260829-ORDERFLOW-CAPTURE-…` object is on disk, `dormant`, `blocked_on: []`,
+`BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED` object is on disk, `dormant`, `blocked_on: []`,
 `NOT_ASSESSED`.
 
 ### 5.5 Why this session wrote **no** edges into the work store
@@ -267,7 +267,7 @@ Each of B1–B4 is derived from **row prose that is itself unverified** (31 of 3
 MI-159's `UNVERIFIED` verdict). Writing a typed edge would put an unverified claim into the
 one structure the constraint computation treats as measured. The store's own rule is that
 *an invented edge is read as a real blocker, and a false blocker is worse than a missing
-one* — and, as `WO-20260906-…`'s re-assessed basis records, **a false NON-blocker is the
+one* — and, as one 2026-09-06 re-assessed basis in the store records, **a false NON-blocker is the
 more dangerous direction still**, because a session picks the work up expecting to finish it.
 
 Asserting `ASSESSED — nothing blocks this` on the two objects above would have been the
