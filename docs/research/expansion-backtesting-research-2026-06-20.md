@@ -1,5 +1,7 @@
 # Expansion Backtesting Research — Symbols + New Strategies (2026-06-20)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Tier-1 research memo.** Analysis + proposals only. Nothing here touches the
 > live order path, `config/strategies.yaml`, `config/accounts.yaml`, or any unit
 > the live VM consumes. It picks up the 2026-06-18 expansion window (Direction 1

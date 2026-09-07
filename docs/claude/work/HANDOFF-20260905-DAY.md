@@ -1,5 +1,7 @@
 # HANDOFF — day manager 2026-09-05 → successor
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+
 Written by `session_016e2k4UmsMGgpbrJ5ctqeFv`, which held the manager lease
 across 2026-09-05 and was asked by the operator at 11:30Z to wrap up.
 **The registers are the state of record — this file is the prompt, not the

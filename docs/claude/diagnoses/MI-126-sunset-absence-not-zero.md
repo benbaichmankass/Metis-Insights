@@ -1,5 +1,7 @@
 # MI-126 — an absent leg is NOT_OBSERVED, not a measured zero
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Object: `WO-20260905-SUNSET-PASS-MANUFACTURES-A-ZERO-FROM-AN-ABSENCE` ⚠️ **which does
 not exist on `main`** — the contract path named in this unit's dispatch is absent from
 the repo. Registry row: `pending-20260905T020449Z` in `docs/claude/work/SESSIONS.json`.

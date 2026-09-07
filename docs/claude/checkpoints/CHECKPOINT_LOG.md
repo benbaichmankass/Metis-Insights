@@ -1,5 +1,7 @@
 # Checkpoint log
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+
 Append-only log of Claude Code sessions on this repo.
 Newest entry on top. Every session **must** add one entry before exiting.
 

@@ -1,5 +1,7 @@
 # S-AI-WS4-FU — AI traders WS4 follow-ups
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Date:** 2026-05-10
 **Authority:** [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md), [`docs/architecture/ai-model-platform.md`](../architecture/ai-model-platform.md), [`docs/ml/training-center.md`](../ml/training-center.md)
 **Status:** ✅ COMPLETE

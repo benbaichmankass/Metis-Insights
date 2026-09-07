@@ -1,5 +1,7 @@
 # Conviction-blend v1 weight sweep — findings (2026-06-16)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Resolves design § 4.2 / § 6 decision #4 ("v1 blend weights — sign off after the
 > sweep"). **Recommendation: KEEP the hand-set defaults** for now — the corpus is
 > too thin to *identify* the relative weights out-of-sample. The sweep harness

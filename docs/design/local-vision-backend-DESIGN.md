@@ -1,5 +1,7 @@
 # Local vision backend — the prop screenshot reader without an outside service
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** ⛔ **SCREENSHOT DRIVER WITHDRAWN BY THE OPERATOR, 2026-08-23 — do not start P0** · **Opened:** 2026-08-23
 **Tracking:** ROADMAP M38 · `BL-20260823-PROP-SCREENSHOT-SENDS-LIVE-ACCOUNT-DATA-TO-HOSTED-MODELS`
 

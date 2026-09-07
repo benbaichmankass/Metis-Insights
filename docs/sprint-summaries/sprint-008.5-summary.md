@@ -1,5 +1,7 @@
 # Sprintlet S-008.5 Summary
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Date:** 2026-04-29
 **Checkpoint:** CP-2026-04-29-58.5 (see CHECKPOINT_LOG.md)
 **Branch:** `claude/translator-architecture-overhaul-YBAwR`

@@ -1,5 +1,7 @@
 # The un-carried spec census — how many finished specifications does nothing point at?
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Measured 2026-09-06** against `origin/main` at **`817a5a5f`** (probe run from branch
 `claude/count-uncarried-specs-20260906`, working tree `02133786`).
 **MI-152 · `WO-20260906-COUNT-THE-UN-CARRIED-SPECS`. Tier-1** — a measurement, a report and a

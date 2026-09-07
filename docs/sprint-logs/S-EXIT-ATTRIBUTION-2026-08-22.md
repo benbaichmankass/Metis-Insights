@@ -1,5 +1,7 @@
 # S-EXIT-ATTRIBUTION-2026-08-22
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 2026-08-22 (single session, `s3-exitpath`), continuing directly from
 `S-EXIT-PROTECTION-CLUSTER-2026-08-22` (`s2-exitclust`, main at `ae31ddab`).

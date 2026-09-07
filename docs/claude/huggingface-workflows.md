@@ -1,5 +1,7 @@
 # Hugging Face workflows
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Use Hugging Face for datasets, model artifacts, and optional Spaces.
 
 ## Dataset naming

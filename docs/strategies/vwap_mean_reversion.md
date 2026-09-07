@@ -1,5 +1,7 @@
 # VWAP Mean Reversion Strategy
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## Overview
 A statistical strategy that trades price deviations from session VWAP
 (Volume Weighted Average Price), expecting reversion to the mean.

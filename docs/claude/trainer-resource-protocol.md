@@ -1,5 +1,7 @@
 # Trainer-VM resource protocol — the heavy-job queue + GPU-burst routing
 
+> **Doc status:** `unknown` · category `instruction` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Binding for any session that runs training/ML work on the trainer VM.**
 > Adopted 2026-07-17 (BL-20260715-TRAINER-CYCLE-MEM-SATURATION +
 > BL-20260717-TRAINER-CYCLE-TERM-AT-START). The problem this solves: multiple

@@ -1,5 +1,7 @@
 # Autonomous Work Plan — 2026-07-30
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > ## ⚠️ SUPERSEDED IN PART — read [`RESEARCH-PROGRAM-2026-07-30.md`](RESEARCH-PROGRAM-2026-07-30.md) first
 >
 > **§1 (the rec #1–#7 scorecard) and §2 (the three blockers) remain valid** and are

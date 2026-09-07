@@ -1,5 +1,7 @@
 # Regime-Debt Matrix — fixed-window fee A/B (2026-08-02)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Run:** [issue #8329](https://github.com/benbaichmankass/Metis-Insights/issues/8329) ·
 workflow `regime-debt-matrix` (free runner, 730d, `--fee-ab 0,7.5`).
 **Tooling:** [PR #8327](https://github.com/benbaichmankass/Metis-Insights/pull/8327)

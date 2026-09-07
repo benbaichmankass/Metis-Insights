@@ -1,5 +1,7 @@
 # Silent‑empty error path audit — 2026-05-10
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Sprint:** S-067 — silent-empty error path audit & hardening (CP-1 / T0).
 > **Trigger:** PR #627 (`/positions` returned `[]` for endpoint lifetime due to swallowed `OperationalError`) and PR #629 (`/signals` dropped `price` because writer aliases weren't covered) both surfaced the same root-cause class. Plus PR #624's docstring on `/api/diag/db_info` explicitly names the same pattern in `_journal_select`.
 > **In-scope dirs:** `src/web/api/`, `src/web/runtime_status.py`, `src/units/db/`, plus the read-path slice of `src/runtime/` (config readers, state writers, health checks, reporters).

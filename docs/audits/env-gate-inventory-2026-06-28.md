@@ -1,5 +1,7 @@
 # Env-gate inventory — 2026-06-28 (full-system audit, Workstream B)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** COMPLETE. Re-derived from the actual `os.environ` / `settings.get(...)`
 call sites in `src/` — **not** from `CLAUDE.md` or any doc (the prior subagent
 pass leaned on the doc; this pass reads the code). Companion to

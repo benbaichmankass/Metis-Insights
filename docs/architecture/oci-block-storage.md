@@ -1,5 +1,7 @@
 # OCI Block Storage Architecture
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Audience:** PM, operator, anyone trying to understand where the bot keeps its data.
 **Status:** Adopted 2026-05-11. Live VM migration is an explicit operator step (see [`docs/runbooks/mounted-storage.md`](../runbooks/mounted-storage.md)).
 

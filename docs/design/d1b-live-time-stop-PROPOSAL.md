@@ -1,5 +1,7 @@
 # D1b — should the live trader gain a bar-count exit?
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status: PROPOSAL. Tier-3. Nothing here is implemented and nothing is declared.**
 Written 2026-08-29 as item **N5** of `docs/claude/WORKPLAN-NIGHT-2026-08-29.md`,
 following the B9 measurement in

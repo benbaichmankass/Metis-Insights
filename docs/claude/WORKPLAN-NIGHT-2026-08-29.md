@@ -1,5 +1,7 @@
 # Overnight workplan — 2026-08-29 → 30 · **M20 Active Trade Management**
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Operator-authorised unattended run.** Scope, autonomy envelope and priority were all
 set by the operator in-conversation on 2026-08-29 (see § 0). This plan is **subordinate
 to** [`WORKPLAN-2026-08-29.md`](WORKPLAN-2026-08-29.md) — it does not supersede it, it

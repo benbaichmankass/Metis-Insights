@@ -1,5 +1,7 @@
 # M20-X — Vol-conditional trailing stop (regime-conditional exits, round 1)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** research design (Tier-1). 2026-07-15.
 **Program:** M20 exit-refinement extension — first regime-conditional exit lever.
 **Motivation:** the M21 round-4 vol-at-entry lever (shipped 2026-07-14, #6434)

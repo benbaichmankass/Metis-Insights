@@ -1,5 +1,7 @@
 # PROPOSAL (Tier-3, operator-gated) — market-neutral crypto pairs sleeve
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** DRAFT / PROPOSE-ONLY · **Tier:** 3 (new live strategy + a new execution
 primitive) · **Date:** 2026-07-15 · **Evidence:** `docs/research/small-tf-directions-2026-07-15.md`
 § D2 (trainer runs #6498/#6500/#6501/#6506/#6509).

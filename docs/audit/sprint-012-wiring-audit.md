@@ -1,5 +1,7 @@
 # Sprint S-012 — Production Wiring Audit (Phase A)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Phase A complete. No code changes in this PR.
 > **Author:** Claude Code (autonomous), 2026-04-29.
 > **Scope:** Evidence-based audit of architectural drift across strategies,

@@ -1,5 +1,7 @@
 # Pipeline Health Check
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Contract document. Adopted 2026-05-12 as part of the
 > Prime Directive follow-on (see
 > [`CLAUDE-RULES-CANONICAL.md`](../CLAUDE-RULES-CANONICAL.md) § Prime

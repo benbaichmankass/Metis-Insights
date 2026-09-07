@@ -1,5 +1,7 @@
 # B6, split — the eight `passed_unshipped` lever cells
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status: Tier-1 PREP. Nothing is proposed for merge into `config/strategies.yaml` here,
 and no sweep has been dispatched.** Item **N6** of
 `docs/claude/WORKPLAN-NIGHT-2026-08-29.md`.

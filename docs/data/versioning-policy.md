@@ -1,5 +1,7 @@
 # Dataset Versioning Policy
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Canonical (data scope). Adopted in **S-AI-WS3**.
 >
 > **Authority:** Subordinate to

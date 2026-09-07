@@ -1,5 +1,7 @@
 # The manager-wake Routine — the one hop that must originate outside the manager
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 This is the deployed half of `WO-20260904-MANAGER-IDLE-IS-UNBOUNDED-AND-NOTHING-WAKES-IT`.
 The repo half is [`scripts/ops/manager_wake.py`](../../../scripts/ops/manager_wake.py)
 (assess / brief / receipt) and [`scripts/ops/check_wake_liveness.py`](../../../scripts/ops/check_wake_liveness.py)

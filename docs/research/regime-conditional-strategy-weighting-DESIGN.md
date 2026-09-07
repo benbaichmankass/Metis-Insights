@@ -1,5 +1,7 @@
 # Regime-conditional strategy weighting — DESIGN (2026-06-18)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Tier-1 research/design doc.** Nothing here touches the live order path,
 > `config/strategies.yaml`, `config/accounts.yaml`, or any unit the live VM
 > consumes. It proposes a *meta-layer* that learns, per strategy, **when to

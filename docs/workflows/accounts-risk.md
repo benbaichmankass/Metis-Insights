@@ -1,5 +1,7 @@
 # Accounts & Risk Workflow
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Sprint S-010 — Per-Account Risk Engine + Accounts Modularisation.
 
 ## Architecture

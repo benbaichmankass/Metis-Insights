@@ -1,5 +1,7 @@
 # C1 — Reductive conviction sizing on demo: evidence + flip proposal (2026-08-04)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **W1.1 / C1** of the master-model convergence spine
 > (`ROADMAP-REVIEW-WORKPLAN-2026-08-04.md` §6). C1 makes the **already-computed
 > conviction number advise size**, reductive-first, on the **demo** account

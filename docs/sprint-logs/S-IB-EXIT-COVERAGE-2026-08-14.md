@@ -1,5 +1,7 @@
 # Sprint Log: S-IB-EXIT-COVERAGE-2026-08-14
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-08-14
 - End: 2026-08-14 (live verification 19:28:34Z; log written 2026-08-16 after a 34h idle gap — see *Gaps not yet verified*)

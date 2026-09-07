@@ -1,5 +1,7 @@
 # Salvage — findings preserved from closed stale review PRs (M17 triage, 2026-06-28)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 During the M17 full-system-audit stale-PR triage, several week-old **review-artifact**
 PRs were closed (not merged) because their bases were far behind `main` and their
 diffs were `dirty`/conflicted on the append-only grade + backlog files:

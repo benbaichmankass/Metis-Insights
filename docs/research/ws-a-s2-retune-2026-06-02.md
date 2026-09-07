@@ -1,5 +1,7 @@
 # WS-A S2 — Diversifier Re-tune (2026-06-02)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Meantime Expansion Program, WS-A S2. Overfitting-aware grid re-tune of
 > the five cleanest S1 diversifier leads. Driver:
 > `scripts/research/ws_a_s2_retune.py` (trainer-vm-diag #2635/#2636).

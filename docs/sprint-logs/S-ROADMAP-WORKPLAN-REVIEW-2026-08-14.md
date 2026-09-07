@@ -1,5 +1,7 @@
 # Sprint Log: S-ROADMAP-WORKPLAN-REVIEW-2026-08-14
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-08-14 (~11:30Z)
 - End: 2026-08-16 05:50Z (the session sat idle ~29h between 2026-08-15 00:56Z and 2026-08-16 05:42Z; that gap is stated because every "current" reading taken before it was stale by the time the session resumed)

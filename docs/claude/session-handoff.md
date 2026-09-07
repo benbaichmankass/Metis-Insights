@@ -1,5 +1,7 @@
 # Session handoff + continue-work routine
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## What this is
 
 A bounded routine for continuing **a single pre-planned sprint** across

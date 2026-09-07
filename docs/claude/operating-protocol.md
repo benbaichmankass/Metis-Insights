@@ -1,5 +1,7 @@
 # Claude operating protocol
 
+> **Doc status:** `unknown` · category `instruction` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Purpose:** the consolidated, opinionated rulebook for how Claude executes
 > work in this repo. The router (`CLAUDE.md`) sends sessions here when they
 > need the "how do I behave?" answer. Other docs are **task-specific**; this

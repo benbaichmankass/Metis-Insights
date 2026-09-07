@@ -1,5 +1,7 @@
 # Workplan — De-soak infrastructure + M24–M29 milestone close-out (2026-07-26)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** operator-approved 2026-07-26. Driven under `research-driver`.
 > **Anchor:** `MB-20260726-DESOAK-PROMOTION-EVIDENCE` (Phase 0), plus the existing
 > M24–M29 anchors for Phase 1.

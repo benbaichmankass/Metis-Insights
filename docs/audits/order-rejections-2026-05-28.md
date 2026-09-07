@@ -1,5 +1,7 @@
 # Order-rejection investigation — 2026-05-28
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Branch:** `claude/ict-order-rejections-BmqU1`
 **Tier:** Investigation = Tier-1 (read). The one code change shipped on the
 branch is a logging/observability fix in the order-path file

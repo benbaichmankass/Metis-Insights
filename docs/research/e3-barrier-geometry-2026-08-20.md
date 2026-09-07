@@ -1,5 +1,7 @@
 # E3 precondition — the `label_hold` signal is barrier COMPOSITION, and the bracket it composes was never chosen
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-20 · **Step:** the E3 precondition named in
 [`e2-horizon-arm-2026-08-20.md`](./e2-horizon-arm-2026-08-20.md) § 8.2
 · **Process:** [`exit-mechanism-construction-PROCESS.md`](../design/exit-mechanism-construction-PROCESS.md) § E3, § 3.1

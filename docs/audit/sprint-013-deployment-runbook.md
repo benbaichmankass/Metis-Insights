@@ -1,5 +1,7 @@
 # Sprint S-013 — Web Dashboard API Deployment Runbook
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Audience:** PM (Ben) running on the Oracle VM as the bot user (`ubuntu`).
 > **Sprint:** S-013 — Secure Web Dashboard: Backend Scaffold & Home Status.
 > **Scope:** Enable `ict-web-api.service` on staging port `8001` (loopback only).

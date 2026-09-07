@@ -1,5 +1,7 @@
 # Runbook — graduating a regime vol-head: shadow → advisory → live vol-gate
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Scope.** The deterministic sequence to take a newly-trained **regime vol-head**
 (e.g. `eth-regime-15m-lgbm-v1`, `sol-regime-15m-lgbm-v1`) from `shadow` to
 `advisory` so its **per-symbol** `P(volatile)` label can drive the live

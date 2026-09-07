@@ -149,6 +149,34 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # The document register must not silently stop being true.
+        #
+        # UNGATED (`when: None`) deliberately, for the reason the api-tier-policy
+        # guard above is: a diff-scoped run cannot see a row being DELETED from
+        # the index, and it cannot see a document's header regress when an
+        # unrelated PR edits that document. Both are the same hole the register
+        # exists to close, just from opposite directions. It also cannot rely on
+        # a `when`-gated step, which is skipped entirely under `--all` (push /
+        # workflow_dispatch) — BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH.
+        #
+        # Costs 0.086s measured: one `git ls-files`, one table parse, and a
+        # header read of 968 documents. Cheap enough that gating it would be the
+        # more expensive decision.
+        "name": "document-index-guard",
+        "when": None,
+        "steps": [
+            # The planted-positive control runs on EVERY invocation. On a clean
+            # tree this guard is only ever observed PASSING, which is the state
+            # a guard is least useful in — and this repo has already shipped a
+            # presence-only marker that was cheaper to lie to than to satisfy
+            # (`new-table-wiring-guard`). Each of R1–R5 is fed a known-bad input
+            # and the job fails unless the rule fires; clean inputs must stay
+            # silent, so a rule that always fires is caught too.
+            ["python3", "scripts/ci/check_document_index.py", "--self-test"],
+            ["python3", "scripts/ci/check_document_index.py"],
+        ],
+    },
+    {
         # (c) of the demote-and-tune design: at budget expiry a demotion CANNOT
         # stay demoted. UNGATED, like its sunset sibling: the failure is about a
         # budget ACCRUING over time, which no diff is relevant to — a demotion

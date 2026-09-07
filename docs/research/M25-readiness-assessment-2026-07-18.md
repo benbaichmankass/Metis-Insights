@@ -1,5 +1,7 @@
 # M25 promotion-readiness assessment — 2026-07-18
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** M25 evidence-gathering pass (Tier-1, autonomous). **Promotion past
 > `shadow` is Tier-3, operator-gated — nothing is promoted here.** This records
 > the honest READY / WAIT / NEVER-here verdicts per the M25 mandate ("a complete

@@ -1,5 +1,7 @@
 # Mobile push notifications — operator runbook
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > M12 S1. The mobile push notifier is a **read-only side-channel
 > observer**: it watches the trader's trade-close path and mirrors
 > events to the operator's Android phone via Firebase Cloud Messaging.

@@ -1,5 +1,7 @@
 # Operationalising the research queue — three corrections and two jobs
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-30 · **Session:** `018wqzuqBjxkiaEEBr8kJC59` · **Milestone:** M40 (R5)
 
 Task as given: *make long-running experiments run continuously outside any one

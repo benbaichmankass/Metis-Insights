@@ -1,5 +1,7 @@
 # Sprint S0 Summary — Workflow Foundation (M-S0)
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Date:** 2026-05-06
 **Branch:** `claude/workflow-foundation-40FN3` (work) + `claude/plan-next-sprint-wCr1L` (closure)
 **Milestone:** M-S0 — Workflow Foundation (Phase 0 — Foundation & Workflow)

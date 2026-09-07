@@ -1,5 +1,7 @@
 # Roadmap Review + Prioritized Workplan — 2026-08-04
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Operator-requested full roadmap review + forward workplan.** Three focus
 > areas — **technical strategies**, the **macro sleeve**, and the **ML roster** —
 > that the operator explicitly asked be treated as **converging into one more

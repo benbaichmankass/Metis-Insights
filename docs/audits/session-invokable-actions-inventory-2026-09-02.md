@@ -1,5 +1,7 @@
 # What a session repeatedly does by hand — measured inventory (2026-09-02)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Dispatched to build **actions Claude can invoke** so a session stops spending
 context on work a runner could do. This is the evidence half; the build half is
 `.github/workflows/ci-settled.yml` + `scripts/ops/ci_settle{,d}.py|sh`.

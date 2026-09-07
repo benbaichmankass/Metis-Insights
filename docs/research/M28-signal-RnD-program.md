@@ -1,5 +1,7 @@
 # M28 — Signal R&D Program (design of record)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** active program plan (operator-directed 2026-07-23). The top-level,
 long-horizon plan for developing tradeable signals in the valuation-snapshot
 format. Governs the whole funnel — *what info we build, how we test it cheaply

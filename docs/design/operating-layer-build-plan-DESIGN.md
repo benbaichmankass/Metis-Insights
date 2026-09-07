@@ -1,5 +1,7 @@
 # Operating Layer — Build Plan
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status: PROPOSED 2026-09-01, revised the same day on operator direction.** Fourth and
 > final pass in the operating-model series, after
 > [`operating-model-DESIGN.md`](./operating-model-DESIGN.md) (structure + the 24 functions),

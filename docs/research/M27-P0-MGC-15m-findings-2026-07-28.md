@@ -1,5 +1,7 @@
 # M27 — MGC native-15m ict_scalp findings (2026-07-28)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Re-target of the venue-blocked XAUUSD 15m winner onto IBKR **MGC** micro-gold
 > futures (a live-tradeable venue — `ib_paper` — unlike XAUUSD's shelved OANDA).
 > Executed per `M27-MGC-15m-step2-scope-2026-07-28.md` (Arm A powered re-cost +

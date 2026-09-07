@@ -1,5 +1,7 @@
 # Roster regime × direction matrix — 2026-06-01
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Initiative:** regime-aware routing (`PERF-20260601-002`). Continues the
 > 2026-06-01 handoff (`docs/research/session-handoff-2026-06-01.md`). This is the
 > evidence foundation: which strategy earns in which ADX regime, split by

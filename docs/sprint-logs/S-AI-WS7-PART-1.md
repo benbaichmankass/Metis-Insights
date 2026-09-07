@@ -1,5 +1,7 @@
 # S-AI-WS7-PART-1 — Deployment-stage metadata + ShadowPredictor scaffold
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Date:** 2026-05-10
 **Authority:** [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md), [`docs/sprint-plans/ai-traders/ws7-deployment-tiers.md`](../sprint-plans/ai-traders/ws7-deployment-tiers.md), [`docs/architecture/ai-model-platform.md`](../architecture/ai-model-platform.md)
 **Status:** ✅ COMPLETE — first of (at least) two WS7 parts.

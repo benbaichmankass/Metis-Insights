@@ -1,5 +1,7 @@
 # Post-value-exhaustion research pivot — two-track workplan (2026-07-27)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** ACTIVE. Anchor `MB-20260727-POST-VALUE-PIVOT`. Operator-endorsed
 2026-07-27 ("I like both of those directions").
 

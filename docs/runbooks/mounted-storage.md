@@ -1,5 +1,7 @@
 # Mounted storage runbook
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Audience:** VM operator (Tier 3). The person doing this is either the human operator or Claude with operator approval. Either way, the steps below are the exact contract — don't extrapolate.
 
 ## What this runbook covers

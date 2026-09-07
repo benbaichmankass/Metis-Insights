@@ -1,5 +1,7 @@
 # MI-124 — why each of the ten sunset candidates produces nothing
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Object: `WO-20260905-NEVER-FIRING-LEGS-NEED-A-REPAIR-DIAGNOSIS-NOT-A-RETIREMENT`
 Operator-funded on `DEC-20260904-DEMOTE-AND-TUNE-FLOW` (`agree_flow_and_fund_repair`).
 **READ-AND-DIAGNOSE ONLY. Nothing here retires, disables or shadows any leg.**

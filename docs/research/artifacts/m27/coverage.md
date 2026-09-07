@@ -1,5 +1,7 @@
 # M27 coverage table — symbol × timeframe (scalp family)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 _Generated 2026-07-20 from `accounts.yaml` + `strategies.yaml` (24 symbols)._
 _Every traded symbol has a row; a missing row is a milestone bug (no silent caps)._
 _Dispositions: ✅ promoted/done · ⏳ pending · 📋 planned · 🚫 blocked/gated (with reason) · ❌ rejected (with numbers)._

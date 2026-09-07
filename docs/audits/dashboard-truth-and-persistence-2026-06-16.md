@@ -1,5 +1,7 @@
 # Dashboard Truth & Persistence Audit — 2026-06-16
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** governing document for the `streamlab-dashboard-audit` effort.
 > Operator-approved 2026-06-16 ("Full DB-first big fix"). This is the contract
 > every subsequent PR in this effort is written and reviewed against.

@@ -1,5 +1,7 @@
 # P0 Label-Augmentation — the wall is broken, measured, and guarded (2026-08-04)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **The recurring breach is over.** The per-trade backtest-augmentation infra was
 > fully built and had **never been fed a row** (`trades.is_backtest=1` = 0 in every
 > month — `BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED`), so every "blocked on

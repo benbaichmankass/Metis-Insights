@@ -1,5 +1,7 @@
 # Session handoff — 2026-06-01 (night — regime router phases 1 + 2 live)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Continues** `docs/research/session-handoff-2026-06-01-evening.md`. This
 > session shipped the matrix's final coverage gap (vwap live-gated) **and**
 > the first two phases of the regime router that the matrix was built to

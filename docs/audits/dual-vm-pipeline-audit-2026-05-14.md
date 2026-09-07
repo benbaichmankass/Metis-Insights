@@ -1,5 +1,7 @@
 # Dual-VM Pipeline Audit — 2026-05-14
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Project:** pipeline-audit-cleanup-2026-05-14-v2  
 **Auditor:** Claude (autonomous)  
 **Scope:** Repo-wide + LIVE_TRADER service posture; TRAINING_CENTER pending IP confirmation  

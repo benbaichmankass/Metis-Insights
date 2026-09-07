@@ -1,5 +1,7 @@
 # M36 Track C · C4 — conditioned-lifecycle backtest RUN on 21yr history (2026-07-27)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## What this is
 
 The **decisive C4 gate** of `M36-macro-intelligence-and-crowding-DESIGN.md`: does

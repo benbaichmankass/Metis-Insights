@@ -1,5 +1,7 @@
 # Local PnL fallback for non-Bybit (IBKR / paper) trades — 2026-06-16
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Ref:** BL-20260616-IBKRPNL · operator report (MGC / MHG paper trades on
 `ib_paper` showing `$0.00`).
 

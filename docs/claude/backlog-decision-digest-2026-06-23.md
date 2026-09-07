@@ -1,5 +1,7 @@
 # Backlog decision digest — Tier-3 proposals (C) + operator-only (D)
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **One-pass decision surface (2026-06-23).** These backlog items can't be
 > burned down autonomously — they need an operator decision (Tier-3: strategy /
 > risk / sizing / model-influence / live-promotion) or a physical/external

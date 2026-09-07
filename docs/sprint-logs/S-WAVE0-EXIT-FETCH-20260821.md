@@ -1,5 +1,7 @@
 # Sprint Log: S-WAVE0-EXIT-FETCH-20260821
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > ⚠️ **PROVENANCE: COMPILED FROM COMMITTED ARTIFACTS, NOT A FIRST-HAND ACCOUNT.**
 > The session that did this work (`wave0-8g7443`) closed at 2026-08-21T18:12:05Z
 > without writing a log, and its Wave-0.1 result — a measurement that refutes a

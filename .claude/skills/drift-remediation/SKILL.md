@@ -3,6 +3,8 @@ name: drift-remediation
 description: The standing process for FIXING a drifted / degrading ML model instead of reflexively demoting it. Use when the daily promotion-readiness report proposes a DEMOTE for a live (advisory) model, when shadow-drift or gate-check flags drift, or when the operator asks "how do we fix this model / get it back to where it needs to be" rather than just turning it off. Distinguishes transient drift (self-corrects on the daily retrain → no action) from persistent capability failure (needs a feature/label fix shipped as a new version → operator promotes the validated replacement). Demote is interim safety only, never the endpoint. Composes with model-training, ml-review, diag-data. NOT for promoting a model past shadow (that's the Tier-3 operator gate) and NOT for routine training (model-training).
 ---
 
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+
 # /drift-remediation — fix a drifted model, don't just demote it
 
 Full runbook: [`docs/runbooks/model-drift-remediation.md`](../../docs/runbooks/model-drift-remediation.md).

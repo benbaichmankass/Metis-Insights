@@ -1,5 +1,7 @@
 # `timeout_bars`: the harness force-closes, live never does — how much does it matter?
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-29 · **Lane B / B9** of [`../claude/WORKPLAN-2026-08-29.md`](../claude/WORKPLAN-2026-08-29.md)
 · Backlog row `BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES`
 

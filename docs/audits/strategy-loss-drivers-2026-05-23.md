@@ -1,5 +1,7 @@
 # Strategy Loss-Driver Report — S-STRAT-IMPROVE-S2 (2026-05-23)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Sprint:** S-STRAT-IMPROVE-S2 (Strategy Improvement Program, Tier-1).
 > **Status:** Evidence base for S3 (selectivity) and S4 (exit logic).
 > **Method:** live, read-only diag + audit relays (autonomous per the

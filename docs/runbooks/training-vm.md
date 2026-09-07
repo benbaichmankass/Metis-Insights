@@ -1,5 +1,7 @@
 # Training-center VM runbook (S-AI-WS9)
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Authority:** [`docs/ARCHITECTURE-CANONICAL.md`](../ARCHITECTURE-CANONICAL.md) §
 > "Two-VM topology"; [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md).
 > **Trust contract:** [`docs/claude/trainer-vm-mode.md`](../claude/trainer-vm-mode.md) —

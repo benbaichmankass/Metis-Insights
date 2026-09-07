@@ -1,5 +1,7 @@
 # Reachable take-profit — the per-leg repair for the 25 enabled+live legs that have none
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **MI-156** · branch `claude/reachable-tp-proposal-20260907` · PR [#11225](https://github.com/benbaichmankass/Metis-Insights/pull/11225) · coordination-board START [#6927 comment](https://github.com/benbaichmankass/Metis-Insights/issues/6927#issuecomment-5567982440)
 
 ⚠️ **TIER-3 PROPOSAL. NOTHING IS APPLIED.** `config/strategies.yaml` was opened **read-only**. The

@@ -1,5 +1,7 @@
 # Research infra + skills audit — 2026-07-30
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Operator directive (verbatim):** *"before we keep moving on the research, we need to do an
 audit of the research skills and tool instructions — it's insane that we still can't run a
 research session without claude misunderstanding how the work is supposed to happen. We need

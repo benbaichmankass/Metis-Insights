@@ -1,5 +1,7 @@
 # S-AI-WS2 — AI traders WS2: Canonical trade pipeline
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Date:** 2026-05-10
 **Authority:** [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md) (master plan); subordinate to [`docs/ARCHITECTURE-CANONICAL.md`](../ARCHITECTURE-CANONICAL.md) and [`docs/architecture/ai-model-platform.md`](../architecture/ai-model-platform.md)
 **Status:** ✅ COMPLETE

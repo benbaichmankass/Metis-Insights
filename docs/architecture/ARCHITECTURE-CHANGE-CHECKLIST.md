@@ -1,5 +1,7 @@
 # Architecture Change Checklist (S-AI-WS10)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Authority:** [`docs/ARCHITECTURE-CANONICAL.md`](../ARCHITECTURE-CANONICAL.md)
 > is the canonical architecture doc. This checklist defines **what
 > counts as an architecture change** and **what to update** when one

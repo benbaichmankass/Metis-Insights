@@ -1,5 +1,7 @@
 # Alpaca Level-3 Options on `alpaca_live` — Research Memo (first pass)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-06-27 · **Branch:** `claude/alpaca-level3-options-research-djr017` · **Status:** first pass — **operator chose the Hybrid path (§9, option 3) on 2026-06-27**: build + paper-validate the debit-only slice now at $150, with a pre-agreed graduation to ≥$2k + credit structures once the infra validates.
 
 **Scope:** (a) which options strategies + underlyings are worth trading on the small real-money `alpaca_live` account, each with a real edge thesis; (b) a feasibility-gated plan for the infra to trade + backtest + monitor them in this bot. Guiding principle: recommend only what is **both well-researched AND feasible to build here.**

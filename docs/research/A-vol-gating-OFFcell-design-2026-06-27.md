@@ -1,5 +1,7 @@
 # Design-A — evidence-based `trend_vol` OFF-cell design (2026-06-27)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 The aggregate + walk-forward A/B proved the **ML vol label beats the frozen-edge
 label** — but with *hypothesis* OFF-cells that weren't themselves profitable
 (`A-vol-gating-AB-evidence-2026-06-27.md`). This step authors **evidence-based**

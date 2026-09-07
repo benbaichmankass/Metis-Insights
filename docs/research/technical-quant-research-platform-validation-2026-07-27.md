@@ -1,5 +1,7 @@
 # M30 Technical Quant-Research Platform — Validation & Readiness (2026-07-27)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Purpose.** Before the first real deep-research session runs on this platform,
 verify — by *execution*, not by reading docs — that the discovery tooling
 actually works and its anti-overfit guards actually bite, so a null it reports

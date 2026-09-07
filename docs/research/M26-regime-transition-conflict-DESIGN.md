@@ -1,5 +1,7 @@
 # M26 — Regime-transition & directional-conflict intelligence (design of record)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** 📋 PROPOSED 2026-07-19 (operator-directed). Evidence-gathering and
 > backtests are Tier-1 autonomous; anything that changes routing, sizing, or an
 > exit is Tier-3, walk-forward-gated, operator-approved.

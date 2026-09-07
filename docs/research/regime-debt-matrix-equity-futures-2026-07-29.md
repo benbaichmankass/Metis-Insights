@@ -1,5 +1,7 @@
 # Regime-Debt Matrix — Equity / ETF / Futures Roster (rec #5)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-07-29
 **Run:** [issue #7917](https://github.com/benbaichmankass/Metis-Insights/issues/7917#issuecomment-5119466817) · workflow `regime-debt-matrix` run `30462697297` (free GitHub runner, `results.json` uploaded)
 **Engine:** `scripts/research/regime_debt_matrix.py` (#7916) · `.github/workflows/regime-debt-matrix.yml`

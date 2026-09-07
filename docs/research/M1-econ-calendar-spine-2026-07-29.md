@@ -1,5 +1,7 @@
 # ROADMAP_MACRO M1 — economic-calendar + surprise-vs-consensus DATA SPINE
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** built 2026-07-29 (Tier-1, observe-only, data-only). Recommendation #1
 of [`roadmap-toolbox-assessment-2026-07-29.md`](./roadmap-toolbox-assessment-2026-07-29.md).
 Turns the macro-event calendar from **inert** (`config/economic_calendar.yaml →

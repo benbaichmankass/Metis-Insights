@@ -1,5 +1,7 @@
 # AI Trader — Original Workplan (HISTORICAL — superseded 2026-05-10)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Superseded 2026-05-10 by the S-CANON-1 canonical
 > doc set. Authority order is now:
 > 1. docs/CLAUDE-RULES-CANONICAL.md

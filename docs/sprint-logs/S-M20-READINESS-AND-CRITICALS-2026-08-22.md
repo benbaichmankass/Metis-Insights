@@ -1,5 +1,7 @@
 # S-M20-READINESS-AND-CRITICALS-2026-08-22
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 2026-08-22 (second unit of the `s4-pairs-control` session, continuing directly from
 `S-PAIRS-CONTROL-EXIT-RESIDUE-2026-08-22`; main at `4987e726` at the start of this unit).

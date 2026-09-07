@@ -1,5 +1,7 @@
 # Does our record of a trade say what actually happened?
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **MI-144** · object `WO-20260906-THE-RECORD-OF-A-TRADE-DOES-NOT` · intent
 `IN-20260903-TRADING-SYSTEM-HEALTH` · PR #11131 · 2026-09-06
 

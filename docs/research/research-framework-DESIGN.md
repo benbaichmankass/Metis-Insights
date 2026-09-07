@@ -1,5 +1,7 @@
 # Research Framework — high-throughput variation testing + signal isolation (DESIGN, 2026-06-18)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Tier-1 research/backtest tooling.** Offline orchestration over the existing
 > harnesses + gates. Touches nothing live (`src/`, `config/strategies.yaml`,
 > `config/accounts.yaml`, units the live VM consumes). Status: **DESIGN — for
