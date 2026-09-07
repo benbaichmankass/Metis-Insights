@@ -1,0 +1,30 @@
+id: WO-20260907-THE-TRAILING-BANKING-HALF-OF-THE-EXIT
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The trailing banking half of the exit thesis - does the stop bank R as it accrues
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Established whether exit_plan.py is live or shadow (this decides whether the 0-of-44 be_at_r reading is the headline or a shadow artifact), what banks R on the live fleet today over a stated population, and whether the POOLED corpus has sufficient n for a fleet-wide bank-at-XR rule given MI-155 grades every per-leg population insufficient_n at max n=8. Tier-3 changes proposed only.
+
+why: >-
+  Operator thesis: the stop is the risk manager and must trail up to bank R, with no endless bracket. The TARGET half closed 2026-09-07 (MI-146 to MI-158); this half is untouched. Measured over the 44 enabled+live legs: be_at_r on 0, giveback_r on 1, trail_mult on 36.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
