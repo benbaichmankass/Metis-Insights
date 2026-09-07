@@ -1,0 +1,218 @@
+id: WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  25 of 44 enabled+live legs have no reachable take-profit - the per-leg Tier-3 repair
+stage: DECISION
+lifecycle: waiting
+owner: session_0148fMEXBbDgQU3qsrcWujtx
+opened_at: 2026-09-07
+
+review_trigger: >-
+  Re-open when the operator answers DEC-20260907-TP-VALUE / -VOCAB / -UNEXAMINED
+  on PR #11225, or when a timeframe-matched harness run produces a
+  gate-passing, timeout-free take-profit cell for any of the 24 legs this
+  proposal could not give a number to.
+
+# ⚠️ THIS FILE WAS CREATED BY THE SESSION THAT WAS DISPATCHED AGAINST IT.
+# The dispatch named this path as "the contract"; it did not exist on
+# origin/main (383a4f7). POSITIVE CONTROL for that probe: the same git ls-tree
+# over docs/claude/work/objects/ returned 72 other WO-*.yaml files, so this is a
+# real absence and not a dead probe. The done_condition below is TRANSCRIBED
+# FROM THE DISPATCH PROSE, not recovered from a committed object - it is
+# therefore this session's reading of the contract, which is a weaker thing than
+# the contract itself, and a later reader should treat it as such. MI-148
+# records the identical failure for its own brief, so this is a RECURRENCE:
+# BL-20260907-DISPATCH-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED.
+
+done_condition: >-
+  Produce the exact per-leg repair as a Tier-3 PROPOSAL for the 25 of 44 enabled+live legs with no reachable take-profit (15 declaring tp_r >= 20 that TP_VENUE_CAP_PCT = 0.099 silently clamps to 9.9% of entry; 10 declaring no target at all). The deliverable is docs/research/reachable-take-profit-proposal-2026-09-07.md, carrying the per-leg table (leg, current declaration, what the venue actually rests, proposed value, basis, what it does NOT establish), the two sub-populations kept apart and never merged, and the exact config/strategies.yaml diff as a fenced block that is NOT applied. It repairs REACHABILITY, not calibration, and must say so in those words - a target the venue accepts is strictly better than one it silently clamps away, which needs no fidelity evidence and does NOT establish that the new level is where momentum runs out. Per leg, state what the number rests on AND what it does not rest on. For the 15 clamped legs, decide per leg whether the honest repair is a real finite tp_r or an explicit declaration that the leg is deliberately unbracketed. For the 10 with no target, establish per leg whether a target was intended and lost or never declared, keeping "we did not look" as a distinguishable third state. READ-ONLY on config/.
+
+outcome: >-
+  DELIVERED as a proposal, open at PR #11225 (branch
+  claude/reachable-tp-proposal-20260907), awaiting the Tier-3 decisions below.
+  MEASURED against config/strategies.yaml and both e3.5 corpora at origin/main
+  383a4f7, the full 110-revision history of that file, and the live trader
+  (/api/diag/position_telemetry, 171 rows, 2026-09-07).
+  THE HEADLINE RESULT IS THAT 24 OF THE 25 LEGS GET A DECLARATION AND NOT A
+  NUMBER, and that is a consequence of MI-155 rather than of effort: all 44
+  enabled+live legs grade insufficient_n, so no leg may take a target from the
+  MFE-quantile route. Sub-population A (15 explicit sentinels) resolves to 13
+  explicit `none` + 2 `unexamined` + 0 finite targets; sub-population B (10 with
+  no target key) resolves to 1 finite target + 9 explicit `none`.
+  SHARPEST FINDING: the e3.5 sweep pipeline has ALREADY shipped a take-profit to
+  every leg for which it produced a gate-passing, live-expressible cell - nine
+  legs, each carrying its winning cell id inline in config - and left exactly
+  one behind, gld_pullback_1h (cell tp4). The other 24 have no shippable cell at
+  all, because every TP-bearing passing cell on them is entangled with a
+  bar-count timeout no live unit implements. So their unreachability is an
+  ABSENCE OF EVIDENCE, not an oversight, and that is what makes it a declaration
+  problem rather than a number problem.
+  ESTABLISHED SEPARATELY: none of the 10 no-target legs has ever carried a tp_r
+  key, across all 110 revisions of config/strategies.yaml (2026-04-29 ->
+  2026-09-06, full history), against four positive controls on which the probe
+  finds tp_r AND catches value changes. Absence there is "never declared", not
+  "intended and lost".
+  NOT ESTABLISHED, and the proposal says so per leg: that any proposed level is
+  where momentum runs out. The one number (gld_pullback_1h tp_r 4.0) is
+  REACHABLE - measured cap_r min 7.94 over n=4 live rows, so the declaration
+  would bind rather than the clamp - and it is NOT CALIBRATED.
+
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260907-TP-VALUE
+    since: 2026-09-07
+  - kind: operator_decision
+    ref: DEC-20260907-TP-VOCAB
+    since: 2026-09-07
+  - kind: operator_decision
+    ref: DEC-20260907-TP-UNEXAMINED
+    since: 2026-09-07
+blocked_on_basis: >-
+  ASSESSED 2026-09-07. These are TRUE edges, not placeholders: the deliverable
+  is complete and every remaining step is a Tier-3 approval that only the
+  operator can give. Each edge names a decision_request below, so none of them
+  is an unanswerableOperatorEdge.
+
+decision_requests:
+  - id: DEC-20260907-TP-VALUE
+    question: >-
+      Apply tp_r 4.0 to gld_pullback_1h as a REACHABILITY repair - accepting that it
+      is reachable but NOT calibrated?
+    urgency: routine
+    asked_on: 2026-09-07
+    context: >-
+      This is the only leg of the 25 with pre-existing gate-passing,
+      live-expressible take-profit evidence: cell `tp4` (wf_pass,
+      wf_wins_effective 4/6, 0 inert, d_net_r +9.00; sweep 2026-08-31).
+      REACHABILITY IS MEASURED: live cap_r on this leg is min 7.94 / median 8.24
+      over n=4 rows, so a declared 4.0 would BIND on 4 of 4 observed trades
+      instead of the 9.9% venue clamp. WHAT IT DOES NOT ESTABLISH: that 4.0R is
+      where momentum runs out. MI-155 grades this leg insufficient_n (n_live 3
+      against a floor of 30), and a walk-forward is evidence about net R, not
+      about exit LOCATION; 2 of its 6 folds lost. Note also that this DEPARTS
+      from the coverage matrix's own winner for the leg (`sm1.5`, chosen by
+      d_net_r +46.46), which carries no take-profit at all - so this is
+      selecting for reachability over d_net_r, deliberately.
+    options:
+      - key: apply
+        label: Apply tp_r 4.0 to gld_pullback_1h
+        implication: >-
+          One live leg stops resting a venue artefact and starts resting a
+          declared level. It is the first leg on which target_extension_soak can
+          produce a non-sentinel row, which unblocks MI-148 clause 3.
+      - key: hold
+        label: Hold until a timeframe-matched harness run exists
+        implication: >-
+          The fleet keeps zero legs with a reachable declared target among these
+          25, and the soak keeps reading 100% sentinel_no_expectation - i.e. the
+          instrument stays unable to observe the lever at all.
+      - key: apply_with_sm
+        label: Apply tp_r 4.0 AND the matrix's sm1.5 stop cell together
+        implication: >-
+          Ships both axes at once. ⚠️ NO CELL IN THE CORPUS EVALUATES THE PAIR -
+          the joint effect is unmeasured, so this trades a known-unmeasured
+          interaction for a larger expected d_net_r.
+    allows_free_text: true
+    asked_by:
+      session_id: session_0148fMEXBbDgQU3qsrcWujtx
+      recorded_at: 2026-09-07T09:10:00Z
+      note: MI-156 - the only per-leg take-profit value the evidence supports today
+
+  - id: DEC-20260907-TP-VOCAB
+    question: >-
+      Accept the `tp_intent` declaration key (mode: r_multiple | none | unexamined)
+      on config legs - and require its reader in the same cycle?
+    urgency: routine
+    asked_on: 2026-09-07
+    context: >-
+      MI-146's gate condition 1 says a leg that deliberately has no target "must
+      say so as an explicit declaration, not by carrying a 50R sentinel". Today
+      a deliberate decision and a plain omission are BYTE-IDENTICAL, and for the
+      10 no-target legs the sentinel is not even visible to a `grep tp_r`. The
+      proposed key makes the decision readable and is RUNTIME-INERT by
+      construction. ⚠️ THE HONEST OBJECTION, stated rather than hidden: nothing
+      reads `tp_intent` today, and by this repo's own provenance-consumer-guard
+      standard "a signal that is written and never read is worse than a missing
+      one" - which is how exit_price_source rotted. So the key should either
+      land WITH its reader (bracket_expectation_census.py and
+      src/runtime/target_expectation.py, both Tier-1) or not land.
+    options:
+      - key: accept_with_reader
+        label: Accept the key, and land its reader in the same cycle
+        implication: >-
+          The declaration becomes machine-readable and the census can finally
+          separate "deliberate" from "omitted". Costs one Tier-1 follow-on PR.
+      - key: accept_key_only
+        label: Accept the key now, reader later
+        implication: >-
+          ⚠️ Creates exactly the write-only field the repo has a guard against.
+          Not recommended by this proposal.
+      - key: reject
+        label: Reject the key; record intent somewhere else
+        implication: >-
+          The unit docstrings stay the only place the "deliberately unbracketed"
+          decision is written down, so a config reader still cannot tell a
+          decision from an omission, and MI-146's gate condition 1 stays unmet.
+    allows_free_text: true
+    asked_by:
+      session_id: session_0148fMEXBbDgQU3qsrcWujtx
+      recorded_at: 2026-09-07T09:10:00Z
+      note: MI-156 - the declaration half of the repair, covering 24 of the 25 legs
+
+  - id: DEC-20260907-TP-UNEXAMINED
+    question: >-
+      Is `unexamined` an acceptable PUBLISHED state for two live legs
+      (qld_trend_long_1d, tqqq_trend_long_1d)?
+    urgency: routine
+    asked_on: 2026-09-07
+    context: >-
+      These two are absent from BOTH sweep corpora - e35-bracket-corpus.jsonl
+      (41 legs) and -history.jsonl (27 legs) - against a positive control
+      (splg_trend_long_1d) present in both. The coverage matrix says why:
+      blocked:no_free_lane_candle_feed. So their target question has NEVER BEEN
+      ASKED. They are trading live today with a 50R sentinel, and the choice is
+      whether to say that plainly or to fold them in with the legs that were
+      examined and found to have no shippable target. Folding them in would
+      launder "we did not look" into "we decided", which is the collapse
+      docs/CLAUDE-RULES-CANONICAL.md § "Collapsed states" exists to prevent.
+    options:
+      - key: publish_unexamined
+        label: Publish `unexamined` on both legs
+        implication: >-
+          Two live legs visibly carry an un-asked question. That is the honest
+          state and it creates standing pressure to source a candle substrate.
+      - key: fold_into_none
+        label: Declare them `none` like the others
+        implication: >-
+          ⚠️ Asserts a decision nobody made. Not recommended by this proposal.
+      - key: shadow_them
+        label: "Move both to execution: shadow until they can be swept"
+        implication: >-
+          Removes live exposure on legs whose exit geometry has never been
+          examined. ⚠️ This is a SEPARATE Tier-3 demotion, outside this
+          proposal's scope, and it would be evidence-free in the other direction
+          - no measurement says these legs are bad.
+    allows_free_text: true
+    asked_by:
+      session_id: session_0148fMEXBbDgQU3qsrcWujtx
+      recorded_at: 2026-09-07T09:10:00Z
+      note: MI-156 - keeping the third state separable, per the dispatch
+
+why: >-
+  MI-146 measured that on 56.8% of the live fleet (25 of 44 enabled+live legs)
+  "it was right and it hit the take profit" is structurally impossible, so the
+  only exit available to a winning trade is the ATR trail - and a trail by
+  construction gives back the distance from the high-water mark to the trail
+  line. That is the giveback the operator observed. MI-148 then established that
+  clause 1 (give the sentinel legs a stated, reachable expectation) is a hard
+  prerequisite for clauses 2 and 3, and MI-155 established that the
+  MFE-quantile route to a per-leg number is closed on every leg today. This
+  object is the repair that is available under those two constraints together.
+
+source: >-
+  manager session_01HrmZ1RRNM4UnEUaFdrPEjj, from MI-146 read against MI-155 and MI-148
+
+artifacts:
+  - docs/research/reachable-take-profit-proposal-2026-09-07.md
+  - https://github.com/benbaichmankass/Metis-Insights/pull/11225
