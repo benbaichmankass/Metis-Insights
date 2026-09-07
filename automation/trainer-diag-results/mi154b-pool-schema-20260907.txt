@@ -1,0 +1,60 @@
+=== trainer-diag-relay result ===
+request: mi154b-pool-schema-20260907
+state: ran
+remote_exit: 1
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/34082151195
+=================================
+===== A. pooled-dir precedent: how is eh_1h_pooled laid out? =====
+total 12
+drwxrwxr-x  3 ubuntu ubuntu 4096 Aug 13 06:45 .
+drwxrwxr-x 44 ubuntu ubuntu 4096 Aug 16 04:21 ..
+drwxrwxr-x  2 ubuntu ubuntu 4096 Aug 13 06:46 donchian
+--- does it hold a single rows.jsonl? ---
+NO
+
+===== B. is there an existing POOLING script? (do not rebuild what exists) =====
+scripts/ml/m23_ev_gate.py
+scripts/ml/fit_regime_alignment_calibrators.py
+scripts/ml/__pycache__/train_exit_head.cpython-311.pyc
+scripts/ml/__pycache__/m23_ev_gate.cpython-311.pyc
+scripts/ml/record_harness_trades.py
+scripts/ml/m23_phase2_labelvol.sh
+scripts/ml/spike_a_pooled_labels.py
+scripts/ml/train_exit_head.py
+scripts/ml/hpo_sweep.py
+scripts/ml/m23_phase1_pooled.sh
+scripts/ml/walkforward_evidence_cells.sh
+scripts/ml/backtest_augment_runner.py
+scripts/research/m20_dispersion_rate.py
+scripts/research/sweep_research_panels.py
+scripts/research/e2_feature_information.py
+scripts/research/m21_entry_head_round.py
+scripts/research/m20_exit_head_round.py
+scripts/research/analyze_panel_by_cell.py
+scripts/research/component_edge_report.py
+scripts/research/ml2_bracket_train_eval.py
+--- any script that concatenates rows.jsonl ---
+scripts/ml/__pycache__/train_exit_head.cpython-311.pyc
+scripts/ml/__pycache__/train_entry_head.cpython-311.pyc
+scripts/ml/__pycache__/build_exit_head_dataset.cpython-311.pyc
+scripts/ml/build_exit_head_dataset.py
+scripts/ml/export_entry_head.py
+scripts/ml/export_exit_head.py
+scripts/ml/train_exit_head.py
+scripts/ml/train_entry_head.py
+scripts/research/m21_entry_head_round.py
+scripts/research/m20_exit_head_round.py
+
+===== C. row schema of one scalp leg (first row keys + symbol values) =====
+keys: ['age_bars', 'atr_impulse_phase', 'atr_ratio_vs_entry', 'band_ext_pctile', 'bar_t', 'bars_since_peak', 'chop_frac_so_far', 'dayofweek', 'direction', 'dist_to_stop_r', 'donchian_mid_dist_atr', 'entry_atr_pctl', 'entry_confidence', 'entry_dayofweek', 'entry_dc_dist_atr', 'entry_hour', 'entry_mom_8', 'failure_swing', 'family', 'final_r', 'final_r_source', 'first_touch_1r', 'future_mfe_delta', 'future_r_delta', 'giveback_r', 'holding_pays', 'hour_of_day', 'mae_r', 'mfe_r', 'mom_8', 'mom_decay', 'open_r', 'peak_is_in', 'reaches_2r', 'source', 'stagnation_run', 'strategy', 'symbol', 'trade_key', 'vol_at_peak_ratio', 'vol_ratio_vs_entry', 'year']
+symbol: SOLUSDT | source: harness | trade_key: ict_scalp_sol_5m:SOLUSDT:1634431500
+--- distinct symbols per scalp leg ---
+  ict_scalp_avax_5m: symbols= ['AVAXUSDT'] trades= 1531
+  ict_scalp_sol_5m: symbols= ['SOLUSDT'] trades= 1229
+  ict_scalp_xrp_5m: symbols= ['XRPUSDT'] trades= 1190
+  ict_scalp_eth_15m: symbols= ['ETHUSDT'] trades= 610
+  ict_scalp_sol_15m: symbols= ['SOLUSDT'] trades= 544
+  ict_scalp_xrp_15m: symbols= ['XRPUSDT'] trades= 524
+
+===== D. how the donchian pooled head was actually produced (shell history / notes) =====
+
