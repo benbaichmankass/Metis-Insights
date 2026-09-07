@@ -184,3 +184,37 @@ It is a real race, not a one-off: any two relays triggered by one push collide,
 and `pr-opener.yml` / `board-post.yml` / `trainer-diag-relay.yml` all commit back
 to the same branch the same way. Workaround used here: push relay requests
 **alone**, and `git pull --rebase` before every push.
+
+## 6. Landing, and the CI-arming trap this PR hit too
+
+Landed as **#11208** (`tier: 1`, `landing: self`). Two mechanics are worth
+recording because both cost time and both are structural rather than one-off.
+
+**The PR was opened by a relay, so no CI fired.** `create_pull_request` over the
+GitHub MCP returns `403 Resource not accessible by integration` from this session
+— a write-scope boundary, not the transient hosted-MCP drop, so retrying with
+backoff never clears it. `claude-pr-automerge.yml` opened the PR instead, as
+`github-actions[bot]`. GitHub fires no workflows for `GITHUB_TOKEN` pushes, so
+the PR came up with `total_count: 1` — only `open-and-automerge` — and
+`mergeable_state: blocked`, with auto-merge enabled and waiting on checks that
+would never start. **Read `mergeable_state` to tell the two zero-check causes
+apart:** `blocked` is this (no checks fired), `dirty` is a merge conflict. One
+ordinary commit — this section — arms CI.
+
+**The diff is narrowed on purpose.** `pr-landing-guard`'s `TIER1_SURFACE` covers
+`docs/**`, `tests/**`, `comms/**`, `.github/**` and four `scripts/` subtrees, but
+**not `automation/**`**, so a diff carrying the relay request/result scaffolding
+cannot be certified for self-landing. The scaffolding also cannot simply be
+deleted from the branch: `automation/trainer-diag-requests/**` is
+`trainer-diag-relay.yml`'s own trigger path, and staging a change there forces
+the `[skip ci]` that has stranded PR checks before. So the landing PR is cut
+narrow from `main` and the scaffolding stays on
+`claude/mi154b-scalp-artifact-20260907`, with every measurement it produced
+quoted verbatim above. Narrowing is the guard's own first-listed remedy and the
+same one PR #11169 took for `scripts/ml/**`.
+
+⚠️ **Note the landing files are named for the BRANCH slug, not the work item** —
+`pr-landing-guard` derives the expected filename from the branch, so on branch
+`…-20260907-land` the declaration must be
+`.github/pr-landing/mi154b-scalp-artifact-20260907-land.json`. A file named for
+the work item alone grades `state=undeclared` and fails the guard.
