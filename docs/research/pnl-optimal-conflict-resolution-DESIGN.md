@@ -1,5 +1,7 @@
 # Design Proposal — PnL-Optimal Intent Conflict Resolution (`FLIP_POLICY=selective`)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** RESEARCH / DESIGN PROPOSAL — read-only analysis. **No code, config, or live
 > state changed.** Every option that touches intent/conflict-resolution, sizing, order-path,
 > or hedge-mode is **Tier-3 — PROPOSE ONLY**, gated on backtest validation + explicit operator

@@ -1,5 +1,7 @@
 # M23 (candidate) — Break the decision-label wall: augmented + external trade-outcome labels
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** ✅ **APPROVED 2026-07-16 (operator)** — the milestone and tonight's plan are
 > greenlit; **Phase 1 (in-distribution backtest-augmented labels) is cleared for Tier-1/offline
 > build**, to run **in parallel** with the MB-20260701-001 vol-gate work. **Phase 2 (external

@@ -1,5 +1,7 @@
 # The split margin, measured — boundary loss over the derived-split corpus
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-14 · **Tier:** 1 (measurement over a committed corpus; no live
 path, no default changed) · **Closes criterion (2) of**
 `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`.

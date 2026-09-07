@@ -1,5 +1,7 @@
 # Shrinking the mandatory boot read — measured proposal
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** slice 1 EXECUTED (the API payload reference, 2026-09-02). Slices 2–5
 > are PROPOSED and not done; each carries its own resolution criteria below.
 > **Tier:** 1 (docs + guard registration) for every slice here. Nothing in this

@@ -1,5 +1,7 @@
 # M29 — AI-Driven System-Dynamics Modelling (design-of-record)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status: 🟢 P0 SCOPE LOCKED 2026-07-23** (operator-directed: *"add a roadmap milestone —
 > AI-driven system dynamics modelling"*; P0 scope confirmed same day). **The P1 build is
 > unblocked** (the pure stock-flow engine + a hand-specified seed model — Tier-1/offline).

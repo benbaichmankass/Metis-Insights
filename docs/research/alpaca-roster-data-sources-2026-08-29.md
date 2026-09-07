@@ -1,5 +1,7 @@
 # Do we need a new data source for the roster work?
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **2026-08-29 · operator:** *"if we need to find new sources of data, thats fine - as long as
 it reliable for our needs"* · **Tier-1: reads + one catalogue probe. Nothing built, no config
 touched, no map edited.**

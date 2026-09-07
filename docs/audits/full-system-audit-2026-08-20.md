@@ -1,5 +1,7 @@
 # Full-System Audit — 2026-08-20
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Program doc (the shared brain) per `.claude/skills/full-system-audit/SKILL.md`.
 > Session `comprehensive-system-audit-p2dlkd`, branch
 > `claude/comprehensive-system-audit-p2dlkd`. Board `START` posted to #6927.

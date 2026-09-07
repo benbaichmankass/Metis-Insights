@@ -1,5 +1,7 @@
 # Exit-geometry rebuild — active management — standalone session prompt
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Written:** 2026-08-23 by the full-system-audit session · **Paste this whole file as the opening message of a NEW session.**
 
 Repo: `benbaichmankass/Metis-Insights`. Read `CLAUDE.md` and

@@ -1,5 +1,7 @@
 # ICT Trading Bot — Product Roadmap
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Companion roadmap:** [`ROADMAP_MACRO.md`](./ROADMAP_MACRO.md) — the
 > platform-layering effort (a machine-enforced Signals / Strategy / Execution
 > boundary via `import-linter`) + the **macro event-driven** (energy / carbon)

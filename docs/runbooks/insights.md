@@ -1,5 +1,7 @@
 # AI Analyst (insights) — operator runbook
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Scope:** the M13 S1 server-side AI analyst on the live VM. Reads
 trade state, emits prose summaries + grades, served from
 `/api/bot/insights/*`. This runbook covers the operator-visible

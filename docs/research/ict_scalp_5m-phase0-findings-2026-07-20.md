@@ -1,5 +1,7 @@
 # ict_scalp_5m — Phase 0 findings: honest baseline + clean per-cell dataset (2026-07-20)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** Phase 0 of
 [`ict_scalp_5m-modernization-research-plan-2026-07-20.md`](./ict_scalp_5m-modernization-research-plan-2026-07-20.md)
 — COMPLETE. Research only (Tier-1); no config or live-path change is made or

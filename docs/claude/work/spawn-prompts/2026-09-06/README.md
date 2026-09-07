@@ -1,5 +1,7 @@
 # Spawn dispatches — 2026-09-06 day shift
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 The exact text each sub-session was dispatched with, committed so a successor
 manager can read what a session was actually told rather than inferring it from
 its output. Written by manager `session_01HrmZ1RRNM4UnEUaFdrPEjj`.

@@ -1,5 +1,7 @@
 # Task-level priority — 2026-09-07
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **This ranks TASKS, not milestones.** Operator directive, 2026-09-07, verbatim:
 >
 > > *"the priority doesn't [get] assign[ed] to me by the milestone. Right? It has to be

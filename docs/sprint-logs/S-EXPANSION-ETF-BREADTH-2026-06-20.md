@@ -1,5 +1,7 @@
 # Sprint Log: S-EXPANSION-ETF-BREADTH-2026-06-20
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-06-20
 - End: 2026-06-20 (wrap-up PR `claude/session-wrap-followups`; continues the

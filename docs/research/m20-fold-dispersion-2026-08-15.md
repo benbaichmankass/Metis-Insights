@@ -1,5 +1,7 @@
 # How much of an E1 verdict is boundary placement? — the fold-offset dispersion measurement
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-15 · **Tier:** 1 (measurement; no live path, no gate changed, no
 matrix status flipped) · **Pre-registration:**
 [`m20-fold-dispersion-preregistration-2026-08-15.md`](./m20-fold-dispersion-preregistration-2026-08-15.md),

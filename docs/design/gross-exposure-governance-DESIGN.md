@@ -1,5 +1,7 @@
 # Gross-exposure governance — what we are actually trying to accomplish
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** § 4 (the observe / policy / verdict split) **SHIPPED** 2026-08-09 —
 `src/units/accounts/exposure.py`, behaviour-preserving for enforcement, with the
 measurement now surfaced on `report()` regardless of policy. § 5 (**choosing the

@@ -1,5 +1,7 @@
 # Sprint Log: Health-Check Noise Cleanup
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-05-12
 - End: 2026-05-12 (same-session ship)

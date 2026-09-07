@@ -1,5 +1,7 @@
 # M20 — Exit Refinement — session prompt
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Paste the block below into a fresh session to run the M20 Exit Refinement
 > work. It is the operator-directed #1 next-strategy-development priority: lift
 > net PnL through more accurate exit timing. **Not greenfield** — two observe-only

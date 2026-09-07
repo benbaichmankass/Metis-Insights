@@ -1,5 +1,7 @@
 # Sprint S-014 — Web Client V1 (Home Dashboard)
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > **Sprint type:** Feature sprint (lean). Phase 4 web client consuming the S-013 backend.
 > **Owner:** Claude Code (autonomous). **PM:** Ben. **Tech Lead:** Perplexity.
 > **Created:** 2026-04-30. **Predecessor:** S-013 (closed 2026-04-30).

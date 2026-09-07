@@ -1,5 +1,7 @@
 # M27 — MGC native-15m ict_scalp study, STEP 2 SCOPE (2026-07-28)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status: SCOPE — the executable plan for step 2, pending step-1's data survey
 > (trainer relay #7801).** Operator-directed re-target of the venue-blocked
 > XAUUSD 15m winner onto IBKR micro-gold futures (MGC), which — unlike XAUUSD's

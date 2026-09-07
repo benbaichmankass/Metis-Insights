@@ -1,5 +1,7 @@
 # Sprint S-045 — M4 step 2: conftest cleanup, promote `pytest-collect` to blocking, ruff rule expansion
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Sprint type:** Roadmap (M4) | **Risk tier:** Tier 1 (all self-merge)
 **Created:** 2026-05-07 | **Branch:** `claude/sprint-045-conftest-ruff-cleanup`
 **Predecessors:** `CP-2026-05-07-03-s044-complete` (S-044 closed; CI suite shipped). PR #437 merged at `bb83914`.

@@ -1,5 +1,7 @@
 # M27 P0 — Batch-1 crypto cross-symbol transfer findings (2026-07-20)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Question:** does the proven BTC ict_scalp_5m pipeline — config-exact backtest,
 gross→net fees (7.5 bps round-trip taker ≈ 0.20R/trade at scalp stop widths),
 decision-time regime stamps against frozen vol edges, per-(trend,vol) OFF-cell

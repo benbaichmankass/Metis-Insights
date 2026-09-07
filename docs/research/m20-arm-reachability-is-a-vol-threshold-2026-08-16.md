@@ -1,5 +1,7 @@
 # A declared exit arm is a volatility threshold in disguise — M20, 2026-08-16
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** measurement + mechanism. **Nothing was flipped.** Every Tier-3 item
 stays exactly where the overnight session left it; this memo changes what the
 operator knows before deciding, not what the system does.

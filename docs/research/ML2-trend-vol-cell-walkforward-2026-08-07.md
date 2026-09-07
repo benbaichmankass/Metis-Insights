@@ -1,5 +1,7 @@
 # ML2 — walk-forward of the six authored `trend_vol` OFF-cells (2026-08-07)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **PROPOSE ONLY.** Every cell change is Tier-3. Nothing here was applied.
 
 ## Population (state it before reading any number)

@@ -1,5 +1,7 @@
 # Sprint Log: S-CANON-FU-3-branch-protection
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-05-10
 - End: 2026-05-10 (PARTIAL — workflow + docs are ready;

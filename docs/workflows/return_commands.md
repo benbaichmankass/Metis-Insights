@@ -1,5 +1,7 @@
 # Unit 4 — Return Commands workflow
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## Responsibility
 Process UI commands that flow back to the accounts/risk manager.
 The only unit allowed to modify `_PAUSED_ACCOUNTS`.

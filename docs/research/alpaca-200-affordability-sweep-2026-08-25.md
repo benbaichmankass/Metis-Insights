@@ -1,5 +1,7 @@
 # What a $200 no-margin whole-share Alpaca account can actually hold
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Measured 2026-08-25.** Operator-directed, after the directive: *"we should
 definitely be checking for [sprint logs], but we also shouldn't rely — don't
 accept them as canonical truth if we have the possibility of verifying. And it

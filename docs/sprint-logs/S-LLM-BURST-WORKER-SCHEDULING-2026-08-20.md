@@ -1,5 +1,7 @@
 # S-LLM-BURST-WORKER-SCHEDULING — 2026-08-20
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - **Start:** 2026-08-20T08:50Z
 - **End:** 2026-08-20T09:30Z

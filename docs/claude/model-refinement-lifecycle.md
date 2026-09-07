@@ -1,5 +1,7 @@
 # Underperformer refinement lifecycle (models) — 2026-06-23
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Principle.** An underperforming model is **refined, not abandoned.** Every
 > model that degrades (an `advisory` model losing its edge) or stalls (a
 > `shadow` model that keeps failing the promotion gate) is routed through a

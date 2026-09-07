@@ -1,5 +1,7 @@
 # MB-20260701-001 — vol_threshold→base-rate mapping reconcile (2026-07-16)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## Question (gate 1 of the MB-20260701-001 Tier-3 gate chain)
 
 The vt004-pcv first-gate run (`docs/research/MB-20260701-vt004-evidence-2026-07-16.md`)

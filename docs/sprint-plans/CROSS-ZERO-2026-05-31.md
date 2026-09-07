@@ -1,5 +1,7 @@
 # Cross Zero — flip-policy, overtrading throttle, net-of-fee measurement
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-05-31 · **Status:** implementation (draft PR, Tier-3 — awaiting
 operator approval before merge/activation) · **Objective:** take the live book
 from net-negative to **net-positive after fees** ("cross zero"), closing the two

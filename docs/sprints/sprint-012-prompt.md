@@ -1,5 +1,7 @@
 # Sprint S-012 — Production Wiring Audit & Full Live Activation
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > **Sprint type:** All-night, slow-and-thorough audit + remediation.
 > **Owner:** Claude Code (autonomous).
 > **PM:** Ben.

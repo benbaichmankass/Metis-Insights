@@ -1,5 +1,7 @@
 # MI-154b — the scalp exit-head artifact is PUBLISHED; the done-condition is NOT met
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Measured 2026-09-07** against `main` `0ec62fc0`, the live diag surface, and the
 trainer VM. Session `session_01GNkN16mQBnSVNRLweSXNWP` (sub-session of manager
 `session_01HrmZ1RRNM4UnEUaFdrPEjj`). Work object

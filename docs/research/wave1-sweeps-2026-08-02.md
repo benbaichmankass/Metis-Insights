@@ -1,5 +1,7 @@
 # Wave 1 free-runner sweeps — GLD walk-forward + ETF fee-A/B residual (2026-08-02)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Plan:** [`WORK-PLAN-2026-08-02.md`](WORK-PLAN-2026-08-02.md) Wave 1 (Tier-1 evidence,
 free GitHub runners, $0, no VM lane).
 **Runs:** #8410 (regime-cell-walkforward, `gld_pullback_1h`) · #8411 (regime-debt-matrix

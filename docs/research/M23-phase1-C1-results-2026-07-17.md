@@ -1,5 +1,7 @@
 # M23 Phase 1 — variant C1 (R-aware target) results + τ sweep (2026-07-17)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Verdict: the R-aware target WORKS in the direction the exact-R gate predicted — it
 reproducibly turns the top slice of the ranking net-POSITIVE (which the `won` target never
 did) — but the positive region never exceeds ~11 trades / 3% coverage at any threshold,

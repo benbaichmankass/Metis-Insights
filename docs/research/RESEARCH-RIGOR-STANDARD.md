@@ -1,5 +1,7 @@
 # Research Rigor Standard
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Skill-adjacent reference doc (same tier as `docs/strategy-tuning.md`,
 `docs/news_layer.md` — **not** elevated into
 `docs/CLAUDE-RULES-CANONICAL.md`'s Document Priority hierarchy, so it does

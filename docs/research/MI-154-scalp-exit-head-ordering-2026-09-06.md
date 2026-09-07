@@ -1,5 +1,7 @@
 # MI-154 — the scalp exit-head artifact is the SECOND missing half, not the first
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Measured 2026-09-06** against `main` `957fc81d`, the live diag surface, and the
 trainer VM. Session `session_01S7pASy78QiNViwhSadGdNb` (sub-session of manager
 `session_01HrmZ1RRNM4UnEUaFdrPEjj`). Work object

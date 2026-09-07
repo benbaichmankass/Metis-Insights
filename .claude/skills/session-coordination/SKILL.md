@@ -17,6 +17,8 @@ description: >
   collide" half).
 ---
 
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+
 # session-coordination — preflight + the multi-session merge protocol
 
 This skill exists because (a) sessions repeatedly act/commit before reading the

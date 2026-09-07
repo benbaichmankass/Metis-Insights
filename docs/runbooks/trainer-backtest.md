@@ -1,5 +1,7 @@
 # Trainer-VM backtest sweep — runbook
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Adopted 2026-05-17 in S-TRAINER-BT-1, as part of the PR #1358
 post-incident remediation (full record:
 `docs/sprint-logs/S-AUDIT-PIPELINE-2026-05-17.md` § Addendum). The

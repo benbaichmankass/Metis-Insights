@@ -1,5 +1,7 @@
 # P5 — Opening-Range Breakout on MES: result (2026-06-26)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Verdict: SHELVE.** ORB-on-MES does **not** clear the P5 gate on the available
 MES data, at any configuration tested. Recorded as a clean negative result; the
 pre-gate did its job (caught a regime-specific edge before it reached paper).

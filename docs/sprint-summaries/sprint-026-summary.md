@@ -1,5 +1,7 @@
 # Sprint 026 — Decouple position sizing from strategies + audit-log "unknown" attribution
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Dates:** 2026-05-02 (single-session sprint; PRs #281 → #287 + this summary)
 **Checkpoints:** CP-2026-05-02-19 → CP-2026-05-02-22
 **Outcome:** ✅ all four goals shipped + BUG-033 logged + diagnostic instrumentation in place. Operator overrode the "one-task-per-session" rule and ran G1 → G4 serially in one conversation.

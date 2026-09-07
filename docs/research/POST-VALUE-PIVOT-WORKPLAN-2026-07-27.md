@@ -1,5 +1,7 @@
 # Post-value-exhaustion research pivot — two-track workplan (2026-07-27)
 
+> **Doc status:** `closed_unfinished` · category `plan` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > ## **PLAN STATUS: `closed_unfinished`**
 > **What was left:** BOTH tracks. **Track 1** (higher-frequency microstructure off
 > existing feeds — declared PRIMARY and unblocked, needing nothing but a session) and

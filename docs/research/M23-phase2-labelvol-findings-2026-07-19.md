@@ -1,5 +1,7 @@
 # M23 Phase 2 — label-volume expansion (3-symbol pooling) results (2026-07-19)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Verdict: NO-GO on P3 per-cell heads. The 3-symbol pooling lever did NOT widen the
 net-positive region past P1's ~11-trade cap — it erased it.** The pooled `won` head
 FAILS the recomputed population-matched gate (accuracy 0.7258 vs majority 0.7311;

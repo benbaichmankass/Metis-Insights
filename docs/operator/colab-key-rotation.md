@@ -1,5 +1,7 @@
 # Rotating API keys via Colab — no SSH required
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **⚠️ Command interface updated (2026-05, #1933).** The Telegram commands this
 > guide references (`/set_keys`, `/accounts_status`, `/smoke_test`) were
 > **removed** when the bot went menu-driven. Open the notebook via the **Open in

@@ -1,5 +1,7 @@
 # System Activity Report — design & format spec
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** v1 (2026-06-22). On-demand only; scheduling is a documented phase-2.
 
 ## Why

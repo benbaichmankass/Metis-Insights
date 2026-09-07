@@ -1,5 +1,7 @@
 # Conflict-policy walk-forward — scoping (S-STRAT-IMPROVE follow-on)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Date:** 2026-05-30 · **Status:** scope-only (no code yet) · **Tier:** Tier-1
 > for the walk-forward harness; Tier-3 for any subsequent change to
 > `src/runtime/intents.py::aggregate_intents`. **Parent docs:**

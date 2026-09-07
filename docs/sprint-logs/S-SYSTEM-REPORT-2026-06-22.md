@@ -1,5 +1,7 @@
 # Sprint Log: S-SYSTEM-REPORT-2026-06-22
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-06-22
 - End: 2026-06-22 (in progress — bot-repo core landed; dashboard + Android phases follow)

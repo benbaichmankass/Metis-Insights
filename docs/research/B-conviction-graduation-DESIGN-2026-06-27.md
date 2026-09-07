@@ -1,5 +1,7 @@
 # Design B — graduate the conviction lens (c_reg) from soak to live (2026-06-27)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Operator-approved (2026-06-27, all-three go). Tier-3 order-path program, staged.
 This doc is the spec. Pairs with `A-regime-router-ml-vol-verdict-DESIGN-2026-06-27.md`.
 

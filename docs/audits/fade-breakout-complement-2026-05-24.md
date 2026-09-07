@@ -1,5 +1,7 @@
 # Failed-breakout fade — validated uncorrelated complement (S-STRAT-IMPROVE-S9)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-05-24 · **Status:** wired `execution: shadow` (data-only),
 operator-approved · **Harness:** `scripts/backtest_fade.py` · **Data:**
 `data/backtest_BTCUSDT_5m.csv` (trainer VM), 2020-03-25 → 2026-05-21,

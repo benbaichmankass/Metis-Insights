@@ -1,5 +1,7 @@
 # xrp_pullback_2h — the ENTRY axis, and what it says about the family's premise
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-24 · **Tier:** 1 (research only — `config/strategies.yaml` NOT touched)
 **Question:** the third and last untested axis on this leg. Geometry (37 cells) and
 trail (20 cells) both came back **zero-positive with the live config the interior

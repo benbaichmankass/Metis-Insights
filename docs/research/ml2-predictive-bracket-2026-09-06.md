@@ -1,5 +1,7 @@
 # ML-2, the predictive bracket — the corpus, the instrument, and what would have to be true
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **MI-151** · work object [`WO-20260906-ML-2-THE-PREDICTIVE-BRACKET`](../claude/work/objects/WO-20260906-ML-2-THE-PREDICTIVE-BRACKET.yaml) · branch `claude/ml2-predictive-bracket-20260906` · PR #11150
 
 ⚠️ **PROPOSE-ONLY.** Per-leg take-profit values are Tier-3. Nothing in `config/strategies.yaml` is touched, no target value is proposed as a number, and nothing is armed. What ships is Tier-1 and observe-only: a model, a corpus builder, an eval harness, 40 tests, and this memo.

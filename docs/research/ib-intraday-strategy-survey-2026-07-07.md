@@ -1,5 +1,7 @@
 # IB intraday-strategy survey — MES / MGC / MHG (2026-07-07)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Author:** Claude (IBKR-pipeline investigation, step 3 — "research higher-frequency
 IB strategies"). Read-only survey of the strategy corpus + research evidence.
 **Status:** research finding + a test matrix to run on native data. **No live wiring** here

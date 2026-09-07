@@ -1,5 +1,7 @@
 # ROADMAP_MACRO — Platform Layering + the Macro Event-Driven Strategy Family
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** 🔄 IN PROGRESS 2026-07-23 (operator-directed). This document is the
 > design-of-record for two intertwined efforts: **(1)** making the repo's
 > already-articulated layer boundary *machine-enforced* (the investment-grade

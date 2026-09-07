@@ -1,5 +1,7 @@
 # Capital-Allocation AI — new-session spawn prompt
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **What this is.** A self-contained prompt to start a **research + proposal**
 > session that designs the ML infrastructure for a **portfolio-level "AI capital
 > allocator"**: a decision layer that sees the full set of candidate trades

@@ -1,5 +1,7 @@
 # Pairs sleeve → real-money readiness (2026-07-16)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** planning. The paper go-live (bybit_1) validated the signal + execution
 logic and surfaced the min-qty half-placement bug (fixed by the pre-placement gate,
 #6591). This doc enumerates everything the sleeve needs BEFORE it can route to a

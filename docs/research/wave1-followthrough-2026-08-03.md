@@ -1,5 +1,7 @@
 # Wave 1 follow-through — A1 runner, GLD Track-B compat, R2 sweeps (2026-08-03)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Plan:** [`WORK-PLAN-2026-08-02.md`](WORK-PLAN-2026-08-02.md) Wave-1 follow-through
 (continues the `wave-1-sweeps-l2kiin` handoff). Tier-1 research tooling + evidence on
 free GitHub runners, $0, no VM lane. **No cell is authored, revoked, or changed by this

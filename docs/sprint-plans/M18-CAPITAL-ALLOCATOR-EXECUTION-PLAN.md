@@ -1,5 +1,7 @@
 # M18 — Portfolio Capital Allocator: Execution / Delegation Plan
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Companion to the design [`docs/research/capital-allocation-ai-DESIGN.md`](../research/capital-allocation-ai-DESIGN.md)
 > and the ROADMAP § "M18 — Portfolio Capital Allocator". This doc is the **durable
 > decomposition** the `delegate-work` skill requires: the milestone carved into independent,

@@ -1,5 +1,7 @@
 # M31 P5 precondition 3b — the `rr_floor` walk-forward
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-20 · **Tier-1, observe-only.** The operator pre-approved
 **running** this; the scope of that approval is the run, **not** the gate and
 **not** shipping. Declaring any `rr_floor` in `config/strategies.yaml` remains

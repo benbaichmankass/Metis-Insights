@@ -1,5 +1,7 @@
 # Sprint Plan — 2026-04-30 (S-013)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Sprint:** S-013 — Secure Web Dashboard: Backend Scaffold & Home Status
 **Created:** 2026-04-30
 **Sprint prompt:** `docs/sprints/sprint-013-prompt.md` (binding)

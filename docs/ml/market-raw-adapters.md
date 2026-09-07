@@ -1,5 +1,7 @@
 # `market_raw` source adapters
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Canonical (adapter-framework scope). Adopted in
 > **S-AI-WS5-B-PART-1** (2026-05-10).
 >

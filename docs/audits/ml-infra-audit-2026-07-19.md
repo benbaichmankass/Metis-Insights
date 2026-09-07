@@ -1,5 +1,7 @@
 # ML / data / strategy-consumption infra audit — 2026-07-19
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Why:** operator directive ahead of the 07-20→07-26 research week — recurring
 infra bug classes (version-pin silent reuse, dead-feature datasets, stale/missing
 shards, schema drift, orchestrator interface drift) keep forcing task rework.

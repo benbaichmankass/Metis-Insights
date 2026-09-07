@@ -1,5 +1,7 @@
 # Design-A multi-symbol (#1) — ETH confirmation (2026-06-27)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 The BTC vol-gate (Design-A) generalizes to **ETHUSDT**, decisively. This is the
 first cross-symbol confirmation that the ML vol-verdict gate is not a BTC
 artifact.

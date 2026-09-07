@@ -1,5 +1,7 @@
 # ICT Strategy Specification
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## Overview
 The ICT (Inner Circle Trader) strategy is a price action methodology focused on institutional order flow patterns.
 

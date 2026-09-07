@@ -1,5 +1,7 @@
 # S9 yz shadow heads — pre-promotion review (2026-06-09)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Investigation of four loose ends carried from the 2026-06-08 S9 yz monitoring
 session, ahead of the operator's ~2026-06-12 promotion review of the three
 range-vol (Yang-Zhang) BTC regime heads. Resolves/updates backlog items

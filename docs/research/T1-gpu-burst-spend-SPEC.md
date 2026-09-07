@@ -1,5 +1,7 @@
 # M19 Tier-1 — $10/mo spot-GPU burst tier — spend SPEC (proposal, no spend)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** ✅ **SPEND APPROVED (operator, 2026-07-02)**, with the explicit
 > directive to **build the cost-tracking UI first** so each training session's cost
 > is visible. Originally a proposal / decision memo (2026-07-01, "spec the exact

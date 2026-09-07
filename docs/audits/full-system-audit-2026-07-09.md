@@ -1,5 +1,7 @@
 # Full-System Audit — 2026-07-09
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Program doc (the shared brain).** Per `.claude/skills/full-system-audit/SKILL.md`
 > this is the multi-session audit's findings doc + per-file coverage map. Every
 > session reads it on start and appends to it. Consistency **and** liveness axes;

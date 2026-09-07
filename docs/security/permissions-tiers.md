@@ -1,5 +1,7 @@
 # Permissions tiers — who can do what
 
+> **Doc status:** `unknown` · category `instruction` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Audience:** PM, operator, anyone proposing a new automation that needs to touch OCI, GitHub, the VM, or the running trader.
 **Status:** Adopted 2026-05-11 as part of the OCI block-storage externalization.
 

@@ -1,5 +1,7 @@
 # Merge queue — UNAVAILABLE on this repo (user-owned); use the manual claim protocol
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status (2026-08-02): the GitHub native merge queue CANNOT be enabled on this
 > repository, and BL-20260726-MERGE-QUEUE-ENABLEMENT's premise is therefore
 > invalid.** `benbaichmankass/Metis-Insights` is a **user-owned** repo (owner is

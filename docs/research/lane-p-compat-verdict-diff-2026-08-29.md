@@ -1,5 +1,7 @@
 # Lane P — the before/after compat-verdict diff, measured
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-29 · **Closes the direction question in** `OI-20260827-LANE-P-COMPAT-VERDICTS-UNMEASURED`
 **Change under test:** `f2ea9e44` (#10364, Tier-3) — merged 2026-08-27 **without** this diff.
 

@@ -1,5 +1,7 @@
 # Should a Bybit-derived take-profit cap bind non-Bybit venues?
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status: RESOLVED 2026-08-24 — option C MEASURED AND REJECTED. The clamp and
 both legs' `tp_r: 6.0` are UNCHANGED; only the false YAML comments were fixed.
 See § 9 for the measurement. Nothing in §§ 1-8 was applied.**

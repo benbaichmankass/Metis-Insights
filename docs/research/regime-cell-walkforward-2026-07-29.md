@@ -1,5 +1,7 @@
 # Regime-Cell Walk-Forward — the rec #5 OOS-stability gate (2026-07-29)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-07-29
 **Gate tooling:** `scripts/research/regime_cell_walkforward.py` + `.github/workflows/regime-cell-walkforward.yml` (PR #7919)
 **Runs:** #7920 (gld) · #7921 (qqq) · #7922 (slv) — free GitHub runners, Yahoo feed

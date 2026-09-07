@@ -1,5 +1,7 @@
 # The work store — one place that says what is in flight
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **This directory is the state of record for WORK** (function F1 of the operating model).
 It is the repo half of the design series' answer to *"where does coordination state live"*:
 **the repo is the single source of truth; the live layer owns no truth at rest.**

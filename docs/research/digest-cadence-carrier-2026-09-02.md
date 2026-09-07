@@ -1,5 +1,7 @@
 # Why the operator got no pings for four hours — and what carries them now
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **MI-80 · 2026-09-02 · Tier-1**
 
 The operator asked at 18:33Z: *"no pings for 3 hours?"* It was four. This is what

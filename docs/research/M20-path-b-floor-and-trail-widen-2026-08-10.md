@@ -1,5 +1,7 @@
 # M20 overnight: the Path B floor, and what the fleet sweep actually says
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Session** `session_011iUN3roukhbRWwuioX8pRD` · **2026-08-10 overnight** · Tier-1 throughout
 (no `config/` change; the one Tier-3 change of the day — `eth_pullback_2h` — merged
 earlier with operator approval and is verified live in § 5).

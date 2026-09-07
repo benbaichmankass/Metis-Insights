@@ -1,5 +1,7 @@
 # Phase 3: the per-account compat gate — ⚠️ HEADLINE RETRACTED, then RE-GRADED (same day)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > # 🛑 RETRACTED — DO NOT CITE THE VERDICTS BELOW
 >
 > **Everything below this box was measured correctly and interpreted wrongly.**

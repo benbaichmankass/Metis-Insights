@@ -1,5 +1,7 @@
 # What expectation should a bracket carry at entry — per family, constructed not clamped
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-23 · **Tier-1, observe-only.** Every configuration change this
 document points at is **Tier-3** and is written here as a *proposal with its
 evidence*, not applied. Nothing in this session touched `config/strategies.yaml`.

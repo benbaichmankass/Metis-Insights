@@ -1,5 +1,7 @@
 # MI-127 — the upstream cause: closes landing with `pnl` NULL, and MES trade 4350
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Unit: MI-127. Parent diagnosis: `docs/claude/diagnoses/MI-124-never-firing-legs-diagnosis.md`.
 Predecessor merged: MI-126 (`5eb59917`) took `retire_candidate` 9 → 1.
 **READ-AND-DIAGNOSE. Nothing here closes, flattens, modifies or cancels anything on any account.**

@@ -1,5 +1,7 @@
 # Trading-mode flags
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Telegram command surface has changed (PR #1933, 2026-05-25).**
 > The slash commands referenced in this doc (`/halt`, `/resume`,
 > `/accounts dry|live`, `/set_all_live`, `/accounts_status`) **no longer

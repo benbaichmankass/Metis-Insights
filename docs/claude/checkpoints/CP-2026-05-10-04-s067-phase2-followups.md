@@ -1,5 +1,7 @@
 # CP-2026-05-10-04-s067-phase2-followups — S-067 Phase-2 follow-ups (D + C) shipped
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+
 > **Standalone CP file.** Filed because the canonical
 > `docs/claude/checkpoints/CHECKPOINT_LOG.md` is ~120KB and a
 > full-file round-trip through the MCP `create_or_update_file` API

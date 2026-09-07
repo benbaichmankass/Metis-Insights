@@ -1,5 +1,7 @@
 # M26 P1 — Conflict taxonomy + timeframe-aware policy design (2026-07-22)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status: Tier-1 design doc.** Defines the conflict matrix and the *exact*
 > proposed `intents.py` semantics from the P0 evidence. **No order-path code
 > ships from this doc** — the policy arms are backtested in P3 and must beat

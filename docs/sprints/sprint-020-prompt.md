@@ -1,3 +1,5 @@
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > ✅ **S-041 STATUS NOTE (2026-05-06 — verify-before-trusting-done sweep):**
 > Sprint **completed**. Closing checkpoint: CP-2026-04-30-17. Root cause identified
 > (deploy script `PRE_SYNC_HEAD` no-op early-out) and fixed; BUG-018 and BUG-022

@@ -1,5 +1,7 @@
 # ML Optimization Roadmap (multi-session)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** living plan, opened 2026-06-03 (from a deep-research + codebase-inventory
 > session expanding the `/ml-review` brainstorm). This is a **deep-dive plan**, not a
 > commitment to ship — each phase/session is taken up deliberately, validated, and

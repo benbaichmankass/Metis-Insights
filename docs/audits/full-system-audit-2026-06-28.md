@@ -1,5 +1,7 @@
 # Full-System Audit — 2026-06-28 (branch `claude/full-system-audit-6h5q79`)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** CONVERGING. **Workstream-B (liveness / zombie hunt) is COMPLETE**
 (items 1–4 done, merged — see the B-section closure block below: #4941 env-gate,
 #4942 diag-enabler + the `_CANONICAL_UNITS` add, #4943 vestigial-router removal,

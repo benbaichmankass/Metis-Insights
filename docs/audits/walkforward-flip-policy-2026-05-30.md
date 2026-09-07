@@ -1,5 +1,7 @@
 # Walk-forward — flip-policy conflict resolution (2026-05-30, VERIFIED)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Tier-1 research. Driver:
 > [`scripts/walkforward_flip_policy.py`](../../scripts/walkforward_flip_policy.py)
 > (merged in [#2433](https://github.com/benbaichmankass/ict-trading-bot/pull/2433)).

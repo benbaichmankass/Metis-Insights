@@ -1,5 +1,7 @@
 # Recurring Strategy Improvement Session Prompt
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Type**: Recurring (weekly)
 **Cap**: 4 hours
 **Spec**: `docs/claude/recurring-sessions.md`

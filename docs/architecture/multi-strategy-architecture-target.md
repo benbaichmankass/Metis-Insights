@@ -1,4 +1,7 @@
 # Multi-Strategy Architecture Target
+
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Initiative:** MULTI-STRATEGY-ARCH-REFACTOR (M11)  
 **Created:** 2026-05-20  
 **Status:** S1 scaffolding complete; S2 wiring not started  

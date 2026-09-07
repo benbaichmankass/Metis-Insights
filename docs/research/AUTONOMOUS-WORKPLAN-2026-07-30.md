@@ -1,5 +1,7 @@
 # Autonomous Work Plan — 2026-07-30
 
+> **Doc status:** `superseded` · category `plan` · last verified `2026-09-07` · superseded by [`docs/research/RESEARCH-PROGRAM-2026-07-30.md`](../../docs/research/RESEARCH-PROGRAM-2026-07-30.md) · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > ## **PLAN STATUS: `superseded`**
 > **Superseded by:** `docs/research/RESEARCH-PROGRAM-2026-07-30.md`
 >

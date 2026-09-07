@@ -1,5 +1,7 @@
 # Real money went 0-for-13: fix the instrument, then attribute the loss
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-09-06 · **Session:** `session_01XRYfPGr4jAHr4k1rmvTKFi` (sub-session)
 **Parent object:** `WO-20260906-REAL-MONEY-WENT-0-FOR-13-THE`
 **Tier:** 1 (research/docs). **Nothing is applied.** The `config/strategies.yaml`

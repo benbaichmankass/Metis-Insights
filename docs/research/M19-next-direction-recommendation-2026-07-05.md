@@ -1,5 +1,7 @@
 # M19 next direction — ranked, sequenced recommendation (2026-07-05)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Brief:** [`M19-next-direction-deep-research-brief-2026-07-05.md`](M19-next-direction-deep-research-brief-2026-07-05.md)
 (the drafting session's handoff brief, landed on `main` in #5593 minutes after
 this session branched — this run answered it from the directive text plus the

@@ -1,5 +1,7 @@
 # Sprint Log: S-SYSTEM-REVIEW-STRUCTURAL-2026-08-24
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 
 2026-08-24 (single session). Review window `since-last`: 2026-08-21T13:05Z → 2026-08-24T15:25Z.

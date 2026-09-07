@@ -1,5 +1,7 @@
 # Sprint S-023 — Accounts wiring + API failure pings
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > **Sprint type:** Bug-fix sprint, autonomous Claude execution.
 > **Owner:** Claude Code (autonomous, self-merging).
 > **PM:** Ben.

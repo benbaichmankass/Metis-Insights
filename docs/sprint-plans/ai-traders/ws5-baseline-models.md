@@ -1,5 +1,7 @@
 # WS5 — Baseline models
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Master plan:** [`docs/AI-TRADERS-ROADMAP.md`](../../AI-TRADERS-ROADMAP.md)
 **Milestone:** M9
 **Status:** 🔄 IN PROGRESS — sub-sprints A + B-Part-1 + B-Part-2 (PR 2A + PR 2B) + C closed 2026-05-10.

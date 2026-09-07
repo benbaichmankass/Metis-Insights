@@ -1,5 +1,7 @@
 # Handoff template
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+
 Copy this block into the **top** of `CHECKPOINT_LOG.md` at the end of every
 session. Fill in every field. Do not skip sections — write "none" if empty.
 

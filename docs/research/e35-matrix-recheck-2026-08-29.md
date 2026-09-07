@@ -1,5 +1,7 @@
 # e35 coverage-matrix re-check against the 2026-08-29 corpus
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-29 · **Tier 1** (records + tooling; no `src/`, no `config/`, no order path)
 **Tool:** [`scripts/research/e35_matrix_recheck.py`](../../scripts/research/e35_matrix_recheck.py)
 **Corpus:** `docs/research/e35-bracket-corpus.jsonl` @ `bd08cecf` — 8,289 rows / 8,289 unique

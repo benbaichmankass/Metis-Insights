@@ -1,5 +1,7 @@
 # Unit 5 — Telegram Bot workflow
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **⚠️ SUPERSEDED (2026-05, PR #1933).** The operator bot is now **menu-driven**,
 > not command-driven — the ~40 slash commands below (incl. `/halt` `/resume`
 > `/status` `/alerts` `/strategies` `/last5`) were **removed** and rebuilt into a

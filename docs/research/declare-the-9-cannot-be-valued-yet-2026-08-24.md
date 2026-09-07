@@ -1,5 +1,7 @@
 # "Declare the 9" — the approach is right, and the values cannot be chosen yet
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-24 · **Tier:** research only, nothing applied · **Scope:** the
 `all_undeclared` `trend_donchian` subset from
 `BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT`.

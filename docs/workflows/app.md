@@ -1,5 +1,7 @@
 # Unit 6 — App workflow
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## Responsibility
 Extended UI (extends Telegram Bot) with configuration capabilities:
 API key management, new account registration, strategy enable/disable.

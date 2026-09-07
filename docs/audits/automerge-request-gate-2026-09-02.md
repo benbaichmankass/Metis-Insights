@@ -1,5 +1,7 @@
 # The auto-merge relay armed PRs that asked for nothing — what actually caused it
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **2026-09-02 · MI-69 · Tier 1**
 
 ## The correction that matters most

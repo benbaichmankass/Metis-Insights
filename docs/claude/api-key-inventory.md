@@ -1,5 +1,7 @@
 # API key inventory
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Authoritative list of every place in the repo that reads or writes
 exchange API credentials. **Maintained alongside any change that adds,
 moves, or removes an API-key call site.** When this list goes stale,
