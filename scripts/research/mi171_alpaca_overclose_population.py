@@ -7,8 +7,10 @@
 # docs/research/alpaca-over-close-population-2026-09-07.md.
 """MI-171 — count the Alpaca over-close population that nobody had looked at.
 
-Answers the two questions `BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-
-SIBLINGS` closes with *"We did not look."*:
+Answers the two questions this backlog row closes with *"We did not look."*:
+
+    BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS
+
 
   (a) of the ``(account, symbol)`` pairs that held >=2 SIMULTANEOUSLY-OPEN journal
       rows, how many are on an Alpaca account?
@@ -169,8 +171,8 @@ def venue_diff(rows: list[dict], positions: dict) -> dict:
     for acct in ALPACA:
         account = positions[acct]["accounts"][0]
         # `_open_trades` swallows exceptions and returns []; a read that FAILED
-        # must never be graded as an empty book (BL-20260826-OPEN-TRADES-
-        # COLLAPSES-A-READ-FAILURE-INTO-AN-EMPTY-BOOK).
+        # must never be graded as an empty book. See
+        # BL-20260826-OPEN-TRADES-COLLAPSES-A-READ-FAILURE-INTO-AN-EMPTY-BOOK.
         if account["error"] is not None:
             raise SystemExit(f"{acct}: venue read FAILED ({account['error']}) — "
                              f"refusing to grade an unread book as empty")
