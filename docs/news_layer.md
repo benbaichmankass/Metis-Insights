@@ -1,5 +1,7 @@
 # M9 — News-Augmented Trade Decision Layer
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 The `src/news` package is an **additive, isolated** layer that adjusts trade
 probability using live news sentiment.  It does not replace or alter the
 existing strategy stack; it exposes a single score that the pipeline can

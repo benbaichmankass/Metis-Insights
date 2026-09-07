@@ -1,0 +1,7 @@
+MI-162 — fix the document-index POPULATION so the register can see the two
+documents that outrank CLAUDE.md, and add the control that was missing.
+
+`POPULATION_GLOBS` passed `docs/**/*.md` to `git ls-files` as a PATHSPEC, where
+`**/` needs a literal intervening slash — so every `.md` directly inside `docs/`
+was outside the population while the guard printed `population=971
+registered=971` / `document-index: OK`. Population 971 -> 999.

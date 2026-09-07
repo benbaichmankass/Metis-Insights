@@ -1,5 +1,7 @@
 # AI Traders Models Roadmap
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Master plan adopted 2026-05-10. Through S-AI-WS7-PART-6
 > (shadow harness complete; both production strategies + Coordinator
 > caching wired). WS5 baseline-models family closed (A → F). Next:

@@ -1,5 +1,7 @@
 # Claude Rules — Canonical (v2)
 
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md)
+
 ---
 
 ## ⚡ AUTONOMY MANDATE — Read This First

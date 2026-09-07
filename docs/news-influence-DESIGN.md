@@ -1,5 +1,7 @@
 # News influence operator — design (M9 graduated "act" layer)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** steps 1–3 built. Step 1 = the pure operator (`src/news/news_influence.py`).
 Step 2 = live-path wiring (`src/runtime/news_sizing.py`, applied in
 `Coordinator.multi_account_execute` right after the advisory downsize), **default-off**

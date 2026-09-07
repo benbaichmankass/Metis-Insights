@@ -1,5 +1,7 @@
 # AI Trader — Project Structure & Workplan
 
+> **Doc status:** `historical` · category `plan` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md)
+
 > ## **PLAN STATUS: `historical`**
 >
 > Status assigned 2026-09-07 (MI-159), enforced by `scripts/ci/check_one_live_workplan.py`. Pre-canonical: this file already declared itself superseded on
