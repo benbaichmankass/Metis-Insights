@@ -21,14 +21,14 @@
   "schema_version": 1,
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "claimed_at": "2026-09-07T13:28:58Z",
-  "heartbeat_at": "2026-09-07T15:50:05Z",
-  "expires_at": "2026-09-07T17:20:05Z",
+  "claimed_at": "2026-09-07T17:26:22Z",
+  "heartbeat_at": "2026-09-07T17:26:22Z",
+  "expires_at": "2026-09-07T18:56:22Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "RE-CLAIM after the fourth self-inflicted expiry (12:57Z), paired with a real supervision pass in the same commit."
+  "note": null
 }
