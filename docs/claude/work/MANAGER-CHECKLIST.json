@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-07T12:15:00Z",
+  "updated_at": "2026-09-07T14:40:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2035,18 +2035,25 @@
     },
     {
       "id": "MI-160-PRUNE-PROPOSAL",
-      "status": "queued",
+      "status": "ready",
       "owner": null,
       "opened": "2026-09-07T12:15:00Z",
-      "updated": "2026-09-07T12:15:00Z",
-      "blocked_on": {
-        "kind": "predecessor",
-        "ref": "MI-159-ONE-WORKPLAN-AND-TASK-PRIORITY",
-        "since": "2026-09-07T12:15:00Z"
-      },
+      "updated": "2026-09-07T14:40:00Z",
+      "blocked_on": null,
       "tier": "1",
       "title": "Propose roadmap prunes - against a roadmap whose statuses have been verified, never before",
-      "note": "OPERATOR, 2026-09-07: 'we can definitely prune the road map'. That REFINES their earlier correction, it does not reverse it - open milestones are still TRACKS and being numerous is still not a defect. What is permitted now is naming rows that are genuinely DEAD (withdrawn, superseded, or shipped and never marked) as distinct from merely DORMANT. ⚠️ PROPOSE ONLY; the operator decides. ⚠️ BLOCKED ON MI-159 BY DESIGN, not by scheduling: you cannot honestly propose closing a row whose status has not been verified, and MI-159 exists precisely because several statuses were measured WRONG today. Pruning first would close rows on the strength of claims already caught failing. ⚠️ THE MANAGER COULD NOT AMEND MI-159 IN FLIGHT - there is no send_message to a running sub-session (ListAgents: no reachable peers), which confirms the SESSIONS.json README's documented finding. Interrupting would have stopped it without being able to hand it the new instruction, so the split is a consequence of a real capability limit as well as of the right order."
+      "note": "OPERATOR, 2026-09-07: 'we can definitely prune the road map'. That REFINES their earlier correction, it does not reverse it - open milestones are still TRACKS and being numerous is still not a defect. What is permitted now is naming rows that are genuinely DEAD (withdrawn, superseded, or shipped and never marked) as distinct from merely DORMANT. ⚠️ PROPOSE ONLY; the operator decides. ⚠️ BLOCKED ON MI-159 BY DESIGN, not by scheduling: you cannot honestly propose closing a row whose status has not been verified, and MI-159 exists precisely because several statuses were measured WRONG today. Pruning first would close rows on the strength of claims already caught failing. ⚠️ THE MANAGER COULD NOT AMEND MI-159 IN FLIGHT - there is no send_message to a running sub-session (ListAgents: no reachable peers), which confirms the SESSIONS.json README's documented finding. Interrupting would have stopped it without being able to hand it the new instruction, so the split is a consequence of a real capability limit as well as of the right order. UNBLOCKED 2026-09-07T14:40Z: the predecessor MI-159 LANDED (#11241 + the Lane-A correction #11249) and docs/claude/TASK-PRIORITY-2026-09-07.md is on main."
+    },
+    {
+      "id": "MI-162-DOCUMENT-LIBRARY-POPULATION",
+      "status": "in_flight",
+      "owner": "session_0136WbFixUR51Q9FngHUp9GR",
+      "opened": "2026-09-07T14:40:00Z",
+      "updated": "2026-09-07T14:40:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "The document library cannot see its own most important documents — POPULATION_GLOBS excludes every .md directly in docs/",
+      "note": "MEASURED by the manager 2026-09-07T14:35Z on 4ea74fda. `docs/**/*.md` is passed to git ls-files as a PATHSPEC, where `*` already matches `/`, so `docs/*.md` is recursive while `docs/**/` needs a literal intervening slash: 936 vs 965 paths. 27 documents carry NO index row, including docs/CLAUDE-RULES-CANONICAL.md (instruction hierarchy LEVEL 1) and docs/ARCHITECTURE-CANONICAL.md (LEVEL 2), while the guard prints population=971 registered=971 and OK. A CLEAN NEGATIVE — 100% coverage of a population that silently excluded the most important members — and the SECOND instance of the same defect class in the SAME function, whose own docstring records `--others --exclude-standard` missing on the first build with the note that the guard 'reported OK and the count never moved'. Filed as BL-20260907-DOCUMENT-INDEX-POPULATION-GLOB-EXCLUDES-EVERY-TOP-LEVEL-DOCS-FILE. Resolution requires fixing the POPULATION, not hand-adding rows."
     }
   ],
   "as_of": "2026-09-06T16:05Z",

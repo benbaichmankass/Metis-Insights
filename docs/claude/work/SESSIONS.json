@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T13:30:00Z",
+  "updated_at": "2026-09-07T14:36:49Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2709,6 +2709,16 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed 2026-09-07 after the manager gave a stale roadmap read off a work plan that still declared itself ACTIVE three generations after being superseded.",
       "confirmed_at": "2026-09-07T12:09:16Z"
+    },
+    {
+      "session_id": "session_0136WbFixUR51Q9FngHUp9GR",
+      "title": "MI-162 - the document library cannot see its own most important documents",
+      "owns_object": "WO-20260907-THE-DOCUMENT-LIBRARY-CANNOT-SEE-ITS-OWN",
+      "checklist_item": "MI-162-DOCUMENT-LIBRARY-POPULATION",
+      "spawned_at": "2026-09-07T14:36:49Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "The library built for the operator's 'one centralized table' ask cannot see 27 documents including instruction-hierarchy levels 1 and 2, while its guard reports 100% coverage - a clean negative.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

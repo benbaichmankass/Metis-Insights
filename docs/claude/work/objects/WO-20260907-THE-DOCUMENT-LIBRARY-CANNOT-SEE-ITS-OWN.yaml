@@ -1,0 +1,30 @@
+id: WO-20260907-THE-DOCUMENT-LIBRARY-CANNOT-SEE-ITS-OWN
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The document library cannot see its own most important documents
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  POPULATION_GLOBS is fixed so the population itself re-measures (not the index hand-patched), the 27 documents carry index rows with honestly-unknown status where nothing was read, and the guard's self-test carries a planted-file control at the TOP level of docs/ - the case that escaped.
+
+why: >-
+  POPULATION_GLOBS uses docs/**/*.md as a git pathspec, which excludes every .md directly in docs/ - 27 unregistered including CLAUDE-RULES-CANONICAL (hierarchy level 1) and ARCHITECTURE-CANONICAL (level 2) - while the guard reports population=971 registered=971 OK. A clean negative, and the second instance of the same population defect in the same function.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
