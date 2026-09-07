@@ -1,11 +1,11 @@
-> ⚠️ CREATED BY THE WORK SESSION, NOT BY THE MANAGER. The MI-157 dispatch named
-> this path as "your work object — its done_condition is your contract", and the
-> file did not exist on origin/main or anywhere else in the tree (checked with
-> `git cat-file -e origin/main:<path>`, and by grepping the whole work store).
-> The done_condition below is therefore TRANSCRIBED FROM THE DISPATCH PROMPT,
-> not read from a committed contract. That distinction is load-bearing: nobody
-> should later read this file as evidence the work was specified before it was
-> done. Recorded rather than quietly papered over.
+# ⚠️ CREATED BY THE WORK SESSION, NOT BY THE MANAGER. The MI-157 dispatch named
+# this path as "your work object — its done_condition is your contract", and the
+# file did not exist on origin/main or anywhere else in the tree (checked with
+# `git cat-file -e origin/main:<path>`, and by grepping the whole work store).
+# The done_condition below is therefore TRANSCRIBED FROM THE DISPATCH PROMPT,
+# not read from a committed contract. That distinction is load-bearing: nobody
+# should later read this file as evidence the work was specified before it was
+# done. Recorded rather than quietly papered over.
 id: WO-20260907-THE-COMMITTED-BACKTEST-CANDLE-FIXTURES-ARE-FLAT
 type: commitment
 parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
@@ -138,8 +138,7 @@ outcome:
     silence from a detector nobody has seen fail is the "green that checked
     nothing" this repo already has a rule about.
     ⚠️ WHY A DETECTOR AND NOT A NOTE: this finding ALREADY had a written record
-    and the record did not stop it. BL-20260820-PLACEHOLDER-CANDLE-FIXTURES-
-    CARRY-NO-MARKER measured the same five files on 2026-08-20 and they were
+    and the record did not stop it. BL-20260820-PLACEHOLDER-CANDLE-FIXTURES-CARRY-NO-MARKER measured the same five files on 2026-08-20 and they were
     still flat, still committed and still being read 18 days later when MI-151
     tripped over one. That row's own done_condition demanded the guard be shown
     to FIRE on one of the five AND stay silent on `data/backtest_candles.csv`;
