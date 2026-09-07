@@ -553,6 +553,16 @@ def monitor(cfg, candles_df, open_pkg):
     # definition — and everything the hook needs is computed INSIDE the guard,
     # so the added surface cannot alter an exit.
     #
+    # collapsed-state: unanchored — FALSE POSITIVE against
+    # `position_telemetry.peak_state`, not a suppression of a real finding.
+    # This module never READS peak_state: it has no reference to the field
+    # outside this comment, and no branch anywhere selects on it (verified by
+    # grep, and re-checkable the same way). The word appears only because the
+    # note below NAMES which state this unit's rows will carry, which is the
+    # opposite of collapsing the enum — the guard's own design test asks
+    # whether "we did not look" is distinguishable from "we looked and found
+    # nothing", and naming the state is precisely how that is kept visible.
+    #
     # ⚠️ turtle_soup's `order_package` writes no `entry_time` into meta, so
     # `build_record` reports `peak_state="unanchored"` and leaves `peak_r`
     # None: a NAMED absence, never a peak measured off a pre-entry bar.
