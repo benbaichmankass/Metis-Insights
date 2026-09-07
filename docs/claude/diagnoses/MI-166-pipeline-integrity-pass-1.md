@@ -4,6 +4,7 @@
 
 Unit: MI-166. Lane: standing pipeline-integrity review under `CY-20260906-TRADING-TRUTH`.
 Pass 1 of N. Dispatched by the manager (`session_01HrmZ1RRNM4UnEUaFdrPEjj`) 2026-09-07.
+Filed as PR [#11265](https://github.com/benbaichmankass/Metis-Insights/pull/11265).
 
 **All measurements below are mine, taken live 2026-09-07 16:57–17:05Z through
 `scripts/ops/diag_fetch.sh` (served by `https://ict-bot.duckdns.org`) and the
