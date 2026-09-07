@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T16:00:00Z",
+  "updated_at": "2026-09-07T15:52:20Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2751,6 +2751,16 @@
       "confirmed_at": "2026-09-07T12:32:17Z",
       "supervised_at": "2026-09-07T15:00:00Z",
       "supervision_note": "SUPERVISED 2026-09-07T15:00Z — deferred from the 14:30Z pass, where this row was ABSENT from main (it was riding the then-unmerged #11244) and the commit said so rather than letting the count read as three. MI-161 COMPLETE: docs/DOCUMENT-INDEX.md on main, 971 documents, CLAUDE.md carrying the doc-status header. It ALSO hit the coordination-board 2500-comment ceiling independently and correctly DROPPED its duplicate row in favour of MI-159's — verified in health-review-backlog.json, not taken on its word. ⚠️ ITS DELIVERABLE HAS A MEASURED GAP, now MI-162: POPULATION_GLOBS uses 'docs/**/*.md' as a git PATHSPEC, which excludes every .md directly in docs/ — 27 unregistered including instruction-hierarchy levels 1 and 2 — while the guard reports population=971 registered=971 OK. That is not a mark against this session's work; it is the second instance of a defect class its own docstring records catching once already."
+    },
+    {
+      "session_id": "session_01Sxe5Mj9GbmuvVCKZ8LHrLv",
+      "title": "MI-163 - the trailing/banking half of the exit thesis",
+      "owns_object": "WO-20260907-THE-TRAILING-BANKING-HALF-OF-THE-EXIT",
+      "checklist_item": "MI-163-TRAILING-BANK-HALF",
+      "spawned_at": "2026-09-07T15:52:20Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "The half of the operator's exit thesis still owed. Manager measured the lever coverage but stopped rather than take the item; the live-vs-shadow question on exit_plan.py is deliberately left for the session to settle because getting it backwards produces a confident wrong finding about a live trading system.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
