@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-07T00:18:55+00:00 · verdict **partial**_
+_Generated 2026-09-07T05:10:43+00:00 · verdict **partial**_
 
 > ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
 
@@ -90,10 +90,10 @@ _Generated 2026-09-07T00:18:55+00:00 · verdict **partial**_
   - PR #11125 merged 2026-09-06T18:43:22Z as 9604b8a5 (squash), Tier-3, operator-approved, routed by the manager rather than self-merged. Content VERIFIED on origin/main directly, not from the merge event
 - 🔔 **OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP** (open_items · 1d) — monitoring row 1d since last observation (cadence 1d)
   - ict_scalp_5m was demoted off the REAL-MONEY bybit_2 account (Tier-3, operator-approved 2026-09-06, scope bybit_2 only) by removing it from that account's `strategies:` list in config/accounts.yaml. PR
+- 🔔 **OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE** (open_items · 1d) — loud row — must be reported on every session
+  - ML-2 was BUILT and REFUTED, and the refutation is the finding. Calibration PASSES on a real corpus (n=9,814 backtest trades, 3 trend_donchian 15m legs, MACE 0.0061); sharpness against the tp_r-equival
 - 🔔 **OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING** (open_items · 1d) — loud row — must be reported on every session
   - docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md told its reader to paste it as a new session and no register pointed at it for 14 days. MI-148 now carries the work (#11138 landed the calibration
-- 🔔 **OI-20260906-SCALP-EXIT-HEAD-ARTIFACT-IS-THE-SECOND-MISSING-HALF-NOT-THE-FIRST** (open_items · 1d) — loud row — must be reported on every session
-  - MI-154, measured 2026-09-06 at main 957fc81d. The lane was opened on the premise that PR #11140 had SHIPPED the ict_scalp exit-head consumer and that only the artifact was missing. #11140 is OPEN and 
 - 🔔 **OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON** (open_items · 1d) — loud row — must be reported on every session
   - E3.6's calibration falsifier finally has an instrument (MI-148, PR #11138) and it returns a clear negative: the fleet's take-profits are not predictions. NOTHING HAS BEEN CHANGED IN RESPONSE, delibera
 - 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold
@@ -108,30 +108,32 @@ _Generated 2026-09-07T00:18:55+00:00 · verdict **partial**_
   - Whether the decision push-back drain has recorded a run inside its window, graded over the committed receipt docs/claude/work/DECISION-DRAIN.json. Four states, never collapsed: fresh / stale (ran befo
 - 🔔 **OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL** (open_items) — loud row — must be reported on every session
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
-- **ERRFEED-1ef305c7** (error_feed · 14d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 16 rows 2026-08-24T22:20:57 → 2026-09-06T00:32:43 · symbols=AVAXUSDT — decide: fix now, or file to a backlog
-  - [error] x16 api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty
-- **ERRFEED-9fd2fc82** (error_feed · 14d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 65 rows 2026-08-24T21:35:54 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
-  - [error] x65 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+- 🔔 **OI-20260906-SCALP-EXIT-HEAD-ARTIFACT-IS-THE-SECOND-MISSING-HALF-NOT-THE-FIRST** (open_items · 0d) — loud row — must be reported on every session
+  - MI-154, measured 2026-09-06 at main 957fc81d. The lane was opened on the premise that PR #11140 had SHIPPED the ict_scalp exit-head consumer and that only the artifact was missing. #11140 is OPEN and 
+- **ERRFEED-1ef305c7** (error_feed · 14d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 15 rows 2026-08-24T22:26:36 → 2026-09-06T00:32:43 · symbols=AVAXUSDT — decide: fix now, or file to a backlog
+  - [error] x15 api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty
+- **ERRFEED-9fd2fc82** (error_feed · 14d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 62 rows 2026-08-24T22:20:59 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
+  - [error] x62 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
 - **ERRFEED-2338a024** (error_feed · 12d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 13 rows 2026-08-26T02:19:58 → 2026-08-29T04:06:19 · accounts=bybit_1 — decide: fix now, or file to a backlog
   - [error] x13 bybit_over_cover detected: bybit_N/ETHUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL c
 - **ERRFEED-6eb9d669** (error_feed · 6d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 27 rows 2026-09-01T20:12:41 → 2026-09-02T08:17:06 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
   - [error] x27 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N Last error: e
 - **ERRFEED-86505576** (error_feed · 5d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 155 rows 2026-09-02T08:33:53 → 2026-09-04T23:53:07 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
   - [error] x155 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o
-- **ERRFEED-a46d2970** (error_feed · 5d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 22 rows 2026-09-02T02:03:23 → 2026-09-06T15:05:37 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog
-  - [error] x22 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u
-- **ERRFEED-fa77ad80** (error_feed · 5d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 18 rows 2026-09-02T02:03:23 → 2026-09-06T13:18:33 · symbols=MES — decide: fix now, or file to a backlog
-  - [error] x18 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
+- **ERRFEED-a46d2970** (error_feed · 5d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 23 rows 2026-09-02T02:03:23 → 2026-09-07T00:29:33 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog
+  - [error] x23 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u
+- **ERRFEED-fa77ad80** (error_feed · 5d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 19 rows 2026-09-02T02:03:23 → 2026-09-07T00:29:32 · symbols=MES — decide: fix now, or file to a backlog
+  - [error] x19 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
 - **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (soaks · 5d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then 
 - **ERRFEED-332d3159** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 6 rows 2026-09-03T07:10:01 → 2026-09-06T23:38:42 · accounts=bybit_1,bybit_2 symbols=ETHUSDT — decide: fix now, or file to a backlog
   - [error] x6 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ETHUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Cl
-- **ERRFEED-6da04340** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 17 rows 2026-09-03T11:19:27 → 2026-09-06T13:18:34 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog
-  - [error] x17 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u
-- **ERRFEED-b3c9b0e2** (error_feed · 3d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 11 rows 2026-09-04T12:28:34 → 2026-09-06T22:15:55 · accounts=bybit_1 — decide: fix now, or file to a backlog
-  - [error] x11 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg
-- **ERROR-FEED-SUMMARY** (error_feed) — 70 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-06T21:35:33.687997+00:00`.
-  - 118 cause groups over 1393 rows (80 error-level, 38 warn-level, 0 new since the last digest)
+- **ERRFEED-6da04340** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 18 rows 2026-09-03T11:19:27 → 2026-09-07T00:29:33 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog
+  - [error] x18 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u
+- **ERRFEED-b3c9b0e2** (error_feed · 3d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 12 rows 2026-09-04T12:28:34 → 2026-09-07T04:16:57 · accounts=bybit_1 — decide: fix now, or file to a backlog
+  - [error] x12 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg
+- **ERROR-FEED-SUMMARY** (error_feed) — 70 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-06T23:39:03.167302+00:00`.
+  - 118 cause groups over 1398 rows (80 error-level, 38 warn-level, 0 new since the last digest)
 - **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
 - **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched
