@@ -1381,6 +1381,24 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/ci/check_lever_wiring.py"]],
     },
     {
+        # MI-157. A committed candle file with no price variation makes every
+        # backtest over it confidently meaningless. This runs UNGATED (`when:
+        # None`) rather than on a data/ glob, because the class is defined by
+        # the file's CONTENT and not by its location: the five that motivated
+        # it sat under `data/ohlcv/`, but a flat corpus committed anywhere
+        # would read exactly the same to a harness.
+        "name": "candle-fixture-variance-guard",
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation. On a clean tree this
+            # guard is silent, and silence from a detector nobody has seen
+            # fail is the "green that checked nothing" this repo has a rule
+            # about -- so it proves it can catch a flat series first.
+            ["python3", "scripts/ci/check_candle_fixture_variance.py", "--self-test"],
+            ["python3", "scripts/ci/check_candle_fixture_variance.py"],
+        ],
+    },
+    {
         "name": "json-extract-guard",
         "when": {"regex": r"\.py$|\.sh$"},
         "steps": [["python3", "scripts/ci/check_json_extract_guarded.py", "--verbose"]],

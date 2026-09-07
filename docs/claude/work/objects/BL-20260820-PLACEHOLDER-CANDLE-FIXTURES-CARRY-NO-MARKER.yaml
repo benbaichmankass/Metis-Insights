@@ -8,10 +8,10 @@ parent_intent: null
 title: |-
   5 of 6 committed candle files are constant-price placeholders with 1 distinct close each, and nothing at the call site distinguishes them from a real series
 stage: INTEGRITY
-lifecycle: dormant
-owner: null
+lifecycle: done
+owner: session_01MLKjDPG9n1MHBByYEAEgjc
 opened_at: null
-closed_at: null
+closed_at: '2026-09-07'
 review_trigger: |-
   Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
 done_condition: |-
@@ -32,4 +32,38 @@ source:
 evidence:
 - |-
   docs/claude/health-review-backlog.json#BL-20260820-PLACEHOLDER-CANDLE-FIXTURES-CARRY-NO-MARKER
-verdict: null
+verdict: |-
+  DONE 2026-09-07 by MI-157 (WO-20260907-THE-COMMITTED-BACKTEST-CANDLE-FIXTURES-ARE-FLAT).
+
+  ⚠️ THIS ROW MEASURED THE PROBLEM ON 2026-08-20 AND THE PROBLEM WAS STILL
+  THERE 18 DAYS LATER, unchanged, when MI-151 tripped over the same five files
+  while doing something else. That is the finding worth carrying out of this
+  row: it was correct, specific, and inert. A written record is not a detector,
+  which is why the remedy below is a CI guard and a refusal at the read rather
+  than another note.
+
+  Its done_condition is satisfied, and by the harder of the two options it
+  offered. It allowed "a marker the loader recognises (sidecar or header
+  column) OR a check in scripts/candle_io.py::load_candles that flags a
+  zero-variance close column". The check was chosen — a marker would have
+  required every producer to remember to write one, which is the same
+  remember-to-do-it failure mode that left this row dormant.
+
+  The done_condition's evidence bar is met exactly as written: the check is
+  shown to FIRE on the five files and to stay SILENT on
+  data/backtest_candles.csv, and both directions are asserted as tests
+  (tests/test_candle_fixture_non_degeneracy.py::test_guard_actually_fails_on_a_flat_file
+  and ::test_guard_passes_the_real_committed_corpus) rather than merely
+  observed once in a session.
+
+  ⚠️ ONE CORRECTION TO THIS ROW'S OWN NUMBERS, so they are not re-quoted. It
+  says "n = 6, the full population" of committed candle files. Re-measured
+  2026-09-07 the population is SEVEN candle files plus one manifest:
+  data/btc_1m_sample.csv (10,080 rows, 9,688 distinct closes — real) is not
+  named here. The row's substantive claim is untouched — 5 flat, and every
+  non-flat file real — but its denominator was one short.
+
+  The five files are DELETED rather than marked: .gitignore line 75 already
+  declared they should never have been committed, so the marker would have
+  documented an artefact that the repo's own configuration said should not
+  exist. See data/ohlcv/README.md.
