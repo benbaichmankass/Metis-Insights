@@ -1,0 +1,1 @@
+armed by .github/actions/commit-to-main for automation/econ-event-study-34071517462-1 (run 34071517462)
