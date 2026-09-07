@@ -19,7 +19,7 @@
    "observation": "2026-09-06 (MI-152): CLAUSE (1) IS CLEARED AND CLAUSE (2) IS NOT — saying which, as the row demands. THE COUNT IS MEASURED: 98 of 111 specifications are un-carried (88.3%), over a POPULATION of 331 artifacts under docs/research (312) + docs/design (19), 2 excluded by a reasoned rule, 1428 register surfaces read for the join; 118 borderline tier-C artifacts are reported separately and are NOT in that denominator. Report: docs/research/uncarried-spec-census-2026-09-06.md; instrument scripts/ops/uncarried_specs.py. IT IS A POPULATION, NOT A ONE-OFF — the operator's 'if the answer is twelve' threshold is exceeded under every defensible reading. SENSITIVITY, because 57 of the 89 mentioned-only artifacts are named in ROADMAP.md and whether that is a CARRIER or a RECORD is the biggest judgement in the measurement: strict 98 (88.3%) / ROADMAP-counts 40 (36.0%) / ROADMAP-or-sprint-log 24 (21.6%) / loosest-any-mention 8 (7.2%); the loosest is not defensible, being exactly the reading under which THIS row's own incident (one incidental mention) counts as carried. JUDGEMENT-FREE CORE: 13 artifacts whose OWN TEXT says the work is unbuilt are 11-of-13 un-carried strict, 4-of-13 even if ROADMAP counts — and the only 2 carried were both written TODAY and given carriers BY HAND by this week's program, which is the mechanism this row asks for, executed manually, for 2 files out of 111. 8 artifacts are named NOWHERE outside themselves. POSITIVE CONTROL PASSED AND CAUGHT A REAL DEFECT: the probe's first cut graded the known-stranded EXIT-GEOMETRY prompt as carried — under-reporting the pile — because (a) the control was CONTAMINATED by this session's own WO-20260906-* objects created today, so the negative control is now asserted against the pre-remediation tree daebbada where it correctly grades dormant_only, and (b) 'named by a work object' is not 'carried': its only reference was a lifecycle:dormant migrated row whose own review_trigger says 'A dormant object is NOT a queued one — nothing is scheduled to pick this up'. Carrier grade is now a five-state ladder, never a boolean. CLAUSE (2) REMAINS OPEN: the mechanism is PROPOSED (a bounded, ranked SESSION-BRIEF section covering the existing pile, then a CI check covering the new half) and is NOT BUILT and NOT run as a live surface.",
    "clears_when": "BOTH, and they are different facts - say WHICH you cleared. (1) The un-carried-spec COUNT is MEASURED and reported with a stated classifier and a positive control (WO-20260906-COUNT-THE-UN-CARRIED-SPECS). Until then nobody knows whether the 14-day case was a one-off or a population. (2) A MECHANISM makes an un-carried spec visible WITHOUT a session thinking of it - see BL-20260906-A-RESEARCH-ARTIFACT-THAT-SPECIFIES-WORK-IS-NOT-REGISTERED-AS-WORK - and it has been run over the EXISTING tree, not only armed for new artifacts. !! DO NOT CLEAR BECAUSE A SESSION IS RUNNING. A session being spawned is exactly the state that looked fine on 2026-08-23. !! DO NOT CLEAR ON ANOTHER MEMO. The failure class is a well-written artifact nothing points at; an eighth document restating the diagnosis makes this row MORE true. !! IF THE OPERATOR DECIDES the count is not worth measuring, this row does not clear - it CHANGES: that is a legitimate decision and must be RECORDED as one rather than left looking like work about to start."
  },
- {
+  {
   "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
   "opened": "2026-09-02",
   "soak": {
@@ -1095,7 +1095,7 @@
     "WO-20260902-THE-OPERATOR-GETS-NO-PER-MERGE-PING"
    ]
   },
- {
+  {
    "id": "OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD",
    "opened": "2026-09-03",
    "kind": "monitoring",
@@ -1121,7 +1121,7 @@
     "WO-20260903-REVIEW-10793-ON-ITS-MERITS-THE-ONE"
    ]
   },
-    {
+  {
       "id": "OI-20260903-CLOSE-WEDGE-LEDGER-MERGED-AND-HAS-NEVER-BEEN-OBSERVED-PRESENT-ON-THE-FLEET",
       "opened": "2026-09-03",
       "kind": "awaiting_verification",
@@ -1140,7 +1140,7 @@
         "docs/claude/work/objects/WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT.yaml"
       ]
     },
- {
+  {
   "id": "OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST",
   "opened": "2026-09-04",
   "kind": "awaiting_verification",
@@ -1163,8 +1163,7 @@
    "OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED"
   ]
  },
-
- {
+  {
 
   "id": "OI-20260905-MI-128-SWEEP-WINDOW-REKEYED-AND-THE-PR-HOLDS-ON-A-BACKFILL-DECISION",
 
@@ -1203,7 +1202,7 @@
   ]
 
  },
- {
+  {
   "id": "OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON",
   "opened": "2026-09-06",
   "kind": "monitoring",
@@ -1224,7 +1223,7 @@
    "BL-20260901-E35-TP-R-CAN-BE-INERT-BEHIND-THE-VENUE-CLAMP-AND-THE-BINDING-RATE-IS-UNMEASURED"
   ]
  },
- {
+  {
   "id": "OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED",
   "opened": "2026-09-06",
   "kind": "monitoring",
@@ -1259,26 +1258,78 @@
    "is_not": "A PASS DOES NOT CLEAR THIS ROW and does not authorise arming. It establishes ONE clause: that an artifact admitting a scalp leg now exists and the consumer reached it. It says nothing about (a) whether the head is any good, (b) the 2026-08-23 SHIP BLOCKED operator decision that cancelled the Tier-3 ship, or (c) the ict_scalp_sol_5m re-partitioning failure. ⚠️ A `could_not_look` verdict (exit 2/3) is the EXPECTED result until this PR merges and deploys — the diag allowlist entry for this log ships in it — and must not be read as a negative."
   }
     },
-    {
-  "id": "OI-20260906-THE-R-INSTRUMENT-IS-CORRECTED-ON-A-BRANCH-AND-EVERY-PUBLISHED-R-IS-STILL-THE-OLD-ONE",
+  {
+   "id": "OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET",
+   "kind": "monitoring",
+   "loud": true,
+   "opened": "2026-09-06",
+   "opened_at": "2026-09-06",
+   "verified_at": "2026-09-06",
+   "check_every_days": 4,
+   "probe_absent_reason": "NO PROBE EXISTS AND ONE CANNOT BE WRITTEN THAT WOULD CLEAR THIS ROW, which is a property of the condition rather than of the effort available. The event this row waits on is a Bybit CLOSE whose qty carries an IEEE-754 artifact — MEASURED at 9 of 631 rows (1.43%) over bybit_* non-backtest trades ids 4519-5518 — and Part 1 of the same merge (round(parent_qty - consumed, 8)) STOPS most such quantities being manufactured in the first place. So the two halves interact: the more effective Part 1 is, the rarer the event that would exercise Part 2, and a probe polling for `snapped` could stay silent for a long time BECAUSE THE FIX WORKS. A silent probe here is therefore not evidence and would be worse than none — it would read as a clean negative. What CAN be graded on a cadence is the denominator: whether any close has been graded at all (any qty_state logged), which distinguishes 'the seam is being reached and finds nothing to repair' from 'the seam is never reached'. That distinction is the observation this row asks for.",
+   "title": "The Bybit close-qty snap is merged and has never been seen firing on the fleet",
+   "summary": "PR #11125 merged 2026-09-06T18:43:22Z as 9604b8a5 (squash), Tier-3, operator-approved, routed by the manager rather than self-merged. Content VERIFIED on origin/main directly, not from the merge event. It changes a REAL-MONEY order path (bybit_2 trades on this code), and no live close has yet been observed passing through qty_legalize.snap_artifact_qty.",
+   "observation": "2026-09-06: MERGED AND VERIFIED IN THE TREE, NOT ON THE FLEET — and those are different facts. Read from origin/main: execute.py:1876 round(parent_qty - consumed, 8); qty_legalize.py:423 def snap_artifact_qty; execute.py:2841/2852 close_open_position's bybit branch -> \"qty\": snap_qty_str; config/instruments.yaml XRPUSDT min_qty/qty_step 0.1; tests/test_bybit_close_qty_artifact.py 457 lines. CI on the merged head 7c17a2af was green on all five checks with pytest-run at 17m39s (a real full-suite run — an ~18s pytest-run on this repo means the suite was SKIPPED). NOT YET OBSERVED: no `qty_state` has been seen in a live close log line, on any account. NOT YET DEPLOYED EITHER, as far as this session established — the trader picks the merge up via ict-git-sync; nobody has confirmed git_sha on the VM carries 9604b8a5.",
+   "clears_when": "THREE PARTS, and they are different facts — say WHICH you cleared rather than clearing the row on the easiest. (1) The merge is DEPLOYED: /api/diag/version reports a git_sha that CONTAINS 9604b8a5 (check ancestry, not string equality — main moves fast). (2) The seam is REACHED: a live Bybit close is observed logging a qty_state at all. ⚠️ `unchanged` IS THE EXPECTED AND SUFFICIENT VALUE HERE — it is the common path and it proves the wiring, so do not hold out for `snapped`. (3) A `snapped` value is observed, OR it is explicitly recorded that none has occurred and WHY. ⚠️ CLAUSE (3) MAY NEVER BE SATISFIABLE AND THAT IS NOT A FAILURE: Part 1 of the same merge stops most artifacts being manufactured, so the population that would trigger a snap is shrinking by design. If clauses (1) and (2) hold and no artifact has appeared, record that as the outcome and CLOSE the row — holding it open forever waiting for a bug the fix prevents is how a register turns into noise. ⚠️ DO NOT CLEAR ON THE TEST SUITE: 90 assertions pass and a harness cannot reach a venue. ⚠️ DO NOT CLEAR ON THE MERGE: that is what this row already records.",
+   "why_it_matters": "It is a live order path on a real-money venue (bybit_2). The failure it repairs is a position that CANNOT BE FLATTENED by the normal path — the engine of the orphan class — and the change was deliberately built so the wire string moves on the `snapped` path and NOWHERE else, which bounds the blast radius to exactly the orders Bybit rejects today. That argument is structural and asserted in tests; it has not been confirmed against a live venue.",
+   "owner_session": "session_017UnyG4ArXmXKpB8rmEGv1j",
+   "refs": [
+    "PR #11125",
+    "PR #11112",
+    "WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED",
+    "MI-139b"
+   ]
+  },
+  {
+
+  "id": "OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP",
+
   "opened": "2026-09-06",
-  "kind": "awaiting_verification",
+
+  "kind": "monitoring",
+
   "loud": true,
-  "verified_at": null,
+
+  "check_every_days": 1,
+
+  "verified_at": "2026-09-06",
+
   "last_checked": "2026-09-06",
-  "check_every_days": 2,
-  "probe": "curl -s 'https://ict-bot.duckdns.org/api/bot/performance?window=30d' | python3 -c \"import json,sys;d=json.load(sys.stdin);print('expectancyR',d.get('expectancyR'),'profitFactor',d.get('profitFactor'),'rBasis',d.get('rBasis'),'bracketOutcome',bool(d.get('bracketOutcome')))\"",
-  "probe_reports_the_defect_until_fixed": "The probe is EXPECTED to keep reporting the DEFECT until this deploys: it still reads `expectancyR +0.9818` against `profitFactor 0.9507` and `rBasis None`. That is the CORRECT reading while PR #11131 is unmerged, not a broken probe. ⚠️ DO NOT READ THE 30d NUMBER SIMPLY FALLING AS THIS ROW CLEARING: the window rolls, so its contaminated rows age out on their own and `expectancyR` can drop for reasons that have nothing to do with the fix. The presence of the `rBasis` KEY is the discriminator — it cannot appear without the deployed code.",
-  "summary": "⚠️ EVERY R FIGURE ANY SESSION READS TODAY IS ON THE OLD, CONTAMINATED BASIS, INCLUDING ONES QUOTED INTO PROMOTION VERDICTS. `trades.stop_loss` holds the FINAL trailed stop, and `_clean_trades.r_multiple` `abs()`-ed a wrong-side stop into a small positive risk, so R was computed against a risk the trade never took. MEASURED 2026-09-06 (live journal via /api/bot/db/table/{trades,order_packages}, 5518 + 4435 rows; the endpoint's own totals were reproduced to the last digit FIRST, as a positive control): the 30d real-money window PUBLISHES `expectancyR +0.9818` on a window that LOST money (`totalPnl -3.6266`, `profitFactor 0.9507`), with 12 of 39 rows (30.8%) carrying 117.1% of that R; `paperPortfolio` publishes +0.6253 on a book down $11,244.87; over the whole journal (n=1287) 104 contaminated rows — 8.1% — carry 96.6% of `totalR`, single-row max R +3672.3. PR #11131 fixes it (declared-initial risk preferred, proven-wrong-side REFUSED, `rBasis` published) and is UNMERGED. ⚠️ THE PRACTICAL INSTRUCTION WHILE THIS ROW IS OPEN: if you are about to propose a promote, a demote, a kill or a param change off `expectancyR`, read `rProvenance.contaminated` beside it first, or do not quote the number. ⚠️ IT ALSO CARRIES THE OTHER TWO HALVES OF MI-144, which deploy in the same PR and are equally unobserved: `bracketOutcome` on /api/bot/performance (the read-path answer to 'are trades ending at their brackets' — real money 228 of 420 gradeable, 54.3%, sl:tp 187:41) and /api/bot/trades/closed refusing with a 503 + reason instead of returning a bare [].",
-  "clears_when": "THREE FACTS, and they are different — say WHICH you cleared rather than clearing on the easiest. (1) MERGED AND DEPLOYED: PR #11131 merges AND `/api/diag/version` reads a `git_sha` at or after that merge — a merge is not a deploy. (2) THE CORRECTED INSTRUMENT IS OBSERVED SERVING: `/api/bot/performance?window=30d` returns an `rBasis` block whose four counts SUM TO `totalTrades`, and `rTradeCount == rBasis.declaredInitial + rBasis.storedStop`. CHECK THE ARITHMETIC, do not eyeball it — that partition is the whole claim and it is the only thing that cannot be true by accident. (3) THE OTHER TWO SURFACES ARE OBSERVED: `/api/bot/performance` carries a `bracketOutcome` block with a non-null `reachedRatio`, AND `/api/bot/trades/closed` is confirmed to REFUSE rather than empty — either by a real read failure returning 503 with a `detail.reason`, or by observing `X-Total-Count` / `X-Has-More` on a normal call, which cannot be present without the deployed code. ⚠️ A GREEN TEST SUITE CLEARS NOTHING HERE: 93 assertions pass in a harness and a harness cannot reach the live VM. ⚠️ NEITHER DOES THE PR MERGING — ict-git-sync must pull it, which is the merge-is-not-a-deploy distinction that keeps other rows in this file open. ⚠️ IF THE OPERATOR REJECTS the change, or decides the corrected R should be published ALONGSIDE rather than IN PLACE OF the old one, this row does NOT clear — it CHANGES: that is a legitimate decision and must be RECORDED as one rather than left looking like a fix about to land.",
+
+  "summary": "ict_scalp_5m was demoted off the REAL-MONEY bybit_2 account (Tier-3, operator-approved 2026-09-06, scope bybit_2 only) by removing it from that account's `strategies:` list in config/accounts.yaml. PR #11121. ⚠️ AS OF THIS ROW'S OPENING IT IS NOT MERGED, NOT DEPLOYED AND NOT OBSERVED — three different facts, and the row exists because the PR CANNOT LAND ITSELF: pr-landing R4 bars any Tier-3 diff from `landing: self` whatever its approval state, so it waits on a human merge click. The approval is NOT what it is waiting on and must not be re-sought. ⚠️ config/strategies.yaml is deliberately UNTOUCHED — the leg keeps execution: live and KEEPS TRADING on bybit_1 — the FULL-ROSTER soak book — which is the operator's stated reason for choosing this lever over execution: shadow. ⚠️ CORRECTED 2026-09-06 AFTER CI: bybit_portfolio does NOT keep it. tests/test_paper_portfolio_accounts.py::test_bybit_portfolio_mirrors_bybit_2_exactly pins the two rosters together as an enforced ROSTER-SYNC invariant, so the mirror follows bybit_2. The config path does not propagate (the list is literal) but the TEST does — I read the routing code and not the test suite. The soak evidence is NOT lost: bybit_1 is the book that accrues it.",
+
+  "detail": "THE FINDING (MEASURED, population: closed graded ict_scalp_5m rows on bybit_2, n=37, to 2026-09-04T12:30Z; docs/research/ict-scalp-5m-real-money-verdict-2026-09-06.md § 0.1): only 21 of 37 real-money closes exited through the leg's own bracket. On its own bracket it wins 38.1% against the 40.0% its tp_at_r 1.5 geometry needs. Realised payoff ratio 0.671 against a declared 1.5 — a 2.23x inversion — so the book needs 59.8% and delivers 54.1%, and that published 54.1% is reached only by counting 16 reconciler-closed scratches. Round-trip fee $0.2885/trade against a mean per-trade result of -$0.34. 32 of 35 PnL rows are broker truth, none fabricated. || ⚠️ THE VERIFICATION IS EASY TO GRADE WRONG AND THAT IS WHY THIS ROW SPELLS IT OUT. ORDER PACKAGES AND PAPER FILLS FOR ict_scalp_5m WILL KEEP APPEARING AFTER THIS DEPLOYS, because the leg is still execution: live on bybit_1 BY DESIGN. Seeing them is NOT evidence the change failed — it is evidence it worked as chosen. The only thing that must stop is `trades` rows carrying BOTH strategy_name='ict_scalp_5m' AND account_id='bybit_2'. A session grading this on order packages, or on the leg appearing in /api/bot/signals, will wrongly report a regression. || ⚠️ A MERGE IS NOT A DEPLOY. /api/diag/version read at baseline showed restart_pending: true, so the trader must PULL AND RESTART before the routing change binds; the process only sees the accounts.yaml it was launched with. Read git_sha vs git_sha_on_disk, not the PR page. || NO OPEN-POSITION RISK at demotion: no open ict_scalp_5m position on bybit_2, last close id 5450 at 2026-09-04T12:30Z. || THE SECOND HALF OF THE PARENT OBJECT IS STILL OWED and is not tracked by this row: WO-20260906-ICT-SCALP-5M-TO-SHADOW-THEN-ESTABLISH part (2) asks whether the leg should trade real money AT ALL. Exactly one exit lever is both unrun and applicable — bracket_geometry (never swept, unblocked, free crypto data lane). The other six are either honestly-failed sweeps or inapplicable by construction (the strategy has no trailing stop to reshape), so reading them as neglect would spread that work across six dead ends.",
+
+  "clears_when": "THREE PARTS, and they are different facts — say WHICH you cleared rather than clearing the row on the easiest. (1) #11121 is MERGED, or explicitly rejected — either settles it; sitting un-actioned does not, and if it is still open the useful action is to tell the operator it needs a merge click, NOT to re-ask for the approval. (2) The change is DEPLOYED — /api/diag/version shows the merge commit as git_sha AND git_sha_on_disk with restart_pending false, i.e. the trader pulled and restarted. A merge alone clears this NOT AT ALL. (3) OBSERVED: NO new `trades` row exists with strategy_name='ict_scalp_5m' AND account_id='bybit_2' and created_at after that restart, over a window in which the leg DID produce order packages or paper fills elsewhere. ⚠️ THAT SECOND CLAUSE IS THE DENOMINATOR AND IS NOT OPTIONAL: silence on bybit_2 during a window when the leg was not signalling AT ALL proves nothing — it cannot distinguish 'the demote worked' from 'the strategy was quiet'. Establish that the leg was live and producing on bybit_1 across the same window, then report the bybit_2 count as zero against that positive control. Record BOTH numbers. ⚠️ IF A bybit_2 ict_scalp_5m ROW DOES APPEAR after the restart, that does NOT clear this row and is the more valuable finding — write it into observation and keep the row open. ⚠️ IF THE OPERATOR REVERSES and re-promotes the leg, this row does NOT clear — it CHANGES: that is a legitimate Tier-3 decision and must be RECORDED as one rather than left looking like a demote about to take effect.",
+
+  "observation": "2026-09-06 — CLAUSES (1) AND (2) CLEARED ON EVIDENCE; CLAUSE (3) IS NOT, AND THAT IS THE HONEST STATE. (1) MERGED: #11121 squash-merged as f2b871e9 ~21:27Z; the demote is on origin/main (read back from `git show origin/main:config/accounts.yaml`, not from the PR page). (2) DEPLOYED: the ict-git-sync tick at 21:32:41Z hard-reset the VM worktree to 116019ce, which CONTAINS f2b871e9 (verified with `git merge-base --is-ancestor`, not by eyeballing the log); the restart path fired because config/ is outside the docs-only skip set; /api/diag/version at 21:33:38Z read git_sha == git_sha_on_disk == 116019ce with restart_pending FALSE. Roster as deployed at that sha: bybit_1 HAS ict_scalp_5m, bybit_2 does NOT, bybit_portfolio does NOT. ⚠️ MECHANISM FINDING, and it moves the exposure boundary EARLIER than this row's clause (2) implies: the routing gate binds at the DISK SYNC, not at the process restart. Coordinator.multi_account_execute calls load_accounts(path) FRESH on every invocation (src/core/coordinator.py:909), and load_accounts opens and parses accounts.yaml on every call with zero cache markers (no lru_cache, no module cache, no globals — checked, not assumed); the module says so itself at :2776, 'the accounts layer is stateless per-call'. So bybit_2 became unroutable for this leg at 21:32:41Z, about a minute BEFORE the restart. DO NOT read restart_pending: true as 'real money is still exposed' for a config-only change — it is not. ⚠️ RELATEDLY, restart_pending had been true for days BENIGNLY: the BL-20260529-002 docs-only skip path writes runtime_logs/deployed_sha.txt WITHOUT restarting, so the process sha lags disk by design when only docs changed. Confirmed in the ict-git-sync journal — the 21:21:48Z and 21:27:17Z ticks both logged 'Running processes already deployed ... nothing to deploy'. A successor should not read that as a stuck deploy. (3) NOT OBSERVED — STATE THE POPULATION: newest 250 `trades` rows read at 21:37Z carry ZERO rows created after the 21:33:38Z restart, and ict_scalp_5m's newest row ANYWHERE is id 5451 (bybit_portfolio, 2026-09-04T08:37:50Z). The leg has been silent ~2 days on ALL THREE accounts — ids 5449 bybit_1 / 5450 bybit_2 / 5451 bybit_portfolio, ~1.3s apart, i.e. they fire in LOCKSTEP. The journal is demonstrably LIVE (newest row overall is id 5522, trend_donchian_avax_4h on bybit_1, 2026-09-06T20:51:50Z), so the silence is the LEG's and not the pipeline's. A bare 'no bybit_2 ict_scalp_5m rows' check run today would therefore PASS having measured NOTHING. What clause (3) still needs: the FIRST ict_scalp_5m row on bybit_1 created after 2026-09-06T21:32:41Z, with no bybit_2 sibling beside it. ⚠️ bybit_1 is now the ONLY valid denominator — bybit_portfolio was removed too under ROSTER-SYNC and will go silent as well, which is this change working, not failing.",
+
+  "probe_absent_reason": "PARTIAL CAPABILITY, stated rather than hidden. Clause (2) IS probeable from a session (/api/diag/version). Clause (3) is probeable in principle from the journal, but NOT as a single predicate: the honest form needs a POSITIVE CONTROL — zero bybit_2 rows measured against a window in which the leg demonstrably produced elsewhere — and a probe asserting only 'no bybit_2 rows' would go green during any quiet spell, which is the vacuous-negative class CLAUDE.md § 'Green is not evidence' names. Clause (1) is a GitHub state no repo-side probe reaches. So this is deliberately left to a session that can join both populations and state the denominator, rather than given a probe that would report a clean negative it never earned.",
+
   "refs": [
-   "PR #11131",
-   "docs/research/trade-record-integrity-2026-09-06.md",
-   "docs/claude/work/objects/WO-20260906-THE-RECORD-OF-A-TRADE-DOES-NOT.yaml",
-   "BL-20260906-TRADES-CLOSED-SILENTLY-RETURNS-EMPTY-ABOVE-LIMIT-200-AND-FOR-ANY-SINCE",
-   "BL-20260906-FOURTEEN-READ-ROUTES-STILL-RETURN-A-BARE-EMPTY-ON-ERROR",
-   "BL-20260906-PAIRS-LEGS-GRADED-AGAINST-A-PER-LEG-BRACKET-THAT-MAY-NOT-BE-THEIR-STOP"
+
+   "BL-20260823-TP-GEOMETRY-RATCHET-LOOSENS-WHEN-THE-LIVE-DENOMINATOR-SHRINKS",
+
+   "BL-20260906-COVERAGE-FILE-SAYS-ICT-SCALP-HAS-NO-REGIME-CELL-AND-IT-HAS-TWO",
+
+   "WO-20260906-ICT-SCALP-5M-TO-SHADOW-THEN-ESTABLISH"
+
   ]
+
+ },
+  {
+  "id": "OI-20260906-SCALP-EXIT-HEAD-ARTIFACT-IS-THE-SECOND-MISSING-HALF-NOT-THE-FIRST",
+  "kind": "monitoring",
+  "loud": true,
+  "opened": "2026-09-06",
+  "opened_at": "2026-09-06",
+  "verified_at": "2026-09-06",
+  "check_every_days": 7,
+  "title": "No 5m/15m scalp exit-head artifact exists - but the CONSUMER is missing too, so building the artifact first adds a latent hazard for no observable benefit",
+  "probe_absent_reason": "A PROBE EXISTS AND WAS RUN, so this is not a refusal. Resolving src.runtime.pipeline.monitor_unit_for over the full population of 55 strategies in config/strategies.yaml returns the 23 legs that reach maybe_score_exit_head and their timeframes. What has no probe is the DONE condition (a decision_state on a real row), because that field does not exist in deployed code - which is the point of the row, not a gap in it.",
+  "summary": "MI-154, measured 2026-09-06 at main 957fc81d. The lane was opened on the premise that PR #11140 had SHIPPED the ict_scalp exit-head consumer and that only the artifact was missing. #11140 is OPEN and UNMERGED (state open, merged false, tier 3, landing hold); ICT_SCALP_EXIT_HEAD_MODE and exit_head_apply each appear in 0 files at main against a positive control of EXIT_LOOP_DECOUPLE_DISABLED in 18. The only call site of maybe_score_exit_head is trend_donchian.py:802; 23 of the 55 strategies reach it and ALL are 1h/4h/1d, NONE on 5m/15m; all 8 ict_scalp legs resolve to unit ict_scalp, which has no call site. A published scalp artifact would have no reader. Three further corrections to the framing, all measured: (a) /api/diag/shadow_stats aggregates shadow_predictions.jsonl and enumerates models that have SCORED, not artifacts that exist, so publishing cannot make it list a scalp head; (b) the exit-head guard gates on tf+symbols and never reads family (exit_head_shadow.py:350,353) while the sibling entry-head guard gates on family FIRST (entry_head_pwin.py:165), so publishing a family=ict_scalp artifact into that directory is safe only while no donchian-monitor leg shares its tf - true today but a property of config, not code, and exit-head-donchian-1h-v1 is stage=advisory, a live-money path; (c) even after #11140 lands, an artifact exported the obvious way would be REFUSED - export_exit_head.py stamped family=fam_dir.name and the round dirs are per-leg (ict_scalp_sol_5m), while #11140's _ACCEPTED_FAMILIES['ict_scalp'] is {'ict_scalp','scalp'}. MI-154 added a --family override to the exporter so the token can be declared. Correct order: consumer, then family gate, then artifact. NOT BLOCKED ON DATA: the E0 scalp datasets survive on the trainer, 100 percent harness rows with bar_t coverage 1.0 - scalp_5m_20260814T151003Z (avax 27513 / sol 22120 / xrp 21258) and scalp_15m_20260814T135244Z (sol 10079 / xrp 9960 / eth 8644), spanning 2021 to 2026-06. No dataset_gc.jsonl exists; nothing has pruned them.",
+  "observation": "2026-09-06 (MI-154), opened. Trainer mirror read directly via the push-triggered trainer-diag-relay (runs 34047425502 and 34047529006, state=ran, remote_exit=0): runtime_logs/trainer_mirror/exit_head/ holds exactly two files - exit-head-donchian-1h-v1 (family=donchian tf=1h stage=advisory symbols=[BTCUSDT,ETHUSDT,SOLUSDT] train_rows=34338) and exit-head-donchian-peak-1h-v1 (family=donchian tf=1h stage=shadow train_rows=44244). This independently reproduces the manager's /api/diag/shadow_stats reading (POPULATION 32 model_ids; positive control - the probe finds both exit-head ids) AND establishes the artifacts' actual family string, which PR #11140 states it could not read and cited as its reason for leaving donchian opted out of its own family check. Both carry the literal token 'donchian'. Also recorded rather than assumed: both exit-heads carry last_seen 2026-09-06T10:00:01Z while the regime heads read 16:56:44Z - about 7h with no scored bar, consistent with no open donchian 1h position but NOT verified as such. Trainer at 86 percent disk (6.8G free), ict-trainer.service inactive. Note also that datasets-out/exit_head/1h/ict_scalp_5m/rows.jsonl - the path the exporter's own usage example points a reader at - holds 164 rows of which ZERO are source=harness, so export_exit_head.py would exit 1 there; the usable data is in the round dirs under a different layout.",
+  "clears_when": "THREE PARTS, and they are different facts - say WHICH you cleared rather than clearing on the easiest. (1) An exit-head CONSUMER exists in the ict_scalp unit ON MAIN - #11140 merged, or a successor. Re-measure with monitor_unit_for plus a grep for the call site; do not read the PR page. (2) The exit-head guard READS family - see BL-20260906-EXIT-HEAD-GUARD-DROPS-THE-FAMILY-CHECK-ITS-SIBLING-ENTRY-HEAD-GUARD-MAKES. Until then, publishing a scalp artifact is the step that converts a latent gap into a live one. (3) THEN a 5m/15m ict_scalp artifact is published AND the guard is OBSERVED admitting a real ict_scalp leg - a decision_state other than not_scored on a real row. !! A PASSING TEST IS NOT THAT OBSERVATION, and neither is reading the merged diff: merged is not deployed and deployed is not observed. !! DO NOT CLEAR (3) ON THE ARTIFACT APPEARING IN /api/diag/shadow_stats - it cannot appear there until it has scored, because that route aggregates prediction records, not published artifacts; if it DOES appear there, that IS the observation. !! WHEN DOING (3), PASS export_exit_head.py --family ict_scalp - the round dirs are per-leg and the derived token would be refused by _ACCEPTED_FAMILIES. !! AND DO NOT CLEAR THIS ROW BY BUILDING THE ARTIFACT ALONE. An artifact with no reader is the 'declared capability with no consumer' shape the operator's own 2026-08-23 SHIP BLOCKED verdict names, one layer over. If the operator DECIDES to pre-stage the artifact ahead of the consumer, that is legitimate and must be RECORDED as a decision rather than left looking like progress on (3)."
  }
 ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",

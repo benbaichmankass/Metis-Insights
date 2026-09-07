@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-06T14:20:00Z",
+  "as_of": "2026-09-06T23:55Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -82,21 +82,63 @@
     },
     {
       "pr": 11140,
-      "opened_at": "2026-09-06T14:20:00Z",
+      "opened_at": "2026-09-06T13:57:05Z",
       "title": "MI-150: ship the M20 exit-head consumer into ict_scalp (annotate-only, disarmed)",
-      "owner_session": "session_01Lr1TDaQz2APJyYafBnsZen",
-      "checklist_item": "MI-150",
+      "owner_session": "opened by manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-150-ICT-SCALP-EXIT-HEAD",
+      "draft": false,
+      "tier": "3",
+      "state": "operator_approved_with_conditions_MI-153_DISCHARGED_landing_annotate_only_disarmed_awaiting_manager_routed_merge",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "TWO conditions, both given in the same reply and neither optional. (1) ict_scalp_sol_5m is EXCLUDED from the armed set - its pass does not survive re-partitioning (the 4-arm screen flips it to honest_negative when folds are cut 12 trades later) and its AUC spread across arms, 0.0034, was the SMALLEST of the three legs, so AUC gave no warning. (2) The merge is HELD until the figure discrepancy between the MI-146 audit table and docs/research/exit-refinement-coverage.json is RESOLVED - operator chose 'Resolve before arming' over 'arm now, reconcile in parallel'. Tracked as MI-153.",
+        "scope": "ICT_SCALP_EXIT_HEAD_MODE armed for the ict_scalp legs EXCEPT ict_scalp_sol_5m, and only after MI-153 settles which figures are current. The operator ALSO directed that a 5m/15m scalp exit-head artifact be queued as its own lane (MI-154), because arming is inert without one.",
+        "decided_on": "2026-09-06",
+        "text": "Operator, in conversation 2026-09-06: 'you can arm it, give me any decisions as popups.' Put back as three popups naming what arming would and would not do. Answers: arm scope = 'Arm + queue the artifact'; sol_5m = 'Exclude sol_5m'; figures = 'Resolve before arming'. The third answer is what makes this HELD rather than mergeable - do not read the first answer alone as clearance to merge."
+      },
+      "blocker": "NOT BLOCKED ON MI-153 ANY MORE — condition (2) of the operator_decision above is DISCHARGED. MI-153 merged 2026-09-06 as 3292c5bd (#11166), docs/research/exit-head-figure-reconciliation-2026-09-06.md (verified this session with `git merge-base --is-ancestor 3292c5bd origin/main`, not from a PR page). ⚠️ ITS FINDING WAS THAT THE TWO FIGURE SETS WERE NEVER IN DISAGREEMENT: each matrix cell's `ref` is ONE append-only prose string carrying BOTH measurements in chronological order joined by `->`; the audit quoted the current clause and the brief quoted the superseded first clause. One record read at two points. The current set is the 2026-08-14 one (the larger n_oos), established three independent ways. ⚠️ AND MI-153 § 6 IS EXPLICIT — **'Recommendation: arm nothing'**, for none of the three legs, because the binding constraints on arming are elsewhere and untouched by the reconciliation: the standing 2026-08-23 `SHIP BLOCKED` operator verdict, ict_scalp_sol_5m's pass not surviving re-partitioning, and no scalp head being published. So the operator's 'Arm + queue the artifact' answer recorded above is NOT executed by this PR and must not be read as executed by it. ⚠️ WHAT THIS PR ACTUALLY LANDS IS THE CONSUMER, ANNOTATE-ONLY AND DISARMED: `ICT_SCALP_EXIT_HEAD_MODE` defaults to `annotate` and NO leg declares `exit_head_action`, so the path is inert. Arming needs BOTH the mode flip AND the per-leg YAML declare, and is a separate Tier-3 act nobody has taken. ⚠️ AND IT CANNOT SCORE A LEG TODAY, which is why landing it changes no live behaviour: verified against /api/diag/shadow_stats with a positive control (32 models visible), the only published exit-head artifacts are exit-head-donchian-1h-v1 and exit-head-donchian-peak-1h-v1 — both 1h, both donchian — while all 8 ict_scalp legs are 5m/15m, so the in-distribution guard fail-closes and the consumer records decision_state: not_scored. Do not read a quiet soak as the lever declining. The missing 5m/15m scalp artifact is MI-154's lane. Tracked as OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED. REMAINS tier 3 / landing `hold` (.github/pr-landing/ict-scalp-exit-head-20260906.json): it does not self-merge and auto-merge is not armed — the manager routes it.",
+      "also_recorded_by_owner_session": {
+        "session": "session_01Lr1TDaQz2APJyYafBnsZen",
+        "note": "The PR author session recorded its own row for #11140 with verdict `approved` and the condition 'APPROVAL IS FOR THE CONSUMER, NOT FOR ARMING THE LEVER'. Both rows are kept reconciled here rather than one overwriting the other: the manager's typed record above is authoritative because it captures the operator's three popup answers verbatim, and the author's framing is preserved because it names the same consumer/arming split that MI-153 § 6 then independently endorsed. They do not conflict — they were written at 14:20Z and 18:45Z about different halves of the same decision.",
+        "author_condition": "APPROVAL IS FOR THE CONSUMER, NOT FOR ARMING THE LEVER — the two are different decisions and only the first was taken. The PR must land `annotate`-only: ICT_SCALP_EXIT_HEAD_MODE defaults to `annotate` and NO leg may declare `exit_head_action`. ⚠️ AND A SEPARATE, EARLIER OPERATOR DECISION BLOCKS THE ARMING: 2026-08-23 `SHIP BLOCKED` in all five candidate cells of docs/research/exit-refinement-coverage.json, which CANCELLED the queued Tier-3 ship and named 'a consumer exists in the ict_scalp unit' as its own precondition. This PR satisfies that precondition and nothing else. Arming additionally needs evidence that survives re-partitioning: for ict_scalp_sol_5m the 4-arm screen flips the pass to honest_negative (BL-20260815-SCALP-EXIT-HEAD-MATRIX-DISAGREES-WITH-THE-4-ARM-SCREEN) and its live-parity beats_hard 16/23 clears by 2 points of 46. Ship 3 legs' worth of WIRING; exclude ict_scalp_5m (BTC) as UNMEASURED and ict_scalp_eth_15m as a measured negative, encoded as DIFFERENT statuses."
+      }
+    },
+    {
+      "pr": 11125,
+      "opened_at": "2026-09-06T11:20:00Z",
+      "title": "fix(orders): a Bybit reduce-only close is no longer refused on a float artifact — MI-139",
+      "owner_session": "session_017UnyG4ArXmXKpB8rmEGv1j",
+      "checklist_item": "MI-139b",
       "draft": true,
       "tier": "3",
-      "state": "draft_awaiting_manager_routed_merge",
+      "state": "awaiting_manager_merge",
       "operator_decision": {
         "verdict": "approved",
-        "condition": "APPROVAL IS FOR THE CONSUMER, NOT FOR ARMING THE LEVER — the two are different decisions and only the first was taken. The PR must land `annotate`-only: ICT_SCALP_EXIT_HEAD_MODE defaults to `annotate` and NO leg may declare `exit_head_action`. ⚠️ AND A SEPARATE, EARLIER OPERATOR DECISION BLOCKS THE ARMING: 2026-08-23 `SHIP BLOCKED` in all five candidate cells of docs/research/exit-refinement-coverage.json, which CANCELLED the queued Tier-3 ship and named 'a consumer exists in the ict_scalp unit' as its own precondition. This PR satisfies that precondition and nothing else. Arming additionally needs evidence that survives re-partitioning: for ict_scalp_sol_5m the 4-arm screen flips the pass to honest_negative (BL-20260815-SCALP-EXIT-HEAD-MATRIX-DISAGREES-WITH-THE-4-ARM-SCREEN) and its live-parity beats_hard 16/23 clears by 2 points of 46. Ship 3 legs' worth of WIRING; exclude ict_scalp_5m (BTC) as UNMEASURED and ict_scalp_eth_15m as a measured negative, encoded as DIFFERENT statuses.",
-        "scope": "MI-146 recommendation #2: the ict_scalp exit-head consumer, 3 legs, 2 excluded. Wiring only — no leg is armed, no env var is set, no strategies.yaml key is added.",
+        "condition": null,
+        "scope": "Both parts as specified in PR #11112: (1) round(parent_qty - consumed, 8) in execute.apply_intent_reduce_partial_close, and (2) qty_legalize.snap_artifact_qty wired into close_open_position's bybit branch, snapping to NEAREST rather than flooring. The Bybit CLOSE path only — explicitly NOT the sibling protective paths (execute.py:2578,2580 slSize/tpSize; order_monitor.py:9967 uncovered), which are filed as BL-20260906-TWO-BYBIT-PROTECTIVE-LEG-PATHS-SEND-AN-UNQUANTISED-STRFLOAT-QTY instead.",
         "decided_on": "2026-09-06",
-        "text": "Operator, asked directly whether to route MI-146's recommendation #2: \"Yes on MI 146\". Recorded verbatim; the conditions above are NOT quotes from that answer — they are (a) the scope of recommendation #2 as MI-146 itself states it (annotate-first, Tier-3 flip proposed separately) and (b) the standing 2026-08-23 operator decision recorded in the matrix cells, which the MI-146 memo did not surface. Flagged so a successor cannot read 'approved' as approval to arm — the half-informed case this record's own _doc calls the dangerous one."
+        "text": "Operator, in conversation, 2026-09-06, answering a question that named both parts, the 1.43% incidence (9 of 631 bybit_* non-backtest rows over trades ids 4519-5518) including a real-money row on bybit_2, and the warning that the naive floor-based fix is actively harmful because flooring a CLOSE under-closes by a full step and orphans the residue with no journal row. Verdict: approved. No condition attached. ⚠️ THE APPROVAL IS TO BUILD AND LAND THE CHANGE THROUGH REVIEW, NOT FOR THE AUTHORING SESSION TO SELF-MERGE AN ORDER-PATH DIFF — the dispatch said so explicitly ('Open the PR as a draft, get CI green, and do not merge it yourself — report back and I will route the merge'). Those are different permissions and collapsing them is the failure this field exists to prevent."
       },
-      "blocker": "NOT BLOCKED — draft awaiting a manager-routed merge; it does not self-merge (.github/pr-landing/ict-scalp-exit-head-20260906.json: tier 3, landing `hold`, hold_reason tier_2_3_needs_approval). ⚠️ WHAT IS BLOCKED IS THE OUTCOME, NOT THE MERGE: measured 2026-09-06 on /api/diag/shadow_stats, the live mirror publishes only `1h` exit_head artifacts (exit-head-donchian-1h-v1 advisory, exit-head-donchian-peak-1h-v1 shadow) while every ict_scalp leg is 5m/15m, so the in-distribution tf guard fail-closes on all 8 and the consumer records decision_state: not_scored. It cannot produce a firing soak row until a 5m/15m scalp head is trained and published. Do not read a quiet soak as the lever declining — tracked as OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED."
+      "blocker": "NOT BLOCKED ON A DEFECT — blocked on the manager routing the merge, by design. The PR is a DRAFT and .github/pr-landing/bybit-close-qty-apply-20260906.json declares tier 3 / landing hold, so claude-pr-automerge cannot land it and would be refused against a draft anyway. ⚠️ DO-NOTs for whoever picks this up: (1) do NOT widen it to the two sibling protective paths — no observed failure there, and a rejection on a protective tightening fails SILENTLY, so it needs its own evidence; (2) do NOT 'harmonise' snap_artifact_qty with legalize_qty's ROUND_DOWN — flooring a CLOSE is risk-INCREASING and orphans a step of dust with no journal row (tests/test_bybit_close_qty_artifact.py::test_snap_never_floors_any_artifact fails if anyone tries); (3) do NOT re-quote PR #11112's first-pass figure of '82 off-grid rows (13.00%)' — it is WRONG, an artifact of the bad XRPUSDT step, and the real figure is 9 of 631 = 1.43%; (4) AVAXUSDT's qty_step is CORRECT at 0.1 (venue-measured) — #11112 section 8b suspected it and was wrong, its sub-step journal rows all carry status='rejected'. Nothing is currently unflattenable (0 of 29 open rows, read 2026-09-06 ~10:12Z), so this is not urgent."
+    },
+    {
+      "pr": 11121,
+      "opened_at": "2026-09-06T11:06:53Z",
+      "title": "fix(bybit_2): demote ict_scalp_5m from real money, keep both paper books trading it",
+      "owner_session": "session_01X3kyzCfUdFVimATxZFE8nd",
+      "checklist_item": "MI-143b",
+      "draft": true,
+      "tier": "3",
+      "state": "operator_approved_scope_widened_merging",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "The original approval was scoped 'bybit_2 only'. The demote could not land within that literal scope: tests/test_paper_portfolio_accounts.py::test_bybit_portfolio_mirrors_bybit_2_exactly (ROSTER-SYNC) pins bybit_portfolio's roster to bybit_2's, so removing the leg from one requires removing it from the other. Put to the operator 2026-09-06 as a three-way choice (accept the second account / except the test / hold pending the numbers). Operator chose ACCEPT THE SECOND ACCOUNT.",
+        "scope": "ict_scalp_5m removed from bybit_2 (REAL MONEY) and from bybit_portfolio (PAPER). bybit_1, the full-roster soak book, KEEPS the leg at execution: live and is where evidence continues to accrue. config/strategies.yaml is untouched - the leg keeps execution: live.",
+        "decided_on": "2026-09-06",
+        "text": "Operator selected 'Accept the second account' 2026-09-06, on a question that named the widening explicitly, named the invariant forcing it, and offered excepting the test as the alternative. The test was NOT weakened: it has exactly one sanctioned divergence (alpaca_portfolio's proxies) and no second exception was added."
+      },
+      "blocker": "NOT blocked on a decision. pr-landing R4 bars ANY tier-3 diff from `landing: self` whatever its approval state, so this needs a human merge click and nothing else. Do not re-ask the operator for the approval -- it is recorded above and quoted in .github/pr-landing/ict-scalp-off-bybit2-20260906.json's hold_text.",
+      "notes": "SUPERSEDES #11115 (claude/ict-scalp-5m-shadow-20260906), CLOSED unmerged -- same finding, wrong lever; its analysis is preserved here (verdict doc carried across, backlog row re-filed). RATCHET: docs/research/exit-refinement-coverage.json _unstamped_ceiling STAYS 229 and must not be moved to #11115's 220. MEASURED: live_cells=396 unstamped=229 ceiling=229 on origin/main ca73d00e AND unchanged after this PR's edit, because cells(live_only=True) filters on the matrix row's own `execution` field and this PR changes no execution field. #11115's 220 was correct for ITS lever (dropping the leg's 9 cells: 396-387=9=229-220). Positive control in the same run: _funding_by_leg() DID flip ict_scalp_5m real_money->paper while trend_donchian held real_money, so the non-movement is a measured negative, not a dead probe. Also deliberately did NOT carry #11115's strategy-coverage-matrix.md edit -- that file is one row per `execution: live` strategy and the leg is still live. GRADING AFTER DEPLOY: order packages and paper fills for ict_scalp_5m WILL keep appearing; that is the change working. Check trades rows carrying BOTH strategy_name='ict_scalp_5m' AND account_id='bybit_2', and grade it against a positive control -- the leg was quiet on ALL THREE accounts for ~2 days before this PR (latest row everywhere 2026-09-04T08:37), so a bare 'zero bybit_2 rows' check would pass having measured nothing. Watched by OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP. ⚠️ CI CAUGHT A MISSED CONSEQUENCE: bybit_portfolio must follow bybit_2 (ROSTER-SYNC, enforced by tests/test_paper_portfolio_accounts.py). The earlier claim that 'both paper books keep trading it' was FALSE and is corrected everywhere; only bybit_1 keeps it."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1082,6 +1124,6 @@
   ],
   "last_reconciled_at": "2026-09-05T03:42:28Z",
   "last_reconciled_sha": "8b8d37f11d9d32bdbd3f4b83e6e07e2954cf64ac",
-  "updated_at": "2026-09-05T12:35:00Z",
-  "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv"
+  "updated_at": "2026-09-06T23:55Z",
+  "updated_by": "session_01Et8yz5yBZ7ifySKwpF6R1s"
 }

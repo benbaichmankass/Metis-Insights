@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T13:40Z",
+  "updated_at": "2026-09-06T16:05Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1949,8 +1949,35 @@
       "title": "Scaffold the guarded registers so a write cannot be wrong: OPEN-ITEMS, MANAGER-CHECKLIST, pr-landing",
       "note": "OPERATOR 2026-09-06: 'your job is to manage the queue so that we don't lose cycles to these kinds of mistakes'. SEVEN guard failures on the manager's own PRs in one day, every one a field omission on a register write, every one found by CI ~2 min after the PR opened. backlog_append.py proves the pattern and is the ONLY one that exists. OPEN-ITEMS.json additionally does not round-trip at any json.dumps setting, so it can only be hand-spliced. Guards must NOT be weakened - the fix is upstream of them. Row: BL-20260906-EVERY-REGISTER-WRITE-IS-A-GUESS-THEN-A-CI-ROUND-TRIP. Highest queue-throughput item: the manager gates five sub-sessions.",
       "updated": "2026-09-06T13:40Z"
+    },
+    {
+      "id": "MI-150-ICT-SCALP-EXIT-HEAD",
+      "status": "in_flight",
+      "owner": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "opened": "2026-09-06",
+      "title": "PR #11140 — the M20 exit-head consumer for ict_scalp: operator-approved with two conditions, HELD on MI-153",
+      "note": "OPERATOR 2026-09-06 answered three popups: arm + queue the artifact; EXCLUDE ict_scalp_sol_5m; RESOLVE the figures before arming. The third answer holds the merge — see OPEN-PRS.json #11140 for the typed decision. ⚠️ ARMING IS INERT TODAY: verified against /api/diag/shadow_stats with a positive control (32 models visible, probe finds both exit-head ids) that the only published exit-head artifacts are exit-head-donchian-1h-v1 and exit-head-donchian-peak-1h-v1 — both 1h, both donchian — while all eight ict_scalp legs are 5m/15m, so the in-distribution guard fail-closes on every one. Do not read a later quiet soak as evidence the head works.",
+      "updated": "2026-09-06T16:05Z"
+    },
+    {
+      "id": "MI-153-EXIT-HEAD-FIGURE-RECONCILIATION",
+      "status": "queued",
+      "owner": null,
+      "opened": "2026-09-06",
+      "title": "Two records report different numbers for the same ict_scalp exit-head legs — establish which is current, and why they diverged",
+      "note": "BLOCKS MI-150 by operator decision 2026-09-06 ('Resolve before arming'). The MI-146 audit table and docs/research/exit-refinement-coverage.json disagree on every candidate leg: ict_scalp_sol_5m reads auc 0.6184 / n_oos 1150 / beats_actual 22 of 23 in the audit and auc 0.6149 / n_oos 800 / beats_actual 12 of 16 in the matrix; ict_scalp_xrp_5m reads 0.5987 / 1100 / 21 of 22 against 0.613 / 650 / 12 of 13; ict_scalp_sol_15m reads 0.5808 / 450 / 6 of 9 against 0.5715 / 350 / 7 of 7. That is 3 of 3 candidate legs disagreeing. These figures are the ENTIRE basis for calling a leg a candidate. ⚠️ The question is not only which is current but WHY they diverged — a re-run on a different corpus slice, a re-partitioning, or a stale copy are three different answers with three different consequences, and 'the newer file wins' is not an investigation.",
+      "updated": "2026-09-06T16:05Z"
+    },
+    {
+      "id": "MI-154-SCALP-EXIT-HEAD-ARTIFACT",
+      "status": "queued",
+      "owner": null,
+      "opened": "2026-09-06",
+      "title": "Publish a 5m/15m scalp exit-head artifact — without one the MI-150 consumer cannot score a single leg",
+      "note": "OPERATOR 2026-09-06 chose 'Arm + queue the artifact', explicitly making this its own lane rather than a follow-up. Measured this session: the published exit-head fleet is exactly two artifacts, exit-head-donchian-1h-v1 (advisory) and exit-head-donchian-peak-1h-v1 (shadow), both 1h and both donchian; all eight ict_scalp legs are 5m/15m. ⚠️ Note the artifact's `family` field has been DECLARED since scripts/ml/export_exit_head.py:116 and has NEVER been read — the in-distribution guard gates on tf + symbols only. A scalp artifact that is in-distribution on tf and symbols would therefore be accepted by a donchian-family consumer with nothing checking the family, which is a real gap to close in the same lane rather than discover afterwards.",
+      "updated": "2026-09-06T16:05Z"
     }
   ],
-  "as_of": "2026-09-04T09:45:00Z",
-  "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj (operator decisions + 2 spawns)"
+  "as_of": "2026-09-06T16:05Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }

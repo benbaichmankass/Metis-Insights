@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   The record of a trade does not say what happened: R is sign-inverted, exit_reason is frozen, and the read route silently empties
 stage: INTEGRITY
-lifecycle: in_flight
+lifecycle: done
 owner: session_01L7dTAuGMdn3CTGeyYV5Mox
 opened_at: 2026-09-06
-closed_at: null
+closed_at: 2026-09-06
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
@@ -20,17 +20,41 @@ why: >-
 source: >-
   operator (conversational)
 
-blocked_on:
-  - kind: pull_request
-    ref: "#11131"
-    since: 2026-09-06
+blocked_on: []
 blocked_on_basis: >-
-  ASSESSED 2026-09-06 by MI-144. All three defects reached a written
-  disposition and the Tier-1 half is BUILT AND VALIDATED; what the object is
-  waiting on is a human MERGE of PR #11131. That edge is REAL, not a
-  placeholder: `pr-landing-guard` R5 refuses to certify `src/**` for
-  self-landing, so the branch cannot land itself however green it is. It is the
-  ONLY thing blocking (a) and (c) outright.
+  CLEARED 2026-09-06T16:56Z — nothing blocks this object any more; both the
+  fix and the follow-up fix are MERGED, DEPLOYED and OBSERVED on the fleet
+  (see `observed_on_the_fleet.coverage_fix_observed`). The history below is
+  kept as the record of how the edge MOVED — pull_request -> observation ->
+  cleared — and must not be read as a live blocker.
+  ⚠️ TWO Tier-2 items remain PROPOSED and awaiting an operator decision (the
+  historical `exit_reason` re-classification, and folding
+  `order_monitor._classify_broker_exit` into `bracket_outcome`). They were
+  deliberately never blocking edges on this object and are not now: the
+  read-path derivation answers the operator's question without them.
+  HISTORY — RE-ASSESSED 2026-09-06T15:02Z by MI-144, AND THE EDGE HAS MOVED — do not
+  re-quote the previous basis, which named a MERGE of PR #11131 as the blocker.
+  #11131 MERGED as 44cc060b and the content is on origin/main (verified by
+  `git cat-file -e origin/main:src/runtime/bracket_outcome.py` and by grepping
+  the R_BASIS_* symbols and the `bracketOutcome` wiring out of
+  origin/main:src/web/api/routers/performance.py — a CONTENT test, never
+  ancestry, since merges here are squashes). What the object is waiting on now
+  is the DEPLOY and then the OBSERVATION, which are two different facts and
+  neither is a merge.
+  ✅ BOTH ARE NOW DONE — DEPLOYED 15:05:17Z (`/api/diag/version` git_sha
+  4c00c120 = git_sha_on_disk, restart_pending false; 44cc060b is an ancestor of
+  it on main) and OBSERVED serving. ⚠️ THE EDGE HAS MOVED AGAIN, to a defect
+  found BY that observation: `bracketOutcome` grades only 23.3% of the
+  real-money book because it joins `order_packages` on `trades.order_package_id`
+  alone. See `observed_on_the_fleet` below. ⚠️ AS OF 15:02:07Z (HISTORY — superseded three minutes later), /api/diag/version read
+  git_sha d584654e with git_sha_on_disk 817a5a5f and restart_pending true —
+  i.e. the merge commit was not yet even on the VM's disk, let alone in the
+  running process. ⚠️ AND THE ENDPOINT CONFIRMS IT INDEPENDENTLY, with a
+  positive control: /api/bot/performance?window=1d answered HTTP 200 carrying
+  the OLD key set (expectancyR, rProvenance, rTradeCount) and NO `rBasis` and
+  NO `bracketOutcome`, so the absence is genuine absence rather than an
+  unreachable probe. MERGED IS NOT DEPLOYED AND DEPLOYED IS NOT OBSERVED; this
+  edge closes only on the third.
   ⚠️ (b) carries a SECOND, WEAKER dependency that is deliberately NOT written as
   a blocking edge, because it does not block this object: the historical
   re-classification of `exit_reason` and the removal of the duplicated
@@ -57,7 +81,7 @@ disposition:
   # totals were reproduced to the last digit FIRST, as a positive control.
   a_r_sign_inverted:
     tier: 1
-    state: landed_unproven   # merged-pending; NOT deployed and NOT observed
+    state: landed_unproven   # MERGED 44cc060b; NOT deployed, NOT observed (15:02Z)
     what: >-
       R is now computed from the trade's DECLARED INITIAL risk
       (order_packages.meta::risk_per_unit) where one exists, from the stored
@@ -96,6 +120,86 @@ disposition:
       distinguishable; (2) order_monitor._classify_broker_exit calling
       classify_bracket_outcome instead of keeping its own copy of the
       inequality. Both edit the journal-writer path.
+  observed_on_the_fleet:
+    measured_on: 2026-09-06T15:05Z
+    deploy: >-
+      /api/diag/version git_sha 4c00c120 == git_sha_on_disk, restart_pending
+      false. Merge commit 44cc060b is an ancestor of that sha ON MAIN. The
+      CONTENT test is the endpoint itself: before the deploy
+      /api/bot/performance answered HTTP 200 with NO `rBasis` and NO
+      `bracketOutcome` (a positive control — the absence was real absence, not
+      an unreachable probe), and after it both blocks are served.
+    a_r_arithmetic_checked_not_eyeballed: >-
+      window=30d real money: rBasis {declaredInitial 39, storedStop 0,
+      refusedWrongSide 0, noBasis 0} — sum 39 == totalTrades 39, and
+      declaredInitial+storedStop 39 == rTradeCount 39. window=all real money:
+      {103, 321, 0, 0} — sum 424 == totalTrades 424, declared+stored 424 ==
+      rTradeCount 424. The same identity holds on paper (529 / 865) and
+      paperPortfolio (52 / 87). expectancyR moved +0.9818 -> +0.1772 on 30d and
+      now reads -0.3152 on all-time real money against profitFactor 0.7294 and
+      totalPnl -69.53 — sign AGREES on the all-time real-money book.
+    caveat_the_sign_test_is_not_general: >-
+      ⚠️ On the 30d real-money window the corrected expectancyR is +0.1772
+      while profitFactor is 0.9507 — the sign still DISAGREES, on a window whose
+      totalPnl is -$3.63 (essentially flat, n=39). That is the documented and
+      expected behaviour, not a residual defect: R weights each trade by its own
+      risk and USD does not. Quoted here so the pre-merge caveat is not quietly
+      dropped now that the headline figure looks better.
+    c_route_contract: >-
+      limit=5 returns X-Total-Count 447 and X-Has-More true; offset=5 returns a
+      DISJOINT page (ids verified non-overlapping), so truncation is
+      distinguishable from exhaustion; limit=800 returns HTTP 422 naming the cap
+      rather than a bare []; since=2026-09-01 SERVES (12 rows, X-Has-More false).
+      ⚠️ The 12 vs the 142 recorded pre-merge is NOT a regression and was chased
+      down rather than waved past: the route excludes paper by default, and
+      include_demo=true returns 143 — the same population, one more close since.
+    b_defect_found_by_this_observation: >-
+      ⚠️ THE DEPLOYED BRACKET ANSWER COVERS A QUARTER OF THE BOOK. window=all
+      real money publishes reachedRatio 0.4444 over gradeable=99 with
+      noBracketRecord=321 (99+321+4 == 424, so the states partition cleanly).
+      MEASURED cause, not inferred: only 120 of 470 real-money closed
+      non-backtest rows carry an order_package_id at all (25.5%), and 325 of the
+      350 NULL rows are reachable via order_packages.linked_trade_id (92.9%),
+      leaving 25 unreachable by either key. Re-run offline with the SHIPPED
+      classifier over the route's own population (n=428): the forward key alone
+      reproduces the deployed 44/99 = 44.4% EXACTLY (the positive control that
+      makes the two comparable), while forward-then-fallback grades 420 of 428
+      (98.1%) and answers 228/420 = 54.3%, sl:tp 187:41. The published 44.4% is
+      a correct ratio over an invisible denominator — the same defect class
+      MI-144 was dispatched to fix, reproduced by the fix. Carried as
+      OI-20260906-BRACKETOUTCOME-ANSWERS-THE-OPERATORS-QUESTION-OVER-A-QUARTER-OF-THE-BOOK.
+    coverage_fix_observed: >-
+      ✅ PR #11155 merged as 92aebf8c and DEPLOYED — /api/diag/version read
+      git_sha 92aebf8c == git_sha_on_disk, restart_pending false, at
+      2026-09-06T16:56:45Z. Content-verified on origin/main first (the
+      `opl_pick` / `_pkg_col` / `link_ok` fallback join is present), and the
+      endpoint still carried the OLD figures at 16:56:24Z — a positive
+      control, so this is real absence-then-presence and not an unreachable
+      probe. OBSERVED on /api/bot/performance?window=all, real money n=424:
+      gradeable 420 (99.1% coverage, up from 99 / 23.3%), noBracketRecord 0
+      (down from 321), priceNotMeasurable 4, reachedRatio 0.5429, sl 187 /
+      tp 41 / mid 192. CHECKED BY ARITHMETIC, not eyeballed: the states
+      partition (0+0+192+0+4+187+41 = 424 == totalTrades), sl+tp+mid = 420 ==
+      gradeable, and 228/420 = 0.5429 == the published ratio. rBasis moved
+      {103,321,0,0} -> {106,318,0,0}, still summing to 424 with
+      declaredInitial+storedStop == rTradeCount, and expectancyR -0.3152 ->
+      -0.3153 against profitFactor 0.7294 — exactly the predicted magnitude.
+      ⚠️ EVERY PRE-MERGE PREDICTION LANDED (420 gradeable, 187:41, 0.5429,
+      106 declared, -0.3153). That is a strong result and is NOT self-evidence
+      the instrument is CORRECT: it establishes that the offline pipeline and
+      the deployed route agree, which is what makes the two comparable — the
+      classifier's correctness rests on its tests, not on this agreement.
+      ⚠️ The 4 rows now grading `priceNotMeasurable` are the ones predicted
+      unreachable-by-either-key; they are DECLARED, not hidden.
+    the_answer_to_the_operators_question: >-
+      REAL MONEY, all history, n=428, 420 gradeable: 228 (54.3%) ended at a
+      declared bracket — 187 at the STOP against 41 at the TARGET, a 4.6:1
+      ratio — and 192 ended mid-bracket. ✅ THE LIVE ENDPOINT NOW AGREES AND IS
+      THE PLACE TO QUOTE IT FROM: /api/bot/performance?window=all publishes
+      reachedRatio 0.5429 over gradeable 420 of 424 as of 2026-09-06T16:56Z.
+      ⚠️ The earlier instruction to quote the measurement RATHER THAN the
+      endpoint is SPENT — do not re-quote it. ⚠️ Still never quote
+      reachedRatio without `gradeable` beside it.
   c_read_route_silently_empties:
     tier: 1
     state: landed_unproven
