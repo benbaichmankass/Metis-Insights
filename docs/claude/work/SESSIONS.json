@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T16:47:52Z",
+  "updated_at": "2026-09-07T17:27:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2793,6 +2793,18 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator asked 'did you note the alpaca task?' - the row had sat unassigned all day while the manager listed it as queued in every checklist. Noting is not acting.",
       "state": "working"
+    },
+    {
+      "session_id": "session_01QZxiRyCB72BH4SaJ4yEJdC",
+      "title": "MI-166 - pipeline integrity lane, pass 1",
+      "owns_object": "WO-20260907-STANDING-PIPELINE-INTEGRITY-LANE-ARE-WE-ACTUALLY",
+      "checklist_item": "MI-166-PIPELINE-INTEGRITY-LANE",
+      "spawned_at": "2026-09-07T16:56:07Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-directed standing lane. MI-140 is one instance of the class, not the class.",
+      "state": "working",
+      "supervised_at": "2026-09-07T17:27:00Z",
+      "supervision_note": "⚠️ THIS ROW WAS STRANDED FOR ~30 MINUTES AND THE SESSION RAN WITHOUT IT. #11262 SQUASH-merged at 16:50:17Z capturing through the MI-140 dispatch; the MI-166 commit was pushed at 16:56 to a branch whose PR was already closed, so it reached no PR at all. Recovered here by checking out the stranded branch's register files rather than re-writing the rows by hand — the rule is LAND the record, never author a duplicate. Verified on restore: MI-166's checklist item, its SESSIONS row and its work object are all present, 144 session rows, no duplicate session_id."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
