@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "manager registers only — docs/claude/work/OPEN-PRS.json (hand-reconcile: 5 rows settled, 2 added) and docs/claude/work/MANAGER-CHECKLIST.json (four overnight items closed). Recording PR state and operator decisions into docs/claude/work/** is explicitly management, not an item. No runtime, no order path, no config, no scripts."
+}
