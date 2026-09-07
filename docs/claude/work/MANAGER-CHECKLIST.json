@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-07T17:35:00Z",
+  "updated_at": "2026-09-07T20:27:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2055,7 +2055,7 @@
       "blocked_on": null,
       "tier": "1",
       "title": "The document library cannot see its own most important documents — POPULATION_GLOBS excludes every .md directly in docs/",
-      "note": "MEASURED by the manager 2026-09-07T14:35Z on 4ea74fda. `docs/**/*.md` is passed to git ls-files as a PATHSPEC, where `*` already matches `/`, so `docs/*.md` is recursive while `docs/**/` needs a literal intervening slash: 936 vs 965 paths. 27 documents carry NO index row, including docs/CLAUDE-RULES-CANONICAL.md (instruction hierarchy LEVEL 1) and docs/ARCHITECTURE-CANONICAL.md (LEVEL 2), while the guard prints population=971 registered=971 and OK. A CLEAN NEGATIVE — 100% coverage of a population that silently excluded the most important members — and the SECOND instance of the same defect class in the SAME function, whose own docstring records `--others --exclude-standard` missing on the first build with the note that the guard 'reported OK and the count never moved'. Filed as BL-20260907-DOCUMENT-INDEX-POPULATION-GLOB-EXCLUDES-EVERY-TOP-LEVEL-DOCS-FILE. Resolution requires fixing the POPULATION, not hand-adding rows. CLOSED 2026-09-07T17:35Z — #11255 landed the ':(glob)' fix; manager verified the census on main at 1000/1000 with honest unknown coverage."
+      "note": "MEASURED by the manager 2026-09-07T14:35Z on 4ea74fda. `docs/**/*.md` is passed to git ls-files as a PATHSPEC, where `*` already matches `/`, so `docs/*.md` is recursive while `docs/**/` needs a literal intervening slash: 936 vs 965 paths. 27 documents carry NO index row, including docs/CLAUDE-RULES-CANONICAL.md (instruction hierarchy LEVEL 1) and docs/ARCHITECTURE-CANONICAL.md (LEVEL 2), while the guard prints population=971 registered=971 and OK. A CLEAN NEGATIVE — 100% coverage of a population that silently excluded the most important members — and the SECOND instance of the same defect class in the SAME function, whose own docstring records `--others --exclude-standard` missing on the first build with the note that the guard 'reported OK and the count never moved'. Filed as BL-20260907-DOCUMENT-INDEX-POPULATION-GLOB-EXCLUDES-EVERY-TOP-LEVEL-DOCS-FILE. Resolution requires fixing the POPULATION, not hand-adding rows. DONE 2026-09-07T16:16Z — VERIFIED BY THE MANAGER ON MAIN, not accepted on the session's word. POPULATION_GLOBS now ':(glob)docs/**/*.md'; census population 971 -> 1000, registered 1000. DELTA RECONCILED EXACTLY: +28 from the glob fix (git ls-files 937 -> 965; skills unchanged at 32, that glob was never broken since every skill lives in a subdirectory) and +1 from docs/research/roadmap-redundancy-audit-2026-09-07.md, a genuinely new document that landed in #11254 at 15:01Z AFTER the 971 reading. 971+1+28=1000. COVERAGE IS HONEST, NOT MANUFACTURED — the thing this item exists to check: of the 28 newly visible documents, 3 are `live` (CLAUDE-RULES-CANONICAL, ARCHITECTURE-CANONICAL, github-actions-workflows — canonical documents whose live status is not in doubt), 2 are generated matrices carrying `verified: generator exists and names the file`, 1 is `historical` (workplan.md), and ~22 are `unknown`. Status `unknown` across the store stands at 575 of 1000 — nobody manufactured a status for documents nobody read. CLOSED 2026-09-07T17:35Z — #11255 landed the ':(glob)' fix; the census above is the manager's own verification on main."
     },
     {
       "id": "MI-161-DOCUMENT-LIBRARY",
@@ -2111,8 +2111,57 @@
       "tier": "1 to measure/diagnose/file; 3 for any order-path, protective-logic or lever change",
       "title": "STANDING LANE — pipeline integrity: are we actually trading correctly? (pass 1)",
       "note": "OPERATOR-DIRECTED 2026-09-07: 'keep a lane open for some pipeline review ... make sure that we're actually trading correctly so that we can review the data from the trades and make decisions.' ⚠️ THIS IS A STANDING LANE AND DOES NOT CLOSE — each pass ends by naming what the next should check. MI-140 (alpaca_live cannot place) is ONE INSTANCE of the class, not the class. The last clause is the cycle priority itself: trade data is the instrument every promotion, demotion and exit verdict is computed from, so a pipeline executing incorrectly contaminates the data at source and every downstream verdict inherits it. MANAGER-MEASURED LIVE 2026-09-07T16:54Z before dispatch, via diag_fetch (read_state 'orders_read', a real read — NOT an empty-on-error): ib_paper holds MHG 30 / MGC 11 / MES 15. ⚠️ MGC IS 491% OVER-COVERED ACROSS TWO DISJOINT OCA GROUPS (oca-protect-t5353 + oca-protect-t5531). OCA cancels only WITHIN a group, so if one group's stop fires and flattens the 11-lot position the other group's legs are still resting to sell 11 more — into a NAKED SHORT. ib_paper is paper so no real capital is exposed, but the mechanism is shared with ib_live. ⚠️ TWO OF THREE positions sit under NON-KEYED group names — '170199976' (bare numeric) and 'oca-protect-408' (legacy reqId form) — which place_protective's name-scoped pre-cancel can never treat as cancellation candidates. That is the PROTECTION_STRAY_GROUP_MODE class, and that gate ships at annotate with an EMPTY allowlist, which for that knob means NONE. ⚠️ ALARM CHANNEL DEGRADING, a P1 in its own right: 33 of 48 operator ERROR+ rows over 2026-09-02→09-07 (68.8%) are over-cover, plus 6 target_naked — about four fifths of the channel is one class. The alarm IS firing (ib_stop_over_cover detected: ib_paper/MGC is present), so detection works; the fix is to stop GENERATING over-covered books, never to widen a cooldown. IB CONNECTIVITY IS NOT THE PROBLEM — ib_state read all clients connected, no breaker, likely_wedged false. Also noted: /api/diag/version read git_sha 59bfa099 vs git_sha_on_disk b596ac4f, restart_pending TRUE."
+    },
+    {
+      "id": "MI-167-PHANTOM-MGC-LOTS",
+      "status": "in_flight",
+      "owner": "session_012Sc2fCUKAPXSVcSvKLRu5v",
+      "opened": "2026-09-07T18:53:00Z",
+      "updated": "2026-09-07T18:53:00Z",
+      "blocked_on": null,
+      "tier": "1 to measure/diagnose/file; 3 for any order-path, journal-write, reconciler or protective change",
+      "title": "Pipeline lane pass 2 — root-cause the 43 phantom MGC lots the journal holds and the venue does not",
+      "note": "⚠️ PASS 1 INVERTED ITS OWN DISPATCH AND THAT IS THE ACTIONABLE PART. The manager dispatched it believing ib_paper/MGC was 491% over-covered with the defect in place_protective's pre-cancel scoping. It is not: every resting OCA group matches its journal row TO THE TICK — 5258/MHG 30, 5353/MGC 11, 5531/MGC 43 — so protection is downstream and FAITHFUL. THE JOURNAL SUMS TO 54 MGC LONG; THE VENUE REPORTS 11. place_protective correctly armed 43 lots for a fill the journal recorded and does not have. Trade 5531 is ict_scalp_mgc_15m, opened 2026-09-07T08:26Z. ⚠️ LIVE HAZARD, and it is worse than one group going naked: the oversized group carries the TIGHTER stop (t5531 at 4394.5 vs t5353 at 4210.7, venue avg entry 4423.02), so t5531 is the NEAREST stop and fires FIRST, attempting to sell 43 lots when 11 exist — which on IBKR does not stop at flat but flips to a ~32-lot NAKED SHORT with t5353's legs still resting. ib_paper is paper so no real capital is at risk today, but ict_scalp_mgc_15m and this code path are shared with real-money accounts. ⚠️ WHETHER THE SAME CLASS TOUCHES bybit_2 OR alpaca_live OUTRANKS THE MGC ROOT CAUSE IF THE ANSWER IS YES. Also required: whether any CLOSED-TRADE PnL was computed off a phantom quantity — that is the operator's actual question, since a phantom qty multiplies through every PnL, R and expectancy figure derived from the row. ⚠️ DETECT AND PROPOSE ONLY. Do not cancel a leg or edit a journal row: the one attempt to remediate this class cancelled the leg that MATCHED the journal (BL-20260820)."
+    },
+    {
+      "id": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
+      "status": "blocked",
+      "owner": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "opened": "2026-09-07T19:30:00Z",
+      "updated": "2026-09-07T21:33:00Z",
+      "blocked_on": {
+        "kind": "decision",
+        "ref": "operator: (1) approve/reject the symbol->trade re-scope; (2) name the IB_CLOSE_CONFIRM partial-fill default",
+        "since": "2026-09-07T20:33:00Z"
+      },
+      "tier": "3 — PROPOSE ONLY; operator dispatched the proposal, not the merge",
+      "title": "Re-scope the close confirmation from SYMBOL-flat to TRADE-quantity (Tier-3 proposal)",
+      "note": "OPERATOR DECISION 2026-09-07, asked directly with the coupling stated: 'Dispatch it now, coupled to MI-140'. ⚠️ COUPLING IS THE POINT — alpaca_live (REAL MONEY) shares the identical symbol-scoped confirm and is immune TODAY only because it cannot place orders (MI-140). FIXING MI-140 ARMS THIS ON REAL MONEY; the two must not land independently, and the edge is written into BOTH work objects. bybit_2 (REAL MONEY) is NOT exposed — Bybit has no close-confirmation at all (0 hits, positive control returns IB + Alpaca) — so it escapes on a missing venue gate, not its trade shape, and must NOT be 'fixed' by adding one. Precondition is common: 13 (account,symbol) pairs held 2+ simultaneously-open rows in 28 days. ⚠️ OPERATOR STEER 2026-09-07: symbol-vs-trade is SETTLED — confirm on the TRADE'S OWN QUANTITY DELTA, observable even with siblings (MGC 54 → 11 IS 5531's 43 lots leaving). The existing check is not merely wrong: it exists because an accepted-but-unfilled close once left a real position NAKED with the row marked closed. Change the MEASUREMENT, keep the guarantee. STILL THE OPERATOR'S: the within-trade partial fill, which differs in what happens to the leftover lots' protection. MANAGER CAVEAT: whether both Alpaca close paths can observe a per-trade delta as cleanly as IB is NOT established — different position read; establish per venue, do not assume symmetry. BLOCKED 2026-09-07T21:33Z: the session reports #11279 is ready but NOT sufficient alone, because it also found the opposite-sign REAL-MONEY defect now filed as MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS. Two operator decisions are owed; see that row."
+    },
+    {
+      "id": "MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS",
+      "status": "unassigned",
+      "owner": null,
+      "opened": "2026-09-07T21:33:00Z",
+      "updated": "2026-09-07T21:33:00Z",
+      "blocked_on": null,
+      "tier": "3",
+      "title": "REAL MONEY: an alpaca_live close of ONE trade liquidates its SIBLINGS — the opposite-sign twin of MI-167, found by MI-168",
+      "note": "REPORTED BY MI-168 (session_01BpU7rfqWKir4rQrowT4ZQd) at 20:33Z and filed by that session as BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. MI-167 found IB grading a SUCCEEDED close a FAILURE because the confirmation asks whether the SYMBOL is flat when the close is of a TRADE. MI-168 reports Alpaca has the same symbol-vs-trade confusion with the OPPOSITE sign: a false-SUCCESS, where closing one trade takes its siblings out with it. That is strictly worse — a false-failure leaves a row open, a false-success closes positions nobody asked to close — and unlike MI-167 it is on alpaca_live, a REAL-MONEY account. IT IS INERT ONLY BECAUSE THAT ACCOUNT CANNOT CURRENTLY PLACE AN ORDER: MI-140 measured all 44 of its journal rows in the window as `rejected` over a population of 2 signals, both shorts suppressed by the operator's side_filter: long. So MI-140 and this row are COUPLED IN THE DANGEROUS DIRECTION — clearing MI-140 arms this. NOT VERIFIED BY THE MANAGER: this is MI-168's report as read off the session listing, not something I measured. MI-168's #11279 is explicitly NOT sufficient alone. TWO OPERATOR DECISIONS ARE OWED before anything ships: (1) approve or reject re-scoping the confirmation from symbol to trade; (2) name the IB_CLOSE_CONFIRM partial-fill default (strict is what shipped; the alternative is confirm-on-reduction)."
+    },
+    {
+      "id": "MI-169-MGC-REMEDIATION",
+      "status": "in_flight",
+      "owner": "session_0126L48N2S4fAxtjG82kq9vq",
+      "opened": "2026-09-07T19:30:00Z",
+      "updated": "2026-09-07T19:30:00Z",
+      "blocked_on": null,
+      "tier": "3 — OPERATOR-APPROVED for this trade only",
+      "title": "OPERATOR-APPROVED: cancel oca-protect-t5531, then repair trade 5531's journal row",
+      "note": "OPERATOR APPROVED OPTION 3 on 2026-09-07 with all three options and their consequences put to them: cancel the legs THEN repair the row, both, IN THAT ORDER. ⚠️ THE ORDER IS PART OF THE APPROVAL — a repair alone leaves 43 resting sell lots, a cancel alone leaves a phantom open row for the next protection sweep to re-arm. Cancel orders 548 (STP 43 @ 4394.5) + 551 (LMT 43 @ 4485.0) of oca-protect-t5531 on ib_paper/MGC; ⚠️ DO NOT TOUCH oca-protect-t5353, whose 11 lots are trade 5353's real and correct protection — and note the alarm's own remedy text ('cancel the leg that does NOT match trades.stop_loss') is USELESS here because BOTH legs match. Then journal 5531 closed_at 2026-09-07T11:45:06Z / exit 4392.9 / pnl −17024.28, re-derived from the venue rather than copied, with provenance stamped so a repaired row stays distinguishable from one the pipeline booked. ⚠️ THE APPROVAL COVERS THIS TRADE ONLY — a second instance is filed and reported, never remediated. ⚠️ ROOT CAUSE REMAINS OPEN under MI-168; a repaired row with the defect live will simply recur."
     }
   ],
   "as_of": "2026-09-06T16:05Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "updated": "2026-09-07T21:33:00Z"
 }

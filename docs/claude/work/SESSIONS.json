@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T18:30:00Z",
+  "updated_at": "2026-09-07T21:33:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2703,13 +2703,13 @@
     {
       "session_id": "session_016szw9vJrzPUCH1FVMuXycM",
       "registry_key": "pending-20260907T120803Z",
-      "state": "done",
+      "state": "completed",
       "title": "MI-159 - one live work plan, an accurate roadmap, and TASK-level priority across milestones",
       "owns_object": "WO-20260907-ONE-LIVE-WORK-PLAN-A-ROADMAP-THAT",
       "checklist_item": "MI-159-ONE-WORKPLAN-AND-TASK-PRIORITY",
       "spawned_at": "2026-09-07T12:08:03Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "Operator-directed 2026-09-07 after the manager gave a stale roadmap read off a work plan that still declared itself ACTIVE three generations after being superseded.",
+      "why": "TASK-PRIORITY-2026-09-07.md landed; idle by its own choice.",
       "confirmed_at": "2026-09-07T12:09:16Z",
       "supervised_at": "2026-09-07T14:30:00Z",
       "supervision_note": "SUPERVISED 2026-09-07T14:30Z. MI-159 landed as #11241 + the Lane-A correction #11249. Filed the HIGH row that GitHub hard-disables commenting past 2500 comments, so the MANDATORY coordination-board START post is impossible on #6927 for EVERY session -- board created 2026-07-19, ceiling hit 2026-09-07, ~7 weeks to fill."
@@ -2721,10 +2721,10 @@
       "checklist_item": "MI-162-DOCUMENT-LIBRARY-POPULATION",
       "spawned_at": "2026-09-07T14:36:49Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "The library built for the operator's 'one centralized table' ask cannot see 27 documents including instruction-hierarchy levels 1 and 2, while its guard reports 100% coverage - a clean negative.",
-      "state": "working",
-      "supervised_at": "2026-09-07T16:00:00Z",
-      "supervision_note": "SUPERVISED 2026-09-07T16:00Z. MI-162's fix is CORRECT and VERIFIED BY THE MANAGER AGAINST THE FIELD, not accepted on its word: POPULATION_GLOBS now uses ':(glob)docs/**/*.md', and git ls-files with it returns 965 vs the old 937 (+28, matching exactly the 28 files measured as excluded), with docs/CLAUDE-RULES-CANONICAL.md, docs/ARCHITECTURE-CANONICAL.md and docs/api-tier-policy.md each present. The skills glob was never broken (32 either way, every skill lives in a subdirectory); ':(glob)' was applied there defensively and is harmless. #11255 is still open with its FULL pytest suite running — legitimately, not stalled. ⚠️ THE MANAGER CANCELLED ITS pytest-run AT ~15:28Z BELIEVING IT HUNG, WHICH IT WAS NOT, costing ~11 minutes of re-run: pytest-run skips its expensive steps when no python changed, so #11253's 14s was a SKIP and not a comparable baseline for a PR that touches scripts/."
+      "why": "census verified on main at 1000/1000 with honest unknown coverage.",
+      "state": "completed",
+      "supervised_at": "2026-09-07T16:16:00Z",
+      "supervision_note": "SUPERVISED 2026-09-07T16:00Z. MI-162's fix is CORRECT and VERIFIED BY THE MANAGER AGAINST THE FIELD, not accepted on its word: POPULATION_GLOBS now uses ':(glob)docs/**/*.md', and git ls-files with it returns 965 vs the old 937 (+28, matching exactly the 28 files measured as excluded), with docs/CLAUDE-RULES-CANONICAL.md, docs/ARCHITECTURE-CANONICAL.md and docs/api-tier-policy.md each present. The skills glob was never broken (32 either way, every skill lives in a subdirectory); ':(glob)' was applied there defensively and is harmless. #11255 is still open with its FULL pytest suite running — legitimately, not stalled. ⚠️ THE MANAGER CANCELLED ITS pytest-run AT ~15:28Z BELIEVING IT HUNG, WHICH IT WAS NOT, costing ~11 minutes of re-run: pytest-run skips its expensive steps when no python changed, so #11253's 14s was a SKIP and not a comparable baseline for a PR that touches scripts/. CLOSED 2026-09-07T16:16Z: #11255 landed (a55fae75) and #11257 closed the row. Manager re-verified on main: census 1000/1000, delta reconciled to +28 glob +1 new document, and of the 28 newly visible only 3 went to `live` (all genuinely canonical) with ~22 left `unknown`. Honest coverage, which was the whole point."
     },
     {
       "session_id": "session_01GGFAu1uNpHL5KrzC7X7jAm",
@@ -2733,21 +2733,21 @@
       "checklist_item": "MI-160-PRUNE-PROPOSAL",
       "spawned_at": "2026-09-07T14:38:29Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "Operator-directed 2026-09-07; unblocked by MI-159 landing. Scope is REDUNDANCIES only - an earlier manager paraphrase widened it to 'dead rows' and that is corrected in the dispatch.",
-      "state": "done",
+      "why": "33 roadmap rows examined, 0 redundancies — the operator's prune scope returned empty, which is the answer.",
+      "state": "completed",
       "supervised_at": "2026-09-07T16:00:00Z",
       "supervision_note": "SUPERVISED 2026-09-07T16:00Z. MI-160 COMPLETE, landed #11254 (7fedaf34). 33 roadmap rows examined, 0 redundancies proposed — a NEGATIVE result over a stated denominator, checked mechanically (Jaccard over all 528 pairs), not by eyeball. Its larger half is the operator's CONDITION: assessed blocked_on coverage re-measured at 6.73% against READOUT.md's stale 1.5% (a 4.4x improvement; do NOT re-quote 1.5%), still an order of magnitude under the 50% floor, with 28 rows genuine declared_none. Named two pieces of half-landed debt: M40 R5 (a dispatcher scheduled daily that deliberately NEVER fires, three spend gates unexercised) and M40 R2 (landing guarantee wired into 2 of 20 evidence producers)."
     },
     {
       "session_id": "session_01NriFh691pHJFiVc7agPHnC",
       "registry_key": "pending-20260907T123115Z",
-      "state": "done",
+      "state": "completed",
       "title": "MI-161 - the document library: one centralized, categorized, status-carrying index of every document",
       "owns_object": "WO-20260907-A-DOCUMENT-LIBRARY-ONE-CENTRALIZED-TABLE-WHERE",
       "checklist_item": "MI-161-DOCUMENT-LIBRARY",
       "spawned_at": "2026-09-07T12:31:15Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "Operator-directed 2026-09-07. The manager reported a stale roadmap to the operator today off a document that declared itself ACTIVE while three generations superseded - it looked fine opened on its own, which is precisely the operator's stated reason for wanting this.",
+      "why": "document library live at docs/DOCUMENT-INDEX.md.",
       "confirmed_at": "2026-09-07T12:32:17Z",
       "supervised_at": "2026-09-07T15:00:00Z",
       "supervision_note": "SUPERVISED 2026-09-07T15:00Z — deferred from the 14:30Z pass, where this row was ABSENT from main (it was riding the then-unmerged #11244) and the commit said so rather than letting the count read as three. MI-161 COMPLETE: docs/DOCUMENT-INDEX.md on main, 971 documents, CLAUDE.md carrying the doc-status header. It ALSO hit the coordination-board 2500-comment ceiling independently and correctly DROPPED its duplicate row in favour of MI-159's — verified in health-review-backlog.json, not taken on its word. ⚠️ ITS DELIVERABLE HAS A MEASURED GAP, now MI-162: POPULATION_GLOBS uses 'docs/**/*.md' as a git PATHSPEC, which excludes every .md directly in docs/ — 27 unregistered including instruction-hierarchy levels 1 and 2 — while the guard reports population=971 registered=971 OK. That is not a mark against this session's work; it is the second instance of a defect class its own docstring records catching once already."
@@ -2759,8 +2759,8 @@
       "checklist_item": "MI-163-TRAILING-BANK-HALF",
       "spawned_at": "2026-09-07T15:52:20Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "The half of the operator's exit thesis still owed. Manager measured the lever coverage but stopped rather than take the item; the live-vs-shadow question on exit_plan.py is deliberately left for the session to settle because getting it backwards produces a confident wrong finding about a live trading system.",
-      "state": "done",
+      "why": "banking-half memo landed (#11259, narrowed by #11263).",
+      "state": "completed",
       "supervised_at": "2026-09-07T16:42:00Z",
       "supervision_note": "SUPERVISED 2026-09-07T16:42Z. MI-163 COMPLETE, landed #11259 (59bfa099). It settled the live/shadow question the dispatch flagged as decisive — exit_plan.py is SHADOW, established by tracing readers to a real order with a positive control, not by reading a doc — and in doing so CORRECTED the manager's own headline rather than confirming it. Both proposals were put to the operator and both were answered: A approved, B commissioned-not-approved. Dispatched onward as MI-164 and MI-165."
     },
@@ -2771,8 +2771,8 @@
       "checklist_item": "MI-164-TELEMETRY-HOOK",
       "spawned_at": "2026-09-07T16:40:27Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "Operator approved Proposal A 2026-09-07 in answer to a direct question naming its exact scope. Observe-only; converts 9 of 44 legs from 'we did not look' into measurable.",
-      "state": "working",
+      "why": "#11264 is green and correctly refuses to self-land a Tier-3 diff (R4). Waiting on a human merge.",
+      "state": "blocked",
       "supervised_at": "2026-09-07T18:30:00Z",
       "supervision_note": "SUPERVISED 2026-09-07T18:30Z. MI-164 (#11264) SCOPE REVIEWED, and the wider diff is JUSTIFIED — reviewed rather than waved through. It hooks all FOUR units where MI-163's follow-up narrowed to two. My concern was that vwap cannot produce a valid peak_r; the code ANSWERS it: the vwap hook documents that vwap writes neither risk_per_unit nor entry_time, so build_record reports peak_state='no_risk' and leaves peak_r None — a NAMED absence, never a peak divided by a guessed R — and it deliberately does NOT stamp those keys, since that is an order_package change and out of scope. So the two extra units are honest no-ops, not contamination of the very corpus this item exists to repair. Manager resolved its register conflict with the merge driver; verified 0 worker-path files in the merge commit (R2), 144 session rows, no duplicate session_id."
     },
@@ -2783,8 +2783,8 @@
       "checklist_item": "MI-165-BE-FLOOR-SWEEP",
       "spawned_at": "2026-09-07T16:40:27Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "Operator commissioned the sweep 2026-09-07 and explicitly did NOT approve arming a value. A clean 'no value clears the gate' is a successful outcome.",
-      "state": "done",
+      "why": "the honest negative: no be_floor_r value clears the gate. #11266 landed.",
+      "state": "completed",
       "supervised_at": "2026-09-07T18:30:00Z",
       "supervision_note": "SUPERVISED 2026-09-07T18:30Z. MI-165 LANDED (#11266, 40ebd40b): the path-aware be_floor_r sweep finds NO VALUE CLEARS THE GATE. That is the honest negative the dispatch named in advance as a fully successful outcome, and it was not softened. Consequence: the banking floor gets no number, and MI-163's gross +16.87R at 0.75R stays what it always was — a benefit side with no cost term."
     },
@@ -2795,8 +2795,8 @@
       "checklist_item": "MI-140-ALPACA-LIVE-CANNOT-PLACE",
       "spawned_at": "2026-09-07T16:47:52Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "Operator asked 'did you note the alpaca task?' - the row had sat unassigned all day while the manager listed it as queued in every checklist. Noting is not acting.",
-      "state": "done",
+      "why": "verdict delivered; was blocked ~80min on a GitHub App 403 the manager cleared via the pr-opener relay (#11271).",
+      "state": "completed",
       "supervised_at": "2026-09-07T18:30:00Z",
       "supervision_note": "SUPERVISED 2026-09-07T18:30Z. MI-140 DID NOT DIE — it was BLOCKED for ~80 minutes on a GitHub App 403 for PR creation, with its verdict already committed at 37d3ed41, and the manager had written it off as 'idle, no PR'. Unblocked via the pr-opener relay, now #11271. ⚠️ ITS VERDICT REVERSES THE PREMISE THE MANAGER DISPATCHED: alpaca_live is CORRECTLY REFUSING and its declaration is correct too. The T-7 premise is true over a population of TWO and misleading at that size — both signals since the 2026-08-31 arming were tlt_pullback_1h SHORT on TLT, both suppressed by the operator-directed side_filter:long gate, which folds into effective_dry by design. Four of five leads ruled OUT on evidence; the one ruled IN is silent_refusal_alert, whose latch is FROZEN at 2026-08-21 — ten days pre-arming — still reporting alerting/signalled_never_placed with no alert_disposition key. The alerting layer is the defect, not the order path, and is very likely where the framing came from. It refused to overclaim: the order path is UNTESTED, not inert, since zero long signals have reached it."
     },
@@ -2807,10 +2807,40 @@
       "checklist_item": "MI-166-PIPELINE-INTEGRITY-LANE",
       "spawned_at": "2026-09-07T16:56:07Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "Operator-directed standing lane. MI-140 is one instance of the class, not the class.",
-      "state": "done",
+      "why": "pass 1 landed 39ab1079. Its conclusion was inverted by pass 2 and that is the lane working.",
+      "state": "completed",
       "supervised_at": "2026-09-07T18:00:00Z",
       "supervision_note": "SUPERVISED 2026-09-07T18:00Z. MI-166 pass 1 landed (#11265, 39ab1079) and it CORRECTED THE MANAGER'S OWN DIAGNOSIS. I reported ib_paper/MGC as 491% over-covered and framed it as a protective-logic hazard. It is not: both OCA groups mirror their journal rows to the tick, and the real defect is that THE JOURNAL HOLDS 54 MGC LOTS WHILE THE VENUE HOLDS 11. The protection is faithful to a wrong journal, so the defect is upstream of protection and lands on exactly the instrument the operator asked about. It checked read_state before concluding, and carried positive controls for two negative claims."
+    },
+    {
+      "session_id": "session_012Sc2fCUKAPXSVcSvKLRu5v",
+      "title": "MI-167 - pipeline lane pass 2: root-cause the 43 phantom MGC lots",
+      "owns_object": "WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS",
+      "checklist_item": "MI-167-PHANTOM-MGC-LOTS",
+      "spawned_at": "2026-09-07T18:52:39Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "FAILED on an unparseable tool call AFTER committing its diagnosis and correctly declaring landing:hold. Output recovered by the manager; #11274 merged as fd818c50.",
+      "state": "failed"
+    },
+    {
+      "session_id": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "title": "MI-168 - trade-scoped close confirmation (Tier-3 proposal), coupled to MI-140",
+      "owns_object": "WO-20260907-RE-SCOPE-THE-CLOSE-CONFIRMATION-FROM-SYMBOL",
+      "checklist_item": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
+      "spawned_at": "2026-09-07T19:28:36Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "OWES THE OPERATOR TWO DECISIONS. Found a SECOND defect of OPPOSITE sign on REAL MONEY: an alpaca_live close of one trade liquidates its siblings (false-SUCCESS), filed BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. #11279 is ready but NOT sufficient alone. Needs: (1) approve/reject the re-scope; (2) name the IB_CLOSE_CONFIRM partial-fill default.",
+      "state": "blocked"
+    },
+    {
+      "session_id": "session_0126L48N2S4fAxtjG82kq9vq",
+      "title": "MI-169 - OPERATOR-APPROVED: cancel oca-protect-t5531 then repair trade 5531",
+      "owns_object": "WO-20260907-OPERATOR-APPROVED-REMEDIATION-CANCEL-OCA-PROTECT-T5531",
+      "checklist_item": "MI-169-MGC-REMEDIATION",
+      "spawned_at": "2026-09-07T19:28:36Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "HALTED and reported rather than executing: the approved cancel named order 548, which is in oca-protect-t5353. Nothing cancelled, no journal row written. Also found a check_pr_landing.py guard gap.",
+      "state": "completed"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
