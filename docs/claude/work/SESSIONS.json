@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T14:30:00Z",
+  "updated_at": "2026-09-07T15:00:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2701,18 +2701,6 @@
       "state": "idle"
     },
     {
-      "session_id": "session_01NriFh691pHJFiVc7agPHnC",
-      "registry_key": "pending-20260907T123115Z",
-      "state": "working",
-      "title": "MI-161 - the document library: one centralized, categorized, status-carrying index of every document",
-      "owns_object": "WO-20260907-A-DOCUMENT-LIBRARY-ONE-CENTRALIZED-TABLE-WHERE",
-      "checklist_item": "MI-161-DOCUMENT-LIBRARY",
-      "spawned_at": "2026-09-07T12:31:15Z",
-      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "Operator-directed 2026-09-07. The manager reported a stale roadmap to the operator today off a document that declared itself ACTIVE while three generations superseded - it looked fine opened on its own, which is precisely the operator's stated reason for wanting this.",
-      "confirmed_at": "2026-09-07T12:32:17Z"
-    },
-    {
       "session_id": "session_016szw9vJrzPUCH1FVMuXycM",
       "registry_key": "pending-20260907T120803Z",
       "state": "done",
@@ -2725,6 +2713,40 @@
       "confirmed_at": "2026-09-07T12:09:16Z",
       "supervised_at": "2026-09-07T14:30:00Z",
       "supervision_note": "SUPERVISED 2026-09-07T14:30Z. MI-159 landed as #11241 + the Lane-A correction #11249. Filed the HIGH row that GitHub hard-disables commenting past 2500 comments, so the MANDATORY coordination-board START post is impossible on #6927 for EVERY session -- board created 2026-07-19, ceiling hit 2026-09-07, ~7 weeks to fill."
+    },
+    {
+      "session_id": "session_0136WbFixUR51Q9FngHUp9GR",
+      "title": "MI-162 - the document library cannot see its own most important documents",
+      "owns_object": "WO-20260907-THE-DOCUMENT-LIBRARY-CANNOT-SEE-ITS-OWN",
+      "checklist_item": "MI-162-DOCUMENT-LIBRARY-POPULATION",
+      "spawned_at": "2026-09-07T14:36:49Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "The library built for the operator's 'one centralized table' ask cannot see 27 documents including instruction-hierarchy levels 1 and 2, while its guard reports 100% coverage - a clean negative.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01GGFAu1uNpHL5KrzC7X7jAm",
+      "title": "MI-160 - propose roadmap prunes, scoped to REDUNDANCIES",
+      "owns_object": "WO-20260907-PROPOSE-ROADMAP-PRUNES-SCOPED-TO-REDUNDANCIES-AND",
+      "checklist_item": "MI-160-PRUNE-PROPOSAL",
+      "spawned_at": "2026-09-07T14:38:29Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-directed 2026-09-07; unblocked by MI-159 landing. Scope is REDUNDANCIES only - an earlier manager paraphrase widened it to 'dead rows' and that is corrected in the dispatch.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01NriFh691pHJFiVc7agPHnC",
+      "registry_key": "pending-20260907T123115Z",
+      "state": "done",
+      "title": "MI-161 - the document library: one centralized, categorized, status-carrying index of every document",
+      "owns_object": "WO-20260907-A-DOCUMENT-LIBRARY-ONE-CENTRALIZED-TABLE-WHERE",
+      "checklist_item": "MI-161-DOCUMENT-LIBRARY",
+      "spawned_at": "2026-09-07T12:31:15Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-directed 2026-09-07. The manager reported a stale roadmap to the operator today off a document that declared itself ACTIVE while three generations superseded - it looked fine opened on its own, which is precisely the operator's stated reason for wanting this.",
+      "confirmed_at": "2026-09-07T12:32:17Z",
+      "supervised_at": "2026-09-07T15:00:00Z",
+      "supervision_note": "SUPERVISED 2026-09-07T15:00Z — deferred from the 14:30Z pass, where this row was ABSENT from main (it was riding the then-unmerged #11244) and the commit said so rather than letting the count read as three. MI-161 COMPLETE: docs/DOCUMENT-INDEX.md on main, 971 documents, CLAUDE.md carrying the doc-status header. It ALSO hit the coordination-board 2500-comment ceiling independently and correctly DROPPED its duplicate row in favour of MI-159's — verified in health-review-backlog.json, not taken on its word. ⚠️ ITS DELIVERABLE HAS A MEASURED GAP, now MI-162: POPULATION_GLOBS uses 'docs/**/*.md' as a git PATHSPEC, which excludes every .md directly in docs/ — 27 unregistered including instruction-hierarchy levels 1 and 2 — while the guard reports population=971 registered=971 OK. That is not a mark against this session's work; it is the second instance of a defect class its own docstring records catching once already."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
