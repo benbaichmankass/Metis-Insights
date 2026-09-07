@@ -545,6 +545,34 @@ def monitor(cfg, candles_df, open_pkg):
             "exit_price": current_price,
         }
 
+    # M31 P2 — position telemetry (observe-only); see trend_donchian.monitor
+    # for the contract. Placed after every close path so a tick that EXITS is
+    # not also recorded as a still-open position, and before the break-even
+    # modify so the row carries the stop this tick started with. The window is
+    # resolved through `exit_levers.since_entry` — the ONE owner of that
+    # definition — and everything the hook needs is computed INSIDE the guard,
+    # so the added surface cannot alter an exit.
+    #
+    # ⚠️ turtle_soup's `order_package` writes no `entry_time` into meta, so
+    # `build_record` reports `peak_state="unanchored"` and leaves `peak_r`
+    # None: a NAMED absence, never a peak measured off a pre-entry bar.
+    # Stamping `entry_time` is an `order_package` change and is deliberately
+    # NOT in this PR's scope.
+    try:
+        from src.runtime.exit_levers import since_entry
+        from src.runtime.position_telemetry import record_position_telemetry
+
+        _meta = meta if isinstance(meta, dict) else {}
+        record_position_telemetry(
+            open_pkg=open_pkg, meta=_meta,
+            window=since_entry(candles_df, open_pkg), direction=direction,
+            current_price=current_price, stop=sl, target=tp,
+            strategy=str(_meta.get("strategy_label")
+                         or open_pkg.get("strategy_name") or "") or None,
+        )
+    except Exception:  # noqa: BLE001 — telemetry must never break the exit
+        pass
+
     # 4. SL-to-break-even — falls through when no close path fired.
     try:
         be_at_r = float(cfg_dict.get("be_at_r", 1.0))

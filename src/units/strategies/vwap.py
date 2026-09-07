@@ -1104,6 +1104,40 @@ def monitor(cfg, candles_df, open_pkg):
                     "exit_price": current_price,
                 }
 
+    # M31 P2 — position telemetry (observe-only); see trend_donchian.monitor
+    # for the contract. Placed after every close path so a tick that EXITS is
+    # not also recorded as a still-open position, and before the break-even
+    # modify so the row carries the stop this tick started with. The window is
+    # resolved through `exit_levers.since_entry` — the ONE owner of that
+    # definition — and everything the hook needs is computed INSIDE the guard,
+    # so the added surface cannot alter an exit.
+    #
+    # ⚠️ vwap's `order_package` writes neither `risk_per_unit` nor
+    # `entry_time` into meta, so `build_record` reports `peak_state="no_risk"`
+    # and leaves `peak_r` None: a NAMED absence, never a peak divided by a
+    # guessed R. Stamping either key is an `order_package` change and is
+    # deliberately NOT in this PR's scope.
+    try:
+        import json as _json
+
+        from src.runtime.exit_levers import since_entry
+        from src.runtime.position_telemetry import record_position_telemetry
+
+        _meta = open_pkg.get("meta") or {}
+        if isinstance(_meta, str):
+            _meta = _json.loads(_meta) if _meta else {}
+        if not isinstance(_meta, dict):
+            _meta = {}
+        record_position_telemetry(
+            open_pkg=open_pkg, meta=_meta,
+            window=since_entry(candles_df, open_pkg), direction=direction,
+            current_price=current_price, stop=sl, target=tp,
+            strategy=str(_meta.get("strategy_label")
+                         or open_pkg.get("strategy_name") or "") or None,
+        )
+    except Exception:  # noqa: BLE001 — telemetry must never break the exit
+        pass
+
     # 5. SL-to-break-even — defence-in-depth fallback that runs only
     #    when none of the four close paths fire. Once price has moved
     #    >= ``cfg["be_at_r"]`` × 1R in our favour the original

@@ -142,10 +142,22 @@ def test_telemetry_hook_set_is_derived_not_trusted(mod):
     gap = mod.telemetry_hook_gap(legs)
     assert gap["hooked_units"] == sorted(mod.TELEMETRY_HOOKED_UNITS), (
         "the set of units carrying record_position_telemetry has changed; the "
-        "'9 structurally invisible legs' finding must be re-measured")
+        "structurally-invisible-legs finding must be re-measured")
     assert gap["drifted"] is False
-    # The 8 ict_scalp legs + squeeze_breakout_4h.
-    assert gap["n_invisible"] == 9, gap["legs_structurally_invisible"]
+    # ⚠️ WAS 9 UNTIL MI-164 (2026-09-07) — the 8 ict_scalp legs +
+    # squeeze_breakout_4h, which MI-163 § 3 measured as *we did not look*
+    # rather than "they did not trade". MI-164 hooked their units, so no leg in
+    # the 44 now routes to a monitor that cannot emit peak-R telemetry.
+    #
+    # This assertion is STRONGER as 0 than it was as 9: it says no leg is
+    # invisible, so re-introducing an unhooked unit into the population — or
+    # dropping the hook from one that has it — fails here rather than quietly
+    # shrinking the corpus a later finding is measured on.
+    #
+    # ⚠️ It does NOT assert those legs have telemetry. Zero invisible means the
+    # hook is on their path; whether a row exists is a live-fleet observation
+    # (`/api/diag/position_telemetry`) that no unit test can stand in for.
+    assert gap["n_invisible"] == 0, gap["legs_structurally_invisible"]
 
 
 def test_counterfactual_never_claims_to_be_net(mod):
