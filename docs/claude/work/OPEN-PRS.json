@@ -79,23 +79,6 @@
         "text": "None recorded. Tier-1 — a backlog record, no code."
       },
       "blocker": "Not blocked on a decision. Carried open across several manager ticks because the merge queue kept prioritising research deliverables; it is the record of the very deadlock the four auto-reconcile PRs closed at 08:32Z on 2026-09-07 are instances of."
-    },
-    {
-      "pr": 11222,
-      "opened_at": "2026-09-07T08:31:23Z",
-      "title": "manager-lease: heartbeat 2026-09-07T08:29:18Z + register the one genuinely unregistered sub-session",
-      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "manager-base-duty",
-      "draft": false,
-      "tier": "1",
-      "state": "open_ci_running",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded. Tier-1 — manager registers only (MANAGER-LEASE.json, SESSIONS.json). Auto-merge armed; merges on green."
-      }
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1193,10 +1176,31 @@
       "settled_at": "2026-09-07T08:40:00Z",
       "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "disposition": "merged — MI-151, ML-2 built, run and REFUTED against the tp_r-equivalent baseline: calibration passes, sharpness fails 0 of 5 quantiles."
+    },
+    {
+      "pr": 11222,
+      "opened_at": "2026-09-07T08:31:23Z",
+      "title": "manager-lease: heartbeat 2026-09-07T08:29:18Z + register the one genuinely unregistered sub-session",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "manager-base-duty",
+      "draft": false,
+      "tier": "1",
+      "state": "open_ci_running",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 — manager registers only (MANAGER-LEASE.json, SESSIONS.json). Auto-merge armed; merges on green."
+      },
+      "terminal": "merged",
+      "merge_sha": "20d7928eb1a5a7675752fdb0af9b91aba0a7082a",
+      "observed_at": "2026-09-07T09:34:53Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-07T08:40:00Z",
-  "last_reconciled_sha": "2b433130",
+  "last_reconciled_at": "2026-09-07T09:34:53Z",
+  "last_reconciled_sha": "ba6b68402a25a218d615f83620ca62bc9a9e6158",
   "updated_at": "2026-09-07T08:40:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
