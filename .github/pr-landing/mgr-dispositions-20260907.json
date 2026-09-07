@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records the disposition on four PRs I closed as superseded and reconciles OPEN-PRS.json. This unblocks four accumulated auto-PRs whose guards failure was caused by that omission. Register only — no src/, tests/, scripts/, workflows/, config/ or deploy/ path is touched."
+}
