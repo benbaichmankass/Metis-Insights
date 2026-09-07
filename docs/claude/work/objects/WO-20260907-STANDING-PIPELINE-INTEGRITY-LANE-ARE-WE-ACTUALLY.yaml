@@ -1,0 +1,30 @@
+id: WO-20260907-STANDING-PIPELINE-INTEGRITY-LANE-ARE-WE-ACTUALLY
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Standing pipeline-integrity lane - are we actually trading correctly
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  This is a STANDING lane and does not close. Each pass ends by naming what the next pass should check. Pass 1 closes when the signal to order-package to placed-order to protective-legs to fill to journal chain has been traced on real trades across IB and Bybit, with every live position graded for two-sided protection at the right quantity in one group, order rejections root-caused, and any alarm firing so often it has stopped carrying information identified as such.
+
+why: >-
+  Operator-directed 2026-09-07: keep a lane open for pipeline review, because the trade data is the instrument every promotion, demotion and exit verdict is computed from. If the pipeline is not executing correctly the data is contaminated at source. Live evidence at dispatch: ib_paper MGC 491% over-covered across two DISJOINT OCA groups (OCA cancels only within a group, so one stop firing leaves the other group resting into a naked short), two of three IB positions under non-keyed group names the keyed pre-cancel cannot reach, and 33 of 48 operator ERROR rows over five days are over-cover.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

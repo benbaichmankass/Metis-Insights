@@ -1,0 +1,30 @@
+id: WO-20260907-PROPOSAL-B-COMMISSIONED-THE-PATH-AWARE-BE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Proposal B commissioned - the path-aware be_floor_r sweep, net of forgone continuation
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A path-aware sweep over be_floor_r in {0.5,0.75,1.0,1.5} against an ungated arm has run on the pooled corpus and either names a value that beats it NET of forgone continuation with walk-forward folds graded for inertness, or states cleanly that none clears the gate. No value is armed either way.
+
+why: >-
+  MI-163's gross benefit table peaks at +16.87R at be_floor_r 0.75 but the telemetry carries no intra-trade path, so the cost of exiting early on trades that later resumed is unmeasured. FLIP_CONFIDENCE_THRESHOLD ran live on real money with no walk-forward, lost, and was disarmed the same day. Operator commissioned the sweep 2026-09-07 and did NOT approve arming any value.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

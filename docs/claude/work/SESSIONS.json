@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T15:52:20Z",
+  "updated_at": "2026-09-07T18:00:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2760,7 +2760,55 @@
       "spawned_at": "2026-09-07T15:52:20Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "The half of the operator's exit thesis still owed. Manager measured the lever coverage but stopped rather than take the item; the live-vs-shadow question on exit_plan.py is deliberately left for the session to settle because getting it backwards produces a confident wrong finding about a live trading system.",
+      "state": "done",
+      "supervised_at": "2026-09-07T16:42:00Z",
+      "supervision_note": "SUPERVISED 2026-09-07T16:42Z. MI-163 COMPLETE, landed #11259 (59bfa099). It settled the live/shadow question the dispatch flagged as decisive — exit_plan.py is SHADOW, established by tracing readers to a real order with a positive control, not by reading a doc — and in doing so CORRECTED the manager's own headline rather than confirming it. Both proposals were put to the operator and both were answered: A approved, B commissioned-not-approved. Dispatched onward as MI-164 and MI-165."
+    },
+    {
+      "session_id": "session_01SZCy1acPMrX3ANUkzhM5te",
+      "title": "MI-164 - Proposal A APPROVED: telemetry hook on the 4 unhooked monitor units",
+      "owns_object": "WO-20260907-PROPOSAL-A-APPROVED-ADD-THE-POSITION-TELEMETRY",
+      "checklist_item": "MI-164-TELEMETRY-HOOK",
+      "spawned_at": "2026-09-07T16:40:27Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator approved Proposal A 2026-09-07 in answer to a direct question naming its exact scope. Observe-only; converts 9 of 44 legs from 'we did not look' into measurable.",
+      "state": "working",
+      "supervised_at": "2026-09-07T18:00:00Z",
+      "supervision_note": "SUPERVISED 2026-09-07T18:00Z. MI-164 opened #11264 titled 'hook the FOUR unhooked monitor units' — ⚠️ SCOPE TO REVIEW BEFORE MERGE. MI-163's own follow-up (#11263, d4a729b6) NARROWED Proposal A to TWO units (squeeze_breakout_4h, ict_scalp), which cover all 9 invisible legs; turtle_soup is execution:shadow and vwap is enabled:false, so neither is in the population and vwap writes no risk_per_unit that peak_r requires. The narrowing landed AFTER MI-164 was dispatched and a manager cannot message a running sub-session, so this is corrected on review, not mid-flight."
+    },
+    {
+      "session_id": "session_01VKEGm8ZcTUgiZYRztPfryK",
+      "title": "MI-165 - Proposal B commissioned: the path-aware be_floor_r sweep",
+      "owns_object": "WO-20260907-PROPOSAL-B-COMMISSIONED-THE-PATH-AWARE-BE",
+      "checklist_item": "MI-165-BE-FLOOR-SWEEP",
+      "spawned_at": "2026-09-07T16:40:27Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator commissioned the sweep 2026-09-07 and explicitly did NOT approve arming a value. A clean 'no value clears the gate' is a successful outcome.",
+      "state": "working",
+      "supervised_at": "2026-09-07T18:00:00Z",
+      "supervision_note": "SUPERVISED 2026-09-07T18:00Z. MI-165 delivered #11266 — 'the path-aware be_floor_r sweep: NO VALUE CLEARS THE GATE'. That is the honest negative the dispatch named as a fully successful outcome, and it must not be softened on review. pytest-run mid-suite at 17:58Z (started 17:46Z, a full run, NOT stalled); self-lands on green."
+    },
+    {
+      "session_id": "session_01L4nzHTVNNdCxkpFxMqXB6V",
+      "title": "MI-140 - alpaca_live's routed real-money leg cannot place an order",
+      "owns_object": "WO-20260907-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG",
+      "checklist_item": "MI-140-ALPACA-LIVE-CANNOT-PLACE",
+      "spawned_at": "2026-09-07T16:47:52Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator asked 'did you note the alpaca task?' - the row had sat unassigned all day while the manager listed it as queued in every checklist. Noting is not acting.",
       "state": "working"
+    },
+    {
+      "session_id": "session_01QZxiRyCB72BH4SaJ4yEJdC",
+      "title": "MI-166 - pipeline integrity lane, pass 1",
+      "owns_object": "WO-20260907-STANDING-PIPELINE-INTEGRITY-LANE-ARE-WE-ACTUALLY",
+      "checklist_item": "MI-166-PIPELINE-INTEGRITY-LANE",
+      "spawned_at": "2026-09-07T16:56:07Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-directed standing lane. MI-140 is one instance of the class, not the class.",
+      "state": "done",
+      "supervised_at": "2026-09-07T18:00:00Z",
+      "supervision_note": "SUPERVISED 2026-09-07T18:00Z. MI-166 pass 1 landed (#11265, 39ab1079) and it CORRECTED THE MANAGER'S OWN DIAGNOSIS. I reported ib_paper/MGC as 491% over-covered and framed it as a protective-logic hazard. It is not: both OCA groups mirror their journal rows to the tick, and the real defect is that THE JOURNAL HOLDS 54 MGC LOTS WHILE THE VENUE HOLDS 11. The protection is faithful to a wrong journal, so the defect is upstream of protection and lands on exactly the instrument the operator asked about. It checked read_state before concluding, and carried positive controls for two negative claims."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
