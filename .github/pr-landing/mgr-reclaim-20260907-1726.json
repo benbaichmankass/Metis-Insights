@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "manager registers only — lease re-claim after a lapse, plus recovery of a dispatch record stranded by a squash-merge race. docs/claude/work/** only."
+}

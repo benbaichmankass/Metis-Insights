@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-07T16:48:00Z",
+  "updated_at": "2026-09-07T16:56:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2100,6 +2100,17 @@
       "tier": "1 to sweep and propose; 3 to arm any value — NOT approved",
       "title": "Proposal B (COMMISSIONED, not approved): the path-aware be_floor_r sweep",
       "note": "OPERATOR DECISION, 2026-09-07, verdict 'Commission the path-aware sweep'. ⚠️ THE SCOPE IS THE SWEEP, NOT THE ARMING — the operator explicitly did NOT approve arming any be_floor_r value, and a successor reading 'approved' without that distinction could arm an exit lever on real money. THE GAP: MI-163's gross benefit peaks at +16.87R at 0.75R over n=71 closed in-population rows, but the telemetry carries peak_r/open_r/giveback_r and NO intra-trade path, so a stop parked at +X exits on the FIRST retrace and the forgone continuation is unmeasured. That is why MI-163 refused to name a value. THE GATE: a path-aware sweep over be_floor_r in {0.5,0.75,1.0,1.5} beating the ungated arm NET of forgone continuation, on the pooled corpus (n=89, floor 30 — sufficient, where per-leg max n=8 is not). Precedent this exists to avoid: FLIP_CONFIDENCE_THRESHOLD ran live on real money with no walk-forward, was measured 2026-08-11, LOST against plain hold, and was disarmed the same day. ⚠️ A clean 'no value clears the gate' is a FULLY SUCCESSFUL outcome and must not be softened."
+    },
+    {
+      "id": "MI-166-PIPELINE-INTEGRITY-LANE",
+      "status": "in_flight",
+      "owner": "session_01QZxiRyCB72BH4SaJ4yEJdC",
+      "opened": "2026-09-07T16:56:00Z",
+      "updated": "2026-09-07T16:56:00Z",
+      "blocked_on": null,
+      "tier": "1 to measure/diagnose/file; 3 for any order-path, protective-logic or lever change",
+      "title": "STANDING LANE — pipeline integrity: are we actually trading correctly? (pass 1)",
+      "note": "OPERATOR-DIRECTED 2026-09-07: 'keep a lane open for some pipeline review ... make sure that we're actually trading correctly so that we can review the data from the trades and make decisions.' ⚠️ THIS IS A STANDING LANE AND DOES NOT CLOSE — each pass ends by naming what the next should check. MI-140 (alpaca_live cannot place) is ONE INSTANCE of the class, not the class. The last clause is the cycle priority itself: trade data is the instrument every promotion, demotion and exit verdict is computed from, so a pipeline executing incorrectly contaminates the data at source and every downstream verdict inherits it. MANAGER-MEASURED LIVE 2026-09-07T16:54Z before dispatch, via diag_fetch (read_state 'orders_read', a real read — NOT an empty-on-error): ib_paper holds MHG 30 / MGC 11 / MES 15. ⚠️ MGC IS 491% OVER-COVERED ACROSS TWO DISJOINT OCA GROUPS (oca-protect-t5353 + oca-protect-t5531). OCA cancels only WITHIN a group, so if one group's stop fires and flattens the 11-lot position the other group's legs are still resting to sell 11 more — into a NAKED SHORT. ib_paper is paper so no real capital is exposed, but the mechanism is shared with ib_live. ⚠️ TWO OF THREE positions sit under NON-KEYED group names — '170199976' (bare numeric) and 'oca-protect-408' (legacy reqId form) — which place_protective's name-scoped pre-cancel can never treat as cancellation candidates. That is the PROTECTION_STRAY_GROUP_MODE class, and that gate ships at annotate with an EMPTY allowlist, which for that knob means NONE. ⚠️ ALARM CHANNEL DEGRADING, a P1 in its own right: 33 of 48 operator ERROR+ rows over 2026-09-02→09-07 (68.8%) are over-cover, plus 6 target_naked — about four fifths of the channel is one class. The alarm IS firing (ib_stop_over_cover detected: ib_paper/MGC is present), so detection works; the fix is to stop GENERATING over-covered books, never to widen a cooldown. IB CONNECTIVITY IS NOT THE PROBLEM — ib_state read all clients connected, no breaker, likely_wedged false. Also noted: /api/diag/version read git_sha 59bfa099 vs git_sha_on_disk b596ac4f, restart_pending TRUE."
     }
   ],
   "as_of": "2026-09-06T16:05Z",
