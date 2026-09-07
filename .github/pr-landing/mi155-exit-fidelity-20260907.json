@@ -1,0 +1,8 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Measurement + written finding only. Adds one research script (scripts/research/exit_location_fidelity.py, manual-only, no runtime caller), one test file (23 tests), one committed data artifact transcribing an already-published measurement, one research memo, and these landing files. It reads /api/diag/position_telemetry (Tier-1 read) and config/strategies.yaml; it writes no config, touches no order path, arms nothing, and proposes no per-leg tp_r value. Explicitly NOT touched: config/strategies.yaml, docs/research/exit-refinement-coverage.json cell statuses, any lever. Per docs/CLAUDE-RULES-CANONICAL.md Tier-1 = 'Docs, tests, CI, tooling, observability / read paths ... retrieving + analyzing state'.",
+  "work_object": "WO-20260907-PER-LEG-BACKTEST-TO-LIVE-EXIT-LOCATION",
+  "checklist_item": "MI-155-EXIT-LOCATION-FIDELITY",
+  "branch": "claude/mi155-exit-fidelity-20260907"
+}
