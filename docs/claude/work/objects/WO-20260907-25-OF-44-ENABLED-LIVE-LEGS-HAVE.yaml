@@ -4,13 +4,13 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   25 of 44 enabled+live legs have no reachable take-profit - repair the declared TP so a trade can end at its bracket
 stage: DECISION
-lifecycle: dormant
-owner: null
+lifecycle: in_flight
+owner: session_0148fMEXBbDgQU3qsrcWujtx
 opened_at: 2026-09-07
 closed_at: null
 review_trigger: >-
-  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
-  work only when it is given an owner and moved out of `dormant`.
+  IN FLIGHT since 2026-09-07, dispatched by the manager on an operator decision.
+  Re-read if the owning session goes idle without a merged deliverable.
 done_condition: >-
   Every enabled+live leg either declares a take-profit the venue will actually accept, or is NAMED as deliberately having none with a stated reason. The two sub-populations are handled separately and never merged: the 15 legs declaring tp_r >= 20 (silently clamped by TP_VENUE_CAP_PCT = 0.099) and the 10 declaring no target at all. The exact per-leg config change is written out and put to the operator as a Tier-3 proposal - NOT applied. And the proposal states, per leg, what evidence the new number rests on and what it does NOT rest on, because MI-155 established that per-leg exit-location fidelity is UNMEASURABLE today (all 44 legs insufficient_n).
 
