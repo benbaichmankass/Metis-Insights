@@ -1,6 +1,0 @@
-MI-157 — the committed backtest candle fixtures are flat.
-
-Tier-1: candle test fixtures, a CI guard, tests, and two research-only candle
-read paths. No config/, no src/runtime/, no order path. No strategy backtest was
-run or re-interpreted — this repairs the instrument and deliberately draws no
-verdict from it.
