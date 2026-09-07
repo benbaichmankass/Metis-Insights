@@ -99,6 +99,24 @@
       "blocker": "⚠️ APPROVED IS NOT MERGEABLE HERE, and the trap is reading the 'Arm + queue the artifact' answer on its own. The operator's THIRD answer gates the merge on MI-153. ⚠️ AND ARMING IS INERT TODAY, which is why the artifact lane exists: verified this session against /api/diag/shadow_stats with a positive control (32 models visible; the probe demonstrably finds both exit-head ids), the ONLY published exit-head artifacts are exit-head-donchian-1h-v1 (advisory) and exit-head-donchian-peak-1h-v1 (shadow) - both 1h, both donchian - while all eight ict_scalp legs are 5m/15m. The in-distribution guard fail-closes on every one, so a merge today would record decision_state: not_scored on all of them and change no live behaviour. That is the 'armed is not exercised' class; do not later read a quiet soak as evidence the head works. ⚠️ The 2026-08-23 SHIP BLOCKED operator decision is stamped on every candidate cell in the matrix ('re-graded passed_unshipped -> blocked', 'STATUS UNCHANGED (a status change is Tier-3)'). This approval supersedes it for the non-sol_5m legs ONLY, and the matrix status edit is itself Tier-3 - it is not carried by this row."
     },
     {
+      "pr": 11150,
+      "opened_at": "2026-09-06T15:00:00Z",
+      "title": "MI-151: ML-2, the predictive bracket — the corpus, the model, and the calibration read",
+      "owner_session": "session_01Adzvjpv8SZQouoBjwMJ4qv",
+      "checklist_item": "MI-151",
+      "draft": true,
+      "tier": "3 (subject matter) / 1 (diff)",
+      "state": "open_draft_manager_routes_merge",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": "PROPOSE, DO NOT APPLY. No config/strategies.yaml, no live target values, no arming. Open as a draft; the operator routes the merge.",
+        "scope": "MI-146 recommendation #3 — build ML-2; propose, do not apply",
+        "decided_on": "2026-09-06",
+        "text": "Operator asked directly what to do about the 25 targetless legs and answered: \"Build ML-2, the predictive bracket\". Framing given as the spec: \"the brackets need to be the prediction of where we think the price is gonna go... if we see that we're getting close to the take profit but the momentum is still strong, then we can adjust that during the trade. But there shouldn't be, like, an endless bracket.\" Relayed to this session in its dispatch brief, which also states: \"Tier-3: PROPOSE, do not apply\" and \"Open as a draft. I route the merge.\""
+      },
+      "blocker": "None. The diff applies nothing: no writer, no order path, no config, no runtime caller (nothing in src/ imports src/research/bracket_quantile.py). pr-landing declares tier 1 / landing hold with hold_reason operator_asked_to_hold, and scripts/** is outside pr-landing-guard R5's Tier-1 allowlist so self-landing is refused regardless."
+    },
+    {
       "pr": 11125,
       "opened_at": "2026-09-06T11:20:00Z",
       "title": "fix(orders): a Bybit reduce-only close is no longer refused on a float artifact — MI-139",
