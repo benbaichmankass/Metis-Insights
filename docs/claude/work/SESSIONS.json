@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T16:47:52Z",
+  "updated_at": "2026-09-07T16:56:07Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2792,6 +2792,16 @@
       "spawned_at": "2026-09-07T16:47:52Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator asked 'did you note the alpaca task?' - the row had sat unassigned all day while the manager listed it as queued in every checklist. Noting is not acting.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01QZxiRyCB72BH4SaJ4yEJdC",
+      "title": "MI-166 - pipeline integrity lane, pass 1",
+      "owns_object": "WO-20260907-STANDING-PIPELINE-INTEGRITY-LANE-ARE-WE-ACTUALLY",
+      "checklist_item": "MI-166-PIPELINE-INTEGRITY-LANE",
+      "spawned_at": "2026-09-07T16:56:07Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-directed standing lane. MI-140 is one instance of the class, not the class.",
       "state": "working"
     }
   ],
