@@ -1,0 +1,78 @@
+=== trainer-diag-relay result ===
+request: mi154b-confirm-delivery-20260907
+state: ran
+remote_exit: 1
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/34082448640
+=================================
+===== A. did the publish service run since the artifacts were written (04:14Z)? =====
+○ ict-trainer-publish.service - Publish trainer mirror to live VM
+     Loaded: loaded (/etc/systemd/system/ict-trainer-publish.service; disabled; vendor preset: enabled)
+    Drop-In: /etc/systemd/system/ict-trainer-publish.service.d
+             └─10-live-vm-ip.conf
+     Active: inactive (dead) since Mon 2026-09-07 04:14:26 UTC; 1min 51s ago
+TriggeredBy: ● ict-trainer-publish.timer
+    Process: 333524 ExecStart=/bin/bash scripts/ops/publish_trainer_mirror.sh (code=exited, status=0/SUCCESS)
+   Main PID: 333524 (code=exited, status=0/SUCCESS)
+        CPU: 815ms
+
+Sep 07 04:14:22 ict-trainer-vm systemd[1]: Starting Publish trainer mirror to live VM...
+Sep 07 04:14:22 ict-trainer-vm bash[333529]: registry_synth_ok models=96 path=/home/ubuntu/ict-trading-bot/ml/registry-store/registry.jsonl
+
+--- journal, last 60 lines ---
+Sep 07 04:01:11 ict-trainer-vm bash[332738]: {"ts":"2026-09-07T04:01:11+00:00","status":"published","dest":"ubuntu@141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror"}
+Sep 07 04:01:11 ict-trainer-vm systemd[1]: ict-trainer-publish.service: Deactivated successfully.
+Sep 07 04:01:11 ict-trainer-vm systemd[1]: Finished Publish trainer mirror to live VM.
+Sep 07 04:03:22 ict-trainer-vm systemd[1]: Starting Publish trainer mirror to live VM...
+Sep 07 04:03:22 ict-trainer-vm bash[333050]: registry_synth_ok models=96 path=/home/ubuntu/ict-trading-bot/ml/registry-store/registry.jsonl
+Sep 07 04:03:22 ict-trainer-vm bash[333051]: trainer_status_built /home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json
+Sep 07 04:03:22 ict-trainer-vm bash[333045]: {"ts":"2026-09-07T04:03:22+00:00","status":"status_built","path":"/home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json"}
+Sep 07 04:03:26 ict-trainer-vm bash[333045]: {"ts":"2026-09-07T04:03:26+00:00","status":"published","dest":"ubuntu@141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror"}
+Sep 07 04:03:26 ict-trainer-vm systemd[1]: ict-trainer-publish.service: Deactivated successfully.
+Sep 07 04:03:26 ict-trainer-vm systemd[1]: Finished Publish trainer mirror to live VM.
+Sep 07 04:05:41 ict-trainer-vm systemd[1]: Starting Publish trainer mirror to live VM...
+Sep 07 04:05:41 ict-trainer-vm bash[333100]: registry_synth_ok models=96 path=/home/ubuntu/ict-trading-bot/ml/registry-store/registry.jsonl
+Sep 07 04:05:41 ict-trainer-vm bash[333101]: trainer_status_built /home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json
+Sep 07 04:05:41 ict-trainer-vm bash[333095]: {"ts":"2026-09-07T04:05:41+00:00","status":"status_built","path":"/home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json"}
+Sep 07 04:05:45 ict-trainer-vm bash[333095]: {"ts":"2026-09-07T04:05:45+00:00","status":"published","dest":"ubuntu@141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror"}
+Sep 07 04:05:45 ict-trainer-vm systemd[1]: ict-trainer-publish.service: Deactivated successfully.
+Sep 07 04:05:45 ict-trainer-vm systemd[1]: Finished Publish trainer mirror to live VM.
+Sep 07 04:07:48 ict-trainer-vm systemd[1]: Starting Publish trainer mirror to live VM...
+Sep 07 04:07:48 ict-trainer-vm bash[333183]: registry_synth_ok models=96 path=/home/ubuntu/ict-trading-bot/ml/registry-store/registry.jsonl
+Sep 07 04:07:48 ict-trainer-vm bash[333184]: trainer_status_built /home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json
+Sep 07 04:07:48 ict-trainer-vm bash[333178]: {"ts":"2026-09-07T04:07:48+00:00","status":"status_built","path":"/home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json"}
+Sep 07 04:07:52 ict-trainer-vm bash[333178]: {"ts":"2026-09-07T04:07:52+00:00","status":"published","dest":"ubuntu@141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror"}
+Sep 07 04:07:52 ict-trainer-vm systemd[1]: ict-trainer-publish.service: Deactivated successfully.
+Sep 07 04:07:52 ict-trainer-vm systemd[1]: Finished Publish trainer mirror to live VM.
+Sep 07 04:09:56 ict-trainer-vm systemd[1]: Starting Publish trainer mirror to live VM...
+Sep 07 04:09:56 ict-trainer-vm bash[333228]: registry_synth_ok models=96 path=/home/ubuntu/ict-trading-bot/ml/registry-store/registry.jsonl
+Sep 07 04:09:56 ict-trainer-vm bash[333229]: trainer_status_built /home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json
+Sep 07 04:09:56 ict-trainer-vm bash[333223]: {"ts":"2026-09-07T04:09:56+00:00","status":"status_built","path":"/home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json"}
+Sep 07 04:10:00 ict-trainer-vm bash[333223]: {"ts":"2026-09-07T04:10:00+00:00","status":"published","dest":"ubuntu@141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror"}
+Sep 07 04:10:00 ict-trainer-vm systemd[1]: ict-trainer-publish.service: Deactivated successfully.
+Sep 07 04:10:00 ict-trainer-vm systemd[1]: Finished Publish trainer mirror to live VM.
+Sep 07 04:12:01 ict-trainer-vm systemd[1]: Starting Publish trainer mirror to live VM...
+Sep 07 04:12:01 ict-trainer-vm bash[333372]: registry_synth_ok models=96 path=/home/ubuntu/ict-trading-bot/ml/registry-store/registry.jsonl
+Sep 07 04:12:01 ict-trainer-vm bash[333373]: trainer_status_built /home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json
+Sep 07 04:12:01 ict-trainer-vm bash[333367]: {"ts":"2026-09-07T04:12:01+00:00","status":"status_built","path":"/home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json"}
+Sep 07 04:12:05 ict-trainer-vm bash[333367]: {"ts":"2026-09-07T04:12:05+00:00","status":"published","dest":"ubuntu@141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror"}
+Sep 07 04:12:05 ict-trainer-vm systemd[1]: ict-trainer-publish.service: Deactivated successfully.
+Sep 07 04:12:05 ict-trainer-vm systemd[1]: Finished Publish trainer mirror to live VM.
+Sep 07 04:14:22 ict-trainer-vm systemd[1]: Starting Publish trainer mirror to live VM...
+Sep 07 04:14:22 ict-trainer-vm bash[333529]: registry_synth_ok models=96 path=/home/ubuntu/ict-trading-bot/ml/registry-store/registry.jsonl
+Sep 07 04:14:22 ict-trainer-vm bash[333530]: trainer_status_built /home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json
+Sep 07 04:14:22 ict-trainer-vm bash[333524]: {"ts":"2026-09-07T04:14:22+00:00","status":"status_built","path":"/home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json"}
+Sep 07 04:14:26 ict-trainer-vm bash[333524]: {"ts":"2026-09-07T04:14:26+00:00","status":"published","dest":"ubuntu@141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror"}
+Sep 07 04:14:26 ict-trainer-vm systemd[1]: ict-trainer-publish.service: Deactivated successfully.
+Sep 07 04:14:26 ict-trainer-vm systemd[1]: Finished Publish trainer mirror to live VM.
+
+===== B. mirror still holds the 4 artifacts? =====
+total 4096
+drwxrwxr-x 2 ubuntu ubuntu    4096 Sep  7 04:14 .
+drwxr-xr-x 7 ubuntu ubuntu    4096 Jul 14 10:20 ..
+-rw-rw-r-- 1 ubuntu ubuntu 1043684 Jul 12 14:44 exit-head-donchian-1h-v1.json
+-rw-rw-r-- 1 ubuntu ubuntu 1047168 Jul 12 22:45 exit-head-donchian-peak-1h-v1.json
+-rw-rw-r-- 1 ubuntu ubuntu 1044107 Sep  7 04:14 exit-head-ict_scalp-15m-v1.json
+-rw-rw-r-- 1 ubuntu ubuntu 1048233 Sep  7 04:14 exit-head-ict_scalp-5m-v1.json
+
+===== C. publisher status JSON (what it reports about its own last run) =====
+
