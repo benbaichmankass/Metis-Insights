@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1, one documentation file. Corrects a factual staleness in docs/claude/WORKPLAN-2026-08-29.md, the plan MI-159 established as the live plan of record. Its Lane A opener states alpaca_live is held flat by an empty strategy list; the field (config/accounts.yaml) shows mode: live, account_class: real_money, strategies: ['tlt_pullback_1h'] -- one routed real-money leg. Stale in the dangerous direction: a session reading it would believe a real-money account is inert when it is routed, and would plan a go-live that already happened. The original text is preserved beneath the correction rather than deleted, and the part that still stands (there is no second gate, so the strategy list is the whole routing decision and changing it is Tier-3) is called out. No config/, no src/runtime/, no order path, no strategy parameter -- this reads config/accounts.yaml and changes only prose."
+}
