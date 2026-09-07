@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T06:58:02Z",
+  "updated_at": "2026-09-07T08:49:34Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2642,6 +2642,41 @@
       ],
       "why": "OPERATOR directed the bracket work as the next focus 2026-09-07. Reading MI-148 + MI-151 + MI-147 together, the quantile cannot be built first: MI-151 line 220 makes it conditional on this measurement, and MI-147 found the instrument has never been run.",
       "confirmed_at": "2026-09-07T06:58:02Z"
+    },
+    {
+      "session_id": "session_0148fMEXBbDgQU3qsrcWujtx",
+      "registry_key": "pending-20260907T084821Z",
+      "state": "working",
+      "title": "MI-156 - give every live leg a take-profit the venue will actually accept",
+      "owns_object": "WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE",
+      "checklist_item": "MI-156-REACHABLE-TAKE-PROFIT",
+      "spawned_at": "2026-09-07T08:48:21Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-directed 2026-09-07 as the chosen bracket route. MI-146 measured that 25 of 44 enabled+live legs have no reachable TP; MI-155 established the calibrated per-leg route is blocked on data volume. This is the half that can move now.",
+      "confirmed_at": "2026-09-07T08:49:34Z"
+    },
+    {
+      "session_id": "session_01MLKjDPG9n1MHBByYEAEgjc",
+      "registry_key": "pending-20260907T084831Z",
+      "state": "working",
+      "title": "MI-157 - the committed backtest candle fixtures are flat, so every number measured on them is meaningless",
+      "owns_object": "WO-20260907-THE-COMMITTED-BACKTEST-CANDLE-FIXTURES-ARE-FLAT",
+      "checklist_item": "MI-157-FLAT-BACKTEST-FIXTURES",
+      "spawned_at": "2026-09-07T08:48:31Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-directed 2026-09-07 to fix now as its own item. MI-151 found btc_5m_2026.csv has exactly one unique close across all 300 rows. Measurement-integrity defect; the cycle priority says repair the instrument before acting on what it says.",
+      "confirmed_at": "2026-09-07T08:49:34Z"
+    },
+    {
+      "session_id": "session_01Et8yz5yBZ7ifySKwpF6R1s",
+      "title": "MI-150b - get #11140 green and landed (annotate-only, disarmed)",
+      "owns_object": "WO-20260906-SHIP-THE-EXIT-HEAD-INTO-ICT-SCALP-THREE-LEGS",
+      "checklist_item": "MI-150-ICT-SCALP-EXIT-HEAD",
+      "spawned_at": "2026-09-07T08:31:01Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "REGISTERED RETROACTIVELY at 2026-09-07T08:35Z. Caught by the 08:24Z supervision reconcile against list_sessions - NOT by the manager remembering at spawn time, which is the MI-15 recurrence. NOTE the sibling finding: MI-155 also read as absent from main, but it was in fact registered in PR #11219, which had not merged - so for that one the gap was a MERGE gap, not a remembering gap, and the reconcile cannot tell the two apart because it reads main.",
+      "note": "COMPLETE. #11140 merged after operator approval of the Tier-3 matrix status change.",
+      "state": "idle"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

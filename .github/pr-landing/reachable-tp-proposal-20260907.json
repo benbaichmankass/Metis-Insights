@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 strategy geometry. Proposes one take-profit VALUE change (gld_pullback_1h tp_r 4.0) and 24 per-leg declaration changes to config/strategies.yaml. Nothing is applied — the diff ships as a fenced block in the memo. Needs one explicit operator approval in chat before any config edit; this PR must never self-land.",
+  "why": "Adds docs/research/reachable-take-profit-proposal-2026-09-07.md only. It is declared tier 3 rather than tier 1 because its whole purpose is to put a Tier-3 config change in front of the operator: grading it tier 1 on the diff's file list would be true of the bytes and false about the decision. No pr-automerge-requests file exists on this branch, deliberately."
+}

@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-06T16:05Z",
+  "updated_at": "2026-09-07T08:50:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1938,8 +1938,10 @@
       "owns_object": "WO-20260906-IS-SOAKING-ONLY-MECHANICALLY-VERIFYING-WHAT-BACKTESTING",
       "priority": "P1_CYCLE",
       "tier": "1 (audit — propose only)",
-      "note": "Operator 2026-09-06: soaking is 'only for mechanical verification of what we already have tested to be verifiably true in backtesting'. The chain is inverted at least once: bracket_geometry reads PENDING (never swept) on the ENTIRE 8-leg ict_scalp family, every one execution: live.",
-      "added": "2026-09-06"
+      "note": "ANSWERED and merged (#11188, 6bc5dae5). The operator's premise does not hold and it fails at link one: over the 44 enabled+live legs, 0 had a backtest result read and dispositioned before the leg went live (median lag 56 days, max 88); 11 of 44 (25.0%) have no pre-live backtest at any level, ict_scalp_5m and trend_donchian among them. Soak was the FIRST measurement of these legs, not a mechanical confirmation of something already proven.",
+      "added": "2026-09-06",
+      "status": "done",
+      "updated": "2026-09-07T08:42:00Z"
     },
     {
       "id": "MI-149-REGISTER-WRITERS",
@@ -1952,30 +1954,62 @@
     },
     {
       "id": "MI-150-ICT-SCALP-EXIT-HEAD",
-      "status": "in_flight",
+      "status": "done",
       "owner": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "opened": "2026-09-06",
       "title": "PR #11140 — the M20 exit-head consumer for ict_scalp: operator-approved with two conditions, HELD on MI-153",
-      "note": "OPERATOR 2026-09-06 answered three popups: arm + queue the artifact; EXCLUDE ict_scalp_sol_5m; RESOLVE the figures before arming. The third answer holds the merge — see OPEN-PRS.json #11140 for the typed decision. ⚠️ ARMING IS INERT TODAY: verified against /api/diag/shadow_stats with a positive control (32 models visible, probe finds both exit-head ids) that the only published exit-head artifacts are exit-head-donchian-1h-v1 and exit-head-donchian-peak-1h-v1 — both 1h, both donchian — while all eight ict_scalp legs are 5m/15m, so the in-distribution guard fail-closes on every one. Do not read a later quiet soak as evidence the head works.",
-      "updated": "2026-09-06T16:05Z"
+      "note": "#11140 MERGED 2026-09-07T05:25Z after the operator's Tier-3 approval ('ok on 11140'). Consumer is annotate-only and DISARMED. The chain is now end to end: consumer in, artifact published (MI-154b), mirror propagated on its own, and scoring CONFIRMED live — exit-head-ict_scalp-5m-v1 at 15 predictions and -15m-v1 at 6, git_sha == git_sha_on_disk == 86e059cc. Still disarmed; arming is a separate decision.",
+      "updated": "2026-09-07T08:42:00Z"
     },
     {
       "id": "MI-153-EXIT-HEAD-FIGURE-RECONCILIATION",
-      "status": "queued",
+      "status": "done",
       "owner": null,
       "opened": "2026-09-06",
       "title": "Two records report different numbers for the same ict_scalp exit-head legs — establish which is current, and why they diverged",
-      "note": "BLOCKS MI-150 by operator decision 2026-09-06 ('Resolve before arming'). The MI-146 audit table and docs/research/exit-refinement-coverage.json disagree on every candidate leg: ict_scalp_sol_5m reads auc 0.6184 / n_oos 1150 / beats_actual 22 of 23 in the audit and auc 0.6149 / n_oos 800 / beats_actual 12 of 16 in the matrix; ict_scalp_xrp_5m reads 0.5987 / 1100 / 21 of 22 against 0.613 / 650 / 12 of 13; ict_scalp_sol_15m reads 0.5808 / 450 / 6 of 9 against 0.5715 / 350 / 7 of 7. That is 3 of 3 candidate legs disagreeing. These figures are the ENTIRE basis for calling a leg a candidate. ⚠️ The question is not only which is current but WHY they diverged — a re-run on a different corpus slice, a re-partitioning, or a stale copy are three different answers with three different consequences, and 'the newer file wins' is not an investigation.",
-      "updated": "2026-09-06T16:05Z"
+      "note": "ANSWERED and merged (#11166 / 3292c5bd). The two records were NEVER in disagreement — each matrix cell's `ref` carries BOTH figure sets in one append-only string, chronologically, joined by '->'. The audit quoted the CURRENT clause; my brief quoted the SUPERSEDED one. Verdict of the deliverable: arm nothing. Separate real finding: the cell has no structured figure field at all — only status/ref/tp_geometry, with ~4,000 chars of prose.",
+      "updated": "2026-09-07T08:42:00Z"
     },
     {
       "id": "MI-154-SCALP-EXIT-HEAD-ARTIFACT",
-      "status": "queued",
+      "status": "done",
       "owner": null,
       "opened": "2026-09-06",
       "title": "Publish a 5m/15m scalp exit-head artifact — without one the MI-150 consumer cannot score a single leg",
-      "note": "OPERATOR 2026-09-06 chose 'Arm + queue the artifact', explicitly making this its own lane rather than a follow-up. Measured this session: the published exit-head fleet is exactly two artifacts, exit-head-donchian-1h-v1 (advisory) and exit-head-donchian-peak-1h-v1 (shadow), both 1h and both donchian; all eight ict_scalp legs are 5m/15m. ⚠️ Note the artifact's `family` field has been DECLARED since scripts/ml/export_exit_head.py:116 and has NEVER been read — the in-distribution guard gates on tf + symbols only. A scalp artifact that is in-distribution on tf and symbols would therefore be accepted by a donchian-family consumer with nothing checking the family, which is a real gap to close in the same lane rather than discover afterwards.",
-      "updated": "2026-09-06T16:05Z"
+      "note": "MERGED — #11169 (the declared family token) then #11208 (MI-154b, which actually PUBLISHED the two scalp exit heads at shadow). Verified on the live surface, not asserted: both heads are scoring.",
+      "updated": "2026-09-07T08:42:00Z"
+    },
+    {
+      "id": "MI-156-REACHABLE-TAKE-PROFIT",
+      "status": "in_flight",
+      "owner": "session_0148fMEXBbDgQU3qsrcWujtx",
+      "opened": "2026-09-07T08:50:00Z",
+      "updated": "2026-09-07T08:50:00Z",
+      "owns_object": "WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE",
+      "tier": "3",
+      "title": "Give every enabled+live leg a take-profit the venue will actually accept",
+      "note": "OPERATOR-CHOSEN ROUTE, 2026-09-07, over three alternatives. MI-146 measured 25 of 44 enabled+live legs with no reachable TP: 15 declare tp_r >= 20 (clamped by TP_VENUE_CAP_PCT = 0.099) and 10 declare none. Chosen because it needs NO fidelity evidence - a target the venue accepts beats one it silently clamps away - which matters because MI-155 established the calibrated per-leg route is blocked on data volume (max live n = 8 vs a floor of 30), not on method. Deliverable is a Tier-3 PROPOSAL, config/ read-only. The binding instruction to the session: it is repairing REACHABILITY, not calibration, and must say so per leg - stating what each number rests on AND what it does not."
+    },
+    {
+      "id": "MI-157-FLAT-BACKTEST-FIXTURES",
+      "status": "in_flight",
+      "owner": "session_01MLKjDPG9n1MHBByYEAEgjc",
+      "opened": "2026-09-07T08:50:00Z",
+      "updated": "2026-09-07T08:50:00Z",
+      "owns_object": "WO-20260907-THE-COMMITTED-BACKTEST-CANDLE-FIXTURES-ARE-FLAT",
+      "tier": "1",
+      "title": "The committed backtest candle fixtures are flat, so anything measured on them is meaningless",
+      "note": "OPERATOR-DIRECTED to fix now as its own item, 2026-09-07. MI-151 found data/ohlcv/btc_5m_2026.csv opens and closes at 95000.0 for all 300 rows - exactly one unique close - while doing something else. Census, repair-or-delete-loudly, and a regression test so the class cannot return. Scoped OFF any strategy verdict: the job is the instrument, not a conclusion from it."
+    },
+    {
+      "id": "MI-155-EXIT-LOCATION-FIDELITY",
+      "status": "done",
+      "owner": "session_017odwPFdR66U1yWyjBqzCwR",
+      "opened": "2026-09-07T06:57Z",
+      "updated": "2026-09-07T08:42:00Z",
+      "owns_object": "WO-20260907-PER-LEG-BACKTEST-TO-LIVE-EXIT-LOCATION",
+      "title": "Per-leg backtest<->live exit-location fidelity — the gate the bracket rebuild waits on",
+      "note": "MERGED #11220 (2b433130). The gate is ANSWERED and the answer BLOCKS: all 44 enabled+live legs grade `insufficient_n` — not one fidelity_ok, not one fidelity_failed. Abstain floor n_live >= 30; max per-leg live n is 8, and the verdict is invariant for any floor in [10, 30], so this is a DATA-VOLUME result and lowering the bar does not rescue it. The ~2.5x crypto p90 gap MI-151 measured did NOT reproduce as a fidelity failure — it is a horizon-composition artifact. Basis settled: measure in percent-of-entry, express the knob as tp_r, conversion is LOSSY (recorded as a finding). Two bounds on every figure: peak_r_is_lower_bound true on 171/171 rows, and n_bt = 0 on 41 of 44 legs — the backtest side of the comparison mostly does not exist. CONSEQUENCE: the bracket rebuild is blocked on data volume, not on method; the fork goes to the operator."
     }
   ],
   "as_of": "2026-09-06T16:05Z",
