@@ -1,6 +1,6 @@
 # Reachable take-profit — the per-leg repair for the 25 enabled+live legs that have none
 
-**MI-156** · branch `claude/reachable-tp-proposal-20260907`
+**MI-156** · branch `claude/reachable-tp-proposal-20260907` · PR [#11225](https://github.com/benbaichmankass/Metis-Insights/pull/11225) · coordination-board START [#6927 comment](https://github.com/benbaichmankass/Metis-Insights/issues/6927#issuecomment-5567982440)
 
 ⚠️ **TIER-3 PROPOSAL. NOTHING IS APPLIED.** `config/strategies.yaml` was opened **read-only**. The
 diff in § 7 is a fenced block, not a change. No account mode was flipped, no exit head was armed,
@@ -374,6 +374,7 @@ already declares a real expectation and must not be harmonised into the sentinel
   200-bar force-close bound on 17 of 39 graded pairs). I propose `none` for it, which does not
   depend on that verdict — but its `passed_unshipped` status should not be read as clean.
 - **No P&L claim is made anywhere in this memo**, per E3.6's ordering.
+- **This session had no GitHub API write access** — `add_issue_comment` and `create_pull_request` both returned `403 Resource not accessible by integration`, against a positive control (`issue_read` on the same issue #6927 succeeded in the same minute). The board START went through `board-post.yml` and this PR through `pr-opener.yml`, both pushed on a **separate** branch so their results commits could not bury this PR's checks. MI-155 records the identical token scope one day earlier, so the board understates concurrent activity by an unknown amount.
 - **The `tp_intent` key has no reader** (§ 7b). Until one ships, these declarations are readable by
   humans and instruments, not by the runtime.
 
