@@ -1,8 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-07T05:10:43+00:00 · verdict **partial**_
-
-> ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
+_Generated 2026-09-07T10:32:40+00:00 · verdict **all_sources_read**_
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 7d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -90,6 +88,10 @@ _Generated 2026-09-07T05:10:43+00:00 · verdict **partial**_
   - PR #11125 merged 2026-09-06T18:43:22Z as 9604b8a5 (squash), Tier-3, operator-approved, routed by the manager rather than self-merged. Content VERIFIED on origin/main directly, not from the merge event
 - 🔔 **OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP** (open_items · 1d) — monitoring row 1d since last observation (cadence 1d)
   - ict_scalp_5m was demoted off the REAL-MONEY bybit_2 account (Tier-3, operator-approved 2026-09-06, scope bybit_2 only) by removing it from that account's `strategies:` list in config/accounts.yaml. PR
+- 🔔 **OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED** (open_items · 1d) — loud row — must be reported on every session
+  - MI-150 shipped the M20 exit-head consumer into `ict_scalp` (annotate-only, disarmed) -- the wiring MI-146 identified as the only passed-gate work blocked on missing code. ⚠️ IT CANNOT SCORE A SINGLE L
+- 🔔 **OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED** (soaks · 1d) — soak READY — ✅ READY — 37 matching row(s) of 754 scanned satisfy the declared criterion (decision_state!=not_scored). ⚠️ Ready is not CLEARED: read the row's `clears_when`, which may carry clauses no predicate can express.
+  - MI-150 shipped the M20 exit-head consumer into `ict_scalp` (annotate-only, disarmed) -- the wiring MI-146 identified as the only passed-gate work blocked on missing code. ⚠️ IT CANNOT SCORE A SINGLE L
 - 🔔 **OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE** (open_items · 1d) — loud row — must be reported on every session
   - ML-2 was BUILT and REFUTED, and the refutation is the finding. Calibration PASSES on a real corpus (n=9,814 backtest trades, 3 trend_donchian 15m legs, MACE 0.0061); sharpness against the tp_r-equival
 - 🔔 **OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING** (open_items · 1d) — loud row — must be reported on every session
@@ -110,6 +112,12 @@ _Generated 2026-09-07T05:10:43+00:00 · verdict **partial**_
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
 - 🔔 **OI-20260906-SCALP-EXIT-HEAD-ARTIFACT-IS-THE-SECOND-MISSING-HALF-NOT-THE-FIRST** (open_items · 0d) — loud row — must be reported on every session
   - MI-154, measured 2026-09-06 at main 957fc81d. The lane was opened on the premise that PR #11140 had SHIPPED the ict_scalp exit-head consumer and that only the artifact was missing. #11140 is OPEN and 
+- 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'failure'
+  - constraint-readout
+- 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
+  - replay-pregate-nightly
+- 🔔 **sunset-pass** (red_crons) — latest scheduled run concluded 'failure'
+  - sunset-pass
 - **ERRFEED-1ef305c7** (error_feed · 14d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 15 rows 2026-08-24T22:26:36 → 2026-09-06T00:32:43 · symbols=AVAXUSDT — decide: fix now, or file to a backlog
   - [error] x15 api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty
 - **ERRFEED-9fd2fc82** (error_feed · 14d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 62 rows 2026-08-24T22:20:59 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
