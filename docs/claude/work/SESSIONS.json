@@ -2697,6 +2697,18 @@
       "why": "REGISTERED RETROACTIVELY at 2026-09-07T08:35Z. Caught by the 08:24Z supervision reconcile against list_sessions - NOT by the manager remembering at spawn time, which is the MI-15 recurrence. NOTE the sibling finding: MI-155 also read as absent from main, but it was in fact registered in PR #11219, which had not merged - so for that one the gap was a MERGE gap, not a remembering gap, and the reconcile cannot tell the two apart because it reads main.",
       "note": "COMPLETE. #11140 merged after operator approval of the Tier-3 matrix status change.",
       "state": "idle"
+    },
+    {
+      "session_id": "session_016szw9vJrzPUCH1FVMuXycM",
+      "registry_key": "pending-20260907T120803Z",
+      "state": "working",
+      "title": "MI-159 - one live work plan, an accurate roadmap, and TASK-level priority across milestones",
+      "owns_object": "WO-20260907-ONE-LIVE-WORK-PLAN-A-ROADMAP-THAT",
+      "checklist_item": "MI-159-ONE-WORKPLAN-AND-TASK-PRIORITY",
+      "spawned_at": "2026-09-07T12:08:03Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-directed 2026-09-07 after the manager gave a stale roadmap read off a work plan that still declared itself ACTIVE three generations after being superseded.",
+      "confirmed_at": "2026-09-07T12:09:16Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
