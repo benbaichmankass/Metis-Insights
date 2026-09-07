@@ -1,0 +1,30 @@
+id: WO-20260907-THE-COMMITTED-BACKTEST-CANDLE-FIXTURES-ARE-FLAT
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The committed backtest candle fixtures are FLAT - one unique close across every row - so anything measured on them is meaningless
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Every file under data/ohlcv/ is either (a) replaced with real fetched candle history and shown to have a plausible number of distinct closes and a non-degenerate return distribution, or (b) DELETED and its consumers made to fail loudly rather than silently read a flat series. A test asserts the non-degeneracy so the class cannot return. The population is stated: how many files were checked, how many were flat, and what each one's consumers are - measured, not assumed.
+
+why: >-
+  MI-151 found btc_5m_2026.csv opens and closes at 95000.0 for all 300 rows - exactly one unique close. A backtest over a flat series produces confident numbers that mean nothing, and this repo has already paid for acting on a manufactured figure (the phantom -6358 dollar exit leak). The cycle priority is explicit that the MEASUREMENT is repaired before anything is acted on. Operator chose to fix this now as its own item rather than fold it into whichever bracket route was picked.
+
+source: >-
+  manager session_01HrmZ1RRNM4UnEUaFdrPEjj, from MI-151 line-level finding; operator popup answer 2026-09-07T08:45Z
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

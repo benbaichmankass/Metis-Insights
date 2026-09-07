@@ -1,0 +1,30 @@
+id: WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  25 of 44 enabled+live legs have no reachable take-profit - repair the declared TP so a trade can end at its bracket
+stage: DECISION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Every enabled+live leg either declares a take-profit the venue will actually accept, or is NAMED as deliberately having none with a stated reason. The two sub-populations are handled separately and never merged: the 15 legs declaring tp_r >= 20 (silently clamped by TP_VENUE_CAP_PCT = 0.099) and the 10 declaring no target at all. The exact per-leg config change is written out and put to the operator as a Tier-3 proposal - NOT applied. And the proposal states, per leg, what evidence the new number rests on and what it does NOT rest on, because MI-155 established that per-leg exit-location fidelity is UNMEASURABLE today (all 44 legs insufficient_n).
+
+why: >-
+  Operator directive 2026-09-07, chosen over three alternatives: repair reachability first, because it needs no fidelity evidence. A target the venue accepts is strictly better than one it silently clamps away, and it is the nearest thing to the operator thesis that a trade should END AT ITS BRACKET rather than run to an endless one. MI-146 measured the population; MI-155 established that the calibrated per-leg quantile route is blocked on data volume, not method, so this is the half that can move now.
+
+source: >-
+  manager session_01HrmZ1RRNM4UnEUaFdrPEjj, operator popup answer 2026-09-07T08:45Z
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
