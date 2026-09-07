@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-07T14:40:00Z",
+  "updated_at": "2026-09-07T16:00:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2035,14 +2035,14 @@
     },
     {
       "id": "MI-160-PRUNE-PROPOSAL",
-      "status": "in_flight",
+      "status": "done",
       "owner": "session_01GGFAu1uNpHL5KrzC7X7jAm",
       "opened": "2026-09-07T12:15:00Z",
-      "updated": "2026-09-07T14:40:00Z",
+      "updated": "2026-09-07T16:00:00Z",
       "blocked_on": null,
       "tier": "1",
       "title": "Propose roadmap prunes - against a roadmap whose statuses have been verified, never before",
-      "note": "OPERATOR, 2026-09-07: 'we can definitely prune the road map'. That REFINES their earlier correction, it does not reverse it - open milestones are still TRACKS and being numerous is still not a defect. What is permitted now is naming rows that are genuinely DEAD (withdrawn, superseded, or shipped and never marked) as distinct from merely DORMANT. ⚠️ PROPOSE ONLY; the operator decides. ⚠️ BLOCKED ON MI-159 BY DESIGN, not by scheduling: you cannot honestly propose closing a row whose status has not been verified, and MI-159 exists precisely because several statuses were measured WRONG today. Pruning first would close rows on the strength of claims already caught failing. ⚠️ THE MANAGER COULD NOT AMEND MI-159 IN FLIGHT - there is no send_message to a running sub-session (ListAgents: no reachable peers), which confirms the SESSIONS.json README's documented finding. Interrupting would have stopped it without being able to hand it the new instruction, so the split is a consequence of a real capability limit as well as of the right order. UNBLOCKED 2026-09-07T14:40Z: the predecessor MI-159 LANDED (#11241 + the Lane-A correction #11249) and docs/claude/TASK-PRIORITY-2026-09-07.md is on main."
+      "note": "OPERATOR, 2026-09-07: 'we can definitely prune the road map'. That REFINES their earlier correction, it does not reverse it - open milestones are still TRACKS and being numerous is still not a defect. What is permitted now is naming rows that are genuinely DEAD (withdrawn, superseded, or shipped and never marked) as distinct from merely DORMANT. ⚠️ PROPOSE ONLY; the operator decides. ⚠️ BLOCKED ON MI-159 BY DESIGN, not by scheduling: you cannot honestly propose closing a row whose status has not been verified, and MI-159 exists precisely because several statuses were measured WRONG today. Pruning first would close rows on the strength of claims already caught failing. ⚠️ THE MANAGER COULD NOT AMEND MI-159 IN FLIGHT - there is no send_message to a running sub-session (ListAgents: no reachable peers), which confirms the SESSIONS.json README's documented finding. Interrupting would have stopped it without being able to hand it the new instruction, so the split is a consequence of a real capability limit as well as of the right order. UNBLOCKED 2026-09-07T14:40Z: the predecessor MI-159 LANDED (#11241 + the Lane-A correction #11249) and docs/claude/TASK-PRIORITY-2026-09-07.md is on main. DONE 2026-09-07T16:00Z — landed #11254 (7fedaf34). 33 rows examined, 0 redundancies. Blockers: assessed coverage 6.73% (READOUT's 1.5% is STALE). Debt named: M40 R5 (daily cron that never fires) + M40 R2 (landing wired into 2 of 20 producers)."
     },
     {
       "id": "MI-162-DOCUMENT-LIBRARY-POPULATION",
