@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# wiring: manual-only - a one-shot measurement answering a specific backlog row's
+# "We did not look." It is re-run by hand when its premise changes (MI-140
+# remediated, or `alpaca_portfolio`/TLT closes), not on a schedule: it reads two
+# committed snapshots, so a cron would re-print the same numbers forever and
+# become a green nobody reads. Its inputs and its verdict live in
+# docs/research/alpaca-over-close-population-2026-09-07.md.
 """MI-171 — count the Alpaca over-close population that nobody had looked at.
 
 Answers the two questions `BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-
@@ -200,7 +206,8 @@ def main() -> int:
     n_open = sum(1 for r in rows if r["status"] == "open")
     n_closed = sum(1 for r in rows if r["status"] == "closed")
 
-    print("POPULATION — every figure below is over exactly this and nothing wider")
+    print(f"POPULATION — every figure below ranges over these {len(rows)} rows "
+          f"and nothing wider")
     print(f"  {len(rows)} journal `trades` rows (the endpoint's hard 1000-row cap), "
           f"ids {min(ids)}-{max(ids)}")
     print(f"  {min(r['timestamp'] for r in rows)[:19]}Z -> "
@@ -229,10 +236,10 @@ def main() -> int:
     print("\n(b) ACTUAL OVER-CLOSE EVENTS")
     ev_all = closes_with_open_sibling(rows)
     ev_alp = closes_with_open_sibling(rows, ALPACA)
-    print(f"  closes that fired while a sibling row on the same (account, symbol) "
-          f"was open:")
+    print("  closes that fired while a sibling row on the same (account, symbol) "
+          "was open:")
     print(f"    all accounts : {len(ev_all)}   <-- POSITIVE CONTROL: the probe "
-          f"finds plenty; MI-167 independently reported 187")
+          "finds plenty; MI-167 independently reported 187")
     print(f"    ALPACA       : {len(ev_alp)}   (denominator: "
           f"{sum(1 for r in alp if r['status'] == 'closed')} Alpaca closes in the population)")
     by_acct = collections.Counter(e["account_id"] for e in ev_all)
