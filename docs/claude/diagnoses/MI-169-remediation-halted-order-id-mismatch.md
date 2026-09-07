@@ -41,9 +41,20 @@ would have concluded the legs were already gone. It is reported here as its own 
 folded into the successful reads, because *we could not look* is not *nothing rests*.
 I re-read until I had a real `orders_read` and then took it three times.
 
-⚠️ **`restart_pending` is now `true`** (MI-167 had it `false` at `40ebd40b`/`40ebd40b`).
-`054650e3` is on disk and not running. Stated as a state change since MI-167; it does not
-affect any finding here, because every finding is a venue read, not a code read.
+⚠️ **The running SHA changed inside this session's own window.** At 19:30:58Z `version`
+reported `git_sha 40ebd40b` with `054650e3` on disk and **`restart_pending: true`**
+(MI-167 had it `false` at `40ebd40b`/`40ebd40b`). By 19:38:04Z `status` reported the bot
+running **`054650e3`** with `bot_uptime_s 3815` — it restarted onto the on-disk SHA.
+Stated because it bounds what any single process observed, **not** because it changes a
+finding: every finding here is a venue read or a journal read, not a code read, and the
+four `ib_open_orders` reads all predate the observed restart.
+
+⚠️ **The hazard is unchanged and still resting.** At 19:38:04Z MGC is still
+`size 11.0, entry_price 4423.021925925`, and orders 550/551 (43 lots) still rest over it.
+Not acting leaves MI-167's live hazard exactly as MI-167 described it — I neither
+increased nor reduced it. **A touch of 4394.5 still sells 43 against 11 → net short ~32.**
+That is the cost of this halt, stated plainly: it is a paper-money exposure held open for
+one confirmation round-trip, and it should be closed as soon as the ids are confirmed.
 
 ---
 
