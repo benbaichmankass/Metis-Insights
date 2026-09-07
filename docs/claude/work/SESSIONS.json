@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T18:52:39Z",
+  "updated_at": "2026-09-07T19:28:36Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2820,6 +2820,26 @@
       "spawned_at": "2026-09-07T18:52:39Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "The biggest unowned finding of the day. Pass 1 inverted its own dispatch: protection is faithful, the journal is wrong.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "title": "MI-168 - trade-scoped close confirmation (Tier-3 proposal), coupled to MI-140",
+      "owns_object": "WO-20260907-RE-SCOPE-THE-CLOSE-CONFIRMATION-FROM-SYMBOL",
+      "checklist_item": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
+      "spawned_at": "2026-09-07T19:28:36Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator decision 2026-09-07: dispatch the fix now, coupled to MI-140 so the two cannot land independently and arm this on a real-money account.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_0126L48N2S4fAxtjG82kq9vq",
+      "title": "MI-169 - OPERATOR-APPROVED: cancel oca-protect-t5531 then repair trade 5531",
+      "owns_object": "WO-20260907-OPERATOR-APPROVED-REMEDIATION-CANCEL-OCA-PROTECT-T5531",
+      "checklist_item": "MI-169-MGC-REMEDIATION",
+      "spawned_at": "2026-09-07T19:28:36Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator approved option 3 explicitly, with the ORDER part of the approval.",
       "state": "working"
     }
   ],

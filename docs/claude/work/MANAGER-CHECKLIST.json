@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-07T18:53:00Z",
+  "updated_at": "2026-09-07T19:30:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2122,6 +2122,28 @@
       "tier": "1 to measure/diagnose/file; 3 for any order-path, journal-write, reconciler or protective change",
       "title": "Pipeline lane pass 2 — root-cause the 43 phantom MGC lots the journal holds and the venue does not",
       "note": "⚠️ PASS 1 INVERTED ITS OWN DISPATCH AND THAT IS THE ACTIONABLE PART. The manager dispatched it believing ib_paper/MGC was 491% over-covered with the defect in place_protective's pre-cancel scoping. It is not: every resting OCA group matches its journal row TO THE TICK — 5258/MHG 30, 5353/MGC 11, 5531/MGC 43 — so protection is downstream and FAITHFUL. THE JOURNAL SUMS TO 54 MGC LONG; THE VENUE REPORTS 11. place_protective correctly armed 43 lots for a fill the journal recorded and does not have. Trade 5531 is ict_scalp_mgc_15m, opened 2026-09-07T08:26Z. ⚠️ LIVE HAZARD, and it is worse than one group going naked: the oversized group carries the TIGHTER stop (t5531 at 4394.5 vs t5353 at 4210.7, venue avg entry 4423.02), so t5531 is the NEAREST stop and fires FIRST, attempting to sell 43 lots when 11 exist — which on IBKR does not stop at flat but flips to a ~32-lot NAKED SHORT with t5353's legs still resting. ib_paper is paper so no real capital is at risk today, but ict_scalp_mgc_15m and this code path are shared with real-money accounts. ⚠️ WHETHER THE SAME CLASS TOUCHES bybit_2 OR alpaca_live OUTRANKS THE MGC ROOT CAUSE IF THE ANSWER IS YES. Also required: whether any CLOSED-TRADE PnL was computed off a phantom quantity — that is the operator's actual question, since a phantom qty multiplies through every PnL, R and expectancy figure derived from the row. ⚠️ DETECT AND PROPOSE ONLY. Do not cancel a leg or edit a journal row: the one attempt to remediate this class cancelled the leg that MATCHED the journal (BL-20260820)."
+    },
+    {
+      "id": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
+      "status": "in_flight",
+      "owner": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "opened": "2026-09-07T19:30:00Z",
+      "updated": "2026-09-07T19:30:00Z",
+      "blocked_on": null,
+      "tier": "3 — PROPOSE ONLY; operator dispatched the proposal, not the merge",
+      "title": "Re-scope the close confirmation from SYMBOL-flat to TRADE-quantity (Tier-3 proposal)",
+      "note": "OPERATOR DECISION 2026-09-07, asked directly with the coupling stated: 'Dispatch it now, coupled to MI-140'. ⚠️ COUPLING IS THE POINT — alpaca_live (REAL MONEY) shares the identical symbol-scoped confirm and is immune TODAY only because it cannot place orders (MI-140). FIXING MI-140 ARMS THIS ON REAL MONEY; the two must not land independently, and the edge is written into BOTH work objects. bybit_2 (REAL MONEY) is NOT exposed — Bybit has no close-confirmation at all (0 hits, positive control returns IB + Alpaca) — so it escapes on a missing venue gate, not its trade shape, and must NOT be 'fixed' by adding one. Precondition is common: 13 (account,symbol) pairs held 2+ simultaneously-open rows in 28 days."
+    },
+    {
+      "id": "MI-169-MGC-REMEDIATION",
+      "status": "in_flight",
+      "owner": "session_0126L48N2S4fAxtjG82kq9vq",
+      "opened": "2026-09-07T19:30:00Z",
+      "updated": "2026-09-07T19:30:00Z",
+      "blocked_on": null,
+      "tier": "3 — OPERATOR-APPROVED for this trade only",
+      "title": "OPERATOR-APPROVED: cancel oca-protect-t5531, then repair trade 5531's journal row",
+      "note": "OPERATOR APPROVED OPTION 3 on 2026-09-07 with all three options and their consequences put to them: cancel the legs THEN repair the row, both, IN THAT ORDER. ⚠️ THE ORDER IS PART OF THE APPROVAL — a repair alone leaves 43 resting sell lots, a cancel alone leaves a phantom open row for the next protection sweep to re-arm. Cancel orders 548 (STP 43 @ 4394.5) + 551 (LMT 43 @ 4485.0) of oca-protect-t5531 on ib_paper/MGC; ⚠️ DO NOT TOUCH oca-protect-t5353, whose 11 lots are trade 5353's real and correct protection — and note the alarm's own remedy text ('cancel the leg that does NOT match trades.stop_loss') is USELESS here because BOTH legs match. Then journal 5531 closed_at 2026-09-07T11:45:06Z / exit 4392.9 / pnl −17024.28, re-derived from the venue rather than copied, with provenance stamped so a repaired row stays distinguishable from one the pipeline booked. ⚠️ THE APPROVAL COVERS THIS TRADE ONLY — a second instance is filed and reported, never remediated. ⚠️ ROOT CAUSE REMAINS OPEN under MI-168; a repaired row with the defect live will simply recur."
     }
   ],
   "as_of": "2026-09-06T16:05Z",

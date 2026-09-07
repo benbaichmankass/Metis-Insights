@@ -1,0 +1,39 @@
+id: WO-20260907-RE-SCOPE-THE-CLOSE-CONFIRMATION-FROM-SYMBOL
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Re-scope the close confirmation from SYMBOL-flat to TRADE-quantity
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A reviewable Tier-3 diff exists for IBClient.close and both AlpacaClient close paths, the partial-reduction question is PRESENTED to the operator rather than silently decided, the failure branch keeps confirmed/not-confirmed/could-not-look distinguishable, and a regression test reproducing two-open-rows-one-symbol FAILS on today's code. Nothing merged into a live path.
+
+why: >-
+  IBClient.close and both AlpacaClient close paths confirm a close by requiring the whole SYMBOL to reach flat when the close is of a single TRADE, so any account holding other lots of that symbol can never confirm and the failure branch leaves the journal row open. 13 (account,symbol) pairs held 2+ simultaneously-open rows in 28 days. COUPLED TO MI-140: alpaca_live is immune only because it cannot place orders, so fixing MI-140 ARMS this on real money.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
+
+operator_coupling: |
+  COUPLED TO WO-20260907-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG (MI-140), operator decision 2026-09-07.
+  alpaca_live (REAL MONEY) shares alpaca_client.py's identical symbol-scoped close confirmation and is
+  immune TODAY for exactly one reason: it cannot place orders at all. FIXING MI-140 ARMS THIS DEFECT ON A
+  REAL-MONEY ACCOUNT. The two must not be worked or landed independently.
+  bybit_2 (REAL MONEY) is NOT exposed - Bybit has no close-confirmation at all (0 hits for
+  BYBIT_CLOSE_CONFIRM; positive control returns IB + Alpaca). It escapes on a missing venue gate, not on
+  its trade shape, so do NOT 'fix' Bybit by adding a confirmation as a side effect.
