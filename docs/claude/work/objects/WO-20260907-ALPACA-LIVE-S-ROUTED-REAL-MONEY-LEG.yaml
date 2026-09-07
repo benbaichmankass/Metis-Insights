@@ -1,0 +1,30 @@
+id: WO-20260907-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  alpaca_live's routed real-money leg cannot place an order
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A single verdict with a stated population: order-path defect, correctly-refusing (defect is in the DECLARATION), or could-not-establish - the third never reading as either of the first two. Each of the five leads (cash-settlement gate armed on this account, dry_run_sizing_skip on a now-live account, silent_refusal alert_disposition, balance() None while positions() answers, whole-share sizing on a ~200 dollar account trading TLT) ruled in or out on evidence.
+
+why: >-
+  alpaca_live is mode live / real_money routing tlt_pullback_1h, both execution gates read live, and every signal journals dry_run_no_order_placed. The only Alpaca real-money leg is inert. Operator-selected; ranked T-7; sat unassigned all day waiting on a session slot, not on a decision.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

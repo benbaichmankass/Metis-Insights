@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-07T16:00:00Z",
+  "updated_at": "2026-09-07T16:48:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1841,12 +1841,14 @@
       "id": "MI-140-ALPACA-LIVE-CANNOT-PLACE",
       "title": "alpaca_live's routed real-money leg cannot place an order — both gates read live, every signal journals dry_run_no_order_placed",
       "state": "queued",
-      "owner": "unassigned — operator-selected, waiting on a session slot",
+      "owner": "session_01L4nzHTVNNdCxkpFxMqXB6V",
       "owns_object": "WO-20260906-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG",
       "priority": "P1_CYCLE",
       "tier": "unknown until root-caused",
-      "note": "Operator selected this to be routed. Blocked only on the concurrency cap of 3. ⚠️ Do not assume it is a bug — 'declared live and correctly refusing' is a real outcome and would move the defect to the declaration; ALPACA_CASH_SETTLEMENT_MODE=apply is armed on this exact account.",
-      "added": "2026-09-06"
+      "note": "Operator selected this to be routed. Blocked only on the concurrency cap of 3. ⚠️ Do not assume it is a bug — 'declared live and correctly refusing' is a real outcome and would move the defect to the declaration; ALPACA_CASH_SETTLEMENT_MODE=apply is armed on this exact account. DISPATCHED 2026-09-07T16:48Z, after the operator asked 'did you note the alpaca task?'. ⚠️ RECORDED AGAINST THE MANAGER: this row read 'unassigned — operator-selected, waiting on a session slot' for the whole day while the manager listed it as 'queued' in every status update. It was waiting on a SESSION SLOT, not on a decision, and the manager had slots — five other sessions were spawned in the same window. Noting an item in a checklist is not acting on it, and R7 grades whether the manager checked in, never whether it acted on what was waiting. MANAGER-VERIFIED ON THE FIELD BEFORE DISPATCH (config/accounts.yaml at main): alpaca_live is mode: live, account_class: real_money, strategies: ['tlt_pullback_1h']. The dispatch carries five leads to rule in or out and one binding instruction: DO NOT ASSUME IT IS A BUG — 'declared live and correctly refusing' is a real outcome that moves the defect to the DECLARATION, and those are different bugs with different fixes on a real-money account.",
+      "added": "2026-09-06",
+      "status": "in_flight",
+      "updated": "2026-09-07T16:48:00Z"
     },
     {
       "id": "MI-141-47-PERCENT-ERROR-FEED",
@@ -2068,14 +2070,36 @@
     },
     {
       "id": "MI-163-TRAILING-BANK-HALF",
-      "status": "in_flight",
+      "status": "done",
       "owner": "session_01Sxe5Mj9GbmuvVCKZ8LHrLv",
       "opened": "2026-09-07T16:00:00Z",
-      "updated": "2026-09-07T16:00:00Z",
+      "updated": "2026-09-07T16:42:00Z",
       "blocked_on": null,
       "tier": "1 to measure and propose; 3 to change any live exit lever",
       "title": "The trailing/banking half of the exit thesis — does the stop bank R as it accrues?",
-      "note": "The half of the operator's exit thesis still owed: 'the stop is the risk manager and must trail up to bank R', no endless bracket. MANAGER MEASUREMENT, over the 44 enabled+live legs (the same denominator MI-155 uses, reproduced independently): trail_mult 36/44, tp_r 36/44, trail_decay_tight_mult 16, trail_decay_stall_bars 10, be_offset_bps 8, trail_decay_arm_r 7, stale_exit_below_r 3, giveback_r 1 (uso_trend_1h only), be_at_r 0. exit_plan.py:304 reads be_at_r with NO default. ⚠️ THE MANAGER DELIBERATELY DID NOT SETTLE whether exit_plan.py is on the LIVE path or is the shadow ladder — CLAUDE.md calls the Exit Ladder observe-only and exit_ladder_soak.py is a caller, but so are coordinator.py:3485 and turtle_soup.py:420. If it is shadow-only then '0 of 44 be_at_r' is a fact about a shadow artifact and NOT the headline, and the live banking behaviour is whatever trail_mult/trail_decay_* do in the strategy units. Settling that backwards would produce a confident wrong finding about a live trading system, so it is the session's first task. THE SHIPPABLE SPLIT: per-leg trail geometry is blocked on MI-155's volume wall (all 44 insufficient_n, max live n=8 vs floor 30, invariant for any floor in [10,30]), but a FLEET-WIDE bank-at-+XR rule is gradeable on the POOLED corpus where n sums across legs. peak_r is a LOWER BOUND (peak_r_is_lower_bound true on 171/171 rows)."
+      "note": "The half of the operator's exit thesis still owed: 'the stop is the risk manager and must trail up to bank R', no endless bracket. MANAGER MEASUREMENT, over the 44 enabled+live legs (the same denominator MI-155 uses, reproduced independently): trail_mult 36/44, tp_r 36/44, trail_decay_tight_mult 16, trail_decay_stall_bars 10, be_offset_bps 8, trail_decay_arm_r 7, stale_exit_below_r 3, giveback_r 1 (uso_trend_1h only), be_at_r 0. exit_plan.py:304 reads be_at_r with NO default. ⚠️ THE MANAGER DELIBERATELY DID NOT SETTLE whether exit_plan.py is on the LIVE path or is the shadow ladder — CLAUDE.md calls the Exit Ladder observe-only and exit_ladder_soak.py is a caller, but so are coordinator.py:3485 and turtle_soup.py:420. If it is shadow-only then '0 of 44 be_at_r' is a fact about a shadow artifact and NOT the headline, and the live banking behaviour is whatever trail_mult/trail_decay_* do in the strategy units. Settling that backwards would produce a confident wrong finding about a live trading system, so it is the session's first task. THE SHIPPABLE SPLIT: per-leg trail geometry is blocked on MI-155's volume wall (all 44 insufficient_n, max live n=8 vs floor 30, invariant for any floor in [10,30]), but a FLEET-WIDE bank-at-+XR rule is gradeable on the POOLED corpus where n sums across legs. peak_r is a LOWER BOUND (peak_r_is_lower_bound true on 171/171 rows). DONE 2026-09-07T16:42Z — landed #11259 (59bfa099). SETTLED THE LIVE/SHADOW QUESTION: exit_plan.py is SHADOW — both callers WRITE and nothing READS the columns back, with a positive control proving the probe finds live readers for trail_mult. So the manager's '0 of 44 be_at_r' was a fact about a shadow artifact, and MI-163 said so rather than confirming what it was handed. THE FINDING: 36 of 44 legs run a monotone Chandelier ratchet, 8 run a one-shot break-even structurally incapable of accruing R; reaching break-even costs a median 2.00R against a median live peak of 0.84R, so it armed on 14 of 89 (15.7%) and banked +1R on 4 of 89 (4.5%). Pooled n=89 clears the floor of 30 where per-leg max n=8 does not."
+    },
+    {
+      "id": "MI-164-TELEMETRY-HOOK",
+      "status": "in_flight",
+      "owner": "session_01SZCy1acPMrX3ANUkzhM5te",
+      "opened": "2026-09-07T16:42:00Z",
+      "updated": "2026-09-07T16:42:00Z",
+      "blocked_on": null,
+      "tier": "3 — APPROVED by the operator 2026-09-07",
+      "title": "Proposal A (APPROVED): add record_position_telemetry to the 4 unhooked monitor units",
+      "note": "OPERATOR TIER-3 APPROVAL, 2026-09-07, verdict 'Approve A now', asked directly with the scope named: add the existing hook to squeeze_breakout_4h, ict_scalp, turtle_soup and vwap; observe-only; changes no exit. NO CONDITION was attached and the scope was NOT widened — a row recording a verdict without its condition is worse than a missing row, so the absence of one is stated deliberately rather than left to inference. WHY: 9 of 44 enabled+live legs are structurally invisible. MI-155 graded 13 legs n_live=0 as insufficient_n; MI-163 measured the split — 9 on an unhooked unit (we did not look) vs 4 a real absence of positions. Four need trading volume that effort cannot move; NINE need one line of code and no soak will ever produce a row for them. All 8 ict_scalp legs are among the 9, so the one-shot mechanism is entirely unmeasured. ⚠️ landed != observed: this closes only when a real row appears at /api/diag/position_telemetry for one of the 9."
+    },
+    {
+      "id": "MI-165-BE-FLOOR-SWEEP",
+      "status": "in_flight",
+      "owner": "session_01VKEGm8ZcTUgiZYRztPfryK",
+      "opened": "2026-09-07T16:42:00Z",
+      "updated": "2026-09-07T16:42:00Z",
+      "blocked_on": null,
+      "tier": "1 to sweep and propose; 3 to arm any value — NOT approved",
+      "title": "Proposal B (COMMISSIONED, not approved): the path-aware be_floor_r sweep",
+      "note": "OPERATOR DECISION, 2026-09-07, verdict 'Commission the path-aware sweep'. ⚠️ THE SCOPE IS THE SWEEP, NOT THE ARMING — the operator explicitly did NOT approve arming any be_floor_r value, and a successor reading 'approved' without that distinction could arm an exit lever on real money. THE GAP: MI-163's gross benefit peaks at +16.87R at 0.75R over n=71 closed in-population rows, but the telemetry carries peak_r/open_r/giveback_r and NO intra-trade path, so a stop parked at +X exits on the FIRST retrace and the forgone continuation is unmeasured. That is why MI-163 refused to name a value. THE GATE: a path-aware sweep over be_floor_r in {0.5,0.75,1.0,1.5} beating the ungated arm NET of forgone continuation, on the pooled corpus (n=89, floor 30 — sufficient, where per-leg max n=8 is not). Precedent this exists to avoid: FLIP_CONFIDENCE_THRESHOLD ran live on real money with no walk-forward, was measured 2026-08-11, LOST against plain hold, and was disarmed the same day. ⚠️ A clean 'no value clears the gate' is a FULLY SUCCESSFUL outcome and must not be softened."
     }
   ],
   "as_of": "2026-09-06T16:05Z",
