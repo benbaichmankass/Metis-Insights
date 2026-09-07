@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T22:26:00Z",
+  "updated_at": "2026-09-07T22:58:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2845,12 +2845,12 @@
     {
       "session_id": "session_019G7vh8rkRZryXJGhbhfov7",
       "registry_key": "pending-20260907T214605Z",
-      "state": "running",
+      "state": "completed",
       "title": "MI-171 — unblock #11271's stated-population false positive, then count the Alpaca over-close population nobody looked at",
       "owns_object": "WO-20260907-UNBLOCK-11271-S-ONE-STATED-POPULATION-FALSE",
       "spawned_at": "2026-09-07T21:46:05Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "RUNNING, connected, last activity 22:25:07Z. Its own task_summary reads 'research script + doc drafted; fixing line-wrap guard failure'. Part 1 is DONE and verified by the manager independently: #11271 went green and merged as 0c74a9c2, so the stated-population annotation the manager was refused permission to make is landed. Part 2 (the Alpaca over-close count) is in flight at #11289.",
+      "why": "BOTH parts delivered and MERGED (#11271 -> 0c74a9c2, #11292 -> 86b5261e). Part 2 is the strongest measurement of the day and its method is why: EVERY null result carries a positive control on the SAME probe. (a) 1 of 12 multi-row pairs is Alpaca -- alpaca_portfolio/TLT -- over 12 pairs among 600 position-holding rows in journal ids 4544-5543. NOTE 12, NOT the 13 the manager quoted from MI-167; it re-derived rather than trusting the figure, which is what it was asked to do. (b) ZERO over-close events, stated as 'we looked and found none', with the same scan returning 187 such closes on Bybit -- matching MI-167's independent 187 exactly. It also established that MI-167's '28-day window' is a CAP, not a chosen window: /api/diag/journal has no offset and no since, limit clamps at 1000, and limit=3000 returns the identical rows -- so nothing before id 4544 is readable and no figure here is all-time. AND IT FOUND A LIVE PRECONDITION nobody was looking for: alpaca_portfolio/TLT holds TWO open rows right now (5266 short 16, 5414 short 56) against a venue short of exactly 72, so the next close of either flattens all 72 and orphans the other. Paper money, same code path alpaca_live inherits.",
       "confirmed_at": "2026-09-07T21:48:03Z"
     }
   ],
