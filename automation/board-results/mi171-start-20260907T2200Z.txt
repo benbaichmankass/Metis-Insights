@@ -1,0 +1,2 @@
+FAILED:
+GraphQL: Commenting is disabled on issues with more than 2500 comments (addComment)
