@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T09:33:07Z",
+  "updated_at": "2026-09-07T11:30:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2631,7 +2631,7 @@
     {
       "session_id": "session_017odwPFdR66U1yWyjBqzCwR",
       "registry_key": "pending-20260907T065707Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-155 - per-leg backtest-to-live exit-location fidelity: the gate the bracket rebuild is waiting on",
       "owns_object": "WO-20260907-PER-LEG-BACKTEST-TO-LIVE-EXIT-LOCATION",
       "checklist_item": "MI-155-EXIT-LOCATION-FIDELITY",
@@ -2641,43 +2641,51 @@
         "claude/mi155-exit-fidelity-20260907"
       ],
       "why": "OPERATOR directed the bracket work as the next focus 2026-09-07. Reading MI-148 + MI-151 + MI-147 together, the quantile cannot be built first: MI-151 line 220 makes it conditional on this measurement, and MI-147 found the instrument has never been run.",
-      "confirmed_at": "2026-09-07T06:58:02Z"
+      "confirmed_at": "2026-09-07T06:58:02Z",
+      "note": "OBSERVED 2026-09-07T11:30Z: IDLE, work COMPLETE and MERGED as #11220.",
+      "observed_at": "2026-09-07T11:30:00Z"
     },
     {
       "session_id": "session_016Li3hqzjKh3bAX7HYuGu23",
       "registry_key": "pending-20260907T093212Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-158 - APPLY the approved reachable-TP change + ship the tp_intent reader",
       "owns_object": "WO-20260907-APPLY-THE-OPERATOR-APPROVED-REACHABLE-TAKE-PROFIT",
       "checklist_item": "MI-158-APPLY-REACHABLE-TP",
       "spawned_at": "2026-09-07T09:32:12Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator Tier-3 approval carried from PR #11225 (merged d50543a1). The manager holds the approval; this session executes it. Approval covers the CONTENT of the diff, not a licence to widen it.",
-      "confirmed_at": "2026-09-07T09:33:07Z"
+      "confirmed_at": "2026-09-07T09:33:07Z",
+      "note": "OBSERVED 2026-09-07T11:30Z: IDLE, work COMPLETE and MERGED as #11232 (3f88bfff). Graded by merged output, not by its summary. Applied the operator-approved diff, verified the 9-leg runtime identity four ways with a negative control, and shipped the tp_intent reader that BRANCHES. Refused to touch src/runtime/target_expectation.py because it is on the live target_extension_soak path, and said why. STILL OWED: the post-merge live read-back - merged is not deployed, and it did not claim otherwise.",
+      "observed_at": "2026-09-07T11:30:00Z"
     },
     {
       "session_id": "session_0148fMEXBbDgQU3qsrcWujtx",
       "registry_key": "pending-20260907T084821Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-156 - give every live leg a take-profit the venue will actually accept",
       "owns_object": "WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE",
       "checklist_item": "MI-156-REACHABLE-TAKE-PROFIT",
       "spawned_at": "2026-09-07T08:48:21Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed 2026-09-07 as the chosen bracket route. MI-146 measured that 25 of 44 enabled+live legs have no reachable TP; MI-155 established the calibrated per-leg route is blocked on data volume. This is the half that can move now.",
-      "confirmed_at": "2026-09-07T08:49:34Z"
+      "confirmed_at": "2026-09-07T08:49:34Z",
+      "note": "OBSERVED 2026-09-07T11:30Z: IDLE, work COMPLETE and MERGED as #11225 (d50543a1), then approved by the operator and applied by MI-158.",
+      "observed_at": "2026-09-07T11:30:00Z"
     },
     {
       "session_id": "session_01MLKjDPG9n1MHBByYEAEgjc",
       "registry_key": "pending-20260907T084831Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-157 - the committed backtest candle fixtures are flat, so every number measured on them is meaningless",
       "owns_object": "WO-20260907-THE-COMMITTED-BACKTEST-CANDLE-FIXTURES-ARE-FLAT",
       "checklist_item": "MI-157-FLAT-BACKTEST-FIXTURES",
       "spawned_at": "2026-09-07T08:48:31Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed 2026-09-07 to fix now as its own item. MI-151 found btc_5m_2026.csv has exactly one unique close across all 300 rows. Measurement-integrity defect; the cycle priority says repair the instrument before acting on what it says.",
-      "confirmed_at": "2026-09-07T08:49:34Z"
+      "confirmed_at": "2026-09-07T08:49:34Z",
+      "note": "OBSERVED 2026-09-07T11:30Z: IDLE and BLOCKED ON ME, not on itself. #11226 is green and has been since 09:42Z; its own summary says 'awaiting review or self-land decision'. The census is done: 7 candle files checked, 5 flat (all under data/ohlcv/, each 1 distinct close and 0 of 299 non-zero returns), 5 deleted, candle-fixture-variance-guard shipped and registered. The manager's merge is the only thing outstanding.",
+      "observed_at": "2026-09-07T11:30:00Z"
     },
     {
       "session_id": "session_01Et8yz5yBZ7ifySKwpF6R1s",

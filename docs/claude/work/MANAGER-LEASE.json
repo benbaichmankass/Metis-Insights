@@ -21,14 +21,14 @@
   "schema_version": 1,
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "claimed_at": "2026-09-07T06:27:54Z",
-  "heartbeat_at": "2026-09-07T09:33:58Z",
-  "expires_at": "2026-09-07T11:03:58Z",
+  "claimed_at": "2026-09-07T11:27:19Z",
+  "heartbeat_at": "2026-09-07T11:27:19Z",
+  "expires_at": "2026-09-07T12:57:19Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": null
+  "note": "RE-CLAIM by the previous holder after a self-inflicted expiry at 11:03Z. No other session held it (status: held=session_01HrmZ1RRNM4UnEUaFdrPEjj, claimable=True). Paired with a real supervision pass in the same commit, which is what R6 exists to force."
 }
