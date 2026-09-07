@@ -1,0 +1,53 @@
+=== trainer-diag-relay result ===
+request: mi154b-validate-publish-20260907
+state: ran
+remote_exit: 0
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/34082348962
+=================================
+===== 0. staged artifacts still present? =====
+total 2188
+drwxrwxr-x  2 ubuntu ubuntu    4096 Sep  7 04:13 .
+drwxrwxrwt 18 root   root    139264 Sep  7 04:13 ..
+-rw-rw-r--  1 ubuntu ubuntu 1044107 Sep  7 04:13 exit-head-ict_scalp-15m-v1.json
+-rw-rw-r--  1 ubuntu ubuntu 1048233 Sep  7 04:13 exit-head-ict_scalp-5m-v1.json
+
+===== 1. VALIDATE with the venv interpreter (positive control included) =====
+  positive control: lightgbm 4.6.0 importable in this interpreter
+    booster: 300 trees, 14 features; artifact declares 14
+  exit-head-ict_scalp-5m-v1.json: family==ict_scalp=OK | tf==5m=OK | stage==shadow=OK | symbols non-empty=OK | train_rows>0=OK | booster loads=OK | feature count matches=OK
+    booster: 300 trees, 14 features; artifact declares 14
+  exit-head-ict_scalp-15m-v1.json: family==ict_scalp=OK | tf==15m=OK | stage==shadow=OK | symbols non-empty=OK | train_rows>0=OK | booster loads=OK | feature count matches=OK
+  VALIDATION: PASS
+
+===== 2. PUBLISH into the mirror (stage=shadow only, no promotion) =====
+--- mirror BEFORE (POPULATION: *.json in runtime_logs/trainer_mirror/exit_head) ---
+2
+exit-head-donchian-1h-v1.json
+exit-head-donchian-peak-1h-v1.json
+--- mirror AFTER ---
+total 4096
+drwxrwxr-x 2 ubuntu ubuntu    4096 Sep  7 04:14 .
+drwxr-xr-x 7 ubuntu ubuntu    4096 Jul 14 10:20 ..
+-rw-rw-r-- 1 ubuntu ubuntu 1043684 Jul 12 14:44 exit-head-donchian-1h-v1.json
+-rw-rw-r-- 1 ubuntu ubuntu 1047168 Jul 12 22:45 exit-head-donchian-peak-1h-v1.json
+-rw-rw-r-- 1 ubuntu ubuntu 1044107 Sep  7 04:14 exit-head-ict_scalp-15m-v1.json
+-rw-rw-r-- 1 ubuntu ubuntu 1048233 Sep  7 04:14 exit-head-ict_scalp-5m-v1.json
+
+===== 3. READ BACK from the mirror -- verify, never assert =====
+  POPULATION: 4 artifact(s) in the mirror
+  exit-head-donchian-1h-v1.json: family='donchian' tf=1h stage=advisory symbols=['BTCUSDT', 'ETHUSDT', 'SOLUSDT'] rows=34338
+  exit-head-donchian-peak-1h-v1.json: family='donchian' tf=1h stage=shadow symbols=['BTCUSDT', 'ETHUSDT', 'SOLUSDT'] rows=44244
+  exit-head-ict_scalp-15m-v1.json: family='ict_scalp' tf=15m stage=shadow symbols=['ETHUSDT', 'SOLUSDT', 'XRPUSDT'] rows=28683
+  exit-head-ict_scalp-5m-v1.json: family='ict_scalp' tf=5m stage=shadow symbols=['AVAXUSDT', 'SOLUSDT', 'XRPUSDT'] rows=70891
+  ict_scalp-family artifacts now published: 2 -> ['exit-head-ict_scalp-15m-v1.json', 'exit-head-ict_scalp-5m-v1.json']
+
+===== 4. publish channel: is the mirror rsync timer live? =====
+active
+NEXT                        LEFT          LAST                        PASSED  UNIT                      ACTIVATES
+Mon 2026-09-07 04:16:22 UTC 1min 36s left Mon 2026-09-07 04:14:22 UTC 23s ago ict-trainer-publish.timer ict-trainer-publish.service
+
+1 timers listed.
+
+===== 5. disk =====
+/dev/sda1        45G   39G  6.5G  86% /
+
