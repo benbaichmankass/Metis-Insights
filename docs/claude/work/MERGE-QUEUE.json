@@ -53,54 +53,54 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T21:36:00Z",
+  "updated_at": "2026-09-07T21:58:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Refreshed 2026-09-07T21:36Z. The queue had gone stale at #11224 while main sat still from 19:14Z to 21:31Z with nine PRs open — which is the failure MI-102 filed this file to prevent, recurring. SUPERSEDED AND TO BE CLOSED ONCE #11283 LANDS, not merged as duplicates: #11260, #11273, #11277, #11280. Their branches are kept until #11283 is on main so nothing is stranded. NOT TRIAGED HERE, and named so they are not lost: #11281 and #11261 (auto digests), #11174 and #10895 (old, unowned). Exactly one entry is `rebasing` (R8).",
+  "note": "Refreshed 2026-09-07T21:58Z after the drain. Open PRs 13 -> 8. LANDED: #11274 (MI-167's diagnosis), #11278 (MI-169's HALT), #11283 (the consolidation), #11264 (MI-164, operator-approved Proposal A). CLOSED as superseded with a comment each, never merged as duplicates: #11260, #11273, #11277, #11280. NOT TRIAGED, named so they are not lost: #11174 and #10895, both open since before today. Exactly one entry is `rebasing` (R8).",
   "entries": [
     {
-      "pr": 11283,
-      "branch": "claude/mgr-queue-drain-20260907",
+      "pr": 11285,
+      "branch": "claude/mgr-mi171-carry-20260907",
       "session_id": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "position": 1,
       "state": "rebasing",
       "blocked_on": null,
-      "note": "THE DRAIN ITSELF. Consolidates #11260/#11273/#11277/#11280, which were jammed on the relay CI trap, not on review: #11271 had ZERO check runs and those four had exactly ONE (the relay's own job). All four rewrite MANAGER-CHECKLIST.json and SESSIONS.json, so landing them serially meant four conflict resolutions; merged with merge.jsonregister instead. Carries the lease heartbeat, a live supervision pass over 12 sessions, and the MI-170 filing."
+      "note": "Carries the MI-171 work object + confirmed registry row that #11283's auto-merge left behind. MI-171 is RUNNING against a work object that is not yet on main, so this is not cosmetic."
     },
     {
-      "pr": 11278,
-      "branch": "mi-169-cancel-blocked-wrong-order-id",
-      "session_id": "session_0126L48N2S4fAxtjG82kq9vq",
+      "pr": 11286,
+      "branch": "automation/reconcile-open-prs-34164810880-1",
+      "session_id": "automation",
       "position": 2,
       "state": "waiting",
       "blocked_on": "predecessor",
-      "note": "MI-169's HALT record — it refused an operator-approved cancel because the approved order id (548) is in oca-protect-t5353, not t5531. The manager verified that against the venue and the session is right. DOCUMENT-INDEX.md collided with #11274; resolved by keeping both rows."
+      "note": "Auto-reconcile of OPEN-PRS.json after the merges. Worth noting it FIRED: #11174 is the record of the deadlock where this reconcile did not happen."
     },
     {
       "pr": 11271,
       "branch": "mi140-alpaca-live-refusal-verdict",
       "session_id": "session_01L4nzHTVNNdCxkpFxMqXB6V",
       "position": 3,
-      "state": "waiting",
-      "blocked_on": "predecessor",
-      "note": "MI-140's verdict: alpaca_live is CORRECTLY refusing, over a population of two shorts suppressed by the operator's own side_filter. Was blocked ~80 minutes on a GitHub App 403; opened via the pr-opener relay."
-    },
-    {
-      "pr": 11264,
-      "branch": "claude/mi164-telemetry-hook-20260907",
-      "session_id": "session_01SZCy1acPMrX3ANUkzhM5te",
-      "position": 4,
-      "state": "waiting",
-      "blocked_on": "human_merge",
-      "note": "Green, and correctly REFUSES to self-land: pr-landing-guard R4 bars a Tier-3 diff from landing itself whatever its approval state. The operator approved Proposal A in conversation; the session declined to act on that claim because it reached it only as dispatch text. Needs a human click, not a fix."
+      "state": "blocked",
+      "blocked_on": "MI-171 (session_019G7vh8rkRZryXJGhbhfov7)",
+      "note": "Red on exactly ONE guard, stated-population, firing on '| risk_pct | 2% |' -- a configured parameter, not a statistic. The manager tried the one-line annotation and manager-scope R2 refused it TWICE; docs/research is a worker surface. Reset to fd9f548f so it carries zero manager commits (R2 grades COMMITS IN RANGE, so the REVERT was a second violation, not a repair). MI-171 owns the fix."
     },
     {
       "pr": 11279,
       "branch": "mi-168-trade-scoped-close-confirmation",
       "session_id": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "position": 4,
+      "state": "blocked",
+      "blocked_on": "operator_decision",
+      "note": "Two decisions owed: approve/reject the symbol->trade re-scope, and name the IB_CLOSE_CONFIRM partial-fill default. Its backlog row was landed to main separately (see MI-170) so a REAL-MONEY finding does not wait on those decisions."
+    },
+    {
+      "pr": 11281,
+      "branch": "automation/error-feed-digest-34160653535-1",
+      "session_id": "automation",
       "position": 5,
       "state": "waiting",
-      "blocked_on": "operator_decision",
-      "note": "HELD. Two decisions owed: (1) approve/reject re-scoping the close confirmation from symbol to trade; (2) name the IB_CLOSE_CONFIRM partial-fill default. The session reports it is NOT sufficient alone because it also found the opposite-sign REAL-MONEY defect now filed as MI-170."
+      "blocked_on": "predecessor",
+      "note": "Auto digest; supersedes #11261 in content."
     }
   ]
 }
