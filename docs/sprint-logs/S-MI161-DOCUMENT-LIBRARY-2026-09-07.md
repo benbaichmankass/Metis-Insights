@@ -288,7 +288,7 @@ bot results-commits from re-burying this PR's checks.
 
 ## Next Recommended Sprint
 
-The board successor + cap watch (`BL-20260907-COORDINATION-BOARD-IS-FULL-...`),
+The board successor + cap watch (`BL-20260907-COORDINATION-BOARD-IS-FULL-AT-GITHUBS-2500-COMMENT-CAP-AND-BOTH-POST-PATHS-ARE-DEAD`),
 as its own PR. It is currently blocking the mandatory START for **every**
 session, which makes it higher-value than draining the `unknown` rows.
 
