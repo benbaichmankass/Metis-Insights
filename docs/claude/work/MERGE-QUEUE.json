@@ -53,36 +53,54 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T08:55:00Z",
+  "updated_at": "2026-09-07T21:36:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Serialized 2026-09-07T08:55Z. Three manager-authored PRs, two of which touch MANAGER-CHECKLIST.json - so they are ordered rather than left to race, which is the whole point of the queue existing (MI-102: a queue held in a session's head dies with that session). At most one entry may be `rebasing` (R8); none is.",
+  "note": "Refreshed 2026-09-07T21:36Z. The queue had gone stale at #11224 while main sat still from 19:14Z to 21:31Z with nine PRs open — which is the failure MI-102 filed this file to prevent, recurring. SUPERSEDED AND TO BE CLOSED ONCE #11283 LANDS, not merged as duplicates: #11260, #11273, #11277, #11280. Their branches are kept until #11283 is on main so nothing is stranded. NOT TRIAGED HERE, and named so they are not lost: #11281 and #11261 (auto digests), #11174 and #10895 (old, unowned). Exactly one entry is `rebasing` (R8).",
   "entries": [
     {
-      "pr": 11222,
-      "branch": "claude/mgr-hb-20260907-0829",
+      "pr": 11283,
+      "branch": "claude/mgr-queue-drain-20260907",
       "session_id": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "position": 1,
-      "state": "waiting",
-      "blocked_on": "ci",
-      "note": "Lease heartbeat + the one genuinely unregistered sub-session (MI-150b). Smallest diff, goes FIRST so the lease is fresh on main before anything larger risks conflicting. Auto-merge armed."
+      "state": "rebasing",
+      "blocked_on": null,
+      "note": "THE DRAIN ITSELF. Consolidates #11260/#11273/#11277/#11280, which were jammed on the relay CI trap, not on review: #11271 had ZERO check runs and those four had exactly ONE (the relay's own job). All four rewrite MANAGER-CHECKLIST.json and SESSIONS.json, so landing them serially meant four conflict resolutions; merged with merge.jsonregister instead. Carries the lease heartbeat, a live supervision pass over 12 sessions, and the MI-170 filing."
     },
     {
-      "pr": 11223,
-      "branch": "claude/mgr-openprs-reconcile-20260907",
-      "session_id": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "pr": 11278,
+      "branch": "mi-169-cancel-blocked-wrong-order-id",
+      "session_id": "session_0126L48N2S4fAxtjG82kq9vq",
       "position": 2,
       "state": "waiting",
       "blocked_on": "predecessor",
-      "note": "OPEN-PRS hand-reconcile (5 rows settled, 2 added, 4 stale auto-reconcile PRs closed) + the four overnight checklist items closed. ⚠️ TOUCHES MANAGER-CHECKLIST.json, WHICH #11224 ALSO TOUCHES. Whichever merges second WILL read dirty on GitHub - the jsonregister merge driver is CLIENT-SIDE and GitHub does not run it. Resolve locally (the driver is armed in a session clone via scripts/ops/install_merge_driver.sh) rather than re-generating either file."
+      "note": "MI-169's HALT record — it refused an operator-approved cancel because the approved order id (548) is in oca-protect-t5353, not t5531. The manager verified that against the venue and the session is right. DOCUMENT-INDEX.md collided with #11274; resolved by keeping both rows."
     },
     {
-      "pr": 11224,
-      "branch": "claude/mgr-dispatch-20260907-tps",
-      "session_id": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "pr": 11271,
+      "branch": "mi140-alpaca-live-refusal-verdict",
+      "session_id": "session_01L4nzHTVNNdCxkpFxMqXB6V",
       "position": 3,
       "state": "waiting",
       "blocked_on": "predecessor",
-      "note": "Dispatch record for MI-156 + MI-157, the operator's chosen route after MI-155 blocked the calibrated one. Two work objects, two registry confirmations, two checklist rows, both objects moved dormant -> in_flight (WIP 3 -> 5, ceiling 8). Same MANAGER-CHECKLIST.json collision as position 2."
+      "note": "MI-140's verdict: alpaca_live is CORRECTLY refusing, over a population of two shorts suppressed by the operator's own side_filter. Was blocked ~80 minutes on a GitHub App 403; opened via the pr-opener relay."
+    },
+    {
+      "pr": 11264,
+      "branch": "claude/mi164-telemetry-hook-20260907",
+      "session_id": "session_01SZCy1acPMrX3ANUkzhM5te",
+      "position": 4,
+      "state": "waiting",
+      "blocked_on": "human_merge",
+      "note": "Green, and correctly REFUSES to self-land: pr-landing-guard R4 bars a Tier-3 diff from landing itself whatever its approval state. The operator approved Proposal A in conversation; the session declined to act on that claim because it reached it only as dispatch text. Needs a human click, not a fix."
+    },
+    {
+      "pr": 11279,
+      "branch": "mi-168-trade-scoped-close-confirmation",
+      "session_id": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "position": 5,
+      "state": "waiting",
+      "blocked_on": "operator_decision",
+      "note": "HELD. Two decisions owed: (1) approve/reject re-scoping the close confirmation from symbol to trade; (2) name the IB_CLOSE_CONFIRM partial-fill default. The session reports it is NOT sufficient alone because it also found the opposite-sign REAL-MONEY defect now filed as MI-170."
     }
   ]
 }
