@@ -46,7 +46,7 @@ import subprocess
 import sys
 from datetime import date
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 REPO = Path(__file__).resolve().parents[2]
 INDEX_PATH = REPO / "docs" / "DOCUMENT-INDEX.md"
