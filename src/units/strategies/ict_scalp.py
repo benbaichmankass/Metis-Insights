@@ -1042,6 +1042,41 @@ def monitor(cfg, candles_df, open_pkg):
     if eh_verdict is not None:
         return eh_verdict
 
+    # M31 P2 — position telemetry (observe-only); see trend_donchian.monitor
+    # for the contract. Placed after every close path so a tick that EXITS is
+    # not also recorded as a still-open position, and before the break-even
+    # modify so the row carries the stop this tick started with.
+    #
+    # ict_scalp has no since-entry frame of its own, so the window is resolved
+    # through `exit_levers.since_entry` — the ONE owner of that definition —
+    # rather than a fourth private copy of it. Everything the hook needs is
+    # computed INSIDE the guard, so no name it binds can reach the verdict
+    # below and the added surface cannot alter an exit.
+    #
+    # ⚠️ This is the only path by which the one-shot break-even mechanism ever
+    # becomes measurable: all 8 live ict_scalp legs emit no peak-R telemetry
+    # without it, however much they trade.
+    try:
+        from src.runtime.exit_levers import since_entry
+        from src.runtime.position_telemetry import record_position_telemetry
+
+        if direction in ("long", "short"):
+            _meta = open_pkg.get("meta") or {}
+            if isinstance(_meta, str):
+                _meta = json.loads(_meta) if _meta else {}
+            if not isinstance(_meta, dict):
+                _meta = {}
+            record_position_telemetry(
+                open_pkg=open_pkg, meta=_meta,
+                window=since_entry(candles_df, open_pkg), direction=direction,
+                current_price=current_price,
+                stop=_coerce_float(open_pkg.get("sl")),
+                target=_coerce_float(open_pkg.get("tp")),
+                strategy=str(_meta.get("strategy_label")
+                             or open_pkg.get("strategy_name") or "") or None,
+            )
+    except Exception:  # noqa: BLE001 — telemetry must never break the exit
+        pass
     try:
         be_offset_bps = float(cfg_dict.get("be_offset_bps", 0.0))
     except (TypeError, ValueError):
