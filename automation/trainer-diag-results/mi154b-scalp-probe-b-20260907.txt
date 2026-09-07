@@ -1,0 +1,82 @@
+=== trainer-diag-relay result ===
+request: mi154b-scalp-probe-b-20260907
+state: ran
+remote_exit: 0
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/34081562219
+=================================
+===== 1. repo state (does it carry #11169's --family flag?) =====
+0ec62fc0 manager-lease: heartbeat 2026-09-07T03:25:13Z (#11207)
+--family present in exporter: 12
+
+===== 2. E0 scalp round dirs (POPULATION: everything under runtime_logs/m20_exit_head) =====
+1h_donchian_reswept
+2h
+4h
+cand15m_20260815T042247Z
+determinism_20260815T032648Z
+dispersion_20260815T012205Z
+dispersion_clean_20260815T012717Z
+donch1h_20260815T071615Z
+donch1h_20260815T072716Z
+donch4h_20260815T093818Z
+donchian_1h_nested
+eh_1d
+eh_1d_pooled
+eh_1d_pullback
+eh_1h
+eh_1h_pooled
+eh_sq4h
+ehm_stale_20260816T031959Z
+ehm_stale_20260816T032245Z
+ehm_stale_20260816T042113Z
+eth_denom_2h_20260814T130657Z
+eth_denom_4h_20260814T134036Z
+p4_hp_ext_1h
+p4_peak_1h
+pb1h_20260815T102558Z
+peak_2h
+peak_4h
+prop_1h
+prop_1h.ABORTED-WRONG-GEOMETRY
+propdonch1h_20260815T092941Z
+pull2h_20260815T095550Z
+pullback_1d_20260814T212317Z
+pullback_1h_20260814T182245Z
+scalp5m_20260815T103529Z
+scalp_15m
+scalp_15m_20260814T135244Z
+scalp_5m
+scalp_5m_20260814T151003Z
+scalp_nested
+scalp_nested.log
+--- total round dirs: 43 ---
+
+===== 3. scalp round contents + harness row counts =====
+### runtime_logs/m20_exit_head/scalp_5m_20260814T151003Z
+  emit: no rows.jsonl (ict_scalp_avax_5m.jsonl ict_scalp_sol_5m.jsonl ict_scalp_xrp_5m.jsonl )
+  ict_scalp_avax_5m: total=27513 harness=27513
+  ict_scalp_sol_5m: total=22120 harness=22120
+  ict_scalp_xrp_5m: total=21258 harness=21258
+### runtime_logs/m20_exit_head/scalp_15m_20260814T135244Z
+  emit: no rows.jsonl (ict_scalp_eth_15m.jsonl ict_scalp_sol_15m.jsonl ict_scalp_xrp_15m.jsonl )
+  ict_scalp_eth_15m: total=8644 harness=8644
+  ict_scalp_sol_15m: total=10079 harness=10079
+  ict_scalp_xrp_15m: total=9960 harness=9960
+
+===== 4. current published mirror artifacts (POPULATION: the exit_head mirror dir) =====
+total 2052
+drwxrwxr-x 2 ubuntu ubuntu    4096 Jul 12 22:45 .
+drwxr-xr-x 7 ubuntu ubuntu    4096 Jul 14 10:20 ..
+-rw-rw-r-- 1 ubuntu ubuntu 1043684 Jul 12 14:44 exit-head-donchian-1h-v1.json
+-rw-rw-r-- 1 ubuntu ubuntu 1047168 Jul 12 22:45 exit-head-donchian-peak-1h-v1.json
+--- declared family/tf/stage per artifact ---
+  exit-head-donchian-1h-v1.json: family= donchian tf= 1h stage= advisory symbols= ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'] train_rows= 34338
+  exit-head-donchian-peak-1h-v1.json: family= donchian tf= 1h stage= shadow symbols= ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'] train_rows= 44244
+
+===== 5. toolchain =====
+.venv/bin/python3
+lightgbm 4.6.0 python 3.11.0rc1
+
+===== 6. disk =====
+/dev/sda1        45G   39G  6.6G  86% /
+
