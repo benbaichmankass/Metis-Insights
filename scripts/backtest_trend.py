@@ -222,6 +222,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  trail_vol_above_pctl: float = 0.0,
                  trail_vol_below_pctl: float = 0.0,
                  trail_vol_tight_mult: float = 0.0,
+                 be_floor_r: float = 0.0,
                  trades_out: Optional[List["Trade"]] = None) -> Dict[str, Any]:
     """Run the Donchian trend backtest and return its summary dict.
 
@@ -533,6 +534,18 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                     trail_vol_above_pctl, trail_vol_below_pctl,
                     trail_vol_tight_mult) * atr)
                 mfe = max(mfe, (ext - entry) / risk)
+                # MI-165 break-even FLOOR lever (0 = off, byte-identical).
+                # Once the trade has SEEN >= be_floor_r R, the stop may never
+                # again sit below entry. `max()`-ed against the chandelier
+                # candidate, so it can only ever TIGHTEN — the monotone-ratchet
+                # invariant the live units guarantee is preserved, not replaced.
+                # Armed off `mfe` (the since-entry peak in R), which is the same
+                # quantity `position_telemetry.since_entry_peak` records live.
+                # Applied AFTER the ratchet and BEFORE the next bar's stop test,
+                # so it binds from the bar following the one that armed it —
+                # the conservative reading, consistent with SL-first.
+                if be_floor_r > 0.0 and mfe >= be_floor_r:
+                    trail = max(trail, entry)
             else:
                 if bh >= trail:
                     exit_price, exit_idx = trail, j
@@ -552,6 +565,10 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                     trail_vol_above_pctl, trail_vol_below_pctl,
                     trail_vol_tight_mult) * atr)
                 mfe = max(mfe, (entry - ext) / risk)
+                # MI-165 break-even FLOOR — short side. `min()` is the
+                # tightening direction here, mirroring the ratchet above.
+                if be_floor_r > 0.0 and mfe >= be_floor_r:
+                    trail = min(trail, entry)
             # M20 giveback-stop lever (0 = off, byte-identical): once the trade has
             # SEEN >= giveback_min_mfe_r R of open profit, exit at CLOSE when it has
             # handed back >= giveback_r R from that peak. An R-based profit lock,
@@ -727,6 +744,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         params["trail_decay_tight_mult"] = trail_decay_tight_mult
     if rr_floor_on:
         params["rr_floor"] = rr_floor
+    if be_floor_r > 0.0:
+        params["be_floor_r"] = be_floor_r
     if confirm_bars:
         params["confirm_bars"] = confirm_bars
     if skip_hour_set:
@@ -1056,6 +1075,12 @@ def main(argv: List[str]) -> int:
     p.add_argument("--trail-decay-tight-mult", type=float, default=0.0,
                    help="The tightened trail mult once armed (0 disables the "
                         "whole decay lever, byte-identical).")
+    p.add_argument("--be-floor-r", type=float, default=0.0,
+                   help="MI-165 break-even FLOOR (0=off, byte-identical): once "
+                        "the trade has SEEN this many R of open profit, the "
+                        "trailing stop may never again sit below entry. "
+                        "max()-ed against the chandelier candidate so it can "
+                        "only ever TIGHTEN, preserving the monotone ratchet.")
     p.add_argument("--rr-floor", type=float, default=0.0,
                    help="M31 P5 candidate (0=off, byte-identical): close at bar "
                         "CLOSE once rr_from_here = r_to_target / r_to_stop falls "
@@ -1156,6 +1181,7 @@ def main(argv: List[str]) -> int:
                      trail_decay_stall_bars=args.trail_decay_stall_bars,
                      trail_decay_tight_mult=args.trail_decay_tight_mult,
                      rr_floor=args.rr_floor,
+                     be_floor_r=args.be_floor_r,
                      confirm_bars=args.confirm_bars,
                      skip_hours=args.skip_hours,
                      vol_skip_above_pctl=args.vol_skip_above_pctl,

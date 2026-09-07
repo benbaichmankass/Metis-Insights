@@ -352,6 +352,8 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/diagnoses/MI-124-never-firing-legs-diagnosis.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
 | `docs/claude/diagnoses/MI-126-sunset-absence-not-zero.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
 | `docs/claude/diagnoses/MI-127-pnl-null-on-closes-and-trade-4350.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
+| `docs/claude/diagnoses/MI-166-pipeline-integrity-pass-1.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
+| `docs/claude/diagnoses/MI-167-pipeline-integrity-pass-2.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
 | `docs/claude/dispositions/2026-09-06-1C-three-live-alarms.md` | history | historical | — | 2026-09-07 | `dir:dispositions-record-decisions-taken / dir:record-of-a-completed-session` | — |
 | `docs/claude/env-gate-purge-phase2-annotations.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/exchange-truth-attribution.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
@@ -642,6 +644,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/exit-lever-wiring-audit-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-location-fidelity-2026-09-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/banking-half-2026-09-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/be-floor-sweep-2026-09-07.md` | evidence | live | — | 2026-09-07 | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-management-ml-experiment-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/exit-reason-frozen-at-close-2026-08-22.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-sweep-positive-control-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |

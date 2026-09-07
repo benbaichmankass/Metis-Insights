@@ -177,6 +177,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  adx_max: Optional[float] = None,
                  adx_period: int = 14,
                  direction_filter: str = "off",
+                 be_floor_r: float = 0.0,
                  stale_exit_bars: Optional[int] = None,
                  stale_exit_below_r: float = 0.0,
                  flip_exit_bars: Optional[int] = None,
@@ -559,11 +560,23 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                     ext, ext_j = h, j
                 trail = max(trail, ext - _vol_tm(_eff_tm(ext, ext_j, j), j) * atr)
                 mfe = max(mfe, (ext - entry) / risk)
+                # MI-165 break-even FLOOR (0 = off, byte-identical). Once the
+                # trade has SEEN >= be_floor_r R, the stop may never again sit
+                # below entry. `max()`-ed against the chandelier candidate so it
+                # can only ever TIGHTEN. Semantics identical to
+                # `scripts/backtest_trend.py`, which carries the full rationale —
+                # the three ratchet units share one trail geometry, so the lever
+                # must mean the same thing in each harness that models one.
+                if be_floor_r > 0.0 and mfe >= be_floor_r:
+                    trail = max(trail, entry)
             else:
                 if lo < ext:
                     ext, ext_j = lo, j
                 trail = min(trail, ext + _vol_tm(_eff_tm(ext, ext_j, j), j) * atr)
                 mfe = max(mfe, (entry - ext) / risk)
+                # MI-165 break-even FLOOR — short side; `min()` tightens here.
+                if be_floor_r > 0.0 and mfe >= be_floor_r:
+                    trail = min(trail, entry)
 
         def _levers(px: float):
             nonlocal rr_min
@@ -728,6 +741,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                               "pullback_frac": pullback_frac,
                               "atr_stop_mult": atr_stop_mult,
                               "trail_mult": trail_mult,
+                              **({"be_floor_r": be_floor_r} if be_floor_r > 0.0 else {}),
                               "min_confidence": min_confidence}
     if confirm_bars > 0:
         params["confirm_bars"] = confirm_bars
@@ -956,6 +970,10 @@ def main(argv: List[str]) -> int:
     p.add_argument("--atr-period", type=int, default=14)
     p.add_argument("--atr-stop-mult", type=float, default=2.5,
                    help="Initial stop entry ∓ this × ATR (live default 2.5).")
+    p.add_argument("--be-floor-r", type=float, default=0.0,
+                   help="MI-165 break-even FLOOR (0=off, byte-identical): once "
+                        "the trade has SEEN this many R, the trailing stop may "
+                        "never again sit below entry.")
     p.add_argument("--trail-mult", type=float, default=5.0,
                    help="Chandelier trail distance in ATR (live default 5.0).")
     p.add_argument("--timeout-bars", type=int, default=200)
@@ -1148,6 +1166,7 @@ def main(argv: List[str]) -> int:
                        atr_period=args.atr_period,
                        atr_stop_mult=args.atr_stop_mult,
                        trail_mult=args.trail_mult,
+                       be_floor_r=args.be_floor_r,
                        timeout_bars=args.timeout_bars,
                        cooldown_bars=args.cooldown_bars,
                        timeframe=args.timeframe,
