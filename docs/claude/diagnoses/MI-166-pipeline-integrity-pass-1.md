@@ -89,7 +89,8 @@ owns them*. **The journal sums to 54 MGC long; the venue reports 11.** The 43-lo
 divergence is trade 5531, opened 08:26Z this morning.
 
 ⚠️ **This inverts the framing the pass was dispatched under, and the inversion is the
-actionable part.** The dispatch reads the 491% as a protection defect whose remedy lives
+actionable part.** The dispatch reads the 491% (54 resting stop lots over a position of
+11, n = 4 MGC legs in 2 groups) as a protection defect whose remedy lives
 in `place_protective`'s pre-cancel scoping. It is not. Protection is downstream and
 faithful. **The defect is that the journal recorded a 43-lot fill it does not have**, and
 `place_protective` then correctly armed 43 lots of protection for it.
@@ -157,7 +158,9 @@ not a units bug on our side: `22078.1 × 1e8` exactly. `max_qty:2200000000000` �
 
 **These are Market orders with attached TP/SL, so the rejection loses the entry *and* its
 protection together — five signals produced no position at all.** The overshoot is
-0.35–6.25%: a working clamp would have placed all five at 93.7–99.7% of intended size.
+0.35–6.25% over the 5 qty rejections tabulated above (n = 5 of the 6
+`bybit_place_order_failed` rows in the 48-row ERROR+ feed): a working clamp would have
+placed all five at 93.7–99.7% of intended size.
 
 ### Why the existing clamp did not fire
 
