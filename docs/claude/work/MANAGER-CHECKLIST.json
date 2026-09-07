@@ -2032,6 +2032,32 @@
       "tier": "1",
       "title": "The document library - one centralized, categorized, status-carrying index of every document",
       "note": "OPERATOR-DIRECTED 2026-09-07, verbatim: 'we need a library for our documents ... a lot of things probably look fine if you just open them on their own. So maybe one centralized table where we keep track of everything, and everything has to be organized correctly and logged and categorized.' THE MOTIVATING FAILURE HAPPENED TODAY AND IS MEASURED: the manager reported a roadmap status TO THE OPERATOR off WORKPLAN-2026-08-14.md, which declares 'Status: ACTIVE' while three generations superseded. Three deliverables: the index (closed category vocabulary separating INSTRUCTION from EVIDENCE from HISTORY; status incl. superseded vs closed_unfinished vs unknown, never collapsed); a status header IN EVERY FILE, because the index alone does not help a reader who opens one document directly - which is the whole failure; and a CI guard with a PLANTED CONTROL proving it fires. ⚠️ SEQUENCED ALONGSIDE MI-159, NOT AGAINST IT: MI-159 owns which work plan is live and the roadmap statuses; MI-161 takes those FROM it and marks them unknown until it lands. Two sessions independently deciding which plan is live would reproduce the defect they are both fixing."
+    },
+    {
+      "id": "MI-159-ONE-WORKPLAN-AND-TASK-PRIORITY",
+      "status": "in_flight",
+      "owner": "session_016szw9vJrzPUCH1FVMuXycM",
+      "opened": "2026-09-07T12:09:00Z",
+      "updated": "2026-09-07T12:09:00Z",
+      "owns_object": "WO-20260907-ONE-LIVE-WORK-PLAN-A-ROADMAP-THAT",
+      "tier": "1",
+      "title": "One live work plan, a roadmap that matches reality, and priority assigned by TASK not by milestone",
+      "note": "OPERATOR-DIRECTED 2026-09-07 after the manager gave a STALE roadmap read. Measured: TWELVE work-plan documents; docs/research/WORKPLAN-2026-08-14.md still declares itself ACTIVE three generations after being superseded (08-14 -> 08-21 -> 08-26 -> 08-29, the live one); ROADMAP.md's Next section points at the stale 08-14; and docs/claude/CYCLE-PRIORITY.json is newer than all of them and is what actually drives sessions. Three surfaces, three answers. THE MAIN DELIVERABLE IS (3), TASK-LEVEL PRIORITY THAT CROSSES MILESTONES - the operator's framing: a milestone we do not want to push may hold a subtask that unlocks one we do. (1) exactly one live plan with a CI guard and a planted control; (2) roadmap rows checked against what shipped, unverifiable ones MARKED unverified rather than left standing. ⚠️ THE OPERATOR EXPLICITLY REJECTED the 'too many open milestones' framing the manager raised - they are TRACKS, deliberately unfunded, and that is fine. Do not re-raise it. ⚠️ CY-20260906-TRADING-TRUTH STANDS, re-affirmed by the operator this session; the ranking serves it, it does not replace it."
+    },
+    {
+      "id": "MI-160-PRUNE-PROPOSAL",
+      "status": "queued",
+      "owner": null,
+      "opened": "2026-09-07T12:15:00Z",
+      "updated": "2026-09-07T12:15:00Z",
+      "blocked_on": {
+        "kind": "predecessor",
+        "ref": "MI-159-ONE-WORKPLAN-AND-TASK-PRIORITY",
+        "since": "2026-09-07T12:15:00Z"
+      },
+      "tier": "1",
+      "title": "Propose roadmap prunes - against a roadmap whose statuses have been verified, never before",
+      "note": "OPERATOR, 2026-09-07: 'we can definitely prune the road map'. That REFINES their earlier correction, it does not reverse it - open milestones are still TRACKS and being numerous is still not a defect. What is permitted now is naming rows that are genuinely DEAD (withdrawn, superseded, or shipped and never marked) as distinct from merely DORMANT. ⚠️ PROPOSE ONLY; the operator decides. ⚠️ BLOCKED ON MI-159 BY DESIGN, not by scheduling: you cannot honestly propose closing a row whose status has not been verified, and MI-159 exists precisely because several statuses were measured WRONG today. Pruning first would close rows on the strength of claims already caught failing. ⚠️ THE MANAGER COULD NOT AMEND MI-159 IN FLIGHT - there is no send_message to a running sub-session (ListAgents: no reachable peers), which confirms the SESSIONS.json README's documented finding. Interrupting would have stopped it without being able to hand it the new instruction, so the split is a consequence of a real capability limit as well as of the right order."
     }
   ],
   "as_of": "2026-09-06T16:05Z",
