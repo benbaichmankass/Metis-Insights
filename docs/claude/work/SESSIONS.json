@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-06T21:27:03Z",
+  "updated_at": "2026-09-07T03:27:13Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2612,6 +2612,21 @@
       ],
       "why": "OPERATOR COMPANION QUESTION 2026-09-06, unanswered across three manager ticks and the oldest outstanding thing the operator asked for. MI-151 gave it a concrete lead: backtest_fidelity_calibrate.py has never been run and grades the wrong quantity for exit location.",
       "confirmed_at": "2026-09-06T21:27:03Z"
+    },
+    {
+      "session_id": "session_01GNkN16mQBnSVNRLweSXNWP",
+      "registry_key": "pending-20260907T032629Z",
+      "state": "working",
+      "title": "MI-154b - actually PUBLISH the 5m/15m scalp exit-head artifact (MI-154 stalled on a stale CI belief)",
+      "owns_object": "WO-20260906-NO-5M-OR-15M-SCALP-EXIT-HEAD",
+      "checklist_item": "MI-154-SCALP-EXIT-HEAD-ARTIFACT",
+      "spawned_at": "2026-09-07T03:26:29Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/mi154b-scalp-artifact-20260907"
+      ],
+      "why": "MI-154 shipped only the family-token half (#11169, merged) and went IDLE believing it was still waiting on that PR's pytest-run. Re-verified 03:29Z with a positive control against /api/diag/shadow_stats: 32 models visible, exit-head artifacts still exactly 2, both 1h donchian, ZERO scalp. The primary deliverable is undone.",
+      "confirmed_at": "2026-09-07T03:27:13Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

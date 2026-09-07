@@ -4,8 +4,8 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   ML-2, the predictive bracket: regress the exit location an entry should expect, graded on calibration first
 stage: CAPABILITY
-lifecycle: ready
-owner: null
+lifecycle: in_flight
+owner: session_01Adzvjpv8SZQouoBjwMJ4qv
 opened_at: 2026-09-06
 closed_at: null
 review_trigger: >-
@@ -26,3 +26,93 @@ blocked_on_basis: >-
   the work can begin, so it is a design constraint rather than a blocker.
 
 captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (operator-decided)
+
+progress:
+  session: session_01Adzvjpv8SZQouoBjwMJ4qv
+  branch: claude/ml2-predictive-bracket-20260906
+  pr: 11150
+  updated: 2026-09-06
+  clause_1_calibration_first: >-
+    BUILT. src/research/bracket_quantile.py regresses a CONDITIONAL QUANTILE of
+    the favourable excursion, so E3.6's falsifier is the training objective
+    rather than an afterthought: a predicted q-quantile should be reached (1-q)
+    of the time. The eval harness prints the calibration block BEFORE any P&L
+    block, always.
+  clause_2_reuse_mi148: >-
+    HONOURED. No second calibration definition was authored. The percent-of-
+    entry basis, the venue-cap constant and the reading of "the target sits at
+    quantile X of realised exits" are all taken from MI-148's instrument.
+    ONE correction, in MI-148's favour: its stated reason for avoiding R is that
+    the R denominator is contaminated -- but that contamination is a property of
+    the LIVE JOURNAL (trades.stop_loss is the final trailed stop), not of R. In
+    the harness, Trade.sl is the entry bar's stop and no lever overwrites it, so
+    the BACKTEST corpus is cleaner than live for this question and can express
+    both bases exactly.
+  clause_3_population_problem: >-
+    SOLVED as to availability, and this was the first task rather than a caveat.
+    In-sandbox it is impossible and that was established by arithmetic, not
+    assumed: Bybit is 403 at the proxy, and the five data/ohlcv/*.csv files have
+    EXACTLY ONE UNIQUE CLOSE EACH -- they are flat fixtures, not candles. The
+    un-blocked route is the trainer, which holds 166k-184k 15m bars per symbol
+    across BTC/ETH/ADA/BNB/AVAX plus 1d/1h equities and futures. This is the
+    unit of work MI-148 named and left unclaimed.
+  clause_4_propose_not_apply: >-
+    HONOURED. No config/strategies.yaml, no per-leg target value, no arming, no
+    runtime caller. Nothing in src/ imports bracket_quantile.
+  the_finding_that_matters: >-
+    CALIBRATION ALONE IS VACUOUS, and this session's own first cut proved it.
+    The unconditional empirical quantile is calibrated BY CONSTRUCTION, so a
+    model can pass E3.6's falsifier while knowing nothing. Three defects were
+    found by RUNNING the controls rather than reviewing them: (1) the optimiser
+    destroyed calibration it was handed for free -- MACE 0.179 on PURE NOISE;
+    (2) a plain model-beats-baseline test scores estimator efficiency as a win
+    (+0.006..+0.027 on no-signal data), so the shuffled-label null now GATES the
+    verdict per quantile; (3) THE SELFTEST GRADED ONE DRAW AND WAS WRONG,
+    reporting the no-signal arm as 5/5 when across 6 seeds it is [0,1,0,2,0,1]
+    of 5 -- the exact failure e2_null_calibration.py exists to prevent.
+    Instrument now validated as a RATE: TPR 1.00 (6/6), FPR 0.00 (0/6).
+  open_at_this_point: >-
+    Whether BACKTEST exit locations match LIVE ones is NOT established.
+    scripts/research/backtest_fidelity_calibrate.py exists for the OUTCOME half
+    (win-rate + realised-R distribution) and, measured, HAS NEVER BEEN RUN --
+    no artifact anywhere in the repo, with comms/research/ existing and holding
+    one other file as the positive control. It also grades outcome agreement in
+    R, not exit LOCATION in percent-of-entry, so it is not the instrument this
+    question needs even once it is run. Reported as a finding, not assumed away.
+  outcome: >-
+    ML-2 IS BUILT AND REFUTED, and the refutation is the deliverable.
+    MEASURED trainer-diag #11156 (run 34042377609, branch head b8a1aa54).
+    POPULATION: 9,814 backtest trades over 3 trend_donchian 15m legs
+    (BTCUSDT 3194 / ETHUSDT 3238 / ADAUSDT 3382), 2021-07 to 2026,
+    chronological split 6379 train / 3435 eval, zero rows dropped.
+    CALIBRATION PASSES -- MACE 0.0061, coverage tracking the stated quantile
+    to within 1.4 points at worst -- so E3.6's falsifier is cleared, and per
+    the design that is the WEAK half because the unconditional quantile
+    clears it by construction. SHARPNESS FAILS against the tp_r-equivalent
+    RISK-SCALED baseline at 0 of 5 quantiles (improvements -0.0014, -0.0017,
+    +0.0001, -0.0011, +0.0048, inside the shuffled-label null wherever
+    positive), while beating the POOLED baseline at 5 of 5 -- so the entire
+    apparent win was the volatility confound (mfe_frac = mfe_r x risk_frac,
+    and risk_frac IS feature[0]). split_sensitive false, arms consistent with
+    the headline at matched control settings, all three legs the same verdict
+    independently. VERDICT calibrated_but_no_sharper_than_baseline.
+  what_it_means: >-
+    (1) The six decision-time features carry no information about exit
+    location beyond volatility. (2) tp_r is the right functional form and
+    always was; what is broken is TP_VENUE_CAP_PCT converting a
+    multiple-of-risk into a fixed percent-of-entry and destroying the
+    scaling -- not the absence of a model. (3) The answer is MI-148's
+    proposal unchanged: a per-leg MFE quantile IN R, no model required, and
+    this session produced that table at n~3.2k per leg.
+    [!] It refutes THESE SIX FEATURES on THIS corpus, NOT the existence of
+    exogenous information -- section 0.2 names peer symbols, regime and book
+    state and none is in this set. A cross-asset re-run is a different
+    experiment whose bar is now the risk-scaled baseline.
+  still_open: >-
+    Gate condition 1 -- backtest-live exit-location fidelity -- is UNMET and
+    is now sharpened by a measured disagreement: backtest BTC p90 MFE 3.87%
+    (n=3194) against MI-148's live 9.70% (n=63), ~2.5x on the exact quantity
+    a target would be set from, and MI-148's is a LOWER bound so the gap can
+    only widen. Tracked at
+    BL-20260906-THE-EARNED-TRUST-LINCHPIN-HAS-NEVER-BEEN-RUN-AND-GRADES-THE-WRONG-QUANTITY-FOR-EXIT-LOCATION.
+
