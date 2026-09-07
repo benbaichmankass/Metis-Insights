@@ -208,3 +208,39 @@ I found **no second instance** and therefore filed none — and that is *"I did 
 for one"*, not *"I swept and there are none."* My population was this one OCA pair on
 `ib_paper`/MGC. The approval covers this trade only; nothing else was touched, on any
 account, on any symbol.
+
+---
+
+## Landing note — this PR needs a manual merge, and why that is worth recording
+
+All four checks are green and `check_pr_landing.py` returned **`declared_self_land`**, but
+**this branch cannot self-land.** `claude-pr-automerge.yml` is
+`on: push: branches: ["claude/**"]` and derives its slug as
+`head.replace(/^claude\//, '')`. I cut the branch as
+`mi-169-cancel-blocked-wrong-order-id`, **outside `claude/**`**, so the relay never
+triggered and auto-merge was never enabled. The
+`.github/pr-automerge-requests/mi-169-cancel-blocked-wrong-order-id.txt` file is correctly
+named but sits on a branch nothing watches. **My error; please merge by hand.**
+
+I deliberately did **not** re-cut the branch under `claude/`: with no open PR for the new
+head, the automerge job takes the `pulls.create` path and would open a **second** PR
+titled from the head commit's first line, losing this report's body. One clean PR needing
+a click beats two PRs about a mis-identified order.
+
+### The guard gap this exposes (filed, NOT fixed)
+
+R6 verifies that the declaration says `landing: "self"` **and** that the automerge request
+file is added/modified against `main`. It does **not** verify that the branch can reach
+the relay that consumes that file. So a branch outside `claude/**` passes the self-land
+declaration while the self-land route is physically unavailable to it — the same shape as
+the failure the guard's own docstring exists to prevent (*seven green PRs sitting
+unmerged because the route that lands them was not actually armed*). A green
+`declared_self_land` is therefore **not** evidence that anything will land.
+
+Cheap fix if someone wants it (Tier-1, one line): have R6 also require
+`head.startswith("claude/")` when `landing == "self"`, and name that in the failure text.
+**I have not written it** — I am a halted remediation session and it is outside my
+dispatch.
+
+⚠️ **Population: one branch — mine.** I did not survey other open PRs for the same
+mis-declaration, so this is *"I found it here"*, not *"it is only here"*.
