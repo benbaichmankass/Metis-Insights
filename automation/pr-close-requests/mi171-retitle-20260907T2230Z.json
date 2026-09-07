@@ -1,0 +1,5 @@
+{
+ "pr": 11289,
+ "head_sha": "79dddf2c68c073ad6700f6cf37e16880c56ca23e",
+ "comment": "Closing in favour of a replacement PR on the same branch, opened through `pr-opener.yml` so it carries the actual MI-171 report.\n\nThis PR was opened by `claude-pr-automerge` because my `create_pull_request` returned a write-scope 403 twice (`pull_request_read` on #11271 succeeded throughout, so this is the write-scope shape, not the transient MCP drop). That workflow sets `title` to the head-commit subject and a hardcoded boilerplate body \u2014 so this PR was titled *\"MI-171: unwrap two backlog ids so they resolve\"*, which is the subject of a small follow-up commit and a real misrepresentation of the change: the branch is a measurement answering `BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS`'s \"We did not look.\"\n\n`update_pull_request` 403s for me too, so the title and body cannot be edited in place. No commit, file or check is being discarded \u2014 the replacement PR is the SAME branch at the SAME head. Only the title and body change.\n\nNobody needs to act on this close."
+}
