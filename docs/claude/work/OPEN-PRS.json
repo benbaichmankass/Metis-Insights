@@ -63,24 +63,6 @@
       "blocker": "⚠️ RE-MEASURED 2026-09-04. The MI-106 half is FIXED on claude/mi106-manager-scope-authorship: check_manager_scope now grades 5504200c `unattributed` rather than an R2 violation, because MANAGER-LEASE.json's own history places session_011JWFxuYAaEQKCFCmG6gnHJ out of office at the commit's 06:13:07Z author time. ⚠️ THIS PR IS STILL RED, ON A SECOND AND DIFFERENT DEFECT that was masked behind the first: R7 fails 5244dafb for '223 minutes since this manager's previous heartbeat', a number produced by reading the previous heartbeat from `sha~1` — on a merge commit, the WORKER branch's stale lease blob. The register reachable from that commit shows same-holder heartbeats at 08:32:50Z and 09:21:42Z: a 49-minute gap, inside the TTL. Filed as BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE. ⚠️ The standing DO-NOTs are unchanged and still correct: no manager-scope exception (this is not a live incident), no rewriting another session's commit, no merging past a failing required check."
     },
     {
-      "pr": 11226,
-      "opened_at": "2026-09-07T09:40:00Z",
-      "title": "MI-157: the committed candle fixtures are flat — repair the instrument",
-      "owner_session": "session_01MLKjDPG9n1MHBByYEAEgjc",
-      "checklist_item": "MI-157",
-      "draft": false,
-      "tier": "1",
-      "state": "open_ready_held_awaiting_one_line_review",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": "",
-        "scope": "",
-        "decided_on": "",
-        "text": "NO OPERATOR DECISION HAS BEEN SOUGHT OR GIVEN — hence `none_recorded`, chosen from the closed vocabulary rather than invented. (This row first said `not_yet_sought`; open_pr_record.py --strict correctly refused it as ungradeable, which is the closed-vocabulary discipline doing its job.) Recorded explicitly rather than left blank because CLAUDE.md is emphatic that a row carrying a verdict without its condition is WORSE than a missing row — it reads as complete. WHAT IS TRUE: the MI-157 dispatch came from the MANAGER session, not the operator, and instructed Tier-1 self-landing. This session declined to self-land; the reason is in .github/pr-landing/mi-157-flat-candle-fixtures.json — pr-landing-guard R5 will not certify data/ohlcv/*.csv or bin/backtest_ict.py, and widening TIER1_SURFACE inside the PR it would let through is the 'guard cheaper to lie to than to satisfy' antipattern, especially for data/**, where a committed corpus IS the instrument every backtest is graded against. So the PR is HELD by its landing declaration and needs one line of review. WHAT A REVIEWER IS ASKED TO CONFIRM: that deleting five constant-price candle fixtures, and making both research candle readers refuse a degenerate series, is the intended repair."
-      },
-      "notes": "Tier-1 diff and Tier-1 subject matter: test fixtures, a CI guard, tests, and two research-only candle read paths. No config/, no src/runtime/, no order path, no strategy params, no risk caps. NO STRATEGY BACKTEST WAS RUN OR RE-INTERPRETED — this repairs the instrument and deliberately draws no verdict from it. Census: 7 committed candle files checked, 5 flat (all under data/ohlcv/, 300 rows and 1 distinct close each), 2 real. Closes BL-20260820-PLACEHOLDER-CANDLE-FIXTURES-CARRY-NO-MARKER, whose done_condition is met. ⚠️ CI ARMING: the PR was opened via pr-opener.yml, so its head was a GITHUB_TOKEN push that fires no workflows; an ordinary commit was pushed afterwards to arm CI. Read CI with get_check_runs, and if total_count is 0 check mergeable_state before concluding CI has not started."
-    },
-    {
       "pr": 11174,
       "opened_at": "2026-09-06T19:09:58Z",
       "title": "record today's recurrence of the reconcile-PR disposition deadlock",
@@ -1215,10 +1197,32 @@
       "merge_sha": "20d7928eb1a5a7675752fdb0af9b91aba0a7082a",
       "observed_at": "2026-09-07T09:34:53Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 11226,
+      "opened_at": "2026-09-07T09:40:00Z",
+      "title": "MI-157: the committed candle fixtures are flat — repair the instrument",
+      "owner_session": "session_01MLKjDPG9n1MHBByYEAEgjc",
+      "checklist_item": "MI-157",
+      "draft": false,
+      "tier": "1",
+      "state": "open_ready_held_awaiting_one_line_review",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": "",
+        "scope": "",
+        "decided_on": "",
+        "text": "NO OPERATOR DECISION HAS BEEN SOUGHT OR GIVEN — hence `none_recorded`, chosen from the closed vocabulary rather than invented. (This row first said `not_yet_sought`; open_pr_record.py --strict correctly refused it as ungradeable, which is the closed-vocabulary discipline doing its job.) Recorded explicitly rather than left blank because CLAUDE.md is emphatic that a row carrying a verdict without its condition is WORSE than a missing row — it reads as complete. WHAT IS TRUE: the MI-157 dispatch came from the MANAGER session, not the operator, and instructed Tier-1 self-landing. This session declined to self-land; the reason is in .github/pr-landing/mi-157-flat-candle-fixtures.json — pr-landing-guard R5 will not certify data/ohlcv/*.csv or bin/backtest_ict.py, and widening TIER1_SURFACE inside the PR it would let through is the 'guard cheaper to lie to than to satisfy' antipattern, especially for data/**, where a committed corpus IS the instrument every backtest is graded against. So the PR is HELD by its landing declaration and needs one line of review. WHAT A REVIEWER IS ASKED TO CONFIRM: that deleting five constant-price candle fixtures, and making both research candle readers refuse a degenerate series, is the intended repair."
+      },
+      "notes": "Tier-1 diff and Tier-1 subject matter: test fixtures, a CI guard, tests, and two research-only candle read paths. No config/, no src/runtime/, no order path, no strategy params, no risk caps. NO STRATEGY BACKTEST WAS RUN OR RE-INTERPRETED — this repairs the instrument and deliberately draws no verdict from it. Census: 7 committed candle files checked, 5 flat (all under data/ohlcv/, 300 rows and 1 distinct close each), 2 real. Closes BL-20260820-PLACEHOLDER-CANDLE-FIXTURES-CARRY-NO-MARKER, whose done_condition is met. ⚠️ CI ARMING: the PR was opened via pr-opener.yml, so its head was a GITHUB_TOKEN push that fires no workflows; an ordinary commit was pushed afterwards to arm CI. Read CI with get_check_runs, and if total_count is 0 check mergeable_state before concluding CI has not started.",
+      "terminal": "merged",
+      "merge_sha": "29820f9748ed7b2548d8d159176149cd8abc8889",
+      "observed_at": "2026-09-07T11:28:26Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-07T09:34:53Z",
-  "last_reconciled_sha": "ba6b68402a25a218d615f83620ca62bc9a9e6158",
+  "last_reconciled_at": "2026-09-07T11:28:26Z",
+  "last_reconciled_sha": "29820f9748ed7b2548d8d159176149cd8abc8889",
   "updated_at": "2026-09-07T08:40:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
