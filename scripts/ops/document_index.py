@@ -337,6 +337,16 @@ SELF_DEAD_MAP = {
 GENERATED: Dict[str, str] = {
     "docs/claude/READOUT.md": "scripts/ops/constraint_readout.py",
     "docs/claude/DUE.md": "scripts/ops/render_due_list.py",
+    # Both became visible only when the population pathspec was fixed (MI-162):
+    # they sit directly in `docs/` and were outside the register entirely. Each
+    # is rewritten wholesale by its own `--matrix` generator, so a stamp written
+    # into one is erased on the next run and its guard then fails the build with
+    # "matrix is stale" — observed, not predicted: stamping them failed
+    # `strategy-coverage-guard` and `training-population-guard` on the first
+    # full run of this branch. They are REGISTERED like everything else; only
+    # the R3 header rule is waived, and the waiver is verified at build time.
+    "docs/strategy-coverage-matrix.md": "scripts/check_strategy_coverage.py",
+    "docs/training-population-matrix.md": "scripts/check_training_population.py",
 }
 
 
