@@ -164,17 +164,22 @@ Actual realised over the 71: **+28.80R, mean +0.406R/trade.** Median peak **0.88
 
 ### Proposal A — repair the instrument FIRST (observe-only)
 
-Add the existing `record_position_telemetry` hook to the **two** unhooked monitor units **that the population actually routes to**, exactly as `trend_donchian.py:823-833` already does it. It is observe-only by construction — its own comment says it *"reads nothing back and cannot alter the trail"* — and it is wrapped in the same `except Exception: pass` so it can never break an exit.
+Add the existing `record_position_telemetry` hook to the unhooked monitor units, exactly as `trend_donchian.py:823-833` already does it. It is observe-only by construction — its own comment says it *"reads nothing back and cannot alter the trail"* — and it is wrapped in the same `except Exception: pass` so it can never break an exit.
 
-⚠️ **This narrows what an earlier revision of this section said, and the narrowing is the useful part.** It read *"the four unhooked monitor units"*, which overstates the work and misdescribes it. There are indeed four unhooked units, but only two carry any of the 44:
+> ✅ **APPROVED BY THE OPERATOR, 2026-09-07 — and the approved scope is ALL FOUR UNITS.** Verdict *"Approve A now"*, **no condition attached**, scope named as `squeeze_breakout_4h`, `ict_scalp`, `turtle_soup` and `vwap`. Recorded at [`WO-20260907-PROPOSAL-A-APPROVED-ADD-THE-POSITION-TELEMETRY`](../claude/work/objects/WO-20260907-PROPOSAL-A-APPROVED-ADD-THE-POSITION-TELEMETRY.yaml), whose `done_condition` reads *"The hook is on **all four** units … and a real telemetry row has been OBSERVED"*. Dispatched to **MI-164**.
 
-| unit | legs covered | shape of the change |
+⚠️ **THE TABLE BELOW IS SEQUENCING INFORMATION, NOT A SCOPE REDUCTION — do not read it as authority to do two units and call A complete.** The done-condition is four; a session that stops at two has not met it. An earlier revision of this section said *"the four unhooked monitor units"*; a later one narrowed that to *"the two that carry the population"*. **That narrowing was written before the operator's verdict was recorded and is superseded by it.** The per-unit cost is kept, corrected, because it is genuinely useful to whoever does the work:
+
+| unit | legs in the enabled+live 44 | shape of the change |
 |---|---:|---|
-| `squeeze_breakout_4h` | **1** | **pure copy-paste** — it already has `_since_entry` (`:249`) and binds `window` inside `monitor()` (`:336`); the 14-line block drops in directly after |
-| `ict_scalp` | **8** | the same block **plus one line** binding a window: it has `_bars_since_entry` (a bar COUNT) but not `_since_entry` (the DataFrame), so it needs `since_entry(candles_df, open_pkg)` imported from `src/runtime/exit_levers.py` — the ONE canonical definition that `trend_donchian._since_entry` itself delegates to, never a third copy |
-| `turtle_soup` · `vwap` | **0** | **not needed.** `turtle_soup` is `execution: shadow` and `vwap` is `enabled: false`, so neither is in the population — and both would cost more (neither has `_since_entry`, neither writes `entry_time`, and `vwap` writes no `risk_per_unit` at all, which `peak_r` requires) |
+| `squeeze_breakout_4h` | **1** | **pure copy-paste** — already has `_since_entry` (`:249`) and binds `window` inside `monitor()` (`:336`); the 14-line block drops in directly after |
+| `ict_scalp` | **8** | the same block **plus one line** binding a window: it has `_bars_since_entry` (a bar COUNT) but not `_since_entry` (the DataFrame), so it needs `since_entry(candles_df, open_pkg)` from `src/runtime/exit_levers.py` — the ONE canonical definition that `trend_donchian._since_entry` itself delegates to, never a third copy |
+| `turtle_soup` | **0** | costs more: no `_since_entry`, does not write `entry_time` |
+| `vwap` | **0** | costs most: no `_since_entry`, no `entry_time`, and **no `risk_per_unit`**, which `peak_r` requires — so this one needs the signal builder touched, not just the monitor |
 
-So Proposal A is two files, and those two cover **all 9** structurally-invisible legs.
+**The two in-population units carry all 9 of the structurally-invisible legs, and the other two carry none** — which is why those two are the ones that move §2.4's numbers.
+
+⚠️ **But "0 legs in the 44" is NOT "no reason to hook it", and my earlier wording overstated my own evidence.** `turtle_soup` is `enabled: true` with `execution: shadow`, and `vwap` is `enabled: false`. The 44 is an *enabled+live* population, so a shadow leg is outside it **by definition, not shown to be idle**. **I did not measure whether a shadow-execution leg produces monitored positions at all** — which is what would decide whether hooking `turtle_soup` yields rows today or only guards against the day it is promoted. *We did not look.* Hooking all four is the choice that does not depend on that unmeasured question, and it is the one that was approved.
 
 **Why first:** this is `CY-20260906-TRADING-TRUTH`'s own sequencing rule — *repair the measurement before acting on what it says.* It converts 9 of 44 legs (20.5%) from *we did not look* into observable, and it is the only way the one-shot mechanism ever becomes measurable. **Proposal B's calibration is measured on a corpus that structurally excludes those 9 legs**, so A materially improves the evidence B is chosen from.
 
