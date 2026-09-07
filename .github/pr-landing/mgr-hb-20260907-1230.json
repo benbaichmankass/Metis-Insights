@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "manager registers only — MANAGER-LEASE.json (one re-claim) and SESSIONS.json (a supervision pass over four sub-sessions). No runtime, no order path, no config, no scripts."
+}
