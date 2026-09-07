@@ -1,0 +1,4 @@
+MI-140 (T-7) — alpaca_live is not failing to place orders; it was asked twice, both times to short.
+
+Tier-1 (docs/ only, inside TIER1_SURFACE). Lands itself on green per
+.github/pr-landing/mi140-alpaca-live-refusal-verdict.json.
