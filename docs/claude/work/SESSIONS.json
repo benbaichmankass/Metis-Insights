@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T16:42:00Z",
+  "updated_at": "2026-09-07T16:47:52Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2782,6 +2782,16 @@
       "spawned_at": "2026-09-07T16:40:27Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator commissioned the sweep 2026-09-07 and explicitly did NOT approve arming a value. A clean 'no value clears the gate' is a successful outcome.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01L4nzHTVNNdCxkpFxMqXB6V",
+      "title": "MI-140 - alpaca_live's routed real-money leg cannot place an order",
+      "owns_object": "WO-20260907-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG",
+      "checklist_item": "MI-140-ALPACA-LIVE-CANNOT-PLACE",
+      "spawned_at": "2026-09-07T16:47:52Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator asked 'did you note the alpaca task?' - the row had sat unassigned all day while the manager listed it as queued in every checklist. Noting is not acting.",
       "state": "working"
     }
   ],

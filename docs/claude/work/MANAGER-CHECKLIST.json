@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-07T16:42:00Z",
+  "updated_at": "2026-09-07T16:48:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1841,12 +1841,14 @@
       "id": "MI-140-ALPACA-LIVE-CANNOT-PLACE",
       "title": "alpaca_live's routed real-money leg cannot place an order — both gates read live, every signal journals dry_run_no_order_placed",
       "state": "queued",
-      "owner": "unassigned — operator-selected, waiting on a session slot",
+      "owner": "session_01L4nzHTVNNdCxkpFxMqXB6V",
       "owns_object": "WO-20260906-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG",
       "priority": "P1_CYCLE",
       "tier": "unknown until root-caused",
-      "note": "Operator selected this to be routed. Blocked only on the concurrency cap of 3. ⚠️ Do not assume it is a bug — 'declared live and correctly refusing' is a real outcome and would move the defect to the declaration; ALPACA_CASH_SETTLEMENT_MODE=apply is armed on this exact account.",
-      "added": "2026-09-06"
+      "note": "Operator selected this to be routed. Blocked only on the concurrency cap of 3. ⚠️ Do not assume it is a bug — 'declared live and correctly refusing' is a real outcome and would move the defect to the declaration; ALPACA_CASH_SETTLEMENT_MODE=apply is armed on this exact account. DISPATCHED 2026-09-07T16:48Z, after the operator asked 'did you note the alpaca task?'. ⚠️ RECORDED AGAINST THE MANAGER: this row read 'unassigned — operator-selected, waiting on a session slot' for the whole day while the manager listed it as 'queued' in every status update. It was waiting on a SESSION SLOT, not on a decision, and the manager had slots — five other sessions were spawned in the same window. Noting an item in a checklist is not acting on it, and R7 grades whether the manager checked in, never whether it acted on what was waiting. MANAGER-VERIFIED ON THE FIELD BEFORE DISPATCH (config/accounts.yaml at main): alpaca_live is mode: live, account_class: real_money, strategies: ['tlt_pullback_1h']. The dispatch carries five leads to rule in or out and one binding instruction: DO NOT ASSUME IT IS A BUG — 'declared live and correctly refusing' is a real outcome that moves the defect to the DECLARATION, and those are different bugs with different fixes on a real-money account.",
+      "added": "2026-09-06",
+      "status": "in_flight",
+      "updated": "2026-09-07T16:48:00Z"
     },
     {
       "id": "MI-141-47-PERCENT-ERROR-FEED",
