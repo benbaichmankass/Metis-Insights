@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T21:48:03Z",
+  "updated_at": "2026-09-07T22:26:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2795,7 +2795,7 @@
       "checklist_item": "MI-140-ALPACA-LIVE-CANNOT-PLACE",
       "spawned_at": "2026-09-07T16:47:52Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "verdict delivered; was blocked ~80min on a GitHub App 403 the manager cleared via the pr-opener relay (#11271).",
+      "why": "verdict merged as 0c74a9c2 after the manager cleared its 403 via the relay and MI-171 cleared its one red guard.",
       "state": "completed",
       "supervised_at": "2026-09-07T18:30:00Z",
       "supervision_note": "SUPERVISED 2026-09-07T18:30Z. MI-140 DID NOT DIE — it was BLOCKED for ~80 minutes on a GitHub App 403 for PR creation, with its verdict already committed at 37d3ed41, and the manager had written it off as 'idle, no PR'. Unblocked via the pr-opener relay, now #11271. ⚠️ ITS VERDICT REVERSES THE PREMISE THE MANAGER DISPATCHED: alpaca_live is CORRECTLY REFUSING and its declaration is correct too. The T-7 premise is true over a population of TWO and misleading at that size — both signals since the 2026-08-31 arming were tlt_pullback_1h SHORT on TLT, both suppressed by the operator-directed side_filter:long gate, which folds into effective_dry by design. Four of five leads ruled OUT on evidence; the one ruled IN is silent_refusal_alert, whose latch is FROZEN at 2026-08-21 — ten days pre-arming — still reporting alerting/signalled_never_placed with no alert_disposition key. The alerting layer is the defect, not the order path, and is very likely where the framing came from. It refused to overclaim: the order path is UNTESTED, not inert, since zero long signals have reached it."
@@ -2807,7 +2807,7 @@
       "checklist_item": "MI-166-PIPELINE-INTEGRITY-LANE",
       "spawned_at": "2026-09-07T16:56:07Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "pass 1 landed 39ab1079. Its conclusion was inverted by pass 2 and that is the lane working.",
+      "why": "pass 1 landed 39ab1079; its conclusion was inverted by pass 2, which is the lane working.",
       "state": "completed",
       "supervised_at": "2026-09-07T18:00:00Z",
       "supervision_note": "SUPERVISED 2026-09-07T18:00Z. MI-166 pass 1 landed (#11265, 39ab1079) and it CORRECTED THE MANAGER'S OWN DIAGNOSIS. I reported ib_paper/MGC as 491% over-covered and framed it as a protective-logic hazard. It is not: both OCA groups mirror their journal rows to the tick, and the real defect is that THE JOURNAL HOLDS 54 MGC LOTS WHILE THE VENUE HOLDS 11. The protection is faithful to a wrong journal, so the defect is upstream of protection and lands on exactly the instrument the operator asked about. It checked read_state before concluding, and carried positive controls for two negative claims."
@@ -2819,7 +2819,7 @@
       "checklist_item": "MI-167-PHANTOM-MGC-LOTS",
       "spawned_at": "2026-09-07T18:52:39Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "FAILED on an unparseable tool call AFTER committing its diagnosis and correctly declaring landing:hold. Output recovered by the manager; #11274 merged as fd818c50.",
+      "why": "Failed on an unparseable tool call, but AFTER committing its diagnosis and correctly declaring landing:hold knowing it could not un-draft its own PR. Output fully recovered; #11274 merged as fd818c50.",
       "state": "failed"
     },
     {
@@ -2829,7 +2829,7 @@
       "checklist_item": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
       "spawned_at": "2026-09-07T19:28:36Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "OWES THE OPERATOR TWO DECISIONS. Found a SECOND defect of OPPOSITE sign on REAL MONEY: an alpaca_live close of one trade liquidates its siblings (false-SUCCESS), filed BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. #11279 is ready but NOT sufficient alone. Needs: (1) approve/reject the re-scope; (2) name the IB_CLOSE_CONFIRM partial-fill default.",
+      "why": "Unchanged since 20:33Z and correctly so — it owes nothing; the OPERATOR owes it two decisions. Its REAL-MONEY finding no longer depends on them: the manager landed its backlog row to main separately (c71e610e), so BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS is readable by a cold session even while #11279 sits.",
       "state": "blocked"
     },
     {
@@ -2839,18 +2839,18 @@
       "checklist_item": "MI-169-MGC-REMEDIATION",
       "spawned_at": "2026-09-07T19:28:36Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "HALTED and reported rather than executing: the approved cancel named order 548, which is in oca-protect-t5353. Nothing cancelled, no journal row written. Also found a check_pr_landing.py guard gap.",
+      "why": "Its HALT record merged as part of the drain. The action it refused is STILL UNEXECUTED and correctly so — the manager verified against the venue that the session was right and will not substitute the corrected ids (550/551) on its own authority.",
       "state": "completed"
     },
     {
       "session_id": "session_019G7vh8rkRZryXJGhbhfov7",
       "registry_key": "pending-20260907T214605Z",
-      "state": "working",
+      "state": "running",
       "title": "MI-171 — unblock #11271's stated-population false positive, then count the Alpaca over-close population nobody looked at",
       "owns_object": "WO-20260907-UNBLOCK-11271-S-ONE-STATED-POPULATION-FALSE",
       "spawned_at": "2026-09-07T21:46:05Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "why": "The manager may not touch docs/research (manager-scope R2, refused twice), and MI-168 explicitly recorded 'we did not look' on whether the real-money-capable Alpaca over-close has already fired.",
+      "why": "RUNNING, connected, last activity 22:25:07Z. Its own task_summary reads 'research script + doc drafted; fixing line-wrap guard failure'. Part 1 is DONE and verified by the manager independently: #11271 went green and merged as 0c74a9c2, so the stated-population annotation the manager was refused permission to make is landed. Part 2 (the Alpaca over-close count) is in flight at #11289.",
       "confirmed_at": "2026-09-07T21:48:03Z"
     }
   ],
