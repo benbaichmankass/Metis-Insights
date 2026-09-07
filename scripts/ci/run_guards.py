@@ -95,6 +95,22 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/check_account_class.py", "--list"]],
     },
     {
+        "name": "one-live-workplan",
+        # UNGATED, deliberately. The failure this catches is a plan document
+        # going stale while nothing touches it -- 08-14 sat reading `ACTIVE` for
+        # 24 days precisely because no PR went near it. A diff-scoped guard
+        # cannot see that, and a `when`-gated step does not run under `--all`
+        # anyway (BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH). Costs one
+        # `git ls-files` plus a 40-line head read of 13 files.
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation: a guard whose failure path
+            # is never exercised is indistinguishable from one that always passes.
+            ["python3", "scripts/ci/check_one_live_workplan.py", "--self-test"],
+            ["python3", "scripts/ci/check_one_live_workplan.py"],
+        ],
+    },
+    {
         "name": "api-tier-policy-guard",
         # The self-test runs on EVERY invocation of this guard — including when
         # the scan is not diff-relevant — because a guard whose failure path is

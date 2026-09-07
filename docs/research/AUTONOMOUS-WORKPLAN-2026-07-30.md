@@ -1,5 +1,16 @@
 # Autonomous Work Plan — 2026-07-30
 
+> ## **PLAN STATUS: `superseded`**
+> **Superseded by:** `docs/research/RESEARCH-PROGRAM-2026-07-30.md`
+>
+> Status assigned 2026-09-07 (MI-159), enforced by `scripts/ci/check_one_live_workplan.py`. Self-declared in this file's own next block
+> (*"SUPERSEDED IN PART"*). ⚠️ **The terminal status covers the whole FILE as a plan,
+> which is narrower than it sounds:** §1 (the rec #1–#7 scorecard) and §2 (the three
+> blockers) remain valid as **inputs** and are cited by the successor. What is
+> terminal is its §3–§4 **priority ranking and day plan** — the parts that would tell
+> a reader what to do next. Read §1–§2 as evidence; do not execute §3–§4.
+
+
 > ## ⚠️ SUPERSEDED IN PART — read [`RESEARCH-PROGRAM-2026-07-30.md`](RESEARCH-PROGRAM-2026-07-30.md) first
 >
 > **§1 (the rec #1–#7 scorecard) and §2 (the three blockers) remain valid** and are

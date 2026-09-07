@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 throughout: documentation, one new CI guard, and its registration. No config/, no src/runtime/, no order path, no strategy parameter. Changes are (a) an explicit terminal PLAN STATUS header on all 13 work-plan documents so a reader who opens one alone cannot be misled, (b) scripts/ci/check_one_live_workplan.py plus its registration in run_guards.GUARDS and guard_selftests.COVERED_BY_CHECKER, carrying 12 planted controls including a negative control and two controls asserting the honest answers are accepted, (c) ROADMAP.md corrections: the Next pointer repointed from the stale 08-14 plan to the live 08-29 plan, dated corrections on the M15 and M20 rows verified against config/accounts.yaml and merged research artifacts, and an honest per-row verification census marking the other 31 rows UNVERIFIED rather than guessing, and (d) a new task-level priority ranking. The guard's self-test and its real-tree run both pass locally; the real tree failed before the headers were applied, so the detector is proven to fire on a real positive and not only on plants."
+}
