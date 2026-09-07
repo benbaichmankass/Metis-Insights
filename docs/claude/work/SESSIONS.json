@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T21:33:00Z",
+  "updated_at": "2026-09-07T21:48:03Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2841,6 +2841,17 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "HALTED and reported rather than executing: the approved cancel named order 548, which is in oca-protect-t5353. Nothing cancelled, no journal row written. Also found a check_pr_landing.py guard gap.",
       "state": "completed"
+    },
+    {
+      "session_id": "session_019G7vh8rkRZryXJGhbhfov7",
+      "registry_key": "pending-20260907T214605Z",
+      "state": "working",
+      "title": "MI-171 — unblock #11271's stated-population false positive, then count the Alpaca over-close population nobody looked at",
+      "owns_object": "WO-20260907-UNBLOCK-11271-S-ONE-STATED-POPULATION-FALSE",
+      "spawned_at": "2026-09-07T21:46:05Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "The manager may not touch docs/research (manager-scope R2, refused twice), and MI-168 explicitly recorded 'we did not look' on whether the real-money-capable Alpaca over-close has already fired.",
+      "confirmed_at": "2026-09-07T21:48:03Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
