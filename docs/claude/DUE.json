@@ -1,22 +1,19 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-07T05:10:43+00:00",
-  "verdict": "partial",
-  "unreadable_sources": [
-    "red_crons",
-    "unlanded_automation"
-  ],
+  "generated_at": "2026-09-07T10:32:40+00:00",
+  "verdict": "all_sources_read",
+  "unreadable_sources": [],
   "sources": {
     "open_items": {
       "state": "read",
-      "rows": 49,
+      "rows": 50,
       "note": ""
     },
     "soaks": {
       "state": "read",
-      "rows": 1,
-      "note": "1 declared soak(s): ready=0 · accruing=0 · not_writing=0 · unknown=1"
+      "rows": 2,
+      "note": "2 declared soak(s): ready=1 · accruing=0 · not_writing=0 · unknown=1"
     },
     "operator_owed": {
       "state": "read",
@@ -31,22 +28,22 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=19.6h cadence=daily (cron 20 5 * * *) | 1 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=0.0h cadence=daily (cron 20 5 * * *) | 2 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
-      "state": "could_not_read",
-      "rows": 0,
-      "note": "no GITHUB_TOKEN — cannot query the Actions API"
+      "state": "read",
+      "rows": 3,
+      "note": ""
     },
     "unlanded_automation": {
-      "state": "could_not_read",
+      "state": "read",
       "rows": 0,
-      "note": "no GITHUB_TOKEN — cannot list pull requests"
+      "note": ""
     },
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-07T05:10:40+00:00, age 0.0h"
+      "note": "digest 2026-09-07T05:10:40+00:00, age 5.4h"
     },
     "sunset": {
       "state": "read",
@@ -55,8 +52,8 @@
     }
   },
   "counts": {
-    "due": 73,
-    "loud": 53
+    "due": 78,
+    "loud": 58
   },
   "rows": [
     {
@@ -448,6 +445,24 @@
     },
     {
       "source": "open_items",
+      "id": "OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED",
+      "title": "MI-150 shipped the M20 exit-head consumer into `ict_scalp` (annotate-only, disarmed) -- the wiring MI-146 identified as the only passed-gate work blocked on missing code. ⚠️ IT CANNOT SCORE A SINGLE L",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "soaks",
+      "id": "OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED",
+      "title": "MI-150 shipped the M20 exit-head consumer into `ict_scalp` (annotate-only, disarmed) -- the wiring MI-146 identified as the only passed-gate work blocked on missing code. ⚠️ IT CANNOT SCORE A SINGLE L",
+      "why_due": "soak READY — ✅ READY — 37 matching row(s) of 754 scanned satisfy the declared criterion (decision_state!=not_scored). ⚠️ Ready is not CLEARED: read the row's `clears_when`, which may carry clauses no predicate can express.",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
       "id": "OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE",
       "title": "ML-2 was BUILT and REFUTED, and the refutation is the finding. Calibration PASSES on a real corpus (n=9,814 backtest trades, 3 trend_donchian 15m legs, MACE 0.0061); sharpness against the tp_r-equival",
       "why_due": "loud row — must be reported on every session",
@@ -535,6 +550,33 @@
       "age_days": 0,
       "loud": true,
       "link": ""
+    },
+    {
+      "source": "red_crons",
+      "id": "constraint-readout",
+      "title": "constraint-readout",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34028413138"
+    },
+    {
+      "source": "red_crons",
+      "id": "replay-pregate-nightly",
+      "title": "replay-pregate-nightly",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34103731642"
+    },
+    {
+      "source": "red_crons",
+      "id": "sunset-pass",
+      "title": "sunset-pass",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34110131942"
     },
     {
       "source": "error_feed",

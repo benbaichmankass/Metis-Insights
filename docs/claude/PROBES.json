@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-06T09:32:19.774524+00:00",
+  "generated_at": "2026-09-07T10:31:05.344186+00:00",
   "contract": "A probe REPORTS. A session CLEARS the row. Nothing here writes verified_at, observation, or removes a row.",
   "states": [
     "pass",
@@ -7,16 +7,32 @@
     "source_empty",
     "could_not_run"
   ],
-  "monitoring_rows": 34,
-  "rows_with_a_probe": 13,
-  "rows_without_a_probe": 21,
+  "monitoring_rows": 41,
+  "rows_with_a_probe": 14,
+  "rows_without_a_probe": 27,
   "counts": {
-    "pass": 4,
+    "pass": 5,
     "fail": 4,
     "source_empty": 0,
-    "could_not_run": 26
+    "could_not_run": 32
   },
   "results": [
+    {
+      "id": "OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE EXISTS AND ONE CANNOT BE WRITTEN THAT WOULD CLEAR THIS ROW, which is a property of the condition rather than of the effort available. The event this row waits on is a Bybit CLOSE whose qty carries an IEEE-754 artifact — MEASURED at 9 of 631 rows (1.43%) over bybit_* non-backtest trades ids 4519-5518 — and Part 1 of the same merge (round(parent_qty - consumed, 8)) STOPS most such quantitie",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE EXISTS, AND BUILDING ONE IS THE WORK THIS ROW TRACKS - saying otherwise would be circular. The join (does any register name this artifact?) is mechanical and IS automatable; that automation is candidate (a) in BL-20260906-A-RESEARCH-ARTIFACT-THAT-SPECIFIES-WORK-IS-NOT-REGISTERED-AS-WORK and is exactly what clause (2) of clears_when demands. What is NOT automatable is the other half: wheth",
+      "checks": null,
+      "is_not": null
+    },
     {
       "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
       "state": "could_not_run",
@@ -91,7 +107,7 @@
       "scanned": null,
       "state": "could_not_run",
       "reason": "exit_2",
-      "detail": "probe: COULD NOT LOOK — [trainer-capture-watch.yml] trainer-capture-watch.yml: 17 run(s) listed but NONE had readable logs (17 unread). That is an unread population, not an absent line."
+      "detail": "probe: COULD NOT LOOK — [trainer-capture-watch.yml] trainer-capture-watch.yml: 20 run(s) listed but NONE had readable logs (20 unread). That is an unread population, not an absent line."
     },
     {
       "id": "OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED",
@@ -135,11 +151,11 @@
         "--require",
         "applied=true"
       ],
-      "matched": 248,
-      "scanned": 339,
+      "matched": 267,
+      "scanned": 371,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=248 scanned=339\nprobe: PASS — 248 of 339 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 339 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
+      "detail": "probe-counts: matched=267 scanned=371\nprobe: PASS — 267 of 371 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 371 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
     },
     {
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
@@ -412,7 +428,7 @@
       "scanned": null,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "pr-queue-watch: FRESH -- a run was recorded 4.5h ago, inside the 30.0h window.\n  queue at last run: 2 PR(s) waiting on a merge decision, worst 193.2h  (reported, not enforced here)"
+      "detail": "pr-queue-watch: FRESH -- a run was recorded 5.3h ago, inside the 30.0h window.\n  queue at last run: 2 PR(s) waiting on a merge decision, worst 85.5h  (reported, not enforced here)"
     },
     {
       "id": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED",
@@ -455,6 +471,58 @@
       "state": "could_not_run",
       "reason": "no_probe_declared",
       "detail": "What must be observed is a WARNING STOPPING on one live unit and an INFO line STARTING on another, both only after a Tier-2 restart that has not happened. A probe runnable from CI or a sandbox can only assert that telegram_query_bot no longer calls install_operator_commands and that claude_decision_bot does — which tests/test_operator_commands.py already asserts by AST, and which is a fact about t",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "PARTIAL CAPABILITY, stated rather than hidden. Clause (2) IS probeable from a session (/api/diag/version). Clause (3) is probeable in principle from the journal, but NOT as a single predicate: the honest form needs a POSITIVE CONTROL — zero bybit_2 rows measured against a window in which the leg demonstrably produced elsewhere — and a probe asserting only 'no bybit_2 rows' would go green during an",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NOTHING CAN PROBE THIS, and that is a property of the clears_when rather than a gap in the tooling. Both clauses are HUMAN ACTS — an operator Tier-3 decision on per-leg target geometry, or a per-leg proposal put in front of them off an offline-harness MFE distribution. A probe can only observe the repo and the fleet, and neither records that a decision was ASKED FOR and not given. ⚠️ The probeable",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260906-SCALP-EXIT-HEAD-ARTIFACT-IS-THE-SECOND-MISSING-HALF-NOT-THE-FIRST",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "A PROBE EXISTS AND WAS RUN, so this is not a refusal. Resolving src.runtime.pipeline.monitor_unit_for over the full population of 55 strategies in config/strategies.yaml returns the 23 legs that reach maybe_score_exit_head and their timeframes. What has no probe is the DONE condition (a decision_state on a real row), because that field does not exist in deployed code - which is the point of the ro",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED",
+      "checks": "A row exists in which the exit head ACTUALLY SCORED an ict_scalp leg — decision_state is one of the scored_* values, i.e. maybe_score_exit_head's in-distribution guard ADMITTED the leg and returned a record. That is the single fact this row is waiting on, and it cannot happen until a 5m/15m scalp exit-head artifact is published to the mirror.",
+      "is_not": "A PASS DOES NOT CLEAR THIS ROW and does not authorise arming. It establishes ONE clause: that an artifact admitting a scalp leg now exists and the consumer reached it. It says nothing about (a) whether the head is any good, (b) the 2026-08-23 SHIP BLOCKED operator decision that cancelled the Tier-3 ship, or (c) the ict_scalp_sol_5m re-partitioning failure. ⚠️ A `could_not_look` verdict (exit 2/3) is the EXPECTED result until this PR merges and deploys — the diag allowlist entry for this log ships in it — and must not be read as a negative.",
+      "cmd": [
+        "python3",
+        "scripts/ops/probe_soak.py",
+        "--path",
+        "/api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000",
+        "--require",
+        "decision_state~scored_no_fire,scored_would_close",
+        "--positive-control",
+        "decision_state~not_scored,scored_no_fire,scored_would_close"
+      ],
+      "matched": 37,
+      "scanned": 754,
+      "state": "pass",
+      "reason": "exit_0",
+      "detail": "probe-counts: matched=37 scanned=754\nprobe: PASS — 37 of 754 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 754 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 754)"
+    },
+    {
+      "id": "OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE, DELIBERATELY. What must be re-read is a NUMBER FROM A TRAINER RUN that no repo-side predicate can produce: the harness needs the trainer's candle store, and this container cannot reach it. A probe over the repo would grade the SCRIPTS, which are green and are not the open question. The dispatch is one relay issue (see clears_when) and a session runs it.",
       "checks": null,
       "is_not": null
     }
