@@ -1,0 +1,30 @@
+id: WO-20260907-APPLY-THE-OPERATOR-APPROVED-REACHABLE-TAKE-PROFIT
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  APPLY the operator-approved reachable-take-profit change, and ship the tp_intent reader in the same cycle
+stage: DEPLOYMENT
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  config/strategies.yaml carries (a) tp_r 4.0 on gld_pullback_1h with its comment block intact, and (b) a tp_intent declaration on all 24 remaining legs exactly as MI-156 proposed - 22 mode:none and 2 mode:unexamined, never collapsed into each other. AND a real CONSUMER reads tp_intent and BRANCHES on its mode, so provenance-consumer-guard passes on a key that is written and read rather than written and ignored. The 9 sub-population-B legs get their inherited 50.0 sentinel written out explicitly, and it is VERIFIED runtime-identical rather than asserted to be. Post-merge, the live config is read back off the fleet and shown to match what was merged.
+
+why: >-
+  Operator Tier-3 approval 2026-09-07, verbatim: 'ok on the gld tp4 and the 24 declarations'. MI-156 (merged d50543a1) established that on 24 of 25 legs the honest repair is a DECLARATION rather than a number, because their only gate-passing TP cells are entangled with a bar-count timeout live cannot express - an absence of evidence, not an oversight. The proposal's own stated condition is that tp_intent must not land without a reader; a written-and-never-read provenance key is precisely what exit_price_source was, and it produced a phantom -6358 dollar exit leak nobody could find.
+
+source: >-
+  manager session_01HrmZ1RRNM4UnEUaFdrPEjj, carrying the operator's approval of PR #11225
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

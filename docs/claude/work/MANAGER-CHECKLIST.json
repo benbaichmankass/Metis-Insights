@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-07T08:50:00Z",
+  "updated_at": "2026-09-07T09:33:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -1980,6 +1980,27 @@
       "updated": "2026-09-07T08:42:00Z"
     },
     {
+      "id": "MI-155-EXIT-LOCATION-FIDELITY",
+      "status": "done",
+      "owner": "session_017odwPFdR66U1yWyjBqzCwR",
+      "opened": "2026-09-07T06:57Z",
+      "updated": "2026-09-07T08:42:00Z",
+      "owns_object": "WO-20260907-PER-LEG-BACKTEST-TO-LIVE-EXIT-LOCATION",
+      "title": "Per-leg backtest<->live exit-location fidelity — the gate the bracket rebuild waits on",
+      "note": "MERGED #11220 (2b433130). The gate is ANSWERED and the answer BLOCKS: all 44 enabled+live legs grade `insufficient_n` — not one fidelity_ok, not one fidelity_failed. Abstain floor n_live >= 30; max per-leg live n is 8, and the verdict is invariant for any floor in [10, 30], so this is a DATA-VOLUME result and lowering the bar does not rescue it. The ~2.5x crypto p90 gap MI-151 measured did NOT reproduce as a fidelity failure — it is a horizon-composition artifact. Basis settled: measure in percent-of-entry, express the knob as tp_r, conversion is LOSSY (recorded as a finding). Two bounds on every figure: peak_r_is_lower_bound true on 171/171 rows, and n_bt = 0 on 41 of 44 legs — the backtest side of the comparison mostly does not exist. CONSEQUENCE: the bracket rebuild is blocked on data volume, not on method; the fork goes to the operator."
+    },
+    {
+      "id": "MI-158-APPLY-REACHABLE-TP",
+      "status": "in_flight",
+      "owner": "session_016Li3hqzjKh3bAX7HYuGu23",
+      "opened": "2026-09-07T09:33:00Z",
+      "updated": "2026-09-07T09:33:00Z",
+      "owns_object": "WO-20260907-APPLY-THE-OPERATOR-APPROVED-REACHABLE-TAKE-PROFIT",
+      "tier": "3",
+      "title": "APPLY the operator-approved reachable-take-profit change + ship the tp_intent reader",
+      "note": "OPERATOR TIER-3 APPROVAL 2026-09-07, verbatim: 'ok on the gld tp4 and the 24 declarations'. Covers the CONTENT of the diff in docs/research/reachable-take-profit-proposal-2026-09-07.md (merged d50543a1, PR #11225) - NOT a licence to widen it. Two halves that must land together: the config change (tp_r 4.0 on gld_pullback_1h, the ONLY value change; 22 tp_intent mode:none + 2 mode:unexamined, never collapsed) AND a real reader that BRANCHES on tp_intent.mode. The reader is the proposal's OWN stated condition: a written-and-never-read provenance key is what exit_price_source was, and it produced a phantom -6358 dollar leak. If no honest consumer can be built this cycle, the key does not land - half of this is worse than neither."
+    },
+    {
       "id": "MI-156-REACHABLE-TAKE-PROFIT",
       "status": "in_flight",
       "owner": "session_0148fMEXBbDgQU3qsrcWujtx",
@@ -2000,16 +2021,6 @@
       "tier": "1",
       "title": "The committed backtest candle fixtures are flat, so anything measured on them is meaningless",
       "note": "OPERATOR-DIRECTED to fix now as its own item, 2026-09-07. MI-151 found data/ohlcv/btc_5m_2026.csv opens and closes at 95000.0 for all 300 rows - exactly one unique close - while doing something else. Census, repair-or-delete-loudly, and a regression test so the class cannot return. Scoped OFF any strategy verdict: the job is the instrument, not a conclusion from it."
-    },
-    {
-      "id": "MI-155-EXIT-LOCATION-FIDELITY",
-      "status": "done",
-      "owner": "session_017odwPFdR66U1yWyjBqzCwR",
-      "opened": "2026-09-07T06:57Z",
-      "updated": "2026-09-07T08:42:00Z",
-      "owns_object": "WO-20260907-PER-LEG-BACKTEST-TO-LIVE-EXIT-LOCATION",
-      "title": "Per-leg backtest<->live exit-location fidelity — the gate the bracket rebuild waits on",
-      "note": "MERGED #11220 (2b433130). The gate is ANSWERED and the answer BLOCKS: all 44 enabled+live legs grade `insufficient_n` — not one fidelity_ok, not one fidelity_failed. Abstain floor n_live >= 30; max per-leg live n is 8, and the verdict is invariant for any floor in [10, 30], so this is a DATA-VOLUME result and lowering the bar does not rescue it. The ~2.5x crypto p90 gap MI-151 measured did NOT reproduce as a fidelity failure — it is a horizon-composition artifact. Basis settled: measure in percent-of-entry, express the knob as tp_r, conversion is LOSSY (recorded as a finding). Two bounds on every figure: peak_r_is_lower_bound true on 171/171 rows, and n_bt = 0 on 41 of 44 legs — the backtest side of the comparison mostly does not exist. CONSEQUENCE: the bracket rebuild is blocked on data volume, not on method; the fork goes to the operator."
     }
   ],
   "as_of": "2026-09-06T16:05Z",
