@@ -82,10 +82,24 @@ _TF_TO_YF_INT = {"1h": "60m", "2h": "60m", "4h": "60m", "1d": "1d"}
 
 # Plain trend param keys the base harness fully models; anything else on a
 # Donchian strategy is an unmodelled lever -> approximate.
+# `tp_intent` (MI-156/MI-158, operator-approved 2026-09-07) is in all three PLAIN
+# sets, NOT in an UNMODELLED registry, and the distinction is load-bearing. It is
+# PROVENANCE, not a lever: it records WHY a leg has the target it has
+# (`r_multiple` / `none` / `unexamined`) and carries no behaviour at all.
+# VERIFIED, not assumed: htf_pullback_trend_2h._resolve_params returns a dict
+# equal before and after the key is added, on all 10 legs that inherit from it.
+# Classifying it UNMODELLED would have said the harness OMITS A LEVER when there
+# is no lever, and MEASURED that would have flipped 14 enabled legs from
+# `faithful` to `approximate` — gdx/gld_1h/ief/qqq/sol_2h/tlt_1d pullback,
+# mes/qld/splg/tqqq/ada_4h/avax_4h/eth_4h/sol_4h trend — for a comment-shaped
+# key. `approximate` blocks cell authoring, so that would have quietly closed
+# cell authoring on 14 legs. PLAIN is the same treatment `model`,
+# `signal_prefixes`, `description` and `shadow_model_ids` already get: config
+# keys the harness correctly accounts for by carrying no behaviour.
 _TREND_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe",
                 "symbols", "donchian", "atr_period", "atr_stop_mult", "trail_mult",
                 "tp_r", "min_confidence", "long_only", "adx_min", "adx_max",
-                "adx_period", "shadow_model_ids", "description"}
+                "adx_period", "shadow_model_ids", "description", "tp_intent"}
 # Trend lever config-key -> harness flag (levers the trend harness DOES model,
 # so a trend strategy carrying ONLY these is faithful, not approximate). The
 # stale-exit lever was ported into scripts/backtest_trend.py as the rec #5
@@ -144,7 +158,7 @@ _PB_LEVER_FLAG = {
 _PB_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe", "symbols",
              "trend_lookback", "pullback_lookback", "pullback_frac", "atr_period",
              "atr_stop_mult", "trail_mult", "tp_r", "min_confidence", "adx_min",
-             "adx_max", "adx_period", "shadow_model_ids", "description"}
+             "adx_max", "adx_period", "shadow_model_ids", "description", "tp_intent"}
 # Squeeze (TTM-style BB-inside-KC) lever config-key -> harness flag. The squeeze
 # harness (scripts/backtest_squeeze.py) is the SAME harness that validated the
 # strategy in docs/audits/squeeze-breakout-complement-2026-05-24.md — it was simply
@@ -158,7 +172,7 @@ _SQZ_LEVER_FLAG = {
 }
 _SQZ_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe", "symbols",
               "bb_period", "bb_std", "kc_mult", "atr_period", "atr_stop_mult",
-              "trail_mult", "min_confidence", "shadow_model_ids", "description"}
+              "trail_mult", "min_confidence", "shadow_model_ids", "description", "tp_intent"}
 # NOTE `side_filter` is absent from BOTH _SQZ_PLAIN and _SQZ_LEVER_FLAG on purpose:
 # backtest_squeeze.py has no --side-filter flag (only the trend + pullback harnesses
 # gained one in #7966). So a squeeze strategy declaring side_filter degrades to
