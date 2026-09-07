@@ -2638,6 +2638,21 @@
       "why": "REGISTERED RETROACTIVELY at 2026-09-07T08:35Z. Caught by the 08:24Z supervision reconcile against list_sessions - NOT by the manager remembering at spawn time, which is the MI-15 recurrence. NOTE the sibling finding: MI-155 also read as absent from main, but it was in fact registered in PR #11219, which had not merged - so for that one the gap was a MERGE gap, not a remembering gap, and the reconcile cannot tell the two apart because it reads main.",
       "note": "COMPLETE. #11140 merged after operator approval of the Tier-3 matrix status change.",
       "state": "idle"
+    },
+    {
+      "session_id": "session_017odwPFdR66U1yWyjBqzCwR",
+      "registry_key": "pending-20260907T065707Z",
+      "state": "working",
+      "title": "MI-155 - per-leg backtest-to-live exit-location fidelity: the gate the bracket rebuild is waiting on",
+      "owns_object": "WO-20260907-PER-LEG-BACKTEST-TO-LIVE-EXIT-LOCATION",
+      "checklist_item": "MI-155-EXIT-LOCATION-FIDELITY",
+      "spawned_at": "2026-09-07T06:57:07Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/mi155-exit-fidelity-20260907"
+      ],
+      "why": "OPERATOR directed the bracket work as the next focus 2026-09-07. Reading MI-148 + MI-151 + MI-147 together, the quantile cannot be built first: MI-151 line 220 makes it conditional on this measurement, and MI-147 found the instrument has never been run.",
+      "confirmed_at": "2026-09-07T06:58:02Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

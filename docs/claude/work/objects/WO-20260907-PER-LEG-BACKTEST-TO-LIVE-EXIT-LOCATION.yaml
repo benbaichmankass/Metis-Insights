@@ -1,0 +1,45 @@
+id: WO-20260907-PER-LEG-BACKTEST-TO-LIVE-EXIT-LOCATION
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Per-leg backtest-to-live exit-location fidelity - the gate every bracket proposal is waiting on
+stage: EVIDENCE
+lifecycle: done
+owner: session_017odwPFdR66U1yWyjBqzCwR
+opened_at: 2026-09-07
+closed_at: 2026-09-07
+review_trigger: >-
+  CLOSED 2026-09-07 by #11220. Re-open only if the abstain floor is lowered or
+  live n accrues past it — the verdict is a function of n, not of method.
+
+outcome: >-
+  ANSWERED, and the answer is that the question cannot yet be answered per leg.
+  Deliverable docs/research/exit-location-fidelity-2026-09-07.md, merged as
+  #11220 (2b433130). All 44 enabled+live legs grade `insufficient_n`: not one
+  `fidelity_ok` and not one `fidelity_failed`. The abstain floor is n_live >= 30
+  and the maximum per-leg live n is 8, so the verdict is invariant for any floor
+  in [10, 30] — this is a DATA-VOLUME result, not a method result, and lowering
+  the floor does not rescue it. The ~2.5x MI-151 measured did NOT reproduce as a
+  per-leg fidelity failure; it is a horizon-composition artifact. The basis
+  question is settled: measure in percent-of-entry, express the knob as `tp_r`,
+  and the conversion between them is LOSSY — recorded as a finding rather than
+  papered over. Two caveats that bound every figure in it: `peak_r_is_lower_bound`
+  is true on 171 of 171 rows, so every live number is a lower bound; and n_bt = 0
+  on 41 of 44 legs, so the backtest side of the comparison mostly does not exist.
+done_condition: >-
+  For each enabled+live leg, backtest and live exit locations are compared ON THE PERCENT-OF-ENTRY BASIS with a stated n on BOTH sides, and each leg gets a verdict: fidelity_ok / fidelity_failed / insufficient_n (we could not look - a third state, never folded into either). An ABSTAIN FLOOR is defined and stated, and legs below it are named as getting no target from the MFE-quantile route. The ~2.5x crypto p90 disagreement MI-151 measured (backtest BTC 3.87 percent at n=3194 vs live 9.70 percent at n=63) is either reproduced per-leg or explained.
+
+why: >-
+  MI-151 refuted ML-2 and named MI-148's per-leg MFE quantile as the answer, but its own line 220 makes that answer conditional: until backtest-live exit-location fidelity is measured per leg, a backtest MFE quantile describes the harness's book and not the fleet. MI-147 independently found the instrument for this (backtest_fidelity_calibrate.py) has NEVER been run and grades the wrong quantity for exit location. So this single measurement gates the bracket rebuild AND closes the open half of the operator's companion question.
+
+source: >-
+  manager session_01HrmZ1RRNM4UnEUaFdrPEjj, from MI-148 + MI-151 + MI-147 read together 2026-09-07
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
