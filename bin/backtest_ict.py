@@ -53,6 +53,9 @@ from typing import Iterable, List, Optional
 
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from candle_variance import DegenerateSeriesError, grade_close_variance  # noqa: E402
+
 logger = logging.getLogger("backtest_ict")
 
 
@@ -126,6 +129,17 @@ def _load_ohlcv(path: Path) -> pd.DataFrame:
         raise ValueError(f"{path}: missing OHLCV columns {missing}")
     df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
     df = df.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
+    # MI-157. This is the SECOND candle reader in the repo and the only route
+    # that ever reached data/ohlcv/, whose five committed fixtures were flat
+    # (300 rows, 1 distinct close each). It imports the grader rather than
+    # re-deriving it -- two definitions of degeneracy would drift the way the
+    # two candle readers already drifted on JSONL
+    # (BL-20260809-TWO-CANDLE-READERS-DIVERGE-ON-JSONL).
+    grade = grade_close_variance(df["close"] if "close" in df.columns else [])
+    if grade.state == "degenerate":
+        raise DegenerateSeriesError(f"{path}: {grade.detail}")
+    if grade.state == "not_gradeable":
+        logger.warning("%s: candle variance NOT GRADEABLE - %s", path, grade.detail)
     return df
 
 

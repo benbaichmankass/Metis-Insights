@@ -1,0 +1,199 @@
+> ⚠️ CREATED BY THE WORK SESSION, NOT BY THE MANAGER. The MI-157 dispatch named
+> this path as "your work object — its done_condition is your contract", and the
+> file did not exist on origin/main or anywhere else in the tree (checked with
+> `git cat-file -e origin/main:<path>`, and by grepping the whole work store).
+> The done_condition below is therefore TRANSCRIBED FROM THE DISPATCH PROMPT,
+> not read from a committed contract. That distinction is load-bearing: nobody
+> should later read this file as evidence the work was specified before it was
+> done. Recorded rather than quietly papered over.
+id: WO-20260907-THE-COMMITTED-BACKTEST-CANDLE-FIXTURES-ARE-FLAT
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: |-
+  Five committed candle fixtures hold exactly one distinct close each, so any backtest over them is confident and meaningless — repair the instrument
+stage: INTEGRITY
+lifecycle: done
+owner: session_01MLKjDPG9n1MHBByYEAEgjc
+opened_at: '2026-09-07'
+closed_at: '2026-09-07'
+cycle: CY-20260906-TRADING-TRUTH
+review_trigger: |-
+  Re-read if a candle fixture is ever proposed for commit again, or if
+  `candle-fixture-variance-guard` fires. The guard is the thing that carries
+  this forward; this object is only the record of why it exists.
+done_condition: |-
+  Transcribed from the MI-157 dispatch. (1) Measure the POPULATION first and
+  state it — every file under data/ohlcv/ and anywhere else committed candle
+  fixtures live; per file: row count, distinct closes, distinct opens, whether
+  the return series is degenerate; how many were checked and how many are flat,
+  a census and not a sample. (2) Find every consumer, establishing which can
+  actually reach these fixtures and which reach real fetched data instead, with
+  a positive control before trusting any quiet probe. (3) Repair: each file
+  either replaced with real fetched candle history shown to have a plausible
+  number of distinct closes and a non-degenerate return distribution, or DELETED
+  with its consumers made to fail loudly rather than silently read a flat
+  series — chosen per file, with the reason stated. A silent fallback to a flat
+  series is the defect and must not be reproduced in the fix. (4) Ship the
+  regression test that asserts non-degeneracy so the class cannot come back.
+blocked_on: []
+blocked_on_basis: |-
+  ASSESSED and genuinely empty. Every input needed was in the repo: the fixtures
+  are committed, both consumers are committed, and the census is arithmetic over
+  files already on disk. No VM read, no operator decision and no credential was
+  required at any point, and none was waited on. This is the rare case where an
+  empty `blocked_on` is a claim rather than an absence of one.
+
+outcome:
+  census:
+    population: |-
+      All 8 committed `.csv` files under `data/` — the FULL set, established by
+      `git ls-files | grep '\.csv$'` over the whole repo, not a sample and not
+      an assumption that `data/ohlcv/` was the only home. A wider sweep for
+      `.parquet` / `.feather` / `.pkl` / `.h5` / `.npy` and for any file named
+      like candles/ohlcv/bars/klines returned no further data files (positive
+      control: the same probe returns `data/ohlcv/btc_5m_2026.csv`, so its
+      silence elsewhere is measured, not assumed).
+    candle_files_checked: 7
+    flat: 5
+    real: 2
+    not_candle_data: 1
+    detail: |-
+      REAL (pass): data/backtest_candles.csv — 5000 rows, 4873 distinct closes,
+      4999/4999 non-zero returns, sd 8.18e-4. data/btc_1m_sample.csv — 10080
+      rows, 9688 distinct closes, 9962/10079 non-zero returns.
+      NOT CANDLE DATA: data/ict_validate_manifest.csv — 4 rows, columns
+      (symbol, timeframe, path), no `close` column. It is a manifest and is
+      graded as such; it is KEPT.
+      FLAT (all five, all under data/ohlcv/): btc_5m_2026.csv @95000.0,
+      eth_5m_2026.csv @3200.0, qqq_15m_2026.csv @490.0, spy_15m_2026.csv @580.0,
+      spy_5m_2026.csv @580.0 — each 300 rows, 1 distinct close, 0 of 299
+      non-zero returns, sd exactly 0. ⚠️ `open`, `high` and `low` are ALSO
+      1-distinct in every one of the five: the whole OHLC bar is constant, not
+      just the close. MI-151 reported the close; the bar is worse.
+  consumers: |-
+    ⚠️ THE DISPATCH'S FRAMING WAS WRONG IN THE REASSURING DIRECTION AND IS
+    CORRECTED HERE. It pointed at `BACKTEST_DATA_PATH` ("read by 23 files per
+    CLAUDE.md") as the consumer set. Measured: 21 files reference that variable
+    and EVERY ONE of them defaults it to `data/backtest_candles.csv`, which is
+    REAL. The `BACKTEST_DATA_PATH` fleet never reaches `data/ohlcv/` at all, by
+    default or otherwise — no file under `data/ohlcv/` is named as a default
+    anywhere in that fleet. Acting on the dispatch's premise would have audited
+    21 files that were never at risk and missed the one that was.
+    THE ONLY ROUTE to the flat fixtures is `data/ict_validate_manifest.csv`,
+    whose four rows name four of the five files, read by exactly two consumers:
+      * `bin/backtest_ict.py --manifest` (its own reader, `_load_ohlcv` — a
+        SECOND candle reader, distinct from `scripts/candle_io.py`);
+      * `notebooks/ict_multi_symbol_backtest.ipynb`, whose Cell 4 FETCHES real
+        candles over those paths before Cell 5 backtests them.
+    The fifth file (`spy_5m_2026.csv`) is named by NOTHING — it is an orphan
+    left over from the manifest's 5m→15m SPY upgrade.
+    The live consumer that actually consumed the flatness was
+    `tests/test_backtest_ict_cli.py::test_ict_validate_manifest_runs_all_pairs`,
+    which ran the full ICT backtester over all four and asserted success. It
+    passed, in CI, for months. Probes used a positive control throughout: the
+    `data/ohlcv` reference search returns 12 files while the same probe returns
+    66 for `backtest_candles.csv`, so the short list is a measurement.
+  repair: |-
+    ALL FIVE DELETED — one decision, applied uniformly, for three reasons.
+    (a) `.gitignore` line 75 ALREADY declares `data/ohlcv/*.csv` ignored; the
+    files were force-added past the repo's own stated intent in 29014899
+    ("placeholder OHLCV data"). Deleting them restores the declared design
+    rather than imposing a new one.
+    (b) The one designed workflow that reads them fetches over them first, so
+    they only ever served to make a path exist.
+    (c) Replacement was possible for at most two of the five from this sandbox
+    (`data.binance.vision` answers 200 for crypto; Bybit is 403 and Yahoo 429,
+    so SPY/QQQ could not be fetched here) — and a mixed population of two real
+    and three flat files is the ORIGINAL defect with better numbers, since you
+    would again be unable to tell them apart without measuring.
+    `data/ohlcv/README.md` replaces them: the path now declares what belongs
+    there, why it is empty, exactly what the deleted files contained, and the
+    two fetch commands that populate it.
+  fail_loudly: |-
+    The defect was the SILENCE, not the files, so the deletion is the smaller
+    half. Both candle readers now refuse a degenerate series AT THE READ:
+    `scripts/candle_io.py::load_candles` (9 research consumers) and
+    `bin/backtest_ict.py::_load_ohlcv` (the manifest path). Both import the
+    single grader `scripts/candle_variance.py::grade_close_variance` rather than
+    re-deriving the rule — two definitions of degeneracy would drift exactly the
+    way the two candle READERS already drifted on JSONL
+    (BL-20260809-TWO-CANDLE-READERS-DIVERGE-ON-JSONL).
+    THREE STATES, NEVER COLLAPSED: `non_degenerate` passes · `degenerate` raises
+    `DegenerateSeriesError` · `not_gradeable` (fewer than 2 usable closes, so no
+    return series EXISTS — *we could not look*) is warned and returned, never
+    folded into a pass. A test asserts all three states are reachable, so the
+    grade cannot decay back into a boolean.
+    `test_ict_validate_manifest_runs_all_pairs` is replaced by
+    `test_ict_validate_manifest_absent_data_fails_loudly`, which asserts the
+    opposite contract: a manifest pair whose file is absent must produce a NAMED
+    per-pair error, never a silent zero-trade success.
+  detector: |-
+    `scripts/ci/check_candle_fixture_variance.py`, registered in
+    `scripts/ci/run_guards.py` as `candle-fixture-variance-guard` with
+    `when: None` (UNGATED — the class is defined by a file's CONTENT, not its
+    location, so a glob on `data/` would miss a flat corpus committed anywhere
+    else). It censuses every tracked candle-shaped file and prints the
+    population alongside the failures, so a run that graded nothing can never
+    read as a clean pass. Its `--self-test` runs on EVERY invocation, because
+    silence from a detector nobody has seen fail is the "green that checked
+    nothing" this repo already has a rule about.
+    ⚠️ WHY A DETECTOR AND NOT A NOTE: this finding ALREADY had a written record
+    and the record did not stop it. BL-20260820-PLACEHOLDER-CANDLE-FIXTURES-
+    CARRY-NO-MARKER measured the same five files on 2026-08-20 and they were
+    still flat, still committed and still being read 18 days later when MI-151
+    tripped over one. That row's own done_condition demanded the guard be shown
+    to FIRE on one of the five AND stay silent on `data/backtest_candles.csv`;
+    both are now asserted as tests, so it is satisfied and is closed by this
+    object.
+  what_this_calls_into_question: |-
+    LESS THAN FEARED, and the reason is worth carrying. Both research artefacts
+    that touched these files CAUGHT them and routed around them:
+    `docs/research/ml2-predictive-bracket-2026-09-06.md` (MI-151, the finding
+    that dispatched this) used the trainer's real corpus instead, and
+    `docs/research/eth-regime-classweight-recalibration-2026-08-02.md` states
+    outright that the fixtures "are synthetic ... and were not used". So NO
+    research verdict is known to be corrupted, and the careful-session-does-
+    arithmetic habit is what caught it both times — which is exactly the habit
+    that should not have to be relied on, hence the guard.
+    ONE GAP IS FILED, NOT INVESTIGATED (the dispatch forbade re-deriving any
+    conclusion resting on a flat fixture):
+    BL-20260907-S006-M7-GO-NO-GO-VERDICT-MAY-REST-ON-FLAT-FIXTURES — the S-006
+    M7 go/no-go verdict records no provenance for the candles it scored, so
+    whether it ran on fetched or placeholder data is unattributed.
+    The one thing definitely corrupted was the TEST, filed as
+    BL-20260907-MANIFEST-BACKTEST-TEST-WAS-GREEN-OVER-A-FLAT-LINE-FOR-MONTHS
+    and fixed in the same change.
+  not_done: |-
+    No strategy backtest was run, re-run or re-interpreted, per the dispatch —
+    this repaired the instrument and deliberately produced no verdict from it.
+    `config/`, `src/runtime/` and every order path are untouched.
+    NOT VERIFIED: that a fetch to the now-empty `data/ohlcv/` paths succeeds
+    end to end. `data.binance.vision` was probed (200) but no fetch was run, and
+    the equity sources are blocked from this sandbox (Yahoo 429). The README's
+    fetch commands are therefore transcribed from
+    `scripts/ops/fetch_backtest_candles.py`'s own documented interface, NOT
+    executed — treat them as a pointer, not a receipt.
+
+blocked_on_note: null
+evidence:
+- |-
+  Census: scripts/ci/check_candle_fixture_variance.py over every tracked file —
+  7 candle files graded, 5 degenerate, 2 non-degenerate (measured 2026-09-07).
+- |-
+  Controls: the guard FAILS (rc=1) on a restored copy of
+  data/ohlcv/btc_5m_2026.csv from origin/main and PASSES (rc=0) on
+  data/backtest_candles.csv — both asserted as tests, not just observed.
+- |-
+  tests/test_candle_fixture_non_degeneracy.py — 14 tests, all passing.
+  tests/test_backtest_ict_cli.py — 21 tests, all passing after the rewrite.
+- |-
+  Pre-existing failures in this container (46 pytest collection errors from an
+  absent fastapi, 10 failures in tests/test_mobile_push_observer_hook.py) were
+  confirmed identical against a stashed origin/main tree — they are NOT caused
+  by this change, and were checked rather than assumed.
+- docs/research/ml2-predictive-bracket-2026-09-06.md  (MI-151, the finding)
+- docs/claude/work/objects/BL-20260820-PLACEHOLDER-CANDLE-FIXTURES-CARRY-NO-MARKER.yaml
+verdict: |-
+  DONE. 7 candle files checked, 5 flat, all 5 deleted with both readers made to
+  refuse a flat series and the CI census shipped so the class cannot return.
+  The measurement is repaired; no verdict was drawn from it, deliberately.

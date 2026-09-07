@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 throughout: test fixtures, a CI guard, tests, and research-harness read paths. Touches no config/, no src/runtime/, no order path, no strategy params and no risk caps. The five deleted files are candle FIXTURES that .gitignore line 75 already declared should not be committed; the two code changes are refusals added to research-only candle readers (scripts/candle_io.py, bin/backtest_ict.py), both of which are explicitly research-only and never reached from the live trader. No strategy backtest was run or re-interpreted. MI-157."
+}
