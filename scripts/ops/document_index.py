@@ -797,16 +797,24 @@ python3 scripts/ops/document_index.py --census   # report only, no writes
 python3 scripts/ops/document_index.py --write    # rebuild table + stamp headers
 ```
 
-Adding a document to `docs/**`, `ROADMAP*.md`, `CLAUDE.md` or
+Adding a document to `docs/**` (at ANY depth, top level included), `ROADMAP*.md`, `CLAUDE.md` or
 `.claude/skills/**` and not re-running `--write` **fails CI (R1)**. That is the
 point: registration is not optional, and it is not left to memory.
 
 ## The table
 
-**Population: {n} documents** — every file matching `docs/**/*.md`,
-`ROADMAP*.md`, `CLAUDE.md`, `.claude/skills/**/*.md` as tracked by `git ls-files`
-(so an untracked scratch file can never silently enter or leave the register).
-**{n} registered.**
+**Population: {n} documents** — every file matching the git pathspecs
+`:(glob)docs/**/*.md`, `ROADMAP*.md`, `CLAUDE.md`, `:(glob).claude/skills/**/*.md`
+as tracked by `git ls-files` (so an untracked scratch file can never silently
+enter or leave the register). **{n} registered.**
+
+⚠️ **The `:(glob)` prefix is part of the population, not decoration.** These are
+git PATHSPECS: without it, `*` crosses `/` and `**/` needs a literal intervening
+slash, so `docs/**/*.md` silently excluded all 28 `.md` files sitting directly in
+`docs/` — including the two that outrank `CLAUDE.md` — while this table reported
+100% coverage over what was left (population 971, all registered, guard `OK`).
+Fixed 2026-09-07, population 971 → 999; the guard's `--self-test` now plants a
+real top-level `docs/*.md` and fails if the population builder cannot see it.
 
 {ROWS_BEGIN}
 
