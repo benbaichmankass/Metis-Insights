@@ -1,5 +1,7 @@
 # S-AI-WS7-PART-6 — Coordinator-side shadow predictor cache
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Date:** 2026-05-10
 **Authority:** [`docs/sprint-logs/S-AI-WS7-PART-4.md`](S-AI-WS7-PART-4.md), [`docs/sprint-logs/S-AI-WS7-PART-5.md`](S-AI-WS7-PART-5.md)
 **Status:** ✅ COMPLETE

@@ -1,5 +1,7 @@
 # Proposal — reconcile a resting IB protective leg whose PRICE diverges from the journal
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** PROPOSAL. Tier-3 (live order path: `src/runtime/order_monitor.py`,
 `src/units/accounts/ib_client.py`). **Not implemented in this PR** — this is the
 "analyse and propose the exact change" half the permission tiers require.

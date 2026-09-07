@@ -1,5 +1,7 @@
 # Sprint S-044 — M4 step 1: complete the GitHub Actions CI suite
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Sprint type:** Roadmap (M4) | **Risk tier:** Tier 1 (all self-merge)
 **Created:** 2026-05-07 | **Branch:** `claude/sprint-044-ci-suite-wQmR4`
 **Predecessors:** CP-2026-05-06-15-s043-complete (M3 closed); CP-2026-05-07-01-bug061-spot-tpsl-blocker (most recent merged work)

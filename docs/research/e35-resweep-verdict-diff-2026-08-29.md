@@ -1,5 +1,7 @@
 # N7 / D2 — the old-vs-new verdict diff, and why its control could never pass
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Tier 1, evidence only.** Item **N7** of `docs/claude/WORKPLAN-NIGHT-2026-08-29.md`.
 ⚠️ **Nothing here is applied to `config/strategies.yaml`.** Any verdict change is Tier-3
 and operator-gated; the deliverable is the diff and its reading.

@@ -1,5 +1,7 @@
 # E3.5 — the take-profit is not a decision, it is the venue's rejection threshold
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-20 · **Tier-1, observe-only.** Nothing here changes a live
 parameter; every bracket parameter in `config/strategies.yaml` is **Tier-3**.
 

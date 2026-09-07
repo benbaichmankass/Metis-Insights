@@ -1,4 +1,7 @@
 # End-to-End System Audit — 2026-05-12
+
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Reconstruction Sprint: Pinpoint Errors, Not Patches**
 
 > Target branch: `claude/fix-trade-pipeline-MG5qb`  

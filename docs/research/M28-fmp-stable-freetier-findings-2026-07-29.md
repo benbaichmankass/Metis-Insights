@@ -1,5 +1,7 @@
 # ROADMAP_MACRO M28 — FMP `/stable/` free-tier: verified limits + NO-BUILD verdict (2026-07-29)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Question:** the earlier source probe
 ([`M1-econ-calendar-source-probe-2026-07-29.md`](M1-econ-calendar-source-probe-2026-07-29.md))
 found FMP's `/stable/` path serves *some* data on the free key. Is any of it worth

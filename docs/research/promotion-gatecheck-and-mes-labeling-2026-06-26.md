@@ -1,5 +1,7 @@
 # BTC regime-head promotion gate-check + MES labeling root cause (2026-06-26)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Follow-up to the fleet scorecard (`fleet-model-scorecard-2026-06-26.md`,
 `MB-20260626-001`), executing the operator's "(b) + (c)" directive:
 

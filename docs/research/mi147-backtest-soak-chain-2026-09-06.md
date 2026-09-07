@@ -1,5 +1,7 @@
 # Is backtesting actually gating what goes live? — MI-147
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-09-06 · **Work object:** `WO-20260906-IS-BACKTESTING-ACTUALLY-GATING-WHAT-GOES-TO`
 · **Checklist item:** `MI-147-BACKTEST-SOAK-CHAIN-AUDIT` · **Tier-1, read-only audit.**
 

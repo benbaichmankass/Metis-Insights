@@ -1,5 +1,7 @@
 # Retuning the stop beats refusing the trade — crypto pullback family, 2026-08-23
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Operator directive that produced this run** (2026-08-23): *"this sounds like it
 also needs to be retuned before we can make a decision — we shouldn't just reject
 trades instead of actually enhancing the strategy mechanisms."*

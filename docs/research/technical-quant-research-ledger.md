@@ -1,5 +1,7 @@
 # M30 — Technical quant-research ledger
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 The compounding record of every **technical / price-action feature→outcome
 discovery** run through the M30 research platform, its honest verdict, and the
 learning. The price-action counterpart of the macro

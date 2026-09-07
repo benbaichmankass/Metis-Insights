@@ -1,5 +1,7 @@
 # P1 vol-target — LIVE-PARAM re-run CORRECTION (2026-06-26)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Correction to `P1-vol-target-result-2026-06-26.md`.** The original P1 "KEEP /
 graduate to shadow" verdict was computed on a **proxy book** (T0.1 flagged it:
 trend at the wrong TF without its conf gate, a shadow strategy included, two

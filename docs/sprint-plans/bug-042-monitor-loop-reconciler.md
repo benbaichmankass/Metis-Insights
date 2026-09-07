@@ -1,5 +1,7 @@
 # Sprint plan — BUG-042: monitor-loop write-back reconciler
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** DRAFT — awaiting operator approval (this PR is the work-PR
 per CLAUDE.md "Ping-PR vs work-PR" rule).
 **Filed:** 2026-05-03 (CP-2026-05-03-20).

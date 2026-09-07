@@ -1,5 +1,7 @@
 # M23 — Meta-Labeling Program (secondary take/skip confirmation head)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** 📋 PROPOSED 2026-07-17 (design of record). **PROPOSE-ONLY** — no
 > `src/`, `config/`, `ml/`, or live-path file changes from this doc. Every phase
 > graduates observe-only through `candidate → shadow → advisory`; letting a

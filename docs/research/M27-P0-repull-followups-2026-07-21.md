@@ -1,5 +1,7 @@
 # M27 P0 — repull follow-ups: futures 15m + equities 1h (2026-07-21)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Resolves the two `partially-resolved` performance-review-backlog items left
 open at the end of the 2026-07-20/21 overnight arc:
 `PB-20260721-M27-FUTURES-5M-LOWSIGNAL` and `PB-20260721-M27-EQUITIES-DATACAP`.

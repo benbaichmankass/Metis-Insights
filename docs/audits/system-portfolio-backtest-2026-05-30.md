@@ -1,5 +1,7 @@
 # System / portfolio backtest — the roster on one shared account (2026-05-30)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Tier-1 research tooling + findings. Harness:
 > `scripts/backtest_system.py`. Comparison driver: `scripts/research_*` (ad-hoc).
 > **Window:** BTCUSDT, 2020-06 .. 2026-02 (5.7y), $10k, risk 0.3%/trade,

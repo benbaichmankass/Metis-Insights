@@ -1,5 +1,7 @@
 # Next-session prompt — post-VWAP-backtest (2026-05-14)
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **✅ CLOSED / HISTORICAL (do not action).** This was a one-shot, dated
 > hand-off prompt. Its two items — the 2026-05-14 bybit_2 incident and the
 > `signal_type` migration — are resolved and long superseded. It is retained

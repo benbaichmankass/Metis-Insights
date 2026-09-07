@@ -1,5 +1,7 @@
 # Why the research isn't translating into live results — diagnosis + process fix
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Operator question (2026-07-30):** "We do so much testing and research. We need
 to understand why that's not translating into results and what we need to be
 doing differently." Focus: **crypto first**, then equities/ETFs.

@@ -1,5 +1,7 @@
 # M20 exit-capture census — where the exit money actually is
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-10 · **Status:** measurement only, nothing graded, no lever shipped
 **Driver:** operator directive 2026-08-10 — *"capital efficiency isn't just a gate for
 testing, it's a principle… we need a much better way of understanding when it's time to

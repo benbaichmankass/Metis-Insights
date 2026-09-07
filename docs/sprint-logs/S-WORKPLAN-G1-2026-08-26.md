@@ -1,5 +1,7 @@
 # Sprint Log: S-WORKPLAN-G1-2026-08-26
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-08-26T10:20Z (picks up where `S-WORKPLAN-GATE0-2026-08-26` ends)
 - End: 2026-08-26T22:40Z

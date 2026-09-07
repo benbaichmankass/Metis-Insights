@@ -1,5 +1,7 @@
 # Recurring Hardening Session Prompt
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Type**: Recurring (bi-daily by default)
 **Cap**: 3 hours
 **Spec**: `docs/claude/recurring-sessions.md`

@@ -1,5 +1,7 @@
 # Strategy-primitives recombination sweep — Direction-2 results (2026-06-18)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 First full run of the recombination orchestrator (`scripts/ops/recombination_sweep.py`,
 PR #3945) over the v1 pool (`config/research/recombination_pool.yaml`). Run on the
 trainer via `vm-driver` (detached); raw: `automation/results/direction2-collect2.txt`.

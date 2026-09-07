@@ -1,5 +1,7 @@
 # AI-driven trader — research & testing plan (2026-07-19)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Operator-directed. Companion to the ROADMAP research-week plan (07-20→07-26)
 > and the M23/M24/M25 design docs; this is the LONGER-horizon program that the
 > weekly plans draw from. Grounded in the evidence on file — every direction

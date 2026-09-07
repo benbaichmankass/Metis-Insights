@@ -3,6 +3,8 @@ name: session-handoff
 description: Recognize when a session has run long enough that continuing to a NEW unrelated work item in the SAME context window is wasting compute (repeated context-compaction, cross-subsystem thrash), then close the current unit of work cleanly with no loose ends and hand off with a concrete, self-contained prompt for a fresh session to continue. Use at every natural checkpoint (a PR merged, an investigation resolved, before starting a new unrelated item) — especially in research-driver / full-system-audit / any open-ended or multi-hour session. NOT for splitting a big task across PARALLEL sessions up front (that's delegate-work) and NOT for concurrent-session collision safety (that's session-coordination) — this is the SERIAL/temporal counterpart: one thread of work, continued across TIME via a fresh context instead of one ballooning one.
 ---
 
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+
 # session-handoff — stop cleanly, hand off crisply
 
 Codified 2026-07-23 (operator directive): long-running sessions that grind

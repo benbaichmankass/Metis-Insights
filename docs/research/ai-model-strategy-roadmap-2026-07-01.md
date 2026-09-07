@@ -1,5 +1,7 @@
 # AI Model Strategy & Roadmap — new model *types* (M19)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** 📋 PROPOSED 2026-07-01 (research/design session). **PROPOSE-ONLY** —
 > no `src/`, `config/`, `ml/`, or live-path file is changed by this doc. Every
 > model type below graduates observe-only through the existing

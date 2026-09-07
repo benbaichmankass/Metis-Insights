@@ -1,5 +1,7 @@
 # Sprint Log: S-WORKPLAN-REPLAN-20260821
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 2026-08-21 16:50Z → 2026-08-21 19:05Z (single session, `spsxq6`), overlapping
 the tail of `dcf5220b`'s `/system-review` and the whole of `wave0-8g7443`'s

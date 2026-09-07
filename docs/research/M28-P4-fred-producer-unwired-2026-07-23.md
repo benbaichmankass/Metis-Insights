@@ -1,5 +1,7 @@
 # M28 P4 gate — verification finding: the FRED valuation-snapshot **producer is unwired**
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-07-23
 **Session:** ml-strategies-roadmap-cont-9tk5ja
 **Anchor:** `BL-20260723-M28-P4-GATE-FOLLOWUP` (ml-review-backlog) · milestone **M28** (Macro/Value Speculation Sleeve)

@@ -1,5 +1,7 @@
 # The measured `observed_p` — and it reverses how XRP 4163's loss should be read
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 `src/runtime/hold_vs_cash.py` computes the hit rate a position **requires** and refuses to
 grade without a **measured** rate to compare it against. This is that measurement for
 `xrp_pullback_2h`, and the answer changes the conclusion I reached earlier the same day.

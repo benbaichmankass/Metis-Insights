@@ -1,5 +1,7 @@
 # S-AUDIT-F — prop-bridge slice (`src/prop/`)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Session:** `session_01LGsKNEjcTeujEGVACSPESK-Fprop` · branch `claude/audit-F-prop-bridge`
 **Date:** 2026-06-28 · **Part of:** M17 Full-System Audit (`docs/audits/full-system-audit-2026-06-28.md`)
 

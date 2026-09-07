@@ -1,5 +1,7 @@
 # Sprint Log: S-FULL-SYSTEM-REVIEW-807M08-20260730
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-07-30 (session `807m08`, branch `claude/full-system-review-807m08`)
 - End: 2026-07-30

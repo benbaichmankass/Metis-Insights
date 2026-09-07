@@ -1,5 +1,7 @@
 # M29 P1c — the fair test: dual-target gas calibration (observed storage + real weather)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** built 2026-07-23 · observe-only research · Tier-1 (no live influence).
 
 P1b calibrated the `gas_storage_price_v1` seed against the keyless real **price**

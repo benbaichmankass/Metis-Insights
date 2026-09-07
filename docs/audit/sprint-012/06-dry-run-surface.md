@@ -1,5 +1,7 @@
 # § 6 — Dry-run / live-trading flag surface
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Total occurrences of `DRY_RUN` / `dry_run` in `src/`: ≈79. The footprint is
 mostly correct; the prompt's instruction to "remove DRY_RUN" should be
 read as **"ensure the only path from `DRY_RUN=true`/`ALLOW_LIVE_TRADING≠true`

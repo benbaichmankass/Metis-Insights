@@ -1,5 +1,7 @@
 # Trainer VM mode — the autonomous-Claude charter
 
+> **Doc status:** `live` · category `unknown` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 This doc binds any Claude Code session that operates against the
 **trainer VM** (`ict-trainer-vm` — `VM.Standard.A1.Flex`, 1 OCPU /
 6 GB, same OCI compartment + subnet as the live trader, tagged

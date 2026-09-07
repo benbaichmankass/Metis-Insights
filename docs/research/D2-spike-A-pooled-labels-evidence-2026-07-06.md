@@ -1,5 +1,7 @@
 # D2 Spike A — pooled real+paper labels: evidence (2026-07-06)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Question** (`MB-20260705-META-LABEL-WALL`): do pooled real+paper execution
 labels, with an `account_class` domain flag, lift trade-outcome prediction on a
 held-out REAL-money slice — the M14 S8 pooling recipe retried with

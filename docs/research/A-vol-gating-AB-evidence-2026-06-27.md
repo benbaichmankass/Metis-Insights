@@ -1,5 +1,7 @@
 # Design-A vol-gating A/B — evidence (2026-06-27)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Ran the 4-arm A/B from `docs/research/A-vol-gating-AB-plan-2026-06-27.md` on the
 trainer (full BTC history `data/backtest_BTCUSDT_5m.csv`, roster
 `trend_donchian + squeeze_breakout_4h + htf_pullback_trend_2h`, candidate policy

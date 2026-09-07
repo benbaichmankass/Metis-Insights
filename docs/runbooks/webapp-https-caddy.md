@@ -1,5 +1,7 @@
 # Web-app HTTPS front (Caddy) — SPA Phase-0
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 The Svelte SPA (`ict-trader-dashboard/webapp`, GitHub Pages) calls this bot's
 FastAPI **browser-direct**. A GitHub Pages page is HTTPS, so a mixed-content
 `http://141.145.193.91:8001` fetch is hard-blocked. Phase-0 puts a public HTTPS

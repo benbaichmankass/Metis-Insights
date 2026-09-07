@@ -1,5 +1,7 @@
 # M27 Batch-4 — XAUUSD 15m findings (2026-07-21)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Question:** does `ict_scalp` transfer to XAUUSD at its native 15m timeframe,
 re-validated **config-exact** against the current live-mirror harness with
 proper k-fold OOS — not the M15 Phase-0 screening harness's single train/OOS

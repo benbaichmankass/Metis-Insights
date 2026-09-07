@@ -1,5 +1,7 @@
 # Session handoff — 2026-06-01 (shadow trio → MES native validation → demotions → execution bugfixes → regime study)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **For the next session.** This captures exactly where things stand so you can
 > pick up without re-deriving. Read this, then `docs/CLAUDE-RULES-CANONICAL.md`
 > + the latest roadmap entry as usual.

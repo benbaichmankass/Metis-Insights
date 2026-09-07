@@ -1,5 +1,7 @@
 # M27 P0 — Batch-3 equities/ETF findings (SPY/QQQ/IWM/TLT/GLD/SLV/GDX/USO/IEF, 2026-07-21)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Question:** does the ict_scalp_5m setup transfer to the equities/ETF sleeve
 (SPY, QQQ, IWM, TLT, GLD, SLV, GDX, USO, IEF) under a venue-plausible cost
 model?

@@ -1,5 +1,7 @@
 # Exit-capture deep-dive — MFE-vs-realized, 14-day live evidence (2026-07-30)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **⚠️ ROOT-CAUSE PREMISE DISPROVEN (2026-07-30, concurrent-session finding —
 > `BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-TPSL-PREMISE`).** This memo attributes
 > the scalp exit leak to `BYBIT_TPSL_MODE=full` and treats `partial` as a fix

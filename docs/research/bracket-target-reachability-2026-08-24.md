@@ -1,5 +1,7 @@
 # Does a declared bracket target actually exit the trade, or does the clamp get there first?
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-24 · **Tier:** research only, nothing applied · **Scope:**
 the four clamp-dominated donchian 4h legs, read off the existing 2,204-row
 `e35-bracket-corpus.jsonl`. **No config touched, no model promoted.**

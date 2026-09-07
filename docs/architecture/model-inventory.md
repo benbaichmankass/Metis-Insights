@@ -1,5 +1,7 @@
 # Open-source model inventory (S-AI-WS6)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Authority:** [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md)
 > ([`docs/sprint-plans/ai-traders/ws6-open-source-models.md`](../sprint-plans/ai-traders/ws6-open-source-models.md)).
 >

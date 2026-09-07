@@ -1,5 +1,7 @@
 # Overnight strategy research — 2026-06-01
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Operator ask (2026-05-31, end of S-PROFIT-GAPS session):** run a long autonomous
 research session to find good strategy leads on BTC / MES (or other ideas);
 formulate strategies, do variation backtesting, have results by morning.

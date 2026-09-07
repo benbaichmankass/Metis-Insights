@@ -1,5 +1,7 @@
 # M30 × M20 — the per-bar in-trade EXIT head (dense-substrate fusion) — DESIGN
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Tier-1 research build; Tier-3 to ship.** Observe-only offline tooling + a
 > $0 GH-runner discovery workflow. No live order path, config, or money-DB change
 > until a net-of-cost backtest-gated, operator-approved graduation (the M20

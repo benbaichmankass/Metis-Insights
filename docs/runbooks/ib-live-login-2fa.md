@@ -1,5 +1,7 @@
 # Runbook — IB **live**-account login + 2FA (headless gateway)
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status (2026-06-15): MES/MGC/MHG trade on IB *paper* and are healthy. The
 real-money *live* login is BLOCKED on an IBKR 2FA-mode setting (Seamless OFF).**
 This is a **pre-flight for a capability not yet in use** — `ib_live` is held

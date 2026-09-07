@@ -1,5 +1,7 @@
 # M25 — Frozen-dataset per-head remediation memo (2026-07-20, overnight WS-4)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status: DECISION PACKET — prepared overnight for the operator's morning
 review. No execution has happened from this memo.** Parent backlog item:
 `MB-20260720-FCPCV-RETRAIN-NOOP` (docs/claude/ml-review-backlog.json).

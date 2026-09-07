@@ -1,5 +1,7 @@
 # Faithful Backtest & Evaluation Platform — design of record (2026-08-04)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Operator directive (2026-08-04, binding):** *"if we wait for data accrual we'll
 > never make confident decisions, and there's no way in the entire universe that
 > this is how real trading firms manage their pipeline. We need real infra for

@@ -1,5 +1,7 @@
 # M19 fc family, 3rd symbol — SOL fc-vs-base purged-CV A/B: evidence (2026-07-06)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Question** (MB-20260705-FC-ADVISORY-READINESS follow-on / the overnight
 program's SOL side-stream): do the six frozen chronos-bolt-tiny quantile-
 forecast features (`fc_*`) add regime-head skill on a **third symbol**

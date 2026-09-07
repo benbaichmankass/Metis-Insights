@@ -1,5 +1,7 @@
 # R4 — the research→results cost-gate: design + build plan (scope-and-start)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Owns:** the highest-leverage frontier fix from `S-ROADMAP-STATUS-REVIEW-2026-08-01`
 §R4 — *"no strategy graduates unless its portfolio-mirror is net-positive after full
 costs."* Diagnosis of record: [`research-to-results-gap-2026-07-30.md`](./research-to-results-gap-2026-07-30.md).

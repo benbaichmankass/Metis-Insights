@@ -1,5 +1,7 @@
 # M29 — Honest (non-overlapping) horizon-IC re-grade of the three valuation-schema sleeves
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-07-23 · **Tier-1 research (observe-only)** · scan: `scripts/macro/horizon_ic_scan.py`
 
 ## Why this re-grade

@@ -1,5 +1,7 @@
 # Sprint S-046 — M4 step 3: Janitor audits (close M4)
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Sprint type:** Roadmap (M4) | **Risk tier:** Tier 1 (all self-merge except T4 ping-PR)
 **Created:** 2026-05-07 | **Branch:** `claude/sprint-planning-status-ZMePk`
 **Predecessors:** `CP-2026-05-07-06-s045-followup-auto-sync` (PR #439 + #440 merged). S-045 closed M4 step 2; the post-S-045 follow-up landed the auto-sync branch-protection workflow.

@@ -1,5 +1,7 @@
 # Volatility-squeeze breakout — best member-#3 candidate (S-STRAT-IMPROVE-S9)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-05-24 · **Status:** validated in backtest; **next: wire to
 `execution: shadow`** (same path the fade took) · **Harness:**
 `scripts/backtest_squeeze.py` · **Data:** `data/backtest_BTCUSDT_5m.csv`

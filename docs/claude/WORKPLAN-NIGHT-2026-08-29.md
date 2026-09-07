@@ -1,5 +1,23 @@
 # Overnight workplan — 2026-08-29 → 30 · **M20 Active Trade Management**
 
+> **Doc status:** `closed_unfinished` · category `plan` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
+> ## **PLAN STATUS: `closed_unfinished`**
+> **What was left:** The N1/N2/N8 items were not audited by this session; `ROADMAP.md`'s
+> M20 row records the **N3–N7** unit as landed. This was a one-night schedule
+> (2026-08-29 → 30) whose window closed 9 days before this status was assigned, so it
+> is terminal by elapsed time regardless of item state.
+>
+> Status assigned 2026-09-07 (MI-159), enforced by `scripts/ci/check_one_live_workplan.py`.
+>
+> **This was an ADDENDUM, never a competing plan.** Its own header states it is
+> *"subordinate to [`WORKPLAN-2026-08-29.md`] — it does not supersede it"*. It is
+> marked `closed_unfinished` rather than `superseded` because nothing replaced it:
+> its night simply ended. ⚠️ Do not read this status as a verdict that N1/N2/N8
+> failed — **nobody looked**, and that is a different fact from their having been
+> abandoned.
+
+
 **Operator-authorised unattended run.** Scope, autonomy envelope and priority were all
 set by the operator in-conversation on 2026-08-29 (see § 0). This plan is **subordinate
 to** [`WORKPLAN-2026-08-29.md`](WORKPLAN-2026-08-29.md) — it does not supersede it, it

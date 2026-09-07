@@ -1,5 +1,7 @@
 # Open considerations (NOT canonical — under evaluation)
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 This file records design questions that are being **evaluated, not decided.**
 Nothing here is a directive. It is deliberately **not** part of the canonical
 doc set (see `docs/CLAUDE-RULES-CANONICAL.md` § Document Priority). Do **not**

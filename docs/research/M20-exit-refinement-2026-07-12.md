@@ -1,5 +1,7 @@
 # M20 Exit Refinement — evidence memo (2026-07-12)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Session:** S-M20-EXIT-REFINEMENT-2026-07-12 (branch
 `claude/exit-refinement-sprint-l74k6o`). Tier-1 research — no live-path file
 changed. Data pulled autonomously: live-VM diag relay #6157, trainer relays

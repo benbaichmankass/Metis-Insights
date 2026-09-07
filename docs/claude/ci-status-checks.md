@@ -1,5 +1,7 @@
 # CI status checks
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Quick reference for every GitHub Actions workflow on this repo.
 Read this first when a PR check goes red — most failures map to a
 single command you can re-run locally.

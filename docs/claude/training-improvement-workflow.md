@@ -1,5 +1,7 @@
 # Training / improvement session workflow
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 How Claude runs an autonomous "improve the strategy or models" cycle.
 
 The session is split into **four stages**, three of which can run hands-off

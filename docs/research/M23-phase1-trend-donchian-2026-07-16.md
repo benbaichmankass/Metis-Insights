@@ -1,5 +1,7 @@
 # M23 Phase 1 — first leg (trend_donchian backtest-augmented meta-labels): findings (2026-07-16)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Verdict: HONEST NEGATIVE on the pre-registered gate, with a validated pipeline
 and a faint positive precision signal.** The first M23 Phase-1 leg — train a
 trade-quality meta-label model on **backtest-augmented** labels (trend_donchian's

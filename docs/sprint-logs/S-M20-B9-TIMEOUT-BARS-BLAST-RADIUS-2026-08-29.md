@@ -1,5 +1,7 @@
 # Sprint Log: S-M20-B9-TIMEOUT-BARS-BLAST-RADIUS-2026-08-29
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-08-29T17:26Z
 - End: 2026-08-29T18:25Z

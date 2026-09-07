@@ -1,5 +1,7 @@
 # Exit-lever wiring audit — is the bracket / active-management thesis in the roadmap, built, and applied?
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **MI-146** · work object [`WO-20260906-ARE-THE-BRACKET-AND-ACTIVE-MANAGEMENT-MECHANISMS`](../claude/work/objects/WO-20260906-ARE-THE-BRACKET-AND-ACTIVE-MANAGEMENT-MECHANISMS.yaml) · registry key `pending-20260906T105301Z-2`.
 
 ⚠️ **PROPOSE-ONLY.** Strategy logic and exit geometry are Tier-3. Nothing in this memo is applied. No `src/`, `config/` or matrix file was edited.

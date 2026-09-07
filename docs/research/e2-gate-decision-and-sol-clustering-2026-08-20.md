@@ -1,5 +1,7 @@
 # The E2 admissibility gate: the decision, and what the SOL clustering actually was
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-20 · **Step:** the E2 loose end that gates E3,
 [`docs/design/exit-mechanism-construction-PROCESS.md`](../design/exit-mechanism-construction-PROCESS.md) § E2
 · **Closes:** `BL-20260820-E2-NEGATIVE-CONTROL-GATED-POINTWISE-NOT-FWER`

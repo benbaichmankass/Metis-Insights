@@ -1,5 +1,7 @@
 # Sprint Log: S-MLOPT-S17
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-06-04
 - End: 2026-06-04

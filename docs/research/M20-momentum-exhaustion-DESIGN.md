@@ -1,5 +1,7 @@
 # M20 Phase 4 — Momentum-Exhaustion Exits (DESIGN)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** DESIGN APPROVED-TO-START (operator, 2026-07-12: "make sure it's all
 planned and noted … then we can start according to the priorities").
 **Owner surface:** this doc (design of record) + the ROADMAP M20 row (status)

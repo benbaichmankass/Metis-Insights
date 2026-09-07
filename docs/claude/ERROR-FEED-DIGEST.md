@@ -1,5 +1,7 @@
 # Trader error feed — grouped for triage
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 _Generated 2026-09-07T10:41:54+00:00 · covers rows after `2026-09-07T04:50:33.956028+00:00` · verdict **all_feeds_read**_
 
 > ⚠️ **Page cap hit** on `bot_logs` — older rows exist that this digest did not see.

@@ -1,5 +1,7 @@
 # Trade Pipeline — Stage Contracts
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Canonical (pipeline scope). Adopted in **S-AI-WS2**
 > (2026-05-10) per [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md).
 >

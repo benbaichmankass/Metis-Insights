@@ -1,5 +1,7 @@
 # BTC vol-regime head robustness — offline-vs-live diagnosis (2026-07-18)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Question (operator, B-robustness thread):** the live BTC vol-gate advisory head
 `btc-regime-15m-lgbm-v2` fails live regime-discrimination (RG4 AUC 0.530 < 0.55).
 *"What do we need to do to make this model more robust so we don't run into the

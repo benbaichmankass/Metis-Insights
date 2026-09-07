@@ -1,5 +1,7 @@
 # M23 Phase 1 — EV-at-threshold gate reframe (2026-07-17)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Verdict: the pooled meta-label is a REAL win-rate-lifting selector (26.3% → 31.8% at
 12% coverage), it cuts the book's total realized loss hard under selection (net R
 −181.6 → −18.6 at top-12%), but it is NOT a net-positive trade filter — the selected

@@ -1,5 +1,7 @@
 # M30 — Deep quant-research session prompt (paste-ready)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **How to use:** paste the block below into a fresh deep-research session to
 > start. The M30 platform is **built + validated** (2026-07-27); this session
 > *uses* it to find + develop strategies, finishing the small self-serve

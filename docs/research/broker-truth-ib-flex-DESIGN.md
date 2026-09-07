@@ -1,5 +1,7 @@
 # Broker-truth IB fills — Flex Web Service design (rec #7 PR c)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-07-29 · **Milestone:** roadmap-toolbox assessment rec #7 (broker-truth
 cost coverage) · **Status:** design landed; the build is **gated on an operator-provided
 Flex token** (a genuine human-at-broker step) + a real Flex-XML capture (verify-before-build).

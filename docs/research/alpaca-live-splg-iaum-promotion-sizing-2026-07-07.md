@@ -1,5 +1,7 @@
 # alpaca_live SPLG + IAUM promotion sizing (2026-07-07)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Author:** Claude. **Status:** research finding + a **Tier-3 proposal** (real-money
 `alpaca_live` promotion + risk sizing). **No config touched** — the sweep patched
 `config/accounts.yaml` per iteration and **restored it** (verified: `restored

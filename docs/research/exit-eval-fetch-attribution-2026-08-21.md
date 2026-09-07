@@ -1,5 +1,7 @@
 # Where the exit-evaluation pass spends its time — and the one change that would give it back
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-21 · **Session:** `wave0-8g7443` · **Item:** Wave 0.1 of
 [`docs/claude/WORKPLAN-2026-08-21.md`](../claude/WORKPLAN-2026-08-21.md) ·
 **Row:** `BL-20260821-EXIT-EVAL-BREACHES-60S-ON-A-THIRD-OF-CYCLES`

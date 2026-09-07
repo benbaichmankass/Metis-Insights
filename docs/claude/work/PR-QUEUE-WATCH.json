@@ -1,14 +1,14 @@
 {
   "_doc": "RECEIPT of the PR-queue watcher (scripts/ops/pr_queue_latency.py, fired by .github/workflows/pr-queue-watch.yml). ⚠️ READ `generated_at`, NEVER THE CRON EXPRESSION -- a merged, enabled, syntactically correct scheduled workflow in this repo is NOT evidence that it fires (probes.yml's first scheduled run was ~4h50m late and fired once instead of daily). `scripts/ci/check_pr_queue_watch.py` grades this file's age in run_guards.py on every PR, so a dead watcher announces itself in everybody's CI instead of going quiet. ⚠️ An ABSENT file means the watcher has NEVER run, which is a different fact from STALE and needs a different fix.",
   "schema_version": 1,
-  "generated_at": "2026-09-07T05:12:43Z",
+  "generated_at": "2026-09-07T13:00:26Z",
   "read_state": "measured",
-  "population": "ALL 6 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
+  "population": "ALL 7 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
   "waiting": 2,
-  "worst_hours": 85.5,
+  "worst_hours": 93.3,
   "threshold_hours": 6.0,
   "by_state": {
-    "active": 4,
+    "active": 5,
     "waiting": 2
   },
   "rows": [
@@ -17,9 +17,9 @@
       "title": "merge-ping: log the success path, so the mechanism can be read off the fleet (MI-83 follow-up)",
       "head_ref": "claude/mi83-merge-ping-observability",
       "draft": false,
-      "quiet_hours": 85.5,
+      "quiet_hours": 93.3,
       "state": "waiting",
-      "why": "open and unmerged with no push for 85.5h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 93.3h (threshold 6.0h).",
       "last_push_utc": "2026-09-03T15:39:55Z"
     },
     {
@@ -27,50 +27,60 @@
       "title": "record today's recurrence of the reconcile-PR disposition deadlock",
       "head_ref": "claude/reconciler-deadlock-recurrence-20260906",
       "draft": false,
-      "quiet_hours": 10.1,
+      "quiet_hours": 17.9,
       "state": "waiting",
-      "why": "open and unmerged with no push for 10.1h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 17.9h (threshold 6.0h).",
       "last_push_utc": "2026-09-06T19:08:01Z"
     },
     {
-      "pr": 11140,
-      "title": "MI-150: ship the M20 exit-head consumer into ict_scalp (annotate-only, disarmed)",
-      "head_ref": "claude/ict-scalp-exit-head-20260906",
+      "pr": 11240,
+      "title": "dispatch MI-159 — one live work plan, an accurate roadmap, and TASK-level priority",
+      "head_ref": "claude/mgr-dispatch-20260907-roadmap",
+      "draft": false,
+      "quiet_hours": 0.5,
+      "state": "active",
+      "why": "a push landed 0.5h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-07T12:30:35Z"
+    },
+    {
+      "pr": 11241,
+      "title": "MI-159: exactly one live work plan, a corrected roadmap, and TASK-level priority",
+      "head_ref": "claude/mi159-one-live-workplan",
       "draft": false,
       "quiet_hours": 0.2,
       "state": "active",
       "why": "a push landed 0.2h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-07T05:00:01Z"
+      "last_push_utc": "2026-09-07T12:50:21Z"
     },
     {
-      "pr": 11205,
-      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
-      "head_ref": "automation/reconcile-open-prs-34072586521-1",
+      "pr": 11242,
+      "title": "manager-lease: heartbeat 2026-09-07T12:30Z",
+      "head_ref": "claude/mgr-hb-20260907-1230",
       "draft": false,
-      "quiet_hours": 3.7,
+      "quiet_hours": 0.5,
       "state": "active",
-      "why": "a push landed 3.7h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-07T01:29:53Z"
+      "why": "a push landed 0.5h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-07T12:30:46Z"
     },
     {
-      "pr": 11211,
-      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
-      "head_ref": "automation/reconcile-open-prs-34084130119-1",
+      "pr": 11244,
+      "title": "dispatch MI-161 (document library) and narrow MI-160 to REDUNDANCIES on the operator's restatement",
+      "head_ref": "claude/mgr-dispatch-20260907-doclibrary",
       "draft": false,
-      "quiet_hours": 0.3,
+      "quiet_hours": 0.5,
       "state": "active",
-      "why": "a push landed 0.3h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-07T04:53:22Z"
+      "why": "a push landed 0.5h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-07T12:32:17Z"
     },
     {
-      "pr": 11214,
-      "title": "chore(ops): refresh the error-feed digest (auto)",
-      "head_ref": "automation/error-feed-digest-34085765784-1",
+      "pr": 11247,
+      "title": "document-index: drop an unused import (ruff F401)",
+      "head_ref": "claude/mi161-document-library-20260907",
       "draft": false,
-      "quiet_hours": 0.0,
+      "quiet_hours": 0.1,
       "state": "active",
-      "why": "a push landed 0.0h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-07T05:10:43Z"
+      "why": "a push landed 0.1h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-07T12:57:02Z"
     }
   ],
   "runs": [
@@ -185,9 +195,16 @@
       "waiting": 2,
       "worst_hours": 85.5,
       "escalated": false
+    },
+    {
+      "at": "2026-09-07T13:00:26Z",
+      "read_state": "measured",
+      "waiting": 2,
+      "worst_hours": 93.3,
+      "escalated": true
     }
   ],
-  "last_paged_at": "2026-09-06T20:49:05Z",
+  "last_paged_at": "2026-09-07T13:00:26Z",
   "last_band": 1920,
-  "last_page_reason": "the condition has stood 15.7h since the last page (floor 12.0h)."
+  "last_page_reason": "the condition has stood 16.2h since the last page (floor 12.0h)."
 }

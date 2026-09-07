@@ -1,5 +1,7 @@
 # Where does the edge live? Entry-prediction is at the M18 wall (2026-06-30)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Tier-1 research finding.** Read-only analysis; no live-path, config, or
 > money-DB change. Records a decision-grade conclusion from a half-day of
 > autonomous, zero-risk experiments so it doesn't have to be re-derived.

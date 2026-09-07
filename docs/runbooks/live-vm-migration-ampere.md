@@ -1,5 +1,7 @@
 # Live-VM migration: x86 micro → Ampere A1.Flex (memory relief)
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** ✅ **CUTOVER COMPLETE (2026-06-14); micro DECOMMISSIONED (2026-06-16).**
 The live trader runs on the Ampere candidate `ict-bot-arm` (`141.145.193.91`); the
 retired x86 micro (`ict-bot`, `158.178.210.252`) was terminated 2026-06-16 via

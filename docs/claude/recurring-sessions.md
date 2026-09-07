@@ -1,5 +1,7 @@
 # Recurring Sessions — Audit, Strategy Improvement, Model Training
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > # ⚠️ HISTORICAL — NOT A BINDING SPEC (measured and re-labelled 2026-08-31)
 >
 > **This document called itself "Binding spec" and declared a cadence that

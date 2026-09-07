@@ -1,5 +1,7 @@
 # E0 census, harness half — no leg on this fleet keeps more than half its peak
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-20 · **Step:** E0 of
 [`docs/design/exit-mechanism-construction-PROCESS.md`](../design/exit-mechanism-construction-PROCESS.md)
 · Companion: [the live half](./e0-exit-census-live-2026-08-20.md)

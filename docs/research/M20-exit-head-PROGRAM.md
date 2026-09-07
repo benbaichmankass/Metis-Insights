@@ -1,5 +1,7 @@
 # M20 Exit-Head Program — design, testing, and validation plan (2026-07-12)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Operator directive (2026-07-12):** build the ML exit supplement — "we need a
 full plan for design, testing, and validating across all relevant strategies…
 the system should be more proactive on realizing when a trade has reached max

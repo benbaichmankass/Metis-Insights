@@ -1,5 +1,7 @@
 # M15 WS-C — Bybit Alt-Perp Generalization Matrix (2026-06-11)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Workstream C of the M15 soak session (brief:
 > [`session-handoff-m15-soak-2026-06-11.md`](session-handoff-m15-soak-2026-06-11.md)).
 > Question: which existing BTC-roster strategies transfer to liquid

@@ -1,5 +1,7 @@
 # P1 — Book-level volatility-targeting overlay: result (2026-06-26)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Verdict: KEEP (validated).** A constant-vol-budget overlay on the book robustly
 improves risk-adjusted return — Sharpe +0.10 to +0.20 net of turnover, across every
 target level and re-target cadence tested. Recommended to graduate to a **live shadow

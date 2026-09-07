@@ -1,5 +1,7 @@
 # Tradeable Universe — WS-A0 (2026-06-02)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Meantime Expansion Program, WS-A0. Scopes the symbol sweep to what we
 > can actually trade on the *eventual* venues, per operator directive
 > (2026-06-02): futures diversification first; the live futures account

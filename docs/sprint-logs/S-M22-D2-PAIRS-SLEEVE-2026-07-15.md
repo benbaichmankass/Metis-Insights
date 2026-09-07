@@ -1,5 +1,7 @@
 # Sprint Log: S-M22-D2-PAIRS-SLEEVE-2026-07-15
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 
 2026-07-15 (single session, continued from the M22 wave-2 research session).

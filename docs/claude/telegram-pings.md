@@ -1,5 +1,7 @@
 # Telegram pings — what triggers what, and where the wiring lives
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Bot-role restructure (2026-06-17, in progress).** `@claude_ict_comms_bot` is
 > being **repurposed as the dedicated PROP-ACCOUNT bot** — it carries the prop
 > trade-setup tickets (`prop_signal`) the supervised assistant (Comet/Claude)

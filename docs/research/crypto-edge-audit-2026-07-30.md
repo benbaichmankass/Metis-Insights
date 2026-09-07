@@ -1,5 +1,7 @@
 # Crypto-book per-leg edge audit (2026-07-30)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Operator directive:** the whole crypto book is red at every scale (real
 `bybit_2` −$30/14d, paper mirror `bybit_portfolio` −$12.6k/30d). Diagnose each
 live crypto leg — real edge vs overfit, and *why* it's losing now — **before**

@@ -1,5 +1,7 @@
 # Runbook — backfill-orphan-pnl
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 One-shot Tier-2 operator action that recovers `exit_price` + realised
 `pnl` for orphaned trades closed via Bybit V5 broker-side SL/TP. Pairs
 with PR #1299 (`account_closed_pnl_for_trade`), which makes new

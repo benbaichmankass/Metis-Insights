@@ -1,5 +1,7 @@
 # Research capability index — "can we measure X?"
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Purpose.** Answer, in one lookup, *what this repo can already measure* — so a research
 session never concludes something is unmeasurable when a tool for it exists.
 

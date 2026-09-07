@@ -1,5 +1,7 @@
 # Sprint Log: S-LEVERAGED-ETF-2026-06-30
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-06-30
 - End: 2026-06-30 (extends the M15 ETF-expansion arc; sibling of

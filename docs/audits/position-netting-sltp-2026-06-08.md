@@ -1,5 +1,7 @@
 # Position netting + per-trade SL/TP — root cause & Tier-3 remediation proposal
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-06-08
 **Status:** PROPOSAL — analysis only, no live-path changes until operator-approved (Tier-3).
 **Origin:** BL-20260601-001 (orphan-PnL) → BL-20260608-DEMOPNL. Operator asked to

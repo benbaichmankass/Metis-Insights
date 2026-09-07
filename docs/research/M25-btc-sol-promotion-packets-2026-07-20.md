@@ -1,5 +1,7 @@
 # M25 — BTC/SOL vol-head Tier-3 promotion packets (EXECUTED, 2026-07-20)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status: EXECUTED 2026-07-20 20:01Z (operator-pre-approved ~10:05Z chat).**
 Final gate-check read `ready:true` on BOTH candidates (all 8 required gates
 PASS — `live_parity` genuinely green under the fixed instrument: fidelity

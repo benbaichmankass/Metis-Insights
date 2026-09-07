@@ -1,5 +1,7 @@
 # Phase 1C — disposition of three live alarms
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+
 - **Work object:** `WO-20260906-THREE-LIVE-ALARMS-ON-THE-TRADING-FLEET`
 - **Session:** `session_01RHuSYKu1r1ZErc65KLKV8t` (sub-session; manager `session_01HrmZ1RRNM4UnEUaFdrPEjj`)
 - **Registry key:** `pending-20260906T084730Z`

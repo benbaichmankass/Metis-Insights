@@ -1,5 +1,7 @@
 # S-PROVENANCE-IB-EXECUTIONS-2026-07-30
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Objective:** Continue S-PROVENANCE-EXITLEAK-ROOTCAUSE — close the three open ends
 PR #8039 deliberately left: make IB PnL measurable, make the provenance CI guard
 blocking, and stop INV-2 pressuring fabrication. Then widen the audit until the

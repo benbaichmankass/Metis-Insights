@@ -1,5 +1,7 @@
 # "Reads-everything" encoder + master-AI convergence status (2026-07-16)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Operator question (this session):** where are we on the *"reads market data from
 all sources, not just strategies"* self-supervised encoder that was soaking — and
 are we converging on the north star (a master AI that places the best trades on its
