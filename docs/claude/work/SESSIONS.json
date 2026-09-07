@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T06:58:02Z",
+  "updated_at": "2026-09-07T08:31:01Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2627,6 +2627,17 @@
       ],
       "why": "MI-154 shipped only the family-token half (#11169, merged) and went IDLE believing it was still waiting on that PR's pytest-run. Re-verified 03:29Z with a positive control against /api/diag/shadow_stats: 32 models visible, exit-head artifacts still exactly 2, both 1h donchian, ZERO scalp. The primary deliverable is undone.",
       "confirmed_at": "2026-09-07T03:27:13Z"
+    },
+    {
+      "session_id": "session_01Et8yz5yBZ7ifySKwpF6R1s",
+      "title": "MI-150b - get #11140 green and landed (annotate-only, disarmed)",
+      "owns_object": "WO-20260906-SHIP-THE-EXIT-HEAD-INTO-ICT-SCALP-THREE-LEGS",
+      "checklist_item": "MI-150-ICT-SCALP-EXIT-HEAD",
+      "spawned_at": "2026-09-07T08:31:01Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "REGISTERED RETROACTIVELY at 2026-09-07T08:35Z. Caught by the 08:24Z supervision reconcile against list_sessions - NOT by the manager remembering at spawn time, which is the MI-15 recurrence. NOTE the sibling finding: MI-155 also read as absent from main, but it was in fact registered in PR #11219, which had not merged - so for that one the gap was a MERGE gap, not a remembering gap, and the reconcile cannot tell the two apart because it reads main.",
+      "note": "COMPLETE. #11140 merged after operator approval of the Tier-3 matrix status change.",
+      "state": "idle"
     },
     {
       "session_id": "session_017odwPFdR66U1yWyjBqzCwR",
