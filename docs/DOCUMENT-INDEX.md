@@ -352,6 +352,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/diagnoses/MI-124-never-firing-legs-diagnosis.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
 | `docs/claude/diagnoses/MI-126-sunset-absence-not-zero.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
 | `docs/claude/diagnoses/MI-127-pnl-null-on-closes-and-trade-4350.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
+| `docs/claude/diagnoses/MI-166-pipeline-integrity-pass-1.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
 | `docs/claude/dispositions/2026-09-06-1C-three-live-alarms.md` | history | historical | — | 2026-09-07 | `dir:dispositions-record-decisions-taken / dir:record-of-a-completed-session` | — |
 | `docs/claude/env-gate-purge-phase2-annotations.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/exchange-truth-attribution.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
