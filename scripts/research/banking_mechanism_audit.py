@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# wiring: manual-only — a measurement a session RUNS to answer "does anything on
+# the live fleet move the stop up to bank R, and what does that cost in excursion?".
+# It reads config/strategies.yaml plus an optional live position_telemetry pull; it
+# has no schedule because its answer changes only when a leg's trail_mult /
+# atr_stop_mult changes (Tier-3, so never silently) or when the soak deepens.
 """What actually banks R on the live fleet — per leg, over a stated population (MI-163).
 
 The *target* half of M20's exit thesis closed on 2026-09-07 (MI-146→158). This
@@ -385,7 +390,7 @@ def main() -> int:
 
     if "counterfactual" in report and report["counterfactual"].get("n"):
         c = report["counterfactual"]
-        print(f"\nCOUNTERFACTUAL — fleet-wide stop parked at +X once peak_r >= X")
+        print("\nCOUNTERFACTUAL — fleet-wide stop parked at +X once peak_r >= X")
         print(f"  POPULATION: {c['population']}, n={c['n']}")
         print(f"  actual realised {c['actual_total_r']:+.2f}R "
               f"({c['actual_mean_r_per_trade']:+.3f}R/trade)")

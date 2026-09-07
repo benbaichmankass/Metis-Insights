@@ -152,7 +152,9 @@ Actual realised over the 71: **+28.80R, mean +0.406R/trade.** Median peak **0.88
 | +2.00R | 16 | 9 | +8.09 | +0.520 |
 | +3.00R | 6 | 2 | +2.50 | +0.441 |
 
-⚠️ **THIS IS NOT A NET RESULT AND MUST NOT BE QUOTED AS ONE.** The telemetry carries the peak and the terminal, **never the path**. A stop parked at +X exits on the **first** retrace to X — so on a trade that later resumed it forgoes the remainder, and that cost is **not measurable from this corpus at all**. What the table establishes is that the benefit side is real, large, and **concentrated at low X (0.5–1.0R) — exactly the region where the current mechanism does nothing**, since median `R_TO_BREAKEVEN` is 2.00R. It does **not** establish that any X is profitable. Net requires the path-aware harness (`src/research/trail_levers.py::effective_trail_mult`), which is a separate run.
+⚠️ **THIS IS NOT A NET RESULT AND MUST NOT BE QUOTED AS ONE.** The telemetry carries the peak and the terminal, **never the path**. A stop parked at +X exits on the **first** retrace to X — so on a trade that later resumed it forgoes the remainder, and that cost is unmeasurable from this corpus (checked: scripts/research/banking_mechanism_audit.py — `counterfactual()` reads the served telemetry schema, which carries `peak_r`, `open_r` and `giveback_r` and no intra-trade path, and reports `is_net: False`).
+
+⚠️ **That sentence previously read "is **not** measurable", which the impossibility-claim guard's regex does not match** — the markdown bold between *is* and *not* split the pattern. The claim was no less an impossibility claim for having escaped the check, so it now carries the same `checked:` evidence the guard would have demanded. What the table establishes is that the benefit side is real, large, and **concentrated at low X (0.5–1.0R) — exactly the region where the current mechanism does nothing**, since median `R_TO_BREAKEVEN` is 2.00R. It does **not** establish that any X is profitable. Net requires the path-aware harness (`src/research/trail_levers.py::effective_trail_mult`), which is a separate run.
 
 ---
 
