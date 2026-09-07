@@ -1,0 +1,158 @@
+id: WO-20260907-CLOSE-CONFIRMATION-IS-SYMBOL-SCOPED
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The close-confirmation gate is symbol-scoped while the close is trade-scoped,
+  so a succeeded close is graded a failure and its journal row left open
+stage: EVIDENCE
+lifecycle: waiting
+owner: MI-168 (session_01BpU7rfqWKir4rQrowT4ZQd)
+opened_at: 2026-09-07
+closed_at: null
+
+review_trigger: >-
+  On the operator's verdict on the held PR. ⚠️ `waiting`, NOT `in_flight`: the
+  deliverable is COMPLETE (the diff, the regression test, this edge, the design
+  memo) and what remains is a decision nobody in this repo can take for the
+  operator. Collapsing that into `in_flight` would consume a WIP slot the work
+  is not using, which is the exact honesty the ceiling's own guard docstring
+  says it must not punish.
+
+done_condition: >-
+  The Tier-3 diff in docs/design/close-confirmation-scope-DESIGN.md is APPROVED
+  and merged, or explicitly REJECTED — either settles it; being un-actioned does
+  not. ⚠️ TWO THINGS MUST BE SETTLED TOGETHER AND THEY ARE DIFFERENT DECISIONS.
+  (1) The re-scoping itself. (2) The PARTIAL-REDUCTION question, deliberately
+  left open by MI-167 and NOT decided silently here: `IB_CLOSE_CONFIRM_PARTIAL`
+  ships at `strict` (a 40-of-43 fill does NOT confirm, erring toward a phantom
+  OPEN row) with `reduction` implemented and tested (erring toward a FABRICATED
+  PnL on the unclosed remainder plus naked lots). Approving the PR without
+  saying which behaviour was chosen leaves a default drifting where a decision
+  belongs. ⚠️ AND MERGED IS NOT OBSERVED: closing this also needs a real close
+  on a symbol holding a sibling's lots seen CONFIRMING on the fleet. A passing
+  harness cannot reach that — 12 green tests are not an observation of the live
+  mechanism.
+
+why: >-
+  Measured by MI-167 on ib_paper/MGC 2026-09-07 from the systemd journal: trade
+  5531's 43 lots filled in full and were sold by our own stop at 11:45:06Z
+  (order 547, Filled 43.0 @ 4392.9). The close SUCCEEDED at the venue and was
+  graded a FAILURE at 11:45:09Z — `close not confirmed flat: live_qty=11.0` —
+  because sibling trade 5353 legitimately held 11 lots, so the symbol could
+  never be flat, so the gate could never be satisfied. The failure branch
+  deliberately leaves the journal row open: a realised -$17,024.28 absent from
+  the book, a phantom 43-lot open row, and 43 re-armed sell lots resting over an
+  11-lot position. The precondition is common, not exotic — 13 (account, symbol)
+  pairs held two or more simultaneously-open rows in the 28-day window.
+
+source: >-
+  MI-167 (docs/claude/diagnoses/MI-167-pipeline-integrity-pass-2.md, branch
+  mi-167-pipeline-integrity-pass-2 / PR #11274 — NOT on main when MI-168 read
+  it), dispatched to MI-168 by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj)
+  on an explicit operator decision, 2026-09-07.
+
+blocked_on:
+  - kind: operator_decision
+    ref: >-
+      Tier-3 approval of the held PR re-scoping IBClient.close's confirmation,
+      AND a stated choice on IB_CLOSE_CONFIRM_PARTIAL (strict | reduction)
+    since: 2026-09-07
+    note: >-
+      Tier-3, order path. The diff is written and reviewable but is opened
+      `landing: hold` and must not merge without the operator. The partial
+      question is a RISK decision, not an implementation detail — MI-167 said so
+      and left it open on purpose.
+
+  - kind: object
+    ref: WO-20260907-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG
+    since: 2026-09-07
+    note: >-
+      ⚠️ COUPLING — THE ORDERING CONSTRAINT, AND IT RUNS BOTH WAYS. MI-140 must
+      NOT be remediated before this lands. alpaca_live is REAL MONEY and is
+      immune today for exactly one reason: it cannot place orders at all (both
+      signals since arming were shorts suppressed by the operator's
+      `side_filter: long` gate). Fixing MI-140 arms an Alpaca close-path defect
+      on a real-money account the same day.
+
+      ⚠️ THE COUPLING HOLDS BUT ITS TECHNICAL BASIS IS NOT WHAT THE DISPATCH
+      STATED, AND A LATER SESSION MUST NOT LOOK FOR THE WRONG DEFECT. The
+      dispatch's premise was that MI-140 arms THIS defect — the symbol-scoped
+      false refusal — on real money. MI-168 established BY MEASUREMENT that it
+      does not: both AlpacaClient close paths are symbol-scoped in their
+      OPERATION too (`close(symbol)` takes no qty and issues
+      `DELETE /v2/positions/{sym}`; `_close_extended_hours` reads qty from the
+      LIVE POSITION; `execute.close_open_position` discards the per-trade qty on
+      the alpaca branch), so operation and confirmation MATCH, symbol-flatness
+      is reachable, and the false refusal cannot occur there. What MI-140 arms
+      is the MIRROR defect: an OVER-CLOSE, where closing trade A silently
+      liquidates sibling trade B's shares while B's journal row stays open with
+      nothing behind it. That is arguably worse — an over-close liquidates a
+      position nobody journalled closed, where a false refusal merely withholds
+      a close. Both claims are pinned by tests in
+      tests/test_close_confirm_trade_scope.py.
+
+      ⚠️ APPLYING MI-167's PROPOSED "identical change" TO ALPACA WOULD INSTALL A
+      FALSE-SUCCESS ON A REAL-MONEY-CAPABLE PATH (BL-20260707 re-introduced) and
+      was deliberately NOT done. The Alpaca over-close needs its own unit: the
+      honest fix is to make the OPERATION trade-scoped, which is a materially
+      larger order-path change than a confirmation re-scope.
+
+  - kind: backlog_row
+    ref: >-
+      bybit_2 is NOT exposed and must NOT be "fixed" by adding a confirmation
+    since: 2026-09-07
+    note: >-
+      NOT a blocker — recorded here because it is the edge a future session is
+      most likely to get wrong. bybit_2 (REAL MONEY) has NO close-confirmation
+      at all: `grep -rn "BYBIT_CLOSE_CONFIRM" src/` returns 0, with the positive
+      control `grep -rn "_CLOSE_CONFIRM_S" src/` returning IB and Alpaca, so the
+      probe demonstrably finds confirmations that exist. It escapes on a MISSING
+      VENUE GATE, not on its trade shape, and it IS among the 13 pairs holding
+      concurrent open rows. Adding a confirmation to Bybit would arm a NEW gate
+      on a real-money account, is explicitly not what was approved, and — on
+      this unit's own evidence — a gate whose scope is not thought through is
+      how this defect was created.
+
+blocked_on_basis: >-
+  ASSESSED by MI-168 on 2026-09-07. The edges above were written deliberately by
+  the session that built this unit, each naming a specific, dated dependency
+  that was verified rather than assumed: the operator edge because the change is
+  Tier-3 order path by the canonical tier table; the MI-140 edge because
+  MI-167's Finding 3 establishes alpaca_live's inertness is MI-140 and not a
+  safety property, and MI-168 then re-derived WHICH defect is coupled by reading
+  both Alpaca close paths and pinning the answer in tests; the bybit_2 note
+  because the negative carries its positive control. ⚠️ THIS RECORDS THAT AN
+  ASSESSMENT WAS MADE, WHICH IS NARROWER THAN THE CLAIM THAT IT STILL HOLDS —
+  re-verify the alpaca_live venue state before acting on the coupling; MI-167
+  read `positions: []` with `error: null` at 2026-09-07T19:02:30Z and that is a
+  DATED OBSERVATION, not a current state.
+
+artifacts:
+  - docs/design/close-confirmation-scope-DESIGN.md
+  - tests/test_close_confirm_trade_scope.py
+  - src/units/accounts/ib_client.py
+
+not_done:
+  - >-
+    INCIDENCE WAS NOT MEASURED. MI-167 pass-3 item 3 asks how many closes have
+    been falsely refused across all accounts and all time, greppable on
+    `close not confirmed flat`. MI-168 established the MECHANISM and the
+    PRECONDITION (13 pairs); it never counted the EVENTS. "We did not look" is
+    not "we looked and found none".
+  - >-
+    The Alpaca OVER-CLOSE is filed, not fixed. Needs its own unit.
+  - >-
+    `no such column: op.id` in get_existing_position_info — a live SQL error on
+    a read path firing on every dispatch, filed by MI-167 as Tier-1 and still
+    not worked.
+  - >-
+    `confirm_state` is recorded but nothing BRANCHES on it, so it is deliberately
+    NOT registered with collapsed-state-guard yet — registering a state with no
+    consumer would either fail the guard or invite a decorative branch.
+  - >-
+    DUPLICATE OBJECT, unresolved: WO-20260906- and WO-20260907-ALPACA-LIVE-S-
+    ROUTED-REAL-MONEY-LEG are two objects for the same work. The edge was written
+    on the -0907- one the dispatch named; the duplicate was left alone rather
+    than merged unasked.
+
+captured_by: MI-168
