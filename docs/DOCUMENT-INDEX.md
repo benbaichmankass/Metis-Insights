@@ -684,6 +684,7 @@ point: registration is not optional, and it is not left to memory.
 | `docs/research/research-queue-operationalisation-2026-08-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/research-to-results-cost-gate-DESIGN-2026-08-01.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/research-to-results-gap-2026-07-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/roadmap-redundancy-audit-2026-09-07.md` | evidence | live | — | 2026-09-07 | `mi-160:self-measured-2026-09-07 / population-stated` | MI-160 redundancy census over all 33 milestone rows: 0 proposed. |
 | `docs/research/roadmap-toolbox-assessment-2026-07-29.md` | plan | unknown | — | never | `name:roadmap-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/roll-adjusted-continuous-futures-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/session-handoff-2026-06-01-afternoon.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
