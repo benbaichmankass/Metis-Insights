@@ -4,6 +4,8 @@
 
 **MI-165** · commissioned by the operator 2026-09-07 (*"Commission the path-aware sweep"*) · branch `claude/mi165-be-floor-sweep-20260907`
 
+Landed via [#11266](https://github.com/benbaichmankass/Metis-Insights/pull/11266) · `landing: "hold"` (see § *Why this is held* at the end).
+
 ⚠️ **PROPOSE-ONLY.** This document and its instruments are Tier-1. `be_floor_r`
 is declared in no config, is armed on no leg, and arming it is Tier-3. Nothing
 here edits `config/`, `src/`, or any live exit.
@@ -334,3 +336,33 @@ python3 scripts/research/be_floor_sweep.py --data-dir data/ohlcv \
 
 Full per-leg and per-fold record, including every fold's `d_net_r` / `d_max_dd`:
 [`data/be-floor-sweep-2026-09-07.json`](./data/be-floor-sweep-2026-09-07.json).
+
+---
+
+## Why this is held, and one thing a human must do
+
+`.github/pr-landing/mi165-be-floor-sweep-20260907.json` declares
+`landing: "hold"`. The cause is **mechanical, not a danger claim**: R5 of
+`check_pr_landing.py` refuses `landing: "self"` because three changed paths
+(`scripts/backtest_{trend,pullback,squeeze}.py`) sit outside `TIER1_SURFACE`,
+which covers `scripts/ci|ops|research|reports` but not the backtest harnesses at
+`scripts/` root. The guard's own words: *"a path outside TIER1_SURFACE is not
+thereby dangerous; it is one the guard cannot certify."*
+
+⚠️ **None of the five `HOLD_REASONS` names that case**, so the declaration
+carries the closest available term with the true cause spelled out in
+`hold_text`. Filed as
+`BL-20260907-PR-LANDING-HAS-NO-HOLD-REASON-FOR-TIER1-WORK-OUTSIDE-THE-CERTIFIABLE-SURFACE`
+and deliberately **not fixed here**: both candidate remedies edit
+`scripts/ci/check_pr_landing.py`, which is `LANDING_MACHINERY`, and R12 exists to
+stop a PR landing its own change to the rules by which PRs land.
+
+⚠️ **PR #11266 is a DRAFT and this session could not clear that.** It was opened
+through the `pr-opener` relay with `"draft": true`, which **contradicts the
+operator's 2026-09-03 ruling** that a PR is held by its landing declaration and
+never by the draft flag — *"Going into github to mark drafts ready is not
+something we can include in the workflow."* The mistake is recorded rather than
+quietly left: `update_pull_request` returns `403 Resource not accessible by
+integration` from this session, which is the exact permissions asymmetry that
+ruling was written about, so **clearing the draft needs the manager**. The hold
+itself is correct and stays; only the redundant draft flag is the error.
