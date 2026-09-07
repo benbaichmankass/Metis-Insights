@@ -1,0 +1,30 @@
+id: WO-20260907-A-DOCUMENT-LIBRARY-ONE-CENTRALIZED-TABLE-WHERE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  A document LIBRARY - one centralized table where every document is registered, categorized, and carries its own status
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  ONE centralized index exists that registers every document in the repo a session might read as instruction or evidence - docs/**, ROADMAP*.md, CLAUDE.md, the skills - each row carrying at minimum: path, CATEGORY, STATUS (live / superseded / closed_unfinished / historical / reference), what supersedes it when superseded, and last-verified date. The census is STATED: how many documents exist, how many are registered, how many could not be categorized. A CI guard refuses a document that is not registered, and refuses a registered row whose file no longer exists, with a planted control proving the guard FIRES. AND every document carries its own status IN ITS OWN HEADER, because a reader who opens one file alone must not be misled - that is the exact failure mode this exists to prevent.
+
+why: >-
+  OPERATOR-DIRECTED 2026-09-07, verbatim: 'we need a library for our documents. Like, we are having a hard time keeping track of things, and you are right that a lot of things probably look fine if you just open them on their own. So maybe one centralized table where we keep track of everything, and everything has to be organized correctly and logged and categorized.' THE MOTIVATING FAILURE IS MEASURED AND HAPPENED TODAY: the manager reported a roadmap status to the operator off docs/research/WORKPLAN-2026-08-14.md, which declares 'Status: ACTIVE' while being THREE generations superseded. It looked fine opened on its own. Twelve work-plan documents exist; ROADMAP.md pointed at the wrong one; and docs/claude/CYCLE-PRIORITY.json - newer than all of them - is what actually drives sessions. Three surfaces, three answers, and the operator got a wrong report.
+
+source: >-
+  manager session_01HrmZ1RRNM4UnEUaFdrPEjj, operator direction 2026-09-07
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

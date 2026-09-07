@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-07T09:33:00Z",
+  "updated_at": "2026-09-07T12:32:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2021,6 +2021,17 @@
       "tier": "1",
       "title": "The committed backtest candle fixtures are flat, so anything measured on them is meaningless",
       "note": "OPERATOR-DIRECTED to fix now as its own item, 2026-09-07. MI-151 found data/ohlcv/btc_5m_2026.csv opens and closes at 95000.0 for all 300 rows - exactly one unique close - while doing something else. Census, repair-or-delete-loudly, and a regression test so the class cannot return. Scoped OFF any strategy verdict: the job is the instrument, not a conclusion from it."
+    },
+    {
+      "id": "MI-161-DOCUMENT-LIBRARY",
+      "status": "in_flight",
+      "owner": "session_01NriFh691pHJFiVc7agPHnC",
+      "opened": "2026-09-07T12:32:00Z",
+      "updated": "2026-09-07T12:32:00Z",
+      "owns_object": "WO-20260907-A-DOCUMENT-LIBRARY-ONE-CENTRALIZED-TABLE-WHERE",
+      "tier": "1",
+      "title": "The document library - one centralized, categorized, status-carrying index of every document",
+      "note": "OPERATOR-DIRECTED 2026-09-07, verbatim: 'we need a library for our documents ... a lot of things probably look fine if you just open them on their own. So maybe one centralized table where we keep track of everything, and everything has to be organized correctly and logged and categorized.' THE MOTIVATING FAILURE HAPPENED TODAY AND IS MEASURED: the manager reported a roadmap status TO THE OPERATOR off WORKPLAN-2026-08-14.md, which declares 'Status: ACTIVE' while three generations superseded. Three deliverables: the index (closed category vocabulary separating INSTRUCTION from EVIDENCE from HISTORY; status incl. superseded vs closed_unfinished vs unknown, never collapsed); a status header IN EVERY FILE, because the index alone does not help a reader who opens one document directly - which is the whole failure; and a CI guard with a PLANTED CONTROL proving it fires. ⚠️ SEQUENCED ALONGSIDE MI-159, NOT AGAINST IT: MI-159 owns which work plan is live and the roadmap statuses; MI-161 takes those FROM it and marks them unknown until it lands. Two sessions independently deciding which plan is live would reproduce the defect they are both fixing."
     }
   ],
   "as_of": "2026-09-06T16:05Z",
