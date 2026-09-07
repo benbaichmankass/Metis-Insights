@@ -1999,6 +1999,28 @@
       "tier": "3",
       "title": "APPLY the operator-approved reachable-take-profit change + ship the tp_intent reader",
       "note": "OPERATOR TIER-3 APPROVAL 2026-09-07, verbatim: 'ok on the gld tp4 and the 24 declarations'. Covers the CONTENT of the diff in docs/research/reachable-take-profit-proposal-2026-09-07.md (merged d50543a1, PR #11225) - NOT a licence to widen it. Two halves that must land together: the config change (tp_r 4.0 on gld_pullback_1h, the ONLY value change; 22 tp_intent mode:none + 2 mode:unexamined, never collapsed) AND a real reader that BRANCHES on tp_intent.mode. The reader is the proposal's OWN stated condition: a written-and-never-read provenance key is what exit_price_source was, and it produced a phantom -6358 dollar leak. If no honest consumer can be built this cycle, the key does not land - half of this is worse than neither."
+    },
+    {
+      "id": "MI-156-REACHABLE-TAKE-PROFIT",
+      "status": "in_flight",
+      "owner": "session_0148fMEXBbDgQU3qsrcWujtx",
+      "opened": "2026-09-07T08:50:00Z",
+      "updated": "2026-09-07T08:50:00Z",
+      "owns_object": "WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE",
+      "tier": "3",
+      "title": "Give every enabled+live leg a take-profit the venue will actually accept",
+      "note": "OPERATOR-CHOSEN ROUTE, 2026-09-07, over three alternatives. MI-146 measured 25 of 44 enabled+live legs with no reachable TP: 15 declare tp_r >= 20 (clamped by TP_VENUE_CAP_PCT = 0.099) and 10 declare none. Chosen because it needs NO fidelity evidence - a target the venue accepts beats one it silently clamps away - which matters because MI-155 established the calibrated per-leg route is blocked on data volume (max live n = 8 vs a floor of 30), not on method. Deliverable is a Tier-3 PROPOSAL, config/ read-only. The binding instruction to the session: it is repairing REACHABILITY, not calibration, and must say so per leg - stating what each number rests on AND what it does not."
+    },
+    {
+      "id": "MI-157-FLAT-BACKTEST-FIXTURES",
+      "status": "in_flight",
+      "owner": "session_01MLKjDPG9n1MHBByYEAEgjc",
+      "opened": "2026-09-07T08:50:00Z",
+      "updated": "2026-09-07T08:50:00Z",
+      "owns_object": "WO-20260907-THE-COMMITTED-BACKTEST-CANDLE-FIXTURES-ARE-FLAT",
+      "tier": "1",
+      "title": "The committed backtest candle fixtures are flat, so anything measured on them is meaningless",
+      "note": "OPERATOR-DIRECTED to fix now as its own item, 2026-09-07. MI-151 found data/ohlcv/btc_5m_2026.csv opens and closes at 95000.0 for all 300 rows - exactly one unique close - while doing something else. Census, repair-or-delete-loudly, and a regression test so the class cannot return. Scoped OFF any strategy verdict: the job is the instrument, not a conclusion from it."
     }
   ],
   "as_of": "2026-09-06T16:05Z",

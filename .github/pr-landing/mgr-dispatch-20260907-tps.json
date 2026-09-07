@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "manager registers only — two work objects under docs/claude/work/objects/, two SESSIONS.json spawn confirmations, two MANAGER-CHECKLIST.json rows, and MERGE-QUEUE.json serialization. A spawn and a merge-queue entry are management acts. No runtime, no order path, no config, no scripts."
+}
