@@ -2699,6 +2699,18 @@
       "state": "idle"
     },
     {
+      "session_id": "session_01NriFh691pHJFiVc7agPHnC",
+      "registry_key": "pending-20260907T123115Z",
+      "state": "working",
+      "title": "MI-161 - the document library: one centralized, categorized, status-carrying index of every document",
+      "owns_object": "WO-20260907-A-DOCUMENT-LIBRARY-ONE-CENTRALIZED-TABLE-WHERE",
+      "checklist_item": "MI-161-DOCUMENT-LIBRARY",
+      "spawned_at": "2026-09-07T12:31:15Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-directed 2026-09-07. The manager reported a stale roadmap to the operator today off a document that declared itself ACTIVE while three generations superseded - it looked fine opened on its own, which is precisely the operator's stated reason for wanting this.",
+      "confirmed_at": "2026-09-07T12:32:17Z"
+    },
+    {
       "session_id": "session_016szw9vJrzPUCH1FVMuXycM",
       "registry_key": "pending-20260907T120803Z",
       "state": "working",
