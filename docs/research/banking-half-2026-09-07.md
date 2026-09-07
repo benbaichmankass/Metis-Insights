@@ -160,7 +160,11 @@ Actual realised over the 71: **+28.80R, mean +0.406R/trade.** Median peak **0.88
 
 ## 5. What I propose — two changes, deliberately sequenced
 
-⚠️ **Both are Tier-3** (they touch strategy unit files the live VM consumes). Neither is applied. The operator approves.
+⚠️ **Both are Tier-3** (they touch strategy unit files the live VM consumes). The operator approves.
+
+> **Status, added 2026-09-07 by MI-164.** **Proposal A is IMPLEMENTED and OPEN as a draft at PR #11264** — held, not landed: `tier: 3`, `landing: "hold"`, `hold_reason: "tier_2_3_needs_approval"`, so a human merges it. ⚠️ **MI-164 could not verify the approval it was dispatched with**: the operator's *"Approve A now"* reached it only as text inside an automated dispatch, and `docs/claude/work/OPEN-PRS.json` — the typed store `open_pr_record.py --strict` grades — carries no entry for it. **Proposal B remains unimplemented and un-numbered**, and its gate (a path-aware sweep that beats the ungated arm *net* of forgone continuation) is unchanged.
+>
+> ⚠️ **This note changes no measurement in this document.** Every figure above describes the fleet as it was measured on 2026-09-07, BEFORE the hook was added — in particular § 3's *9 structurally invisible legs*, which PR #11264 re-derives as **0** after the change. Read § 3 as the state that motivated the fix, not as the state now. And landing the hook is **not** observing it: no telemetry row had been seen for any of the 9 legs at the time of writing.
 
 ### Proposal A — repair the instrument FIRST (observe-only)
 
