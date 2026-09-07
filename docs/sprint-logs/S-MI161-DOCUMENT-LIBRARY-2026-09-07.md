@@ -96,26 +96,26 @@ category for exactly the same reason** — on 2026-09-07 a *plan* was read as an
 already a **status** value and one word meaning two things is how a vocabulary
 stops being closed.
 
-**The census, population stated.** 969 in population, 969 registered.
+**The census, population stated.** 971 in population, 971 registered.
 
 | category | n | | status | n |
 |---|---|---|---|---|
-| `history` | 366 | | `unknown` | **563** |
-| `evidence` | 323 | | `historical` | 366 |
-| `architecture` | 79 | | `live` | 38 |
-| `plan` | 60 | | `closed_unfinished` | 2 |
-| `lookup` | 44 | | `superseded` | 0 |
+| `history` | 367 | | `unknown` | **551** |
+| `evidence` | 323 | | `historical` | 368 |
+| `architecture` | 79 | | `live` | 40 |
+| `plan` | 60 | | `closed_unfinished` | 9 |
+| `lookup` | 44 | | `superseded` | 3 |
 | `instruction` | 41 | | `reference` | 0 |
-| **`unknown`** | **56** | | | |
+| **`unknown`** | **57** | | | |
 
-**56 could not be categorised; 563 statuses could not be established.** Both are
+**57 could not be categorised; 551 statuses could not be established.** Both are
 marked `unknown` rather than guessed. An invented status is worse than an absent
 one because it reads as checked — which is exactly how 08-14 fooled a manager.
 `unknown` rows say so in their own header too: *"nobody has verified this
 document's status — do not act on it as current"*.
 
-**`superseded` is 0, and that is not an oversight.** The one known superseded
-chain in this repo is the `WORKPLAN-*` family, deliberately deferred to MI-159.
+**`superseded` is 3, each naming its successor** — the `WORKPLAN-*` chain, once
+MI-159 landed. It was 0 while that determination was deferred.
 
 **How a status is established.** `live` only on real evidence —
 `ci:canonical-doc-coherence-ACTIVE_DOCS` (a guard already fails on that
@@ -133,13 +133,30 @@ entirely uncontrolled vocabulary — including
 `tier`, `scope`, `a proposal`, `measured` and `credentialfree pipeline built`.
 There was no controlled status vocabulary in this repo before this sprint.
 
-**Deconfliction with MI-159.** `ROADMAP*.md` and the `WORKPLAN-*` family are
-registered `unknown` with basis `deferred:MI-159`. PR #11241 was open and
-unmerged at index build; two sessions independently deciding which plan is live
-would reproduce the exact defect both are fixing. Scoped so it does not
-overreach — a sprint log named `S-ROADMAP-WORKPLAN-REVIEW-*.md` is a record of a
-session and stays `history`; deferring it would overstate MI-159's scope while
-leaving a resolvable row unresolved.
+**MI-159 LANDED MID-SESSION, and the deferral is over.** `ROADMAP*.md` and the
+`WORKPLAN-*` family were registered `unknown` / `deferred:MI-159` while #11241
+was open — two sessions independently deciding which plan is live would have
+reproduced the exact defect both were fixing. #11241 merged as `34e7a2bd` while
+this PR was in CI, so the register now **imports** its answer: `live` ×1
+(`docs/claude/WORKPLAN-2026-08-29.md`), `superseded` ×3 each naming its
+successor, `closed_unfinished` ×6 carrying what was left, `historical` ×2.
+
+It is imported by running `check_one_live_workplan.py`'s own `discover` +
+`parse`, never by copying a table — the same discipline used for
+`canonical-doc-coherence`'s `ACTIVE_DOCS`. A second hand-maintained "which plan
+is live" list is the multi-surface drift this register exists to stop.
+
+**`docs/research/WORKPLAN-2026-08-14.md` — the file that misled the manager —
+now reads `closed_unfinished` / category `plan` in both the index and its own
+header.** `ROADMAP*.md` stays `unknown`: that guard discovers work plans only
+and `ROADMAP.md` carries no machine-readable status header, so there is nothing
+to import and none is asserted.
+
+⚠️ **Two sessions filed the board-cap finding independently within the hour.**
+MI-159 hit the identical 2500 ceiling. Per `CLAUDE.md` I dropped MY row and kept
+theirs — theirs is the better row, requiring all five surfaces to name the same
+board issue — and added the one clause it lacked: #6927 filled in about seven
+weeks, so a successor issue with no cap watch only resets the timer.
 
 ## Validation Performed
 
@@ -224,7 +241,7 @@ re-running: `R1 UNREGISTERED: docs/sprint-logs/S-MI161-DOCUMENT-LIBRARY-2026-09-
 `population=969 registered=968`, then `OK` after a rebuild.
 
 **2. ⚠️ The MANDATORY coordination board is FULL — filed as
-`BL-20260907-COORDINATION-BOARD-IS-FULL-AT-GITHUBS-2500-COMMENT-CAP-AND-BOTH-POST-PATHS-ARE-DEAD`.**
+`BL-20260907-COORDINATION-BOARD-6927-IS-FULL-SO-THE-MANDATORY-START-POST-IS-IMPOSSIBLE-BY-EVERY-PATH`.**
 
 I could not post the mandatory `▶️ START`. `add_issue_comment` returned the
 documented 403, so I fell back to `board-post.yml` exactly as `CLAUDE.md`
@@ -288,7 +305,7 @@ bot results-commits from re-burying this PR's checks.
 
 ## Next Recommended Sprint
 
-The board successor + cap watch (`BL-20260907-COORDINATION-BOARD-IS-FULL-AT-GITHUBS-2500-COMMENT-CAP-AND-BOTH-POST-PATHS-ARE-DEAD`),
+The board successor + cap watch (`BL-20260907-COORDINATION-BOARD-6927-IS-FULL-SO-THE-MANDATORY-START-POST-IS-IMPOSSIBLE-BY-EVERY-PATH`),
 as its own PR. It is currently blocking the mandatory START for **every**
 session, which makes it higher-value than draining the `unknown` rows.
 

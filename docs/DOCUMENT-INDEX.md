@@ -64,20 +64,20 @@ was read as an *instruction*.
 | `architecture` | 79 | A declared contract about how the system is built; read as truth about the system. |
 | `plan` | 60 | A forward commitment -- what we intend to do next. NEVER obeyed as instruction. |
 | `evidence` | 323 | A measurement that may be CITED. True of its date and population. |
-| `history` | 366 | A record of what happened. Never obeyed, never cited as a current measurement. |
+| `history` | 367 | A record of what happened. Never obeyed, never cited as a current measurement. |
 | `lookup` | 44 | Consulted for a fact. Neither obeyed, nor a measurement, nor a record of events. |
-| `unknown` | 56 | **Could not be categorised. Not a category — the absence of one.** |
+| `unknown` | 57 | **Could not be categorised. Not a category — the absence of one.** |
 
 ## Status — a closed set of six
 
 | status | rows | meaning |
 |---|---|---|
-| `live` | 38 | Current. A session may act on it today. |
-| `superseded` | 0 | Overtaken by a named successor. REQUIRES `superseded_by`. |
-| `closed_unfinished` | 2 | Abandoned mid-flight. NOT the same fact as superseded -- record what was left. |
-| `historical` | 366 | A record of something that happened. Correct forever, actionable never. |
+| `live` | 40 | Current. A session may act on it today. |
+| `superseded` | 3 | Overtaken by a named successor. REQUIRES `superseded_by`. |
+| `closed_unfinished` | 9 | Abandoned mid-flight. NOT the same fact as superseded -- record what was left. |
+| `historical` | 368 | A record of something that happened. Correct forever, actionable never. |
 | `reference` | 0 | Consulted on demand. Neither current-and-actionable nor superseded. |
-| `unknown` | 563 | NOBODY HAS CHECKED. Not a soft 'live'. The honest state, and a required one. |
+| `unknown` | 551 | NOBODY HAS CHECKED. Not a soft 'live'. The honest state, and a required one. |
 
 ⚠️ **`superseded` and `closed_unfinished` are DIFFERENT FACTS and are never
 collapsed.** Overtaken by a successor is not the same as abandoned mid-flight.
@@ -111,20 +111,41 @@ document that declares itself **alive** is **not** — it is `unknown`.
 
 That asymmetry *is* the lesson of 2026-09-07. A self-declared death is rarely
 wrong in the dangerous direction; a self-declared life is precisely the claim
-that misled a manager. Measured across this population, **201 of 969 documents
+that misled a manager. Measured across this population, **201 of 971 documents
 declare something status-like in their first 15 lines, in an entirely
 uncontrolled vocabulary** — including `tier`, `scope`, `a proposal`,
 `measured`, and `credentialfree pipeline built`. There was no controlled status
 vocabulary anywhere in this repo before this file.
 
-### Rows deferred to MI-159 — not an omission
+### The work-plan family — imported from MI-159, not re-derived
 
-`ROADMAP*.md` and the `WORKPLAN-*` family are registered `unknown` with basis
-`deferred:MI-159`. A concurrent session (**MI-159, PR #11241 — open, not merged
-at index build**) is establishing which work plan is live and correcting
-roadmap statuses. **Two sessions independently deciding which plan is live
-would reproduce the exact defect both are fixing.** When #11241 lands, those
-rows get their status from its work.
+⚠️ **These rows read `deferred:MI-159` / `unknown` until #11241 merged
+(`34e7a2bd`, 2026-09-07). Do not re-quote that.** While it was open, a
+concurrent session owned the determination and two sessions deciding
+independently which plan is live would have reproduced the exact defect both
+were fixing. It has landed, so the deferral is over and this register now reads
+its answer — `live` ×1, `superseded` ×3 (each naming its successor),
+`closed_unfinished` ×6, `historical` ×2.
+
+**It is IMPORTED, never copied.** The basis `mi159:plan-status-header:<state>`
+comes from running
+[`check_one_live_workplan.py`](../scripts/ci/check_one_live_workplan.py)'s own
+`discover` + `parse` over the tree — the same discipline
+`ci:canonical-doc-coherence-ACTIVE_DOCS` uses. A second hand-maintained table of
+"which work plan is live" is precisely the multi-surface drift this register
+exists to stop; if that guard and this index ever disagree, one of them is
+broken and it is not a fact to reconcile by hand.
+
+Its vocabulary is nearly ours. `closed_finished` is the one value we do not
+carry, and it maps to `historical` — a completed plan is a record of something
+that happened: correct forever, actionable never. Where a plan is
+`closed_unfinished`, this table carries **what was left**, taken from the file's
+own header rather than summarised.
+
+**`ROADMAP*.md` stays `unknown`, deliberately.** MI-159 corrected its milestone
+statuses the same day, but that guard's discovery matches work plans only and
+`ROADMAP.md` carries no machine-readable status header — so there is nothing to
+import, and this register does not assert a status it cannot establish.
 
 ## Documents exempt from the HEADER rule (R3), and why
 
@@ -157,10 +178,10 @@ point: registration is not optional, and it is not left to memory.
 
 ## The table
 
-**Population: 969 documents** — every file matching `docs/**/*.md`,
+**Population: 971 documents** — every file matching `docs/**/*.md`,
 `ROADMAP*.md`, `CLAUDE.md`, `.claude/skills/**/*.md` as tracked by `git ls-files`
 (so an untracked scratch file can never silently enter or leave the register).
-**969 registered.**
+**971 registered.**
 
 <!-- DOCUMENT-INDEX-ROWS-BEGIN -->
 
@@ -197,10 +218,10 @@ point: registration is not optional, and it is not left to memory.
 | `.claude/skills/system-review/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/vm-migration/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/vm-ops/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
-| `.claude/skills/workplan-vs-architecture/SKILL.md` | instruction | unknown | — | never | `dir:skills-are-binding-workflows / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
+| `.claude/skills/workplan-vs-architecture/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `CLAUDE.md` | instruction | live | — | 2026-09-07 | `read:repo-orientation-and-binding-brief / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
-| `ROADMAP.md` | plan | unknown | — | never | `read:hierarchy-rank-3-milestone-record / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
-| `ROADMAP_MACRO.md` | plan | unknown | — | never | `read:macro-milestone-record / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
+| `ROADMAP.md` | plan | unknown | — | never | `read:hierarchy-rank-3-milestone-record / not-assessed` | MI-159 (#11241) corrected this file's milestone statuses 2026-09-07; it carries no machine-readable status header, so no status is asserted here |
+| `ROADMAP_MACRO.md` | plan | unknown | — | never | `read:macro-milestone-record / not-assessed` | MI-159 (#11241) corrected this file's milestone statuses 2026-09-07; it carries no machine-readable status header, so no status is asserted here |
 | `docs/architecture/ARCHITECTURE-CHANGE-CHECKLIST.md` | architecture | unknown | — | never | `dir:architecture-declares-contracts / not-assessed` | — |
 | `docs/architecture/ai-model-platform.md` | architecture | unknown | — | never | `dir:architecture-declares-contracts / not-assessed` | — |
 | `docs/architecture/model-inventory.md` | architecture | unknown | — | never | `dir:architecture-declares-contracts / not-assessed` | — |
@@ -275,10 +296,11 @@ point: registration is not optional, and it is not left to memory.
 | `docs/claude/ERROR-FEED-DIGEST.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/INDEX.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/READOUT.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/WORKPLAN-2026-08-21.md` | plan | unknown | — | never | `name:workplan-is-a-forward-commitment / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
-| `docs/claude/WORKPLAN-2026-08-26.md` | plan | unknown | — | never | `name:workplan-is-a-forward-commitment / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
-| `docs/claude/WORKPLAN-2026-08-29.md` | plan | unknown | — | never | `name:workplan-is-a-forward-commitment / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
-| `docs/claude/WORKPLAN-NIGHT-2026-08-29.md` | plan | unknown | — | never | `name:workplan-is-a-forward-commitment / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
+| `docs/claude/TASK-PRIORITY-2026-09-07.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/claude/WORKPLAN-2026-08-21.md` | plan | superseded | `docs/claude/WORKPLAN-2026-08-26.md` | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:superseded` | — |
+| `docs/claude/WORKPLAN-2026-08-26.md` | plan | superseded | `docs/claude/WORKPLAN-2026-08-29.md` | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:superseded` | — |
+| `docs/claude/WORKPLAN-2026-08-29.md` | plan | live | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:live` | — |
+| `docs/claude/WORKPLAN-NIGHT-2026-08-29.md` | plan | closed_unfinished | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:closed_unfinished` | what was left: The N1/N2/N8 items were not audited by this session; `ROADMAP.md`'s |
 | `docs/claude/actions-budget.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/alpaca-mcp-server.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/api-key-inventory.md` | evidence | unknown | — | never | `name:audit-measures / not-assessed` | — |
@@ -354,7 +376,7 @@ point: registration is not optional, and it is not left to memory.
 | `docs/claude/work/spawn-prompts/2026-09-06/1B-loss-attribution.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/spawn-prompts/2026-09-06/1C-live-alarms.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/spawn-prompts/2026-09-06/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/workplan.md` | plan | unknown | — | never | `name:workplan-is-a-forward-commitment / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
+| `docs/claude/workplan.md` | plan | historical | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:historical` | — |
 | `docs/data/dataset-schema.md` | architecture | unknown | — | never | `dir:schema-and-taxonomy-are-contracts / not-assessed` | — |
 | `docs/data/dataset-taxonomy.md` | architecture | unknown | — | never | `dir:schema-and-taxonomy-are-contracts / not-assessed` | — |
 | `docs/data/versioning-policy.md` | architecture | unknown | — | never | `dir:schema-and-taxonomy-are-contracts / not-assessed` | — |
@@ -408,7 +430,7 @@ point: registration is not optional, and it is not left to memory.
 | `docs/research/A1-backtest-augment-runner-SCOPE-2026-08-02.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/AI-TRADER-RESEARCH-PLAN-2026-07-19.md` | plan | unknown | — | never | `name:plan-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/ALPACA-LIVE-GOLIVE-STATUS-2026-08-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/AUTONOMOUS-WORKPLAN-2026-07-30.md` | plan | unknown | — | never | `name:workplan-is-a-forward-commitment / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
+| `docs/research/AUTONOMOUS-WORKPLAN-2026-07-30.md` | plan | superseded | `docs/research/RESEARCH-PROGRAM-2026-07-30.md` | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:superseded` | — |
 | `docs/research/B-conviction-graduation-DESIGN-2026-06-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/B-conviction-sizing-backtest-evidence-2026-06-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/C1-conviction-sizing-evidence-2026-08-04.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -499,7 +521,7 @@ point: registration is not optional, and it is not left to memory.
 | `docs/research/P1-vol-target-result-2026-06-26.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/P5-orb-mes-result-2026-06-26.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/P7-xsec-momentum-firstpass-2026-06-26.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/POST-VALUE-PIVOT-WORKPLAN-2026-07-27.md` | plan | unknown | — | never | `name:workplan-is-a-forward-commitment / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
+| `docs/research/POST-VALUE-PIVOT-WORKPLAN-2026-07-27.md` | plan | closed_unfinished | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:closed_unfinished` | what was left: BOTH tracks. **Track 1** (higher-frequency microstructure off |
 | `docs/research/R6-VM-RESIDENCY-VERDICT-2026-08-28.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/RESEARCH-CAPABILITY-INDEX.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/RESEARCH-INFRA-AUDIT-2026-07-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -507,7 +529,7 @@ point: registration is not optional, and it is not left to memory.
 | `docs/research/RESEARCH-PROGRAM-2026-07-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/RESEARCH-RIGOR-STANDARD.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/RESEARCH-WORKFLOW-ARCHITECTURE-2026-08-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/ROADMAP-REVIEW-WORKPLAN-2026-08-04.md` | plan | unknown | — | never | `name:workplan-is-a-forward-commitment / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
+| `docs/research/ROADMAP-REVIEW-WORKPLAN-2026-08-04.md` | plan | closed_unfinished | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:closed_unfinished` | what was left: Not audited when this status was assigned — *we did not look*. |
 | `docs/research/S-P0-LABEL-AUGMENT-2026-08-04.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/SOL-fc-family-AB-evidence-2026-07-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/T0-data-corpus-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
@@ -529,10 +551,10 @@ point: registration is not optional, and it is not left to memory.
 | `docs/research/T1.3-ranker-findings-2026-07-16.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/W0.2-soak-read-2026-08-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/WHY-BROKER-TRUTH-ISNT-REACHING-THE-JOURNAL-2026-07-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/WORK-PLAN-2026-08-02.md` | plan | unknown | — | never | `name:plan-is-a-forward-commitment / not-assessed` | — |
-| `docs/research/WORKPLAN-2026-08-05.md` | plan | unknown | — | never | `name:workplan-is-a-forward-commitment / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
-| `docs/research/WORKPLAN-2026-08-14.md` | plan | unknown | — | never | `name:workplan-is-a-forward-commitment / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
-| `docs/research/WORKPLAN-desoak-and-milestone-closeout-2026-07-26.md` | plan | unknown | — | never | `name:workplan-is-a-forward-commitment / deferred:MI-159` | status owned by MI-159 (PR #11241, open at index build); not decided here |
+| `docs/research/WORK-PLAN-2026-08-02.md` | plan | closed_unfinished | — | 2026-09-07 | `name:plan-is-a-forward-commitment / mi159:plan-status-header:closed_unfinished` | what was left: Not audited when this status was assigned — *we did not look*. |
+| `docs/research/WORKPLAN-2026-08-05.md` | plan | closed_unfinished | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:closed_unfinished` | what was left: Not audited when this status was assigned — *we did not look*. |
+| `docs/research/WORKPLAN-2026-08-14.md` | plan | closed_unfinished | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:closed_unfinished` | what was left: **Lane 0 (Live-capability integrity) only** — the single lane |
+| `docs/research/WORKPLAN-desoak-and-milestone-closeout-2026-07-26.md` | plan | closed_unfinished | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:closed_unfinished` | what was left: Not audited when this status was assigned — *we did not look*. |
 | `docs/research/WS-B-candle-shard-labelvol-scoping-2026-07-26.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ai-model-strategy-roadmap-2026-07-01.md` | plan | unknown | — | never | `name:roadmap-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/alpaca-200-affordability-sweep-2026-08-25.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -907,6 +929,7 @@ point: registration is not optional, and it is not left to memory.
 | `docs/sprint-logs/S-MEANTIME-WSA-2026-06-02.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-MES-AUTOHEAL-2026-05-28.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-MES-GOLIVE-2026-05-22.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
+| `docs/sprint-logs/S-MI159-ONE-LIVE-WORKPLAN-2026-09-07.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-MI161-DOCUMENT-LIBRARY-2026-09-07.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-ML-FEATURE-GAPS-20260729.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-ML-FORWARD-T13-RANKER-2026-07-16.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |

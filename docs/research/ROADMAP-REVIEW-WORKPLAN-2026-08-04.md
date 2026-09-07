@@ -1,5 +1,7 @@
 # Roadmap Review + Prioritized Workplan — 2026-08-04
 
+> **Doc status:** `closed_unfinished` · category `plan` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > ## **PLAN STATUS: `closed_unfinished`**
 > **What was left:** Not audited when this status was assigned — *we did not look*.
 > ⚠️ Read that as the honest state, not as "nothing was left": its successor

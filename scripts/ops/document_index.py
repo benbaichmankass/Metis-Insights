@@ -172,13 +172,61 @@ STATUSES = {
     "unknown": "NOBODY HAS CHECKED. Not a soft 'live'. The honest state, and a required one.",
 }
 
-# Paths whose status is owned by the CONCURRENT session MI-159 (PR #11241),
-# which is establishing which work plan is live and correcting roadmap statuses.
-# Two sessions independently deciding that would reproduce the exact defect both
-# are fixing, so these rows are registered `unknown` and their determination is
-# deferred -- deliberately, and named.
-MI159_OWNED_RE = re.compile(r"(^ROADMAP.*\.md$)|(WORKPLAN)", re.IGNORECASE)
-MI159_NOTE = "status owned by MI-159 (PR #11241, open at index build); not decided here"
+# ---------------------------------------------------------------------------
+# The WORK-PLAN family -- status IMPORTED from MI-159, never re-derived
+# ---------------------------------------------------------------------------
+# ⚠️ THIS WAS `deferred:MI-159` UNTIL #11241 MERGED (34e7a2bd, 2026-09-07). Those
+# rows were `unknown` because a concurrent session owned the determination and
+# two sessions deciding independently which plan is live would have reproduced
+# the exact defect both were fixing. #11241 has landed, so the deferral is over
+# and this register now READS its answer.
+#
+# It reads it by IMPORTING that session's own parser rather than copying a table
+# of statuses. A second copy of "which work plan is live" is precisely the
+# multi-surface drift this register exists to stop -- the same reason
+# `_canonical_active_docs` imports `ACTIVE_DOCS` instead of restating it. If
+# MI-159's guard and this index ever disagree, that is a bug in one of them, not
+# a fact to be reconciled by hand.
+#
+# Its vocabulary is nearly ours; `closed_finished` is the one value we do not
+# carry, and it maps to `historical` (a completed plan is a record of something
+# that happened -- correct forever, actionable never).
+_MI159_GUARD = "scripts/ci/check_one_live_workplan.py"
+_MI159_STATE_MAP = {
+    "live": "live",
+    "superseded": "superseded",
+    "closed_unfinished": "closed_unfinished",
+    "closed_finished": "historical",
+    "historical": "historical",
+}
+
+# ROADMAP*.md is NOT covered by that guard (its discovery matches work plans
+# only). MI-159 corrected ROADMAP.md's statuses on 2026-09-07, but there is no
+# machine-readable status header on it, so this register does not assert one.
+ROADMAP_RE = re.compile(r"^ROADMAP.*\.md$", re.IGNORECASE)
+ROADMAP_NOTE = ("MI-159 (#11241) corrected this file's milestone statuses 2026-09-07; "
+                "it carries no machine-readable status header, so no status is asserted here")
+
+
+def _mi159_states() -> Dict[str, Dict[str, str]]:
+    """Map rel-path -> MI-159's parsed header, or {} if its guard is absent."""
+    path = REPO / _MI159_GUARD
+    if not path.exists():
+        return {}
+    try:
+        spec = importlib.util.spec_from_file_location("_olw", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        out = {}
+        for rel in mod.discover(REPO):
+            d = mod.parse(REPO, rel)
+            if d.get("state"):
+                out[rel] = d
+        return out
+    except Exception:
+        # A parser we cannot run is "we did not look" -- those rows fall through
+        # to `unknown`, never to an invented status.
+        return {}
 
 # A document that declares itself DEAD is recorded on that declaration. A
 # document that declares itself ALIVE is NOT -- that asymmetry is the whole
@@ -312,19 +360,32 @@ def _head(rel: str, lines: int = 20) -> str:
     return "\n".join(text.splitlines()[:lines])
 
 
-def status_for(rel: str, active_docs: List[str], category: str) -> Tuple[str, str, str, str]:
+def status_for(rel: str, active_docs: List[str], category: str,
+               mi159: Dict[str, Dict[str, str]]) -> Tuple[str, str, str, str]:
     """Return (status, superseded_by, basis, note).
 
     Conservative by construction: every path out of this function that is not a
     VERIFIED determination returns `unknown`.
     """
-    # 1. Deferred to the concurrent session that owns the determination.
+    # 1. The work-plan family: MI-159's determination, imported.
     #    Scoped to the PLANS themselves. A sprint LOG that happens to carry
-    #    "WORKPLAN" in its name is a record of a session that already happened;
-    #    its status is not contested by MI-159 and deferring it would overstate
-    #    that session's scope while leaving a resolvable row unresolved.
-    if category != "history" and MI159_OWNED_RE.search(rel):
-        return "unknown", "", "deferred:MI-159", MI159_NOTE
+    #    "WORKPLAN" in its name is a record of a session that already happened
+    #    and is graded `historical` by rule 4 below; MI-159's guard does not
+    #    discover it either, so the two agree by construction.
+    if category != "history":
+        d = mi159.get(rel)
+        if d:
+            mapped = _MI159_STATE_MAP.get(d["state"])
+            if mapped:
+                left = (d.get("what_was_left") or "").strip()
+                note = ""
+                if mapped == "closed_unfinished":
+                    note = (f"what was left: {left}" if left
+                            else "abandoned mid-flight; the file records no residual")
+                return (mapped, d.get("superseded_by") or "",
+                        f"mi159:plan-status-header:{d['state']}", note)
+        if ROADMAP_RE.search(rel):
+            return "unknown", "", "not-assessed", ROADMAP_NOTE
 
     # 2. A CI guard actively enforces this document's currency. That guard
     #    failing on drift IS the evidence it is live -- not an assertion.
@@ -443,11 +504,12 @@ def esc(s: str) -> str:
 
 def build_rows(today: str) -> List[Dict[str, str]]:
     active = _canonical_active_docs()
+    mi159 = _mi159_states()
     rows = []
     for rel in population():
         cat, cbasis = categorize(rel)
-        st, sup, sbasis, note = status_for(rel, active, cat)
-        verified = today if sbasis not in ("not-assessed", "deferred:MI-159") else "never"
+        st, sup, sbasis, note = status_for(rel, active, cat, mi159)
+        verified = "never" if sbasis == "not-assessed" else today
         rows.append({
             "path": rel,
             "category": cat,
@@ -592,14 +654,35 @@ uncontrolled vocabulary** — including `tier`, `scope`, `a proposal`,
 `measured`, and `credentialfree pipeline built`. There was no controlled status
 vocabulary anywhere in this repo before this file.
 
-### Rows deferred to MI-159 — not an omission
+### The work-plan family — imported from MI-159, not re-derived
 
-`ROADMAP*.md` and the `WORKPLAN-*` family are registered `unknown` with basis
-`deferred:MI-159`. A concurrent session (**MI-159, PR #11241 — open, not merged
-at index build**) is establishing which work plan is live and correcting
-roadmap statuses. **Two sessions independently deciding which plan is live
-would reproduce the exact defect both are fixing.** When #11241 lands, those
-rows get their status from its work.
+⚠️ **These rows read `deferred:MI-159` / `unknown` until #11241 merged
+(`34e7a2bd`, 2026-09-07). Do not re-quote that.** While it was open, a
+concurrent session owned the determination and two sessions deciding
+independently which plan is live would have reproduced the exact defect both
+were fixing. It has landed, so the deferral is over and this register now reads
+its answer — `live` ×1, `superseded` ×3 (each naming its successor),
+`closed_unfinished` ×6, `historical` ×2.
+
+**It is IMPORTED, never copied.** The basis `mi159:plan-status-header:<state>`
+comes from running
+[`check_one_live_workplan.py`](../scripts/ci/check_one_live_workplan.py)'s own
+`discover` + `parse` over the tree — the same discipline
+`ci:canonical-doc-coherence-ACTIVE_DOCS` uses. A second hand-maintained table of
+"which work plan is live" is precisely the multi-surface drift this register
+exists to stop; if that guard and this index ever disagree, one of them is
+broken and it is not a fact to reconcile by hand.
+
+Its vocabulary is nearly ours. `closed_finished` is the one value we do not
+carry, and it maps to `historical` — a completed plan is a record of something
+that happened: correct forever, actionable never. Where a plan is
+`closed_unfinished`, this table carries **what was left**, taken from the file's
+own header rather than summarised.
+
+**`ROADMAP*.md` stays `unknown`, deliberately.** MI-159 corrected its milestone
+statuses the same day, but that guard's discovery matches work plans only and
+`ROADMAP.md` carries no machine-readable status header — so there is nothing to
+import, and this register does not assert a status it cannot establish.
 
 ## Documents exempt from the HEADER rule (R3), and why
 
