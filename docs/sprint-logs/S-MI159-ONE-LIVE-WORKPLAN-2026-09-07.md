@@ -168,7 +168,7 @@ different population, not reproduced here. It stays open on its own terms.
 
 ## 5. Infrastructure finding — the coordination board is dead
 
-Filed **`BL-20260907-COORDINATION-BOARD-6927-IS-FULL-…`** (high).
+Filed **`BL-20260907-COORDINATION-BOARD-6927-IS-FULL-SO-THE-MANDATORY-START-POST-IS-IMPOSSIBLE-BY-EVERY-PATH`** (high).
 
 The mandatory `▶️ START` post could not be made **by any documented path**:
 1. **MCP** `add_issue_comment` → `403 Resource not accessible by integration` (the
@@ -180,7 +180,7 @@ The mandatory `▶️ START` post could not be made **by any documented path**:
 Issue #6927 has crossed GitHub's hard 2500-comment ceiling. Every concurrent session is now
 structurally unable to comply with a binding rule, and the collision-avoidance mechanism the
 2026-07-22 incident produced has no detector left. Strictly worse than
-`BL-20260901-COORDINATION-BOARD-WRITES-403-…`, which at least had a working relay as its
+`BL-20260901-COORDINATION-BOARD-WRITES-403-FROM-THIS-SESSION-WHILE-READS-SUCCEED`, which at least had a working relay as its
 remedy. Remedies are proposed in the row; none applied here (out of Tier-1 docs scope, and
 one is an operator call).
 
@@ -200,7 +200,7 @@ one is an operator call).
 ## 7. Explicitly NOT done
 
 - The 31 `UNVERIFIED` roadmap rows — ranked as **T-11**, not silently graded.
-- `BL-20260814-…` — **not closed**; both its instances still stand.
+- `BL-20260814-ROADMAP-QUEUED-LISTS-CONTRADICT-SHIPPED-LINES` — **not closed**; both its instances still stand.
 - The coordination-board remedy — **filed, not applied**.
 - `MI-30`'s all-closed-rows population — **not reproduced**.
 - Residual audits for 5 of the 7 `closed_unfinished` plans — marked *unaudited* in their

@@ -77,7 +77,7 @@ alone.
 | **T-13** | **One repeating exception is 47% of the entire operator ERROR+ feed** (`MI-141`) | M17 | The operator's ability to see a real alarm. | A desensitised alarm is a **P1 in its own right** in this repo — the channel is the instrument, so this is measurement repair too. ⚠️ Silencing without root-causing does **not** count, and any latch must be durable/wall-clock: a per-process one resets on every trader restart. Operator-selected. |
 | **T-14** | **Finish the observation sweep — 56 of 82 rows have never been looked at on the fleet** (`MI-142`) | operating model | Converts 56 *"we did not look"* rows into observations. | Pure "understand what the system is actually doing" — the cycle priority's first clause. Ranked below the repairs because observing through instruments T-1 and T-2 have not yet fixed would need redoing. |
 | **T-15** | **Widen broker-truth cost coverage** — only **3 of 814** closed trades carry broker-truth fees; funding read 0 everywhere | **M24** (dormant 40 days) | M24 P3/P4, both explicitly blocked on it — and, more importantly this cycle, whether net-R is real at all. | ⚠️ **A second reach into an unfunded track.** M24 has been quiet since 2026-07-29 and we are not pushing it. But its own row states the blocker as *"feeding a ~99%-estimate net-R into the EV scorer just re-derives the fixed model"* — which is a **TRADING-TRUTH statement**, not an M24 statement. The task serves this cycle; the milestone it lives in does not. |
-| **T-16** | **18 evidence workflows upload artifacts and land nothing** (`BL-20260827-…`) | **M40** | The live plan's own **B8** (*"the matrix's evidence has no durable path — 3,781 cells live inside expired CI artifacts"*). | ⚠️ **A third cross-milestone pull, and it resolves a dependency the LIVE PLAN records as belonging elsewhere.** B8 says this *"is the same root as Lane T and should be fixed there, not per-sweep"* — Lane T is M40 work. Evidence that expires is an instrument that erases itself, so it is in-cycle. |
+| **T-16** | **18 evidence workflows upload artifacts and land nothing** (`BL-20260827-EIGHTEEN-EVIDENCE-WORKFLOWS-UPLOAD-AND-LAND-NOTHING`) | **M40** | The live plan's own **B8** (*"the matrix's evidence has no durable path — 3,781 cells live inside expired CI artifacts"*). | ⚠️ **A third cross-milestone pull, and it resolves a dependency the LIVE PLAN records as belonging elsewhere.** B8 says this *"is the same root as Lane T and should be fixed there, not per-sweep"* — Lane T is M40 work. Evidence that expires is an instrument that erases itself, so it is in-cycle. |
 
 ---
 
@@ -133,7 +133,7 @@ and 127% of the headline.
 **So the two numbers do not contradict each other — they measure different things, and one
 of them is untrustworthy.** `expectancyR` is risk-normalized, so a futures multiplier
 cannot dominate it, and it sits at **`rCoverage` 1.0**. `totalPnl` is raw dollars at
-**20.4% measured coverage**, dominated by an MGC contract multiplier on six rows. This is
+measured coverage **178 of 872 rows = 20.4%** (the paper population above), dominated by an MGC contract multiplier on six of those rows. This is
 the class `CLAUDE.md` already documents (*"4 orphaned `ib_paper` rows carrying
 +$284,084.92 — a stale mark times a futures multiplier"*) — same shape, different rows.
 
