@@ -2035,8 +2035,8 @@
     },
     {
       "id": "MI-160-PRUNE-PROPOSAL",
-      "status": "ready",
-      "owner": null,
+      "status": "in_flight",
+      "owner": "session_01GGFAu1uNpHL5KrzC7X7jAm",
       "opened": "2026-09-07T12:15:00Z",
       "updated": "2026-09-07T14:40:00Z",
       "blocked_on": null,

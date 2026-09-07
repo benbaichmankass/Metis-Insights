@@ -1,0 +1,30 @@
+id: WO-20260907-PROPOSE-ROADMAP-PRUNES-SCOPED-TO-REDUNDANCIES-AND
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Propose roadmap prunes scoped to redundancies, and establish whether the no-debt no-blockers condition holds
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A propose-only document lands naming each redundancy with the evidence two rows are the same thing, over a STATED denominator of rows examined, plus a finding on unnamed blockers and half-landed debt. No milestone row is edited.
+
+why: >-
+  Operator 2026-09-07: 'we can prune the road map if there are redundancies ... as long as we have the tasks organized so that we're not building up technical debt, and we don't have blockers.' Open milestones are TRACKS and their number is not a defect - the operator rejected that framing the same day.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

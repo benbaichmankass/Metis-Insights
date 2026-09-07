@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T14:36:49Z",
+  "updated_at": "2026-09-07T14:38:29Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2718,6 +2718,16 @@
       "spawned_at": "2026-09-07T14:36:49Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "The library built for the operator's 'one centralized table' ask cannot see 27 documents including instruction-hierarchy levels 1 and 2, while its guard reports 100% coverage - a clean negative.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01GGFAu1uNpHL5KrzC7X7jAm",
+      "title": "MI-160 - propose roadmap prunes, scoped to REDUNDANCIES",
+      "owns_object": "WO-20260907-PROPOSE-ROADMAP-PRUNES-SCOPED-TO-REDUNDANCIES-AND",
+      "checklist_item": "MI-160-PRUNE-PROPOSAL",
+      "spawned_at": "2026-09-07T14:38:29Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-directed 2026-09-07; unblocked by MI-159 landing. Scope is REDUNDANCIES only - an earlier manager paraphrase widened it to 'dead rows' and that is corrected in the dispatch.",
       "state": "working"
     }
   ],
