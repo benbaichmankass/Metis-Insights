@@ -122,6 +122,23 @@ def test_the_disagreement_count_in_the_exemption_is_still_accurate() -> None:
     trend_donchian_{ada,xrp}_4h, run on a unit that DOES implement the head, so
     their contradiction is live; keeping them visible is the point of lowering
     the number rather than leaving it at 9.
+
+    ⚠️ 2 -> 4 ON 2026-09-06 (MI-150, PR #11140), AND THE RISE IS REAL — it is
+    the MI-145 paragraph above EXPIRING, not new evidence. That re-grade's
+    compatibility argument holds only *while no consumer exists*: MI-150 makes
+    the `ict_scalp` unit implement the exit head, so
+    `blocked:no_lever_consumer_in_unit` became factually false for its legs and
+    the cells were corrected. Three keep a still-compatible blocked reason
+    (`blocked:no_scalp_artifact_published` — every published head is 1h against
+    their 5m/15m), ict_scalp_eth_15m agrees `honest_negative` with its round,
+    and ict_scalp_{avax_5m,xrp_15m} land `honest_negative` against a `candidate`
+    round — the trend_donchian_{ada,xrp}_4h shape exactly, on a unit that now
+    DOES implement the head. So two of MI-145's seven were parked behind an
+    excuse this PR removes, and part of the 9 -> 2 drop was always temporary.
+    ⚠️ THIS IS THE ONE DIRECTION THE COUNT MAY RISE WITH NO NEW ROUND. It is
+    NOT a promotion: no cell moved toward `shipped`/`passed_unshipped`, the
+    2026-08-23 SHIP BLOCKED operator decision stands, and MI-150 lands
+    annotate-only and disarmed.
     """
     rows = [json.loads(x) for x in ROUNDS.read_text().splitlines() if x.strip()]
     matrix = json.loads(MATRIX.read_text())
@@ -144,9 +161,9 @@ def test_the_disagreement_count_in_the_exemption_is_still_accurate() -> None:
             disagree.append(rd["leg"])
 
     reason = guard.CORPUS_EXEMPT_LEVERS["exit_head_ml"]
-    assert "2 DISAGREE" in reason, "the exemption no longer states a count"
-    assert len(disagree) == 2, (
-        f"the exemption says 2 disagreements; recomputing over the committed "
+    assert "4 DISAGREE" in reason, "the exemption no longer states a count"
+    assert len(disagree) == 4, (
+        f"the exemption says 4 disagreements; recomputing over the committed "
         f"evidence gives {len(disagree)}: {sorted(disagree)}. Update the "
         "exemption text — a stale count is how this exemption went wrong before. "
         "But FIRST check whether the delta is real: a cell gaining a "

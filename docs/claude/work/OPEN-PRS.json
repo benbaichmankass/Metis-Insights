@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-05T08:45:00Z",
+  "as_of": "2026-09-06T23:55Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -88,7 +88,7 @@
       "checklist_item": "MI-150-ICT-SCALP-EXIT-HEAD",
       "draft": false,
       "tier": "3",
-      "state": "operator_approved_with_conditions_HELD_on_MI-153",
+      "state": "operator_approved_with_conditions_MI-153_DISCHARGED_landing_annotate_only_disarmed_awaiting_manager_routed_merge",
       "operator_decision": {
         "verdict": "approved_with_conditions",
         "condition": "TWO conditions, both given in the same reply and neither optional. (1) ict_scalp_sol_5m is EXCLUDED from the armed set - its pass does not survive re-partitioning (the 4-arm screen flips it to honest_negative when folds are cut 12 trades later) and its AUC spread across arms, 0.0034, was the SMALLEST of the three legs, so AUC gave no warning. (2) The merge is HELD until the figure discrepancy between the MI-146 audit table and docs/research/exit-refinement-coverage.json is RESOLVED - operator chose 'Resolve before arming' over 'arm now, reconcile in parallel'. Tracked as MI-153.",
@@ -96,7 +96,12 @@
         "decided_on": "2026-09-06",
         "text": "Operator, in conversation 2026-09-06: 'you can arm it, give me any decisions as popups.' Put back as three popups naming what arming would and would not do. Answers: arm scope = 'Arm + queue the artifact'; sol_5m = 'Exclude sol_5m'; figures = 'Resolve before arming'. The third answer is what makes this HELD rather than mergeable - do not read the first answer alone as clearance to merge."
       },
-      "blocker": "⚠️ APPROVED IS NOT MERGEABLE HERE, and the trap is reading the 'Arm + queue the artifact' answer on its own. The operator's THIRD answer gates the merge on MI-153. ⚠️ AND ARMING IS INERT TODAY, which is why the artifact lane exists: verified this session against /api/diag/shadow_stats with a positive control (32 models visible; the probe demonstrably finds both exit-head ids), the ONLY published exit-head artifacts are exit-head-donchian-1h-v1 (advisory) and exit-head-donchian-peak-1h-v1 (shadow) - both 1h, both donchian - while all eight ict_scalp legs are 5m/15m. The in-distribution guard fail-closes on every one, so a merge today would record decision_state: not_scored on all of them and change no live behaviour. That is the 'armed is not exercised' class; do not later read a quiet soak as evidence the head works. ⚠️ The 2026-08-23 SHIP BLOCKED operator decision is stamped on every candidate cell in the matrix ('re-graded passed_unshipped -> blocked', 'STATUS UNCHANGED (a status change is Tier-3)'). This approval supersedes it for the non-sol_5m legs ONLY, and the matrix status edit is itself Tier-3 - it is not carried by this row."
+      "blocker": "NOT BLOCKED ON MI-153 ANY MORE — condition (2) of the operator_decision above is DISCHARGED. MI-153 merged 2026-09-06 as 3292c5bd (#11166), docs/research/exit-head-figure-reconciliation-2026-09-06.md (verified this session with `git merge-base --is-ancestor 3292c5bd origin/main`, not from a PR page). ⚠️ ITS FINDING WAS THAT THE TWO FIGURE SETS WERE NEVER IN DISAGREEMENT: each matrix cell's `ref` is ONE append-only prose string carrying BOTH measurements in chronological order joined by `->`; the audit quoted the current clause and the brief quoted the superseded first clause. One record read at two points. The current set is the 2026-08-14 one (the larger n_oos), established three independent ways. ⚠️ AND MI-153 § 6 IS EXPLICIT — **'Recommendation: arm nothing'**, for none of the three legs, because the binding constraints on arming are elsewhere and untouched by the reconciliation: the standing 2026-08-23 `SHIP BLOCKED` operator verdict, ict_scalp_sol_5m's pass not surviving re-partitioning, and no scalp head being published. So the operator's 'Arm + queue the artifact' answer recorded above is NOT executed by this PR and must not be read as executed by it. ⚠️ WHAT THIS PR ACTUALLY LANDS IS THE CONSUMER, ANNOTATE-ONLY AND DISARMED: `ICT_SCALP_EXIT_HEAD_MODE` defaults to `annotate` and NO leg declares `exit_head_action`, so the path is inert. Arming needs BOTH the mode flip AND the per-leg YAML declare, and is a separate Tier-3 act nobody has taken. ⚠️ AND IT CANNOT SCORE A LEG TODAY, which is why landing it changes no live behaviour: verified against /api/diag/shadow_stats with a positive control (32 models visible), the only published exit-head artifacts are exit-head-donchian-1h-v1 and exit-head-donchian-peak-1h-v1 — both 1h, both donchian — while all 8 ict_scalp legs are 5m/15m, so the in-distribution guard fail-closes and the consumer records decision_state: not_scored. Do not read a quiet soak as the lever declining. The missing 5m/15m scalp artifact is MI-154's lane. Tracked as OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED. REMAINS tier 3 / landing `hold` (.github/pr-landing/ict-scalp-exit-head-20260906.json): it does not self-merge and auto-merge is not armed — the manager routes it.",
+      "also_recorded_by_owner_session": {
+        "session": "session_01Lr1TDaQz2APJyYafBnsZen",
+        "note": "The PR author session recorded its own row for #11140 with verdict `approved` and the condition 'APPROVAL IS FOR THE CONSUMER, NOT FOR ARMING THE LEVER'. Both rows are kept reconciled here rather than one overwriting the other: the manager's typed record above is authoritative because it captures the operator's three popup answers verbatim, and the author's framing is preserved because it names the same consumer/arming split that MI-153 § 6 then independently endorsed. They do not conflict — they were written at 14:20Z and 18:45Z about different halves of the same decision.",
+        "author_condition": "APPROVAL IS FOR THE CONSUMER, NOT FOR ARMING THE LEVER — the two are different decisions and only the first was taken. The PR must land `annotate`-only: ICT_SCALP_EXIT_HEAD_MODE defaults to `annotate` and NO leg may declare `exit_head_action`. ⚠️ AND A SEPARATE, EARLIER OPERATOR DECISION BLOCKS THE ARMING: 2026-08-23 `SHIP BLOCKED` in all five candidate cells of docs/research/exit-refinement-coverage.json, which CANCELLED the queued Tier-3 ship and named 'a consumer exists in the ict_scalp unit' as its own precondition. This PR satisfies that precondition and nothing else. Arming additionally needs evidence that survives re-partitioning: for ict_scalp_sol_5m the 4-arm screen flips the pass to honest_negative (BL-20260815-SCALP-EXIT-HEAD-MATRIX-DISAGREES-WITH-THE-4-ARM-SCREEN) and its live-parity beats_hard 16/23 clears by 2 points of 46. Ship 3 legs' worth of WIRING; exclude ict_scalp_5m (BTC) as UNMEASURED and ict_scalp_eth_15m as a measured negative, encoded as DIFFERENT statuses."
+      }
     },
     {
       "pr": 11125,
@@ -1119,6 +1124,6 @@
   ],
   "last_reconciled_at": "2026-09-05T03:42:28Z",
   "last_reconciled_sha": "8b8d37f11d9d32bdbd3f4b83e6e07e2954cf64ac",
-  "updated_at": "2026-09-06T18:45Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
+  "updated_at": "2026-09-06T23:55Z",
+  "updated_by": "session_01Et8yz5yBZ7ifySKwpF6R1s"
 }
