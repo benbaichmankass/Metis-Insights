@@ -28,6 +28,22 @@ lie to than to satisfy (`new-table-wiring-guard`). On a clean tree this guard is
 otherwise only ever observed PASSING, which is the state a guard is least
 useful in.
 
+⚠️ THE RULE ENGINE IS ONLY HALF THE GUARD, AND THE OTHER HALF WENT UNGRADED
+UNTIL MI-162. `--self-test` also runs `population_control()`, which plants REAL
+files on disk and asserts `document_index.population()` sees them. The rule
+engine is a pure function over a population it is HANDED, so it cannot detect a
+population that was filtered before it ran — and on 2026-09-07 that is exactly
+what happened: `POPULATION_GLOBS` passed `docs/**/*.md` to `git ls-files` as a
+PATHSPEC, where `**/` needs a literal intervening slash, silently excluding all
+28 `.md` files sitting directly in `docs/` (`CLAUDE-RULES-CANONICAL.md`,
+`ARCHITECTURE-CANONICAL.md`, `api-tier-policy.md`, `workplan.md` …). Every rule
+case above passed, correctly, while the guard printed `population=971
+registered=971` / `document-index: OK` — 100% coverage of a population that
+excluded its own most important members
+(`BL-20260907-DOCUMENT-INDEX-POPULATION-GLOB-EXCLUDES-EVERY-TOP-LEVEL-DOCS-FILE`).
+Verified by re-running this self-test against the old pathspec: 13/13 rule cases
+PASS and the population control is the only thing that FAILS.
+
 The rule engine is a PURE FUNCTION over (population, rows, headers, generated),
 so the policy is arguable in tests rather than against the live tree.
 
@@ -39,6 +55,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import os
 import re
 import sys
 from pathlib import Path
@@ -175,6 +192,84 @@ def read_headers(paths: Set[str], stamp_re: re.Pattern) -> Dict[str, Optional[st
 # ---------------------------------------------------------------------------
 # The planted-positive control
 # ---------------------------------------------------------------------------
+def population_control() -> int:
+    """Plant real files on disk and assert the POPULATION BUILDER sees them.
+
+    ⚠️ THIS IS THE CONTROL THAT WAS MISSING, AND ITS ABSENCE COST A CLEAN
+    NEGATIVE. Every planted case below `self_test` feeds the RULE ENGINE known-bad
+    input — and the rule engine has never been the defect. It passed throughout
+    `BL-20260907-DOCUMENT-INDEX-POPULATION-GLOB-EXCLUDES-EVERY-TOP-LEVEL-DOCS-FILE`,
+    correctly, because a rule engine handed a population of 971 cannot know that
+    28 documents were filtered out before it ran. The guard duly printed
+    `population=971 registered=971` and `document-index: OK` while
+    `docs/CLAUDE-RULES-CANONICAL.md` (instruction hierarchy level 1) and
+    `docs/ARCHITECTURE-CANONICAL.md` (level 2) had no row at all.
+
+    So this control grades `document_index.population()` itself, against the
+    filesystem, with the EXACT case that escaped: a `.md` sitting directly in
+    `docs/`. It is the second defect of this class in that one function (see
+    `population()`'s own docstring for the first), and both were found by
+    running the thing against a real file rather than reasoning about it —
+    which is what this control now does automatically, every CI run.
+
+    A planted file that cannot be created FAILS the control. It never skips:
+    a control that quietly opts out is the unasserted denominator again.
+    """
+    mod = _builder()
+    tag = f"zz-document-index-population-control-{os.getpid()}"
+    planted = {
+        # The case that escaped: directly inside `docs/`. MUST be seen.
+        "top-level .md in docs/": (REPO / "docs" / f"{tag}.md", True),
+        # A nested one, so "sees the top level" cannot pass by the builder
+        # having quietly stopped recursing.
+        "nested .md under docs/": (REPO / "docs" / "claude" / f"{tag}.md", True),
+        # A NEGATIVE: the population must not be "every file under docs/".
+        # Without this, a pathspec of `docs/*` would pass the two above.
+        "non-markdown file in docs/": (REPO / "docs" / f"{tag}.txt", False),
+    }
+
+    failures = 0
+    try:
+        for _, (path, _) in planted.items():
+            path.write_text(f"# {tag}\n\nplanted by the document-index "
+                            f"population control; deleted in the same run.\n",
+                            encoding="utf-8")
+
+        pop = set(mod.population())
+
+        for label, (path, must_be_seen) in planted.items():
+            rel = path.relative_to(REPO).as_posix()
+            seen = rel in pop
+            ok = seen == must_be_seen
+            print(f"  {'PASS' if ok else 'FAIL'}  population sees {label}"
+                  f" ({'expected' if must_be_seen else 'expected ABSENT'})")
+            if not ok:
+                failures += 1
+                if must_be_seen:
+                    print(f"        {rel} was planted on disk and is ABSENT from "
+                          f"population() ({len(pop)} paths). The population "
+                          f"builder is filtering out real documents — this is "
+                          f"the clean negative, not a missing index row. Check "
+                          f"POPULATION_GLOBS: these are git PATHSPECS, so "
+                          f"`docs/**/*.md` needs `:(glob)` to mean what it looks "
+                          f"like it means.")
+                else:
+                    print(f"        {rel} was planted and population() INCLUDED "
+                          f"it. The population is wider than markdown documents.")
+    except OSError as e:
+        print(f"  FAIL  population control could not plant its files: {e}")
+        print("        Not skipped: an unrunnable control is not a passing one.")
+        failures += 1
+    finally:
+        for _, (path, _) in planted.items():
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+
+    return failures
+
+
 def self_test() -> int:
     CATS = {"instruction", "evidence", "history", "unknown"}
     STS = {"live", "superseded", "historical", "unknown"}
@@ -242,12 +337,19 @@ def self_test() -> int:
             print(f"        {detail}")
             failures += 1
 
+    # The rule engine is only half the guard. Grade the POPULATION BUILDER too —
+    # the half that was defective while every case above passed.
+    pop_failures = population_control()
+    failures += pop_failures
+
     if failures:
-        print(f"document-index self-test: FAIL — {failures} rule(s) did not "
+        print(f"document-index self-test: FAIL — {failures} check(s) did not "
               f"behave as declared. The guard cannot be trusted.")
         return 1
-    print(f"document-index self-test: OK — {len(cases)} planted cases, "
-          f"every rule observed FIRING and every clean case observed SILENT.")
+    print(f"document-index self-test: OK — {len(cases)} planted rule cases, "
+          f"every rule observed FIRING and every clean case observed SILENT; "
+          f"plus 3 planted FILES proving the population builder sees a "
+          f"top-level `docs/*.md`, a nested one, and no non-markdown file.")
     return 0
 
 

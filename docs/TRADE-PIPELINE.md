@@ -1,5 +1,7 @@
 # Trade Process Pipeline — Canonical Step-by-Step Map
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Canonical. Adopted in sprint **S-CANON-1** (2026-05-10).
 > **Repo:** `benbaichmankass/ict-trading-bot`.
 > **Companion:** [`ARCHITECTURE-CANONICAL.md`](ARCHITECTURE-CANONICAL.md) — this doc is the deeper, stage-by-stage expansion of its `End-to-End Trade Pipeline` section.

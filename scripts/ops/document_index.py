@@ -70,11 +70,42 @@ STAMP_RE = re.compile(
 # through git rather than a filesystem walk, so gitignored scratch can never
 # silently enter or leave the register -- but INCLUDING newly-added files, for
 # the reason `population()` documents below.
+# ⚠️ THE `:(glob)` MAGIC IS LOAD-BEARING AND WAS MISSING ON THE FIRST BUILD.
+# These strings are handed to `git ls-files` as PATHSPECS, not to Python's
+# `glob`. In a pathspec with NO magic, git matches with wildmatch WITHOUT
+# WM_PATHNAME, so `*` already matches `/` — `docs/*.md` is recursive — while
+# `docs/**/` requires a LITERAL intervening slash. `docs/**/*.md` therefore
+# matched every NESTED document and EXCLUDED every `.md` sitting directly in
+# `docs/`: 28 files, among them `docs/CLAUDE-RULES-CANONICAL.md` (instruction
+# hierarchy level 1), `docs/ARCHITECTURE-CANONICAL.md` (level 2),
+# `docs/api-tier-policy.md`, `docs/SPRINT-LOG-TEMPLATE-CANONICAL.md`,
+# `docs/TRADE-PIPELINE.md` and `docs/workplan.md`. The guard meanwhile printed
+# `population=971 registered=971` and `document-index: OK` — 100% coverage of a
+# population that silently excluded its own most important members, which is
+# UNPROVENANCED DIAGNOSTIC OUTPUT sub-class C (an unasserted denominator).
+#
+# This is the SECOND instance of that class in this one function; `population()`
+# below records the first (`--others --exclude-standard` missing, "reported OK
+# and the count never moved"). Both were caught the same way — by running the
+# thing against a real file instead of reasoning about it.
+#
+# `:(glob)` selects wildmatch WITH WM_PATHNAME, under which `*` stops at a `/`
+# and `/**/` means "zero or more directories" — so `docs/**/*.md` now means what
+# every reader already thought it meant, and covers `docs/x.md` AND
+# `docs/a/b/x.md`. The alternative that also works, bare `docs/*.md`, relies on
+# `*` crossing `/` — the very non-obvious behaviour that caused this bug — so it
+# is deliberately NOT the fix. `.claude/skills/**/*.md` carried the identical
+# latent defect (today every skill is nested one deep, so it excluded nothing;
+# a top-level `.claude/skills/NOTES.md` would have been invisible) and is fixed
+# in the same way rather than left to bite later.
+# Verified, not asserted (`git ls-files --cached --others --exclude-standard`):
+#   docs/**/*.md          -> 936 files,   0 top-level, 936 nested
+#   :(glob)docs/**/*.md   -> 964 files,  28 top-level, 936 nested
 POPULATION_GLOBS = [
-    "docs/**/*.md",
+    ":(glob)docs/**/*.md",
     "ROADMAP*.md",
     "CLAUDE.md",
-    ".claude/skills/**/*.md",
+    ":(glob).claude/skills/**/*.md",
 ]
 
 # ---------------------------------------------------------------------------
@@ -158,6 +189,11 @@ CATEGORY_EXPLICIT: Dict[str, Tuple[str, str]] = {
     "ROADMAP_MACRO.md": ("plan", "read:macro-milestone-record"),
     "docs/SPRINT-LOG-TEMPLATE-CANONICAL.md": ("instruction", "read:mandatory-format-spec"),
     "docs/api-tier-policy.md": ("instruction", "read:ci-enforced-tier-inventory"),
+    # A forward commitment (a ranking of what to do next), NOT an instruction --
+    # the `plan` category exists precisely because on 2026-09-07 a plan was
+    # obeyed as one. Read in full by MI-162; no directory or name rule reaches
+    # it, so it graded `unknown` until assigned here.
+    "docs/claude/TASK-PRIORITY-2026-09-07.md": ("plan", "read:ranks-tasks-under-the-current-cycle-priority"),
 }
 
 # ---------------------------------------------------------------------------
@@ -170,6 +206,39 @@ STATUSES = {
     "historical": "A record of something that happened. Correct forever, actionable never.",
     "reference": "Consulted on demand. Neither current-and-actionable nor superseded.",
     "unknown": "NOBODY HAS CHECKED. Not a soft 'live'. The honest state, and a required one.",
+}
+
+# ---------------------------------------------------------------------------
+# STATUS_EXPLICIT -- a status a SESSION ESTABLISHED by opening the file
+# ---------------------------------------------------------------------------
+# ⚠️ THIS IS NOT A PLACE TO MAKE THE CENSUS LOOK BETTER. 551 of 971 rows read
+# `unknown` and that is the honest shape; `unknown` means *we did not look*, and
+# for a document nobody has read it is the CORRECT value. An invented `live` is
+# worse than an absent one, because it reads as checked -- which is exactly how
+# `WORKPLAN-2026-08-14.md` fooled a manager on 2026-09-07 and is the whole
+# reason this register exists.
+#
+# The bar for an entry: a session OPENED the file, and the basis names what that
+# session established. It is consulted LAST, below every derivable rule (see
+# `status_for` step 6), so it can only ever convert `unknown` into a recorded
+# determination -- never overrule a guard, an import, or a self-declaration.
+#
+# Bulk-adding entries here to drain the `unknown` column would reproduce the
+# defect. One row per document actually read, or leave it `unknown`.
+STATUS_EXPLICIT: Dict[str, Tuple[str, str, str]] = {
+    # Written 2026-09-07 and read in full by MI-162 the same day. It is the
+    # CURRENT task ranking: it anchors to `CYCLE-PRIORITY.json`'s
+    # `CY-20260906-TRADING-TRUTH` (operator-set 09-06, re-affirmed 09-07), names
+    # `WORKPLAN-2026-08-29.md` -- MI-159's one live plan -- as its companion
+    # rather than its replacement, and nothing supersedes it. It shipped
+    # carrying `unknown` only because it was written minutes before this index
+    # landed, so no rule had yet been able to see it.
+    "docs/claude/TASK-PRIORITY-2026-09-07.md": (
+        "live",
+        "read:MI-162-opened-it-anchored-to-the-current-cycle-priority",
+        "ranks TASKS under CY-20260906-TRADING-TRUTH; companion to the live "
+        "work plan WORKPLAN-2026-08-29.md, not a replacement for it",
+    ),
 }
 
 # ---------------------------------------------------------------------------
@@ -268,6 +337,16 @@ SELF_DEAD_MAP = {
 GENERATED: Dict[str, str] = {
     "docs/claude/READOUT.md": "scripts/ops/constraint_readout.py",
     "docs/claude/DUE.md": "scripts/ops/render_due_list.py",
+    # Both became visible only when the population pathspec was fixed (MI-162):
+    # they sit directly in `docs/` and were outside the register entirely. Each
+    # is rewritten wholesale by its own `--matrix` generator, so a stamp written
+    # into one is erased on the next run and its guard then fails the build with
+    # "matrix is stale" — observed, not predicted: stamping them failed
+    # `strategy-coverage-guard` and `training-population-guard` on the first
+    # full run of this branch. They are REGISTERED like everything else; only
+    # the R3 header rule is waived, and the waiver is verified at build time.
+    "docs/strategy-coverage-matrix.md": "scripts/check_strategy_coverage.py",
+    "docs/training-population-matrix.md": "scripts/check_training_population.py",
 }
 
 
@@ -413,7 +492,17 @@ def status_for(rel: str, active_docs: List[str], category: str,
                 note = "self-declared abandoned/parked; WHAT WAS LEFT is not recorded in the file"
             return mapped, "", f"self-declared:{key}", note
 
-    # 6. Nobody has checked. The required honest state.
+    # 6. A status a SESSION established by opening the file. Deliberately the
+    #    LAST rung before `unknown`: it can only ever turn "nobody looked" into
+    #    a recorded determination, and can never override an imported (rule 1),
+    #    CI-enforced (rule 2), structural (rules 3-4) or self-declared (rule 5)
+    #    answer. A human-entered status that outranked a machine-checkable one
+    #    would be the multi-surface drift this register exists to end.
+    if rel in STATUS_EXPLICIT:
+        st, basis, note = STATUS_EXPLICIT[rel]
+        return st, "", basis, note
+
+    # 7. Nobody has checked. The required honest state.
     return "unknown", "", "not-assessed", ""
 
 
@@ -708,16 +797,24 @@ python3 scripts/ops/document_index.py --census   # report only, no writes
 python3 scripts/ops/document_index.py --write    # rebuild table + stamp headers
 ```
 
-Adding a document to `docs/**`, `ROADMAP*.md`, `CLAUDE.md` or
+Adding a document to `docs/**` (at ANY depth, top level included), `ROADMAP*.md`, `CLAUDE.md` or
 `.claude/skills/**` and not re-running `--write` **fails CI (R1)**. That is the
 point: registration is not optional, and it is not left to memory.
 
 ## The table
 
-**Population: {n} documents** — every file matching `docs/**/*.md`,
-`ROADMAP*.md`, `CLAUDE.md`, `.claude/skills/**/*.md` as tracked by `git ls-files`
-(so an untracked scratch file can never silently enter or leave the register).
-**{n} registered.**
+**Population: {n} documents** — every file matching the git pathspecs
+`:(glob)docs/**/*.md`, `ROADMAP*.md`, `CLAUDE.md`, `:(glob).claude/skills/**/*.md`
+as tracked by `git ls-files` (so an untracked scratch file can never silently
+enter or leave the register). **{n} registered.**
+
+⚠️ **The `:(glob)` prefix is part of the population, not decoration.** These are
+git PATHSPECS: without it, `*` crosses `/` and `**/` needs a literal intervening
+slash, so `docs/**/*.md` silently excluded all 28 `.md` files sitting directly in
+`docs/` — including the two that outrank `CLAUDE.md` — while this table reported
+100% coverage over what was left (population 971, all registered, guard `OK`).
+Fixed 2026-09-07, population 971 → 999; the guard's `--self-test` now plants a
+real top-level `docs/*.md` and fails if the population builder cannot see it.
 
 {ROWS_BEGIN}
 

@@ -1,5 +1,7 @@
 # GitHub Actions — Canonical Reference
 
+> **Doc status:** `live` · category `unknown` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md)
+
 > **Status:** Canonical. Adopted in sprint **S-CANON-1** (2026-05-10).
 > Last updated: 2026-05-13 (added trainer-VM workflows, vwap-backtest,
 > doc-audit, complete autonomy matrix, exact MCP trigger calls).

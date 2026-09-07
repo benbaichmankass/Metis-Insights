@@ -1,6 +1,6 @@
 # Document index — the centralized register
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **One table. Every document a session might read as instruction or as evidence.**
 
@@ -60,24 +60,24 @@ was read as an *instruction*.
 
 | category | rows | meaning |
 |---|---|---|
-| `instruction` | 41 | A session must OBEY it. Binding. |
-| `architecture` | 79 | A declared contract about how the system is built; read as truth about the system. |
-| `plan` | 60 | A forward commitment -- what we intend to do next. NEVER obeyed as instruction. |
+| `instruction` | 44 | A session must OBEY it. Binding. |
+| `architecture` | 87 | A declared contract about how the system is built; read as truth about the system. |
+| `plan` | 63 | A forward commitment -- what we intend to do next. NEVER obeyed as instruction. |
 | `evidence` | 323 | A measurement that may be CITED. True of its date and population. |
 | `history` | 367 | A record of what happened. Never obeyed, never cited as a current measurement. |
 | `lookup` | 44 | Consulted for a fact. Neither obeyed, nor a measurement, nor a record of events. |
-| `unknown` | 57 | **Could not be categorised. Not a category — the absence of one.** |
+| `unknown` | 71 | **Could not be categorised. Not a category — the absence of one.** |
 
 ## Status — a closed set of six
 
 | status | rows | meaning |
 |---|---|---|
-| `live` | 40 | Current. A session may act on it today. |
+| `live` | 44 | Current. A session may act on it today. |
 | `superseded` | 3 | Overtaken by a named successor. REQUIRES `superseded_by`. |
 | `closed_unfinished` | 9 | Abandoned mid-flight. NOT the same fact as superseded -- record what was left. |
-| `historical` | 368 | A record of something that happened. Correct forever, actionable never. |
+| `historical` | 369 | A record of something that happened. Correct forever, actionable never. |
 | `reference` | 0 | Consulted on demand. Neither current-and-actionable nor superseded. |
-| `unknown` | 551 | NOBODY HAS CHECKED. Not a soft 'live'. The honest state, and a required one. |
+| `unknown` | 574 | NOBODY HAS CHECKED. Not a soft 'live'. The honest state, and a required one. |
 
 ⚠️ **`superseded` and `closed_unfinished` are DIFFERENT FACTS and are never
 collapsed.** Overtaken by a successor is not the same as abandoned mid-flight.
@@ -111,7 +111,7 @@ document that declares itself **alive** is **not** — it is `unknown`.
 
 That asymmetry *is* the lesson of 2026-09-07. A self-declared death is rarely
 wrong in the dangerous direction; a self-declared life is precisely the claim
-that misled a manager. Measured across this population, **201 of 971 documents
+that misled a manager. Measured across this population, **201 of 999 documents
 declare something status-like in their first 15 lines, in an entirely
 uncontrolled vocabulary** — including `tier`, `scope`, `a proposal`,
 `measured`, and `credentialfree pipeline built`. There was no controlled status
@@ -162,6 +162,8 @@ markers that were cheaper to lie to than to satisfy — `new-table-wiring-guard`
 |---|---|---|
 | `docs/claude/DUE.md` | `scripts/ops/render_due_list.py` | verified: generator exists and names the file |
 | `docs/claude/READOUT.md` | `scripts/ops/constraint_readout.py` | verified: generator exists and names the file |
+| `docs/strategy-coverage-matrix.md` | `scripts/check_strategy_coverage.py` | verified: generator exists and names the file |
+| `docs/training-population-matrix.md` | `scripts/check_training_population.py` | verified: generator exists and names the file |
 
 ## Maintaining this file
 
@@ -172,16 +174,24 @@ python3 scripts/ops/document_index.py --census   # report only, no writes
 python3 scripts/ops/document_index.py --write    # rebuild table + stamp headers
 ```
 
-Adding a document to `docs/**`, `ROADMAP*.md`, `CLAUDE.md` or
+Adding a document to `docs/**` (at ANY depth, top level included), `ROADMAP*.md`, `CLAUDE.md` or
 `.claude/skills/**` and not re-running `--write` **fails CI (R1)**. That is the
 point: registration is not optional, and it is not left to memory.
 
 ## The table
 
-**Population: 971 documents** — every file matching `docs/**/*.md`,
-`ROADMAP*.md`, `CLAUDE.md`, `.claude/skills/**/*.md` as tracked by `git ls-files`
-(so an untracked scratch file can never silently enter or leave the register).
-**971 registered.**
+**Population: 999 documents** — every file matching the git pathspecs
+`:(glob)docs/**/*.md`, `ROADMAP*.md`, `CLAUDE.md`, `:(glob).claude/skills/**/*.md`
+as tracked by `git ls-files` (so an untracked scratch file can never silently
+enter or leave the register). **999 registered.**
+
+⚠️ **The `:(glob)` prefix is part of the population, not decoration.** These are
+git PATHSPECS: without it, `*` crosses `/` and `**/` needs a literal intervening
+slash, so `docs/**/*.md` silently excluded all 28 `.md` files sitting directly in
+`docs/` — including the two that outrank `CLAUDE.md` — while this table reported
+100% coverage over what was left (population 971, all registered, guard `OK`).
+Fixed 2026-09-07, population 971 → 999; the guard's `--self-test` now plants a
+real top-level `docs/*.md` and fails if the population builder cannot see it.
 
 <!-- DOCUMENT-INDEX-ROWS-BEGIN -->
 
@@ -222,6 +232,16 @@ point: registration is not optional, and it is not left to memory.
 | `CLAUDE.md` | instruction | live | — | 2026-09-07 | `read:repo-orientation-and-binding-brief / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
 | `ROADMAP.md` | plan | unknown | — | never | `read:hierarchy-rank-3-milestone-record / not-assessed` | MI-159 (#11241) corrected this file's milestone statuses 2026-09-07; it carries no machine-readable status header, so no status is asserted here |
 | `ROADMAP_MACRO.md` | plan | unknown | — | never | `read:macro-milestone-record / not-assessed` | MI-159 (#11241) corrected this file's milestone statuses 2026-09-07; it carries no machine-readable status header, so no status is asserted here |
+| `docs/AI-TRADERS-ROADMAP.md` | plan | unknown | — | never | `name:roadmap-is-a-forward-commitment / not-assessed` | — |
+| `docs/ARCHITECTURE-CANONICAL.md` | architecture | live | — | 2026-09-07 | `read:hierarchy-rank-2 / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
+| `docs/CLAUDE-RULES-CANONICAL.md` | instruction | live | — | 2026-09-07 | `read:hierarchy-rank-1 / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
+| `docs/DOCUMENT-INDEX.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/ICT_BOT_MASTER_INSTRUCTIONS.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/SPRINT-LOG-TEMPLATE-CANONICAL.md` | instruction | unknown | — | never | `read:mandatory-format-spec / not-assessed` | — |
+| `docs/TELEGRAM-SPEC.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/TRADE-PIPELINE.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/api-tier-policy.md` | instruction | unknown | — | never | `read:ci-enforced-tier-inventory / not-assessed` | — |
+| `docs/architecture.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/architecture/ARCHITECTURE-CHANGE-CHECKLIST.md` | architecture | unknown | — | never | `dir:architecture-declares-contracts / not-assessed` | — |
 | `docs/architecture/ai-model-platform.md` | architecture | unknown | — | never | `dir:architecture-declares-contracts / not-assessed` | — |
 | `docs/architecture/model-inventory.md` | architecture | unknown | — | never | `dir:architecture-declares-contracts / not-assessed` | — |
@@ -292,11 +312,12 @@ point: registration is not optional, and it is not left to memory.
 | `docs/backtests/sprint-015/harness-validation.md` | evidence | unknown | — | never | `dir:backtests-are-measurement / not-assessed` | — |
 | `docs/backtests/sprint-015/smoke-test-daily.md` | evidence | unknown | — | never | `dir:backtests-are-measurement / not-assessed` | — |
 | `docs/backtests/sprint-015/summary.md` | evidence | unknown | — | never | `dir:backtests-are-measurement / not-assessed` | — |
+| `docs/bot.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/DUE.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/ERROR-FEED-DIGEST.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/INDEX.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/READOUT.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/TASK-PRIORITY-2026-09-07.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/claude/TASK-PRIORITY-2026-09-07.md` | plan | live | — | 2026-09-07 | `read:ranks-tasks-under-the-current-cycle-priority / read:MI-162-opened-it-anchored-to-the-current-cycle-priority` | ranks TASKS under CY-20260906-TRADING-TRUTH; companion to the live work plan WORKPLAN-2026-08-29.md, not a replacement for it |
 | `docs/claude/WORKPLAN-2026-08-21.md` | plan | superseded | `docs/claude/WORKPLAN-2026-08-26.md` | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:superseded` | — |
 | `docs/claude/WORKPLAN-2026-08-26.md` | plan | superseded | `docs/claude/WORKPLAN-2026-08-29.md` | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:superseded` | — |
 | `docs/claude/WORKPLAN-2026-08-29.md` | plan | live | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:live` | — |
@@ -377,9 +398,11 @@ point: registration is not optional, and it is not left to memory.
 | `docs/claude/work/spawn-prompts/2026-09-06/1C-live-alarms.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/spawn-prompts/2026-09-06/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/workplan.md` | plan | historical | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:historical` | — |
+| `docs/cross-asset-regime-conviction-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/data/dataset-schema.md` | architecture | unknown | — | never | `dir:schema-and-taxonomy-are-contracts / not-assessed` | — |
 | `docs/data/dataset-taxonomy.md` | architecture | unknown | — | never | `dir:schema-and-taxonomy-are-contracts / not-assessed` | — |
 | `docs/data/versioning-policy.md` | architecture | unknown | — | never | `dir:schema-and-taxonomy-are-contracts / not-assessed` | — |
+| `docs/deployment.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/design/b6-split-packet-2026-08-29.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/design/boot-read-size-PROPOSAL.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/design/d1b-live-time-stop-PROPOSAL.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
@@ -399,6 +422,9 @@ point: registration is not optional, and it is not left to memory.
 | `docs/design/position-telemetry-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/design/strategy-demote-and-tune-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/design/tp-sentinel-cap-venue-scope-PROPOSAL.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
+| `docs/exit-coverage-architecture.md` | architecture | unknown | — | never | `name:declares-a-contract / not-assessed` | — |
+| `docs/github-actions-workflows.md` | unknown | live | — | 2026-09-07 | `not-assessed / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
+| `docs/hf_claude_patch.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/integrations/breakout-compliance-2026-06-16.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
 | `docs/integrations/breakout-poc-manual-bridge-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/integrations/bybit-ai-skill.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
@@ -408,11 +434,15 @@ point: registration is not optional, and it is not left to memory.
 | `docs/integrations/metacopier-bridge-DESIGN.md` | architecture | closed_unfinished | — | 2026-09-07 | `name:design-declares-a-contract / self-declared:parked` | self-declared abandoned/parked; WHAT WAS LEFT is not recorded in the file |
 | `docs/integrations/prop-accounts-architecture-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/integrations/prop-telegram-inbound-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
+| `docs/live-exit-monitor-cadence-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/ml/market-raw-adapters.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/ml/model-registry-policy.md` | instruction | unknown | — | never | `name:policy-prescribes / not-assessed` | — |
 | `docs/ml/optimization-roadmap.md` | plan | unknown | — | never | `name:roadmap-is-a-forward-commitment / not-assessed` | — |
 | `docs/ml/orderflow-capture-design.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/ml/training-center.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/netting-partial-close-attribution-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
+| `docs/news-influence-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
+| `docs/news_layer.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/operator/colab-key-rotation.md` | lookup | unknown | — | never | `dir:operator-setup-procedures / not-assessed` | — |
 | `docs/operator/github-actions-oci-secrets.md` | lookup | unknown | — | never | `dir:operator-setup-procedures / not-assessed` | — |
 | `docs/operator/setup-api-keys.md` | lookup | unknown | — | never | `dir:operator-setup-procedures / not-assessed` | — |
@@ -748,6 +778,7 @@ point: registration is not optional, and it is not left to memory.
 | `docs/security/api-network-hardening-PLAN-2026-06-28.md` | plan | unknown | — | never | `name:plan-is-a-forward-commitment / not-assessed` | — |
 | `docs/security/intrusion-surface-audit-2026-06-28.md` | evidence | unknown | — | never | `name:audit-measures / not-assessed` | — |
 | `docs/security/permissions-tiers.md` | instruction | unknown | — | never | `name:policy-prescribes / not-assessed` | — |
+| `docs/sizing-legalization-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/sprint-logs/S-047.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-AI-WS1.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-AI-WS10-FU-doc-audit.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
@@ -1146,6 +1177,12 @@ point: registration is not optional, and it is not left to memory.
 | `docs/strategies/ict_scalp_5m.md` | architecture | unknown | — | never | `dir:strategy-specs-declare-behaviour / not-assessed` | — |
 | `docs/strategies/supported_strategies.md` | architecture | unknown | — | never | `dir:strategy-specs-declare-behaviour / not-assessed` | — |
 | `docs/strategies/vwap_mean_reversion.md` | architecture | unknown | — | never | `dir:strategy-specs-declare-behaviour / not-assessed` | — |
+| `docs/strategy-coverage-matrix.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/strategy-readiness-ladder.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/strategy-review-gate.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/strategy-tuning.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/training-population-matrix.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/unified-confidence-risk-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/workflows/README.md` | lookup | unknown | — | never | `dir:workflow-notes-are-lookup / not-assessed` | — |
 | `docs/workflows/accounts-risk.md` | lookup | unknown | — | never | `dir:workflow-notes-are-lookup / not-assessed` | — |
 | `docs/workflows/accounts.md` | lookup | unknown | — | never | `dir:workflow-notes-are-lookup / not-assessed` | — |
@@ -1159,5 +1196,6 @@ point: registration is not optional, and it is not left to memory.
 | `docs/workflows/strategies.md` | lookup | unknown | — | never | `dir:workflow-notes-are-lookup / not-assessed` | — |
 | `docs/workflows/telegram_bot.md` | lookup | unknown | — | never | `dir:workflow-notes-are-lookup / not-assessed` | — |
 | `docs/workflows/trading_school.md` | lookup | unknown | — | never | `dir:workflow-notes-are-lookup / not-assessed` | — |
+| `docs/workplan.md` | plan | historical | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:historical` | — |
 
 <!-- DOCUMENT-INDEX-ROWS-END -->
