@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-07T17:35:00Z",
+  "updated_at": "2026-09-07T18:53:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2111,6 +2111,17 @@
       "tier": "1 to measure/diagnose/file; 3 for any order-path, protective-logic or lever change",
       "title": "STANDING LANE — pipeline integrity: are we actually trading correctly? (pass 1)",
       "note": "OPERATOR-DIRECTED 2026-09-07: 'keep a lane open for some pipeline review ... make sure that we're actually trading correctly so that we can review the data from the trades and make decisions.' ⚠️ THIS IS A STANDING LANE AND DOES NOT CLOSE — each pass ends by naming what the next should check. MI-140 (alpaca_live cannot place) is ONE INSTANCE of the class, not the class. The last clause is the cycle priority itself: trade data is the instrument every promotion, demotion and exit verdict is computed from, so a pipeline executing incorrectly contaminates the data at source and every downstream verdict inherits it. MANAGER-MEASURED LIVE 2026-09-07T16:54Z before dispatch, via diag_fetch (read_state 'orders_read', a real read — NOT an empty-on-error): ib_paper holds MHG 30 / MGC 11 / MES 15. ⚠️ MGC IS 491% OVER-COVERED ACROSS TWO DISJOINT OCA GROUPS (oca-protect-t5353 + oca-protect-t5531). OCA cancels only WITHIN a group, so if one group's stop fires and flattens the 11-lot position the other group's legs are still resting to sell 11 more — into a NAKED SHORT. ib_paper is paper so no real capital is exposed, but the mechanism is shared with ib_live. ⚠️ TWO OF THREE positions sit under NON-KEYED group names — '170199976' (bare numeric) and 'oca-protect-408' (legacy reqId form) — which place_protective's name-scoped pre-cancel can never treat as cancellation candidates. That is the PROTECTION_STRAY_GROUP_MODE class, and that gate ships at annotate with an EMPTY allowlist, which for that knob means NONE. ⚠️ ALARM CHANNEL DEGRADING, a P1 in its own right: 33 of 48 operator ERROR+ rows over 2026-09-02→09-07 (68.8%) are over-cover, plus 6 target_naked — about four fifths of the channel is one class. The alarm IS firing (ib_stop_over_cover detected: ib_paper/MGC is present), so detection works; the fix is to stop GENERATING over-covered books, never to widen a cooldown. IB CONNECTIVITY IS NOT THE PROBLEM — ib_state read all clients connected, no breaker, likely_wedged false. Also noted: /api/diag/version read git_sha 59bfa099 vs git_sha_on_disk b596ac4f, restart_pending TRUE."
+    },
+    {
+      "id": "MI-167-PHANTOM-MGC-LOTS",
+      "status": "in_flight",
+      "owner": "session_012Sc2fCUKAPXSVcSvKLRu5v",
+      "opened": "2026-09-07T18:53:00Z",
+      "updated": "2026-09-07T18:53:00Z",
+      "blocked_on": null,
+      "tier": "1 to measure/diagnose/file; 3 for any order-path, journal-write, reconciler or protective change",
+      "title": "Pipeline lane pass 2 — root-cause the 43 phantom MGC lots the journal holds and the venue does not",
+      "note": "⚠️ PASS 1 INVERTED ITS OWN DISPATCH AND THAT IS THE ACTIONABLE PART. The manager dispatched it believing ib_paper/MGC was 491% over-covered with the defect in place_protective's pre-cancel scoping. It is not: every resting OCA group matches its journal row TO THE TICK — 5258/MHG 30, 5353/MGC 11, 5531/MGC 43 — so protection is downstream and FAITHFUL. THE JOURNAL SUMS TO 54 MGC LONG; THE VENUE REPORTS 11. place_protective correctly armed 43 lots for a fill the journal recorded and does not have. Trade 5531 is ict_scalp_mgc_15m, opened 2026-09-07T08:26Z. ⚠️ LIVE HAZARD, and it is worse than one group going naked: the oversized group carries the TIGHTER stop (t5531 at 4394.5 vs t5353 at 4210.7, venue avg entry 4423.02), so t5531 is the NEAREST stop and fires FIRST, attempting to sell 43 lots when 11 exist — which on IBKR does not stop at flat but flips to a ~32-lot NAKED SHORT with t5353's legs still resting. ib_paper is paper so no real capital is at risk today, but ict_scalp_mgc_15m and this code path are shared with real-money accounts. ⚠️ WHETHER THE SAME CLASS TOUCHES bybit_2 OR alpaca_live OUTRANKS THE MGC ROOT CAUSE IF THE ANSWER IS YES. Also required: whether any CLOSED-TRADE PnL was computed off a phantom quantity — that is the operator's actual question, since a phantom qty multiplies through every PnL, R and expectancy figure derived from the row. ⚠️ DETECT AND PROPOSE ONLY. Do not cancel a leg or edit a journal row: the one attempt to remediate this class cancelled the leg that MATCHED the journal (BL-20260820)."
     }
   ],
   "as_of": "2026-09-06T16:05Z",

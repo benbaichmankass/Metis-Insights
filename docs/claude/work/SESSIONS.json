@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T18:00:00Z",
+  "updated_at": "2026-09-07T18:52:39Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2809,6 +2809,16 @@
       "state": "done",
       "supervised_at": "2026-09-07T18:00:00Z",
       "supervision_note": "SUPERVISED 2026-09-07T18:00Z. MI-166 pass 1 landed (#11265, 39ab1079) and it CORRECTED THE MANAGER'S OWN DIAGNOSIS. I reported ib_paper/MGC as 491% over-covered and framed it as a protective-logic hazard. It is not: both OCA groups mirror their journal rows to the tick, and the real defect is that THE JOURNAL HOLDS 54 MGC LOTS WHILE THE VENUE HOLDS 11. The protection is faithful to a wrong journal, so the defect is upstream of protection and lands on exactly the instrument the operator asked about. It checked read_state before concluding, and carried positive controls for two negative claims."
+    },
+    {
+      "session_id": "session_012Sc2fCUKAPXSVcSvKLRu5v",
+      "title": "MI-167 - pipeline lane pass 2: root-cause the 43 phantom MGC lots",
+      "owns_object": "WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS",
+      "checklist_item": "MI-167-PHANTOM-MGC-LOTS",
+      "spawned_at": "2026-09-07T18:52:39Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "The biggest unowned finding of the day. Pass 1 inverted its own dispatch: protection is faithful, the journal is wrong.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
