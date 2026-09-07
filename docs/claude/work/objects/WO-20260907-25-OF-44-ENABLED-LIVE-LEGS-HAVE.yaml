@@ -4,13 +4,23 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   25 of 44 enabled+live legs have no reachable take-profit - the per-leg Tier-3 repair
 stage: DECISION
-lifecycle: waiting
+lifecycle: done
 owner: session_0148fMEXBbDgQU3qsrcWujtx
 opened_at: 2026-09-07
+closed_at: 2026-09-07
 
 review_trigger: >-
-  Re-open when the operator answers DEC-20260907-TP-VALUE / -VOCAB / -UNEXAMINED
-  on PR #11225, or when a timeframe-matched harness run produces a
+  ANSWERED 2026-09-07. The operator approved the CONTENT verbatim: "ok on the
+  gld tp4 and the 24 declarations" - which settles DEC-20260907-TP-VALUE (adopt
+  cell tp4, tp_r 4.0, selecting for REACHABILITY over the matrix's d_net_r
+  winner sm1.5), -VOCAB (the mode:none / mode:unexamined split stands as
+  proposed) and -UNEXAMINED (qld_trend_long_1d and tqqq_trend_long_1d stay
+  unexamined, NOT folded into none). #11225 merged as d50543a1. ⚠️ THE APPROVAL
+  IS OF THE PROPOSAL'S CONTENT, NOT A LICENCE TO WIDEN IT, and it carries the
+  proposal's OWN condition: tp_intent must not land without a consumer that
+  BRANCHES on its mode. Applying it is MI-158
+  (WO-20260907-APPLY-THE-OPERATOR-APPROVED-REACHABLE-TAKE-PROFIT,
+  session_016Li3hqzjKh3bAX7HYuGu23). Re-open only if or when a timeframe-matched harness run produces a
   gate-passing, timeout-free take-profit cell for any of the 24 legs this
   proposal could not give a number to.
 

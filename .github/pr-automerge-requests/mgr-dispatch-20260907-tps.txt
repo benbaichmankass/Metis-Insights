@@ -1,0 +1,2 @@
+Dispatch record: MI-156 (reachable take-profit, Tier-3 proposal) and
+MI-157 (flat backtest fixtures). Both operator-chosen 2026-09-07.

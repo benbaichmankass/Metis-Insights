@@ -53,81 +53,36 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-05T11:55:00Z",
-  "updated_by": "session_016e2k4UmsMGgpbrJ5ctqeFv",
-  "note": "Refreshed 2026-09-05T11:40Z at the operator's wrap-up instruction. THE LANE WAS JAMMED and is now unjamming: five reconcile PRs stacked unmergeable 07:40Z-10:37Z on a single missing fact — the #10921 disposition — which no automated job can supply. #11062 carries it. ⚠️ THE JAM IS AN INSTANCE OF MI-103, WHICH IS PROVEN TO REGENERATE: instance 1 (#10780, 09-03) was cleared by closing 8 stacked PRs, instance 2 (today) by closing 5. The per-instance workaround is now the established non-fix, and the next PR closed without merging re-jams it. MI-103's owner is `unassigned` and needs one. MERGED today: #11024 #11025 #11035 #11039 #11043 #11044 #11047 #11049 #11061. ⚠️ #11049 merged on its FIRST commit while a second was being written, stranding it — after any manager PR merges, check the content reached main. ⚠️ A SIXTH RECONCILE PR (#11063, cut 11:17:47Z) appeared and is CLOSED, and it was the dangerous one: identical row counts to main (open [10895,10398], settled 43) but carrying #10921 with a BLANK disposition, so merging it would have ERASED the recorded reason and re-jammed the guard, with nothing in the diff to notice. Filed as BL-20260905-A-RECONCILE-PR-CUT-BEFORE-A-DISPOSITION-LANDS-WILL-ERASE-IT-ON-MERGE-WITH-IDENTICAL-ROW-COUNTS. All six are closed with the reason posted on each.",
+  "updated_at": "2026-09-07T08:55:00Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "note": "Serialized 2026-09-07T08:55Z. Three manager-authored PRs, two of which touch MANAGER-CHECKLIST.json - so they are ordered rather than left to race, which is the whole point of the queue existing (MI-102: a queue held in a session's head dies with that session). At most one entry may be `rebasing` (R8); none is.",
   "entries": [
     {
-      "pr": 11062,
-      "branch": "claude/manager-record-2026-09-05h",
-      "session_id": "session_016e2k4UmsMGgpbrJ5ctqeFv",
+      "pr": 11222,
+      "branch": "claude/mgr-hb-20260907-0829",
+      "session_id": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "position": 1,
       "state": "waiting",
       "blocked_on": "ci",
-      "note": "THE MANAGEMENT RECORD + the register repair that unjams the reconcile lane. Carries the #10921 disposition (a reason only the manager who closed it can supply), settles #11047, records the operator's two decisions of 2026-09-05 as MI-132/MI-133, seven backlog rows, and the handoff brief. Tier-1 self-landing declared and armed; auto-merge will take it on green. ⚠️ EVERYTHING BELOW DEPENDS ON THIS LANDING — the five reconcile PRs are superseded BY ITS CONTENT, so verify it is ON MAIN before closing them."
+      "note": "Lease heartbeat + the one genuinely unregistered sub-session (MI-150b). Smallest diff, goes FIRST so the lease is fresh on main before anything larger risks conflicting. Auto-merge armed."
     },
     {
-      "pr": 11041,
-      "branch": "automation/reconcile-open-prs-33953177717-1",
-      "session_id": null,
+      "pr": 11223,
+      "branch": "claude/mgr-openprs-reconcile-20260907",
+      "session_id": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "position": 2,
-      "state": "blocked",
-      "blocked_on": "superseded-by-11062",
-      "note": "CLOSE, do not merge. Oldest of five stacked reconcile PRs. Its register is STALE against the other four (settled 42, missing #11047). ⚠️ 'closed unmerged' has NO term in this file's own closed vocabulary (blocked/green/merged/rebasing/waiting), which is why it sits here as `blocked` — filed as BL-20260905-MERGE-QUEUE-VOCABULARY-HAS-NO-STATE-FOR-A-PR-CLOSED-WITHOUT-MERGING."
+      "state": "waiting",
+      "blocked_on": "predecessor",
+      "note": "OPEN-PRS hand-reconcile (5 rows settled, 2 added, 4 stale auto-reconcile PRs closed) + the four overnight checklist items closed. ⚠️ TOUCHES MANAGER-CHECKLIST.json, WHICH #11224 ALSO TOUCHES. Whichever merges second WILL read dirty on GitHub - the jsonregister merge driver is CLIENT-SIDE and GitHub does not run it. Resolve locally (the driver is armed in a session clone via scripts/ops/install_merge_driver.sh) rather than re-generating either file."
     },
     {
-      "pr": 11046,
-      "branch": "automation/reconcile-open-prs-33953307522-1",
-      "session_id": null,
+      "pr": 11224,
+      "branch": "claude/mgr-dispatch-20260907-tps",
+      "session_id": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "position": 3,
-      "state": "blocked",
-      "blocked_on": "superseded-by-11062",
-      "note": "CLOSE, do not merge. Same stale register as #11041 (settled 42)."
-    },
-    {
-      "pr": 11051,
-      "branch": "automation/reconcile-open-prs-33956561204-1",
-      "session_id": null,
-      "position": 4,
-      "state": "blocked",
-      "blocked_on": "superseded-by-11062",
-      "note": "CLOSE, do not merge. Register is byte-equivalent to #11056/#11058 (settled 43) and to what #11062 carries, but WITHOUT the #10921 disposition, so it cannot pass open_pr_record.py --strict."
-    },
-    {
-      "pr": 11056,
-      "branch": "automation/reconcile-open-prs-33958018891-1",
-      "session_id": null,
-      "position": 5,
-      "state": "blocked",
-      "blocked_on": "superseded-by-11062",
-      "note": "CLOSE, do not merge. Byte-equivalent register to #11051/#11058."
-    },
-    {
-      "pr": 11058,
-      "branch": "automation/reconcile-open-prs-33961145367-1",
-      "session_id": null,
-      "position": 6,
-      "state": "blocked",
-      "blocked_on": "superseded-by-11062",
-      "note": "CLOSE, do not merge. Newest of the five and the one whose failing guards job named the blocker: PASS 49 / FAIL 1, `session-registry-guard: open_pr_record.py --strict exited 1`. Also carries a PR-QUEUE-WATCH.json update, which is NOT lost by closing it — the watcher regenerates it and #11061 already landed a fresher one."
-    },
-    {
-      "pr": 10895,
-      "branch": "claude/mi83-merge-ping-observability",
-      "session_id": "session_018ruZdgEkPZ1XceWzLwuYUU",
-      "position": 7,
-      "state": "blocked",
-      "blocked_on": "merge-conflict + unattributed-R2",
-      "note": "ACTIONABLE NOW, and this is NEW today: MI-125 measured its R7 face against #10895 ITSELF and it CLEARS, so R7 is no longer the blocker this row carried. What remains is a merge conflict plus an unattributed R2 commit. Do not except it and do not rewrite another session's commit."
-    },
-    {
-      "pr": 10398,
-      "branch": "automation/econ-calendar-33232352515-1",
-      "session_id": null,
-      "position": 8,
-      "state": "blocked",
-      "blocked_on": "close-owed",
-      "note": "CLOSE, do not merge, and DO NOT RE-DERIVE THE MEASUREMENT — it was done twice. MI-131 took the one unique file (the 2026-08-29 FXStreet capture) BY VALUE in #11047, merged 08:55:06Z. Its other two files are DERIVED and would rewind main by 7 days: snapshots.jsonl drops 2,950 rows across 7 generations, upcoming.json rewinds to 2026-08-29 and loses 49 event_ids. OPEN-PRS.json records this as state=dispositioned_take_by_value_close_owed."
+      "state": "waiting",
+      "blocked_on": "predecessor",
+      "note": "Dispatch record for MI-156 + MI-157, the operator's chosen route after MI-155 blocked the calibrated one. Two work objects, two registry confirmations, two checklist rows, both objects moved dormant -> in_flight (WIP 3 -> 5, ceiling 8). Same MANAGER-CHECKLIST.json collision as position 2."
     }
   ]
 }
