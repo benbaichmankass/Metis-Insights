@@ -81,24 +81,6 @@
       "blocker": "Not blocked on a decision. Carried open across several manager ticks because the merge queue kept prioritising research deliverables; it is the record of the very deadlock the four auto-reconcile PRs closed at 08:32Z on 2026-09-07 are instances of."
     },
     {
-      "pr": 11260,
-      "opened_at": "2026-09-07T16:16:15Z",
-      "title": "close MI-162 — census verified on main",
-      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "MI-162-DOCUMENT-LIBRARY-POPULATION",
-      "draft": false,
-      "tier": "1",
-      "state": "superseded_close_not_merge",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded. Tier-1 register maintenance."
-      },
-      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml."
-    },
-    {
       "pr": 11261,
       "opened_at": "2026-09-07T16:39:01Z",
       "title": "chore(ops): refresh the error-feed digest (auto)",
@@ -135,42 +117,6 @@
       "blocker": "Not blocked. Was blocked ~80 minutes on a GitHub App 403 for PR creation, cleared by the manager via the pr-opener relay. ⚠️ ITS VERDICT IS COUPLED TO MI-170 IN THE DANGEROUS DIRECTION: alpaca_live is immune to the close-confirmation defects only because it cannot place an order, so acting on this verdict ARMS them."
     },
     {
-      "pr": 11273,
-      "opened_at": "2026-09-07T18:53:51Z",
-      "title": "dispatch MI-167 — root-cause the 43 phantom MGC lots",
-      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "MI-167-PHANTOM-MGC-LOTS",
-      "draft": false,
-      "tier": "1",
-      "state": "superseded_close_not_merge",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded. Tier-1 dispatch record."
-      },
-      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml."
-    },
-    {
-      "pr": 11277,
-      "opened_at": "2026-09-07T19:29:37Z",
-      "title": "record the operator's two MGC decisions + the MI-140 coupling",
-      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "MI-169-MGC-REMEDIATION",
-      "draft": false,
-      "tier": "1",
-      "state": "superseded_close_not_merge",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded. Tier-1 — it RECORDS two operator decisions (cancel-then-repair; dispatch the root cause coupled to MI-140) rather than taking one."
-      },
-      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml."
-    },
-    {
       "pr": 11279,
       "opened_at": "2026-09-07T19:51:13Z",
       "title": "MI-168: propose a TRADE-scoped close confirmation (Tier-3, HELD — coupled to MI-140)",
@@ -187,24 +133,6 @@
         "text": "None recorded. TWO decisions are owed and they are different questions: (1) approve or reject re-scoping the close confirmation from SYMBOL to TRADE; (2) name the IB_CLOSE_CONFIRM partial-fill default — strict is what shipped, the alternative is confirm-on-reduction, and they differ in what happens to the leftover lots' protection."
       },
       "blocker": "⚠️ THE SESSION REPORTS THIS PR IS NOT SUFFICIENT ALONE. While preparing it, it found the OPPOSITE-SIGN twin of MI-167 on Alpaca — a false-SUCCESS in which closing one trade liquidates its SIBLINGS — and filed BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. That is on alpaca_live, REAL MONEY, inert only because MI-140 measured that account as unable to place an order. Filed as MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS. NOT VERIFIED BY THE MANAGER — this is the session's report."
-    },
-    {
-      "pr": 11280,
-      "opened_at": "2026-09-07T20:27:23Z",
-      "title": "manager-lease: RE-CLAIM after a LAPSE at 19:56:51Z + the operator's steer",
-      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "MI-MANAGER-LEASE",
-      "draft": false,
-      "tier": "1",
-      "state": "superseded_close_not_merge",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded. Tier-1 lease + register."
-      },
-      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml."
     },
     {
       "pr": 11281,
@@ -1429,10 +1357,98 @@
       "merge_sha": "fd63b4f2c95df61e9c7ea23dcfdac60021fb6bef",
       "observed_at": "2026-09-07T21:55:07Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 11260,
+      "opened_at": "2026-09-07T16:16:15Z",
+      "title": "close MI-162 — census verified on main",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-162-DOCUMENT-LIBRARY-POPULATION",
+      "draft": false,
+      "tier": "1",
+      "state": "superseded_close_not_merge",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 register maintenance."
+      },
+      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml.",
+      "terminal": "closed_unmerged",
+      "merge_sha": null,
+      "observed_at": "2026-09-07T21:58:04Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 11273,
+      "opened_at": "2026-09-07T18:53:51Z",
+      "title": "dispatch MI-167 — root-cause the 43 phantom MGC lots",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-167-PHANTOM-MGC-LOTS",
+      "draft": false,
+      "tier": "1",
+      "state": "superseded_close_not_merge",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 dispatch record."
+      },
+      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml.",
+      "terminal": "closed_unmerged",
+      "merge_sha": null,
+      "observed_at": "2026-09-07T21:58:04Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 11277,
+      "opened_at": "2026-09-07T19:29:37Z",
+      "title": "record the operator's two MGC decisions + the MI-140 coupling",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-169-MGC-REMEDIATION",
+      "draft": false,
+      "tier": "1",
+      "state": "superseded_close_not_merge",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 — it RECORDS two operator decisions (cancel-then-repair; dispatch the root cause coupled to MI-140) rather than taking one."
+      },
+      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml.",
+      "terminal": "closed_unmerged",
+      "merge_sha": null,
+      "observed_at": "2026-09-07T21:58:04Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 11280,
+      "opened_at": "2026-09-07T20:27:23Z",
+      "title": "manager-lease: RE-CLAIM after a LAPSE at 19:56:51Z + the operator's steer",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-MANAGER-LEASE",
+      "draft": false,
+      "tier": "1",
+      "state": "superseded_close_not_merge",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 lease + register."
+      },
+      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml.",
+      "terminal": "closed_unmerged",
+      "merge_sha": null,
+      "observed_at": "2026-09-07T21:58:04Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-07T21:55:07Z",
-  "last_reconciled_sha": "115b0c25cda5447f7c696d346ff2fba65fe3dd59",
+  "last_reconciled_at": "2026-09-07T21:58:04Z",
+  "last_reconciled_sha": "1c1c454ad0dda85b1732726aa23dc4c64344dd1a",
   "updated_at": "2026-09-07T21:40:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
