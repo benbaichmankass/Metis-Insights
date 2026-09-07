@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T18:00:00Z",
+  "updated_at": "2026-09-07T18:30:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2773,8 +2773,8 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator approved Proposal A 2026-09-07 in answer to a direct question naming its exact scope. Observe-only; converts 9 of 44 legs from 'we did not look' into measurable.",
       "state": "working",
-      "supervised_at": "2026-09-07T18:00:00Z",
-      "supervision_note": "SUPERVISED 2026-09-07T18:00Z. MI-164 opened #11264 titled 'hook the FOUR unhooked monitor units' — ⚠️ SCOPE TO REVIEW BEFORE MERGE. MI-163's own follow-up (#11263, d4a729b6) NARROWED Proposal A to TWO units (squeeze_breakout_4h, ict_scalp), which cover all 9 invisible legs; turtle_soup is execution:shadow and vwap is enabled:false, so neither is in the population and vwap writes no risk_per_unit that peak_r requires. The narrowing landed AFTER MI-164 was dispatched and a manager cannot message a running sub-session, so this is corrected on review, not mid-flight."
+      "supervised_at": "2026-09-07T18:30:00Z",
+      "supervision_note": "SUPERVISED 2026-09-07T18:30Z. MI-164 (#11264) SCOPE REVIEWED, and the wider diff is JUSTIFIED — reviewed rather than waved through. It hooks all FOUR units where MI-163's follow-up narrowed to two. My concern was that vwap cannot produce a valid peak_r; the code ANSWERS it: the vwap hook documents that vwap writes neither risk_per_unit nor entry_time, so build_record reports peak_state='no_risk' and leaves peak_r None — a NAMED absence, never a peak divided by a guessed R — and it deliberately does NOT stamp those keys, since that is an order_package change and out of scope. So the two extra units are honest no-ops, not contamination of the very corpus this item exists to repair. Manager resolved its register conflict with the merge driver; verified 0 worker-path files in the merge commit (R2), 144 session rows, no duplicate session_id."
     },
     {
       "session_id": "session_01VKEGm8ZcTUgiZYRztPfryK",
@@ -2784,9 +2784,9 @@
       "spawned_at": "2026-09-07T16:40:27Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator commissioned the sweep 2026-09-07 and explicitly did NOT approve arming a value. A clean 'no value clears the gate' is a successful outcome.",
-      "state": "working",
-      "supervised_at": "2026-09-07T18:00:00Z",
-      "supervision_note": "SUPERVISED 2026-09-07T18:00Z. MI-165 delivered #11266 — 'the path-aware be_floor_r sweep: NO VALUE CLEARS THE GATE'. That is the honest negative the dispatch named as a fully successful outcome, and it must not be softened on review. pytest-run mid-suite at 17:58Z (started 17:46Z, a full run, NOT stalled); self-lands on green."
+      "state": "done",
+      "supervised_at": "2026-09-07T18:30:00Z",
+      "supervision_note": "SUPERVISED 2026-09-07T18:30Z. MI-165 LANDED (#11266, 40ebd40b): the path-aware be_floor_r sweep finds NO VALUE CLEARS THE GATE. That is the honest negative the dispatch named in advance as a fully successful outcome, and it was not softened. Consequence: the banking floor gets no number, and MI-163's gross +16.87R at 0.75R stays what it always was — a benefit side with no cost term."
     },
     {
       "session_id": "session_01L4nzHTVNNdCxkpFxMqXB6V",
@@ -2796,7 +2796,9 @@
       "spawned_at": "2026-09-07T16:47:52Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator asked 'did you note the alpaca task?' - the row had sat unassigned all day while the manager listed it as queued in every checklist. Noting is not acting.",
-      "state": "working"
+      "state": "done",
+      "supervised_at": "2026-09-07T18:30:00Z",
+      "supervision_note": "SUPERVISED 2026-09-07T18:30Z. MI-140 DID NOT DIE — it was BLOCKED for ~80 minutes on a GitHub App 403 for PR creation, with its verdict already committed at 37d3ed41, and the manager had written it off as 'idle, no PR'. Unblocked via the pr-opener relay, now #11271. ⚠️ ITS VERDICT REVERSES THE PREMISE THE MANAGER DISPATCHED: alpaca_live is CORRECTLY REFUSING and its declaration is correct too. The T-7 premise is true over a population of TWO and misleading at that size — both signals since the 2026-08-31 arming were tlt_pullback_1h SHORT on TLT, both suppressed by the operator-directed side_filter:long gate, which folds into effective_dry by design. Four of five leads ruled OUT on evidence; the one ruled IN is silent_refusal_alert, whose latch is FROZEN at 2026-08-21 — ten days pre-arming — still reporting alerting/signalled_never_placed with no alert_disposition key. The alerting layer is the defect, not the order path, and is very likely where the framing came from. It refused to overclaim: the order path is UNTESTED, not inert, since zero long signals have reached it."
     },
     {
       "session_id": "session_01QZxiRyCB72BH4SaJ4yEJdC",
