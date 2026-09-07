@@ -1,12 +1,9 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-07T10:41:57+00:00",
-  "verdict": "partial",
-  "unreadable_sources": [
-    "red_crons",
-    "unlanded_automation"
-  ],
+  "generated_at": "2026-09-07T10:45:01+00:00",
+  "verdict": "all_sources_read",
+  "unreadable_sources": [],
   "sources": {
     "open_items": {
       "state": "read",
@@ -34,19 +31,19 @@
       "note": "freshness=fresh age=0.2h cadence=daily (cron 20 5 * * *) | 2 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
-      "state": "could_not_read",
-      "rows": 0,
-      "note": "no GITHUB_TOKEN — cannot query the Actions API"
+      "state": "read",
+      "rows": 3,
+      "note": ""
     },
     "unlanded_automation": {
-      "state": "could_not_read",
+      "state": "read",
       "rows": 0,
-      "note": "no GITHUB_TOKEN — cannot list pull requests"
+      "note": ""
     },
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-07T10:41:54+00:00, age 0.0h"
+      "note": "digest 2026-09-07T10:41:54+00:00, age 0.1h"
     },
     "sunset": {
       "state": "read",
@@ -55,8 +52,8 @@
     }
   },
   "counts": {
-    "due": 75,
-    "loud": 55
+    "due": 78,
+    "loud": 58
   },
   "rows": [
     {
@@ -553,6 +550,33 @@
       "age_days": 0,
       "loud": true,
       "link": ""
+    },
+    {
+      "source": "red_crons",
+      "id": "constraint-readout",
+      "title": "constraint-readout",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34028413138"
+    },
+    {
+      "source": "red_crons",
+      "id": "replay-pregate-nightly",
+      "title": "replay-pregate-nightly",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34103731642"
+    },
+    {
+      "source": "red_crons",
+      "id": "sunset-pass",
+      "title": "sunset-pass",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34110131942"
     },
     {
       "source": "error_feed",
