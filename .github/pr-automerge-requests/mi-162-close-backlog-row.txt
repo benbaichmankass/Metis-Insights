@@ -1,0 +1,2 @@
+MI-162 — close BL-20260907-DOCUMENT-INDEX-POPULATION-GLOB-EXCLUDES-EVERY-TOP-LEVEL-DOCS-FILE
+now that its fix is merged on main (#11255, f837977). Backlog record only.
