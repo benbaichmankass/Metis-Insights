@@ -164,7 +164,17 @@ Actual realised over the 71: **+28.80R, mean +0.406R/trade.** Median peak **0.88
 
 ### Proposal A — repair the instrument FIRST (observe-only)
 
-Add the existing `record_position_telemetry` hook to the four unhooked monitor units, exactly as `trend_donchian.py:823-833` already does it. It is observe-only by construction — its own comment says it *"reads nothing back and cannot alter the trail"* — and it is wrapped in the same `except Exception: pass` so it can never break an exit.
+Add the existing `record_position_telemetry` hook to the **two** unhooked monitor units **that the population actually routes to**, exactly as `trend_donchian.py:823-833` already does it. It is observe-only by construction — its own comment says it *"reads nothing back and cannot alter the trail"* — and it is wrapped in the same `except Exception: pass` so it can never break an exit.
+
+⚠️ **This narrows what an earlier revision of this section said, and the narrowing is the useful part.** It read *"the four unhooked monitor units"*, which overstates the work and misdescribes it. There are indeed four unhooked units, but only two carry any of the 44:
+
+| unit | legs covered | shape of the change |
+|---|---:|---|
+| `squeeze_breakout_4h` | **1** | **pure copy-paste** — it already has `_since_entry` (`:249`) and binds `window` inside `monitor()` (`:336`); the 14-line block drops in directly after |
+| `ict_scalp` | **8** | the same block **plus one line** binding a window: it has `_bars_since_entry` (a bar COUNT) but not `_since_entry` (the DataFrame), so it needs `since_entry(candles_df, open_pkg)` imported from `src/runtime/exit_levers.py` — the ONE canonical definition that `trend_donchian._since_entry` itself delegates to, never a third copy |
+| `turtle_soup` · `vwap` | **0** | **not needed.** `turtle_soup` is `execution: shadow` and `vwap` is `enabled: false`, so neither is in the population — and both would cost more (neither has `_since_entry`, neither writes `entry_time`, and `vwap` writes no `risk_per_unit` at all, which `peak_r` requires) |
+
+So Proposal A is two files, and those two cover **all 9** structurally-invisible legs.
 
 **Why first:** this is `CY-20260906-TRADING-TRUTH`'s own sequencing rule — *repair the measurement before acting on what it says.* It converts 9 of 44 legs (20.5%) from *we did not look* into observable, and it is the only way the one-shot mechanism ever becomes measurable. **Proposal B's calibration is measured on a corpus that structurally excludes those 9 legs**, so A materially improves the evidence B is chosen from.
 
