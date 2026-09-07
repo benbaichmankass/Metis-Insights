@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-07T19:30:00Z",
+  "updated_at": "2026-09-07T20:27:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2125,14 +2125,29 @@
     },
     {
       "id": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
-      "status": "in_flight",
+      "status": "blocked",
       "owner": "session_01BpU7rfqWKir4rQrowT4ZQd",
       "opened": "2026-09-07T19:30:00Z",
-      "updated": "2026-09-07T19:30:00Z",
-      "blocked_on": null,
+      "updated": "2026-09-07T21:33:00Z",
+      "blocked_on": {
+        "kind": "decision",
+        "ref": "operator: (1) approve/reject the symbol->trade re-scope; (2) name the IB_CLOSE_CONFIRM partial-fill default",
+        "since": "2026-09-07T20:33:00Z"
+      },
       "tier": "3 — PROPOSE ONLY; operator dispatched the proposal, not the merge",
       "title": "Re-scope the close confirmation from SYMBOL-flat to TRADE-quantity (Tier-3 proposal)",
-      "note": "OPERATOR DECISION 2026-09-07, asked directly with the coupling stated: 'Dispatch it now, coupled to MI-140'. ⚠️ COUPLING IS THE POINT — alpaca_live (REAL MONEY) shares the identical symbol-scoped confirm and is immune TODAY only because it cannot place orders (MI-140). FIXING MI-140 ARMS THIS ON REAL MONEY; the two must not land independently, and the edge is written into BOTH work objects. bybit_2 (REAL MONEY) is NOT exposed — Bybit has no close-confirmation at all (0 hits, positive control returns IB + Alpaca) — so it escapes on a missing venue gate, not its trade shape, and must NOT be 'fixed' by adding one. Precondition is common: 13 (account,symbol) pairs held 2+ simultaneously-open rows in 28 days."
+      "note": "OPERATOR DECISION 2026-09-07, asked directly with the coupling stated: 'Dispatch it now, coupled to MI-140'. ⚠️ COUPLING IS THE POINT — alpaca_live (REAL MONEY) shares the identical symbol-scoped confirm and is immune TODAY only because it cannot place orders (MI-140). FIXING MI-140 ARMS THIS ON REAL MONEY; the two must not land independently, and the edge is written into BOTH work objects. bybit_2 (REAL MONEY) is NOT exposed — Bybit has no close-confirmation at all (0 hits, positive control returns IB + Alpaca) — so it escapes on a missing venue gate, not its trade shape, and must NOT be 'fixed' by adding one. Precondition is common: 13 (account,symbol) pairs held 2+ simultaneously-open rows in 28 days. ⚠️ OPERATOR STEER 2026-09-07: symbol-vs-trade is SETTLED — confirm on the TRADE'S OWN QUANTITY DELTA, observable even with siblings (MGC 54 → 11 IS 5531's 43 lots leaving). The existing check is not merely wrong: it exists because an accepted-but-unfilled close once left a real position NAKED with the row marked closed. Change the MEASUREMENT, keep the guarantee. STILL THE OPERATOR'S: the within-trade partial fill, which differs in what happens to the leftover lots' protection. MANAGER CAVEAT: whether both Alpaca close paths can observe a per-trade delta as cleanly as IB is NOT established — different position read; establish per venue, do not assume symmetry. BLOCKED 2026-09-07T21:33Z: the session reports #11279 is ready but NOT sufficient alone, because it also found the opposite-sign REAL-MONEY defect now filed as MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS. Two operator decisions are owed; see that row."
+    },
+    {
+      "id": "MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS",
+      "status": "unassigned",
+      "owner": null,
+      "opened": "2026-09-07T21:33:00Z",
+      "updated": "2026-09-07T21:33:00Z",
+      "blocked_on": null,
+      "tier": "3",
+      "title": "REAL MONEY: an alpaca_live close of ONE trade liquidates its SIBLINGS — the opposite-sign twin of MI-167, found by MI-168",
+      "note": "REPORTED BY MI-168 (session_01BpU7rfqWKir4rQrowT4ZQd) at 20:33Z and filed by that session as BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. MI-167 found IB grading a SUCCEEDED close a FAILURE because the confirmation asks whether the SYMBOL is flat when the close is of a TRADE. MI-168 reports Alpaca has the same symbol-vs-trade confusion with the OPPOSITE sign: a false-SUCCESS, where closing one trade takes its siblings out with it. That is strictly worse — a false-failure leaves a row open, a false-success closes positions nobody asked to close — and unlike MI-167 it is on alpaca_live, a REAL-MONEY account. IT IS INERT ONLY BECAUSE THAT ACCOUNT CANNOT CURRENTLY PLACE AN ORDER: MI-140 measured all 44 of its journal rows in the window as `rejected` over a population of 2 signals, both shorts suppressed by the operator's side_filter: long. So MI-140 and this row are COUPLED IN THE DANGEROUS DIRECTION — clearing MI-140 arms this. NOT VERIFIED BY THE MANAGER: this is MI-168's report as read off the session listing, not something I measured. MI-168's #11279 is explicitly NOT sufficient alone. TWO OPERATOR DECISIONS ARE OWED before anything ships: (1) approve or reject re-scoping the confirmation from symbol to trade; (2) name the IB_CLOSE_CONFIRM partial-fill default (strict is what shipped; the alternative is confirm-on-reduction)."
     },
     {
       "id": "MI-169-MGC-REMEDIATION",
@@ -2147,5 +2162,6 @@
     }
   ],
   "as_of": "2026-09-06T16:05Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "updated": "2026-09-07T21:33:00Z"
 }
