@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs-only. Adds one diagnosis under docs/claude/diagnoses/ and its DOCUMENT-INDEX row. No src/, no config/, no deploy/, no workflow, no CI script, no order path, no strategy parameter, no risk cap. Its subject is a Tier-3 action, but the PR APPLIES none of it: MI-169 records that the approved cancel was HALTED and that nothing was cancelled and no journal row was written. It is declared tier 1 rather than tier 3 because, unlike docs/research/reachable-take-profit-proposal-2026-09-07.md, it carries no diff for the operator to apply — it reports a stop. Landing it fast is the point: MI-167's operator-decision block names order 548 as a leg of oca-protect-t5531 when 548 is in fact the resting 11-lot stop of oca-protect-t5353, and any responder following that text would strip a real position's protection while leaving the 43-lot hazard resting (BL-20260820)."
+}
