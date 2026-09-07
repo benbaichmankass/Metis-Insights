@@ -1,5 +1,7 @@
 # M28 — Signal-research ledger
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 The compounding record of every signal **construction** tried through the honest
 gate, its verdict, and the learning. One row per construction (input × transform ×
 conditioning × cross-section). Append-only; a null is a completed entry, never a

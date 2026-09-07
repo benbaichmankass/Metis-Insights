@@ -1,5 +1,7 @@
 # M27 GLD 1h — Tier-3 promotion packet (2026-08-14)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Tier-3. This packet proposes; it does not ship.** Wiring a new strategy leg
 > to `execution: live` is operator-approved per `docs/CLAUDE-RULES-CANONICAL.md`
 > § Permission Tiers. Lane 3 of [`WORKPLAN-2026-08-14.md`](./WORKPLAN-2026-08-14.md).

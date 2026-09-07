@@ -1,5 +1,7 @@
 # ict_scalp_5m — Modernization Research Plan (2026-07-20)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** DRAFT research plan (Tier-1). Every *live* change it leads to
 (param/exit/gate edits, shadow→live re-promotion) is **Tier-3, operator-gated**.
 Owner review item: `PB-20260630-ICTSCALP-DEGRADE`.

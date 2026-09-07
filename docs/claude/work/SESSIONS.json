@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T12:32:17Z",
+  "updated_at": "2026-09-07T13:30:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2656,8 +2656,8 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator Tier-3 approval carried from PR #11225 (merged d50543a1). The manager holds the approval; this session executes it. Approval covers the CONTENT of the diff, not a licence to widen it.",
       "confirmed_at": "2026-09-07T09:33:07Z",
-      "note": "OBSERVED 2026-09-07T11:30Z: IDLE, work COMPLETE and MERGED as #11232 (3f88bfff). Graded by merged output, not by its summary. Applied the operator-approved diff, verified the 9-leg runtime identity four ways with a negative control, and shipped the tp_intent reader that BRANCHES. Refused to touch src/runtime/target_expectation.py because it is on the live target_extension_soak path, and said why. STILL OWED: the post-merge live read-back - merged is not deployed, and it did not claim otherwise.",
-      "observed_at": "2026-09-07T11:30:00Z"
+      "note": "OBSERVED 2026-09-07T13:30Z: IDLE, COMPLETE. #11232 merged; the post-merge live read-back was done by the manager at 11:52Z and recorded in #11239 (61868a1b).",
+      "observed_at": "2026-09-07T13:30:00Z"
     },
     {
       "session_id": "session_0148fMEXBbDgQU3qsrcWujtx",
@@ -2684,8 +2684,8 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed 2026-09-07 to fix now as its own item. MI-151 found btc_5m_2026.csv has exactly one unique close across all 300 rows. Measurement-integrity defect; the cycle priority says repair the instrument before acting on what it says.",
       "confirmed_at": "2026-09-07T08:49:34Z",
-      "note": "OBSERVED 2026-09-07T11:30Z: IDLE and BLOCKED ON ME, not on itself. #11226 is green and has been since 09:42Z; its own summary says 'awaiting review or self-land decision'. The census is done: 7 candle files checked, 5 flat (all under data/ohlcv/, each 1 distinct close and 0 of 299 non-zero returns), 5 deleted, candle-fixture-variance-guard shipped and registered. The manager's merge is the only thing outstanding.",
-      "observed_at": "2026-09-07T11:30:00Z"
+      "note": "OBSERVED 2026-09-07T13:30Z: IDLE, COMPLETE. #11226 merged (29820f97).",
+      "observed_at": "2026-09-07T13:30:00Z"
     },
     {
       "session_id": "session_01Et8yz5yBZ7ifySKwpF6R1s",

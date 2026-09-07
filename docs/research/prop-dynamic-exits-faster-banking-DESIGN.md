@@ -1,5 +1,7 @@
 # Design Proposal — Faster profit-banking / dynamic exits for the PROP account (`breakout_1`)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Read-only research/design. **Every live-affecting change (exit logic, stops,
 > take-profit, strategy params, sizing, ticket path) is Tier-3 — PROPOSE ONLY, operator-approved +
 > backtest-gated.** No code/config/VM state touched. Origin: the 2026-06-29 optimization

@@ -1,5 +1,7 @@
 # Spot-margin operations runbook (S-047 D8)
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 How to inspect, recover, and live-smoke-test the **Bybit V5 Spot Margin**
 account (`bybit_2` today). Read this when:
 

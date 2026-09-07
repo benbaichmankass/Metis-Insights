@@ -1,5 +1,7 @@
 # The donchian stop sweep: the constraint is DRAWDOWN — and the gate's Path B could not fire
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > ⚠️ **The original title said "77/77 fail the gate". § 3.9 supersedes that:**
 > Path B was unreachable by construction, so 77 cells were never assessed on the
 > path they qualified for. Re-run with it reachable, **7 of 9 Path B candidates

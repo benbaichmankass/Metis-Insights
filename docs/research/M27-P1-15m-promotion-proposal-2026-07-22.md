@@ -1,5 +1,7 @@
 # M27 P1 — 15m scalp promotion PROPOSAL (Tier-3, operator-gated) — 2026-07-22
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status: PROPOSED — awaiting operator approval. NOT self-wired.** This
 > documents the exact `config/strategies.yaml` cells I would add for the three
 > passing M27 P1 15m legs, the evidence, and the caveats. No config change is

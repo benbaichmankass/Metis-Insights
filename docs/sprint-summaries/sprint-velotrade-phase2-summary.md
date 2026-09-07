@@ -1,5 +1,7 @@
 # Sprint Velotrade phase-2 — DXtrade integration infrastructure + persistent prop state
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Dates:** 2026-05-03 (single-day, three-segment sprint; PRs #336 → #337 → #338 + this summary)
 **Checkpoints:** CP-2026-05-03-01 → CP-2026-05-03-02 → CP-2026-05-03-03
 **Outcome:** ✅ all three PRs shipped + 56 new tests + zero behaviour change to live Bybit trading. Operator authorised each phase serially in one conversation; mid-session pivot from BLOCKED → infrastructure when operator clarified the goal.

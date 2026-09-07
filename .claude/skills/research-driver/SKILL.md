@@ -3,6 +3,8 @@ name: research-driver
 description: The governance layer for open-ended research/build sessions that don't already map onto a fixed review cadence or a narrower domain skill — how Claude picks what to work on, dispatches to the right existing pipeline before freelancing, keeps moving on other work when a specific item is blocked on a pending Tier-3 decision, pings the operator on a binding hourly cadence, recognizes when a recurring ad hoc pattern should be promoted into its own domain skill, and lands the outcome in the right place in ROADMAP.md's structure. NOT a replacement for /system-review (fixed cadence) or any narrower domain skill (exit-refinement, new-strategy, new-broker, backtesting, model-training, drift-remediation) — it decides when THOSE apply and steps aside once they do. Use when the operator asks for open-ended research, roadmap expansion, "look into X", or any session whose scope isn't already pinned to a fixed review or a domain pipeline.
 ---
 
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+
 # research-driver — governance for open-ended research/build sessions
 
 Codified 2026-07-22 (operator directive): the repo has strong structure for

@@ -1,5 +1,7 @@
 # M31 P5 — a lever that READS telemetry. Proposal, and why it does not ship yet.
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status: PROPOSED, NOT SHIPPED. Tier-3.**
 
 > **OPERATOR PRE-APPROVAL, 2026-08-18 — for the WALK-FORWARD ONLY.** The operator has

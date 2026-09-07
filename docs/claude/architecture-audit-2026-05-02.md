@@ -1,5 +1,7 @@
 # Architecture compliance audit — 2026-05-02
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Trigger:** operator request, post-#308 (BUG-034 VWAP execution fix). Wider audit
 to verify compliance with the 6 architectural rules + codify them in
 `CLAUDE.md` so future sessions can't drift.

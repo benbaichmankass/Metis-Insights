@@ -1,5 +1,7 @@
 # Walk-forward — the LIVE flip-confidence override (0.15 / 4.0), 2026-08-11
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Tier-1 research. **Evidence for a Tier-3 operator decision — nothing here
 > is enacted.** Closes the evidence half of `BL-20260811-FLIP-OVERRIDE-NEVER-WALKFORWARDED`.
 > Driver: [`scripts/walkforward_flip_policy.py`](../../scripts/walkforward_flip_policy.py)

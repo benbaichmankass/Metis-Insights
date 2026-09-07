@@ -1,5 +1,7 @@
 # Research-session brief — Level-3 options on `alpaca_live`
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** QUEUED for a dedicated future session (operator directive 2026-06-27).
 > This file is both the record that the initiative exists and the **paste-able
 > kickoff prompt** for that session. Not started in the session that wrote it.

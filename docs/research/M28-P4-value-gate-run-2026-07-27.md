@@ -1,5 +1,7 @@
 # M28-P4 value-thesis gate — RUN on 21yr history (2026-07-27)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## The headline (operator-directed correction)
 
 The M28-P4 value gate had been recorded as "waiting ~weeks for the FRED producer

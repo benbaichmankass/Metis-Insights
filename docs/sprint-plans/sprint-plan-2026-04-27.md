@@ -1,5 +1,7 @@
 # ICT Bot Next Sprint Plan: VWAP Stabilization + Google AI Studio Workflow
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **⚠️ ARCHIVED SPRINT PLAN.** Paper-trading references in this plan
 > (e.g. `MODE=PAPER`, `vwap_btcusd_dry_run` profile) are **superseded by
 > CP-2026-04-28-16 through CP-2026-04-28-19**, which excised paper trading

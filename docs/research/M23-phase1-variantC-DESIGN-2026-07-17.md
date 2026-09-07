@@ -1,5 +1,7 @@
 # M23 Phase 1 — variant C design: outcome/R-aware meta-label (2026-07-17)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Why:** the exact-R EV gate (`M23-phase1-ev-gate-2026-07-17.md`) established the binding
 defect precisely — the pooled meta-label ranks **P(win)** well (real-trade win-rate
 0.263 → 0.318 under selection) but does **not** rank **realized R**: per-trade net R is

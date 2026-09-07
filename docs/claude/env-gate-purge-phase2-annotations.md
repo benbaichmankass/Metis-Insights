@@ -1,5 +1,7 @@
 # Env-gate purge Phase-2 — survivor annotations
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Tier 2. Operator-acked 2026-05-10.
 >
 > **Why this doc:** Phase-2 of S-067 follow-up #4 needs inline

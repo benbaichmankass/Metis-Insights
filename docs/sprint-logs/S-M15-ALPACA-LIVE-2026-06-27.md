@@ -1,5 +1,7 @@
 # Sprint Log: S-M15-ALPACA-LIVE-2026-06-27 (ict-git-sync revert loop fix + Alpaca auth investigation)
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-06-27
 - End: 2026-06-27 (Alpaca live auth blocked; operator action pending)

@@ -1,5 +1,7 @@
 # Full Pipeline Structural Audit — 2026-05-17
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Scope**: End-to-end trading pipeline from strategy signal to trade close.
 > Both repositories (`ict-trading-bot`, `ict-trader-dashboard`) audited.
 > Every claim is tied to a concrete file path and observed code behavior.

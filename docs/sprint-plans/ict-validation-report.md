@@ -1,5 +1,7 @@
 # ICT Multi-Symbol Validation Report
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Source:** `/content/drive/MyDrive/ict-bot-research/backtest-runs/ict_multi_20260429.json`  
 **Go thresholds:** ≥50 trades, WR ≥55.0%, avg R > 0
 

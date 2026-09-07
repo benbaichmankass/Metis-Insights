@@ -1,5 +1,7 @@
 # c_reg lens enablement — the wiring is complete; the calibrator is the only blocker
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Tier-1 observe-only (offline draft).** The `c_reg` conviction lens feeds the
 > **observe-only** unified conviction stamped on the signal meta — it is **never
 > read back into the order** (`compute_conviction` output is pure logging until the

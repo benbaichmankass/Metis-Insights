@@ -1,5 +1,7 @@
 # Runbook — Liveness watchdog (`ict-liveness-watchdog`)
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 External per-minute dead-man switch for `ict-trader-live.service`.
 Shipped 2026-05-11 (PRs #950, #953, #956) after a 5-hour silent-failure
 window where the trader process kept running but its heartbeat /

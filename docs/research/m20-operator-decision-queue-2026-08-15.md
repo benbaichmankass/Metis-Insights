@@ -1,5 +1,7 @@
 # M20 — what is waiting on you, 2026-08-15 (last updated ~14:55Z)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Everything the overnight session queued rather than decided, in one place.
 **Seven items**, plus one coda outside M20's scope. **No decision here has been
 taken for you.** No matrix status was flipped, no gate changed, no live lever

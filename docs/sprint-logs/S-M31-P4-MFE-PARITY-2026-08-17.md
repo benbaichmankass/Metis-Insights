@@ -1,5 +1,7 @@
 # S-M31-P4-MFE-PARITY — backtest↔live MFE parity, shipped and run
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 - **Sprint ID:** S-M31-P4-MFE-PARITY-2026-08-17
 - **Milestone:** M31 (position telemetry) — **P4**
 - **Dates:** 2026-08-17 → 2026-08-17

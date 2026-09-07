@@ -1,5 +1,7 @@
 # Netting-aware PnL reconciliation (bybit_2 orphans)
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **What it fixes.** On a one-way **netting** account (`bybit_2`), N per-strategy
 journal legs map onto ONE net exchange position. The exchange records a realised
 PnL only at each **net** close, so there is no per-leg close to match — the

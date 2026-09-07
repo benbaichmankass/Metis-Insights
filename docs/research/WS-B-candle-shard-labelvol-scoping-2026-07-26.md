@@ -1,5 +1,7 @@
 # Scoping note — WS-B candle-shard label-volume plumbing (workplan item 1.1)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** scoping (Tier-1 / offline). Opened 2026-07-26 under `research-driver`,
 > as **WS-3** of the [de-soak + milestone close-out workplan](./WORKPLAN-desoak-and-milestone-closeout-2026-07-26.md).
 > **Anchor:** the label-volume ladder in

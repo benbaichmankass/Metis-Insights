@@ -1,5 +1,7 @@
 # M1 Comms Infrastructure — Static Audit (2026-05-07, fresh)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Sprint:** S-048 (M1 reopen). Tier 1 docs-only audit.
 > **Supersedes:** `docs/audits/M1-comms-audit-2026-05-07.md` (PR #463).
 > The earlier audit was verified by the operator post-write; this version

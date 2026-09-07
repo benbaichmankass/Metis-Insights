@@ -1,5 +1,7 @@
 # Bug-log pending entries
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 A staging area for bug-log rows that couldn't be folded directly into
 `docs/claude/bug-log.md` from the session that filed them — typically
 because the canonical bug-log file is too large (≈ 100 KB and growing)

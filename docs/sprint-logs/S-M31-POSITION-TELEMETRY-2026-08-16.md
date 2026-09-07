@@ -1,5 +1,7 @@
 # Sprint Log: S-M31-POSITION-TELEMETRY-2026-08-16
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - **Start:** 2026-08-16 (overnight M20 session, operator-directed mid-session)
 - **End:** 2026-08-16

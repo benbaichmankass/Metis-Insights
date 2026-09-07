@@ -1,5 +1,7 @@
 # Comms architecture — Claude ↔ Telegram operator channel
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** PR 1 (foundation) merged. PR 2 (Telegram bot integration) deferred.
 **Sprint:** S-027 — telegram-comms-infrastructure.
 

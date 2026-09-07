@@ -1,5 +1,7 @@
 # Item 1.1 re-measured on broker truth: the brackets fire ~3× more often than the labels say
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Session `s3-exitpath`, 2026-08-22.** Tier-1 measurement. No `execution:` change, no
 Tier-3 gate, no order-path change. Everything below is a read.
 

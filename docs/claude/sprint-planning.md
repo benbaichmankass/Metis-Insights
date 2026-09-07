@@ -1,5 +1,7 @@
 # Sprint planning policy
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Source-of-truth note (2026-05-06):** This file is subordinate to
 > `docs/claude/workplan.md`. If anything here conflicts with the
 > workplan, the workplan wins. The workplan owns the merge-tier model,

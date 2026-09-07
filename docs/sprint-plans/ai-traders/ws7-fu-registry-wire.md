@@ -1,5 +1,7 @@
 # WS7 follow-up — Registry wire + stage / parser hygiene
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Master plan:** [`docs/AI-TRADERS-ROADMAP.md`](../../AI-TRADERS-ROADMAP.md)
 **Milestone:** M9 (closes the WS7 deployment-tier gap)
 **Sprint id:** **S-AI-WS7-FU-REGISTRY-WIRE**

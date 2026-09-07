@@ -1,5 +1,7 @@
 # Runbook — `/dev/null` guard (OCI agent strips its perms)
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status: LIVE 2026-06-15.** Self-heals a recurring `/dev/null`
 permission regression on the live trader VM (`ict-bot-arm`).
 

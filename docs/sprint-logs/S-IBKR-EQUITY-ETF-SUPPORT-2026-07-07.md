@@ -1,5 +1,7 @@
 # Sprint Log: S-IBKR-EQUITY-ETF-SUPPORT-2026-07-07
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-07-07 (design doc written 13:05 UTC)
 - End: 2026-07-08 (04:56 UTC — step-6 merge confirmed deployed + step-7 verification check)

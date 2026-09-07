@@ -1,5 +1,7 @@
 # R6 — the trainer VM's fate, measured
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-28 · **Repo head:** `76d14af5` · **Trainer head:** `76d14af5` (in sync)
 **Gate:** R6 was blocked on R3 *holding*. R3 holds as of #10390, so this is answerable.
 **Method:** two read-only `trainer-vm-diag` pulls (#10391, #10392) + a repo-side consumer trace.

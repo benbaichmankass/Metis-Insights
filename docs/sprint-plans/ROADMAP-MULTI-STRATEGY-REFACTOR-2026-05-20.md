@@ -1,4 +1,7 @@
 # Sprint Roadmap: Multi-Strategy Architecture Refactor
+
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Created:** 2026-05-20  
 **Initiative ID:** MULTI-STRATEGY-ARCH-REFACTOR  
 **ROADMAP.md milestone:** M11  

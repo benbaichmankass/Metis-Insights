@@ -1,5 +1,7 @@
 # § 1 — Strategy inventory
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Every Python file that defines a strategy class, signal builder, or
 order-package adapter, with import path, config reference, test coverage,
 and last-touching commit.

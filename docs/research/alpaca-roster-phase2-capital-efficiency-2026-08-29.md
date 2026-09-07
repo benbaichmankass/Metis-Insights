@@ -1,5 +1,7 @@
 # Phase 2: the roster graded on capital efficiency — measured, walk-forward
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **2026-08-29 · Tier-1 research.** Answers the operator's requirement that a
 "winner" include the exit work: *"not holding trades for ridiculously long
 periods of times through churn, which is just tying up capital that can be used

@@ -1,5 +1,7 @@
 # Prop-firm strategy evaluation tool — DESIGN (2026-06-16)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Tier-1 research/backtest tooling.** Nothing in this design touches the live
 > order path, `config/strategies.yaml`, `config/accounts.yaml`, or any unit the
 > live VM consumes. The tool reads historical candles + replays strategies

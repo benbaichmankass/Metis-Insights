@@ -1,5 +1,7 @@
 # Crypto fine-tune proposals (Tier-3, for operator review) — 2026-07-30
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Output of the crypto-book edge audit (`crypto-edge-audit-2026-07-30.md`). Each
 proposal carries the **diagnosis block** the performance-review skill now
 requires. **Nothing here is applied** — all Tier-3, operator-gated. These are

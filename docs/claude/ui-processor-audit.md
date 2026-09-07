@@ -1,5 +1,7 @@
 # UI processor audit — `src/bot/telegram_query_bot.py`
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** audit-only deliverable. No code changes are made by the
 audit; subsequent sprints migrate handlers in PR-sized chunks per the
 priority order in § 5.

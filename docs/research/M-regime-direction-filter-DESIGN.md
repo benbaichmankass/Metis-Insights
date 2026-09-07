@@ -1,5 +1,7 @@
 # Direction-aware regime filter — design + backtest plan (Phase 2)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** design / launched 2026-07-17. Tier-3 (order-routing-affecting) —
 > backtest-gated, operator-approved before any live cell. Pays down
 > `BL-20260717-REGIME-COVERAGE-DEBT` (the 35 live strategies with no regime

@@ -1,5 +1,7 @@
 # S-REFACTOR-S4: AllocatorInterface wiring into coordinator
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Date:** 2026-05-20  
 **Tier:** 2 (runtime pipeline touch — merge review required)  
 **PR:** #TBD (claude/refactor-s4-allocator-wiring → main)  

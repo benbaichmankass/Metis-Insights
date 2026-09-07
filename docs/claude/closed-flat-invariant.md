@@ -1,5 +1,7 @@
 # Closed → exchange-flat invariant reconciler
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 S-067 follow-up #3 — design memo. **Tier 2** (touches the live-order
 path); requires operator ack pre-merge.
 

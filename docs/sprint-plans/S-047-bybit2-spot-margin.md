@@ -1,5 +1,7 @@
 # Sprint S-047 — bybit_2 Spot Margin enablement (VWAP true longs + shorts)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** DRAFT — awaiting operator approval of plan structure before code work begins.
 > **Tier:** 3 (touches strategy, sizing, risk caps, live order routing). All PRs ship as draft.
 > **Triggered by:** session 2026-05-07 audit (operator directive: "the wallet holds USDT and opens long/short BTC spot positions — fix all the wiring to comply").

@@ -1,5 +1,7 @@
 # M19 Data workstream — the wide multi-asset context corpus — design
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** 📋 DESIGN (2026-07-02, autonomous overnight push). This specs the
 > **wide multi-asset "read-mostly" context corpus** — the fuel the M19 roadmap's
 > in-house self-supervised encoder (T1.2) reads, and a near-term feature source

@@ -1,5 +1,7 @@
 # E3 — the joint lever screen: one positive cell, and it dies on cost
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-20 · **Step:** [`exit-mechanism-construction-PROCESS.md`](../design/exit-mechanism-construction-PROCESS.md) § E3
 · **Precondition:** [`e3-barrier-geometry-2026-08-20.md`](./e3-barrier-geometry-2026-08-20.md)
 · **Tool:** [`scripts/research/e3_joint_lever_sweep.py`](../../scripts/research/e3_joint_lever_sweep.py) (`--selftest` 8/8)

@@ -1,5 +1,7 @@
 # Cross-asset strategies — technical scope / gap analysis (2026-06-18)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Scope doc, not a design.** Answers the operator's question: *"what is lacking
 > right now to build strategies that trade asset A using other assets' data, how
 > does data intake work and what has to change — so we know what we're getting

@@ -1,5 +1,7 @@
 # S-STRAT-IMPROVE-S9 — sprint log (2026-05-24)
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 Strategy-improvement program: trend timeframe migration, two new
 complementary members (shadow), the single-account decider correction,
 models-in-the-loop test, and the MES/cross-asset data + research.

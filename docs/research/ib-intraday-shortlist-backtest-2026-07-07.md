@@ -1,5 +1,7 @@
 # IB intraday shortlist — native/continuous backtest (2026-07-07)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Author:** Claude. **Context:** the step-3 intraday survey
 (`ib-intraday-strategy-survey-2026-07-07.md`) concluded "no *validated* intraday
 edge yet" and deferred a test matrix (#1/#2/#5/#6/#7). That matrix is now RUN on

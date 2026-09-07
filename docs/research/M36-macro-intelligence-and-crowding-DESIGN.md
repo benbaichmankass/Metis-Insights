@@ -1,5 +1,7 @@
 # M36 Track C — Unified Macro-Intelligence + the Positioning/Crowding-Aware Thesis Lifecycle (design of record)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** DESIGN — for operator review (operator-directed 2026-07-27, M36
 > Track C). **Tier:** Tier-1 throughout (design + pure code + observe-only soak +
 > the point-in-time backtest gate). Any wiring into a live path

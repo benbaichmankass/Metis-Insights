@@ -1,5 +1,7 @@
 # Backtest-harness validation + training-cycle check — 2026-05-30
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Operator directive: *"when we make a new backtest we should check it works,
 along with the other backtests"* + kick a training cycle and verify the
 merged 5yr-window / mes-regime-1d / demotion changes (PR #2399, merged

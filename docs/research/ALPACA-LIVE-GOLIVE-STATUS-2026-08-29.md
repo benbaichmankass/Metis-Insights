@@ -1,5 +1,7 @@
 # `alpaca_live` go-live — where it actually stands, and the ONE decision that unblocks it
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-29 · **Trigger:** operator, *"let's also try to get alpaca real money ready
 to flip to live — I'm not sure how much more work there is there, but we seem to be going in
 circles a bit there."*

@@ -1,5 +1,7 @@
 # Full-System Audit — 2026-07-31 (post-incident-cluster robustness pass)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Program doc (the shared brain)** per `.claude/skills/full-system-audit/SKILL.md`.
 > Operator-directed audit session with a specific emphasis: the 2026-07-25→31 arc
 > ("roadmap work → broken infrastructure → broken protocols / cloud sessions

@@ -1,3 +1,5 @@
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > ✅ **S-041 STATUS NOTE (2026-05-06 — verify-before-trusting-done sweep):**
 > Sprint **completed**. All S-017 PRs confirmed on `main` (referenced in
 > `docs/sprints/sprint-020-prompt.md` § 2 dependencies as PRs #213–#227). Live

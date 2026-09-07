@@ -1,5 +1,7 @@
 # The mirror-leg design meets a system-wide invariant: signal symbol == order symbol
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Measured 2026-08-25** · scope: `BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED`,
 M15 alpaca short proxies · **Tier-3 · nothing built, nothing wired, no config touched**
 

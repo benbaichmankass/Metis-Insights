@@ -1,5 +1,7 @@
 # M18 Capital Allocator — backtest findings + overnight research plan (2026-06-29)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** research log. Tier-1 (analysis/backtests only). **No Tier-3 action taken** — every
 > strategy/risk/sizing/config/promotion decision is parked for the operator. This doc is the durable
 > anchor for the overnight autonomous research run (operator went to bed 2026-06-29, asked for

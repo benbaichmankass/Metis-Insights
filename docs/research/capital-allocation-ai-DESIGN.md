@@ -1,5 +1,7 @@
 # Design Proposal — Portfolio-level AI Capital Allocator
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** RESEARCH / DESIGN PROPOSAL — read-only analysis. **No code, config, or live
 > state changed by this pass.** Every option that touches the intent/allocation/order path,
 > sizing, model promotion, or risk budgeting is **Tier-3 — PROPOSE ONLY**, gated on backtest

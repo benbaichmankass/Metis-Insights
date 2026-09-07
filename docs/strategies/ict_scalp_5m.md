@@ -1,5 +1,7 @@
 # ICT Scalp 5m
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Deterministic ICT-style scalping strategy. Code lives at
 `src/units/strategies/ict_scalp.py`; unit tests at
 `tests/test_ict_scalp_5m.py`; shadow-predictor tests at

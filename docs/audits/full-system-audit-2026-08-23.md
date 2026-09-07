@@ -1,5 +1,7 @@
 # Full-System Audit + System Review — 2026-08-23
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Program doc per `.claude/skills/full-system-audit/SKILL.md`.
 > Session branch `claude/system-audit-infrastructure-c6hhqp`. Deployed SHA at
 > audit time: **`72b254f9`** (= repo HEAD; the trader is current).

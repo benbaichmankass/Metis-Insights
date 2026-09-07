@@ -1,5 +1,7 @@
 # Backtest↔live exit-location fidelity, per leg — and why the 2.5× is not a fidelity failure
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **MI-155** · work object [`WO-20260907-PER-LEG-BACKTEST-TO-LIVE-EXIT-LOCATION`](../claude/work/objects/WO-20260907-PER-LEG-BACKTEST-TO-LIVE-EXIT-LOCATION.yaml) · branch `claude/mi155-exit-fidelity-20260907`
 
 ⚠️ **Tier-1, measurement only.** No per-leg `tp_r` value is proposed. `config/strategies.yaml` is not touched. No cell `status` in `docs/research/exit-refinement-coverage.json` is edited. Nothing is armed.

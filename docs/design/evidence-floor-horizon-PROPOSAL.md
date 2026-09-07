@@ -1,5 +1,7 @@
 # The evidence floor — what would have to change, and what would not
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status: PROPOSAL. Nothing here is enacted.** No leg is retired, `config/strategies.yaml`
 is untouched, `MIN_CLOSED_FOR_ACTION` is unchanged at 20, and the review window is
 unchanged at 7 days. This document is the evidence behind an operator decision, filed

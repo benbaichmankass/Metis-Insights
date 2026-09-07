@@ -1,5 +1,7 @@
 # Are our brackets predictions? — the first calibration read, and what it says to build
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **MI-148** · work object [`WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED`](../claude/work/objects/WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED.yaml) · branch `claude/exit-geometry-rebuild-20260906`
 
 ⚠️ **PROPOSE-ONLY on the geometry.** Per-leg take-profit values are Tier-3. Nothing in `config/strategies.yaml` is touched by this branch. What IS shipped is Tier-1 and observe-only: a pure grader, a manual-only report script, 30 tests, and this memo.

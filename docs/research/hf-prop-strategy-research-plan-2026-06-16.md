@@ -1,5 +1,7 @@
 # Research plan — a high-frequency strategy that can pass Breakout *fast + safe*
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Opened:** 2026-06-16 · **Status:** active research (Tier-1 — research harness
 only; nothing here touches `config/` or the live order path) · **Owner:** Claude
 

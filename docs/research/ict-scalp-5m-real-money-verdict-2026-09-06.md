@@ -1,5 +1,7 @@
 # `ict_scalp_5m` on real money: the 54% win rate is not the strategy's win rate
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-09-06 · **Session:** `session_01Ne7LK6wMCoLUwnKpCZTPqE` (sub-session)
 **Tier:** 1 (research/docs). The `config/strategies.yaml` change shipped alongside this
 document is **Tier-3 and is HELD** — it is for a human to confirm, not for me to land.

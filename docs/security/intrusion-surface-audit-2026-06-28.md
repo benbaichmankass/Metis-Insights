@@ -1,5 +1,7 @@
 # Intrusion-Surface Audit — External Probe of Issue-Driven Automation (2026-06-28)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Tier-1 security investigation (read-only) + hardening plan. Authored
 > in response to a confirmed external reconnaissance attempt against the repo's
 > issue-driven GitHub Actions automation. Scope: all three repos

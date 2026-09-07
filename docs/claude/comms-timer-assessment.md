@@ -1,5 +1,7 @@
 # Comms timer assessment — is 1-minute polling safe?
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** assessment / recommendation. No timer change applied yet — this
 doc is consulted by the operator before flipping the systemd unit.
 

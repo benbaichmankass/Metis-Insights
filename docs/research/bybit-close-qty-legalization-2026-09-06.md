@@ -1,5 +1,7 @@
 # Bybit reduce-only close is rejected: an un-quantised `qty` reaches the wire
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Session** `session_01C6Lh24HDdkn6p14qsaeNrA` (sub-session of manager `session_01HrmZ1RRNM4UnEUaFdrPEjj`, registry key `pending-20260906T100427Z-2`) · **2026-09-06** · **Tier-3 PROPOSAL — no code fix applied.**
 
 > ⚠️ **Parent object not found.** The dispatch names

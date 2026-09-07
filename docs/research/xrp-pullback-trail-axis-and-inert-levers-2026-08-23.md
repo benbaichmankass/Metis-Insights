@@ -1,5 +1,7 @@
 # The trail axis: a declared lever that has never once fired, and it is not the only one
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-23 · **Tier:** research only — nothing proposed, shipped,
 promoted or demoted · **Leg:** `xrp_pullback_2h` (XRPUSDT 2h, `bybit_2`, real
 money, `execution: live`)

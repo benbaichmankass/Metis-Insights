@@ -1,5 +1,7 @@
 # Reserved (static) public IP for the live trader — stable egress across VM moves
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Why this exists.** The 2026-06-14 live→Ampere cutover left the live VM on an
 **ephemeral** OCI public IP (`141.145.193.91`). Ephemeral IPs are bound to the
 instance and are destroyed with it, so any future VM move forces a *new* address

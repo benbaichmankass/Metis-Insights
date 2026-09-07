@@ -1,5 +1,7 @@
 # FVG range / mean-reversion — the missing range member (S-STRAT-IMPROVE)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Tier-3 strategy logic + params. Wired `execution: shadow` on
 > bybit_1 (demo) only — DRAFT PR, NOT live. Promotion `shadow → live` and
 > bybit_2 (real money) routing are operator-gated.

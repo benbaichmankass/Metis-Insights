@@ -1,5 +1,7 @@
 # E3.5 — the bracket-geometry sweep: `tp_r` × `atr_stop_mult` × `timeout_bars`
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-20 · **Tier-1, observe-only.** Changing any bracket parameter
 in `config/strategies.yaml` is **Tier-3**; this produces the evidence, not the flip.
 

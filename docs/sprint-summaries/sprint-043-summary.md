@@ -1,5 +1,7 @@
 # Sprint S-043 Summary — M3: Risk controls foundation — order-layer refusal tests
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Sprint:** S-043 | **Milestone:** M3 — Risk controls foundation
 **Type:** auto-claude (roadmap) | **Date:** 2026-05-06
 **Status:** CLOSED ✅

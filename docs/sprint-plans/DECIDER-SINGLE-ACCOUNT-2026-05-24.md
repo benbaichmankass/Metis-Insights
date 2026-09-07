@@ -1,5 +1,7 @@
 # Decider — single-account smart selection (S-STRAT-IMPROVE-S9)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-05-24 · **Status:** design (corrected) · **Supersedes:** the
 multi-account-blend design (PR #1902, closed) · **Operator direction:**
 2026-05-24.

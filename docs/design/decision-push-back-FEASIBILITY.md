@@ -1,5 +1,7 @@
 # Decision push-back — FEASIBILITY
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **What this document is.** The operator asked, 2026-09-02:
 >
 > > *"Can we maybe add, like, a push something on the end of that so that, when the

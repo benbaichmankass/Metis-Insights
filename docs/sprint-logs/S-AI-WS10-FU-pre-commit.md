@@ -1,5 +1,7 @@
 # S-AI-WS10-FU — Opt-in pre-commit hook for arch-doc-guard
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Date:** 2026-05-10
 **Authority:** [`docs/sprint-logs/S-AI-WS10.md`](S-AI-WS10.md)
 **Status:** ✅ COMPLETE — opt-in by design.

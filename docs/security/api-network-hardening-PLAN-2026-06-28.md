@@ -1,5 +1,7 @@
 # Tier-2 Hardening Plan — Public API auth + network exposure (2026-06-28)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** PROPOSAL for operator approval. **Nothing here is enacted.** These
 > are Tier-2 changes (runtime code in `src/web/api/`, VM firewall/proxy) — per
 > `docs/CLAUDE-RULES-CANONICAL.md` they require operator approval *and* proof-of-

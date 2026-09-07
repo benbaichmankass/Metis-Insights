@@ -1,5 +1,7 @@
 # System-actions — tiered production-mutation bridge
 
+> **Doc status:** `live` · category `unknown` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > Companion to `docs/claude/vm-operator-mode.md` (VM-resident `/vm`
 > tiers) and `docs/claude/diag-relay.md` (PM-side **read-only**
 > bridge). This doc covers the third axis: a **narrow, allowlisted

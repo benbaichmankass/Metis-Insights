@@ -1,5 +1,7 @@
 # ICT Trading Bot — CLAUDE.md
 
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](docs/DOCUMENT-INDEX.md)
+
 > **Production environment — live money is at risk.** You have full, autonomous
 > access to everything you need to operate this system. The operator grants
 > permission by tier; they do not do the work for you. Read this section before acting.

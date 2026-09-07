@@ -1,5 +1,7 @@
 # Sprint Log: S-IB-VENUE-SESSION-GATE-2026-08-16
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 
 2026-08-16 → 2026-08-17 (one session, spanning the Sunday Globex close and reopen).

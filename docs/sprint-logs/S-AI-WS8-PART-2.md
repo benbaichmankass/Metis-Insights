@@ -1,5 +1,7 @@
 # S-AI-WS8-PART-2 — Shadow-predictions dashboard endpoints
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Date:** 2026-05-10
 **Authority:** [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md), [`docs/sprint-logs/S-AI-WS8-PART-1.md`](S-AI-WS8-PART-1.md)
 **Status:** ✅ COMPLETE

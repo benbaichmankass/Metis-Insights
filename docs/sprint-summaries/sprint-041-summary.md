@@ -1,5 +1,7 @@
 # Sprint S-041 Summary — Verify-before-trusting-done: workplan reconciliation sweep
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Sprint:** S-041 | **Type:** Roadmap (docs-only) | **Closed:** 2026-05-06
 **Branch:** `claude/reconcile-sprint-workplan-CBUWc`
 **Opening checkpoint:** CP-2026-05-06-11-s041-kickoff
