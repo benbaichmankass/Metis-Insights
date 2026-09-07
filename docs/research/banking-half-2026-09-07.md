@@ -160,7 +160,13 @@ Actual realised over the 71: **+28.80R, mean +0.406R/trade.** Median peak **0.88
 
 ## 5. What I propose — two changes, deliberately sequenced
 
-⚠️ **Both are Tier-3** (they touch strategy unit files the live VM consumes). Neither is applied. The operator approves.
+⚠️ **Both are Tier-3** (they touch strategy unit files the live VM consumes). The operator approves.
+
+> **Status, added 2026-09-07 by MI-164.** **Proposal A is IMPLEMENTED on all four units and OPEN at PR #11264**, CI green. It is **held, not landed** — `tier: 3`, `landing: "hold"`, `hold_reason: "tier_2_3_needs_approval"` — because `check_pr_landing.py` R4 bars a Tier-3 diff from landing ITSELF *whatever its approval state*, so a human clicks merge. That is the only thing outstanding on the code half.
+>
+> ⚠️ **A CORRECTION TO THIS NOTE'S FIRST REVISION, because it was wrong in the direction that wastes someone's time.** It read *"MI-164 could not verify the approval it was dispatched with."* That was true when written at ~17:20Z and false 10 minutes later: the approval block above, and [`WO-20260907-PROPOSAL-A-APPROVED-ADD-THE-POSITION-TELEMETRY`](../claude/work/objects/WO-20260907-PROPOSAL-A-APPROVED-ADD-THE-POSITION-TELEMETRY.yaml) (`source: operator (conversational)`), both landed on `main` in #11263 at 17:30:59Z. **The approval is recorded and the approved scope is four units.** MI-164 built four. Do not re-litigate it. The narrower *"two units that carry the population"* revision is superseded — see the ⚠️ below the Proposal A heading. **Proposal B remains unimplemented and un-numbered**, and its gate (a path-aware sweep that beats the ungated arm *net* of forgone continuation) is unchanged.
+>
+> ⚠️ **This note changes no measurement in this document.** Every figure above describes the fleet as it was measured on 2026-09-07, BEFORE the hook was added — in particular § 3's *9 structurally invisible legs*, which PR #11264 re-derives as **0** after the change. Read § 3 as the state that motivated the fix, not as the state now. And landing the hook is **not** observing it: no telemetry row had been seen for any of the 9 legs at the time of writing.
 
 ### Proposal A — repair the instrument FIRST (observe-only)
 

@@ -1348,6 +1348,23 @@
    "owner": "session_01Adzvjpv8SZQouoBjwMJ4qv (MI-151)"
  },
   {
+   "id": "OI-20260907-TELEMETRY-HOOK-IS-APPROVED-AND-GREEN-IN-AN-UNMERGED-PR-AND-OBSERVED-ON-NOTHING",
+   "kind": "pending_decision",
+   "loud": true,
+   "opened": "2026-09-07",
+   "opened_at": "2026-09-07",
+   "title": "PR #11264 hooks the 4 unhooked monitor units for peak-R telemetry: CI green and the operator approval IS recorded, but it is HELD at tier 3 awaiting a human merge, and no row has been observed for any of the 9 legs",
+   "summary": "MI-163 measured 9 of the 44 enabled+live legs (the 8 ict_scalp_* legs + squeeze_breakout_4h) as structurally invisible: record_position_telemetry is called from INSIDE a unit's monitor(), and only trend_donchian and htf_pullback_trend_2h carried it. MI-164 added the hook to squeeze_breakout_4h, ict_scalp, turtle_soup and vwap; re-derived, n_invisible over the 44 goes 9 -> 0. TWO THINGS ARE OPEN AND THEY ARE DIFFERENT FACTS. (1) THE PR IS NOT MERGED, AND THAT IS THE ONLY THING OUTSTANDING ON THE CODE HALF. CI is green on all four checks and mergeable_state is clean. It is declared tier 3 / landing hold / tier_2_3_needs_approval, which is the only state check_pr_landing.py permits for a src/units/strategies/** diff -- R4 bars a Tier-3 diff from landing ITSELF whatever its approval state, so a human clicks merge. MI-164 was dispatched with 'the operator approved this, self-land on green' and did not self-land, because that instruction is unsatisfiable for this diff. [!] THE APPROVAL IS RECORDED -- do not re-derive this, and do not repeat MI-164's first reading of it. When MI-164 checked at ~17:20Z there was no repo-side record and it said so; #11263 landed at 17:30:59Z carrying the approval block in docs/research/banking-half-2026-09-07.md section 5 AND the typed object docs/claude/work/objects/WO-20260907-PROPOSAL-A-APPROVED-ADD-THE-POSITION-TELEMETRY.yaml (source: operator (conversational)). The approved scope is ALL FOUR units and the PR implements four; #11263's intermediate 'narrow it to the two that carry the population' revision is SUPERSEDED by the verdict, which main's own memo states in terms. (2) LANDED IS NOT OBSERVED, and it is not landed either. NO telemetry row has been seen at /api/diag/position_telemetry for ANY of the 9 legs. The 41-case observe-only test proves the call site is correct and inert; a unit test is not an observation of the live mechanism. KNOW BEFORE YOU ACT: turtle_soup stamps no entry_time and vwap stamps neither entry_time nor risk_per_unit, so THEIR rows carry a NAMED absence (peak_state unanchored / no_risk) and never a peak_r. That is correct behaviour, not a defect to fix here -- and it means the 9 legs that matter are served by the ict_scalp and squeeze_breakout_4h hooks ONLY. Proposal B (a fleet-wide break-even floor) is UNBUILT and deliberately carries no number; its gate is a path-aware sweep that beats the ungated arm NET of the forgone continuation, which no corpus yet measures.",
+   "clears_when": "BOTH, and they are different facts -- say WHICH you cleared rather than clearing the row on the easier one. (1) PR #11264 is MERGED, or explicitly rejected -- either settles it; sitting un-actioned does not. [!] DO NOT CLEAR (1) ON THE APPROVAL EXISTING: it already does (see summary), and the hold is R4, not a pending decision. Nor on the PR being marked ready-for-review, which happened at 18:25Z and is not a merge. (2) A REAL telemetry row is OBSERVED at /api/diag/position_telemetry for one of the 9 legs -- an ict_scalp_* leg or squeeze_breakout_4h -- carrying peak_state 'measured'. Record the leg, the order_package_id and the peak_r you actually read. A PASSING TEST CLEARS NOTHING HERE, and neither does re-reading the merged diff: the whole point of the change is that a hook on the code path is not a row in the table. A row whose peak_state reads 'unanchored' or 'no_risk' does NOT clear (2) -- that is turtle_soup/vwap behaving correctly and says nothing about the 9. AND IF THE 9 LEGS STILL EMIT NOTHING once the hook is deployed, that is the MORE valuable finding and this row stays open on it: it would mean the invisibility had a second cause MI-163 did not measure.",
+   "refs": [
+    "docs/research/banking-half-2026-09-07.md",
+    "scripts/research/banking_mechanism_audit.py",
+    "tests/test_mi164_telemetry_hook_observe_only.py",
+    ".github/pr-landing/mi164-telemetry-hook-20260907.json"
+   ],
+   "owner": "session_01SZCy1acPMrX3ANUkzhM5te (MI-164)"
+ },
+  {
    "id": "OI-20260907-BE-FLOOR-R-IS-MEASURED-AND-REFUTED-AND-ITS-PR-IS-A-DRAFT-NOBODY-CAN-CLEAR",
    "kind": "monitoring",
    "loud": true,
