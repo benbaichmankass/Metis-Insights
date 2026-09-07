@@ -66,9 +66,10 @@ STAMP_RE = re.compile(
 # ---------------------------------------------------------------------------
 # THE POPULATION
 # ---------------------------------------------------------------------------
-# Every document a session might read AS INSTRUCTION OR AS EVIDENCE. Tracked
-# via `git ls-files` rather than a filesystem walk so an untracked scratch file
-# in a working tree can never silently enter or leave the register.
+# Every document a session might read AS INSTRUCTION OR AS EVIDENCE. Resolved
+# through git rather than a filesystem walk, so gitignored scratch can never
+# silently enter or leave the register -- but INCLUDING newly-added files, for
+# the reason `population()` documents below.
 POPULATION_GLOBS = [
     "docs/**/*.md",
     "ROADMAP*.md",
@@ -229,7 +230,22 @@ def _sh(argv: List[str]) -> str:
 
 
 def population() -> List[str]:
-    out = _sh(["git", "ls-files", "--"] + POPULATION_GLOBS)
+    """Every document in scope, tracked OR newly added but not gitignored.
+
+    ⚠️ `--others --exclude-standard` is load-bearing and was MISSING on the
+    first build. With plain `git ls-files` the population is TRACKED files only,
+    so a document a session had just written was invisible: the guard read the
+    new file's own directory, reported `OK`, and the count never moved. That is
+    the clean negative this repo has a rule about — a guard answering "nothing
+    unregistered" over a population that silently excluded the very file being
+    added. Caught by running the guard against a genuinely new document rather
+    than by reasoning about it.
+
+    `--exclude-standard` keeps gitignored scratch out, so the original intent
+    (an untracked scratch file cannot silently enter the register) survives.
+    """
+    out = _sh(["git", "ls-files", "--cached", "--others", "--exclude-standard",
+               "--"] + POPULATION_GLOBS)
     return sorted({p for p in out.splitlines() if p.strip()})
 
 
@@ -646,7 +662,7 @@ def census(rows: List[Dict[str, str]]) -> str:
     for r in rows:
         by_cat[r["category"]] = by_cat.get(r["category"], 0) + 1
         by_status[r["status"]] = by_status.get(r["status"], 0) + 1
-    out = [f"POPULATION: {n} documents (git-tracked, globs={POPULATION_GLOBS})",
+    out = [f"POPULATION: {n} documents (git-tracked or newly added and not gitignored; globs={POPULATION_GLOBS})",
            f"REGISTERED: {n}", "", "BY CATEGORY:"]
     for k in list(CATEGORIES) + ["unknown"]:
         if by_cat.get(k):

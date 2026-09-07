@@ -64,7 +64,7 @@ was read as an *instruction*.
 | `architecture` | 79 | A declared contract about how the system is built; read as truth about the system. |
 | `plan` | 60 | A forward commitment -- what we intend to do next. NEVER obeyed as instruction. |
 | `evidence` | 323 | A measurement that may be CITED. True of its date and population. |
-| `history` | 365 | A record of what happened. Never obeyed, never cited as a current measurement. |
+| `history` | 366 | A record of what happened. Never obeyed, never cited as a current measurement. |
 | `lookup` | 44 | Consulted for a fact. Neither obeyed, nor a measurement, nor a record of events. |
 | `unknown` | 56 | **Could not be categorised. Not a category — the absence of one.** |
 
@@ -75,7 +75,7 @@ was read as an *instruction*.
 | `live` | 38 | Current. A session may act on it today. |
 | `superseded` | 0 | Overtaken by a named successor. REQUIRES `superseded_by`. |
 | `closed_unfinished` | 2 | Abandoned mid-flight. NOT the same fact as superseded -- record what was left. |
-| `historical` | 365 | A record of something that happened. Correct forever, actionable never. |
+| `historical` | 366 | A record of something that happened. Correct forever, actionable never. |
 | `reference` | 0 | Consulted on demand. Neither current-and-actionable nor superseded. |
 | `unknown` | 563 | NOBODY HAS CHECKED. Not a soft 'live'. The honest state, and a required one. |
 
@@ -111,7 +111,7 @@ document that declares itself **alive** is **not** — it is `unknown`.
 
 That asymmetry *is* the lesson of 2026-09-07. A self-declared death is rarely
 wrong in the dangerous direction; a self-declared life is precisely the claim
-that misled a manager. Measured across this population, **201 of 968 documents
+that misled a manager. Measured across this population, **201 of 969 documents
 declare something status-like in their first 15 lines, in an entirely
 uncontrolled vocabulary** — including `tier`, `scope`, `a proposal`,
 `measured`, and `credentialfree pipeline built`. There was no controlled status
@@ -157,10 +157,10 @@ point: registration is not optional, and it is not left to memory.
 
 ## The table
 
-**Population: 968 documents** — every file matching `docs/**/*.md`,
+**Population: 969 documents** — every file matching `docs/**/*.md`,
 `ROADMAP*.md`, `CLAUDE.md`, `.claude/skills/**/*.md` as tracked by `git ls-files`
 (so an untracked scratch file can never silently enter or leave the register).
-**968 registered.**
+**969 registered.**
 
 <!-- DOCUMENT-INDEX-ROWS-BEGIN -->
 
@@ -907,6 +907,7 @@ point: registration is not optional, and it is not left to memory.
 | `docs/sprint-logs/S-MEANTIME-WSA-2026-06-02.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-MES-AUTOHEAL-2026-05-28.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-MES-GOLIVE-2026-05-22.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
+| `docs/sprint-logs/S-MI161-DOCUMENT-LIBRARY-2026-09-07.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-ML-FEATURE-GAPS-20260729.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-ML-FORWARD-T13-RANKER-2026-07-16.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-ML-REGIME-CLASSIFIER-FIX-2026-05-20.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
