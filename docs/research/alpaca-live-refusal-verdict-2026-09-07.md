@@ -240,7 +240,7 @@ refusal. Measured on row 5415's own numbers:
 | term | value |
 |---|---|
 | balance | $200.22 |
-| `risk_pct` | 2% |
+| `risk_pct` | 2% | <!-- population-ok: a CONFIGURED parameter, not a sample statistic — alpaca_live risk.risk_pct: 0.02 is read from config/accounts.yaml:1111 (operator-directed 2026-08-29). The table's population is stated in the sentence above it: row 5415's own numbers, n=1 by construction. -->
 | per-trade risk budget | **$4.00** |
 | TLT entry | $82.34 |
 | stop distance (`|82.685 − 82.34|`) | **$0.345 / share** |
