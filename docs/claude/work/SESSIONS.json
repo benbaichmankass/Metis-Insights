@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T15:52:20Z",
+  "updated_at": "2026-09-07T16:16:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2722,9 +2722,9 @@
       "spawned_at": "2026-09-07T14:36:49Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "The library built for the operator's 'one centralized table' ask cannot see 27 documents including instruction-hierarchy levels 1 and 2, while its guard reports 100% coverage - a clean negative.",
-      "state": "working",
-      "supervised_at": "2026-09-07T16:00:00Z",
-      "supervision_note": "SUPERVISED 2026-09-07T16:00Z. MI-162's fix is CORRECT and VERIFIED BY THE MANAGER AGAINST THE FIELD, not accepted on its word: POPULATION_GLOBS now uses ':(glob)docs/**/*.md', and git ls-files with it returns 965 vs the old 937 (+28, matching exactly the 28 files measured as excluded), with docs/CLAUDE-RULES-CANONICAL.md, docs/ARCHITECTURE-CANONICAL.md and docs/api-tier-policy.md each present. The skills glob was never broken (32 either way, every skill lives in a subdirectory); ':(glob)' was applied there defensively and is harmless. #11255 is still open with its FULL pytest suite running — legitimately, not stalled. ⚠️ THE MANAGER CANCELLED ITS pytest-run AT ~15:28Z BELIEVING IT HUNG, WHICH IT WAS NOT, costing ~11 minutes of re-run: pytest-run skips its expensive steps when no python changed, so #11253's 14s was a SKIP and not a comparable baseline for a PR that touches scripts/."
+      "state": "done",
+      "supervised_at": "2026-09-07T16:16:00Z",
+      "supervision_note": "SUPERVISED 2026-09-07T16:00Z. MI-162's fix is CORRECT and VERIFIED BY THE MANAGER AGAINST THE FIELD, not accepted on its word: POPULATION_GLOBS now uses ':(glob)docs/**/*.md', and git ls-files with it returns 965 vs the old 937 (+28, matching exactly the 28 files measured as excluded), with docs/CLAUDE-RULES-CANONICAL.md, docs/ARCHITECTURE-CANONICAL.md and docs/api-tier-policy.md each present. The skills glob was never broken (32 either way, every skill lives in a subdirectory); ':(glob)' was applied there defensively and is harmless. #11255 is still open with its FULL pytest suite running — legitimately, not stalled. ⚠️ THE MANAGER CANCELLED ITS pytest-run AT ~15:28Z BELIEVING IT HUNG, WHICH IT WAS NOT, costing ~11 minutes of re-run: pytest-run skips its expensive steps when no python changed, so #11253's 14s was a SKIP and not a comparable baseline for a PR that touches scripts/. CLOSED 2026-09-07T16:16Z: #11255 landed (a55fae75) and #11257 closed the row. Manager re-verified on main: census 1000/1000, delta reconciled to +28 glob +1 new document, and of the 28 newly visible only 3 went to `live` (all genuinely canonical) with ~22 left `unknown`. Honest coverage, which was the whole point."
     },
     {
       "session_id": "session_01GGFAu1uNpHL5KrzC7X7jAm",
