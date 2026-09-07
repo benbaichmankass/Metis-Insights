@@ -1,0 +1,35 @@
+=== trainer-diag-relay result ===
+request: mi154b-build-export-20260907
+state: ran
+remote_exit: 1
+run: https://github.com/benbaichmankass/Metis-Insights/actions/runs/34082249981
+=================================
+===== 1. assemble pooled datasets (layout: datasets-out/exit_head/<tf>/<family>/rows.jsonl) =====
+  + ict_scalp_avax_5m (27513 rows)
+  + ict_scalp_sol_5m (22120 rows)
+  + ict_scalp_xrp_5m (21258 rows)
+  == 5m pooled total: 70891 rows
+  == 5m POPULATION n=70891 harness=70891 (100.0%) symbols=['AVAXUSDT', 'SOLUSDT', 'XRPUSDT'] trades=3950
+  + ict_scalp_eth_15m (8644 rows)
+  + ict_scalp_sol_15m (10079 rows)
+  + ict_scalp_xrp_15m (9960 rows)
+  == 15m pooled total: 28683 rows
+  == 15m POPULATION n=28683 harness=28683 (100.0%) symbols=['ETHUSDT', 'SOLUSDT', 'XRPUSDT'] trades=1678
+
+===== 2. train + export to STAGING (never straight into the mirror) =====
+--- exit-head-ict_scalp-5m-v1 ---
+exit-head-ict_scalp-5m-v1: 70891 rows / 3950 trades -> /tmp/mi154b_stage/exit-head-ict_scalp-5m-v1.json (1023 KiB) family='ict_scalp' (declared)
+  exporter rc=0
+--- exit-head-ict_scalp-15m-v1 ---
+exit-head-ict_scalp-15m-v1: 28683 rows / 1678 trades -> /tmp/mi154b_stage/exit-head-ict_scalp-15m-v1.json (1019 KiB) family='ict_scalp' (declared)
+  exporter rc=0
+
+===== 3. VALIDATE the staged artifacts before publishing =====
+   booster load error: No module named 'lightgbm'
+  exit-head-ict_scalp-5m-v1.json: family==ict_scalp=OK | tf==5m=OK | stage==shadow=OK | symbols non-empty=OK | booster present=OK | train_rows>0=OK | booster loads=FAIL
+    family='ict_scalp' tf=5m stage=shadow symbols=['AVAXUSDT', 'SOLUSDT', 'XRPUSDT'] train_rows=70891 train_trades=3950 window=2021-05-13T23:20:00+00:00..2026-06-17T16:25:00+00:00
+   booster load error: No module named 'lightgbm'
+  exit-head-ict_scalp-15m-v1.json: family==ict_scalp=OK | tf==15m=OK | stage==shadow=OK | symbols non-empty=OK | booster present=OK | train_rows>0=OK | booster loads=FAIL
+    family='ict_scalp' tf=15m stage=shadow symbols=['ETHUSDT', 'SOLUSDT', 'XRPUSDT'] train_rows=28683 train_trades=1678 window=2021-03-16T00:45:00+00:00..2026-06-18T06:45:00+00:00
+VALIDATION FAILED -- publishing nothing
+
