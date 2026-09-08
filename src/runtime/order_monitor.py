@@ -66,6 +66,7 @@ from src.utils.closed_at import normalize_closed_at_value  # noqa: E402
 from src.runtime import alert_cooldown as _alert_cooldown  # noqa: E402
 from src.runtime import bybit_leg_sides as _bybit_leg_sides  # noqa: E402
 from src.runtime import bybit_coverage_basis as _bybit_cov_basis  # noqa: E402
+from src.runtime import bybit_position_book as _bybit_book  # noqa: E402
 from src.runtime import bybit_coverage_soak as _bybit_cov_soak  # noqa: E402
 from src.runtime.monitor_verdict import (  # noqa: E402
     KIND_MODIFY, KIND_PARTIAL_CLOSE, MEANINGFUL_MODIFY_REL_TOL,
@@ -2617,6 +2618,24 @@ def _recently_closed_adopted_orphan(
     genuinely never left the broker, just went "accept-not-confirmed-flat" —
     the live SLV incident); a fresh false-close should not re-adopt
     immediately just because it didn't happen to carry the orphan setup_type.
+    MI-204 (2026-09-08, operator-approved Tier-2) added ``netting_attributed``
+    for exactly the same reason, and it belongs in this class by the docstring's
+    own test rather than by widening it: an attribution close is an INFERENCE
+    (``_reconcile_netting_partial_closes`` deduces that a journal row must have
+    been reduced because the venue's size is below the journal's), **not** a
+    broker-confirmed flatten. When the venue read that drove it was wrong, the
+    position never left the exchange — so the reverse reconciler saw a live
+    orphan 3–4 minutes later and re-adopted it as a fresh ``adopted_orphan``.
+    MEASURED: trade 5568 (``bybit_1`` ETHUSDT long 26.05) was closed on
+    ``exchange_qty: 0.0`` while the venue still held it, and the loop this guard
+    exists to stop ran anyway because ``netting_attributed`` was not a key it
+    matched.
+
+    ⚠️ **``RECONCILER_READOPT_GUARD_SECONDS`` IS NOT THE PROBLEM AND WIDENING IT
+    FIXES NOTHING.** The window was working as designed throughout; the KEY is
+    what missed. A session reaching for the knob would spend the change and
+    leave the loop intact.
+
     Deliberately NOT widened to every close reason — a real, broker-confirmed
     close (e.g. Bybit's ``reconciler_filled``, a normal ``sl_cross``/
     ``tp_cross`` strategy exit) is a genuine flatten and must never suppress a
@@ -2640,7 +2659,8 @@ def _recently_closed_adopted_orphan(
                 "  AND account_id=? AND symbol=? "
                 "  AND (setup_type='adopted_orphan' "
                 "       OR exit_reason IN "
-                "           ('exchange_flat_reconciled', 'exit_coverage_no_strategy')) "
+                "           ('exchange_flat_reconciled', 'exit_coverage_no_strategy', "
+                "            'netting_attributed')) "
                 "  AND closed_at IS NOT NULL "
                 "ORDER BY closed_at DESC LIMIT 8",
                 (account_id, symbol),
@@ -8875,22 +8895,45 @@ def _bybit_position_protection(client, category: str, symbol: str):
         "size": 0.0, "side": "", "covered_qty": 0.0, "source": "flat",
         "stop_prices": [],
         "sl_leg_ids": set(), "unknown_qty_sl_legs": 0,
+        # No book was selected, so there is no index to report. `None` is *we
+        # named no book*, and must never be read as one-way's `0`.
+        "position_idx": None,
     }
-    if not rows:
-        return _flat  # flat — nothing to protect
-    pos = rows[0]
-    try:
-        size = abs(float(pos.get("size") or 0) or 0.0)
-    except (TypeError, ValueError):
-        return None
-    if size <= 0:
+    # WHICH BOOK IS THIS SYMBOL? Until 2026-09-08 this was `rows[0]` with no
+    # zero-size skip, so a zero-size hedge sibling listed first returned `_flat`
+    # for a symbol the venue was still holding — and the netting reconciler
+    # closed the live row against it (trade 5568, +$63.8225 fabricated). The
+    # selection is a PURE function so the policy is arguable in tests rather
+    # than against a live position; its five states and what a refusal costs are
+    # documented in `src.runtime.bybit_position_book`.
+    selection = _bybit_book.select_position_row(rows)
+    if selection.state == "flat":
+        # The venue ENUMERATED the books and none holds anything. A real
+        # measurement, unlike `no_rows` below.
         return _flat
+    if not selection.is_usable:
+        # ⚠️ REFUSING IS NOT FREE AND IS THEREFORE NOT SILENT. Both callers skip
+        # on `None`: the netting reconciler declines to attribute (which is the
+        # false close being prevented) and the naked sweep declines to re-arm
+        # (a protection gap). On an ambiguous symbol the previous behaviour did
+        # not protect both books either — it graded one arbitrary book against a
+        # side-blind coverage sum — but it did so quietly. This says so.
+        logger.warning(
+            "_bybit_position_protection: %s REFUSED (%s) — %s. Caller will "
+            "SKIP: no attribution, and no protective re-arm for this symbol "
+            "this pass. `no_rows` is NOT flatness; grading it flat is what "
+            "closed a live position (MI-204).",
+            symbol, selection.state, selection.detail,
+        )
+        return None
+    pos = selection.row
+    size = selection.size
     side = _norm_position_side(pos.get("side"))
     # THE VENUE'S POSITION MODE, carried so the leg-side split can say whether
     # an OPPOSITE book could exist at all (0 = one-way netting ⇒ it cannot;
     # 1/2 = hedge ⇒ it may be a live sibling). Never defaulted to 0 — see
     # `bybit_leg_sides.other_book_state`.
-    pos_idx = pos.get("positionIdx")
+    pos_idx = selection.position_idx
     # (a) Full-mode position-level stop lives on the position row itself and
     #     genuinely covers the WHOLE net position.
     pos_sl = str(pos.get("stopLoss") or "").strip()
@@ -8921,6 +8964,10 @@ def _bybit_position_protection(client, category: str, symbol: str):
             # book", which is a measurement nobody took. The over-cover branch
             # fires only on `partial_sl_legs`, so no consumer reaches this.
             "leg_side_split": None,
+            # WHICH book this verdict is about. Present on every return shape so
+            # a consumer never has to guess whether the key is missing because
+            # the venue said nothing or because this branch forgot it.
+            "position_idx": pos_idx,
         }
     # (b) Partial-mode SL legs are separate resting conditional orders, each
     #     covering only its own qty — so SUM them and compare against size.
@@ -9443,6 +9490,10 @@ def _reconcile_netting_partial_closes(db) -> Dict[str, int]:
                     anchor_status=anchor_status, anchor_price=anchored,
                     anchored_at=first_seen_iso,
                     global_mode=mode, apply_scope=apply_scope,
+                    # Which book `backed` came from and how the read was graded
+                    # — so a 0.0 can be told apart from a wrong-book read.
+                    position_idx=state.get("position_idx"),
+                    exchange_read_source=state.get("source"),
                 )
                 summary["annotated"] += 1
                 if not may_write:
@@ -9479,6 +9530,7 @@ def _netting_soak_row(
     *, account_id, symbol, direction, row, take, basis, mode,
     journal_qty, exchange_qty, anchor_status, anchor_price, anchored_at,
     global_mode=None, apply_scope=None,
+    position_idx=None, exchange_read_source=None,
 ) -> None:
     """Append one attribution DECISION to the observe-only soak log.
 
@@ -9495,6 +9547,18 @@ def _netting_soak_row(
     to decide whether to widen the allowlist. Collapsing the two into one field
     would make a staged account indistinguishable from a globally-annotating
     one, and would stamp ``apply`` on rows nothing was applied to.
+
+    ``position_idx`` + ``exchange_read_source`` exist for the same reason, one
+    level down, and were added by MI-204 (2026-09-08, operator-approved Tier-2).
+    Without them ``exchange_qty: 0.0`` is THREE different facts wearing one
+    value — *the venue is genuinely flat*, *we read the wrong hedge book*, and
+    *the symbol-scoped list came back empty* — so **12 of 21 applied rows sat at
+    0.0 and none of them could be graded**, which is why the false closes
+    accrued unexamined. ``position_idx`` names the book the size came from
+    (``None`` = no book was named, never one-way's ``0``) and
+    ``exchange_read_source`` is ``_bybit_position_protection``'s own ``source``
+    (``flat`` / ``full_position_stop`` / ``partial_sl_legs``), so a reviewer can
+    separate the three without re-deriving anything.
     """
     try:
         from src.utils.paths import runtime_logs_dir
@@ -9520,6 +9584,11 @@ def _netting_soak_row(
             "attribution_basis": basis,
             "journal_qty": round(float(journal_qty), 10),
             "exchange_qty": round(float(exchange_qty), 10),
+            # WHICH book `exchange_qty` came from, and HOW the read was graded.
+            # Without these, `exchange_qty: 0.0` cannot be told apart from a
+            # wrong-book read or an empty response — see the docstring.
+            "position_idx": position_idx,
+            "exchange_read_source": exchange_read_source,
             "excess_qty": round(float(journal_qty) - float(exchange_qty), 10),
             # The anchor's own status is the provenance, verbatim from
             # exit_anchor — `anchored` → ESTIMATED, `no_anchor` → declared
