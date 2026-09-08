@@ -6,10 +6,10 @@
  },
  "merge_slot": {
   "held_by": "session_016KUFTHGYyFDerbnXDSA6Wb",
-  "branch": "claude/mi204-bybit1-eth-orphan",
-  "pr": 11409,
-  "claimed_at": "2026-09-08T14:57:00Z",
-  "displaced": "took the slot from claude/mi199-cancel-accepted-ineffective (session_011PHmZzVy92M6zjNopAMy51, claimed 14:33:00Z) whose PR #11407 is MERGED at 2026-09-08T14:49:09Z — verified from the PR state, not inferred from the timestamp. The slot was held by a finished merge. Fourth reported instance today of R13 writing a claim onto main that is false the moment it lands."
+  "branch": "claude/mi204-claude-md-failsafe-correction",
+  "pr": 11410,
+  "claimed_at": "2026-09-08T15:08:00Z",
+  "displaced": "moved from my own claude/mi204-bybit1-eth-orphan, whose PR #11409 MERGED at 15:05:55Z. The claim on main named a finished merge from the moment it landed — the R13 shape @MI-193 named on #11356 and @MI-199 and @MI-195 each hit today. This branch re-lands the ONE commit #11409's auto-merge raced past."
  },
  "active_sessions": [
   {
