@@ -2438,14 +2438,14 @@
     },
     {
       "id": "MI-192-LANE-1-OPS-SYSTEM-REVIEW",
-      "status": "in_flight",
+      "status": "failed",
       "owner": "session_01AWw28Sfk7hNZASfMrssFLq",
       "opened": "2026-09-08T08:20:00Z",
-      "updated": "2026-09-08T08:20:00Z",
+      "updated": "2026-09-08",
       "blocked_on": "MI-191-LANE-0-MAIN-IS-RED-AND-R13-R2-DEADLOCK",
       "tier": "1",
       "title": "LANE 1 (ops): /system-review, 38 days overdue",
-      "note": "Last weekly report 2026-08-01. Absorbs journal-vs-venue pipeline health per the operator re-allocation -- that is /health-review own mandate. Carries a starting finding: comms/reports/index.json newest entry is 2026-06-23, six weeks behind the artifacts, and that index is what --window=since-last resolves against. backlog_drive means DRAIN: 716 unresolved health rows."
+      "note": "Last weekly report 2026-08-01. Absorbs journal-vs-venue pipeline health per the operator re-allocation -- that is /health-review own mandate. Carries a starting finding: comms/reports/index.json newest entry is 2026-06-23, six weeks behind the artifacts, and that index is what --window=since-last resolves against. backlog_drive means DRAIN: 716 unresolved health rows.  ⚠️ SUPERSEDED BY OBSERVATION 2026-09-08T10:25Z: Last weekly report 2026-08-01. Absorbs journal-vs-venue pipeline health per the operator re-allocation -- that is /health-review own mandate. Carries a starting finding: comms/reports/index.json newest entry is 2026-06-23, six weeks behind the artifacts, and that index is what --window=since-last resolves against. backlog_drive means DRAIN: 716 unresolved health rows. ⚠️ OBSERVED FAILED at 2026-09-08T10:25Z via list_sessions: session_01AWw28Sfk7hNZASfMrssFLq died 08:46Z with 'The model tool call could not be parsed (retry also failed)', 29 minutes in, producing NO PR and no committed artifact. Lane 1 was dead for 1h40m before a cadence tick caught it — post_turn_summary would have kept reading optimistically. Respawned as MI-192b."
     },
     {
       "id": "MI-193-LANE-2-RESEARCH-ACTIVE-MANAGEMENT-MECHANICS",
@@ -2479,6 +2479,39 @@
       "updated": "2026-09-08",
       "blocked_on": [],
       "note": "Operator answered all three DEC-20260907-* requests directly, 2026-09-08. TP-VALUE=apply (gld_pullback_1h tp_r 4.0, REACHABILITY not calibration, scope that leg only, and NOT approval of the matrix's sm1.5 winner). TP-VOCAB=accept_with_reader (the tp_intent key does not land without a reader in the same cycle). TP-UNEXAMINED=REJECTED ALL THREE OPTIONS with 'Why don't we just examine them?' — the options all asked how to PUBLISH an absence and none asked what it costs to REMOVE it. Blocker is a missing candle substrate for QLD/TQQQ, i.e. an unfetched dataset, not a property of the legs; the proposal's own section 9.3 already called this the only work in the memo that unblocks new evidence. Verdicts recorded verbatim with their conditions in WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE.yaml::operator_answers_2026_09_08. ⚠️ insufficient_n is a likely and legitimate outcome of the sweep (44 of 44 legs grade that way under MI-155's floor); if so, unexamined becomes a MEASURED verdict and the publish question returns to the operator in a legitimate form. The Tier-3 gld diff cannot self-land (R4) and is mine to merge."
+    },
+    {
+      "id": "MI-196-CONSOLIDATE-DUE-INTO-THE-READOUT",
+      "title": "Carry DUE.md's four missing source classes into the constraint readout, then retire DUE.md",
+      "owner": "session_01U2ibSa4FNcuV6bSLaPb9GS",
+      "status": "in_flight",
+      "tier": "1 — tooling",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "note": "Operator decision, asked and answered directly 2026-09-08. Two surfaces answered 'what should I work on' from disjoint sources: MI-194 measured that exactly ONE of five source classes appears in both. TWO CHANGES, NEVER ONE — port first and show it rendering, retire DUE.md only afterwards, or an incomplete port takes the due list to zero (the hourly-digest split precedent). ⚠️ This does NOT fix the readout's 7.2% assessed-edge coverage against a 50% floor and must not be reported as doing so; it adds rows, not basis. Recorded in WO-20260901-PHASE-D::operator_decision_2026_09_08. Spawn gate correctly REFUSED this first (Phase D absent from covers); admitted by adding it to spawn-priority-exception.yaml on the operator's direct ask, with the displacement cost stated."
+    },
+    {
+      "id": "MI-194-PHASE-A-CRITERION-RESPEC-BEHAVIOUR-NOT-CITATION",
+      "title": "Re-spec Phase A: measure whether the brief CHANGES BEHAVIOUR, not whether a cold session cites it",
+      "owner": "session_01W7CyS8ShLnZiNyUms3YYEp",
+      "status": "in_flight",
+      "tier": "1 — work-object record",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "note": "Operator decision, asked and answered directly 2026-09-08: 'Change what is measured: behaviour, not citation.' The old edge — a COLD session CITING the CLAUDE.md brief — was unfalsifiable by construction, since every candidate observer arrives with a dispatch prompt; MI-194 measured its absence retrospectively (positive controls fired) and correctly refused to manufacture an observer. ⚠️ The re-spec MUST carry a negative branch; a replacement that can only ever be satisfied reproduces BL-20260908-DONE-CONDITIONS-ARE-PASS-ONLY-SO-A-CRITERION-CAN-NEVER-FAIL-ONLY-STAY-OPEN-FOREVER with better wording. ⚠️ The old edge is RETIRED ON A DECISION, never `discharged` — discharging would assert an observation nobody made. Poked into the live idle session (trig_01DAyCVoP7XTfL7vLqHdJcUr, fired 09:51Z, destination verified against the body) rather than respawned, because it holds the A–D context; it was at 605k/1M and was told to hand back a fresh-session prompt rather than half-do it."
+    },
+    {
+      "id": "MI-192B-SYSTEM-REVIEW-RESPAWN",
+      "title": "/system-review, 38 days overdue — respawn after MI-192 died on an unparseable tool call",
+      "owner": "session_012yX7SLyJiqAWG8oVxZSNoq",
+      "status": "in_flight",
+      "tier": "1 — review session",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "note": "MI-192 failed at 08:46Z after 29 minutes with no PR and no artifact; the lane sat dead for 1h40m. Told to check the predecessor's branch first rather than assume it pushed nothing, and warned that several open PRs' guards failures are this morning's main-red and not their own — filing that as a finding would be a false positive. Carries the standing prohibitions and the closed diag-token question so the review does not re-raise it. Inherits its predecessor's starting finding, preserved from the original dispatch row rather than discarded in the merge: comms/reports/index.json's newest entry is 2026-06-23, SIX WEEKS behind the artifacts, and that index is what --window=since-last resolves against — so a since-last review would silently pick the wrong window. And backlog_drive means DRAIN, against 716 unresolved health rows."
     }
   ],
   "as_of": "2026-09-08T06:45:00Z",

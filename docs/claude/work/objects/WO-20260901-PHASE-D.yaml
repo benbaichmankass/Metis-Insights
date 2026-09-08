@@ -237,3 +237,39 @@ remeasured_2026_09_08: >-
   counterpart in the readout — so deleting it today would drop live signals. Exactly
   one class overlaps (operator-owed items). So the decision is really "carry those four
   across first, or keep both deliberately", and it is the operator's.
+operator_decision_2026_09_08:
+  recorded_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+  recorded_at: '2026-09-08T09:55:00Z'
+  basis: asked directly and answered directly in-conversation, 2026-09-08
+  verdict: consolidate_into_the_readout
+  text: 'Carry the four missing classes into the readout, then retire DUE.md'
+  what_it_settles: >-
+    Two surfaces answered "what should I work on" from disjoint sources.
+    MEASURED by MI-194: docs/claude/DUE.md draws on PROBES.json, monitoring
+    cadences, the recurrence ledger, red scheduled crons and unlanded
+    automation PRs; the constraint readout draws on the work store's typed
+    blocked_on edges. Exactly ONE of the five source classes appears in both,
+    so a session had to read both to see everything and nothing said so.
+    The operator's call is ONE surface: port the four missing classes into the
+    readout, then retire DUE.md.
+  warnings:
+    - >-
+      RETIRE DUE.md ONLY AFTER the four classes are demonstrably rendering in
+      the readout, never in the same change. Retiring first, or in one step,
+      takes the session-facing due list to ZERO if the port is incomplete -
+      the same failure shape as taking the digest to zero, which is why that
+      change was deliberately split across two PRs.
+    - >-
+      THIS DOES NOT FIX THE READOUT'S COVERAGE AND MUST NOT BE REPORTED AS
+      DOING SO. The readout grades `insufficient_basis` at 49 of 679 = 7.2%
+      assessed edges against a declared 50% floor, so the merged surface will
+      STILL refuse to name a stage. Folding more sources in adds rows, not
+      basis. Reaching the floor needs ~290 assessed edges against today's 49,
+      and that is written TRUE edges, one at a time - an invented edge is read
+      by the computation as a real blocker, and a false blocker is worse than
+      a missing one.
+    - >-
+      Each ported class must keep its own read-state. A cron that could not be
+      READ is not a cron that is GREEN, and an unlanded automation PR nobody
+      could list is not an empty queue. Collapsing those into a clean negative
+      is the exact defect the readout exists to avoid.
