@@ -386,3 +386,35 @@ real money.
 Proposed separately, `landing: hold`, at
 [`docs/design/alpaca-trade-scoped-close-PROPOSAL.md`](../design/alpaca-trade-scoped-close-PROPOSAL.md).
 Nothing in it is applied.
+
+---
+
+## 10. How to reproduce every number in this memo
+
+Recorded so the next session re-derives rather than re-quotes. All reads are
+**read-only**; none of them touches an order.
+
+```bash
+# The live venue position (section 3.1) and the resting legs (sections 3.2 / 3.3).
+# Read `read_state` on the orders call before trusting an absence: only
+# `orders_read` means "nothing rests"; `could_not_look` means we could not look.
+bash scripts/ops/diag_fetch.sh '/api/diag/exchange_positions?account_id=alpaca_portfolio'
+bash scripts/ops/diag_fetch.sh '/api/diag/alpaca_open_orders?account_id=alpaca_portfolio'
+
+# The journal (sections 3.1 / 5). `limit` clamps at 1000 and there is no
+# `offset`/`since` — this is the newest 1000 rows, a CAP and not a window.
+bash scripts/ops/diag_fetch.sh '/api/diag/journal?table=trades&limit=1000' > trades.json
+```
+
+The population in § 5 is: rows with `status` in (`open`,`closed`) — 600 of the
+1000 — grouped by `(account_id, symbol)`, counting a pair when two of its rows'
+`[created_at, closed_at)` intervals overlap, with an open row's interval running
+to the read instant. Quote the definition with the number; the same data yields
+25 or 4 under the two nearby definitions, and only the overlap count answers the
+backlog row's question.
+
+The code claims in § 1 are at `src/runtime/order_monitor.py::_send_close_to_exchange`,
+`src/units/accounts/execute.py::close_open_position` (alpaca branch) and
+`::modify_open_order` (alpaca branch), `src/units/accounts/alpaca_client.py::close`,
+`::_close_extended_hours`, `::_cancel_open_orders_for_symbol` and
+`::modify_protective`, and `src/units/accounts/clients.py`'s management-caps map.
