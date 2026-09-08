@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Merge-queue reconcile only — docs/claude/work/MERGE-QUEUE.json. Management surface; no src/, tests/, scripts/, workflows, config or deploy. No order path, no strategy config, no risk caps."
+}
