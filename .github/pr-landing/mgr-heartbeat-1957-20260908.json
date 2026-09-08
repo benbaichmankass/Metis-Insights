@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager pass, PR #11446. Tier-1 by path and content: three register files under docs/claude/work/** (MANAGER-LEASE, SESSIONS, MERGE-QUEUE) plus this branch's own two landing-route files. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/; no order path, no strategy config, no risk caps. check_manager_scope.py --base origin/main reads clean with R6/R7/R8 ok, run in its own command after committing. The SESSIONS.json write is supervision: 13 rows re-observed against a live list_sessions read, correcting my own earlier pass which flattened BLOCKED and FAILED into `idle`."
+}
