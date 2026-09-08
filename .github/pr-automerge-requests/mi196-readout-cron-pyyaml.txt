@@ -1,0 +1,3 @@
+MI-196 — install PyYAML in constraint-readout.yml so the A1 readout cron can
+succeed. Measured: 6 of 6 scheduled runs (its complete history) concluded
+failure at the self-test gate on a missing PyYAML. Tier-1, landing: self.
