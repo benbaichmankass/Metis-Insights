@@ -6,10 +6,10 @@
  },
  "merge_slot": {
   "held_by": "session_016KUFTHGYyFDerbnXDSA6Wb",
-  "branch": "claude/mi204-claude-md-failsafe-correction",
-  "pr": 11410,
-  "claimed_at": "2026-09-08T15:08:00Z",
-  "displaced": "moved from my own claude/mi204-bybit1-eth-orphan, whose PR #11409 MERGED at 15:05:55Z. The claim on main named a finished merge from the moment it landed — the R13 shape @MI-193 named on #11356 and @MI-199 and @MI-195 each hit today. This branch re-lands the ONE commit #11409's auto-merge raced past."
+  "branch": "claude/mi204-orphan-reattach-misattribution",
+  "pr": null,
+  "claimed_at": "2026-09-08T15:22:00Z",
+  "displaced": "moved from my own claude/mi204-claude-md-failsafe-correction, whose PR #11410 MERGED at 15:18:42Z. Same R13 shape again: the claim it left on main named a finished merge from the moment it landed. Third slot write by this session for the same unit, each one spent by the merge it claimed."
  },
  "active_sessions": [
   {

@@ -378,3 +378,156 @@ and it is what converts "12 of 21 read flat" from an ambiguity into a measuremen
 `2026-09-08T14:43:35Z` — `bybit_1` ETHUSDT `Buy 26.05 @ 2476.6`, unrealised **+121.914**,
 trade 5569 `status: open`, `reconcile_status: reconciled`. The position did **not** close
 during this investigation.
+
+---
+
+# ADDENDUM (same session, 15:20Z) — a SECOND mechanism, and it is worse
+
+The manager sent a check-in at 14:38Z proposing that the **pairs sleeve** is the lead:
+*"does the reverse reconciler know about pairs-sleeve positions at all?"* — on the
+correlation that 5 of 6 `bybit_1` orphan/unclassified events are on SOLUSDT or ETHUSDT,
+the two symbols the live sleeve trades.
+
+**I checked it from the code rather than inferring it, and the answer is layered.
+Part of my own earlier reporting was wrong and is corrected here.**
+
+## The literal hypothesis is REFUTED — the reverse reconciler does NOT exclude pairs rows
+
+`_reconcile_orphan_exchange_positions` builds its `known` set from **every** open
+non-backtest row on the account:
+
+```sql
+SELECT id, symbol, direction, strategy_name, account_id, position_size, entry_price,
+       notes, order_package_id, timestamp, created_at
+  FROM trades
+ WHERE status='open' AND COALESCE(is_backtest,0)=0 AND account_id=?
+```
+
+No `setup_type` filter, no strategy filter, no `_is_pairs_sleeve_row` call.
+**Positive control that this is a real absence and not a blind grep:**
+`_is_pairs_sleeve_row` exists (`order_monitor.py:9164`) and has exactly two call sites —
+`_reconcile_netting_partial_closes:9276` and `_check_broker_naked_bybit_positions:9785`.
+Neither is the reverse reconciler.
+
+So a pairs leg **whose journal row is open** is in `known` and cannot be adopted.
+Live confirmation: trade **5571** (`pairs_sol_eth_b`, ETHUSDT) is open right now and has
+not been adopted.
+
+⚠️ **This is where I must correct myself.** I first reported this as *"the reconciler
+cannot adopt a pairs leg"*, full stop. That is too strong. It cannot adopt a pairs leg
+**whose row is still open** — and it says nothing about a pairs position whose row has
+already closed, nor about which strategy an adopt gets ATTRIBUTED to. The second of those
+is where the real defect is.
+
+## The symbol correlation is real, and hedge mode explains it — with the sleeve one hop upstream
+
+**MEASURED** (population: all 13 `adopted_orphan` rows on a bybit account in ids
+4570–5569): **13 of 13 are on a hedge-armed symbol** — SOLUSDT, ETHUSDT or BTCUSDT.
+
+The discriminator is what got **zero** adopts despite being actively traded on `bybit_1`
+in the same window:
+
+| symbol | trade rows | hedge-armed | adopts |
+|---|--:|---|--:|
+| SOLUSDT | 197 | yes | 8 |
+| ETHUSDT | 136 | yes | 2 |
+| BTCUSDT | 98 | yes | 1 |
+| BNBUSDT | 60 | yes | 0 |
+| **AVAXUSDT** | **121** | **no** | **0** |
+| **XRPUSDT** | **42** | **no** | **0** |
+| **ADAUSDT** | **12** | **no** | **0** |
+
+175 rows of traded, non-hedge-armed denominator, zero adopts. Hedge mode is the
+precondition, because it is what makes `rows[0]` able to read the wrong book.
+
+⚠️ **INFERRED, and the confound is stated:** SOL/ETH/BNB/BTC are *both* hedge-armed *and*
+the pairs symbols, so they cannot separate the two hypotheses on their own. What separates
+them is the code read above plus the direct parentage evidence below. And BNBUSDT is
+hedge-armed with 60 rows and zero adopts, which neither hypothesis predicts — most likely
+the triggering condition simply never arose there, and I did not establish that.
+
+**The sleeve IS causally upstream, one hop further back than the check-in placed it:**
+hedge mode was armed on `bybit_1` SOL/ETH **because of the pairs sleeve**
+(`BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN`). The sleeve created the condition
+that makes the reconciler misread the book. It does not own the adopted positions.
+
+## 🚩 THE ACTUAL SECOND DEFECT: the adopt path can attribute a position to a strategy that did not open it
+
+The re-attach writes `recovered_strategy` into `trades.strategy_name`. **It can name the
+wrong strategy, and when it does, the wrongly-named strategy then ACTS on the row.**
+
+**MEASURED** — scored each adopt's claimed strategy against **that strategy's own size
+distribution on the same symbol**, built from non-adopted `bybit_1` rows in the same
+window. Of the 5 adopts that claimed a strategy and could be judged (6 claimed none — the
+honest bare-orphan state; 2 had a **truncated** `recovered_strategy` in `notes`, so no
+reference existed):
+
+| adopt | symbol | size | claimed strategy | that strategy's own range | verdict |
+|---|---|--:|---|---|---|
+| 5288 | SOLUSDT | 11.90 | `pairs_sol_eth_a` | 2 … 57.5 (n=80) | INSIDE |
+| 5555 | SOLUSDT | 545.00 | `ict_scalp_sol_15m` | 9.1 … 2511.7 (n=15) | INSIDE |
+| 5569 | ETHUSDT | 26.05 | `ict_scalp_eth_15m` | 5.31 … 114.47 (n=15) | INSIDE |
+| **5448** | SOLUSDT | **1236.30** | `pairs_sol_eth_a` | 2 … **57.5** (n=80) | **OUTSIDE — 21.5× its max** |
+| **5453** | ETHUSDT | **17.67** | `pairs_sol_eth_b` | 0.01 … **2.10** (n=80) | **OUTSIDE — 8.4× its max** |
+
+**2 of 5 judgeable re-attributions named a strategy whose own size distribution excludes
+the position, and BOTH wrong ones named a PAIRS strategy.**
+
+⚠️ n = 5 judgeable, and the ±(0.5×, 2×) band is a **chosen** threshold, not a derived one.
+The verdict is robust to that choice — 8.4× and 21.5× are outside any defensible band —
+but the band is chosen and the sample is small.
+
+### Trade 5453 is the worked example, and it is airtight on arithmetic
+
+- Adopted `bybit_1` ETHUSDT **long 17.67** at `09:02:08Z`, attributed to **`pairs_sol_eth_b`**.
+- **17.67 is an exact match for trade 5420, `trend_donchian_eth` long 17.67**, closed
+  `reconciler_filled` 3,264 s earlier.
+- `pairs_sol_eth_b` has **80 legs** on ETHUSDT in this window; the **largest is 2.10** and
+  the typical leg is ~0.37. `trend_donchian_eth`'s sizes are 17.08–37.76. **17.67 sits
+  inside trend_donchian's distribution and 8.4× outside the pairs sleeve's entire range.**
+- The row carries `strategy_name: pairs_sol_eth_b` and **`pnl: +612.705681`**
+  (`exit_price_source: candle_at_close` — ESTIMATED).
+- **14 seconds after the adopt it closed with `exit_reason: pairs_half_open_cleanup`** —
+  the **pairs executor acted on it**, because the journal now told it this was its leg. Its
+  exit price `2525.85` is byte-identical to pairs leg 5447's exit price.
+
+**So the pairs sleeve flattened a `trend_donchian_eth` position and booked +$612.71 of
+another strategy's PnL.** For scale, that sleeve's own legs in the same window book
+**−$10.46** and **−$1.31**: a single +$612.71 row is ~60× its typical magnitude and will
+dominate any per-strategy aggregate computed for it.
+
+### Three harms, and they are different facts
+
+1. **A false strategy attribution written into the journal** — every per-strategy
+   aggregate, grade and expectancy for `pairs_sol_eth_b` is contaminated by it.
+2. **Cross-strategy PnL contamination of +$612.71** on a sleeve whose real legs are ±$10.
+3. **A live order-path consequence** — the pairs executor closed a position it did not
+   open, on a row it was handed by a reconciler.
+
+⚠️ **NOT established, and I am not asserting it.** The same 17.67 quantity produced **two**
+closed rows at two different exit prices — 5420 at `+$315.41` and 5453 at `+$612.71`,
+`+$928.12` combined. That is either double-counting (5420's `reconciler_filled` close was
+*also* false) or a genuine off-journal re-entry. `reconciler_filled` is a broker-confirmed
+close by this repo's own definition, and 5420's close does **not** appear in the netting
+soak, so I have no evidence it was false. Resolving it needs venue fill history for
+`2026-09-04T08:07Z`, which no repo surface exposes. **Recorded as the open question, not
+as a finding.**
+
+### A small sibling, worth one line
+
+Two of the 13 adopts carry a **truncated** `recovered_strategy` in `notes` (`"ict_scal…"`,
+and 5516 carries an explicit `"_truncated": true`). The attribution evidence is being
+clipped in the record that is supposed to preserve it, which is why those two are
+unjudgeable rather than judged.
+
+## What this does NOT change
+
+The `rows[0]` root cause and both proposed patches stand exactly as written above —
+5555 and 5569 are still netting false-closes with plausible attributions. This addendum
+adds a **second, independent** defect on the same path, and it needs its own fix: the
+adopt path must not write a `strategy_name` it cannot support, and a *bare* orphan
+(`recovered_strategy` empty, which 6 of 13 correctly are) is the honest state when the
+owner is not established. **A quantity check against the claimed strategy's own history is
+the cheapest available discriminator** and would have refused both wrong attributions.
+
+Still Tier-2/3 — proposed, not applied.
