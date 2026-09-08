@@ -153,6 +153,33 @@ observed: 'MEASURED 2026-09-01 by the sub-session that built the control half (p
   no answer has been submitted, the SPA panel has never been rendered, and the committer workflow has
   never run. Tracked as OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP
   (loud), which names those four stages separately so a later session cannot clear it on the easiest one.'
+edge_review_2026_09_08: >-
+  MI-194 (session_01W7CyS8ShLnZiNyUms3YYEp), while verifying the A-D observations.
+  ⚠️ THE `WO-20260901-PHASE-B` EDGE IS NOW STALE AND SHOULD BE REMOVED BY WHOEVER PICKS
+  THIS OBJECT UP. Phase B moved to `done` on 2026-09-08 (both its edges discharged — the
+  SPA render was in fact cleared on 2026-09-01 and simply never removed, and the digest
+  is now measured firing on cron: 40 runs with event=schedule). constraint_readout.py
+  already grades this edge `-> done · ref resolved · hold stale`, so the machinery can
+  see it; the FIELD has not been updated. It is left in place rather than removed here
+  because this object is not MI-194's and removing another object's edge without owning
+  the work is how a real dependency gets dropped — but a `stale` edge is read as a
+  blocker by anyone reading the field instead of the readout, which is the failure mode
+  Phase B itself just demonstrated by carrying a cleared edge for seven days.
+  ⚠️ AND THIS OBJECT IS STILL BLOCKED — do NOT read "Phase B is done" as "Phase H is
+  released". THREE of the four edges still grade `holding` / `unverifiable_outside_store`:
+  the Android+Streamlit retirement, the DB-explorer gate, and DEC-20260901-READ-GATE-SEQUENCING.
+  The 2026-09-08 dispatch to MI-194 said closing B would unblock H; measured against the
+  readout, it does not.
+  ⚠️ ONE CANDIDATE, PARTIALLY CHECKED AND EXPLICITLY NOT DISCHARGED: the
+  BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED edge may be closable.
+  `streamlit_app.py` is ABSENT from the repo (checked), and CLAUDE.md records the
+  retirement as an adopted operator decision of 2026-09-01 with the SPA as the single
+  live consumer. BUT that row's own done_condition has THREE clauses, and clause (2)
+  requires the repos/entry points to be ARCHIVED WITH A BANNER so a future session does
+  not read them as live — which is about repositories outside this one. ONLY CLAUSE (1)
+  WAS CHECKED, and only for Streamlit, not for Android. That is a lead, not a discharge,
+  and recording it as anything stronger would be the collapse this store exists to refuse.
+
 evidence:
 - docs/design/operating-layer-build-plan-DESIGN.md
 verdict: null
