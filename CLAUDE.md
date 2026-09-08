@@ -1494,6 +1494,22 @@ below are the contract.
     commit, though pushed before the merge, never reached `main`. Whether a
     post-arming commit lands is a race with CI duration, so anything that must
     land goes on a fresh branch (a merged PR is finished and must not be reused).
+    ✅ **PREVENT IT INSTEAD OF WORKING AROUND IT — OPEN THE PR YOURSELF FIRST,
+    THEN PUSH THE ARMING FILE.** Verified in the workflow source, not assumed:
+    step 1 does `pulls.list({owner, repo, head, state:'open'})` and calls
+    `pulls.create` **only when that returns nothing**, so a PR you opened via
+    `mcp__github__create_pull_request` is ADOPTED — the workflow just enables
+    auto-merge on it. Because you opened it, it carries a real `pull_request`
+    event and CI fires normally; there is no zero-check window and no second
+    commit to invent. The two-push order is: (1) push the content and open the
+    PR yourself, (2) push `.github/pr-automerge-requests/<slug>.txt` plus the
+    `merge_slot` claim R13 wants. ⚠️ `pr-landing-guard` R6/R13 are satisfied by
+    the SECOND push, so do not expect the guard to pass on the first — that is
+    the expected intermediate state, not a failure. This is worth the extra
+    step: the trap hit **six times on 2026-09-08 alone** (#11356, #11392,
+    #11395, #11407, #11419, #11424), and on a Tier-1 self-landing PR the
+    "invent one more commit" workaround pressures you into padding a diff,
+    which is how an unrelated change ends up riding a landing PR.
   - **`.github/workflows/board-post.yml`** — POST to the coordination board
     (it resolves the issue from `docs/claude/board-pointer.json` **on the default
     branch**, so your own branch cannot redirect it) when `add_issue_comment` 403s: drop
