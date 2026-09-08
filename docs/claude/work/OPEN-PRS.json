@@ -98,24 +98,6 @@
       },
       "note": "Tier-2 approved detection-only. Merge unblocked; arming is NOT approved and must not be inferred from the merge.",
       "opened_at": "2026-09-08T02:36:45Z"
-    },
-    {
-      "pr": 11318,
-      "state": "green_self_land_armed",
-      "tier": 1,
-      "draft": false,
-      "title": "MI-177: fleet-wide journal-open vs venue audit — 8/11 accounts read, 24/25 exact, 1 known divergence",
-      "owner_session": "session_01EPvAGZDFZCYF3QJk12u3mk",
-      "checklist_item": "MI-177-JOURNAL-VENUE-FLEET-AUDIT",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "Tier-1 measure-only: one evidence doc, its DOCUMENT-INDEX row, two backlog rows appended through backlog_append.py, and an audit script under scripts/ops/. No order path, no strategy config, no risk caps. Self-land declared and automerge armed; GitHub merges it on green."
-      },
-      "note": "Head moved to 62bfcfe4 at 04:15Z (rebased onto 1fee02c1). Awaiting green.",
-      "opened_at": "2026-09-08T03:41:23Z"
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1701,10 +1683,32 @@
       "terminal": "merged",
       "merge_sha": "e877b7b29707ce8db921b986bf2562e5a082a5bd",
       "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
+    },
+    {
+      "pr": 11318,
+      "state": "green_self_land_armed",
+      "tier": 1,
+      "draft": false,
+      "title": "MI-177: fleet-wide journal-open vs venue audit — 8/11 accounts read, 24/25 exact, 1 known divergence",
+      "owner_session": "session_01EPvAGZDFZCYF3QJk12u3mk",
+      "checklist_item": "MI-177-JOURNAL-VENUE-FLEET-AUDIT",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "Tier-1 measure-only: one evidence doc, its DOCUMENT-INDEX row, two backlog rows appended through backlog_append.py, and an audit script under scripts/ops/. No order path, no strategy config, no risk caps. Self-land declared and automerge armed; GitHub merges it on green."
+      },
+      "note": "Head moved to 62bfcfe4 at 04:15Z (rebased onto 1fee02c1). Awaiting green.",
+      "opened_at": "2026-09-08T03:41:23Z",
+      "terminal": "merged",
+      "merge_sha": "cf04a87917aa3d8c0a3a033443fbbbfa8496052c",
+      "observed_at": "2026-09-08T04:36:50Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-08T04:16:00Z",
-  "last_reconciled_sha": "1137f752e7bd2fe7b5dceb9f17f1a140061d6b6e",
+  "last_reconciled_at": "2026-09-08T04:36:50Z",
+  "last_reconciled_sha": "0f9c78fdc79d951e509e053fa27e42021b1c1d3b",
   "updated_at": "2026-09-08T04:16:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
