@@ -39,6 +39,27 @@ blocked_on_basis: >-
   taken by this object; the position figures below are #11330's measurements from
   2026-09-08T04:47:34Z and 04:50:13Z and may have moved since.
 
+# ⚠️ CORRECTION, 2026-09-08T22:08Z, AFTER THE OPERATOR ANSWERED — RECORDED RATHER THAN QUIETLY
+# FIXED, BECAUSE IT MAY HAVE COLOURED THE ANSWER. This object's question text opens "A real
+# position has been carrying 56 unprotected shares for five days". The manager meant "an actual
+# position at the venue" as opposed to a hypothetical one. On this system `real_money` is a
+# DEFINED account class, so that phrasing invites reading it as real money, and the operator
+# granted a Tier-2 order-path approval partly on urgency.
+#
+# MEASURED against the LIVE /api/bot/config (not the YAML) at 2026-09-08T22:08Z:
+#   alpaca_portfolio  account_class=paper       paper_role=portfolio
+#   alpaca_live       account_class=real_money  paper_role=None
+# Trade 5414 is on alpaca_portfolio, so the 56 uncovered shares are PAPER. #11330's own
+# measurement also records alpaca_live as FLAT (0 positions, 0 orders) at 04:47Z.
+#
+# WHAT SURVIVES THE CORRECTION, and it is most of it: the DEFECT is real and unchanged —
+# place_protective calls _cancel_open_orders_for_symbol UNCONDITIONALLY and silently drops the
+# oca_key the IB implementation honours, on EVERY alpaca account including alpaca_live. So the
+# approved fix is PROSPECTIVE protection of real money, not an active real-money cleanup.
+#
+# THE OPERATOR WAS TOLD BEFORE ANYTHING WAS SPAWNED and re-sequenced on it: the ranking harness
+# (MI-205) goes first as a measurement build under CY-20260906-TRADING-TRUTH; this one follows
+# as MI-206. The ANSWER below is unchanged and is theirs — only the urgency ranking moved.
 decision_requests:
   - id: DEC-20260908-ALPACA-SCOPED-WRITE
     question: >-

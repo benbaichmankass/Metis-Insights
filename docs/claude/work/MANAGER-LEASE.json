@@ -22,13 +22,13 @@
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "claimed_at": "2026-09-08T11:55:22Z",
-  "heartbeat_at": "2026-09-08T21:36:15Z",
-  "expires_at": "2026-09-08T23:06:15Z",
+  "heartbeat_at": "2026-09-08T22:12:05Z",
+  "expires_at": "2026-09-08T23:42:05Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Heartbeat 21:36:15Z, tool-stamped. THE OPERATOR ANSWERED THREE DECISIONS THIS PASS and #11460 (f5c77ad5) committed them: be_floor_r accept_none, the Alpaca scoped write build_scoped_write (a TIER-2 order-path APPROVAL, recorded not applied), and the ranking harness build_harness. OI-20260907-BE-FLOOR-R is CLEARED on both clauses. ⚠️ TWO OF THE THREE AUTHORISE BUILDS THAT ARE UNASSIGNED — the scoped Alpaca write (which releases #11337) and the N-book ranking harness."
+  "note": "Heartbeat, tool-stamped. SPAWNED MI-205 (session_01JALQ7skjJQN3yNHz5mF51s) for the N-book ranking-key harness, THROUGH the registry — register refused first because the decision object declared no parent_intent, which is the gate working: a build object (WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS, parent IN-20260903-TRADING-SYSTEM-HEALTH) was created and the registration re-run against it. ⚠️ AND A CORRECTION THE OPERATOR ACTED ON IS RECORDED THIS PASS: the 56 unprotected TLT shares are on alpaca_portfolio, which is account_class PAPER, not real money."
 }

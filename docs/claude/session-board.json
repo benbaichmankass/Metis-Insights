@@ -6,10 +6,10 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-2138-20260908",
+  "branch": "claude/mgr-spawn-harness-2208-20260908",
   "pr": "(opened by hand; arming file lands second)",
-  "claimed_at": "2026-09-08T21:36:15Z",
-  "note": "Manager heartbeat 21:36:15Z, tool-stamped. Records that the operator's three answers landed in #11460 and that TWO of them authorise builds with no owner — the scoped Alpaca write (releases #11337) and the N-book ranking harness. Register writes only, no worker path."
+  "claimed_at": "2026-09-08T22:12:05Z",
+  "note": "Heartbeat 22:12:05Z plus the MI-205 spawn (the N-book ranking harness), registered THROUGH session_registry.py. Also records a correction the operator re-sequenced on: the 56 uncovered TLT shares are on a PAPER account, not real money. Register and work-object writes only, no worker path."
  },
  "active_sessions": [
   {

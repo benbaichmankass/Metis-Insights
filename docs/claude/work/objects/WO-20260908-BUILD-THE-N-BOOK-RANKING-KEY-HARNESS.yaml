@@ -1,0 +1,59 @@
+# Created by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) 2026-09-08 when the operator
+# answered DEC-20260908-TRADE-PRIORITISATION-HARNESS with `build_harness`. The DECISION object
+# is the answered question; this is the WORK it authorises. Separate objects deliberately: the
+# question is closed and the build is not.
+id: WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS
+type: build
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Give backtest_system.py an N-book mode and a ranking-key arm, then measure whether
+  arbitration ORDER drives outcome at all
+stage: BUILD
+lifecycle: ready
+owner: null
+opened_at: '2026-09-08'
+closed_at: null
+
+review_trigger: >-
+  Re-read when the four arms have run. ⚠️ Do NOT report a verdict from a single fold count:
+  the whole reason this question is open is that a fold-majority gate passed a lever that lost
+  35R, because 30-39% of its folds were INERT.
+
+done_condition: >-
+  scripts/backtest_system.py expresses N books and a swappable ranking key; the four declared
+  arms (confidence_first / priority_first / recent_pnl_first / random_tiebreak) have run on the
+  CONTESTED subset only, stratified by `decided_by`, reported against the ACHIEVED
+  contested-tick count rather than the declared one; and a verdict is recorded either way.
+  ⚠️ A NULL RESULT SATISFIES THIS. If confidence_first does not beat random_tiebreak, the
+  finding is that arbitration ORDER does not drive outcome — publishable, and the signal to
+  look at the confidence SCORE instead. That is an answer, not a failure to re-run until
+  something wins.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-08 by the manager: nothing blocks it. The operator answered
+  DEC-20260908-TRADE-PRIORITISATION-HARNESS with `build_harness` and sequenced it AHEAD of the
+  Alpaca scoped write, on the grounds that it is a MEASUREMENT build and CY-20260906-TRADING-TRUTH
+  says repair the instrument before acting on what it says. The harness change is Tier-1; it
+  measures the question without touching the live ranking key.
+
+context: >-
+  CONFIDENCE HAS BEEN THE LIVE PRIMARY RANKING KEY ON REAL MONEY SINCE 2026-08-31 (PR #10544)
+  and has never been shown to pick the better-performing trade. It went live on a CORRECTNESS
+  argument — it is evidence about the trade, unlike the strategy NAME it replaced — not on an
+  outcome result. Operator, 2026-08-31: "the confidence score is a good start, but it isn't
+  proven that it's necessarily what's gonna give us the best trade every time."
+  ⚠️ THE A/B COULD NOT BE RUN BECAUSE THE HARNESS CANNOT EXPRESS IT: backtest_system.py models
+  ONE shared book, so neither global-vs-per-account arbitration nor a swapped ranking key is
+  expressible. That is the gap this object closes, and it is why the question sat unmeasured
+  from 2026-08-31 with verified_at and observation both null.
+  ⚠️ THIS BUILD ALSO UNBLOCKS THE ADJACENT QUESTION — global vs per-account arbitration — which
+  is blocked on the same missing capability. One build, two questions.
+  ⚠️ PRIOR ART THAT SHAPES THE ARMS: M18's allocator asked the adjacent question and the answer
+  was NO (edge -$7, ranker OOS AUC ~0.51). random_tiebreak is therefore a DECLARED arm, not an
+  afterthought — it is the floor the others must clear.
+
+refs:
+  - docs/research/trade-prioritisation-research-DESIGN.yaml
+  - scripts/backtest_system.py
+  - WO-20260908-DECISION-TRADE-PRIORITISATION-HARNESS

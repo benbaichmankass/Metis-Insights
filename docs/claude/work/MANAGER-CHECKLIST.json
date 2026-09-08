@@ -2644,6 +2644,30 @@
       "blocked_on": [],
       "owns_object": null,
       "note": "MEASURED 19:29Z against list_sessions(mine=true, limit=30) read direct. FIFTEEN registry rows claimed `working`; ALL FIFTEEN read IDLE, and every one of the 30 most recent sessions is IDLE -- the manager currently has NO live sub-session. All 15 were found INSIDE that listing (0 uncovered), so the reconciliation rests on an observation of each rather than on an assumption about the rest. STATE THE POPULATION: the listing is the 30 MOST RECENT sessions, so it says nothing about older rows. CAUSE: nothing decays a row, so `working` goes false purely by TIME PASSING. Each row now carries state=idle, the read as its state_basis, and the session's own updated_at. This is the failure MI-15 recorded twice and it is a RECURRENCE, not news -- what is new is the denominator: it was not some rows, it was ALL of them."
+    },
+    {
+      "id": "MI-205-N-BOOK-RANKING-HARNESS",
+      "title": "Build the N-book ranking-key harness and measure whether arbitration ORDER drives outcome",
+      "owner": "session_01JALQ7skjJQN3yNHz5mF51s",
+      "status": "in_flight",
+      "tier": "1 — the HARNESS is Tier-1; flipping the live ranking key would be Tier-3 and is out of scope",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "owns_object": "WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS",
+      "note": "OPERATOR-APPROVED 2026-09-08 via DEC-20260908-TRADE-PRIORITISATION-HARNESS (build_harness), and SEQUENCED FIRST by the operator ahead of the Alpaca scoped write on the grounds that it is a MEASUREMENT build and CY-20260906-TRADING-TRUTH says repair the instrument before acting on what it says. Confidence has been the LIVE primary ranking key on real money since 2026-08-31 (PR #10544) and has never been shown to pick the better trade; scripts/backtest_system.py models ONE shared book so the A/B is not expressible, which is why OI-20260831-TRADE-PRIORITISATION-... sat loud with verified_at and observation both null. ⚠️ A NULL RESULT CLOSES THE QUESTION and is a success, not a failure to re-run until something wins — M18's adjacent allocator already answered NO (edge -$7, ranker OOS AUC ~0.51), which is why random_tiebreak is a declared arm. ⚠️ DO NOT GRADE ON A FOLD MAJORITY ALONE: be_floor_r=1.5 won a fold majority under all three panel members while losing 35R because 30-39% of its folds were inert."
+    },
+    {
+      "id": "MI-206-ALPACA-SCOPED-WRITE",
+      "title": "Build the trade/qty-scoped Alpaca protective attach and scoped modify (Tier-2, approved)",
+      "owner": "unassigned",
+      "status": "ready",
+      "tier": "2 — order-path change; the operator APPROVED it 2026-09-08 and it is RECORDED, not applied",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "owns_object": "WO-20260908-DECISION-ALPACA-SCOPED-WRITE-CAPABILITY",
+      "note": "OPERATOR-APPROVED 2026-09-08 via DEC-20260908-ALPACA-SCOPED-WRITE (build_scoped_write), and SEQUENCED SECOND by the operator behind MI-205. ⚠️ SCOPE OF THE APPROVAL, which must not be widened: a TRADE/QTY-SCOPED protective attach PLUS a scoped modify. It is NOT approval to retry the re-arm through the existing symbol-wide path, whose blast radius is measured — place_protective calls _cancel_open_orders_for_symbol UNCONDITIONALLY and silently drops the oca_key that the IB implementation honours. It RELEASES PR #11337, which has sat at landing: hold since 05:36Z. ⚠️ URGENCY CORRECTED 2026-09-08T22:08Z, AND THE OPERATOR RE-SEQUENCED ON THE CORRECTION: the standing 56 uncovered shares on trade 5414 are on alpaca_portfolio, whose account_class is PAPER (paper_role: portfolio) — read live from /api/bot/config, not the YAML. alpaca_live (real_money) was FLAT at the time of measurement. My earlier framing called it 'a real position', which on a system where real_money is a defined account class invites the wrong reading; the operator approved the Tier-2 partly on that urgency and was told before anything was spawned. WHAT SURVIVES THE CORRECTION: the defect is real and the same code path serves alpaca_live, so the fix is PROSPECTIVE real-money protection rather than an active real-money cleanup."
     }
   ],
   "as_of": "2026-09-08T19:29:00Z",
