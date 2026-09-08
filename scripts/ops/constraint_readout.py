@@ -1424,7 +1424,7 @@ def _self_test() -> int:
           (len(_tbl) == 1 and _tbl[0].count("|") - _tbl[0].count("\\|") == 5), True)
 
     check("a truncated source states how many rows are NOT shown",
-          f"**4 not shown**" in "\n".join(render_due_section(b_cap)), True)
+          "**4 not shown**" in "\n".join(render_due_section(b_cap)), True)
     check("...and `due_count` counts every row, not just the shown ones",
           b_cap["due_count"], DUE_ROWS_PER_SOURCE + 4)
 
