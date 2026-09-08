@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager housekeeping only: the lease heartbeat, the MANAGER-CHECKLIST reconcile for MI-164/165/166/167/169 plus the missing MI-171 row, and a MERGE-QUEUE refresh. All three paths are under docs/claude/work/**. No src/, no tests/, no scripts/, no workflows, no config, no deploy, and nothing outside the generated SESSION-BRIEF block in CLAUDE.md."
+}
