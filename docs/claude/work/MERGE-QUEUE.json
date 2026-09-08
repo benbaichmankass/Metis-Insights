@@ -53,17 +53,17 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T18:58:00Z",
+  "updated_at": "2026-09-08T19:20:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "⚠️ THIS FILE WAS STALE FOR TWELVE HOURS AND THAT IS MY OWN FAILURE, RECORDED RATHER THAN QUIETLY REPAIRED. It read 'queue EMPTY as of 2026-09-08T07:06Z' while I merged roughly nine PRs and ran an eleven-PR HOLD that existed only in my session context and in PR comments. That is MI-102 exactly — a queue run successfully for a day in one session's head, cited as 'the state of record', and found on no branch and in no commit — and a cold successor reading this file would have seen an empty queue and started merging the held PRs. R8 passed throughout, correctly: its one invariant is 'at most one entry rebasing', which an empty list satisfies trivially. A guard that cannot fail on emptiness is not evidence the queue is being kept. STATE 2026-09-08T18:58Z: eleven entries. #11391 is next and everything else is BLOCKED on the hold that protects it. RELEASE THE HOLD the moment #11391 lands, and say so on the PR. WHAT PASSED THROUGH MY QUEUE TODAY AND IS NOT LISTED HERE (the ledger this file should have been carrying): #11403, #11406, #11407, #11412, #11426, #11430, #11433, #11434, #11435 merged BY ME, and #11370, #11384, #11418 self-landed under my hold — twelve, every one verified present in origin/main's PR list rather than recalled. ⚠️ STATE THE POPULATION: main took 94 commits today across roughly 96 distinct PRs, so MOST of today's landings were not mine and this is not a ledger of main. It is a RECONSTRUCTION from my own session record checked against the log, not a contemporaneous record — which is the point.",
+  "note": "⚠️ THIS FILE WAS STALE FOR TWELVE HOURS AND THAT IS MY OWN FAILURE, RECORDED RATHER THAN QUIETLY REPAIRED. It read 'queue EMPTY as of 2026-09-08T07:06Z' while I merged roughly nine PRs and ran an eleven-PR HOLD that existed only in my session context and in PR comments. That is MI-102 exactly — a queue run successfully for a day in one session's head, cited as 'the state of record', and found on no branch and in no commit — and a cold successor reading this file would have seen an empty queue and started merging the held PRs. R8 passed throughout, correctly: its one invariant is 'at most one entry rebasing', which an empty list satisfies trivially. A guard that cannot fail on emptiness is not evidence the queue is being kept. STATE 2026-09-08T18:58Z: eleven entries. #11391 is next and everything else is BLOCKED on the hold that protects it. RELEASE THE HOLD the moment #11391 lands, and say so on the PR. WHAT PASSED THROUGH MY QUEUE TODAY AND IS NOT LISTED HERE (the ledger this file should have been carrying): #11403, #11406, #11407, #11412, #11426, #11430, #11433, #11434, #11435 merged BY ME, and #11370, #11384, #11418 self-landed under my hold — twelve, every one verified present in origin/main's PR list rather than recalled. ⚠️ STATE THE POPULATION: main took 94 commits today across roughly 96 distinct PRs, so MOST of today's landings were not mine and this is not a ledger of main. It is a RECONSTRUCTION from my own session record checked against the log, not a contemporaneous record — which is the point. || CORRECTED 19:20Z, AND THE CORRECTION IS THE POINT. I wrote these nine automation rows as `blocked` on my own queue-hold. THAT WAS WRONG AND IT WAS A FALSE BLOCKER. Reading #11431's CI log rather than assuming: guards PASS 53 / FAIL 1 / SKIP 38, the one failure pr-landing-guard, cause R13 -- the branch arms auto-merge while its own committed session-board names somebody else's branch in merge_slot. Measured across all nine: every one arms, not one holds the slot. A bot writes no claim, so this NEVER self-heals and re-running CI is pointless. THE HOLD WAS RELEASED AT 19:00Z AND NOTHING MOVED, which is how I found out. ⚠️ I ALSO MIS-READ THIS ONCE MORE ON THE WAY: I grepped a local guard run for 'FAIL' and reported api-tier-policy as the failing guard. It was not -- that string is that guard's own PLANTED self-test defect, and its last line says 'self-test OK'. Grepping a log for a word and calling it a verdict is the unprovenanced-diagnostic trap this repo has a guard for, committed by the manager, twice in one pass. || THE CLASS IS ALREADY FILED AND I DID NOT FILE A FOURTH ROW. backlog_search returned BL-20260908-R13-MAKES-EVERY-AUTOMATION-PR-WRITE-THE-MERGE-SLOT-SO-MAIN-CAN-NEVER-BE-QUIET at 0.75 overlap (open), beside BL-20260908-R13-MAKES-EVERY-CONCURRENT-ARMED-BRANCH-... and BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-... -- three rows on this guard already. What is NEW here is only the COUNT and the fact that it does not self-heal, and that belongs in the manager's own instrument rather than in a fourth row; this file is where a successor manager looks. Filing another would be the accumulation the repo already complains about.",
   "entries": [
     {
       "pr": 11391,
       "branch": "claude/mi200-real-money-close-attribution",
       "owner": "session_01CvFCybCkvrfzaHqNH3tQsb",
-      "state": "waiting",
+      "state": "merged",
       "tier": 1,
-      "note": "NEXT TO MERGE. Rebased ~18:36Z; mergeable_state `blocked`, NOT `dirty` — the conflict is gone. guards / pytest-collect / repo-inventory green; pytest-run still running at 22 min (against 17m22s on #11435's comparable job). Verified by scratch-worktree test-merge that it lands CLEAN on top of #11435, so 46e1efb1 cost it no eighth displacement."
+      "note": "MERGED 19:00Z as 9dcfcbca, 9 of 9 green. The hold that protected it is RELEASED."
     },
     {
       "pr": 11388,
@@ -71,70 +71,70 @@
       "owner": "session_012yX7SLyJiqAWG8oVxZSNoq",
       "state": "blocked",
       "tier": 1,
-      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "blocked_on": "Manager hold RELEASED at 19:00Z when #11391 merged (9dcfcbca). Now blocked only on its own stale base (4f8b95bb) and on health-review-backlog.json, which main modifies IN PLACE -- so a rebase is owed and the union check must also assert main's rows are byte-identical at their own positions. Route to its session; do not rebase it as manager.",
       "note": "Tier-1 backlog hygiene, 1 file, +5/-2. Base is very stale (4f8b95bb) and it touches health-review-backlog.json, which main modifies IN PLACE — so expect a rebase, and assert the union AND that main's rows are byte-identical at their own positions (an id-set union is not sufficient on this file)."
     },
     {
       "pr": 11432,
       "state": "blocked",
       "tier": 1,
-      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "blocked_on": "pr-landing-guard R13 -- NOT the manager hold, which is RELEASED. CORRECTED 19:20Z: I first recorded these as blocked on my queue-hold for #11391 and that was a FALSE BLOCKER, which this repo rates worse than a missing one. MEASURED: #11431's CI `guards` job reads PASS 53 / FAIL 1 / SKIP 38 and the single failure is pr-landing-guard; on that branch's OWN committed docs/claude/session-board.json the merge_slot names `claude/mgr-operator-decisions-1805-20260908`, not itself, so R13 refuses the arming. ALL NINE arm auto-merge and NOT ONE holds the slot on its own branch (measured across all nine), and a bot never writes a claim, so this cannot self-heal and a CI re-run changes nothing. They land only when a manager rebases one and claims the slot for it -- which is what #11426 cost me three rebases to do.",
       "note": "automation: reconcile OPEN-PRS.json"
     },
     {
       "pr": 11431,
       "state": "blocked",
       "tier": 1,
-      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "blocked_on": "pr-landing-guard R13 -- NOT the manager hold, which is RELEASED. CORRECTED 19:20Z: I first recorded these as blocked on my queue-hold for #11391 and that was a FALSE BLOCKER, which this repo rates worse than a missing one. MEASURED: #11431's CI `guards` job reads PASS 53 / FAIL 1 / SKIP 38 and the single failure is pr-landing-guard; on that branch's OWN committed docs/claude/session-board.json the merge_slot names `claude/mgr-operator-decisions-1805-20260908`, not itself, so R13 refuses the arming. ALL NINE arm auto-merge and NOT ONE holds the slot on its own branch (measured across all nine), and a bot never writes a claim, so this cannot self-heal and a CI re-run changes nothing. They land only when a manager rebases one and claims the slot for it -- which is what #11426 cost me three rebases to do.",
       "note": "automation: work digest — NOT urgent, main's digest is 17:14:29Z and stale at 23:14Z"
     },
     {
       "pr": 11429,
       "state": "blocked",
       "tier": 1,
-      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "blocked_on": "pr-landing-guard R13 -- NOT the manager hold, which is RELEASED. CORRECTED 19:20Z: I first recorded these as blocked on my queue-hold for #11391 and that was a FALSE BLOCKER, which this repo rates worse than a missing one. MEASURED: #11431's CI `guards` job reads PASS 53 / FAIL 1 / SKIP 38 and the single failure is pr-landing-guard; on that branch's OWN committed docs/claude/session-board.json the merge_slot names `claude/mgr-operator-decisions-1805-20260908`, not itself, so R13 refuses the arming. ALL NINE arm auto-merge and NOT ONE holds the slot on its own branch (measured across all nine), and a bot never writes a claim, so this cannot self-heal and a CI re-run changes nothing. They land only when a manager rebases one and claims the slot for it -- which is what #11426 cost me three rebases to do.",
       "note": "automation: reconcile OPEN-PRS.json"
     },
     {
       "pr": 11428,
       "state": "blocked",
       "tier": 1,
-      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "blocked_on": "pr-landing-guard R13 -- NOT the manager hold, which is RELEASED. CORRECTED 19:20Z: I first recorded these as blocked on my queue-hold for #11391 and that was a FALSE BLOCKER, which this repo rates worse than a missing one. MEASURED: #11431's CI `guards` job reads PASS 53 / FAIL 1 / SKIP 38 and the single failure is pr-landing-guard; on that branch's OWN committed docs/claude/session-board.json the merge_slot names `claude/mgr-operator-decisions-1805-20260908`, not itself, so R13 refuses the arming. ALL NINE arm auto-merge and NOT ONE holds the slot on its own branch (measured across all nine), and a bot never writes a claim, so this cannot self-heal and a CI re-run changes nothing. They land only when a manager rebases one and claims the slot for it -- which is what #11426 cost me three rebases to do.",
       "note": "automation: constraint readout"
     },
     {
       "pr": 11425,
       "state": "blocked",
       "tier": 1,
-      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "blocked_on": "pr-landing-guard R13 -- NOT the manager hold, which is RELEASED. CORRECTED 19:20Z: I first recorded these as blocked on my queue-hold for #11391 and that was a FALSE BLOCKER, which this repo rates worse than a missing one. MEASURED: #11431's CI `guards` job reads PASS 53 / FAIL 1 / SKIP 38 and the single failure is pr-landing-guard; on that branch's OWN committed docs/claude/session-board.json the merge_slot names `claude/mgr-operator-decisions-1805-20260908`, not itself, so R13 refuses the arming. ALL NINE arm auto-merge and NOT ONE holds the slot on its own branch (measured across all nine), and a bot never writes a claim, so this cannot self-heal and a CI re-run changes nothing. They land only when a manager rebases one and claims the slot for it -- which is what #11426 cost me three rebases to do.",
       "note": "automation: PR-queue watcher receipt"
     },
     {
       "pr": 11423,
       "state": "blocked",
       "tier": 1,
-      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "blocked_on": "pr-landing-guard R13 -- NOT the manager hold, which is RELEASED. CORRECTED 19:20Z: I first recorded these as blocked on my queue-hold for #11391 and that was a FALSE BLOCKER, which this repo rates worse than a missing one. MEASURED: #11431's CI `guards` job reads PASS 53 / FAIL 1 / SKIP 38 and the single failure is pr-landing-guard; on that branch's OWN committed docs/claude/session-board.json the merge_slot names `claude/mgr-operator-decisions-1805-20260908`, not itself, so R13 refuses the arming. ALL NINE arm auto-merge and NOT ONE holds the slot on its own branch (measured across all nine), and a bot never writes a claim, so this cannot self-heal and a CI re-run changes nothing. They land only when a manager rebases one and claims the slot for it -- which is what #11426 cost me three rebases to do.",
       "note": "automation: trainer capture-watch receipt"
     },
     {
       "pr": 11422,
       "state": "blocked",
       "tier": 1,
-      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "blocked_on": "pr-landing-guard R13 -- NOT the manager hold, which is RELEASED. CORRECTED 19:20Z: I first recorded these as blocked on my queue-hold for #11391 and that was a FALSE BLOCKER, which this repo rates worse than a missing one. MEASURED: #11431's CI `guards` job reads PASS 53 / FAIL 1 / SKIP 38 and the single failure is pr-landing-guard; on that branch's OWN committed docs/claude/session-board.json the merge_slot names `claude/mgr-operator-decisions-1805-20260908`, not itself, so R13 refuses the arming. ALL NINE arm auto-merge and NOT ONE holds the slot on its own branch (measured across all nine), and a bot never writes a claim, so this cannot self-heal and a CI re-run changes nothing. They land only when a manager rebases one and claims the slot for it -- which is what #11426 cost me three rebases to do.",
       "note": "automation: session-reaper observations"
     },
     {
       "pr": 11420,
       "state": "blocked",
       "tier": 1,
-      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "blocked_on": "pr-landing-guard R13 -- NOT the manager hold, which is RELEASED. CORRECTED 19:20Z: I first recorded these as blocked on my queue-hold for #11391 and that was a FALSE BLOCKER, which this repo rates worse than a missing one. MEASURED: #11431's CI `guards` job reads PASS 53 / FAIL 1 / SKIP 38 and the single failure is pr-landing-guard; on that branch's OWN committed docs/claude/session-board.json the merge_slot names `claude/mgr-operator-decisions-1805-20260908`, not itself, so R13 refuses the arming. ALL NINE arm auto-merge and NOT ONE holds the slot on its own branch (measured across all nine), and a bot never writes a claim, so this cannot self-heal and a CI re-run changes nothing. They land only when a manager rebases one and claims the slot for it -- which is what #11426 cost me three rebases to do.",
       "note": "automation: reconcile OPEN-PRS.json"
     },
     {
       "pr": 11416,
       "state": "blocked",
       "tier": 1,
-      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "blocked_on": "pr-landing-guard R13 -- NOT the manager hold, which is RELEASED. CORRECTED 19:20Z: I first recorded these as blocked on my queue-hold for #11391 and that was a FALSE BLOCKER, which this repo rates worse than a missing one. MEASURED: #11431's CI `guards` job reads PASS 53 / FAIL 1 / SKIP 38 and the single failure is pr-landing-guard; on that branch's OWN committed docs/claude/session-board.json the merge_slot names `claude/mgr-operator-decisions-1805-20260908`, not itself, so R13 refuses the arming. ALL NINE arm auto-merge and NOT ONE holds the slot on its own branch (measured across all nine), and a bot never writes a claim, so this cannot self-heal and a CI re-run changes nothing. They land only when a manager rebases one and claims the slot for it -- which is what #11426 cost me three rebases to do.",
       "note": "automation: reconcile OPEN-PRS.json"
     }
   ]
