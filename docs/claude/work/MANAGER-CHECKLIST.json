@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T01:45:00Z",
+  "updated_at": "2026-09-08T02:30:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2189,6 +2189,43 @@
       "tier": "1 to fix; the RULING is the operator's",
       "title": "pr-landing R6 and the merge-slot guard cannot both be satisfied, and the path that works routes around one of them",
       "note": "SELF-DISCLOSED by session_018ruZdgEkPZ1XceWzLwuYUU in #11309's body -- it benefited from the gap, did not intend to, and said so rather than letting it pass. That disclosure is the reason this row exists, and it must not stay buried in a merged PR body. THE THREE-WAY BIND, as it stands right now: (1) pr-landing-guard R6 REQUIRES a Tier-1 `landing: self` PR to arm .github/pr-automerge-requests/<slug>.txt -- 'a readiness declaration lands nothing on its own'; (2) the merge-slot guard FORBIDS arming auto-merge without a MERGE SLOT CLAIM comment on GitHub issue #6927; (3) #6927 is at GitHub's 2500-comment ceiling and refuses every write by every path. So the two guards are MUTUALLY UNSATISFIABLE, and the only route that completes is the one that does not pass the merge-slot check: pushing the R6 arm file makes claude-pr-automerge.yml open the PR and enable auto-merge SERVER-SIDE, through a door the session-level hook does not watch. The same session was refused by hand on #11306 thirty minutes earlier for exactly this. MANAGER POSITION, stated so it is arguable rather than assumed: I did not reverse #11309 and would not have. Its reasoning holds -- R6 is repo-level canon enforced in CI, the marker guard describes ITSELF as a session-level speed-bump, and the gated merge was a 21-line register deletion with no PR mid-merge. But 'the bypass was harmless this time' is not a policy, and a guard that is cheaper to route around than to satisfy is the failure shape CLAUDE.md already names for new-table-wiring-guard. WHAT IS OWED IS A RULING, NOT A PATCH: either the merge-slot guard is re-pointed at whatever succeeds #6927 (which couples this to MI-172, itself PARKED by the spawn gate), or it is explicitly suspended while the board is down, or R6 gains a path that satisfies both. Choosing one of those is the operator's; filing it is mine. DO NOT let a session pick silently -- the next one to hit this will have no disclosure to read."
+    },
+    {
+      "id": "MI-173-ALPACA-SIBLING-MECHANISM",
+      "status": "in_flight",
+      "owner": "session_01HyZBZ7DNcu5VQaTmmJK5dL",
+      "opened": "2026-09-08T01:38:00Z",
+      "updated": "2026-09-08T02:16:00Z",
+      "blocked_on": {
+        "kind": "decision",
+        "ref": "operator: #11312 is landing:hold by its AUTHOR'S choice — it asks three questions and its author did not want it read as approved by being merged",
+        "since": "2026-09-08T02:16:00Z"
+      },
+      "tier": "1 as measurement; the PROPOSAL is Tier-3",
+      "title": "The Alpaca sibling-liquidation MECHANISM (#11312) — measurement + Tier-3 proposal",
+      "note": "MECHANISM ESTABLISHED FROM CODE, and it is NOT the Bybit shape. AlpacaClient.close(self, symbol) has NO qty parameter at all; execute.close_open_position validates qty and then never passes it. So Bybit's defect is a RECONCILIATION failure (the venue did the right thing, the journal failed to follow) and Alpaca's is an OPERATION failure (the journal is right, we send the wrong instruction) — a Bybit-shaped attribution reconciler would not touch it. Blast radius is session-dependent: `closed` defers and cancels NOTHING (0 shares); `extended` and `regular` cancel EVERY resting order on the symbol and then flatten the WHOLE symbol. THREE THINGS THE BACKLOG ROW DID NOT NAME: the pre-cancel is a second destructive step (closing A strips B's protection BEFORE the flatten is attempted); modify_protective(symbol, sl, tp) has the IDENTICAL scope defect on a different verb and is filed nowhere; and the success log prints a per-trade qty on a whole-symbol flatten. ⚠️ AND THE RECORD WAS WRONG: the backlog row claims a test pins this, and that test DOES NOT EXIST ON MAIN — it is on the unmerged #11279 branch, so on main the over-close is UNPINNED."
+    },
+    {
+      "id": "MI-174-DIGEST-GENERATOR-HEADER",
+      "status": "in_flight",
+      "owner": "session_01V62BVG7Q9BHZeyTvkBWNPy",
+      "opened": "2026-09-08T01:38:00Z",
+      "updated": "2026-09-08T02:16:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "The error-feed digest is silently frozen: fix the generator, not the guard",
+      "note": "PR #11311 open, auto-merge armed, waiting on checks. Carries the manager addendum's two extra questions (sibling generator render_due_list.py, and the LANDED denominator since R3 — if that is zero, the operator's committed error feed has been frozen the whole time while the workflow reported success)."
+    },
+    {
+      "id": "MI-176-ALPACA-COVERAGE-QUANTITY",
+      "status": "in_flight",
+      "owner": "session_018iDJZVj11ugKyUwsHF7X3q",
+      "opened": "2026-09-08T02:16:00Z",
+      "updated": "2026-09-08T02:16:00Z",
+      "blocked_on": null,
+      "tier": "1 to measure; the DETECTION ship is Tier-2",
+      "title": "Is REAL-MONEY alpaca_live carrying the same unmeasurable protective-coverage gap MI-173 found on paper?",
+      "note": "DIRECTLY DOWNSTREAM OF MI-173's STRONGEST FINDING. Measured on alpaca_portfolio/TLT at 2026-09-08T01:42:07Z with read_state 'orders_read' — a CONFIRMED CLEAN READ, so the absence is measured and not a failed look: of a 72-share short, only 16 shares carry any protective leg and FIFTY-SIX REST NAKED. It is invisible BY CONSTRUCTION — the Alpaca sweep grades SIDES, not quantity, and the code says so in a comment ('stop_qty=None,  # Alpaca grades sides, not qty'). Bybit grades covered_qty, IB grades stop_qty/target_qty; ALPACA GOT THE TWO-SIDED HALF OF BL-20260816-COVERAGE-IS-ONE-SIDED AND NEVER GOT THE QUANTITY HALF. ⚠️ MI-173 explicitly did NOT read alpaca_live, which is mode: live / real_money and shares this exact client code — so whether real money carries the same exposure is UNKNOWN AND NOBODY HAS LOOKED. That is this session's question. Scoped MEASUREMENT FIRST then DETECTION ONLY: no close, no cancel, no re-arm, and explicitly NO re-arm wired off the new grade (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG)."
     }
   ],
   "as_of": "2026-09-06T16:05Z",

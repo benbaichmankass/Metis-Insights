@@ -62,3 +62,104 @@ manager_addendum:
         was ever told about. ⚠️ DO NOT INFER THIS FROM THE STRANDED
         automation/error-feed-digest-* BRANCHES -- those are the failures, and
         this question needs the DENOMINATOR.
+
+mi174_answers:
+  answered_at: "2026-09-08T02:20:00Z"
+  answered_by: "MI-174 session_01V62BVG7Q9BHZeyTvkBWNPy"
+  pr: "https://github.com/benbaichmankass/Metis-Insights/pull/11311"
+
+  diagnosis_verified: >-
+    CONFIRMED against the real artifact before fixing, not taken on trust.
+    scripts/ci/check_document_index.py on main's stamped copy prints
+    "population=1007 registered=1007 headers_read=1007 generated_waived=4 /
+    document-index: OK". Handed the ACTUAL digest content off
+    automation/error-feed-digest-34170995331-1 it prints "FAIL - 1 finding(s)"
+    with exactly "R3 UNSTAMPED: docs/claude/ERROR-FEED-DIGEST.md". That branch's
+    digest contains ZERO "Doc status:" lines; main's contains one.
+
+  sibling_generator:
+    answer: >-
+      NO -- render_due_list.py -> docs/claude/DUE.md does NOT have the defect,
+      and saying so plainly bounds the class to one file as the question asked.
+      But the reason matters and is not "that generator is better written":
+      render_due_list.py emits NO stamp either, exactly like the digest
+      generator did. DUE.md is simply on document_index.GENERATED's waiver list,
+      so R3 is WAIVED for it and it can never red a PR.
+    the_real_invariant: >-
+      A generated .md must be EITHER waived OR stamped. Measured across the
+      whole register: 4 of 1007 registered documents are waived
+      (docs/claude/READOUT.md, docs/claude/DUE.md,
+      docs/strategy-coverage-matrix.md, docs/training-population-matrix.md) and
+      all four are unstamped by design; every other registered document is
+      stamped. ERROR-FEED-DIGEST.md was the single document that was NEITHER,
+      which is why it alone reds. So the class is not "generators do not emit
+      headers" and not merely "one generator has a bug" -- it is "nothing
+      enforces that a newly generated document gets one of the two". The author
+      must choose, and choosing neither is silent until a PR goes red.
+    caveat: >-
+      NOT ESTABLISHED: whether any FUTURE generated document will hit this. The
+      four waivers are verified at build time (verify_generated), but nothing
+      warns an author who adds a wholesale-rewritten .md and takes neither
+      option. That is a candidate detector, deliberately NOT built here.
+
+  landed_denominator:
+    r3_effective: >-
+      2026-09-07T13:55:02+00:00, commit a6229afe9 (PR #11247) -- the commit that
+      ADDED scripts/ci/check_document_index.py AND registered it in
+      scripts/ci/run_guards.py. Established by git history: the file is ABSENT
+      at a6229afe9^ (git cat-file -e fails), so that commit is the add, not a
+      later edit.
+    population: >-
+      Every commit on origin/main touching docs/claude/ERROR-FEED-DIGEST.md,
+      read from a git history deepened to 4384 commits. A digest LANDING is a
+      commit whose subject is "chore(ops): refresh the error-feed digest +
+      due-list" -- the exact `message:` the workflow's commit-to-main step uses.
+    answer_after_r3: 0
+    detail: >-
+      ZERO digest refreshes have landed since R3 took effect. Exactly one commit
+      touches the digest after that timestamp and it is a6229afe9 ITSELF, the R3
+      commit, which touched the file only to STAMP it -- that is where main's
+      header came from. It is not a refresh.
+    positive_control: >-
+      32 genuine "refresh the error-feed digest + due-list" commits landed
+      BEFORE R3, from #10880 (2026-09-03T01:51:11+03:00) through #11236
+      (2026-09-07T13:43:42+03:00), at a roughly 2-5 hourly cadence. So the zero
+      is NOT "the workflow never worked" -- it worked 32 times and stopped dead
+      at R3. The 33rd pre-R3 commit, d8ece7252, is the workflow's own creation
+      (#10776) and is deliberately not counted as a refresh.
+    the_finding: >-
+      THE OPERATOR'S COMMITTED ERROR FEED HAS BEEN FROZEN FOR THE ENTIRE PERIOD
+      R3 HAS BEEN IN EFFECT. Last landing 2026-09-07T10:43:42Z; R3 effective
+      2026-09-07T13:55:02Z; nothing since, ~15h as of this writing. Every
+      scheduled run in that window reported SUCCESS, because the workflow grades
+      the FETCH and not the PR. This is an observability OUTAGE that nobody was
+      ever told about, and it is bigger than the formatting bug that caused it.
+
+  stranded_branches:
+    disposition: "CLOSE all three. Do NOT land them."
+    branches:
+      - automation/error-feed-digest-34144211328-1
+      - automation/error-feed-digest-34160653535-1
+      - automation/error-feed-digest-34170995331-1
+    why: >-
+      All three carry the IDENTICAL covers_since 2026-09-07T10:41:39.779890+00:00
+      -- main's watermark -- because the watermark advances only when a digest
+      LANDS. They are not three distinct windows; they are three successive
+      snapshots of ONE un-advanced window (generated 16:38, 20:46, 23:43), each
+      strictly superseding the last. Landing them would need each digest
+      hand-stamped, i.e. hand-repairing an artifact whose generator is now
+      fixed; and landing more than one REPLAYS the same window, while landing an
+      older one after a newer one would move the watermark BACKWARDS (16:32 <
+      23:25) and re-report rows already dispositioned.
+    nothing_is_lost: >-
+      VERIFIED, not assumed: a local --write at 2026-09-08T01:46:14Z read the
+      same window from the live feeds and returned verdict all_feeds_read, 122
+      groups, 1474 rows. The window those branches cover is still served by the
+      feeds today, so closing them discards no unrecoverable observation.
+    but: >-
+      All three AND the fresh local regeneration report truncated_feeds
+      ['bot_logs']. The window has outgrown the page cap, so the freeze is
+      SELF-WORSENING -- filed as
+      BL-20260908-THE-FROZEN-DIGEST-IS-SELF-WORSENING-ITS-UNADVANCED-WATERMARK-WIDENS-THE-WINDOW-PAST-THE-PAGE-CAP.
+      That row does NOT clear when the generator is fixed; it clears when a
+      digest lands AND the next run reports truncated_feeds [].

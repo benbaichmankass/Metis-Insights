@@ -271,3 +271,92 @@ def test_the_check_gate_refuses_a_partial_digest_that_names_no_feed(tmp_path):
 
 def test_the_module_self_test_passes():
     assert efd._self_test() == 0
+
+
+# ── the doc-status header (R3) ─────────────────────────────────────────────
+#
+# The digest is a REGISTERED document that is deliberately NOT on
+# `document_index.GENERATED`'s waiver list, so `check_document_index.py` R3
+# requires a `> **Doc status:** …` header on it. This generator rewrites the
+# file wholesale and used to emit none, so `main`'s hand-stamped copy passed
+# while every regenerated copy failed R3 — and the workflow reported SUCCESS
+# regardless, because it grades the FETCH and not the PR. The digest looked
+# like it was being produced and was not landing.
+#
+# These tests are graded BY MUTATION. Asserting the stamp is merely present
+# would pass just as happily if R3 stopped caring, which is the
+# guard-nobody-has-seen-fail problem; so the mutant must be shown to FAIL.
+
+def _load(name: str, rel: str):
+    spec = importlib.util.spec_from_file_location(name, _ROOT / rel)
+    mod = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _r3_findings(md: str) -> list:
+    """Run the REAL guard's rule engine over rendered digest markdown.
+
+    Imported, never re-implemented: a local copy of "what R3 wants" could pass
+    while the guard CI actually runs fails, which is the whole defect one level
+    up.
+    """
+    di = _load("_di_t", "scripts/ops/document_index.py")
+    cdi = _load("_cdi_t", "scripts/ci/check_document_index.py")
+    rel = efd.OUT_MD.as_posix()
+    row = di.assess(rel, di._canonical_active_docs(), di._mi159_states(),
+                    datetime.now(timezone.utc).date().isoformat())
+    m = di.STAMP_RE.search(md)
+    return [f for f in cdi.evaluate(
+        {rel}, [row], {rel: m.group("status") if m else None},
+        set(), {row["category"]}, {row["status"]}) if f.startswith("R3")]
+
+
+def _rendered() -> str:
+    env = efd.build([efd.FeedRead("bot_logs", "read", [],
+                                  population=efd._population([], 10))],
+                    now=_NOW, since=None, since_note="")
+    return efd.render_markdown(env, efd.doc_stamp(_ROOT))
+
+
+def test_the_generator_emits_the_header_r3_requires():
+    assert _r3_findings(_rendered()) == []
+
+
+def test_removing_the_header_makes_this_test_fail():
+    """THE MUTATION. Strip the stamp and R3 must fire — asserted, not assumed."""
+    di = _load("_di_t", "scripts/ops/document_index.py")
+    lines = _rendered().splitlines()
+    kept = [ln for ln in lines if not ln.startswith(f"> {di.STAMP_SENTINEL}")]
+    # Compare LINE COUNTS, not the joined strings: `"\n".join(splitlines())`
+    # drops a trailing newline, so a string comparison here reads "changed" even
+    # when the mutation removed nothing — a control that passes vacuously.
+    assert len(kept) == len(lines) - 1, (
+        "the mutation removed no stamp line — the control is inert")
+    mutant = "\n".join(kept)
+    assert any("R3 UNSTAMPED" in f for f in _r3_findings(mutant)), (
+        "MUTATION SURVIVED: stripping the doc-status header did not fail R3.")
+
+
+def test_the_status_is_derived_from_the_index_not_hardcoded():
+    """A hardcoded status passes today and drifts the moment the row is assessed."""
+    di = _load("_di_t", "scripts/ops/document_index.py")
+    rel = efd.OUT_MD.as_posix()
+    today = datetime.now(timezone.utc).date().isoformat()
+    assert di.STAMP_RE.search(_rendered()).group(0).startswith(
+        di.stamp_for(rel, today)[:len(f"> {di.STAMP_SENTINEL}")])
+    # The header token and the index row are ONE computation, so they cannot
+    # disagree — which is exactly what R3 compares.
+    row = di.assess(rel, di._canonical_active_docs(), di._mi159_states(), today)
+    assert di.STAMP_RE.search(_rendered()).group("status") == row["status"]
+
+
+def test_the_stamp_sits_where_a_later_document_index_write_would_put_it():
+    """Otherwise `--write` appends a SECOND header instead of being a no-op."""
+    di = _load("_di_t", "scripts/ops/document_index.py")
+    lines = _rendered().splitlines()
+    assert lines[0].startswith("# ")
+    assert di._insert_at(lines) == 1
+    assert lines[2].startswith(f"> {di.STAMP_SENTINEL}"), lines[:4]
+    assert sum(ln.startswith(f"> {di.STAMP_SENTINEL}") for ln in lines) == 1
