@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/work/ + docs/claude/session-board.json only — records the operator's 2026-09-08 'ok on gld' decision and, more importantly, its SCOPE LIMIT (#11389 only, NOT #11390), plus the lease heartbeat, the merge-slot claim R13 requires, and a live sub-session observation. No src/, no config/, no deploy/, no workflows, no order path. Recording an operator decision into docs/claude/work/** is explicitly a management act."
+}
