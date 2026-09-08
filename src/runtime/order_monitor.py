@@ -931,6 +931,41 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             matched_trade.get("account_id"), matched_trade.get("symbol"),
         )
 
+        # DO NOT RE-ATTEMPT A CLOSE WE HAVE ALREADY PROVED CANNOT WORK.
+        # `classify_share_hold`'s own constant says of `broker_cancel_wedged`:
+        # "NO app-level retry can clear it" — and this loop re-attempted the
+        # alpaca_paper GLD close every ~35s for twelve days anyway, cancelling
+        # the position's own resting protective bracket on each pass. Operator,
+        # 2026-09-08: "this has been going on for weeks, and it needs to be
+        # fixed already".
+        #
+        # ⚠️ A CADENCE, NOT A STOP — see `close_wedge_standing`'s section header.
+        # Every probe re-runs the full classification, refreshes the ledger's
+        # `last_seen` (which `sweep_vanished` reads, so suppressing forever would
+        # MANUFACTURE a `vanished_unattributed`), and re-arms per-tick retry the
+        # instant the evidence changes. It keys on the EVIDENCED determination
+        # only, never on the failure repeating, and every uncertainty — an
+        # unreadable ledger, an unparseable timestamp, a raise — ATTEMPTS.
+        _retry = _close_retry_decision_for(matched_trade)
+        if not _retry.attempt:
+            logger.info(
+                "order_monitor: close SUPPRESSED (evidenced broker wedge) "
+                "pkg=%s account=%s symbol=%s — %s. The wedge is still carried "
+                "in close_wedge_standing.json and in the digest; the DB row "
+                "stays OPEN and the protective bracket stays RESTING.",
+                pkg_id, matched_trade.get("account_id"),
+                matched_trade.get("symbol"), _retry.reason,
+            )
+            summary.no_change_count += 1
+            return
+        if _retry.state == "reprobe_due":
+            logger.info(
+                "order_monitor: close RE-PROBE of a standing wedge pkg=%s "
+                "account=%s symbol=%s — %s", pkg_id,
+                matched_trade.get("account_id"), matched_trade.get("symbol"),
+                _retry.reason,
+            )
+
         # Exchange-first: attempt the live close BEFORE any DB write.
         ex_result = _send_close_to_exchange(matched_trade)
         logger.info(
@@ -2444,6 +2479,31 @@ def _clear_close_fail_alert_state(key: tuple) -> None:
     _CLOSE_FAIL_STREAK.pop(key, None)
     _CLOSE_FAIL_ALERT_AT.pop(key, None)
     _CLOSE_FAIL_ALERT_COUNT.pop(key, None)
+
+
+def _close_retry_decision_for(matched_trade: dict):
+    """Should this close be attempted at all? Never raises; defaults to YES.
+
+    Thin adapter so `order_monitor` does not reach into the ledger's shape: the
+    decision, its five never-collapsed states and its narrowness all live in
+    `close_wedge_standing`, next to the record they read.
+    """
+    try:
+        from src.runtime.close_wedge_standing import close_retry_decision
+        return close_retry_decision(
+            matched_trade.get("account_id"),
+            matched_trade.get("symbol"),
+            matched_trade.get("direction"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        from collections import namedtuple
+        _D = namedtuple("RetryDecision", "attempt state reason last_seen")
+        logger.warning(
+            "order_monitor: close-retry decision unavailable (%s) — attempting "
+            "the close, which is the safe direction", exc,
+        )
+        return _D(True, "ledger_unreadable",
+                  f"adapter raised {type(exc).__name__}", None)
 
 
 def _should_alert_close_failure(key: tuple, streak: int, now: float | None = None) -> bool:
