@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T09:42:57Z",
+  "updated_at": "2026-09-08T10:55:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3101,29 +3101,38 @@
       "spawned_at": "2026-09-08T08:16:10Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Blocks every lane: board-coherence fails on clean origin/main so no PR can go green, and the manager cannot self-land a register PR.",
-      "confirmed_at": "2026-09-08T08:19:02Z"
+      "confirmed_at": "2026-09-08T08:19:02Z",
+      "state_observed_at": "2026-09-08T10:25:36Z",
+      "state_basis": "list_sessions(mine=true) read directly, not post_turn_summary",
+      "state_note": "RUNNING at 10:25Z. #11364 required checks not firing + merge_slot conflict resolving. Alive."
     },
     {
       "session_id": "session_01AWw28Sfk7hNZASfMrssFLq",
       "registry_key": "pending-20260908T081610Z-2",
-      "state": "working",
+      "state": "failed",
       "title": "MI-192 — LANE 1 (ops): /system-review, 38 days overdue",
       "owns_object": "WO-20260908-SYSTEM-REVIEW-38-DAYS-SINCE-THE-LAST",
       "spawned_at": "2026-09-08T08:16:10Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed three-lane structure, 2026-09-08. Absorbs the journal-vs-venue pipeline-health half per the operator's re-allocation.",
-      "confirmed_at": "2026-09-08T08:19:02Z"
+      "confirmed_at": "2026-09-08T08:19:02Z",
+      "state_observed_at": "2026-09-08T10:25:36Z",
+      "state_basis": "list_sessions(mine=true) read directly, not post_turn_summary",
+      "state_note": "FAILED 08:46Z: \"The model tool call could not be parsed (retry also failed)\". LANE 1 (the 38-day-overdue system review) IS DEAD and produced no PR. Respawn required - this is not a slow session, it is a stopped one."
     },
     {
       "session_id": "session_012cVryifpv359yAWWVkrmnk",
       "registry_key": "pending-20260908T081610Z-3",
-      "state": "working",
+      "state": "idle",
       "title": "MI-193 — LANE 2 (research): measure how active management actually behaves",
       "owns_object": "WO-20260908-MEASURE-HOW-ACTIVE-MANAGEMENT-ACTUALLY-BEHAVES-FROM",
       "spawned_at": "2026-09-08T08:16:10Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed three-lane structure, 2026-09-08. Four unstudied failure classes measured in one day.",
-      "confirmed_at": "2026-09-08T08:19:02Z"
+      "confirmed_at": "2026-09-08T08:19:02Z",
+      "state_observed_at": "2026-09-08T10:25:36Z",
+      "state_basis": "list_sessions(mine=true) read directly, not post_turn_summary",
+      "state_note": "IDLE/disconnected since 08:49Z (1h36m). Awaiting CI on #11359, which ran while main was red. Needs a poke to re-arm."
     },
     {
       "session_id": "session_01W7CyS8ShLnZiNyUms3YYEp",
@@ -3134,7 +3143,10 @@
       "spawned_at": "2026-09-08T08:16:10Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed: resume the workflow setup paused for research. Phase F is the only unblocked phase and the only one touching the measured constraint.",
-      "confirmed_at": "2026-09-08T08:19:02Z"
+      "confirmed_at": "2026-09-08T08:19:02Z",
+      "state_observed_at": "2026-09-08T10:25:36Z",
+      "state_basis": "list_sessions(mine=true) read directly, not post_turn_summary",
+      "state_note": "WOKE FROM THE 09:51Z POKE - updated_at moved 09:14->10:15Z. #11360 MERGED to main (main head). #11358 CI running, auto-merge armed. 692k/1M ctx - near the handoff threshold."
     },
     {
       "session_id": "session_01Lozuti2jAX4kQ9RC4yTSPo",
@@ -3147,6 +3159,38 @@
         "claude/mi195-tp-decisions-and-examine"
       ],
       "note": "Operator answered DEC-20260907-TP-VALUE=apply, TP-VOCAB=accept_with_reader, TP-UNEXAMINED=rejected all options ('why don't we just examine them?'). Blocker is a missing candle substrate for QLD/TQQQ, not a property of the legs.",
+      "state": "working",
+      "state_observed_at": "2026-09-08T10:25:36Z",
+      "state_basis": "list_sessions(mine=true) read directly, not post_turn_summary",
+      "state_note": "IDLE/connected, review_ready, PR #11370 open (repo-inventory green, guards+pytest running), 504k ctx. Alive."
+    },
+    {
+      "session_id": "session_01U2ibSa4FNcuV6bSLaPb9GS",
+      "title": "MI-196: consolidate DUE.md's four source classes into the constraint readout",
+      "owns_object": "WO-20260901-PHASE-D",
+      "checklist_item": "MI-196",
+      "spawned_at": "2026-09-08T09:52:04Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/mi196-due-readout-consolidation"
+      ],
+      "note": "Operator decision 2026-09-08: carry the four missing source classes into the readout, THEN retire DUE.md - two changes, never one. Does NOT fix the readout 7.2% edge coverage and must not be reported as doing so.",
+      "state": "working",
+      "state_observed_at": "2026-09-08T10:25:36Z",
+      "state_basis": "list_sessions(mine=true) read directly, not post_turn_summary",
+      "state_note": "IDLE/connected, review_ready, branch claude/mi196-due-readout-consolidation, 356k ctx. Alive and driving."
+    },
+    {
+      "session_id": "session_012yX7SLyJiqAWG8oVxZSNoq",
+      "title": "MI-192b: /system-review, 38 days overdue (MI-192 died on an unparseable tool call)",
+      "owns_object": "WO-20260908-SYSTEM-REVIEW-38-DAYS-SINCE-THE-LAST",
+      "checklist_item": "MI-192b",
+      "spawned_at": "2026-09-08T10:26:46Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/mi192b-system-review"
+      ],
+      "note": "RESPAWN of MI-192 (session_01AWw28Sfk7hNZASfMrssFLq), which FAILED 08:46Z on an unparseable tool call after 29 minutes and produced no PR. Lane 1 was dead for 1h40m before this tick observed it.",
       "state": "working"
     }
   ],

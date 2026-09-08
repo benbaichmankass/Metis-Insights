@@ -27,6 +27,7 @@ covers:
   - WO-20260908-MAIN-IS-RED-R13-S-OWN-FILE
   - WO-20260908-MEASURE-HOW-ACTIVE-MANAGEMENT-ACTUALLY-BEHAVES-FROM
   - WO-20260901-PHASE-F
+  - WO-20260901-PHASE-D
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -279,3 +280,28 @@ operating_layer_exception_after_the_priority_flipped:
 #
 # ⚠️ NOT A STANDING GRANT. It expires with these three objects. The cycle
 # priority is unchanged and is still CY-20260906-TRADING-TRUTH.
+
+phase_d_addendum_2026_09_08:
+  approved_by: operator (ben.baichmankass) — asked directly and answered directly, 2026-09-08
+  approved_at: '2026-09-08'
+  covers_added: [WO-20260901-PHASE-D]
+  reason: >-
+    THE OPERATOR ASKED FOR THIS ONE DIRECTLY, which is the basis the gate's own
+    refusal message names as sufficient ("If the operator asked for it directly,
+    say so there"). It was put to them as an explicit choice between three
+    dispositions and answered: "Carry the four missing classes into the readout,
+    then retire DUE.md." Recorded in WO-20260901-PHASE-D::operator_decision_2026_09_08.
+  why_it_is_not_a_lane_wide_reopening: >-
+    Phases A-D are `waiting` on external OBSERVATIONS, and the standing exception
+    deliberately excluded them for that reason - which was correct, because more
+    BUILDING does not discharge an observation. Phase D is admitted here on a
+    NARROWER ground: the operator's decision converts one specific piece of it
+    from "wait for an observation" into "do a defined port", so it is startable
+    in a way A, B, C and H are not. Phase A also received a decision the same day
+    and is deliberately NOT added: it routes to MI-194, which is already
+    registered and already holds that context, so it needs no new spawn.
+  cost_stated_rather_than_hidden: >-
+    This does displace CY-20260906-TRADING-TRUTH for one session's worth of work,
+    and it is not trading work. It is admitted because the operator chose it
+    knowing that, not because the gate was inconvenient. The exception is still
+    NOT a standing grant and still expires with the objects it names.
