@@ -88,6 +88,39 @@ verdict: >-
   was written to avoid. Basis MEASURED for the coverage figures; the floor itself is
   CHOSEN with a stated argument and no distribution behind it.
 
+remeasured_2026_09_08: >-
+  MI-194 (session_01W7CyS8ShLnZiNyUms3YYEp). COVERAGE HAS MOVED AND THE VERDICT HAS NOT.
+  MEASURED by running scripts/ops/constraint_readout.py itself — the canonical owner of
+  the definition — rather than by re-deriving "assessed" locally:
+  **49 of 679 objects = 7.2%**, against the declared 50.0% floor. Verdict stays
+  `insufficient_basis`; NO STAGE IS NAMED, which is still the correct output.
+  Edge basis, never collapsed: `blocked` 18 · `declared_none` 31 · `unstated` 630 ·
+  `malformed` 0.
+  ⚠️ THE TREND IS REAL BUT SMALL, AND BOTH TERMS MOVED: 6/584 (1.0%) on 2026-09-01 →
+  9/587 (1.5%) on 2026-09-02 → 49/679 (7.2%) today. The store grew by 95 objects over
+  the same period, so this is not a fixed denominator — coverage rose because sessions
+  wrote 40 more real edges, faster than migration added unassessed rows. At this rate
+  the 50% floor is far away: it needs ~290 assessed rows against today's 49.
+  ⚠️ A METHOD WARNING FOR THE NEXT SESSION TO MEASURE THIS, because I got it wrong
+  first: a naive `blocked_on_basis.upper() == "ASSESSED"` exact match reports **10 of
+  679 = 1.47%**, because almost every real basis STARTS with "ASSESSED …" and then
+  explains itself. That number is wrong by a factor of five and looks plausible. Use
+  constraint_readout.py, which owns the definition; a second copy of "what counts as
+  assessed" is exactly how the two would drift.
+  ⚠️ NO EDGES WERE INVENTED TO IMPROVE THIS FIGURE. One edge pair was DISCHARGED on
+  WO-20260901-PHASE-B (both satisfied, see that object), which moves a row from
+  `blocked` to `declared_none` and does not raise coverage. Writing edges on the 630
+  unstated rows is the actual work this phase's first edge names, and it belongs to
+  the sessions that own those rows.
+  ⚠️ THE SECOND EDGE IS AN OPERATOR DECISION AND IS SURFACED, NOT DECIDED — per the
+  manager's explicit instruction. The question: does the readout SUPERSEDE
+  docs/claude/DUE.* in full, or do both stay? The measured obstacle is unchanged and
+  is the reason the due-list was not deleted as the build plan said it would be:
+  render_due_list.py draws on PROBES.json, monitoring cadences, the recurrence ledger,
+  red scheduled crons and unlanded automation PRs — FOUR source classes with no
+  counterpart in the readout — so deleting it today would drop live signals. Exactly
+  one class overlaps (operator-owed items). So the decision is really "carry those four
+  across first, or keep both deliberately", and it is the operator's.
 operator_decision_2026_09_08:
   recorded_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj
   recorded_at: '2026-09-08T09:55:00Z'

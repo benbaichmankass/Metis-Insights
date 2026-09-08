@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tooling and tests only: a new CI guard (scripts/ci/check_strategy_decision_record.py), one registry entry in scripts/ci/run_guards.py, and tests/. NO src/, NO config/ (config/strategy_changelog.json and config/strategies.yaml are READ, never written), NO deploy/, NO .github/workflows/. No runtime, no order path, no strategy params, no risk caps, no live-VM file. The guard grades 0 of 55 and passes today, so landing it changes no CI outcome for any existing PR. Tier-1 by the canonical doc's own examples (CI scripts, test additions)."
+}

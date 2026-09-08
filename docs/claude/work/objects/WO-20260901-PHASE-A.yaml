@@ -65,6 +65,108 @@ carried_out_of_scope:
       that can never fire. Health Check Routine also holds an unused stored OAuth token from
       2026-05-10, retired with it.
 
+attempted_2026_09_08: >-
+  MI-194 (session_01W7CyS8ShLnZiNyUms3YYEp) ATTEMPTED THIS OBSERVATION AND COULD NOT
+  MAKE IT. Recorded because "not yet observed" is a real result, and leaving the
+  attempt unrecorded would let the next session believe nobody has tried.
+  ⚠️ MI-194 IS DISQUALIFIED AS THE OBSERVER, by this edge's own terms — it says
+  "neither is this session reporting on its own work", and MI-194 owns Phase F and was
+  told about the brief and the cycle priority directly in its dispatch. Self-certifying
+  here would be worthless.
+  ⚠️ AND THE OBSERVATION WAS NOT MANUFACTURED. Pointing another live session at
+  CLAUDE.md and asking it to cite the brief produces a session that was POINTED, which
+  is precisely what this edge excludes. The manager's 2026-09-08 instruction said so in
+  terms, and it is right. So the attempt was RETROSPECTIVE: look for a session that had
+  ALREADY read the brief unprompted, from evidence it left behind.
+  POPULATION: the three other cold sessions spawned this morning (MI-191, MI-192,
+  MI-193), via their coordination-board posts and PR bodies, plus a commit-message
+  probe over the last 300 commits on origin/main.
+  RESULT: none of the three cites the CLAUDE.md session brief as where it read the
+  phase, the priority or the next step. All three were dispatched with explicit briefs,
+  and MI-192 attributes its framing to "my dispatch brief" in so many words. The commit
+  probe finds 32 commits mentioning "session brief" and 7 mentioning
+  CY-20260906-TRADING-TRUTH (positive controls: "manager-lease" 54, "OPEN-ITEMS" 114 —
+  the probe finds positives), but a MENTION is not a CITATION BY A COLD SESSION, and
+  separating them needs reading rather than counting. Most of those commits are from
+  sessions writing ABOUT the brief, which is the opposite of the evidence wanted.
+  ⚠️ THE HONEST READING OF THIS IS NARROW: it is NOT established that no session has
+  ever read the brief unprompted — only that no such evidence was found in the
+  population searched, and that population is one morning's sessions plus commit
+  subjects. The observation this edge names remains OUTSTANDING.
+  ⚠️ AND NOTE THE STRUCTURAL DIFFICULTY, since it is why this has sat since 2026-09-01:
+  every session that could serve as the observer arrives with a dispatch prompt, and a
+  dispatch that says nothing at all is not something a manager currently produces. If
+  that is not going to change, the honest move is an operator decision to change the
+  criterion rather than an edge that can never discharge —
+  OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION carries the same question.
+
+proposed_respec_2026_09_08: >-
+  ⚠️ A PROPOSAL, NOT AN APPLIED CHANGE. The original criterion is preserved verbatim in
+  `done_condition` above and in `blocked_on` and is NOT edited; this key argues for
+  replacing it and the operator decides. Raised on an OPERATOR RULING of 2026-09-08:
+  "we've sort of engineered a situation where we can't observe anything without
+  contaminating it, which is inherently contradictory — so either it's not a good guard
+  to begin with, or we need to design an experiment that will allow us to observe it
+  without contaminating the experiment itself."
+  THE DEFECT, stated precisely: "a cold session cites the brief" is UNFALSIFIABLE. No
+  observation refutes it — only observations that never arrive — so it can never fail,
+  only stay open. And it COLLAPSES the two states this repo is most careful about:
+  "the brief does not reach sessions" and "a session read it and had no reason to
+  mention it" are indistinguishable under it. By this repo's own collapsed-state
+  doctrine that is the bug, not the sessions.
+  WHAT THE RULE WAS PROTECTING, and it is worth keeping: the fraud where a manager aims
+  a bespoke request at ONE session, that session says "I read the brief", and the
+  manager cites it as proof of its own work. Circular, correctly forbidden. But the
+  exclusion over-blocks because it cannot tell that apart from STANDING INSTRUMENTATION
+  — the artifact under test asking EVERY session, always, to leave a trace. Universal
+  exposure has no selection effect: that is an apparatus, not contamination. The
+  re-scoped exclusion should be "no AD-HOC, SESSION-SPECIFIC solicitation that is then
+  cited", which forbids the fraud and permits the measurement.
+  ⚠️ THE INSTRUMENT ALREADY EXISTS AND HAS NEVER BEEN READ AS A RATE. This row is
+  `loud: true`, and CLAUDE.md binds every session to REPORT ON a loud row in its closing
+  summary. That is already standing, already universal, and needs no new plumbing and no
+  change to the brief.
+  PROPOSED CRITERION — a RATE with a DENOMINATOR, replacing testimony:
+  POPULATION: every session that closed in a stated window, enumerated from its durable
+  artifacts (board `✅ DONE` post, PR body, commits carrying a `Claude-Session` trailer).
+  k = those reporting on OI-20260901-OPERATING-LAYER-BUILD-IS-IN-FLIGHT-AND-CARRIED-ONLY-BY-THIS-ROW.
+  ⚠️ NEGATIVE BRANCH — THE THING THE CRITERION GAINS, and the reason to prefer it:
+  after N >= 20 closed sessions in a 14-day window with k = 0, PHASE A CLOSES **FAILED —
+  the channel does not carry the plan**, and the remedy becomes changing the carrier
+  rather than waiting longer. The current criterion has no such branch at all.
+  ⚠️ N = 20 / 14 days is CHOSEN, not derived — there is no distribution behind it. It is
+  large enough that k=0 is not one quiet week and small enough to conclude within a
+  cycle. Say so rather than presenting it as measured.
+  ⚠️ IT IS HARDER TO SATISFY, NOT EASIER, WHICH IS THE NON-NEGOTIABLE TEST: the original
+  discharged on ONE session's testimony; this needs a measured rate over an enumerated
+  population AND can additionally return FAILED. If a re-spec made a phase easier to
+  mark done without making it easier to mark failed it would be the presence-only
+  softening this repo has already paid for, and should be refused.
+  FIRST MEASUREMENT, RUN NOW (tier 1, confirm-only): over the last 400 commits on
+  origin/main — which carry 709 `Claude-Session` trailers — this row's id appears
+  **0 times**, and the string OPERATING-LAYER-BUILD-IS-IN-FLIGHT appears **0 times**.
+  POSITIVE CONTROLS, so the silence has a denominator: the same probe finds
+  `OI-20260830-E35-GEOMETRY` 5 times, `OPEN-ITEMS` 98 times and `manager-lease` 35
+  times — it CAN find OI row ids in commit messages. So k = 0 against a working probe.
+  ⚠️ THIS IS A LOWER BOUND, NOT THE CRITERION'S OWN POPULATION: a closing summary is a
+  board post or PR body, not necessarily a commit message, so a session could have
+  reported and left no commit trace. Reported as suggestive, never as conclusive — and
+  per tier-1's own rule, SILENCE ALONE PROVES NOTHING.
+  ⚠️ AND THE PROBABLE ROOT CAUSE IS NOT A DEAD CHANNEL — IT IS THE DUTY BEING
+  UNSATISFIABLE. MEASURED 2026-09-08 against docs/claude/OPEN-ITEMS.json: **53 of 64
+  rows (82.8%) carry `loud: true`**. The duty as written asks a session to report on 53
+  rows in one closing summary. That cannot be complied with, so k=0 is explained without
+  any failure of the brief to arrive — and an 82.8%-loud register is the
+  desensitized-alarm P1 this repo names, one level up, at the register rather than the
+  pager. ⚠️ THEREFORE THE RE-SPEC ABOVE IS NOT SAFE TO ADOPT ON ITS OWN: measuring a
+  rate against an unsatisfiable duty would produce a confident FAILED verdict about the
+  wrong thing. Triaging `loud` back to a reportable handful is a PRECONDITION, and it is
+  its own decision.
+  NEEDS AN OPERATOR DECISION — three, and they are separable: (1) replace the testimony
+  criterion with the rate + negative branch; (2) triage `loud: true` from 53 rows to a
+  number a session can actually report on, which is the precondition; (3) whether N=20 /
+  14 days is the right bar. None is taken here.
+
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md
 verdict: null
