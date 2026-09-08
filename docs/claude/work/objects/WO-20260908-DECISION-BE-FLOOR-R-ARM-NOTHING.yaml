@@ -1,0 +1,92 @@
+# Hand-authored by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) on 2026-09-08, to put an
+# ALREADY-OWED decision in front of the operator as a Telegram prompt. Nothing here is a new
+# measurement: every figure is transcribed from PR #11266 (merged 2026-09-07T18:25:21Z) and
+# from OI-20260907-BE-FLOOR-R-..., whose clause (2) is the sole reason that row is still open.
+id: WO-20260908-DECISION-BE-FLOOR-R-ARM-NOTHING
+type: question
+parent_intent: null
+title: >-
+  be_floor_r is measured and refuted at every commissioned value — does the operator accept
+  that the Tier-3 answer is NONE?
+stage: DECISION
+lifecycle: ready
+owner: null
+opened_at: '2026-09-08'
+closed_at: null
+
+review_trigger: >-
+  Re-read when the operator answers DEC-20260908-BE-FLOOR-R-ARM-NOTHING. ⚠️ Do NOT re-run the
+  sweep first. The measurement is done and committed (docs/research/data/be-floor-sweep-2026-09-07.json
+  carries every fold's d_net_r/d_max_dd). A re-run against a moved corpus produces a fresh
+  number with no memo behind it — which the source row forbids in its own text.
+
+done_condition: >-
+  The operator has recorded whether be_floor_r stays unarmed, and
+  OI-20260907-BE-FLOOR-R-IS-MEASURED-AND-REFUTED-AND-ITS-PR-IS-A-DRAFT-NOBODY-CAN-CLEAR
+  can finally clear on its clause (2). Clause (1) is ALREADY satisfied — #11266 merged.
+
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260908-BE-FLOOR-R-ARM-NOTHING
+    since: '2026-09-07'
+    note: >-
+      ESTABLISHED FROM THE SOURCE ROW, NOT INFERRED. OI-20260907-BE-FLOOR-R-...'s clears_when
+      has exactly two clauses and says to name which one you cleared. Clause (1) — "#11266
+      reaches a terminal state" — was satisfied 2026-09-07T18:25:21Z when the operator merged
+      it. Clause (2) is "The operator is told the Tier-3 answer is NONE", and the row states
+      plainly that this "has not been put to them". `since` is 2026-09-07, the day the
+      evidence landed, not today.
+blocked_on_basis: >-
+  ASSESSED 2026-09-08 by the manager from the source row's own clears_when and from #11266
+  read via pull_request_read. ⚠️ WHAT IS NOT CLAIMED: no new backtest was run and no fold was
+  re-read; the options below transcribe the merged memo's numbers, they do not re-derive them.
+
+decision_requests:
+  - id: DEC-20260908-BE-FLOOR-R-ARM-NOTHING
+    question: >-
+      be_floor_r (a fleet-wide break-even floor) was measured path-aware and every value
+      tested LOSES money. Do you accept that the answer is to arm nothing?
+    urgency: routine
+    asked_on: '2026-09-08'
+    context: >-
+      POPULATION: 28 graded ratchet legs, 4090 control trades, BACKTEST — never poolable with
+      the 89 LIVE telemetry rows, which are exactly what cannot be replayed. Net R against an
+      ungated control of +671.58R: −145.16R at 0.5 · −128.13R at 0.75 · −99.08R at 1.0 ·
+      −35.04R at 1.5. Every arm loses, MONOTONICALLY in the floor — the signature of forgone
+      continuation. +0.75R, the peak of the earlier GROSS benefit table, is the second-worst
+      arm tested, so the cost does not merely exist, it exceeds the benefit everywhere tested.
+      ⚠️ YOUR UNDERLYING THESIS IS NOT REFUTED: the ratchet really does reach break-even at a
+      median 2.00R against a median live peak of 0.84R, so the stop reached break-even on only
+      14 of 89 trades. What is refuted is PINNING THE STOP AT ENTRY — on these legs the wide
+      chandelier is load-bearing and exists to ride retraces. ⚠️ AND KNOW THIS BEFORE READING
+      ANY FOLD-COUNT GATE: be_floor_r=1.5 wins a strict majority of exercised folds under ALL
+      THREE panel members while still losing 35R, because 30–39% of its folds are INERT — the
+      lever never fired. A gate written as "majority of folds positive" would have passed it.
+    options:
+      - key: accept_none
+        label: Accept it — arm nothing, close the question
+        implication: >-
+          be_floor_r stays at its default 0.0 on every leg and is not re-proposed from the
+          gross table. The harness lever stays in place (default is byte-identical), so a
+          future question can re-open it with fresh evidence. OI-20260907-BE-FLOOR-R clears.
+      - key: test_higher
+        label: Accept for the tested range, but commission a higher floor (>1.5R)
+        implication: >-
+          A new sweep at 2.0R+ before any decision. ⚠️ The memo explicitly declines to endorse
+          this by extrapolation: a floor that arms almost never converges on doing nothing,
+          and 38.6% of folds are ALREADY inert at 1.5R — so the likely finding is "no effect",
+          bought with trainer time.
+      - key: different_lever
+        label: Reject the lever, commission the banking half instead
+        implication: >-
+          Drops the break-even floor and puts the effort into the trailing/banking half you are
+          still owed — moving the stop up to bank R as it accrues, rather than pinning it at
+          entry. That is MI-188b, already measuring, and it addresses the same thesis without
+          the forgone-continuation cost.
+    allows_free_text: true
+    asked_by:
+      session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
+      recorded_at: '2026-09-08T21:20:00Z'
+      note: >-
+        Manager session. Answering this clears OI-20260907-BE-FLOOR-R-... on its clause (2),
+        the only clause still holding it open.
