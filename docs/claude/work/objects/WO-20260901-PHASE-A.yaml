@@ -170,3 +170,41 @@ proposed_respec_2026_09_08: >-
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md
 verdict: null
+
+operator_decision_2026_09_08:
+  recorded_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+  recorded_at: '2026-09-08T09:55:00Z'
+  basis: asked directly and answered directly in-conversation, 2026-09-08
+  verdict: change_what_is_measured
+  text: 'Change what is measured: behaviour, not citation'
+  what_it_settles: >-
+    The existing edge - a COLD session, one not pointed at CLAUDE.md by its
+    prompt, CITING the session brief - is retired as the criterion. It was
+    unfalsifiable by construction: every session that could serve as the
+    observer arrives with a dispatch prompt, so creating an observer
+    contaminates it, and MI-194 correctly refused to manufacture one. Measured
+    2026-09-08 across this morning's three cold sessions plus a 300-commit
+    probe (positive controls fired at 54 and 114, so the probe finds
+    positives): no citation found, and that establishes only that none appears
+    in the population searched.
+  what_replaces_it: >-
+    Whether the brief CHANGES WHAT SESSIONS DO, measured from commits and PR
+    bodies against a pre-brief baseline. This is closer to what the brief is
+    for: a brief that is read and ignored is worth the same as one never read,
+    and the old criterion could not tell those apart either.
+  warnings:
+    - >-
+      THIS IS A NOISIER SIGNAL AND THE BASELINE IS REAL WORK. A behaviour
+      difference has many causes besides the brief, so the re-spec must say what
+      it can and cannot attribute, and must carry a negative branch - a way for
+      the answer to come back NO. The whole reason this row is being re-specced
+      is that pass-only criteria can never fail, only stay open forever
+      (BL-20260908-DONE-CONDITIONS-ARE-PASS-ONLY-SO-A-CRITERION-CAN-NEVER-FAIL-ONLY-STAY-OPEN-FOREVER).
+    - >-
+      DO NOT record the old edge as DISCHARGED. It is RETIRED on an operator
+      decision, which is a different fact. Discharging it would assert an
+      observation nobody made.
+    - >-
+      The delivery channel this row rides is separately unproven
+      (OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION). Changing the
+      criterion does not prove the channel.
