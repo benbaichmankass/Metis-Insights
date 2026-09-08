@@ -702,6 +702,161 @@ def sweep_vanished(
     return out
 
 
+# ---------------------------------------------------------------------------
+# SHOULD WE EVEN ATTEMPT THE CLOSE? (MI-199, operator-directed 2026-09-08)
+#
+# `classify_share_hold`'s own constant says of `broker_cancel_wedged`: "NO
+# app-level retry can clear it". The monitor then re-attempted the close every
+# ~35 seconds for twelve days anyway. A system that has POSITIVELY DETERMINED an
+# action is futile and takes it anyway is the desensitized-alarm P1 with a live
+# order path attached -- and here the futile action is not free: each attempt
+# issues real DELETEs against the position's own resting protective bracket
+# before failing to place, on a live venue, ~2,500 times a day.
+#
+# ⚠️ THIS IS A CADENCE, NOT A STOP, AND THE DIFFERENCE IS THE WHOLE DESIGN.
+# A permanent stop would freeze `last_seen`, which is the ledger's evidence that
+# the wedge is still being OBSERVED -- and `sweep_vanished` reads exactly that
+# field. Suppressing forever would therefore MANUFACTURE a
+# `vanished_unattributed` for a position that never went anywhere: silence
+# reached by ceasing to look, which is strictly worse than the noise it
+# replaces. So the close is re-attempted on a cadence; each probe re-runs the
+# full classification, refreshes the ledger, and RE-ARMS the per-tick retry the
+# instant the evidence stops saying `broker_cancel_wedged`.
+#
+# ⚠️ AND IT SUPPRESSES A CLOSE, NEVER A PROTECTION RE-ARM. The naked sweeps are
+# untouched; a suppressed close leaves the position's bracket RESTING rather
+# than cancelled, which is more protection than the retry loop was giving it.
+# ---------------------------------------------------------------------------
+
+#: Minutes between close re-probes while an EVIDENCED wedge stands.
+#: ``<= 0`` disables suppression entirely -- the sanctioned rollback, one env
+#: flip + restart, no redeploy, byte-for-byte the pre-MI-199 behaviour.
+_DEFAULT_REPROBE_MINUTES = 60.0
+
+
+def reprobe_minutes() -> float:
+    """``CLOSE_WEDGE_REPROBE_MINUTES`` -- read at call time.
+
+    An unparseable value falls back to the DEFAULT, never to zero: a typo must
+    not silently restore ~2,500 futile order-path round trips a day, and equally
+    must not silently switch the re-probe off (which is the only thing keeping
+    the ledger's ``last_seen`` alive). Clamped ``>= 0``.
+    """
+    return _env_float("CLOSE_WEDGE_REPROBE_MINUTES", _DEFAULT_REPROBE_MINUTES)
+
+
+#: Five readings, never collapsed. Four of them ATTEMPT; only one skips.
+#: ``ledger_unreadable`` is emphatically not ``no_wedge`` -- "we could not look"
+#: and "we looked and nothing is wedged" are opposite claims, and only the
+#: second could ever justify trusting the ledger. Both attempt, but a reader
+#: must be able to tell a fail-safe attempt from a confident one.
+RETRY_STATES = (
+    "disabled",            # suppression switched off -- attempt, as before
+    "ledger_unreadable",   # we could not look -- attempt (fail-SAFE)
+    "no_wedge",            # no evidenced wedge for this key -- attempt
+    "reprobe_due",         # wedge stands, cadence elapsed -- attempt, re-observe
+    "suppressed",          # wedge stands, inside the cadence -- SKIP
+)
+
+
+class RetryDecision(NamedTuple):
+    attempt: bool
+    state: str
+    reason: str
+    last_seen: Optional[str]
+
+
+def decide_close_retry(
+    entry: Optional[Dict[str, Any]],
+    read_state: str,
+    now: datetime,
+    reprobe_min: Optional[float] = None,
+) -> RetryDecision:
+    """PURE. Whether to attempt this close, given the ledger entry for its key.
+
+    A pure function so the policy is arguable in tests rather than against a
+    live position that will not close -- the lesson of
+    BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG.
+
+    ⚠️ **THE ONLY THING THAT BUYS A SKIP IS THE EVIDENCED DETERMINATION**
+    (``share_hold == broker_cancel_wedged``), never a close having failed, and
+    never a close having failed a great many times. That is the same narrowness
+    the paging downgrade was built with, deliberately copied rather than
+    widened: a close failing for a reason nobody has established must keep being
+    retried every tick exactly as it is today.
+
+    ⚠️ **AN UNPARSEABLE ``last_seen`` PROBES**, it does not skip. Without a
+    readable observation time we cannot say the cadence has not elapsed, and the
+    safe direction on a live position is to look.
+    """
+    reprobe = reprobe_minutes() if reprobe_min is None else max(0.0, reprobe_min)
+    if reprobe <= 0:
+        return RetryDecision(True, "disabled", "suppression disabled", None)
+    if read_state != "read":
+        return RetryDecision(
+            True, "ledger_unreadable",
+            f"standing ledger read_state={read_state} — we could not look, so "
+            "the close is attempted", None,
+        )
+    if not isinstance(entry, dict):
+        return RetryDecision(
+            True, "no_wedge", "no standing wedge for this key", None)
+    if str(entry.get("share_hold") or "") != UNCLEARABLE_HOLD_STATE:
+        return RetryDecision(
+            True, "no_wedge",
+            f"share_hold={entry.get('share_hold')!r} is not the evidenced "
+            "unclearable determination", None,
+        )
+    seen_raw = entry.get("last_seen")
+    seen = _parse_ts(seen_raw)
+    if seen is None:
+        return RetryDecision(
+            True, "reprobe_due",
+            f"last_seen unparseable ({seen_raw!r}) — probing rather than "
+            "assuming the cadence has not elapsed", None,
+        )
+    age_min = (now - seen).total_seconds() / 60.0
+    if age_min >= reprobe:
+        return RetryDecision(
+            True, "reprobe_due",
+            f"evidenced wedge, last observed {age_min:.1f}min ago "
+            f"(re-probe every {reprobe:.0f}min)", str(seen_raw),
+        )
+    return RetryDecision(
+        False, "suppressed",
+        f"evidenced wedge ({UNCLEARABLE_HOLD_STATE}) observed {age_min:.1f}min "
+        f"ago; no app-level retry can clear it — next probe in "
+        f"{reprobe - age_min:.1f}min",
+        str(seen_raw),
+    )
+
+
+def close_retry_decision(
+    account: object,
+    symbol: object,
+    side: object,
+    now: Optional[datetime] = None,
+    path: Optional[Path] = None,
+) -> RetryDecision:
+    """The IMPURE half: read the ledger, then decide.
+
+    Never raises -- any failure resolves to ``attempt``, because the dangerous
+    direction here is not looking at a live position.
+    """
+    try:
+        store = _load(path)
+        entry = store["wedges"].get(wedge_key(account, symbol, side))
+        return decide_close_retry(
+            entry, store["read_state"], now or datetime.now(timezone.utc),
+        )
+    except Exception as exc:  # noqa: BLE001
+        return RetryDecision(
+            True, "ledger_unreadable",
+            f"close-retry decision raised {type(exc).__name__} — attempting",
+            None,
+        )
+
+
 def load_standing(path: Optional[Path] = None) -> Dict[str, Any]:
     """The digest's read surface. Carries its OWN read state, never a bare list.
 

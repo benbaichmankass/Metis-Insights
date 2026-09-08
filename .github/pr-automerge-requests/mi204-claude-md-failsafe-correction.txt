@@ -1,0 +1,1 @@
+MI-204 — CLAUDE.md fail-safe correction, re-landed after #11409's auto-merge race. Tier-1, docs only.

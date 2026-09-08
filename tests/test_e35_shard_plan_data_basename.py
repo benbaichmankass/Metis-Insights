@@ -136,14 +136,72 @@ def test_proxy_symbols_route_to_yfinance_and_others_do_not():
     assert plan.resolve_feed_source("BTCUSDT", "60") == "binance_vision"
 
 
-def test_leveraged_etfs_are_still_refused_by_name():
-    """`QLD`/`TQQQ` are not in `PROXY_DATA`, so the yfinance rule must not
-    sweep them in: a daily leverage reset means the path is not N x the
-    underlying, so no proxy is honest."""
+def test_leveraged_etfs_are_never_served_by_a_proxy():
+    """`QLD`/`TQQQ` must never be served from a QQQ series — and ARE served
+    from their own.
+
+    ⚠️ **THIS TEST PREVIOUSLY ASSERTED THAT BOTH LEGS RAISE, AND THE ASSERTION
+    WAS A NON-SEQUITUR ON A TRUE PREMISE** (changed MI-195, 2026-09-08). Its
+    reasoning was *"a daily leverage reset means the path is not N x the
+    underlying, so no proxy is honest"* — correct, and still asserted below —
+    followed by *"therefore refused"*, which does not follow: needing no proxy
+    is precisely why they are absent from `PROXY_DATA`, not a reason to refuse
+    a DIRECT series. `yf_symbols` has mapped `QLD -> QLD` and `TQQQ -> TQQQ` as
+    pass-through the whole time.
+
+    The original intent — no leveraged ETF is ever backed by its underlying's
+    series — is what this now pins, and it pins MORE than the old assertion
+    did: the proxy map, the untouched Dukascopy adjudication, the ticker being
+    the symbol itself, and the states staying apart.
+    """
     for sym in ("QLD", "TQQQ"):
+        # 1. THE PREMISE, UNCHANGED: no proxy entry exists, so nothing can
+        #    silently serve these from ES/GC/HG or from QQQ.
         assert sym not in fleet.PROXY_DATA
-        with pytest.raises(plan.NoFeedSource):
-            plan.resolve_feed_source(sym, "D")
+        # 2. THE ADJUDICATION IS UNTOUCHED. The rung ADDS a feed; it does not
+        #    overturn Dukascopy's refusal, which remains correct about proxying.
+        assert plan._dk_state_for(sym) == "refused"
+        # 3. THE TICKER IS THE SYMBOL ITSELF — a direct series, never a proxy.
+        #    This is the gate the rung is keyed on, so a proxy row could not
+        #    ride it even if the PROXY_DATA branch above were removed.
+        assert plan.yf_serves_directly(sym) is True
+        # 4. ...and it therefore routes.
+        assert plan.resolve_feed_source(sym, "D") == "yfinance"
+
+
+def test_a_proxy_row_is_not_a_direct_series():
+    """The rung's gate must reject PROXY rows, or it re-opens the trap
+    `resolve_feed_source` refuses for: a file whose NAME asserts a provenance
+    its CONTENT does not have."""
+    for sym in ("MES", "MGC", "MHG", "XAUUSD"):
+        assert sym in fleet.PROXY_DATA
+        assert plan.yf_serves_directly(sym) is False
+
+
+def test_a_symbol_no_feed_can_serve_is_still_refused():
+    """`unknown` stays refused, so `mapped` / `refused` / `unknown` stay three
+    states. NVDA is unadjudicated by Dukascopy AND absent from the yfinance
+    map — the rung must not schedule it on a guess."""
+    assert plan._dk_state_for("NVDA") == "unknown"
+    assert plan.yf_serves_directly("NVDA") is False
+    with pytest.raises(plan.NoFeedSource):
+        plan.resolve_feed_source("NVDA", "D")
+
+
+def test_the_rung_refuses_an_interval_it_cannot_serve():
+    """Refused, never coerced — the same discipline the other two branches
+    apply. yfinance has no 4h mapping, so a 4h leg must not be scheduled."""
+    with pytest.raises(plan.NoFeedSource):
+        plan.resolve_feed_source("QLD", "240")
+
+
+def test_the_rung_only_ever_adds_legs():
+    """THE LOAD-BEARING ONE. Every symbol Dukascopy already maps must keep the
+    feed it had, or the committed corpus stops being comparable and recorded
+    verdicts are silently re-based onto a new source."""
+    for sym in ("SPY", "GLD", "QQQ", "SPLG", "GDX", "IWM",
+                "SLV", "TLT", "IEF", "IAUM", "SCHA", "USO"):
+        assert plan.resolve_feed_source(sym, "D") == "dukascopy"
 
 
 def test_workflow_reads_the_stem_from_the_matrix():

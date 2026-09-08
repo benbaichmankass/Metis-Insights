@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "research tooling + backlog only. Adds a last rung to scripts/research/e35_shard_plan.py::resolve_feed_source so a leg dukascopy cannot serve, but whose OWN yfinance ticker exists, is scheduled instead of refused. MEASURED: the planner matrix goes 41 -> 43 jobs, 0 legs removed, and 0 pre-existing legs change feed_source, so the committed corpus stays comparable and no recorded verdict is re-based. No config/, no src/, no order path, no strategy params. The Tier-3 half of this dispatch (gld_pullback_1h tp_r 4.0) was already applied by MI-158 in #11232 and is NOT re-touched here."
+}

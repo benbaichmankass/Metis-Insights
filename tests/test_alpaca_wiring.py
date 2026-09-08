@@ -798,7 +798,8 @@ def test_client_close_escalates_to_cancel_orders_true_when_wedged(monkeypatch):
     calls = {"plain": 0, "forced": 0}
     # The resting order can't be app-cancelled (already pending_cancel) and
     # stays visible in the open-orders list.
-    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *_a: 0)
+    monkeypatch.setattr(cli, "_cancel_open_orders_detailed",
+                        lambda *_a: CancelOutcome("orders_read", 0, 0, []))
     monkeypatch.setattr(cli, "_open_orders_for_symbol",
                         lambda *_a: [{"id": "stuck", "status": "pending_cancel"}])
     # After the forced cancel_orders=true liquidation, the position is gone.
@@ -834,7 +835,8 @@ def test_client_close_forced_escalation_still_gated_by_flatten_confirm(monkeypat
                         lambda *_a, **_k: None)
 
     cli = AlpacaClient(api_key="k", api_secret="s")
-    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *_a: 0)
+    monkeypatch.setattr(cli, "_cancel_open_orders_detailed",
+                        lambda *_a: CancelOutcome("orders_read", 0, 0, []))
     monkeypatch.setattr(cli, "_open_orders_for_symbol", lambda *_a: [])
     # The position never actually leaves — the forced flatten was accepted but
     # the broker didn't flatten.
@@ -888,8 +890,16 @@ def test_client_close_defers_when_market_closed(monkeypatch):
     cli = AlpacaClient(api_key="k", api_secret="s")
     calls = []
     monkeypatch.setattr(cli, "_request", lambda *a, **k: calls.append(a) or {"retCode": 0})
+    # BOTH cancel doors are watched. The close paths call the DETAILED form
+    # (MI-199); guarding only the wrapper would leave this assertion pointing at
+    # a door the code no longer uses, and it would keep passing while saying
+    # nothing -- the "green that checked nothing" shape.
     monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol",
                         lambda *a: calls.append(("CANCEL",) + a) or 0)
+    monkeypatch.setattr(
+        cli, "_cancel_open_orders_detailed",
+        lambda *a: (calls.append(("CANCEL_DETAILED",) + a),
+                    CancelOutcome("orders_read", 0, 0, []))[1])
 
     out = cli.close("QQQ")
     assert out["retCode"] == 2
@@ -909,7 +919,8 @@ def test_client_close_extended_hours_places_limit(monkeypatch):
     cli = AlpacaClient(api_key="k", api_secret="s")
     monkeypatch.setattr(cli, "_position_raw",
                         lambda *a: {"qty": "16", "side": "long", "current_price": "700.00"})
-    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *a: 1)
+    monkeypatch.setattr(cli, "_cancel_open_orders_detailed",
+                        lambda *a: CancelOutcome("orders_read", 1, 0, []))
     monkeypatch.setattr(cli, "_open_orders_for_symbol", lambda *a: [])
     # Position gone after the limit → confirmed flat.
     monkeypatch.setattr(cli, "position_present", lambda *a: False)
@@ -942,7 +953,9 @@ def test_client_close_extended_hours_defers_without_price(monkeypatch):
     monkeypatch.setattr(cli, "_position_raw",
                         lambda *a: {"qty": "16", "side": "long", "current_price": "0"})
     placed = []
-    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *a: placed.append("c") or 0)
+    monkeypatch.setattr(
+        cli, "_cancel_open_orders_detailed",
+        lambda *a: placed.append("c") or CancelOutcome("orders_read", 0, 0, []))
     monkeypatch.setattr(cli, "_request", lambda *a, **k: placed.append(a) or {"retCode": 0})
 
     out = cli.close("QQQ")
@@ -990,8 +1003,10 @@ def test_ext_hours_close_retries_until_shares_release(monkeypatch):
     the close SUCCEEDS instead of booking a 'won't flatten' failure."""
     cli = _ext_hours_client(monkeypatch, [0, 0, 39])
     cancels = []
-    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol",
-                        lambda *a: cancels.append(a) or 1)
+    monkeypatch.setattr(
+        cli, "_cancel_open_orders_detailed",
+        lambda *a: (cancels.append(a),
+                    CancelOutcome("orders_read", 1, 0, []))[1])
     monkeypatch.setattr(cli, "_open_orders_for_symbol", lambda *a: [])
     monkeypatch.setattr(cli, "position_present", lambda *a: False)
     posts = []
@@ -1018,7 +1033,8 @@ def test_ext_hours_close_gives_up_and_logs_residual(monkeypatch, caplog):
     """Shares NEVER release → still a real failure (retCode 1), bounded (does not
     spin), and the residual open orders are logged so it is self-diagnosing."""
     cli = _ext_hours_client(monkeypatch, [0], place_retry_s="0.5")
-    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *a: 1)
+    monkeypatch.setattr(cli, "_cancel_open_orders_detailed",
+                        lambda *a: CancelOutcome("orders_read", 1, 0, []))
     monkeypatch.setattr(
         cli, "_open_orders_for_symbol",
         lambda *a: [{"id": "oco-1", "side": "sell", "qty": "39",
@@ -1048,7 +1064,8 @@ def test_ext_hours_close_gives_up_and_logs_residual(monkeypatch, caplog):
 def test_ext_hours_close_single_shot_when_retry_disabled(monkeypatch):
     """`ALPACA_EXT_PLACE_RETRY_S=0` restores the legacy single-shot POST."""
     cli = _ext_hours_client(monkeypatch, [0], place_retry_s="0")
-    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *a: 1)
+    monkeypatch.setattr(cli, "_cancel_open_orders_detailed",
+                        lambda *a: CancelOutcome("orders_read", 1, 0, []))
     monkeypatch.setattr(cli, "_open_orders_for_symbol", lambda *a: [])
     posts = []
 
@@ -1131,6 +1148,115 @@ def test_classify_share_hold_pending_replace_counts_as_wedged():
     assert state == "broker_cancel_wedged"
 
 
+# ---------------------------------------------------------------------------
+# THE CANCEL RESPONSE OUTRANKS THE ORDER LISTING (MI-199, 2026-09-08)
+#
+# The two broker endpoints disagree about the SAME order and the listing is the
+# weaker one. Measured live 2026-09-08: `GET /v2/orders?status=open` renders the
+# wedged GLD child stop leg as `held`, while `DELETE /v2/orders/{id}` on that
+# same order answers `422 order pending cancel`. Classifying from the listing
+# alone graded `orders_still_resting` -- "a retry may clear it" -- on a hold that
+# had stood twelve days, which routed 122 of 178 GLD close-failure alerts to the
+# PAGER instead of the digest built for exactly this condition.
+# ---------------------------------------------------------------------------
+
+#: Byte-exact from /api/diag/alpaca_open_orders?account_id=alpaca_paper,
+#: captured_at 2026-09-08T12:21:34.660879+00:00.
+_LIVE_GLD_LISTING = [
+    {"id": "2e843e04-5487-470c-a702-70e796fbd05e", "symbol": "GLD",
+     "status": "new", "order_class": "oco", "order_type": "limit",
+     "parent_id": None},
+    {"id": "891ddff0-b24d-4039-9322-8492bcd51e66", "symbol": "GLD",
+     "status": "held", "order_class": "oco", "order_type": "stop",
+     "parent_id": "2e843e04-5487-470c-a702-70e796fbd05e"},
+]
+
+#: Byte-exact from the trader journal, 2026-09-08T12:20:54Z:
+#: "alpaca _cancel_open_orders_detailed(GLD): 1 of 2 cancel(s) REFUSED by the
+#:  broker: 891ddff0-b24d-4039-9322-8492bcd51e66 rc=422 order pending cancel"
+_LIVE_GLD_CANCEL = CancelOutcome(
+    "orders_read", 1, 0,
+    [("891ddff0-b24d-4039-9322-8492bcd51e66", 422, "order pending cancel")],
+)
+
+
+def test_live_gld_listing_alone_misgrades_this_is_the_defect():
+    """PIN THE DEFECT ITSELF, so a regression cannot be silent.
+
+    This asserts the WRONG answer on purpose: it is what the classifier says
+    when it is given only the source that cannot see the wedge. If this ever
+    starts returning `broker_cancel_wedged` from the listing alone, the listing
+    has changed shape and the test below is no longer measuring anything.
+    """
+    state, _ = classify_share_hold(_LIVE_GLD_LISTING)
+    assert state == "orders_still_resting"
+
+
+def test_cancel_refusal_outranks_the_listing_on_the_live_gld_wedge():
+    state, detail = classify_share_hold(_LIVE_GLD_LISTING, _LIVE_GLD_CANCEL)
+    assert state == "broker_cancel_wedged"
+    # It must name the order the BROKER named -- the child leg -- not the parent
+    # the stale record blames.
+    assert "891ddff0-b24d-4039-9322-8492bcd51e66" in detail
+    assert "operator/venue action" in detail
+
+
+def test_cancel_evidence_is_narrow_not_merely_a_refusal():
+    """A refusal that does NOT name a wedged status is an ordinary failure.
+
+    The downgrade this feeds buys silence, so its trigger must key on WHAT THE
+    BROKER SAID and never on a cancel having been refused -- the same narrowness
+    the paging downgrade was built with.
+    """
+    for msg in ("forbidden", "order is not cancelable",
+                "rate limit exceeded", "", "unknown error"):
+        oc = CancelOutcome("orders_read", 0, 0, [("x", 422, msg)])
+        state, _ = classify_share_hold(_LIVE_GLD_LISTING, oc)
+        assert state == "orders_still_resting", msg
+
+
+def test_cancel_evidence_matches_both_renderings_of_the_status():
+    """Alpaca spaces it in prose and underscores it in the order object."""
+    for msg in ("order pending cancel", "order pending_cancel",
+                "ORDER PENDING CANCEL", "pending replace", "pending_replace"):
+        oc = CancelOutcome("orders_read", 0, 0, [("x", 422, msg)])
+        assert classify_share_hold([], oc)[0] == "broker_cancel_wedged", msg
+
+
+def test_cancel_evidence_survives_an_unreadable_listing():
+    """`residual_unreadable` means we did not look -- but here we DID look.
+
+    At the stronger source. Returning `residual_unreadable` would discard a
+    positive observation because a weaker, redundant read happened to fail.
+    """
+    state, _ = classify_share_hold(None, _LIVE_GLD_CANCEL)
+    assert state == "broker_cancel_wedged"
+
+
+def test_no_cancel_evidence_leaves_every_prior_verdict_unchanged():
+    """Back-compat: the one-arg form and `cancel=None` must be identical."""
+    for residual in (None, [], _LIVE_GLD_LISTING,
+                     [{"id": "c", "symbol": "GLD", "status": "pending_cancel"}]):
+        assert classify_share_hold(residual) == classify_share_hold(residual, None)
+        assert classify_share_hold(residual) == classify_share_hold(
+            residual, CancelOutcome("orders_read", 2, 0, []),
+        )
+        assert classify_share_hold(residual) == classify_share_hold(
+            residual, CancelOutcome("could_not_look", 0, 0, []),
+        )
+
+
+def test_wedged_from_cancel_refusals_is_total():
+    from src.units.accounts.alpaca_client import wedged_from_cancel_refusals
+    assert wedged_from_cancel_refusals(None) == []
+    assert wedged_from_cancel_refusals(CancelOutcome("orders_read", 0, 0, [])) == []
+    assert wedged_from_cancel_refusals(
+        CancelOutcome("could_not_look", 0, 0, [])) == []
+    out = wedged_from_cancel_refusals(_LIVE_GLD_CANCEL)
+    assert out == [("891ddff0-b24d-4039-9322-8492bcd51e66",
+                    "order pending cancel")]
+
+
 def test_share_hold_states_never_leak_a_defer_phrase():
     """A close retMsg carrying these strings must not be read as a DEFER.
 
@@ -1140,11 +1266,14 @@ def test_share_hold_states_never_leak_a_defer_phrase():
     the trap CLAUDE.md documents for the IB venue-session gate.
     """
     residuals = [None, [], [_order("a", "pending_cancel")], [_order("b", "new")]]
+    cancels = [None, _LIVE_GLD_CANCEL,
+               CancelOutcome("orders_read", 0, 0, [("x", 403, "forbidden")])]
     for r in residuals:
-        _, detail = classify_share_hold(r)
-        low = detail.lower()
-        for phrase in ("exit deferred", "deferring", "market closed"):
-            assert phrase not in low, (r, phrase, detail)
+        for c in cancels:
+            _, detail = classify_share_hold(r, c)
+            low = detail.lower()
+            for phrase in ("exit deferred", "deferring", "market closed"):
+                assert phrase not in low, (r, c, phrase, detail)
 
 
 class _FakeCancelClient:
@@ -1218,7 +1347,8 @@ def test_ext_hours_give_up_retmsg_names_the_wedge(monkeypatch, caplog):
     indefinitely on something no retry clears.
     """
     cli = _ext_hours_client(monkeypatch, [0], place_retry_s="0.5")
-    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *a: 1)
+    monkeypatch.setattr(cli, "_cancel_open_orders_detailed",
+                        lambda *a: CancelOutcome("orders_read", 1, 0, []))
     monkeypatch.setattr(
         cli, "_open_orders_for_symbol",
         lambda *a: [{"id": "2e843e04", "side": "sell", "qty": "39",

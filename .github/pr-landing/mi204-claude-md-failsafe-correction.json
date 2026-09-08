@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one-line CLAUDE.md prose correction — a fail-safe claim this session measured to be false in the dangerous direction. No src/, config/, deploy/ or workflow change. Re-landed on a fresh branch because #11409's auto-merge took an earlier head and this commit missed the squash."
+}

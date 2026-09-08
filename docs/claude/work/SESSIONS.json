@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T13:01:08Z",
+  "updated_at": "2026-09-08T17:29:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3057,7 +3057,10 @@
       "spawned_at": "2026-09-08T07:14:13Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed 2026-09-08 into free WIP capacity after the merge queue emptied. The exit-matrix SHIP BLOCKED verdict covered take-profit geometry; trailing and banking were never measured on the same footing.",
-      "confirmed_at": "2026-09-08T07:15:25Z"
+      "confirmed_at": "2026-09-08T07:15:25Z",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z",
+      "observation": "FAILED 07:19Z, and pinned to the WRONG repo (the-lizardking/ict-trading-bot). Superseded by MI-188b, which completed."
     },
     {
       "session_id": "session_01JjJa5sRhrqQapwx25ebo6Q",
@@ -3068,7 +3071,10 @@
       "spawned_at": "2026-09-08T07:14:14Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed 2026-09-08. The standing lane produced every Alpaca finding this cycle; three accounts remain unread and 'unread' is not 'clean'.",
-      "confirmed_at": "2026-09-08T07:15:25Z"
+      "confirmed_at": "2026-09-08T07:15:25Z",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z",
+      "observation": "IDLE since 07:16Z, BLOCKED asking whether to audit or 'continue notebook work' — it has NO repo source pinned. This is the MI-190 wrong-repo spawn class, superseded by MI-189b which completed. Do not poke; it cannot do the work."
     },
     {
       "session_id": "session_019rZTh1JFCXRNR4kYpueGPu",
@@ -3119,7 +3125,9 @@
       "state_observed_at": "2026-09-08T12:31:00Z",
       "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
       "state_note": "FAILED 08:46Z: \"The model tool call could not be parsed (retry also failed)\". LANE 1 (the 38-day-overdue system review) IS DEAD and produced no PR. Respawn required - this is not a slow session, it is a stopped one.",
-      "observation": "IDLE/FAILED, unchanged since 08:46Z (unparseable tool call). Superseded by MI-192b, whose #11379 MERGED as 2aaa5bba."
+      "observation": "FAILED 08:46Z on an unparseable tool call. Superseded by MI-192b.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z"
     },
     {
       "session_id": "session_012cVryifpv359yAWWVkrmnk",
@@ -3134,7 +3142,9 @@
       "state_observed_at": "2026-09-08T12:31:00Z",
       "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
       "state_note": "IDLE/disconnected since 08:49Z (1h36m). Awaiting CI on #11359, which ran while main was red. Needs a poke to re-arm.",
-      "observation": "IDLE at 12:31Z, review_ready — #11359 guards+pytest-collect+repo-inventory green, pytest-run STILL in_progress. NOT merged: a pending check is not a result."
+      "observation": "IDLE since 12:33Z, completed — MI-193 exit-fidelity backtest filed, no live changes.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z"
     },
     {
       "session_id": "session_01W7CyS8ShLnZiNyUms3YYEp",
@@ -3149,7 +3159,9 @@
       "state_observed_at": "2026-09-08T12:31:00Z",
       "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
       "state_note": "WOKE FROM THE 09:51Z POKE - updated_at moved 09:14->10:15Z. #11360 MERGED to main (main head). #11358 CI running, auto-merge armed. 692k/1M ctx - near the handoff threshold.",
-      "observation": "IDLE/COMPLETED at 12:31Z — reports #11358, #11360, #11385 merged and Phase F complete. It resumed after my 12:03Z poke carrying the operator's Phase A ruling, which was the blocker. ⚠️ 'complete' is its own claim; the three merges are not manager-verified."
+      "observation": "IDLE since 12:19Z, completed — MI-194 Phase F done, 3 PRs merged.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z"
     },
     {
       "session_id": "session_01Lozuti2jAX4kQ9RC4yTSPo",
@@ -3166,7 +3178,9 @@
       "state_observed_at": "2026-09-08T12:31:00Z",
       "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
       "state_note": "IDLE/connected, review_ready, PR #11370 open (repo-inventory green, guards+pytest running), 504k ctx. Alive.",
-      "observation": "RUNNING at 12:31Z — 'resolving 8th merge conflict in merge_slot'. EIGHT conflicts on one key is the R13 systemic cost: every armed branch must claim merge_slot, so N concurrent branches collide there."
+      "observation": "IDLE 16:31Z, COMPLETED. Filed 6 backlog rows (3 high) on the merge-slot collisions — 17 measured — and corrected 3 of its own prior claims. Root cause named as R6/R13 branch arming plus the automation retrigger loop, which is the same mechanism costing this manager a rebase per heartbeat.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T17:29:00Z"
     },
     {
       "session_id": "session_01U2ibSa4FNcuV6bSLaPb9GS",
@@ -3183,7 +3197,9 @@
       "state_observed_at": "2026-09-08T12:31:00Z",
       "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
       "state_note": "IDLE/connected, review_ready, branch claude/mi196-due-readout-consolidation, 356k ctx. Alive and driving.",
-      "observation": "RUNNING at 12:31Z but BLOCKED ON A STALE PREMISE: asks to 'resolve merge-slot conflict on claude/mgr-lanes-1152-20260908', a branch that MERGED as fc618147 at ~12:05Z. Needs a poke saying the blocker is gone."
+      "observation": "IDLE 17:12Z. Acted on my 17:06 poke — but on #11413, not #11384: 'dirty-conflict resolve, 5 checks firing'. The poke diagnosed a `blocked` (no CI) cause and the session found a `dirty` (conflict) one; both render as no-real-CI and my read named the wrong one. Its own check-in is armed for 17:32Z.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T17:29:00Z"
     },
     {
       "session_id": "session_012yX7SLyJiqAWG8oVxZSNoq",
@@ -3199,7 +3215,9 @@
       "state": "working",
       "state_observed_at": "2026-09-08T12:31:00Z",
       "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
-      "observation": "RUNNING at 12:31Z — 'guards running on supersede commit; holding push'. Its #11379 already merged; this is follow-on."
+      "observation": "IDLE 17:24Z, review_ready: '#11388 clean, merge-ready; waiting human merge'. BLOCKED ON THE MANAGER.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T17:29:00Z"
     },
     {
       "session_id": "session_011PHmZzVy92M6zjNopAMy51",
@@ -3212,14 +3230,16 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08, second time of asking: 'I'm still seeing error pings on the gld close - this has been going on for weeks, and it needs to be fixed already'.",
       "confirmed_at": "2026-09-08T12:19:31Z",
-      "state_observed_at": "2026-09-08T13:01:08Z",
-      "state_basis": "get_session(session_id) read direct at 13:01Z (per-session record, not a list_sessions sweep)",
-      "observation": "RUNNING/connected. Landed #11392 (merged ea20e2c5) and opened #11389 (draft, Tier-2) + #11390 (draft, HELD). Root cause found: DELETE /v2/orders returns 422 'order pending cancel' while GET /v2/orders reports the child stop as 'held' -- the classifier read the weaker source, so 122 of 178 GLD alerts PAGED. Our own records also named the wrong order (parent 2e843e04 is healthy; child 891ddff0 is the wedged one). Poked 13:01Z: take the merge slot for #11389, leave #11390 draft."
+      "state_observed_at": "2026-09-08T14:24:00Z",
+      "state_basis": "operator decision relayed 14:18Z; PR state read 14:16Z",
+      "observation": "IDLE 16:54Z, BLOCKED needing an OPERATOR decision, not a manager merge: whether to suppress `cancel_accepted_ineffective` (Tier-2). Root cause now stated plainly — Alpaca returns 2xx and does not move the orders; 63 pages come from resting orders. This is the half #11406 explicitly did NOT fix.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T17:29:00Z"
     },
     {
       "session_id": "session_01CvFCybCkvrfzaHqNH3tQsb",
       "registry_key": "pending-20260908T122031Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-200: the real-money losing streak — attribute the 15 closes before grading any leg",
       "owns_object": "WO-20260908-REAL-MONEY-IS-0-FOR-13-AND",
       "checklist_item": "MI-200-REAL-MONEY-LOSING-STREAK",
@@ -3227,9 +3247,28 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08: we cannot chalk 16 trades up to chance, something is not working, track it down.",
       "confirmed_at": "2026-09-08T12:21:09Z",
-      "state_observed_at": "2026-09-08T13:01:08Z",
-      "state_basis": "get_session(session_id) read direct at 13:01Z (per-session record, not a list_sessions sweep)",
-      "observation": "RUNNING/connected. Opened #11391 (3/4, guards RED -- its own scripts/ path, poked back to it at 12:58Z). Correcting finding: include_paper=true NARROWS rather than widens, so the '0 for 13' I reported to the operator was a 5-day slice of a 447-close book (117W/258L/49 flat, sum -69.53). A 14-run is ~71% likely somewhere in 424 at the lifetime non-win rate; 8 of 14 were not strategy exits; every live-routed real-money leg grades insufficient_n (floor 20, largest 7)."
+      "state_observed_at": "2026-09-08T13:32:53Z",
+      "state_basis": "get_session(session_id) read direct at 13:30Z; state is that read, not a post_turn_summary",
+      "observation": "IDLE 16:58Z, COMPLETED. Real-money population 447 closes (117W/258L/49 flat); bracket-exit rate 54.4%; TWO SURFACES DISAGREE ON 38.9% OF ROWS — that disagreement is the measurement defect the cycle is about, not a side note. Made 3 corrections to its own prior claims. `alpaca_live` idle 7.6d.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T17:29:00Z"
+    },
+    {
+      "session_id": "session_016KUFTHGYyFDerbnXDSA6Wb",
+      "title": "MI-204 — reconcile the bybit_1 ETHUSDT orphan (trade 5569)",
+      "owns_object": "WO-20260908-RECONCILE-THE-BYBIT-1-ETHUSDT-ORPHAN-TRADE",
+      "spawned_at": "2026-09-08T14:56:43Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/mi204-bybit1-eth-orphan"
+      ],
+      "why": "Operator-directed 2026-09-08: exchange-side orphan adopted on bybit_1 ETHUSDT; drive trade 5569 to reconciled or an explicit terminal with the reason written down",
+      "state": "working",
+      "state_observed_at": "2026-09-08T15:28:00Z",
+      "state_basis": "merged PR commit messages on origin/main + /api/diag reads at 15:27Z",
+      "observation": "RUNNING 17:27Z. Opened #11418 CORRECTING ITS OWN HEADLINE DOWN: the armed population is 17 not 14 (three bybit_portfolio rows resolved from `unknown` to ARMED), so the armed flat-rate is 70.6% not 78.6% — a WEAKER contrast on a larger, fully-determined population, and it says so rather than reporting it as a tightening. The -$5,033.44 re-summed UNCHANGED; negative control still 0 of 2; bounds unchanged. I had already relayed 78.6% to the operator and owe that correction.",
+      "status": "working",
+      "last_observed_at": "2026-09-08T17:29:00Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

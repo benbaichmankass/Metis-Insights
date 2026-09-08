@@ -143,6 +143,63 @@ def data_basename(symbol: str, tf: str) -> str:
     return f"{fleet.PROXY_DATA.get(symbol, symbol)}_{tf}"
 
 
+def _dk_state_for(symbol: str) -> str:
+    """Dukascopy's adjudication state for `symbol`. Used by the self-test to
+    assert the last rung ADDS a feed without overturning the adjudication."""
+    sys.path.insert(0, str(REPO / "scripts" / "ops"))
+    import dukascopy_instruments as _dk  # noqa: E402
+    return _dk.resolve(symbol).state
+
+
+def yf_serves_directly(symbol: str) -> bool:
+    """True iff yfinance serves `symbol` under its OWN ticker — no proxy at all.
+
+    ⚠️ **`ticker == symbol` IS THE WHOLE TEST, AND IT IS THE POINT.** The
+    canonical map (`ml/datasets/adapters/yf_symbols.py`) holds both kinds of
+    entry: PROXY rows (`MES -> ES=F`, `MGC -> GC=F`) where the ticker names a
+    DIFFERENT instrument, and pass-through rows (`QLD -> QLD`) where it names
+    the same one. Only the second kind is a direct series, and only the second
+    kind may ride the rung below — a proxy row reaching it would re-open
+    exactly the "file whose NAME asserts a provenance its CONTENT does not
+    have" trap that `resolve_feed_source` refuses for. Proxy rows are already
+    routed earlier by the `fleet.PROXY_DATA` branch and never reach here; this
+    predicate is the belt to that braces.
+
+    Loaded BY PATH rather than imported, mirroring
+    `fetch_backtest_candles._load_yf_symbols`: `ml/datasets/__init__` pulls in
+    fourteen dataset builders and a `yaml` dependency this planner must not
+    need.
+
+    ⚠️ **AN UNREADABLE MAP RAISES; IT DOES NOT RETURN False.** Both outcomes
+    refuse the leg, so the difference looks cosmetic and is not: `False` means
+    *we read the map and this symbol is not in it*, while an unreadable map
+    means *we could not look*. Collapsing the two would report a missing
+    dependency as a settled fact about the symbol — `docs/CLAUDE-RULES-CANONICAL.md`
+    § "Collapsed states" — and would do it in the direction that hides a broken
+    planner behind a plausible refusal message naming the wrong cause
+    (`diagnostic-provenance-guard` sub-class A). The raise carries the real one.
+    """
+    import importlib.util as _ilu
+    _path = REPO / "ml" / "datasets" / "adapters" / "yf_symbols.py"
+    try:
+        _spec = _ilu.spec_from_file_location("_yf_symbols_plan", str(_path))
+        if _spec is None or _spec.loader is None:
+            raise NoFeedSource(
+                f"yf_map_unloadable:{symbol} — no import spec for {_path}. This is "
+                f"WE COULD NOT LOOK, not 'the symbol is unmapped'.")
+        _mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        table = _mod._DEFAULT_TICKER_MAP
+    except NoFeedSource:
+        raise
+    except (OSError, ImportError, SyntaxError, AttributeError) as exc:
+        raise NoFeedSource(
+            f"yf_map_unloadable:{symbol} — {_path} could not be read "
+            f"({type(exc).__name__}: {exc}). This is WE COULD NOT LOOK, not "
+            f"'the symbol is unmapped'.") from exc
+    return table.get(str(symbol).upper()) == str(symbol).upper()
+
+
 def resolve_feed_source(symbol: str, interval: str) -> str:
     """Which feed serves this leg. RAISES rather than guessing.
 
@@ -155,11 +212,20 @@ def resolve_feed_source(symbol: str, interval: str) -> str:
     ⚠️ IT REFUSES INSTEAD OF FALLING BACK. A leg quietly re-routed to a feed
     serving a DIFFERENT instrument is a wrong backtest that looks fine — the
     hazard `fetch_backtest_candles` already states for why `yfinance` is not in
-    its `auto` chain. Three symbols have no honest source (`QLD`/`TQQQ`: a daily
-    leverage reset means the path is not N x the underlying, so a QQQ series is
-    not a substitute; `MHG`: the only catalogue hit was a Norwegian salmon
-    farmer) and are refused BY NAME at plan time rather than scheduled and left
-    to burn a runner.
+    its `auto` chain.
+
+    ⚠️ **THIS PARAGRAPH SAID `QLD`/`TQQQ`/`MHG` "HAVE NO HONEST SOURCE" AND
+    THAT WAS TRUE OF DUKASCOPY, NOT OF THE LEGS — do not re-quote it.** All
+    three are servable and all three now route (MHG from 2026-08-26 via
+    `PROXY_DATA`; `QLD`/`TQQQ` from 2026-09-08 via the last rung below). What
+    remains correct, and is untouched, is the reason each was refused by
+    Dukascopy: a daily leverage reset means QLD/TQQQ's path is not N x the
+    underlying, so a QQQ series is not a substitute at any horizon; and
+    Dukascopy's only `MHG` catalogue hit was a Norwegian salmon farmer. Those
+    are arguments against a PROXY, and each leg is served under its own series
+    instead. A symbol no feed can serve is still refused BY NAME at plan time
+    rather than scheduled and left to burn a runner — `NVDA` is the live
+    example, unadjudicated by Dukascopy and absent from the yfinance map.
 
     Depth is MEASURED, not assumed: run 32788423940 probed all 11 mapped
     instruments and every one carries bars past the sweep's own 1830 d request.
@@ -197,9 +263,12 @@ def resolve_feed_source(symbol: str, interval: str) -> str:
     # `HG=F` is the honest series for `HG_F`. It was previously refused because
     # Dukascopy's only catalogue hit was a Norwegian salmon farmer; that
     # refusal was about Dukascopy, never about the leg being unservable.
-    # `QLD`/`TQQQ` are NOT in `PROXY_DATA`, so this rule does not touch them and
-    # they stay refused — correctly: a daily leverage reset means the path is
-    # not N x the underlying, so no proxy is honest.
+    # `QLD`/`TQQQ` are NOT in `PROXY_DATA`, so this rule does not touch them —
+    # correctly, because no PROXY for them is honest: a daily leverage reset
+    # means the path is not N x the underlying. ⚠️ THIS COMMENT ENDED "and they
+    # stay refused" UNTIL 2026-09-08 AND THAT CONCLUSION WAS A NON-SEQUITUR:
+    # needing no proxy is why they are absent here, not a reason to refuse
+    # them. They are served under their OWN tickers by the last rung below.
     if sym in fleet.PROXY_DATA:
         if str(interval) not in _YF_SERVABLE_INTERVALS:
             raise NoFeedSource(
@@ -212,6 +281,54 @@ def resolve_feed_source(symbol: str, interval: str) -> str:
 
     res = _dk.resolve(sym)
     if res.state != _dk.STATE_MAPPED:
+        # LAST RUNG (MI-195, 2026-09-08): yfinance under the symbol's OWN
+        # ticker. Reached ONLY when dukascopy cannot serve the leg, so every
+        # currently-mapped symbol keeps the feed it already had and the
+        # existing corpus stays comparable — this rung can only ADD legs.
+        #
+        # ⚠️ **THE DUKASCOPY REFUSAL FOR `QLD`/`TQQQ` IS A REFUSAL TO *PROXY*,
+        # AND IT WAS BEING READ AS A PROPERTY OF THE LEG.** Its own text says
+        # so: *"a QQQ series is not a substitute at any horizon"*, under a
+        # table whose docstring reads *"Symbols the adjudication REFUSED **to
+        # proxy**"*. That argument is CORRECT and is untouched here — no QQQ
+        # series is ever served for QLD. It simply does not reach the question
+        # of whether QLD's OWN series exists, and it does: `yf_symbols` has
+        # mapped `QLD -> QLD` and `TQQQ -> TQQQ` as pass-through the whole
+        # time, and 1d is uncapped. MEASURED 2026-09-08 against Yahoo's chart
+        # API: QLD **5084** daily bars from 2006-06-21, TQQQ **4167** from
+        # 2010-02-11, both to 2026-09-04 — against a positive control of QQQ
+        # **6709** from 2000-01-03. Over the sweep's own 1830 d window all
+        # three yield an identical **1255** bars, as one exchange calendar
+        # must. So the substrate was never missing; the planner had no rung
+        # that could reach it.
+        #
+        # ⚠️ **THIS IS THE SAME SHAPE `MHG` WAS ALREADY RESCUED FROM**, and
+        # this function's own docstring conceded it one paragraph up: *"It was
+        # previously refused because Dukascopy's only catalogue hit was a
+        # Norwegian salmon farmer; that refusal was about Dukascopy, never
+        # about the leg being unservable."* MHG had a `PROXY_DATA` entry to
+        # ride out on. `QLD`/`TQQQ` need no proxy — which is precisely why
+        # they are not in `PROXY_DATA`, and precisely why they fell through
+        # the crack between the two branches.
+        #
+        # ⚠️ **WHAT THIS DOES NOT ESTABLISH.** That a trend backtest on a
+        # daily-reset leveraged ETF is sound. Volatility decay and path
+        # dependence are real and are NOT a data-provenance question — they
+        # are properties of the instrument these two legs already trade LIVE,
+        # so the honest substrate for backtesting them is their own series and
+        # nothing else. This rung buys the ability to ASK the question; it
+        # asserts nothing about the answer.
+        #
+        # ⚠️ **`unknown` STAYS REFUSED.** `NVDA` is unadjudicated by dukascopy
+        # AND absent from the yfinance map, so it still raises — the three
+        # states (`mapped` / `refused` / `unknown`) stay apart, and a symbol
+        # nobody has looked at is never scheduled on a guess.
+        if yf_serves_directly(sym):
+            if str(interval) not in _YF_SERVABLE_INTERVALS:
+                raise NoFeedSource(
+                    f"yfinance_interval_unsupported:{sym} — the lane does not "
+                    f"serve interval {interval!r}")
+            return "yfinance"
         raise NoFeedSource(f"{res.state}:{sym} — {res.reason}")
     if str(interval) not in _DK_SERVABLE_INTERVALS:
         raise NoFeedSource(
@@ -449,10 +566,60 @@ def _selftest() -> int:
         {s_: data_basename(s_, "1d").rsplit("_", 1)[0]
          for s_ in sorted(fleet.PROXY_DATA)},
         {s_: fleet.PROXY_DATA[s_] for s_ in sorted(fleet.PROXY_DATA)})
-    # The three refusals stay APART from each other and from a successful route.
-    raises("a REFUSED symbol has no feed (QLD, daily leverage reset)",
-           lambda: resolve_feed_source("QLD", "D"), NoFeedSource)
-    raises("an UNADJUDICATED symbol has no feed (NVDA)",
+    # --- the yfinance-direct last rung (MI-195, 2026-09-08) -----------------
+    # ⚠️ THE FIRST TWO LINES BELOW REPLACE AN ASSERTION THAT PINNED `QLD` AS
+    # PERMANENTLY REFUSED, AND THE REPLACEMENT IS THE POINT OF THE CHANGE.
+    # That assertion was right about DUKASCOPY and was being read as a fact
+    # about the leg; see `resolve_feed_source`'s last rung for the measured
+    # bar counts that settle it. The dukascopy refusal itself is UNCHANGED —
+    # `dukascopy_instruments.resolve("QLD").state` is still `refused`, and no
+    # QQQ series is ever served for QLD.
+    chk("QLD routes to yfinance under its OWN ticker, never a QQQ proxy",
+        resolve_feed_source("QLD", "D"), "yfinance")
+    chk("TQQQ likewise", resolve_feed_source("TQQQ", "D"), "yfinance")
+    chk("dukascopy still REFUSES QLD — the rung adds a feed, it does not "
+        "overturn the adjudication",
+        _dk_state_for("QLD"), "refused")
+    # The rung is gated on a PASS-THROUGH ticker, so a proxy row can never
+    # ride it even if the PROXY_DATA branch above were ever removed.
+    chk("a pass-through row is a direct series", yf_serves_directly("QLD"), True)
+    chk("a PROXY row is NOT a direct series", yf_serves_directly("MES"), False)
+    chk("...nor is MGC", yf_serves_directly("MGC"), False)
+    chk("an unmapped symbol is not a direct series",
+        yf_serves_directly("NVDA"), False)
+    # ⚠️ "we could not look" must stay separable from "we looked and it is not
+    # there". Both refuse the leg, which is exactly why the distinction has to
+    # be ASSERTED rather than trusted: a False here would report a missing
+    # dependency as a settled fact about the symbol.
+    _saved_repo = globals()["REPO"]
+    try:
+        globals()["REPO"] = Path("/nonexistent-repo-root-for-selftest")
+        raises("an UNREADABLE yfinance map RAISES, never returns False",
+               lambda: yf_serves_directly("QLD"), NoFeedSource)
+        try:
+            yf_serves_directly("QLD")
+        except NoFeedSource as _e:
+            chk("...and the refusal names the real cause, not the symbol",
+                "yf_map_unloadable" in str(_e), True)
+    finally:
+        globals()["REPO"] = _saved_repo
+    chk("...and the map is readable again afterwards",
+        yf_serves_directly("QLD"), True)
+    # THE LOAD-BEARING ONE: the rung must only ever ADD legs. Every symbol
+    # dukascopy already maps keeps the feed it had, so the committed corpus
+    # stays comparable and no existing verdict is re-based onto a new source.
+    for _s, _iv in (("SPY", "D"), ("GLD", "D"), ("QQQ", "D"), ("SPLG", "D"),
+                    ("GDX", "D"), ("IWM", "D"), ("SLV", "D"), ("TLT", "D"),
+                    ("IEF", "D"), ("IAUM", "D"), ("SCHA", "D"), ("USO", "D")):
+        chk(f"{_s} still routes to dukascopy (corpus stays comparable)",
+            resolve_feed_source(_s, _iv), "dukascopy")
+    # An interval the yfinance lane cannot serve is REFUSED on this rung too,
+    # not coerced — the same discipline both other branches apply.
+    raises("QLD at 4h is refused, not coerced",
+           lambda: resolve_feed_source("QLD", "240"), NoFeedSource)
+    # The three states stay APART from each other and from a successful route.
+    raises("an UNADJUDICATED symbol has no feed (NVDA): unknown to BOTH "
+           "dukascopy and the yfinance map, so it is still refused",
            lambda: resolve_feed_source("NVDA", "D"), NoFeedSource)
     raises("an interval dukascopy cannot serve is refused, not coerced (2h)",
            lambda: resolve_feed_source("SPY", "120"), NoFeedSource)

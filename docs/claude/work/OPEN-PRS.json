@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-08T07:16:00Z",
+  "as_of": "2026-09-08T14:22:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -98,6 +98,25 @@
         "text": "Tier-1 automation output. No human decision is attached to it; it carries auto-merge and lands on green."
       },
       "note": "NOT A SESSION'S PR — opened by the work-digest workflow (branch automation/work-digest-34197048382-1) and carries auto-merge, so it needs no manager action. Recorded ONLY so the register is complete: an open PR with no row is the completeness half that open_pr_record.py --strict grades, and a successor reading a short list would conclude the queue was emptier than it is. ⚠️ DO NOT read its existence as clearing OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE: that row's clause (1) wants a work-digest run with event=push observed completing AND its receipt on main carrying trigger=\"push\" and that run's generated_at. A PR existing is not a receipt, and QUEUING is not DELIVERY."
+    },
+    {
+      "pr": 11390,
+      "title": "MI-199 (2/2): stop re-attempting a close we have PROVED cannot succeed",
+      "owner_session": "session_011PHmZzVy92M6zjNopAMy51",
+      "checklist_item": "MI-199-GLD-CLOSE-WEDGE",
+      "tier": 2,
+      "state": "approved_awaiting_rebase",
+      "draft": true,
+      "opened_at": "2026-09-08",
+      "blocker": "Draft + mergeable_state dirty (was stacked on #11389, now merged). MI-199 must rebase linearly, mark ready.",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": "#11390 only — the close-retry suppression in src/runtime/order_monitor.py. Asked and answered as its OWN decision, separate from the earlier 'ok on gld' that covered #11389.",
+        "decided_on": "2026-09-08",
+        "text": "Operator chose 'Approve now' from an explicit three-way choice (approve now / wait for #11389's result / reject), with the tradeoff stated in the question: it changes WHEN a live close is attempted and the code path is shared with real-money Alpaca."
+      },
+      "note": "⚠️ THE POINT OF THIS ROW IS THE SCOPE LIMIT, NOT THE PR. A successor reading 'the operator approved the GLD fix' could reasonably conclude both halves are cleared; they are not, and the two differ in exactly the way that matters. #11389 (MERGED bdccf226) places, cancels, amends and defers NOTHING differently — only what we conclude and which channel the alert takes. #11390 changes WHEN a close is attempted, which is a real order-path behaviour change on a live account. That distinction is why they were split into two PRs and why they were put to the operator as two questions. ⚠️ A half-informed successor is the dangerous case here: one knowing nothing re-asks (safe); one knowing 'GLD was approved' could arm this (not safe). Do NOT arm it, and do NOT fold any part of it into another PR — the clean separation is what made #11389 cheap to approve."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
