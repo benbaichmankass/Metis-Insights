@@ -1,0 +1,30 @@
+id: WO-20260908-WIRE-MORE-STRATEGIES-TO-ALPACA-LIVE-WHICH
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Wire more strategies to alpaca_live, which runs one leg on a 200 dollar cash account
+stage: DECISION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A written, ranked proposal naming the specific legs to add, each with: its measured paper performance on alpaca_paper or alpaca_portfolio stated with its POPULATION and its provenance split, the share price of its instrument against what 2 percent of a 200 dollar balance actually buys in WHOLE shares, and whether T plus 1 settlement would strand it between trades. The proposal is put to the operator as a Tier-3 decision and the operator answers. [!] insufficient_n is a legitimate outcome for any leg and must be reported per leg rather than averaged away - every one of the 44 enabled live legs currently grades insufficient_n under MI-155's floor, so a proposal that silently assumes gradeable paper evidence is claiming something this system does not have. [!] NOT SUFFICIENT: adding legs because they exist on the paper roster, a count of candidates without the whole-share arithmetic, or any roster edit made before the operator answers. [!] NOTHING IS ENACTED FROM THIS OBJECT - the config edit is a separate Tier-3 act after the decision. [!] IF THE OPERATOR DECIDES the account should stay at one leg, or should wait on the cash-settlement gate being EXERCISED first (it is armed and has never refused anything, and cannot until the account makes a sale), this object does NOT clear - it CHANGES into a recorded decision with that reason stated.
+
+why: >-
+  MEASURED 2026-09-08T12:22Z. alpaca_live is mode: live / account_class: real_money and its roster is ONE leg, tlt_pullback_1h, routed 2026-08-31 by PR 10633. Since that routing it has signalled EXACTLY ONCE (2026-09-01T16:05:34Z) and that one signal was rejected with NO recorded reason, so the account is effectively idle. It is idle because almost nothing is assigned to it, not because it is broken. [!] THREE CONSTRAINTS BOUND THE CANDIDATE SET AND ARE NOT OPTIONAL. (1) It is a CASH account (capacity.multiplier == 1) holding roughly 200 dollars, so the whole balance recycles every trade and T plus 1 settlement binds - ALPACA_CASH_SETTLEMENT_MODE is armed apply scoped to alpaca_live, deliberately armed BEFORE the first leg. (2) Alpaca is in risk.WHOLE_UNIT_QTY_EXCHANGES, so sizing is whole shares and a leg whose risk budget cannot buy one share of its instrument can never place - on a 200 dollar account at 2 percent risk that excludes most high-priced instruments outright. (3) accounts.yaml states in terms that adding a leg to this account IS the live-trading moment and is Tier-3 in its own right, because mode: live plus a non-empty roster trades real money immediately and there is no second gate behind it. [!] THE CANDIDATE POOL IS NOT HYPOTHETICAL: alpaca_paper runs 19 legs and alpaca_portfolio runs 14 on the same venue, so per-leg paper evidence already exists and the question is which of them clear a real-money bar on a cash account rather than which could be written.
+
+source: >-
+  operator directive 2026-09-08: 'we need to add a workplan item to try and get more startegies wired to alpaca live'
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
