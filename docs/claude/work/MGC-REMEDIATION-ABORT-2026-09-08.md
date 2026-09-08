@@ -177,3 +177,16 @@ code changes* — propose, not enact. This document is that proposal.
 
 **Coordination board (#6927) is at GitHub's 2500-comment cap and writes 403, so
 no START claim could be posted. Known and parked as MI-182; not retried.**
+
+## Landing
+
+Proposed as **PR #11328**, opened ready (not draft) per the 2026-09-03 operator
+ruling — the hold is carried by
+`.github/pr-landing/mgc-remediation-abort-attribution-contradiction.json`
+(`tier: 3`, `landing: hold`, `hold_reason: tier_2_3_needs_approval`), and **no
+`.github/pr-automerge-requests/` file is written**, so nothing self-lands.
+
+The relay opened it as `github-actions[bot]`, so GitHub's recursion prevention
+fired no workflows and `get_check_runs` read `total_count: 0` — **blocked, not
+green**, exactly as `pr-opener.yml`'s header documents. This commit is the
+ordinary push that arms CI.
