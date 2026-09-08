@@ -1,0 +1,8 @@
+Manager register branch: lease heartbeat, supervision record, the operator's
+three-lane dispatch and the mid-flight re-scope of lanes 2 and 3, plus one
+filed backlog row. Tier-1, docs/claude/** only.
+
+Arming is legitimate only because #11357 (merged 417bd6b6) resolved the R13/R2
+deadlock. Before it, R13 required this branch to write docs/claude/session-board.json
+and R2 refused a manager commit touching that path, so no manager register PR
+could arm honestly. It now can, per commit by content.
