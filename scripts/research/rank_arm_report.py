@@ -20,7 +20,7 @@ THE CONTROL IS THE FLOOR, NOT A COURTESY ARM
 An arm is preferred only if it beats `random_tiebreak`. If the SHIPPED arm
 (`confidence_first`) does not, the finding is that **arbitration ORDER does not
 drive outcome** — publishable, and the signal to look at the confidence SCORE
-itself instead (`BL-20260831-CONFIDENCE-SATURATES-AT-ONE-...`). M18's adjacent
+itself instead (`BL-20260831-CONFIDENCE-SATURATES-AT-ONE-SO-HALF-OF-ARBITRATIONS-CANNOT-BE-DECIDED-ON-IT`). M18's adjacent
 allocator already returned NO on a neighbouring question (edge -$7, ranker OOS
 AUC ~0.51). **A NULL RESULT CLOSES THE QUESTION AND IS A SUCCESS**; it is not a
 reason to re-run until something wins.
