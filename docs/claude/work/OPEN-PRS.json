@@ -40,29 +40,10 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-08T04:16:00Z",
+  "as_of": "2026-09-08T07:02:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
-    {
-      "pr": 11279,
-      "opened_at": "2026-09-07T19:51:13Z",
-      "title": "MI-168: propose a TRADE-scoped close confirmation (Tier-3, HELD — coupled to MI-140)",
-      "owner_session": "session_01BpU7rfqWKir4rQrowT4ZQd",
-      "checklist_item": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
-      "draft": false,
-      "tier": "3",
-      "state": "approved_ready_to_merge",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "The partial-fill default is `strict` — the operator was asked to name it and DID, so it is a recorded choice and not a default that drifted. strict is what the PR already ships, so the merged artifact matches the approval exactly; if anything later flips it to `reduction` that is a NEW decision, not this one. The approval covers the IB close path ONLY.",
-        "scope": "IB close confirmation (IBClient.close / IB_CLOSE_CONFIRM_SCOPE, IB_CLOSE_CONFIRM_PARTIAL). EXPLICITLY NOT Alpaca — MI-168's own body establishes that applying the identical change to Alpaca would install a false-SUCCESS on a real-money-capable path, and Alpaca's mirror defect is decided separately on #11312. EXPLICITLY NOT Bybit, which has no close-confirm gate at all.",
-        "decided_on": "2026-09-08",
-        "text": "Asked as two separate questions and answered separately. (1) 'Approve the re-scope' — confirm against the close order's own fill, then position reduction, then flatness. (2) 'strict' for IB_CLOSE_CONFIRM_PARTIAL: a 40-of-43 fill REFUSES and the row stays open to retry, erring toward a phantom OPEN row that existing reconcilers clean up, rather than a phantom CLOSED row that fabricates PnL on the remainder and leaves lots naked with nothing looking for them."
-      },
-      "blocker": "⚠️ THE SESSION REPORTS THIS PR IS NOT SUFFICIENT ALONE. While preparing it, it found the OPPOSITE-SIGN twin of MI-167 on Alpaca — a false-SUCCESS in which closing one trade liquidates its SIBLINGS — and filed BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. That is on alpaca_live, REAL MONEY, inert only because MI-140 measured that account as unable to place an order. Filed as MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS. NOT VERIFIED BY THE MANAGER — this is the session's report.",
-      "note": "Tier-3 APPROVED 2026-09-08. R4 bars the DECLARATION `landing: self` for tier != 1; it does not bar the merge, and this PR correctly declares `landing: hold`. The approval is what unblocks it."
-    },
     {
       "pr": 11312,
       "state": "approved_ready_to_merge",
@@ -80,6 +61,79 @@
       },
       "note": "Tier-3 approved. Merge unblocked for the measurement/proposal; the implementation is a separate dispatched session.",
       "opened_at": "2026-09-08T02:00:33Z"
+    },
+    {
+      "pr": 11334,
+      "opened_at": "2026-09-08T05:15:40Z",
+      "tier": 2,
+      "draft": true,
+      "state": "draft_needs_operator_read",
+      "title": "MI-182 — retire the capped coordination board, resolve it from one pointer, make a dead board detectable",
+      "owner_session": "session_01GtvQEQnfwzz9yRdPF6sPFg",
+      "checklist_item": "MI-182-COORDINATION-BOARD-SUCCESSOR",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "The operator approved SPAWNING this (round 2, decision (h)). ⚠️ THE MANAGER'S OWN BRIEF WAS WRONG AND THE SESSION CORRECTED IT: the manager said scope-overlap-audit reports 0 and 'reads as no collision'. Measured false — check_scope_overlap.assess already refuses an empty START set as `could_not_check`, so a frozen board produced a LOUD YELLOW on every PR, not a false green. The real defect is narrower: that yellow is permanent and indistinguishable from a tooling gap (the desensitized-alarm P1). Do not restate the manager's framing. ⚠️ A successor issue alone is HALF — merge-claim-audit.yml AND scope-overlap-audit.yml must BOTH be re-pointed, and this PR does that plus board-post.yml.",
+        "scope": "Coordination/CI machinery only: .github/workflows/, scripts/ci/, scripts/ops/session_registry.py, .claude/, CLAUDE.md, docs/. No src/, config/, deploy/ or order path.",
+        "decided_on": "2026-09-08",
+        "text": "Round 2, decision (h): 'Spawn sessions for both the coordination-board cap (MI-182) and the R6/merge-slot conflict (MI-175/MI-183).'"
+      },
+      "note": "⚠️ STILL DRAFT and `landing: hold` (R12 — it edits board-post.yml and session_registry.py, both LANDING_MACHINERY). ⚠️ ITS OWN board-coherence CHECK FAILS UNTIL THE BOARD IS PROVISIONED, and that is the FORCING FUNCTION, not a bug: R2 refuses board_state `unprovisioned` on main so a half-finished rotation cannot merge. ⚠️ MEASURED CADENCE: #6927 took 2500 comments in 50.1 days = 49.9/day, so a fresh board fills in ~7 WEEKS. The answer is rotation, not a bigger board. ⚠️ HONEST LIMIT the session states itself: nothing watches the heartbeat watchdog. ⚠️ NOT VERIFIED BY THE MANAGER."
+    },
+    {
+      "pr": 11337,
+      "opened_at": "2026-09-08T05:36:34Z",
+      "tier": 3,
+      "draft": false,
+      "state": "open_needs_operator_read",
+      "title": "Trade-scope the Alpaca close OPERATION and modify_protective (Tier-3, landing: hold)",
+      "owner_session": "session_01GYsNAhP6SpKe1vyn2tBc94",
+      "checklist_item": "MI-180-ALPACA-CLOSE-TRADE-SCOPE",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "Carried from #11312's approval, which is the decision that authorises this diff: the FIRST step was to establish whether Alpaca can express a qty-scoped close at all, and the fix must ALSO cover modify_protective. ⚠️ BOTH ARE NOW SATISFIED ON THE SESSION'S REPORT — DELETE /v2/positions/{symbol} documents a `qty` parameter, so the 'venue cannot express it' branch does not apply, and modify_protective is scoped in the same diff. ⚠️ MI-140 STAYS HELD until this lands. ⚠️ NOT VERIFIED BY THE MANAGER and NOT LIVE-VERIFIED BY ANYONE: no broker call was made, so `?qty=` acceptance against a real Alpaca position is documented, not observed.",
+        "scope": "The Alpaca close OPERATION (AlpacaClient.close / execute.close_open_position) and modify_protective. Does NOT extend #11279's confirmation change to Alpaca.",
+        "decided_on": "2026-09-08",
+        "text": "Operator answered 'trade-scope the Alpaca close' on #11312, then (round 3) 'build the scoped capability first rather than re-arming through the defective path' and 'fold the 5266 stop-rewrite into the same scoped-write fix'."
+      },
+      "note": "⚠️ THE OPEN QUESTION IS SECTION 3(b), AND IT IS THE THING TO READ BEFORE MERGING. The session narrowed the CONFIRMATION for the new partial path only, arguing the ordering is the safety property: the measurement is loosened only for a path whose OPERATION was narrowed in the same commit, and the pre-existing whole-symbol gate is untouched. Its own body says 'if you disagree with the ordering argument, this is the line to push on.' That is a Tier-3 order-path judgement and it is the operator's. ⚠️ `landing: hold`, needs a merge click; it is NOT waiting on the approval to be re-sought.",
+      "blocker": "Awaiting an operator read of the section-3(b) confirmation-ordering argument."
+    },
+    {
+      "pr": 11344,
+      "opened_at": "2026-09-08T06:58:17Z",
+      "tier": 1,
+      "draft": false,
+      "state": "open_ci_running",
+      "title": "pr-landing R13: the arming route takes the merge slot",
+      "owner_session": "session_01LSfhSog9oxATpMUUPBfTN9",
+      "checklist_item": "MI-183b-PR-LANDING-R6-VS-MERGE-SLOT-FRESH-CONTAINER",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": "Tier-1 CI-guard + docs. No src/, no config/, no deploy/, no order path.",
+        "decided_on": "2026-09-08",
+        "text": "Tier-1 does not require an operator decision. The SPAWN was operator-approved (round 2, decision (h): spawn sessions for both the coordination-board cap and the R6/merge-slot conflict)."
+      },
+      "note": "⚠️ IT REFUTED ITS OWN WORK ORDER, WHICH IS THE FINDING. The dispatch said R6 and the merge-slot guard are mutually unsatisfiable; the session measured that they are NOT in conflict — the merge-slot hook matches only mcp__github__merge_pull_request/enable_pr_auto_merge, and the R6 arming route uses none of them (Bash/Write/push_files/create_or_update_file all return False against the shipping matcher). So the slot guard is not weakened by R6; it was never ON that road. That is a LARGER hole than BL-20260819-MERGE-SLOT-GUARD-DOES-NOT-FIRE, which is 'the guard does not load on the web' — this one holds in CLI and desktop too. ⚠️ AND IT NAMES MI-182 AS THE PROXIMATE CAUSE: the claim that would serialize the arming route is a comment on #6927, which is at the 2500-comment cap and 403s. So the board cap is not a parked side-nuisance. ⚠️ It CANNOT demonstrate its own done-condition: it edits check_pr_landing.py, which is LANDING_MACHINERY, so R12 forbids it self-landing. Needs a follow-on docs-only PR after this merges. Manager has NOT verified any of this — it is the session's report."
+    },
+    {
+      "pr": 11346,
+      "opened_at": "2026-09-08T06:58:56Z",
+      "tier": 1,
+      "draft": false,
+      "state": "open_automation_automerge",
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": "Generated artifact only — queues one rolled-up summary onto pending-pings.jsonl. No src/, no config/, no order path.",
+        "decided_on": "2026-09-08",
+        "text": "Tier-1 automation output. No human decision is attached to it; it carries auto-merge and lands on green."
+      },
+      "note": "NOT A SESSION'S PR — opened by the work-digest workflow (branch automation/work-digest-34197048382-1) and carries auto-merge, so it needs no manager action. Recorded ONLY so the register is complete: an open PR with no row is the completeness half that open_pr_record.py --strict grades, and a successor reading a short list would conclude the queue was emptier than it is. ⚠️ DO NOT read its existence as clearing OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE: that row's clause (1) wants a work-digest run with event=push observed completing AND its receipt on main carrying trigger=\"push\" and that run's generated_at. A PR existing is not a receipt, and QUEUING is not DELIVERY."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1709,10 +1763,33 @@
       "merge_sha": "fcc77cd217561a0a6c0d545460961d6b778efbbd",
       "observed_at": "2026-09-08T05:02:08Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 11279,
+      "opened_at": "2026-09-07T19:51:13Z",
+      "title": "MI-168: propose a TRADE-scoped close confirmation (Tier-3, HELD — coupled to MI-140)",
+      "owner_session": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "checklist_item": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
+      "draft": false,
+      "tier": "3",
+      "state": "merged",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "The partial-fill default is `strict` — the operator was asked to name it and DID, so it is a recorded choice and not a default that drifted. strict is what the PR already ships, so the merged artifact matches the approval exactly; if anything later flips it to `reduction` that is a NEW decision, not this one. The approval covers the IB close path ONLY.",
+        "scope": "IB close confirmation (IBClient.close / IB_CLOSE_CONFIRM_SCOPE, IB_CLOSE_CONFIRM_PARTIAL). EXPLICITLY NOT Alpaca — MI-168's own body establishes that applying the identical change to Alpaca would install a false-SUCCESS on a real-money-capable path, and Alpaca's mirror defect is decided separately on #11312. EXPLICITLY NOT Bybit, which has no close-confirm gate at all.",
+        "decided_on": "2026-09-08",
+        "text": "Asked as two separate questions and answered separately. (1) 'Approve the re-scope' — confirm against the close order's own fill, then position reduction, then flatness. (2) 'strict' for IB_CLOSE_CONFIRM_PARTIAL: a 40-of-43 fill REFUSES and the row stays open to retry, erring toward a phantom OPEN row that existing reconcilers clean up, rather than a phantom CLOSED row that fabricates PnL on the remainder and leaves lots naked with nothing looking for them."
+      },
+      "blocker": "⚠️ THE SESSION REPORTS THIS PR IS NOT SUFFICIENT ALONE. While preparing it, it found the OPPOSITE-SIGN twin of MI-167 on Alpaca — a false-SUCCESS in which closing one trade liquidates its SIBLINGS — and filed BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. That is on alpaca_live, REAL MONEY, inert only because MI-140 measured that account as unable to place an order. Filed as MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS. NOT VERIFIED BY THE MANAGER — this is the session's report.",
+      "note": "Tier-3 APPROVED 2026-09-08. R4 bars the DECLARATION `landing: self` for tier != 1; it does not bar the merge, and this PR correctly declares `landing: hold`. The approval is what unblocks it. MERGED 2026-09-08T06:59Z by the manager (manual — `landing: hold` with no automerge file; a merge is a MANAGEMENT act R2 does not grade). The typed condition above is ALSO written into the merge commit message, deliberately duplicated: a successor who never opens this file still meets the scope limit in `git log`.",
+      "merged_at": "2026-09-08T06:59:00Z",
+      "merge_sha": "12b5b84b1b8676bdad7d0524e27a35e425931449",
+      "terminal": "merged",
+      "terminal_basis": "squash 12b5b84b1b8676bdad7d0524e27a35e425931449, confirmed on main — the merge call's own return, not the PR page"
     }
   ],
   "last_reconciled_at": "2026-09-08T05:02:08Z",
   "last_reconciled_sha": "fcc77cd217561a0a6c0d545460961d6b778efbbd",
-  "updated_at": "2026-09-08T04:16:00Z",
+  "updated_at": "2026-09-08T07:02:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }

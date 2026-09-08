@@ -33398,6 +33398,23 @@
         "Establish from the audit trail WHICH amend wrote 82.33 at 2026-09-04T17:35:55Z and confirm it originated from trade 5414 — the timestamps and the price make this the strong reading, but it is a reconstruction and is recorded as one.",
         "Confirmed by a read_state 'orders_read' showing TLT's resting stop legs each within a cent of their OWN trade's declared stop_loss."
       ]
+    },
+    {
+      "id": "BL-20260908-MERGE-QUEUE-ENTRIES-NEVER-ADVANCE-WHEN-THE-PR-LANDS-SO-R8-S-ONE-SLOT-IS-HELD-BY-PHANTOMS",
+      "opened_at": "2026-09-08",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "title": "MERGE-QUEUE.json entries stay `rebasing` after their PR merges — TWO phantoms de-phantomed by hand in a single manager session, and the phantom holds the one slot R8 exists to protect",
+      "detail": "MEASURED, n=2 in one session (2026-09-07T20:26Z-2026-09-08T06:58Z, population = every entry in docs/claude/work/MERGE-QUEUE.json over that window). #11306 read `rebasing` while merged as 161ee60a (stale 2h20m). #11318 read `rebasing` while merged as cf04a879 — found only because a de-phantom of a DIFFERENT entry happened to print the queue. Both verified against `git log origin/main --grep='(#N)'`, i.e. the commit on main, NEVER the PR page.\n\nMECHANISM: nothing advances an entry when its PR lands. `check_manager_scope.py` R8 enforces at most one entry `rebasing` — a real invariant, because two concurrent rebases are how the 2026-09-03 dirty-three-times day happened. But the guard checks the COUNT, never whether the holder is still open. So a finished PR silently holds the only rebase slot, and the next manager either blocks on a queue that is actually empty or hand-clears it and learns nothing.\n\nWHY IT IS NOT SELF-CORRECTING: the manager writes this file, and the manager is exactly who is busiest at the moment a PR merges. It is the same shape as MI-15's session-registry misses ('the moment a manager spawns is exactly the moment it is least likely to stop and write a record') and the same shape as the SESSIONS.json `working` rows that MI-178 measured 17-for-17 false. A register whose only writer is the party with the least attention at write time goes false by TIME PASSING, not by anyone being careless.\n\nNOT A DUPLICATE of BL-20260720-MERGE-PROTOCOL-LAPSE (that is about claim-less merges racing `behind`; this is about the queue record outliving the merge). backlog_search returned 8 rows at <=0.56 overlap, all lexical; each was read and none is this.",
+      "resolution_criteria": "A CHECK, not a reminder — a fourth restatement is the non-fix this repo has already paid for on MI-15. Either: (a) check_manager_scope.py R8 additionally FAILS when an entry in a non-terminal state (`rebasing`/`green`/`waiting`/`blocked`) names a PR that is closed or merged on main, so the phantom fails the next manager PR rather than waiting to be noticed; or (b) the merge-queue entry is advanced by the same mechanism that observes the merge. ⚠️ CLEARS ONLY ON AN OBSERVATION: the guard must be seen FAILING a real PR that carries a phantom entry, or seen PASSING a queue whose phantom was auto-advanced. A green self-test clears nothing — a harness is exactly what cannot reach a merge. ⚠️ AND IF THE OPERATOR DECIDES the queue should stay hand-maintained, this row does NOT clear, it CHANGES: the slot is then knowingly unguarded against phantoms and that must be RECORDED as a decision, with the consequence stated.",
+      "evidence": [
+        "MERGE-QUEUE.json entry pr=11306 state=rebasing; git log origin/main --grep='(#11306)' -> 161ee60a (merged)",
+        "MERGE-QUEUE.json entry pr=11318 state=rebasing; git log origin/main --grep='(#11318)' -> cf04a879 (merged)",
+        "scripts/ci/check_manager_scope.py R8: counts `rebasing` entries; does not resolve any entry's PR state"
+      ],
+      "found_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "found_during": "manager merge-queue pass, MI-185b/MI-183b supervision"
     }
   ]
 }

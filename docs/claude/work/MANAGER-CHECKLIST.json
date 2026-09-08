@@ -2125,10 +2125,10 @@
     },
     {
       "id": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
-      "status": "blocked",
+      "status": "landed_unproven",
       "owner": "session_01BpU7rfqWKir4rQrowT4ZQd",
       "opened": "2026-09-07T19:30:00Z",
-      "updated": "2026-09-07T21:33:00Z",
+      "updated": "2026-09-08T07:00:00Z",
       "blocked_on": {
         "kind": "decision",
         "ref": "operator: (1) approve/reject the symbol->trade re-scope; (2) name the IB_CLOSE_CONFIRM partial-fill default",
@@ -2136,7 +2136,7 @@
       },
       "tier": "3 — PROPOSE ONLY; operator dispatched the proposal, not the merge",
       "title": "Re-scope the close confirmation from SYMBOL-flat to TRADE-quantity (Tier-3 proposal)",
-      "note": "OPERATOR DECISION 2026-09-07, asked directly with the coupling stated: 'Dispatch it now, coupled to MI-140'. ⚠️ COUPLING IS THE POINT — alpaca_live (REAL MONEY) shares the identical symbol-scoped confirm and is immune TODAY only because it cannot place orders (MI-140). FIXING MI-140 ARMS THIS ON REAL MONEY; the two must not land independently, and the edge is written into BOTH work objects. bybit_2 (REAL MONEY) is NOT exposed — Bybit has no close-confirmation at all (0 hits, positive control returns IB + Alpaca) — so it escapes on a missing venue gate, not its trade shape, and must NOT be 'fixed' by adding one. Precondition is common: 13 (account,symbol) pairs held 2+ simultaneously-open rows in 28 days. ⚠️ OPERATOR STEER 2026-09-07: symbol-vs-trade is SETTLED — confirm on the TRADE'S OWN QUANTITY DELTA, observable even with siblings (MGC 54 → 11 IS 5531's 43 lots leaving). The existing check is not merely wrong: it exists because an accepted-but-unfilled close once left a real position NAKED with the row marked closed. Change the MEASUREMENT, keep the guarantee. STILL THE OPERATOR'S: the within-trade partial fill, which differs in what happens to the leftover lots' protection. MANAGER CAVEAT: whether both Alpaca close paths can observe a per-trade delta as cleanly as IB is NOT established — different position read; establish per venue, do not assume symmetry. BLOCKED 2026-09-07T21:33Z: the session reports #11279 is ready but NOT sufficient alone, because it also found the opposite-sign REAL-MONEY defect now filed as MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS. Two operator decisions are owed; see that row."
+      "note": "MERGED 12b5b84b 2026-09-08T06:59Z with both operator conditions in the commit message. ⚠️ `landed_unproven`, NOT `done`: the code is in and its effect has NOT been seen on the fleet. Collapsing those two is the failure this repo keeps paying for. Clears when a real IB close is OBSERVED confirming against the close order's own fill."
     },
     {
       "id": "MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS",
@@ -2247,14 +2247,14 @@
     },
     {
       "id": "MI-179-TLT-5414-REARM-56-NAKED-SHARES",
-      "status": "in_flight",
+      "status": "blocked",
       "owner": "session_01HwWNiwEGCGAAwKhfchMUs7",
       "opened": "2026-09-08T04:16:00Z",
-      "updated": "2026-09-08T04:49:00Z",
-      "blocked_on": null,
+      "updated": "2026-09-08T06:58:00Z",
+      "blocked_on": "MI-180-ALPACA-CLOSE-TRADE-SCOPE",
       "tier": "2 — protective re-arm on a paper account",
       "title": "Re-arm protection for the 56 uncovered shares on trade 5414 (alpaca_portfolio/TLT)",
-      "note": "OPERATOR-APPROVED 2026-09-08. alpaca_portfolio/TLT is a 72-share short; only 16 shares carry a resting stop (trade 5266). Trade 5414's 56 shares are entirely naked while its journal row declares stop_loss 82.32875, and have been since ~2026-09-03. PAPER money. Chosen over 'monitor only' and over flattening. ⚠️ THIS IS ADDING PROTECTION, NOT CANCELLING LEGS — it is NOT the BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG hazard, and nothing resting may be cancelled to achieve it. ⚠️ THE LEVEL MUST BE THE JOURNAL'S OWN declared stop_loss (82.32875), never a recomputed or venue-read level — recording a venue level as the declaration launders it and makes a divergence unfindable. ⚠️ MI-173 established the Alpaca close is WHOLE-SYMBOL, so any path that closes or re-places by symbol risks the sibling's 16 shares: establish the blast radius BEFORE acting, and defer rather than guess."
+      "note": "HELD BY OPERATOR DECISION 2026-09-08, and the hold is the finding rather than a delay. MI-179 MEASURED that AlpacaClient.place_protective (alpaca_client.py:1361) is the ONLY path that places an Alpaca protective leg and calls _cancel_open_orders_for_symbol UNCONDITIONALLY — the oca_key IB honours is silently DROPPED — so every re-arm is symbol-wide. Re-arming the 56 shares through that path would strip trade 5266's own resting OCO first. ⚠️ THE 56 SHARES STAY NAKED DELIBERATELY (paper money, alpaca_portfolio) until MI-180 ships a trade-scoped protective write. DO NOT retry the re-arm through the existing path. Filed: BL-20260908-ALPACA-PLACE-PROTECTIVE-IGNORES-OCA-KEY-SO-EVERY-RE-ARM-IS-SYMBOL-WIDE."
     },
     {
       "id": "MI-180-ALPACA-CLOSE-TRADE-SCOPE",
@@ -2291,21 +2291,21 @@
     },
     {
       "id": "MI-183-PR-LANDING-R6-VS-MERGE-SLOT",
-      "status": "blocked",
+      "status": "superseded",
       "owner": "session_0173g82hw2Rf3HjnfydGcnyX",
       "opened": "2026-09-08T04:16:00Z",
-      "updated": "2026-09-08T06:45:00Z",
+      "updated": "2026-09-08T06:58:00Z",
       "blocked_on": null,
       "tier": "1 — CI guard machinery",
       "title": "pr-landing R6 and the merge-slot guard are mutually unsatisfiable",
-      "note": "OPERATOR-APPROVED 2026-09-08 (spawn-priority exception granted). Self-disclosed by session 018ruZdg on #11309: the only path that completes BYPASSES one of the two guards. A guard that must be bypassed to land is worse than no guard, because the bypass becomes routine and then invisible. Establish the exact conflict from both guards' code before proposing a change, and do not weaken either to make them agree. || SESSION UNRECOVERABLE, RE-DISPATCHED AS MI-183b 2026-09-08T06:40Z. It confirmed 'push denied by harness' at 06:22Z after FINISHING the work (commit 5101620, 3 files, +259/-7) and spending 201k tokens. Second of six containers to refuse; four pushed fine, so per-container. MI-183b (session_01LSfhSog9oxATpMUUPBfTN9) owns the same object with a push-probe-first prompt and must REDO the work — the predecessor's commit is stranded where nobody can read it."
+      "note": "SUPERSEDED by MI-183b. The container could not `git push` / `git merge` and burned ~201k tokens reaching a finished analysis it could not land. Re-dispatched into a fresh container that runs a throwaway-branch push probe FIRST. ⚠️ WHY two of six containers refuse is NOT established — both sessions gave paraphrases ('push denied by harness', 'permission classifier denied git merge') and neither produced the verbatim refusal, so no mechanism is on record. Do not restate a cause."
     },
     {
       "id": "MI-184-R2-BLOCKS-THE-MANAGER-FROM-RESOLVING-A-REGISTER-CONFLICT",
-      "status": "blocked",
+      "status": "done",
       "owner": "manager",
       "opened": "2026-09-08T05:05:00Z",
-      "updated": "2026-09-08T05:05:00Z",
+      "updated": "2026-09-08T06:58:00Z",
       "blocked_on": {
         "kind": "decision",
         "ref": "operator: either R2 grades a MERGE commit on its combined (--cc) diff rather than its first-parent diff, or the manager must ROUTE every conflicted PR to a session — the latter is legitimate but puts a mandatory spawn hop in front of a mechanical register conflict and must be recorded as a decision with that cost stated",
@@ -2313,7 +2313,7 @@
       },
       "tier": "1 — CI guard vs manager duty",
       "title": "#11312 is approved and cannot be merged: R2 fails the manager's conflict-resolution merge commit",
-      "note": "MEASURED 2026-09-08T05:02Z. #11312 (MI-173, operator-approved Tier-3) is green and approved and CANNOT BE LANDED BY THE MANAGER. GitHub refuses the merge (register conflict in health-review-backlog.json, both sides appended rows). The merge driver resolves it correctly — verified independently, 1287 = the exact union — but the resulting merge commit FAILS check_manager_scope R2 on docs/DOCUMENT-INDEX.md, a file the manager AUTHORED NOTHING IN: `git show --cc` lists only the backlog, because a combined diff shows what a merge actually RESOLVED, while R2 reads the FIRST-PARENT diff and so attributes everything main changed since the branch point to the manager. ⚠️ I PUSHED THE BAD COMMIT BEFORE CHECKING — the guard ran in the same command chain as the push — then force-pushed the branch back to its author's commit 525c48a7, removing my own commit and restoring the branch exactly as its author left it. Force-pushing someone else's branch is normally forbidden; this was removing MY commit from an idle session's branch, and leaving it would have made the PR permanently unmergeable, which is the harm the rule exists to prevent. ⚠️ NO manager-scope-exception WAS FILED, deliberately: that file is for a live incident, and using it for a routine register conflict is exactly the 'cheaper to lie to than to satisfy' bypass the repo already names. ⚠️ THE GUARD'S VERDICT DEPENDS ON UNRELATED TRAFFIC: the identical merge on #11315 forty minutes earlier PASSED, because main happened not to have touched a non-manager path in that window. So this will keep appearing and disappearing. FILED as BL-20260908-THE-MANAGER-MUST-RUN-THE-MERGE-QUEUE-BUT-R2-FORBIDS-IT-AUTHORING-THE-COMMIT-THAT-RESOLVES-A-REGISTER-CONFLICT. MI-183 already owns the neighbouring R6/merge-slot conflict and is live; this is a THIRD guard interaction and is deliberately NOT folded into it."
+      "note": "RESOLVED BY ROUTING, NOT BY A GUARD CHANGE — which is the correct disposition, not a workaround: MI-185b resolved #11279's conflict as a worker, so no manager commit ever touched a worker path. ⚠️ THE STRUCTURAL DEFECT IS UNCHANGED and is carried by BL-20260908-THE-MANAGER-MUST-RUN-THE-MERGE-QUEUE-BUT-R2-FORBIDS-IT-AUTHORING-THE-COMMIT-THAT-RESOLVES-A-REGISTER-CONFLICT. R2 reads a MERGE commit's FIRST-PARENT diff, so a merge that merely brings main's worker-path changes in is attributed to the manager even when `git show --cc` shows only registers were resolved. Closing this row does NOT mean the next manager can resolve such a conflict itself."
     },
     {
       "id": "MI-186-SUBSESSIONS-ARE-REACHABLE-AND-THE-REGISTRY-SAID-OTHERWISE",
@@ -2328,14 +2328,14 @@
     },
     {
       "id": "MI-185-LAND-THE-TWO-BLOCKED-APPROVED-PRS",
-      "status": "blocked",
+      "status": "superseded",
       "owner": "session_015iukpShDdwvP5CM79Qtt3B",
       "opened": "2026-09-08T05:12:00Z",
-      "updated": "2026-09-08T06:29:00Z",
+      "updated": "2026-09-08T06:58:00Z",
       "blocked_on": null,
       "tier": "1 — mechanical merge, routed off the manager",
       "title": "Land #11279 and #11312 — both operator-approved, both un-mergeable BY THE MANAGER",
-      "note": "MEASURED 2026-09-08T05:10Z. Both PRs are approved and green. GitHub refuses each with 'Pull Request has merge conflicts'; the conflicts are register appends the merge driver resolves. The blocker is MI-184: since both branch points, main has carried in src/runtime/order_monitor.py (from #11315's merge) plus docs/reference/bot-api-reference.md and docs/claude/OPEN-ITEMS.json, so the merge commit's FIRST-PARENT diff contains worker paths and check_manager_scope R2 fails it — even though `git show --cc` would list only the registers the merge actually resolved. Verified by probing BOTH branches: identical base 7269fc5a, identical out-of-surface set. ROUTED TO A SESSION rather than bypassed, which is what the guard's own message instructs. No manager-scope-exception was filed: that file is for a live incident, and using it for a routine merge is the 'cheaper to lie to than to satisfy' bypass the repo names. ⚠️ THE CONDITIONS MUST TRAVEL WITH THE MERGE. Both verdicts are approved_with_conditions and the condition is the half a successor loses first — #11279 is the IB close path ONLY and must not be extended to Alpaca; #11312 lands MEASUREMENT AND A PROPOSAL ONLY and MI-140 stays HELD. Both are typed in docs/claude/work/OPEN-PRS.json and must be copied into the merge commit messages. || SESSION UNRECOVERABLE, RE-DISPATCHED AS MI-185b 2026-09-08T06:28Z. Three pokes, ~160k tokens, ZERO pushed output: its container's permission classifier refuses git merge/push and its branches are absent from origin. Four sibling sessions pushed fine the same night, so this reads per-container. MI-185b (session_01SmCEELFxuDSwBbLBmrF4mL) owns the SAME work object and is told to PROVE IT CAN PUSH with a throwaway branch BEFORE any analysis — that is exactly how the predecessor burned its budget."
+      "note": "SUPERSEDED by MI-185b, same push-refusal class as MI-183 (~160k tokens spent before discovering it could not land). MI-185b passed the push probe at 06:29:13Z and pushed a real merge at 06:34:26Z — six minutes against MI-185's whole budget, which is the evidence the probe is worth its cost."
     },
     {
       "id": "MI-187-A-SUBSESSION-CAN-BURN-ITS-BUDGET-ON-WORK-IT-CANNOT-LAND",
@@ -2347,6 +2347,28 @@
       "tier": "1 — dispatch discipline",
       "title": "A blocked sub-session analyses to completion before discovering it cannot push",
       "note": "MEASURED 2026-09-08. TWO sessions (MI-185, MI-183) each did their whole task, THEN discovered their container would not let them push. MI-185 spent ~160k tokens and three manager pokes and landed NOTHING; MI-183 has a finished commit (5101620) stranded in a container nobody can read. Meanwhile FOUR siblings spawned the same way pushed fine, so it is not environment-wide. ⚠️ THE COST IS NOT THE PERMISSION — IT IS THE ORDERING. Every dispatch asks for analysis first and landing last, so a container that cannot push is discovered at the most expensive possible moment, after the budget is spent and with the output trapped where the manager cannot reach it (I cannot read files out of a sub-session's container, so a patch handed back is not a deliverable). CANDIDATE FIX, cheap and testable: every spawn prompt opens with a PUSH PROBE — throwaway branch, empty commit, `git push -u origin <branch>`, delete it — and STOPS on failure with the exact command and verbatim refusal. MI-185b's prompt carries this and is the first trial. ⚠️ NOT YET ESTABLISHED: why two of six containers refuse. Do not state a mechanism; the useful artefact is the verbatim refusal text, which neither blocked session has yet produced. || ⚠️ VALIDATED ON ITS FIRST TRIAL, AND THE COST IS NOW MEASURED AT n=2. MI-185b ran the push probe first, PASSED (probe-push-20260908 on origin 06:29:13Z), and pushed a real merge to mi-168-trade-scoped-close-confirmation at 06:34:26Z — six minutes from spawn to landed output. Against that: MI-185 ~160k tokens and MI-183 201k tokens, both having done the ENTIRE task before discovering they could not push. TWO OF SIX CONTAINERS REFUSE; four push fine, so it is per-container and not environment-wide. ⚠️ STILL NOT ESTABLISHED: WHY those two refuse. MI-183 reported 'push denied by harness' and MI-185 'permission classifier denied git merge' — those are the sessions' paraphrases, not the verbatim refusal, and neither produced the raw text. Do not state a mechanism. RECOMMENDATION: every future spawn prompt opens with the probe. That is cheap, and it is the difference between a six-minute failure and a 200k-token one."
+    },
+    {
+      "id": "MI-183b-PR-LANDING-R6-VS-MERGE-SLOT-FRESH-CONTAINER",
+      "status": "in_flight",
+      "owner": "session_01LSfhSog9oxATpMUUPBfTN9",
+      "opened": "2026-09-08T06:40:47Z",
+      "updated": "2026-09-08T06:58:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "pr-landing R6 and the merge-slot guard are mutually unsatisfiable (re-dispatch of MI-183)",
+      "note": "Fresh container; passed the push probe. Observed RUNNING at 06:53:58Z, task_summary 'implementing merge-slot guard fix; self-tests green'. Alive and progressing — do not poke."
+    },
+    {
+      "id": "MI-185b-LAND-THE-TWO-APPROVED-PRS-FRESH-CONTAINER",
+      "status": "landed_unproven",
+      "owner": "session_01SmCEELFxuDSwBbLBmrF4mL",
+      "opened": "2026-09-08T06:28:05Z",
+      "updated": "2026-09-08T06:58:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "Land #11279 and #11312 (re-dispatch of MI-185)",
+      "note": "Did the half only a worker could do: resolved #11279's conflict (branch fe57e8b4, 0 behind main) and armed CI on both. ⚠️ IT IS NOW IDLE at 06:50:45Z reporting 'merge armed on completion' — an IDLE session fires nothing, so THE MERGE DID NOT PASS TO IT and is the manager's. That is correct either way: both PRs declare `landing: hold` with no automerge file, and a merge is a MANAGEMENT act that R2 does not grade. Do not read 'merge armed' as a merge that will happen."
     }
   ],
   "as_of": "2026-09-08T06:45:00Z",
