@@ -4,11 +4,12 @@
   "merge_slot": "{ held_by: <session_id|null>, branch: <str|null>, pr: <int|null>, claimed_at: <iso8601|null> } — DURABLE MIRROR of the authoritative `🔒 MERGE SLOT CLAIM` board comment on #6927 (which is the real live claim). At most ONE session holds this at a time. Mirror the claim here before merge, clear after (merged or aborted).",
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
- "merge_slot": {
-  "held_by": "MI-196 (session_01U2ibSa4FNcuV6bSLaPb9GS)",
-  "branch": "claude/mi196-readout-cron-pyyaml",
-  "pr": null,
-  "claimed_at": "2026-09-08T12:20:00Z"
+  "merge_slot": {
+  "held_by": "MI-204 (session_016KUFTHGYyFDerbnXDSA6Wb)",
+  "branch": "claude/mi204-register-correction-armed-set",
+  "pr": 11418,
+  "claimed_at": "2026-09-08T17:30:00Z",
+  "displaced": "MI-196's claim, whose PR #11384 MERGED at 17:25:37Z as 0212b425 — the claim was spent, not seized. Board claim posted before this write."
  },
  "active_sessions": [
   {
