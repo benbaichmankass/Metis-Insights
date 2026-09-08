@@ -1,0 +1,93 @@
+# Hand-authored by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) on 2026-09-08 to put a
+# STANDING real-money exposure in front of the operator as a Telegram prompt. Every figure is
+# transcribed from PR #11330 (merged 2026-09-08T06:14:03Z) and PR #11337 (open, Tier-3,
+# landing: hold). No new venue read was taken by this object.
+id: WO-20260908-DECISION-ALPACA-SCOPED-WRITE-CAPABILITY
+type: question
+parent_intent: null
+title: >-
+  56 shares have been unprotected since 2026-09-03 because every Alpaca write is symbol-wide —
+  build the scoped capability, flatten, or accept it?
+stage: DECISION
+lifecycle: ready
+owner: null
+opened_at: '2026-09-08'
+closed_at: null
+
+review_trigger: >-
+  Re-read when the operator answers DEC-20260908-ALPACA-SCOPED-WRITE. ⚠️ Do NOT retry the
+  re-arm through the existing path while this is open — the blast radius below is MEASURED,
+  not suspected, and a retry destroys the sibling trade's protective legs.
+
+done_condition: >-
+  The operator has recorded how the 56 uncovered shares on trade 5414 are to be handled, and
+  whether the scoped Alpaca write capability (Tier-2 order path) is to be built.
+
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260908-ALPACA-SCOPED-WRITE
+    since: '2026-09-08'
+    note: >-
+      #11330 merged with the re-arm DEFERRED — one of the two completions its own
+      done_condition admits — and its closing section states plainly that closing it "needs a
+      NEW qty-scoped Alpaca protective-attach capability, a Tier-2 order-path change", which
+      the 2026-09-08 approval to re-arm did NOT authorise. #11337 carries the sibling half and
+      sits at landing: hold / tier_2_3_needs_approval.
+blocked_on_basis: >-
+  ASSESSED 2026-09-08 by the manager from #11330's merged body and #11337's landing
+  declaration, both read via pull_request_read. ⚠️ WHAT IS NOT CLAIMED: no live venue read was
+  taken by this object; the position figures below are #11330's measurements from
+  2026-09-08T04:47:34Z and 04:50:13Z and may have moved since.
+
+decision_requests:
+  - id: DEC-20260908-ALPACA-SCOPED-WRITE
+    question: >-
+      A real position has been carrying 56 unprotected shares for five days, and the only code
+      path that could re-arm it would destroy a sibling trade's stop. How do you want it handled?
+    urgency: blocking
+    asked_on: '2026-09-08'
+    context: >-
+      MEASURED 2026-09-08T04:47:34Z, re-read identically at 04:50:13Z (per-account
+      read_state: orders_read). alpaca_portfolio holds TLT SHORT 72 @ 82.309028. Exactly ONE
+      protective OCO pair rests on TLT, for qty 16. Journal: trade 5266 (short 16) + trade 5414
+      (short 56) = 72, matching the venue exactly. So 56 of 72 shares — trade 5414 — have been
+      naked since ~2026-09-03. ⚠️ WHY IT CANNOT SIMPLY BE RE-ARMED: AlpacaClient.place_protective
+      is the ONLY path that places an Alpaca protective leg, and it calls
+      _cancel_open_orders_for_symbol() UNCONDITIONALLY — cancelling every open order on the
+      symbol, i.e. BOTH of trade 5266's legs. Its caller passes oca_key specifically to scope
+      that cancel; IB honours it, and the Alpaca implementation SILENTLY DROPS IT. The
+      mitigation looks applied at the call site and is not. ⚠️ AND THE SAME DEFECT HAS ALREADY
+      CORRUPTED THE SIBLING: trade 5266's resting stop sits at 82.33, which is trade 5414's
+      declared level, not 5266's own 84.62 — because modify_protective PATCHes every stop on
+      the symbol, so 5414's routine trailing amend rewrote 5266's protective level.
+      ⚠️ AND IT WILL NEVER SELF-HEAL: the naked-position sweep grades stop coverage as a
+      symbol-wide BOOLEAN, so 5266's resting leg makes the whole TLT symbol read "stop armed"
+      and 5414 is skipped every pass.
+    options:
+      - key: build_scoped_write
+        label: Authorise the scoped Alpaca write capability (Tier-2 order path)
+        implication: >-
+          One fix closes BOTH halves — the qty/trade-scoped protective attach that would re-arm
+          5414, and the scoped modify that stops a trailing amend rewriting a sibling's stop.
+          #11337 already carries the close/modify half and is written and green. This is a real
+          order-path change on a real-money-adjacent account and needs your explicit approval.
+      - key: flatten_5414
+        label: Flatten trade 5414 instead — remove the exposure rather than protect it
+        implication: >-
+          Ends the naked exposure today with no new order-path code, at the cost of closing a
+          position on a schedule the strategy did not choose. The symbol-wide cancel problem
+          remains for every future trade on any Alpaca account.
+      - key: accept_and_monitor
+        label: Accept the exposure as declared, and leave it
+        implication: >-
+          The 56 shares stay unprotected until a scoped capability exists. This is the CURRENT
+          state — it would simply become a DECIDED one rather than a drifted one, which is the
+          distinction this repo keeps insisting on. The position can still only be closed
+          manually or by the strategy's own exit.
+    allows_free_text: true
+    asked_by:
+      session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
+      recorded_at: '2026-09-08T21:20:00Z'
+      note: >-
+        Manager session. Answering this settles MI-179 (the 56 naked shares) and unblocks
+        #11337, which has sat at landing: hold since 05:36Z.
