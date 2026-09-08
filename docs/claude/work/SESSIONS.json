@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T13:01:08Z",
+  "updated_at": "2026-09-08T13:32:53Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3212,14 +3212,14 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08, second time of asking: 'I'm still seeing error pings on the gld close - this has been going on for weeks, and it needs to be fixed already'.",
       "confirmed_at": "2026-09-08T12:19:31Z",
-      "state_observed_at": "2026-09-08T13:01:08Z",
-      "state_basis": "get_session(session_id) read direct at 13:01Z (per-session record, not a list_sessions sweep)",
-      "observation": "RUNNING/connected. Landed #11392 (merged ea20e2c5) and opened #11389 (draft, Tier-2) + #11390 (draft, HELD). Root cause found: DELETE /v2/orders returns 422 'order pending cancel' while GET /v2/orders reports the child stop as 'held' -- the classifier read the weaker source, so 122 of 178 GLD alerts PAGED. Our own records also named the wrong order (parent 2e843e04 is healthy; child 891ddff0 is the wedged one). Poked 13:01Z: take the merge slot for #11389, leave #11390 draft."
+      "state_observed_at": "2026-09-08T13:32:53Z",
+      "state_basis": "get_session(session_id) read direct at 13:30Z; state is that read, not a post_turn_summary",
+      "observation": "RUNNING/connected at 13:30:20Z, task_summary 'Merging current main into the #11389 branch'. #11392 MERGED (ea20e2c5). #11389 is 5/5 green but on base 6fc010dd, three merges stale; rebasing. It declared landing: hold / tier_2_3_needs_approval and I DEFERRED to that — I had told the operator I read their 'get it done already' as the Tier-2 OK and I retracted that; an urgency about the PROBLEM is not consent to a src/** diff. Poked 13:29Z: rebase, re-run, then STOP — do not arm, do not claim the slot. #11390 stays draft."
     },
     {
       "session_id": "session_01CvFCybCkvrfzaHqNH3tQsb",
       "registry_key": "pending-20260908T122031Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-200: the real-money losing streak — attribute the 15 closes before grading any leg",
       "owns_object": "WO-20260908-REAL-MONEY-IS-0-FOR-13-AND",
       "checklist_item": "MI-200-REAL-MONEY-LOSING-STREAK",
@@ -3227,9 +3227,9 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08: we cannot chalk 16 trades up to chance, something is not working, track it down.",
       "confirmed_at": "2026-09-08T12:21:09Z",
-      "state_observed_at": "2026-09-08T13:01:08Z",
-      "state_basis": "get_session(session_id) read direct at 13:01Z (per-session record, not a list_sessions sweep)",
-      "observation": "RUNNING/connected. Opened #11391 (3/4, guards RED -- its own scripts/ path, poked back to it at 12:58Z). Correcting finding: include_paper=true NARROWS rather than widens, so the '0 for 13' I reported to the operator was a 5-day slice of a 447-close book (117W/258L/49 flat, sum -69.53). A 14-run is ~71% likely somewhere in 424 at the lifetime non-win rate; 8 of 14 were not strategy exits; every live-routed real-money leg grades insufficient_n (floor 20, largest 7)."
+      "state_observed_at": "2026-09-08T13:32:53Z",
+      "state_basis": "get_session(session_id) read direct at 13:30Z; state is that read, not a post_turn_summary",
+      "observation": "IDLE at 13:17:07Z with #11391 still RED on guards — a red PR is not a finished state, so this row is NOT 'done'. post_turn_summary read 'stop-type fix blocked by trailed-stop semantics; alpaca_live idle 8d (dry-run gates); digest-liveness-guard red on main'. The third blocker was never its own and I cleared it (#11377). ⚠️ THE 'alpaca_live idle 8d (dry-run gates)' LINE IS UNVERIFIED and is a DIFFERENT cause from the one-leg roster I relayed to the operator — a mechanism, not a roster problem — so it changes what MI-201 should propose. I did NOT relay it as fact. Poked 13:31Z to pin the gate, the config field, the read surface and the 8-day basis, or file it rather than let it die with the container."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
