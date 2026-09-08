@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """Compare open JOURNAL rows against VENUE positions for every declared account.
 
+# wiring: manual-only - invoked by a session or operator running the pipeline-integrity
+# lane, deliberately NOT on a cadence. Putting this comparison on a schedule is an OPEN
+# QUESTION this session was scoped out of deciding (MEASURE ONLY): see "What the next
+# pass should check" item 2 in docs/claude/work/JOURNAL-VENUE-FLEET-AUDIT-2026-09-08.md.
+# Wiring it to a workflow now would answer that question by default rather than by
+# decision, and a fleet audit that runs unattended needs its read-state failures routed
+# somewhere a human sees them first — which is exactly what is not yet designed.
+
 WHY THIS EXISTS
 ---------------
 Every journal-vs-venue divergence this system has found was found by ACCIDENT,
