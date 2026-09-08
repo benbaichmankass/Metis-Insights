@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-08T07:02:00Z",
+  "as_of": "2026-09-08T07:06:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -1794,6 +1794,6 @@
   ],
   "last_reconciled_at": "2026-09-08T05:02:08Z",
   "last_reconciled_sha": "fcc77cd217561a0a6c0d545460961d6b778efbbd",
-  "updated_at": "2026-09-08T07:02:00Z",
+  "updated_at": "2026-09-08T07:06:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
