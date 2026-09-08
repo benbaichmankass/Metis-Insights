@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "depends_on_unmerged_pr",
+  "hold_text": "Depends on #11357 (MI-191), which is unmerged. Two defects landed on main this morning and #11357 fixes both. (1) R13 requires a self-landing branch to write docs/claude/session-board.json while check_manager_scope R2 fails a manager commit touching that path, so a manager register PR can satisfy neither rule and cannot honestly declare landing: self; #11357 admits such a commit per-commit-by-content. (2) board-coherence fails on a clean checkout of main, so no PR in the repo can go green until #11357 merges. This PR is register-only (docs/claude/**) and the manager merges it manually once #11357 lands, a merge being a management act R2 does not grade.",
+  "why": "Register-only manager work: the lease heartbeat, the supervision record, the lane re-scopes the operator directed, and one filed backlog row. No src/, tests/, scripts/, config/, deploy/ or workflow path, so R2 cannot fire on its commits."
+}
