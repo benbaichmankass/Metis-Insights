@@ -22,13 +22,13 @@
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "claimed_at": "2026-09-08T11:55:22Z",
-  "heartbeat_at": "2026-09-08T23:13:15Z",
-  "expires_at": "2026-09-09T00:43:15Z",
+  "heartbeat_at": "2026-09-08T23:26:51Z",
+  "expires_at": "2026-09-09T00:56:51Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Heartbeat 23:13:15Z, tool-stamped. Quiet pass. MI-205b re-observed RUNNING on the correct repo, 55 minutes in and still in its reading phase — no PR, no branch push, and none owed yet. Nothing of mine is open; MI-206 and MI-207 stay unassigned by the operator's sequencing."
+  "note": "Heartbeat 23:26:51Z, tool-stamped (gap 13.6 min from 23:13:15Z). CADENCE-TICK pass, and it found a real one. #11337 (MI-180, the Alpaca trade-scoped close) is NOT the stalled-green PR my first read suggested: its head moved to merge commit 66e2b972 at 23:25:17Z and the five green checks I read belonged to the PREVIOUS head d5232c9e. mergeable_state is `blocked` (checks in_progress), never `dirty`. Its owning session resolved its OWN register conflict — correct, MI-184 bars the manager from that — and is now IDLE/review_ready awaiting green. TWO CHECKLIST CORRECTIONS follow from it, both recorded here because they change what gets spawned."
 }
