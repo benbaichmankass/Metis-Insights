@@ -6,10 +6,10 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-commit-operator-decisions-20260908",
+  "branch": "claude/mgr-heartbeat-2138-20260908",
   "pr": "(opened by hand; arming file lands second)",
-  "claimed_at": "2026-09-08T21:32:00Z",
-  "note": "Commits the operator's three answers (be_floor_r arm-nothing; the Alpaca scoped write, a TIER-2 approval; build the N-book ranking harness), clears the be_floor_r OPEN-ITEMS row now that both its clauses are satisfied, and records that the alpaca_live dry-run-gate premise is REFUTED against the live config. Register writes only, no worker path."
+  "claimed_at": "2026-09-08T21:36:15Z",
+  "note": "Manager heartbeat 21:36:15Z, tool-stamped. Records that the operator's three answers landed in #11460 and that TWO of them authorise builds with no owner — the scoped Alpaca write (releases #11337) and the N-book ranking harness. Register writes only, no worker path."
  },
  "active_sessions": [
   {
