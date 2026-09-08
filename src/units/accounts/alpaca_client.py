@@ -63,13 +63,14 @@ logger = logging.getLogger(__name__)
 # re-issued cancel.
 _WEDGED_ORDER_STATUSES = frozenset({"pending_cancel", "pending_replace"})
 
-# The four states. `residual_unreadable` is emphatically NOT `no_residual_orders`
+# The five states. `residual_unreadable` is emphatically NOT `no_residual_orders`
 # — "we could not look" and "we looked and nothing rests" are opposite claims,
 # and collapsing them is the failure this repo keeps paying for.
 SHARE_HOLD_STATES = (
     "residual_unreadable",     # the open-orders read failed — we did not look
     "no_residual_orders",      # nothing rests, yet the shares are held (cause unknown)
     "broker_cancel_wedged",    # >=1 order stuck pending_cancel/replace — NO app-level retry can clear it
+    "cancel_accepted_ineffective",  # we asked, Alpaca said 2xx, the order did not move
     "orders_still_resting",    # ordinary cancellable orders rest — a retry may well work
 )
 
@@ -159,6 +160,68 @@ def wedged_from_cancel_refusals(
     return out
 
 
+def survived_accepted_cancel(
+    residual: Optional[list],
+    cancel: "Optional[CancelOutcome]" = None,
+) -> List[Tuple[str, str]]:
+    """Orders the broker ACCEPTED a cancel for that are still resting anyway.
+
+    PURE and TOTAL. Returns ``(order_id, status)`` for every id that satisfies
+    all four conditions, and ``[]`` for anything it cannot establish.
+
+    THE EVIDENCE IS TWO BROKER ENDPOINTS INSIDE ONE ATTEMPT, NOT A REPEAT
+    ---------------------------------------------------------------------
+    ⚠️ **This must never key on a close having failed, or having failed many
+    times** — that is the narrowness the paging downgrade was built with and it
+    is deliberately copied rather than widened. What it keys on is a
+    CONTRADICTION between two things the broker itself told us in the same
+    give-up: ``DELETE /v2/orders/{id}`` returned 2xx for this id, and
+    ``GET /v2/orders?status=open`` still lists it moments later.
+
+    Measured on the live ``alpaca_paper`` GLD hold, 2026-09-08T14:12:54Z:
+    ``cancel: accepted=2 already_gone=0 refused=0``, then ~6.0 s later both
+    orders still rest with ``canceled_at: None``, status ``new`` and ``held``.
+    The classifier read that as ``orders_still_resting`` — *"a retry may clear
+    it"* — 181 times over seven days about orders unmoved since 2026-08-27.
+
+    FOUR CONDITIONS, AND THE LAST TWO ARE WHAT KEEP IT HONEST
+    --------------------------------------------------------
+    1. we asked the broker to cancel this id, and
+    2. the broker ACCEPTED (2xx — a refusal is a different state entirely,
+       handled by :func:`wedged_from_cancel_refusals` above), and
+    3. ``canceled_at`` is null — an order carrying a cancel timestamp is
+       COMPLETING, not ineffective, and must not be reported as either, and
+    4. its status is not in :data:`_WEDGED_ORDER_STATUSES` — an order that HAS
+       moved to ``pending_cancel`` is the broker saying it is working on it,
+       which is ``broker_cancel_wedged`` and is graded before this.
+
+    ⚠️ **A read we could not make yields ``[]``, never a finding.** ``residual``
+    is ``None`` on a failed open-orders read and ``cancel`` is ``None`` where
+    the caller has no outcome to offer; neither is evidence that a cancel was
+    ineffective, and asserting one from an absent read is the collapse this
+    whole family of states exists to refuse.
+    """
+    if cancel is None or residual is None:
+        return []
+    if getattr(cancel, "read_state", None) != "orders_read":
+        return []
+    asked = {str(i) for i in (getattr(cancel, "accepted_ids", ()) or ())}
+    if not asked:
+        return []
+    out: List[Tuple[str, str]] = []
+    for o in residual:
+        oid = str(o.get("id") or "")
+        if oid not in asked:
+            continue
+        if o.get("canceled_at"):
+            continue
+        status = str(o.get("status") or "?")
+        if status.lower() in _WEDGED_ORDER_STATUSES:
+            continue
+        out.append((oid, status))
+    return out
+
+
 def classify_share_hold(
     residual: Optional[list],
     cancel: "Optional[CancelOutcome]" = None,
@@ -240,6 +303,17 @@ def classify_share_hold(
             "or cancel_orders=true liquidation can release these shares; this needs "
             "operator/venue action",
         )
+    ineffective = survived_accepted_cancel(residual, cancel)
+    if ineffective:
+        detail = ", ".join(f"{oid} is still {st}" for oid, st in ineffective)
+        return (
+            "cancel_accepted_ineffective",
+            f"{len(ineffective)} order(s) survived a cancel Alpaca ACCEPTED ({detail}) "
+            "— we asked, the broker returned 2xx, and the order did not move and is "
+            "not even claiming to cancel (canceled_at is null, status is not "
+            "pending_cancel). Re-issuing the same cancel is what has already failed, "
+            "so this needs operator/venue action",
+        )
     statuses = ", ".join(
         f"{str(o.get('id') or '?')} is {str(o.get('status') or '?')}" for o in residual
     )
@@ -264,6 +338,12 @@ class CancelOutcome(NamedTuple):
     accepted: int                        # DELETE returned 2xx
     already_gone: int                    # DELETE returned 404 — nothing left to release
     refused: List[Tuple[str, Any, str]]  # (order_id, retCode, retMsg)
+    #: WHICH orders the broker accepted a cancel for. `accepted` counts them;
+    #: this names them, which is what lets a caller ask the only question the
+    #: count cannot answer — did the cancel we were told succeeded actually
+    #: DO anything? Defaulted so every existing positional construction (and
+    #: every test that builds a 4-tuple) keeps working unchanged.
+    accepted_ids: Tuple[str, ...] = ()
 
     def describe(self) -> str:
         if self.read_state != "orders_read":
@@ -1608,6 +1688,7 @@ class AlpacaClient:
             return CancelOutcome("could_not_look", 0, 0, [])
         seen: set = set()
         accepted = already_gone = 0
+        accepted_ids: List[str] = []
         refused: List[Tuple[str, Any, str]] = []
         for o in legs:
             oid = o.get("id")
@@ -1622,6 +1703,7 @@ class AlpacaClient:
             rc = env.get("retCode")
             if rc == 0:
                 accepted += 1
+                accepted_ids.append(str(oid))
             elif rc == 404:
                 already_gone += 1
             else:
@@ -1632,7 +1714,10 @@ class AlpacaClient:
                 "REFUSED by the broker: %s", symbol, len(refused), len(seen),
                 "; ".join(f"{oid} rc={rc} {msg}" for oid, rc, msg in refused),
             )
-        return CancelOutcome("orders_read", accepted, already_gone, refused)
+        return CancelOutcome(
+            "orders_read", accepted, already_gone, refused,
+            tuple(accepted_ids),
+        )
 
     def place_protective(self, order: Dict[str, Any]) -> Dict[str, Any]:
         """Attach a **GTC OCO** SL/TP to an ALREADY-OPEN position (no entry).
