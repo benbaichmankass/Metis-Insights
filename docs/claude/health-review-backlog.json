@@ -33950,6 +33950,19 @@
         "src/units/accounts/alpaca_client.py::has_protective_orders",
         "src/runtime/order_monitor.py::_check_broker_naked_equity_positions"
       ]
+    },
+    {
+      "id": "BL-20260908-A-BACKED-UP-MERGE-QUEUE-RED-LINES-EVERY-PR-VIA-DIGEST-LIVENESS-WHICH-MAKES-THE-QUEUE-HARDER-TO-CLEAR",
+      "title": "A backed-up merge queue red-lines EVERY PR in the repo via digest-liveness, which makes the queue harder to clear — a self-reinforcing loop, not a one-branch strand",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-08",
+      "area": "ci/merge-queue",
+      "detail": "MEASURED 2026-09-08T13:05Z. `digest-liveness-guard` (scripts/ci/check_digest_liveness.py) reads docs/claude/work/WORK-DIGEST.json ON MAIN and fails when it is older than 6h. Main carried generated_at 2026-09-08T06:58:52Z, so it graded `stale` at 6.1h and FAILED — on EVERY open PR in the repo simultaneously, including #11389, the operator's twice-asked GLD close fix. THE CARRIER WAS NOT BROKEN. Three fresher receipts existed and every one was sitting in an UNMERGED PR: 11:20:56Z (#11377, trigger=schedule), 09:28:41Z (#11363, trigger=push), 07:58:32Z (#11354, trigger=push). The digest ran; its receipt could not reach main because the queue was backed up. THE LOOP IS THE FINDING, NOT THE STALE FILE. A slow queue makes a time-based liveness guard go stale on main; the stale guard reds every PR; a repo where nothing is green is slower to clear; the queue backs up further. It is self-reinforcing, and it is invisible from any single PR — each one just looks individually red for a reason that is nobody's diff. That is what distinguishes it from BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH, which is one branch stranded by a base that was red once; this is a whole-repo condition that GROWS with the backlog. Filed as a sibling, not a duplicate. AND IT COMPOSES WITH THE MERGE SLOT. Only one branch may hold merge_slot (check_pr_landing R13), so clearing the backlog is serialized — while the guard that reds everything is driven by how long the backlog has been unclear. Verified on #11377: PASS 53 / FAIL 1 with the SOLE failure being the R13 slot claim, and PASS 54 / FAIL 0 once claimed. The content was clean the whole time. NOTE WHAT THE GUARD IS FOR AND DO NOT WEAKEN IT: F6 makes operator notification the condition the autonomy grant rests on, so a digest that has genuinely stopped reaching the operator SHOULD red. The defect is not the 6h window; it is that the guard cannot distinguish 'the digest stopped being PRODUCED' (real, alarming) from 'the digest was produced and its receipt is stuck in our own merge queue' (our problem, not the channel's). Those are two different facts and the guard collapses them.",
+      "resolution_criteria": "Either (a) digest-liveness distinguishes the two states above — e.g. it grades `stale_unmerged` when a fresher receipt exists on an OPEN PR head, which is readable without a broker or VM call, and only grades `stale` when no fresher receipt exists anywhere; or (b) a recorded operator decision that the coupling is acceptable, WITH the consequence stated (every PR reds whenever the queue is slow). Landing #11377 does NOT resolve this — that refreshes the receipt and buys hours, and the loop is structural. Widening the 6h window resolves NOTHING and is the wrong direction: it weakens the only thing watching whether the operator is still being told anything, to work around a queue problem.",
+      "next_step": "Do NOT hand this to the manager as an item — it is a build. Route it to a session with the measurement above; the whole finding is reproducible from PR heads plus docs/claude/work/WORK-DIGEST.json, with no VM access.",
+      "found_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj, while clearing the queue for the operator's GLD fix"
     }
   ]
 }
