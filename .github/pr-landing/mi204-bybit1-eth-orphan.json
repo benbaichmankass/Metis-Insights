@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs + registers only — an evidence doc, 4 health-review-backlog rows, 1 OPEN-ITEMS row, the work object, and the DOCUMENT-INDEX row. No src/, config/, deploy/ or .github/workflows/ change. The two Tier-2 order-path fixes this unit root-caused are written out as PROPOSALS in the evidence doc and deliberately not applied."
+}
