@@ -179,6 +179,9 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import board_pointer  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[2]
 
 LANDING_DIR = ".github/pr-landing"
@@ -186,11 +189,19 @@ AUTOMERGE_DIR = ".github/pr-automerge-requests"
 GUARD_REL = "scripts/ci/check_pr_landing.py"
 
 # R13. The DURABLE home of the merge slot (docs/claude/coordination-board.md
-# § Scope + limits). That doc calls the `🔒 MERGE SLOT CLAIM` comment on #6927
-# the authoritative live claim and this file its mirror. #6927 is at GitHub's
-# hard 2500-comment cap and writes 403 (MI-182), so the authoritative home is
-# UNREACHABLE and the mirror is the only claim anyone can actually make. R13
+# § Scope + limits). That doc calls the `🔒 MERGE SLOT CLAIM` comment on the live
+# coordination board the authoritative live claim and this file its mirror. R13
 # enforces the reachable one; it does not redefine which is authoritative.
+#
+# ⚠️ WHICH board is live is RESOLVED, never hardcoded — see
+# `_board_claim_sentence` below and `scripts/ci/board_pointer.py`. When this
+# rule shipped (MI-182 day) #6927 was at GitHub's hard 2500-comment cap and
+# writing to it 403'd, so the remedy text below said flatly that the
+# authoritative home was unreachable. The board then rotated, that sentence
+# became false, and the number it named became a `board-coherence` R3 failure
+# on `main` — which is precisely the half-finished-sweep failure R3 exists to
+# stop. The remedy now reads the pointer at message time and says which of the
+# three board states it found.
 #
 # ⚠️ Deliberately NOT in LANDING_MACHINERY below. Every self-landing branch must
 # now touch this file, so listing it there would make R12 fire on every one of
@@ -291,6 +302,43 @@ def _git(root: Path, *args: str) -> tuple[int, str]:
     p = subprocess.run(["git", "-C", str(root), *args],
                        capture_output=True, text=True)
     return p.returncode, p.stdout.strip()
+
+
+def _board_claim_sentence() -> str:
+    """Where the live `🔒 MERGE SLOT CLAIM` comment goes — RESOLVED, not hardcoded.
+
+    ⚠️ THE THREE BOARD STATES ARE NEVER COLLAPSED, and the reason is the one
+    `board_pointer` itself is built on: a frozen board READS identically to a
+    live one, so "we could not look" must never render as "there is no board",
+    and neither may render as "no coordination is needed".
+
+    This sentence used to name the board as a literal issue number. That was
+    true when it was written and false about twenty hours later, and the stale
+    literal is what turned `board-coherence` R3 red on `main`. Resolving it
+    here means a rotation stays ONE edit to `docs/claude/board-pointer.json`.
+
+    (Note for anyone editing this docstring: R3 treats a docstring as an
+    EXECUTABLE line — only a leading `#` or `//` counts as a comment — so a
+    retired board number may not be named here even in prose. The `#`-comment
+    block at `SESSION_BOARD` above is where that history lives.)
+    """
+    code, num, _ptr, why = board_pointer.resolve()
+    if code == board_pointer.RESOLVED:
+        return (f"This does NOT replace the `🔒 MERGE SLOT CLAIM` comment on the "
+                f"live coordination board — #{num}, resolved from "
+                f"{board_pointer.POINTER_PATH}. That comment is the authoritative "
+                f"live claim and this file is its durable mirror; post both.")
+    if code == board_pointer.UNPROVISIONED:
+        return (f"⚠️ There is NO live coordination board to post the "
+                f"`🔒 MERGE SLOT CLAIM` comment on right now ({why}), so this "
+                f"committed claim is the only one anybody can make. That is the "
+                f"board being MISSING — it is NOT permission to skip coordinating. "
+                f"Rotate one (`board-rotate.yml`) and repoint "
+                f"{board_pointer.POINTER_PATH}.")
+    return (f"⚠️ WHICH issue is the live coordination board could not be "
+            f"resolved ({why}) — that is *we did not look*, NOT *there is no "
+            f"board*. Repair {board_pointer.POINTER_PATH}, then post the "
+            f"`🔒 MERGE SLOT CLAIM` comment on the board it names.")
 
 
 def branch_slug(branch: str) -> str:
@@ -538,9 +586,7 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
                     f"Set `merge_slot` "
                     f"in {SESSION_BOARD} to this branch (`held_by`, `branch`, "
                     f"`claimed_at`) and commit it alongside the arming file. "
-                    f"This does not replace the `🔒 MERGE SLOT CLAIM` comment on "
-                    f"#6927 where that is possible — but #6927 is at GitHub's 2500-"
-                    f"comment cap and writes 403 (MI-182), so today it is not.")
+                    + _board_claim_sentence())
     else:  # landing == "hold"
         # R10 — the bite.
         if armed:

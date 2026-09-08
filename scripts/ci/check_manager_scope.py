@@ -303,7 +303,11 @@ pretends otherwise.
 
 THE RULES
 ---------
-  R2  a manager commit touching a worker path
+  R2  a manager commit touching a worker path — with ONE carve-out, decided per
+      commit rather than per path: a `merge_slot` claim in
+      `docs/claude/session-board.json` naming the commit's OWN branch is a
+      LANDING act (`check_pr_landing.py` R13 requires it of every branch that
+      arms auto-merge), not an item. Any other edit to that file still fails.
   R6  a heartbeat whose supervision RECORD is staler than the lease TTL
   R7  a heartbeat more than one TTL after the manager's previous one
   R8  the merge queue's one invariant: at most one entry `rebasing`
@@ -320,10 +324,14 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from check_pr_landing import current_branch  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -331,6 +339,40 @@ GUARD_REL = "scripts/ci/check_manager_scope.py"
 LEASE_REL = "docs/claude/work/MANAGER-LEASE.json"
 SESSIONS_REL = "docs/claude/work/SESSIONS.json"
 EXCEPTION_REL = "docs/claude/work/manager-scope-exception.yaml"
+
+#: R2's ONE carve-out, and it is a carve-out for a single KIND OF EDIT rather
+#: than for a path.
+#:
+#: `check_pr_landing.py` R13 requires every branch that arms auto-merge to hold
+#: `merge_slot` in this file, added-or-modified in its own diff. R2 fails a
+#: manager commit that touches it. Landed on the same day, those two rules were
+#: mutually unsatisfiable for the manager: a manager register PR could satisfy
+#: neither (verified on `claude/mgr-land-11347-r13-20260908`, commit `ed399216`).
+#:
+#: ⚠️ BOTH RULES ARE RIGHT AND NEITHER IS WEAKENED HERE. R2 exists because a
+#: manager doing items has stopped managing; R13 exists because the arming route
+#: previously recorded no claim at all. What is wrong is only the CATEGORY: a
+#: merge-slot claim naming your own branch is a LANDING act, the same category
+#: as `.github/pr-landing/**` and `.github/pr-automerge-requests/**`, which
+#: MANAGER_SURFACE already tolerates. Merging is management; so is saying which
+#: branch is about to merge.
+#:
+#: ⚠️ IT IS DELIBERATELY *NOT* IN `MANAGER_SURFACE`. Listing the path there
+#: would admit ANY edit to this file — another branch's claim, `active_sessions`,
+#: anything — which is exactly the hole this must not become. Admission is
+#: decided per COMMIT by `merge_slot_claim_only`, which reads the before/after
+#: JSON and requires that the ONLY top-level key this commit changed is
+#: `merge_slot` and that its `branch` is the branch being graded. Everything
+#: else in this file still fails R2.
+#:
+#: ⚠️ AND IT IS NOT AN EXCEPTION ENTRY. `manager-scope-exception.yaml` is for a
+#: live incident — named, dated, scoped, expiring. This is a standing rule
+#: conflict that recurs on EVERY future manager landing, so an exception would
+#: hide it permanently rather than resolve it.
+SESSION_BOARD_REL = "docs/claude/session-board.json"
+
+#: The one top-level key of `SESSION_BOARD_REL` a manager commit may write.
+MERGE_SLOT_KEY = "merge_slot"
 
 BRIEF_BEGIN = "<!-- SESSION-BRIEF:BEGIN"
 BRIEF_END = "<!-- SESSION-BRIEF:END"
@@ -355,6 +397,9 @@ MANAGER_SURFACE = [
     # The operator-facing brief.
     "comms/**",
     # CLAUDE.md is NOT here. It is graded by hunk — see _claude_md_outside_brief.
+    # docs/claude/session-board.json is NOT here either. It is graded by EDIT —
+    # see SESSION_BOARD_REL / merge_slot_claim_only. Putting the path here would
+    # admit every edit to it, which is the hole that carve-out must not become.
 ]
 
 # Named so a failure can say WHY a path is a worker item rather than only "not
@@ -493,6 +538,91 @@ def commit_paths(root: Path, sha: str) -> list[str]:
     if rc != 0:
         return []
     return sorted({ln.strip() for ln in out.splitlines() if ln.strip()})
+
+
+def _json_at(root: Path, ref: str, rel: str) -> tuple[str, Optional[dict]]:
+    """`("ok"|"absent"|"unreadable", obj_or_None)` for `rel` at `ref`.
+
+    Three states, never two: *the file was not there* and *we could not read
+    what was there* are different facts, and only `ok` may be reasoned from.
+    """
+    rc, out = _git(root, "show", f"{ref}:{rel}")
+    if rc != 0:
+        return ("absent", None)
+    try:
+        obj = json.loads(out)
+    except json.JSONDecodeError:
+        return ("unreadable", None)
+    if not isinstance(obj, dict):
+        return ("unreadable", None)
+    return ("ok", obj)
+
+
+def merge_slot_claim_only(root: Path, sha: str,
+                          branch: Optional[str]) -> tuple[bool, str]:
+    """Is this commit's edit to the session board a merge-slot claim for `branch`?
+
+    R2's one carve-out — see `SESSION_BOARD_REL`. Admits a commit ONLY when
+    both hold, and fails closed on anything it cannot establish:
+
+      1. the only top-level key it changed in that file is ``merge_slot`` —
+         checked against EVERY parent, so a merge that also resolved other
+         content is authoring and is refused; and
+      2. ``merge_slot.branch`` is the branch being graded, with `held_by` and
+         `claimed_at` non-empty (the same fields `check_pr_landing.py`'s
+         `slot_claim_state` requires, so the two rules cannot disagree about
+         what counts as a claim).
+
+    ⚠️ `branch` comes from `check_pr_landing.current_branch`, the SAME resolver
+    R13 uses, deliberately. A second definition of "this branch" is how the two
+    guards would drift into a state where R13 passes and R2 fails on one claim —
+    which is the mutual-unsatisfiability this carve-out exists to end.
+    """
+    if not branch:
+        return (False, "the branch being graded could not be established "
+                       "(no GITHUB_HEAD_REF / GITHUB_REF_NAME and a detached "
+                       "HEAD), so this edit cannot be shown to claim the slot "
+                       "for ITSELF — that is *we could not look*, and it fails "
+                       "closed rather than being waved through")
+
+    state, after = _json_at(root, sha, SESSION_BOARD_REL)
+    if state != "ok":
+        return (False, f"the file is {state} at this commit, so no claim can be "
+                       f"read out of it")
+    slot = after.get(MERGE_SLOT_KEY)
+    if not isinstance(slot, dict):
+        return (False, f"it carries no `{MERGE_SLOT_KEY}` object after this "
+                       f"commit, so this edit is not a slot claim at all")
+    if slot.get("branch") != branch:
+        return (False, f"`{MERGE_SLOT_KEY}.branch` is {slot.get('branch')!r}, "
+                       f"not this branch {branch!r} — a manager may write this "
+                       f"file to claim the slot for the branch it is landing, "
+                       f"NEVER for another branch")
+    for field in ("held_by", "claimed_at"):
+        if not str(slot.get(field) or "").strip():
+            return (False, f"`{MERGE_SLOT_KEY}.{field}` is empty — a claim "
+                           f"nobody can attribute or time out is not a claim")
+
+    rc, parents = _git(root, "log", "-1", "--pretty=%P", sha)
+    plist = parents.split() if rc == 0 else []
+    if not plist:
+        return (False, "this commit has no parent, so what it CHANGED in the "
+                       "file cannot be established")
+    for par in plist:
+        pstate, before = _json_at(root, par, SESSION_BOARD_REL)
+        if pstate != "ok":
+            return (False, f"the file is {pstate} at parent {par[:8]}, so what "
+                           f"this commit changed cannot be established — "
+                           f"adding or rewriting the whole board is not a slot "
+                           f"claim")
+        other = sorted(k for k in set(before) | set(after)
+                       if k != MERGE_SLOT_KEY and before.get(k) != after.get(k))
+        if other:
+            return (False, f"it also changes {', '.join(other)} against parent "
+                           f"{par[:8]}. Only `{MERGE_SLOT_KEY}` may be written "
+                           f"here; the rest of this file is an item")
+    return (True, f"a `{MERGE_SLOT_KEY}` claim naming this branch "
+                  f"(`{branch}`) and changing nothing else in the file")
 
 
 def _claude_md_outside_brief(root: Path, sha: str) -> bool:
@@ -1201,10 +1331,18 @@ def guard_existed_at_merge_base(root: Path, base: str) -> Optional[bool]:
     return rc == 0
 
 
-def check(root: Path, base: str, today: Optional[str] = None):
-    """Return (state, failures, notes)."""
+def check(root: Path, base: str, today: Optional[str] = None,
+          branch: Optional[str] = None):
+    """Return (state, failures, notes).
+
+    `branch` is the branch being graded, used ONLY by R2's merge-slot carve-out.
+    It defaults to the same resolver `check_pr_landing.py` R13 uses; the
+    self-test passes it explicitly, because in CI `GITHUB_HEAD_REF` names the
+    real PR branch and would otherwise leak into a throwaway fixture.
+    """
     fails: list[str] = []
     notes: list[str] = []
+    branch = branch if branch is not None else current_branch(root)
 
     rc, mb = _git(root, "merge-base", base, "HEAD")
     if rc != 0 or not mb:
@@ -1273,6 +1411,25 @@ def check(root: Path, base: str, today: Optional[str] = None):
                 continue
             if _match(path, [p for e in active for p in e["paths"]]):
                 notes.append(f"EXCEPTED: {short} -> {path}")
+                continue
+
+            if path == SESSION_BOARD_REL:
+                ok_slot, why_slot = merge_slot_claim_only(root, sha, branch)
+                if ok_slot:
+                    notes.append(
+                        f"R2 ok: {short} -> {SESSION_BOARD_REL} is {why_slot} "
+                        f"— a LANDING act, not an item")
+                    continue
+                fails.append(
+                    f"R2 {short}\n"
+                    f"      -> {SESSION_BOARD_REL}: {why_slot}.\n"
+                    f"      A manager may write this file for EXACTLY ONE "
+                    f"thing — a `{MERGE_SLOT_KEY}` claim naming its OWN "
+                    f"branch, which check_pr_landing.py R13 requires of every "
+                    f"branch that arms auto-merge. That is a landing act, the "
+                    f"same category as .github/pr-landing/**. Anything else "
+                    f"here — another branch's claim, active_sessions, any "
+                    f"other key — is an item and belongs to a session.")
                 continue
 
             label = _worker_label(path)
@@ -1442,6 +1599,23 @@ def _sessions(updated_at: str) -> str:
                        "sessions": []}, indent=2)
 
 
+def _board(slot: Optional[dict] = None,
+           active: Optional[list] = None) -> str:
+    """One revision of the session board. `slot=None` means nobody holds it."""
+    return json.dumps({"schema_version": 1,
+                       "active_sessions": active if active is not None else [],
+                       MERGE_SLOT_KEY: slot}, indent=2) + "\n"
+
+
+def _claim(root: Path, branch: str, *, held_by: str = MANAGER,
+           claimed_at: str = "2026-09-03T08:10:00Z",
+           active: Optional[list] = None) -> None:
+    """Write a merge-slot claim for `branch` onto the fixture's board."""
+    _write(root, SESSION_BOARD_REL,
+           _board({"branch": branch, "held_by": held_by,
+                   "claimed_at": claimed_at}, active=active))
+
+
 def _fixture(tmp: Path, lease: Optional[str] = None) -> Path:
     """A throwaway repo whose `main` carries the guard and a lease history.
 
@@ -1459,6 +1633,7 @@ def _fixture(tmp: Path, lease: Optional[str] = None) -> Path:
     _write(root, LEASE_REL,
            lease if lease is not None else _lease(MANAGER, "2026-09-03T08:00:00Z"))
     _write(root, SESSIONS_REL, _sessions("2026-09-03T07:50:00Z"))
+    _write(root, SESSION_BOARD_REL, _board())
     _write(root, "CLAUDE.md",
            "# prose before\n\n"
            f"{BRIEF_BEGIN} -->\nbrief line\n{BRIEF_END} -->\n\n"
@@ -1595,6 +1770,51 @@ def self_test() -> int:
         assert st == "clean", (st, fails)
         cases.append(("manager on its own surface (incl. backlog) -> clean",
                       st, ""))
+
+        # -- 3b. CONTROL: the R2/R13 carve-out. A manager claiming the merge
+        #        slot for ITS OWN branch is LANDING, not an item. Must PASS.
+        #        Before this, R13 demanded this write and R2 refused it, so a
+        #        manager register PR could satisfy NEITHER rule.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "claude/mgr-land-demo")
+        _claim(root, "claude/mgr-land-demo")
+        _commit(root, "manager: claim the merge slot for this branch", MANAGER)
+        st, fails, notes = check(root, "main", branch="claude/mgr-land-demo")
+        assert st == "clean", (st, fails)
+        assert any("LANDING act" in n for n in notes), notes
+        cases.append(("manager claims the merge slot for ITS OWN branch "
+                      "-> clean (R13's own requirement)", st, ""))
+
+        # -- 3c. PLANTED: the same file, claiming SOMEBODY ELSE's branch.
+        #        The carve-out is for landing YOUR OWN work. Must FAIL.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "claude/mgr-land-demo")
+        _claim(root, "claude/somebody-elses-branch")
+        _commit(root, "manager: claim the slot for another branch", MANAGER)
+        st, fails, _ = check(root, "main", branch="claude/mgr-land-demo")
+        assert st == "violation", (st, fails)
+        assert "not this branch" in "\n".join(fails), fails
+        cases.append(("manager claims the slot for ANOTHER branch -> violation",
+                      st, "\n".join(fails)))
+
+        # -- 3d. PLANTED: a real claim for its own branch, PLUS an unrelated
+        #        edit to the same file. The carve-out is one KEY, not the path.
+        #        Must FAIL, or it is the hole it was written not to be.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "claude/mgr-land-demo")
+        _claim(root, "claude/mgr-land-demo",
+               active=[{"session": "session_01SMUGGLED", "note": "an item"}])
+        _commit(root, "manager: claim the slot, and edit active_sessions too",
+                MANAGER)
+        st, fails, _ = check(root, "main", branch="claude/mgr-land-demo")
+        assert st == "violation", (st, fails)
+        assert "also changes active_sessions" in "\n".join(fails), fails
+        cases.append(("manager rides a valid claim to edit active_sessions "
+                      "-> violation (carve-out is one KEY, not the path)",
+                      st, "\n".join(fails)))
 
         # -- 4. PLANTED: manager edits CLAUDE.md PROSE. Must FAIL. ------------
         shutil.rmtree(root)
