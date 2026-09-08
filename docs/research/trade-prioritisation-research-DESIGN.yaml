@@ -19,7 +19,33 @@
 
 id: RQ-20260831-002
 title: Establish how competing trades should be prioritised — confidence is a start, not a proof
-status: blocked
+# ⚠️ ANSWERED 2026-09-08 (MI-205b) — AND THE ANSWER IS A NULL, WHICH THIS FILE'S
+# OWN `success_criteria` SAYS IS A REAL RESULT. Read the write-up before acting
+# on anything below: docs/research/trade-prioritisation-ranking-key-AB-2026-09-08.md
+# Evidence: docs/research/ranking-key-ab/2026-09-08-primary/ (live-faithful,
+# UNDERPOWERED at 138-206 contested trades) and
+# docs/research/ranking-key-ab/2026-09-08-secondary-powered-ttl96/ (n=1,130-1,543,
+# above this file's own 393/group floor). BOTH AGREE: at power, confidence_first
+# is NOT distinguishable from priority_first (folds 2-2, p=0.583) or from
+# recent_pnl_first (folds 2-2, p=0.937); no p clears the declared Bonferroni
+# alpha of 0.0167. The one effect that survives is STABILITY, not the choice of
+# stable key — the control flips 17x as often as any deterministic arm.
+# ⚠️ `status` stays `answered`, NOT `queued`. This file is deliberately NOT
+# promoted back into research/queue/: the job it describes has RUN, and a queued
+# copy would be dispatched again and re-measure a closed question.
+# ⚠️ CAVEAT 1 OF THE `power` BLOCK BELOW WAS THE BINDING ONE, exactly as written:
+# the achieved contested count came in UNDER the declared 1,780 (1,270 elections
+# / 138-206 trades) and the job was re-graded against the ACHIEVED number.
+status: answered
+answered_on: '2026-09-08'
+answered_by: WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS
+answer: >-
+  NO. Arbitration ORDER does not measurably drive outcome on this population;
+  what the arms actually separate is STABLE-vs-UNSTABLE, not one stable key from
+  another. The follow-up is the confidence SCORE itself
+  (BL-20260831-CONFIDENCE-SATURATES-AT-ONE-...), not more ranking work.
+  ⚠️ This does NOT say the live key is wrong, and must not be quoted as saying
+  so. Flipping it is Tier-3 and nothing here proposes it.
 cadence: once
 kind: experiment
 
@@ -97,7 +123,14 @@ power:
 
 route: runner
 
-blocked_on: >-
+# ⚠️ BOTH BLOCKERS ARE CLEARED AS OF 2026-09-08 — kept verbatim as the record of
+# what was missing and why the queue's validator was right to refuse the file.
+# (1) is now scripts/research/ranking_keys.py + scripts/research/nbook_portfolio.py
+#     (a SIBLING of backtest_system.py that imports it, parity-asserted against it
+#     trade-for-trade at N=1 — see the write-up § 1 for why a sibling and not an edit).
+# (2) is now .github/workflows/ranking-key-ab.yml, landing its payloads under
+#     docs/research/ranking-key-ab/ via .github/actions/commit-to-main.
+was_blocked_on: >-
   NO WORKFLOW CAN FIRE THIS YET, and saying otherwise would be the exact defect
   this queue's own validator caught when this file first declared none. Two
   things are missing, in order:

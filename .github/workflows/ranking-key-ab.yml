@@ -1,0 +1,301 @@
+name: ranking-key-ab
+
+# THE TRADE-PRIORITISATION A/B — four ranking-key arms over one replay.
+#
+# WHAT QUESTION THIS FIRES, AND WHY IT COULD NOT BE FIRED BEFORE
+# --------------------------------------------------------------
+# `src/runtime/intents.py::_election_sort_key` has ranked competing trades by
+# CONFIDENCE on REAL MONEY since 2026-08-31 (PR #10544) and has never been shown
+# to pick the better-performing trade. It shipped on a CORRECTNESS argument —
+# confidence is evidence about the trade, unlike the strategy NAME it replaced.
+# The A/B that would settle it could not be EXPRESSED: `backtest_system.py`
+# models ONE shared book and always uses whatever key is compiled in.
+# `scripts/research/nbook_portfolio.py` is that missing capability; this is the
+# runner that fires it. Design: docs/research/trade-prioritisation-research-DESIGN.yaml
+#
+# FREE RUNNERS, NOT THE TRAINER (docs/claude/vm-resource-management.md). This
+# needs NO VM-resident state — a public candle feed plus a replay — so it runs
+# on a GitHub-hosted runner at $0 and leaves the 1-core trainer free for ML work.
+#
+# ONE JOB, FOUR ARMS, DELIBERATELY NOT A MATRIX. The arms differ ONLY in the
+# election key; the signal streams (each strategy's REAL `order_package`, the
+# expensive part) are IDENTICAL across them. A matrix would re-derive every
+# stream four times on four runners for no change in the streams. One job builds
+# the cache once and replays four times against it.
+#
+# BINANCE-VISION, NOT BYBIT, AND THAT IS NOT A PREFERENCE. Bybit geoblocks US IP
+# ranges and GitHub-hosted runners are US-based Azure, so `api.bybit.com` can
+# never be reached from here (the note in scripts/ops/fetch_backtest_candles.py).
+#
+# ⚠️ WHAT THIS WORKFLOW DOES NOT DO: change the live ranking key. That is Tier-3
+# and is not this build's to take. It measures the question; answering it with a
+# flip is a separate, operator-gated decision.
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbol:
+        description: "Symbol to replay (must match the roster's legs)."
+        required: false
+        default: 'BTCUSDT'
+      days:
+        description: "Trailing calendar days of 5m candles to fetch."
+        required: false
+        default: '400'
+      roster:
+        description: "CSV of harness ROSTER members. Empty = the four v1 BTCUSDT members."
+        required: false
+        default: ''
+      clock_tf:
+        description: "Clock timeframe for the replay."
+        required: false
+        default: '15m'
+      signal_ttl_bars:
+        description: >-
+          Clock bars a strategy's latest signal stays live. ⚠️ THIS IS THE KNOB
+          THAT SETS CONTEST DENSITY, and it is a HARNESS PARAMETER, not a
+          property of the world. Measured 2026-09-08 on 400d of BTCUSDT with the
+          four v1 members: ttl 1 -> 1 contested election, 8 -> 20, 16 -> 87,
+          48 -> 677, 96 -> 1712. Choosing it to hit the design's declared
+          expected_n=1780 would be manufacturing the population. The live-faithful
+          value is "one bar of the roster's SLOWEST member" (16 for a 4h member on
+          a 15m clock) — a signal stays live until its strategy could next speak.
+        required: false
+        default: '16'
+      arms:
+        description: "CSV of arms to run. Empty = all four. The CONTROL (random_tiebreak) is ALWAYS added — a report without it grades nothing."
+        required: false
+        default: ''
+      arbitration:
+        description: "per_account (each book elects over its own roster) or global (one election, non-carrying books stand aside)."
+        required: false
+        type: choice
+        options: ['per_account', 'global']
+        default: 'per_account'
+      books:
+        description: "Repeatable book specs, ';'-separated: name=X:roster=a|b:balance=N. Empty = ONE book carrying the whole roster (the one-book shape, and the shape the ranking question is asked in)."
+        required: false
+        default: ''
+      folds:
+        description: "Fixed fold panel for the majority half of the gate."
+        required: false
+        default: '6'
+      seed:
+        description: "Seed for the random_tiebreak CONTROL. Recorded in every payload — a control nobody can re-run is not evidence."
+        required: false
+        default: '20260908'
+      commit_results:
+        description: "Land the per-arm payloads + report under docs/research/ on main."
+        required: false
+        type: boolean
+        default: true
+  # A workflow_dispatch-ONLY workflow is not resolvable by filename until it
+  # exists on the DEFAULT branch — the dispatch API 404s on a feature branch. The
+  # sentinel path is the same escape hatch m20-exit-lever-sweep.yml uses, so the
+  # first run can fire from the branch rather than waiting on a merge it informs.
+  push:
+    branches:
+      - 'claude/**'
+    paths:
+      - '.github/ranking-key-ab-request'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ranking-key-ab-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ab:
+    runs-on: ubuntu-latest
+    # Generous, and measured rather than padded: on a 2-core sandbox the four v1
+    # members over 400d took ~5 min for the FIRST arm (which builds the signal
+    # cache) and the replay alone thereafter. A wider roster with 5m members is
+    # several times that. A job that dies having produced nothing is the outcome
+    # worth avoiding, and the runner is free either way.
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN || github.token }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: pip install --quiet pandas numpy pyarrow requests pyyaml
+
+      - name: Resolve inputs
+        id: cfg
+        env:
+          SYMBOL: ${{ inputs.symbol }}
+          DAYS: ${{ inputs.days }}
+          ROSTER: ${{ inputs.roster }}
+          CLOCK_TF: ${{ inputs.clock_tf }}
+          TTL: ${{ inputs.signal_ttl_bars }}
+          ARMS: ${{ inputs.arms }}
+          ARBITRATION: ${{ inputs.arbitration }}
+          BOOKS: ${{ inputs.books }}
+          FOLDS: ${{ inputs.folds }}
+          SEED: ${{ inputs.seed }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import os, sys
+          sys.path.insert(0, "scripts/research")
+          # Imported, never restated: the arm list and the control's identity are
+          # declared in ONE place, so a workflow input cannot silently name an
+          # arm the code does not have (or drop the control).
+          from ranking_keys import ARMS, CONTROL_ARM
+
+          def val(k, default):
+              v = (os.environ.get(k) or "").strip()
+              return v if v else default
+
+          symbol = val("SYMBOL", "BTCUSDT")
+          days = val("DAYS", "400")
+          roster = val("ROSTER", "trend_donchian,fade_breakout_4h,"
+                                 "squeeze_breakout_4h,fvg_range_15m")
+          arms_raw = [a.strip() for a in val("ARMS", "").split(",") if a.strip()]
+          unknown = [a for a in arms_raw if a not in ARMS]
+          if unknown:
+              # An unknown arm FAILS rather than being dropped: a dropped arm
+              # would report a narrowed run under a full label.
+              print(f"::error::unknown ranking-key arm(s): {unknown}; declared: {list(ARMS)}")
+              raise SystemExit(1)
+          arms = arms_raw or list(ARMS)
+          if CONTROL_ARM not in arms:
+              # The control is the floor every other arm must clear. A report
+              # without it grades nothing, so it is added rather than refused.
+              arms.append(CONTROL_ARM)
+              print(f"::notice::added the CONTROL arm {CONTROL_ARM} — a report without it grades nothing")
+          print(f"symbol={symbol}")
+          print(f"days={days}")
+          print(f"roster={roster}")
+          print(f"clock_tf={val('CLOCK_TF', '15m')}")
+          print(f"ttl={val('TTL', '16')}")
+          print(f"arms={' '.join(arms)}")
+          print(f"arbitration={val('ARBITRATION', 'per_account')}")
+          print(f"books={val('BOOKS', '')}")
+          print(f"folds={val('FOLDS', '6')}")
+          print(f"seed={val('SEED', '20260908')}")
+          PY
+
+      - name: Fetch candles (binance_vision — Bybit geoblocks US runners)
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          python3 scripts/ops/fetch_backtest_candles.py \
+            --symbol "${{ steps.cfg.outputs.symbol }}" \
+            --interval 5 \
+            --days "${{ steps.cfg.outputs.days }}" \
+            --source binance_vision \
+            --out "data/ab_candles.csv"
+          # ASSERT THE INPUT, not just the exit code. A fetch that produced a
+          # header and nothing else would replay cleanly and report a null that
+          # is an artefact of an empty file (§ "Green is not evidence", obligation 1).
+          rows=$(( $(wc -l < data/ab_candles.csv) - 1 ))
+          echo "candle rows: $rows"
+          if [ "$rows" -lt 10000 ]; then
+            echo "::error::only $rows candle rows — refusing to replay a population this thin"
+            exit 1
+          fi
+
+      - name: Run the arms
+        id: run
+        run: |
+          set -euo pipefail
+          mkdir -p runtime_logs/ranking_ab
+          BOOK_ARGS=()
+          if [ -n "${{ steps.cfg.outputs.books }}" ]; then
+            IFS=';' read -ra SPECS <<< "${{ steps.cfg.outputs.books }}"
+            for s in "${SPECS[@]}"; do
+              [ -n "$s" ] && BOOK_ARGS+=(--book "$s")
+            done
+          fi
+          for arm in ${{ steps.cfg.outputs.arms }}; do
+            echo "::group::arm $arm"
+            python3 scripts/research/nbook_portfolio.py \
+              --data data/ab_candles.csv \
+              --symbol "${{ steps.cfg.outputs.symbol }}" \
+              --roster "${{ steps.cfg.outputs.roster }}" \
+              --clock-tf "${{ steps.cfg.outputs.clock_tf }}" \
+              --signal-ttl-bars "${{ steps.cfg.outputs.ttl }}" \
+              --arbitration "${{ steps.cfg.outputs.arbitration }}" \
+              --ranking-key "$arm" \
+              --seed "${{ steps.cfg.outputs.seed }}" \
+              --folds "${{ steps.cfg.outputs.folds }}" \
+              "${BOOK_ARGS[@]+"${BOOK_ARGS[@]}"}" \
+              --json "runtime_logs/ranking_ab/${arm}.json"
+            echo "::endgroup::"
+          done
+
+      - name: Grade against the control
+        id: report
+        run: |
+          set -euo pipefail
+          # The reporter exits non-zero when the arms are NOT comparable (a
+          # differing fold panel or cost basis makes every delta meaningless
+          # while the report still renders). That must fail the run.
+          # ⚠️ THE REPORT IS WRITTEN OUTSIDE THE ARM DIRECTORY, deliberately.
+          # Written beside the arms, the next run's `*.json` glob picks the
+          # PREVIOUS report up as if it were an arm payload and the reporter
+          # (correctly) refuses it. Measured 2026-09-08: that is exactly what
+          # happened on the second local invocation.
+          mkdir -p runtime_logs/ranking_ab_report
+          python3 scripts/research/rank_arm_report.py \
+            runtime_logs/ranking_ab/*.json \
+            --json runtime_logs/ranking_ab_report/REPORT.json | tee /tmp/report.txt
+          {
+            echo '## ranking-key A/B — CONTESTED SUBSET ONLY'
+            echo '```'
+            cat /tmp/report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload payloads
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ranking-key-ab-${{ github.run_id }}
+          path: runtime_logs/ranking_ab/
+          retention-days: 30
+
+      - name: Stage the durable copy
+        if: ${{ inputs.commit_results }}
+        run: |
+          set -euo pipefail
+          # ⚠️ AN ARTIFACT IS NOT A DURABLE PATH. `BL-20260823-E35-SWEEP-EVIDENCE-HAS-NO-DURABLE-PATH`
+          # records 3,781 measured cells that exist only as EXPIRED CI artifacts —
+          # measured, and unreachable. A committed copy is what makes the MEASURED
+          # mark in the write-up carry a locator a later session can actually open.
+          ts=$(date -u +%Y%m%dT%H%M%SZ)
+          dest="docs/research/ranking-key-ab/${ts}"
+          mkdir -p "$dest"
+          cp runtime_logs/ranking_ab/*.json "$dest/"
+          cp runtime_logs/ranking_ab_report/REPORT.json "$dest/REPORT.json"
+          cp /tmp/report.txt "$dest/REPORT.txt"
+          echo "DEST=$dest" >> "$GITHUB_ENV"
+
+      - name: Land the results on main
+        if: ${{ inputs.commit_results && secrets.BRANCH_PROTECTION_TOKEN != '' }}
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: ${{ env.DEST }}
+          message: "research: ranking-key A/B arms + report (run ${{ github.run_id }})"
+          pr-title: "research: ranking-key A/B results (run ${{ github.run_id }})"
+          pr-body: |
+            Per-arm payloads and the graded report from `ranking-key-ab`
+            run ${{ github.run_id }}.
+
+            Every headline is the **CONTESTED SUBSET ONLY** and is stratified by
+            `decided_by`. Grade power against the ACHIEVED contested count in
+            each payload's `population` block, never against the design's
+            declared `expected_n=1780`.
+
+            The gate is **pooled net R AND a majority of EFFECTIVE folds**, never
+            either alone; inertness is imported from
+            `scripts/research/m20_wf_effective.py::is_inert`.

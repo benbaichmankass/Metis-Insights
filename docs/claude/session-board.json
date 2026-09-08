@@ -5,13 +5,23 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-spawn-harness-2208-20260908",
+  "held_by": "session_01ML8uLRrKLMmzR9fFywTWv5",
+  "branch": "claude/mi205b-ranking-key-harness",
   "pr": "(opened by hand; arming file lands second)",
-  "claimed_at": "2026-09-08T22:12:05Z",
-  "note": "Heartbeat 22:12:05Z plus the MI-205 spawn (the N-book ranking harness), registered THROUGH session_registry.py. Also records a correction the operator re-sequenced on: the 56 uncovered TLT shares are on a PAPER account, not real money. Register and work-object writes only, no worker path."
+  "claimed_at": "2026-09-08T23:35:00Z",
+  "note": "MI-205b - the N-book ranking-key harness (WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS). Tier-1 measurement build: three scripts under scripts/research/, .github/workflows/ranking-key-ab.yml, tests/research/, docs/research/. No order path and no live config; the ranking arm is installed by in-process patching and restored unconditionally. The result is a NULL and nothing live is proposed."
  },
  "active_sessions": [
+  {
+   "session": "session_01ML8uLRrKLMmzR9fFywTWv5",
+   "branch": "claude/mi205b-ranking-key-harness",
+   "repo": "Metis-Insights",
+   "started_at": "2026-09-08T22:20:00+00:00",
+   "ended_at": null,
+   "status": "active",
+   "scope": "MI-205b - the RE-DISPATCH of MI-205 (which was seeded against the wrong repository and was interrupted). Builds the N-book ranking-key A/B harness and runs the four declared arms. Touches scripts/research/, .github/workflows/, tests/research/, docs/research/, docs/claude/work/objects/, and ONE field on ONE OPEN-ITEMS row.",
+   "note": "MI-205's board START (comment 5592584424) is SUPERSEDED and released. MEASURED against `git diff --stat origin/main...4b6840eb`: its branch carried TWO files / 32 insertions, both board-post relay artifacts, so no harness work existed to recover and nothing is duplicated."
+  },
   {
    "session": "session_018aKyS3",
    "branch": "claude/metis-lane-0-decisions-7jgnjz",

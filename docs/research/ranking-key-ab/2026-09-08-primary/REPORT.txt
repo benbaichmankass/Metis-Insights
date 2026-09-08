@@ -1,0 +1,27 @@
+ranking-key A/B — CONTESTED SUBSET ONLY
+  gate: pooled net R > 0 AND a majority of EFFECTIVE folds, never either alone. Inertness is imported from m20_wf_effective.is_inert (both deltas).
+  control (random_tiebreak, seed=20260908): trades=206 netR=-301.0027 net=$-2231.8 expectancyR=-1.4612 maxDD=$2247.68
+  confidence_first   verdict=preferred
+      pooled  d_netR=+214.6275 d_net=$+938.83 d_maxDD=$-867.82 expectancyR -0.6259 vs -1.4612
+      folds   won=4 lost=0 flat_exercised=0 INERT=2/6 (33.3%) -> majority_of_effective=True
+      n       arm=138 control=206 (floor 30)
+      p       0.25965 vs alpha_bonf 0.01667 -> clears=False
+  priority_first     verdict=preferred
+      pooled  d_netR=+145.1995 d_net=$+624.24 d_maxDD=$-610.45 expectancyR -0.7563 vs -1.4612
+      folds   won=3 lost=1 flat_exercised=0 INERT=2/6 (33.3%) -> majority_of_effective=True
+      n       arm=206 control=206 (floor 30)
+      p       0.3132 vs alpha_bonf 0.01667 -> clears=False
+  recent_pnl_first   verdict=preferred
+      pooled  d_netR=+180.0489 d_net=$+733.98 d_maxDD=$-719.88 expectancyR -0.64 vs -1.4612
+      folds   won=3 lost=1 flat_exercised=0 INERT=2/6 (33.3%) -> majority_of_effective=True
+      n       arm=189 control=206 (floor 30)
+      p       0.23592 vs alpha_bonf 0.01667 -> clears=False
+  HEAD-TO-HEAD — confidence_first vs each alternative (this, not the control, is the operator's question):
+    vs priority_first     verdict=preferred d_netR=+69.4280 d_net=$+314.59 folds won=4 lost=0 inert=2/6 p=0.77574
+    vs recent_pnl_first   verdict=preferred d_netR=+34.5786 d_net=$+204.85 folds won=2 lost=1 inert=2/6 p=0.97499
+  CHURN (the control re-rolls per tick, so part of its deficit is instability, not ranking):
+    confidence_first   trades=  660 flips=   31 {'flip': 31, 'sl': 405, 'time_decay': 9, 'tp': 215}
+    priority_first     trades=  715 flips=   28 {'flip': 28, 'sl': 400, 'time_decay': 8, 'tp': 279}
+    random_tiebreak    trades=  708 flips=   92 {'flip': 92, 'sl': 406, 'time_decay': 9, 'tp': 201}
+    recent_pnl_first   trades=  719 flips=   34 {'flip': 34, 'sl': 423, 'time_decay': 8, 'tp': 254}
+  HEADLINE: shipped arm (confidence_first) verdict=preferred; any arm preferred=True
