@@ -7,7 +7,7 @@
  "merge_slot": {
   "held_by": "session_016KUFTHGYyFDerbnXDSA6Wb",
   "branch": "claude/mi204-realmoney-reach-and-pairs-asymmetry",
-  "pr": null,
+  "pr": 11414,
   "claimed_at": "2026-09-08T15:42:00Z",
   "displaced": "moved from my own claude/mi204-orphan-reattach-misattribution, whose PR #11411 MERGED at 15:33:00Z with BOTH commits intact — the arming sequence held this time. Fourth slot write by this session for one unit, each spent by the merge it claimed; filed as BL-20260908-CLAUDE-PR-AUTOMERGE-OPENS-A-PR-WITH-NO-CI-AND-ARMS-A-RACE-THAT-DROPS-COMMITS-FOUR-SESSIONS-IN-ONE-DAY."
  },
