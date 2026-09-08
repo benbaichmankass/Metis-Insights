@@ -1,0 +1,1 @@
+Arm PR #11466 — manager heartbeat 22:41:37Z (tool-stamped) plus the MI-205b re-observation, with its repo re-checked rather than inferred. Slot claimed on this branch's own committed session-board.json. Guards clean locally: manager-scope R2/R6/R7/R8 ok, backlog-refs OK.
