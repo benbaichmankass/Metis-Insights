@@ -90,8 +90,21 @@ TQQQ (175 TP-bearing).
 | `tqqq_trend_long_1d` | 117 | 67 / 48 @ 2020-02-04 | 175 | **0** | **NONE** |
 
 **So `unexamined` becomes a measured `none` on both legs.** That is the answer, and it is the answer
-the sibling population predicted: across the six other `donchian`/`1d` legs already in the corpus,
-**4 of 1080 TP cells passed (0.37%)** and **4 of 6 legs produced zero**.
+the sibling population predicted. **POPULATION: the six other `donchian`/`1d` legs already in
+`e35-bracket-corpus.jsonl`** — `iwm`, `mes`, `qqq`, `scha`, `splg`, `spy` — 1080 TP-bearing cells
+between them:
+
+| | count | of |
+|---|---:|---|
+| TP cells passing IS+OOS | **4** | 1080 (0.37%) |
+| TP cells that are **shippable** (`wf_pass` AND timeout-free) | **2** | 1080 (0.19%) |
+| legs producing **zero** IS+OOS passes | **3** | 6 |
+| legs producing **zero shippable** take-profit | **4** | 6 |
+
+⚠️ **The two "zero" rows are different numbers and are easy to conflate** — 3 legs got nothing past
+the gate at all, while a 4th (`splg`) got two cells past IS+OOS and neither survived to a shippable
+form. Quote whichever you mean. Against either, QLD and TQQQ returning nothing is the modal
+outcome, not a surprise.
 
 ### 2.1 But the *reason* is far sharper than "nothing passed"
 
@@ -119,15 +132,23 @@ Both legs declare `atr_stop_mult: 2.5`.
 | `tqqq_trend_long_1d` | 2.5 | 0.0401 | **0.99** | 0.51 | 1.53 |
 | `qqq_trend_long_1d` *(control)* | 2.0 | 0.0157 | 3.14 | 1.33 | 5.09 |
 
-**These are the two worst-placed legs in the fleet for a reachable take-profit, and the cause is
-structural rather than incidental.** They are 2× and 3× leveraged, so ATR/entry runs 1.8× and 2.6×
+**These are among the worst-placed legs on the fleet for a reachable take-profit — TQQQ is the lowest
+figure this repo has measured anywhere, on either basis — and the cause is structural rather than
+incidental.** They are 2× and 3× leveraged, so ATR/entry runs 1.8× and 2.6×
 QQQ's, and `cap_r` is inversely proportional to it. **On TQQQ the median `cap_r` is 0.99 — the venue
 clamp binds BELOW 1R, i.e. the take-profit rests nearer than the stop.**
 
-Set against MI-156 § 3's measured live `cap_r` table, whose lowest entries were `gdx_pullback_1d`
-1.28 and `trend_donchian_ada_4h` 2.11, **QLD 1.40 and TQQQ 0.99 sit at and below the bottom of the
-entire fleet range.** This explains the `tie_no_improvement` results exactly: a declared `tp_r` of
-2, 2.5, 3, 4 or 6 is inert on these legs **by arithmetic**, before any question of edge arises.
+Set against MI-156 § 3's 14 measured `cap_r` medians, which run **1.28 (`gdx_pullback_1d`) to 16.41
+(`tlt_pullback_1h`)**: **TQQQ's 0.99 is below every one of them**, and **QLD's 1.40 is second-lowest —
+above `gdx_pullback_1d`'s 1.28, not below it.** ⚠️ **The comparison is indicative, not like-for-like,
+and I am not going to round it off:** MI-156's figures are per-trade `cap_r` from live telemetry
+(exact given entry and risk, but n = 1–8 per leg — `gdx`'s 1.28 is a single trade); mine are the
+median of an ATR14/close distribution over thousands of bars. The two agree on the *quantity* and
+differ in *basis*, so read the ordering as a placement, not a ranking.
+
+What does not depend on that comparison is the arithmetic on these two legs alone: a declared `tp_r`
+of 2, 2.5, 3, 4 or 6 sits above their reachability ceiling and is therefore **inert by construction**,
+before any question of edge arises. That is what `tie_no_improvement` at `d_net_r` 0.0 is reporting.
 
 ⚠️ **WHAT § 3 DOES NOT ESTABLISH.** This `cap_r` is derived from the **candle** series (ATR14/close),
 not from live trades — both legs return **zero** `position_telemetry` rows, which MI-156 § 8 already
