@@ -21,41 +21,44 @@ have been the deliverable instead.
 
 WHICH TESTS ARE EVIDENCE OF THE REPAIR, AND WHICH ARE NOT
 ---------------------------------------------------------
-Stated explicitly because a green suite says nothing on its own. The split
-below is MEASURED, not asserted: the 15 tests were run against this file's src
-changes stashed, i.e. against `main`'s ``src/`` verbatim, giving **13 failed,
-2 passed**. Three groups, and the middle one is easy to miscount as evidence.
+Stated explicitly because a green suite says nothing on its own, and because
+the first version of this list WAS WRONG in the flattering direction — it
+counted every red-on-`main` test as evidence. The split below is MEASURED, by
+checking out `main`'s ``src/`` and reading the exception TYPE of each failure:
+**16 failed, 2 passed**, of which only **6 failures are behavioural**.
 
-**(1) ELEVEN fail on `main` on BEHAVIOUR — these are the repair:**
-  * ``test_close_of_one_trade_reduces_by_that_trades_qty``
-  * ``test_close_of_one_trade_does_not_cancel_the_siblings_protection``
-  * ``test_close_defers_rather_than_flattening_when_the_size_is_unreadable``
-  * ``test_extended_hours_partial_defers_instead_of_liquidating_the_symbol``
+**(1) SIX fail on `main` with a behavioural ``AssertionError`` — the evidence:**
+  * ``test_close_open_position_of_one_trade_leaves_the_siblings_position``
+  * ``test_close_open_position_does_not_cancel_the_siblings_protection``
   * ``test_close_open_position_forwards_the_trade_qty``
-  * ``test_success_log_does_not_label_a_whole_symbol_flatten_with_a_trade_qty``
-  * ``test_modify_protective_refuses_when_no_leg_matches_the_trade``
-  * ``test_modify_protective_patches_only_the_named_trades_leg``
-  * ``test_modify_protective_refuses_ambiguous_same_size_legs``
-  * ``test_modify_protective_does_not_launder_an_anomalous_leg_qty``
+  * ``test_modify_open_order_refuses_rather_than_moving_a_siblings_stop``
   * ``test_modify_open_order_forwards_the_trade_qty``
+  * ``test_success_log_does_not_label_a_whole_symbol_flatten_with_a_trade_qty``
 
-**(2) TWO fail on `main` for a SIGNATURE reason, and are NOT evidence:**
-  * ``test_whole_symbol_close_is_unchanged_when_the_trade_is_the_position``
-  * ``test_close_404_still_maps_to_an_idempotent_ok``
+  ⚠️ **THEY ALL GO THROUGH `execute.close_open_position` /
+  `execute.modify_open_order`, AND THAT IS WHY THEY WORK AS EVIDENCE.** Those
+  two have the SAME signature on both trees, so on `main` they run the real
+  defect and report it — all 72 shares leaving, the sibling's bracket
+  cancelled, a stop patched that belongs to another trade — rather than
+  refusing at the call.
 
-  Both raise ``TypeError: AlpacaClient.close() takes 2 positional arguments
-  but 3 were given`` — they hand ``close()`` a quantity that does not exist as
-  a parameter there. That is the absence of the feature, not a behavioural
-  difference, and it is exactly the case where a red-before/green-after count
-  flatters itself: these two PIN THAT THE WHOLE-SYMBOL PATH DID NOT CHANGE, so
-  by construction they cannot demonstrate a change. They cannot be run against
-  `main` verbatim at all.
+**(2) TEN fail on `main` with ``TypeError`` — NOT evidence:**
+  * the six ``close(...)`` tests and the four ``modify_protective(..., qty=)``
+    tests, which raise ``AlpacaClient.close() takes 2 positional arguments but
+    3 were given`` / ``got an unexpected keyword argument 'qty'``.
+
+  They hand the client a quantity that has no parameter on `main`. That is the
+  ABSENCE OF THE FEATURE, not a demonstration of the defect, and counting it as
+  one is exactly the red-before/green-after arithmetic that flatters itself.
+  They still earn their place — they pin the per-path behaviour (which branch
+  cancels, which defers, which stays byte-for-byte unchanged) that group (1)
+  can only see end-to-end — but they are not what makes the claim.
 
 **(3) TWO pass on `main` unchanged — the only true either-way controls:**
   * ``test_qty_none_is_the_legacy_unscoped_close``
   * ``test_modify_protective_without_qty_still_patches``
 
-  These are what actually establish that a caller passing no quantity gets the
+  These are what establish that a caller passing no quantity gets the
   pre-existing behaviour, because they are the only two that execute on both
   trees.
 
@@ -280,6 +283,56 @@ def test_close_open_position_forwards_the_trade_qty(monkeypatch):
 
     assert res["ok"] is True, res
     assert fake.liquidations == [f"/v2/positions/{SYMBOL}?qty=16"]
+
+
+# The next three go through the CALLER rather than the client, deliberately.
+# `close_open_position` / `modify_open_order` have the SAME signature on both
+# trees, so these three express the defect itself and fail on `main` with a
+# behavioural AssertionError — not with "that parameter does not exist". They
+# are the tests that make the claim, and they are why the client-level ones
+# above are not the only evidence.
+def test_close_open_position_of_one_trade_leaves_the_siblings_position(monkeypatch):
+    """THE DEFECT, stated through the stable API: closing trade A (16) must
+    leave trade B's 56 shares on the book. On `main` all 72 leave."""
+    fake = FakeAlpaca()
+    c = _client()
+    monkeypatch.setattr(c, "_request", fake)
+
+    close_open_position(c, ACCT, symbol=SYMBOL, side="short", qty=TRADE_A)
+
+    assert fake.position_qty == pytest.approx(TRADE_B), (
+        "closing the 16-share trade took the sibling's 56 shares with it"
+    )
+
+
+def test_close_open_position_does_not_cancel_the_siblings_protection(monkeypatch):
+    """Through the stable API: the pre-cancel must not strip B's bracket."""
+    legs = [
+        _leg("B-stop", TRADE_B, "stop", stop_price="82.33"),
+        _leg("B-tp", TRADE_B, "limit", limit_price="74.67"),
+    ]
+    fake = FakeAlpaca(legs=legs)
+    c = _client()
+    monkeypatch.setattr(c, "_request", fake)
+
+    close_open_position(c, ACCT, symbol=SYMBOL, side="short", qty=TRADE_A)
+
+    assert fake.cancelled_orders == []
+    assert {o["id"] for o in fake.legs} == {"B-stop", "B-tp"}
+
+
+def test_modify_open_order_refuses_rather_than_moving_a_siblings_stop(monkeypatch):
+    """Through the stable API: a modify for trade B (56) must not move trade
+    A's 16-share stop, which is the only leg resting. On `main` it patches it."""
+    legs = [_leg("A-stop", TRADE_A, "stop", stop_price="90.10")]
+    fake = FakeAlpaca(legs=legs)
+    c = _client()
+    monkeypatch.setattr(c, "_request", fake)
+
+    res = modify_open_order(c, ACCT, symbol=SYMBOL, sl=83.0, qty=TRADE_B)
+
+    assert res["ok"] is False, res
+    assert fake.patches == []
 
 
 def test_success_log_does_not_label_a_whole_symbol_flatten_with_a_trade_qty(
