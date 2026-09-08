@@ -73,6 +73,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -660,6 +661,143 @@ def build(fetch_money: bool = True, today: date | None = None) -> dict:
         "money": money_block(fetch=fetch_money),
         "flight": flight_block(objects, today),
         "operator": operator_block(diag, today),
+        "due": due_block(fetch=fetch_money, today=today),
+    }
+
+
+# ------------------------------------------------- 5 · the other registers
+
+
+#: Due-list source classes that ALREADY have a readout counterpart. Their
+#: read-state is still reported below — dropping a source silently is the
+#: collapse this whole file exists to refuse — but their ROWS are not repeated,
+#: because two renderings of one register invite a reader to treat them as two
+#: independent signals.
+DUE_SOURCES_COVERED_ELSEWHERE = {
+    "operator_owed": "§4 · Decisions waiting on the operator",
+}
+
+#: Rows rendered per source. A cap is necessary — `open_items` alone ran to 53
+#: rows on 2026-09-08 and a readout that becomes a wall is one more thing to
+#: skim past, which is the due-list's own diagnosed failure. The cap is STATED
+#: per source (`rows_shown` beside `row_count`) so a truncated list can never
+#: read as a complete one.
+DUE_ROWS_PER_SOURCE = 8
+
+DUE_READ_STATES = ("read", "could_not_read")
+DUE_COMPLETENESS = ("all_sources_read", "partial", "no_sources_read", "unknown")
+
+
+def _due_lib():
+    """The due-list module, IMPORTED from the file that owns it.
+
+    Never re-implemented here. Its nine `src_*` functions already carry the
+    three-state read contract this section needs (`read` / `could_not_read` /
+    `not_applicable`), and a second copy of "what is due?" would be free to
+    drift from the one `due-list-guard` checks. Same reason — and the same
+    mechanism — as `render_due_list._soak_grader`.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import render_due_list  # noqa: PLC0415
+    return render_due_list
+
+
+def due_block(fetch: bool = True, today: date | None = None,
+              *, root: Path | None = None, token: str | None = None,
+              lib: Any = None) -> dict:
+    """§5 — every structured register the first four sections do not read.
+
+    WHY THIS SECTION EXISTS
+    -----------------------
+    Operator decision 2026-09-08, `consolidate_into_the_readout`: a session had
+    to read TWO surfaces to see everything due, and nothing on either said so.
+
+    WHAT IT DOES NOT DO — and this must not be reported otherwise. Folding these
+    registers in adds ROWS, not assessed `blocked_on` BASIS. §1 still refuses to
+    name a stage, and refusing is still the correct output. If a reader comes
+    away thinking the diagnosis improved because the readout got longer, this
+    section has done harm.
+
+    EVERY CLASS KEEPS ITS OWN READ-STATE. A cron that could not be READ is not a
+    cron that is GREEN; an unlanded-PR list that could not be FETCHED is not an
+    EMPTY queue. `due_count` is therefore `None` — never `0` — whenever the
+    collector itself could not run.
+    """
+    today = today or datetime.now(timezone.utc).date()
+    root = root or Path(".")
+    try:
+        lib = lib if lib is not None else _due_lib()
+    except Exception as exc:  # noqa: BLE001 — an unimportable sibling must not read as "nothing due"
+        return {
+            "read_state": "could_not_read",
+            "error": f"cannot import scripts/ops/render_due_list.py: "
+                     f"{type(exc).__name__}: {exc}",
+            "completeness": "unknown",
+            "sources": [],
+            "unreadable_sources": [],
+            "due_count": None,
+            "covered_elsewhere": dict(DUE_SOURCES_COVERED_ELSEWHERE),
+            "generator": "scripts/ops/render_due_list.py",
+            "rows_per_source_cap": DUE_ROWS_PER_SOURCE,
+            "fetched": False,
+        }
+
+    # `fetch=False` withholds the token rather than skipping the two
+    # GitHub-backed sources: they then report `could_not_read` through their own
+    # contract, so an offline run degrades identically to a tokenless one and
+    # there is no second, bespoke "we skipped it" state to keep honest.
+    tok = (token if token is not None else os.environ.get("GITHUB_TOKEN", "")) if fetch else ""
+    # The assembly is INSIDE the try, not just the call: `SourceResult` is a
+    # sibling's dataclass, so a field rename there must degrade this section to
+    # an honest `could_not_read` rather than take the whole readout down. (It
+    # already bit once during this port — the field is `name`, not `source`.)
+    try:
+        results = lib.collect(root, today, token=tok or None)
+        sources: list[dict] = []
+        due = 0
+        for r in results:
+            rows = list(r.rows or [])
+            covered = DUE_SOURCES_COVERED_ELSEWHERE.get(r.name)
+            if not covered:
+                due += len(rows)
+            sources.append({
+                "source": r.name,
+                "state": r.state,
+                "note": r.note or "",
+                "row_count": len(rows),
+                "covered_elsewhere": covered,
+                "rows_shown": 0 if covered else min(len(rows), DUE_ROWS_PER_SOURCE),
+                "rows": [] if covered else rows[:DUE_ROWS_PER_SOURCE],
+            })
+        completeness = lib.verdict_for(results)
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "read_state": "could_not_read",
+            "error": f"render_due_list.collect raised {type(exc).__name__}: {exc}",
+            "completeness": "unknown",
+            "sources": [],
+            "unreadable_sources": [],
+            "due_count": None,
+            "covered_elsewhere": dict(DUE_SOURCES_COVERED_ELSEWHERE),
+            "generator": "scripts/ops/render_due_list.py",
+            "rows_per_source_cap": DUE_ROWS_PER_SOURCE,
+            "fetched": bool(tok),
+        }
+
+    return {
+        "read_state": "read",
+        "error": None,
+        "completeness": completeness,
+        "sources": sources,
+        "unreadable_sources": [s["source"] for s in sources
+                               if s["state"] == "could_not_read"],
+        # Counted over the sources that ANSWERED and are not covered elsewhere.
+        # It is a LOWER BOUND whenever `completeness` is not `all_sources_read`.
+        "due_count": due,
+        "covered_elsewhere": dict(DUE_SOURCES_COVERED_ELSEWHERE),
+        "generator": "scripts/ops/render_due_list.py",
+        "rows_per_source_cap": DUE_ROWS_PER_SOURCE,
+        "fetched": bool(tok),
     }
 
 
@@ -670,8 +808,91 @@ def _pct(v: float | None) -> str:
     return "—" if v is None else f"{v:.1%}"
 
 
+def render_due_section(du: dict) -> list[str]:
+    """§5 as its own function so its read-state handling is testable
+    without constructing a whole readout. The distinction it must never
+    lose — could-not-read vs nothing-due — is asserted in `_self_test`.
+    """
+    L: list[str] = []
+    L.append("## 5 · Everything else that is due")
+    L.append("")
+    L.append("> Ported here by operator decision 2026-09-08 (`consolidate_into_the_readout`) "
+             "so that ONE surface answers *what is due right now*. "
+             "⚠️ **This did not improve the diagnosis in §1.** Folding registers in adds "
+             "ROWS, not assessed `blocked_on` BASIS — §1 still refuses to name a stage, and "
+             "refusing is still correct. A longer readout is not a better-evidenced one.")
+    L.append("")
+
+    if du.get("read_state") != "read":
+        L.append(f"**Read state: `{du.get('read_state', 'could_not_read')}` — "
+                 f"NOTHING was collected, which is NOT the same as nothing being due.**")
+        L.append("")
+        L.append(f"⚠️ {du.get('error') or 'no error recorded'}")
+        L.append("")
+        L.append("`due_count` is `null`, deliberately never `0`: a zero here would be a "
+                 "claim about the registers, and no register was read.")
+        L.append("")
+        return L
+
+    comp = du.get("completeness", "unknown")
+    L.append(f"**Completeness: `{comp}`** · **{du['due_count']} row(s) due** across the "
+             f"sources that answered and are not already covered above "
+             f"(via `{du['generator']}`).")
+    L.append("")
+    if comp != "all_sources_read":
+        L.append(f"> ⚠️ **`{du['due_count']}` IS A LOWER BOUND.** Could not read: "
+                 f"`{'`, `'.join(du['unreadable_sources']) or '(none)'}`. "
+                 f"A cron that could not be READ is not a cron that is GREEN, and an "
+                 f"unlanded-PR list that could not be FETCHED is not an EMPTY queue. "
+                 f"An empty source below may mean nothing is due, or may mean nobody looked "
+                 f"— read the per-source state, never the row count alone.")
+        L.append("")
+
+    L.append("| source | state | rows | note |")
+    L.append("|---|---|---|---|")
+    for srcd in du["sources"]:
+        cov = srcd.get("covered_elsewhere")
+        rows_cell = ("_not repeated_" if cov else
+                     (str(srcd["row_count"]) if srcd["state"] == "read" else "—"))
+        # Escape pipes: several source notes legitimately contain `|`
+        # (`probes` does), and an unescaped one silently splits the row into an
+        # extra column — the state column then renders under the wrong header,
+        # which is a table that misreports a read-state.
+        note = _one_line(srcd.get("note") or ("covered by " + cov if cov else ""),
+                         110).replace("|", "\\|")
+        L.append(f"| `{srcd['source']}` | `{srcd['state']}` | {rows_cell} | {note} |")
+    L.append("")
+    L.append("⚠️ `rows` reads `—`, never `0`, for a source that could not be read — the "
+             "distinction this table exists to preserve. A source marked _not repeated_ "
+             "WAS read; its rows are rendered in the section named in its note.")
+    L.append("")
+
+    for srcd in du["sources"]:
+        if srcd.get("covered_elsewhere") or not srcd["rows"]:
+            continue
+        hidden = srcd["row_count"] - srcd["rows_shown"]
+        head = f"**`{srcd['source']}` — {srcd['row_count']} due**"
+        if hidden > 0:
+            head += (f" · showing {srcd['rows_shown']}, **{hidden} not shown** "
+                     f"(cap {du['rows_per_source_cap']}/source)")
+        L.append(head)
+        L.append("")
+        for r in srcd["rows"]:
+            age = f" · {r['age_days']}d" if r.get("age_days") is not None else ""
+            loud = "🔔 " if r.get("loud") else ""
+            L.append(f"- {loud}`{r['id']}`{age} — {_one_line(r.get('why_due') or '', 140)}")
+            if r.get("title"):
+                L.append(f"  - {_one_line(r['title'], 180)}")
+        L.append("")
+
+    L.append("_This section decides nothing. Every row is for a session to judge._")
+    L.append("")
+    return L
+
+
 def render_md(d: dict) -> str:
     c, m, f, o = d["constraint"], d["money"], d["flight"], d["operator"]
+    du = d.get("due") or {}
     L = ["# The readout — where the chain is held up, and what that costs", ""]
     L.append(f"_Generated {d['generated_at']} by `{d['generator']}` · "
              f"cycle `{d['cycle_priority']['cycle_id'] or '(none set)'}` "
@@ -881,6 +1102,9 @@ def render_md(d: dict) -> str:
              "work is held by a pending decision*, the other is the durable record of "
              "anything whose next action belongs to a person. Neither is a superset.")
     L.append("")
+
+    # ---- 5
+    L += render_due_section(du)
     return "\n".join(L)
 
 
@@ -892,6 +1116,7 @@ def render_brief_lines(d: dict) -> list[str]:
     the failure mode of the due-list it sits beside.
     """
     c, f = d["constraint"], d["flight"]
+    du = d.get("due") or {}
     L = [f"**📉 THE COMPUTED READOUT BEHIND THAT PRIORITY** "
          f"(`docs/claude/READOUT.md`, from `scripts/ops/constraint_readout.py`, "
          f"generated `{str(d.get('generated_at') or 'unknown')[:10]}` — **it is a dated "
@@ -926,6 +1151,21 @@ def render_brief_lines(d: dict) -> list[str]:
     L.append("- **If you are about to write a real `blocked_on` edge, that is the single "
              "highest-value thing you can do to this store** — the diagnosis is refusing "
              "for want of assessed edges, not for want of machinery.")
+    # §5 in one line. It must say WHETHER the count can be trusted, not just the
+    # count: the whole point of porting these registers was that a session read
+    # a number without knowing a source had gone unread.
+    if du.get("read_state") == "read":
+        comp = du.get("completeness", "unknown")
+        bound = "" if comp == "all_sources_read" else (
+            f" ⚠️ **LOWER BOUND** — `{'`, `'.join(du.get('unreadable_sources') or []) or '?'}` "
+            f"could not be read, and *could not read* is not *nothing due*.")
+        L.append(f"- **{du.get('due_count')} other row(s) due** across the structured "
+                 f"registers (§5, completeness `{comp}`).{bound}")
+    else:
+        L.append("- ⚠️ **§5 collected NOTHING — `read_state` "
+                 f"`{du.get('read_state', 'could_not_read')}`.** That is not a claim that "
+                 "nothing is due; no register was read. "
+                 f"({_one_line(du.get('error') or 'no error recorded', 120)})")
     L.append("")
     return L
 
@@ -1079,6 +1319,124 @@ def _self_test() -> int:
 
     # The ceiling is imported, not restated.
     check("the WIP ceiling is imported from the enforcing guard", WIP_CEILING, 8)
+
+    # ---- §5: the ported registers. Every check below is against a PLANTED
+    # collector, so a vacuous pass is impossible — the real registers could all
+    # be empty on any given day and would prove nothing about the distinctions.
+
+    class _R:  # the sibling's SourceResult shape, planted
+        def __init__(self, name, state, rows=None, note=""):
+            self.name, self.state, self.rows, self.note = name, state, rows or [], note
+
+    def _fake(results, verdict):
+        class L:
+            @staticmethod
+            def collect(
+                root,  # inert: root — the planted collector returns fixed results; it mirrors render_due_list.collect's signature so due_block calls it unchanged
+                today,  # inert: today — same: signature parity with the real collector, which this control deliberately does not consult
+                token=None,  # inert: token — same: the planted results are fixed, so no fetch is attempted
+            ):
+                return results
+            @staticmethod
+            def verdict_for(_):
+                return verdict
+        return L
+
+    def _r(src, n):
+        return [{"source": src, "id": f"{src}-{i}", "title": "t", "why_due": "w",
+                 "age_days": None, "loud": False, "link": ""} for i in range(n)]
+
+    mixed = [_R("open_items", "read", _r("open_items", 3)),
+             _R("red_crons", "could_not_read", note="403"),
+             _R("operator_owed", "read", _r("operator_owed", 5))]
+    b_mixed = due_block(fetch=False, today=date(2026, 9, 8),
+                        lib=_fake(mixed, "partial"))
+
+    check("a `could_not_read` source SURVIVES into the block — it is not dropped",
+          [x["state"] for x in b_mixed["sources"] if x["source"] == "red_crons"],
+          ["could_not_read"])
+    check("...and it is named in `unreadable_sources`, so the count is a lower bound",
+          b_mixed["unreadable_sources"], ["red_crons"])
+    check("a source covered by an earlier section is MARKED, not silently dropped",
+          b_mixed["covered_elsewhere"].get("operator_owed") is not None, True)
+    check("...and its rows are NOT double-counted into `due_count` (3, not 8)",
+          b_mixed["due_count"], 3)
+    check("...while its real row_count is still reported, so nothing is hidden",
+          [x["row_count"] for x in b_mixed["sources"] if x["source"] == "operator_owed"],
+          [5])
+
+    # An unreadable source must never render as `0`. `—` and `0` are the two
+    # facts this section exists to keep apart.
+    md_mixed = "\n".join(render_due_section(b_mixed))
+    check("REGRESSION: an unreadable source renders `—`, never a row count of 0",
+          "| `red_crons` | `could_not_read` | — |" in md_mixed, True)
+    check("...and the rendered count is explicitly labelled a LOWER BOUND",
+          "IS A LOWER BOUND" in md_mixed, True)
+
+    # The collector itself failing is a THIRD fact, and the one most likely to
+    # be read as "nothing is due".
+    class _Boom:
+        @staticmethod
+        def collect(
+            root,  # inert: root — this control raises before reading anything; the signature mirrors render_due_list.collect so due_block calls it unchanged
+            today,  # inert: today — same: it raises, so nothing is consulted
+            token=None,  # inert: token — same: it raises, so no fetch is attempted
+        ):
+            raise RuntimeError("planted")
+        @staticmethod
+        def verdict_for(_):
+            return "all_sources_read"
+
+    b_dead = due_block(fetch=False, today=date(2026, 9, 8), lib=_Boom())
+    check("a collector that raises grades `could_not_read`, not `read`",
+          b_dead["read_state"], "could_not_read")
+    check("REGRESSION: `due_count` is None — NEVER 0 — when nothing was collected",
+          b_dead["due_count"], None)
+    check("...its completeness is `unknown`, not `all_sources_read`",
+          b_dead["completeness"], "unknown")
+    md_dead = "\n".join(render_due_section(b_dead))
+    check("...and the render SAYS nothing was collected rather than showing an empty list",
+          "NOT the same as nothing being due" in md_dead, True)
+    check("...and it never prints a `0 row(s) due` claim over an unread register",
+          "row(s) due" in md_dead, False)
+
+    # Positive control: a fully-read collector must reach the clean state, or
+    # every check above would pass on a block that can only ever fail.
+    b_ok = due_block(fetch=False, today=date(2026, 9, 8),
+                     lib=_fake([_R("probes", "read", _r("probes", 2))], "all_sources_read"))
+    check("POSITIVE CONTROL: an all-read collector grades `all_sources_read`",
+          (b_ok["read_state"], b_ok["completeness"], b_ok["due_count"]),
+          ("read", "all_sources_read", 2))
+    check("...and then, and only then, the LOWER BOUND warning is absent",
+          "IS A LOWER BOUND" in "\n".join(render_due_section(b_ok)), False)
+
+    # The truncation cap must announce itself.
+    b_cap = due_block(fetch=False, today=date(2026, 9, 8),
+                      lib=_fake([_R("open_items", "read",
+                                    _r("open_items", DUE_ROWS_PER_SOURCE + 4))],
+                                "all_sources_read"))
+    b_pipe = due_block(fetch=False, today=date(2026, 9, 8),
+                       lib=_fake([_R("probes", "read", _r("probes", 1),
+                                     note="cadence=daily | 2 deferred")],
+                                 "all_sources_read"))
+    _tbl = [ln for ln in render_due_section(b_pipe) if ln.startswith("| `probes`")]
+    check("REGRESSION: a `|` in a source note is escaped, so the table keeps 4 columns",
+          (len(_tbl) == 1 and _tbl[0].count("|") - _tbl[0].count("\\|") == 5), True)
+
+    check("a truncated source states how many rows are NOT shown",
+          f"**4 not shown**" in "\n".join(render_due_section(b_cap)), True)
+    check("...and `due_count` counts every row, not just the shown ones",
+          b_cap["due_count"], DUE_ROWS_PER_SOURCE + 4)
+
+    # The real sibling must actually be importable and expose what we call.
+    try:
+        _lib = _due_lib()
+        _has = callable(getattr(_lib, "collect", None)) and callable(
+            getattr(_lib, "verdict_for", None))
+    except Exception:  # noqa: BLE001
+        _has = False
+    check("the real render_due_list is importable and exposes collect+verdict_for",
+          _has, True)
 
     print(f"\n{'ALL PASS' if not failures else str(len(failures)) + ' FAILURE(S)'}")
     return 1 if failures else 0

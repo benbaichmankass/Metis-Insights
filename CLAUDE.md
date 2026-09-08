@@ -103,13 +103,13 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CON
 - **What that means for you:** Trading-side work no longer needs a spawn-priority exception -- it IS the cycle. ⚠️ THE ORDER MATTERS AND IS THE WHOLE POINT: repair the MEASUREMENT before acting on what it says. A verdict computed from a contaminated instrument is worse than no verdict, because it is acted on. If you are about to propose a promote, a demote, a kill or a param change off expectancyR, establish first that your population is clean. The operating-model build continues underneath: the manager still holds the lease, runs the merge queue, keeps the checklist and registers every spawn. Those are base duties, not items, and they do not compete with this.
 - Set by **operator** on `unknown` · basis **DECIDED** · intent `IN-20260903-TRADING-SYSTEM-HEALTH`
 
-**📉 THE COMPUTED READOUT BEHIND THAT PRIORITY** (`docs/claude/READOUT.md`, from `scripts/ops/constraint_readout.py`, generated `2026-09-02` — **it is a dated snapshot, not a live read**; re-run the script rather than trusting its age)
+**📉 THE COMPUTED READOUT BEHIND THAT PRIORITY** (`docs/claude/READOUT.md`, from `scripts/ops/constraint_readout.py`, generated `2026-09-08` — **it is a dated snapshot, not a live read**; re-run the script rather than trusting its age)
 
-- **No stage is named — verdict `insufficient_basis`.** Only 9 of 587 objects (1.5%) have an ASSESSED `blocked_on` basis, below the 50.0% floor. **578 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them** — it is nobody having looked. Do not read this as *nothing is blocked*.
-- ⚠️ **Chain coverage is partial:** `QUESTION`, `DEPLOYMENT`, `OBSERVATION` hold **zero** objects, so the store cannot locate a hold-up there. A stage histogram over it describes what got migrated, not the chain.
-- ⚠️ **And the stages that ARE populated were assigned from the source FILENAME in bulk** (576 of 587; only 11 were chosen per object), so the histogram is a census of which backlog a row came from — **not a reading of the work.**
-- **4 in flight** against a ceiling of 8 · 7 waiting · 0 stopped moving (≥14d, declared dates only).
+- **No stage is named — verdict `insufficient_basis`.** Only 49 of 682 objects (7.2%) have an ASSESSED `blocked_on` basis, below the 50.0% floor. **633 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them** — it is nobody having looked. Do not read this as *nothing is blocked*.
+- ⚠️ **And the stages that ARE populated were assigned from the source FILENAME in bulk** (576 of 682; only 105 were chosen per object), so the histogram is a census of which backlog a row came from — **not a reading of the work.**
+- **4 in flight** against a ceiling of 8 · 15 waiting · 0 stopped moving (≥14d, declared dates only).
 - **If you are about to write a real `blocked_on` edge, that is the single highest-value thing you can do to this store** — the diagnosis is refusing for want of assessed edges, not for want of machinery.
+- **79 other row(s) due** across the structured registers (§5, completeness `partial`). ⚠️ **LOWER BOUND** — `red_crons`, `unlanded_automation` could not be read, and *could not read* is not *nothing due*.
 
 **🗑️ SUNSET (E3, 2026-09-01): 10 retirement candidate(s)** over 52 strategy legs (lifetime read `read`, 1 packet date(s)) · machinery probe `measured`, 115 findings carried.
 - Candidates: `gdx_pullback_1d`, `gld_pullback_1d`, `iaum_pullback_1d`, `mes_trend_long_1d`, `scha_trend_long_1d`, `splg_trend_long_1d`, `spy_trend_long_1d`, `tqqq_trend_long_1d`, `trend_donchian_sol`, `turtle_soup`. Retiring a leg is **Tier-3** — propose, never enact. Disposition them in `docs/claude/SUNSET-DISPOSITIONS.json`.

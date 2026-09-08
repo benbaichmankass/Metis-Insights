@@ -62,6 +62,11 @@ on:
 
 permissions:
   contents: write
+  # `actions: read` + `pull-requests: read` (implied by write) are what §5's two
+  # GitHub-backed sources need — red_crons lists workflow runs, unlanded_automation
+  # lists open PRs. Without them both report `could_not_read`, which is HONEST but
+  # permanent, and a cron nobody is waiting on would never surface here.
+  actions: read
   pull-requests: write
 
 concurrency:
@@ -107,6 +112,11 @@ jobs:
           # diag outage degrades the item honestly instead of asserting a flat
           # book. That is why there is no `|| echo '{}'` anywhere here.
           DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+          # Read-only; only §5's two GitHub-backed sources use it. Absent → those
+          # report `could_not_read` and §5's completeness degrades to `partial`,
+          # which is the honest outcome, not a failure. Same contract as
+          # due-list.yml, which passes the same secret for the same two sources.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           python3 scripts/ops/constraint_readout.py --write

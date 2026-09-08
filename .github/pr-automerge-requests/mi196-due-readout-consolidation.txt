@@ -1,0 +1,9 @@
+MI-196 — port the due-list's source classes into the constraint readout.
+
+Tier-1 (tooling + observability on a read path). Arming self-land per
+.github/pr-landing/mi196-due-readout-consolidation.json. Merge slot claimed in
+docs/claude/session-board.json in this same diff (R13).
+
+This PR PORTS ONLY. docs/claude/DUE.md and scripts/ops/render_due_list.py are
+untouched and keep rendering; retiring the due list is a separate later PR, per
+the operator's own condition.
