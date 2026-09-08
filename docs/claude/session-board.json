@@ -5,10 +5,11 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
  "merge_slot": {
-  "held_by": "MI-196 (session_01U2ibSa4FNcuV6bSLaPb9GS)",
-  "branch": "claude/mi196-readout-cron-pyyaml",
-  "pr": null,
-  "claimed_at": "2026-09-08T12:20:00Z"
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "claude/mgr-heartbeat-1728-20260908",
+  "pr": 11427,
+  "claimed_at": "2026-09-08T17:35:00Z",
+  "displaced": "session_01U2ibSa4FNcuV6bSLaPb9GS's claim for claude/mi196-readout-cron-pyyaml was SPENT \u2014 #11384 merged as 0212b425. Not a seizure."
  },
  "active_sessions": [
   {
