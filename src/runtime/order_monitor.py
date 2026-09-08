@@ -6801,6 +6801,77 @@ def _emit_target_naked_alert(
 _STOP_OVER_COVER_ALERT_COOLDOWN_S: float = 6 * 3600.0
 
 
+# Cooldown for the PARTIAL-STOP-COVERAGE page. Same 6h/(account,symbol) shape
+# as its two siblings above, for the same reason: the condition persists until
+# a bracket is repaired, so an un-limited page fires every sweep forever and
+# trains the operator past the one channel reserved for an unprotected
+# position (the 202-CRITICALs desensitized-alarm P1).
+_PARTIAL_COVERAGE_ALERT_COOLDOWN_S: float = 6 * 3600.0
+
+
+def _emit_partial_stop_coverage_alert(
+    *,
+    account_id: str,
+    symbol: str,
+    size: float,
+    stop_qty: float,
+    target_qty: Any,
+    trade_ids: Any = None,
+    venue: str = "alpaca",
+) -> bool:
+    """Page that only PART of a netted position carries a resting stop.
+
+    CRITICAL, not WARN: the uncovered shares are genuinely unprotected — they
+    can only run — which is the state the operator has ruled unacceptable, and
+    CRITICAL is what reaches Telegram (``outcomes._TELEGRAM_LEVELS``) and the
+    ``/api/bot/notifications`` banner as well as the log. Contrast the IB
+    over-cover page, which is deliberately ERROR: an over-protected
+    reduce-only book is a different and lesser hazard.
+
+    SEVERITY IS THE UNCOVERED QUANTITY, so a position whose coverage WORSENS
+    breaks the window while one that merely persists — or improves — stays
+    suppressed. Never raises into the sweep.
+    """
+    try:
+        uncovered = max(0, int(round(float(size) - float(stop_qty))))
+    except (TypeError, ValueError):
+        uncovered = None  # ungradeable — fall back to the plain per-key latch
+    if not _cooldown_admits(
+        "partial_stop_coverage", f"{account_id}|{symbol}",
+        _PARTIAL_COVERAGE_ALERT_COOLDOWN_S, severity=uncovered,
+    ):
+        return False
+    try:
+        from src.runtime.outcomes import Level, report
+
+        report(
+            # Venue-scoped: an Alpaca condition reported under an `ib_` event
+            # name is the same mislabel class this fix is about.
+            f"{venue}_partial_stop_coverage",
+            "detected",
+            level=Level.CRITICAL,
+            reason=(
+                f"{account_id}/{symbol}: position {size} carries a resting "
+                f"stop for only {stop_qty} — {uncovered} unprotected. The "
+                f"netted position is shared by more journal trades than have "
+                f"a bracket resting."
+            ),
+            account_id=account_id,
+            symbol=symbol,
+            size=size,
+            stop_qty=stop_qty,
+            target_qty=target_qty,
+            uncovered_qty=uncovered,
+            trade_ids=trade_ids,
+        )
+    except Exception:  # noqa: BLE001 — an alert failure must never abort the sweep
+        logger.exception(
+            "_emit_partial_stop_coverage_alert: alert failed for %s/%s",
+            account_id, symbol,
+        )
+    return True
+
+
 def _classify_group_owner(
     group_client_id: Optional[int], reader_client_id: Optional[int]
 ) -> str:
@@ -7685,6 +7756,17 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         # position can be fully stop-covered and hold no take-profit at all
         # (BL-20260816-COVERAGE-IS-ONE-SIDED). Alerted, never re-armed.
         "target_naked": 0,
+        # ── QUANTITY coverage (BL-20260908-ALPACA-COVERAGE-IS-SIDES-NOT-QUANTITY).
+        # Declared here, not created on first use: a sweep that found no
+        # partial coverage must report 0 rather than omit the key, or "we
+        # looked and found none" reads as "we did not look" — which is exactly
+        # what this detector exists to stop being true. The four are never
+        # collapsed: `coverage_read_failed` and `coverage_ungradeable` are both
+        # *we did not look* and are NOT `covered`.
+        "covered": 0,
+        "partially_naked": 0,
+        "coverage_ungradeable": 0,
+        "coverage_read_failed": 0,
     }
     try:
         from src.bot import data_loaders
@@ -7717,6 +7799,18 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
 
     now = datetime.now(timezone.utc)
     clients: Dict[str, object] = {}
+    # ONE account-wide positions read per account per sweep, memoized, so the
+    # quantity grade costs +1 HTTP call per ACCOUNT rather than one per
+    # position per tick. This sweep runs on EVERY tick (unlike the
+    # cadence-gated IB one), and an unbounded per-row broker call on the live
+    # tick is the shape of both June 2026 wedges. `False` records a FAILED
+    # read, which is distinct from an empty snapshot.
+    pos_snapshots: Dict[str, Any] = {}
+    # Coverage memo per (account, symbol): several journal rows share one
+    # netted broker position, and grading it once is both cheaper and the only
+    # way the page counts a symbol once rather than once per row.
+    coverage_memo: Dict[Tuple[str, str], Any] = {}
+    graded_symbols: set = set()
     for row in rows:
         account_id = str(row["account_id"] or "")
         if account_id not in alpaca_ids:
@@ -7755,6 +7849,84 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
             state = client.protection_state(symbol)
             if state is None:
                 continue  # read failure — never act on an unconfirmed read
+
+            # ── QUANTITY COVERAGE — DETECTION ONLY.
+            # `protection_state` above grades which SIDES rest and returns a
+            # leg COUNT; it cannot say how much of the position they cover.
+            # Alpaca nets per symbol, so N journal trades share ONE broker
+            # position sized to their SUM while each bracket is sized to its
+            # OWN qty — one surviving bracket made the whole netted position
+            # read protected. MEASURED 2026-09-08T02:17:10Z on
+            # alpaca_portfolio/TLT: 72-share short, 16 covered, 56 naked and
+            # invisible to every accessor. This is the quantity half of
+            # BL-20260816-COVERAGE-IS-ONE-SIDED, ported from the Bybit
+            # (`covered_qty`) and IB (`protection_coverage`) implementations.
+            # ⚠️ NOTHING IS RE-ARMED OFF THIS GRADE. Binding it to the repair
+            # path is a Tier-2 order-path change and needs an operator OK;
+            # BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG
+            # is what automatic remediation of this class did last time. The
+            # re-arm below still reads `protection_state`, byte-identically.
+            _cov_key = (account_id, symbol)
+            if _cov_key not in coverage_memo:
+                if account_id not in pos_snapshots:
+                    try:
+                        _snap = client.positions()
+                    except Exception:  # noqa: BLE001 — never break the sweep
+                        _snap = None
+                    pos_snapshots[account_id] = (
+                        False if _snap is None
+                        else {str(p.get("symbol") or "").upper(): p for p in _snap}
+                    )
+                _by_sym = pos_snapshots[account_id]
+                if _by_sym is False:
+                    # We could not read the positions — coverage is UNGRADEABLE,
+                    # emphatically not "nothing is naked".
+                    coverage_memo[_cov_key] = None
+                else:
+                    _p = _by_sym.get(symbol.upper())
+                    coverage_memo[_cov_key] = (
+                        {"size": 0.0, "side": "", "stop_qty": 0.0,
+                         "target_qty": 0.0, "legs": 0, "unknown_qty_legs": 0,
+                         "source": "flat"}
+                        if _p is None else
+                        client.protection_coverage(symbol, position=_p)
+                    )
+            _cov = coverage_memo[_cov_key]
+            if _cov_key not in graded_symbols:
+                graded_symbols.add(_cov_key)
+                if _cov is None:
+                    summary["coverage_read_failed"] += 1
+                    logger.warning(
+                        "_check_broker_naked_equity_positions: %s/%s coverage "
+                        "read unavailable — NOT graded (this is 'we did not "
+                        "look', not 'nothing is naked')",
+                        account_id, symbol,
+                    )
+                elif _cov.get("unknown_qty_legs"):
+                    summary["coverage_ungradeable"] += 1
+                    logger.warning(
+                        "_check_broker_naked_equity_positions: %s/%s has %d "
+                        "protective leg(s) whose qty/side could not be read — "
+                        "coverage UNGRADEABLE, neither zero nor full",
+                        account_id, symbol, _cov["unknown_qty_legs"],
+                    )
+                else:
+                    _size = float(_cov.get("size") or 0.0)
+                    _stop_q = float(_cov.get("stop_qty") or 0.0)
+                    if _size > 0 and _stop_q + 1e-9 < _size:
+                        summary["partially_naked"] += 1
+                        _emit_partial_stop_coverage_alert(
+                            account_id=account_id,
+                            symbol=symbol,
+                            size=_size,
+                            stop_qty=_stop_q,
+                            target_qty=_cov.get("target_qty"),
+                            trade_ids=row["id"],
+                            venue="alpaca",
+                        )
+                    elif _size > 0:
+                        summary["covered"] += 1
+
             if state.get("target") is False and row["take_profit_1"] not in (None, 0):
                 # TARGET-naked while the journal DECLARES a take-profit. Alert,
                 # do NOT re-arm: a missing stop is a safety gap worth closing
@@ -7769,7 +7941,16 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                     symbol=symbol,
                     size=_safe_float(row["position_size"]) or 0.0,
                     target_qty=0.0,          # zero TP legs rest on this symbol
-                    stop_qty=None,           # Alpaca grades sides, not qty
+                    # QUANTITY, where it is gradeable. This read `None` under
+                    # the comment "Alpaca grades sides, not qty" until
+                    # 2026-09-08 — that was the whole finding, and `None`
+                    # stays the value when coverage genuinely could not be
+                    # graded, because *we did not look* must not render as 0.
+                    stop_qty=(
+                        None if not isinstance(_cov, dict)
+                        or _cov.get("unknown_qty_legs")
+                        else _cov.get("stop_qty")
+                    ),
                     declared_tp=row["take_profit_1"],
                     trade_id=row["id"],
                     venue="alpaca",
