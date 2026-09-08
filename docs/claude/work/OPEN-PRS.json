@@ -45,25 +45,6 @@
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
     {
-      "pr": 11279,
-      "opened_at": "2026-09-07T19:51:13Z",
-      "title": "MI-168: propose a TRADE-scoped close confirmation (Tier-3, HELD — coupled to MI-140)",
-      "owner_session": "session_01BpU7rfqWKir4rQrowT4ZQd",
-      "checklist_item": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
-      "draft": false,
-      "tier": "3",
-      "state": "approved_ready_to_merge",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "The partial-fill default is `strict` — the operator was asked to name it and DID, so it is a recorded choice and not a default that drifted. strict is what the PR already ships, so the merged artifact matches the approval exactly; if anything later flips it to `reduction` that is a NEW decision, not this one. The approval covers the IB close path ONLY.",
-        "scope": "IB close confirmation (IBClient.close / IB_CLOSE_CONFIRM_SCOPE, IB_CLOSE_CONFIRM_PARTIAL). EXPLICITLY NOT Alpaca — MI-168's own body establishes that applying the identical change to Alpaca would install a false-SUCCESS on a real-money-capable path, and Alpaca's mirror defect is decided separately on #11312. EXPLICITLY NOT Bybit, which has no close-confirm gate at all.",
-        "decided_on": "2026-09-08",
-        "text": "Asked as two separate questions and answered separately. (1) 'Approve the re-scope' — confirm against the close order's own fill, then position reduction, then flatness. (2) 'strict' for IB_CLOSE_CONFIRM_PARTIAL: a 40-of-43 fill REFUSES and the row stays open to retry, erring toward a phantom OPEN row that existing reconcilers clean up, rather than a phantom CLOSED row that fabricates PnL on the remainder and leaves lots naked with nothing looking for them."
-      },
-      "blocker": "⚠️ THE SESSION REPORTS THIS PR IS NOT SUFFICIENT ALONE. While preparing it, it found the OPPOSITE-SIGN twin of MI-167 on Alpaca — a false-SUCCESS in which closing one trade liquidates its SIBLINGS — and filed BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. That is on alpaca_live, REAL MONEY, inert only because MI-140 measured that account as unable to place an order. Filed as MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS. NOT VERIFIED BY THE MANAGER — this is the session's report.",
-      "note": "Tier-3 APPROVED 2026-09-08. R4 bars the DECLARATION `landing: self` for tier != 1; it does not bar the merge, and this PR correctly declares `landing: hold`. The approval is what unblocks it."
-    },
-    {
       "pr": 11312,
       "state": "approved_ready_to_merge",
       "tier": 3,
@@ -1709,10 +1690,33 @@
       "merge_sha": "fcc77cd217561a0a6c0d545460961d6b778efbbd",
       "observed_at": "2026-09-08T05:02:08Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 11279,
+      "opened_at": "2026-09-07T19:51:13Z",
+      "title": "MI-168: propose a TRADE-scoped close confirmation (Tier-3, HELD — coupled to MI-140)",
+      "owner_session": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "checklist_item": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
+      "draft": false,
+      "tier": "3",
+      "state": "approved_ready_to_merge",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "The partial-fill default is `strict` — the operator was asked to name it and DID, so it is a recorded choice and not a default that drifted. strict is what the PR already ships, so the merged artifact matches the approval exactly; if anything later flips it to `reduction` that is a NEW decision, not this one. The approval covers the IB close path ONLY.",
+        "scope": "IB close confirmation (IBClient.close / IB_CLOSE_CONFIRM_SCOPE, IB_CLOSE_CONFIRM_PARTIAL). EXPLICITLY NOT Alpaca — MI-168's own body establishes that applying the identical change to Alpaca would install a false-SUCCESS on a real-money-capable path, and Alpaca's mirror defect is decided separately on #11312. EXPLICITLY NOT Bybit, which has no close-confirm gate at all.",
+        "decided_on": "2026-09-08",
+        "text": "Asked as two separate questions and answered separately. (1) 'Approve the re-scope' — confirm against the close order's own fill, then position reduction, then flatness. (2) 'strict' for IB_CLOSE_CONFIRM_PARTIAL: a 40-of-43 fill REFUSES and the row stays open to retry, erring toward a phantom OPEN row that existing reconcilers clean up, rather than a phantom CLOSED row that fabricates PnL on the remainder and leaves lots naked with nothing looking for them."
+      },
+      "blocker": "⚠️ THE SESSION REPORTS THIS PR IS NOT SUFFICIENT ALONE. While preparing it, it found the OPPOSITE-SIGN twin of MI-167 on Alpaca — a false-SUCCESS in which closing one trade liquidates its SIBLINGS — and filed BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. That is on alpaca_live, REAL MONEY, inert only because MI-140 measured that account as unable to place an order. Filed as MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS. NOT VERIFIED BY THE MANAGER — this is the session's report.",
+      "note": "Tier-3 APPROVED 2026-09-08. R4 bars the DECLARATION `landing: self` for tier != 1; it does not bar the merge, and this PR correctly declares `landing: hold`. The approval is what unblocks it.",
+      "terminal": "merged",
+      "merge_sha": "12b5b84b1b8676bdad7d0524e27a35e425931449",
+      "observed_at": "2026-09-08T06:58:23Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-08T05:02:08Z",
-  "last_reconciled_sha": "fcc77cd217561a0a6c0d545460961d6b778efbbd",
+  "last_reconciled_at": "2026-09-08T06:58:23Z",
+  "last_reconciled_sha": "12b5b84b1b8676bdad7d0524e27a35e425931449",
   "updated_at": "2026-09-08T04:16:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
