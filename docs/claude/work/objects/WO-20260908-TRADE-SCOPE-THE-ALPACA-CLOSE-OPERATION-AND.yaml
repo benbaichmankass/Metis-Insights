@@ -73,6 +73,27 @@ evidence: >-
   the NEW signature, so on `main` they could only say "no such parameter" — and
   it was fixed by ADDING three caller-level tests, not by rewording. Recorded
   rather than quietly overwritten.
+  ⚠️ THE modify_protective HALF IS NO LONGER HYPOTHETICAL — evidence that arrived
+  AFTER this work was written, from MI-179 (#11330), which landed on main while
+  this PR was open. MI-173 found a hybrid OCO on alpaca_portfolio/TLT and could
+  NOT distinguish cross-trade contamination from journal/venue divergence,
+  because the deciding log line was past the journal's ~30-minute retention.
+  MI-179 settled it from the leg's `submitted_at` — four days after its own
+  parent and after trade 5414 opened — as CONTAMINATION: trade 5414's routine
+  trailing amend rewrote trade 5266's stop to 82.33 against 5266's declared
+  84.61875, a 2.29 error on a live protective level. Filed as
+  BL-20260908-ALPACA-TRAILING-AMEND-PATCHED-A-SIBLING-TRADES-STOP-TO-THE-WRONG-DECLARED-LEVEL.
+  So the symbol-scoped PATCH this change repairs has FIRED on a real book. ⚠️ NOT
+  VERIFIED BY THIS SESSION — that is MI-179's live read, cited, not reproduced.
+
+  ⚠️ AND THE THIRD VERB IS STILL OPEN AND IS NOT IN THIS SCOPE. MI-179 also filed
+  BL-20260908-ALPACA-PLACE-PROTECTIVE-IGNORES-OCA-KEY-SO-EVERY-RE-ARM-IS-SYMBOL-WIDE:
+  `place_protective`'s pre-cancel is unconditional and the `oca_key` its caller
+  passes to scope it is silently ignored. This object covers `close` and
+  `modify_protective` only, so a re-arm still cannot be placed on Alpaca without
+  cancelling every leg on the symbol. Naming it so the close+modify fix is not
+  read as making Alpaca protection trade-scoped in general.
+
   NOT ESTABLISHED, stated rather than filled in: live acceptance of `?qty=`
   against a real Alpaca position. No broker call was made from this session.
   Also not established: whether any over-close has ever actually fired — that
