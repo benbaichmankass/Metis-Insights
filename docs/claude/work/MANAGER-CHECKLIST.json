@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T04:16:00Z",
+  "updated_at": "2026-09-08T04:49:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2221,7 +2221,7 @@
       "blocked_on": null,
       "tier": "1 to measure; the DETECTION ship is Tier-2",
       "title": "Is REAL-MONEY alpaca_live carrying the same unmeasurable protective-coverage gap MI-173 found on paper?",
-      "note": "DIRECTLY DOWNSTREAM OF MI-173's STRONGEST FINDING. Measured on alpaca_portfolio/TLT at 2026-09-08T01:42:07Z with read_state 'orders_read' — a CONFIRMED CLEAN READ, so the absence is measured and not a failed look: of a 72-share short, only 16 shares carry any protective leg and FIFTY-SIX REST NAKED. It is invisible BY CONSTRUCTION — the Alpaca sweep grades SIDES, not quantity, and the code says so in a comment ('stop_qty=None,  # Alpaca grades sides, not qty'). Bybit grades covered_qty, IB grades stop_qty/target_qty; ALPACA GOT THE TWO-SIDED HALF OF BL-20260816-COVERAGE-IS-ONE-SIDED AND NEVER GOT THE QUANTITY HALF. ⚠️ MI-173 explicitly did NOT read alpaca_live, which is mode: live / real_money and shares this exact client code — so whether real money carries the same exposure is UNKNOWN AND NOBODY HAS LOOKED. That is this session's question. Scoped MEASUREMENT FIRST then DETECTION ONLY: no close, no cancel, no re-arm, and explicitly NO re-arm wired off the new grade (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG). || 2026-09-08T03:20Z: session now IDLE/BLOCKED — it has FINISHED. Both owed decisions are the operator's and neither may be substituted. #11315 holds at tier:2/landing:hold. || APPROVED 2026-09-08 (Tier-2) as DETECTION ONLY. The quantity grade must NOT bind the Alpaca re-arm path — same hold placed on BYBIT_GRADED_COVERAGE_MODE on 2026-09-02, same reason: arm only once a soak shows what binding would have CHANGED. The merge is permitted BECAUSE it binds nothing; arming must not be inferred from it. The CRITICAL alpaca_partial_stop_coverage page WILL fire on merge for the standing TLT condition — expected, not a regression."
+      "note": "DIRECTLY DOWNSTREAM OF MI-173's STRONGEST FINDING. Measured on alpaca_portfolio/TLT at 2026-09-08T01:42:07Z with read_state 'orders_read' — a CONFIRMED CLEAN READ, so the absence is measured and not a failed look: of a 72-share short, only 16 shares carry any protective leg and FIFTY-SIX REST NAKED. It is invisible BY CONSTRUCTION — the Alpaca sweep grades SIDES, not quantity, and the code says so in a comment ('stop_qty=None,  # Alpaca grades sides, not qty'). Bybit grades covered_qty, IB grades stop_qty/target_qty; ALPACA GOT THE TWO-SIDED HALF OF BL-20260816-COVERAGE-IS-ONE-SIDED AND NEVER GOT THE QUANTITY HALF. ⚠️ MI-173 explicitly did NOT read alpaca_live, which is mode: live / real_money and shares this exact client code — so whether real money carries the same exposure is UNKNOWN AND NOBODY HAS LOOKED. That is this session's question. Scoped MEASUREMENT FIRST then DETECTION ONLY: no close, no cancel, no re-arm, and explicitly NO re-arm wired off the new grade (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG). || 2026-09-08T03:20Z: session now IDLE/BLOCKED — it has FINISHED. Both owed decisions are the operator's and neither may be substituted. #11315 holds at tier:2/landing:hold. || APPROVED 2026-09-08 (Tier-2) as DETECTION ONLY. The quantity grade must NOT bind the Alpaca re-arm path — same hold placed on BYBIT_GRADED_COVERAGE_MODE on 2026-09-02, same reason: arm only once a soak shows what binding would have CHANGED. The merge is permitted BECAUSE it binds nothing; arming must not be inferred from it. The CRITICAL alpaca_partial_stop_coverage page WILL fire on merge for the standing TLT condition — expected, not a regression. || #11315 CONFLICT RESOLVED 2026-09-08T04:43Z. GitHub called it unmergeable while a local merge came back clean — the difference is the register merge driver, which is armed in this clone and is CLIENT-SIDE ONLY, so GitHub was right and the clean local result was the driver rather than agreement. Verified the driver's output independently instead of trusting it: base 1282 rows, branch 1283, main 1284, merged 1285 = exactly the union, no id missing, none extra, no duplicates. Merged rather than rebased (not my branch). mergeable_state moved dirty -> blocked and the checks re-armed."
     },
     {
       "id": "MI-177-JOURNAL-VENUE-FLEET-AUDIT",
@@ -2247,10 +2247,10 @@
     },
     {
       "id": "MI-179-TLT-5414-REARM-56-NAKED-SHARES",
-      "status": "ready",
-      "owner": null,
+      "status": "in_flight",
+      "owner": "session_01HwWNiwEGCGAAwKhfchMUs7",
       "opened": "2026-09-08T04:16:00Z",
-      "updated": "2026-09-08T04:16:00Z",
+      "updated": "2026-09-08T04:49:00Z",
       "blocked_on": null,
       "tier": "2 — protective re-arm on a paper account",
       "title": "Re-arm protection for the 56 uncovered shares on trade 5414 (alpaca_portfolio/TLT)",
@@ -2258,10 +2258,10 @@
     },
     {
       "id": "MI-180-ALPACA-CLOSE-TRADE-SCOPE",
-      "status": "ready",
-      "owner": null,
+      "status": "in_flight",
+      "owner": "session_01GYsNAhP6SpKe1vyn2tBc94",
       "opened": "2026-09-08T04:16:00Z",
-      "updated": "2026-09-08T04:16:00Z",
+      "updated": "2026-09-08T04:49:00Z",
       "blocked_on": null,
       "tier": "3 — order path, operator-approved",
       "title": "Trade-scope the Alpaca close operation (and modify_protective)",
@@ -2269,10 +2269,10 @@
     },
     {
       "id": "MI-181-MGC-REMEDIATION-REDISPATCH",
-      "status": "ready",
-      "owner": null,
+      "status": "in_flight",
+      "owner": "session_01AA7sxfCGwRtoed1CANsWwr",
       "opened": "2026-09-08T04:16:00Z",
-      "updated": "2026-09-08T04:16:00Z",
+      "updated": "2026-09-08T04:49:00Z",
       "blocked_on": null,
       "tier": "3 — operator-approved, live venue action",
       "title": "Re-dispatch the MGC remediation against the CONFIRMED order ids 550 / 551",
@@ -2280,10 +2280,10 @@
     },
     {
       "id": "MI-182-COORDINATION-BOARD-SUCCESSOR",
-      "status": "ready",
-      "owner": null,
+      "status": "in_flight",
+      "owner": "session_01GtvQEQnfwzz9yRdPF6sPFg",
       "opened": "2026-09-08T04:16:00Z",
-      "updated": "2026-09-08T04:16:00Z",
+      "updated": "2026-09-08T04:49:00Z",
       "blocked_on": null,
       "tier": "1 — CI/coordination machinery",
       "title": "Coordination board is at GitHub's hard 2500-comment cap: stand up a successor and re-point its readers",
@@ -2291,17 +2291,17 @@
     },
     {
       "id": "MI-183-PR-LANDING-R6-VS-MERGE-SLOT",
-      "status": "ready",
-      "owner": null,
+      "status": "in_flight",
+      "owner": "session_0173g82hw2Rf3HjnfydGcnyX",
       "opened": "2026-09-08T04:16:00Z",
-      "updated": "2026-09-08T04:16:00Z",
+      "updated": "2026-09-08T04:49:00Z",
       "blocked_on": null,
       "tier": "1 — CI guard machinery",
       "title": "pr-landing R6 and the merge-slot guard are mutually unsatisfiable",
       "note": "OPERATOR-APPROVED 2026-09-08 (spawn-priority exception granted). Self-disclosed by session 018ruZdg on #11309: the only path that completes BYPASSES one of the two guards. A guard that must be bypassed to land is worse than no guard, because the bypass becomes routine and then invisible. Establish the exact conflict from both guards' code before proposing a change, and do not weaken either to make them agree."
     }
   ],
-  "as_of": "2026-09-08T04:16:00Z",
+  "as_of": "2026-09-08T04:49:00Z",
   "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated": "2026-09-08T04:16:00Z"
+  "updated": "2026-09-08T04:49:00Z"
 }
