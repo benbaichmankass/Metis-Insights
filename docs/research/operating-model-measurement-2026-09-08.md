@@ -91,7 +91,7 @@ commit and a network round-trip, and it cannot say *why*. This reads the cause.
 2026-09-03  WRONG_REPO lizardking   MI-101 respawn
 2026-09-03  WRONG_REPO lizardking   MI-109
 2026-09-04  WRONG_REPO lizardking   MI-109 respawn
------------------------------------------------- BL-20260906-... FILED 2026-09-06
+--- FILED 2026-09-06: BL-20260906-A-SUBSESSION-SPAWNED-WITHOUT-SOURCE-URL-GETS-NO-REPO-AND-ITS-WORK-DIES-UNPUSHED
 2026-09-06  NO_SOURCES_KEY          1B
 2026-09-08  WRONG_REPO lizardking   MI-179
 2026-09-08  NO_SOURCES_KEY          MI-183
@@ -173,8 +173,8 @@ and the maximum is not.
 
 **What this bounds:** any decay mechanism whose refresh interval exceeds ~60
 minutes is, by construction, wrong about half its active rows. That is the
-number the existing rows (`BL-20260902-...NO-CLOSE-WRITER`,
-`BL-20260905-...WRONG-ON-69-PERCENT`) name the defect without supplying.
+number the existing rows (`BL-20260902-SESSIONS-REGISTRY-HAS-A-SPAWN-WRITER-AND-NO-CLOSE-WRITER-SO-EVERY-ROW-READS-WORKING`,
+`BL-20260905-THE-SESSION-REGISTRY-WAS-WRONG-ON-69-PERCENT-OF-STATES-AND-58-ROWS-HAD-NEVER-BEEN-OBSERVED-ONCE`) name the defect without supplying.
 
 ### The eight active-claiming rows, individually
 
@@ -271,8 +271,18 @@ The reason precision is poor is structural and is itself the finding: *"guard G
 names path P"* is not the same claim as *"guard G requires ACTOR A to write P"*,
 and **no guard declares the second**. The requirement lives in imperative code
 and prose. Until a guard declares its satisfying set — which actor, which path,
-which content, required or forbidden — disjointness cannot be computed, only
-discovered by hitting it. Both live instances were found by hitting them.
+which content, required or forbidden — disjointness cannot be computed from the
+guards' own declarations, only discovered by hitting it. Both live instances were
+found by hitting them.
+
+`checked: scripts/ci/check_pr_landing.py` (R13's requirement is imperative code
+inside `_slot_held_by_branch`, with the path in a module constant and the
+*actor* nowhere) and `checked: scripts/ci/check_manager_scope.py`
+(`MANAGER_SURFACE` is a 9-glob allowlist; who it binds is derived at runtime
+from the git history of `MANAGER-LEASE.json`, not declared). Scanning all 52
+`scripts/ci/check_*.py` for a machine-readable satisfying-set declaration
+returned none — the detector above had to *infer* one from module-constant path
+literals, which is why its precision is poor.
 
 An empirical alternative exists and I did not run it: cross-run every guard's own
 PASS fixtures against every other guard, and any fixture that is green under its
@@ -318,6 +328,6 @@ did not.
 
 ## Filed
 
-- `BL-20260908-PUSH-DENIED-AND-WRONG-REPO-ARE-ONE-DEFECT-...`
-- `BL-20260908-A-WORKING-REGISTRY-ROW-HAS-A-MEASURED-HALF-LIFE-...`
-- `BL-20260908-NO-GUARD-DECLARES-ITS-SATISFYING-SET-...`
+- `BL-20260908-PUSH-DENIED-AND-WRONG-REPO-ARE-ONE-DEFECT-3-OF-3-AND-A-ONE-CALL-PREDICTOR-EXISTS`
+- `BL-20260908-A-WORKING-REGISTRY-ROW-HAS-A-MEASURED-HALF-LIFE-OF-61-MINUTES-SO-ANY-DECAY-RULE-SLOWER-THAN-THAT-IS-WRONG-ABOUT-HALF-ITS-ROWS`
+- `BL-20260908-NO-GUARD-DECLARES-ITS-SATISFYING-SET-SO-A-DEADLOCKED-PAIR-CAN-ONLY-BE-FOUND-BY-HITTING-IT`
