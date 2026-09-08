@@ -7,7 +7,7 @@
  "merge_slot": {
   "held_by": "MI-193 session_012cVryifpv359yAWWVkrmnk",
   "branch": "claude/mi193-operating-model-measurement",
-  "pr": null,
+  "pr": 11356,
   "claimed_at": "2026-09-08T08:27:37Z"
  },
  "active_sessions": [
