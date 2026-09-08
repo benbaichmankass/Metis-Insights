@@ -9,7 +9,7 @@
   "branch": "claude/mi204-register-correction-armed-set",
   "pr": 11418,
   "claimed_at": "2026-09-08T17:30:00Z",
-  "displaced": "MI-196's claim, whose PR #11384 MERGED at 17:25:37Z as 0212b425 — the claim was spent, not seized. Board claim posted before this write."
+  "displaced": "MI-196's spent claim (PR #11384 merged 17:25:37Z), then re-conflicted against b0dcbb82 which rewrote this same object minutes later. Board claim posted 17:2xZ before both writes. THIS CONFLICT IS THE SUBJECT OF BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION, filed in this very PR."
  },
  "active_sessions": [
   {
