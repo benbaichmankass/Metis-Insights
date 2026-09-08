@@ -1,0 +1,2 @@
+MI-196 follow-up — record that §5 renders on main, and what the retirement half
+actually costs. Records only; Tier-1; merge slot claimed in this same diff (R13).
