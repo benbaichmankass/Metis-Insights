@@ -1,5 +1,0 @@
-{
-  "tier": 1,
-  "landing": "self",
-  "why": "Manager register update only. Every path is under docs/claude/work/** or docs/claude/health-review-backlog.json plus this branch's own landing files. No src/, tests/, scripts/, config/, deploy/ or workflow path is touched, so R2 cannot fire."
-}
