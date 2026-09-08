@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-08T10:41:09+00:00",
+  "generated_at": "2026-09-08T10:45:57+00:00",
   "generator": "scripts/ops/constraint_readout.py",
   "cycle_priority": {
     "cycle_id": "CY-20260906-TRADING-TRUTH",
@@ -850,7 +850,7 @@
       {
         "source": "error_feed",
         "state": "read",
-        "note": "digest 2026-09-08T05:10:01+00:00, age 5.5h",
+        "note": "digest 2026-09-08T05:10:01+00:00, age 5.6h",
         "row_count": 11,
         "covered_elsewhere": null,
         "rows_shown": 8,
