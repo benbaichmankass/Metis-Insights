@@ -6,10 +6,10 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-1827-20260908",
-  "pr": 11434,
-  "claimed_at": "2026-09-08T18:28:00Z",
-  "displaced": "TAKEN BEFORE MI-200'S WINDOW OPENS, NOT DURING IT. A queue-hold was granted to session_01CvFCybCkvrfzaHqNH3tQsb at 18:27Z after seven displacement attempts on #11391. Landing this heartbeat FIRST spends the slot and leaves the queue genuinely quiet for them, which serves them better than holding it open and letting main's lease lapse at 18:56:59Z. The hold is absolute from the moment this merges."
+  "branch": "claude/mgr-queue-correction-1925-20260908",
+  "pr": 11441,
+  "claimed_at": "2026-09-08T19:26:00Z",
+  "note": "Manager merge-queue correction, Tier-1, PR pending -- arming, so R13 requires the slot here. ONE file: MERGE-QUEUE.json, fixing a false blocker I wrote into it (nine automation rows recorded as blocked on my queue-hold when they are red on this very guard's R13). Taken CLEANLY: the previous claim (#11440, mine) is SPENT -- #11440 merged as 51e570cb. Displaces nobody."
  },
  "active_sessions": [
   {
