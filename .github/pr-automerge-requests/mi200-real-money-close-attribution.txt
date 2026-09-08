@@ -1,3 +1,9 @@
 MI-200 — real-money close attribution (WO-20260908-REAL-MONEY-IS-0-FOR-13-AND).
 Tier-1: measurement + docs + backlog. Arms claude-pr-automerge; GitHub still
 merges only on green required checks.
+
+Re-armed 2026-09-08T14:12Z. The workflow last fired at 13:45Z on head 8a3b4a83;
+two later pushes did not touch this file, so its `paths` filter correctly did not
+match and auto-merge was never re-enabled on the current head 1f136df6 — which
+was green on all four required checks. Touching this file is the workflow's OWN
+documented trigger, not an empty commit to kick CI (which is forbidden).
