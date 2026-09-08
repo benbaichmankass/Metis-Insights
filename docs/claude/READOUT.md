@@ -1,6 +1,6 @@
 # The readout — where the chain is held up, and what that costs
 
-_Generated 2026-09-08T11:25:27+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
+_Generated 2026-09-08T17:35:28+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
 
 > **This is A1, and it is computed rather than judged.** It reports its denominator before its conclusion, because a constraint named over unassessed edges is a fabricated answer wearing a computed label.
 
@@ -8,26 +8,26 @@ _Generated 2026-09-08T11:25:27+00:00 by `scripts/ops/constraint_readout.py` · c
 
 **Verdict: `insufficient_basis`**
 
-49 of 682 objects (7.2%) have an ASSESSED `blocked_on` basis, below the declared floor of 50%. **No stage is named.** 633 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them — it is nobody having looked. A stage computed over this graph would describe the 49 rows somebody assessed, not the system.
+50 of 686 objects (7.3%) have an ASSESSED `blocked_on` basis, below the declared floor of 50%. **No stage is named.** 636 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them — it is nobody having looked. A stage computed over this graph would describe the 50 rows somebody assessed, not the system.
 
 | population | assessed | coverage | floor |
 |---|---|---|---|
-| 682 objects | 49 | **7.2%** | 50.0% |
+| 686 objects | 50 | **7.3%** | 50.0% |
 
-**Edge basis, never collapsed** — `blocked` 18 · `declared_none` 31 · **`unstated` 633** · `malformed` 0.
+**Edge basis, never collapsed** — `blocked` 19 · `declared_none` 31 · **`unstated` 636** · `malformed` 0.
 
 ⚠️ `unstated` is an empty `blocked_on` whose basis says `NOT_ASSESSED` (or which carries no basis at all). It is **nobody having looked**, not a claim that nothing blocks the object. Reading the second as the first is how a false *ready* appears.
 
-Objects by stage: `QUESTION` 16 · `EVIDENCE` 90 · `DECISION` 9 · `DEPLOYMENT` 24 · `OBSERVATION` 6 · `CAPABILITY` 21 · `INTEGRITY` 514 · `(unstated)` 2
+Objects by stage: `QUESTION` 16 · `EVIDENCE` 92 · `DECISION` 10 · `DEPLOYMENT` 24 · `OBSERVATION` 6 · `CAPABILITY` 22 · `INTEGRITY` 514 · `(unstated)` 2
 
-⚠️ **576 of 682 of those stages were assigned in BULK FROM THE SOURCE FILENAME, not by reading the row.** The Phase C migration maps `health-review-backlog.json` → `INTEGRITY` and `{ml,performance,research}-review-backlog.json` → `EVIDENCE`, with no per-row judgement, so `INTEGRITY 514` is a census of ONE filename. Only **105** stage(s) in the whole store were chosen per object — and choosing one is not a claim it is RIGHT, only that a filename did not decide it.
+⚠️ **576 of 686 of those stages were assigned in BULK FROM THE SOURCE FILENAME, not by reading the row.** The Phase C migration maps `health-review-backlog.json` → `INTEGRITY` and `{ml,performance,research}-review-backlog.json` → `EVIDENCE`, with no per-row judgement, so `INTEGRITY 514` is a census of ONE filename. Only **109** stage(s) in the whole store were chosen per object — and choosing one is not a claim it is RIGHT, only that a filename did not decide it.
 
-Stage by how the stage was arrived at: `bulk_by_source_file` → EVIDENCE 78, INTEGRITY 498 · `per_object` → (unstated) 1, CAPABILITY 21, DECISION 9, DEPLOYMENT 24, EVIDENCE 12, INTEGRITY 16, OBSERVATION 6, QUESTION 16 · `unstated` → (unstated) 1
+Stage by how the stage was arrived at: `bulk_by_source_file` → EVIDENCE 78, INTEGRITY 498 · `per_object` → (unstated) 1, CAPABILITY 22, DECISION 10, DEPLOYMENT 24, EVIDENCE 14, INTEGRITY 16, OBSERVATION 6, QUESTION 16 · `unstated` → (unstated) 1
 
-**The assessed subgraph — every object that declares an edge (18 of 682):**
+**The assessed subgraph — every object that declares an edge (19 of 686):**
 
 - **`WO-20260901-PHASE-A`** (CAPABILITY · waiting) — Phase A — survival — the plan carries itself forward
-  - `external_event` → `a COLD session reporting on this work, citing the CLAUDE.md brief` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-01
+  - `external_event` → `a measured behaviour comparison of sessions with and without the brief, over a stated denominator, which may return NO` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-08
 - **`WO-20260901-PHASE-C`** (CAPABILITY · waiting) — Phase C — migration, the WIP ceiling, and the priority that reaches a session
   - `external_event` → `a cold session stating this cycle's priority and citing the CLAUDE.md brief as where it read it` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-01
 - **`WO-20260901-PHASE-D`** (CAPABILITY · waiting) — Phase D — the constraint, computed rather than judged
@@ -72,6 +72,8 @@ Stage by how the stage was arrived at: `bulk_by_source_file` → EVIDENCE 78, IN
   - `backlog_row` → `bybit_2 is NOT exposed and must NOT be "fixed" by adding a confirmation` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-07
 - **`WO-20260908-RE-ARM-PROTECTION-FOR-THE-56-NAKED`** (DEPLOYMENT · waiting) — Re-arm protection for the 56 naked shares on trade 5414 (alpaca_portfolio/TLT)
   - `capability` → `BL-20260908-ALPACA-PLACE-PROTECTIVE-IGNORES-OCA-KEY-SO-EVERY-RE-ARM-IS-SYMBOL-WIDE` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-08
+- **`WO-20260908-RECONCILE-THE-BYBIT-1-ETHUSDT-ORPHAN-TRADE`** (EVIDENCE · waiting) — Reconcile the bybit_1 ETHUSDT orphan trade 5569
+  - `operator_decision` → `Tier-2 OK to change _bybit_position_protection's book selection and _recently_closed_adopted_orphan's exit_reason allowlist (src/runtime/order_monitor.py — closes live positions and gates the adopt path)` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-08
 
 ⚠️ **1 of the live `object` holds point at a target whose lifecycle is `waiting`, and that is the weakest hold the graph can express.** `waiting` covers two opposite facts — *not delivered yet* and *delivered, awaiting an observation* — and a dependent needs the capability, not the observation. The store cannot tell them apart, so this is published as a caveat rather than resolved into a state nobody measured. Check the target before treating one of these as a real blocker:
   - `WO-20260907-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG` → `WO-20260907-CLOSE-CONFIRMATION-IS-SYMBOL-SCOPED`
@@ -84,9 +86,9 @@ Population: **Real-money only, closed non-backtest rows inside the window; paper
 
 | trades | win rate | totalPnl | totalPnlMeasured | pnlCoverage |
 |---|---|---|---|---|
-| 39 | 38.5% | -3.6266 | -3.6266 | **66.7%** |
+| 40 | 37.5% | -3.8794 | -3.8794 | **67.5%** |
 
-Provenance split — measured 26 · estimated 13 · fabricated 0 · unverified 0.
+Provenance split — measured 27 · estimated 13 · fabricated 0 · unverified 0.
 
 ⚠️ **The count and the sum are over DIFFERENT populations, deliberately** — `pnlCoverage`/`pnlMeasuredCount` are MEASURED-only, `totalPnlMeasured` sums MEASURED+ESTIMATED. Neither may be harmonised to the other.
 
@@ -96,13 +98,13 @@ Provenance split — measured 26 · estimated 13 · fabricated 0 · unverified 0
 
 ## 3 · In flight against the ceiling, and what has stopped moving
 
-**4 in flight against a ceiling of 8** (headroom 4) · 14 waiting.
+**4 in flight against a ceiling of 8** (headroom 4) · 15 waiting.
 
 Ceiling source: scripts/ci/check_wip_ceiling.py::CEILING (imported, not restated). `waiting` is deliberately free of the ceiling — a thing blocked on an operator decision is not consuming the attention the ceiling rations.
 
 In flight: `WO-20260906-ICT-SCALP-5M-TO-SHADOW-THEN-ESTABLISH` · `WO-20260906-ML-2-THE-PREDICTIVE-BRACKET` · `WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED` · `WO-20260908-COORDINATION-BOARD-IS-AT-GITHUB-S-2500`
 
-Waiting: `WO-20260901-PHASE-A` · `WO-20260901-PHASE-C` · `WO-20260901-PHASE-D` · `WO-20260902-DECISION-REVIEW-PACKET-POPULATION` · `WO-20260902-EVIDENCE-TRADE-PRIORITISATION-AB` · `WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT` · `WO-20260903-SUNSET-DISPOSITIONS-OWED` · `WO-20260903-THE-REFUSAL-HALF-OF-MANAGER-CONTROL-BLOCK` · `WO-20260904-MANAGER-IDLE-IS-UNBOUNDED-AND-NOTHING-WAKES-IT` · `WO-20260905-PENDING-PINGS-HAS-NO-MERGE-DRIVER-SO-PING-PRS-DIE` · `WO-20260906-NO-5M-OR-15M-SCALP-EXIT-HEAD` · `WO-20260906-SHIP-THE-EXIT-HEAD-INTO-ICT-SCALP-THREE-LEGS` · `WO-20260907-CLOSE-CONFIRMATION-IS-SYMBOL-SCOPED` · `WO-20260908-RE-ARM-PROTECTION-FOR-THE-56-NAKED`
+Waiting: `WO-20260901-PHASE-A` · `WO-20260901-PHASE-C` · `WO-20260901-PHASE-D` · `WO-20260902-DECISION-REVIEW-PACKET-POPULATION` · `WO-20260902-EVIDENCE-TRADE-PRIORITISATION-AB` · `WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT` · `WO-20260903-SUNSET-DISPOSITIONS-OWED` · `WO-20260903-THE-REFUSAL-HALF-OF-MANAGER-CONTROL-BLOCK` · `WO-20260904-MANAGER-IDLE-IS-UNBOUNDED-AND-NOTHING-WAKES-IT` · `WO-20260905-PENDING-PINGS-HAS-NO-MERGE-DRIVER-SO-PING-PRS-DIE` · `WO-20260906-NO-5M-OR-15M-SCALP-EXIT-HEAD` · `WO-20260906-SHIP-THE-EXIT-HEAD-INTO-ICT-SCALP-THREE-LEGS` · `WO-20260907-CLOSE-CONFIRMATION-IS-SYMBOL-SCOPED` · `WO-20260908-RE-ARM-PROTECTION-FOR-THE-56-NAKED` · `WO-20260908-RECONCILE-THE-BYBIT-1-ETHUSDT-ORPHAN-TRADE`
 
 **Nothing in flight or waiting has been still for ≥14d** on declared dates.
 
@@ -110,7 +112,7 @@ Waiting: `WO-20260901-PHASE-A` · `WO-20260901-PHASE-C` · `WO-20260901-PHASE-D`
 
 ## 4 · Decisions waiting on the operator
 
-**From the work store: 8 `operator_decision` edge(s).**
+**From the work store: 9 `operator_decision` edge(s).**
 - `WO-20260901-PHASE-H` (CAPABILITY) → DEC-20260901-READ-GATE-SEQUENCING · since 2026-09-01
 - `WO-20260902-DECISION-LOCAL-LLM-WEIGHT` (DECISION) → DEC-20260902-LOCAL-LLM-WEIGHT · since 2026-08-31
 - `WO-20260902-DECISION-REVIEW-PACKET-POPULATION` (DECISION) → DEC-20260902-REVIEW-PACKET-POPULATION · since 2026-09-02
@@ -119,8 +121,9 @@ Waiting: `WO-20260901-PHASE-A` · `WO-20260901-PHASE-C` · `WO-20260901-PHASE-D`
 - `WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE` (DECISION) → DEC-20260907-TP-VOCAB · since 2026-09-07
 - `WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE` (DECISION) → DEC-20260907-TP-UNEXAMINED · since 2026-09-07
 - `WO-20260907-CLOSE-CONFIRMATION-IS-SYMBOL-SCOPED` (EVIDENCE) → Tier-3 approval of the held PR re-scoping IBClient.close's confirmation, AND a stated choice on IB_CLOSE_CONFIRM_PARTIAL (strict | reduction) · since 2026-09-07
+- `WO-20260908-RECONCILE-THE-BYBIT-1-ETHUSDT-ORPHAN-TRADE` (EVIDENCE) → Tier-2 OK to change _bybit_position_protection's book selection and _recently_closed_adopted_orphan's exit_reason allowlist (src/runtime/order_monitor.py — closes live positions and gates the adopt path) · since 2026-09-08
 
-⚠️ Zero here does NOT mean no decision is pending — it means no object DECLARES one, and 633 of 682 objects have never been assessed for edges at all.
+⚠️ Zero here does NOT mean no decision is pending — it means no object DECLARES one, and 636 of 686 objects have never been assessed for edges at all.
 
 **From `docs/claude/operator-owed-register.json`: read state `read`, 0 OPEN item(s)** (carry limit 2; 5 terminal, not listed).
 
@@ -134,25 +137,23 @@ The two sources are kept **separate rather than merged** — one says *this work
 
 > Ported here by operator decision 2026-09-08 (`consolidate_into_the_readout`) so that ONE surface answers *what is due right now*. ⚠️ **This did not improve the diagnosis in §1.** Folding registers in adds ROWS, not assessed `blocked_on` BASIS — §1 still refuses to name a stage, and refusing is still correct. A longer readout is not a better-evidenced one.
 
-**Completeness: `partial`** · **80 row(s) due** across the sources that answered and are not already covered above (via `scripts/ops/render_due_list.py`).
-
-> ⚠️ **`80` IS A LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. A cron that could not be READ is not a cron that is GREEN, and an unlanded-PR list that could not be FETCHED is not an EMPTY queue. An empty source below may mean nothing is due, or may mean nobody looked — read the per-source state, never the row count alone.
+**Completeness: `all_sources_read`** · **116 row(s) due** across the sources that answered and are not already covered above (via `scripts/ops/render_due_list.py`).
 
 | source | state | rows | note |
 |---|---|---|---|
-| `open_items` | `read` | 54 |  |
+| `open_items` | `read` | 57 |  |
 | `soaks` | `read` | 2 | 2 declared soak(s): ready=1 · accruing=0 · not_writing=0 · unknown=1 |
 | `operator_owed` | `read` | _not repeated_ | covered by §4 · Decisions waiting on the operator |
 | `research_queue` | `read` | 3 |  |
-| `probes` | `read` | 9 | freshness=fresh age=24.9h cadence=daily (cron 20 5 * * *) \| 2 probe result(s) deferred to the `soaks` source,… |
-| `red_crons` | `could_not_read` | — | HTTPError: HTTP Error 403: Forbidden |
-| `unlanded_automation` | `could_not_read` | — | HTTPError: HTTP Error 403: Forbidden |
-| `error_feed` | `read` | 12 | digest 2026-09-08T05:10:01+00:00, age 6.3h |
+| `probes` | `read` | 10 | freshness=stale age=31.1h cadence=daily (cron 20 5 * * *) \| 2 probe result(s) deferred to the `soaks` source,… |
+| `red_crons` | `read` | 11 |  |
+| `unlanded_automation` | `read` | 21 |  |
+| `error_feed` | `read` | 12 | digest 2026-09-08T05:10:01+00:00, age 12.4h |
 | `sunset` | `read` | 0 |  |
 
 ⚠️ `rows` reads `—`, never `0`, for a source that could not be read — the distinction this table exists to preserve. A source marked _not repeated_ WAS read; its rows are rendered in the section named in its note.
 
-**`open_items` — 54 due**
+**`open_items` — 57 due**
 
 - 🔔 `OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET` · 2d — loud row — must be reported on every session
   - PR #11125 merged 2026-09-06T18:43:22Z as 9604b8a5 (squash), Tier-3, operator-approved, routed by the manager rather than self-merged. Content VERIFIED on origin/main directly, not…
@@ -168,6 +169,8 @@ The two sources are kept **separate rather than merged** — one says *this work
   - The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.
 - 🔔 `OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED` · 2d — loud row — must be reported on every session
   - ⚠️ ARMED ON ib_paper 2026-08-31 — THIS ROW'S ID AND ITS OLD SUMMARY BOTH SAY 'UNARMED' AND ARE STALE. The id is deliberately NOT renamed (ROADMAP.md and several backlog rows link …
+- 🔔 `OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED` · 0d — loud row — must be reported on every session
+  - ⚠️ RE-MEASURED 2026-09-08 AND THIS HAS ESCALATED 43x — do not re-quote the 1-lot framing. ib_paper/MGC: the journal now declares 54 lots across TWO open rows while the venue holds…
 - 🔔 `OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED` · 5d — monitoring row 5d since last observation (cadence 3d)
   - SUCCESSOR to OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED, which CLEARED 2026-09-03 on its clause (a): trainer-capture-watch.yml run 33719856283 graded the t…
 - 🔔 `OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL` · 8d — loud row — must be reported on every session
@@ -206,7 +209,7 @@ The two sources are kept **separate rather than merged** — one says *this work
   - Phase F/C3 is now COMPLETE AS PLUMBING — cron (#10649), committed path, and a reader (GET /api/bot/strategy-reviews, PR #10681) — and the decision surface STILL PROPOSES NOTHING. …
 - 🔔 `OI-20260901-CONSTRAINT-READOUT-SHIPPED-AND-IT-REFUSES-NOBODY-HAS-ACTED-ON-THE-REFUSAL` · 2d — loud row — must be reported on every session
   - E1/A1 shipped (operating-layer Phase D, PR #10680): scripts/ops/constraint_readout.py computes the constraint over the work store's typed blocked_on edges and renders the four-ite…
-- 🔔 `OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED` · 5d — monitoring row 5d since last observation (cadence 3d)
+- 🔔 `OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED` · 0d — loud row — must be reported on every session
   - PR #10679 (DRAFT, Tier-2 order path, awaiting operator approval) adds classify_share_hold() so an Alpaca close that cannot free its shares says WHY -- four never-collapsed states,…
 - 🔔 `OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP` · 2d — loud row — must be reported on every session
   - Operating-layer PHASE H (the control half) shipped the DECISION ROUND-TRIP as a draft PR (#10705 bot, ict-trader-dashboard#211 SPA): a work object may declare answerable `decision…
@@ -220,8 +223,8 @@ The two sources are kept **separate rather than merged** — one says *this work
   - #10746 (src/runtime/bybit_coverage_basis.py) is MERGED to main (af9af5e3) and its ARMING IS DELIBERATELY HELD, on an operator instruction given in-conversation 2026-09-02: 'hold i…
 - 🔔 `OI-20260902-DECISION-PROMPTS-MOVED-TO-CLAUDEBOT-AND-NO-TAP-HAS-LANDED-THERE` · 2d — loud row — must be reported on every session
   - Work-decision prompts are re-pointed from the TRADER bot to the dedicated Claude bot (@ict_cluade_bot), and the thing that makes that safe ships in the SAME PR: src/bot/claude_dec…
-- 🔔 `OI-20260902-CONSTRAINT-READOUT-CRON-SHIPPED-AND-HAS-NEVER-FIRED-ON-SCHEDULE` · 2d — loud row — must be reported on every session
-  - A1's readout finally has the cadence the operating model always declared it had: .github/workflows/constraint-readout.yml (cron 05:06 UTC daily) regenerates docs/claude/READOUT.md…
+- 🔔 `OI-20260902-CONSTRAINT-READOUT-CRON-SHIPPED-AND-HAS-NEVER-FIRED-ON-SCHEDULE` · 0d — loud row — must be reported on every session
+  - [!] THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS AND DOCS LINK IT BY NAME -- the same treatment OI-20260902-PR-QUEUE-WATCHER-SHIPPED-A…
 - 🔔 `OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY` · 2d — loud row — must be reported on every session
   - replay-pregate-nightly's nightly red is NOT a network fault and NOT an OOM kill -- the trainer VM is out of memory and swap-thrashing, and the fleet run cannot finish. MEASURED on…
 - 🔔 `OI-20260902-REAPER-SHIPPED-AND-THE-KILL-PROVED-A-PARTIAL-LOSS-NOT-A-CLEAN-ONE` · 6d — loud row — must be reported on every session
@@ -244,7 +247,7 @@ The two sources are kept **separate rather than merged** — one says *this work
   - MI-123 / PR #11014 built the manager durable wake: `manager_wake.py` (assess/brief/receipt), `check_wake_liveness.py`, a committed Routine prompt, 28 tests. The DELIVERY half is O…
 - 🔔 `OI-20260905-MI-128-SWEEP-WINDOW-REKEYED-AND-THE-PR-HOLDS-ON-A-BACKFILL-DECISION` · 3d — loud row — must be reported on every session
   - MI-128 / PR #11037 re-keys `_sweep_local_pnl_for_unpriced`'s scan window and ORDER BY from `created_at` (the OPEN) to `COALESCE(closed_at, created_at)` (the CLOSE). Keyed on the o…
-- 🔔 `OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP` · 2d — monitoring row 2d since last observation (cadence 1d)
+- 🔔 `OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP` · 0d — loud row — must be reported on every session
   - ict_scalp_5m was demoted off the REAL-MONEY bybit_2 account (Tier-3, operator-approved 2026-09-06, scope bybit_2 only) by removing it from that account's `strategies:` list in con…
 - 🔔 `OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON` · 2d — loud row — must be reported on every session
   - E3.6's calibration falsifier finally has an instrument (MI-148, PR #11138) and it returns a clear negative: the fleet's take-profits are not predictions. NOTHING HAS BEEN CHANGED …
@@ -262,6 +265,10 @@ The two sources are kept **separate rather than merged** — one says *this work
   - MI-163 measured 9 of the 44 enabled+live legs (the 8 ict_scalp_* legs + squeeze_breakout_4h) as structurally invisible: record_position_telemetry is called from INSIDE a unit's mo…
 - 🔔 `OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING` · 0d — loud row — must be reported on every session
   - Two facts, and the SECOND is the urgent one. (1) SHIPPED, NOT PROVEN: AlpacaClient.protection_coverage plus the sweep's covered/partially_naked/coverage_ungradeable/coverage_read_…
+- 🔔 `OI-20260908-A-HEDGE-BOOK-FLAT-READ-IS-CLOSING-LIVE-BYBIT-POSITIONS-AND-THE-FLAP-GUARD-CANNOT-SEE-IT` · 0d — loud row — must be reported on every session
+  - TWO FACTS, and neither is the orphan the operator was alerted about. (1) ROOT CAUSE, UNFIXED AND LIVE: src/runtime/order_monitor.py:8821 does `pos = rows[0]` on a symbol-scoped ge…
+- 🔔 `OI-20260908-QLD-TQQQ-EXAMINED-LOCALLY-AND-THE-CI-FEED-PATH-HAS-NEVER-RUN` · 0d — loud row — must be reported on every session
+  - THREE FACTS, and they are different — say WHICH you cleared. (1) EXAMINED, locally: MI-195 added a yfinance-direct last rung to e35_shard_plan.resolve_feed_source (planner matrix …
 
 **`soaks` — 2 due**
 
@@ -279,31 +286,103 @@ The two sources are kept **separate rather than merged** — one says *this work
 - `RQ-20260831-002` — research job still queued
   - Thin-leg bracket-geometry accrual — the five 1d equity legs that cannot reach the power floor
 
-**`probes` — 9 due**
+**`probes` — 10 due**
 
-- `OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED` — we did not look — this row is currently unwatched
+- 🔔 `PROBE-REPORT-STALE` · 1d — EVERY probe verdict below was observed at 2026-09-07T10:31:05.344186+00:00, NOT today. The probes job did not land a fresh report, so treat…
+  - probe report is 31.1h old — expected daily (cron 20 5 * * *)
+- `OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED` — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 31.1h ago]
   - probe could not run (exit_2)
-- 🔔 `OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED` — probe FAILED — its declared observation did not hold
+- 🔔 `OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED` — probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 31.1h ago]
   - A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.
-- 🔔 `OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE` — probe FAILED — its declared observation did not hold
+- 🔔 `OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE` — probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 31.1h ago]
   - Reads all three committed research corpora and looks for any row stamped research_power_state=infeasible — the R4 grade this row's id says nothing has ever produced. The POSITIVE …
-- `OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED` — we did not look — this row is currently unwatched
+- `OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED` — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 31.1h ago]
   - probe could not run (exit_2)
-- `OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED` — we did not look — this row is currently unwatched
+- `OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED` — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 31.1h ago]
   - probe could not run (exit_2)
-- 🔔 `OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK` — probe FAILED — its declared observation did not hold
+- 🔔 `OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK` — probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 31.1h ago]
   - A bybit_coverage_soak row exists in which the SIDE-AWARE grade actually DISAGREED with the side-blind sum (verdicts_differ: true). That is the load-bearing half of this row's thre…
-- `OI-20260902-SUNSET-CANDIDATES-ARE-NOW-DUE-AND-NINE-ARE-UNDISPOSITIONED` — we did not look — this row is currently unwatched
+- `OI-20260902-SUNSET-CANDIDATES-ARE-NOW-DUE-AND-NINE-ARE-UNDISPOSITIONED` — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 31.1h ago]
   - probe could not run (exit_2)
-- 🔔 `OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED` — probe FAILED — its declared observation did not hold
+- 🔔 `OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED` — probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 31.1h ago]
   - Whether the decision push-back drain has recorded a run inside its window, graded over the committed receipt docs/claude/work/DECISION-DRAIN.json. Four states, never collapsed: fr…
-- `OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED` — we did not look — this row is currently unwatched
+- `OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED` — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 31.1h ago]
   - probe could not run (exit_2)
+
+**`red_crons` — 11 due**
+
+- 🔔 `constraint-readout` — latest scheduled run concluded 'failure'
+  - constraint-readout
+- 🔔 `due-list` — latest scheduled run concluded 'failure'
+  - due-list
+- 🔔 `error-feed-digest` — latest scheduled run concluded 'cancelled'
+  - error-feed-digest
+- 🔔 `macro-valuation-snapshot` — latest scheduled run concluded 'failure'
+  - macro-valuation-snapshot
+- 🔔 `pr-queue-watch` — latest scheduled run concluded 'failure'
+  - pr-queue-watch
+- 🔔 `probes` — latest scheduled run concluded 'failure'
+  - probes
+- 🔔 `replay-pregate-nightly` — latest scheduled run concluded 'failure'
+  - replay-pregate-nightly
+- 🔔 `session-reaper` — latest scheduled run concluded 'failure'
+  - session-reaper
+- 🔔 `strategy-review-packets` — latest scheduled run concluded 'failure'
+  - strategy-review-packets
+- 🔔 `sunset-pass` — latest scheduled run concluded 'failure'
+  - sunset-pass
+- 🔔 `trainer-capture-watch` — latest scheduled run concluded 'cancelled'
+  - trainer-capture-watch
+
+**`unlanded_automation` — 21 due**
+
+- 🔔 `#11426` · 0d — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 `#11425` · 0d — producer output opened a PR that has not landed
+  - chore(ops): PR-queue watcher receipt (auto)
+- 🔔 `#11423` · 0d — producer output opened a PR that has not landed
+  - chore(ops): trainer capture-watch receipt (auto)
+- 🔔 `#11422` · 0d — producer output opened a PR that has not landed
+  - chore(ops): session-reaper observations (auto)
+- 🔔 `#11420` · 0d — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 `#11416` · 0d — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 `#11408` · 0d — producer output opened a PR that has not landed
+  - chore(ops): refresh the error-feed digest (auto)
+- 🔔 `#11404` · 0d — producer output opened a PR that has not landed
+  - chore(ops): session-reaper observations (auto)
+- 🔔 `#11402` · 0d — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 `#11399` · 0d — producer output opened a PR that has not landed
+  - chore(ops): session-reaper observations (auto)
+- 🔔 `#11397` · 0d — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 `#11393` · 0d — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 `#11386` · 0d — producer output opened a PR that has not landed
+  - chore(m28): valuation snapshots (auto)
+- 🔔 `#11382` · 0d — producer output opened a PR that has not landed
+  - chore(ops): PR-queue watcher receipt (auto)
+- 🔔 `#11376` · 0d — producer output opened a PR that has not landed
+  - chore(ops): session-reaper observations (auto)
+- 🔔 `#11368` · 0d — producer output opened a PR that has not landed
+  - chore(ops): refresh the due-list (auto)
+- 🔔 `#11367` · 0d — producer output opened a PR that has not landed
+  - chore(ops): refresh the error-feed digest (auto)
+- 🔔 `#11366` · 0d — producer output opened a PR that has not landed
+  - chore(ops): refresh probe results (auto)
+- 🔔 `#11362` · 0d — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 `#11361` · 0d — producer output opened a PR that has not landed
+  - chore(m7): strategy review packets (auto)
+- 🔔 `#11353` · 0d — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
 
 **`error_feed` — 12 due**
 
 - 🔔 `ERROR-FEED-DIGEST-STALE` · 0d — EVERY group below was observed at 2026-09-08T05:10:01+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition …
-  - error-feed digest is 6.3h old — expected hourly
+  - error-feed digest is 12.4h old — expected hourly
 - `ERRFEED-b0711dd4` · 1d — error-level condition on `bot_logs`, FIRST SEEN since the last digest — 3 rows 2026-09-07T12:00:59 → 2026-09-08T00:05:05 · accounts=ib_pape…
   - [error] NEW x3 ib_stop_over_cover detected: ib_paper/MGC: position N but resting STOP qty totals N (N%) across N DISJOINT OCA groups oca-protect-tN(clientI
 - `ERRFEED-897ca384` · 0d — error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-08T05:07:41 → 2026-09-08T05:07:41 · accounts=alpaca_…
