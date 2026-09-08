@@ -3,10 +3,10 @@ type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: "Phase B — visibility — the read-only work view and the daily digest"
 stage: CAPABILITY
-lifecycle: waiting
+lifecycle: done
 owner: claude
 opened_at: 2026-09-01
-closed_at: null
+closed_at: 2026-09-08
 review_trigger: >-
   Re-read when the phase it depends on closes, or when the operator changes the cycle
   priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
@@ -32,7 +32,48 @@ done_condition: >-
 # Measured across the store on this branch: 3 of 8 objects carried a swallowed
 # comment in `done_condition` (B, C, E); C and E are fixed separately because
 # PR #10657 already touches those two files and a second edit would conflict.
-blocked_on:
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-08 by MI-194 (session_01W7CyS8ShLnZiNyUms3YYEp). BOTH declared edges are
+  DISCHARGED, so this empty list is a real CLAIM that nothing blocks this object — NOT the
+  migrated NOT_ASSESSED default that 630 of 679 objects in this store carry. They are cleared
+  rather than re-dated because a satisfied edge left in place is read by the constraint
+  computation as a live blocker, and this repo's own rule is that a false blocker is worse than
+  a missing one. The edge text is preserved verbatim under `discharged_edges_2026_09_08`
+  rather than deleted, so the history survives the discharge.
+  ⚠️ EDGE 1 (the SPA render) WAS DISCHARGED ON 2026-09-01 AND NOBODY REMOVED IT. Its own note
+  already read "✅ CLEARED 2026-09-01. THE OPERATOR RENDERED IT and supplied the page", with
+  bucket counts read off the render and summing to 584. ⚠️ MI-194 DID NOT RE-WITNESS THAT
+  RENDER and does not claim to: this is a recorded operator observation being ACTED ON, which
+  is a narrower claim than having made it. What MI-194 establishes is that the edge sat in
+  `blocked_on` for seven days after its own note said it was cleared — and that Phase H has
+  been reading it as a live blocker for all seven.
+  ⚠️ EDGE 2 (the digest firing on a real cadence) IS DISCHARGED ON MI-194's OWN MEASUREMENT.
+  Population: every run of .github/workflows/work-digest.yml with event=schedule, read via
+  list_workflow_runs — total_count 40, every run on the first page conclusion=success. Most
+  recent at the time of writing: run 34192709595, run_number 311, event=schedule, conclusion
+  success, created 2026-09-08T05:58:39Z, head_branch main. The workflow declares `on: schedule`
+  HOURLY at :20 (operator-directed 2026-09-02, raised from every-4h, itself raised from the
+  daily 06:20 it shipped with). This is exactly the criterion the edge set for itself — its
+  note said it "clears on a RUN with event=schedule, and on nothing less", and that a
+  workflow_dispatch run would not do. THE RUN HISTORY WAS READ, NOT THE CRON EXPRESSION.
+  ⚠️ WHAT IS NOT CLAIMED, AND IT IS THE HALF A READER WILL ASSUME: THAT THE OPERATOR RECEIVES
+  THE DIGEST. The workflow's own header says it "does not send anything" — it appends to
+  docs/claude/pending-pings.jsonl and the VM's notify_on_pull.py drains that queue. Delivery is
+  marked on a LOCAL FILE WRITE, so `delivered` is not evidence of arrival
+  (BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE-SO-DELIVERED-IS-NOT-EVIDENCE),
+  and the quiet-window half is carried by
+  OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED.
+  Those rows are the right home for it: this object's edge asked for FIRING, and firing is what
+  was observed. Closing on a firing observation while a DELIVERY row stays open is deliberate,
+  and it is recorded here so a later session does not read `done` as "the operator is receiving
+  the roll-up".
+
+discharged_edges_2026_09_08:
+  # ⚠️ HISTORY, NOT LIVE BLOCKERS. These two edges were this object's `blocked_on`
+  # until 2026-09-08 and are preserved verbatim — including the ✅ CLEARED note on
+  # the first, which is itself the evidence that it was satisfied seven days before
+  # anyone removed it. Nothing in this block is currently holding.
   - kind: external_event
     ref: the work view rendered from the deployed SPA, by someone who is not this session
     since: 2026-09-01
@@ -154,7 +195,9 @@ blocked_on:
   #   abandoned: creating CI automation in a second repo is a sanctioning
   #   decision, not a Tier-1 one. An operator opening the PR clears this.
 
-blocked_on_basis: >-
+prior_blocked_on_basis: >-
+  ⚠️ SUPERSEDED 2026-09-08 — kept as the record of what the basis said while the edges
+  were live. The live basis is `blocked_on_basis` above.
   ASSESSED. The edge(s) above were written deliberately by the session that built this
   phase, naming a specific, dated dependency — that IS an assessment, and this key
   records it so the FIELD and the readout stop disagreeing about the same row.

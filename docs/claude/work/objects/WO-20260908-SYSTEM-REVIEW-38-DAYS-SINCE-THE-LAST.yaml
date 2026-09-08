@@ -1,0 +1,30 @@
+id: WO-20260908-SYSTEM-REVIEW-38-DAYS-SINCE-THE-LAST
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  System review: 38 days since the last one, and the report index disagrees with the reports
+stage: OBSERVATION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A consolidated system report is generated and COMMITTED under comms/reports/, its review_coverage block complete (strategy_promotion + ml_training_health + soak_status + flags_raised + backlog_drive -- the guard fails the run if any is missing), and the index/artifact disagreement is either explained or corrected. Backlog drive is not optional: 716 unresolved health rows (532 open + 184 kept_open) and the review must DRAIN, not just count.
+
+why: >-
+  Operator-directed 2026-09-08 as LANE 1 of a three-lane session structure. The last weekly report directory is 2026-08-01 (38 days); comms/reports/index.json's newest entry is 2026-06-23, so the index and the artifacts DISAGREE by six weeks -- which is itself a finding, since the index is what /system-report reads to resolve --window=since-last. Absorbs the journal-vs-venue pipeline-health half, which is /health-review's own mandate.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
