@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
  "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-record-gld-ok-20260908",
+  "held_by": "session_011PHmZzVy92M6zjNopAMy51",
+  "branch": "claude/mi199-cancel-accepted-ineffective",
   "pr": null,
-  "claimed_at": "2026-09-08T14:02:00Z"
+  "claimed_at": "2026-09-08T14:33:00Z"
  },
  "active_sessions": [
   {
