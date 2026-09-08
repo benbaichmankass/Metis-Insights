@@ -128,6 +128,37 @@ decision_requests:
       session_id: session_0148fMEXBbDgQU3qsrcWujtx
       recorded_at: 2026-09-07T09:10:00Z
       note: MI-156 - the only per-leg take-profit value the evidence supports today
+    answer:
+      chosen: apply
+      free_text: >-
+        OPERATOR, VERBATIM (2026-09-07): "ok on the gld tp4 and the 24 declarations"
+
+        ENACTED: gld_pullback_1h tp_r 50.0 -> 4.0 (cell tp4), applied in #11232
+        (3f88bfff) and present on main's config/strategies.yaml today - verified by
+        reading the file and its -L line history, not asserted.
+
+        ⚠️ 4.0R IS REACHABLE, NOT CALIBRATED. MI-155 grades this leg insufficient_n
+        (n_live 3 against a floor of 30) and 2 of 6 walk-forward folds lost. It was
+        selected for REACHABILITY over the matrix's d_net_r winner sm1.5,
+        deliberately. Never quote it as evidenced.
+
+        Recorded by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) on 2026-09-08
+        from the record ALREADY IN THIS FILE - review_trigger carries the same
+        verbatim quote and the object was closed `done` on 2026-09-07. Nothing here
+        is a new decision. ⚠️ I DID NOT HEAR THE OPERATOR SAY THIS MYSELF; it is
+        transcribed from this object's own review_trigger and from the enacting
+        commit 3f88bfff (#11232), which quotes it identically. WHY IT IS BEING
+        WRITTEN NOW: `answerState` is derived SOLELY from this `answer` block
+        (src/runtime/work_decisions.py::normalise_answer) and the decisions route
+        applies NO lifecycle filter (src/web/api/routers/work.py), so all three
+        graded `not_submitted` on a `done` object - and an on-demand /decisions pull
+        would have re-asked the operator three questions they had already answered
+        and that were already shipped. That is the desensitising noise the channel
+        cannot afford.
+      answered_at: 2026-09-07
+      answered_by: operator
+      committed_by: manager (session_01HrmZ1RRNM4UnEUaFdrPEjj)
+      submission_id: relayed-in-conversation-not-via-transit-log
 
   - id: DEC-20260907-TP-VOCAB
     question: >-
@@ -169,6 +200,39 @@ decision_requests:
       session_id: session_0148fMEXBbDgQU3qsrcWujtx
       recorded_at: 2026-09-07T09:10:00Z
       note: MI-156 - the declaration half of the repair, covering 24 of the 25 legs
+    answer:
+      chosen: accept_with_reader
+      free_text: >-
+        OPERATOR, VERBATIM (2026-09-07): "ok on the gld tp4 and the 24 declarations"
+        - "the 24 declarations" is this request.
+
+        ENACTED WITH ITS READER, which was the proposal's OWN stated condition and
+        not an extra: 24 tp_intent declarations (22 mode:none, 2 mode:unexamined)
+        landed in #11232 together with bracket_expectation_census.py, which BRANCHES
+        on tp_intent.mode across four never-summed states and was shipped with a
+        negative control (exit 1 against the pre-change config, exit 0 after).
+
+        The `accept_key_only` option was explicitly not taken - a
+        written-and-never-read field is what provenance-consumer-guard exists to
+        refuse, and exit_price_source is why.
+
+        Recorded by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) on 2026-09-08
+        from the record ALREADY IN THIS FILE - review_trigger carries the same
+        verbatim quote and the object was closed `done` on 2026-09-07. Nothing here
+        is a new decision. ⚠️ I DID NOT HEAR THE OPERATOR SAY THIS MYSELF; it is
+        transcribed from this object's own review_trigger and from the enacting
+        commit 3f88bfff (#11232), which quotes it identically. WHY IT IS BEING
+        WRITTEN NOW: `answerState` is derived SOLELY from this `answer` block
+        (src/runtime/work_decisions.py::normalise_answer) and the decisions route
+        applies NO lifecycle filter (src/web/api/routers/work.py), so all three
+        graded `not_submitted` on a `done` object - and an on-demand /decisions pull
+        would have re-asked the operator three questions they had already answered
+        and that were already shipped. That is the desensitising noise the channel
+        cannot afford.
+      answered_at: 2026-09-07
+      answered_by: operator
+      committed_by: manager (session_01HrmZ1RRNM4UnEUaFdrPEjj)
+      submission_id: relayed-in-conversation-not-via-transit-log
 
   - id: DEC-20260907-TP-UNEXAMINED
     question: >-
@@ -208,6 +272,44 @@ decision_requests:
       session_id: session_0148fMEXBbDgQU3qsrcWujtx
       recorded_at: 2026-09-07T09:10:00Z
       note: MI-156 - keeping the third state separable, per the dispatch
+    answer:
+      chosen: publish_unexamined
+      free_text: >-
+        OPERATOR, VERBATIM (2026-09-07): "ok on the gld tp4 and the 24 declarations"
+        - the two mode:unexamined legs are part of "the 24 declarations".
+
+        ENACTED: qld_trend_long_1d and tqqq_trend_long_1d shipped carrying
+        mode:unexamined in #11232, NOT folded into `none`.
+
+        ⚠️ READ THE SCOPE OF THIS ANSWER NARROWLY. The operator approved the 24
+        declarations as a block; they did not separately adjudicate the three-state
+        question in this request's own words. What is established is that the
+        enacted state was `unexamined` and that folding into `none` was not done.
+
+        ⚠️ AND IT HAS SINCE BEEN SUPERSEDED BY MEASUREMENT, which is the outcome
+        this request wanted: MI-195 (#11370, 247d69b7) examined both legs, found the
+        blocker was a ROUTING GAP rather than an absent candle feed, and returned a
+        measured `none`. So `unexamined` was the honest state at the time and is no
+        longer the current one. This answer records the decision; it is not a claim
+        about today's config.
+
+        Recorded by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) on 2026-09-08
+        from the record ALREADY IN THIS FILE - review_trigger carries the same
+        verbatim quote and the object was closed `done` on 2026-09-07. Nothing here
+        is a new decision. ⚠️ I DID NOT HEAR THE OPERATOR SAY THIS MYSELF; it is
+        transcribed from this object's own review_trigger and from the enacting
+        commit 3f88bfff (#11232), which quotes it identically. WHY IT IS BEING
+        WRITTEN NOW: `answerState` is derived SOLELY from this `answer` block
+        (src/runtime/work_decisions.py::normalise_answer) and the decisions route
+        applies NO lifecycle filter (src/web/api/routers/work.py), so all three
+        graded `not_submitted` on a `done` object - and an on-demand /decisions pull
+        would have re-asked the operator three questions they had already answered
+        and that were already shipped. That is the desensitising noise the channel
+        cannot afford.
+      answered_at: 2026-09-07
+      answered_by: operator
+      committed_by: manager (session_01HrmZ1RRNM4UnEUaFdrPEjj)
+      submission_id: relayed-in-conversation-not-via-transit-log
 
 why: >-
   MI-146 measured that on 56.8% of the live fleet (25 of 44 enabled+live legs)

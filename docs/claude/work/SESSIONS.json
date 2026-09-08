@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T18:27:00Z",
+  "updated_at": "2026-09-08T18:55:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3239,7 +3239,7 @@
     {
       "session_id": "session_01CvFCybCkvrfzaHqNH3tQsb",
       "registry_key": "pending-20260908T122031Z",
-      "state": "idle",
+      "state": "working",
       "title": "MI-200: the real-money losing streak — attribute the 15 closes before grading any leg",
       "owns_object": "WO-20260908-REAL-MONEY-IS-0-FOR-13-AND",
       "checklist_item": "MI-200-REAL-MONEY-LOSING-STREAK",
@@ -3247,11 +3247,11 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08: we cannot chalk 16 trades up to chance, something is not working, track it down.",
       "confirmed_at": "2026-09-08T12:21:09Z",
-      "state_observed_at": "2026-09-08T13:32:53Z",
-      "state_basis": "get_session(session_id) read direct at 13:30Z; state is that read, not a post_turn_summary",
-      "observation": "IDLE 18:20Z, BLOCKED ON THE MANAGER with a real question: 'manager decision on queue-hold to unblock R13 slot conflict', after SEVEN displacement attempts, saying a 15-min gap suffices if the manager holds the queue. That is the merge_slot collision loop hitting a worker session, not just me — I have paid three rebases for one four-line change on the same cause today. Answering it, since holding the queue is a management act.",
-      "status": "idle",
-      "last_observed_at": "2026-09-08T18:27:00Z"
+      "state_observed_at": "2026-09-08T18:55:00Z",
+      "state_basis": "its own push + CI on #11391, read at 18:36Z and 18:58Z; not a get_session read this pass",
+      "observation": "IT REBASED AND PUSHED at ~18:36Z and #11391 is now `blocked`, NOT `dirty` — the conflict is gone. guards / pytest-collect / repo-inventory green; pytest-run still running at 18:58Z (22 min, against 17m22s on the comparable job), so slow rather than stuck as far as I can tell. THE QUEUE HOLD I GRANTED IS STILL IN FORCE and did its job: it was displaced seven times before I held the queue and has not been displaced since. ⚠️ I MERGED #11435 AHEAD OF IT AND THAT WAS NOT A REPRIORITISATION — I test-merged both in a scratch worktree first: their only shared file is OPEN-ITEMS.json at line 1438 vs 1474+, and #11391 merges CLEAN on top of #11435. So it took no eighth displacement. Merge it the moment pytest-run lands, then release the hold.",
+      "status": "working",
+      "last_observed_at": "2026-09-08T18:55:00Z"
     },
     {
       "session_id": "session_016KUFTHGYyFDerbnXDSA6Wb",
@@ -3264,11 +3264,11 @@
       ],
       "why": "Operator-directed 2026-09-08: exchange-side orphan adopted on bybit_1 ETHUSDT; drive trade 5569 to reconciled or an explicit terminal with the reason written down",
       "state": "working",
-      "state_observed_at": "2026-09-08T15:28:00Z",
-      "state_basis": "merged PR commit messages on origin/main + /api/diag reads at 15:27Z",
-      "observation": "RUNNING 18:25Z on claude/mi204-hedge-book-flat-read-fix, building the three operator-approved fixes. 'running full test suite to verify symbol-flat fix; 1 new failure under investigation' — investigating rather than routing around it is the behaviour asked for on a real-money order path. Its #11418 headline correction landed itself as 8c69e466.",
+      "state_observed_at": "2026-09-08T18:55:00Z",
+      "state_basis": "get_session(session_id) read direct at 18:47:58Z — RUNNING, connected; plus its own PR checks and my merge of #11435",
+      "observation": "RUNNING 18:47:58Z, connected, on claude/mi204-hedge-book-flat-read-fix. IT SHIPPED THE THREE OPERATOR-APPROVED FIXES AND I MERGED THEM: #11435 landed 18:57Z as 46e1efb1, 5 of 5 green, squash pinned to the reviewed head e30c344e. I read the diff against the approved scope IN THE CODE and all three clauses hold (D1 book selection + None on empty + None on two live books; D2 the netting_attributed key with RECONCILER_READOPT_GUARD_SECONDS untouched; D3 position_idx + exchange_read_source on the soak row). It opened the PR itself rather than through the relay, so a real pull_request event fired and it got the full required-check set — the trap that hit six PRs today. It corrected three existing tests that had ENCODED the defect rather than disabling them. ⚠️ CONTEXT 758603 of 1000000 at that read; I told it on the PR to hand over rather than start the fleet observation on fumes. WHAT IT STILL OWES IS AN OBSERVATION, NOT A DEPLOY: a soak row off the fleet carrying a populated position_idx, and a WARNING from the new refusal path.",
       "status": "working",
-      "last_observed_at": "2026-09-08T18:27:00Z"
+      "last_observed_at": "2026-09-08T18:55:00Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
