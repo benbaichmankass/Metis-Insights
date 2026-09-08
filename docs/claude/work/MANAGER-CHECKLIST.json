@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T05:45:00Z",
+  "updated_at": "2026-09-08T05:56:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2325,9 +2325,20 @@
       "tier": "1 — supervision channel",
       "title": "Three sessions sat blocked on answerable questions because SESSIONS.json said they were unreachable",
       "note": "MEASURED 2026-09-08T05:41-05:43Z. MI-185, MI-183 and MI-176 had all FINISHED their work and were idle, each asking for something only the manager could give (a push go-ahead, a hook diagnosis, a commit decision). Their output lived only in ephemeral containers. ⚠️ THE REASON NOBODY ANSWERED THEM IS THAT SESSIONS.json's own _comment said 'A manager CANNOT message a sub-session ... Verified by test, not assumed', and I believed it. THE CHANNEL EXISTS: create_trigger(persistent_session_id) + fire_trigger. TWO woke and acted (MI-185 IDLE->RUNNING at the exact fire time; MI-183 RUNNING with task_summary 'Checking whether any git pre-push hook exists'). ONE DID NOT: MI-176 stayed IDLE while fire_trigger returned SUCCESS and a DIFFERENT session id — a silent failed delivery whose only signal is that returned id not matching the target. Grade every poke with get_session on the TARGET id, never by fire_trigger's own success. ⚠️ THIS WAS ALREADY KNOWN AND FILED SIX DAYS AGO as BL-20260902-AN-IDLE-CLOUD-SUB-SESSION-IS-RESUMABLE-VIA-A-SESSION-BOUND-ROUTINE-NOT-UNREACHABLE, which is still open and whose resolution_criteria explicitly ask for the manager-facing guidance to be corrected. It was not, so the row was filed and taught nothing — the exact failure the backlog discipline exists to prevent. The _comment is corrected in this change and today's two-of-three measurement is appended to that row rather than filed as a duplicate."
+    },
+    {
+      "id": "MI-185-LAND-THE-TWO-BLOCKED-APPROVED-PRS",
+      "status": "in_flight",
+      "owner": "session_015iukpShDdwvP5CM79Qtt3B",
+      "opened": "2026-09-08T05:12:00Z",
+      "updated": "2026-09-08T05:13:00Z",
+      "blocked_on": null,
+      "tier": "1 — mechanical merge, routed off the manager",
+      "title": "Land #11279 and #11312 — both operator-approved, both un-mergeable BY THE MANAGER",
+      "note": "MEASURED 2026-09-08T05:10Z. Both PRs are approved and green. GitHub refuses each with 'Pull Request has merge conflicts'; the conflicts are register appends the merge driver resolves. The blocker is MI-184: since both branch points, main has carried in src/runtime/order_monitor.py (from #11315's merge) plus docs/reference/bot-api-reference.md and docs/claude/OPEN-ITEMS.json, so the merge commit's FIRST-PARENT diff contains worker paths and check_manager_scope R2 fails it — even though `git show --cc` would list only the registers the merge actually resolved. Verified by probing BOTH branches: identical base 7269fc5a, identical out-of-surface set. ROUTED TO A SESSION rather than bypassed, which is what the guard's own message instructs. No manager-scope-exception was filed: that file is for a live incident, and using it for a routine merge is the 'cheaper to lie to than to satisfy' bypass the repo names. ⚠️ THE CONDITIONS MUST TRAVEL WITH THE MERGE. Both verdicts are approved_with_conditions and the condition is the half a successor loses first — #11279 is the IB close path ONLY and must not be extended to Alpaca; #11312 lands MEASUREMENT AND A PROPOSAL ONLY and MI-140 stays HELD. Both are typed in docs/claude/work/OPEN-PRS.json and must be copied into the merge commit messages."
     }
   ],
-  "as_of": "2026-09-08T05:45:00Z",
+  "as_of": "2026-09-08T05:56:00Z",
   "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated": "2026-09-08T05:45:00Z"
+  "updated": "2026-09-08T05:56:00Z"
 }
