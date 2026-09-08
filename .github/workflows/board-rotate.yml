@@ -128,7 +128,10 @@ jobs:
           rotate_at="$(jq -r .rotate_at "$ptr")"
 
           # ---- REFUSE a rotation that would produce a SECOND live board ---- #
-          if [ "$state" = "live" ] && [ -n "$cur" ]; then
+          # Skipped for refresh_body, which creates nothing: gating a body
+          # repair on the board being nearly FULL would mean the only way to fix
+          # a wrong body is to wait until the board is about to be replaced.
+          if [ "$refresh" != "true" ] && [ "$state" = "live" ] && [ -n "$cur" ]; then
             count="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${cur}" --jq .comments 2>/dev/null || echo "")"
             if [ -z "$count" ]; then
               echo "REFUSED: could not read #${cur}'s comment count — refusing to rotate blind" > "$out"
