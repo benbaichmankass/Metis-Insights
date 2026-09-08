@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T23:13:15Z",
+  "updated_at": "2026-09-08T23:26:51Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3055,16 +3055,16 @@
     {
       "session_id": "session_01GYsNAhP6SpKe1vyn2tBc94",
       "registry_key": "pending-20260908T044551Z",
-      "state": "blocked",
+      "state": "review_ready",
       "title": "MI-180 — trade-scope the Alpaca close operation (and modify_protective)",
       "owns_object": "WO-20260908-TRADE-SCOPE-THE-ALPACA-CLOSE-OPERATION-AND",
       "spawned_at": "2026-09-08T04:45:51Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-approved 2026-09-08 (Tier-3). First step is establishing whether the Alpaca API supports a qty-scoped close at all.",
       "confirmed_at": "2026-09-08T04:46:27Z",
-      "state_observed_at": "2026-09-08T19:29:00Z",
-      "state_basis": "list_sessions(mine=true, limit=30) read direct at 19:29Z — session_status IDLE, its own updated_at 2026-09-08T18:32:21Z",
-      "observation": "RUNNING 06:53:57Z — acting on the manager's 05:53Z poke about the protective writes ('reading place_protective signature; checking oca_key usage'). Its post_turn_summary already reads completed for #11337; the poke reopened it. || RECONCILED TO idle 2026-09-08T19:29Z. This row said `working` and the session is IDLE. NOTHING DECAYS A ROW, so `working` goes false purely by time passing -- measured this pass: 15 of the registry's rows claimed `working` and ALL 15 read IDLE, against a live listing of the 30 most recent sessions in which NOT ONE is running. State the population: that listing is the 30 MOST RECENT, so it is not proof about older rows, and every row reconciled here was found inside it rather than assumed.",
+      "state_observed_at": "2026-09-08T23:26:51Z",
+      "state_basis": "get_session direct at 23:25:36Z — SESSION_STATUS_IDLE, connected, post_turn_summary status_category 'review_ready', status_detail 'CI running on merge commit 66e2b972; awaiting green'.",
+      "observation": "UNBLOCKED ITSELF. Its blocker was a conflict in two append-only registers (health-review-backlog.json, OPEN-PRS.json) which the manager deliberately did NOT resolve (MI-184: merging main in puts main's src/ into the merge commit's first-parent diff, which R2 grades as the manager touching a worker path). The SESSION resolved it and pushed merge commit 66e2b972 at 23:25:17Z. CI re-fired at 23:25:24Z: repo-inventory + open-and-automerge green, pytest-collect/guards/pytest-run in_progress. ⚠️ It is IDLE and has finished — what remains is a MERGE CLICK, which R4 bars it from making for a Tier-3 diff. That click is the manager's and is the next action once pytest-run completes (~23:42Z).",
       "status": "idle",
       "last_observed_at": "2026-09-08T19:29:00Z",
       "last_observed": {
@@ -3539,7 +3539,10 @@
         "task_summary": "reading canonical docs + work object + N-book engine; setting up harness",
         "manager_verdict": "running_correct_repo",
         "manager_verdict_basis": "Third observation, 55 minutes after spawn. Still RUNNING and connected, platform updated_at 8 seconds before the read. Its task_summary has ADVANCED — 22:41Z read 'reading canonical docs + work object', this one adds '+ N-book engine; setting up harness' — so it is moving through the reading phase rather than stalled on it. ⚠️ WHAT IS NOT CLAIMED: no PR exists, nothing is pushed to its branch, and no output has been produced. That is EXPECTED at this stage and is recorded as 'nothing owed yet', never as progress. ⚠️ AND THE task_summary IS THE CHILD'S OWN CLAIM, frozen at its last turn — it is evidence the session is alive and moving, not evidence the harness works. The only thing that will settle that is merged output. sources re-read rather than carried over."
-      }
+      },
+      "state_observed_at": "2026-09-08T23:26:51Z",
+      "state_basis": "get_session direct at 23:17:16Z — SESSION_STATUS_RUNNING, connected, sources RE-READ as benbaichmankass/metis-insights (the fault that killed MI-205, so it is re-checked every pass, never carried over).",
+      "observation": "Fourth observation, ~59 min in. task_summary reads 'reading canonical docs, work object, N-book engine, workflow'. ⚠️ THAT MOVED SIDEWAYS, NOT FORWARD: the 23:13Z read said '...N-book engine; setting up harness', and 'setting up harness' is now GONE. I am not calling it advancement. ⚠️ NOTHING IS PUSHED: list_commits --sha claude/mi205b-ranking-key-harness returns 404, so the branch exists only in its container, and search_pull_requests returns none. Recorded as nothing owed yet, not as progress — a task_summary is the child's own frozen claim and is evidence it is ALIVE, never evidence the harness works."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

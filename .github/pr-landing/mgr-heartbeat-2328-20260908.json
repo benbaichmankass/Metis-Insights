@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager cadence tick. Registers only, all under docs/claude/**: the tool-stamped lease heartbeat, fresh supervision records for the two live sub-sessions, and two MANAGER-CHECKLIST corrections — MI-180 unblocked itself (its own session resolved the register conflict and pushed merge commit 66e2b972), and MI-206 is a duplicate of MI-180 that must not be spawned. No src/, tests/, scripts/, workflows, config or deploy path is touched."
+}
