@@ -53,8 +53,89 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T07:06:00Z",
+  "updated_at": "2026-09-08T18:58:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Queue EMPTY of session work as of 2026-09-08T07:06Z — #11279 (12b5b84b) and #11312 (07f5ea50) both merged with their operator conditions in the commit messages. Still open and NOT queued here: #11337 and #11334 are `landing: hold` awaiting an operator read, #11344 is Tier-1 but R12-held and its owning session is still pushing to it, #11346 is automation carrying auto-merge.",
-  "entries": []
+  "note": "⚠️ THIS FILE WAS STALE FOR TWELVE HOURS AND THAT IS MY OWN FAILURE, RECORDED RATHER THAN QUIETLY REPAIRED. It read 'queue EMPTY as of 2026-09-08T07:06Z' while I merged roughly nine PRs and ran an eleven-PR HOLD that existed only in my session context and in PR comments. That is MI-102 exactly — a queue run successfully for a day in one session's head, cited as 'the state of record', and found on no branch and in no commit — and a cold successor reading this file would have seen an empty queue and started merging the held PRs. R8 passed throughout, correctly: its one invariant is 'at most one entry rebasing', which an empty list satisfies trivially. A guard that cannot fail on emptiness is not evidence the queue is being kept. STATE 2026-09-08T18:58Z: eleven entries. #11391 is next and everything else is BLOCKED on the hold that protects it. RELEASE THE HOLD the moment #11391 lands, and say so on the PR. WHAT PASSED THROUGH MY QUEUE TODAY AND IS NOT LISTED HERE (the ledger this file should have been carrying): #11403, #11406, #11407, #11412, #11426, #11430, #11433, #11434, #11435 merged BY ME, and #11370, #11384, #11418 self-landed under my hold — twelve, every one verified present in origin/main's PR list rather than recalled. ⚠️ STATE THE POPULATION: main took 94 commits today across roughly 96 distinct PRs, so MOST of today's landings were not mine and this is not a ledger of main. It is a RECONSTRUCTION from my own session record checked against the log, not a contemporaneous record — which is the point.",
+  "entries": [
+    {
+      "pr": 11391,
+      "branch": "claude/mi200-real-money-close-attribution",
+      "owner": "session_01CvFCybCkvrfzaHqNH3tQsb",
+      "state": "waiting",
+      "tier": 1,
+      "note": "NEXT TO MERGE. Rebased ~18:36Z; mergeable_state `blocked`, NOT `dirty` — the conflict is gone. guards / pytest-collect / repo-inventory green; pytest-run still running at 22 min (against 17m22s on #11435's comparable job). Verified by scratch-worktree test-merge that it lands CLEAN on top of #11435, so 46e1efb1 cost it no eighth displacement."
+    },
+    {
+      "pr": 11388,
+      "branch": "claude/mi192b-system-review",
+      "owner": "session_012yX7SLyJiqAWG8oVxZSNoq",
+      "state": "blocked",
+      "tier": 1,
+      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "note": "Tier-1 backlog hygiene, 1 file, +5/-2. Base is very stale (4f8b95bb) and it touches health-review-backlog.json, which main modifies IN PLACE — so expect a rebase, and assert the union AND that main's rows are byte-identical at their own positions (an id-set union is not sufficient on this file)."
+    },
+    {
+      "pr": 11432,
+      "state": "blocked",
+      "tier": 1,
+      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "note": "automation: reconcile OPEN-PRS.json"
+    },
+    {
+      "pr": 11431,
+      "state": "blocked",
+      "tier": 1,
+      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "note": "automation: work digest — NOT urgent, main's digest is 17:14:29Z and stale at 23:14Z"
+    },
+    {
+      "pr": 11429,
+      "state": "blocked",
+      "tier": 1,
+      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "note": "automation: reconcile OPEN-PRS.json"
+    },
+    {
+      "pr": 11428,
+      "state": "blocked",
+      "tier": 1,
+      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "note": "automation: constraint readout"
+    },
+    {
+      "pr": 11425,
+      "state": "blocked",
+      "tier": 1,
+      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "note": "automation: PR-queue watcher receipt"
+    },
+    {
+      "pr": 11423,
+      "state": "blocked",
+      "tier": 1,
+      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "note": "automation: trainer capture-watch receipt"
+    },
+    {
+      "pr": 11422,
+      "state": "blocked",
+      "tier": 1,
+      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "note": "automation: session-reaper observations"
+    },
+    {
+      "pr": 11420,
+      "state": "blocked",
+      "tier": 1,
+      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "note": "automation: reconcile OPEN-PRS.json"
+    },
+    {
+      "pr": 11416,
+      "state": "blocked",
+      "tier": 1,
+      "blocked_on": "manager queue-hold for #11391 (MI-200). It was displaced from the queue SEVEN times today by register churn; every merge to main rewrites a shared register and re-dirties it. The hold is released the moment #11391 lands. Main's work digest is 17:14:29Z and goes stale at 23:14Z, so there is room to hold — that headroom is WHY this is affordable, and it is the thing to re-check before extending it.",
+      "note": "automation: reconcile OPEN-PRS.json"
+    }
+  ]
 }
