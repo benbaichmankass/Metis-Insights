@@ -6,9 +6,9 @@
  },
  "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-lanes-1152-20260908",
-  "pr": null,
-  "claimed_at": "2026-09-08T11:52:00Z"
+  "branch": "automation/work-digest-34220144791-1",
+  "pr": 11377,
+  "claimed_at": "2026-09-08T13:05:00Z"
  },
  "active_sessions": [
   {
