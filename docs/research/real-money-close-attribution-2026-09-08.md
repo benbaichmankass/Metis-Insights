@@ -355,7 +355,7 @@ mine.
 
 ⚠️ **What remains, and I did not test it:** the `dry_run` **parameter** passed into `multi_account_execute` (`coordinator.py:1314` — `if dry_run is not None: effective_dry = bool(dry_run)`), which overrides both declared gates. That needs a read of the running process, which the existing row's resolution criteria already asks for.
 
-⚠️ **n=2 supports no verdict about the account's health** — and it does not need to. The finding is not "the account is underperforming"; it is that **a Tier-3-approved real-money routing has produced no live capability for 8 days**, and `OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED` is waiting on a fill that a dry fold can never produce. ⚠️ `silent_refusal_alert` did not fire here: its floor is 5 rows in 24h and this is 2 rows in 8 days — the detector is behaving correctly and the cadence is simply below its floor.
+⚠️ **n=2 supports no verdict about the account's health** — and it does not need to. The finding is not "the account is underperforming"; it is that **a Tier-3-approved real-money routing has produced no live capability since it landed** — the routing commit `a8a045a6` is stamped 2026-09-01T01:40:09+03:00 (**2026-08-31T22:40Z**), so as of this measurement at 2026-09-08T13:10Z that is **7.6 days**, and in that window the leg produced exactly two order packages, both refused, and `OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED` is waiting on a fill that a dry fold can never produce. ⚠️ `silent_refusal_alert` did not fire here: its floor is 5 rows in 24h and this is 2 rows in 8 days — the detector is behaving correctly and the cadence is simply below its floor.
 
 ---
 
