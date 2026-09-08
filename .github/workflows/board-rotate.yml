@@ -142,9 +142,26 @@ jobs:
             fi
           fi
 
+          # ---- WHICH board are we retiring? -------------------------------- #
+          # Normally the live one. But the live slot can already be EMPTY --
+          # a board discovered dead is recorded as retired before its successor
+          # exists -- and in that case the outgoing board still needs its title
+          # and state fixed so a reader lands on the successor. So fall back to
+          # the newest previous_boards entry that is STILL OPEN. Without this,
+          # the very first rotation (the one recovering from a cap) would create
+          # the successor and leave the dead board looking open and current.
+          retire="$cur"
+          if [ -z "$retire" ]; then
+            cand="$(jq -r '.previous_boards | last | .issue // empty' "$ptr")"
+            if [ -n "$cand" ]; then
+              st="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${cand}" --jq .state 2>/dev/null || echo "")"
+              [ "$st" = "open" ] && retire="$cand"
+            fi
+          fi
+
           # ---- Build the new body from the COMMITTED template -------------- #
           title="🤖 Claude Coordination Board ($(date -u +%Y-%m-%d))"
-          prev="${cur:-none}"
+          prev="${retire:-none}"
           prev_retired="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           body=/tmp/board-body.md
           sed -e "s|{{BOARD_TITLE}}|${title}|g" \
@@ -180,29 +197,45 @@ jobs:
           # Its body is the historical record and has been clobbered 8 times by
           # `issue_write method=update`. `gh issue edit --title` sends only the
           # title, so the body is not in the payload at all.
-          if [ -n "$cur" ]; then
-            old_title="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${cur}" --jq .title)"
+          if [ -n "$retire" ]; then
+            old_title="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${retire}" --jq .title)"
             case "$old_title" in
               *"RETIRED"*) : ;;
-              *) gh issue edit "$cur" --repo "$GITHUB_REPOSITORY" \
+              *) gh issue edit "$retire" --repo "$GITHUB_REPOSITORY" \
                    --title "${old_title} — RETIRED at the ${cap}-comment cap → successor #${new}" \
-                   || echo "::warning::board-rotate: could not retitle #${cur}" ;;
+                   || echo "::warning::board-rotate: could not retitle #${retire}" ;;
             esac
-            gh issue close "$cur" --repo "$GITHUB_REPOSITORY" --reason "not planned" \
+            # The --comment will 403 on a board that is AT the cap, which is
+            # the common case here -- so the bare close is a real fallback, not
+            # belt-and-braces. The pointer in the TITLE is what survives either
+            # way, which is why the title carries it.
+            gh issue close "$retire" --repo "$GITHUB_REPOSITORY" --reason "not planned" \
               --comment "Retired at GitHub's ${cap}-comment cap. Successor: #${new}. This issue stays READABLE as the historical record — do not post here and do not edit this body." \
-              || gh issue close "$cur" --repo "$GITHUB_REPOSITORY" --reason "not planned" \
-              || echo "::warning::board-rotate: could not close #${cur} (expected if it is at the cap)"
+              || gh issue close "$retire" --repo "$GITHUB_REPOSITORY" --reason "not planned" \
+              || echo "::warning::board-rotate: could not close #${retire}"
           fi
 
           # ---- Repoint. This is the half that went wrong last time. -------- #
+          # APPEND the outgoing board to previous_boards, and this is
+          # load-bearing rather than bookkeeping: check_board_coherence.py's R3
+          # reads `previous_boards` to know WHICH numbers are retired, so a
+          # rotation that forgot to append would silently disarm the guard for
+          # the board it just retired -- the exact drift this whole change
+          # exists to stop. Appended only when the live slot actually held a
+          # board; a board already recorded as retired is not added twice.
           jq --argjson new "$new" \
              --arg when "$prev_retired" \
              --arg why "$reason" \
-             '(.previous_boards) as $prev
+             --arg cur "${cur:-}" \
+             '(if ($cur | length) > 0 and (.board_state == "live")
+               then .previous_boards += [{
+                      issue: ($cur | tonumber),
+                      retired_at: $when,
+                      retired_because: $why
+                    }]
+               else . end)
               | .board_issue = $new
               | .board_state = "live"
-              | .previous_boards = (
-                  if (.board_issue != null and .board_state == "live") then $prev else $prev end)
               | .last_rotated_at = $when
               | .last_rotation_reason = $why' \
              "$ptr" > "$ptr.tmp" && mv "$ptr.tmp" "$ptr"
