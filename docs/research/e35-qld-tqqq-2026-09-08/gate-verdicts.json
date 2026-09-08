@@ -1,0 +1,1150 @@
+{
+ "_doc": "MI-195 2026-09-08. GATE verdicts for qld_trend_long_1d + tqqq_trend_long_1d and the qqq_trend_long_1d POSITIVE CONTROL. Per-cell surface rows are in the sibling results.jsonl. \u26a0\ufe0f WINDOW IS EACH LEG'S FULL HISTORY, NOT the corpus's trailing 1830d \u2014 these rows are NOT directly comparable to e35-bracket-corpus.jsonl and must not be merged into it. See docs/research/qld-tqqq-examined-2026-09-08.md \u00a7 5. \u26a0\ufe0f READ wf.folds[].inert: a fold marked inert scored d_net_r 0.0, i.e. the cell was the BASE arm \u2014 a 'win' there is not a win.",
+ "runs": {
+  "qld_tqqq": {
+   "generated_at": "2026-09-08T09:54:19.497200+00:00",
+   "tp_cap_pct": 0.099,
+   "fee_bps_roundtrip": "harness default (execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP)",
+   "legs": [
+    {
+     "leg": "qld_trend_long_1d",
+     "symbol": "QLD",
+     "tf": "1d",
+     "execution": "live",
+     "gate": [
+      {
+       "cell": "tp2",
+       "axis": "tp",
+       "verdict": "wf_fail",
+       "verdict_basis": "wins_effective",
+       "path": "A",
+       "split": "2017-12-15",
+       "lifetime_trades": 113,
+       "is_trades": 63,
+       "oos_trades": 48,
+       "is": {
+        "passed": true,
+        "reason": null,
+        "d_net_r": 3.2245,
+        "d_max_dd": -0.5257
+       },
+       "oos": {
+        "passed": true,
+        "reason": null,
+        "d_net_r": 0.5751,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": 5,
+        "usable": 6,
+        "wins_effective": 0,
+        "inert_wins": 5,
+        "folds": [
+         {
+          "fold": "2021",
+          "usable": true,
+          "ok": false,
+          "d_net_r": -0.1561,
+          "d_max_dd": 0.0
+         },
+         {
+          "fold": "2022",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 0.0,
+          "d_max_dd": 0.0,
+          "inert": true
+         },
+         {
+          "fold": "2023",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 0.0,
+          "d_max_dd": 0.0,
+          "inert": true
+         },
+         {
+          "fold": "2024",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 0.0,
+          "d_max_dd": 0.0,
+          "inert": true
+         },
+         {
+          "fold": "2025",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 0.0,
+          "d_max_dd": 0.0,
+          "inert": true
+         },
+         {
+          "fold": "2026",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 0.0,
+          "d_max_dd": 0.0,
+          "inert": true
+         }
+        ]
+       },
+       "wf_threshold": 4
+      },
+      {
+       "cell": "tp4",
+       "axis": "tp",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-12-15",
+       "lifetime_trades": 113,
+       "is_trades": 63,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "tp6",
+       "axis": "tp",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-12-15",
+       "lifetime_trades": 113,
+       "is_trades": 63,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "sm1.5",
+       "axis": "stop",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-12-15",
+       "lifetime_trades": 113,
+       "is_trades": 63,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "maxdd_worse",
+        "d_net_r": 12.1038,
+        "d_max_dd": 1.2391
+       },
+       "oos": {
+        "passed": false,
+        "reason": "net_r_worse+maxdd_worse",
+        "d_net_r": -1.8575,
+        "d_max_dd": 2.5982
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "sm2",
+       "axis": "stop",
+       "verdict": "path_b_wf_pass",
+       "verdict_basis": "wins_effective",
+       "path": "B",
+       "split": "2017-12-15",
+       "lifetime_trades": 113,
+       "is_trades": 63,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "maxdd_worse",
+        "d_net_r": 4.1977,
+        "d_max_dd": 0.1029
+       },
+       "oos": {
+        "passed": false,
+        "reason": "maxdd_worse",
+        "d_net_r": 0.6846,
+        "d_max_dd": 1.5087
+       },
+       "wf": {
+        "wins": 5,
+        "usable": 6,
+        "wins_effective": 5,
+        "inert_wins": 0,
+        "folds": [
+         {
+          "fold": "2021",
+          "usable": true,
+          "ok": false,
+          "d_net_r": -2.1681,
+          "d_max_dd": 1.0376
+         },
+         {
+          "fold": "2022",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 0.1985,
+          "d_max_dd": -0.1787
+         },
+         {
+          "fold": "2023",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 1.3842,
+          "d_max_dd": 0.0053
+         },
+         {
+          "fold": "2024",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 1.0187,
+          "d_max_dd": 0.1833
+         },
+         {
+          "fold": "2025",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 0.4747,
+          "d_max_dd": 0.1728
+         },
+         {
+          "fold": "2026",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 1.0104,
+          "d_max_dd": 0.0
+         }
+        ]
+       },
+       "wf_threshold": 4
+      },
+      {
+       "cell": "sm3",
+       "axis": "stop",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-12-15",
+       "lifetime_trades": 113,
+       "is_trades": 63,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "net_r_worse",
+        "d_net_r": -1.1929,
+        "d_max_dd": -1.3674
+       },
+       "oos": {
+        "passed": false,
+        "reason": "net_r_worse+maxdd_worse",
+        "d_net_r": -4.2331,
+        "d_max_dd": 0.0086
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "to400",
+       "axis": "timeout",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-12-15",
+       "lifetime_trades": 113,
+       "is_trades": 63,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "to96",
+       "axis": "timeout",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-12-15",
+       "lifetime_trades": 113,
+       "is_trades": 63,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "net_r_worse",
+        "d_net_r": -0.8424,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "to48",
+       "axis": "timeout",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-12-15",
+       "lifetime_trades": 113,
+       "is_trades": 63,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "net_r_worse",
+        "d_net_r": -3.3583,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": true,
+        "reason": null,
+        "d_net_r": 0.7525,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "tp3_sm1.5",
+       "axis": "tp+stop",
+       "verdict": "wf_fail",
+       "verdict_basis": "wins_effective",
+       "path": "B",
+       "split": "2017-12-15",
+       "lifetime_trades": 113,
+       "is_trades": 63,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "maxdd_worse",
+        "d_net_r": 12.4694,
+        "d_max_dd": 1.2391
+       },
+       "oos": {
+        "passed": false,
+        "reason": "maxdd_worse",
+        "d_net_r": 0.2292,
+        "d_max_dd": 2.5982
+       },
+       "wf": {
+        "wins": 3,
+        "usable": 6,
+        "wins_effective": 3,
+        "inert_wins": 0,
+        "folds": [
+         {
+          "fold": "2021",
+          "usable": true,
+          "ok": false,
+          "d_net_r": -2.0754,
+          "d_max_dd": 2.0982
+         },
+         {
+          "fold": "2022",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 0.5293,
+          "d_max_dd": -0.1699
+         },
+         {
+          "fold": "2023",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 3.6912,
+          "d_max_dd": 0.0141
+         },
+         {
+          "fold": "2024",
+          "usable": true,
+          "ok": false,
+          "d_net_r": -6.7685,
+          "d_max_dd": 3.7857
+         },
+         {
+          "fold": "2025",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 1.5634,
+          "d_max_dd": 0.1634
+         },
+         {
+          "fold": "2026",
+          "usable": true,
+          "ok": false,
+          "d_net_r": -2.8648,
+          "d_max_dd": 3.0885
+         }
+        ]
+       },
+       "wf_threshold": 4
+      }
+     ]
+    },
+    {
+     "leg": "tqqq_trend_long_1d",
+     "symbol": "TQQQ",
+     "tf": "1d",
+     "execution": "live",
+     "gate": [
+      {
+       "cell": "tp2",
+       "axis": "tp",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2020-02-04",
+       "lifetime_trades": 117,
+       "is_trades": 67,
+       "oos_trades": 48,
+       "is": {
+        "passed": true,
+        "reason": null,
+        "d_net_r": 0.392,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "tp2.5",
+       "axis": "tp",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2020-02-04",
+       "lifetime_trades": 117,
+       "is_trades": 67,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "tp3",
+       "axis": "tp",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2020-02-04",
+       "lifetime_trades": 117,
+       "is_trades": 67,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "sm2",
+       "axis": "stop",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2020-02-04",
+       "lifetime_trades": 117,
+       "is_trades": 67,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "maxdd_worse",
+        "d_net_r": 3.1694,
+        "d_max_dd": 0.1749
+       },
+       "oos": {
+        "passed": false,
+        "reason": "net_r_worse+maxdd_worse",
+        "d_net_r": -2.7738,
+        "d_max_dd": 2.2753
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "sm1.5",
+       "axis": "stop",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2020-02-04",
+       "lifetime_trades": 117,
+       "is_trades": 67,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "maxdd_worse",
+        "d_net_r": 4.878,
+        "d_max_dd": 1.2219
+       },
+       "oos": {
+        "passed": false,
+        "reason": "net_r_worse+maxdd_worse",
+        "d_net_r": -6.4678,
+        "d_max_dd": 4.4662
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "sm3",
+       "axis": "stop",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2020-02-04",
+       "lifetime_trades": 117,
+       "is_trades": 67,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "net_r_worse",
+        "d_net_r": -5.6762,
+        "d_max_dd": -0.4362
+       },
+       "oos": {
+        "passed": false,
+        "reason": "net_r_worse",
+        "d_net_r": -3.2725,
+        "d_max_dd": -0.1339
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "to96",
+       "axis": "timeout",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2020-02-04",
+       "lifetime_trades": 117,
+       "is_trades": 67,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "to400",
+       "axis": "timeout",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2020-02-04",
+       "lifetime_trades": 117,
+       "is_trades": 67,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "to48",
+       "axis": "timeout",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2020-02-04",
+       "lifetime_trades": 117,
+       "is_trades": 67,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "net_r_worse",
+        "d_net_r": -1.5858,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "tp1.5_sm1.5",
+       "axis": "tp+stop",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2020-02-04",
+       "lifetime_trades": 117,
+       "is_trades": 67,
+       "oos_trades": 48,
+       "is": {
+        "passed": false,
+        "reason": "maxdd_worse",
+        "d_net_r": 3.1194,
+        "d_max_dd": 0.1894
+       },
+       "oos": {
+        "passed": false,
+        "reason": "net_r_worse+maxdd_worse",
+        "d_net_r": -1.2222,
+        "d_max_dd": 3.9072
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      }
+     ]
+    }
+   ]
+  },
+  "qqq_control": {
+   "generated_at": "2026-09-08T09:54:13.167552+00:00",
+   "tp_cap_pct": 0.099,
+   "fee_bps_roundtrip": "harness default (execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP)",
+   "legs": [
+    {
+     "leg": "qqq_trend_long_1d",
+     "symbol": "QQQ",
+     "tf": "1d",
+     "execution": "live",
+     "gate": [
+      {
+       "cell": "tp6",
+       "axis": "tp",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-02-17",
+       "lifetime_trades": 116,
+       "is_trades": 66,
+       "oos_trades": 50,
+       "is": {
+        "passed": true,
+        "reason": null,
+        "d_net_r": 5.0218,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "net_r_worse",
+        "d_net_r": -0.616,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "tp6_sm2",
+       "axis": "tp",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-02-17",
+       "lifetime_trades": 116,
+       "is_trades": 66,
+       "oos_trades": 50,
+       "is": {
+        "passed": true,
+        "reason": null,
+        "d_net_r": 5.0218,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "net_r_worse",
+        "d_net_r": -0.616,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "tp4",
+       "axis": "tp",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-02-17",
+       "lifetime_trades": 116,
+       "is_trades": 66,
+       "oos_trades": 50,
+       "is": {
+        "passed": true,
+        "reason": null,
+        "d_net_r": 4.3733,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "net_r_worse",
+        "d_net_r": -1.3543,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "sm1.5",
+       "axis": "stop",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-02-17",
+       "lifetime_trades": 116,
+       "is_trades": 66,
+       "oos_trades": 50,
+       "is": {
+        "passed": false,
+        "reason": "net_r_worse+maxdd_worse",
+        "d_net_r": -6.3726,
+        "d_max_dd": 1.9259
+       },
+       "oos": {
+        "passed": false,
+        "reason": "net_r_worse+maxdd_worse",
+        "d_net_r": -7.6262,
+        "d_max_dd": 2.2869
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "tp3_sm1.5",
+       "axis": "stop",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-02-17",
+       "lifetime_trades": 116,
+       "is_trades": 66,
+       "oos_trades": 50,
+       "is": {
+        "passed": false,
+        "reason": "net_r_worse+maxdd_worse",
+        "d_net_r": -6.3726,
+        "d_max_dd": 1.9259
+       },
+       "oos": {
+        "passed": false,
+        "reason": "net_r_worse+maxdd_worse",
+        "d_net_r": -7.6262,
+        "d_max_dd": 2.2869
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "sm3",
+       "axis": "stop",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-02-17",
+       "lifetime_trades": 116,
+       "is_trades": 66,
+       "oos_trades": 50,
+       "is": {
+        "passed": false,
+        "reason": "net_r_worse",
+        "d_net_r": -10.6027,
+        "d_max_dd": -0.8087
+       },
+       "oos": {
+        "passed": false,
+        "reason": "net_r_worse",
+        "d_net_r": -12.6694,
+        "d_max_dd": -0.0678
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "to400",
+       "axis": "timeout",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-02-17",
+       "lifetime_trades": 116,
+       "is_trades": 66,
+       "oos_trades": 50,
+       "is": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "sm2_to400",
+       "axis": "timeout",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-02-17",
+       "lifetime_trades": 116,
+       "is_trades": 66,
+       "oos_trades": 50,
+       "is": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "tp3_to400",
+       "axis": "timeout",
+       "verdict": "is_oos_fail",
+       "verdict_basis": null,
+       "path": null,
+       "split": "2017-02-17",
+       "lifetime_trades": 116,
+       "is_trades": 66,
+       "oos_trades": 50,
+       "is": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "oos": {
+        "passed": false,
+        "reason": "tie_no_improvement",
+        "d_net_r": 0.0,
+        "d_max_dd": 0.0
+       },
+       "wf": {
+        "wins": null,
+        "usable": null,
+        "wins_effective": 0,
+        "inert_wins": 0,
+        "folds": null
+       },
+       "wf_threshold": null
+      },
+      {
+       "cell": "tp6_sm1.5",
+       "axis": "tp+stop",
+       "verdict": "wf_fail",
+       "verdict_basis": "wins_effective",
+       "path": "B",
+       "split": "2017-02-17",
+       "lifetime_trades": 116,
+       "is_trades": 66,
+       "oos_trades": 50,
+       "is": {
+        "passed": false,
+        "reason": "maxdd_worse",
+        "d_net_r": 8.8298,
+        "d_max_dd": 2.3152
+       },
+       "oos": {
+        "passed": false,
+        "reason": "maxdd_worse",
+        "d_net_r": 3.7917,
+        "d_max_dd": 1.2108
+       },
+       "wf": {
+        "wins": 2,
+        "usable": 6,
+        "wins_effective": 2,
+        "inert_wins": 0,
+        "folds": [
+         {
+          "fold": "2021",
+          "usable": true,
+          "ok": false,
+          "d_net_r": -0.6634,
+          "d_max_dd": 0.0351
+         },
+         {
+          "fold": "2022",
+          "usable": true,
+          "ok": false,
+          "d_net_r": -0.1563,
+          "d_max_dd": 0.1563
+         },
+         {
+          "fold": "2023",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 1.5628,
+          "d_max_dd": 0.0
+         },
+         {
+          "fold": "2024",
+          "usable": true,
+          "ok": false,
+          "d_net_r": -6.1554,
+          "d_max_dd": 2.7162
+         },
+         {
+          "fold": "2025",
+          "usable": true,
+          "ok": true,
+          "d_net_r": 2.8328,
+          "d_max_dd": 0.2334
+         },
+         {
+          "fold": "2026",
+          "usable": true,
+          "ok": false,
+          "d_net_r": -1.0958,
+          "d_max_dd": 1.9457
+         }
+        ]
+       },
+       "wf_threshold": 4
+      }
+     ]
+    }
+   ]
+  }
+ }
+}
