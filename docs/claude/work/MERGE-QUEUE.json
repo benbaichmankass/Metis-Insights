@@ -53,54 +53,25 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T21:58:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Refreshed 2026-09-07T21:58Z after the drain. Open PRs 13 -> 8. LANDED: #11274 (MI-167's diagnosis), #11278 (MI-169's HALT), #11283 (the consolidation), #11264 (MI-164, operator-approved Proposal A). CLOSED as superseded with a comment each, never merged as duplicates: #11260, #11273, #11277, #11280. NOT TRIAGED, named so they are not lost: #11174 and #10895, both open since before today. Exactly one entry is `rebasing` (R8).",
+  "updated_at": "2026-09-08T01:35:00Z",
+  "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "note": "Refreshed 2026-09-08T01:35Z. The four entries this replaces (#11285, #11286, #11271, #11281) were ALL SETTLED and one of them (#11285) still read `rebasing` -- a phantom that occupies R8's single-rebasing slot while naming a merged PR, so a queue left unrefreshed does not merely go stale, it BLOCKS. Verified against the live open-PR list, not against this file's own history.",
   "entries": [
     {
-      "pr": 11285,
-      "branch": "claude/mgr-mi171-carry-20260907",
-      "session_id": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "position": 1,
+      "pr": 11306,
       "state": "rebasing",
-      "blocked_on": null,
-      "note": "Carries the MI-171 work object + confirmed registry row that #11283's auto-merge left behind. MI-171 is RUNNING against a work object that is not yet on main, so this is not cosmetic."
-    },
-    {
-      "pr": 11286,
-      "branch": "automation/reconcile-open-prs-34164810880-1",
-      "session_id": "automation",
-      "position": 2,
-      "state": "waiting",
-      "blocked_on": "predecessor",
-      "note": "Auto-reconcile of OPEN-PRS.json after the merges. Worth noting it FIRED: #11174 is the record of the deadlock where this reconcile did not happen."
-    },
-    {
-      "pr": 11271,
-      "branch": "mi140-alpaca-live-refusal-verdict",
-      "session_id": "session_01L4nzHTVNNdCxkpFxMqXB6V",
-      "position": 3,
-      "state": "blocked",
-      "blocked_on": "MI-171 (session_019G7vh8rkRZryXJGhbhfov7)",
-      "note": "Red on exactly ONE guard, stated-population, firing on '| risk_pct | 2% |' -- a configured parameter, not a statistic. The manager tried the one-line annotation and manager-scope R2 refused it TWICE; docs/research is a worker surface. Reset to fd9f548f so it carries zero manager commits (R2 grades COMMITS IN RANGE, so the REVERT was a second violation, not a repair). MI-171 owns the fix."
+      "title": "backlog: answer the two open questions on the board-ceiling row (MI-83 addendum)",
+      "owner": "session_018ruZdgEkPZ1XceWzLwuYUU",
+      "tier": 1,
+      "note": "Self-land declared, auto-merge armed, 6/6 checks green at 01:26Z. Sole entry in `rebasing` (R8: at most one). Was mergeable_state=unknown at 01:30Z only because #10895 had just landed and GitHub was recomputing."
     },
     {
       "pr": 11279,
-      "branch": "mi-168-trade-scoped-close-confirmation",
-      "session_id": "session_01BpU7rfqWKir4rQrowT4ZQd",
-      "position": 4,
       "state": "blocked",
-      "blocked_on": "operator_decision",
-      "note": "Two decisions owed: approve/reject the symbol->trade re-scope, and name the IB_CLOSE_CONFIRM partial-fill default. Its backlog row was landed to main separately (see MI-170) so a REAL-MONEY finding does not wait on those decisions."
-    },
-    {
-      "pr": 11281,
-      "branch": "automation/error-feed-digest-34160653535-1",
-      "session_id": "automation",
-      "position": 5,
-      "state": "waiting",
-      "blocked_on": "predecessor",
-      "note": "Auto digest; supersedes #11261 in content."
+      "title": "MI-168: TRADE-scoped close confirmation (Tier-3 proposal, HELD)",
+      "owner": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "tier": 3,
+      "note": "BLOCKED ON THE OPERATOR, not on CI and not on a conflict. Two decisions are owed and neither may be substituted by the manager: (1) approve or reject re-scoping the close confirmation from SYMBOL-flat to TRADE-quantity; (2) name the IB_CLOSE_CONFIRM partial-fill default -- strict is what shipped, the alternative is confirm-on-reduction. Do not promote it until both are answered."
     }
   ]
 }
