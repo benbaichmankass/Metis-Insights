@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager pass, PR #11455. Tier-1 by path and content: docs/claude/work/MANAGER-LEASE.json, docs/claude/work/SESSIONS.json, docs/claude/session-board.json (the R13 merge_slot claim naming this branch and changing nothing else), plus this branch's own two landing-route files. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/; no order path, no strategy config, no risk caps. check_manager_scope.py --base origin/main reads clean with R2/R6/R7/R8 ok and check_backlog_refs.py reads OK, each run in its own command after committing. Content: the 21:06:34Z lease heartbeat, stamped by manager_lease.py rather than by hand, superseding a previous stamp that was 9.1 minutes in the future; and the per-row verdicts recording that my last two blocked-ask counts were asserted rather than measured, with eleven of the twelve BLOCKED sessions needing nothing from a manager."
+}
