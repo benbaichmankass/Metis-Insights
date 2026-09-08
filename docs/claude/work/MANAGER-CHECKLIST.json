@@ -2479,6 +2479,28 @@
       "updated": "2026-09-08",
       "blocked_on": [],
       "note": "Operator answered all three DEC-20260907-* requests directly, 2026-09-08. TP-VALUE=apply (gld_pullback_1h tp_r 4.0, REACHABILITY not calibration, scope that leg only, and NOT approval of the matrix's sm1.5 winner). TP-VOCAB=accept_with_reader (the tp_intent key does not land without a reader in the same cycle). TP-UNEXAMINED=REJECTED ALL THREE OPTIONS with 'Why don't we just examine them?' — the options all asked how to PUBLISH an absence and none asked what it costs to REMOVE it. Blocker is a missing candle substrate for QLD/TQQQ, i.e. an unfetched dataset, not a property of the legs; the proposal's own section 9.3 already called this the only work in the memo that unblocks new evidence. Verdicts recorded verbatim with their conditions in WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE.yaml::operator_answers_2026_09_08. ⚠️ insufficient_n is a likely and legitimate outcome of the sweep (44 of 44 legs grade that way under MI-155's floor); if so, unexamined becomes a MEASURED verdict and the publish question returns to the operator in a legitimate form. The Tier-3 gld diff cannot self-land (R4) and is mine to merge."
+    },
+    {
+      "id": "MI-196-CONSOLIDATE-DUE-INTO-THE-READOUT",
+      "title": "Carry DUE.md's four missing source classes into the constraint readout, then retire DUE.md",
+      "owner": "session_01U2ibSa4FNcuV6bSLaPb9GS",
+      "status": "in_flight",
+      "tier": "1 — tooling",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "note": "Operator decision, asked and answered directly 2026-09-08. Two surfaces answered 'what should I work on' from disjoint sources: MI-194 measured that exactly ONE of five source classes appears in both. TWO CHANGES, NEVER ONE — port first and show it rendering, retire DUE.md only afterwards, or an incomplete port takes the due list to zero (the hourly-digest split precedent). ⚠️ This does NOT fix the readout's 7.2% assessed-edge coverage against a 50% floor and must not be reported as doing so; it adds rows, not basis. Recorded in WO-20260901-PHASE-D::operator_decision_2026_09_08. Spawn gate correctly REFUSED this first (Phase D absent from covers); admitted by adding it to spawn-priority-exception.yaml on the operator's direct ask, with the displacement cost stated."
+    },
+    {
+      "id": "MI-194-PHASE-A-CRITERION-RESPEC-BEHAVIOUR-NOT-CITATION",
+      "title": "Re-spec Phase A: measure whether the brief CHANGES BEHAVIOUR, not whether a cold session cites it",
+      "owner": "session_01W7CyS8ShLnZiNyUms3YYEp",
+      "status": "in_flight",
+      "tier": "1 — work-object record",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "note": "Operator decision, asked and answered directly 2026-09-08: 'Change what is measured: behaviour, not citation.' The old edge — a COLD session CITING the CLAUDE.md brief — was unfalsifiable by construction, since every candidate observer arrives with a dispatch prompt; MI-194 measured its absence retrospectively (positive controls fired) and correctly refused to manufacture an observer. ⚠️ The re-spec MUST carry a negative branch; a replacement that can only ever be satisfied reproduces BL-20260908-DONE-CONDITIONS-ARE-PASS-ONLY with better wording. ⚠️ The old edge is RETIRED ON A DECISION, never `discharged` — discharging would assert an observation nobody made. Poked into the live idle session (trig_01DAyCVoP7XTfL7vLqHdJcUr, fired 09:51Z, destination verified against the body) rather than respawned, because it holds the A–D context; it was at 605k/1M and was told to hand back a fresh-session prompt rather than half-do it."
     }
   ],
   "as_of": "2026-09-08T06:45:00Z",

@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T09:42:57Z",
+  "updated_at": "2026-09-08T09:52:04Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3147,6 +3147,19 @@
         "claude/mi195-tp-decisions-and-examine"
       ],
       "note": "Operator answered DEC-20260907-TP-VALUE=apply, TP-VOCAB=accept_with_reader, TP-UNEXAMINED=rejected all options ('why don't we just examine them?'). Blocker is a missing candle substrate for QLD/TQQQ, not a property of the legs.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01U2ibSa4FNcuV6bSLaPb9GS",
+      "title": "MI-196: consolidate DUE.md's four source classes into the constraint readout",
+      "owns_object": "WO-20260901-PHASE-D",
+      "checklist_item": "MI-196",
+      "spawned_at": "2026-09-08T09:52:04Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/mi196-due-readout-consolidation"
+      ],
+      "note": "Operator decision 2026-09-08: carry the four missing source classes into the readout, THEN retire DUE.md - two changes, never one. Does NOT fix the readout 7.2% edge coverage and must not be reported as doing so.",
       "state": "working"
     }
   ],
