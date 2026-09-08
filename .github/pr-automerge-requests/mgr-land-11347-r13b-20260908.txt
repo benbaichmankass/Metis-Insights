@@ -1,0 +1,1 @@
+Arm PR #11450 — MI-168's record correction, cherry-picked onto current main and superseding #11347/#11355. Slot claimed on this branch's own committed session-board.json. Guards: manager-scope clean (R2/R8 ok), backlog-refs OK, pr-landing R12 cleared.
