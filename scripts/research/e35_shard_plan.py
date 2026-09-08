@@ -212,11 +212,20 @@ def resolve_feed_source(symbol: str, interval: str) -> str:
     ⚠️ IT REFUSES INSTEAD OF FALLING BACK. A leg quietly re-routed to a feed
     serving a DIFFERENT instrument is a wrong backtest that looks fine — the
     hazard `fetch_backtest_candles` already states for why `yfinance` is not in
-    its `auto` chain. Three symbols have no honest source (`QLD`/`TQQQ`: a daily
-    leverage reset means the path is not N x the underlying, so a QQQ series is
-    not a substitute; `MHG`: the only catalogue hit was a Norwegian salmon
-    farmer) and are refused BY NAME at plan time rather than scheduled and left
-    to burn a runner.
+    its `auto` chain.
+
+    ⚠️ **THIS PARAGRAPH SAID `QLD`/`TQQQ`/`MHG` "HAVE NO HONEST SOURCE" AND
+    THAT WAS TRUE OF DUKASCOPY, NOT OF THE LEGS — do not re-quote it.** All
+    three are servable and all three now route (MHG from 2026-08-26 via
+    `PROXY_DATA`; `QLD`/`TQQQ` from 2026-09-08 via the last rung below). What
+    remains correct, and is untouched, is the reason each was refused by
+    Dukascopy: a daily leverage reset means QLD/TQQQ's path is not N x the
+    underlying, so a QQQ series is not a substitute at any horizon; and
+    Dukascopy's only `MHG` catalogue hit was a Norwegian salmon farmer. Those
+    are arguments against a PROXY, and each leg is served under its own series
+    instead. A symbol no feed can serve is still refused BY NAME at plan time
+    rather than scheduled and left to burn a runner — `NVDA` is the live
+    example, unadjudicated by Dukascopy and absent from the yfinance map.
 
     Depth is MEASURED, not assumed: run 32788423940 probed all 11 mapped
     instruments and every one carries bars past the sweep's own 1830 d request.
@@ -254,9 +263,12 @@ def resolve_feed_source(symbol: str, interval: str) -> str:
     # `HG=F` is the honest series for `HG_F`. It was previously refused because
     # Dukascopy's only catalogue hit was a Norwegian salmon farmer; that
     # refusal was about Dukascopy, never about the leg being unservable.
-    # `QLD`/`TQQQ` are NOT in `PROXY_DATA`, so this rule does not touch them and
-    # they stay refused — correctly: a daily leverage reset means the path is
-    # not N x the underlying, so no proxy is honest.
+    # `QLD`/`TQQQ` are NOT in `PROXY_DATA`, so this rule does not touch them —
+    # correctly, because no PROXY for them is honest: a daily leverage reset
+    # means the path is not N x the underlying. ⚠️ THIS COMMENT ENDED "and they
+    # stay refused" UNTIL 2026-09-08 AND THAT CONCLUSION WAS A NON-SEQUITUR:
+    # needing no proxy is why they are absent here, not a reason to refuse
+    # them. They are served under their OWN tickers by the last rung below.
     if sym in fleet.PROXY_DATA:
         if str(interval) not in _YF_SERVABLE_INTERVALS:
             raise NoFeedSource(
