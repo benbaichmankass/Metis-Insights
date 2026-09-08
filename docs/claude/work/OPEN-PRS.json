@@ -64,42 +64,6 @@
       "blocker": "MERGE CONFLICT — the manager attempted the merge at 07:11Z and got 405. Conflicts are ONLY docs/claude/health-review-backlog.json and docs/claude/work/OPEN-PRS.json, both append-only registers. ⚠️ THE MANAGER DID NOT RESOLVE IT, DELIBERATELY: merging main into the branch puts main's src/ changes (#11279) into the merge commit's FIRST-PARENT diff, which is exactly what R2 grades and exactly the violation that cost a force-push earlier today (MI-184). MI-180 was poked at 07:12Z with the union rule."
     },
     {
-      "pr": 11344,
-      "opened_at": "2026-09-08T06:58:17Z",
-      "tier": 1,
-      "draft": false,
-      "state": "open_ci_running",
-      "title": "pr-landing R13: the arming route takes the merge slot",
-      "owner_session": "session_01LSfhSog9oxATpMUUPBfTN9",
-      "checklist_item": "MI-183b-PR-LANDING-R6-VS-MERGE-SLOT-FRESH-CONTAINER",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": "Tier-1 CI-guard + docs. No src/, no config/, no deploy/, no order path.",
-        "decided_on": "2026-09-08",
-        "text": "Tier-1 does not require an operator decision. The SPAWN was operator-approved (round 2, decision (h): spawn sessions for both the coordination-board cap and the R6/merge-slot conflict)."
-      },
-      "note": "⚠️ IT REFUTED ITS OWN WORK ORDER, WHICH IS THE FINDING. The dispatch said R6 and the merge-slot guard are mutually unsatisfiable; the session measured that they are NOT in conflict — the merge-slot hook matches only mcp__github__merge_pull_request/enable_pr_auto_merge, and the R6 arming route uses none of them (Bash/Write/push_files/create_or_update_file all return False against the shipping matcher). So the slot guard is not weakened by R6; it was never ON that road. That is a LARGER hole than BL-20260819-MERGE-SLOT-GUARD-DOES-NOT-FIRE, which is 'the guard does not load on the web' — this one holds in CLI and desktop too. ⚠️ AND IT NAMES MI-182 AS THE PROXIMATE CAUSE: the claim that would serialize the arming route is a comment on #6927, which is at the 2500-comment cap and 403s. So the board cap is not a parked side-nuisance. ⚠️ It CANNOT demonstrate its own done-condition: it edits check_pr_landing.py, which is LANDING_MACHINERY, so R12 forbids it self-landing. Needs a follow-on docs-only PR after this merges. Manager has NOT verified any of this — it is the session's report."
-    },
-    {
-      "pr": 11346,
-      "opened_at": "2026-09-08T06:58:56Z",
-      "tier": 1,
-      "draft": false,
-      "state": "open_automation_automerge",
-      "title": "chore(ops): queue the daily work digest (auto)",
-      "owner_session": null,
-      "checklist_item": null,
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": "Generated artifact only — queues one rolled-up summary onto pending-pings.jsonl. No src/, no config/, no order path.",
-        "decided_on": "2026-09-08",
-        "text": "Tier-1 automation output. No human decision is attached to it; it carries auto-merge and lands on green."
-      },
-      "note": "NOT A SESSION'S PR — opened by the work-digest workflow (branch automation/work-digest-34197048382-1) and carries auto-merge, so it needs no manager action. Recorded ONLY so the register is complete: an open PR with no row is the completeness half that open_pr_record.py --strict grades, and a successor reading a short list would conclude the queue was emptier than it is. ⚠️ DO NOT read its existence as clearing OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE: that row's clause (1) wants a work-digest run with event=push observed completing AND its receipt on main carrying trigger=\"push\" and that run's generated_at. A PR existing is not a receipt, and QUEUING is not DELIVERY."
-    },
-    {
       "pr": 11390,
       "title": "MI-199 (2/2): stop re-attempting a close we have PROVED cannot succeed",
       "owner_session": "session_011PHmZzVy92M6zjNopAMy51",
@@ -1813,10 +1777,54 @@
       "merged_at": "2026-09-08T07:13:00Z",
       "merge_sha": "e0c264981b09dad97f08ac735f9af2f216c6b414",
       "terminal_basis": "squash e0c26498, the merge call's own return"
+    },
+    {
+      "pr": 11344,
+      "opened_at": "2026-09-08T06:58:17Z",
+      "tier": 1,
+      "draft": false,
+      "state": "open_ci_running",
+      "title": "pr-landing R13: the arming route takes the merge slot",
+      "owner_session": "session_01LSfhSog9oxATpMUUPBfTN9",
+      "checklist_item": "MI-183b-PR-LANDING-R6-VS-MERGE-SLOT-FRESH-CONTAINER",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": "Tier-1 CI-guard + docs. No src/, no config/, no deploy/, no order path.",
+        "decided_on": "2026-09-08",
+        "text": "Tier-1 does not require an operator decision. The SPAWN was operator-approved (round 2, decision (h): spawn sessions for both the coordination-board cap and the R6/merge-slot conflict)."
+      },
+      "note": "⚠️ IT REFUTED ITS OWN WORK ORDER, WHICH IS THE FINDING. The dispatch said R6 and the merge-slot guard are mutually unsatisfiable; the session measured that they are NOT in conflict — the merge-slot hook matches only mcp__github__merge_pull_request/enable_pr_auto_merge, and the R6 arming route uses none of them (Bash/Write/push_files/create_or_update_file all return False against the shipping matcher). So the slot guard is not weakened by R6; it was never ON that road. That is a LARGER hole than BL-20260819-MERGE-SLOT-GUARD-DOES-NOT-FIRE, which is 'the guard does not load on the web' — this one holds in CLI and desktop too. ⚠️ AND IT NAMES MI-182 AS THE PROXIMATE CAUSE: the claim that would serialize the arming route is a comment on #6927, which is at the 2500-comment cap and 403s. So the board cap is not a parked side-nuisance. ⚠️ It CANNOT demonstrate its own done-condition: it edits check_pr_landing.py, which is LANDING_MACHINERY, so R12 forbids it self-landing. Needs a follow-on docs-only PR after this merges. Manager has NOT verified any of this — it is the session's report.",
+      "terminal": "merged",
+      "merge_sha": "a0ec22ce177c307a2e3f80f6ef72c51c777300be",
+      "observed_at": "2026-09-08T14:10:05Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 11346,
+      "opened_at": "2026-09-08T06:58:56Z",
+      "tier": 1,
+      "draft": false,
+      "state": "open_automation_automerge",
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": "Generated artifact only — queues one rolled-up summary onto pending-pings.jsonl. No src/, no config/, no order path.",
+        "decided_on": "2026-09-08",
+        "text": "Tier-1 automation output. No human decision is attached to it; it carries auto-merge and lands on green."
+      },
+      "note": "NOT A SESSION'S PR — opened by the work-digest workflow (branch automation/work-digest-34197048382-1) and carries auto-merge, so it needs no manager action. Recorded ONLY so the register is complete: an open PR with no row is the completeness half that open_pr_record.py --strict grades, and a successor reading a short list would conclude the queue was emptier than it is. ⚠️ DO NOT read its existence as clearing OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE: that row's clause (1) wants a work-digest run with event=push observed completing AND its receipt on main carrying trigger=\"push\" and that run's generated_at. A PR existing is not a receipt, and QUEUING is not DELIVERY.",
+      "terminal": "merged",
+      "merge_sha": "df31fa6d44636ee6edc097bb02e5846dc38b4dca",
+      "observed_at": "2026-09-08T14:10:05Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-08T05:02:08Z",
-  "last_reconciled_sha": "fcc77cd217561a0a6c0d545460961d6b778efbbd",
+  "last_reconciled_at": "2026-09-08T14:10:05Z",
+  "last_reconciled_sha": "bdccf22639a0ea04f10343e4a422436b470041d6",
   "updated_at": "2026-09-08T07:16:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
