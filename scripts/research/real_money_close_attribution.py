@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# wiring: manual-only - this is an ANALYST'S instrument, run by a session that is
+# asking "did the strategy's exit fire, and over what population?". Giving it a
+# scheduled runner would produce a recurring artifact nobody asked a question of,
+# which is the written-and-never-read defect this repo already tracks in several
+# places. It reads only public Tier-1 GET routes, writes nothing, and mutates no
+# state, so there is no post-state for a cron to keep fresh.
 """Attribute every REAL-MONEY closed trade to the mechanism that ACTUALLY closed it.
 
 WHY THIS EXISTS
@@ -177,6 +183,22 @@ def fetch(base: str) -> tuple[list[dict], dict[str, dict]]:
             )
             # ⚠️ An unknown filter column is IGNORED, not an error — `total` would
             # then be the WHOLE table. Assert before trusting anything.
+            #
+            # collapsed-state: applied — every other state is REFUSED alike, and
+            # that is the point rather than a collapse. `not_requested`,
+            # `ignored_unknown_column` and `ignored_bad_op` differ in WHY the
+            # filter did not form a WHERE, but they are identical in what they
+            # license here: nothing. A read that is not account-scoped would join
+            # the whole `trades` table onto a real-money analysis, so this is a
+            # REFUSAL, never a fallback. The distinction is not thrown away — the
+            # raised message carries the verbatim state, so a caller sees which
+            # one occurred and can act on it; what is deliberately not offered is
+            # a code path that proceeds on any of them.
+            # collapsed-state: order_state — NOT CONSULTED, deliberately: this
+            # function sends no `order_by`, so ordering cannot have been dropped.
+            # Page order is irrelevant here because every page is accumulated and
+            # the join is by id, and id-uniqueness is asserted against the row
+            # count rather than assumed from an ordering.
             if d.get("filter_state") != "applied":
                 raise RuntimeError(f"filter_state={d.get('filter_state')!r} for {acct} — refusing to trust")
             for r in d["rows"]:
@@ -196,7 +218,9 @@ def analyse(wire: list[dict], raw: dict[str, dict], out=sys.stdout) -> dict:
         w["_bucket"], w["_mech"], w["_why"] = bucket_for(w["_raw"].get("exit_reason"))
         w["_excl"] = kpi_exclusions(w["_raw"])
 
-    p = lambda *a: print(*a, file=out)
+    def p(*a):
+        print(*a, file=out)
+
     kept = [w for w in wire if not w["_excl"]]
     dropped = [w for w in wire if w["_excl"]]
     assert len(kept) + len(dropped) == len(wire), "arithmetic cross-check FAILED"

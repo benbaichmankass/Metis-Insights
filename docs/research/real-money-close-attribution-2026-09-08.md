@@ -100,7 +100,7 @@ label names a quantity the code did not compute, and a reader who trusts the lab
 reaches a confident wrong conclusion. It is what produced the framing this task was
 dispatched with.
 
-### The two published surfaces disagree on 38.9% of rows
+### The two published surfaces disagree on 174 of 447 rows (38.9%)
 
 `src/web/api/routers/strategies.py::_normalise_exit_reason` and
 `src/web/api/routers/trades_closed.py::_normalise_close_reason` are **different
@@ -189,12 +189,12 @@ falsify "chance", and presenting it as proof of a broken system would be an
 unsupported claim in the operator's favour rather than an honest one.
 
 ⚠️ **These trades are not IID** — same legs, same three symbols, overlapping
-regime — so the real probability of a clustered run is *higher* than 71%, not
+regime — so the real clustered-run probability is *higher* than that 71% (n=424), not
 lower. The IID number is a **floor on how ordinary the run is**, not a p-value.
 
-**What that does not mean.** It does not mean the book is fine. A 31.2% win rate
-that loses money net, on an account with ~$202 of available margin, is a real
-problem. It means the *streak* is the wrong instrument to detect it with, and the
+**What that does not mean.** It does not mean the book is fine. A 31.2% win rate (117 of 375 decided rows, n=424 graded decision set, 49 flat excluded)
+that loses money net (−69.53 over that same n=424), on an account with ~$202 of
+available margin read 2026-09-08T12:29Z, is a real problem. It means the *streak* is the wrong instrument to detect it with, and the
 question "which leg is broken" needs a population none of these legs has.
 
 ---
@@ -227,7 +227,7 @@ by a strategy that cannot trade again.
 
 ⚠️ **This is a real answer, not a deferral.** Widening the window until something
 becomes gradeable is precisely the low-n hazard the floor exists to prevent
-(`OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-…`: 52/52 legs ungradeable at
+(`OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED`: 52/52 legs ungradeable at
 a 7-day window). Nine clean closes is not enough to convict a leg, and saying so is
 the finding.
 
@@ -242,14 +242,14 @@ recorded as untrustworthy at the row level**.
 * `comms/broker_truth_ledger.json` records `bybit_2` wallet truth as
   **−262.52** over 2026-04-15 → 2026-07-13, against a journal sum of ~−33 for the
   same window — an under-record of roughly **8×** (measured at **11.0×** by
-  `BL-20260830-BROKER-TRUTH-LEDGER-STALE-…` on its own population).
+  `BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED` on its own population).
 * **The ledger is `as_of: 2026-07-13` — 57 days stale.** Every close in the streak,
   and every close since 2026-07-13, has **no wallet-truth counterpart at all.**
 
 So there is **no authoritative real-money PnL for the window containing the
 losing streak.** The −69.53 in this document is a journal figure on an account
 whose journal figures are known to under-record. It is the best number available
-and it is not broker truth. `BL-20260830-BROKER-TRUTH-LEDGER-STALE-…` is updated
+and it is not broker truth. `BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED` is updated
 with the current split rather than duplicated.
 
 ---
@@ -267,7 +267,7 @@ with a resting reduce-only SL at 2451.59 (trailed up; `updated_time` ≠
 `Untriggered`, qty matching position exactly. Recorded because the silence *looks*
 like an outage and the next session should not re-derive it.
 
-**`OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-…` clause (3) — CORROBORATED, not
+**`OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP` clause (3) — CORROBORATED, not
 newly found.** MI-192b (`/system-review`, 2026-09-08 10:29Z) already established
 this and went further than I did, so this is a second independent read and **not a
 new observation**; that row needs no further re-affirmation from me. My pull agrees
