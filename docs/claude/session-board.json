@@ -6,10 +6,10 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-spawn-harness-2208-20260908",
+  "branch": "claude/mgr-redispatch-205b-2218-20260908",
   "pr": "(opened by hand; arming file lands second)",
-  "claimed_at": "2026-09-08T22:12:05Z",
-  "note": "Heartbeat 22:12:05Z plus the MI-205 spawn (the N-book ranking harness), registered THROUGH session_registry.py. Also records a correction the operator re-sequenced on: the 56 uncovered TLT shares are on a PAPER account, not real money. Register and work-object writes only, no worker path."
+  "claimed_at": "2026-09-08T22:18:18Z",
+  "note": "I spawned MI-205 into the WRONG REPOSITORY (the-lizardking/ict-trading-bot, source_url omitted). Interrupted it, re-dispatched as MI-205b with the source pinned, and routed the prevention fix as MI-207 rather than filing a fifth backlog row on a class already filed three times. Register writes only, no worker path."
  },
  "active_sessions": [
   {
