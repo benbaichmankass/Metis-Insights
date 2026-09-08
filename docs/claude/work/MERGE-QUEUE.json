@@ -53,54 +53,49 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T21:58:00Z",
+  "updated_at": "2026-09-08T04:16:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Refreshed 2026-09-07T21:58Z after the drain. Open PRs 13 -> 8. LANDED: #11274 (MI-167's diagnosis), #11278 (MI-169's HALT), #11283 (the consolidation), #11264 (MI-164, operator-approved Proposal A). CLOSED as superseded with a comment each, never merged as duplicates: #11260, #11273, #11277, #11280. NOT TRIAGED, named so they are not lost: #11174 and #10895, both open since before today. Exactly one entry is `rebasing` (R8).",
+  "note": "Refreshed 2026-09-08T01:35Z. The four entries this replaces (#11285, #11286, #11271, #11281) were ALL SETTLED and one of them (#11285) still read `rebasing` -- a phantom that occupies R8's single-rebasing slot while naming a merged PR, so a queue left unrefreshed does not merely go stale, it BLOCKS. Verified against the live open-PR list, not against this file's own history.",
   "entries": [
     {
-      "pr": 11285,
-      "branch": "claude/mgr-mi171-carry-20260907",
-      "session_id": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "position": 1,
-      "state": "rebasing",
-      "blocked_on": null,
-      "note": "Carries the MI-171 work object + confirmed registry row that #11283's auto-merge left behind. MI-171 is RUNNING against a work object that is not yet on main, so this is not cosmetic."
-    },
-    {
-      "pr": 11286,
-      "branch": "automation/reconcile-open-prs-34164810880-1",
-      "session_id": "automation",
-      "position": 2,
-      "state": "waiting",
-      "blocked_on": "predecessor",
-      "note": "Auto-reconcile of OPEN-PRS.json after the merges. Worth noting it FIRED: #11174 is the record of the deadlock where this reconcile did not happen."
-    },
-    {
-      "pr": 11271,
-      "branch": "mi140-alpaca-live-refusal-verdict",
-      "session_id": "session_01L4nzHTVNNdCxkpFxMqXB6V",
-      "position": 3,
-      "state": "blocked",
-      "blocked_on": "MI-171 (session_019G7vh8rkRZryXJGhbhfov7)",
-      "note": "Red on exactly ONE guard, stated-population, firing on '| risk_pct | 2% |' -- a configured parameter, not a statistic. The manager tried the one-line annotation and manager-scope R2 refused it TWICE; docs/research is a worker surface. Reset to fd9f548f so it carries zero manager commits (R2 grades COMMITS IN RANGE, so the REVERT was a second violation, not a repair). MI-171 owns the fix."
+      "pr": 11306,
+      "state": "merged",
+      "title": "backlog: answer the two open questions on the board-ceiling row (MI-83 addendum)",
+      "owner": "session_018ruZdgEkPZ1XceWzLwuYUU",
+      "tier": 1,
+      "note": "SETTLED. Verified 2026-09-08T04:02Z via pull_request_read `get`: state=closed, merged=true, merged_at 01:39:01Z, merged_by benbaichmankass. ⚠️ IT SAT AT `rebasing` FOR 2h20m AFTER IT MERGED, holding the single R8 slot against every later entry — the queue's own updated_at was 01:35:00Z, i.e. four minutes BEFORE the merge it never recorded. A phantom `rebasing` entry is worse than an absent one: R8 permits at most one, so a stale slot silently refuses the next legitimate promotion, and nothing decays it.",
+      "merged_at": "2026-09-08T01:39:01Z",
+      "merge_sha": "8dd65651eadf57195b396e957179859645d17c65"
     },
     {
       "pr": 11279,
-      "branch": "mi-168-trade-scoped-close-confirmation",
-      "session_id": "session_01BpU7rfqWKir4rQrowT4ZQd",
-      "position": 4,
-      "state": "blocked",
-      "blocked_on": "operator_decision",
-      "note": "Two decisions owed: approve/reject the symbol->trade re-scope, and name the IB_CLOSE_CONFIRM partial-fill default. Its backlog row was landed to main separately (see MI-170) so a REAL-MONEY finding does not wait on those decisions."
+      "state": "green",
+      "title": "MI-168: TRADE-scoped close confirmation (Tier-3 proposal, HELD)",
+      "owner": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "tier": 3,
+      "note": "UNBLOCKED 2026-09-08T04:16Z — the operator answered. The typed verdict, its condition and its scope are recorded on this PR's row in OPEN-PRS.json; read them there before merging, because every one is approved_with_conditions and the condition is the part a successor loses first."
     },
     {
-      "pr": 11281,
-      "branch": "automation/error-feed-digest-34160653535-1",
-      "session_id": "automation",
-      "position": 5,
-      "state": "waiting",
-      "blocked_on": "predecessor",
-      "note": "Auto digest; supersedes #11261 in content."
+      "pr": 11318,
+      "state": "rebasing",
+      "title": "MI-177: fleet-wide journal-open vs venue audit — 8/11 accounts read, 24/25 exact, 1 known divergence",
+      "owner": "session_01EPvAGZDFZCYF3QJk12u3mk",
+      "tier": 1,
+      "note": "PROMOTED 2026-09-08T04:02Z into the slot #11306 was holding as a phantom. Tier-1 measure-only docs + two backlog rows; landing declaration reads self/tier 1 and the automerge request is armed, so GitHub merges it on green with no manager click. Checks ARMED at 03:58Z by the session itself after the pr-opener trap left it at total_count 0. Sole entry in `rebasing` (R8: at most one)."
+    },
+    {
+      "pr": 11315,
+      "state": "green",
+      "title": "Alpaca: grade protective coverage as a QUANTITY, not just sides (detection only)",
+      "tier": 2,
+      "note": "UNBLOCKED 2026-09-08T04:16Z — the operator answered. The typed verdict, its condition and its scope are recorded on this PR's row in OPEN-PRS.json; read them there before merging, because every one is approved_with_conditions and the condition is the part a successor loses first."
+    },
+    {
+      "pr": 11312,
+      "state": "green",
+      "title": "MI-173: the Alpaca sibling-liquidation MECHANISM (measurement + Tier-3 proposal)",
+      "tier": 2,
+      "note": "UNBLOCKED 2026-09-08T04:16Z — the operator answered. The typed verdict, its condition and its scope are recorded on this PR's row in OPEN-PRS.json; read them there before merging, because every one is approved_with_conditions and the condition is the part a successor loses first."
     }
   ]
 }

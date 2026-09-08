@@ -1218,6 +1218,177 @@ class AlpacaClient:
             "target_prices": sorted(target_prices),
         }
 
+    #: Protective leg types, STOP FAMILY FIRST. A stop-limit's type string
+    #: contains ``"limit"``, so a limit-first test files every stop-limit as a
+    #: take-profit and MANUFACTURES target coverage that does not exist — the
+    #: same ordering rule ``IBClient._protective_leg_side`` and
+    #: :meth:`protection_state` follow, for the same reason.
+    @staticmethod
+    def _leg_protective_side(order_type: str) -> str:
+        """``"stop"`` / ``"target"`` / ``""`` (not protective / ungradeable)."""
+        otype = str(order_type or "").lower()
+        if not otype:
+            return ""
+        if "stop" in otype or "trail" in otype:   # incl. "stop_limit"
+            return "stop"
+        if "limit" in otype:
+            return "target"
+        return ""
+
+    @staticmethod
+    def _reducing_side_for(position_side: str) -> str:
+        """The order side that REDUCES a position held on *position_side*.
+
+        ``""`` when the position side cannot be read — the caller must then
+        grade coverage UNGRADEABLE rather than guess, because without it an
+        opening order on the same side is indistinguishable from protection.
+        """
+        side = str(position_side or "").lower()
+        if side in ("buy", "long"):
+            return "sell"
+        if side in ("sell", "short"):
+            return "buy"
+        return ""
+
+    def protection_coverage(
+        self, symbol: str, *, position: Optional[dict] = None
+    ) -> Optional[Dict[str, Any]]:
+        """How MUCH of *symbol*'s Alpaca position is covered, graded per SIDE.
+
+        Returns ``None`` on a read failure (creds missing / network / non-2xx)
+        so the caller SKIPS — never grade on an unconfirmed read — else::
+
+            {"size", "side", "stop_qty", "target_qty", "legs",
+             "unknown_qty_legs", "source"}
+
+        **Why this measures QUANTITY, not a boolean.**
+        :meth:`protection_state` answers *which SIDES rest* and returns a leg
+        COUNT; it cannot answer *how much of the position they cover*. Alpaca
+        nets per symbol per account, so N journal trades on one symbol share
+        ONE broker position whose qty is their SUM, while each trade's bracket
+        is sized to its OWN qty. One surviving bracket therefore made the whole
+        netted position read protected, and a position covered for a fraction
+        of its size was indistinguishable from one covered in full.
+
+        This is the Alpaca half of BL-20260816-COVERAGE-IS-ONE-SIDED. That row
+        was fixed here for SIDES only (stop vs target, 2026-08-16) and the
+        QUANTITY half was never ported: ``_check_broker_naked_equity_positions``
+        passed ``stop_qty=None`` to its page under the comment *"Alpaca grades
+        sides, not qty"*. Bybit got quantity in PR #8000
+        (``order_monitor._bybit_position_protection``'s ``covered_qty``) and IB
+        in BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY
+        (``IBClient.protection_coverage``); this is the third venue, using the
+        SAME vocabulary rather than a fourth.
+
+        MEASURED 2026-09-08T02:17:10Z on ``alpaca_portfolio``/TLT: a 72-share
+        short carrying resting protection for **16** shares — journal trades
+        5266 (16, opened 08-31) and 5414 (56, opened 09-03) share the one
+        netted position and only 5266's bracket rests. Fifty-six shares were
+        unprotected and every existing accessor reported the book covered.
+
+        ⚠️ **A leg is counted only if it REDUCES the graded position.** Alpaca
+        has no hedge mode, so the reducing side is a function of the position
+        side (:meth:`_reducing_side_for`); without that filter a resting
+        same-side ENTRY order counts as protection. :meth:`protection_state` is
+        deliberately NOT changed to match — it is what the re-arm decision
+        consumes, and re-pointing that is an order-path change.
+
+        ⚠️ **An ungradeable leg makes coverage UNGRADEABLE, never zero and
+        never full.** A leg whose qty or type cannot be parsed is counted in
+        ``unknown_qty_legs`` and the caller must treat the grade as *we did not
+        look* — mirroring the IB and Bybit refusals to guess. Reporting it as
+        zero would page a false naked; as full, it would hide a real one.
+
+        ``position`` may be injected from an account-wide :meth:`positions`
+        snapshot so a caller grading many symbols pays ONE positions read
+        rather than one per symbol; omitted, this reads
+        ``/v2/positions/{symbol}`` itself.
+        """
+        sym = str(symbol).upper()
+
+        # (1) The DENOMINATOR: the netted broker position.
+        if position is None:
+            try:
+                self._require_creds("protection_coverage")
+            except MissingCredentialsError as exc:
+                logger.warning("%s", exc)
+                return None
+            env = self._request("GET", f"/v2/positions/{sym}")
+            rc = env.get("retCode")
+            if rc == 404:
+                # A POSITIVE flat, not a read failure — mirrors
+                # `position_present`, which exists precisely so a 404 is not
+                # collapsed into "could not look".
+                return {
+                    "size": 0.0, "side": "", "stop_qty": 0.0, "target_qty": 0.0,
+                    "legs": 0, "unknown_qty_legs": 0, "source": "flat",
+                }
+            if rc != 0 or not isinstance(env.get("result"), dict):
+                return None
+            position = env["result"]
+
+        try:
+            size = abs(float(position.get("qty") or 0))
+        except (TypeError, ValueError):
+            return None
+        raw_side = position.get("side")
+        pos_side = "buy" if str(raw_side or "").lower() in ("long", "buy") else (
+            "sell" if str(raw_side or "").lower() in ("short", "sell") else ""
+        )
+        if size <= 0:
+            return {
+                "size": 0.0, "side": pos_side, "stop_qty": 0.0,
+                "target_qty": 0.0, "legs": 0, "unknown_qty_legs": 0,
+                "source": "flat",
+            }
+
+        # (2) The NUMERATOR: resting protective legs, summed BY QTY.
+        legs = self._open_orders_for_symbol(sym)
+        if legs is None:
+            return None
+        reducing = self._reducing_side_for(pos_side)
+        stop_qty = 0.0
+        target_qty = 0.0
+        unknown = 0
+        for o in legs:
+            kind = self._leg_protective_side(
+                o.get("type") or o.get("order_type")
+            )
+            if not kind:
+                continue  # not a protective leg — an entry/other order
+            if not reducing:
+                # We could not read the POSITION side, so we cannot tell a
+                # protective leg from an opening one. Ungradeable, not zero.
+                unknown += 1
+                continue
+            if str(o.get("side") or "").lower() != reducing:
+                continue  # same-side order: does not reduce this position
+            try:
+                q = float(o.get("qty"))
+            except (TypeError, ValueError):
+                unknown += 1
+                continue
+            # ⚠️ NOT `abs()`. Alpaca reports a leg qty as a positive magnitude,
+            # so a non-positive or NaN value is anomalous — and abs()-ing it
+            # would LAUNDER a negative into real coverage, manufacturing
+            # protection that does not rest. Ungradeable, never banked.
+            if not (q > 0):  # False for 0, negatives and NaN alike
+                unknown += 1
+                continue
+            if kind == "stop":
+                stop_qty += q
+            else:
+                target_qty += q
+        return {
+            "size": size,
+            "side": pos_side,
+            "stop_qty": stop_qty,
+            "target_qty": target_qty,
+            "legs": len(legs),
+            "unknown_qty_legs": unknown,
+            "source": "orders",
+        }
+
     @staticmethod
     def _leg_price(order: dict, side: str):
         """The price a resting Alpaca protective leg actually rests AT.

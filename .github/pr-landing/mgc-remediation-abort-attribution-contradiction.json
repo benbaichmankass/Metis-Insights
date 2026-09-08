@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 by subject: this concerns cancelling live resting protective legs on ib_paper MGC, which is the live order path. The PR itself enacts NOTHING at any venue — it is measure-only evidence plus a blocked_on edge — but its content is a Tier-3 proposal that reverses the remediation direction the standing approval assumes, so it wants an operator read rather than a self-land. The approval being sought is from the operator, on two points: (1) that the MGC remediation stays ABORTED until attribution is settled from execution records, and (2) that order 548 is live and not stale, contrary to the 2026-09-08 approval's premise.",
+  "why": "docs/ evidence + one work-object blocked_on edge + DOCUMENT-INDEX registration. No src/, no config/, no deploy/, no order path code touched. No order was sent, cancelled or modified."
+}

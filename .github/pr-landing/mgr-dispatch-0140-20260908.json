@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager dispatch record only: three work objects under docs/claude/work/objects/ and two confirmed registry rows in docs/claude/work/SESSIONS.json. Registering a spawn and capturing a work object are management acts, not items. No src/, tests/, scripts/, workflows, config, or deploy paths, and nothing in CLAUDE.md."
+}

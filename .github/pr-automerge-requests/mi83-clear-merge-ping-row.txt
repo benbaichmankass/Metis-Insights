@@ -1,0 +1,14 @@
+MI-83 · Tier-1 register clear.
+
+OI-20260902-PER-MERGE-PING-SHIPPED-AND-NO-MERGE-HAS-BEEN-SEEN-PINGING met
+its own clears_when route (b), observed on the live VM at
+2026-09-08T01:32:43Z:
+
+  merge-ping: 2 merge(s) in 5c1c50ae..2cc39223 -> #10895, #11307
+
+Recorded as the WEAKER route, as that criterion requires: it proves the
+ping was ENQUEUED, not that the operator RECEIVED it.
+
+Row removed (21 deletions, 0 insertions, no reformat — this file does not
+round-trip, so the edit was a brace-depth splice verified by asserting
+every other row is byte-identical). Session brief regenerated.

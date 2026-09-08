@@ -1,0 +1,30 @@
+id: WO-20260908-AN-ALPACA-CLOSE-OF-ONE-TRADE-CAN
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  An alpaca close of ONE trade can liquidate its SIBLINGS, and the precondition is live on TLT right now
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The mechanism by which an alpaca close of one journal row reduces a sibling's quantity is established FROM CODE AND VENUE BEHAVIOUR, not inferred from the Bybit netting analogy — the two venues are different and assuming the analogy is exactly the error to avoid. State whether alpaca_portfolio/TLT's 16+56-vs-72 shape is the same condition MI-170 names or a different one that merely looks like it. Produce a Tier-3 PROPOSAL if a remedy is warranted; ENACT NOTHING.
+
+why: >-
+  MI-171 measured the population and the two answers must not be collapsed. EXPOSURE: 1 of 12 multi-row account/symbol pairs is Alpaca (alpaca_portfolio/TLT), over 12 pairs among 600 position-holding rows in journal ids 4544-5543. EVENTS: ZERO over-close events found — 'we looked and found none', readable ONLY because the identical scan returns 187 on Bybit as a positive control. But the PRECONDITION is live: alpaca_portfolio/TLT holds rows 5266 (short 16) and 5414 (short 56) against a venue short of exactly 72, re-verified 2026-09-07T23:25:21Z with error null. PAPER money. The MECHANISM is unestablished and #11279's Tier-3 remedy is blocked on two operator decisions.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
