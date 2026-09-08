@@ -6,10 +6,10 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "automation/work-digest-34264355983-1",
-  "pr": 11436,
-  "claimed_at": "2026-09-08T19:23:00Z",
-  "note": "MANAGER CLAIM ON A BOT BRANCH, PR #11436 -- the automation half of the merge queue, which the manager runs. This branch arms auto-merge and could not hold the slot, because a bot writes no claim; that is why its guards read PASS 53 / FAIL 1 with pr-landing R13 the single failure, and why re-running CI would have changed nothing. Measured across all nine open automation PRs: every one arms, not one holds the slot. Taken CLEANLY -- the previous claim (#11441, mine) is SPENT, merged as ff06ee7c. WHY THIS ONE AND WHY NOW: main's WORK-DIGEST is 17:14:29Z and check_digest_liveness fails at 6h, so the clock goes stale at 23:14Z and red-lines EVERY PR in the repo (BL-20260908-A-BACKED-UP-MERGE-QUEUE-RED-LINES-EVERY-PR-VIA-DIGEST-LIVENESS-WHICH-MAKES-THE-QUEUE-HARDER-TO-CLEAR), and every merge to main spawns another digest PR that cannot land, so it is not self-refreshing. This branch carries the FRESHEST receipt (18:42:52Z) and #11431's older 18:11:59Z one must NOT be merged after it -- that would move the clock BACKWARDS, a trap this repo has paid for seven times today."
+  "branch": "claude/mgr-heartbeat-1930-20260908",
+  "pr": 11443,
+  "claimed_at": "2026-09-08T19:32:00Z",
+  "note": "Manager heartbeat 19:26:00Z, Tier-1, PR #11443 -- arming, so pr-landing R13 requires the slot here. Four register writes under docs/claude/work/**, no worker path; check_manager_scope clean, R6/R7/R8 ok. Taken CLEANLY: the previous claim (#11436, which I made on that bot's behalf) is SPENT -- merged as 1b3b1d9b. Displaces nobody. PR opened by hand FIRST, armed second."
  },
  "active_sessions": [
   {
