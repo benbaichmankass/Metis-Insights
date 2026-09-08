@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager pass. ONE file: docs/claude/work/MERGE-QUEUE.json, correcting a FALSE BLOCKER I wrote into it an hour earlier — nine automation rows recorded as blocked on my queue-hold when they are in fact red on pr-landing-guard R13. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/; no order path, no strategy config, no risk caps. check_manager_scope --base origin/main reads clean with R6/R7/R8 ok. Recording a corrected merge-queue state is running the queue, which check_manager_scope names as management rather than an item."
+}
