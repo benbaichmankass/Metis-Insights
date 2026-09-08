@@ -71,11 +71,20 @@ verdict: >-
   Both are recurrences of BL-20260825-THE-TRAILING-AMEND-NEVER-PASSES-OCA-KEY-SO-IT-STILL-CANCELS-SYMBOL-WIDE on a venue where the scoping parameter does not exist to be passed.
 
   WHY THE POSITION HAS STAYED NAKED, so nobody re-derives it: the Alpaca naked sweep
-  (`order_monitor._check_broker_naked_equity_positions`) grades stop coverage as a
-  SYMBOL-WIDE BOOLEAN — `if state.get("stop"): continue` — so 5266's resting leg makes the
-  whole TLT symbol read "stop armed" and trade 5414 is skipped on every pass. It will never
-  self-heal. That is the subject of WO-20260908-ALPACA-PROTECTIVE-COVERAGE-IS-GRADED-BY-SIDE
-  and is deliberately NOT duplicated here.
+  (`order_monitor._check_broker_naked_equity_positions`) gates its re-arm on a SYMBOL-WIDE
+  BOOLEAN — `if state.get("stop"): continue` — so 5266's resting leg makes the whole TLT
+  symbol read "stop armed" and trade 5414 is skipped on every pass. It will not self-heal.
+
+  ⚠️ CORRECTED 2026-09-08, MID-SESSION, AFTER #11315 LANDED — the DETECTION half of the
+  sentence above was true at ed37f5ba and is now stale, in the direction that matters. #11315
+  (MI-176) ships `AlpacaClient.protection_coverage`, a `partially_naked` counter and an
+  `alpaca_partial_stop_coverage` page, so the 56 naked shares are NO LONGER INVISIBLE. What is
+  unchanged is the REPAIR, which is this object's subject: that change's own comment at
+  order_monitor.py:7868 reads "NOTHING IS RE-ARMED OFF THIS GRADE ... The re-arm below still
+  reads `protection_state`, byte-identically", and re-verified against the post-#11315 tree,
+  `AlpacaClient.place_protective` still calls `_cancel_open_orders_for_symbol(sym)`
+  unconditionally with no `oca_key`. So the deferral verdict is UNAFFECTED and better
+  evidenced: the condition is now seen by two mechanisms and repairable by none.
 
   WHAT WAS NOT ESTABLISHED, rather than filled in. We did NOT read the audit trail to
   confirm which amend wrote 82.33 at 2026-09-04T17:35:55Z — the price and timestamps make
