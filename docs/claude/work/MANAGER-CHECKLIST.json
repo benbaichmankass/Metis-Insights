@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T02:30:00Z",
+  "updated_at": "2026-09-08T02:48:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2218,14 +2218,18 @@
     },
     {
       "id": "MI-176-ALPACA-COVERAGE-QUANTITY",
-      "status": "in_flight",
+      "status": "blocked",
       "owner": "session_018iDJZVj11ugKyUwsHF7X3q",
       "opened": "2026-09-08T02:16:00Z",
-      "updated": "2026-09-08T02:16:00Z",
-      "blocked_on": null,
+      "updated": "2026-09-08T02:48:00Z",
+      "blocked_on": {
+        "kind": "decision",
+        "ref": "operator: (1) should the quantity grade BIND the Alpaca re-arm path (the Alpaca analogue of BYBIT_GRADED_COVERAGE_MODE, staged per account, empty allowlist = NONE)? (2) disposition the standing 56 naked shares on trade 5414. #11315 is Tier-2 landing:hold and needs an OK to merge.",
+        "since": "2026-09-08T02:48:00Z"
+      },
       "tier": "1 to measure; the DETECTION ship is Tier-2",
       "title": "Is REAL-MONEY alpaca_live carrying the same unmeasurable protective-coverage gap MI-173 found on paper?",
-      "note": "DIRECTLY DOWNSTREAM OF MI-173's STRONGEST FINDING. Measured on alpaca_portfolio/TLT at 2026-09-08T01:42:07Z with read_state 'orders_read' — a CONFIRMED CLEAN READ, so the absence is measured and not a failed look: of a 72-share short, only 16 shares carry any protective leg and FIFTY-SIX REST NAKED. It is invisible BY CONSTRUCTION — the Alpaca sweep grades SIDES, not quantity, and the code says so in a comment ('stop_qty=None,  # Alpaca grades sides, not qty'). Bybit grades covered_qty, IB grades stop_qty/target_qty; ALPACA GOT THE TWO-SIDED HALF OF BL-20260816-COVERAGE-IS-ONE-SIDED AND NEVER GOT THE QUANTITY HALF. ⚠️ MI-173 explicitly did NOT read alpaca_live, which is mode: live / real_money and shares this exact client code — so whether real money carries the same exposure is UNKNOWN AND NOBODY HAS LOOKED. That is this session's question. Scoped MEASUREMENT FIRST then DETECTION ONLY: no close, no cancel, no re-arm, and explicitly NO re-arm wired off the new grade (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG)."
+      "note": "DIRECTLY DOWNSTREAM OF MI-173's STRONGEST FINDING. Measured on alpaca_portfolio/TLT at 2026-09-08T01:42:07Z with read_state 'orders_read' — a CONFIRMED CLEAN READ, so the absence is measured and not a failed look: of a 72-share short, only 16 shares carry any protective leg and FIFTY-SIX REST NAKED. It is invisible BY CONSTRUCTION — the Alpaca sweep grades SIDES, not quantity, and the code says so in a comment ('stop_qty=None,  # Alpaca grades sides, not qty'). Bybit grades covered_qty, IB grades stop_qty/target_qty; ALPACA GOT THE TWO-SIDED HALF OF BL-20260816-COVERAGE-IS-ONE-SIDED AND NEVER GOT THE QUANTITY HALF. ⚠️ MI-173 explicitly did NOT read alpaca_live, which is mode: live / real_money and shares this exact client code — so whether real money carries the same exposure is UNKNOWN AND NOBODY HAS LOOKED. That is this session's question. Scoped MEASUREMENT FIRST then DETECTION ONLY: no close, no cancel, no re-arm, and explicitly NO re-arm wired off the new grade (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG). || ANSWERED 2026-09-08T02:36Z, PR #11315. ⚠️ REAL MONEY WAS NOT EXPOSED — AND THE REASON MATTERS: alpaca_live was FLAT (0 positions, 0 orders), not covered. Those are different facts and the session kept them apart. Measured 02:17:10Z across all FOUR declared Alpaca accounts (four, not three — alpaca_options_paper is the fourth), every one reading cleanly on BOTH sub-reads, so each absence is MEASURED and not a failed look. Journal agrees: 13 open Alpaca rows, alpaca_live zero. ⚠️ alpaca_live runs the same client code and trades TLT — the very symbol carrying the finding — so it inherits the defect the moment it opens a position. It must NOT be reported as protected. THE PAPER FINDING IS SHARPER THAN MI-173's: alpaca_portfolio/TLT is a 72-share short with a stop resting for 16. The journal attributes it exactly — trade 5266 (16 shares) holds the only bracket, and TRADE 5414 (56 SHARES) IS ENTIRELY NAKED WHILE DECLARING stop_loss 82.32875. Positive control: the same probe graded the other 14 open positions at exactly 1.00, so the single finding is the probe discriminating, not the probe being blind. ⚠️ THE ROOT CAUSE IS A CLASS FINDING AND IS THE MOST REUSABLE PART: BL-20260816-COVERAGE-IS-ONE-SIDED is filed RESOLVED. The SIDES half did land everywhere; the QUANTITY half landed on IB (protection_coverage) and Bybit (covered_qty) and NEVER on Alpaca, which kept a boolean under the literal comment '# Alpaca grades sides, not qty'. A row marked resolved on its easier half hid a real gap for 23 days — that is how a resolved row becomes a place a defect can sit. #11315 is DETECTION ONLY: nothing is re-armed off the new grade, because BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG is what automatic remediation of this class did last time. It is Tier-2 (one extra memoized account-wide read per sweep, and a new CRITICAL page that WILL fire on merge for the standing TLT condition — that is the finding, not a regression)."
     }
   ],
   "as_of": "2026-09-06T16:05Z",
