@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research unit, Tier-1: one new doc under docs/research/ and two appended rows in docs/claude/research-review-backlog.json (via scripts/ops/backlog_append.py, format round-tripped), plus this branch's own landing files and merge_slot claim. Read-only against the live system: config/strategies.yaml, src/, and the harnesses were READ; nothing under config/, src/, scripts/ or .github/workflows/ is modified. No strategy param, no risk cap, no matrix cell status, no TP_VENUE_CAP_PCT change, no exit-head arming — every Tier-3 lever is untouched and every finding is a proposal."
+}
