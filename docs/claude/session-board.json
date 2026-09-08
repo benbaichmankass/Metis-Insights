@@ -6,10 +6,10 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "automation/data-commit-34253472473-1",
-  "pr": 11425,
-  "claimed_at": "2026-09-08T19:36:00Z",
-  "note": "MANAGER CLAIM ON A BOT BRANCH, PR #11425 -- the automation half of the merge queue, which the manager runs. Same fix as #11436, which proved it: this branch arms auto-merge and cannot hold the slot because a bot writes no claim, so pr-landing R13 is its ONLY failure and a CI re-run changes nothing. Taken CLEANLY -- the previous claim (#11443, mine) is SPENT, merged as e217e8a9. ⚠️ NOT URGENT, AND THAT IS RECORDED RATHER THAN DRESSED UP: I measured the clock before doing this and check_pr_queue_watch already grades FRESH -- 14.3h into a 30h window, NOT the 6h window I had assumed by generalising from the digest. This is queue drainage, not a save. Its receipt does move the clock FORWARD (16:50:32Z against main's 05:13:21Z, verified to survive the merge rather than assumed), which is the only bar a receipt PR has to clear."
+  "branch": "automation/data-commit-34252873297-1",
+  "pr": 11423,
+  "claimed_at": "2026-09-08T19:38:00Z",
+  "note": "MANAGER CLAIM ON A BOT BRANCH, PR #11423 -- third application of the fix #11436 proved and #11425 confirmed. This branch arms auto-merge and cannot hold the slot because a bot writes no claim, so pr-landing R13 is its ONLY failure and a CI re-run changes nothing. Taken CLEANLY -- the previous claim (#11425, mine) is SPENT, merged as e6b14ea3. ⚠️ NOT URGENT: check_trainer_capture_watch already grades FRESH, 8.0h into a 15h window, measured before doing this. Queue drainage, not a save. Receipt moves the clock FORWARD -- 16:44:31Z against main's 11:29:36Z -- and that was VERIFIED to survive the merge rather than assumed."
  },
  "active_sessions": [
   {
