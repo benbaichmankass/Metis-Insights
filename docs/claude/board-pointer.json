@@ -1,0 +1,31 @@
+{
+  "_comment": "SINGLE SOURCE OF TRUTH for which GitHub issue is the live Claude Coordination Board. Nothing may hardcode a board number: retiring #6927 required editing 13 references across 6 files, which is why it stayed half-done and two workflows silently certified against a dead board. Resolve through scripts/ci/board_pointer.py. Rotation is ONE edit here plus one new issue -- see docs/claude/coordination-board.md 'Rotating the board'.",
+
+  "board_issue": null,
+  "board_state": "unprovisioned",
+  "_board_state_values": "unprovisioned | live | retired -- 'unprovisioned' means NO live board exists and every board-reading check must report could_not_check. check_board_coherence.py REFUSES to let 'unprovisioned' land on main, so a half-finished rotation cannot merge.",
+
+  "repo": "benbaichmankass/Metis-Insights",
+
+  "cap": 2500,
+  "_cap_note": "GitHub's hard per-issue comment ceiling. Reads keep succeeding past it; only writes 403. That asymmetry is the whole hazard -- see 'stale_after_hours'.",
+
+  "warn_at": 2000,
+  "rotate_at": 2400,
+  "_threshold_note": "#6927 averaged 49.9 comments/day over its 50.1-day life (2500 comments, 2026-07-19T09:04:33Z -> 2026-09-07T11:28:17Z). At that rate 2400 leaves ~2 days of headroom to rotate deliberately, and 2000 gives ~10 days of warning. Population: all 2500 comments on #6927, its complete life.",
+
+  "heartbeat_every_hours": 6,
+  "stale_after_hours": 18,
+  "_liveness_note": "board-heartbeat.yml WRITES a heartbeat comment every 6h. A write is the only thing that can distinguish a live board from a frozen one -- reads succeed identically on both. Three missed beats (18h) is the death threshold: it tolerates one skipped schedule plus a retry without tolerating a real freeze. #6927 was frozen for 20h before anyone noticed.",
+
+  "previous_boards": [
+    {
+      "issue": 6927,
+      "opened_at": "2026-07-19T09:04:33Z",
+      "retired_at": "2026-09-07T11:28:17Z",
+      "retired_because": "reached GitHub's hard 2500-comment cap; writes 403 while reads keep returning a permanently frozen board",
+      "final_comment_count": 2500,
+      "note": "READABLE, NOT WRITABLE. It is the historical record -- do not delete it and do not rewrite its body (8 recorded clobbers). Do not post to it."
+    }
+  ]
+}

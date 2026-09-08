@@ -4,10 +4,10 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   The coordination board is at GitHub's 2500-comment ceiling: reads succeed on a frozen board and two workflows are broken
 stage: INTEGRITY
-lifecycle: dormant
-owner: null
+lifecycle: done
+owner: session_01GtvQEQnfwzz9yRdPF6sPFg
 opened_at: 2026-09-08
-closed_at: null
+closed_at: 2026-09-08
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
@@ -28,3 +28,17 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+
+superseded_by: WO-20260908-COORDINATION-BOARD-IS-AT-GITHUB-S-2500
+superseded_basis: >-
+  DUPLICATE, reconciled 2026-09-08 rather than deleted. This object and
+  WO-20260908-COORDINATION-BOARD-IS-AT-GITHUB-S-2500 were captured for the same
+  problem under different intents. The OTHER one was kept, because it is the
+  object the operator approved and the spawn registry keys on — but this one was
+  the better-written of the two, so its `parent_intent`
+  (IN-20260901-OPERATING-LAYER, correct: this is operating-layer machinery, not
+  trading-system health) and its strictly stronger `done_condition` were both
+  MOVED onto the keep before this was closed. Nothing here was dropped. Closed
+  as `done` rather than deleted so the duplicate-capture itself stays visible:
+  `scripts/ops/capture_idea.py` produced two objects for one operator
+  conversation, which is worth someone looking at.

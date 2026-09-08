@@ -1,0 +1,232 @@
+name: board-rotate
+
+# PROVISION the next Claude Coordination Board, and retire the current one.
+#
+# WHY A RELAY AND NOT JUST "a session creates the issue"
+#   A PM-side session's GitHub MCP is frequently READ-ONLY for issues:
+#   `issue_write method=create` returns `403 Resource not accessible by
+#   integration` while `issue_read` on the same repo succeeds
+#   (BL-20260901-COORDINATION-BOARD-WRITES-403-FROM-THIS-SESSION-WHILE-READS-SUCCEED).
+#   Measured again 2026-09-08 by the session that wrote this file: it could read
+#   #6927's 2500 comments and could not create the successor. So the session that
+#   NOTICES the board is full is, reliably, the one session that cannot fix it.
+#   The runner's own GITHUB_TOKEN can. That is the whole reason this exists, and
+#   it is the same shape as `board-post.yml` / `pr-opener.yml`.
+#
+# WHY IT ALSO OWNS THE POINTER
+#   Creating the issue is the easy half. The half that went wrong on 2026-09-07
+#   is REPOINTING: retiring #6927 meant editing 13 references across 6 files, a
+#   sweep wide enough that a session finishes it halfway and the missed half is
+#   invisible. Now the number lives ONLY in `docs/claude/board-pointer.json`, and
+#   this job is what writes it -- so provisioning and repointing cannot come
+#   apart. A board that exists but is not pointed at is exactly as useless as no
+#   board, and considerably more confusing.
+#
+# ⚠️ IDEMPOTENCY IS THE POINT. On 2026-08-16 three stray boards (#9565, #9575,
+#   #9590) were created within 80 minutes and all three had to be closed. A
+#   rotation that runs twice must not produce two boards, because two live boards
+#   split the sessions between them and NEITHER is a coordination board any more
+#   -- a strictly worse failure than the full board it replaced. So:
+#     * a request whose result file already exists is SKIPPED (board-post.yml's
+#       pattern -- the result file is the receipt, deletion is not);
+#     * a pointer already `live` with headroom is REFUSED unless `force`;
+#     * one request file at a time, and the whole job is `concurrency`-serialised.
+#
+# WHAT IT CANNOT DO: it cannot touch src/, config/, deploy/, either VM, or any
+# order path. It creates one issue, edits the TITLE and STATE of the outgoing
+# board (never its BODY -- that body has been clobbered 8 times and is the
+# historical record), and commits one JSON file.
+#
+# Tier-1: coordination infrastructure, no trading behaviour.
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why rotate now (recorded on both boards)'
+        required: true
+        type: string
+      force:
+        description: 'Rotate even if the current board still has headroom'
+        required: false
+        default: false
+        type: boolean
+  push:
+    paths: ['automation/board-requests/**']
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: board-rotate          # repo-wide, NOT per-ref: two branches rotating at
+  cancel-in-progress: false    # once is the 2026-08-16 three-stray-boards failure.
+
+jobs:
+  rotate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Validate the pointer before trusting anything downstream
+        run: python3 scripts/ci/board_pointer.py --self-test
+
+      - name: Rotate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISPATCH_REASON: ${{ github.event.inputs.reason }}
+          DISPATCH_FORCE: ${{ github.event.inputs.force }}
+        run: |
+          set -uo pipefail
+          mkdir -p automation/board-results
+          shopt -s nullglob
+
+          # --------------------------------------------------------------- #
+          # Pick the request. workflow_dispatch synthesises one so both entry
+          # points travel the identical code path -- a dispatch-only shortcut
+          # would be an untested second implementation of the risky part.
+          # --------------------------------------------------------------- #
+          req=""
+          if [ -n "${DISPATCH_REASON:-}" ]; then
+            mkdir -p automation/board-requests
+            req="automation/board-requests/dispatch-${GITHUB_RUN_ID}.json"
+            jq -n --arg r "$DISPATCH_REASON" --argjson f "${DISPATCH_FORCE:-false}" \
+              '{reason:$r, force:$f}' > "$req"
+          else
+            for f in automation/board-requests/*.json; do
+              base="$(basename "$f" .json)"
+              [ -f "automation/board-results/${base}.txt" ] && continue
+              req="$f"; break
+            done
+          fi
+
+          if [ -z "$req" ]; then
+            echo "board-rotate: no unprocessed request — nothing to do."
+            exit 0
+          fi
+          base="$(basename "$req" .json)"
+          out="automation/board-results/${base}.txt"
+          echo ">>> request: $req"
+
+          reason="$(jq -r '.reason // ""' "$req")"
+          force="$(jq -r '.force // false' "$req")"
+          if [ -z "$reason" ] || [ "${#reason}" -lt 20 ]; then
+            echo "REFUSED: a rotation must say WHY, in at least 20 characters" > "$out"
+            echo "::error::board-rotate: refused — no substantive reason given"
+            exit 1
+          fi
+
+          ptr=docs/claude/board-pointer.json
+          state="$(jq -r .board_state "$ptr")"
+          cur="$(jq -r '.board_issue // empty' "$ptr")"
+          cap="$(jq -r .cap "$ptr")"
+          rotate_at="$(jq -r .rotate_at "$ptr")"
+
+          # ---- REFUSE a rotation that would produce a SECOND live board ---- #
+          if [ "$state" = "live" ] && [ -n "$cur" ]; then
+            count="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${cur}" --jq .comments 2>/dev/null || echo "")"
+            if [ -z "$count" ]; then
+              echo "REFUSED: could not read #${cur}'s comment count — refusing to rotate blind" > "$out"
+              echo "::error::board-rotate: could_not_check on the current board; NOT rotating"
+              exit 1
+            fi
+            echo ">>> current board #${cur}: ${count}/${cap} comments (rotate_at ${rotate_at})"
+            if [ "$count" -lt "$rotate_at" ] && [ "$force" != "true" ]; then
+              echo "REFUSED: #${cur} has ${count}/${cap} comments, below rotate_at=${rotate_at}. Pass force to override." > "$out"
+              echo "::error::board-rotate: refused — the live board still has headroom"
+              exit 1
+            fi
+          fi
+
+          # ---- Build the new body from the COMMITTED template -------------- #
+          title="🤖 Claude Coordination Board ($(date -u +%Y-%m-%d))"
+          prev="${cur:-none}"
+          prev_retired="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          body=/tmp/board-body.md
+          sed -e "s|{{BOARD_TITLE}}|${title}|g" \
+              -e "s|{{PREV_ISSUE}}|${prev}|g" \
+              -e "s|{{CAP}}|${cap}|g" \
+              -e "s|{{PREV_RETIRED_AT}}|${prev_retired}|g" \
+              docs/claude/board-body-template.md > "$body"
+
+          if grep -q '{{[A-Z_]*}}' "$body"; then
+            echo "REFUSED: unsubstituted placeholder left in the board body" > "$out"
+            echo "::error::board-rotate: $(grep -o '{{[A-Z_]*}}' "$body" | sort -u | tr '\n' ' ')"
+            exit 1
+          fi
+
+          # ---- Create it --------------------------------------------------- #
+          if ! url="$(gh issue create --repo "$GITHUB_REPOSITORY" \
+                        --title "$title" --body-file "$body" \
+                        --label claude-coordination 2>&1)"; then
+            printf 'FAILED to create the successor board:\n%s\n' "$url" > "$out"
+            echo "::error::board-rotate: the successor board was NOT created"
+            exit 1
+          fi
+          new="${url##*/}"
+          echo ">>> created #${new} — ${url}"
+
+          # BOARD_ISSUE is only knowable after creation, so the template's own
+          # pointer line is patched in a second edit rather than guessed.
+          sed -i "s|{{BOARD_ISSUE}}|${new}|g" "$body"
+          gh issue edit "$new" --repo "$GITHUB_REPOSITORY" --body-file "$body" \
+            || echo "::warning::board-rotate: created #${new} but could not patch its pointer line"
+
+          # ---- Retire the outgoing board: TITLE + STATE, NEVER THE BODY ---- #
+          # Its body is the historical record and has been clobbered 8 times by
+          # `issue_write method=update`. `gh issue edit --title` sends only the
+          # title, so the body is not in the payload at all.
+          if [ -n "$cur" ]; then
+            old_title="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${cur}" --jq .title)"
+            case "$old_title" in
+              *"RETIRED"*) : ;;
+              *) gh issue edit "$cur" --repo "$GITHUB_REPOSITORY" \
+                   --title "${old_title} — RETIRED at the ${cap}-comment cap → successor #${new}" \
+                   || echo "::warning::board-rotate: could not retitle #${cur}" ;;
+            esac
+            gh issue close "$cur" --repo "$GITHUB_REPOSITORY" --reason "not planned" \
+              --comment "Retired at GitHub's ${cap}-comment cap. Successor: #${new}. This issue stays READABLE as the historical record — do not post here and do not edit this body." \
+              || gh issue close "$cur" --repo "$GITHUB_REPOSITORY" --reason "not planned" \
+              || echo "::warning::board-rotate: could not close #${cur} (expected if it is at the cap)"
+          fi
+
+          # ---- Repoint. This is the half that went wrong last time. -------- #
+          jq --argjson new "$new" \
+             --arg when "$prev_retired" \
+             --arg why "$reason" \
+             '(.previous_boards) as $prev
+              | .board_issue = $new
+              | .board_state = "live"
+              | .previous_boards = (
+                  if (.board_issue != null and .board_state == "live") then $prev else $prev end)
+              | .last_rotated_at = $when
+              | .last_rotation_reason = $why' \
+             "$ptr" > "$ptr.tmp" && mv "$ptr.tmp" "$ptr"
+
+          python3 scripts/ci/board_pointer.py --json || {
+            echo "::error::board-rotate: the pointer it just wrote does not validate"; exit 1; }
+
+          printf 'OK %s\nboard=%s\nretired=%s\nat=%s\n' "$url" "$new" "$prev" "$prev_retired" > "$out"
+          echo "BOARD_NEW=$new" >> "$GITHUB_ENV"
+
+      - name: Commit the repointed pointer
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/claude/board-pointer.json automation/board-results automation/board-requests 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "nothing to commit"; exit 0
+          fi
+          git commit -m "chore(board): rotate coordination board → #${BOARD_NEW:-?} [board-rotate]"
+          for i in 1 2 3 4; do
+            git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            sleep $((2 ** i)); git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          done
+          echo "::error::board-rotate: could not push the repointed pointer — the board may exist while nothing points at it"
+          exit 1

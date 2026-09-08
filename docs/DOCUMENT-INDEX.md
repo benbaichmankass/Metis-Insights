@@ -345,6 +345,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/comms-architecture.md` | architecture | unknown | — | never | `name:declares-a-contract / not-assessed` | — |
 | `docs/claude/comms-timer-assessment.md` | evidence | unknown | — | never | `name:audit-measures / not-assessed` | — |
 | `docs/claude/coordination-board.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/claude/board-body-template.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/debug-memory.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/decomposition-rules.md` | instruction | unknown | — | never | `name:policy-prescribes / not-assessed` | — |
 | `docs/claude/deployment-ops.md` | unknown | live | — | 2026-09-07 | `not-assessed / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |

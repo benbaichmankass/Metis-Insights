@@ -247,6 +247,25 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "board-coherence",
+        # UNGATED, for the reason the workflow-catalog entry below states and one
+        # of its own: this guard's R2 asserts a REPO-WIDE fact (a live board is
+        # provisioned) that no diff touches, and R3 hunts for a hardcoded number
+        # a PR can reintroduce in a file this guard's `when` globs would not
+        # have predicted. The failure it exists for — issue #6927 at GitHub's
+        # 2500-comment cap on 2026-09-07, writes 403 while reads kept succeeding
+        # against a frozen board — went unnoticed for ~20h precisely because
+        # nothing asserted it on every PR.
+        #
+        # Costs ~0.1s: one JSON parse and one regex pass over
+        # .github/workflows/ + scripts/.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_board_coherence.py", "--self-test"],
+            ["python3", "scripts/ci/check_board_coherence.py", "--all"],
+        ],
+    },
+    {
         "name": "workflow-catalog",
         # UNGATED (`when: None`), for the same reason api-tier-policy's
         # completeness backstop is: a diff-scoped check cannot see a row being

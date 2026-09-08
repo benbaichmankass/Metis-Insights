@@ -3,7 +3,7 @@ name: session-coordination
 description: >
   Binding cross-session workflow governance — the session preflight (read the
   rules + know your tool/capability limits), the MANDATORY live coordination
-  board (GitHub issue #6927 — post updates + questions, NOT gated on merging),
+  board (the GitHub issue named by `docs/claude/board-pointer.json` — post updates + questions, NOT gated on merging),
   the multi-session MERGE PROTOCOL that serializes PRs so concurrent sessions
   don't race a merge and force each other into behind-rebase retest churn, and
   CROSS-SESSION RESOURCE OPTIMIZATION — route CPU-heavy work to free GitHub runners
@@ -34,7 +34,7 @@ a session that skips it is the failure mode.
 
 This skill owns **two** coordination surfaces, and both are mandatory:
 
-- **The live coordination board — GitHub issue [#6927](https://github.com/benbaichmankass/ict-trading-bot/issues/6927)**
+- **The live coordination board — the GitHub issue named by [`docs/claude/board-pointer.json`](../../../docs/claude/board-pointer.json)** (`python3 scripts/ci/board_pointer.py --number`)
   ("🤖 Claude Coordination Board"). Live comms **not gated on merging** — post
   work-start / questions / answers / done, read at session start. Because it's an
   issue, every session sees a comment the instant it's posted (a committed file
@@ -47,9 +47,9 @@ This skill owns **two** coordination surfaces, and both are mandatory:
   `active_sessions` array). ⚠️ `merge_slot` is *structurally* unwritable for a
   claim on the PR that carries it — see
   `BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE`; the authoritative claim
-  is the #6927 comment.
+  is the board comment.
 
-**One source of truth for the merge claim: the live board (#6927), not the JSON.**
+**One source of truth for the merge claim: the live board, not the JSON.**
 The 2026-07-20 lapse (BL-20260720-MERGE-PROTOCOL-LAPSE — 3 claim-less merges raced
 `behind` 3× in one day, each costing a branch refresh + a full ~10-min CI rerun,
 while the 2 merges that DID post a claim comment merged cleanly first try) showed
@@ -109,7 +109,7 @@ contract + generation discipline. This skill adds the two missing halves:
 
 3. **READ the live coordination board FIRST, then POST your START.** This is the
    mandatory live-comms step (`docs/claude/coordination-board.md`). Before your
-   first substantive change: (a) `issue_read method=get_comments` on **#6927** to
+   first substantive change: (a) `issue_read method=get_comments` on **the board** (resolved from the pointer) — and CHECK THE HEARTBEAT, because a board frozen at the 2500-comment cap reads identically to a quiet one — to
    see what every other live session is touching + answer any open question you
    can; (b) post a `▶️ START` comment (session id, branch, **which files /
    subsystems / PRs you're about to touch**, one-line intent). The board is not
@@ -150,7 +150,7 @@ contract + generation discipline. This skill adds the two missing halves:
 > `behind` while its checks run) — **resolved 2026-08-10**: "Require branches
 > up to date" is now unticked on `main`, so a `behind` PR merges on green. Moving
 > the repo into an org (for the native queue) remains the only route to real
-> serialization. The board (#6927) is unchanged and
+> serialization. The board is unchanged and
 > still MANDATORY for **work coordination** — `▶️ START` / `✅ DONE` / questions /
 > `active_sessions` registration — which the queue does not do. Until the queue
 > is enabled on this repo, the manual protocol below is the sole serializer and
@@ -164,7 +164,7 @@ you are about to call `merge_pull_request`, you run steps 1–2 in the *same tur
 first. Run all of these in order — this is the part that stops the retest churn:
 
 1. **Read the board tail + open PRs FIRST.** `issue_read method=get_comments` on
-   **#6927** (read the *newest* comments — an open `🔒 MERGE SLOT CLAIM` with no
+   **the board** (read the *newest* comments — an open `🔒 MERGE SLOT CLAIM` with no
    matching `🔓 RELEASE` means another session holds it: **wait**) AND
    `list_pull_requests state=open` (the authoritative real-time signal — a PR
    `mergeable_state: behind`/ready and clearly mid-merge means wait). Not reading
@@ -182,7 +182,7 @@ first. Run all of these in order — this is the part that stops the retest chur
    has no such failure mode and is the cheap cross-check** — if it shows another
    session's PR ready-and-green while your board read shows no claim, believe the
    PR list and re-read the board.
-2. **Post your `🔒 MERGE SLOT CLAIM` comment on #6927** (session id, branch, PR #).
+2. **Post your `🔒 MERGE SLOT CLAIM` comment on the board** (session id, branch, PR #).
    This board comment is the live claim that reaches other sessions in time; also
    mirror it into `session-board.json::merge_slot` (`{held_by, branch, pr,
    claimed_at}`) as the durable record. If a live session already holds the claim,
@@ -195,7 +195,7 @@ first. Run all of these in order — this is the part that stops the retest chur
 4. **Merge on green.** Confirm all required checks pass on the *synced* head SHA
    (a Monitor poll on `commits/<sha>/check-runs` is the clean wait), then
    `merge_pull_request`. Squash unless the history matters.
-5. **Release the slot** — post a `🔓 MERGE SLOT RELEASE` comment on #6927 AND clear
+5. **Release the slot** — post a `🔓 MERGE SLOT RELEASE` comment on the board AND clear
    `session-board.json::merge_slot` back to nulls immediately after the merge
    resolves (merged OR aborted). A held-but-abandoned claim blocks everyone.
 
@@ -228,7 +228,7 @@ PR and set a fresh (< 20 min) per-PR marker `/tmp/.claude-merge-claim-<sid>-<pr>
 (you `touch` it in step 4, after posting the `🔒 CLAIM` and syncing). The deny
 message restates steps 1–5. The marker is a speed-bump proving you went through
 the motions for *that* PR — it is **not** the claim; the `🔒 CLAIM` comment on
-#6927 is what other sessions see, so post it for real. Rationale + the incident
+The board is what other sessions see, so post it for real. Rationale + the incident
 that forced it: `docs/claude/coordination-board.md` § "Enforcement: the hard
 merge-guard". (Because hooks load at session start, a session that *edits*
 `settings.json` mid-run still follows the protocol manually for its own PRs.)
@@ -288,7 +288,7 @@ that. The slot only serializes WHEN you merge, not WHETHER you may.
 
 ## 4. Session end
 
-- **Post a `✅ DONE` comment on the coordination board (#6927)** — release your
+- **Post a `✅ DONE` comment on the coordination board** — release your
   claim so the next session knows your area is clear.
 - Run **`doc-freshness`** (the canonical session-end check).
 - **Prune your `active_sessions` entry** and ensure `merge_slot` is not left held

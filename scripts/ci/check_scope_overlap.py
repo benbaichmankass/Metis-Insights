@@ -414,8 +414,32 @@ def liveness(st: dict, *, done_posts=None, branch_states=None) -> tuple[str, str
     return "active", ""
 
 
+#: How a board can be broken, and what each one means for a verdict. Kept as
+#: data rather than as `if` branches so a new failure mode cannot be added
+#: without saying, in the same place, what it does to the verdict.
+#:
+#: EVERY ONE OF THESE IS `could_not_check`, never `no_overlap`. That is the
+#: whole lesson of #6927: reads succeeded against a board frozen at GitHub's
+#: 2500-comment cap, so "no live session declared anything" was true only in the
+#: sense that no live session COULD. Reporting that as a clean scope check is an
+#: unasserted denominator (diagnostic-provenance sub-class C).
+BOARD_UNHEALTHY = {
+    "unprovisioned":
+        "no live coordination board is provisioned (docs/claude/board-pointer.json "
+        "does not name one), so NOTHING this PR touches was compared against any "
+        "session's declared scope",
+    "unreadable":
+        "the coordination board could not be read, so nothing was compared",
+    "frozen":
+        "the coordination board is FROZEN — it reads fine but nothing has landed on "
+        "it recently despite a heartbeat every 6h, so it cannot contain a live "
+        "declaration and no verdict from it means anything",
+}
+
+
 def assess(changed_files, starts, *, my_branch: str, my_pr: int | None = None,
-           my_body: str = "", done_posts=None, branch_states=None) -> dict:
+           my_body: str = "", done_posts=None, branch_states=None,
+           board_health: str = "live", board_detail: str = "") -> dict:
     """`starts` is [{body, url, created_at}, ...].
 
     ⚠️ NO `branch` KEY. The collector used to supply one and it is now
@@ -425,12 +449,31 @@ def assess(changed_files, starts, *, my_branch: str, my_pr: int | None = None,
     `branch` key on an input row is IGNORED rather than honoured, so a caller
     that has not been updated cannot quietly reinstate the old behaviour.
     """
+    empty = {"hits": [], "landed_hits": [], "unattributed_hits": [],
+             "self_declared": 0, "parsed": 0, "explicitly_excluded": 0,
+             "unparsed_hints": []}
+
+    # BOARD HEALTH IS CHECKED BEFORE THE BOARD'S CONTENT, because an unhealthy
+    # board's content is not evidence of anything. This runs FIRST — ahead of
+    # the changed-file check — so the reason a reader gets names the real
+    # problem (the board is dead) rather than a downstream symptom.
+    if board_health in BOARD_UNHEALTHY:
+        why = BOARD_UNHEALTHY[board_health]
+        return {"state": "could_not_check",
+                "reason": (f"{why}"
+                           + (f" ({board_detail})" if board_detail else "")
+                           + ". This is NOT `no_overlap` — nothing was checked."),
+                **empty}
+    if board_health != "live":
+        return {"state": "could_not_check",
+                "reason": f"unrecognised board health {board_health!r} — refusing to "
+                          f"grade a board whose state this tool does not understand",
+                **empty}
+
     if not changed_files:
         return {"state": "could_not_check",
                 "reason": "no changed-file list — nothing was compared",
-                "hits": [], "landed_hits": [], "unattributed_hits": [],
-                "self_declared": 0, "parsed": 0, "explicitly_excluded": 0,
-                "unparsed_hints": []}
+                **empty}
     if not starts:
         # A board with no STARTs in the window is possible, but on a board that
         # is never silent it is far more likely a failed read. Refused, not
@@ -870,6 +913,32 @@ def _self_test() -> int:
 
     v = assess([], starts, my_branch="claude/mine")
     ok(v["state"] == "could_not_check", "no changed-file list is could_not_check, NOT no_overlap")
+
+    # ---- board health (2026-09-08, the #6927 cap failure) ----------------
+    # The case that matters: a board that reads FINE and is dead. Content that
+    # would otherwise produce a clean `no_overlap` must not produce one.
+    clean = ["src/unrelated.py"]
+    ok(assess(clean, starts, my_branch="claude/mine")["state"] == "no_overlap",
+       "control: with a live board this input IS no_overlap")
+    for health in ("unprovisioned", "unreadable", "frozen"):
+        v = assess(clean, starts, my_branch="claude/mine", board_health=health)
+        ok(v["state"] == "could_not_check",
+           f"a {health} board turns a would-be no_overlap into could_not_check")
+        ok("NOT `no_overlap`" in v["reason"],
+           f"a {health} board SAYS it is not a clean result")
+        ok(v["parsed"] == 0 and not v["hits"],
+           f"a {health} board reports no findings rather than stale ones")
+    # An overlap found against a dead board is not a finding either — it was
+    # matched against declarations that cannot be current.
+    v = assess(["docs/claude/OPEN-ITEMS.json"], starts, my_branch="claude/mine",
+               board_health="frozen")
+    ok(v["state"] == "could_not_check",
+       "a frozen board suppresses a would-be OVERLAP too, not just a clean pass")
+    v = assess(clean, starts, my_branch="claude/mine", board_health="banana")
+    ok(v["state"] == "could_not_check",
+       "an unrecognised board health is could_not_check, never a silent pass")
+    ok(set(BOARD_UNHEALTHY) == {"unprovisioned", "unreadable", "frozen"},
+       "the unhealthy-board set is exactly the three the collector can emit")
     v = assess(["a.py"], [], my_branch="claude/mine")
     ok(v["state"] == "could_not_check" and "never silent" in v["reason"],
        "an empty board is a failed read, not 'nobody declared anything'")
@@ -908,7 +977,12 @@ def main(argv=None) -> int:
     if not args.input:
         ap.error("pass --self-test or --input")
     data = json.loads(open(args.input, encoding="utf-8").read())
+    # Defaults to "live" so an OLD collector that predates board health still
+    # behaves exactly as before rather than hard-failing — but a collector that
+    # sends an unknown value gets could_not_check, not a silent pass.
     v = assess(data.get("changed_files") or [], data.get("starts") or [],
+               board_health=data.get("board_health") or "live",
+               board_detail=data.get("board_detail") or "",
                my_branch=data.get("my_branch") or "",
                my_pr=data.get("pr"),
                my_body=data.get("my_body") or "",

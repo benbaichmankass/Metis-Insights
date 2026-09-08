@@ -1,0 +1,191 @@
+name: board-heartbeat
+
+# THE COORDINATION BOARD PROVES IT IS ALIVE, BECAUSE ABSENCE NEVER COULD.
+#
+# THE FAILURE THIS EXISTS FOR (2026-09-07 -> 2026-09-08, issue #6927)
+#   #6927 reached GitHub's hard 2500-comment cap at 2026-09-07T11:28:17Z. Writes
+#   began returning 403. **Reads kept succeeding** — and that is the dangerous
+#   half, not the reassuring one. A read of a permanently frozen board is
+#   BYTE-INDISTINGUISHABLE from a read of a live, quiet board: same 200, same
+#   shape, same stable tail. The repo's documented staleness check
+#   (BL-20260817, *"a short page is the proof"*) kept passing — and passed
+#   MORE cleanly than before, because a frozen board's tail never moves.
+#
+#   So for ~20 hours every session read the board, saw a valid tail, concluded
+#   it was coordinated, and was not. Nothing in the system could tell "nobody
+#   posted" from "nobody CAN post", because both render as no new comments.
+#
+# THE FIX IS A WRITE, NOT A BETTER READ
+#   No read can distinguish those two states — the information simply is not in
+#   the response. A periodic WRITE can, because a write is the exact capability
+#   that fails. This job posts a `💓 HEARTBEAT` comment on a schedule; if the
+#   board stops accepting writes, the heartbeat stops appearing, and the absence
+#   of a heartbeat is POSITIVE EVIDENCE of death rather than ambiguous silence.
+#
+#   The second-order win is bigger than the first. `merge-claim-audit.yml` and
+#   `scope-overlap-audit.yml` both refuse a zero-comment window as "a board that
+#   is never silent — treat as a failed read". That was an EMPIRICAL ASSUMPTION
+#   about traffic. With a heartbeat every 6h it becomes a structural INVARIANT: a
+#   live board cannot be silent, so an empty window is proof of a broken one.
+#
+# AND IT WATCHES THE CEILING IT IS SITTING UNDER
+#   The cap is structural, not a one-off — whatever replaces #6927 fills too.
+#   #6927 averaged 49.9 comments/day across its whole 50.1-day life, so a fresh
+#   board fills in roughly seven weeks. This job escalates on the way up
+#   (`warn_at`, then `rotate_at` from the pointer) so the cap is met deliberately
+#   with days of headroom, never discovered by hitting it.
+#
+# ⚠️ HONEST LIMIT — THIS IS A WATCHDOG AND NOTHING WATCHES THE WATCHDOG.
+#   If this workflow itself stops (GitHub disables `schedule` on repos with 60
+#   days of no activity; a bad edit; Actions disabled), the heartbeat stops and
+#   that is INDISTINGUISHABLE FROM A DEAD BOARD. That direction is deliberate:
+#   it fails toward "assume dead", which is the safe polarity — a session stops
+#   and checks rather than proceeding uncoordinated. The consumers
+#   (merge-claim-audit, scope-overlap-audit) grade staleness on every PR event,
+#   so a stopped heartbeat surfaces on the next PR rather than waiting for a
+#   human to notice this workflow is quiet.
+#
+# Cost against the very cap it guards: 4 beats/day is ~200 comments over a
+# ~50-day board life, about 8% of the 2500 budget. Stated because a monitor that
+# consumes the resource it monitors should say by how much.
+#
+# Tier-1: coordination infrastructure. No src/, no config/, no VM, no order path.
+
+on:
+  schedule:
+    - cron: '7 */6 * * *'   # every 6h, off the hour so it does not queue behind
+  workflow_dispatch:        # the :00 stampede of every other scheduled workflow
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: board-heartbeat
+  cancel-in-progress: false
+
+jobs:
+  beat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate the pointer before trusting it
+        run: python3 scripts/ci/board_pointer.py --self-test
+
+      - name: Resolve the live board
+        id: board
+        run: |
+          set -uo pipefail
+          num="$(python3 scripts/ci/board_pointer.py --number)"; rc=$?
+          if [ "$rc" -eq 3 ]; then
+            echo "::error::board-heartbeat: NO LIVE BOARD is provisioned (pointer board_state is not 'live'). Every session is currently uncoordinated. Run board-rotate.yml."
+            exit 1
+          fi
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::board-heartbeat: could_not_check — docs/claude/board-pointer.json did not resolve. This is NOT 'the board is fine'."
+            exit 1
+          fi
+          echo "issue=$num" >> "$GITHUB_OUTPUT"
+          {
+            echo "warn_at=$(jq -r .warn_at docs/claude/board-pointer.json)"
+            echo "rotate_at=$(jq -r .rotate_at docs/claude/board-pointer.json)"
+            echo "cap=$(jq -r .cap docs/claude/board-pointer.json)"
+            echo "stale_after=$(jq -r .stale_after_hours docs/claude/board-pointer.json)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Beat, and grade the headroom
+        uses: actions/github-script@v7
+        env:
+          BOARD: ${{ steps.board.outputs.issue }}
+          WARN_AT: ${{ steps.board.outputs.warn_at }}
+          ROTATE_AT: ${{ steps.board.outputs.rotate_at }}
+          CAP: ${{ steps.board.outputs.cap }}
+          STALE_AFTER_HOURS: ${{ steps.board.outputs.stale_after }}
+        with:
+          script: |
+            const board = Number(process.env.BOARD);
+            const cap = Number(process.env.CAP);
+            const warnAt = Number(process.env.WARN_AT);
+            const rotateAt = Number(process.env.ROTATE_AT);
+            const staleH = Number(process.env.STALE_AFTER_HOURS);
+            const owner = context.repo.owner, repo = context.repo.repo;
+
+            // READ FIRST, so the count reported is the one BEFORE this beat —
+            // a monitor that measures itself drifts by one every cycle.
+            let count = null, updatedAt = null, readErr = '';
+            try {
+              const { data } = await github.rest.issues.get(
+                { owner, repo, issue_number: board });
+              count = data.comments;
+              updatedAt = data.updated_at;
+            } catch (e) { readErr = e.message; }
+
+            const remaining = count === null ? null : cap - count;
+            const pct = count === null ? null : (100 * count / cap).toFixed(1);
+
+            // THE BEAT ITSELF. This is the load-bearing line: it is a WRITE, and
+            // the write is the only thing that can fail in the way we care about.
+            let posted = null, postErr = '';
+            const body = [
+              `💓 **HEARTBEAT** · \`board-heartbeat.yml\` · ${new Date().toISOString()}`,
+              ``,
+              `This comment exists so that **the absence of it means something.** A frozen `,
+              `board reads identically to a quiet one; only a write can tell them apart. If `,
+              `the newest heartbeat here is more than **${staleH}h** old, treat this board as `,
+              `**DEAD or write-blocked** and stop — do not proceed uncoordinated.`,
+              ``,
+              count === null
+                ? `⚠️ Headroom: **could_not_check** — the issue read failed (\`${readErr}\`).`
+                : `Headroom: **${count}/${cap}** comments (${pct}%), **${remaining}** remaining · `
+                  + `warn at ${warnAt} · rotate at ${rotateAt}.`,
+              ``,
+              `_Source of truth for which issue is the board: \`docs/claude/board-pointer.json\`._`,
+            ].join('\n');
+
+            try {
+              const { data } = await github.rest.issues.createComment(
+                { owner, repo, issue_number: board, body });
+              posted = data.html_url;
+            } catch (e) { postErr = e.message; }
+
+            const state = posted ? (remaining !== null && count >= rotateAt ? 'rotate_now'
+                                    : remaining !== null && count >= warnAt ? 'warn'
+                                    : 'live')
+                                 : 'write_blocked';
+
+            await core.summary
+              .addHeading('board-heartbeat')
+              .addRaw(`**state:** \`${state}\` · board **#${board}**\n\n`)
+              .addRaw(count === null
+                      ? `**count:** could_not_check — ${readErr}\n\n`
+                      : `**count:** ${count}/${cap} (${pct}%), ${remaining} remaining · `
+                        + `last activity ${updatedAt}\n\n`)
+              .addRaw(posted ? `**beat posted:** ${posted}\n`
+                             : `**BEAT FAILED:** ${postErr}\n`)
+              .write();
+
+            // ---- Escalation ladder. Each rung is a DIFFERENT failure. ----
+            if (!posted) {
+              core.setFailed(
+                `board-heartbeat: the board is WRITE-BLOCKED — could not post to #${board}: `
+                + `${postErr}. Reads may still succeed, which is exactly why this is not `
+                + `self-announcing. If the count is at the cap (${count}/${cap}), rotate now `
+                + `via board-rotate.yml.`);
+              return;
+            }
+            if (count !== null && count >= rotateAt) {
+              core.setFailed(
+                `board-heartbeat: #${board} is at ${count}/${cap} comments, at or past `
+                + `rotate_at=${rotateAt}. ROTATE NOW — run board-rotate.yml. Do not wait for `
+                + `the cap: past ${cap} the board keeps READING fine and silently stops `
+                + `accepting claims, which is the failure that took ~20h to notice last time.`);
+              return;
+            }
+            if (count !== null && count >= warnAt) {
+              core.warning(
+                `board-heartbeat: #${board} at ${count}/${cap} (${remaining} left). Plan the `
+                + `rotation; it becomes mandatory at ${rotateAt}.`);
+            }
+            core.info(`board-heartbeat: live — ${posted}`);
