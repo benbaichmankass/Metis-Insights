@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only manager work re-laid onto current main as ONE linear commit: the lease heartbeat, the supervision record showing MI-192 dead, the operator's five recorded decisions and their routing, and one repaired backlog reference. No src/, tests/, scripts/, config/, deploy/ or workflow path. It is a fresh branch rather than a merge because check_manager_scope's merge_slot carve-out is checked against EVERY parent, so a merge commit whose two parents differ on any other key in docs/claude/session-board.json (here `updated_at`) can never satisfy it — a manager cannot merge main into an armed branch at all. Re-laying linearly avoids that and needs no force-push, which is prohibited. Filed as its own finding."
+}
