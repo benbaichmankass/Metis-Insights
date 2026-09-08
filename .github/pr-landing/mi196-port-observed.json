@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1: records only. Two files — the WO-20260901-PHASE-D work object gains the OBSERVATION that section 5 renders on origin/main (read back from main, not inferred from the merge) plus the measured blast radius of the retirement half; and the health-review backlog gains one appended row through backlog_append. No code, no workflow, no config, no order path, no src/, no deploy/, no generated register that anything branches on. It cannot change what the trader or any generator does. Self-lands because Tier-1 needs no human OK and routing a records-only diff through one is the convention pr-landing exists to end; GitHub still merges only on green."
+}
