@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "why": "Tier-1 by the canonical doc's own list: the entire diff is a backlog row's prose in docs/claude/health-review-backlog.json plus this branch's own landing declaration, arming file and merge-slot claim. No src/, config/, deploy/, ml/, scripts/ or workflow change — and specifically NO change to the landing machinery, which is why this one may self-land where its predecessor #11357 could not. It records a corollary established only after #11357 merged: R13 fires only on an ARMED branch and then demands that branch hold the slot, so a PR that exists to NULL the slot cannot arm without failing the rule it is tidying up after, and must spend a human merge click on housekeeping. Observable on main at 417bd6b6 right now. It extends the existing row rather than filing a second one, because it is the same finding sharpened, and backlog_append refuses a restatement by design.",
+  "landing": "self"
+}
