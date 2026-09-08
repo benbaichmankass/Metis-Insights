@@ -6,10 +6,10 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-2010-20260908",
+  "branch": "claude/mgr-land-11347-r13b-20260908",
   "pr": "(opened by hand; arming file lands second)",
-  "claimed_at": "2026-09-08T20:11:00Z",
-  "note": "Manager heartbeat 20:11:00Z plus two register corrections: MERGE-QUEUE said six automation PRs remained and the measured number is 26 (and it is a GENERATOR, not a pile — every merge, my own heartbeats included, spawns another); SESSIONS carried eleven rows as idle that the platform grades BLOCKED, and five of the twelve BLOCKED asks are already answered — a needs_action does not decay. Register writes only, no worker path."
+  "claimed_at": "2026-09-08T20:18:00Z",
+  "note": "Landing MI-168's record correction — #11347's own two commits CHERRY-PICKED onto current main, keeping their original authorship. Not merged: R2 reads a merge commit's FIRST-PARENT diff, so merging main into a 12h-stale branch would attribute main's scripts/ and src/ changes to the manager. #11355 attempted the same landing on a base 12h older and is superseded by this."
  },
  "active_sessions": [
   {
