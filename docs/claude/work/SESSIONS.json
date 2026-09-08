@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T13:32:53Z",
+  "updated_at": "2026-09-08T13:38:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3212,9 +3212,9 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08, second time of asking: 'I'm still seeing error pings on the gld close - this has been going on for weeks, and it needs to be fixed already'.",
       "confirmed_at": "2026-09-08T12:19:31Z",
-      "state_observed_at": "2026-09-08T13:32:53Z",
-      "state_basis": "get_session(session_id) read direct at 13:30Z; state is that read, not a post_turn_summary",
-      "observation": "RUNNING/connected at 13:30:20Z, task_summary 'Merging current main into the #11389 branch'. #11392 MERGED (ea20e2c5). #11389 is 5/5 green but on base 6fc010dd, three merges stale; rebasing. It declared landing: hold / tier_2_3_needs_approval and I DEFERRED to that — I had told the operator I read their 'get it done already' as the Tier-2 OK and I retracted that; an urgency about the PROBLEM is not consent to a src/** diff. Poked 13:29Z: rebase, re-run, then STOP — do not arm, do not claim the slot. #11390 stays draft."
+      "state_observed_at": "2026-09-08T13:38:00Z",
+      "state_basis": "pull_request_read(get) on #11389 + #11395 at 13:37Z — PR heads and merge state, not a session summary",
+      "observation": "RUNNING. Re-laid #11389 onto current main: head is now 6216da28 (was 6febde04), 3 commits. ALSO LANDED #11395 (a83ab7d5) — 'the paper reset: approved, verified, and deliberately not spent'. That is the operator's 'you can reset the paper account if needed' approval, and MI-199 established the reset was NOT needed rather than spending a granted permission because it had it. Recording that as the judgement it is. #11389 remains landing: hold / tier_2_3_needs_approval and I am NOT overriding it; #11390 remains draft and unarmed. The only thing outstanding on the operator's GLD directive is a human word on #11389."
     },
     {
       "session_id": "session_01CvFCybCkvrfzaHqNH3tQsb",
