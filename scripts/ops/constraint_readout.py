@@ -677,12 +677,28 @@ DUE_SOURCES_COVERED_ELSEWHERE = {
     "operator_owed": "§4 · Decisions waiting on the operator",
 }
 
-#: Rows rendered per source. A cap is necessary — `open_items` alone ran to 53
-#: rows on 2026-09-08 and a readout that becomes a wall is one more thing to
-#: skim past, which is the due-list's own diagnosed failure. The cap is STATED
-#: per source (`rows_shown` beside `row_count`) so a truncated list can never
-#: read as a complete one.
-DUE_ROWS_PER_SOURCE = 8
+#: Rows rendered per source. `None` means EVERY row, and that is the shipped
+#: value.
+#:
+#: ⚠️ IT WAS 8, AND THAT MADE §5 UNFIT TO SUPERSEDE THE DUE-LIST — the whole
+#: point of porting it. `render_due_list.render_markdown` renders every row
+#: (`for r in env["rows"]`, no slice); at a cap of 8 this section showed
+#: **29 of 79** rows on 2026-09-08, hiding 46 of 54 `open_items`. Retiring
+#: `DUE.md` against that would have cut a duty pass from 79 dispositionable
+#: rows to 29 — the "takes the session-facing due list toward zero" hazard the
+#: operator's two-change condition exists to prevent, arriving as a partial
+#: loss rather than a total one, which is harder to notice.
+#:
+#: The readability worry that motivated the cap was real but was answered in
+#: the wrong place: the CLAUDE.md brief is what must stay short, and
+#: `render_brief_lines` is separate and unaffected. A queue that hides most of
+#: itself is not more readable, it is wrong.
+#:
+#: The truncation machinery is KEPT rather than deleted — a caller may still
+#: pass a cap, and when one bites the section says how many rows are NOT shown.
+#: Deleting it would make a future cap silent, which is the defect this comment
+#: records.
+DUE_ROWS_PER_SOURCE: int | None = None
 
 DUE_READ_STATES = ("read", "could_not_read")
 DUE_COMPLETENESS = ("all_sources_read", "partial", "no_sources_read", "unknown")
@@ -704,7 +720,7 @@ def _due_lib():
 
 def due_block(fetch: bool = True, today: date | None = None,
               *, root: Path | None = None, token: str | None = None,
-              lib: Any = None) -> dict:
+              lib: Any = None, rows_per_source: int | None = -1) -> dict:
     """§5 — every structured register the first four sections do not read.
 
     WHY THIS SECTION EXISTS
@@ -725,6 +741,9 @@ def due_block(fetch: bool = True, today: date | None = None,
     """
     today = today or datetime.now(timezone.utc).date()
     root = root or Path(".")
+    # -1 is the "not passed" sentinel: None is a MEANINGFUL value here
+    # (unlimited), so it cannot double as the default.
+    cap = DUE_ROWS_PER_SOURCE if rows_per_source == -1 else rows_per_source
     try:
         lib = lib if lib is not None else _due_lib()
     except Exception as exc:  # noqa: BLE001 — an unimportable sibling must not read as "nothing due"
@@ -738,7 +757,7 @@ def due_block(fetch: bool = True, today: date | None = None,
             "due_count": None,
             "covered_elsewhere": dict(DUE_SOURCES_COVERED_ELSEWHERE),
             "generator": "scripts/ops/render_due_list.py",
-            "rows_per_source_cap": DUE_ROWS_PER_SOURCE,
+            "rows_per_source_cap": cap,
             "fetched": False,
         }
 
@@ -766,8 +785,10 @@ def due_block(fetch: bool = True, today: date | None = None,
                 "note": r.note or "",
                 "row_count": len(rows),
                 "covered_elsewhere": covered,
-                "rows_shown": 0 if covered else min(len(rows), DUE_ROWS_PER_SOURCE),
-                "rows": [] if covered else rows[:DUE_ROWS_PER_SOURCE],
+                "rows_shown": 0 if covered else (
+                    len(rows) if cap is None else min(len(rows), cap)),
+                "rows": [] if covered else (
+                    list(rows) if cap is None else rows[:cap]),
             })
         completeness = lib.verdict_for(results)
     except Exception as exc:  # noqa: BLE001
@@ -780,7 +801,7 @@ def due_block(fetch: bool = True, today: date | None = None,
             "due_count": None,
             "covered_elsewhere": dict(DUE_SOURCES_COVERED_ELSEWHERE),
             "generator": "scripts/ops/render_due_list.py",
-            "rows_per_source_cap": DUE_ROWS_PER_SOURCE,
+            "rows_per_source_cap": cap,
             "fetched": bool(tok),
         }
 
@@ -796,7 +817,7 @@ def due_block(fetch: bool = True, today: date | None = None,
         "due_count": due,
         "covered_elsewhere": dict(DUE_SOURCES_COVERED_ELSEWHERE),
         "generator": "scripts/ops/render_due_list.py",
-        "rows_per_source_cap": DUE_ROWS_PER_SOURCE,
+        "rows_per_source_cap": cap,
         "fetched": bool(tok),
     }
 
@@ -1410,11 +1431,12 @@ def _self_test() -> int:
     check("...and then, and only then, the LOWER BOUND warning is absent",
           "IS A LOWER BOUND" in "\n".join(render_due_section(b_ok)), False)
 
-    # The truncation cap must announce itself.
-    b_cap = due_block(fetch=False, today=date(2026, 9, 8),
-                      lib=_fake([_R("open_items", "read",
-                                    _r("open_items", DUE_ROWS_PER_SOURCE + 4))],
-                                "all_sources_read"))
+    # ---- the cap. DEFAULT IS UNLIMITED, because a §5 that hides most of the
+    # queue cannot supersede the due-list, which renders every row. At a cap of
+    # 8 this section showed 29 of 79 on 2026-09-08.
+    _big = _fake([_R("open_items", "read", _r("open_items", 54))], "all_sources_read")
+    b_cap = due_block(fetch=False, today=date(2026, 9, 8), lib=_big, rows_per_source=8)
+    b_unl = due_block(fetch=False, today=date(2026, 9, 8), lib=_big)
     b_pipe = due_block(fetch=False, today=date(2026, 9, 8),
                        lib=_fake([_R("probes", "read", _r("probes", 1),
                                      note="cadence=daily | 2 deferred")],
@@ -1423,10 +1445,18 @@ def _self_test() -> int:
     check("REGRESSION: a `|` in a source note is escaped, so the table keeps 4 columns",
           (len(_tbl) == 1 and _tbl[0].count("|") - _tbl[0].count("\\|") == 5), True)
 
-    check("a truncated source states how many rows are NOT shown",
-          "**4 not shown**" in "\n".join(render_due_section(b_cap)), True)
+    check("REGRESSION: the DEFAULT renders EVERY row — §5 must not hide the queue",
+          (b_unl["sources"][0]["rows_shown"], len(b_unl["sources"][0]["rows"])), (54, 54))
+    check("...and announces no truncation that did not happen",
+          "not shown" in "\n".join(render_due_section(b_unl)), False)
+    check("...reporting the cap as None, never a number nobody applied",
+          b_unl["rows_per_source_cap"], None)
+    check("an EXPLICIT cap still states how many rows are NOT shown",
+          "**46 not shown**" in "\n".join(render_due_section(b_cap)), True)
     check("...and `due_count` counts every row, not just the shown ones",
-          b_cap["due_count"], DUE_ROWS_PER_SOURCE + 4)
+          b_cap["due_count"], 54)
+    check("...so shown and counted diverge ONLY when a cap was actually set",
+          (b_cap["sources"][0]["rows_shown"], b_cap["due_count"]), (8, 54))
 
     # The real sibling must actually be importable and expose what we call.
     try:

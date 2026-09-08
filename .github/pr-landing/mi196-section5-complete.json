@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1: tooling and observability on a READ path. It changes one default in scripts/ops/constraint_readout.py so section 5 of the generated readout renders every due row instead of the first 8 per source, and regenerates that readout plus the generated SESSION-BRIEF block. No order path, no strategy config, no risk caps, no account modes, no src/, no config/, no deploy/, no live-VM runtime file, no persistent table. It cannot change what the trader does. It also cannot reduce what any reader sees: the change is strictly additive to the rendered output, and the truncation machinery is retained and still tested so a future cap cannot truncate silently. Self-lands because Tier-1 needs no human OK and routing it through one is the convention pr-landing exists to end; GitHub still merges only on green."
+}
