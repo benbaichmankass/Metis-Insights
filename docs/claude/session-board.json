@@ -7,7 +7,7 @@
  "merge_slot": {
   "held_by": "session_016KUFTHGYyFDerbnXDSA6Wb",
   "branch": "claude/mi204-orphan-reattach-misattribution",
-  "pr": null,
+  "pr": 11411,
   "claimed_at": "2026-09-08T15:22:00Z",
   "displaced": "moved from my own claude/mi204-claude-md-failsafe-correction, whose PR #11410 MERGED at 15:18:42Z. Same R13 shape again: the claim it left on main named a finished merge from the moment it landed. Third slot write by this session for the same unit, each one spent by the merge it claimed."
  },
