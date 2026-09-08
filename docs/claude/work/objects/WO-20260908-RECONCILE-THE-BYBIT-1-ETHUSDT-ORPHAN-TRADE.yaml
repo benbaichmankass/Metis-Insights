@@ -1,0 +1,65 @@
+id: WO-20260908-RECONCILE-THE-BYBIT-1-ETHUSDT-ORPHAN-TRADE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Reconcile the bybit_1 ETHUSDT orphan trade 5569
+stage: EVIDENCE
+lifecycle: waiting
+owner: session_016KUFTHGYyFDerbnXDSA6Wb
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Carried by OI-20260908-A-HEDGE-BOOK-FLAT-READ-IS-CLOSING-LIVE-BYBIT-POSITIONS-AND-THE-FLAP-GUARD-CANNOT-SEE-IT
+  on a 2-day cadence. `waiting`, not `done`: the done_condition's FIRST clause is
+  satisfied and its SECOND is only half satisfied — the mechanism is root-caused
+  and FILED, and it is NOT fixed. The two fixes are Tier-2 on the order path and
+  need one operator OK.
+done_condition: >-
+  Trade 5569 carries reconcile_status='reconciled' naming the order package that actually opened the venue position, OR an explicit terminal recording why it is unreconcilable; AND the mechanism that produced the orphan is root-caused and either fixed or filed with the measurement.
+
+why: >-
+  Operator-directed 2026-09-08: an exchange-side orphan was adopted on bybit_1 ETHUSDT (Buy 26.05 @ 2476.6). Orphan is a problem state, not a status.
+
+source: >-
+  operator, 2026-09-08
+
+blocked_on:
+  - kind: operator_decision
+    ref: "Tier-2 OK to change _bybit_position_protection's book selection and _recently_closed_adopted_orphan's exit_reason allowlist (src/runtime/order_monitor.py — closes live positions and gates the adopt path)"
+    since: 2026-09-08
+blocked_on_basis: >-
+  ASSESSED 2026-09-08 by MI-204. The edge is REAL and narrow: the investigation is
+  complete and the remedy is written out as an exact patch, but both halves touch
+  src/runtime/order_monitor.py, which decides closes on live positions and gates
+  the adopt path. Per the dispatch scope ("anything touching src/ is Tier-2+ and
+  comes back to me with a proposal") the change is prepared and NOT applied. This
+  is not blocked on more evidence — the evidence is sufficient and recorded.
+
+captured_by: scripts/ops/capture_idea.py
+
+outcome: >-
+  ROOT-CAUSED, FILED, NOT FIXED. The orphan was a SYMPTOM, not the defect.
+  _reconcile_netting_partial_closes closed a LIVE position (trade 5568, bybit_1
+  ETHUSDT long 26.05) because _bybit_position_protection grades a symbol off
+  `rows[0]` of a symbol-scoped get_positions (order_monitor.py:8821) and, since
+  hedge mode was armed 2026-08-30, a zero-size sibling book listed first makes it
+  return _flat for a symbol that is not flat. The reverse reconciler then
+  re-adopted the still-live position as trade 5569. Three provable false closes
+  (5515->5516, 5554->5555, 5568->5569), +$115.8575 of manufactured ESTIMATED pnl,
+  and a LOWER BOUND of three because 12 of 21 applied soak rows read
+  exchange_qty 0.0 and the soak cannot say which book it looked at.
+
+done_condition_status: >-
+  CLAUSE 1 — SATISFIED, AND NOT BY THIS SESSION. Trade 5569 already carried
+  reconcile_status='reconciled' naming pkg-5c339e25d5144c32 when this unit
+  started; the reconciler stamped it at adopt time 14:25:47Z, six minutes before
+  the dispatch was written. That the package genuinely opened the venue position
+  was VERIFIED three ways (it is trade 5568's package; 5568's entry-time Partial
+  legs were created 240ms before its row timestamp at the exact live size 26.05;
+  those legs were still resting Untriggered at 14:37:02Z). Nothing was re-stamped
+  — the row is correct and should never have existed.
+  CLAUSE 2 — HALF SATISFIED. Root-caused with the measurement (4 backlog rows +
+  1 OPEN-ITEMS row + docs/claude/work/BYBIT-HEDGE-BOOK-FLAT-READ-2026-09-08.md);
+  NOT fixed, because the fix is Tier-2 on the order path.
+
+evidence: docs/claude/work/BYBIT-HEDGE-BOOK-FLAT-READ-2026-09-08.md
