@@ -2506,10 +2506,14 @@ def modify_open_order(
       * **alpaca** — :meth:`AlpacaClient.modify_protective` (PATCH the resting
         bracket leg's ``stop_price`` / ``limit_price`` for whichever of
         ``sl`` / ``tp`` changed — leg-independent, so no ``cur_*`` merge).
+        ``qty`` scopes the PATCH to the named trade's own legs; without it the
+        call reaches every protective leg on the symbol.
 
     The S2 (BL-20260616-LTMGMT-MODIFY) ``side`` / ``qty`` / ``cur_sl`` /
     ``cur_tp`` kwargs are only consumed by the IB/Alpaca branches; the Bybit
-    branch's ``set_trading_stop`` fallback ignores them.
+    branch's ``set_trading_stop`` fallback ignores them. ``qty`` is the leg
+    row's ``position_size`` — for Alpaca it is what keeps the PATCH on this
+    trade's legs instead of the whole symbol's.
 
     Best-effort. Returns a result dict instead of raising so the
     caller (the monitor loop) can record the outcome on the
@@ -2740,13 +2744,20 @@ def modify_open_order(
                 return {"ok": False, "exchange_response": None,
                         "error": (f"alpaca modify: expected AlpacaClient, got "
                                   f"{type(exchange_client).__name__}")}
-            resp = exchange_client.modify_protective(symbol, sl=sl, tp=tp) or {}
+            # `qty` (the named trade's own size) scopes the PATCH to that
+            # trade's legs. Unscoped, this call rewrites every stop and every
+            # limit resting on the symbol — the same symbol-vs-trade defect the
+            # close carried, on a different verb (MI-173). The caller already
+            # has the number: it is the leg row's `position_size`.
+            resp = exchange_client.modify_protective(
+                symbol, sl=sl, tp=tp, qty=qty) or {}
             ret_code = resp.get("retCode")
             if ret_code in (0, "0", None):
                 logger.info(
                     "modify_open_order: account=%s symbol=%s sl=%s tp=%s "
-                    "→ alpaca leg replace OK",
-                    account_cfg.get("account_id"), symbol, sl, tp,
+                    "qty=%s → alpaca leg replace OK (patched=%s)",
+                    account_cfg.get("account_id"), symbol, sl, tp, qty,
+                    (resp.get("result") or {}).get("patched"),
                 )
                 return {"ok": True, "exchange_response": resp, "error": None}
             err = str(resp.get("retMsg") or f"retCode={ret_code}")
@@ -2794,8 +2805,12 @@ def close_open_position(
       * **interactive_brokers / ib** — :meth:`IBClient.close` (cancel the
         resting protective bracket/OCA legs + opposing reduce market order
         sized to the live position). IB futures have no reduceOnly flag.
-      * **alpaca** — :meth:`AlpacaClient.close` (idempotent native flatten,
-        ``DELETE /v2/positions/{symbol}``; a 404 = already-flat = ok).
+      * **alpaca** — :meth:`AlpacaClient.close` (idempotent native
+        liquidation, ``DELETE /v2/positions/{symbol}``; a 404 = already-flat =
+        ok). **``qty`` is honoured**: the endpoint takes a ``qty`` query
+        parameter, so a trade whose size is smaller than the live position is
+        closed as a reduction that leaves the sibling row's shares — and its
+        resting protection — alone.
       * **oanda** — :meth:`OandaClient.close` (idempotent v20 closeout,
         ``PUT /v3/accounts/{id}/positions/{instrument}/close``; no open
         position = ok). S2 (BL-20260616-LTMGMT-OANDA), before go-live.
@@ -2949,11 +2964,19 @@ def close_open_position(
                     "error": f"{type(exc).__name__}: {exc}"}
 
     if exchange == "alpaca":
-        # AlpacaClient.close: idempotent native flatten (DELETE
+        # AlpacaClient.close: idempotent native liquidation (DELETE
         # /v2/positions/{symbol}); a 404 (no open position) maps to
-        # retCode 0 in the client. Whole-position flatten only — Alpaca's
-        # close-position endpoint closes the entire symbol position, so the
-        # qty argument is informational here (partial-close is not wired).
+        # retCode 0 in the client.
+        #
+        # `qty` IS FORWARDED (MI-173 / WO-20260908-TRADE-SCOPE-THE-ALPACA-
+        # CLOSE-OPERATION-AND). It used to be validated above and then dropped
+        # here, so a close of one journal row liquidated every share of the
+        # symbol — including a sibling row's, whose row then stayed `open` with
+        # no position behind it. Alpaca's close-position endpoint documents a
+        # `qty` query parameter, so the scoped operation is expressible at the
+        # venue; the client decides per call whether this trade IS the whole
+        # position (then: the unchanged whole-symbol flatten) or only part of
+        # it (then: a reduction that cancels nothing).
         try:
             from src.units.accounts.alpaca_client import AlpacaClient
             if not isinstance(exchange_client, AlpacaClient):
@@ -2961,15 +2984,32 @@ def close_open_position(
                         "exchange_order_id": None,
                         "error": (f"alpaca close: expected AlpacaClient, got "
                                   f"{type(exchange_client).__name__}")}
-            resp = exchange_client.close(symbol) or {}
+            resp = exchange_client.close(symbol, qty) or {}
             ret_code = resp.get("retCode")
             if ret_code in (0, "0", None):
-                order_id = (resp.get("result") or {}).get("orderId")
+                result = resp.get("result") or {}
+                order_id = result.get("orderId")
+                # SAY WHAT THE VENUE ACTUALLY DID. This line used to read
+                # "qty=<per-trade> → alpaca flatten" on a whole-symbol
+                # liquidation: the per-trade number was printed next to an
+                # operation that ignored it, on the only per-close record a
+                # reviewer would find. Unprovenanced diagnostic output,
+                # sub-class A — the label now comes from the client's own
+                # answer, not from what was requested.
+                if result.get("note") == "no open position":
+                    did = "no open position (idempotent)"
+                elif result.get("scope") == "trade":
+                    did = (f"TRADE-SCOPED close of "
+                           f"{result.get('closed_qty')} share(s)")
+                else:
+                    did = (f"WHOLE-SYMBOL flatten — the venue closed the "
+                           f"entire {symbol} position, not just this trade's "
+                           f"{qty}")
                 logger.info(
-                    "close_open_position: account=%s symbol=%s side=%s qty=%s "
-                    "→ alpaca flatten (orderId=%s)",
+                    "close_open_position: account=%s symbol=%s side=%s "
+                    "requested_qty=%s → alpaca %s (orderId=%s)",
                     account_cfg.get("account_id"), symbol, close_side, qty,
-                    order_id,
+                    did, order_id,
                 )
                 return {"ok": True, "exchange_response": resp,
                         "exchange_order_id": order_id, "error": None}
