@@ -822,6 +822,22 @@ _LOG_FILES: dict[str, Path] = {
     # sentence three rows above, written about a different file.
     "bybit_over_cover_alert_state":
         runtime_logs_dir() / "bybit_over_cover_alert_state.json",
+    # FIFTH recurrence of the same shape, registered in the SAME COMMIT that
+    # ships its writer (MI-176, BL-20260908-ALPACA-COVERAGE-IS-SIDES-NOT-QUANTITY).
+    # `_emit_partial_stop_coverage_alert` latches through the shared
+    # `_cooldown_admits("partial_stop_coverage", ...)`, so `_alert_state_path`
+    # resolves it to `partial_stop_coverage_alert_state.json` — again a
+    # DIFFERENT file from every sibling above.
+    #
+    # ⚠️ THIS ONE SUPPRESSES A `Level.CRITICAL` PAGE ABOUT AN UNPROTECTED
+    # QUANTITY — the loudest thing this system says. Its first live exhibit is
+    # `alpaca_portfolio`/TLT, 56 of 72 shares carrying no resting stop
+    # (measured 2026-09-08T02:17:10Z). `alpaca_live` is REAL MONEY on the same
+    # client code. Without this entry "the cooldown is holding" and "the
+    # cooldown is broken and the position was repaired" are indistinguishable
+    # on the one surface a relay-bound session can reach.
+    "partial_stop_coverage_alert_state":
+        runtime_logs_dir() / "partial_stop_coverage_alert_state.json",
     # Same commit, same reason. This one gates the STRATEGY-BUILDER exception
     # page, whose repeat is downgraded ERROR -> WARN; without a read surface,
     # "the latch is holding" and "the latch is broken and everything is WARN"

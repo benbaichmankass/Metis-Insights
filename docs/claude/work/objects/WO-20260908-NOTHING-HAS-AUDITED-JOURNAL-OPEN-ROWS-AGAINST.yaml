@@ -1,0 +1,30 @@
+id: WO-20260908-NOTHING-HAS-AUDITED-JOURNAL-OPEN-ROWS-AGAINST
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Nothing has audited journal-open rows against exchange_positions across ALL accounts, and every divergence found so far was found by accident
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  For EVERY declared account, compare open journal rows against /api/diag/exchange_positions and report per account: rows, venue size, and the divergence. STATE THE read_state PER ACCOUNT — an unreadable account is 'we did not look' and must NEVER be reported as clean; that distinction is the whole value of the audit. Show a POSITIVE CONTROL: name the accounts that reconcile exactly, so a clean verdict is readable. Rank what is found by whether real money is involved. ⚠️ MEASURE ONLY — do NOT close, cancel, repair, re-arm or reconcile anything, and do NOT touch the order path; the known divergences already have owners and remedies in flight.
+
+why: >-
+  THE STANDING PIPELINE LANE'S OWN NEXT STEP, named by MI-166 and never done: 'Tier-1 fix: journal-open vs exchange_positions audit across all accounts'. Every journal-vs-venue divergence this system has found was found INCIDENTALLY while looking at something else — MGC's 43 phantom lots (54 journal vs 11 venue) surfaced during a health review; Bybit's 451x SOLUSDT divergence surfaced during a netting investigation; alpaca_portfolio/TLT's split across trades 5266 and 5414 surfaced only because MI-173 went looking at one symbol. NOBODY HAS EVER ASKED THE QUESTION FLEET-WIDE. The operator's ask for this lane is literally 'make sure that we're actually trading correctly so that we can review the data from the trades and make decisions' — and a journal that disagrees with the venue is the instrument being wrong, which is this cycle's stated first priority.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

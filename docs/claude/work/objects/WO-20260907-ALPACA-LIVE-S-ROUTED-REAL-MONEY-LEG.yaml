@@ -78,3 +78,10 @@ blocked_on_basis: >-
   CAUSES it.
 
 captured_by: scripts/ops/capture_idea.py
+
+operator_coupling: |
+  COUPLED TO WO-20260907-RE-SCOPE-THE-CLOSE-CONFIRMATION-FROM-SYMBOL (MI-168), operator decision 2026-09-07.
+  MI-140's verdict is that alpaca_live is CORRECTLY REFUSING - both signals since arming were shorts
+  suppressed by the operator's side_filter:long gate. ITS IMMUNITY TO THE MI-167 CLOSE-CONFIRMATION DEFECT
+  IS THAT IT CANNOT PLACE ORDERS. Remediating MI-140 therefore ARMS that defect on a real-money account.
+  Do not remediate MI-140 before MI-168 lands.

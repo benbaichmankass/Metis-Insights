@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 # wiring: .github/workflows/error-feed-digest.yml (--write) + scripts/ci/run_guards.py::error-feed-digest-guard (--self-test, --check)
+# wiring: scripts/ops/document_index.py::stamp_for (the doc-status header this
+#         generator must emit, or scripts/ci/check_document_index.py R3 reds
+#         every digest PR while the workflow above still reports SUCCESS)
 """Render the trader's ERROR FEED into a triage-ready digest the `duty` pass owns.
 
 WHY (the operator's ask, 2026-09-02)
@@ -83,6 +86,7 @@ closer to the operator's immediate-vs-backlog question than any row count.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -603,11 +607,56 @@ def build(feeds: list, *, now: datetime, since: datetime | None,
     }
 
 
-def render_markdown(env: dict) -> str:
-    L = ["# Trader error feed — grouped for triage", "",
-         f"_Generated {env['generated_at']} · covers rows after "
-         f"`{env['covers_since'] or '(everything on the page)'}` · verdict "
-         f"**{env['verdict']}**_", ""]
+def _load_module(name: str, path: Path):
+    """Load a sibling repo script by path. Raises rather than returning None."""
+    spec = importlib.util.spec_from_file_location(name, path.resolve())
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"error-feed-digest: cannot load {path}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def doc_stamp(root: Path) -> str:
+    """The doc-status header `check_document_index.py` R3 requires on this file.
+
+    ⚠️ THIS IS NOT COSMETIC AND ITS ABSENCE FROZE THE DIGEST SILENTLY. `OUT_MD`
+    is a REGISTERED document and is deliberately NOT on `document_index.py`'s
+    `GENERATED` waiver list, so R3 demands a header on it. This generator
+    rewrites the file wholesale and emitted none — so `main`'s copy (stamped by
+    hand by a `document_index.py --write` run) passed while EVERY regenerated
+    copy failed R3 UNSTAMPED. The workflow reported SUCCESS throughout, because
+    it grades the FETCH, not the PR: the digest PR went red on a required check
+    and the run that opened it went green. The digest looked like it was being
+    produced and was not landing -- three `automation/error-feed-digest-*`
+    branches stranded on the remote, which is exactly MI-62's shape ("automation
+    commits, pushes, then fails to land -- orphaned branches, nothing notices").
+
+    ⚠️ THE STATUS IS DERIVED, NEVER HARDCODED. `document_index.stamp_for` is the
+    same computation that produces this file's ROW, so the header and the row
+    cannot disagree -- which is the whole of what R3 checks. Hardcoding
+    `unknown` here would pass today and reintroduce the two-surfaces-two-answers
+    drift the moment the row is ever assessed.
+
+    ⚠️ IT RAISES RATHER THAN WRITING AN UNSTAMPED DIGEST. An undeliverable
+    stamp is a broken runner, which this workflow's own header says IS a valid
+    failure -- and failing loudly is strictly better than committing another
+    digest that reds its own PR, since that is the silent freeze being fixed.
+    """
+    mod = _load_module("_document_index", root / "scripts" / "ops" / "document_index.py")
+    today = datetime.now(timezone.utc).date().isoformat()
+    return mod.stamp_for(OUT_MD.as_posix(), today)
+
+
+def render_markdown(env: dict, stamp: str | None = None) -> str:
+    L = ["# Trader error feed — grouped for triage", ""]
+    # The stamp sits directly under the H1 — where `document_index._insert_at`
+    # puts one, so a later `--write` is a no-op rather than a second header.
+    if stamp:
+        L += [stamp, ""]
+    L += [f"_Generated {env['generated_at']} · covers rows after "
+          f"`{env['covers_since'] or '(everything on the page)'}` · verdict "
+          f"**{env['verdict']}**_", ""]
     if env["verdict"] != "all_feeds_read":
         L += [f"> ⚠️ **LOWER BOUND.** Could not read: "
               f"`{'`, `'.join(env['unreachable_feeds']) or '(none)'}`. An empty "
@@ -784,8 +833,47 @@ def _self_test() -> int:
     assert _population([{"ts": "2026-09-02T00:00:00+00:00"}], 1)["truncated"] is True
     assert _population([{"ts": "2026-09-02T00:00:00+00:00"}], 5)["truncated"] is False
 
-    print("error-feed-digest self-test: 8 property groups "
-          "(13 controls) OK")
+    # 9. THE DOC-STATUS HEADER, GRADED BY MUTATION AGAINST THE REAL GUARD.
+    #    Asserting only that the stamp is PRESENT would pass just as happily if
+    #    R3 stopped caring, which is the guard-nobody-has-seen-fail problem. So
+    #    this runs `check_document_index.evaluate` -- the actual rule engine, a
+    #    pure function -- over this generator's own rendered output, twice: once
+    #    as rendered, and once with the stamp line DELETED. The mutant must fail.
+    root = Path(".")
+    if (root / "scripts" / "ci" / "check_document_index.py").exists():
+        env = build([FeedRead("bot_logs", "read", [], population=_population([], 10))],
+                    now=now, since=None, since_note="")
+        rel = OUT_MD.as_posix()
+        di = _load_module("_di_st", root / "scripts" / "ops" / "document_index.py")
+        cdi = _load_module("_cdi_st", root / "scripts" / "ci" / "check_document_index.py")
+        row = di.assess(rel, di._canonical_active_docs(), di._mi159_states(),
+                        datetime.now(timezone.utc).date().isoformat())
+
+        def _r3(md: str) -> list:
+            m = di.STAMP_RE.search(md)
+            return [f for f in cdi.evaluate(
+                {rel}, [row], {rel: m.group("status") if m else None},
+                set(), {row["category"]}, {row["status"]}) if f.startswith("R3")]
+
+        stamped = render_markdown(env, doc_stamp(root))
+        assert _r3(stamped) == [], f"the rendered digest must satisfy R3: {_r3(stamped)}"
+
+        lines = stamped.splitlines()
+        kept = [ln for ln in lines if not ln.startswith(f"> {di.STAMP_SENTINEL}")]
+        # Line COUNTS, not joined strings: `"\n".join(splitlines())` drops a
+        # trailing newline, so a string compare reads "changed" even when the
+        # mutation removed nothing — a control that passes vacuously.
+        assert len(kept) == len(lines) - 1, \
+            "the mutation removed no stamp line — the control is inert"
+        mutant = "\n".join(kept)
+        assert any("R3 UNSTAMPED" in f for f in _r3(mutant)), (
+            "MUTATION SURVIVED: stripping the doc-status header did NOT fail R3. "
+            "This control is the only thing standing between the digest and "
+            "another silent freeze — a test that passes under mutation is worse "
+            "than no test.")
+
+    print("error-feed-digest self-test: 9 property groups "
+          "(16 controls) OK")
     return 0
 
 
@@ -839,16 +927,20 @@ def main(argv: list | None = None) -> int:
         return _check(root)
 
     env = run(root, base=args.base, token=os.environ.get("DIAG_READ_TOKEN"))
+    # Derived BEFORE the write, and deliberately not caught: a digest committed
+    # without this header reds its own PR on `document-index-guard` R3 while the
+    # workflow reports success, which is the silent freeze this stamp ends.
+    stamp = doc_stamp(root)
     if args.write:
         (root / OUT).parent.mkdir(parents=True, exist_ok=True)
         (root / OUT).write_text(json.dumps(env, indent=2) + "\n", encoding="utf-8")
-        (root / OUT_MD).write_text(render_markdown(env), encoding="utf-8")
+        (root / OUT_MD).write_text(render_markdown(env, stamp), encoding="utf-8")
         print(f"error-feed-digest: wrote {OUT} + {OUT_MD} — "
               f"verdict={env['verdict']} groups={env['counts']['groups']} "
               f"rows={env['counts']['rows_grouped']} "
               f"unreachable={env['unreachable_feeds'] or '[]'}")
     else:
-        print(render_markdown(env))
+        print(render_markdown(env, stamp))
     return 0
 
 

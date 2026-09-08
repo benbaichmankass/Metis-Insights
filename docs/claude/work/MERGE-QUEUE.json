@@ -53,36 +53,49 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-07T08:55:00Z",
+  "updated_at": "2026-09-08T04:16:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Serialized 2026-09-07T08:55Z. Three manager-authored PRs, two of which touch MANAGER-CHECKLIST.json - so they are ordered rather than left to race, which is the whole point of the queue existing (MI-102: a queue held in a session's head dies with that session). At most one entry may be `rebasing` (R8); none is.",
+  "note": "Refreshed 2026-09-08T01:35Z. The four entries this replaces (#11285, #11286, #11271, #11281) were ALL SETTLED and one of them (#11285) still read `rebasing` -- a phantom that occupies R8's single-rebasing slot while naming a merged PR, so a queue left unrefreshed does not merely go stale, it BLOCKS. Verified against the live open-PR list, not against this file's own history.",
   "entries": [
     {
-      "pr": 11222,
-      "branch": "claude/mgr-hb-20260907-0829",
-      "session_id": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "position": 1,
-      "state": "waiting",
-      "blocked_on": "ci",
-      "note": "Lease heartbeat + the one genuinely unregistered sub-session (MI-150b). Smallest diff, goes FIRST so the lease is fresh on main before anything larger risks conflicting. Auto-merge armed."
+      "pr": 11306,
+      "state": "merged",
+      "title": "backlog: answer the two open questions on the board-ceiling row (MI-83 addendum)",
+      "owner": "session_018ruZdgEkPZ1XceWzLwuYUU",
+      "tier": 1,
+      "note": "SETTLED. Verified 2026-09-08T04:02Z via pull_request_read `get`: state=closed, merged=true, merged_at 01:39:01Z, merged_by benbaichmankass. ⚠️ IT SAT AT `rebasing` FOR 2h20m AFTER IT MERGED, holding the single R8 slot against every later entry — the queue's own updated_at was 01:35:00Z, i.e. four minutes BEFORE the merge it never recorded. A phantom `rebasing` entry is worse than an absent one: R8 permits at most one, so a stale slot silently refuses the next legitimate promotion, and nothing decays it.",
+      "merged_at": "2026-09-08T01:39:01Z",
+      "merge_sha": "8dd65651eadf57195b396e957179859645d17c65"
     },
     {
-      "pr": 11223,
-      "branch": "claude/mgr-openprs-reconcile-20260907",
-      "session_id": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "position": 2,
-      "state": "waiting",
-      "blocked_on": "predecessor",
-      "note": "OPEN-PRS hand-reconcile (5 rows settled, 2 added, 4 stale auto-reconcile PRs closed) + the four overnight checklist items closed. ⚠️ TOUCHES MANAGER-CHECKLIST.json, WHICH #11224 ALSO TOUCHES. Whichever merges second WILL read dirty on GitHub - the jsonregister merge driver is CLIENT-SIDE and GitHub does not run it. Resolve locally (the driver is armed in a session clone via scripts/ops/install_merge_driver.sh) rather than re-generating either file."
+      "pr": 11279,
+      "state": "green",
+      "title": "MI-168: TRADE-scoped close confirmation (Tier-3 proposal, HELD)",
+      "owner": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "tier": 3,
+      "note": "UNBLOCKED 2026-09-08T04:16Z — the operator answered. The typed verdict, its condition and its scope are recorded on this PR's row in OPEN-PRS.json; read them there before merging, because every one is approved_with_conditions and the condition is the part a successor loses first."
     },
     {
-      "pr": 11224,
-      "branch": "claude/mgr-dispatch-20260907-tps",
-      "session_id": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "position": 3,
-      "state": "waiting",
-      "blocked_on": "predecessor",
-      "note": "Dispatch record for MI-156 + MI-157, the operator's chosen route after MI-155 blocked the calibrated one. Two work objects, two registry confirmations, two checklist rows, both objects moved dormant -> in_flight (WIP 3 -> 5, ceiling 8). Same MANAGER-CHECKLIST.json collision as position 2."
+      "pr": 11318,
+      "state": "rebasing",
+      "title": "MI-177: fleet-wide journal-open vs venue audit — 8/11 accounts read, 24/25 exact, 1 known divergence",
+      "owner": "session_01EPvAGZDFZCYF3QJk12u3mk",
+      "tier": 1,
+      "note": "PROMOTED 2026-09-08T04:02Z into the slot #11306 was holding as a phantom. Tier-1 measure-only docs + two backlog rows; landing declaration reads self/tier 1 and the automerge request is armed, so GitHub merges it on green with no manager click. Checks ARMED at 03:58Z by the session itself after the pr-opener trap left it at total_count 0. Sole entry in `rebasing` (R8: at most one)."
+    },
+    {
+      "pr": 11315,
+      "state": "green",
+      "title": "Alpaca: grade protective coverage as a QUANTITY, not just sides (detection only)",
+      "tier": 2,
+      "note": "UNBLOCKED 2026-09-08T04:16Z — the operator answered. The typed verdict, its condition and its scope are recorded on this PR's row in OPEN-PRS.json; read them there before merging, because every one is approved_with_conditions and the condition is the part a successor loses first."
+    },
+    {
+      "pr": 11312,
+      "state": "green",
+      "title": "MI-173: the Alpaca sibling-liquidation MECHANISM (measurement + Tier-3 proposal)",
+      "tier": 2,
+      "note": "UNBLOCKED 2026-09-08T04:16Z — the operator answered. The typed verdict, its condition and its scope are recorded on this PR's row in OPEN-PRS.json; read them there before merging, because every one is approved_with_conditions and the condition is the part a successor loses first."
     }
   ]
 }

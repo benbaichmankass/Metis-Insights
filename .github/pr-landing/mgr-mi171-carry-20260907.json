@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Carries forward the MI-171 work object and its confirmed registry row, which were stranded when #11283 auto-merged at c71e610e while three later commits were still being pushed to the same branch. Registers only: no src/, tests/, scripts/, workflows/, config/ or deploy/ path is touched."
+}

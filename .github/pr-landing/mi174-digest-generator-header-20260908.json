@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI/tooling and tests only. The diff is scripts/ops/error_feed_digest.py (a read-only report generator), scripts/ops/document_index.py (the document-register builder) and tests/test_error_feed_digest.py. Tier-1 by the canonical doc's own list: docs, tests, CI, tooling, observability/read paths. No order path, no strategy config, no risk caps, no src/, no config/, no deploy/, no .github/workflows/ and no live-VM runtime file. It cannot change what the trader does; it changes what a generated report writes into its own header so the document-index guard stops reddening every digest PR."
+}

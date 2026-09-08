@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Corrects a falsified hypothesis in one backlog row, one supervision observation, and a lease heartbeat. docs/claude/** only — management surface. No src/, tests/, scripts/, workflows, config or deploy; no order path."
+}

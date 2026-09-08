@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One added field on one existing row of docs/claude/health-review-backlog.json — nothing else in the diff. It records that BL-20260905-AN-UNDISPOSITIONED-CLOSED-PR-DEADLOCKS-EVERY-RECONCILE-PR-AND-THEY-STACK-UNBOUNDEDLY recurred today on a different PR (#11105 rather than #10921), with the reproduction and the three currently-stuck reconcile PRs named. No src/, no config/, no tests/, no workflows, no order path. Verified in code that exactly one row changed, that the only difference is a NEW key, and that no pre-existing field was altered."
+}

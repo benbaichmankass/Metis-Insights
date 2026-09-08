@@ -1,86 +1,56 @@
 {
   "_doc": "RECEIPT of the PR-queue watcher (scripts/ops/pr_queue_latency.py, fired by .github/workflows/pr-queue-watch.yml). ⚠️ READ `generated_at`, NEVER THE CRON EXPRESSION -- a merged, enabled, syntactically correct scheduled workflow in this repo is NOT evidence that it fires (probes.yml's first scheduled run was ~4h50m late and fired once instead of daily). `scripts/ci/check_pr_queue_watch.py` grades this file's age in run_guards.py on every PR, so a dead watcher announces itself in everybody's CI instead of going quiet. ⚠️ An ABSENT file means the watcher has NEVER run, which is a different fact from STALE and needs a different fix.",
   "schema_version": 1,
-  "generated_at": "2026-09-07T13:00:26Z",
+  "generated_at": "2026-09-08T05:13:21Z",
   "read_state": "measured",
-  "population": "ALL 7 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
-  "waiting": 2,
-  "worst_hours": 93.3,
+  "population": "ALL 4 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
+  "waiting": 1,
+  "worst_hours": 9.2,
   "threshold_hours": 6.0,
   "by_state": {
-    "active": 5,
-    "waiting": 2
+    "active": 3,
+    "waiting": 1
   },
   "rows": [
     {
-      "pr": 10895,
-      "title": "merge-ping: log the success path, so the mechanism can be read off the fleet (MI-83 follow-up)",
-      "head_ref": "claude/mi83-merge-ping-observability",
+      "pr": 11279,
+      "title": "MI-168: propose a TRADE-scoped close confirmation (Tier-3, HELD — coupled to MI-140)",
+      "head_ref": "mi-168-trade-scoped-close-confirmation",
       "draft": false,
-      "quiet_hours": 93.3,
+      "quiet_hours": 9.2,
       "state": "waiting",
-      "why": "open and unmerged with no push for 93.3h (threshold 6.0h).",
-      "last_push_utc": "2026-09-03T15:39:55Z"
+      "why": "open and unmerged with no push for 9.2h (threshold 6.0h).",
+      "last_push_utc": "2026-09-07T20:02:01Z"
     },
     {
-      "pr": 11174,
-      "title": "record today's recurrence of the reconcile-PR disposition deadlock",
-      "head_ref": "claude/reconciler-deadlock-recurrence-20260906",
+      "pr": 11312,
+      "title": "MI-173: the Alpaca sibling-liquidation MECHANISM, established from code and venue (measurement + Tier-3 proposal, landin",
+      "head_ref": "claude/mi173-alpaca-sibling-mechanism-20260908",
       "draft": false,
-      "quiet_hours": 17.9,
-      "state": "waiting",
-      "why": "open and unmerged with no push for 17.9h (threshold 6.0h).",
-      "last_push_utc": "2026-09-06T19:08:01Z"
-    },
-    {
-      "pr": 11240,
-      "title": "dispatch MI-159 — one live work plan, an accurate roadmap, and TASK-level priority",
-      "head_ref": "claude/mgr-dispatch-20260907-roadmap",
-      "draft": false,
-      "quiet_hours": 0.5,
+      "quiet_hours": 3.2,
       "state": "active",
-      "why": "a push landed 0.5h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-07T12:30:35Z"
+      "why": "a push landed 3.2h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T02:03:20Z"
     },
     {
-      "pr": 11241,
-      "title": "MI-159: exactly one live work plan, a corrected roadmap, and TASK-level priority",
-      "head_ref": "claude/mi159-one-live-workplan",
-      "draft": false,
-      "quiet_hours": 0.2,
-      "state": "active",
-      "why": "a push landed 0.2h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-07T12:50:21Z"
-    },
-    {
-      "pr": 11242,
-      "title": "manager-lease: heartbeat 2026-09-07T12:30Z",
-      "head_ref": "claude/mgr-hb-20260907-1230",
-      "draft": false,
-      "quiet_hours": 0.5,
-      "state": "active",
-      "why": "a push landed 0.5h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-07T12:30:46Z"
-    },
-    {
-      "pr": 11244,
-      "title": "dispatch MI-161 (document library) and narrow MI-160 to REDUNDANCIES on the operator's restatement",
-      "head_ref": "claude/mgr-dispatch-20260907-doclibrary",
-      "draft": false,
-      "quiet_hours": 0.5,
-      "state": "active",
-      "why": "a push landed 0.5h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-07T12:32:17Z"
-    },
-    {
-      "pr": 11247,
-      "title": "document-index: drop an unused import (ruff F401)",
-      "head_ref": "claude/mi161-document-library-20260907",
+      "pr": 11328,
+      "title": "work: ABORT the MGC remediation — 548 is not stale and the attribution is contradicted",
+      "head_ref": "claude/mgc-remediation-abort-attribution-contradiction",
       "draft": false,
       "quiet_hours": 0.1,
       "state": "active",
       "why": "a push landed 0.1h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-07T12:57:02Z"
+      "last_push_utc": "2026-09-08T05:06:41Z"
+    },
+    {
+      "pr": 11330,
+      "title": "work: defer the TLT 56-share re-arm — the only Alpaca path cancels the leg it must preserve",
+      "head_ref": "claude/wo-20260908-rearm-56-naked-tlt",
+      "draft": false,
+      "quiet_hours": 0.2,
+      "state": "active",
+      "why": "a push landed 0.2h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T05:01:53Z"
     }
   ],
   "runs": [
@@ -202,9 +172,16 @@
       "waiting": 2,
       "worst_hours": 93.3,
       "escalated": true
+    },
+    {
+      "at": "2026-09-08T05:13:21Z",
+      "read_state": "measured",
+      "waiting": 1,
+      "worst_hours": 9.2,
+      "escalated": true
     }
   ],
-  "last_paged_at": "2026-09-07T13:00:26Z",
-  "last_band": 1920,
+  "last_paged_at": "2026-09-08T05:13:21Z",
+  "last_band": 480,
   "last_page_reason": "the condition has stood 16.2h since the last page (floor 12.0h)."
 }

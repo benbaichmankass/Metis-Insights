@@ -1,0 +1,30 @@
+id: WO-20260908-THE-COORDINATION-BOARD-IS-AT-GITHUB-S
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The coordination board is at GitHub's 2500-comment ceiling: reads succeed on a frozen board and two workflows are broken
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A successor board exists and is reachable for BOTH reads and writes from a normal session; merge-claim-audit.yml and scope-overlap-audit.yml are re-pointed at it and OBSERVED posting/reading successfully (a green run whose post step was skipped clears nothing); the mandatory session-start read in CLAUDE.md and the session-coordination skill names the new issue; and the staleness check can FIRE again, demonstrated against a deliberately-stale control.
+
+why: >-
+  Every session is REQUIRED to read #6927 at start and post a START claim before its first substantive tool call. #6927 is at GitHub's hard 2500-comment cap. Writes 403; READS still succeed against a board permanently frozen at 2026-09-07T11:28:17Z, which is the dangerous half — a successful read of a frozen board is byte-indistinguishable from a read of a live, quiet one, and the documented staleness check now succeeds trivially every time. merge-claim-audit.yml writes on every merge and fails SILENTLY. scope-overlap-audit.yml reads the frozen board as its INPUT and now certifies '0 from a live session' on every PR — an unasserted denominator (diagnostic-provenance sub-class C) live in production.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

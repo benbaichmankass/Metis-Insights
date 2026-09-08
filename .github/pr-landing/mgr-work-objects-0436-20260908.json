@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Five parked work objects under docs/claude/work/objects/ — management surface only. No src/, tests/, scripts/, workflows, config or deploy; no order path, no strategy config, no risk caps. Parked, not started, so nothing executes from this merge."
+}

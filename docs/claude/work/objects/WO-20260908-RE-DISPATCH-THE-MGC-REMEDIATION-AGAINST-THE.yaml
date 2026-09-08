@@ -1,0 +1,41 @@
+id: WO-20260908-RE-DISPATCH-THE-MGC-REMEDIATION-AGAINST-THE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Re-dispatch the MGC remediation against the confirmed order ids 550/551
+stage: DEPLOYMENT
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The MGC journal/venue divergence is resolved and a fresh per-account read shows journal-open matching the venue, OR the resting ids are found to have moved again and the session ABORTS and reports rather than acting on ids the approval does not cover.
+
+why: >-
+  ib_paper/MGC carries 43 phantom lots — MI-177's fleet audit re-confirmed it as the only divergence across 25 compared pairs. The original approval named order 548; the live resting legs are 550 (STP 43 @ 4394.50) and 551 (LMT 43 @ 4485.00). Operator confirmed the corrected ids 2026-09-08.
+
+source: >-
+  operator (conversational)
+
+blocked_on:
+  - WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS
+blocked_on_basis: >-
+  ASSESSED 2026-09-08 on evidence, replacing NOT_ASSESSED. This is a TRUE edge,
+  not a placeholder. The remediation's direction depends entirely on which
+  journal row owns the venue's 11 real MGC lots, and that attribution is
+  unestablished: MI-166 read trade 5531 as the phantom, but the venue's average
+  cost (4432.696) sits 0.045% from trade 5531's entry and 1.333% from trade
+  5353's, against a 0.199% control on the exactly-reconciling MHG pair — which
+  points at 5353 as the phantom instead. Both readings reproduce the +43
+  divergence exactly, so the quantity sum cannot separate them, and MI-177 says
+  in terms that per-trade attribution is not what that instrument answers.
+  Cancelling 550/551 under the wrong reading strips protection off the only real
+  position at the venue — BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG
+  a second time, same mechanism, same account. WO-20260907's done_condition (trace
+  the lots through to IBKR's actual answer) is what settles it, and it is unmet.
+  Evidence: docs/claude/work/MGC-REMEDIATION-ABORT-2026-09-08.md
+
+captured_by: scripts/ops/capture_idea.py

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager lease heartbeat plus the supervision record R6 requires in the same commit: MI-171 re-graded to completed against its two MERGED PRs and its measured findings, not against its own summary. Registers only — no src/, tests/, scripts/, workflows/, config/ or deploy/ path is touched."
+}

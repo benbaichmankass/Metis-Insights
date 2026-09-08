@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "The re-arm this branch was dispatched to perform was NOT executed and must not be retried through the existing path: AlpacaClient.place_protective cancels every resting order on the symbol before placing, which would delete trade 5266's legs. Closing the finding needs a NEW qty-scoped Alpaca protective-attach capability — a Tier-2 order-path change needing one operator OK in chat. The 2026-09-08 approval was to re-arm rather than monitor or flatten; it is not approval to ship an order path.",
+  "why": "Declared Tier-2 because the subject is a live order path, though the DIFF ITSELF is documentation only — two health-review backlog rows and the work object's verdict. Nothing in src/, config/, deploy/ or the system-actions allowlist is touched, and no order was placed, cancelled or amended on any account. The tier is rounded UP deliberately: this reports on an order path a human should read before the follow-up is built."
+}

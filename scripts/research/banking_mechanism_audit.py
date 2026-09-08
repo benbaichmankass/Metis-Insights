@@ -96,7 +96,25 @@ LEVERS = ["trail_mult", "tp_r", "trail_decay_tight_mult", "trail_decay_stall_bar
 # **we did not look**, never "it did not trade". Derived by grepping the units,
 # and re-derived at runtime by `telemetry_hook_gap()` so this list cannot go
 # stale silently.
-TELEMETRY_HOOKED_UNITS = {"trend_donchian", "htf_pullback_trend_2h"}
+#
+# ⚠️ CHANGED BY MI-164 (2026-09-07), and the tripwire above is what caught it —
+# working exactly as designed. MI-163 § 3 measured this set as
+# {trend_donchian, htf_pullback_trend_2h}, which left **9 of the 44 legs**
+# (the 8 `ict_scalp_*` legs + `squeeze_breakout_4h`) structurally invisible.
+# MI-164 added the hook to the four unhooked units, so `n_invisible` over the
+# population is now **0** — re-derived, not assumed.
+#
+# ⚠️ THIS SET IS POPULATION-SCOPED, WHICH IS WHY IT IS FOUR AND NOT SIX.
+# `telemetry_hook_gap()` only greps units that some leg in the 44 routes to.
+# MI-164 also hooked `turtle_soup` and `vwap`; neither appears here because
+# neither is in the population (`turtle_soup` is `execution: shadow`,
+# `vwap` is `enabled: false`), exactly as MI-163 § 2.5 established.
+#
+# ⚠️ AND `n_invisible == 0` IS NOT "THE 9 LEGS ARE MEASURED". It says the hook
+# is now ON their code path. Whether a real row ever lands is a question for
+# `/api/diag/position_telemetry`, not for this constant.
+TELEMETRY_HOOKED_UNITS = {"trend_donchian", "htf_pullback_trend_2h",
+                          "ict_scalp", "squeeze_breakout_4h"}
 
 
 def _f(v) -> Optional[float]:

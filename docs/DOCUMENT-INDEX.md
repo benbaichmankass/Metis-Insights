@@ -353,6 +353,8 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/diagnoses/MI-126-sunset-absence-not-zero.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
 | `docs/claude/diagnoses/MI-127-pnl-null-on-closes-and-trade-4350.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
 | `docs/claude/diagnoses/MI-166-pipeline-integrity-pass-1.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
+| `docs/claude/diagnoses/MI-167-pipeline-integrity-pass-2.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
+| `docs/claude/diagnoses/MI-169-remediation-halted-order-id-mismatch.md` | evidence | unknown | — | never | `dir:a-diagnosis-is-a-finding / not-assessed` | — |
 | `docs/claude/dispositions/2026-09-06-1C-three-live-alarms.md` | history | historical | — | 2026-09-07 | `dir:dispositions-record-decisions-taken / dir:record-of-a-completed-session` | — |
 | `docs/claude/env-gate-purge-phase2-annotations.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/exchange-truth-attribution.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
@@ -390,6 +392,8 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/web-automations.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/HANDOFF-20260903-DAY.md` | history | historical | — | 2026-09-07 | `name:record-of-a-past-state / dir:record-of-a-completed-session` | — |
 | `docs/claude/work/HANDOFF-20260905-DAY.md` | history | historical | — | 2026-09-07 | `name:record-of-a-past-state / dir:record-of-a-completed-session` | — |
+| `docs/claude/work/JOURNAL-VENUE-FLEET-AUDIT-2026-09-08.md` | evidence | live | — | 2026-09-08 | `mi-177:self-measured-2026-09-08 / population-stated` | MI-177 fleet audit: 8/11 accounts read both sides, 25 symbol pairs, 24 exact + 1 known MGC divergence; 3 accounts not read. |
+| `docs/claude/work/MGC-REMEDIATION-ABORT-2026-09-08.md` | evidence | live | — | 2026-09-08 | `self-measured-2026-09-08 / population-stated` | MGC remediation ABORTED: 548 is not stale (rests in a second disjoint OCA group); venue avg cost attributes the 11 real lots to trade 5531, not 5353, inverting the assumed fix. Measure only. |
 | `docs/claude/work/MEASUREMENT-DEFECTS-2026-09-06.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/decision-drain-routine-prompt.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
@@ -590,9 +594,11 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/WS-B-candle-shard-labelvol-scoping-2026-07-26.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ai-model-strategy-roadmap-2026-07-01.md` | plan | unknown | — | never | `name:roadmap-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/alpaca-200-affordability-sweep-2026-08-25.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/alpaca-live-refusal-verdict-2026-09-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/alpaca-live-splg-iaum-promotion-sizing-2026-07-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/alpaca-options-PHASE1-spec.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/alpaca-options-l3-research-memo.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/alpaca-over-close-population-2026-09-07.md` | evidence | live | — | 2026-09-07 | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/alpaca-portfolio-roster-compat-gate-2026-08-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/alpaca-proxy-signal-vs-order-symbol-2026-08-25.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/alpaca-roster-data-sources-2026-08-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |

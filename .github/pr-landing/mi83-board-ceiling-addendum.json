@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Backlog-row update only: appends a measured addendum to the existing BL-20260907 coordination-board row, answering the two items that row explicitly left NOT DIAGNOSED. One field on one row; 1 insertion / 1 deletion, verified by parsing both sides. No src/, config/, deploy/ or workflow change."
+}

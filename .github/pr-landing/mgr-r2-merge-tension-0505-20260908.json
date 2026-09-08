@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One backlog row and one checklist row recording a guard/duty conflict. docs/claude/** only — management surface. No src/, tests/, scripts/, workflows, config or deploy; no order path."
+}
