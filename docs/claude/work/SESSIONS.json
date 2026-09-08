@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T06:29:00Z",
+  "updated_at": "2026-09-08T06:45:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2974,15 +2974,15 @@
     {
       "session_id": "session_0173g82hw2Rf3HjnfydGcnyX",
       "registry_key": "pending-20260908T044628Z",
-      "state": "working",
+      "state": "blocked",
       "title": "MI-183 — pr-landing R6 and the merge-slot guard are mutually unsatisfiable",
       "owns_object": "WO-20260908-PR-LANDING-R6-AND-THE-MERGE-SLOT",
       "spawned_at": "2026-09-08T04:46:28Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator granted a spawn-priority exception 2026-09-08.",
       "confirmed_at": "2026-09-08T04:47:58Z",
-      "manager_observation": "BLOCKED ON PUSH — commit 5101620 exists in-container and branch claude/mi-r6-slot-diagnosis-20260908 is NOT on origin (verified by ls-remote, not inferred). Poked 06:19Z with the plain `git push -u origin <branch>` form its siblings used, and asked to quote the exact command and verbatim refusal if it still fails — 'denied twice' cannot distinguish a settings gap from a malformed command from a pre-push hook rejecting content, and those have three different fixes. Told NOT to --no-verify and NOT to force-push. Awaiting its answer.",
-      "observed_at": "2026-09-08T06:29:00Z"
+      "manager_observation": "BLOCKED, UNRECOVERABLE IN THIS CONTAINER — confirmed 06:22Z, its own words: 'push denied by harness'. It had FINISHED the work first (commit 5101620, 3 files, +259/-7) and spent 201k tokens before discovering it could not land any of it; the branch claude/mi-r6-slot-diagnosis-20260908 is absent from origin (verified by ls-remote). Poked twice, including with the exact plain push form its siblings used. ⚠️ SAME CLASS AS MI-185 (~160k tokens, same outcome) and the SECOND of six containers to refuse while four pushed fine, so this is per-container, not environment-wide. RE-DISPATCHED as MI-183b (session_01LSfhSog9oxATpMUUPBfTN9) against the same work object with a PUSH-PROBE-FIRST prompt. Do not poke this session again — it costs budget and lands nothing. ⚠️ Its finished commit is stranded: a manager cannot read files out of a sub-session's container, so the patch it offers is not a deliverable and MI-183b must redo the work.",
+      "observed_at": "2026-09-08T06:45:00Z"
     },
     {
       "session_id": "session_01GtvQEQnfwzz9yRdPF6sPFg",
@@ -3018,6 +3018,17 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "MI-185 burned 160k tokens across three pokes and pushed nothing: its container's permission classifier refuses git merge/push while four sibling sessions pushed fine. A fresh container is the cheapest test of whether that is per-container.",
       "confirmed_at": "2026-09-08T06:28:25Z"
+    },
+    {
+      "session_id": "session_01LSfhSog9oxATpMUUPBfTN9",
+      "registry_key": "pending-20260908T064020Z",
+      "state": "working",
+      "title": "MI-183b — R6 vs merge-slot (MI-183's container cannot push; fresh attempt)",
+      "owns_object": "WO-20260908-PR-LANDING-R6-AND-THE-MERGE-SLOT",
+      "spawned_at": "2026-09-08T06:40:20Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "MI-183 finished the work (commit 5101620, 3 files, +259/-7) and burned 201k tokens unable to push: 'push denied by harness'. Same class as MI-185, and MI-185b proved a fresh container CAN push.",
+      "confirmed_at": "2026-09-08T06:40:53Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
