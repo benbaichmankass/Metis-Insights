@@ -68,14 +68,39 @@ blocked_on_basis: >-
   blocker in the typed sense but must not be read as done — see
   `waiting_on_basis`.
 waiting_on_basis: >-
-  Two steps this session cannot take itself. (1) PROVISIONING: creating the
-  successor issue requires an issue write, and this session's GitHub MCP is
-  read-only for issues — `issue_write method=create` returned
-  `403 Resource not accessible by integration` (measured 2026-09-08, the same
-  boundary as BL-20260901). That is why `board-rotate.yml` exists: the runner's
-  token can do what no PM-side session can. (2) MERGE: this PR edits
-  `board-post.yml` and `session_registry.py`, both in `check_pr_landing`'s
-  LANDING_MACHINERY set, so R12 bars it from self-landing and a human must read
-  it once.
+  ⚠️ CLAUSE (1) IS NOW SATISFIED — do not re-quote this row as if provisioning
+  were still outstanding. The successor board is issue #11336, created
+  2026-09-08T05:30:17Z by `board-rotate.yml`, and `docs/claude/board-pointer.json`
+  names it (`board_state: live`). #6927 is retitled
+  "… — RETIRED at the 2500-comment cap → successor #11336" and closed
+  `not_planned`, with its BODY untouched (2500 comments, byte-identical to the
+  pre-change read — `gh issue edit --title` never puts the body in the payload).
+  It was relayed because this session's MCP is read-only for issues:
+  `issue_write method=create` -> `403 Resource not accessible by integration`,
+  the BL-20260901 boundary, measured again 2026-09-08.
+  WHAT REMAINS is (2) MERGE, and it is not a formality: this PR edits
+  `board-post.yml` and `scripts/ops/session_registry.py`, both in
+  `check_pr_landing`'s LANDING_MACHINERY set, so R12 bars it from self-landing
+  and a human must read it once.
+
+observation: >-
+  Measured 2026-09-08, and the numbers are stated with their populations.
+  #6927: 2500 comments over 50.1 days (2026-07-19T09:04:33Z ->
+  2026-09-07T11:28:17Z) = 49.9/day across its COMPLETE life, so a fresh board
+  fills in ~7 weeks. 13 hits across 6 files matched literal `6927` under
+  `.github/workflows/` and `scripts/` at main HEAD (the dispatch brief said 7
+  files; at that commit it is 6). Comment #2500 is itself a merge-claim-audit
+  post, confirming the brief's claim that the audit's own last post is the
+  ceiling comment.
+  ⚠️ THE LIVE HALF OF THE DONE-CONDITION IS NOT MET AND MUST NOT BE READ AS MET.
+  A real posted CLAIM appearing in a scope-overlap-audit verdict is reachable
+  only AFTER merge: `scope-overlap-audit.yml` runs on `pull_request_target`, so
+  both the workflow and `check_scope_overlap.py` come from the BASE branch, and
+  this PR's versions do not exist there yet. For the same reason `board-post.yml`
+  cannot relay a comment to #11336 yet — by design it resolves the pointer from
+  the DEFAULT branch, where `board_state` is still `unprovisioned`. What IS
+  established is that #11336 is writable by the runner (created, then its body
+  edited twice), and that every self-test fires against planted controls — but
+  a self-test is a HARNESS result and reaches no live board.
 
 captured_by: scripts/ops/capture_idea.py
