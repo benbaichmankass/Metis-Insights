@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T01:00:00Z",
+  "updated_at": "2026-09-08T01:38:17Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2852,6 +2852,28 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "BOTH parts delivered and MERGED (#11271 -> 0c74a9c2, #11292 -> 86b5261e). Part 2 is the strongest measurement of the day and its method is why: EVERY null result carries a positive control on the SAME probe. (a) 1 of 12 multi-row pairs is Alpaca -- alpaca_portfolio/TLT -- over 12 pairs among 600 position-holding rows in journal ids 4544-5543. NOTE 12, NOT the 13 the manager quoted from MI-167; it re-derived rather than trusting the figure, which is what it was asked to do. (b) ZERO over-close events, stated as 'we looked and found none', with the same scan returning 187 such closes on Bybit -- matching MI-167's independent 187 exactly. It also established that MI-167's '28-day window' is a CAP, not a chosen window: /api/diag/journal has no offset and no since, limit clamps at 1000, and limit=3000 returns the identical rows -- so nothing before id 4544 is readable and no figure here is all-time. AND IT FOUND A LIVE PRECONDITION nobody was looking for: alpaca_portfolio/TLT holds TWO open rows right now (5266 short 16, 5414 short 56) against a venue short of exactly 72, so the next close of either flattens all 72 and orphans the other. Paper money, same code path alpaca_live inherits.",
       "confirmed_at": "2026-09-07T21:48:03Z"
+    },
+    {
+      "session_id": "session_01HyZBZ7DNcu5VQaTmmJK5dL",
+      "registry_key": "pending-20260908T013601Z",
+      "state": "working",
+      "title": "MI-173 — pipeline lane pass 3: root-cause the Alpaca sibling-liquidation MECHANISM (MI-170), measurement and proposal only",
+      "owns_object": "WO-20260908-AN-ALPACA-CLOSE-OF-ONE-TRADE-CAN",
+      "spawned_at": "2026-09-08T01:36:01Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "see WO-20260908-AN-ALPACA-CLOSE-OF-ONE-TRADE-CAN",
+      "confirmed_at": "2026-09-08T01:38:17Z"
+    },
+    {
+      "session_id": "session_01V62BVG7Q9BHZeyTvkBWNPy",
+      "registry_key": "pending-20260908T013601Z-2",
+      "state": "working",
+      "title": "MI-174 — the error-feed digest is silently frozen: fix the generator, not the guard",
+      "owns_object": "WO-20260908-THE-OPERATOR-S-ERROR-FEED-DIGEST-IS",
+      "spawned_at": "2026-09-08T01:36:01Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "see WO-20260908-THE-OPERATOR-S-ERROR-FEED-DIGEST-IS",
+      "confirmed_at": "2026-09-08T01:38:17Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
