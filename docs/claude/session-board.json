@@ -6,10 +6,10 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-queue-operator-decisions-20260908",
+  "branch": "claude/mgr-commit-operator-decisions-20260908",
   "pr": "(opened by hand; arming file lands second)",
-  "claimed_at": "2026-09-08T21:22:00Z",
-  "note": "Operator asked for the pending decisions as Telegram popups and reported none arriving. Measured cause: the inbox holds 12 requests and ALL 12 are committed, so the sweep correctly had nothing to send. Files three real decision requests so they can be delivered. Register writes only, no worker path."
+  "claimed_at": "2026-09-08T21:32:00Z",
+  "note": "Commits the operator's three answers (be_floor_r arm-nothing; the Alpaca scoped write, a TIER-2 approval; build the N-book ranking harness), clears the be_floor_r OPEN-ITEMS row now that both its clauses are satisfied, and records that the alpaca_live dry-run-gate premise is REFUTED against the live config. Register writes only, no worker path."
  },
  "active_sessions": [
   {

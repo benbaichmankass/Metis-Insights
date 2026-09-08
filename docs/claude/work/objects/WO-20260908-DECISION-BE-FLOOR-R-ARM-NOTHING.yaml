@@ -84,6 +84,29 @@ decision_requests:
           entry. That is MI-188b, already measuring, and it addresses the same thesis without
           the forgone-continuation cost.
     allows_free_text: true
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-08'
+      channel: >-
+        Claude Code chat (AskUserQuestion option picker), answered directly to the manager
+        session session_01HrmZ1RRNM4UnEUaFdrPEjj. NOT via the transit log, so
+        commit_work_decisions.py had nothing to replay and this answer was written by hand as
+        the README's 'or a session doing the same thing by hand' path. ⚠️ THE OPERATOR HAD TO
+        ASK TWICE: they said 'give me the decisions as popups' and the manager built the
+        Telegram delivery instead of rendering them in the chat, then read 'no popups here in
+        the chat' as a report that Telegram had failed. The Telegram prompts DID go out (sweep
+        21:25:26Z, prompted_choice 3, destination claude) and are now stale buttons; the
+        route's 409 makes a late tap harmless.
+      chosen: accept_none
+      free_text: >-
+        Operator selected 'Arm nothing' 2026-09-08. be_floor_r stays at its default 0.0 on
+        every leg and is NOT to be re-proposed from MI-163's gross benefit table. The harness
+        lever stays in place at a byte-identical default so fresh evidence can reopen the
+        question later. ⚠️ THIS IS THE ANSWER
+        OI-20260907-BE-FLOOR-R-IS-MEASURED-AND-REFUTED-AND-ITS-PR-IS-A-DRAFT-NOBODY-CAN-CLEAR
+        WAS WAITING ON. Its clause (1) was satisfied when #11266 merged 2026-09-07; clause (2)
+        was 'the operator is told the Tier-3 answer is NONE', and they have now been told AND
+        have answered. Both clauses are satisfied, so that row can clear.
     asked_by:
       session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
       recorded_at: '2026-09-08T21:20:00Z'
