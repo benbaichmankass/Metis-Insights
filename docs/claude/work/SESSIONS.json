@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T07:15:25Z",
+  "updated_at": "2026-09-08T07:21:09Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3069,6 +3069,28 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed 2026-09-08. The standing lane produced every Alpaca finding this cycle; three accounts remain unread and 'unread' is not 'clean'.",
       "confirmed_at": "2026-09-08T07:15:25Z"
+    },
+    {
+      "session_id": "session_019rZTh1JFCXRNR4kYpueGPu",
+      "registry_key": "pending-20260908T072004Z",
+      "state": "working",
+      "title": "MI-188b — exit mechanics: trailing and banking (MI-188 cloned the WRONG repo)",
+      "owns_object": "WO-20260908-EXIT-MECHANICS-THE-TRAILING-AND-BANKING-HALF",
+      "spawned_at": "2026-09-08T07:20:04Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "MI-188 (session_01PQraBU1dSD52tRyjwcWb8M) was created without an explicit source_url and its container cloned the-lizardking/ict-trading-bot -- the historical repo -- not benbaichmankass/metis-insights. Interrupted. Re-spawned with source_url pinned.",
+      "confirmed_at": "2026-09-08T07:21:09Z"
+    },
+    {
+      "session_id": "session_01LRLUSvcGqQjPcMByAiggsg",
+      "registry_key": "pending-20260908T072005Z",
+      "state": "working",
+      "title": "MI-189b — pipeline lane pass 5 (MI-189 got NO repo at all)",
+      "owns_object": "WO-20260908-PIPELINE-REVIEW-LANE-PASS-5-JOURNAL-VS",
+      "spawned_at": "2026-09-08T07:20:05Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "MI-189 (session_01JjJa5sRhrqQapwx25ebo6Q) was created without an explicit source_url and its session_context carried NO sources key at all; it asked whether to work on an 'ICT notebook'. Re-spawned with source_url pinned.",
+      "confirmed_at": "2026-09-08T07:21:09Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

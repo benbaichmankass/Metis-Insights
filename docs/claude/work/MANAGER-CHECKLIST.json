@@ -2372,25 +2372,58 @@
     },
     {
       "id": "MI-188-EXIT-MECHANICS-TRAILING-AND-BANKING",
-      "status": "in_flight",
-      "owner": "session_01PQraBU1dSD52tRyjwcWb8M",
+      "status": "superseded",
+      "owner": "session_019rZTh1JFCXRNR4kYpueGPu",
       "opened": "2026-09-08T07:14:48Z",
-      "updated": "2026-09-08T07:16:00Z",
+      "updated": "2026-09-08T07:23:00Z",
       "blocked_on": null,
       "tier": "1",
       "title": "Exit mechanics: the trailing and banking half (measurement only)",
-      "note": "Operator-directed into free WIP capacity. MEASUREMENT ONLY — no exit-matrix cell may be re-graded (Tier-3, DECIDED), TP_VENUE_CAP_PCT must not change, ICT_SCALP_EXIT_HEAD_MODE must not be armed, and no parameter change may be proposed: findings are FILED. Spawned with the push probe first."
+      "note": "SUPERSEDED by MI-188b. The original container cloned `the-lizardking/ict-trading-bot` — the historical pre-rename repo — because create_session was called without an explicit source_url. INTERRUPTED at 07:19Z. ⚠️ IT HAD ALREADY PRODUCED A PLAUSIBLE NUMBER ('zero trailing/partial found yet') FROM THE WRONG CODEBASE; that figure is void and must not be quoted. Re-spawned as session_019rZTh1JFCXRNR4kYpueGPu with source_url pinned and a `git remote -v` assertion ahead of the push probe."
     },
     {
       "id": "MI-189-PIPELINE-LANE-PASS-5",
-      "status": "in_flight",
-      "owner": "session_01JjJa5sRhrqQapwx25ebo6Q",
+      "status": "superseded",
+      "owner": "session_01LRLUSvcGqQjPcMByAiggsg",
       "opened": "2026-09-08T07:15:19Z",
-      "updated": "2026-09-08T07:16:00Z",
+      "updated": "2026-09-08T07:23:00Z",
       "blocked_on": null,
       "tier": "1",
       "title": "Pipeline lane pass 5: the accounts MI-177 could not read",
-      "note": "Operator-directed. MI-177 read 8 of 11 accounts; three were never read, and 'unread' is not 'clean'. AUDIT ONLY — files findings, repairs nothing. Explicitly told NOT to re-arm the 56 naked TLT shares (deliberate operator hold) and not to cancel legs on an over-covered book."
+      "note": "SUPERSEDED by MI-189b. The original container carried NO repository at all (session_context had no `sources` key) and stalled within 90 seconds asking whether to work on an 'ICT notebook' — unrelated operator-preference context, not this repo. Re-spawned as session_01LRLUSvcGqQjPcMByAiggsg with source_url pinned."
+    },
+    {
+      "id": "MI-188b-EXIT-MECHANICS-TRAILING-AND-BANKING",
+      "status": "in_flight",
+      "owner": "session_019rZTh1JFCXRNR4kYpueGPu",
+      "opened": "2026-09-08T07:23:00Z",
+      "updated": "2026-09-08T07:23:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "Exit mechanics: the trailing and banking half (measurement only, correct repo pinned)",
+      "note": "Re-spawn of MI-188 with source_url pinned; sources verified benbaichmankass/metis-insights on the create response. MEASUREMENT ONLY — no exit-matrix cell re-graded (Tier-3, DECIDED), no TP_VENUE_CAP_PCT change, ICT_SCALP_EXIT_HEAD_MODE not armed, no parameter proposed."
+    },
+    {
+      "id": "MI-189b-PIPELINE-LANE-PASS-5",
+      "status": "in_flight",
+      "owner": "session_01LRLUSvcGqQjPcMByAiggsg",
+      "opened": "2026-09-08T07:23:00Z",
+      "updated": "2026-09-08T07:23:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "Pipeline lane pass 5: the accounts MI-177 could not read (correct repo pinned)",
+      "note": "Re-spawn of MI-189 with source_url pinned. AUDIT ONLY — files findings, repairs nothing; explicitly told not to re-arm the 56 naked TLT shares and not to cancel legs on an over-covered book."
+    },
+    {
+      "id": "MI-190-SPAWN-WITHOUT-SOURCE-URL-ATTACHES-THE-WRONG-REPO",
+      "status": "filed",
+      "owner": null,
+      "opened": "2026-09-08T07:23:00Z",
+      "updated": "2026-09-08T07:23:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "Spawning without source_url can attach the WRONG repo, not merely no repo — and the 2026-09-06 row did not prevent it",
+      "note": "FILED, NOT TAKEN — filing is the act of not taking the item. This is a RECURRENCE of BL-20260906-A-SUBSESSION-SPAWNED-WITHOUT-SOURCE-URL-GETS-NO-REPO-AND-ITS-WORK-DIES-UNPUSHED, which is OPEN and which the manager that hit it had not read — the 'we file lessons and learn none' class. ⚠️ THE NEW HALF IS THE DANGEROUS ONE: no-repo fails LOUDLY in seconds; wrong-repo fails QUIETLY and produces quotable findings from the wrong codebase, which under CY-20260906-TRADING-TRUTH is exactly the contaminated instrument the cycle exists to prevent. Remedy wanted is a CHECK or a DEFAULT, not a fourth reminder: assert `git remote -v` in every spawn prompt beside the push probe, or ship a spawn helper that always passes source_url."
     }
   ],
   "as_of": "2026-09-08T06:45:00Z",
