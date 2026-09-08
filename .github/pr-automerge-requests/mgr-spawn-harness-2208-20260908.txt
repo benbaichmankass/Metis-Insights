@@ -1,0 +1,1 @@
+Arm PR #11463 — manager heartbeat 22:12:05Z, the MI-205 spawn registered through the registry, MI-206 recorded ready, and the paper-vs-real-money correction the operator re-sequenced on. Slot claimed on this branch's own committed session-board.json. Guards clean locally: manager-scope R2/R6/R7/R8 ok, wip-ceiling OK, registry consistent, backlog-refs OK.
