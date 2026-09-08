@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One work-object record: docs/claude/work/objects/WO-20260901-PHASE-A.yaml, applying an operator decision already recorded in that same file on main. Plus this branch's own landing files and merge_slot claim. NO src/, NO config/, NO deploy/, NO scripts/, NO tests, NO .github/workflows/. No runtime, no order path, no strategy config, no risk caps. Tier-1 by the canonical doc's own examples."
+}
