@@ -22,13 +22,13 @@
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "claimed_at": "2026-09-08T11:55:22Z",
-  "heartbeat_at": "2026-09-08T22:41:37Z",
-  "expires_at": "2026-09-09T00:11:37Z",
+  "heartbeat_at": "2026-09-08T23:13:15Z",
+  "expires_at": "2026-09-09T00:43:15Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Heartbeat 22:41:37Z, tool-stamped. Quiet pass: nothing of mine is open (#11447 #11450 #11451 #11455 #11457 #11460 #11461 #11463 #11464 all merged), and the one live sub-session MI-205b was re-observed RUNNING on the correct repo. The only thing that moved this pass is the supervision record itself."
+  "note": "Heartbeat 23:13:15Z, tool-stamped. Quiet pass. MI-205b re-observed RUNNING on the correct repo, 55 minutes in and still in its reading phase — no PR, no branch push, and none owed yet. Nothing of mine is open; MI-206 and MI-207 stay unassigned by the operator's sequencing."
 }
