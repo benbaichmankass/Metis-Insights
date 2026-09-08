@@ -5,11 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "MI-204 (session_016KUFTHGYyFDerbnXDSA6Wb)",
-  "branch": "claude/mi204-register-correction-armed-set",
-  "pr": 11418,
-  "claimed_at": "2026-09-08T17:30:00Z",
-  "displaced": "Board claim posted 17:30Z. This object has now been rewritten under this branch THREE times in ~15min (#11384 spent, #11427 manager heartbeat, #11426 automated digest). R6 forces arming for landing:self and R13 forces this claim when armed, so a self-landing PR CANNOT avoid writing these five lines — see BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION, filed in this PR."
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "claude/mgr-operator-decisions-1805-20260908",
+  "pr": 11430,
+  "claimed_at": "2026-09-08T18:07:00Z"
  },
  "active_sessions": [
   {

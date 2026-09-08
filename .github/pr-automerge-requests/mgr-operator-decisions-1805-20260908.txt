@@ -1,0 +1,1 @@
+auto-merge requested for the operator-decision record (Tier-1, self-landing)
