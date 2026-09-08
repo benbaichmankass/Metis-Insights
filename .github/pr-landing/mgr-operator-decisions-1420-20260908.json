@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/ records only — four operator decisions taken 2026-09-08 (approve #11390 · hold the sunset ten · split real/paper in the M7 packets · verify the alpaca_live gate before proposing a roster), one new backlog row for the stale sunset brief, the lease heartbeat, the merge-slot claim R13 requires, and a live sub-session observation. Recording an operator decision into docs/claude/work/** is explicitly a management act. No src/, no config/, no deploy/, no workflows, no order path — nothing here promotes, demotes, retires or re-parameterises any leg."
+}
