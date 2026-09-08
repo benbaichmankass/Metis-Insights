@@ -378,12 +378,16 @@ def render(rows: List[Dict[str, Any]], cov: Dict[str, Any], verbose: bool) -> st
             "carrying `{field}: {gate}` naming the decision that set it."
             .format(field=VERDICT_FIELD, gate=row["gate"])
         )
+        # ⚠️ The backlog id is kept on ONE line deliberately. Wrapping it across
+        # a string concatenation truncates it for `check_backlog_refs.py`, which
+        # then reads as a reference to a row that was never filed — "tracked by
+        # nobody while reading as tracked". That guard caught exactly this here,
+        # which is the truncated-id failure CLAUDE.md's RULE ONE ledger names.
         lines.append(
             "  ⚠️ DO NOT flip the execution gate to match the record. Both "
             "directions are Tier-3 and need explicit operator approval; "
-            "flipping on inference is what "
-            "BL-20260901-DECISION-RECORD-SAYS-SHADOW-WHILE-CONFIG-SAYS-LIVE-"
-            "SQUEEZE-BREAKOUT-4H forbids."
+            "flipping on inference is what this row forbids: "
+            "BL-20260901-DECISION-RECORD-SAYS-SHADOW-WHILE-CONFIG-SAYS-LIVE-SQUEEZE-BREAKOUT-4H"
         )
 
     if verbose:
