@@ -1,0 +1,30 @@
+id: WO-20260908-MEASURE-HOW-ACTIVE-MANAGEMENT-ACTUALLY-BEHAVES-FROM
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Measure how active management actually behaves, from this session's own evidence
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Each of the four classes is either MEASURED with its population stated, or recorded as not-measurable-and-why. Specifically: the push refusal is reproduced and its VERBATIM text captured (no paraphrase -- three sessions have now given paraphrases and no mechanism is on record); the source_url attach behaviour is characterised; register decay is quantified against a denominator; and the guard-deadlock class is enumerated rather than fixed one at a time. FINDINGS ARE FILED, not fixed -- any remedy is a separate dispatched unit.
+
+why: >-
+  Operator-directed 2026-09-08 as LANE 2. One day produced four hard, unstudied facts about the manager/session model: two of six containers silently cannot git push (~360k tokens burned before discovery, verbatim refusal NEVER captured); create_session without source_url attaches the WRONG repo and the clone SUCCEEDS, so a session produces plausible findings from a foreign codebase; registers go false BY TIME PASSING (17 of 17 'working' rows false, one false in 42 minutes); and guards individually correct DEADLOCK together (R13 vs R2, board-coherence vs R13). These are measurable properties of the operating model, not anecdotes.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
