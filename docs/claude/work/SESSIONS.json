@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T14:10:00Z",
+  "updated_at": "2026-09-08T14:56:43Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3212,9 +3212,9 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08, second time of asking: 'I'm still seeing error pings on the gld close - this has been going on for weeks, and it needs to be fixed already'.",
       "confirmed_at": "2026-09-08T12:19:31Z",
-      "state_observed_at": "2026-09-08T14:10:00Z",
-      "state_basis": "/api/diag/version + /api/diag/log_file?name=operator_alerts read direct at 14:08Z",
-      "observation": "#11389 MERGED (bdccf226) on the operator's 'ok on gld', and NOW DEPLOYED — VERIFIED, not assumed: /api/diag/version at 14:08Z reads git_sha == git_sha_on_disk == bdccf226 with restart_pending FALSE. That closes the merged->deployed gap (at 13:52Z it was still running 2aaa5bba). ⚠️ THE EFFECT IS NOT YET OBSERVABLE AND MUST NOT BE CLAIMED. Population: the last 250 rows of operator_alerts, spanning 2026-09-04T09:37:51Z -> 2026-09-08T13:44:18Z. The NEWEST row predates the deploy, so there are ZERO post-deploy GLD rows and the fix has not yet been exercised on a real close. Baseline over that window for the later comparison: 113 GLD close_failure rows — 56 page/orders_still_resting, 55 digest/broker_cancel_wedged, 2 page/broker_cancel_wedged. ⚠️ THE ~25min OF SILENCE SINCE 13:44Z IS NOT EVIDENCE OF ANYTHING: at the pre-fix rate of ~21 pages/day a gap of one per ~68min is ordinary, so quiet here is expected noise, not a result. What is still owed: the ONE evidence_changed page (parent 2e843e04 -> child 891ddff0), then the route split over a stated post-deploy window."
+      "state_observed_at": "2026-09-08T14:24:00Z",
+      "state_basis": "operator decision relayed 14:18Z; PR state read 14:16Z",
+      "observation": "OPERATOR APPROVED #11390 ('Approve now', 2026-09-08, from an explicit three-way choice with the tradeoff stated). #11389 merged bdccf226 and DEPLOYED (git_sha==on_disk==bdccf226, restart_pending false @14:08Z). #11390 is draft:true AND mergeable_state:dirty — it was stacked on #11389, so it needs a LINEAR rebase onto current main and to be marked ready; that is its own src/ branch and R2 forbids me committing there. Poked 14:18Z. ⚠️ Told it explicitly NOT to weaken the CADENCE-not-a-stop design under rebase pressure: the hourly re-probe keeps last_seen alive so sweep_vanished cannot manufacture a vanished_unattributed, and test_suppression_can_never_outlive_the_vanish_sweep must survive intact."
     },
     {
       "session_id": "session_01CvFCybCkvrfzaHqNH3tQsb",
@@ -3230,6 +3230,18 @@
       "state_observed_at": "2026-09-08T13:32:53Z",
       "state_basis": "get_session(session_id) read direct at 13:30Z; state is that read, not a post_turn_summary",
       "observation": "IDLE at 13:17:07Z with #11391 still RED on guards — a red PR is not a finished state, so this row is NOT 'done'. post_turn_summary read 'stop-type fix blocked by trailed-stop semantics; alpaca_live idle 8d (dry-run gates); digest-liveness-guard red on main'. The third blocker was never its own and I cleared it (#11377). ⚠️ THE 'alpaca_live idle 8d (dry-run gates)' LINE IS UNVERIFIED and is a DIFFERENT cause from the one-leg roster I relayed to the operator — a mechanism, not a roster problem — so it changes what MI-201 should propose. I did NOT relay it as fact. Poked 13:31Z to pin the gate, the config field, the read surface and the 8-day basis, or file it rather than let it die with the container."
+    },
+    {
+      "session_id": "session_016KUFTHGYyFDerbnXDSA6Wb",
+      "title": "MI-204 — reconcile the bybit_1 ETHUSDT orphan (trade 5569)",
+      "owns_object": "WO-20260908-RECONCILE-THE-BYBIT-1-ETHUSDT-ORPHAN-TRADE",
+      "spawned_at": "2026-09-08T14:56:43Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/mi204-bybit1-eth-orphan"
+      ],
+      "why": "Operator-directed 2026-09-08: exchange-side orphan adopted on bybit_1 ETHUSDT; drive trade 5569 to reconciled or an explicit terminal with the reason written down",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
