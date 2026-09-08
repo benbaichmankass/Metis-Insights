@@ -23165,6 +23165,12 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated: tooling/guard correctness. Unblocked and cheap; still undone."
+        },
+        {
+          "at": "2026-09-08T11:20:00+00:00",
+          "by": "MI-195 session_01Lozuti2jAX4kQ9RC4yTSPo",
+          "disposition": "kept_open",
+          "note": "FOURTH OCCURRENCE, MEASURED, AND STILL LIVE 18 DAYS AFTER FILING — including 9 days after the 2026-08-29 triage recorded it as 'unblocked and cheap; still undone'. This instance is the merge-from-main path this row's own text predicted, and it adds one thing the three earlier occurrences did not: THE DUPLICATED POST WAS ANOTHER SESSION'S START, not a spent request of the author's. SEQUENCE: MI-196's PR #11369 squash-merged to main at 11:09:03Z carrying automation/board-posts/mi196-start.md WITHOUT its receipt (verified: `git cat-file -e origin/main:automation/board-results/mi196-start.txt` fails on main, while the request file IS there, introduced by 0e03be9d). MI-195 then merged main into claude/mi195-tp-decisions-and-examine to clear an unrelated merge_slot conflict — touching nothing under any relay trigger path itself — and pushed. board-post.yml fired, swept up the receipt-less mi196 request, and posted it AGAIN. THE DUPLICATE IS BYTE-IDENTICAL AND 92 SECONDS APART: issuecomment-5584288729 (11:16:30Z, posted from MI-196's own branch, correct) and issuecomment-5584306882 (11:18:02Z, posted from MI-195's branch, spurious). The board consequently renders MI-196's DONE (11:16:29Z) followed by their START TWICE — duplicated AND out of order, on the one surface whose value is that sessions read it. AND IT RE-BURIED THE INHERITING PR'S CI exactly as this row describes: the relay's results commit (1bb914d8, github-actions[bot]) took the head of #11370, which had been green, so the suite had to be re-armed with an ordinary commit — this one. That made three forced merge cycles for #11370 in a single session, each costing a ~17-minute pytest-run. NOTE THE INSTANCE SELF-HEALS AND THE CLASS DOES NOT: mi196-start.txt is now committed on this branch, so merging #11370 defuses THIS request for everyone. Any other receipt-less request on main is still armed, which is why this row's own resolution_criteria call for a sweep and for the ancestry test rather than another backfill."
         }
       ]
     },
